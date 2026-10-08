@@ -242,6 +242,11 @@ final class MoxDOP_Connector_Builder
                 set_theme_mod('nav_menu_locations', (array) $step[3]);
 
                 return true;
+            case 'restore_kit':
+                update_post_meta($step[1], '_elementor_page_settings', wp_slash((array) $step[2]));
+                $this->clear_elementor_css($step[1]);
+
+                return true;
             case 'acf_restore':
                 $restored = function_exists('acf_import_internal_post_type') ? acf_import_internal_post_type($step[2], $step[1]) : acf_import_field_group($step[2]);
                 if (in_array($step[1], ['acf-post-type', 'acf-taxonomy'], true)) {
@@ -683,6 +688,15 @@ final class MoxDOP_Connector_Builder
         $changed = [];
         $errors = [];
         $previous = [];
+        if (array_key_exists('elementor_kit', $values)) {
+            $kit = $this->kit_settings($values['elementor_kit']);
+            if (is_string($kit)) {
+                $errors[] = $kit;
+            } else {
+                $changed['elementor_kit'] = $kit;
+            }
+            unset($values['elementor_kit']);
+        }
         foreach ($values as $key => $value) {
             if (! in_array($key, self::SETTINGS, true)) {
                 $errors[] = 'not allowed: '.$key;
@@ -727,6 +741,44 @@ final class MoxDOP_Connector_Builder
         }
 
         return ['ok' => $errors === [] && $changed !== [], 'changed' => $changed, 'errors' => $errors];
+    }
+
+    /**
+     * 1.11.2: Elementor Site Settings (the active kit): the given keys (system_colors, custom_colors, system_typography,
+     * custom_typography, body / h1-h6 / button typography and colors, container_width, …) are merged into the kit's
+     * settings; other keys keep their values. Undo puts the whole previous settings back. Returns the changed keys or an error.
+     */
+    private function kit_settings($values)
+    {
+        $kit_id = (int) get_option('elementor_active_kit');
+        if (! defined('ELEMENTOR_VERSION') || ! $kit_id || get_post_type($kit_id) !== 'elementor_library') {
+            return 'elementor_kit: Elementor or its active kit is missing';
+        }
+        if (! is_array($values) || $values === [] || array_values($values) === $values) {
+            return 'elementor_kit must be an object of Site Settings keys';
+        }
+        $current = get_post_meta($kit_id, '_elementor_page_settings', true);
+        $current = is_array($current) ? $current : [];
+        $this->undo[] = ['restore_kit', $kit_id, $current];
+        $merged = $current;
+        foreach ($values as $key => $value) {
+            $key = preg_replace('/[^a-z0-9_]/', '', strtolower((string) $key));
+            if ($key !== '') {
+                $merged[$key] = $value;
+            }
+        }
+        update_post_meta($kit_id, '_elementor_page_settings', wp_slash($merged));
+        $this->clear_elementor_css($kit_id);
+
+        return array_keys($values);
+    }
+
+    private function clear_elementor_css($post_id)
+    {
+        delete_post_meta($post_id, '_elementor_css');
+        if (class_exists('\\Elementor\\Plugin') && isset(Plugin::$instance->files_manager)) {
+            Plugin::$instance->files_manager->clear_cache();
+        }
     }
 
     /** Moves something the builder made to the trash (media is deleted: WordPress has no media trash by default). */

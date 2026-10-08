@@ -268,11 +268,12 @@
 - **Kaldır / düzenle (yakup, 2026-10-05):** Entegrasyonlar › Web sitesi listesinde her satırda Admin için "Düzenle" ve "Kaldır". Kaldır siteyi arşivler (soft delete), hesap bağlarını ve WordPress bağlayıcısını kapatır, toplanan verileri silmez; adres yeniden eklenebilir. Markası olmayan site artık marka seçmeden düzenlenebiliyor (önceden marka zorunluydu, kayıt reddediliyordu).
 - **Test:** `tests/Feature/Portfolio/SubfolderWebsiteTest.php` (6). Canlı UAT yok.
 
-## 2026-10-08 — Site kurulumu: Elementor global renk/font okuma (Connector 1.11.1)
+## 2026-10-08 — Site kurulumu: Elementor Site Settings okuma ve yazma (Connector 1.11.1–1.11.2)
 
 - **Eklenti:** `GET /build` yanıtına `elementor_globals` eklendi: etkin Elementor kit'inin (Site Settings) sistem ve özel renkleri ile fontları, kimlikleriyle. Yalnız okur. MCP `inspect-site` açıklaması bunları global referans olarak kullanmayı söyler.
+- **1.11.2:** `settings` işlemi `elementor_kit` kabul eder: verilen Site Settings anahtarları (global renk/font, theme style, layout) etkin kit'e birleştirilir; geri alma önceki Site Settings'i komple geri koyar.
 - **Neden:** Özel renkler Elementor'da rastgele kimlikle kaydediliyor; Claude bunları bilmeden tasarımda global renk kullanamıyordu (B1yangın kurulumu).
-- **State:** CODED (`php -l`, sürüm testleri). **Operator after deploy:** siteyi 1.11.1'e güncelle.
+- **State:** CODED (`php -l`, sürüm testleri). **Operator after deploy:** siteyi 1.11.2'ye güncelle.
 
 ## 2026-10-05 — Claude site kurulumu: WordPress Connector 1.8.0 + MCP (list-sites, inspect-site, build-site)
 

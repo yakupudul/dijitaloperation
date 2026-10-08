@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'connector_version' => '1.11.1',
+    'connector_version' => '1.11.2',
     // 1.6.0: sayfa önbelleği dışa aktarımı (/page-cache) — önbellek eklentisinin diske yazdığı HTML okunur, sayfa işlenmez.
     'page_cache_min_plugin_version' => '1.6.0',
     // 1.7.0: rendered content of published pages (/content-export) replaces most page reads over HTTP.

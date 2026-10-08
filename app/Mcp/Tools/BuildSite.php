@@ -17,7 +17,7 @@ Site kurulumu: up to 25 operations on a WordPress site, in order. In the site's 
 - {op:"elementor_template", ref, type:"header"|"footer"|"section"|"container"|"page"|"single"|"archive"|"popup"|…, title, template:{content:[…], page_settings:{…}} (the Templates › Import JSON), conditions:["include/general"]} (theme-builder types and conditions need Elementor Pro).
 - {op:"media", ref, url:"https://…" or data_base64 + filename, alt, title}: an image (at most 10 MB).
 - {op:"menu", name, items:[{title, ref | post_id | url, children:[…]}], location}: replaces the menu's items; location from inspect-site theme.menu_locations.
-- {op:"settings", values:{blogname, blogdescription, show_on_front, page_on_front, page_for_posts, permalink_structure, elementor_cpt_support}}.
+- {op:"settings", values:{blogname, blogdescription, show_on_front, page_on_front, page_for_posts, permalink_structure, elementor_cpt_support, elementor_kit: {Elementor Site Settings keys merged into the active kit, e.g. system_colors, custom_colors, system_typography, body/h1–h6 typography, button colors, container_width; connector ≥ 1.11.2}}.
 - {op:"trash", ref}: removes something a build made.
 Read inspect-site first. Theme and plugin files are never touched.
 TEXT)]
