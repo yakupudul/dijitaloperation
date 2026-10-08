@@ -17,5 +17,6 @@ final class WordPressConnectorRefusalTest extends TestCase
         $this->assertStringContainsString('Eşleştirmeyi döndür', WordPressConnectorClient::refusal(401, 'moxdop_auth_failed'));
         $this->assertStringContainsString('güvenlik duvarı', WordPressConnectorClient::refusal(403, ''));
         $this->assertSame('WordPress Connector returned HTTP 500.', WordPressConnectorClient::refusal(500, ''));
+        $this->assertStringContainsString('ModSecurity · sunucu: Apache', WordPressConnectorClient::refusal(403, '', '<html><h1>Forbidden</h1><p>This request was blocked by ModSecurity.</p></html>', 'Apache'));
     }
 }

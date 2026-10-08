@@ -365,14 +365,19 @@ final class WordPressConnectorClient
     ];
 
     /** Why the site refused, in words the operator can act on (the HTTP status stays at the end for searching). */
-    public static function refusal(int $status, string $code): string
+    public static function refusal(int $status, string $code, string $body = '', string $server = ''): string
     {
         $switch = self::SITE_SWITCHES[$code] ?? null;
+        // Who answered: a WAF page names itself (Wordfence, Cloudflare, ModSecurity, Imunify, LiteSpeed …).
+        $text = trim((string) preg_replace('/\s+/u', ' ', strip_tags(mb_substr($body, 0, 4000))));
+        $who = collect(['Wordfence', 'Cloudflare', 'ModSecurity', 'mod_security', 'Imunify', 'Sucuri', 'LiteSpeed', 'iThemes', 'Solid Security', 'All In One WP Security', 'BulletProof', 'NinjaFirewall'])
+            ->first(fn (string $name): bool => stripos($text.' '.$server, $name) !== false);
+        $evidence = trim(($who !== null ? $who.' · ' : '').($server !== '' ? 'sunucu: '.$server.' · ' : '').($text !== '' ? 'yanıtın başı: "'.mb_substr($text, 0, 140).'"' : ''), ' ·');
 
         return match (true) {
             $switch !== null => sprintf('Sitede "%s" izni kapalı: WordPress › Ayarlar › MoxDOP Connector ekranında bu kutuyu işaretleyip kaydedin, sonra tekrar deneyin. (HTTP %d)', $switch, $status),
             in_array($code, ['moxdop_auth_failed', 'moxdop_not_paired'], true) => sprintf('Eklenti bu MoxDOP eşleşmesini tanımıyor (eklenti silinip yeniden kurulduysa eşleşme sıfırlanır). "Eşleştirmeyi döndür" ile yeni kod alıp sitede girin. (HTTP %d)', $status),
-            $status === 403 => 'Site isteği reddetti: eklenti değil, sitenin güvenlik eklentisi ya da güvenlik duvarı (Wordfence, Cloudflare, sunucu) engelliyor olabilir; /wp-json/moxdop/ adresine izin verilmeli. (HTTP 403)',
+            $status === 403 => 'Site isteği reddetti: eklenti değil, sitenin güvenlik eklentisi ya da güvenlik duvarı (Wordfence, Cloudflare, sunucu) engelliyor olabilir; /wp-json/moxdop/ adresine izin verilmeli. (HTTP 403'.($evidence !== '' ? ' · '.$evidence : '').')',
             default => 'WordPress Connector returned HTTP '.$status.'.',
         };
     }
@@ -389,7 +394,7 @@ final class WordPressConnectorClient
             throw new WordPressConnectorBusyException($status, WordPressConnectorBusyException::retryAfter($response->header('Retry-After'), $status === 429 ? 30 : 60));
         }
         if (! $response->successful()) {
-            throw new RuntimeException(self::refusal($status, (string) ($response->json('code') ?? '')));
+            throw new RuntimeException(self::refusal($status, (string) ($response->json('code') ?? ''), $response->body(), (string) $response->header('Server')));
         }
 
         $body = $response->body();
