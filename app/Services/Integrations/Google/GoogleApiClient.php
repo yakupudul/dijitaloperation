@@ -111,6 +111,41 @@ class GoogleApiClient
     }
 
     /**
+     * ADR-081: Admin-approved Google Ads setting changes, each an `update` of exactly one allowed field (no create, no
+     * remove): campaign Search Partners / Display network and location option, campaign budget amount, keyword status,
+     * account auto-tagging. Callers are restricted to GoogleAdsChangeWriter.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function mutateAdsSettings(CoreIntegration $integration, string $customerId, string $service, array $body, ?string $loginCustomerId = null): Response
+    {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        $allowed = self::ADS_SETTING_FIELDS[$service] ?? null;
+        $operations = $service === 'customers' ? [(array) ($body['operation'] ?? [])] : (array) ($body['operations'] ?? []);
+        $valid = $customerId !== '' && $allowed !== null && $operations !== [] && count($operations) <= 50;
+        foreach ($operations as $operation) {
+            $operation = (array) $operation;
+            $mask = (string) ($operation['updateMask'] ?? '');
+            $valid = $valid && array_keys($operation) === ['update', 'updateMask'] && in_array($mask, $allowed, true)
+                && str_starts_with((string) data_get($operation, 'update.resourceName', ''), 'customers/'.$customerId);
+        }
+        if (! $valid) {
+            throw new RuntimeException('Google Ads setting change is not allowed.');
+        }
+        $path = $service === 'customers' ? 'customers/'.$customerId.':mutate' : 'customers/'.$customerId.'/'.$service.':mutate';
+
+        return $this->adsRequest($integration, 'post', $path, $body, $loginCustomerId ?? $customerId);
+    }
+
+    /** ADR-081: the only fields a setting change may update, per service. */
+    public const array ADS_SETTING_FIELDS = [
+        'campaigns' => ['network_settings.target_search_network', 'network_settings.target_content_network', 'geo_target_type_setting.positive_geo_target_type'],
+        'campaignBudgets' => ['amount_micros'],
+        'adGroupCriteria' => ['status'],
+        'customers' => ['auto_tagging_enabled'],
+    ];
+
+    /**
      * Read-only Google Ads GAQL SearchStream (googleAds:searchStream).
      * Official REST returns the full result in one streamed response (no pageToken).
      * Callers must process rows in bounded application batches — do not treat this

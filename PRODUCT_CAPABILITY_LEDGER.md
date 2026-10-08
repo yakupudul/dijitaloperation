@@ -3747,3 +3747,28 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   the Place Actions API must be enabled in the Google Cloud project for the appointment link (a refusal shows on the row).
 - Tests: `tests/Feature/Gbp/GbpProfileInfoTest.php`.
 
+## 2026-10-08 — Google Ads ayar değişiklikleri (Onarım Faz 5, ADR-081)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- `moxdop:repair:audit` (01:40) also reads every operational Google Ads account (GAQL, read-only) and prepares
+  `ads_change` suggestions: Search Partners / Display network on a Search campaign → off, location option "presence or
+  interest" → "presence" (Search, PMax), auto-tagging off → on (low risk); with ≥ 5 account conversions in 30 days:
+  budget +20% for a campaign losing ≥ 20% impression share to budget at or below the account's cost per conversion
+  (shared budgets left alone), pause a keyword that spent more than twice the account CPA with no conversion (medium).
+- Approval on the Onarım masası ("Google Ads ayarı", single or bulk) or "Onayla" on the Google Ads screen →
+  `ExternalWriteService::requestAdsChange` → `GoogleAdsChangeWriter`: live value read first (stops when it changed since
+  preparation; the row returns with the reason), `validateOnly` check, then the write; undo writes the previous value
+  when the field still holds MoxDOP's value. Budget steps capped at 30%. `GoogleApiClient::mutateAdsSettings` allows
+  only `update` of these fields.
+- Not written: bids / bidding strategy, primary conversion, location targets, ads, new keywords or campaigns (Editor file
+  as before). Verification after 24 hours reads the same field (the next audit no longer proposes it).
+- Tests: `tests/Feature/GoogleAds/GoogleAdsChangesTest.php`.
+
+
+## 2026-10-08 — WordPress Connector: refusals say what to do
+
+Status: IMPLEMENTED V1 (coded + PHPUnit).
+- A refused connector request no longer reads "returned HTTP 403": a site switch that is off names the switch on
+  WordPress › Ayarlar › MoxDOP Connector (SEO düzeltmeleri, İçerik güncelleme, Eklenti güncellemesi, …), a lost
+  pairing says to issue a new code, any other 403 points at the site's firewall / security plugin. "Bağlantıyı doğrula"
+  shows the reason instead of a bare failure.

@@ -7,8 +7,10 @@ use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\ExternalWrites\GoogleAdsChangeWriter;
 use App\Services\Gbp\Desk\ProfileFields;
 use App\Services\Gbp\Desk\ProfileInfo;
+use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
@@ -23,7 +25,7 @@ use Throwable;
  * Onarım masası (Onarım Faz 2, yakup 2026-10-08): every prepared fix of every brand in one list, each with the value it
  * will write (eski → yeni) and a risk. The operator approves one row or many; approval writes through the existing
  * Admin-approved, logged and undoable paths (WordPress fixes and content draft, SEO-plugin 301, Google Ads shared
- * negative list, Business Profile description and profile facts — ADR-080). High-risk rows (page text) are approved one by one only.
+ * negative list and setting changes — ADR-081, Business Profile description and profile facts — ADR-080). High-risk rows (page text) are approved one by one only.
  *
  * Preparation is automatic: website suggestions without a prepared value are queued nightly for "AI ile yap"
  * (RepairPreparer); the other kinds arrive prepared from their generators.
@@ -44,12 +46,15 @@ final class RepairDesk
 
     public const string GBP_FIELDS = 'gbp_fields';
 
+    public const string ADS_CHANGE = 'ads_change';
+
     public const array KINDS = [
         self::SITE_FIELDS => 'Başlık, açıklama, iç link, schema',
         self::SITE_CONTENT => 'Sayfa metni',
         self::IMAGE_ALT => 'Görsel alt metni',
         self::REDIRECT => '301 birleştirme',
         self::ADS_NEGATIVE => 'Google Ads negatif kelime',
+        self::ADS_CHANGE => 'Google Ads ayarı',
         self::GBP_DESCRIPTION => 'İşletme Profili açıklaması',
         self::GBP_FIELDS => 'İşletme Profili bilgileri',
     ];
@@ -141,6 +146,7 @@ final class RepairDesk
                         self::GBP_DESCRIPTION => app(ProfileFields::class)->sendDescription($user, DigitalAsset::query()->findOrFail((int) $suggestion->target_id),
                             (string) data_get($suggestion->action, 'proposed'), $suggestion),
                         self::GBP_FIELDS => app(ProfileInfo::class)->send($user, $suggestion),
+                        self::ADS_CHANGE => app(GoogleAdsChanges::class)->send($user, $suggestion),
                     };
                     $result['applied']++;
                 } catch (Throwable $error) {
@@ -205,6 +211,7 @@ final class RepairDesk
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
             $base()->where('action_type', 'gbp_description')->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ProfileInfo::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', GoogleAdsChanges::TYPE)->where('status', '!=', Suggestion::APPROVED),
         ])->flatMap(fn (Builder $query): Collection => $query->orderBy('priority')->orderBy('id')->limit(self::LIMIT)->get())
             ->unique('id')->values();
     }
@@ -233,6 +240,10 @@ final class RepairDesk
             ProfileInfo::TYPE => filled($action['fields'] ?? null) ? $base + ['kind' => self::GBP_FIELDS, 'risk' => self::MEDIUM,
                 'target' => trim(($action['location'] ?? '').' · '.(ProfileInfo::FIELD_LABELS[$action['field'] ?? ''] ?? 'Profil bilgisi'), ' ·'), 'before' => [(string) ($action['current'] ?? '') ?: '—'],
                 'after' => [(string) ($action['proposed'] ?? '')]] : null,
+            GoogleAdsChanges::TYPE => filled($action['field'] ?? null) ? $base + ['kind' => self::ADS_CHANGE,
+                'risk' => in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM], true) ? $action['risk'] : self::MEDIUM,
+                'target' => (string) ($action['target'] ?? ''), 'before' => [GoogleAdsChangeWriter::text($action['before'] ?? null)],
+                'after' => [(string) ($action['label'] ?? '')]] : null,
             default => $this->siteRow($s, $base, $action),
         };
 

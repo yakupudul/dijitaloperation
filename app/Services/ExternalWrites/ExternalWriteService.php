@@ -17,6 +17,7 @@ use App\Services\Gbp\Desk\PhotoPlan;
 use App\Services\Gbp\GbpAssistant;
 use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Gbp\GbpSuggestions;
+use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
@@ -81,6 +82,44 @@ final class ExternalWriteService
             'status' => 'queued',
             'request_payload' => ['keywords' => $parsed['keywords'], 'rejected' => $parsed['rejected'], 'shared_set_name' => config('moxdop-external-writes.google_ads.shared_set_name')]
                 + ($suggestionIds !== [] ? ['suggestion_ids' => array_values($suggestionIds)] : []),
+            'requested_by' => $user->id,
+        ]));
+    }
+
+    /**
+     * ADR-081: one Google Ads setting change prepared on the Onarım masası (field, resource, value before and after).
+     * Budgets move by at most 30% in one change.
+     *
+     * @param  array{field: string, resource: string, before: mixed, after: mixed, label: string}  $change
+     */
+    public function requestAdsChange(User $user, DigitalAsset $asset, array $change, ?Suggestion $suggestion = null): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_GOOGLE_ADS);
+        $field = (string) ($change['field'] ?? '');
+        if ($asset->type !== 'google_ads' || ! isset(GoogleAdsChangeWriter::FIELDS[$field]) || ! is_string($change['resource'] ?? null)) {
+            throw ValidationException::withMessages(['write' => 'Bu değişiklik Google Ads\'e gönderilemez.']);
+        }
+        $valid = match ($field) {
+            'search_partners', 'display_network', 'auto_tagging' => is_bool($change['after'] ?? null),
+            'location_option' => in_array($change['after'] ?? null, ['PRESENCE', 'PRESENCE_OR_INTEREST'], true),
+            'keyword_status' => in_array($change['after'] ?? null, ['PAUSED', 'ENABLED'], true),
+            'budget' => is_numeric($change['after'] ?? null) && is_numeric($change['before'] ?? null) && (int) $change['before'] > 0
+                && abs((int) $change['after'] - (int) $change['before']) <= 0.3 * (int) $change['before'] + 1,
+        };
+        if (! $valid) {
+            throw ValidationException::withMessages(['write' => 'Değişiklik değeri geçersiz'.($field === 'budget' ? ' (bütçe bir seferde en çok %30 değişir).' : '.')]);
+        }
+        $busy = ExternalWriteAction::query()->where('digital_asset_id', $asset->id)->where('action', ExternalWriteAction::ACTION_ADS_CHANGE)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->whereRaw('cast(request_payload as text) like ?', ['%'.$change['resource'].'%'])->exists();
+        if ($busy) {
+            throw ValidationException::withMessages(['write' => 'Bu öğe için bir değişiklik zaten gönderiliyor.']);
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_GOOGLE_ADS, 'action' => ExternalWriteAction::ACTION_ADS_CHANGE,
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'suggestion_id' => $suggestion?->id, 'status' => 'queued',
+            'request_payload' => ['field' => $field, 'resource' => $change['resource'], 'before' => $change['before'] ?? null, 'after' => $change['after'],
+                'label' => mb_substr((string) ($change['label'] ?? 'Google Ads ayarı'), 0, 160)],
             'requested_by' => $user->id,
         ]));
     }
@@ -688,6 +727,7 @@ final class ExternalWriteService
         $action->forceFill(['status' => 'running', 'started_at' => now()])->save();
         try {
             $result = match (true) {
+                $action->action === ExternalWriteAction::ACTION_ADS_CHANGE => app(GoogleAdsChangeWriter::class)->apply($action),
                 $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->apply($action),
                 $action->channel === ExternalWriteAction::CHANNEL_GBP => $this->gbp->apply($action),
                 $action->action === ExternalWriteAction::ACTION_UPDATE_APPLY => app(WordPressManagementService::class)->apply($action),
@@ -703,6 +743,9 @@ final class ExternalWriteService
         if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
             // Shared-list negatives become "Uygulandı" only once Google accepted them.
             app(GoogleAdsSuggestions::class)->writeFinished($action);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_ADS_CHANGE) {
+            app(GoogleAdsChanges::class)->writeFinished($action);
         }
         if ($action->action === ExternalWriteAction::ACTION_SITE_FIX) {
             // "301 ile birleştir" becomes applied only once the site confirmed it (else open again with the error).
@@ -728,6 +771,7 @@ final class ExternalWriteService
     {
         try {
             $undo = match (true) {
+                $action->action === ExternalWriteAction::ACTION_ADS_CHANGE => app(GoogleAdsChangeWriter::class)->undo($action),
                 $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS => $this->negatives->undo($action),
                 $action->channel === ExternalWriteAction::CHANNEL_GBP => $this->gbp->undo($action),
                 $action->action === ExternalWriteAction::ACTION_SITE_BUILD => app(WordPressSiteBuilder::class)->undo($action),

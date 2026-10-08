@@ -93,7 +93,7 @@ final class SiteConnectorShow extends Component
         } catch (Throwable $error) {
             report($error);
             $this->messageTone = 'error';
-            $this->message = 'Connector bağlantısı doğrulanamadı.';
+            $this->message = 'Connector bağlantısı doğrulanamadı: '.mb_substr($error->getMessage(), 0, 300);
         }
     }
 

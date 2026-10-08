@@ -80,7 +80,7 @@ final class GoogleAdsSuggestions extends AssetSuggestions
     /** @return Collection<int, Suggestion> approved drafts not yet in a downloaded Editor file (not shared-list negatives) */
     public function editorDrafts(DigitalAsset $asset): Collection
     {
-        return $this->approved($asset)->reject(fn (Suggestion $s): bool => self::isSharedNegative($s) || filled($s->action['editor_batch'] ?? null))->values();
+        return $this->approved($asset)->reject(fn (Suggestion $s): bool => self::isSharedNegative($s) || $s->action_type === GoogleAdsChanges::TYPE || filled($s->action['editor_batch'] ?? null))->values();
     }
 
     /** @return Collection<string, Collection<int, Suggestion>> downloaded Editor batches waiting for "Editor'a aktardım", by batch id */
@@ -128,6 +128,13 @@ final class GoogleAdsSuggestions extends AssetSuggestions
      */
     public function approve(Suggestion $suggestion, ?User $user): void
     {
+        if ($suggestion->action_type === GoogleAdsChanges::TYPE) {
+            // ADR-081: approving a prepared setting change writes it to Google (Admin).
+            abort_if($user === null, 403);
+            app(GoogleAdsChanges::class)->send($user, $suggestion);
+
+            return;
+        }
         if (in_array($suggestion->action_type, self::EDITOR_TYPES, true)) {
             $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user?->id, 'resolved_at' => now()])->save();
 

@@ -178,7 +178,7 @@ final class WordPressConnectorSiteResponseTest extends TestCase
         $this->answer = fn (Request $request): string => $this->signedJson($request, self::STATUS, signature: str_repeat('0', 64));
         $page->call('testConnection')
             ->assertSet('messageTone', 'error')
-            ->assertSet('message', 'Connector bağlantısı doğrulanamadı.');
+            ->assertSet('message', 'Connector bağlantısı doğrulanamadı: WordPress Connector response signature verification failed.');
         Exceptions::assertReported(fn (RuntimeException $error): bool => str_contains($error->getMessage(), 'signature verification failed'));
     }
 

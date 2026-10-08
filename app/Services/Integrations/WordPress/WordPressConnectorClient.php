@@ -353,6 +353,30 @@ final class WordPressConnectorClient
         }
     }
 
+    /** Connector WP_Error code => the site switch (WordPress › Ayarlar › MoxDOP Connector) that refuses the request. */
+    private const array SITE_SWITCHES = [
+        'moxdop_fixes_disabled' => 'SEO düzeltmeleri',
+        'moxdop_content_disabled' => 'İçerik güncelleme',
+        'moxdop_self_update_disabled' => 'Eklenti güncellemesi',
+        'moxdop_updates_disabled' => 'Onaylı güncelleme',
+        'moxdop_build_disabled' => 'Site kurulumu',
+        'moxdop_drafts_disabled' => 'Taslak oluşturma',
+        'moxdop_login_disabled' => 'Tek tık giriş',
+    ];
+
+    /** Why the site refused, in words the operator can act on (the HTTP status stays at the end for searching). */
+    public static function refusal(int $status, string $code): string
+    {
+        $switch = self::SITE_SWITCHES[$code] ?? null;
+
+        return match (true) {
+            $switch !== null => sprintf('Sitede "%s" izni kapalı: WordPress › Ayarlar › MoxDOP Connector ekranında bu kutuyu işaretleyip kaydedin, sonra tekrar deneyin. (HTTP %d)', $switch, $status),
+            in_array($code, ['moxdop_auth_failed', 'moxdop_not_paired'], true) => sprintf('Eklenti bu MoxDOP eşleşmesini tanımıyor (eklenti silinip yeniden kurulduysa eşleşme sıfırlanır). "Eşleştirmeyi döndür" ile yeni kod alıp sitede girin. (HTTP %d)', $status),
+            $status === 403 => 'Site isteği reddetti: eklenti değil, sitenin güvenlik eklentisi ya da güvenlik duvarı (Wordfence, Cloudflare, sunucu) engelliyor olabilir; /wp-json/moxdop/ adresine izin verilmeli. (HTTP 403)',
+            default => 'WordPress Connector returned HTTP '.$status.'.',
+        };
+    }
+
     /** @return array<string, mixed> */
     private function verifiedData(Response $response, string $secret, string $requestNonce, string $host): array
     {
@@ -365,7 +389,7 @@ final class WordPressConnectorClient
             throw new WordPressConnectorBusyException($status, WordPressConnectorBusyException::retryAfter($response->header('Retry-After'), $status === 429 ? 30 : 60));
         }
         if (! $response->successful()) {
-            throw new RuntimeException('WordPress Connector returned HTTP '.$status.'.');
+            throw new RuntimeException(self::refusal($status, (string) ($response->json('code') ?? '')));
         }
 
         $body = $response->body();

@@ -35,6 +35,9 @@ class ExternalWriteAction extends Model
 
     public const string ACTION_NEGATIVE_LIST_ADD = 'negative_list_add';
 
+    /** ADR-081: one Google Ads setting (network, location option, budget, keyword status, auto-tagging); undo writes the previous value back. */
+    public const string ACTION_ADS_CHANGE = 'ads_change';
+
     public const string ACTION_DRAFT_CREATE = 'draft_create';
 
     /** ADR-076: an article and its language versions as WordPress drafts (source first, translations linked; undo trashes all). */
