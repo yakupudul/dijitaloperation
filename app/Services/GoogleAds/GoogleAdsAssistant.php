@@ -66,6 +66,9 @@ final class GoogleAdsAssistant
 
     public const int MAX_NEGATIVES = 100;
 
+    /** A shared negative rests on at least this many clicks (or on two terms or more). */
+    public const int SHARED_MIN_CLICKS = 5;
+
     private const string CONTACT_PATTERN = '~https?://|www\.|[\w.+-]+@[\w-]+\.[\w.]+|\+?\d[\d\s().-]{8,}\d~iu';
 
     private const string PAUSE_PATTERN = '/\b(kapat|durdur|duraklat|pause)/iu';
@@ -154,6 +157,9 @@ final class GoogleAdsAssistant
             throw new RuntimeException('Seçilen terimler veride yok.');
         }
         $pack = $this->termPack($asset, $all, $terms);
+        // A term that converted in the last 90 days, anywhere in the list, is never blocked (not only the 30-day top 1000).
+        $pack['_converting'] = array_values(array_unique([...$pack['_converting'], ...array_map(fn (array $t): string => $t['term'],
+            array_filter($this->screen->searchTerms($asset, 90, 5000), fn (array $t): bool => $t['conversions'] > 0))]));
         [$raw, $versionId] = $this->call(self::OP_TERMS, $pack + ['focus' => array_column($terms, 'term')]);
         $valid = self::validateTermReview($raw, $pack);
 
@@ -307,6 +313,13 @@ final class GoogleAdsAssistant
             if ($blocksConverting || $covers === []) {
                 continue;
             }
+            $blocks = array_values(array_filter($useful, fn (string $q): bool => GoogleAdsChecks::blocks($text, $match, $q)));
+            // The shared list runs on every Search campaign (brand campaigns too): it never blocks an enabled keyword or an
+            // organic query, the brand's name, its services or its places, and it rests on more than one 1-click term.
+            if ($scope === 'shared' && ($blocks !== [] || self::blocksOwn($text, $match, $pack)
+                || (array_sum(array_column($covers, 'clicks')) < self::SHARED_MIN_CLICKS && count($covers) < 2))) {
+                continue;
+            }
             $cost = round(array_sum(array_column($covers, 'cost')), 2);
             $reason = self::line((string) ($row['reason'] ?? ''));
             if (! self::numbersOk($reason, [...$numbers, $cost, (float) array_sum(array_column($covers, 'clicks')), (float) count($covers)])) {
@@ -314,13 +327,30 @@ final class GoogleAdsAssistant
             }
             $key = $scope.'|'.$campaign.'|'.$adGroup.'|'.$match.'|'.$text;
             $negatives[$key] = ['text' => $text, 'match_type' => $match, 'scope' => $scope, 'campaign' => $campaign, 'ad_group' => $adGroup, 'reason' => $reason,
-                'covers' => $covers, 'cost' => $cost,
-                'blocks' => array_values(array_filter($useful, fn (string $q): bool => GoogleAdsChecks::blocks($text, $match, $q)))];
+                'covers' => $covers, 'cost' => $cost, 'blocks' => $blocks];
         }
         $negatives = array_values($negatives);
         usort($negatives, fn (array $a, array $b): int => $b['cost'] <=> $a['cost']);
 
         return ['verdicts' => $verdicts, 'negatives' => $negatives];
+    }
+
+    /** Whether a negative would block the brand's name, one of its services or one of its places. @param  array<string, mixed>  $pack */
+    private static function blocksOwn(string $text, string $match, array $pack): bool
+    {
+        $own = [(string) data_get($pack, 'brand.name'), ...array_column((array) ($pack['offerings'] ?? []), 'name')];
+        foreach ((array) ($pack['areas'] ?? []) as $area) {
+            foreach (explode(',', (string) ($area['name'] ?? '')) as $part) {
+                $own[] = trim($part);
+            }
+        }
+        foreach ($own as $phrase) {
+            if (mb_strlen($phrase) >= 3 && strtoupper($phrase) !== 'TR' && GoogleAdsChecks::blocks($text, $match, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /* ------------------------------------------------------------------ structure */

@@ -67,7 +67,7 @@ final class GoogleAdsChangesTest extends TestCase
         config(['moxdop.google.client_id' => 'cid', 'moxdop.google.client_secret' => 'csecret', 'moxdop.google.developer_token' => 'devtoken']);
         $this->admin = User::factory()->create(['is_active' => true]);
         $this->admin->assignRole(Roles::ADMIN);
-        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id]);
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id, 'languages' => ['tr']]);
         $this->asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads', 'module_id' => 'google_ads', 'status' => DigitalAssetStatus::Active]);
         $integration = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE, 'config' => ['granted_scopes' => [GoogleScopes::ADWORDS]]]);
         CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $integration->id, 'encrypted_payload' => ['client_id' => 'cid', 'client_secret' => 'csecret', 'developer_token' => 'devtoken']]);
@@ -107,6 +107,11 @@ final class GoogleAdsChangesTest extends TestCase
             'networkSettings' => ['targetSearchNetwork' => $c['search'], 'targetContentNetwork' => $c['content']], 'geoTargetTypeSetting' => ['positiveGeoTargetType' => $c['geo']]],
             'campaignBudget' => ['resourceName' => self::C.'/campaignBudgets/'.$c['budget'], 'amountMicros' => (string) $this->state['budgets'][$c['budget']], 'explicitlyShared' => false],
             'metrics' => ['costMicros' => (string) $c['cost'], 'conversions' => $c['conv'], 'searchBudgetLostImpressionShare' => $c['lost']]];
+        if (str_contains($query, 'segments.ad_network_type')) {
+            // Campaign 77 spent 20 TRY on Search Partners without a conversion.
+            return [['campaign' => ['resourceName' => self::C.'/campaigns/77'], 'segments' => ['adNetworkType' => 'SEARCH_PARTNERS'], 'metrics' => ['costMicros' => '20000000', 'conversions' => 0]],
+                ['campaign' => ['resourceName' => self::C.'/campaigns/77'], 'segments' => ['adNetworkType' => 'SEARCH'], 'metrics' => ['costMicros' => '480000000', 'conversions' => 10]]];
+        }
         if (preg_match("~FROM campaign WHERE campaign.resource_name = '.+/campaigns/(\d+)'~", $query, $m) === 1) {
             return [$campaign($m[1], $this->state['campaigns'][$m[1]])];
         }
@@ -162,6 +167,21 @@ final class GoogleAdsChangesTest extends TestCase
         $this->assertStringContainsString('100 TRY → 120 TRY', $rows['budget']['after'][0]);
         $this->assertStringContainsString('ücretsiz implant', $rows['keyword_status']['target']);
         $this->assertSame([], $this->mutations, 'the audit only reads');
+    }
+
+    public function test_guards_against_harmful_changes(): void
+    {
+        // Patients from abroad: "interest" targeting is deliberate. A network with conversions stays on.
+        $this->asset->brand->forceFill(['languages' => ['tr', 'en']])->save();
+        $this->state['campaigns']['77']['content'] = true;
+        // A budget written in the last 30 days is not raised again (the window would still show the old loss).
+        ExternalWriteAction::query()->create(['channel' => ExternalWriteAction::CHANNEL_GOOGLE_ADS, 'action' => ExternalWriteAction::ACTION_ADS_CHANGE,
+            'digital_asset_id' => $this->asset->id, 'brand_id' => $this->asset->brand_id, 'status' => 'succeeded', 'requested_by' => $this->admin->id,
+            'request_payload' => ['field' => 'budget', 'resource' => self::C.'/campaignBudgets/77', 'before' => 80_000_000, 'after' => 100_000_000]]);
+
+        $rows = $this->prepared();
+
+        $this->assertEqualsCanonicalizing(['auto_tagging', 'search_partners', 'keyword_status'], array_keys($rows));
     }
 
     public function test_bulk_approval_writes_each_change_after_a_validate_only_check_and_undo_restores_it(): void

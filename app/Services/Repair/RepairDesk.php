@@ -483,8 +483,9 @@ final class RepairDesk
             $base()->where('action_type', ImageAlts::TYPE),
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
-            $base()->where('action_type', 'gbp_description')->where('status', '!=', Suggestion::APPROVED),
-            $base()->where('action_type', ProfileInfo::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            // A fill-the-gap row the nightly pass no longer proposes (recheck) is stale: the profile may have the value now.
+            $base()->where('action_type', 'gbp_description')->whereNotIn('status', [Suggestion::APPROVED, Suggestion::RECHECK]),
+            $base()->where('action_type', ProfileInfo::TYPE)->whereNotIn('status', [Suggestion::APPROVED, Suggestion::RECHECK]),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', GoogleAdsChanges::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', WebHealthAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', BrandDataAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
@@ -510,11 +511,12 @@ final class RepairDesk
                 'target' => (string) ($action['overlap_url'] ?? ''), 'before' => [(string) ($action['overlap_url'] ?? '')],
                 'after' => ['301 → '.($action['main_url'] ?? ''), 'Eski sayfa taslağa alınır'], 'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null] : null,
             'ads_negative' => ($action['scope'] ?? '') === 'shared' && ! isset($action['sending_write_id']) && filled($action['text'] ?? null)
-                ? $base + ['kind' => self::ADS_NEGATIVE, 'risk' => self::LOW, 'target' => 'Paylaşılan negatif listesi', 'before' => [],
-                    'after' => [sprintf('"%s" (%s)%s', $action['text'], $action['match_type'] ?? 'phrase', isset($action['cost']) ? ' · boşa giden '.$action['cost'] : '')]] : null,
+                ? $base + ['kind' => self::ADS_NEGATIVE, 'risk' => ($action['blocks'] ?? []) === [] ? self::LOW : self::HIGH, 'target' => 'Paylaşılan negatif listesi', 'before' => [],
+                    'after' => [GoogleAdsSuggestions::line((string) $action['text'], (string) ($action['match_type'] ?? 'PHRASE')).(isset($action['cost']) ? ' · boşa giden '.$action['cost'] : '')
+                        .(($action['blocks'] ?? []) !== [] ? ' · engelleyebileceği: '.implode(', ', array_slice((array) $action['blocks'], 0, 5)) : '')]] : null,
             'gbp_description' => filled($action['proposed'] ?? null) ? $base + ['kind' => self::GBP_DESCRIPTION, 'risk' => self::LOW, 'target' => 'İşletme açıklaması',
                 'before' => [(string) ($action['current'] ?? '—')], 'after' => [(string) $action['proposed']], 'editable' => ['description']] : null,
-            ProfileInfo::TYPE => filled($action['fields'] ?? null) ? $base + ['kind' => self::GBP_FIELDS, 'risk' => self::MEDIUM,
+            ProfileInfo::TYPE => filled($action['fields'] ?? null) ? $base + ['kind' => self::GBP_FIELDS, 'risk' => ($action['field'] ?? null) === 'regular_hours' ? self::HIGH : self::MEDIUM,
                 'target' => trim(($action['location'] ?? '').' · '.(ProfileInfo::FIELD_LABELS[$action['field'] ?? ''] ?? 'Profil bilgisi'), ' ·'), 'before' => [(string) ($action['current'] ?? '') ?: '—'],
                 'after' => [(string) ($action['proposed'] ?? '')]] : null,
             GoogleAdsChanges::TYPE => filled($action['field'] ?? null) ? $base + ['kind' => self::ADS_CHANGE,
