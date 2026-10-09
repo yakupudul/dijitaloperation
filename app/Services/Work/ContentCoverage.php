@@ -102,6 +102,9 @@ final class ContentCoverage
             if (! $weekly && $siteId === null && ($last['status'] ?? null) === 'no_candidates' && Carbon::parse($last['at'])->gt(now()->subHours(20))) {
                 continue; // the data had no topic left today; the next day's data may have
             }
+            if (($last['status'] ?? null) === 'queued' && Carbon::parse($last['at'])->gt(now()->subHours(36))) {
+                continue; // the ideas wait in the Claude queue; asking again would only queue the same work twice
+            }
             $wants = [];
             foreach ($row['pool'] as $language => $waiting) {
                 $want = max(self::POOL - $waiting, $weekly ? $row['weekly'] : 0);
@@ -240,7 +243,10 @@ final class ContentCoverage
             $row['clusters'] === 0 => 'Kümeler bu siteyle henüz eşleşmedi; sistem eşleştirmeyi günde iki kez kendisi başlatır, ardından havuz dolar.',
             $row['waiting'] >= self::POOL => null,
             ($last['status'] ?? null) === 'no_candidates' => 'Verilerde yeni konu kalmadı: her arama ve küme için fikir var ya da yazıldı. Yeni arama verisi gelince kendiliğinden dolar.',
-            $last !== null && ! in_array($last['status'] ?? 'ready', ['ready', 'no_candidates'], true) && (int) ($last['added'] ?? 0) === 0 => 'Son dolumda AI yanıt vermedi; bir sonraki dolumda yeniden denenir.',
+            ($last['status'] ?? null) === 'queued' && (int) ($last['added'] ?? 0) === 0 => 'Fikirler Claude kuyruğunda yazılıyor; Claude yanıtlayınca havuz kendiliğinden dolar.',
+            $last !== null && ! in_array($last['status'] ?? 'ready', ['ready', 'no_candidates'], true) && (int) ($last['added'] ?? 0) === 0 => ($last['message'] ?? null) !== null
+                ? 'Son dolum yapılamadı: '.$last['message'].' Bir sonraki dolumda yeniden denenir.'
+                : 'Son dolumda AI yanıt vermedi; bir sonraki dolumda yeniden denenir.',
             $row['waiting'] > 0 || $row['reading'] > 0 => null,
             default => 'Havuz boş; günde iki kez kendiliğinden '.self::POOL.' fikre tamamlanır.',
         };
@@ -266,7 +272,11 @@ final class ContentCoverage
             $line .= ' · '.$dropped->sum().' elendi ('.$dropped->map(fn (int $n, string $why): string => $n.' '.$why)->implode(', ').')';
         }
 
-        return $line.(! in_array($run['status'] ?? 'ready', ['ready'], true) ? ' · AI yanıt vermedi' : '');
+        return $line.match ($run['status'] ?? 'ready') {
+            'ready', 'no_candidates' => '',
+            'queued' => ' · Claude kuyruğunda',
+            default => ' · AI yanıt vermedi',
+        };
     }
 
     /**

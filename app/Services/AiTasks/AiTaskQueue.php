@@ -76,6 +76,8 @@ final class AiTaskQueue
         AiRouteKeys::GBP_BRANCH_PAGE,
         AiRouteKeys::META_CAMPAIGN_SERVICES,
         AiRouteKeys::META_STRATEGY_PLAN,
+        AiRouteKeys::SITE_WEEKLY_CONTENT,
+        AiRouteKeys::SITE_SEO_FIELDS_BATCH,
     ];
 
     /** Whether the operation runs through a resumable path that can wait for Claude (structured registry agents in SUPPORTED). */

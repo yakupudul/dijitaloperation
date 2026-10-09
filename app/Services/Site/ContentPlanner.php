@@ -177,10 +177,12 @@ final class ContentPlanner
         $notes = [];
         $promptVersion = null;
         $status = 'ready';
+        $message = null;
         for ($round = 0; $round < 2 && $pending !== [] && $added < $capacity; $round++) {
             $result = $this->ai->run(new WeeklyContentAgent, $this->pack($brand, $pending, $notes, $previous, $sitePages, $main), 240, $only === null ? 'weekly'.($round > 0 ? '-again' : '') : null);
             if ($result['status'] !== 'ready') {
                 $status = $result['status'];
+                $message = $result['message'] ?? null;
                 break;
             }
             $promptVersion = $result['prompt_version_id'];
@@ -213,7 +215,7 @@ final class ContentPlanner
                 $dropped[$notes[$candidate['id']]['why']] = ($dropped[$notes[$candidate['id']]['why']] ?? 0) + 1;
             }
         }
-        $this->logRun($site, ['status' => $status, 'candidates' => count($candidates), 'asked' => count($chosen), 'added' => $added, 'dropped' => $dropped]);
+        $this->logRun($site, ['status' => $status, 'candidates' => count($candidates), 'asked' => count($chosen), 'added' => $added, 'dropped' => $dropped, 'message' => $message]);
 
         return ['status' => $added > 0 ? 'ready' : $status, 'added' => $added];
     }

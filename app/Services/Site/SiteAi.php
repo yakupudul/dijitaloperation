@@ -26,7 +26,8 @@ final class SiteAi
     /**
      * @param  array<string, mixed>  $data
      * @param  string|null  $slot  the call's stable name in a delegated run (AiTaskQueue::answer): found again although the pack moved
-     * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int} status: ready | queued | no_provider | error
+     * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int, message?: string} status: ready | queued | no_provider | error;
+     *                                                                                                      message says why a call failed
      */
     public function run(SiteAgent $agent, array $data, int $timeout = 180, ?string $slot = null): array
     {
@@ -40,7 +41,8 @@ final class SiteAi
             }
             $route = $this->routes->resolve($agent->promptOperation());
             if ($route->isEmpty()) {
-                return ['status' => 'no_provider', 'data' => [], 'prompt_version_id' => null];
+                return $this->claudeTakesOver($agent, $data, $slot)
+                    ?? ['status' => 'no_provider', 'data' => [], 'prompt_version_id' => null, 'message' => 'Bu işlem için kullanılabilir AI sağlayıcısı yok (bütçe ya da bağlantı).'];
             }
             $this->runtime->prepare(array_keys($route->providerModels));
             $output = $agent->prompt(
@@ -53,7 +55,46 @@ final class SiteAi
         } catch (Throwable $exception) {
             Log::warning('Site AI operation failed.', ['operation' => $agent->promptOperation(), 'error' => $exception->getMessage()]);
 
-            return ['status' => 'error', 'data' => [], 'prompt_version_id' => null];
+            return $this->claudeTakesOver($agent, $data, $slot)
+                ?? ['status' => 'error', 'data' => [], 'prompt_version_id' => null, 'message' => self::reason($exception)];
         }
+    }
+
+    /**
+     * The provider route failed or has nothing left (credit, budget, a provider error): an operation the Claude (MCP)
+     * queue can take waits there instead of failing (yakup, 2026-10-09: the idea pool must not stay empty because one
+     * provider is down). Null when the queue cannot take it (not configured, not a resumable run, not supported).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{status: string, data: array<string, mixed>, prompt_version_id: ?int, message: string}|null
+     */
+    private function claudeTakesOver(SiteAgent $agent, array $data, ?string $slot): ?array
+    {
+        if (! AiTaskQueue::enabled() || ! $this->tasks->supports($agent->promptOperation())) {
+            return null;
+        }
+        try {
+            $answer = $this->tasks->answer($agent, $data, $slot);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+
+        return $answer === null ? null : $answer + ['message' => 'AI sağlayıcısı yanıt vermedi; iş Claude kuyruğuna verildi.'];
+    }
+
+    /** A short Turkish reason of a failed provider call (credit, limit, time, the provider's own message). */
+    private static function reason(Throwable $exception): string
+    {
+        $message = trim(preg_replace('/\s+/u', ' ', $exception->getMessage()) ?? '');
+        $lower = mb_strtolower($message);
+
+        return match (true) {
+            str_contains($lower, 'credit balance') || str_contains($lower, 'insufficient_quota') || str_contains($lower, 'billing') => 'AI sağlayıcısının kredisi bitti: '.mb_substr($message, 0, 160),
+            str_contains($lower, 'rate limit') || str_contains($lower, '429') || str_contains($lower, 'overloaded') => 'AI sağlayıcısı yoğun ya da istek sınırı doldu: '.mb_substr($message, 0, 160),
+            str_contains($lower, 'timed out') || str_contains($lower, 'timeout') => 'AI yanıtı zaman aşımına uğradı.',
+            default => 'AI hata verdi: '.mb_substr($message !== '' ? $message : class_basename($exception), 0, 200),
+        };
     }
 }

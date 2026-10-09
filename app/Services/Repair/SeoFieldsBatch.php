@@ -58,7 +58,7 @@ final class SeoFieldsBatch
                 'seo_title' => (string) $s->page->title, 'meta_description' => (string) $s->page->meta_description, 'h1' => (string) $s->page->h1,
                 'text' => $s->page->aiText(700), 'fix' => self::fix($s), 'queries' => $queries[(string) $s->page->url] ?? [],
             ])->all(),
-        ], 240);
+        ], 240, 'batch-'.md5(implode(',', $suggestions->pluck('id')->all())));
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status'], 'prepared' => 0, 'skipped' => 0];
         }
