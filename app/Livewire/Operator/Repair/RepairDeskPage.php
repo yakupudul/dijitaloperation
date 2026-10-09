@@ -29,8 +29,15 @@ final class RepairDeskPage extends Component
     #[Url(as: 'tur')]
     public string $kind = '';
 
-    #[Url(as: 'risk')]
-    public string $risk = '';
+    #[Url(as: 'serit')]
+    public string $lane = '';
+
+    /** The package opened as a compact list (brand.kind.lane). */
+    #[Url(as: 'paket')]
+    public string $open = '';
+
+    /** Rows shown in the opened package. */
+    public int $perPage = 100;
 
     /** @var list<int> */
     public array $selected = [];
@@ -48,6 +55,15 @@ final class RepairDeskPage extends Component
     public function approve(int $id, RepairDesk $desk): void
     {
         $this->run(fn (): array => $desk->approve([$id], auth()->user()));
+        $this->selected = array_values(array_diff($this->selected, [$id]));
+    }
+
+    public function rejectOne(int $id, RepairDesk $desk): void
+    {
+        $this->authorizeAdmin();
+        $desk->reject([$id], auth()->user(), $this->rejectReason);
+        $this->selected = array_values(array_diff($this->selected, [$id]));
+        $this->message = '1 öneri reddedildi; kanıt değişmedikçe geri gelmez.';
     }
 
     public function approveSelected(RepairDesk $desk): void
@@ -56,23 +72,52 @@ final class RepairDeskPage extends Component
         $this->selected = [];
     }
 
+    /** Hepsini onayla: one package in one decision (high-risk rows still wait for a single approval). */
+    public function approvePackage(string $key, RepairDesk $desk): void
+    {
+        $ids = $this->packageRows($desk, $key)->pluck('id')->all();
+        $this->run(fn (): array => $desk->approve($ids, auth()->user()));
+        $this->selected = array_values(array_diff($this->selected, $ids));
+    }
+
+    public function rejectPackage(string $key, RepairDesk $desk): void
+    {
+        $this->authorizeAdmin();
+        $ids = $this->packageRows($desk, $key)->pluck('id')->all();
+        $count = $desk->reject($ids, auth()->user(), $this->rejectReason);
+        $this->selected = array_values(array_diff($this->selected, $ids));
+        $this->rejectReason = '';
+        $this->message = $count.' öneri reddedildi; kanıt değişmedikçe geri gelmez.';
+    }
+
+    public function togglePackage(string $key): void
+    {
+        $this->open = $this->open === $key ? '' : $key;
+        $this->perPage = 100;
+    }
+
+    public function showMore(): void
+    {
+        $this->perPage += 100;
+    }
+
     /** Every visible low-risk row (the filters apply). */
     public function approveAllLow(RepairDesk $desk): void
     {
-        $ids = $desk->rows($this->brandId, $this->kind ?: null, RepairDesk::LOW)->pluck('id')->all();
+        $ids = $this->filtered($desk)->where('risk', RepairDesk::LOW)->pluck('id')->all();
         $this->run(fn (): array => $desk->approve($ids, auth()->user()));
     }
 
-    /** Select the rows on screen (the first 300 of the filter). */
-    public function selectVisible(RepairDesk $desk): void
+    /** Select every row of one package. */
+    public function selectPackage(string $key, RepairDesk $desk): void
     {
-        $this->selected = $this->filtered($desk)->take(300)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->selected = array_values(array_unique([...$this->selected, ...$this->packageRows($desk, $key)->pluck('id')->map(fn ($id): int => (int) $id)->all()]));
     }
 
-    /** Select every row the current filters match, also those beyond the first 300. */
+    /** Select every row of the current lane that the brand / kind filters match. */
     public function selectAllMatching(RepairDesk $desk): void
     {
-        $this->selected = $this->filtered($desk)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->selected = $this->inLane($this->filtered($desk))->pluck('id')->map(fn ($id): int => (int) $id)->all();
     }
 
     public function clearSelection(): void
@@ -83,8 +128,9 @@ final class RepairDeskPage extends Component
     /** A filter change drops the selection so hidden rows are never approved by mistake. */
     public function updated(string $property): void
     {
-        if (in_array($property, ['brandId', 'kind', 'risk'], true)) {
+        if (in_array($property, ['brandId', 'kind', 'lane'], true)) {
             $this->selected = [];
+            $this->open = '';
         }
     }
 
@@ -132,12 +178,24 @@ final class RepairDeskPage extends Component
 
     public function render(RepairDesk $desk): View
     {
-        $rows = $this->filtered($desk);
+        $all = $desk->rows();
+        $filtered = $this->filter($all);
+        $lanes = $filtered->countBy(fn (array $r): string => RepairDesk::lane($r))->all();
+        if (! array_key_exists($this->lane, RepairDesk::LANES) || (($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {
+            $this->lane = (string) (collect(array_keys(RepairDesk::LANES))->first(fn (string $l): bool => ($lanes[$l] ?? 0) > 0) ?? RepairDesk::LANE_READY);
+        }
+        $inLane = $this->inLane($filtered);
+        $openRows = $this->open !== '' ? $inLane->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $this->open)->values() : collect();
 
         return view('livewire.operator.repair.repair-desk', [
-            'rows' => $rows->take(300),
-            'total' => $rows->count(),
-            'counts' => $desk->counts(),
+            'packages' => $desk->packages($inLane),
+            'openRows' => $openRows->take($this->perPage),
+            'openTotal' => $openRows->count(),
+            'laneCounts' => $lanes,
+            'laneTotal' => $inLane->count(),
+            'counts' => ['total' => $all->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
+            'health' => $desk->health($all),
+            'pipeline' => $desk->pipeline($this->brandId),
             'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),
             'writes' => ExternalWriteAction::query()->with('digitalAsset:id,name')->whereNotNull('suggestion_id')
                 ->where('created_at', '>=', now()->subDays(7))->latest('id')->limit(40)->get(),
@@ -145,9 +203,37 @@ final class RepairDeskPage extends Component
         ]);
     }
 
+    /** @return Collection<int, array<string, mixed>> */
     private function filtered(RepairDesk $desk): Collection
     {
-        return $desk->rows($this->brandId, $this->kind ?: null, $this->risk ?: null);
+        return $this->filter($desk->rows());
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function filter(Collection $rows, bool $kind = true): Collection
+    {
+        return $rows->filter(fn (array $r): bool => ($this->brandId === null || $r['brand_id'] === $this->brandId)
+            && (! $kind || $this->kind === '' || $r['kind'] === $this->kind))->values();
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function inLane(Collection $rows): Collection
+    {
+        $lane = array_key_exists($this->lane, RepairDesk::LANES) ? $this->lane : RepairDesk::LANE_READY;
+
+        return $rows->filter(fn (array $r): bool => RepairDesk::lane($r) === $lane)->values();
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    private function packageRows(RepairDesk $desk, string $key): Collection
+    {
+        return $this->filtered($desk)->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $key)->values();
     }
 
     /** @param  callable(): array{applied: int, skipped_high: int, failed: list<string>}  $approve */

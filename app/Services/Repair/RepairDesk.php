@@ -4,6 +4,7 @@ namespace App\Services\Repair;
 
 use App\Models\Brand;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -76,6 +77,18 @@ final class RepairDesk
 
     public const array RISKS = [self::LOW => 'Düşük', self::MEDIUM => 'Orta', self::HIGH => 'Yüksek (tek tek)', self::MANUAL => 'Elle yapılacak'];
 
+    public const string LANE_READY = 'ready';
+
+    public const string LANE_REVIEW = 'review';
+
+    public const string LANE_MANUAL = 'manual';
+
+    /** Şeritler (yakup 2026-10-09): ready to approve, worth a look, only the operator can do it. */
+    public const array LANES = [self::LANE_READY => 'Onayla, bitsin', self::LANE_REVIEW => 'Bir göz at', self::LANE_MANUAL => 'Senin elin gerekiyor'];
+
+    /** Days the "after approval" strip and the brand health bar look back. */
+    public const int TRACK_DAYS = 14;
+
     /** Rows read per kind (the list is a work queue, not an archive). */
     public const int LIMIT = 1500;
 
@@ -97,6 +110,125 @@ final class RepairDesk
         $rows = $this->rows();
 
         return ['total' => $rows->count(), 'kinds' => $rows->countBy('kind')->all(), 'brands' => $rows->countBy('brand_id')->all()];
+    }
+
+    /** @param  array{risk: string}  $row */
+    public static function lane(array $row): string
+    {
+        return match ($row['risk']) {
+            self::LOW => self::LANE_READY,
+            self::MANUAL => self::LANE_MANUAL,
+            default => self::LANE_REVIEW,
+        };
+    }
+
+    /**
+     * İş paketleri: rows of one brand, one kind and one lane decided together (323 merges are one decision, not 323).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array{key: string, brand_id: int, brand: string, kind: string, lane: string, count: int, high: int, ids: list<int>, sample: list<array<string, mixed>>}>
+     */
+    public function packages(Collection $rows): Collection
+    {
+        return $rows->groupBy(fn (array $r): string => self::packageKey($r))
+            ->map(function (Collection $group, string $key): array {
+                $first = $group->first();
+
+                return ['key' => $key, 'brand_id' => $first['brand_id'], 'brand' => $first['brand'], 'kind' => $first['kind'], 'lane' => self::lane($first),
+                    'count' => $group->count(), 'high' => $group->where('risk', self::HIGH)->count(), 'ids' => $group->pluck('id')->all(),
+                    'sample' => $group->take(3)->values()->all()];
+            })
+            ->sortBy([['count', 'desc'], ['brand', 'asc'], ['kind', 'asc']])->values();
+    }
+
+    /** @param  array{brand_id: int, kind: string, risk: string}  $row */
+    public static function packageKey(array $row): string
+    {
+        return $row['brand_id'].'.'.$row['kind'].'.'.self::lane($row);
+    }
+
+    /**
+     * Onaydan sonra: what happened to the fixes approved in the last two weeks (Onaylandı → Siteye yazıldı → Doğrulandı),
+     * and how many came back to the desk because the write failed or was undone.
+     *
+     * @return array{queued: int, written: int, verified: int, returned: int}
+     */
+    public function pipeline(?int $brandId = null): array
+    {
+        $since = now()->subDays(self::TRACK_DAYS);
+        $latest = ExternalWriteAction::query()->whereNotNull('suggestion_id')->where('created_at', '>=', $since)
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->orderBy('id')->get(['suggestion_id', 'status'])->keyBy('suggestion_id');
+        $verified = Suggestion::query()->whereIn('id', $latest->keys())
+            ->whereIn('verification', [Suggestion::VERIFY_CONFIRMED, Suggestion::VERIFY_AUTO])->pluck('id')->flip();
+        $result = ['queued' => 0, 'written' => 0, 'verified' => 0, 'returned' => 0];
+        foreach ($latest as $suggestionId => $write) {
+            $stage = match (true) {
+                $verified->has($suggestionId) => 'verified',
+                in_array($write->status, ['succeeded', 'partial', 'undo_failed'], true) => 'written',
+                in_array($write->status, ['failed', 'undone', 'rejected', 'cancelled'], true) => 'returned',
+                default => 'queued',
+            };
+            $result[$stage]++;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Marka sağlığı: per brand the work left before it is perfect and what was done in the last two weeks.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array{brand_id: int, brand: string, open: int, done: int, percent: int}>
+     */
+    public function health(Collection $rows): Collection
+    {
+        $done = Suggestion::query()->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::TRACK_DAYS))
+            ->whereIn('brand_id', $rows->pluck('brand_id')->unique())->selectRaw('brand_id, count(*) as aggregate')->groupBy('brand_id')->pluck('aggregate', 'brand_id');
+
+        return $rows->groupBy('brand_id')->map(function (Collection $group, int $brandId) use ($done): array {
+            $finished = (int) ($done[$brandId] ?? 0);
+
+            return ['brand_id' => $brandId, 'brand' => (string) $group->first()['brand'], 'open' => $group->count(), 'done' => $finished,
+                'percent' => (int) round(100 * $finished / max(1, $finished + $group->count()))];
+        })->sortByDesc('open')->values();
+    }
+
+    /**
+     * Word-level difference of one "Şimdi" and one "Onaylanınca" line: each word with whether it changed.
+     *
+     * @return array{before: list<array{0: string, 1: bool}>, after: list<array{0: string, 1: bool}>}
+     */
+    public static function diff(string $before, string $after): array
+    {
+        $a = preg_split('/(\s+)/u', $before, -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $b = preg_split('/(\s+)/u', $after, -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        if (count($a) * count($b) > 160000) {
+            return ['before' => array_map(fn (string $w): array => [$w, true], $a), 'after' => array_map(fn (string $w): array => [$w, true], $b)];
+        }
+        $n = count($a);
+        $m = count($b);
+        $lcs = array_fill(0, $n + 1, array_fill(0, $m + 1, 0));
+        for ($i = $n - 1; $i >= 0; $i--) {
+            for ($j = $m - 1; $j >= 0; $j--) {
+                $lcs[$i][$j] = $a[$i] === $b[$j] ? $lcs[$i + 1][$j + 1] + 1 : max($lcs[$i + 1][$j], $lcs[$i][$j + 1]);
+            }
+        }
+        $keepA = [];
+        $keepB = [];
+        for ($i = 0, $j = 0; $i < $n && $j < $m;) {
+            if ($a[$i] === $b[$j]) {
+                $keepA[$i++] = true;
+                $keepB[$j++] = true;
+            } elseif ($lcs[$i + 1][$j] >= $lcs[$i][$j + 1]) {
+                $i++;
+            } else {
+                $j++;
+            }
+        }
+        $mark = fn (array $words, array $keep): array => array_map(fn (string $w, int $k): array => [$w, ! isset($keep[$k]) && trim($w) !== ''], $words, array_keys($words));
+
+        return ['before' => $mark($a, $keepA), 'after' => $mark($b, $keepB)];
     }
 
     /**

@@ -3704,9 +3704,14 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   GoogleAdsSuggestions::sendNegatives, ProfileFields::sendDescription), so they are logged and undoable. Edit title /
   description / profile text before approving (`action.edited_by_operator`). Reject with a reason (dismissed). "Son 7
   günde uygulananlar" lists the writes with "Geri al".
-- Seçim (2026-10-09, yakup "Tümünü seç yok?"): "Görünenleri seç (N)" ticks the rows on screen (first 300), "Filtredeki
-  tümünü seç (N)" every row the brand / kind / risk filter matches (shown when more than 300), "Seçimi temizle"; the
-  approve / reject buttons show the count. Changing a filter clears the selection so hidden rows are never approved.
+- Yeniden tasarım (2026-10-09, yakup "Hepsini yap"): rows are grouped into **iş paketleri** (one brand × one kind × one
+  lane; `RepairDesk::packages`) with a 3-row sample, "Hepsini onayla (N)" / "Hepsini yaptım", "Seç", "Hepsini reddet"
+  and "İçini aç". Three **şeritler** (`RepairDesk::LANES`): Onayla, bitsin (low), Bir göz at (medium / high), Senin elin
+  gerekiyor (manual). An opened package is a compact one-line list (ne · nerede · eski → yeni) that expands to the reason,
+  a word-level eski/yeni difference (`RepairDesk::diff`), edit and reject; keyboard J/K, X, Enter, A, R. Selection bar
+  sticks to the bottom with the count; "Bu şeritteki tümünü seç (N)"; changing brand / kind / lane clears the selection.
+  Top: **Marka sağlığı** (open work per brand, done in the last 14 days, bar; click filters) and **Onaydan sonra**
+  (`RepairDesk::pipeline`, last 14 days: Onaylandı, sırada → Siteye yazıldı → Doğrulandı, plus Hata, masaya döndü).
 - Hazırla: `moxdop:repair:prepare` (02:10) queues "AI ile yap" for up to 150 field fixes and 20 page-text fixes without a
   prepared value. Doğrula: `moxdop:repair:verify` (hourly :35) checks a website title / description fix 24 hours after
   the write against the page's stored title / description (confirmed / still seen); a fix whose writes all failed or were

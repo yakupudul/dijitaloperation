@@ -85,18 +85,43 @@ final class RepairDeskTest extends SiteTestCase
         $this->get(route('operator.repair'))->assertOk();
     }
 
-    public function test_select_all_picks_the_filtered_rows_and_a_filter_change_clears_the_selection(): void
+    public function test_rows_are_grouped_into_packages_and_lanes_approved_in_one_decision(): void
     {
-        $fields = $this->suggestion('Başlığı güçlendir', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
-        $alts = $this->suggestion('Alt metin', 'image_alt', ['site_id' => $this->site->id, 'images' => [['image_id' => 7, 'file' => 'a.jpg', 'alt' => 'Alt']]]);
+        $first = $this->suggestion('Başlık 1', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => ['seo_title' => 'Eski implant başlığı'], 'new' => ['seo_title' => 'Ankara implant başlığı']]]);
+        $second = $this->suggestion('Başlık 2', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'İkinci başlık']]]);
+        $content = $this->suggestion('Metin', 'missing_topic', ['proposal' => ['kind' => 'content', 'current' => [], 'new' => ['html' => '<p>Yeni bölüm</p>']]]);
 
-        $page = Livewire::test(RepairDeskPage::class)->assertSee('Görünenleri seç (2)')->assertDontSee('Filtredeki tümünü seç')
-            ->call('selectVisible')->assertSet('selected', [$fields->id, $alts->id])->assertSee('Seçilenleri onayla (2)')
-            ->call('clearSelection')->assertSet('selected', [])
-            ->set('kind', RepairDesk::SITE_FIELDS)->call('selectAllMatching')->assertSet('selected', [$fields->id]);
+        $desk = app(RepairDesk::class);
+        $packages = $desk->packages($desk->rows())->keyBy('key');
+        $fields = $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY;
+        $this->assertSame(2, $packages[$fields]['count']);
+        $this->assertSame(1, $packages[$this->brand->id.'.'.RepairDesk::SITE_CONTENT.'.'.RepairDesk::LANE_REVIEW]['high']);
 
-        $page->set('kind', '')->assertSet('selected', [])
-            ->call('selectAllMatching')->call('approveSelected')->assertSee('2 iş uygulamaya gönderildi');
+        $page = Livewire::test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_READY)->assertSee('2 · Başlık, açıklama')->assertDontSee('Yeni bölüm')
+            ->assertSee('Onayla, bitsin')->assertSee('Marka sağlığı')
+            ->call('togglePackage', $fields)->assertSee('Ankara implant başlığı')->assertSee('Klavye: J / K')
+            ->call('selectPackage', $fields)->assertSet('selected', [$first->id, $second->id])->assertSee('2 iş seçili')
+            ->set('lane', RepairDesk::LANE_REVIEW)->assertSet('selected', [])->assertSet('open', '')->assertSee('paketi açıp tek tek onaylanır');
+
+        $page->set('lane', RepairDesk::LANE_READY)->call('approvePackage', $fields)->assertSee('2 iş uygulamaya gönderildi')
+            ->assertSee('Onaylandı, sırada');
+        $this->assertSame(Suggestion::OPEN, $content->fresh()->status);
+        $this->assertSame(['queued' => 2, 'written' => 0, 'verified' => 0, 'returned' => 0], $desk->pipeline());
+        ExternalWriteAction::query()->where('suggestion_id', $first->id)->update(['status' => 'failed']);
+        $this->assertSame(1, $desk->pipeline()['returned']);
+
+        Livewire::test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_REVIEW)->call('rejectPackage', $this->brand->id.'.'.RepairDesk::SITE_CONTENT.'.'.RepairDesk::LANE_REVIEW)
+            ->assertSee('1 öneri reddedildi');
+        $this->assertSame(Suggestion::DISMISSED, $content->fresh()->status);
+    }
+
+    public function test_word_difference_marks_only_the_changed_words(): void
+    {
+        $diff = RepairDesk::diff('Başlık: Eski implant başlığı', 'Başlık: Ankara implant başlığı');
+
+        $this->assertSame([['Eski', true]], array_values(array_filter($diff['before'], fn (array $w): bool => $w[1])));
+        $this->assertSame([['Ankara', true]], array_values(array_filter($diff['after'], fn (array $w): bool => $w[1])));
+        $this->assertSame('Başlık: Ankara implant başlığı', implode('', array_column($diff['after'], 0)));
     }
 
     public function test_nightly_preparation_queues_unprepared_site_fixes_and_the_digest_counts_ready_ones(): void
