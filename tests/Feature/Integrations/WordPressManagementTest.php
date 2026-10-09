@@ -192,6 +192,6 @@ final class WordPressManagementTest extends TestCase
         $this->assertStringContainsString("get_option('moxdop_connector_login_user', 0)", $management);
         $this->assertStringContainsString('const LOGIN_TTL = 60;', $management);
         $this->assertStringContainsString('delete_transient($key);', $management, 'login links are single-use');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.11.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.12.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
     }
 }

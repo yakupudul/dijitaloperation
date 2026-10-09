@@ -2021,7 +2021,11 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   listesine değil sitedeki SEO eklentisine yazar (Rank Math, SEOPress Pro, Yoast Premium ya da Redirection; Rank Math /
   SEOPress yönlendirme özelliği kapalıysa açılır). 2026-10-06 (yakup): bizim eklentinin kendi listesine artık hiç yazılmaz;
   uygun SEO eklentisi yoksa iş hata ile açık kalır, listede eskiden kalanlar SEO eklentisine taşınır. Yönlendirilen sayfa
-  silinmez, taslağa alınır (geri alınabilir).
+  silinmez, taslağa alınır (geri alınabilir). **2026-10-09 (yakup, bu kuralı tersine çevirdi): "Her senaryoda sadece
+  eklentiye yazılsın, SEO eklentisine değil."** Eklenti 1.12.0'dan itibaren her 301 (birleştirme ve tekil yönlendirme)
+  yalnızca MoxDOP eklentisinin kendi listesine yazılır; WP › Araçlar › MoxDOP yönlendirmeleri ekranında görünür, oradan
+  kaldırılabilir. SEO eklentisine yazılmaz, onların yönlendirme modülleri açılmaz; eskiden SEO eklentisine yazılanlar
+  orada kalır, geri alma onları da siler. 301 yazmak için en az eklenti 1.12.0 gerekir.
   Tek tek ya da toplu (seçilenler / karttaki tüm 301'ler) yapılır. İş, site onaylayınca "yapıldı" olur; site hata
   verirse hata yazısıyla yeniden açılır. Kurallar: hizmet / lokasyon sayfası blog / S&C sayfasına 301'lenmez; kümenin
   gösterimlerinin çoğunu alan sayfa 301'lenmez ("Ana sayfayı gözden geçir", "Ana sayfa bu olsun" düğmesi); bir sayfa

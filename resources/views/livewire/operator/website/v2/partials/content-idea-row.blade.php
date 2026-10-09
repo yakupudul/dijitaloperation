@@ -93,7 +93,7 @@
                         <span class="text-amber-800 dark:text-amber-200">{{ $overlap->reason }}</span>
                         @if (in_array($overlap->status, ['open', 'recheck'], true))
                             @if (data_get($overlap->action, 'recommendation') === \App\Services\Site\ClusterOverlaps::REDIRECT)
-                                <button type="button" wire:click="mergeOverlap({{ $overlap->id }})" wire:confirm="Sayfa ana sayfaya 301 ile yönlendirilsin ve taslağa alınsın mı? (SEO eklentisine yazılır, geri alınabilir)" class="{{ $btn }}" data-merge-overlap>301 ile birleştir</button>
+                                <button type="button" wire:click="mergeOverlap({{ $overlap->id }})" wire:confirm="Sayfa ana sayfaya 301 ile yönlendirilsin ve taslağa alınsın mı? (MoxDOP eklentisine yazılır, geri alınabilir)" class="{{ $btn }}" data-merge-overlap>301 ile birleştir</button>
                             @endif
                             <button type="button" wire:click="keepOverlap({{ $overlap->id }})" class="{{ $ghost }}" data-keep-overlap>Ayrı kalsın</button>
                         @else

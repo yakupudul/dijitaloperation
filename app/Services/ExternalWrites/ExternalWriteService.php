@@ -244,7 +244,7 @@ final class ExternalWriteService
         if (count($changes) > 100) {
             throw ValidationException::withMessages(['write' => 'Tek seferde en fazla 100 düzeltme gönderilebilir.']);
         }
-        $this->fixConnection($site);
+        $this->fixConnection($site, collect($changes)->contains(fn (array $c): bool => in_array($c['type'], ['redirect', 'merge_redirect'], true)));
 
         return $this->queue(ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_SITE_FIX,
@@ -805,7 +805,8 @@ final class ExternalWriteService
         }
     }
 
-    private function fixConnection(?DigitalAsset $site): void
+    /** @param  bool  $redirects  the batch writes a 301: it is kept by the connector itself, which needs 1.12.0 */
+    private function fixConnection(?DigitalAsset $site, bool $redirects = false): void
     {
         try {
             $connection = app(WordPressDraftWriter::class)->connection((int) $site?->id);
@@ -815,6 +816,10 @@ final class ExternalWriteService
         $version = (string) data_get($connection->config, 'plugin_version', '0.0.0');
         if (version_compare($version, (string) config('moxdop-wordpress.fixes_min_plugin_version', '1.4.0'), '<')) {
             throw ValidationException::withMessages(['write' => 'WordPress Connector '.$version.'; site düzeltmeleri için en az '.config('moxdop-wordpress.fixes_min_plugin_version', '1.4.0').' gerekli. Eklentiyi güncelle ve eklenti ayarlarında "SEO fixes" / "Content updates" seçeneğini aç.']);
+        }
+        $minimum = (string) config('moxdop-wordpress.merge_redirect_min_plugin_version', '1.12.0');
+        if ($redirects && version_compare($version, $minimum, '<')) {
+            throw ValidationException::withMessages(['write' => 'WordPress Connector '.$version.'; 301 yalnızca MoxDOP eklentisine yazılır, bunun için en az '.$minimum.' gerekli. Web siteleri › eklentiyi güncelle.']);
         }
     }
 

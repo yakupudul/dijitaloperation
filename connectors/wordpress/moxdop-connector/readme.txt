@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.11.0
+Stable tag: 1.12.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.12.0 =
+* Every approved 301 (`redirect`, `merge_redirect`) is kept by the connector only, never written into an SEO plugin, and listed under Tools › MoxDOP yönlendirmeleri (each row can be removed). It is served before the SEO plugins redirect. 301s written into an SEO plugin before 1.12.0 stay there and are still removed by undo; the connector no longer switches SEO plugin redirect modules on.
 
 = 1.11.0 =
 * Drafts (`/drafts`) accept `author` (login or e-mail of a user who can write posts: the brand's expert becomes the post author; otherwise the first administrator stays) and `schema` (JSON-LD, for example the article's FAQPage), kept in `_moxdop_schema` and printed in the page head like approved schema fixes.

@@ -72,7 +72,6 @@ final class MoxDOP_Connector_Fixes
     {
         add_action('template_redirect', [$this, 'redirect'], 1);
         add_action('parse_request', [$this, 'llms_txt'], 0);
-        add_action('admin_init', [$this, 'maybe_move_own_redirects']);
         add_action('wp_head', [$this, 'head'], 2);
         add_filter('pre_get_document_title', [$this, 'document_title'], 20);
         add_filter('get_canonical_url', [$this, 'canonical'], 20, 2);
@@ -100,9 +99,6 @@ final class MoxDOP_Connector_Fixes
             return new WP_Error('moxdop_invalid_body', 'changes[] is required.', ['status' => 400]);
         }
         $moved = null;
-        if (array_intersect(['redirect', 'merge_redirect'], array_map(fn ($c) => is_array($c) ? (string) ($c['type'] ?? '') : '', $changes)) !== []) {
-            $moved = $this->move_own_redirects();
-        }
         $results = [];
         foreach ($changes as $change) {
             $results[] = is_array($change) ? $this->apply_one($change) : ['ok' => false, 'error' => 'invalid change'];
@@ -381,7 +377,7 @@ final class MoxDOP_Connector_Fixes
                 return $added;
             }
         } else {
-            $this->last_provider = $this->redirect_provider();
+            $this->last_provider = 'moxdop';
         }
         $status = (string) ($value['status'] ?? '');
         if ($target['post_id'] > 0 && $status !== '' && get_post_status($target['post_id']) !== $status) {
@@ -396,29 +392,17 @@ final class MoxDOP_Connector_Fixes
     }
 
     /**
-     * 1.10.0: the SEO plugin that holds redirects on this site — Rank Math (its Redirections module is switched on when
-     * it is off), SEOPress Pro (its Redirections feature likewise), Yoast SEO Premium, then the Redirection plugin.
-     * 'none' when none of them can: the connector no longer keeps new redirects in its own list.
+     * The SEO plugin that may still hold a 301 MoxDOP wrote before 1.12.0 (read and removed on undo only; new
+     * redirects always go into the connector's own list).
      */
     private function redirect_provider()
     {
         global $wpdb;
         if (defined('RANK_MATH_VERSION') && class_exists('RankMath\\Helper')
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix.'rank_math_redirections')) === $wpdb->prefix.'rank_math_redirections') {
-            if (! (method_exists('RankMath\\Helper', 'is_module_active') && Helper::is_module_active('redirections'))) {
-                $this->enable_rank_math_redirections();
-            }
-
             return 'rank_math';
         }
         if (defined('SEOPRESS_PRO_VERSION') && post_type_exists('seopress_404')) {
-            $toggle = get_option('seopress_toggle', []);
-            if (is_array($toggle) && ($toggle['toggle-404'] ?? '') !== '1') {
-                $toggle['toggle-404'] = '1';
-                update_option('seopress_toggle', $toggle);
-                $this->enabled_module = 'seopress_redirections';
-            }
-
             return 'seopress';
         }
         if (class_exists('WPSEO_Redirect_Manager') && class_exists('WPSEO_Redirect')) {
@@ -431,24 +415,13 @@ final class MoxDOP_Connector_Fixes
         return 'none';
     }
 
-    private function enable_rank_math_redirections()
-    {
-        if (method_exists('RankMath\\Helper', 'update_modules')) {
-            Helper::update_modules(['redirections' => 'on']);
-        } else {
-            $modules = get_option('rank_math_modules', []);
-            $modules = is_array($modules) ? $modules : [];
-            if (! in_array('redirections', $modules, true)) {
-                $modules[] = 'redirections';
-                update_option('rank_math_modules', $modules);
-            }
-        }
-        $this->enabled_module = 'rank_math_redirections';
-    }
-
-    /** Current 301 target of the path: the SEO plugin's redirect, else one the connector kept itself before 1.10.0. */
+    /** Current 301 target of the path: the connector's own list, else a redirect MoxDOP wrote into the SEO plugin before 1.12.0. */
     private function redirect_target(array $target)
     {
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+        if ((string) ($redirects[$target['from']] ?? '') !== '') {
+            return (string) $redirects[$target['from']];
+        }
         $found = '';
         try {
             switch ($this->redirect_provider()) {
@@ -472,57 +445,36 @@ final class MoxDOP_Connector_Fixes
         } catch (Throwable $e) {
             $found = '';
         }
-        if ($found !== '') {
-            return $found;
-        }
-        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
 
-        return (string) ($redirects[$target['from']] ?? '');
+        return $found;
     }
 
+    /**
+     * 1.12.0 (yakup 2026-10-09): every 301 MoxDOP writes goes into the connector's own list only, never into an SEO
+     * plugin, and is listed under Araçlar › MoxDOP yönlendirmeleri. It is served before the SEO plugins redirect.
+     */
     private function add_redirect(array $target, $to)
     {
-        $provider = $this->redirect_provider();
-        $this->last_provider = $provider;
-        try {
-            switch ($provider) {
-                case 'rank_math':
-                    global $wpdb;
-                    $now = current_time('mysql');
-                    $ok = $wpdb->insert($wpdb->prefix.'rank_math_redirections', [
-                        'sources' => maybe_serialize([['ignore' => '', 'pattern' => trim($target['source'], '/'), 'comparison' => 'exact']]),
-                        'url_to' => $to, 'header_code' => 301, 'hits' => 0, 'status' => 'active', 'created' => $now, 'updated' => $now,
-                    ]);
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+        $redirects[$target['from']] = (string) $to;
+        update_option(self::REDIRECTS_OPTION, $redirects, true);
+        $this->last_provider = 'moxdop';
 
-                    return $ok ? true : new WP_Error('bad', 'Rank Math redirect could not be saved');
-                case 'seopress':
-                    $id = wp_insert_post(['post_type' => 'seopress_404', 'post_status' => 'publish', 'post_title' => $this->seopress_origin($target)], true);
-                    if (is_wp_error($id)) {
-                        return $id;
-                    }
-                    update_post_meta($id, '_seopress_redirections_enabled', 'yes');
-                    update_post_meta($id, '_seopress_redirections_type', '301');
-                    update_post_meta($id, '_seopress_redirections_value', $to);
-                    update_post_meta($id, '_seopress_redirections_param', 'exclude');
-                    update_post_meta($id, '_seopress_redirections_logged_status', 'both');
-                    update_post_meta($id, '_moxdop_redirect', '1');
+        return true;
+    }
 
-                    return true;
-                case 'yoast':
-                    $ok = (new WPSEO_Redirect_Manager('plain'))->create_redirect(new WPSEO_Redirect($this->yoast_origin($target), $this->relative($to), 301, 'plain'));
+    /** @return array<string, string> the connector's own 301 list (old path => new URL) */
+    public static function own_redirects()
+    {
+        return array_map('strval', (array) get_option(self::REDIRECTS_OPTION, []));
+    }
 
-                    return $ok ? true : new WP_Error('bad', 'Yoast redirect could not be saved');
-                case 'redirection':
-                    $item = Red_Item::create(['url' => $target['source'], 'action_data' => ['url' => $to], 'action_type' => 'url', 'action_code' => 301,
-                        'match_type' => 'url', 'regex' => false, 'group_id' => $this->redirection_group()]);
-
-                    return is_wp_error($item) ? $item : true;
-            }
-        } catch (Throwable $e) {
-            return new WP_Error('bad', $provider.' redirect failed: '.$e->getMessage());
-        }
-
-        return new WP_Error('no_redirect_plugin', 'no SEO plugin can hold redirects on this site (Rank Math, SEOPress Pro, Yoast SEO Premium or Redirection needed)');
+    /** Removes one entry of the connector's own 301 list (Araçlar › MoxDOP yönlendirmeleri). */
+    public static function remove_own_redirect($from)
+    {
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+        unset($redirects[(string) $from]);
+        update_option(self::REDIRECTS_OPTION, $redirects, true);
     }
 
     /** Removes the path's redirect from the SEO plugin and from the connector's old list (both, so undo always works). */
@@ -573,46 +525,6 @@ final class MoxDOP_Connector_Fixes
         }
 
         return true;
-    }
-
-    /**
-     * 1.10.0: redirects the connector kept in its own list move into the site's SEO plugin (once per version, from
-     * wp-admin, and before every /fixes request). Entries that cannot move stay and keep working.
-     *
-     * @return array{moved: int, left: int, provider: string}
-     */
-    public function move_own_redirects()
-    {
-        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
-        if ($redirects === []) {
-            return ['moved' => 0, 'left' => 0, 'provider' => ''];
-        }
-        $provider = $this->redirect_provider();
-        if ($provider === 'none') {
-            return ['moved' => 0, 'left' => count($redirects), 'provider' => $provider];
-        }
-        $moved = 0;
-        foreach ($redirects as $from => $to) {
-            $target = ['from' => (string) $from, 'source' => (string) $from, 'post_id' => 0];
-            $current = $this->redirect_target(['from' => '', 'source' => (string) $from, 'post_id' => 0]);
-            $added = $current === (string) $to ? true : ($current === '' ? $this->add_redirect($target, (string) $to) : new WP_Error('bad', 'the SEO plugin already redirects this path elsewhere'));
-            if ($added === true) {
-                unset($redirects[$from]);
-                $moved++;
-            }
-        }
-        update_option(self::REDIRECTS_OPTION, $redirects, true);
-
-        return ['moved' => $moved, 'left' => count($redirects), 'provider' => $provider];
-    }
-
-    public function maybe_move_own_redirects()
-    {
-        if (get_option('moxdop_connector_redirects_moved') === MOXDOP_CONNECTOR_VERSION || ! current_user_can('manage_options')) {
-            return;
-        }
-        $this->move_own_redirects();
-        update_option('moxdop_connector_redirects_moved', MOXDOP_CONNECTOR_VERSION, false);
     }
 
     /** SEOPress Pro keeps one "seopress_404" post per source path, titled with the path without slashes. */

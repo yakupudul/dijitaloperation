@@ -177,7 +177,7 @@ final class WorkDesk
                 $urls = array_unique(array_map(fn (array $r): string => (string) $r['url'], $items));
                 $overlap = ($items[0]['overlap'] ?? null) !== null;
                 $group['who'] = ! $overlap && count($whos) === 1 ? (string) $whos[0] : null;
-                $group['about'] = $overlap ? 'Aynı arama ihtiyacına birden çok sayfa yanıt veriyor. «301 öneriliyor» olan sayfa ana sayfaya yönlendirilir: yönlendirme sitenin SEO eklentisine yazılır, sayfa silinmez, taslağa alınır (geri alınabilir). «Ayrıştır» olanın metni kendi ihtiyacına odaklanır; «Ana sayfayı gözden geçir» olanda yanlış olan ana sayfa seçimidir. Çakışma kalkınca iş kendisi kapanır.' : $group['who'];
+                $group['about'] = $overlap ? 'Aynı arama ihtiyacına birden çok sayfa yanıt veriyor. «301 öneriliyor» olan sayfa ana sayfaya yönlendirilir: yönlendirme sitedeki MoxDOP eklentisine yazılır (WP › Araçlar › MoxDOP yönlendirmeleri), sayfa silinmez, taslağa alınır (geri alınabilir). «Ayrıştır» olanın metni kendi ihtiyacına odaklanır; «Ana sayfayı gözden geçir» olanda yanlış olan ana sayfa seçimidir. Çakışma kalkınca iş kendisi kapanır.' : $group['who'];
                 $group['mergeable'] = $overlap ? array_values(array_map(fn (array $r): int => (int) $r['id'], array_filter($items, fn (array $r): bool => in_array('merge', $r['actions'], true)))) : [];
                 $group['url'] = count($urls) === 1 && $urls[0] !== '' ? $items[0]['url'] : null;
                 $group['url_label'] = $group['url'] !== null ? ($items[0]['external'] ? $items[0]['url_label'] : 'Aç →') : null;
@@ -297,7 +297,7 @@ final class WorkDesk
             'gap_fix' => app(BrandGaps::class)->apply($suggestion, $user),
             'audit_fix' => app(BrandAudit::class)->fix($suggestion, $user),
             'audit_accept' => tap('Doğru kabul edildi; bu bulgular bir daha gelmez.', fn () => app(BrandAudit::class)->accept($suggestion, $user)),
-            'merge' => tap('301 siteye gönderildi: yönlendirme SEO eklentisine yazılır, sayfa taslağa alınır (geri alınabilir).', fn () => app(ClusterOverlaps::class)->redirect($suggestion, $user)),
+            'merge' => tap('301 siteye gönderildi: yönlendirme MoxDOP eklentisine yazılır, sayfa taslağa alınır (geri alınabilir).', fn () => app(ClusterOverlaps::class)->redirect($suggestion, $user)),
             'make_main' => tap('Kümenin ana sayfası bu sayfa yapıldı; çakışmalar yeniden hesaplandı.', fn () => app(ClusterOverlaps::class)->makeMain($suggestion, $user)),
             'keep' => tap('Ayrı kalsın; çakışma değişmedikçe geri gelmez.', fn () => app(ClusterOverlaps::class)->keep($suggestion, $user)),
             'send_draft' => tap('WordPress taslağı kuyruğa alındı (geri alınabilir).', fn () => app(ContentPlanner::class)->sendDraft($suggestion, $user)),

@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'connector_version' => '1.11.0',
+    'connector_version' => '1.12.0',
     // 1.6.0: sayfa önbelleği dışa aktarımı (/page-cache) — önbellek eklentisinin diske yazdığı HTML okunur, sayfa işlenmez.
     'page_cache_min_plugin_version' => '1.6.0',
     // 1.7.0: rendered content of published pages (/content-export) replaces most page reads over HTTP.
@@ -18,9 +18,9 @@ return [
     // sitenin "Claude site kurulumu" anahtarı açık olmalı.
     'build_min_plugin_version' => '1.8.0',
     'build_timeout_seconds' => 55,
-    // 1.9.0: "301 ile birleştir" — yönlendirme sitenin SEO eklentisine (Rank Math, Yoast Premium, Redirection; yoksa
-    // eklentinin kendi listesine) yazılır, yönlendirilen sayfa silinmez, taslağa alınır. Geri alınabilir.
-    'merge_redirect_min_plugin_version' => '1.10.0',
+    // 1.12.0 (yakup 2026-10-09): "301 ile birleştir" ve her 301 yalnızca MoxDOP eklentisinin kendi listesine yazılır
+    // (WP › Araçlar › MoxDOP yönlendirmeleri), SEO eklentisine yazılmaz; sayfa silinmez, taslağa alınır. Geri alınabilir.
+    'merge_redirect_min_plugin_version' => '1.12.0',
     // Kendini güncelleme için paket bağlantısı bu kadar dakika geçerli.
     'package_link_minutes' => 15,
     'pairing_ttl_minutes' => 15,

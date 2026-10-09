@@ -38,10 +38,10 @@
                         <div class="flex flex-wrap items-center gap-2 text-xs">
                             @php $mergeable = $group['mergeable'] ?? []; $ticked = count(array_intersect(array_map('intval', $selected), $mergeable)); @endphp
                             @if($view === 'acik' && $ticked > 0)
-                                <button type="button" wire:click="mergeSelected" wire:confirm="Seçilen {{ $ticked }} sayfa ana sayfalarına 301 ile yönlendirilsin ve taslağa alınsın mı? (SEO eklentisine yazılır, geri alınabilir)" class="h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600" data-merge-selected>Seçilenleri 301 ile birleştir ({{ $ticked }})</button>
+                                <button type="button" wire:click="mergeSelected" wire:confirm="Seçilen {{ $ticked }} sayfa ana sayfalarına 301 ile yönlendirilsin ve taslağa alınsın mı? (MoxDOP eklentisine yazılır, geri alınabilir)" class="h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600" data-merge-selected>Seçilenleri 301 ile birleştir ({{ $ticked }})</button>
                             @endif
                             @if($view === 'acik' && count($mergeable) > 1)
-                                <button type="button" wire:click="mergeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ count($mergeable) }} «301 öneriliyor» sayfası ana sayfalarına yönlendirilsin ve taslağa alınsın mı? (SEO eklentisine yazılır, geri alınabilir)" class="{{ $ghost }}" data-merge-group>Tüm 301'leri birleştir ({{ count($mergeable) }})</button>
+                                <button type="button" wire:click="mergeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ count($mergeable) }} «301 öneriliyor» sayfası ana sayfalarına yönlendirilsin ve taslağa alınsın mı? (MoxDOP eklentisine yazılır, geri alınabilir)" class="{{ $ghost }}" data-merge-group>Tüm 301'leri birleştir ({{ count($mergeable) }})</button>
                             @endif
                             @if($view === 'acik' && $group['snoozable'] > 1)
                                 <button type="button" wire:click="snoozeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ $group['snoozable'] }} iş 7 gün ertelensin mi?{{ $group['snoozable'] < $group['count'] ? ' Onaylanmış işler ertelenmez.' : '' }}" class="{{ $ghost }}" data-snooze-group>Hepsini 7 gün ertele ({{ $group['snoozable'] }})</button>

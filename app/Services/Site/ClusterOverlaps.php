@@ -220,7 +220,7 @@ final class ClusterOverlaps
             }
             $error = (string) ($result['error'] ?? $write->error ?? 'site yanıt vermedi');
             if (str_contains($error, 'no SEO plugin can hold redirects')) {
-                $error = 'Sitede yönlendirme alanı olan SEO eklentisi yok (Rank Math, SEOPress Pro, Yoast SEO Premium ya da Redirection gerekli); 301 MoxDOP eklentisine yazılmaz.';
+                $error = 'Sitedeki MoxDOP eklentisi eski; 1.12.0 ve sonrası 301\'i kendi listesine yazar. Web siteleri › eklentiyi güncelle, sonra yeniden onayla.';
             }
             $suggestion->forceFill(['status' => Suggestion::OPEN, 'resolved_at' => null, 'action' => array_merge($action, ['merge_error' => mb_substr($error, 0, 300)])])->save();
         }
@@ -344,7 +344,7 @@ final class ClusterOverlaps
         $version = (string) data_get($connection->config, 'plugin_version', '0.0.0');
         $minimum = (string) config('moxdop-wordpress.merge_redirect_min_plugin_version', '1.9.0');
         if (version_compare($version, $minimum, '<')) {
-            throw ValidationException::withMessages(['write' => $site->name.': WordPress Connector '.$version.'; 301 ile birleştirme (SEO eklentisine yönlendirme + sayfayı taslağa alma) için en az '
+            throw ValidationException::withMessages(['write' => $site->name.': WordPress Connector '.$version.'; 301 ile birleştirme (yönlendirme yalnızca MoxDOP eklentisine yazılır, sayfa taslağa alınır) için en az '
                 .$minimum.' gerekli. Bağlayıcı ekranından eklentiyi güncelle.']);
         }
     }

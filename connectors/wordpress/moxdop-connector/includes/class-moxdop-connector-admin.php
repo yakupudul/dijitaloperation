@@ -17,6 +17,7 @@ final class MoxDOP_Connector_Admin
         add_action('admin_post_moxdop_connector_pair', [$this, 'pair']);
         add_action('admin_post_moxdop_connector_disconnect', [$this, 'disconnect']);
         add_action('admin_post_moxdop_connector_management', [$this, 'save_management']);
+        add_action('admin_post_moxdop_connector_redirect_remove', [$this, 'remove_redirect']);
     }
 
     public function menu()
@@ -28,6 +29,69 @@ final class MoxDOP_Connector_Admin
             'moxdop-connector',
             [$this, 'render']
         );
+        add_management_page(
+            'MoxDOP yönlendirmeleri',
+            'MoxDOP yönlendirmeleri',
+            'manage_options',
+            'moxdop-redirects',
+            [$this, 'render_redirects']
+        );
+    }
+
+    /**
+     * 1.12.0: every 301 MoxDOP writes is kept by the connector and listed here (Araçlar › MoxDOP yönlendirmeleri).
+     * The old page is a draft; removing a row here stops that redirect at once.
+     */
+    public function render_redirects()
+    {
+        if (! current_user_can('manage_options')) {
+            return;
+        }
+        $redirects = MoxDOP_Connector_Fixes::own_redirects();
+        ksort($redirects);
+        $removed = isset($_GET['moxdop_notice']) && sanitize_key(wp_unslash($_GET['moxdop_notice'])) === 'redirect_removed';
+        ?>
+        <div class="wrap">
+            <h1>MoxDOP yönlendirmeleri</h1>
+            <p>MoxDOP'ta onaylanan bütün 301 yönlendirmeleri burada tutulur; SEO eklentisine yazılmaz. Eski sayfa taslağa alınır, ziyaretçi ve Google yeni sayfaya gider. Bir satırı kaldırırsan o yönlendirme hemen durur.</p>
+            <?php if ($removed) { ?>
+                <div class="notice notice-success"><p>Yönlendirme kaldırıldı.</p></div>
+            <?php } ?>
+            <table class="widefat striped" style="max-width: 1000px;">
+                <thead><tr><th>Eski adres</th><th>301 → Yeni adres</th><th></th></tr></thead>
+                <tbody>
+                <?php if ($redirects === []) { ?>
+                    <tr><td colspan="3">Henüz yönlendirme yok.</td></tr>
+                <?php } ?>
+                <?php foreach ($redirects as $from => $to) { ?>
+                    <tr>
+                        <td><a href="<?php echo esc_url(home_url($from)); ?>" target="_blank" rel="noopener"><?php echo esc_html($from); ?></a></td>
+                        <td><a href="<?php echo esc_url($to); ?>" target="_blank" rel="noopener"><?php echo esc_html($to); ?></a></td>
+                        <td>
+                            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('Bu yönlendirme kaldırılsın mı?');">
+                                <input type="hidden" name="action" value="moxdop_connector_redirect_remove">
+                                <input type="hidden" name="from" value="<?php echo esc_attr($from); ?>">
+                                <?php wp_nonce_field('moxdop_connector_redirect_remove'); ?>
+                                <?php submit_button('Kaldır', 'small', 'submit', false); ?>
+                            </form>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+
+    public function remove_redirect()
+    {
+        if (! current_user_can('manage_options')) {
+            wp_die('Forbidden', '', ['response' => 403]);
+        }
+        check_admin_referer('moxdop_connector_redirect_remove');
+        MoxDOP_Connector_Fixes::remove_own_redirect(isset($_POST['from']) ? sanitize_text_field(wp_unslash($_POST['from'])) : '');
+        wp_safe_redirect(add_query_arg('moxdop_notice', 'redirect_removed', admin_url('tools.php?page=moxdop-redirects')));
+        exit;
     }
 
     public function render()
