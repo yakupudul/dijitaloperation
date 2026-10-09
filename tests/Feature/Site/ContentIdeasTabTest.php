@@ -127,6 +127,31 @@ final class ContentIdeasTabTest extends SiteTestCase
         $this->assertSame($lead->id, $usage->fresh()->page_id);
     }
 
+    public function test_an_extra_idea_is_matched_against_the_main_language_row_of_its_cluster(): void
+    {
+        $this->enableAi();
+        $this->page('/blog/implant-sonrasi-beslenme/', 'İmplant sonrası beslenme', ['category' => 'blog']);
+        $main = $this->page('/implant/', 'İmplant Tedavisi', ['category' => 'hizmet']);
+        $english = $this->page('/en/dental-implant/', 'Dental implant', ['category' => 'hizmet', 'language' => 'en']);
+        $cluster = $this->cluster($this->implant, 'İmplant tedavisi', ['implant tedavisi', 'implant sonrası ne yenir']);
+        // The English row is created first (lower id); the Turkish one is the site's main language.
+        BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $cluster->id, 'website_asset_id' => $this->site->id, 'page_id' => $english->id, 'state' => 'sufficient', 'language' => 'en']);
+        BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $cluster->id, 'website_asset_id' => $this->site->id, 'page_id' => $main->id, 'state' => 'sufficient', 'language' => 'tr']);
+        ContentIdea::query()->create(['cluster_id' => $cluster->id, 'title' => 'İmplant sonrası beslenme rehberi', 'title_key' => 'implant sonrasi beslenme rehberi', 'type' => 'guide',
+            'target_queries' => [['text' => 'implant sonrası ne yenir', 'in_cluster' => true]], 'outline' => ['İlk gün', 'İlk hafta', 'Kaçınılacaklar'], 'status' => 'active']);
+        $calls = [];
+        ClusterMatchAgent::fake(function (string $prompt) use (&$calls): array {
+            $calls[] = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+
+            return ['clusters' => []];
+        });
+
+        app(ClusterAudit::class)->ideas($this->site, $this->brand);
+
+        $this->assertSame('https://panorama.com.tr/implant/', $calls[0]['clusters'][0]['main_page_url'], 'the Turkish row, not the English one created first');
+        $this->assertNotContains('https://panorama.com.tr/implant/', array_column($calls[0]['pages'], 'url'), 'the main idea\'s page is never a candidate');
+    }
+
     public function test_seo_analysis_builds_a_checked_recipe_and_ai_ile_gelistir_and_uret_apply_it(): void
     {
         $this->enableAi();

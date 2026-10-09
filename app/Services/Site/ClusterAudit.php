@@ -263,8 +263,12 @@ final class ClusterAudit
      */
     public function ideas(DigitalAsset $site, Brand $brand, ?BrandContentIdea $only = null): ?int
     {
+        // The cluster's row in the site's main language first, then the language-less row, then any other language
+        // (the /en/ row is created first but never decides which page answers the main idea).
+        $primary = SiteScope::primaryLanguage($site);
         $mainRows = BrandClusterPage::query()->with('cluster.service.primaryName')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->where('excluded', false)->orderByRaw('CASE WHEN language IS NULL THEN 1 ELSE 0 END')->orderBy('id')->get()
+            ->where('excluded', false)->orderBy('id')->get()
+            ->sortBy(fn (BrandClusterPage $row): array => [$primary !== null && $row->language === $primary ? 0 : ($row->language === null ? 1 : 2), (int) $row->id])
             ->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null)->unique('cluster_id')->keyBy('cluster_id');
         $ideas = ContentIdea::query()->where('status', 'active')->whereIn('cluster_id', $mainRows->keys()->all() ?: [0])
             ->when($only !== null, fn ($q) => $q->whereKey($only->content_idea_id))->orderBy('id')->get();
@@ -273,7 +277,7 @@ final class ClusterAudit
         }
         $usages = $ideas->map(fn (ContentIdea $idea): BrandContentIdea => BrandContentIdea::query()->firstOrCreate(
             ['brand_id' => $brand->id, 'content_idea_id' => $idea->id, 'website_asset_id' => $site->id])->setRelation('idea', $idea));
-        $pages = $this->candidatePages($site, SiteScope::primaryLanguage($site));
+        $pages = $this->candidatePages($site, $primary);
         $pageWords = $this->pageWords($pages);
         $matched = 0;
         foreach ($usages->groupBy(fn (BrandContentIdea $u): int => (int) $mainRows[$u->idea->cluster_id]->cluster->service_id) as $serviceId => $group) {

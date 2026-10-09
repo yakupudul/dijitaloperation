@@ -10,6 +10,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\ChangeApplier;
 use App\Services\Site\SiteScope;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
@@ -28,7 +29,7 @@ use Throwable;
  * What the system can fix through the approved site-fix path (ADR-070) arrives on the Onarım masası ready to approve:
  * a service page Google cannot index because of noindex (noindex off), an internal link or a Search Console address
  * answering 404 (301 to the closest live page, kept by the MoxDOP connector) and duplicate pages without a canonical
- * (their own address as canonical). Pages Google leaves out of the index get "link to it" suggestions on related pages
+ * (their own address as canonical, only when no SEO plugin prints one and Google chose no other page). Pages Google leaves out of the index get "link to it" suggestions on related pages
  * and service pages with traffic but no conversion get a "Dönüşüm adımı" suggestion; both are prepared by "AI ile yap"
  * overnight and approved on the desk (yakup 2026-10-09: "Otomatik olmuyor mu?"). What only the operator can do on the site or the hosting
  * (headers, speed settings, SEO-plugin archive settings, Search Console) arrives as a "Senin yapacağın" row with the
@@ -97,6 +98,9 @@ final class WebHealthAudit
     /** Hosts that refuse bots or are not pages (never reported as broken). */
     private const string SKIP_HOSTS = '/(^|\.)(facebook|instagram|linkedin|twitter|x|youtube|youtu|tiktok|wa|whatsapp|google|goo|maps|t)\.(com|be|me|gl|co)$/';
 
+    /** @var array<int, array{status: array<string, int>, sources: array<string, array{url: string, from: array<string, bool>}>}|null> internal links to dead addresses, per site (one audit) */
+    private array $deadLinks = [];
+
     public function __construct(private readonly ExternalWriteService $writes) {}
 
     /** @return array{sites: int, opened: int, closed: int} */
@@ -126,6 +130,7 @@ final class WebHealthAudit
         if (! $brand instanceof Brand) {
             return ['opened' => 0, 'closed' => 0];
         }
+        $this->deadLinks = [];
         $items = [];
         $ran = [];
         foreach (array_keys(self::CHECKS) as $check) {
@@ -298,19 +303,37 @@ final class WebHealthAudit
         }
         $pages = $this->pages($site);
         $live = $pages->filter(fn (Page $p): bool => (bool) $p->is_indexable);
+        $dead = $this->deadLinks($site)['sources'] ?? [];
         $items = [];
         $groups = [];
         $canonicals = [];
+        $pluginCanonicals = [];
+        $elsewhere = [];
+        $duplicates = ['same' => [], 'language' => []];
         $weak = [];
         foreach ($latest as $key => $inspection) {
             $meta = $inspection['meta'];
             if (mb_strtoupper((string) ($meta['verdict'] ?? '')) === 'PASS') {
                 continue;
             }
+            if (! SeoText::isCrawlablePage($inspection['url']) || self::isPagination($inspection['url'])) {
+                // Tags, feeds, media, builder templates and pagination belong to the bloat check, not to index problems.
+                continue;
+            }
             $state = trim((string) ($meta['coverage_state'] ?? ''));
             $page = $pages->get($key);
             $blocked = mb_strtoupper((string) ($meta['indexing_state'] ?? '')) === 'BLOCKED_BY_META_TAG' || str_contains(mb_strtolower($state), 'noindex');
+            if ($blocked && $page !== null && $this->canonicalElsewhere($page)) {
+                // The page sends Google to another address on purpose; its noindex is not the problem.
+                continue;
+            }
             if ($blocked && $page !== null && in_array($page->category, ['hizmet', 'lokasyon'], true) && (int) $page->wp_post_id > 0) {
+                if ((bool) $page->is_indexable) {
+                    // The SEO plugin already lets the page in: the noindex comes from somewhere the plugin field does not reach.
+                    $elsewhere[] = $this->path((string) $page->url);
+
+                    continue;
+                }
                 $items[] = ['key' => 'noindex-'.$page->id, 'page_id' => (int) $page->id, 'priority' => 1, 'target' => (string) $page->url,
                     'title' => 'Hizmet sayfası Google\'a kapalı (noindex): '.$this->path((string) $page->url),
                     'reason' => 'Search Console: "'.$state.'". Hizmet / bölge sayfası aramada görünmüyor.',
@@ -331,6 +354,10 @@ final class WebHealthAudit
                 continue;
             }
             $path = $this->path($inspection['url']);
+            if ($group === 'not found (404)' && isset($dead[$key])) {
+                // The broken internal link row already handles this address.
+                continue;
+            }
             if ($group === 'not found (404)' && ($match = $this->closest($path, $live)) !== null && count($items) < 60) {
                 $items[] = ['key' => 'gone-'.md5($key), 'priority' => 2, 'target' => $inspection['url'], 'title' => 'Google 404 görüyor: '.$path,
                     'reason' => 'Search Console: adres bulunamadı (404). Google ve eski linkler bu adrese gelmeye devam ediyor.',
@@ -339,8 +366,20 @@ final class WebHealthAudit
 
                 continue;
             }
+            $chosen = $google !== '' && SeoText::urlKey($google) !== $key ? $live->get(SeoText::urlKey($google)) : null;
+            if ($chosen !== null && in_array($group, ['duplicate without user-selected canonical', 'duplicate, google chose different canonical than user'], true)) {
+                // Google keeps another live page of the site as the main one: only the operator can decide merge or differentiate.
+                $duplicates[$this->sameLanguage($inspection['url'], $page, $chosen) ? 'same' : 'language'][] = $path.' → Google: '.$this->path((string) $chosen->url);
+
+                continue;
+            }
             if ($group === 'duplicate without user-selected canonical' && $page !== null && (int) $page->wp_post_id > 0) {
-                $canonicals[] = $page;
+                if (ChangeApplier::existingSchema($page)['seo_plugin'] !== null) {
+                    // The SEO plugin prints the page's own canonical already; a literal URL in its field would freeze it.
+                    $pluginCanonicals[] = $path;
+                } else {
+                    $canonicals[] = $page;
+                }
 
                 continue;
             }
@@ -353,13 +392,50 @@ final class WebHealthAudit
             $canonicals = array_slice($canonicals, 0, 100);
             $items[] = ['key' => 'canonical', 'priority' => 3, 'target' => $this->origin($site),
                 'title' => sprintf('Yinelenen sayfalara kendi asıl adresini (canonical) ver (%d sayfa)', count($canonicals)),
-                'reason' => 'Search Console: "Yinelenen sayfa, asıl sayfa belirtilmemiş". Her sayfa kendi adresini asıl adres olarak gösterir.',
+                'reason' => 'Search Console: "Yinelenen sayfa, asıl sayfa belirtilmemiş" ve Google başka bir sayfayı asıl seçmedi. Her sayfa kendi adresini asıl adres olarak gösterir.',
                 'before' => $this->list(array_map(fn (Page $p): string => $this->path((string) $p->url), $canonicals)),
-                'after' => ['Her sayfaya kendi adresi canonical olarak yazılır (SEO eklentisinin alanına; geri alınabilir).'],
+                'after' => ['Her sayfaya kendi adresi canonical olarak yazılır (geri alınabilir).'],
                 'changes' => array_map(fn (Page $p): array => ['type' => 'canonical', 'object_id' => (int) $p->wp_post_id,
                     'reference' => 'web-health-canonical-'.$p->id, 'value' => (string) $p->url], $canonicals)];
         }
-        $linked = $this->linkSuggestions($site, $weak, $live);
+        if ($pluginCanonicals !== []) {
+            $items[] = ['key' => 'canonical-plugin', 'priority' => 3, 'target' => $this->origin($site),
+                'title' => sprintf('Yinelenen sayfa: Google asıl adresi görmüyor (%d sayfa)', count($pluginCanonicals)),
+                'reason' => 'Search Console: "Yinelenen sayfa, asıl sayfa belirtilmemiş". Sitede SEO eklentisi var; her sayfaya kendi canonical etiketini o basar, MoxDOP sabit adres yazmaz.',
+                'before' => $this->list($pluginCanonicals),
+                'after' => ['Sayfanın kaynağında <link rel="canonical"> ara; yoksa SEO eklentisinin canonical ayarını ve önbellek eklentisini kontrol et (önbelleği temizle).',
+                    'Etiket varsa sayfa sitedeki başka bir sayfaya çok benziyor: metnini, başlığını ve H1\'ini kendi konusuna göre ayrıştır.',
+                    'Sonra Search Console › URL denetimi › "Dizine eklenmesini iste".']];
+        }
+        if ($duplicates['same'] !== []) {
+            $items[] = ['key' => 'duplicate-same', 'priority' => 2, 'target' => $this->origin($site),
+                'title' => sprintf('Google başka sayfayı asıl sayıyor (%d sayfa)', count($duplicates['same'])),
+                'reason' => 'Search Console: Google bu sayfaları sitedeki başka bir canlı sayfanın kopyası sayıyor ve onu gösteriyor.',
+                'before' => $this->list($duplicates['same']),
+                'after' => ['İki sayfa aynı işi görüyorsa zayıf olanı güçlü olana 301 ile birleştir ve iç linkleri güncelle.',
+                    'Farklı konulardaysa ayrıştır: başlık, H1 ve metin kendi konusunu anlatsın; ortak paragrafları azalt.',
+                    'Sonra Search Console › URL denetimi › "Dizine eklenmesini iste".']];
+        }
+        if ($duplicates['language'] !== []) {
+            $items[] = ['key' => 'duplicate-language', 'priority' => 2, 'target' => $this->origin($site),
+                'title' => sprintf('Google çeviri sayfasını başka dildeki sayfanın kopyası sayıyor (%d sayfa)', count($duplicates['language'])),
+                'reason' => 'Search Console: Google bu sayfaların asıl adresi olarak başka dildeki karşılığını seçti. İki dil de dizinde kalmalı; yönlendirme yapılmaz.',
+                'before' => $this->list($duplicates['language']),
+                'after' => ['Sayfanın metnini kendi diline tam çevir (başlık, H1, metin); yarım çeviri Google\'a kopya görünür.',
+                    'Polylang\'da iki sayfayı birbirinin çevirisi olarak bağla; SEO eklentisi dil etiketlerini (hreflang) o zaman basar.',
+                    'Sonra Search Console › URL denetimi › "Dizine eklenmesini iste".']];
+        }
+        if ($elsewhere !== []) {
+            $items[] = ['key' => 'noindex-elsewhere', 'priority' => 1, 'target' => $this->origin($site),
+                'title' => sprintf('Hizmet sayfası Google\'a kapalı, SEO eklentisinde açık (%d sayfa)', count($elsewhere)),
+                'reason' => 'Search Console noindex görüyor ama SEO eklentisinde bu sayfalar dizine açık: noindex başka bir yerden geliyor, eklentinin ayarı düzeltmez.',
+                'before' => $this->list($elsewhere),
+                'after' => ['WordPress › Ayarlar › Okuma › "Arama motorlarının bu siteyi dizine eklemesini engelle" işaretliyse kaldır.',
+                    'Başka bir eklenti (bakım modu, üyelik, ikinci bir SEO eklentisi) ya da tema noindex basıyor olabilir; sayfanın kaynağında "noindex" ara.',
+                    'Sunucu "X-Robots-Tag: noindex" başlığı gönderiyor olabilir; hostinge sor (.htaccess / sunucu ayarı).',
+                    'Sonra Search Console › URL denetimi › "Canlı URL\'yi test et" ve "Dizine eklenmesini iste".']];
+        }
+        $linked = $this->linkSuggestions($site, $brand, $weak, $live);
         foreach (self::WEAK_STATES as $state) {
             // Pages that got "link to it" suggestions leave the task row; Google then decides on its own.
             $groups[$state] = array_values(array_diff($groups[$state] ?? [], $linked));
@@ -412,7 +488,7 @@ final class WebHealthAudit
             if (SeoText::isJunkSitemap($sitemap['url'])) {
                 $items[] = ['key' => 'junk-'.md5($key), 'priority' => 3, 'target' => $sitemap['url'],
                     'title' => 'Gereksiz site haritası gönderilmiş: '.$this->path($sitemap['url']),
-                    'reason' => 'Bu harita etiket, yazar, medya ya da şablon sayfalarını listeliyor. Bu sayfalar ziyaretçiye bir şey anlatmıyor; Google\'a göstermek sitenin değerini düşürür.',
+                    'reason' => 'Bu harita '.self::junkSitemapKind($sitemap['url']).' listeliyor. Bu sayfalar ziyaretçiye bir şey anlatmıyor; Google\'a göstermek sitenin değerini düşürür.',
                     'before' => [$sitemap['url']],
                     'after' => ['SEO eklentisinin site haritası ayarında bu türü kapat (Rank Math › Site haritası / Yoast › Ayarlar › İçerik türleri).',
                         'Search Console › Site haritaları › bu haritayı kaldır.', 'İkisini sistemin yapması için "yeni yazma türleri" onayın gerekiyor.']];
@@ -420,6 +496,21 @@ final class WebHealthAudit
         }
 
         return $items;
+    }
+
+    /** What a by-product sitemap lists, in words (its file name says it). */
+    private static function junkSitemapKind(string $url): string
+    {
+        $path = mb_strtolower(SeoText::urlPath($url));
+
+        return match (true) {
+            preg_match('#attachment#', $path) === 1 => 'medya eki sayfalarını (her yüklenen dosya için ayrı bir sayfa)',
+            preg_match('#(post_tag|product_tag|tag)[-_a-z0-9]*sitemap|sitemap[-_]tag#', $path) === 1 => 'etiket sayfalarını',
+            preg_match('#author#', $path) === 1 => 'yazar sayfalarını',
+            preg_match('#elementor|e-landing#', $path) === 1 => 'Elementor şablon ve açılış sayfası adreslerini',
+            preg_match('#format#', $path) === 1 => 'yazı biçimi (format) arşivlerini',
+            default => 'yan ürün sayfalarını',
+        };
     }
 
     /**
@@ -488,17 +579,46 @@ final class WebHealthAudit
     /** @return list<array<string, mixed>>|null */
     private function brokenLinks(DigitalAsset $site): ?array
     {
+        $dead = $this->deadLinks($site);
+        if ($dead === null) {
+            return null;
+        }
+        ['status' => $status, 'sources' => $sources] = $dead;
+        $pages = $this->pages($site)->filter(fn (Page $p): bool => (bool) $p->is_indexable && ! in_array($status[SeoText::urlKey((string) $p->url)] ?? 200, [404, 410], true));
+        $items = [];
+        foreach (array_slice($sources, 0, 50, true) as $key => $link) {
+            $path = $this->path($link['url']);
+            $from = array_keys($link['from']);
+            $match = $this->closest($path, $pages);
+            $before = [$path.' → '.($status[$key] ?? 404), count($from).' sayfa bu adrese link veriyor:', ...array_slice($from, 0, 5)];
+            $base = ['key' => 'dead-'.md5($key), 'priority' => 2, 'target' => $link['url'], 'title' => 'Kırık iç bağlantı: '.$path,
+                'reason' => 'Sitenin kendi sayfaları kaldırılmış bir adrese link veriyor; ziyaretçi ve Google boş sayfaya düşüyor.', 'before' => $before];
+            $items[] = $match !== null
+                ? $base + ['after' => ['301 → '.$match, 'Eski linkler en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
+                    'changes' => [['type' => 'redirect', 'from' => $path, 'value' => $match, 'reference' => 'web-health-404-'.substr(md5($key), 0, 12)]]]
+                : $base + ['after' => ['Benzer canlı sayfa bulunamadı: bu sayfalardaki linki WordPress\'te düzelt ya da kaldır.']];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Internal links whose target the crawl last saw answering 404 / 410 (shared by the broken-link check and the Search
+     * Console 404 rows of one audit). Null when the crawl has no links for the site.
+     *
+     * @return array{status: array<string, int>, sources: array<string, array{url: string, from: array<string, bool>}>}|null
+     */
+    private function deadLinks(DigitalAsset $site): ?array
+    {
+        if (array_key_exists((int) $site->id, $this->deadLinks)) {
+            return $this->deadLinks[(int) $site->id];
+        }
         $edges = DB::table('website_link_edge')->where('digital_asset_id', $site->id)->where('is_internal', true)
             ->limit(30000)->get(['source_url', 'normalized_target_url', 'target_url']);
         if ($edges->isEmpty()) {
-            return null;
+            return $this->deadLinks[(int) $site->id] = null;
         }
-        $status = [];
-        DB::table('website_html_snapshot')->where('digital_asset_id', $site->id)->where('observed_at', '>=', now()->subDays(60))
-            ->orderByDesc('observed_at')->limit(50000)->get(['url', 'status_code'])->each(function (object $row) use (&$status): void {
-                $key = SeoText::urlKey((string) $row->url);
-                $status[$key] ??= (int) $row->status_code;
-            });
+        $status = $this->clientErrors($site);
         $sources = [];
         foreach ($edges as $edge) {
             $target = (string) ($edge->normalized_target_url ?: $edge->target_url);
@@ -508,22 +628,42 @@ final class WebHealthAudit
                 $sources[$key]['from'][$this->path((string) $edge->source_url)] = true;
             }
         }
-        $pages = $this->pages($site)->filter(fn (Page $p): bool => (bool) $p->is_indexable && ! in_array($status[SeoText::urlKey((string) $p->url)] ?? 200, [404, 410], true));
-        $items = [];
-        foreach (array_slice($sources, 0, 50, true) as $key => $dead) {
-            $path = $this->path($dead['url']);
-            $from = array_keys($dead['from']);
-            $match = $this->closest($path, $pages);
-            $before = [$path.' → '.($status[$key] ?? 404), count($from).' sayfa bu adrese link veriyor:', ...array_slice($from, 0, 5)];
-            $base = ['key' => 'dead-'.md5($key), 'priority' => 2, 'target' => $dead['url'], 'title' => 'Kırık iç bağlantı: '.$path,
-                'reason' => 'Sitenin kendi sayfaları kaldırılmış bir adrese link veriyor; ziyaretçi ve Google boş sayfaya düşüyor.', 'before' => $before];
-            $items[] = $match !== null
-                ? $base + ['after' => ['301 → '.$match, 'Eski linkler en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
-                    'changes' => [['type' => 'redirect', 'from' => $path, 'value' => $match, 'reference' => 'web-health-404-'.substr(md5($key), 0, 12)]]]
-                : $base + ['after' => ['Benzer canlı sayfa bulunamadı: bu sayfalardaki linki WordPress\'te düzelt ya da kaldır.']];
-        }
 
-        return $items;
+        return $this->deadLinks[(int) $site->id] = ['status' => $status, 'sources' => $sources];
+    }
+
+    /**
+     * Addresses the crawl last saw answering 4xx. The crawler keeps those only as HTTP_4XX crawl issues (the HTML
+     * snapshot holds pages that opened); an address that opened again after its latest 4xx is not counted.
+     *
+     * @return array<string, int> URL key => status code
+     */
+    private function clientErrors(DigitalAsset $site): array
+    {
+        $since = now()->subDays(60);
+        $opened = [];
+        DB::table('website_html_snapshot')->where('digital_asset_id', $site->id)->where('observed_at', '>=', $since)
+            ->groupBy('url')->selectRaw('url, max(observed_at) as observed_at')->limit(50000)->get()->each(function (object $row) use (&$opened): void {
+                $key = SeoText::urlKey((string) $row->url);
+                $opened[$key] = max($opened[$key] ?? 0, (int) strtotime((string) $row->observed_at));
+            });
+        $status = [];
+        $seen = [];
+        DB::table('website_crawl_issue_snapshot')->where('digital_asset_id', $site->id)->where('issue_code', 'HTTP_4XX')->where('observed_at', '>=', $since)
+            ->orderByDesc('observed_at')->limit(50000)->get(['url', 'observed_at', 'metadata'])->each(function (object $row) use (&$status, &$seen, $opened): void {
+                $key = SeoText::urlKey((string) $row->url);
+                if (isset($seen[$key])) {
+                    return;
+                }
+                $seen[$key] = true;
+                if (($opened[$key] ?? 0) >= (int) strtotime((string) $row->observed_at)) {
+                    return;
+                }
+                $code = (int) data_get($this->json($row->metadata), 'evidence.status_code', 404);
+                $status[$key] = $code >= 400 && $code < 500 ? $code : 404;
+            });
+
+        return $status;
     }
 
     /** @return list<array<string, mixed>>|null */
@@ -592,32 +732,46 @@ final class WebHealthAudit
         }
         $meta = $this->json($row->metadata);
         $field = (array) ($meta['field'] ?? []);
-        $lcp = $field['lcp_ms'] ?? $meta['lcp_ms'] ?? null;
+        // Field data (Chrome / CrUX) wins; the lab LCP is used only when the field has none, and is named as lab.
+        $fieldLcp = is_numeric($field['lcp_ms'] ?? null);
+        $lcp = $fieldLcp ? $field['lcp_ms'] : ($meta['lcp_ms'] ?? null);
         $inp = $field['inp_ms'] ?? null;
         $cls = $field['cls'] ?? null;
+        $path = $this->path((string) $row->url);
+        $where = $path === '/' ? 'Ana sayfanın' : $path.' sayfasının';
         $problems = [];
+        $steps = [];
         if (is_numeric($lcp) && (float) $lcp > 2500) {
-            $problems[] = sprintf('En büyük içerik %s sn\'de görünüyor (iyi: 2,5 sn altı)', number_format((float) $lcp / 1000, 1, ',', ''));
+            $problems[] = sprintf('En büyük içerik %s sn\'de görünüyor (iyi: 2,5 sn altı; %s)', number_format((float) $lcp / 1000, 1, ',', ''),
+                $fieldLcp ? 'gerçek ziyaretçi verisi' : 'PageSpeed laboratuvar ölçümü');
+            array_push($steps,
+                'En büyük içerik (LCP): '.$where.' üstteki büyük görselini küçült (WebP, en çok ~200 KB, gösterildiği boyutta).',
+                'O görsele geç yükleme (lazy-load) uygulama; önbellek eklentisinde ilk görseli geç yüklemeden hariç tut.',
+                'Sayfa önbelleğini aç (LiteSpeed Cache / WP Rocket); sunucu yanıtı hızlanır.');
         }
         if (is_numeric($inp) && (float) $inp > 200) {
-            $problems[] = sprintf('Dokunmaya tepki %d ms (iyi: 200 ms altı)', (int) $inp);
+            $problems[] = sprintf('Dokunmaya tepki %d ms (iyi: 200 ms altı; gerçek ziyaretçi verisi)', (int) $inp);
+            array_push($steps,
+                'Dokunmaya tepki (INP): önbellek eklentisinde JS\'yi ertele; kullanılmayan eklentileri kapat.',
+                'Sohbet, pop-up ve sosyal medya widget\'larını kaldır ya da ziyaretçi etkileşiminden sonra yükle.');
         }
         if (is_numeric($cls) && (float) $cls > 0.1) {
-            $problems[] = sprintf('Sayfa kayması %s (iyi: 0,1 altı)', number_format((float) $cls, 2, ',', ''));
+            $problems[] = sprintf('Sayfa kayması %s (iyi: 0,1 altı; gerçek ziyaretçi verisi)', number_format((float) $cls, 2, ',', ''));
+            array_push($steps,
+                'Sayfa kayması (CLS): görsellere genişlik / yükseklik (width / height) ver.',
+                'Banner, çerez bildirimi ve reklam alanlarına önceden yer ayır; yazı tipini önden yükle (preload, font-display: swap).');
         }
         if ($problems === []) {
             return [];
         }
         $poor = (is_numeric($lcp) && $lcp > 4000) || (is_numeric($inp) && $inp > 500) || (is_numeric($cls) && $cls > 0.25);
+        $scope = $field === [] ? null : (($field['scope'] ?? '') === 'origin' ? 'tüm sitenin' : 'bu sayfanın');
 
         return [['key' => 'speed', 'priority' => $poor ? 2 : 3, 'target' => (string) $row->url,
             'title' => ($poor ? 'Site yavaş' : 'Site hızı iyileştirilmeli').' ('.($row->strategy === 'mobile' ? 'mobil' : 'masaüstü').')',
-            'reason' => ($field !== [] ? 'Gerçek ziyaretçi verisi (Chrome / CrUX, '.(($field['scope'] ?? '') === 'origin' ? 'tüm site' : 'bu sayfa').')' : 'PageSpeed laboratuvar ölçümü').'; hız sıralamayı ve dönüşümü etkiler.',
-            'before' => $problems, 'after' => [
-                'Önbellek eklentisinde (LiteSpeed Cache / WP Rocket) görselleri WebP\'ye çevir ve geç yükle; CSS / JS küçült, JS\'yi ertele.',
-                'Ana sayfanın üstteki büyük görselini küçült (en çok ~200 KB) ve geç yüklemeden çıkar.',
-                'Kullanılmayan eklentileri kapat; sayfa düzenleyicinin kullanılmayan widget\'larını kapat.',
-            ]]];
+            'reason' => 'Ölçülen adres: '.$path.'. '.($scope !== null ? 'Gerçek ziyaretçi verisi (Chrome / CrUX, '.$scope.' ortalaması)' : 'Yalnız PageSpeed laboratuvar ölçümü (gerçek ziyaretçi verisi yok)')
+                .'; hız sıralamayı ve dönüşümü etkiler.',
+            'before' => $problems, 'after' => $steps]];
     }
 
     /** @return list<array<string, mixed>>|null */
@@ -686,7 +840,7 @@ final class WebHealthAudit
         arsort($junk);
 
         return [['key' => 'bloat', 'priority' => 3, 'target' => $this->origin($site), 'title' => sprintf('Google gereksiz adresleri gösteriyor (%d adres)', count($junk)),
-            'reason' => 'Etiket, yazar, medya eki, sayfa düzenleyici ya da parametreli adresler aramada çıkıyor; asıl sayfaların gücünü bölüyor (son 28 gün). Sayfalama (/page/2/) bu listede yok, dizinde kalmalı.',
+            'reason' => 'Etiket, yazar, medya, dosya, site içi arama, besleme, sayfa düzenleyici ya da parametreli adresler aramada çıkıyor; asıl sayfaların gücünü bölüyor (son 28 gün). Sayfalama (/page/2/) bu listede yok, dizinde kalmalı.',
             'before' => $this->list(array_map(fn (string $u, int $i): string => $this->path($u).' · '.$i.' gösterim', array_keys($junk), $junk)),
             'after' => self::bloatSteps(array_keys($junk))]];
     }
@@ -705,24 +859,43 @@ final class WebHealthAudit
      */
     private static function bloatSteps(array $urls): array
     {
-        $paths = array_map(fn (string $u): string => mb_strtolower(SeoText::urlPath($u)), $urls);
-        $queries = array_map(fn (string $u): string => mb_strtolower((string) parse_url($u, PHP_URL_QUERY)), $urls);
-        $has = fn (string $pattern, array $in): bool => preg_grep($pattern, $in) !== [];
-        $steps = [];
-        if ($has('#(^|/)(tag|etiket|author|yazar)(/|$)#', $paths)) {
-            $steps[] = 'SEO eklentisinde (SEOPress / Yoast / Rank Math › Arşivler): etiket ve yazar arşivlerini "noindex" yap ve site haritasından çıkar.';
+        $rules = [
+            'archive' => [fn (string $p, string $q): bool => preg_match('#(^|/)(tag|etiket|author|yazar)(/|$)#', $p) === 1,
+                'SEO eklentisinde (SEOPress / Yoast / Rank Math › Arşivler): etiket ve yazar arşivlerini "noindex" yap ve site haritasından çıkar.'],
+            'attachment' => [fn (string $p, string $q): bool => preg_match('#(^|&)attachment_id=#', $q) === 1 || str_contains($p, '/attachment/'),
+                'Medya ek sayfalarını dosyanın kendisine yönlendir (SEO eklentisinde "attachment" ayarı).'],
+            'file' => [fn (string $p, string $q): bool => preg_match('#\.(pdf|docx?|xlsx?|pptx?|jpe?g|png|gif|webp|avif|svg|mp4|mp3|webm|zip)$#', $p) === 1,
+                'PDF ve medya dosyalarına SEO eklentisinin noindex\'i ulaşmaz: dizinden çıkması gerekenler için hostingde (.htaccess) "X-Robots-Tag: noindex" başlığı ver; değerli bir PDF (broşür, fiyat listesi) dizinde kalabilir.'],
+            'builder' => [fn (string $p, string $q): bool => preg_match('#(^|/)(elementor[-_a-z0-9]*|elementor_library|e-landing-page)(/|$)#', $p) === 1,
+                'Elementor şablon ve açılış sayfası adreslerini SEO eklentisinde "noindex" yap.'],
+            'search' => [fn (string $p, string $q): bool => preg_match('#(^|&)s=#', $q) === 1 || preg_match('#(^|/)search(/|$)#', $p) === 1,
+                'Site içi arama sonuçları (?s=) dizinde olmamalı: SEO eklentisinde arama sayfalarının "noindex" olduğunu kontrol et; sitede bu adreslere link verme.'],
+            'feed' => [fn (string $p, string $q): bool => preg_match('#(^|/)(feed|rss|atom)/?$#', $p) === 1 || preg_match('#(^|&)feed=#', $q) === 1,
+                'Besleme (/feed/) adresleri: SEO eklentisinin tarama ayarlarında gereksiz RSS beslemelerini kapat (Yoast › Ayarlar › Tarama optimizasyonu); kapatılamıyorsa hostingde "X-Robots-Tag: noindex" başlığı ver.'],
+            'parameter' => [fn (string $p, string $q): bool => preg_match('#(^|&)(utm_[a-z]+|fbclid|gclid|orderby|filter_[a-z_]+|share|ver)=#', $q) === 1,
+                'Parametreli adreslerin asıl adresi (canonical) parametresiz sayfa olmalı; SEO eklentisinin canonical ayarını kontrol et.'],
+        ];
+        $needed = [];
+        $unmatched = false;
+        foreach ($urls as $url) {
+            $path = mb_strtolower(SeoText::urlPath($url));
+            $query = mb_strtolower((string) parse_url($url, PHP_URL_QUERY));
+            $hit = false;
+            foreach ($rules as $name => [$test]) {
+                if ($test($path, $query)) {
+                    $needed[$name] = true;
+                    $hit = true;
+                }
+            }
+            $unmatched = $unmatched || ! $hit;
         }
-        if ($has('#(^|&)attachment_id=#', $queries)) {
-            $steps[] = 'Medya ek sayfalarını dosyanın kendisine yönlendir (SEO eklentisinde "attachment" ayarı).';
-        }
-        if ($has('#(^|/)(elementor[-_a-z0-9]*|elementor_library|e-landing-page)(/|$)#', $paths)) {
-            $steps[] = 'Elementor şablon ve açılış sayfası adreslerini SEO eklentisinde "noindex" yap.';
-        }
-        if ($has('#(^|&)(utm_[a-z]+|fbclid|gclid|orderby|filter_[a-z_]+|share|ver)=#', $queries)) {
-            $steps[] = 'Parametreli adreslerin asıl adresi (canonical) parametresiz sayfa olmalı; SEO eklentisinin canonical ayarını kontrol et.';
+        $steps = array_values(array_map(fn (array $rule): string => $rule[1], array_intersect_key($rules, $needed)));
+        if ($unmatched) {
+            $steps[] = $steps === [] ? 'Bu adresleri SEO eklentisinde "noindex" yap ve site haritasından çıkar.'
+                : 'Listedeki diğer adresleri SEO eklentisinde "noindex" yap ve site haritasından çıkar.';
         }
 
-        return $steps !== [] ? $steps : ['Bu adresleri SEO eklentisinde "noindex" yap ve site haritasından çıkar.'];
+        return $steps;
     }
 
     /** @return list<array<string, mixed>>|null */
@@ -766,8 +939,11 @@ final class WebHealthAudit
      * @param  Collection<string, Page>  $live
      * @return list<string> paths of the pages that have a suggestion
      */
-    private function linkSuggestions(DigitalAsset $site, array $weak, Collection $live): array
+    private function linkSuggestions(DigitalAsset $site, Brand $brand, array $weak, Collection $live): array
     {
+        // Brand words are on every page of the site (and in the site-wide title suffix): they never make two pages related.
+        $brandWords = $this->words((string) $brand->name);
+        $subject = fn (Page $p): array => array_values(array_diff($this->words(self::bareTitle((string) $p->title).' '.$this->path((string) $p->url)), $brandWords));
         $key = 'repair.'.self::TYPE.'.inlink';
         $existing = Suggestion::query()->where('brand_id', $site->brand_id)->where('decision_key', $key)
             ->where('target_type', 'page')->whereIn('page_id', $live->pluck('id'))->get()->keyBy('fingerprint');
@@ -781,10 +957,10 @@ final class WebHealthAudit
         foreach (array_slice($weak, 0, self::INLINK_TARGETS) as $entry) {
             $target = $entry['page'];
             $targetKey = SeoText::urlKey((string) $target->url);
-            $words = $this->words((string) $target->title.' '.$this->path((string) $target->url));
+            $words = $subject($target);
             $ranked = $sources->filter(fn (Page $p): bool => $p->id !== $target->id && (string) $p->language === (string) $target->language
                 && ! $edges->has(SeoText::urlKey((string) $p->url).'>'.$targetKey))
-                ->map(fn (Page $p): array => ['page' => $p, 'shared' => count(array_intersect($words, $this->words((string) $p->title.' '.$this->path((string) $p->url))))])
+                ->map(fn (Page $p): array => ['page' => $p, 'shared' => count(array_intersect($words, $subject($p)))])
                 ->filter(fn (array $r): bool => $r['shared'] >= 2)->sortByDesc('shared')->take(2);
             foreach ($ranked as $r) {
                 $source = $r['page'];
@@ -865,6 +1041,14 @@ final class WebHealthAudit
             ->update(['status' => Suggestion::APPLIED, 'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now(), 'resolved_at' => now(), 'operator_note' => $note]);
     }
 
+    /** A page title without the site-wide suffix ("İmplant Tedavisi | Panorama Diş Ankara" → "İmplant Tedavisi"). */
+    public static function bareTitle(string $title): string
+    {
+        $bare = trim((string) preg_replace('/\s+[|\-–—]\s+(?!.*\s[|\-–—]\s).*$/u', '', $title));
+
+        return $bare !== '' ? $bare : trim($title);
+    }
+
     /** @return list<string> */
     private function words(string $text): array
     {
@@ -877,25 +1061,50 @@ final class WebHealthAudit
     /** @return Collection<string, Page> the site's pages by URL key */
     private function pages(DigitalAsset $site): Collection
     {
-        return Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'title', 'category', 'wp_post_id', 'is_indexable', 'language'])
+        return Page::query()->where('website_asset_id', $site->id)
+            ->get(['id', 'website_asset_id', 'url', 'title', 'category', 'wp_post_id', 'is_indexable', 'language', 'canonical'])
             ->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
     }
 
+    /** The page's canonical points at another address (it is an alternate on purpose). */
+    private function canonicalElsewhere(Page $page): bool
+    {
+        $canonical = trim((string) $page->canonical);
+
+        return $canonical !== '' && SeoText::urlKey($canonical) !== SeoText::urlKey((string) $page->url);
+    }
+
+    /** Both addresses are in the same language: the pages' languages when both are known, else the language folder. */
+    private function sameLanguage(string $url, ?Page $page, Page $other): bool
+    {
+        if ($page !== null && (string) $page->language !== '' && (string) $other->language !== '') {
+            return mb_strtolower((string) $page->language) === mb_strtolower((string) $other->language);
+        }
+        $folder = fn (string $u): string => preg_match('#^/([a-z]{2})(/|$)#', SeoText::urlPath($u), $m) === 1 ? $m[1] : '';
+
+        return $folder($url) === $folder((string) $other->url);
+    }
+
     /**
-     * The live page whose address shares the most words with the dead one (at least two and half of them), in the
-     * same language folder.
+     * The live page in the same language folder whose address words are all in the dead one's, or the other way round
+     * (/ankara-implant-tedavisi-fiyat/ → /ankara-implant-tedavisi/), sharing at least two words and half of them. Numbers
+     * and short words count and numbers must match: /all-on-6-implant/ never goes to /all-on-4-implant/, and
+     * /hurda-bakir-fiyatlari/ never to /hurda-aluminyum-fiyatlari/.
      *
      * @param  Collection<string, Page>  $pages
      */
     private function closest(string $deadPath, Collection $pages): ?string
     {
-        $words = fn (string $path): array => array_values(array_unique(array_filter(preg_split('/[-_\/]+/', mb_strtolower(trim($path, '/'))) ?: [],
-            fn (string $w): bool => mb_strlen($w) >= 3 && ! is_numeric($w))));
+        $words = fn (string $path): array => array_values(array_unique(array_filter(preg_split('/\s+/', SeoText::fold(str_replace('_', ' ', $path))) ?: [],
+            fn (string $w): bool => $w !== '' && ! in_array($w, ['html', 'htm', 'php'], true))));
+        $numbers = fn (array $words): array => array_values(array_filter($words, fn (string $w): bool => ctype_digit($w)));
         $lang = fn (string $path): string => preg_match('#^/([a-z]{2})/#', $path, $m) === 1 ? $m[1] : '';
         $dead = $words($deadPath);
         if (count($dead) < 2) {
             return null;
         }
+        $deadNumbers = $numbers($dead);
+        sort($deadNumbers);
         $best = null;
         $bestScore = 0.0;
         foreach ($pages as $page) {
@@ -904,6 +1113,12 @@ final class WebHealthAudit
                 continue;
             }
             $candidate = $words($path);
+            $candidateNumbers = $numbers($candidate);
+            sort($candidateNumbers);
+            if ($candidateNumbers !== $deadNumbers
+                || (array_diff($dead, $candidate) !== [] && array_diff($candidate, $dead) !== [])) {
+                continue;
+            }
             $shared = count(array_intersect($dead, $candidate));
             $score = $shared / max(1, count(array_unique([...$dead, ...$candidate])));
             if ($shared >= 2 && $score >= 0.5 && $score > $bestScore) {

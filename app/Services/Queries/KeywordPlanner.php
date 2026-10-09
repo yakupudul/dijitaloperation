@@ -152,7 +152,7 @@ final class KeywordPlanner
         foreach ($ideas as $idea) {
             $text = $this->normalizer->normalize((string) ($idea['text'] ?? ''));
             $searches = (int) data_get($idea, 'keywordIdeaMetrics.avgMonthlySearches', 0);
-            if ($text === '' || $searches < self::MIN_SEARCHES || mb_strlen($text) > 80 || $this->normalizer->matchingTerm($text) !== null) {
+            if ($text === '' || $searches < self::MIN_SEARCHES || mb_strlen($text) > 80 || $this->normalizer->matchingTerm($text, $brand->sector_id !== null ? (int) $brand->sector_id : null) !== null) {
                 continue;
             }
             $service = $this->matcher->match($text, $brand->sector_id !== null ? (int) $brand->sector_id : null);

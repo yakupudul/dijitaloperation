@@ -14,15 +14,17 @@ use App\Services\Gbp\GbpSuggestions;
 use App\Services\Integrations\Google\GoogleApiClient;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
  * Profil bilgileri (Onarım Faz 4, ADR-080): regular hours, phone, primary category, yes / no attributes, website and
  * appointment links of every profile. The nightly pass prepares what can be filled from the brand's own data as
  * İşletme Profili suggestions (`gbp_profile_fields`), which wait on the Onarım masası for the Admin's approval:
- *  - no hours → the hours most of the brand's other profiles use;
- *  - no website link → the brand's own site;
- *  - no appointment link → the brand's own appointment page (URL or title with "randevu" / "appointment").
+ *  - no hours → the hours all of the brand's other profiles share (at least two, all the same);
+ *  - no website link → this branch's own page on the brand's site (several profiles), else the brand's site;
+ *  - no appointment link → the brand's own Turkish appointment page (URL or title with "randevu" / "appointment").
+ * A row is sent only while the field is still empty on the profile (a stale row is refused).
  * Phone, primary category and attributes are never guessed: the operator picks them on "Bilgiler".
  */
 final class ProfileInfo
@@ -81,20 +83,23 @@ final class ProfileInfo
         ];
 
         if ((array) ($snapshot['regular_hours'] ?? []) === []) {
-            $common = $siblings->map(fn (array $s): array => array_values((array) ($s['regular_hours'] ?? [])))->filter()
-                ->groupBy(fn (array $periods): string => GbpWriter::hoursKey($periods))->sortByDesc(fn (Collection $g): int => $g->count())->first()?->first();
-            if (is_array($common)) {
+            $common = self::commonHours($siblings);
+            if ($common !== null) {
                 $rows = self::rows($common);
                 $items[] = $item('regular_hours', $rows, '', self::hoursText($rows),
-                    'Profilde çalışma saati yok; markanın diğer şubelerinin çoğunun saatleri önerildi.', 1);
+                    'Profilde çalışma saati yok; markanın diğer şubelerinin hepsi aynı saatleri kullanıyor, o saatler önerildi.', 1);
             }
         }
         $site = DigitalAsset::query()->operational()->where('brand_id', $location->brand_id)->where('type', 'website')->orderBy('id')->first();
         if ($site !== null && blank($snapshot['website'] ?? null) && filled($site->primary_url) && str_starts_with((string) $site->primary_url, 'https://')) {
-            $items[] = $item('website_uri', (string) $site->primary_url, '', (string) $site->primary_url, 'Profilde web sitesi bağlantısı yok; markanın sitesi önerildi.', 1);
+            $branch = $this->branchPageUrl($location, $snapshot);
+            $items[] = $branch !== null
+                ? $item('website_uri', $branch, '', $branch, 'Profilde web sitesi bağlantısı yok; bu şubenin sitedeki kendi sayfası önerildi.', 1)
+                : $item('website_uri', (string) $site->primary_url, '', (string) $site->primary_url, 'Profilde web sitesi bağlantısı yok; markanın sitesi önerildi.', 1);
         }
         if ($site !== null && ! $this->hasAppointmentLink($location)) {
             $page = Page::query()->where('website_asset_id', $site->id)->where('url', 'like', 'https://%')
+                ->where(fn ($q) => $q->whereNull('language')->orWhere('language', 'tr'))
                 ->where(fn ($q) => $q->where('url', 'like', '%randevu%')->orWhere('url', 'like', '%appointment%')->orWhere('title', 'like', '%Randevu%'))
                 ->where(fn ($q) => $q->whereNull('is_indexable')->orWhere('is_indexable', true))
                 ->orderByRaw('length(url)')->limit(50)->get()
@@ -116,14 +121,22 @@ final class ProfileInfo
     public function open(array $assetIds): Collection
     {
         return Suggestion::query()->where('channel', GbpSuggestions::CHANNEL)->where('target_type', GbpSuggestions::TARGET)
-            ->whereIn('target_id', $assetIds)->where('action_type', self::TYPE)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->get();
+            ->whereIn('target_id', $assetIds)->where('action_type', self::TYPE)->where('status', Suggestion::OPEN)->get();
     }
 
-    /** Sends one prepared row to Google (Admin). */
+    /**
+     * Sends one prepared row to Google (Admin). The row only fills a gap, so the profile is read again first (latest
+     * collection; the appointment link live) and a field that is no longer empty is refused.
+     *
+     * @throws ValidationException
+     */
     public function send(User $user, Suggestion $suggestion): void
     {
         $location = DigitalAsset::query()->findOrFail((int) $suggestion->target_id);
         $field = (string) data_get($suggestion->action, 'field');
+        if (! $this->stillEmpty($location, $field)) {
+            throw ValidationException::withMessages(['fields' => 'Profilde bu alan artık dolu; öneri eskidi.']);
+        }
         app(ExternalWriteService::class)->requestProfileFields($user, $location, (array) data_get($suggestion->action, 'fields', []),
             self::FIELD_LABELS[$field] ?? 'Profil bilgisi', $suggestion);
     }
@@ -186,18 +199,73 @@ final class ProfileInfo
     }
 
     /**
-     * A booking page sits at the top of the site (optionally under a language folder) and its own address names it:
-     * "/randevu-olustur/", "/en/appointment/". A blog or Q&A page that only mentions appointments
+     * A booking page sits at the top of the site (optionally under the Turkish language folder) and its own address names
+     * it: "/randevu-olustur/", "/tr/randevu/". A page under another language ("/en/appointment/") is not the Turkish
+     * profile's booking page. A blog or Q&A page that only mentions appointments
      * ("/soru-cevap/kontrol-randevulari-ne-siklikla-yapilir/") is not one.
      */
     public static function isAppointmentPage(string $url): bool
     {
         $segments = array_values(array_filter(explode('/', (string) parse_url($url, PHP_URL_PATH))));
-        if ($segments !== [] && preg_match('/^[a-z]{2}$/', $segments[0]) === 1) {
+        if ($segments !== [] && preg_match('/^[a-z]{2}(?:-[a-z]{2})?$/i', $segments[0]) === 1) {
+            if (strtolower($segments[0]) !== 'tr') {
+                return false;
+            }
             array_shift($segments);
         }
 
         return count($segments) === 1 && preg_match('/(randevu|appointment|booking)/i', $segments[0]) === 1 && substr_count($segments[0], '-') <= 2;
+    }
+
+    /**
+     * Hours every sibling with hours shares, when at least two siblings have hours and they all agree; null otherwise
+     * (no plurality vote: one branch's different hours make the guess unsafe).
+     *
+     * @param  Collection<int, array<string, mixed>>  $siblings
+     * @return list<mixed>|null
+     */
+    public static function commonHours(Collection $siblings): ?array
+    {
+        $withHours = $siblings->map(fn (array $s): array => array_values((array) ($s['regular_hours'] ?? [])))->filter()->values();
+        if ($withHours->count() < 2 || $withHours->unique(fn (array $periods): string => GbpWriter::hoursKey($periods))->count() !== 1) {
+            return null;
+        }
+
+        return $withHours->first();
+    }
+
+    /**
+     * This branch's own page on the brand's site (with the profile UTM tags) when the brand has several profiles and
+     * the branch page match found one; null = the home page is right (single profile or no branch page yet).
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    private function branchPageUrl(DigitalAsset $location, array $snapshot): ?string
+    {
+        if ($this->desk->locations((int) $location->brand_id)->count() <= 1) {
+            return null;
+        }
+        $state = app(BranchPages::class)->states(collect([$location]), [(int) $location->id => $snapshot])[$location->id] ?? null;
+        $page = ($state['state'] ?? null) === 'unlinked' ? $state['page'] : null;
+        if ($page === null || ! str_starts_with((string) $page->url, 'https://')) {
+            return null;
+        }
+        $url = (string) $page->url;
+
+        return $url.(str_contains($url, '?') ? '&' : '?').BranchPages::UTM;
+    }
+
+    /** Whether the field the row fills is still empty on the profile now. */
+    private function stillEmpty(DigitalAsset $location, string $field): bool
+    {
+        $snapshot = $this->desk->snapshots([(int) $location->id])[$location->id] ?? null;
+
+        return match ($field) {
+            'regular_hours' => $snapshot !== null && (array) ($snapshot['regular_hours'] ?? []) === [],
+            'website_uri' => $snapshot !== null && blank($snapshot['website'] ?? null),
+            'appointment_url' => ! $this->hasAppointmentLink($location),
+            default => true,
+        };
     }
 
     /** Whether the profile already has an appointment link (live read; when Google does not answer, assume yes). */

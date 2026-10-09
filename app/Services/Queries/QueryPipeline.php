@@ -232,7 +232,7 @@ final class QueryPipeline
                     $now = now();
                     $insert = [];
                     foreach (array_keys($new) as $hash) {
-                        if ($this->normalizer->matchingTerm($texts[$hash]) === null) {
+                        if ($this->normalizer->matchingTerm($texts[$hash], null) === null) {
                             $insert[] = ['text' => $texts[$hash], 'text_hash' => $hash, 'created_at' => $now, 'updated_at' => $now];
                         }
                     }
@@ -293,12 +293,12 @@ final class QueryPipeline
                 if (isset($closed[$hash])) {
                     continue;
                 }
-                if ($this->normalizer->matchingTerm($entry['text']) !== null) {
+                $account = $context[$entry['resource']] ?? ['brand' => null, 'asset' => null, 'sector' => null];
+                if ($this->normalizer->matchingTerm($entry['text'], $account['sector']) !== null) {
                     $filtered[] = (string) $hash;
 
                     continue;
                 }
-                $account = $context[$entry['resource']] ?? ['brand' => null, 'asset' => null, 'sector' => null];
                 $rows[] = [
                     'text' => $entry['text'], 'text_hash' => $hash, 'status' => PendingQuery::PENDING,
                     'external_resource_id' => $entry['resource'], 'brand_id' => $account['brand'], 'digital_asset_id' => $account['asset'],
@@ -361,7 +361,8 @@ final class QueryPipeline
                 foreach ($rows as $row) {
                     $id = (int) $row->id;
                     $sources = $totals[$id] ?? [];
-                    if ($import && ($this->normalizer->matchingTerm((string) $row->text) !== null || ($sources === [] && ! (bool) $row->is_suggested))) {
+                    $sector = $this->dominantSector($weights[$id] ?? []) ?? ($row->sector_id !== null ? (int) $row->sector_id : null);
+                    if ($import && ($this->normalizer->matchingTerm((string) $row->text, $sector) !== null || ($sources === [] && ! (bool) $row->is_suggested))) {
                         $delete[] = $id;
 
                         continue;
@@ -376,7 +377,7 @@ final class QueryPipeline
                     }
                     $values = $this->totals($sources);
                     $values['is_suggested'] = false;
-                    $values['sector_id'] = $this->dominantSector($weights[$id] ?? []) ?? ($row->sector_id !== null ? (int) $row->sector_id : null);
+                    $values['sector_id'] = $sector;
                     if ($import && ! (bool) $row->locked && ! isset($inLockedCluster[$id])) {
                         $service = $this->matcher->match((string) $row->text, $values['sector_id']);
                         $values['service_id'] = $service;

@@ -164,6 +164,8 @@ final class ContentPlanner
         $sitePages = $this->sitePages($site);
         $previous = $this->previousIdeas($brand);
         $candidates = $this->candidates($brand, $site, $only, $previous, $sitePages, $main);
+        // A page a candidate strengthens is a page of the site even past the first pages by path (an update must find it).
+        $sitePages = $sitePages->merge(collect($candidates)->pluck('page')->filter())->unique('id')->values();
         if ($candidates === []) {
             $this->logRun($site, ['status' => 'no_candidates', 'candidates' => 0, 'asked' => 0, 'added' => 0, 'dropped' => []]);
 
@@ -295,21 +297,29 @@ final class ContentPlanner
         $out = [];
         $seenQueries = [];
 
-        // 1) Search Console: searches the site is shown for at position 4–20 without a page of their own.
+        // 1) Search Console: searches the site is shown for at position 4–20, answered by the page Google shows for them
+        // (strengthen it) or by none (a new page). A search whose cluster already has a sufficient page is left alone.
         if ($only === null) {
-            $striking = $this->strikingQueries($site);
-            $clusterOfQuery = $this->queryClusters(array_column($striking, 'query'), $clusterIds);
+            $striking = $this->strikingQueries($site, $brand);
+            $siteRows = $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path'])->where('brand_id', $brand->id)
+                ->where('website_asset_id', $site->id)->where('excluded', false))->orderBy('id')->get()
+                ->sortBy(fn (BrandClusterPage $r): array => [$r->language === $main ? 0 : 1, (int) $r->id])->unique('cluster_id')->keyBy('cluster_id');
+            $clusterOfQuery = $this->queryClusters(array_column($striking, 'query'), $siteRows->keys()->map(fn ($id): int => (int) $id)->all());
+            $pageOf = $this->rankingPages($site, array_column($striking, 'query'));
             foreach ($striking as $s) {
                 $folded = SeoText::fold($s['query']);
                 if (isset($usedQueries[$folded]) || isset($usedKeys['q:'.$folded]) || mb_strlen($folded) < 4) {
                     continue;
                 }
-                $page = $this->pageFor($s['query'], $sitePages);
+                $row = isset($clusterOfQuery[$folded]) ? $siteRows->get($clusterOfQuery[$folded]) : null;
+                if ($row !== null && $row->state === 'sufficient') {
+                    continue;
+                }
+                $page = $pageOf[$s['query']] ?? null;
                 if ($page !== null && isset($updatedPages[(int) $page->id])) {
                     continue;
                 }
-                $row = isset($clusterOfQuery[$folded]) ? $rows->firstWhere('cluster_id', $clusterOfQuery[$folded]) : null;
-                $serviceId = $row?->cluster?->service_id !== null ? (int) $row->cluster->service_id : null;
+                $serviceId = $row?->cluster?->service_id !== null ? (int) $row->cluster->service_id : $s['service_id'];
                 $angle = $page !== null ? 'update' : (self::isQuestion($s['query']) ? 'expert_answer' : null);
                 $seenQueries[$folded] = true;
                 $out[] = [
@@ -329,12 +339,14 @@ final class ContentPlanner
                 continue;
             }
             $serviceId = $cluster->service_id !== null ? (int) $cluster->service_id : null;
-            $volume = $volumes[(int) $row->cluster_id] ?? 0;
+            $library = $volumes[(int) $row->cluster_id] ?? ['impressions' => 0, 'volume' => 0];
+            $volume = $library['impressions'];
             $search = $brandSearch[(int) $row->cluster_id] ?? null;
-            $demand = $weight($serviceId) * log10(1 + $volume) + 1.5 * log10(1 + ($search['impressions'] ?? 0));
+            $demand = $weight($serviceId) * log10(1 + $library['impressions'] + $library['volume']) + 1.5 * log10(1 + ($search['impressions'] ?? 0));
             $rotation = isset($recentClusters[(int) $row->cluster_id]) ? 1 : 0;
             $parts = array_filter([
                 $volume > 0 ? 'sorgu kütüphanesinde '.$number($volume).' gösterim' : null,
+                $library['volume'] > 0 ? 'ayda '.$number($library['volume']).' arama (Keyword Planner)' : null,
                 $search !== null && $search['impressions'] > 0 ? 'sitede 28 günde '.$number($search['impressions']).' gösterim'.($search['position'] !== null ? ', '.$number((float) $search['position'], 1).'. sıra' : '') : null,
             ]);
             $clusterLine = ['kind' => 'cluster', 'value' => $cluster->name.' · '.($parts !== [] ? implode(' · ', $parts).' · ' : '').$row->stateLabel(), 'source' => 'küme'];
@@ -367,6 +379,23 @@ final class ContentPlanner
         }
         // Clusters a recent idea already answers go last (rotation; yakup, 2026-10-07: pools stuck on the same clusters).
         usort($out, fn (array $a, array $b): int => [$a['tier'] ?? 0, $b['score']] <=> [$b['tier'] ?? 0, $a['score']]);
+        // One new page per cluster: never while a new-page idea of the cluster waits, is approved or snoozed, and at most
+        // one of its search / cluster / AI-question candidates per run (the best one).
+        $newPageClusters = $previous->filter(fn (Suggestion $s): bool => $s->cluster_id !== null && data_get($s->action, 'kind') === 'new'
+            && in_array($s->status, [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED], true))
+            ->pluck('cluster_id')->map(fn ($id): int => (int) $id)->flip()->all();
+        $out = array_values(array_filter($out, function (array $c) use (&$newPageClusters): bool {
+            $clusterId = $c['row']?->cluster_id !== null ? (int) $c['row']->cluster_id : null;
+            if ($c['kind'] !== 'new' || $clusterId === null) {
+                return true;
+            }
+            if (isset($newPageClusters[$clusterId])) {
+                return false;
+            }
+            $newPageClusters[$clusterId] = true;
+
+            return true;
+        }));
         foreach ($out as $i => &$candidate) {
             $candidate['id'] = $i + 1;
             $candidate['queries'] = $candidate['row'] !== null ? ($queries[(int) $candidate['row']->cluster_id] ?? []) : [];
@@ -444,28 +473,39 @@ final class ContentPlanner
     }
 
     /**
-     * The site page that already answers a search: its title or path holds every word of the search longer than two
-     * letters (at least two such words).
+     * The site page Google shows most for each search (Search Console query × page, 28 days): the page that already
+     * answers it. The home page answers nothing on its own; a URL the site's pages do not hold is no page.
      *
-     * @param  Collection<int, Page>  $sitePages
+     * @param  list<string>  $queries
+     * @return array<string, Page> search => page
      */
-    private function pageFor(string $query, Collection $sitePages): ?Page
+    private function rankingPages(DigitalAsset $site, array $queries): array
     {
-        $words = array_values(array_filter(explode(' ', SeoText::fold($query)), fn (string $w): bool => mb_strlen($w) > 2));
-        if (count($words) < 2) {
-            return null;
+        $w = $this->reader->window($site, 28);
+        if ($queries === [] || $w['gsc'] === []) {
+            return [];
+        }
+        $best = [];
+        DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $w['gsc'])->where('search_type', 'web')->whereBetween('reporting_date', [$w['start'], $w['end']])
+            ->whereIn('query', $queries)->groupBy('query', 'page')->selectRaw('query, page, sum(impressions) as impressions')
+            ->orderByDesc('impressions')->orderBy('page')->get()
+            ->each(function (object $r) use (&$best): void {
+                $best[(string) $r->query] ??= SeoText::urlKey((string) $r->page);
+            });
+        $keys = array_values(array_unique(array_filter($best, fn (string $key): bool => trim(SeoText::urlPath($key), '/') !== '')));
+        if ($keys === []) {
+            return [];
+        }
+        $pages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('id')
+            ->get(['id', 'url', 'path', 'title', 'category', 'wp_post_type'])->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
+        $out = [];
+        foreach ($best as $query => $key) {
+            if (in_array($key, $keys, true) && $pages->has($key)) {
+                $out[$query] = $pages->get($key);
+            }
         }
 
-        return $sitePages->first(function (Page $p) use ($words): bool {
-            $text = SeoText::fold((string) $p->title.' '.str_replace(['-', '/'], ' ', (string) $p->path));
-            foreach ($words as $word) {
-                if (! str_contains($text, $word)) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
+        return $out;
     }
 
     /**
@@ -578,18 +618,76 @@ final class ContentPlanner
     }
 
     /**
-     * Queries the site is seen for but not near the top (position 4–20, at least 30 impressions in 28 days), most seen
-     * first: the reader already searches this, the brand answers it weakly.
+     * Queries the site is seen for but not near the top (position 4–20), most seen first: the reader already searches
+     * this, the brand answers it weakly. A search must be seen enough for the site's size (30 impressions in 28 days,
+     * less on a small site: its 75th percentile, at least 5), must not name a place outside the brand's areas, and must
+     * be a library search of one of the brand's services (the library already left out places, other languages and
+     * irrelevant searches; the brand's own place word is taken off before the lookup: "çankaya implant" → "implant").
      *
-     * @return list<array{query: string, impressions: int, clicks: int, position: ?float}>
+     * @return list<array{query: string, impressions: int, clicks: int, position: ?float, service_id: int}>
      */
-    private function strikingQueries(DigitalAsset $site): array
+    private function strikingQueries(DigitalAsset $site, Brand $brand): array
     {
-        return collect($this->reader->queries($site, 28))
-            ->filter(fn (array $q): bool => $q['position'] !== null && $q['position'] >= 4 && $q['position'] <= 20 && $q['impressions'] >= 30)
-            ->sortByDesc('impressions')->take(self::STRIKING_QUERIES)
-            ->map(fn (array $q): array => ['query' => (string) $q['query'], 'impressions' => (int) $q['impressions'], 'clicks' => (int) $q['clicks'], 'position' => $q['position']])
-            ->values()->all();
+        $all = collect($this->reader->queries($site, 28));
+        $threshold = min(30, max(5, self::percentile($all->pluck('impressions')->map(fn ($n): int => (int) $n)->all(), 0.75)));
+        $services = SiteScope::offerings($brand)->pluck('service_catalog_item_id')->filter()->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        if ($services === []) {
+            return [];
+        }
+        $areaWords = array_flip(SiteScope::areaWords($brand));
+        $normalizer = new QueryNormalizer;
+        $lookup = [];
+        foreach ($all->filter(fn (array $q): bool => $q['position'] !== null && $q['position'] >= 4 && $q['position'] <= 20 && $q['impressions'] >= $threshold) as $q) {
+            $kept = [];
+            foreach (explode(' ', $normalizer->normalize((string) $q['query'])) as $word) {
+                $place = QueryNormalizer::placeBase(SeoText::fold($word));
+                if ($place === null) {
+                    $kept[] = $word;
+                } elseif (! isset($areaWords[$place])) {
+                    continue 2; // a place the brand does not serve
+                }
+            }
+            $text = implode(' ', array_filter($kept, fn (string $w): bool => $w !== ''));
+            $named = QueryNormalizer::placeIn((string) $q['query']);
+            if ($text === '' || ($named !== null && array_diff(SeoText::tokens($named), array_keys($areaWords)) !== [])) {
+                continue;
+            }
+            $lookup[QueryNormalizer::hash($text)][] = $q;
+        }
+        if ($lookup === []) {
+            return [];
+        }
+        $library = [];
+        foreach (array_chunk(array_keys($lookup), 500) as $hashes) {
+            DB::table('queries')->whereIn('text_hash', $hashes)->whereIn('service_id', $services)->where('hidden', false)->orderBy('id')
+                ->get(['text_hash', 'service_id'])->each(function (object $r) use (&$library): void {
+                    $library[(string) $r->text_hash] ??= (int) $r->service_id;
+                });
+        }
+        $out = [];
+        foreach ($lookup as $hash => $queries) {
+            foreach (isset($library[$hash]) ? $queries : [] as $q) {
+                $out[] = ['query' => (string) $q['query'], 'impressions' => (int) $q['impressions'], 'clicks' => (int) $q['clicks'], 'position' => $q['position'], 'service_id' => $library[$hash]];
+            }
+        }
+        usort($out, fn (array $a, array $b): int => [$b['impressions'], $a['query']] <=> [$a['impressions'], $b['query']]);
+
+        return array_slice($out, 0, self::STRIKING_QUERIES);
+    }
+
+    /**
+     * The value below which the given share of the numbers falls (nearest rank); 0 for none.
+     *
+     * @param  list<int>  $numbers
+     */
+    private static function percentile(array $numbers, float $share): int
+    {
+        if ($numbers === []) {
+            return 0;
+        }
+        sort($numbers);
+
+        return $numbers[max(0, (int) ceil($share * count($numbers)) - 1)];
     }
 
     /**
@@ -610,12 +708,18 @@ final class ContentPlanner
             'result_type' => (string) $r->result_type, 'results' => (float) $r->results])->all();
     }
 
-    /** @return array<int, int> cluster id => impressions of its visible queries in the query library */
+    /**
+     * Demand of each cluster in the query library: impressions of its visible queries and their monthly Keyword Planner
+     * searches (a brand without Search Console still has the second).
+     *
+     * @param  list<int>  $clusterIds
+     * @return array<int, array{impressions: int, volume: int}>
+     */
     private function clusterVolumes(array $clusterIds): array
     {
         return DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds ?: [0])->where('q.hidden', false)
-            ->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) as volume')->pluck('volume', 'cluster_id')
-            ->mapWithKeys(fn ($v, $id): array => [(int) $id => (int) $v])->all();
+            ->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) as impressions, sum(coalesce(q.volume, 0)) as volume')->get()
+            ->mapWithKeys(fn (object $r): array => [(int) $r->cluster_id => ['impressions' => (int) $r->impressions, 'volume' => (int) $r->volume]])->all();
     }
 
     /** @return array{status: string, added: int} */

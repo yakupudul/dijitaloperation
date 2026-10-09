@@ -47,18 +47,17 @@ final class ContentCoverage
     {
         $brands = Brand::query()->operational()->when($brandId !== null, fn ($q) => $q->whereKey($brandId))->orderBy('name')->get(['id', 'name', 'weekly_content_capacity']);
         $sites = DigitalAsset::query()->where('type', 'website')->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->orderBy('id')->get()->groupBy('brand_id');
-        $states = BrandClusterPage::query()->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->where('excluded', false)
-            ->selectRaw('website_asset_id, state, count(distinct cluster_id) as n')->groupBy('website_asset_id', 'state')->get()
-            ->groupBy('website_asset_id')->map(fn (Collection $rows): array => $rows->mapWithKeys(fn ($r): array => [(string) $r->state => (int) $r->n])->all());
+        $clusterRows = BrandClusterPage::query()->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->where('excluded', false)
+            ->orderBy('id')->get(['id', 'website_asset_id', 'cluster_id', 'state', 'language'])->groupBy('website_asset_id');
         $titles = $this->titleCounts($brands->pluck('id')->all());
         $rows = [];
         foreach ($brands as $brand) {
             foreach ($sites->get($brand->id, collect()) as $site) {
-                $byState = $states->get($site->id, []);
                 $count = $titles[(int) $site->id] ?? ['waiting' => [], 'writing' => 0, 'reading' => 0, 'sent' => 0, 'last' => null];
                 // yakup, 2026-10-07: ideas are planned in the site's main language only; other languages get the
                 // written article's translation, never ideas of their own.
                 $languages = ContentPlanner::siteLanguages($site);
+                $byState = self::statesOf($clusterRows->get($site->id, collect()), $languages[0]);
                 $pool = [$languages[0] => (int) ($count['waiting'][$languages[0]] ?? 0) + (int) ($count['waiting'][''] ?? 0)];
                 $row = [
                     'brand_id' => (int) $brand->id, 'brand' => (string) $brand->name, 'site' => $site,
@@ -82,6 +81,26 @@ final class ContentCoverage
         usort($rows, fn (array $a, array $b): int => [self::short($b), $b['missing']] <=> [self::short($a), $a['missing']]);
 
         return $rows;
+    }
+
+    /**
+     * Clusters per state in the site's main language: a cluster counts once, by its main-language row (else its row
+     * without a language); rows of other languages are translations' targets and never count.
+     *
+     * @param  Collection<int, BrandClusterPage>  $rows
+     * @return array<string, int>
+     */
+    private static function statesOf(Collection $rows, string $main): array
+    {
+        $byState = [];
+        $rows->filter(fn (BrandClusterPage $row): bool => $row->language === null || $row->language === $main)
+            ->sortBy(fn (BrandClusterPage $row): array => [$row->language === $main ? 0 : 1, (int) $row->id])
+            ->unique('cluster_id')
+            ->each(function (BrandClusterPage $row) use (&$byState): void {
+                $byState[(string) $row->state] = ($byState[(string) $row->state] ?? 0) + 1;
+            });
+
+        return $byState;
     }
 
     /**

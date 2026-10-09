@@ -76,6 +76,7 @@ final class GbpStandardInput
         }
         $decode = static fn (mixed $raw): array => GoogleAdsAdvisorInputCollector::decode($raw);
         $categories = $decode($row->additional_categories);
+        $address = $decode($row->storefront_address);
 
         return [
             'title' => (string) ($row->title ?? ''),
@@ -87,7 +88,8 @@ final class GbpStandardInput
             'open_status' => $decode($row->open_info)['status'] ?? null,
             'website_uri' => (string) ($row->website_uri ?? ''),
             'phone' => (string) ($decode($row->phone_numbers)['primaryPhone'] ?? ''),
-            'has_storefront' => array_filter((array) ($decode($row->storefront_address)['addressLines'] ?? [])) !== [],
+            'has_storefront' => array_filter((array) ($address['addressLines'] ?? [])) !== [],
+            'area_words' => array_values(array_filter(explode(' ', SeoText::fold(((string) ($address['sublocality'] ?? '')).' '.((string) ($address['locality'] ?? '')))))),
             'service_area_count' => count((array) ($decode($row->service_area)['places']['placeInfos'] ?? [])),
         ];
     }

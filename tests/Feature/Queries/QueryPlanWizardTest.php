@@ -380,7 +380,7 @@ final class QueryPlanWizardTest extends TestCase
         $this->assertSame('hair', $service('Saç Ekimi')->sector, 'a service of another sector is not moved');
     }
 
-    public function test_step_three_proposes_valid_terms_and_the_first_import_filters_across_sectors_and_notifies(): void
+    public function test_step_three_proposes_valid_terms_and_the_first_import_filters_each_sector_and_notifies(): void
     {
         app(ServiceKeywordService::class)->replace($this->implant, 'implant');
         $hairBrand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'sector_id' => $this->hair->id]);
@@ -393,14 +393,18 @@ final class QueryPlanWizardTest extends TestCase
         QueryPlanFiltersAgent::fake(function (string $prompt) use (&$prompts): array {
             $prompts[] = $prompt;
 
-            return ['terms' => [
+            // One call per sector: each answers with its own sector's terms.
+            $terms = str_contains($prompt, 'saç ekimi forum') ? [
+                ['sector_id' => $this->hair->id, 'term' => 'forum', 'reason' => 'Forum'],
+                ['sector_id' => 424242, 'term' => 'x', 'reason' => '-'],
+            ] : [
                 ['sector_id' => $this->dental->id, 'term' => 'İş İlanı', 'reason' => 'İş arayan'],
                 ['sector_id' => $this->dental->id, 'term' => 'maaş', 'reason' => 'İş arayan'],
                 ['sector_id' => $this->dental->id, 'term' => 'implant', 'reason' => 'hizmet kelimesi'],
                 ['sector_id' => $this->dental->id, 'term' => 'uzay', 'reason' => 'örneklerde yok'],
-                ['sector_id' => $this->hair->id, 'term' => 'forum', 'reason' => 'Forum'],
-                ['sector_id' => 424242, 'term' => 'x', 'reason' => '-'],
-            ], 'prompt_version' => QueryPlanFiltersAgent::PROMPT_VERSION];
+            ];
+
+            return ['terms' => $terms, 'prompt_version' => QueryPlanFiltersAgent::PROMPT_VERSION];
         });
 
         $page = Livewire::test(QueryPlanWizard::class)->call('goTo', 3)->call('runAi')
@@ -413,11 +417,11 @@ final class QueryPlanWizardTest extends TestCase
 
         $this->assertSame(['forum', 'iş ilanı'], FilterTerm::query()->orderBy('term')->pluck('term')->all());
         $this->assertNotNull(QueryPipeline::importedAt());
-        $this->assertSame(['diş hekimi maaşları', 'implant fiyatları', 'saç ekimi fiyatları'], Query::query()->orderBy('text')->pluck('text')->all(),
-            'containing queries deleted (the hair term also deletes the dental "implant forum"), unticked "maaş" not a filter');
+        $this->assertSame(['diş hekimi maaşları', 'implant fiyatları', 'implant forum', 'saç ekimi fiyatları'], Query::query()->orderBy('text')->pluck('text')->all(),
+            'containing queries deleted within their own sector (the hair term "forum" leaves the dental "implant forum"), unticked "maaş" not a filter');
         $this->assertSame($this->implant->id, Query::query()->where('text', 'implant fiyatları')->value('service_id'));
         $notice = UserNotification::query()->where('recipient_user_id', $this->admin->id)->where('notification_kind', NotificationKind::QueriesNotice->value)->sole();
-        $this->assertSame('İlk içe aktarma tamamlandı: 3 sorgu', $notice->presentation['title']);
+        $this->assertSame('İlk içe aktarma tamamlandı: 4 sorgu', $notice->presentation['title']);
         $this->assertSame(route('operator.library.queries', [], false), $notice->presentation['url']);
     }
 

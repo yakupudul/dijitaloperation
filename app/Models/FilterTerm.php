@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Filter basket: a NEGATIVE list (like Google Ads negatives) — a query containing a term is deleted entirely, never
- * stripped. Organised per sector (sector_id null = general) but every term applies to every query.
+ * stripped. Organised per sector (sector_id null = general) a general term applies to every query, a sector term only to queries of that sector.
  */
 class FilterTerm extends Model
 {

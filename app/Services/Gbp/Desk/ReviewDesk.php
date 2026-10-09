@@ -8,6 +8,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpReview;
+use App\Models\GbpReviewFlag;
 use App\Models\User;
 use App\Services\Archive\ProductionArchive;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -280,7 +281,8 @@ final class ReviewDesk
     }
 
     /**
-     * Admin: every listed review that has a draft and no reply on the way gets its draft as the reply.
+     * Admin (manual click only): every listed review that has a draft and no reply on the way gets its draft as the
+     * reply. Reviews the brand said not to answer ("Marka istemedi") and reviews with an open removal flag are skipped.
      *
      * @param  list<array<string, mixed>>  $reviews
      * @return array{sent: int, failed: int}
@@ -288,10 +290,14 @@ final class ReviewDesk
     public function sendDrafts(User $user, array $reviews): array
     {
         abort_unless(ExternalWriteService::allowed($user, ExternalWriteAction::CHANNEL_GBP), 403, 'Yanıtları yalnız Admin gönderir.');
+        $ids = array_values(array_map(fn (array $r): int => (int) $r['id'], $reviews));
+        $declined = array_filter(app(ReviewApprovals::class)->forReviews($ids), fn (array $a): bool => $a['state'] === 'skip');
+        $flagged = array_filter(app(ReviewFlags::class)->forReviews($ids), fn (array $f): bool => in_array($f['status'], [GbpReviewFlag::DRAFT, GbpReviewFlag::REPORTED], true));
         $sent = 0;
         $failed = 0;
         foreach ($reviews as $review) {
-            if ($review['draft'] === null || trim((string) $review['draft']) === '' || self::busy($review + ['answered' => false])) {
+            if ($review['draft'] === null || trim((string) $review['draft']) === '' || self::busy($review + ['answered' => false])
+                || isset($declined[(int) $review['id']]) || isset($flagged[(int) $review['id']])) {
                 continue;
             }
             try {

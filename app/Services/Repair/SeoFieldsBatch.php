@@ -50,12 +50,14 @@ final class SeoFieldsBatch
             return ['status' => 'ready', 'prepared' => 0, 'skipped' => 0];
         }
         $queries = $this->pageQueries($suggestions->map(fn (Suggestion $s): string => (string) $s->page->url)->all());
+        $pack = $this->brandPack($brand);
         $result = $this->ai->run(new SeoFieldsBatchAgent, [
-            'brand' => $this->brandPack($brand),
+            'brand' => $pack,
             'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
             'pages' => $suggestions->map(fn (Suggestion $s): array => [
                 'id' => (int) $s->id, 'url' => (string) $s->page->url, 'language' => (string) ($s->page->language ?: 'tr'),
-                'seo_title' => (string) $s->page->title, 'meta_description' => (string) $s->page->meta_description, 'h1' => (string) $s->page->h1,
+                'seo_title' => (string) $s->page->title, 'title_source' => $s->page->title_source === 'post' ? 'post' : 'seo',
+                'meta_description' => (string) $s->page->meta_description, 'h1' => (string) $s->page->h1,
                 'text' => $s->page->aiText(700), 'fix' => self::fix($s), 'queries' => $queries[(string) $s->page->url] ?? [],
             ])->all(),
         ], 240, 'batch-'.md5(implode(',', $suggestions->pluck('id')->all())));
@@ -70,9 +72,10 @@ final class SeoFieldsBatch
         $compliance = BriefCompliance::forBrand($brand);
         $forbidden = ForbiddenTerms::forBrand($brand);
         $answers = collect((array) ($result['data']['pages'] ?? []))->filter(fn ($p): bool => is_array($p) && is_int($p['id'] ?? null))->keyBy('id');
+        $names = ['brand' => self::words($pack['name']), 'areas' => self::words(implode(' ', $pack['areas']))];
         $prepared = 0;
         foreach ($suggestions as $suggestion) {
-            $new = $this->checked($suggestion, (array) $answers->get($suggestion->id, []), $siteTitles, $siteDescriptions, $compliance, $forbidden);
+            $new = $this->checked($suggestion, (array) $answers->get($suggestion->id, []), $siteTitles, $siteDescriptions, $compliance, $forbidden, $names);
             if ($new === []) {
                 continue;
             }
@@ -128,9 +131,10 @@ final class SeoFieldsBatch
      * @param  array<string, mixed>  $answer
      * @param  array<string, int>  $siteTitles
      * @param  array<string, int>  $siteDescriptions
+     * @param  array{brand: list<string>, areas: list<string>}  $names  folded words of the brand name and its areas
      * @return array<string, string>
      */
-    private function checked(Suggestion $suggestion, array $answer, array &$siteTitles, array &$siteDescriptions, BriefCompliance $compliance, ForbiddenTerms $forbidden): array
+    private function checked(Suggestion $suggestion, array $answer, array &$siteTitles, array &$siteDescriptions, BriefCompliance $compliance, ForbiddenTerms $forbidden, array $names): array
     {
         $page = $suggestion->page;
         $evidence = new SiteEvidence([(string) $page->url]);
@@ -147,7 +151,8 @@ final class SeoFieldsBatch
             $taken = $field === 'seo_title' ? $siteTitles : $siteDescriptions;
             if (! isset($fix[$field]) || $value === '' || mb_strlen($value) < $min || mb_strlen($value) > $max || isset($taken[$folded])
                 || $value === trim((string) ($field === 'seo_title' ? $page->title : $page->meta_description))
-                || ! $evidence->grounded($value) || ! $compliance->isCompliant($value) || $forbidden->blocking($value) !== []) {
+                || ! $evidence->grounded($value) || ! $compliance->isCompliant($value) || $forbidden->blocking($value) !== []
+                || ($field === 'seo_title' && ! self::keepsNames($page, $value, $names))) {
                 continue;
             }
             $new[$field] = $value;
@@ -159,6 +164,31 @@ final class SeoFieldsBatch
         }
 
         return $new;
+    }
+
+    /**
+     * A new title replaces the whole title Google shows: it must keep every brand-name and area word the current title
+     * has. A post title (the SEO plugin adds " | Brand Location" to it) carries the brand in search results, so the new
+     * literal title must name the brand too.
+     *
+     * @param  array{brand: list<string>, areas: list<string>}  $names
+     */
+    public static function keepsNames(Page $page, string $value, array $names): bool
+    {
+        $current = self::words((string) $page->title);
+        $new = self::words($value);
+        $kept = array_intersect([...$names['brand'], ...$names['areas']], $current);
+        if (array_diff($kept, $new) !== []) {
+            return false;
+        }
+
+        return $page->title_source !== 'post' || $names['brand'] === [] || array_intersect($names['brand'], $new) !== [];
+    }
+
+    /** @return list<string> folded words of three letters or more */
+    private static function words(string $text): array
+    {
+        return array_values(array_unique(array_filter(explode(' ', SeoText::fold($text)), fn (string $w): bool => mb_strlen($w) >= 3)));
     }
 
     /** @return array{name: string, services: list<string>, areas: list<string>} */

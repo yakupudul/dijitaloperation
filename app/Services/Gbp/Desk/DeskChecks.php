@@ -2,12 +2,14 @@
 
 namespace App\Services\Gbp\Desk;
 
+use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\GbpPostQueue;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * The six İşletme profilleri checks of each profile (branch page, description, holiday hours, photos, reviews, post
@@ -61,7 +63,7 @@ final class DeskChecks
                     $access[$id]['gbp_media'] ?? null, ($photoStatus[$id]['photos'] ?? 0) > 0, 'Fotoğraf'),
                 'reviews' => self::withAccess(['ok' => ($reviewStats[$id]['unanswered'] ?? 0) === 0, 'label' => 'Yorumlar', 'hint' => ($reviewStats[$id]['unanswered'] ?? 0) > 0 ? $reviewStats[$id]['unanswered'].' yanıtsız yorum' : 'Yanıtsız yorum yok'],
                     $access[$id]['gbp_reviews'] ?? null, ($reviewStats[$id]['recent'] ?? 0) > 0 || ($reviewStats[$id]['reply_rate'] ?? null) !== null, 'Yorum'),
-                'posts' => ['ok' => (int) ($planned[$id] ?? 0) >= 15, 'label' => 'Gönderi planı', 'hint' => (int) ($planned[$id] ?? 0).'/'.GbpPostQueue::HORIZON_DAYS.' gün planlı'],
+                'posts' => self::postsCheck($id, (int) ($planned[$id] ?? 0)),
             ];
             foreach ($checks as $key => $check) {
                 $checks[$key]['route'] = self::ROUTES[$key];
@@ -72,6 +74,21 @@ final class DeskChecks
         }
 
         return ['rows' => $rows, 'holiday' => $holiday, 'resources' => $resources];
+    }
+
+    /**
+     * Post plan: at least 15 of the next 30 days planned, or as many as the site's pages allow (the last fill ran out of
+     * content: nothing more can be planned until the site gets new pages, so the check is not left open).
+     *
+     * @return array{ok: bool, label: string, hint: string}
+     */
+    private static function postsCheck(int $assetId, int $planned): array
+    {
+        $fill = Cache::get(FillGbpPostQueueJob::stateKey($assetId));
+        $exhausted = is_array($fill) && (($fill['result'] ?? null) === 'no_content' || (($fill['result'] ?? null) === 'ready' && (int) ($fill['empty'] ?? 0) > 0));
+        $hint = $planned.'/'.GbpPostQueue::HORIZON_DAYS.' gün planlı';
+
+        return ['ok' => $planned >= 15 || $exhausted, 'label' => 'Gönderi planı', 'hint' => $exhausted && $planned < 15 ? $hint.' · sitede yeni içerik yok' : $hint];
     }
 
     /**

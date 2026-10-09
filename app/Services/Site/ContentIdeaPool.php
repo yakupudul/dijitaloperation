@@ -44,7 +44,7 @@ final class ContentIdeaPool
     {
         $count = max(1, min(self::MAX_COUNT, $count));
         $queries = $this->clusterQueries($cluster);
-        $existing = ContentIdea::query()->where('cluster_id', $cluster->id)->orderBy('id')->get(['title', 'title_key', 'type', 'status']);
+        $existing = ContentIdea::query()->where('cluster_id', $cluster->id)->orderBy('id')->get(['title', 'title_key', 'type', 'status', 'target_queries']);
         $data = [
             'cluster' => [
                 'name' => (string) $cluster->name,
@@ -64,7 +64,7 @@ final class ContentIdeaPool
         $data['forbidden'] = $forbidden->phrases();
         if ($brand !== null) {
             $data['brand'] = $this->brandContext($brand);
-            $data['site_pages'] = $this->sitePages($brand);
+            $data['site_pages'] = $this->sitePages($brand, $cluster, $queries);
         }
 
         $result = $this->ai->run(new ContentIdeasAgent, $data, 180);
@@ -75,13 +75,18 @@ final class ContentIdeaPool
         $inCluster = $queries->mapWithKeys(fn (object $q): array => [SeoText::fold((string) $q->text) => true])->all();
         $taken = $existing->pluck('title_key')->flip()->all();
         $taken[SeoText::fold((string) $cluster->name)] = true;
+        // An extra idea answers a search of its own: its first target is a cluster query that is neither the cluster's
+        // main query (the main page answers that) nor the target of another active idea.
+        $mainQuery = SeoText::fold((string) ($cluster->mainQuery?->text ?? ''));
+        $targeted = $existing->where('status', 'active')->flatMap(fn (ContentIdea $i): array => array_map(fn ($q): string => SeoText::fold((string) ($q['text'] ?? '')), (array) $i->target_queries))
+            ->filter()->flip()->all();
         $added = 0;
         $rejected = [];
         foreach (array_slice((array) ($result['data']['ideas'] ?? []), 0, $count) as $row) {
             $row = is_array($row) ? $row : [];
             $title = trim(mb_substr((string) ($row['title'] ?? ''), 0, 200));
             $key = SeoText::fold($title);
-            $reason = $this->rejection($row, $title, $key, $taken, $inCluster);
+            $reason = $this->rejection($row, $title, $key, $taken, $inCluster, $mainQuery, $targeted);
             $banned = $reason === null ? $forbidden->blocking(implode(' . ', [$title, (string) ($row['angle'] ?? ''), ...$this->outline($row)])) : [];
             if ($banned !== []) {
                 $reason = 'Yasaklı ifade içeriyor: «'.implode('», «', $banned).'».';
@@ -105,6 +110,7 @@ final class ContentIdeaPool
                 'status' => 'active',
             ]);
             $taken[$key] = true;
+            $targeted[SeoText::fold($this->targets($row, $inCluster)[0]['text'])] = true;
             $added++;
         }
 
@@ -117,8 +123,10 @@ final class ContentIdeaPool
      * @param  array<string, mixed>  $row
      * @param  array<string, true>  $taken
      * @param  array<string, true>  $inCluster
+     * @param  string  $mainQuery  folded main query of the cluster
+     * @param  array<string, mixed>  $targeted  folded target queries of the cluster's active ideas
      */
-    private function rejection(array $row, string $title, string $key, array $taken, array $inCluster): ?string
+    private function rejection(array $row, string $title, string $key, array $taken, array $inCluster, string $mainQuery = '', array $targeted = []): ?string
     {
         if (! in_array($row['type'] ?? null, ContentIdea::TYPES, true)) {
             return 'Geçersiz tür.';
@@ -129,8 +137,19 @@ final class ContentIdeaPool
         if (isset($taken[$key])) {
             return 'Kümenin kendisiyle ya da havuzdaki bir fikirle aynı.';
         }
-        if (! collect($this->targets($row, $inCluster))->contains('in_cluster', true)) {
+        $targets = $this->targets($row, $inCluster);
+        if (! collect($targets)->contains('in_cluster', true)) {
             return 'Hedef sorgularından hiçbiri kümenin sorgusu değil.';
+        }
+        $first = SeoText::fold($targets[0]['text']);
+        if (! $targets[0]['in_cluster']) {
+            return 'İlk hedef sorgusu kümenin bir sorgusu olmalı.';
+        }
+        if ($first === $mainQuery) {
+            return 'İlk hedef sorgusu kümenin ana sorgusu; ek fikir kendi sorgusunu hedeflemeli.';
+        }
+        if (isset($targeted[$first])) {
+            return 'İlk hedef sorgusu havuzdaki başka bir fikrin hedefi.';
         }
         $outline = count($this->outline($row));
         if ($outline < 3 || $outline > 12) {
@@ -181,16 +200,36 @@ final class ContentIdeaPool
                 ->filter()->unique()->values()->all(),
             'areas' => SiteScope::areas($brand)->map(fn ($area): string => trim((string) ($area->district_name ?: $area->city_name ?: $area->name)))
                 ->filter()->unique()->take(12)->values()->all(),
-            'language' => 'tr',
+            'language' => self::language($brand),
         ];
     }
 
-    /** @return list<array{url: string, title: string, category: string}> */
-    private function sitePages(Brand $brand): array
+    /** Ideas are written in the main language of the brand's site (yakup, 2026-10-07). */
+    private static function language(Brand $brand): string
     {
+        $site = $brand->digitalAssets()->where('type', 'website')->orderBy('id')->first();
+
+        return ($site !== null ? SiteScope::primaryLanguage($site) : null) ?? 'tr';
+    }
+
+    /**
+     * The brand's content pages that are about the cluster (a word of its name, subtopics or queries in the title or
+     * path), most related first: the AI must see the page an idea would duplicate, whatever its place in the site.
+     *
+     * @param  Collection<int, object>  $queries
+     * @return list<array{url: string, title: string, category: string}>
+     */
+    private function sitePages(Brand $brand, Cluster $cluster, Collection $queries): array
+    {
+        $words = array_flip(SeoText::tokens(implode(' ', [(string) $cluster->name, ...array_map('strval', array_values((array) $cluster->subtopics)),
+            ...$queries->take(self::TOP_QUERIES)->pluck('text')->map(fn ($t): string => (string) $t)->all()])));
+        $language = self::language($brand);
+
         return Page::query()->whereIn('website_asset_id', $brand->digitalAssets()->where('type', 'website')->select('id'))
-            ->whereIn('category', ['hizmet', 'blog', 'sss', 'lokasyon'])->orderBy('path')->limit(self::SITE_PAGES)
-            ->get(['url', 'title', 'category'])
-            ->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => (string) $p->title, 'category' => (string) $p->category])->all();
+            ->whereIn('category', ['hizmet', 'blog', 'sss', 'lokasyon'])->where(fn ($l) => $l->whereNull('language')->orWhere('language', $language))
+            ->orderBy('id')->get(['url', 'path', 'title', 'category'])
+            ->map(fn (Page $p): array => ['page' => $p, 'hits' => count(array_intersect_key(array_flip(SeoText::tokens((string) $p->title.' '.str_replace(['-', '/'], ' ', (string) $p->path))), $words))])
+            ->filter(fn (array $r): bool => $r['hits'] > 0)->sortByDesc('hits')->take(self::SITE_PAGES)
+            ->map(fn (array $r): array => ['url' => (string) $r['page']->url, 'title' => (string) $r['page']->title, 'category' => (string) $r['page']->category])->values()->all();
     }
 }

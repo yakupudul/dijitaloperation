@@ -59,8 +59,9 @@ final class ContentIdeaPoolTest extends SiteTestCase
     public function test_a_brand_screen_sends_brand_context_and_the_pool_is_shared_with_its_users(): void
     {
         $this->enableAi();
-        $cluster = $this->cluster($this->implant, 'İmplant tedavisi', ['implant tedavisi', 'implant sonrası ne yenir']);
+        $cluster = $this->cluster($this->implant, 'İmplant tedavisi', ['implant tedavisi', 'implant sonrası ne yenir', 'implant kliniği seçimi']);
         $this->page('/blog/implant-bakimi/', 'İmplant bakımı', ['category' => 'blog']);
+        $this->page('/blog/kahve-lekesi/', 'Kahve lekesi nasıl çıkar', ['category' => 'blog']);
         $existing = ContentIdea::query()->create(['cluster_id' => $cluster->id, 'title' => 'İmplant sonrası beslenme rehberi', 'title_key' => 'implant sonrasi beslenme rehberi',
             'type' => 'guide', 'target_queries' => [['text' => 'implant sonrası ne yenir', 'in_cluster' => true]], 'outline' => ['A', 'B', 'C']]);
         $sent = [];
@@ -69,7 +70,7 @@ final class ContentIdeaPoolTest extends SiteTestCase
 
             return ['ideas' => [
                 ['title' => 'İmplant Sonrası Beslenme Rehberi!', 'type' => 'guide', 'angle' => 'Tekrar.', 'target_queries' => ['implant sonrası ne yenir'], 'outline' => ['A', 'B', 'C']],
-                ['title' => 'Çankaya implant kliniği seçimi', 'type' => 'location', 'angle' => 'Bölgedeki hastalar için.', 'target_queries' => ['implant tedavisi'], 'outline' => ['A', 'B', 'C', 'D', 'E']],
+                ['title' => 'Çankaya implant kliniği seçimi', 'type' => 'location', 'angle' => 'Bölgedeki hastalar için.', 'target_queries' => ['implant kliniği seçimi', 'implant tedavisi'], 'outline' => ['A', 'B', 'C', 'D', 'E']],
             ]];
         });
 
@@ -79,7 +80,8 @@ final class ContentIdeaPoolTest extends SiteTestCase
         $this->assertSame('Kümenin kendisiyle ya da havuzdaki bir fikirle aynı.', $result['rejected'][0]['reason']);
         $this->assertSame('Panorama Ankara', $sent[0]['brand']['name']);
         $this->assertContains('Çankaya', $sent[0]['brand']['areas']);
-        $this->assertSame('https://panorama.com.tr/blog/implant-bakimi/', $sent[0]['site_pages'][0]['url']);
+        $this->assertSame(['https://panorama.com.tr/blog/implant-bakimi/'], array_column($sent[0]['site_pages'], 'url'), 'only the pages about the cluster');
+        $this->assertSame('tr', $sent[0]['brand']['language']);
         $this->assertSame([['title' => 'İmplant sonrası beslenme rehberi', 'type' => 'guide']], $sent[0]['existing_ideas']);
         $this->assertSame($this->brand->id, ContentIdea::query()->where('type', 'location')->value('origin_brand_id'));
 
@@ -95,5 +97,41 @@ final class ContentIdeaPoolTest extends SiteTestCase
             ->assertSee('Kullanan markalar: Klinik İzmir')
             ->call('archiveIdea', $existing->id)->assertDontSee('İmplant sonrası beslenme rehberi');
         $this->assertSame('archived', $existing->fresh()->status);
+    }
+
+    public function test_an_extra_idea_must_target_its_own_cluster_query_and_is_planned_in_the_sites_main_language(): void
+    {
+        $this->enableAi();
+        $cluster = $this->cluster($this->implant, 'İmplant tedavisi', ['implant tedavisi', 'implant sonrası ne yenir', 'implant sonrası ağrı', 'implant ömrü']);
+        $this->page('/en/dental-implants/', 'Dental implants', ['category' => 'hizmet', 'language' => 'en']);
+        $this->page('/implant-tedavisi/', 'İmplant tedavisi', ['category' => 'hizmet', 'language' => 'de']);
+        $this->page('/de/implantat/', 'Implantat', ['category' => 'hizmet', 'language' => 'de']);
+        ContentIdea::query()->create(['cluster_id' => $cluster->id, 'title' => 'İmplant sonrası beslenme', 'title_key' => 'implant sonrasi beslenme',
+            'type' => 'guide', 'target_queries' => [['text' => 'implant sonrası ne yenir', 'in_cluster' => true]], 'outline' => ['A', 'B', 'C']]);
+        $sent = [];
+        ContentIdeasAgent::fake(function (string $prompt) use (&$sent): array {
+            $sent[] = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
+
+            return ['ideas' => [
+                ['title' => 'İmplant tedavisi kimlere uygun', 'type' => 'guide', 'angle' => 'Ana sorgu.', 'target_queries' => ['implant tedavisi', 'implant ömrü'], 'outline' => ['A', 'B', 'C']],
+                ['title' => 'İmplant sonrası yumuşak yiyecekler', 'type' => 'guide', 'angle' => 'Aynı hedef.', 'target_queries' => ['implant sonrası ne yenir'], 'outline' => ['A', 'B', 'C']],
+                ['title' => 'Diş eti çekilmesi ve implant', 'type' => 'guide', 'angle' => 'İlk hedef kümede değil.', 'target_queries' => ['diş eti çekilmesi', 'implant ömrü'], 'outline' => ['A', 'B', 'C']],
+                ['title' => 'İmplant sonrası ağrı ne kadar sürer', 'type' => 'faq', 'angle' => 'Kendi sorgusu.', 'target_queries' => ['implant sonrası ağrı'], 'outline' => ['A', 'B', 'C']],
+                ['title' => 'İmplant sonrası ağrı kesiciler', 'type' => 'guide', 'angle' => 'Aynı turdaki fikrin hedefi.', 'target_queries' => ['implant sonrası ağrı'], 'outline' => ['A', 'B', 'C']],
+            ]];
+        });
+
+        $result = app(ContentIdeaPool::class)->generate($cluster, $this->brand, 5, $this->admin);
+
+        $this->assertSame(1, $result['added']);
+        $this->assertSame([
+            'İlk hedef sorgusu kümenin ana sorgusu; ek fikir kendi sorgusunu hedeflemeli.',
+            'İlk hedef sorgusu havuzdaki başka bir fikrin hedefi.',
+            'İlk hedef sorgusu kümenin bir sorgusu olmalı.',
+            'İlk hedef sorgusu havuzdaki başka bir fikrin hedefi.',
+        ], array_column($result['rejected'], 'reason'));
+        $this->assertSame('de', $sent[0]['brand']['language'], 'the main language of the site, never a hardcoded one');
+        $this->assertSame(['https://panorama.com.tr/implant-tedavisi/'], array_column($sent[0]['site_pages'], 'url'),
+            'pages of the main language about the cluster; the English page and an unrelated page stay out');
     }
 }

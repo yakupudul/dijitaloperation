@@ -16,8 +16,9 @@ use Illuminate\Validation\ValidationException;
 /**
  * Görsel alt metni: WordPress images without alt text that sit on a stored page (uploaded to it or its featured image)
  * get an AI-proposed alt text (`site.image_alts`, from the file name, image title and the page), one suggestion per
- * page. Onayla → the approved SEO-fix path writes the alt texts (ADR-070, undoable). Images whose name says nothing get
- * no proposal; nothing is invented.
+ * page. Onayla → the approved SEO-fix path writes the alt texts (ADR-070, undoable). Images whose name says nothing,
+ * SVGs and decorative images (icons, backgrounds, shapes) get no proposal; nothing is invented. A row closes by itself
+ * once its images have alt text on the site, and an image that got one meanwhile is never overwritten.
  */
 final class ImageAlts
 {
@@ -29,6 +30,9 @@ final class ImageAlts
 
     public const int AI_BATCH = 30;
 
+    /** File names of decorative images (icons, backgrounds, shapes…): they need an empty alt, not a description. */
+    private const string DECORATIVE = '/(^|[-_ .])(icons?|ikon|bg|background|arka-?plan|shape|divider|separator|arrow|ok-?isareti|pattern|placeholder|spacer|bullet)([-_ .\d]|$)/';
+
     public function __construct(private readonly SiteAi $ai) {}
 
     /** @return array{status: string, images: int, proposed: int} */
@@ -38,6 +42,7 @@ final class ImageAlts
         if ($brand === null) {
             return ['status' => 'no_brand', 'images' => 0, 'proposed' => 0];
         }
+        $this->closeResolved($site);
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'images' => 0, 'proposed' => 0];
         }
@@ -93,8 +98,13 @@ final class ImageAlts
         }
         $site = DigitalAsset::query()->where('type', 'website')->find((int) data_get($suggestion->action, 'site_id'));
         $images = (array) data_get($suggestion->action, 'images', []);
+        if ($site !== null) {
+            // An image that got its alt text on the site meanwhile is never overwritten.
+            $latest = $this->latest($site, array_map(fn (array $i): int => (int) $i['image_id'], $images));
+            $images = array_values(array_filter($images, fn (array $i): bool => trim((string) data_get($latest[(int) $i['image_id']] ?? [], 'alt_text', '')) === ''));
+        }
         if ($site === null || $images === []) {
-            throw ValidationException::withMessages(['write' => 'Gönderilecek alt metin yok.']);
+            throw ValidationException::withMessages(['write' => 'Gönderilecek alt metin yok (görsellerin alt metni sitede zaten var).']);
         }
         $changes = array_map(fn (array $i): array => ['type' => 'alt_text', 'object_id' => (int) $i['image_id'],
             'reference' => 'suggestion-'.$suggestion->id.'-alt-'.$i['image_id'], 'value' => (string) $i['alt']], $images);
@@ -130,13 +140,80 @@ final class ImageAlts
         return DB::table('website_cms_object_snapshot')->whereIn('id', $latest)->orderBy('object_id')->get(['object_id', 'parent_id', 'title', 'metadata'])
             ->map(function (object $row) use ($pages, $featured): ?array {
                 $meta = json_decode((string) $row->metadata, true) ?: [];
-                if (! str_starts_with((string) ($meta['mime_type'] ?? ''), 'image/') || trim((string) ($meta['alt_text'] ?? '')) !== '') {
+                $mime = mb_strtolower((string) ($meta['mime_type'] ?? ''));
+                if (! str_starts_with($mime, 'image/') || $mime === 'image/svg+xml' || trim((string) ($meta['alt_text'] ?? '')) !== ''
+                    || self::isDecorative((string) ($meta['file'] ?? ''), (string) $row->title)) {
                     return null;
                 }
                 $page = $pages->get((int) ($featured[(string) $row->object_id] ?? 0)) ?? $pages->get((int) $row->parent_id);
 
                 return $page === null ? null : ['object_id' => (int) $row->object_id, 'file' => basename((string) ($meta['file'] ?? '')), 'title' => (string) $row->title, 'page' => $page];
             })->filter()->reject(fn (array $i): bool => $done->has($i['object_id']))->take(self::MAX_IMAGES)->values();
+    }
+
+    /** An icon, background, shape, divider… by its file name or title. */
+    public static function isDecorative(string $file, string $title = ''): bool
+    {
+        $name = mb_strtolower(pathinfo(basename($file), PATHINFO_FILENAME));
+
+        return preg_match(self::DECORATIVE, $name) === 1 || preg_match(self::DECORATIVE, mb_strtolower(trim($title))) === 1;
+    }
+
+    /**
+     * Open alt-text suggestions whose images got their alt text on the site (or are gone) close by themselves; a row
+     * with only some of them done keeps the rest.
+     */
+    private function closeResolved(DigitalAsset $site): void
+    {
+        $rows = Suggestion::query()->where('brand_id', $site->brand_id)->where('action_type', self::TYPE)
+            ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->get()
+            ->filter(fn (Suggestion $s): bool => (int) data_get($s->action, 'site_id') === (int) $site->id);
+        if ($rows->isEmpty()) {
+            return;
+        }
+        $latest = $this->latest($site, $rows->flatMap(fn (Suggestion $s): array => array_column((array) data_get($s->action, 'images', []), 'image_id'))
+            ->map(fn ($id): int => (int) $id)->unique()->values()->all());
+        foreach ($rows as $row) {
+            $images = (array) data_get($row->action, 'images', []);
+            $left = array_values(array_filter($images, function (array $i) use ($latest): bool {
+                $meta = $latest[(int) $i['image_id']] ?? null;
+
+                return $meta !== null && trim((string) ($meta['alt_text'] ?? '')) === '';
+            }));
+            if ($left === []) {
+                $row->forceFill(['status' => Suggestion::APPLIED, 'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now(), 'resolved_at' => now(),
+                    'operator_note' => 'Görsellerin alt metni sitede var ya da görseller kaldırıldı (otomatik kapandı).'])->save();
+            } elseif (count($left) < count($images)) {
+                $row->forceFill(['title' => 'Görsel alt metni: '.count($left).' görsel', 'action' => array_merge((array) $row->action, ['images' => $left]),
+                    'material_hash' => hash('sha256', (string) json_encode($left))])->save();
+            }
+        }
+    }
+
+    /**
+     * The latest snapshot metadata of these attachments; an image deleted on the site (no longer listed, trashed or no
+     * longer an image) is left out.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, array<string, mixed>>
+     */
+    private function latest(DigitalAsset $site, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $latest = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->where('object_type', 'attachment')
+            ->whereIn('object_id', array_map('strval', $ids))->groupBy('object_id')->selectRaw('max(id) as id');
+        $out = [];
+        foreach (DB::table('website_cms_object_snapshot')->whereIn('id', $latest)->get(['object_id', 'status', 'metadata']) as $row) {
+            $meta = json_decode((string) $row->metadata, true) ?: [];
+            if (in_array((string) $row->status, ['trash', 'deleted'], true) || ! str_starts_with((string) ($meta['mime_type'] ?? ''), 'image/')) {
+                continue;
+            }
+            $out[(int) $row->object_id] = $meta;
+        }
+
+        return $out;
     }
 
     /** @param  Collection<int, array{object_id: int, file: string, title: string, page: Page, alt: string}>  $rows */

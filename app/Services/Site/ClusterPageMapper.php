@@ -128,6 +128,14 @@ final class ClusterPageMapper
         $existing = BrandClusterPage::query()->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
             ->where(fn ($q) => $language === null ? $q->whereNull('language') : $q->where('language', $language))->orderBy('id')->get()->keyBy('cluster_id');
 
+        // A row of one language is judged on its own language's pages: Search Console facts of a page in another
+        // language (the /en/ copy) never count as this row's impressions, conflicts or wrong page.
+        $otherLanguage = $language === null ? [] : Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')->where('language', '!=', $language)
+            ->pluck('url')->mapWithKeys(fn ($url): array => [SeoText::urlKey((string) $url) => true])->all();
+        if ($otherLanguage !== []) {
+            $facts = $facts->map(fn (Collection $rows): Collection => $rows->reject(fn (array $f): bool => isset($otherLanguage[$f['url_key']]))->values());
+        }
+
         $ambiguous = [];
         foreach ($clusters as $cluster) {
             $mapped = $pagesByOffering->get($serviceOffering->get((int) $cluster->service_id), []);
@@ -219,6 +227,12 @@ final class ClusterPageMapper
             return ['clicks' => $hasGsc ? $row['clicks'] : null, 'impressions' => $hasGsc ? $row['impressions'] : null, 'position' => $row['weight'] > 0 ? round($row['weighted'] / $row['weight'], 1) : null];
         };
 
+        // Only a service / location cluster belongs on the service's page; a guide, FAQ or comparison cluster ("implant
+        // nedir") targets the page Google shows for it, else a blog / FAQ page or a new one.
+        $informational = $cluster->page_type !== null && ! in_array($cluster->page_type, ['service', 'location'], true);
+        if ($informational) {
+            $mapped = [];
+        }
         // Target: a page of the service (most impressions, else best name match), else the page Google shows most.
         $target = null;
         if ($mapped !== []) {
@@ -228,7 +242,8 @@ final class ClusterPageMapper
             $target = (int) array_key_first($ranking);
         }
         if ($target === null) {
-            $candidates = $pages->filter(fn (Page $p): bool => in_array($p->category, ['hizmet', 'lokasyon', 'blog', 'sss'], true) && SiteText::overlap(SiteText::pageName($p), $main) >= 0.5)
+            $categories = $informational ? ['blog', 'sss'] : ['hizmet', 'lokasyon', 'blog', 'sss'];
+            $candidates = $pages->filter(fn (Page $p): bool => in_array($p->category, $categories, true) && SiteText::overlap(SiteText::pageName($p), $main) >= 0.5)
                 ->take(5)->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
             return ['state' => 'no_page', 'page_id' => null, 'reason' => $candidates === [] ? 'Sitede bu ihtiyaca ayrılmış sayfa yok.' : 'Hizmete bağlı sayfa yok; benzer adlı sayfa AI ile kontrol ediliyor.',

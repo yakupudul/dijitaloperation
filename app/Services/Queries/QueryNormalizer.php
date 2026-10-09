@@ -10,7 +10,8 @@ use App\Support\Options\LocationOptions;
  * Normalized query text: Turkish-aware lowercase, punctuation around words dropped, single spaces (one library record
  * per normalized text). The filter basket is a NEGATIVE list (like Google Ads negatives): a query that CONTAINS a
  * filter term — whole words, Turkish suffixes tolerated ("çankayada", "ankara'da") — is deleted entirely; the term is
- * never stripped out of the query. Every term of every sector applies to every query.
+ * never stripped out of the query. A term of a sector applies only to that sector's queries; a general term (no
+ * sector) to every query ("hurda" filed for Diş sağlığı never deletes the scrap queries of Geri dönüşüm).
  *
  * Two fixed rules on top of the basket:
  * - a query naming a place (province, district or country, suffixes allowed; see NOT_LOCATION) is deleted as if the
@@ -58,8 +59,11 @@ final class QueryNormalizer
     /** @var array<string, ?string> folded word → folded place name */
     private static array $placeMemo = [];
 
-    /** @var array<string, list<array{term: string, tokens: list<string>}>>|null first 3 folded chars => terms */
+    /** @var list<array{term: string, sector_id: ?int}>|null every filter term, oldest first */
     private ?array $terms = null;
+
+    /** @var array<string, array<string, list<array{term: string, tokens: list<string>}>>> scope ('*', '0' general, sector id) => first 3 folded chars => terms */
+    private array $indexes = [];
 
     public static function lower(string $text): string
     {
@@ -84,12 +88,20 @@ final class QueryNormalizer
         return mb_substr(implode(' ', $tokens), 0, self::MAX_LENGTH);
     }
 
-    /** The first filter term (any sector) the text contains, else the place it names, or null (temiz). */
-    public function matchingTerm(string $text): ?string
+    /**
+     * The first filter term the text contains, else the place it names, or null (temiz). With a sector (the query's
+     * sector; 0 or null for a query without one) only general terms and that sector's terms apply; without the
+     * argument every term of every sector applies (entry points that do not know the sector yet).
+     */
+    public function matchingTerm(string $text, int|false|null $sectorId = false): ?string
     {
-        $this->terms ??= self::index(FilterTerm::query()->orderBy('id')->pluck('term')->all());
+        $this->terms ??= FilterTerm::query()->orderBy('id')->get(['term', 'sector_id'])
+            ->map(fn (FilterTerm $t): array => ['term' => (string) $t->term, 'sector_id' => $t->sector_id !== null ? (int) $t->sector_id : null])->all();
+        $scope = $sectorId === false ? '*' : (string) (int) $sectorId;
+        $this->indexes[$scope] ??= self::index(array_column(array_filter($this->terms,
+            fn (array $t): bool => $scope === '*' || $t['sector_id'] === null || (string) $t['sector_id'] === $scope), 'term'));
 
-        return self::firstMatch($text, $this->terms) ?? self::placeIn($text);
+        return self::firstMatch($text, $this->indexes[$scope]) ?? self::placeIn($text);
     }
 
     /** The place (lowercase name, "ankara") a text names — a province, district or country, suffixes allowed; null when none. */
@@ -151,6 +163,7 @@ final class QueryNormalizer
     public function forget(): void
     {
         $this->terms = null;
+        $this->indexes = [];
     }
 
     /** @param array<string, list<array{term: string, tokens: list<string>}>> $index */

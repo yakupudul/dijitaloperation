@@ -11,9 +11,9 @@ use Throwable;
 /**
  * WordPress Connector → `pages` (primary source for WordPress sites). Every published post / page in any language
  * becomes one row: URL, post id / type, Polylang language, title and meta description from the SEO plugin (Yoast,
- * Rank Math, SEOPress), canonical, main content text + H1–H3 from the rendered content, word count, indexability
- * (noindex → false) and the WordPress modified time. Plugin events update or delete just that page; a template
- * (theme) change marks every page changed without refetching.
+ * Rank Math, SEOPress), where the title came from (`title_source`: seo field or post title), canonical, main content
+ * text + H1–H3 from the rendered content, word count, indexability (noindex → false) and the WordPress modified time.
+ * Plugin events update or delete just that page; a template (theme) change marks every page changed without refetching.
  */
 final class WordPressPageSync
 {
@@ -49,7 +49,11 @@ final class WordPressPageSync
 
                     continue;
                 }
-                $stats[$this->pages->upsert($siteId, $this->fields($siteId, $record))]++;
+                $fields = $this->fields($siteId, $record);
+                $titleSource = $fields['title_source'];
+                unset($fields['title_source']);
+                $stats[$this->pages->upsert($siteId, $fields)]++;
+                $this->markTitleSource($siteId, $postId, $titleSource);
             } catch (Throwable $error) {
                 // One broken post must not stop the inventory.
                 Log::warning('pages.wordpress.sync_failed', ['site' => $siteId, 'post' => $postId, 'error' => $error->getMessage()]);
@@ -78,12 +82,13 @@ final class WordPressPageSync
                 continue;
             }
             $seo = $this->seoValues($record);
+            $postTitle = $seo['title'] === null ? $this->storedPostTitle($siteId, $postId) : null;
             $result = $this->pages->upsert($siteId, [
                 'url' => (string) $page->url,
                 'wp_post_id' => $postId,
                 'wp_post_type' => $page->wp_post_type,
                 'language' => $page->language,
-                'title' => $seo['title'] ?? $this->storedPostTitle($siteId, $postId) ?? $page->title,
+                'title' => $seo['title'] ?? $postTitle ?? $page->title,
                 'meta_description' => $seo['meta_description'],
                 'canonical' => $seo['canonical'] ?? $page->url,
                 'h1' => $page->h1,
@@ -93,6 +98,7 @@ final class WordPressPageSync
                 'is_indexable' => $seo['is_indexable'],
             ]);
             $updated += $result === PageStore::UPDATED ? 1 : 0;
+            $this->markTitleSource($siteId, $postId, $seo['title'] !== null ? 'seo' : ($postTitle !== null ? 'post' : null));
         }
 
         return $updated;
@@ -170,6 +176,8 @@ final class WordPressPageSync
         $title = trim((string) ($record['title'] ?? ''));
 
         return [
+            // The SEO plugin's own title, or the post title when the plugin renders a template ("%title% | Site").
+            'title_source' => $seo['title'] !== null ? 'seo' : ($title !== '' ? 'post' : null),
             'url' => (string) $record['permalink'],
             'wp_post_id' => $postId,
             'wp_post_type' => mb_substr((string) $record['object_type'], 0, 64),
@@ -212,6 +220,16 @@ final class WordPressPageSync
             'canonical' => preg_match('#^https?://#i', $canonical) === 1 ? $canonical : null,
             'is_indexable' => ! $noindex,
         ];
+    }
+
+    /** Records where the stored title came from (`seo` / `post`); null leaves what is stored. */
+    private function markTitleSource(int $siteId, int $postId, ?string $source): void
+    {
+        if ($source === null) {
+            return;
+        }
+        DB::table('pages')->where('website_asset_id', $siteId)->where('wp_post_id', $postId)
+            ->where(fn ($q) => $q->whereNull('title_source')->orWhere('title_source', '!=', $source))->update(['title_source' => $source]);
     }
 
     private function storedPostTitle(int $siteId, int $postId): ?string

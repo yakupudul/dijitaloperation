@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\DB;
  * of: "implantları" → "implant", "estetiği" → "estetik") → synonyms → generic and sector-implied words out → sorted.
  * "diş implantı", "dis implant", "implant diş", "implantlar" → "implant".
  * Adım 2 · topic key + facets — facet phrases (fiyat, nedir, nasıl…) are taken out of the variant words: "implant
- * fiyatları" → topic "implant", facets "fiyat".
+ * fiyatları" → topic "implant", facets "fiyat". Informational facets (nedir, nasıl, süre, avantaj) mark the topic
+ * (" #info"): "implant nedir" → "implant #info", never the same topic as "implant fiyatları".
  *
  * apply() recomputes every query (only changed rows are written) and marks the head of each variant group (most
  * impressions, then lowest id) among visible queries. 200k queries: seconds.
@@ -24,6 +25,9 @@ final class QueryRuleEngine
     private const int CHUNK = 2000;
 
     private const int MIN_STEM = 4;
+
+    /** Appended to the topic key of informational searches (they are answered by an article, not the service page). */
+    public const string INFO_MARK = ' #info';
 
     /** @var array<string, int> library word => number of queries holding it */
     private array $vocabulary = [];
@@ -132,6 +136,9 @@ final class QueryRuleEngine
         [$topicWords, $facets] = $this->splitFacets($kept);
         $topicWords = array_values(array_filter($topicWords, fn (string $w): bool => ! isset($rules['topic_drop'][$w])));
         $topic = $topicWords !== [] ? $prefix.self::key($topicWords) : $variant;
+        if (array_intersect($facets, $rules['info_facets']) !== []) {
+            $topic .= self::INFO_MARK;
+        }
 
         return ['variant' => mb_substr($variant, 0, 500), 'topic' => mb_substr($topic, 0, 500), 'facets' => $facets !== [] ? mb_substr(implode(',', $facets), 0, 200) : null];
     }
@@ -360,7 +367,7 @@ final class QueryRuleEngine
     }
 
     /**
-     * @return array{drop: array<string, true>, generic: array<string, true>, implied: array<string, array<string, true>>, synonyms: array<string, string>, phrase_synonyms: array<string, string>, typos: array<string, string>, no_stem: array<string, true>, topic_drop: array<string, true>, drop_patterns: list<string>, languages: array<string, array<string, true>>, facet_order: list<string>}
+     * @return array{drop: array<string, true>, generic: array<string, true>, implied: array<string, array<string, true>>, synonyms: array<string, string>, phrase_synonyms: array<string, string>, typos: array<string, string>, no_stem: array<string, true>, topic_drop: array<string, true>, info_facets: list<string>, drop_patterns: list<string>, languages: array<string, array<string, true>>, facet_order: list<string>}
      */
     private function rules(): array
     {
@@ -390,6 +397,7 @@ final class QueryRuleEngine
             'typos' => array_combine(array_map($fold, array_keys((array) ($variant['typos'] ?? []))), array_map($fold, array_values((array) ($variant['typos'] ?? [])))),
             'no_stem' => $set((array) ($variant['no_stem'] ?? [])),
             'topic_drop' => $set((array) config('moxdop-query-rules.topic.drop', [])),
+            'info_facets' => array_map('strval', (array) config('moxdop-query-rules.topic.info_facets', [])),
             'drop_patterns' => array_map('strval', (array) ($variant['drop_patterns'] ?? [])),
             'languages' => array_map(fn ($words): array => $set((array) $words), (array) ($variant['languages'] ?? [])),
             'facet_order' => array_map('strval', array_keys((array) config('moxdop-query-rules.topic.facets', []))),

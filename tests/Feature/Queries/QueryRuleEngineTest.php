@@ -45,7 +45,7 @@ final class QueryRuleEngineTest extends TestCase
         }
         $this->assertSame(['variant' => 'fiyat implant', 'topic' => 'implant', 'facets' => 'fiyat'], $key('diş implant ücretleri 2025'));
         $this->assertSame($key('implant fiyatları')['variant'], $key('implant ücreti')['variant'], 'ücret = fiyat');
-        $this->assertSame(['variant' => 'implant nasil nedir yapilir', 'topic' => 'implant', 'facets' => 'nedir,nasil'], $key('implant nedir nasıl yapılır'));
+        $this->assertSame(['variant' => 'implant nasil nedir yapilir', 'topic' => 'implant #info', 'facets' => 'nedir,nasil'], $key('implant nedir nasıl yapılır'));
         $this->assertSame('agri implant sonrasi', $key('implant sonrası ağrı')['topic'], 'topic words stay: a separate content');
         $this->assertSame('burun estetik', $key('burun estetiği')['variant'], 'soft consonant: estetiği → estetik');
         $this->assertSame('dis', $key('diş')['variant'], 'a query of only implied words keeps them');
@@ -53,6 +53,31 @@ final class QueryRuleEngineTest extends TestCase
         $this->assertSame('[en] implant', $key('dental implants')['variant'], 'English: own key, plural → singular, "dental" implied');
         $this->assertSame(['variant' => '[en] cost how implant much', 'topic' => '[en] implant', 'facets' => 'fiyat'], $key('how much does a dental implant cost'));
         $this->assertSame('フロスとは', $key('フロスとは')['variant'], 'an alphabet the rules cannot read: the query is its own group, never an empty key');
+    }
+
+    public function test_informational_searches_keep_their_own_topic_and_turkish_words_stay_turkish(): void
+    {
+        $engine = app(QueryRuleEngine::class);
+        $engine->loadVocabulary(array_merge(...array_fill(0, 3, ['implant', 'implant fiyatları', 'kanal tedavisi', 'kanallı', 'hurda', 'makinesi', 'makine'])));
+        $key = fn (string $text, string $sector = 'dis sagligi'): array => $engine->keys($text, $sector);
+
+        // The article that explains is not the page that sells: "nedir / nasıl / süre / avantaj" never join "fiyat / randevu".
+        $this->assertSame('implant', $key('implant fiyatları')['topic']);
+        $this->assertSame('implant', $key('implant randevu')['topic']);
+        $this->assertSame('implant #info', $key('implant nedir')['topic']);
+        $this->assertSame('implant #info', $key('implant ne kadar sürer')['topic']);
+        $this->assertSame('implant #info', $key('implant avantajları')['topic']);
+        $this->assertNotSame($key('implant fiyatları')['topic'], $key('implant nasıl yapılır')['topic']);
+
+        // "çok" / "daha" are part of the topic: multi-canal root canal treatment is not root canal treatment.
+        $this->assertNotSame($key('kanal tedavisi')['topic'], $key('çok kanallı kanal tedavisi')['topic']);
+        $this->assertStringContainsString('cok', $key('çok kanallı kanal tedavisi')['topic']);
+
+        // "dental" and "iş" are Turkish words, not English markers.
+        $this->assertStringStartsNotWith('[en]', $key('dental implant fiyatları')['variant']);
+        $this->assertStringStartsNotWith('[en]', $key('hurda iş makinesi', 'geri donusum')['variant']);
+        $this->assertContains('is', explode(' ', $key('hurda iş makinesi', 'geri donusum')['variant']), '"iş" is never dropped as the English "is"');
+        $this->assertGreaterThanOrEqual(3, QueryRuleEngine::version(), 'a rule change raises the version so every key is recomputed');
     }
 
     public function test_rare_misspellings_and_rare_typo_stems_are_handled_from_the_library(): void
@@ -100,7 +125,7 @@ final class QueryRuleEngineTest extends TestCase
 
         $this->assertStringStartsWith("\xEF\xBB\xBFid,sorgu,sektor", $csv);
         $this->assertStringContainsString('"diş implantı","Diş sağlığı"', $csv);
-        $this->assertStringContainsString(',implant,0,implant,,2', $csv, 'the variant of the head, with its keys');
+        $this->assertStringContainsString(',implant,0,implant,,'.QueryRuleEngine::version(), $csv, 'the variant of the head, with its keys');
     }
 
     public function test_bulk_filter_terms_skip_duplicates_and_question_words(): void

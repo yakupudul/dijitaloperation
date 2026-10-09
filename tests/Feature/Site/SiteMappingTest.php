@@ -150,6 +150,34 @@ final class SiteMappingTest extends SiteTestCase
         $this->assertSame(60, $locked->impressions_28d);
     }
 
+    public function test_guide_clusters_target_the_page_google_shows_and_each_language_reads_its_own_pages(): void
+    {
+        $implantPage = $this->page('/implant/', 'Ankara İmplant Tedavisi', ['category' => 'hizmet', 'content_text' => 'İmplant tedavisi adım adım anlatılır.']);
+        $guidePage = $this->page('/blog/implant-nedir/', 'İmplant nedir', ['category' => 'blog', 'content_text' => 'İmplant nedir, nasıl yapılır.']);
+        $englishPage = $this->page('/en/dental-implant/', 'Dental implant treatment', ['category' => 'hizmet', 'language' => 'en', 'content_text' => 'Implant tedavisi in Ankara.']);
+        OfferingPage::query()->create(['brand_offering_id' => $this->implantOffering->id, 'page_id' => $implantPage->id, 'source' => 'rule']);
+        $treatment = $this->cluster($this->implant, 'İmplant tedavisi', ['implant tedavisi']);
+        $guide = $this->cluster($this->implant, 'İmplant nedir', ['implant nedir'], [], 'informational');
+        $comparison = $this->cluster($this->implant, 'İmplant mı köprü mü', ['implant mı köprü mü'], [], 'informational');
+        $guide->forceFill(['page_type' => 'guide'])->save();
+        $comparison->forceFill(['page_type' => 'comparison'])->save();
+        $this->fact('implant nedir', '/blog/implant-nedir/', 120, 6, 5.0);
+        $this->fact('implant tedavisi', '/implant/', 100, 12, 3.0);
+        $this->fact('implant tedavisi', '/en/dental-implant/', 100, 1, 8.0);
+
+        app(ClusterPageMapper::class)->refresh($this->site, judge: false);
+
+        $rows = BrandClusterPage::query()->get()->groupBy('language')->map(fn ($list) => $list->keyBy('cluster_id'));
+        // An informational cluster belongs on the page that answers it, never forced onto the service page.
+        $this->assertSame([$guidePage->id, 'sufficient'], [$rows['tr'][$guide->id]->page_id, $rows['tr'][$guide->id]->state], (string) $rows['tr'][$guide->id]->reason);
+        $this->assertSame(['no_page', null], [$rows['tr'][$comparison->id]->state, $rows['tr'][$comparison->id]->page_id]);
+        $this->assertSame($implantPage->id, $rows['tr'][$treatment->id]->page_id, 'a service cluster still targets the service page');
+        // The Turkish row never shares impressions with the English page (no conflict), the English row reads only its page.
+        $this->assertNotSame('possible_conflict', $rows['tr'][$treatment->id]->state, (string) $rows['tr'][$treatment->id]->reason);
+        $this->assertSame(100, $rows['tr'][$treatment->id]->impressions_28d);
+        $this->assertSame([$englishPage->id, 100], [$rows['en'][$treatment->id]->page_id, $rows['en'][$treatment->id]->impressions_28d]);
+    }
+
     public function test_ambiguous_coverage_goes_to_one_ai_call_per_service_and_answers_are_validated(): void
     {
         $this->enableAi();

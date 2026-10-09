@@ -15,7 +15,7 @@ final class GbpStandardEvaluator
     /** Sector code => folded primary category words that fit it. */
     private const array SECTOR_CATEGORIES = [
         'dental' => '/(dis|dentist|dental|ortodont|periodont|endodont|pedodont|agiz|implant)/',
-        'healthcare' => '/(klinik|hastane|doktor|hekim|tip|saglik|clinic|hospital|doctor|physician|medical|poliklinik|uzman|merkez)/',
+        'healthcare' => '/(klinik|hastane|doktor|hekim|tip|saglik|clinic|hospital|doctor|physician|medical|poliklinik|uzman|merkez|[a-z]{3,}(log|loji|logist)\b|cerrah|surgeon|psikiyatr|psychiatr|psikolog|psycholog|fizyoterap|physiotherap|fizik tedavi|rehabilitasyon|terapi|therap|diyetisyen|dietitian|laboratuvar|laboratory|radyoloji|goruntuleme|eczane|pharmacy)/',
         'medical_aesthetics' => '/(estetik|guzellik|cilt|dermatolog|plastik|aesthetic|cosmetic|spa|lazer)/',
         'legal' => '/(avukat|hukuk|lawyer|attorney|law)/',
     ];
@@ -267,9 +267,10 @@ final class GbpStandardEvaluator
         $brand = array_flip(explode(' ', SeoText::fold((string) ($input['brand_name'] ?? ''))));
         $locations = array_flip((array) ($input['location_words'] ?? []));
         $services = array_flip((array) ($input['service_words'] ?? []));
+        $ownArea = array_flip((array) ($input['location']['area_words'] ?? []));
         $extra = [];
         foreach (explode(' ', SeoText::fold($title)) as $word) {
-            if ($word === '' || isset($brand[$word]) || in_array($word, self::GENERIC_NAME_WORDS, true) || mb_strlen($word) < 3) {
+            if ($word === '' || isset($brand[$word]) || isset($ownArea[$word]) || in_array($word, self::GENERIC_NAME_WORDS, true) || mb_strlen($word) < 3) {
                 continue;
             }
             if (isset($locations[$word]) || isset($services[$word])) {

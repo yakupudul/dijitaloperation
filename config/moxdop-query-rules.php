@@ -13,10 +13,14 @@
  *
  * v2 (2026-10-01): written from the 189 279-query export — English / German markers, facets and plurals, sector words
  * of Diş sağlığı, Medikal estetik, Perde, Geri dönüşüm.
+ * v3 (2026-10-09): informational searches ("nedir", "nasıl", "ne kadar sürer", "avantajları") keep their own topic key
+ * (" #info") instead of merging with the commercial ones ("fiyat", "randevu"); "çok" / "daha" stay in the topic ("çok
+ * kanallı kanal tedavisi" ≠ "kanal tedavisi"); "dental" / "is" are no English markers ("dental implant", "hurda iş
+ * makinesi" are Turkish), and "is" is no longer dropped (Turkish "iş").
  * Raise `version` on every change; "Kuralları uygula" (or the next import) recomputes every query.
  */
 return [
-    'version' => 2,
+    'version' => 3,
 
     // "AI ile kümele" parts (not rules; changing them needs no new version): topics of the skeleton call, topics per
     // placing call.
@@ -25,7 +29,7 @@ return [
     'variant' => [
         // Dropped from every query: connectives, question particles (Turkish, English, German).
         'drop' => ['ve', 'ile', 'icin', 'bir', 'mi', 'mu', 'midir', 'mudur', 'misin', 'mudur', 'da', 'de', 'ki', 'veya', 'yada', 'ya',
-            'the', 'and', 'of', 'for', 'a', 'an', 'to', 'in', 'on', 'or', 'is', 'are', 'do', 'does', 'did', 'can', 'my', 'i', 'you',
+            'the', 'and', 'of', 'for', 'a', 'an', 'to', 'in', 'on', 'or', 'are', 'do', 'does', 'did', 'can', 'my', 'i', 'you',
             'your', 'it', 'be', 'with', 'from', 'at', 'by', 'this', 'that',
             'der', 'die', 'das', 'und', 'mit', 'ein', 'eine', 'einen', 'ist', 'im', 'zu', 'bei', 'fur', 'von'],
 
@@ -82,8 +86,8 @@ return [
 
         // Not Turkish: a query holding one of these words gets the language prefix ("[en] implant").
         'languages' => [
-            'en' => ['the', 'how', 'what', 'why', 'when', 'which', 'is', 'are', 'does', 'can', 'teeth', 'tooth', 'after', 'cost', 'price',
-                'prices', 'best', 'near', 'with', 'my', 'your', 'for', 'of', 'to', 'and', 'dental', 'surgery', 'extraction', 'pain',
+            'en' => ['the', 'how', 'what', 'why', 'when', 'which', 'are', 'does', 'can', 'teeth', 'tooth', 'after', 'cost', 'price',
+                'prices', 'best', 'near', 'with', 'my', 'your', 'for', 'of', 'to', 'and', 'surgery', 'extraction', 'pain',
                 'removal', 'treatment', 'clinic', 'dentist', 'wisdom', 'root', 'canal', 'filling', 'braces', 'whitening', 'veneers',
                 'veneer', 'crown', 'crowns', 'implants', 'jaw', 'gum', 'gums', 'hair', 'laser', 'skin', 'breast', 'nose', 'face',
                 'transplant', 'lift', 'before', 'long', 'take'],
@@ -108,7 +112,11 @@ return [
             'yakin' => ['en yakin', 'yakinimda', 'yakin', 'near me', 'nearby', 'near'],
         ],
 
+        // Informational facets: a query holding one gets its own topic key ("implant #info"), the article that explains
+        // is not the page that sells.
+        'info_facets' => ['nedir', 'nasil', 'sure', 'avantaj'],
+
         // Left-overs dropped from the topic once the facets are taken out.
-        'drop' => ['en', 'cok', 'daha', 'gibi', 'kadar', 'hangi', 'ne', 'me', 'much'],
+        'drop' => ['en', 'gibi', 'kadar', 'hangi', 'ne', 'me', 'much'],
     ],
 ];

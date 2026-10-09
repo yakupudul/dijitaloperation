@@ -20,6 +20,7 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -32,7 +33,8 @@ use Throwable;
  * Faz 7 AI operations of the İşletme Profili screen, each one queued call on an operator click, operational brands only:
  *  - `gbp.services_compare`: approved offerings vs profile categories / services → suggestions (missing services with
  *    the exact offering name, category notes on existing categories; business-name keyword advice is dropped);
- *  - `gbp.description`: proposed description (≤ 750 characters, no links / phones, sector compliance) → suggestion
+ *  - `gbp.description`: proposed description (≤ 750 characters, no links / phones, sector compliance, only this
+ *    profile's own area: a text naming another branch's district is dropped) → suggestion
  *    with the current and the proposed text (operator copies it to Google, no API write);
  *  - `gbp.post_from_page`: one post from a page of the brand's site (≤ 1500 characters, CTA = page URL, compliance) →
  *    draft in the production archive; publishing is the ADR-073 Admin write;
@@ -226,16 +228,22 @@ final class GbpAssistant
         if ($offerings === []) {
             throw new RuntimeException('Markanın onaylı hizmeti yok (Marka › Ayarlar › Hizmetler).');
         }
+        $place = $this->place($asset);
         [$raw, $versionId] = $this->call(self::OP_DESCRIPTION, [
             'business' => $profile['title'] ?: $brand->name,
             'categories' => array_values(array_filter(array_merge([$profile['primary_category']], $profile['additional_categories']))),
             'current_description' => $profile['description'],
             'brand_profile' => $this->memory($brand),
             'offerings' => $offerings,
-            'areas' => $this->areas($brand),
+            'area' => $place['area'],
+            'areas' => $place['single'] ? $this->areas($brand) : [],
             'compliance' => $this->complianceRules($brand),
         ]);
         $description = $this->checkedText($brand, (string) ($raw['description'] ?? ''), self::DESCRIPTION_MAX, 'Açıklama');
+        $other = array_values(array_filter($place['siblings'], fn (string $district): bool => SeoText::containsPhrase($description, $district)));
+        if ($other !== []) {
+            throw new RuntimeException('Açıklama başka bir şubenin bölgesini anıyor ('.implode(', ', $other).'); tekrar deneyin.');
+        }
         $this->suggestions->replaceGroup($asset, 'description', [[
             'key' => 'description', 'title' => 'Açıklamayı güncelle',
             'reason' => self::line((string) ($raw['reason'] ?? '')) ?: 'Önerilen açıklama '.mb_strlen($description).' karakter.',
@@ -397,6 +405,31 @@ final class GbpAssistant
         }
 
         return $out;
+    }
+
+    /**
+     * The profile's own area from its address ("Çankaya, Ankara") and the districts of the brand's other profiles that
+     * are not this one's (a description must not name them). The brand's service areas are this profile's own only
+     * when the brand has a single profile.
+     *
+     * @return array{area: string, siblings: list<string>, single: bool}
+     */
+    private function place(DigitalAsset $asset): array
+    {
+        $desk = app(GbpDesk::class);
+        $locations = $desk->locations((int) $asset->brand_id);
+        $snapshots = $desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $address = (array) ($snapshots[$asset->id]['address'] ?? []);
+        $own = array_filter([SeoText::fold((string) ($address['sublocality'] ?? '')), SeoText::fold((string) ($address['locality'] ?? ''))]);
+        $siblings = [];
+        foreach ($locations as $location) {
+            $district = trim((string) ($snapshots[$location->id]['address']['sublocality'] ?? ''));
+            if ((int) $location->id !== (int) $asset->id && $district !== '' && ! in_array(SeoText::fold($district), $own, true)) {
+                $siblings[SeoText::fold($district)] = $district;
+            }
+        }
+
+        return ['area' => (string) ($snapshots[$asset->id]['area'] ?? ''), 'siblings' => array_values($siblings), 'single' => $locations->count() <= 1];
     }
 
     /** @return list<array{name: string, physical_branch: bool}> */

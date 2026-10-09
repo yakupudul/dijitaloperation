@@ -35,7 +35,7 @@ final class PendingQueries
     {
         $this->normalizer->forget();
         $removed = 0;
-        DB::table('pending_queries')->where('status', PendingQuery::PENDING)->select(['id', 'text', 'text_hash'])
+        DB::table('pending_queries')->where('status', PendingQuery::PENDING)->select(['id', 'text', 'text_hash', 'sector_id'])
             ->when($ids !== null, fn ($q) => $q->whereIn('id', $ids ?: [0]))
             ->chunkById(QueryPipeline::CHUNK, function ($rows) use (&$removed): void {
                 $normalized = $rows->mapWithKeys(fn (object $row): array => [(int) $row->id => $this->normalizer->normalize((string) $row->text)]);
@@ -46,7 +46,7 @@ final class PendingQueries
                     $text = $normalized[(int) $row->id];
 
                     return isset($inLibrary[$row->text_hash]) || isset($inLibrary[QueryNormalizer::hash($text)]) || isset($texts[$text])
-                        || $this->normalizer->matchingTerm((string) $row->text) !== null;
+                        || $this->normalizer->matchingTerm((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null) !== null;
                 })->pluck('id')->all();
                 if ($remove !== []) {
                     $removed += DB::table('pending_queries')->whereIn('id', $remove)->delete();
@@ -87,7 +87,7 @@ final class PendingQueries
             DB::transaction(function () use ($chunk, &$imported): void {
                 $rows = PendingQuery::query()->whereIn('id', $chunk)->where('status', PendingQuery::PENDING)->orderBy('id')->get();
                 $now = now();
-                $insert = $rows->filter(fn (PendingQuery $row): bool => $this->normalizer->matchingTerm($row->text) === null && $this->normalizer->normalize($row->text) !== '')->map(function (PendingQuery $row) use ($now): array {
+                $insert = $rows->filter(fn (PendingQuery $row): bool => $this->normalizer->matchingTerm($row->text, $row->sector_id !== null ? (int) $row->sector_id : null) === null && $this->normalizer->normalize($row->text) !== '')->map(function (PendingQuery $row) use ($now): array {
                     $service = $this->matcher->match($row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
                     $text = $this->normalizer->normalize($row->text);
 

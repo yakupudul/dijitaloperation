@@ -68,6 +68,9 @@ final class QueryAutopilot
     /** @var array<int, array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}|null> */
     private array $sectors = [];
 
+    /** @var list<string>|null folded names and matching keywords of every active service (all sectors) */
+    private ?array $guards = null;
+
     public function __construct(
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
@@ -121,6 +124,7 @@ final class QueryAutopilot
         // Clustering never waits for an empty triage queue (a steady query flow would starve it): once a day the services
         // with new queries are clustered on the heavy queue while triage goes on.
         $clustering = $this->clusterIfDue();
+        $this->guards = null; // services may have changed since the last tick
         $started = microtime(true);
         $skipSectors = [];
         $waitUntil = self::state()['error_wait_until'] ?? null;
@@ -309,7 +313,7 @@ final class QueryAutopilot
      * question or a generic word. Places and product brands ARE filter terms: the library is brand-neutral (a brand's
      * area is added to its target queries later), so "ankara", "straumann" leave it.
      *
-     * @param  list<string>  $guards  folded service names and matching keywords of the sector
+     * @param  list<string>  $guards  folded service names and matching keywords of every sector's active services
      */
     private function filterTerm(string $term, string $text, array $guards): ?string
     {
@@ -329,13 +333,22 @@ final class QueryAutopilot
     }
 
     /**
+     * Folded names and matching keywords of the active services of EVERY sector: a term is filed under one sector but
+     * the basket is read by all of them, so a word that is a service ("hurda" of Geri dönüşüm) is never filed as
+     * irrelevant by another sector's triage.
+     *
      * @param  array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}  $context
      * @return list<string>
      */
     private function guardWords(array $context): array
     {
-        return $context['services']->flatMap(fn (ServiceCatalogItem $s): array => [SeoText::fold((string) $s->primaryName?->raw_label),
-            ...$s->matchingKeywords->map(fn ($k): string => SeoText::fold((string) $k->label))->all()])
+        $this->guards ??= ServiceCatalogItem::query()->with(['primaryName', 'matchingKeywords'])->where('status', 'active')->get()
+            ->flatMap(fn (ServiceCatalogItem $s): array => [SeoText::fold((string) $s->primaryName?->raw_label),
+                ...$s->matchingKeywords->map(fn ($k): string => SeoText::fold((string) $k->label))->all()])
+            ->filter()->unique()->values()->all();
+
+        return collect($this->guards)->merge($context['services']->flatMap(fn (ServiceCatalogItem $s): array => [SeoText::fold((string) $s->primaryName?->raw_label),
+            ...$s->matchingKeywords->map(fn ($k): string => SeoText::fold((string) $k->label))->all()]))
             ->filter()->unique()->values()->all();
     }
 

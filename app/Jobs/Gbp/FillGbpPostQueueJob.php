@@ -53,7 +53,8 @@ final class FillGbpPostQueueJob implements ShouldBeUnique, ShouldQueue
                 'no_content' => 'Sitede kullanılabilecek yeni sayfa yok; '.$result['empty'].' gün boş.',
                 default => $result['added'].' gönderi hazırlandı'.($result['empty'] > 0 ? '; '.$result['empty'].' gün boş (içerik yetmedi).' : '.'),
             };
-            Cache::put(self::stateKey($this->assetId), ['status' => $result === null ? 'running' : 'ready', 'message' => $message], now()->addDay());
+            Cache::put(self::stateKey($this->assetId), ['status' => $result === null ? 'running' : 'ready', 'message' => $message,
+                'result' => $result['status'] ?? null, 'empty' => $result['empty'] ?? null], now()->addDay());
         } catch (Throwable $exception) {
             Cache::put(self::stateKey($this->assetId), ['status' => 'failed', 'message' => mb_substr($exception->getMessage(), 0, 300)], now()->addDay());
         } finally {

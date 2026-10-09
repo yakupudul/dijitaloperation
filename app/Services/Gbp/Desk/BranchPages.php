@@ -26,7 +26,8 @@ use Throwable;
 /**
  * Şube sayfaları (ADR-079): every Business Profile should point to its own page on the brand's website (address, hours,
  * services of that branch, local-business markup). Per location the desk shows one state:
- *  - `linked`: the profile's website link already opens a non-home page of the brand's site (✓);
+ *  - `linked`: the profile's website link already opens a non-home page of the brand's site (✓) — with several
+ *    profiles, not a page that belongs to another branch (that profile is matched on as if unlinked);
  *  - `unlinked`: a page for the branch exists (found by area / name, or the one MoxDOP sent and the operator published)
  *    but the profile links elsewhere → "Profili bu sayfaya bağla" (ADR-079 website-link write, with UTM tags);
  *  - `sent`: the draft page is in WordPress, waiting for the operator to publish it;
@@ -96,6 +97,7 @@ final class BranchPages
         $sitesByBrand = $sites->groupBy('brand_id');
         $pagesBySite = $pages->groupBy('website_asset_id');
         $branchCandidates = $this->branchCandidates($pages);
+        $claimed = GbpBranchPage::query()->whereIn('brand_id', $brandIds)->get(['digital_asset_id', 'page_id', 'wp_post_id', 'website_asset_id']);
         $taken = [];
         $out = [];
         foreach ($locations as $location) {
@@ -118,7 +120,8 @@ final class BranchPages
             $sitePages = $brandSites->flatMap(fn (DigitalAsset $s): Collection => $pagesBySite->get($s->id, collect()));
             $linkKey = GbpDesk::urlKey($current);
             $linked = $linkKey !== '' ? $byKey->get($linkKey) : null;
-            if ($linked !== null && $sitePages->contains('id', $linked->id) && ! self::isHome($linked)) {
+            if ($linked !== null && $sitePages->contains('id', $linked->id) && ! self::isHome($linked)
+                && ((int) ($perBrand[$location->brand_id] ?? 0) <= 1 || ! self::isOtherBranchPage($location, $snapshot, $linked, $branchCandidates, $claimed))) {
                 $taken[$linked->id] = true;
                 $out[$location->id] = $state('linked', $linked);
 
@@ -352,6 +355,33 @@ final class BranchPages
         }
 
         return $out;
+    }
+
+    /**
+     * Whether a page belongs to another branch of the brand: another profile chose it or MoxDOP sent it for another
+     * profile, or it is a branch page that does not name this profile's district. Unknown district = not decided here.
+     *
+     * @param  array<string, mixed>|null  $snapshot
+     * @param  array<int, array{page: Page, text: string}>  $branchCandidates
+     * @param  Collection<int, GbpBranchPage>  $claimed  branch page rows of the brands
+     */
+    private static function isOtherBranchPage(DigitalAsset $location, ?array $snapshot, Page $page, array $branchCandidates, Collection $claimed): bool
+    {
+        $owners = $claimed->filter(fn (GbpBranchPage $r): bool => ($r->page_id !== null && (int) $r->page_id === (int) $page->id)
+            || ($r->wp_post_id !== null && $page->wp_post_id !== null && (int) $r->wp_post_id === (int) $page->wp_post_id && (int) $r->website_asset_id === (int) $page->website_asset_id))
+            ->pluck('digital_asset_id')->map(fn ($id): int => (int) $id);
+        if ($owners->contains((int) $location->id)) {
+            return false;
+        }
+        if ($owners->isNotEmpty()) {
+            return true;
+        }
+        $district = SeoText::fold((string) ($snapshot['address']['sublocality'] ?? ''));
+        if (! isset($branchCandidates[(int) $page->id]) || $district === '') {
+            return false;
+        }
+
+        return preg_match('/\b'.preg_quote($district, '/').'\b/', $branchCandidates[(int) $page->id]['text']) !== 1;
     }
 
     private static function isHome(Page $page): bool

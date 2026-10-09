@@ -5,6 +5,7 @@ namespace App\Services\Gbp;
 use App\Ai\Agents\GbpPostQueueAgent;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpBranchPage;
 use App\Models\GbpQueuedPost;
 use App\Models\Page;
 use App\Models\User;
@@ -199,7 +200,8 @@ final class GbpPostQueue
 
     /**
      * The pages of the brands' websites that posts can be written from: indexable, ≥ 150 words, Turkish (no other
-     * language field or path prefix), service / location / blog.
+     * language field or path prefix), service / location / blog (an unlabelled page waits for its category).
+     * Location pages are narrowed further per profile in slots().
      *
      * @param  list<int>  $brandIds
      * @param  list<string>  $columns
@@ -211,7 +213,7 @@ final class GbpPostQueue
 
         return Page::query()->whereIn('website_asset_id', $sites)->where('is_indexable', true)->where('word_count', '>=', 150)
             ->where(fn ($q) => $q->whereNull('language')->orWhere('language', 'tr'))
-            ->where(fn ($q) => $q->whereIn('category', array_keys(self::ANGLES_BY_CATEGORY))->orWhereNull('category'))
+            ->whereIn('category', array_keys(self::ANGLES_BY_CATEGORY))
             ->orderBy('id')->get(array_values(array_unique([...$columns, 'website_asset_id', 'path'])))
             ->reject(fn (Page $p): bool => preg_match('#^/(?!tr/)[a-z]{2}(?:-[a-z]{2})?/#i', (string) $p->path) === 1)->values();
     }
@@ -261,9 +263,14 @@ final class GbpPostQueue
             ->get(['page_id', 'angle'])->map(fn (GbpQueuedPost $r): string => $r->page_id.':'.$r->angle)->flip();
         $gapBefore = CarbonImmutable::parse($days[0])->subDays(self::PAGE_GAP_DAYS)->toDateString();
         $fresh = self::today()->subDays(30);
+        $district = $this->district($location);
+        $branchPageId = GbpBranchPage::query()->where('digital_asset_id', $location->id)->value('page_id');
         $candidates = [];
         foreach ($pages as $page) {
-            $category = $page->category ?? 'blog';
+            $category = (string) $page->category;
+            if ($category === 'lokasyon' && ! self::isOwnLocationPage($page, $district, $branchPageId !== null ? (int) $branchPageId : null)) {
+                continue;
+            }
             $angles = array_values(array_filter(self::ANGLES_BY_CATEGORY[$category] ?? self::ANGLES_BY_CATEGORY['blog'],
                 fn (string $a): bool => ! $used->has($page->id.':'.$a) && ! $siblings->has($page->id.':'.$a)));
             $last = $lastUsed->get($page->id);
@@ -528,11 +535,39 @@ final class GbpPostQueue
     /** "İlçe, İl" of the location's address (latest snapshot), or "". */
     private function area(DigitalAsset $location): string
     {
-        $resource = $this->daily->resource($location);
-        $row = $resource !== null ? DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->orderByDesc('id')->first(['storefront_address']) : null;
-        $address = $row !== null ? GoogleAdsAdvisorInputCollector::decode($row->storefront_address) : [];
+        $address = $this->address($location);
 
         return implode(', ', array_filter([(string) ($address['sublocality'] ?? ''), (string) ($address['locality'] ?? ''), (string) ($address['administrativeArea'] ?? '')]));
+    }
+
+    /** @return array<string, mixed> the storefront address of the profile's latest collection */
+    private function address(DigitalAsset $location): array
+    {
+        $resource = $this->daily->resource($location);
+        $row = $resource !== null ? DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->orderByDesc('id')->first(['storefront_address']) : null;
+
+        return $row !== null ? GoogleAdsAdvisorInputCollector::decode($row->storefront_address) : [];
+    }
+
+    /** The profile's own district, folded (sublocality, else locality); empty when the address is not known. */
+    private function district(DigitalAsset $location): string
+    {
+        $address = $this->address($location);
+
+        return SeoText::fold((string) (($address['sublocality'] ?? '') ?: ($address['locality'] ?? '')));
+    }
+
+    /**
+     * A location page belongs to one branch: it is used only for the profile whose district its title / address names,
+     * or for the profile that chose it as its branch page (another branch's page never goes out from this profile).
+     */
+    public static function isOwnLocationPage(Page $page, string $district, ?int $branchPageId): bool
+    {
+        if ($branchPageId !== null && (int) $page->id === $branchPageId) {
+            return true;
+        }
+
+        return $district !== '' && SeoText::containsPhrase((string) $page->title.' '.(string) $page->path, $district);
     }
 
     /** The page's WordPress featured image (from the connector's snapshot), or null. */

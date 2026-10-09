@@ -74,13 +74,13 @@ final class ForbiddenTermsTest extends SiteTestCase
         $this->assertSame(['şimşek tedavi'], ForbiddenTerms::forBrand($other)->blocking('Bu bir şimşek tedavi.'));
 
         // 1 + 4: the idea pack carries the sector's phrases (no brand from Sorgular) and an idea using one is not stored.
-        $cluster = $this->cluster($this->implant, 'İmplant tedavisi süreci', ['implant tedavisi', 'implant nasıl yapılır']);
+        $cluster = $this->cluster($this->implant, 'İmplant tedavisi süreci', ['implant tedavisi', 'implant nasıl yapılır', 'implant sonrası bakım']);
         $sent = [];
         ContentIdeasAgent::fake(function (string $prompt) use (&$sent): array {
             $sent[] = json_decode(substr($prompt, strlen("DATA_JSON\n")), true);
 
             return ['ideas' => [
-                ['title' => 'İmplantta şimşek tedavi rehberi', 'type' => 'guide', 'angle' => 'x', 'target_queries' => ['implant tedavisi'], 'outline' => ['A', 'B', 'C']],
+                ['title' => 'İmplantta şimşek tedavi rehberi', 'type' => 'guide', 'angle' => 'x', 'target_queries' => ['implant sonrası bakım'], 'outline' => ['A', 'B', 'C']],
                 ['title' => 'İmplant nasıl yapılır rehberi', 'type' => 'guide', 'angle' => 'Adım adım.', 'target_queries' => ['implant nasıl yapılır'], 'outline' => ['A', 'B', 'C']],
             ]];
         });

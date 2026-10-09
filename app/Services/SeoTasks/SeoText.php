@@ -268,13 +268,14 @@ final class SeoText
     }
 
     /**
-     * True for a sitemap file that only lists by-products (media, tags, authors, builder templates).
+     * True for a sitemap file that only lists by-products (media attachment pages, tags, authors, builder templates).
+     * Image and video sitemaps list real pages with their media and are not by-products.
      */
     public static function isJunkSitemap(string $url): bool
     {
         $path = mb_strtolower(self::urlPath($url));
 
-        return preg_match('#(attachment|image|video|post_tag|tag|author|elementor|e-landing|product_tag|format)[-_a-z0-9]*sitemap|sitemap[-_](attachment|image|video|tag|author|elementor)#', $path) === 1;
+        return preg_match('#(attachment|post_tag|tag|author|elementor|e-landing|product_tag|format)[-_a-z0-9]*sitemap|sitemap[-_](attachment|tag|author|elementor)#', $path) === 1;
     }
 
     /**

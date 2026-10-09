@@ -4,6 +4,7 @@ namespace Tests\Feature\Gbp;
 
 use App\Ai\Agents\GbpBranchPageAgent;
 use App\Enums\CustomerStatus;
+use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\PhotosPage;
@@ -29,6 +30,7 @@ use App\Models\User;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\BranchPages;
+use App\Services\Gbp\Desk\DeskChecks;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\GbpPerformance;
 use App\Services\Gbp\Desk\PhotoPlan;
@@ -40,6 +42,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -736,5 +739,78 @@ final class GbpDeskTest extends TestCase
             ->assertSee('Panorama Çankaya')->assertDontSee('Panorama Kızılay')
             ->call('startPicking', $this->location->id)
             ->assertSee('Sayfa başlığı ya da adresinde ara');
+    }
+
+    public function test_a_profile_linked_to_another_branchs_page_still_needs_its_own(): void
+    {
+        $desk = app(GbpDesk::class);
+        $pages = app(BranchPages::class);
+        $this->secondBranch();
+        $page = fn (string $path, string $title, string $category): Page => Page::query()->create(['website_asset_id' => $this->site->id, 'url' => 'https://panorama.test'.$path,
+            'url_hash' => hash('sha256', $path), 'path' => $path, 'title' => $title, 'category' => $category, 'language' => 'tr', 'is_indexable' => true, 'word_count' => 300]);
+        $other = $page('/kizilay-subesi/', 'Kızılay Şubesi', 'lokasyon');
+        $own = $page('/cankaya-subesi/', 'Çankaya Şubesi', 'lokasyon');
+        $service = $page('/implant/', 'Diş İmplantı', 'hizmet');
+        $state = function (string $link) use ($desk, $pages): array {
+            DB::table('gbp_location_snapshots')->where('external_resource_id', $this->resourceId)->update(['website_uri' => $link]);
+
+            return $pages->states($desk->locations(), $desk->snapshots($desk->locations()->pluck('id')->all()))[$this->location->id];
+        };
+
+        $wrong = $state((string) $other->url);
+        $this->assertSame('unlinked', $wrong['state'], 'another branch’s page is not this profile’s page');
+        $this->assertSame($own->id, $wrong['page']->id);
+        $this->assertSame('linked', $state((string) $own->url)['state']);
+        $this->assertSame('linked', $state((string) $service->url)['state'], 'a non-branch page of the site is not judged here');
+    }
+
+    public function test_bulk_publishing_skips_replies_the_brand_declined_and_reviews_flagged_for_removal(): void
+    {
+        $review = fn (string $id): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22',
+            'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ali']), 'star_rating' => 'THREE', 'comment' => 'Yorum '.$id, 'create_time' => '2026-10-04 10:00:00',
+            'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        [$declined, $flagged, $plain] = [$review('r1'), $review('r2'), $review('r3')];
+        GbpReviewApproval::query()->create(['token' => str_repeat('a', 48), 'brand_id' => $this->brand->id, 'status' => GbpReviewApproval::OPEN, 'expires_at' => now()->addDays(14),
+            'created_by' => $this->admin->id, 'items' => [['review_id' => $declined, 'asset_id' => $this->location->id, 'text' => 'Teşekkürler.', 'decision' => 'skip']]]);
+        app(ReviewFlags::class)->save($this->admin, $flagged, $this->location->id, 'spam', '');
+        $rows = array_map(fn (int $id): array => ['id' => $id, 'draft' => 'Teşekkür ederiz.', 'answered' => false, 'action' => null], [$declined, $flagged, $plain]);
+
+        $result = app(ReviewDesk::class)->sendDrafts($this->admin, $rows);
+
+        $this->assertSame(['sent' => 1, 'failed' => 0], $result);
+        $puts = collect($this->writes())->filter(fn (array $c): bool => $c[0] === 'PUT')->values();
+        $this->assertCount(1, $puts);
+        $this->assertStringEndsWith('/reviews/r3/reply', $puts[0][1]);
+    }
+
+    public function test_photos_named_after_another_branch_are_not_offered_and_kinds_match_whole_words(): void
+    {
+        $second = $this->secondBranch();
+        DB::table('gbp_location_snapshots')->insert(['run_id' => 2, 'external_resource_id' => (int) CoreAssetBinding::query()->where('digital_asset_id', $second->id)->value('external_resource_id'),
+            'location_name' => 'locations/33', 'title' => 'Panorama Kızılay', 'storefront_address' => json_encode(['sublocality' => 'Kızılay', 'locality' => 'Ankara']),
+            'captured_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        foreach (['1' => 'kizilay-subesi-bekleme-salonu.jpg', '2' => 'cankaya-bekleme-salonu.jpg'] as $id => $file) {
+            DB::table('website_cms_object_snapshot')->insert(['digital_asset_id' => $this->site->id, 'cms' => 'wordpress', 'object_type' => 'attachment', 'object_id' => $id,
+                'permalink' => 'https://panorama.test/wp-content/uploads/'.$file, 'title' => $file, 'metadata' => json_encode(['mime_type' => 'image/jpeg', 'width' => 1600, 'height' => 1067, 'file_size' => 240000]),
+                'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $id)]);
+        }
+
+        $this->assertSame(['https://panorama.test/wp-content/uploads/cankaya-bekleme-salonu.jpg'], array_column(app(PhotoPlan::class)->candidates($this->location), 'url'));
+        $this->assertSame('ADDITIONAL', PhotoPlan::guessCategory('dis-ekipmanlari.jpg'));
+        $this->assertSame('ADDITIONAL', PhotoPlan::guessCategory('renk-kombinasyonu.jpg'));
+        $this->assertSame('TEAMS', PhotoPlan::guessCategory('ekip-fotografi.jpg'));
+        $this->assertSame('EXTERIOR', PhotoPlan::guessCategory('klinik-binasi.jpg'));
+        $this->assertSame('INTERIOR', PhotoPlan::guessCategory('klinik-ic-mekan.jpg'));
+    }
+
+    public function test_post_plan_check_closes_when_the_site_has_nothing_more_to_post(): void
+    {
+        $posts = fn (): array => app(DeskChecks::class)->rows(app(GbpDesk::class)->locations())['rows'][$this->location->id]['checks']['posts'];
+
+        $this->assertFalse($posts()['ok']);
+
+        Cache::put(FillGbpPostQueueJob::stateKey($this->location->id), ['status' => 'ready', 'message' => 'x', 'result' => 'no_content', 'empty' => 30], now()->addDay());
+        $this->assertTrue($posts()['ok']);
+        $this->assertStringContainsString('sitede yeni içerik yok', $posts()['hint']);
     }
 }

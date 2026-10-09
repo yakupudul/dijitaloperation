@@ -11,6 +11,8 @@ use App\Models\FilterTerm;
 use App\Models\PendingQuery;
 use App\Models\Query;
 use App\Models\QueryReviewItem;
+use App\Models\ServiceCategory;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\QueryAutopilot;
 use App\Services\Queries\QueryClusterQueue;
@@ -122,6 +124,51 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertFalse(Query::query()->whereKey($exam->id)->exists());
         $this->assertTrue(Query::query()->whereKey($kept->id)->exists(), '"Tut" lines stay');
         $this->assertSame(PendingQuery::DELETED, PendingQuery::query()->where('text_hash', $exam->text_hash)->value('status'));
+    }
+
+    public function test_a_sector_filter_term_deletes_only_that_sectors_queries(): void
+    {
+        QueryPipeline::markImported();
+        $scrap = ServiceCategory::query()->firstOrCreate(['code' => 'recycling'], ['name' => 'Geri dönüşüm', 'normalized_key' => 'geri donusum']);
+        // Diş sağlığı filed "hurda" as irrelevant; Geri dönüşüm lives on it, a general term applies everywhere.
+        FilterTerm::query()->create(['sector_id' => $this->dental->id, 'term' => 'hurda', 'source' => 'ai']);
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'forum', 'source' => 'manual']);
+        $dentalScrap = $this->libraryQuery('hurda diş teli');
+        $dentalForum = $this->libraryQuery('implant forum');
+        $izmir = Query::query()->create(['text' => 'hurda fiyatları bugün', 'text_hash' => QueryNormalizer::hash('hurda fiyatları bugün'), 'sector_id' => $scrap->id, 'assignment' => 'none']);
+        $scrapForum = Query::query()->create(['text' => 'hurda forum', 'text_hash' => QueryNormalizer::hash('hurda forum'), 'sector_id' => $scrap->id, 'assignment' => 'none']);
+
+        $normalizer = new QueryNormalizer;
+        $this->assertSame('hurda', $normalizer->matchingTerm('hurda diş teli', $this->dental->id));
+        $this->assertNull($normalizer->matchingTerm('hurda fiyatları bugün', $scrap->id), 'another sector\'s term never applies');
+        $this->assertNull($normalizer->matchingTerm('hurda fiyatları bugün', null), 'a query without a sector meets general terms only');
+        $this->assertSame('forum', $normalizer->matchingTerm('hurda forum', $scrap->id));
+
+        app(QueryAutopilot::class)->clean();
+
+        $this->assertFalse(Query::query()->whereKey($dentalScrap->id)->exists());
+        $this->assertFalse(Query::query()->whereKey($dentalForum->id)->exists());
+        $this->assertFalse(Query::query()->whereKey($scrapForum->id)->exists(), 'general terms apply to every sector');
+        $this->assertTrue(Query::query()->whereKey($izmir->id)->exists(), 'the scrap queries of Geri dönüşüm stay');
+    }
+
+    public function test_triage_never_files_a_service_word_of_another_sector(): void
+    {
+        $this->enableAi();
+        Queue::fake([ClusterQueriesJob::class]);
+        QueryPipeline::markImported();
+        ServiceCategory::query()->firstOrCreate(['code' => 'recycling'], ['name' => 'Geri dönüşüm', 'normalized_key' => 'geri donusum']);
+        app(ServiceCatalogService::class)->resolveOrCreate('Hurda', 'recycling', actor: $this->admin);
+        $scrap = $this->libraryQuery('hurda diş teli');
+        $exam = $this->libraryQuery('kpss diş');
+        QueryTriageAgent::fake(fn (): array => ['decisions' => [
+            ['query_id' => $scrap->id, 'service_id' => null, 'filter_term' => 'hurda', 'filter_reason' => 'irrelevant'],
+            ['query_id' => $exam->id, 'service_id' => null, 'filter_term' => 'kpss', 'filter_reason' => 'irrelevant'],
+        ], 'keywords' => []]);
+
+        app(QueryAutopilot::class)->tick();
+
+        $this->assertSame(['kpss'], FilterTerm::query()->where('source', 'ai')->pluck('term')->all(), '"hurda" is a service of Geri dönüşüm');
     }
 
     public function test_a_query_clustering_looked_at_is_not_queued_again_and_the_screen_shows_the_pilot(): void

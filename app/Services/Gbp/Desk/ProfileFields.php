@@ -86,10 +86,22 @@ final class ProfileFields
         return $queued;
     }
 
+    /**
+     * Sends a description to Google (Admin). A proposal is written against the description the profile had then: when
+     * the profile's description changed since (latest collection), the proposal is stale and refused.
+     *
+     * @throws ValidationException
+     */
     public function sendDescription(User $user, DigitalAsset $location, string $text, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         if ($suggestion !== null && (int) $suggestion->target_id !== (int) $location->id) {
             $suggestion = null;
+        }
+        if ($suggestion !== null && is_array($suggestion->action) && array_key_exists('current', $suggestion->action)) {
+            $now = app(GbpDesk::class)->snapshots([(int) $location->id])[$location->id]['description'] ?? null;
+            if ($now === null || trim((string) $now) !== trim((string) $suggestion->action['current'])) {
+                throw ValidationException::withMessages(['description' => 'Profilin açıklaması öneri hazırlandıktan sonra değişti; öneri eskidi.']);
+            }
         }
 
         return app(ExternalWriteService::class)->requestProfileFields($user, $location, ['description' => trim($text)], 'Açıklama', $suggestion);

@@ -11,6 +11,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Repair\RepairDesk;
 use App\Services\Repair\WebHealthAudit;
+use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -44,6 +45,7 @@ final class WebHealthAuditTest extends SiteTestCase
     public function test_index_problems_become_a_fix_for_service_pages_and_grouped_tasks_for_the_rest(): void
     {
         $blog = $this->page('/blog/implant-agrisi/', 'İmplant ağrısı', ['category' => 'blog', 'wp_post_id' => 77]);
+        $this->implantPage->forceFill(['is_indexable' => false])->save(); // noindex set in the SEO plugin
         $this->inspection($this->implantPage->url, ['verdict' => 'NEUTRAL', 'coverage_state' => 'Excluded by ‘noindex’ tag', 'indexing_state' => 'BLOCKED_BY_META_TAG']);
         $this->inspection($blog->url, ['verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed']);
         $this->inspection('https://panorama.com.tr/zirkonyum/', ['verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed']);
@@ -204,6 +206,145 @@ final class WebHealthAuditTest extends SiteTestCase
         Http::assertSentCount(4);
     }
 
+    public function test_a_301_goes_only_to_a_page_whose_words_fit_the_dead_address_and_numbers_match(): void
+    {
+        $this->page('/all-on-4-implant/', 'All-on-4 implant', ['category' => 'hizmet', 'wp_post_id' => 70]);
+        $this->page('/hurda-aluminyum-fiyatlari/', 'Hurda alüminyum fiyatları', ['category' => 'hizmet', 'wp_post_id' => 71]);
+        $this->page('/hurda-bakir-alimi/', 'Hurda bakır alımı', ['category' => 'hizmet', 'wp_post_id' => 72]);
+        foreach (['/all-on-6-implant/', '/hurda-bakir-fiyatlari/', '/hurda-bakir-alimi-ankara/', '/ankara-implant-tedavisi-fiyat/'] as $dead) {
+            $this->edge('https://panorama.com.tr/blog/a/', 'https://panorama.com.tr'.$dead);
+            $this->html('https://panorama.com.tr'.$dead, 404, now()->subDays(2));
+        }
+        // The crawl later found this one open again: not a broken link any more.
+        $this->html('https://panorama.com.tr/ankara-implant-tedavisi-fiyat/', 200);
+        $this->inspection('https://panorama.com.tr/hurda-bakir-alimi-ankara/', ['verdict' => 'FAIL', 'coverage_state' => 'Not found (404)']);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $rows = app(RepairDesk::class)->rows()->keyBy('title');
+        $this->assertSame(RepairDesk::WEB_TASK, $rows['Kırık iç bağlantı: /all-on-6-implant/']['kind'], 'All-on-6 is not All-on-4');
+        $this->assertSame(RepairDesk::WEB_TASK, $rows['Kırık iç bağlantı: /hurda-bakir-fiyatlari/']['kind'], 'copper prices are not aluminium prices');
+        $this->assertSame('301 → https://panorama.com.tr/hurda-bakir-alimi/', $rows['Kırık iç bağlantı: /hurda-bakir-alimi-ankara/']['after'][0]);
+        $this->assertFalse($rows->has('Google 404 görüyor: /hurda-bakir-alimi-ankara/'), 'the broken-link row already handles this address');
+        $this->assertFalse($rows->has('Kırık iç bağlantı: /ankara-implant-tedavisi-fiyat/'));
+    }
+
+    public function test_duplicates_follow_googles_chosen_page_and_never_freeze_a_canonical_the_seo_plugin_prints(): void
+    {
+        $fiyat = $this->page('/implant-fiyatlari/', 'İmplant fiyatları', ['category' => 'hizmet', 'wp_post_id' => 80]);
+        $en = $this->page('/en/dental-implant/', 'Dental implant', ['category' => 'hizmet', 'wp_post_id' => 81, 'language' => 'en']);
+        $plugin = $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'hizmet', 'wp_post_id' => 82]);
+        DB::table('website_cms_seo_snapshot')->insert(['digital_asset_id' => $this->site->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => '82',
+            'seo_provider' => 'yoast', 'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'seo82'), 'created_at' => now(), 'updated_at' => now()]);
+        $duplicate = ['verdict' => 'NEUTRAL', 'coverage_state' => 'Duplicate without user-selected canonical'];
+        $this->inspection($fiyat->url, $duplicate + ['google_canonical' => $this->implantPage->url]);
+        $this->inspection($en->url, $duplicate + ['google_canonical' => $this->implantPage->url]);
+        $this->inspection($plugin->url, $duplicate + ['google_canonical' => $plugin->url]);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $rows = app(RepairDesk::class)->rows()->keyBy('title');
+        $same = $rows['Google başka sayfayı asıl sayıyor (1 sayfa)'];
+        $this->assertSame([RepairDesk::WEB_TASK, ['/implant-fiyatlari/ → Google: /implant-tedavisi/']], [$same['kind'], $same['before']]);
+        $language = $rows['Google çeviri sayfasını başka dildeki sayfanın kopyası sayıyor (1 sayfa)'];
+        $this->assertSame(['/en/dental-implant/ → Google: /implant-tedavisi/'], $language['before']);
+        $this->assertStringContainsString('hreflang', implode(' ', $language['after']));
+        $this->assertStringNotContainsString('301', implode(' ', $language['after']), 'a translation is never merged into another language');
+        $this->assertSame(RepairDesk::WEB_TASK, $rows['Yinelenen sayfa: Google asıl adresi görmüyor (1 sayfa)']['kind'], 'the SEO plugin prints the canonical');
+        $this->assertSame(0, Suggestion::query()->where('action_type', WebHealthAudit::TYPE)->get()->filter(fn (Suggestion $s): bool => ($s->action['changes'] ?? []) !== [])->count(),
+            'no literal canonical is written');
+    }
+
+    public function test_noindex_is_switched_off_only_where_the_seo_plugin_set_it_and_tags_and_pagination_are_not_index_rows(): void
+    {
+        $alternate = $this->page('/implant-tedavisi-2/', 'İmplant tedavisi', ['category' => 'hizmet', 'wp_post_id' => 90, 'is_indexable' => false,
+            'canonical' => $this->implantPage->url]);
+        $noindex = ['verdict' => 'NEUTRAL', 'coverage_state' => 'Excluded by ‘noindex’ tag', 'indexing_state' => 'BLOCKED_BY_META_TAG'];
+        $this->inspection($this->implantPage->url, $noindex);
+        $this->inspection($alternate->url, $noindex);
+        $this->inspection('https://panorama.com.tr/tag/implant/', ['verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed']);
+        $this->inspection('https://panorama.com.tr/blog/page/3/', ['verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed']);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $rows = app(RepairDesk::class)->rows()->keyBy('title');
+        $this->assertSame(['Hizmet sayfası Google\'a kapalı, SEO eklentisinde açık (1 sayfa)'], $rows->keys()->filter(fn (string $t): bool => str_contains($t, 'kapalı'))->values()->all(),
+            'the SEO plugin has the page open: the noindex comes from elsewhere; the alternate page is left alone');
+        $row = $rows['Hizmet sayfası Google\'a kapalı, SEO eklentisinde açık (1 sayfa)'];
+        $this->assertSame([RepairDesk::WEB_TASK, ['/implant-tedavisi/']], [$row['kind'], $row['before']]);
+        $this->assertStringContainsString('Ayarlar › Okuma', implode(' ', $row['after']));
+        $this->assertFalse($rows->keys()->contains(fn (string $t): bool => str_contains($t, 'taradı ama')), 'tags and pagination belong to the bloat check');
+    }
+
+    public function test_speed_steps_follow_the_failed_metric_and_name_the_measured_page_and_data_source(): void
+    {
+        DB::table('website_performance_measurement')->insert(['digital_asset_id' => $this->site->id, 'url' => 'https://panorama.com.tr/implant-tedavisi/', 'strategy' => 'mobile',
+            'observed_at' => now()->subDay(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20),
+            'metadata' => json_encode(['lcp_ms' => 4800])]);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $row = app(RepairDesk::class)->rows()->firstWhere('title', 'Site yavaş (mobil)');
+        $this->assertStringContainsString('Ölçülen adres: /implant-tedavisi/', $row['reason']);
+        $this->assertStringContainsString('laboratuvar', $row['reason']);
+        $this->assertStringContainsString('laboratuvar', $row['before'][0], 'lab LCP is named as lab');
+        $after = implode(' ', $row['after']);
+        $this->assertStringContainsString('/implant-tedavisi/ sayfasının', $after);
+        $this->assertStringContainsString('lazy-load', $after);
+        $this->assertStringNotContainsString('Ana sayfa', $after, 'the measured page is not the home page');
+        $this->assertStringNotContainsString('CLS', $after, 'no layout-shift steps without a layout-shift problem');
+        $this->assertStringNotContainsString('INP', $after);
+    }
+
+    public function test_bloat_gives_files_search_and_feeds_their_own_steps_and_a_fallback_for_the_rest(): void
+    {
+        foreach (['https://panorama.com.tr/wp-content/uploads/fiyat-listesi.pdf' => 30, 'https://panorama.com.tr/?s=implant' => 12,
+            'https://panorama.com.tr/implant-tedavisi/feed/' => 5, 'https://panorama.com.tr/?replytocom=12' => 4, 'https://panorama.com.tr/blog/page/2/' => 50] as $page => $impressions) {
+            $this->insertFacts('gsc_query_page_daily', ['digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr',
+                'search_type' => 'web', 'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'implant', 'page' => $page, 'clicks' => 0, 'impressions' => $impressions,
+                'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20)]);
+        }
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $row = app(RepairDesk::class)->rows()->firstWhere('title', 'Google gereksiz adresleri gösteriyor (4 adres)');
+        $this->assertNotContains('/blog/page/2/ · 50 gösterim', $row['before'], 'pagination stays indexable');
+        $this->assertCount(4, $row['after']);
+        $this->assertStringContainsString('X-Robots-Tag', $row['after'][0], 'a PDF is not noindexed through the SEO plugin');
+        $this->assertStringContainsString('(?s=)', $row['after'][1]);
+        $this->assertStringContainsString('(/feed/)', $row['after'][2]);
+        $this->assertStringStartsWith('Listedeki diğer adresleri', $row['after'][3], '?replytocom= matched no step');
+    }
+
+    public function test_link_suggestions_ignore_brand_words_and_the_title_suffix(): void
+    {
+        $weak = $this->page('/zirkonyum-kaplama/', 'Zirkonyum Kaplama | Panorama Ankara', ['category' => 'hizmet', 'wp_post_id' => 100]);
+        $this->implantPage->forceFill(['title' => 'Ankara İmplant Tedavisi | Panorama Ankara'])->save();
+        $this->page('/hakkimizda/', 'Hakkımızda | Panorama Ankara Diş Kliniği', ['category' => 'kurumsal', 'wp_post_id' => 101]);
+        $related = $this->page('/blog/zirkonyum-kaplama-fiyatlari/', 'Zirkonyum kaplama fiyatları | Panorama Ankara', ['category' => 'blog', 'wp_post_id' => 102]);
+        $this->inspection($weak->url, ['verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed']);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $this->assertSame([$related->id], Suggestion::query()->where('action_type', 'internal_links')->pluck('page_id')->all(),
+            '"Panorama Ankara" is on every page: it makes no two pages related');
+    }
+
+    public function test_image_and_video_sitemaps_are_not_junk_and_the_reason_names_what_a_junk_one_lists(): void
+    {
+        $this->assertFalse(SeoText::isJunkSitemap('https://panorama.com.tr/image-sitemap.xml'));
+        $this->assertFalse(SeoText::isJunkSitemap('https://panorama.com.tr/video-sitemap.xml'));
+        $this->assertTrue(SeoText::isJunkSitemap('https://panorama.com.tr/author-sitemap.xml'));
+        DB::table('gsc_sitemap_snapshot')->insert(['digital_asset_id' => $this->site->id, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr',
+            'sitemap_path' => 'https://panorama.com.tr/author-sitemap.xml', 'retrieved_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'author'), 'metadata' => json_encode(['errors' => 0, 'warnings' => 0])]);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $this->assertStringStartsWith('Bu harita yazar sayfalarını listeliyor.', app(RepairDesk::class)->rows()->firstWhere('title', 'Gereksiz site haritası gönderilmiş: /author-sitemap.xml')['reason']);
+    }
+
     /** @param  array<string, mixed>  $meta */
     public function test_a_sitemap_error_is_explained_by_opening_the_sitemap_and_a_failed_fix_returns_at_once(): void
     {
@@ -255,10 +396,22 @@ final class WebHealthAuditTest extends SiteTestCase
             'last_collected_at' => now(), 'record_fingerprint' => Str::random(20)]);
     }
 
-    private function html(string $url, int $status): void
+    /**
+     * What the crawler stores for one fetch: a page that opened goes to the HTML snapshot; a 4xx only to the HTTP snapshot
+     * and as an HTTP_4XX crawl issue (WebsiteDatasetExecutor::persistPage).
+     */
+    private function html(string $url, int $status, ?\DateTimeInterface $at = null): void
     {
-        DB::table('website_html_snapshot')->insert(['digital_asset_id' => $this->site->id, 'url' => $url, 'status_code' => $status, 'html_hash' => hash('sha256', $url),
-            'html_bytes' => 10, 'change_state' => 'new', 'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
-            'record_fingerprint' => Str::random(20)]);
+        $at ??= now();
+        $common = ['digital_asset_id' => $this->site->id, 'url' => $url, 'observed_at' => $at, 'contract_version' => 1, 'first_collected_at' => $at,
+            'last_collected_at' => $at, 'record_fingerprint' => Str::random(20)];
+        DB::table('website_http_snapshot')->insert($common + ['metadata' => json_encode(['requested_url' => $url, 'final_url' => $url, 'status_code' => $status])]);
+        if ($status >= 400) {
+            DB::table('website_crawl_issue_snapshot')->insert($common + ['issue_code' => 'HTTP_4XX', 'severity' => 'high', 'message' => 'Sayfa 4xx yanıtı döndürüyor.',
+                'metadata' => json_encode(['evidence' => ['status_code' => $status], 'deterministic' => true])]);
+
+            return;
+        }
+        DB::table('website_html_snapshot')->insert($common + ['status_code' => $status, 'html_hash' => hash('sha256', $url), 'html_bytes' => 10, 'change_state' => 'new']);
     }
 }

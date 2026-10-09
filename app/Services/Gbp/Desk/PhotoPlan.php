@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -22,7 +23,8 @@ use Illuminate\Validation\ValidationException;
  * profile has (photo count, last photo, logo / cover) and proposes photos from the brand's own WordPress media
  * (JPG / PNG, large enough, service-page images first), or the operator uploads branch photos in MoxDOP. The Admin
  * sends the chosen ones; Google fetches each file from its https address. A photo goes to a profile once; one already
- * sent to another branch of the brand is marked so branches do not all show the same pictures.
+ * sent to another branch of the brand is marked so branches do not all show the same pictures; a picture whose file
+ * name / title names another branch's district is not offered to this one.
  */
 final class PhotoPlan
 {
@@ -87,6 +89,7 @@ final class PhotoPlan
         $own = GbpPhoto::query()->where('digital_asset_id', $location->id)->whereIn('status', [GbpPhoto::SENDING, GbpPhoto::UPLOADED])->pluck('source_hash')->flip();
         $siblings = GbpPhoto::query()->where('brand_id', $location->brand_id)->where('digital_asset_id', '!=', $location->id)->where('status', GbpPhoto::UPLOADED)
             ->selectRaw('source_hash, count(*) as n')->groupBy('source_hash')->pluck('n', 'source_hash');
+        $otherDistricts = $this->siblingDistricts($location);
         $seen = [];
         $list = [];
         foreach ($snapshots->where('object_type', 'attachment') as $row) {
@@ -100,7 +103,8 @@ final class PhotoPlan
             if ($url === '' || isset($seen[$hash]) || isset($own[$hash]) || preg_match('~^https://\S+\.(jpe?g|png)$~i', $url) !== 1
                 || ($mime !== '' && ! in_array($mime, ['image/jpeg', 'image/png'], true))
                 || ($width !== null && $width < self::MIN_SIDE) || ($height !== null && $height < self::MIN_SIDE)
-                || ($bytes !== null && ($bytes < 10_000 || $bytes > self::MAX_BYTES))) {
+                || ($bytes !== null && ($bytes < 10_000 || $bytes > self::MAX_BYTES))
+                || self::namesAny($url.' '.$row->title, $otherDistricts)) {
                 continue;
             }
             $seen[$hash] = true;
@@ -119,17 +123,59 @@ final class PhotoPlan
         return array_map(fn (array $c): array => array_diff_key($c, ['rank' => 1, 'size' => 1]), array_slice($list, 0, self::CANDIDATES));
     }
 
+    /**
+     * The photo's kind from its file name / title, whole words only ("ekipman" is not "ekip", "kombinasyon" not "bina").
+     */
     public static function guessCategory(string $text): string
     {
         $text = Str::lower(Str::ascii($text));
+        $word = static fn (string $words): string => '/(?<![a-z])('.$words.')(?:s|ler|lar|imiz|umuz|lerimiz|larimiz)?(?![a-z])/';
 
         return match (true) {
-            preg_match('/logo/', $text) === 1 => 'LOGO',
-            preg_match('/(ekip|team|doktor|hekim|kadro|staff)/', $text) === 1 => 'TEAMS',
-            preg_match('/(dis-?cephe|bina|exterior|tabela|giris|facade)/', $text) === 1 => 'EXTERIOR',
-            preg_match('/(ic-?mekan|bekleme|interior|resepsiyon|lobi|salon|oda)/', $text) === 1 => 'INTERIOR',
+            preg_match($word('logo'), $text) === 1 => 'LOGO',
+            preg_match($word('ekip|ekibimiz|team|doktor|hekim|kadro|staff'), $text) === 1 => 'TEAMS',
+            preg_match($word('dis[-_ ]?cephe|bina|binasi|exterior|tabela|giris|facade'), $text) === 1 => 'EXTERIOR',
+            preg_match($word('ic[-_ ]?mekan|bekleme|interior|resepsiyon|lobi|salon|oda|odasi'), $text) === 1 => 'INTERIOR',
             default => 'ADDITIONAL',
         };
+    }
+
+    /**
+     * Folded districts of the brand's other profiles that are not this profile's own (a photo named after another
+     * branch is that branch's photo).
+     *
+     * @return list<string>
+     */
+    private function siblingDistricts(DigitalAsset $location): array
+    {
+        $locations = $this->desk->locations((int) $location->brand_id);
+        if ($locations->count() <= 1) {
+            return [];
+        }
+        $snapshots = $this->desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $address = (array) ($snapshots[$location->id]['address'] ?? []);
+        $own = array_filter([SeoText::fold((string) ($address['sublocality'] ?? '')), SeoText::fold((string) ($address['locality'] ?? ''))]);
+        $out = [];
+        foreach ($locations as $sibling) {
+            $district = SeoText::fold((string) ($snapshots[$sibling->id]['address']['sublocality'] ?? ''));
+            if ((int) $sibling->id !== (int) $location->id && $district !== '' && ! in_array($district, $own, true)) {
+                $out[$district] = $district;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /** @param  list<string>  $phrases  folded */
+    private static function namesAny(string $text, array $phrases): bool
+    {
+        foreach ($phrases as $phrase) {
+            if (SeoText::containsPhrase($text, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

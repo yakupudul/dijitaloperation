@@ -44,6 +44,7 @@ final class PagesFromWordPressTest extends TestCase
         $this->assertSame('page', $tr->wp_post_type);
         $this->assertSame('tr', $tr->language);
         $this->assertSame('İmplant Tedavisi | Klinik', $tr->title);
+        $this->assertSame('seo', $tr->title_source, 'the SEO plugin\'s own title');
         $this->assertSame('Ankara implant tedavisi hakkında her şey.', $tr->meta_description);
         $this->assertSame('https://klinik.example/implant/', $tr->canonical);
         $this->assertSame('İmplant', $tr->h1, 'themes print the post title as H1');
@@ -59,6 +60,7 @@ final class PagesFromWordPressTest extends TestCase
 
         $en = Page::query()->where('wp_post_id', 11)->sole();
         $this->assertSame('Implant', $en->title, 'a title with template variables is not the rendered title');
+        $this->assertSame('post', $en->title_source, 'the plugin renders "Implant | Site": the stored title is the post title');
         $this->assertSame('Dental implants', $en->h1, 'the content H1 wins');
         $this->assertFalse($en->is_indexable, 'noindex → not indexable');
         $this->assertSame('en', $en->language);
@@ -95,6 +97,7 @@ final class PagesFromWordPressTest extends TestCase
         $sync = $this->sync();
         $sync->syncContent($this->site->id, [$this->wpPost(30, 'https://klinik.example/kanal/', 'Kanal Tedavisi', '<p>Kanal tedavisi.</p>')]);
         $page = Page::query()->sole();
+        $this->assertSame('post', $page->title_source, 'no SEO title yet: the post title is stored');
         $page->forceFill(['analyzed_at' => now()])->save();
 
         $updated = $sync->syncSeo($this->site->id, [
@@ -105,6 +108,7 @@ final class PagesFromWordPressTest extends TestCase
         $this->assertSame(1, $updated);
         $page->refresh();
         $this->assertSame('Kanal Tedavisi Ankara', $page->title);
+        $this->assertSame('seo', $page->title_source);
         $this->assertSame('Ağrısız kanal tedavisi.', $page->meta_description);
         $this->assertFalse($page->is_indexable, 'SEOPress robots index = yes means noindex');
         $this->assertNull($page->analyzed_at);

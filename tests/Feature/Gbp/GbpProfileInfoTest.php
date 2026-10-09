@@ -16,7 +16,11 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Gbp\Desk\BranchPages;
+use App\Services\Gbp\Desk\GbpDesk;
+use App\Services\Gbp\Desk\ProfileFields;
 use App\Services\Gbp\Desk\ProfileInfo;
+use App\Services\Gbp\GbpSuggestions;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\Repair\RepairDesk;
 use App\Support\Roles;
@@ -209,7 +213,8 @@ final class GbpProfileInfoTest extends TestCase
     {
         $this->assertTrue(ProfileInfo::isAppointmentPage('https://avrupadent.com.tr/randevu-olustur/'));
         $this->assertTrue(ProfileInfo::isAppointmentPage('https://www.panoramaankara.com/randevu-talebi-olustur/'));
-        $this->assertTrue(ProfileInfo::isAppointmentPage('https://site.test/en/appointment/'));
+        $this->assertTrue(ProfileInfo::isAppointmentPage('https://site.test/tr/randevu/'));
+        $this->assertFalse(ProfileInfo::isAppointmentPage('https://site.test/en/appointment/'), 'another language is not the Turkish profile\'s booking page');
         $this->assertFalse(ProfileInfo::isAppointmentPage('https://www.burcinoncul.com.tr/soru-cevap/kontrol-randevulari-ne-siklikla-yapilir/'));
         $this->assertFalse(ProfileInfo::isAppointmentPage('https://site.test/randevu-almadan-once-bilinmesi-gerekenler/'));
         $this->assertFalse(ProfileInfo::isAppointmentPage('https://site.test/'));
@@ -258,5 +263,82 @@ final class GbpProfileInfoTest extends TestCase
         $this->assertSame(['regular_hours', 'attributes'], array_keys($action->request_payload['fields']));
         $this->assertSame([['day' => 'TUESDAY', 'open' => '09:00', 'close' => '18:00']], $action->request_payload['fields']['regular_hours']);
         $this->assertSame([['name' => 'attributes/has_restroom', 'value' => true]], $action->request_payload['fields']['attributes']);
+    }
+
+    public function test_stale_rows_leave_the_desk_and_a_field_filled_since_is_refused(): void
+    {
+        $this->profile('İşletme Profili · Panorama Kızılay', '33', hours: true);
+        $this->profile('İşletme Profili · Panorama Bahçeli', '44', hours: true);
+        $info = app(ProfileInfo::class);
+        $info->prepareAll($this->brand->id);
+        $rows = $info->open([$this->location->id])->keyBy(fn (Suggestion $s): string => (string) $s->action['field']);
+        $this->assertEqualsCanonicalizing(['regular_hours', 'website_uri'], $rows->keys()->all());
+
+        $rows['website_uri']->forceFill(['status' => Suggestion::RECHECK])->save();
+        $this->assertSame(['regular_hours'], $info->open([$this->location->id])->map(fn (Suggestion $s): string => (string) $s->action['field'])->values()->all(), 'a row to re-check is not sent from the desk');
+
+        $resource = (int) CoreAssetBinding::query()->where('digital_asset_id', $this->location->id)->value('external_resource_id');
+        DB::table('gbp_location_snapshots')->insert(['run_id' => 99, 'external_resource_id' => $resource, 'location_name' => 'locations/22', 'title' => 'Panorama Çankaya',
+            'regular_hours' => json_encode(['periods' => [['openDay' => 'MONDAY', 'openTime' => ['hours' => 8], 'closeDay' => 'MONDAY', 'closeTime' => ['hours' => 16]]]]),
+            'captured_at' => now()->addMinute(), 'created_at' => now(), 'updated_at' => now()]);
+
+        try {
+            $info->send($this->admin, $rows['regular_hours']);
+            $this->fail('Expected a refusal.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('artık dolu', (string) collect($exception->errors())->flatten()->first());
+        }
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
+
+    public function test_a_description_proposal_is_refused_when_the_profiles_description_changed_since(): void
+    {
+        $proposal = function (string $current): Suggestion {
+            app(GbpSuggestions::class)->replaceGroup($this->location, 'description', [['key' => 'description', 'title' => 'Açıklamayı güncelle', 'reason' => 'x', 'priority' => 2,
+                'evidence' => [], 'action_type' => 'gbp_description', 'action' => ['current' => $current, 'proposed' => 'Panorama Çankaya, Ankara Çankaya’da implant, zirkonyum kaplama ve ortodonti tedavileri sunan bir diş kliniğidir. Tedavi seçenekleri birlikte planlanır.']]]);
+
+            return Suggestion::query()->where('action_type', 'gbp_description')->where('status', Suggestion::OPEN)->latest('id')->firstOrFail();
+        };
+        $fields = app(ProfileFields::class);
+
+        try {
+            $fields->sendDescription($this->admin, $this->location, 'Panorama Çankaya, Ankara Çankaya’da implant, zirkonyum kaplama ve ortodonti tedavileri sunan bir diş kliniğidir. Tedavi seçenekleri birlikte planlanır.', $proposal('Eski açıklama'));
+            $this->fail('Expected a refusal.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString('öneri eskidi', (string) collect($exception->errors())->flatten()->first());
+        }
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+
+        $fields->sendDescription($this->admin, $this->location, 'Panorama Çankaya, Ankara Çankaya’da implant, zirkonyum kaplama ve ortodonti tedavileri sunan bir diş kliniğidir. Tedavi seçenekleri birlikte planlanır.', $proposal(''));
+        $this->assertSame(1, ExternalWriteAction::query()->count(), 'the profile still has the description the proposal was written for');
+    }
+
+    public function test_hours_are_copied_only_when_every_sibling_with_hours_agrees(): void
+    {
+        $week = fn (int $close): array => [['openDay' => 'MONDAY', 'openTime' => ['hours' => 9], 'closeDay' => 'MONDAY', 'closeTime' => ['hours' => $close]]];
+
+        $this->assertNull(ProfileInfo::commonHours(collect([['regular_hours' => $week(18)]])), 'one sibling is not enough');
+        $this->assertSame($week(18), ProfileInfo::commonHours(collect([['regular_hours' => $week(18)], ['regular_hours' => $week(18)], ['regular_hours' => []]])));
+        $this->assertNull(ProfileInfo::commonHours(collect([['regular_hours' => $week(18)], ['regular_hours' => $week(18)], ['regular_hours' => $week(20)]])), 'no plurality vote');
+    }
+
+    public function test_website_link_is_the_branchs_own_page_when_the_brand_has_several_profiles(): void
+    {
+        $resource = (int) CoreAssetBinding::query()->where('digital_asset_id', $this->location->id)->value('external_resource_id');
+        DB::table('gbp_location_snapshots')->where('external_resource_id', $resource)->update(['storefront_address' => json_encode(['sublocality' => 'Çankaya', 'locality' => 'Ankara'])]);
+        $site = DigitalAsset::query()->where('type', 'website')->firstOrFail();
+        Page::query()->create(['website_asset_id' => $site->id, 'url' => 'https://panorama.test/cankaya-subesi/', 'url_hash' => sha1('c'), 'path' => '/cankaya-subesi/',
+            'title' => 'Çankaya Şubesi', 'category' => 'lokasyon', 'language' => 'tr', 'is_indexable' => true]);
+        $website = function (): ?string {
+            $snapshot = app(GbpDesk::class)->snapshots([$this->location->id])[$this->location->id];
+            $item = collect(app(ProfileInfo::class)->items($this->location, $snapshot, collect()))->firstWhere('action.field', 'website_uri');
+
+            return $item['action']['fields']['website_uri'] ?? null;
+        };
+
+        $this->assertSame('https://panorama.test/', $website(), 'a single profile links the home page');
+
+        $this->profile('İşletme Profili · Panorama Kızılay', '33', hours: true);
+        $this->assertSame('https://panorama.test/cankaya-subesi/?'.BranchPages::UTM, $website());
     }
 }

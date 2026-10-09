@@ -13,6 +13,7 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpBranchPage;
 use App\Models\GbpQueuedPost;
 use App\Models\Page;
 use App\Models\ServiceCategory;
@@ -286,5 +287,28 @@ final class GbpPostQueueTest extends TestCase
         $this->assertSame(0, GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)->count());
         $this->assertSame(1, GbpQueuedPost::query()->where('digital_asset_id', $sibling->id)->where('status', GbpQueuedPost::APPROVED)->count());
         $this->assertNotNull($lonely->id);
+    }
+
+    public function test_a_location_page_goes_out_only_from_its_own_branch_and_unlabelled_pages_wait(): void
+    {
+        $text = str_repeat('Şubemizde implant ve zirkonyum tedavileri, muayene ve kontrol randevuları verilir. ', 20);
+        $page = fn (string $path, string $title, ?string $category): Page => Page::query()->create(['website_asset_id' => $this->site->id, 'url' => 'https://panorama.test'.$path,
+            'url_hash' => hash('sha256', $path), 'path' => $path, 'title' => $title, 'category' => $category, 'language' => 'tr', 'is_indexable' => true, 'content_text' => $text,
+            'word_count' => 300, 'changed_at' => now()->subMonths(3), 'created_at' => now()->subMonths(6)]);
+        $own = $page('/cankaya-subesi/', 'Çankaya Şubesi', 'lokasyon');
+        $other = $page('/kizilay-subesi/', 'Kızılay Şubesi', 'lokasyon');
+        $chosen = $page('/subelerimiz/merkez/', 'Merkez şube', 'lokasyon');
+        $unlabelled = $page('/hakkimizda/', 'Hakkımızda', null);
+        $queue = app(GbpPostQueue::class);
+        $used = fn (): array => array_map(fn (array $s): int => $s['page']->id, $queue->slots($this->location, $queue->emptyDays($this->location)));
+
+        $this->assertContains($own->id, $used());
+        $this->assertNotContains($other->id, $used(), 'another branch’s page is not posted from this profile');
+        $this->assertNotContains($chosen->id, $used());
+        $this->assertNotContains($unlabelled->id, $used(), 'a page without a category waits for its label');
+
+        GbpBranchPage::query()->create(['digital_asset_id' => $this->location->id, 'brand_id' => $this->brand->id, 'website_asset_id' => $this->site->id,
+            'page_id' => $chosen->id, 'status' => GbpBranchPage::CHOSEN]);
+        $this->assertContains($chosen->id, $used(), 'the page the operator chose as this branch’s page');
     }
 }

@@ -204,4 +204,23 @@ final class GbpAssistantTest extends TestCase
         $this->assertSame(0, Suggestion::query()->where('action_type', '!=', 'gbp_standard')->count());
         $this->assertSame('Marka operasyonel değil; AI çalışmaz.', app(GbpAssistant::class)->state($this->asset->id, GbpAssistant::OP_SERVICES)['message']);
     }
+
+    public function test_description_of_one_branch_names_only_its_own_area(): void
+    {
+        $address = fn (string $district): string => json_encode(['sublocality' => $district, 'locality' => 'Ankara', 'administrativeArea' => 'Ankara']);
+        DB::table('gbp_location_snapshots')->where('digital_asset_id', $this->asset->id)->update(['storefront_address' => $address('Çankaya')]);
+        $sibling = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => 'active', 'name' => 'Panorama Kızılay']);
+        $resource = CoreExternalResource::factory()->create(['integration_id' => CoreIntegration::query()->where('provider', 'google')->value('id'), 'provider' => 'google',
+            'resource_type' => 'google_business_profile', 'external_id' => 'locations/33', 'parent_external_id' => 'accounts/11', 'status' => CoreExternalResource::STATUS_AVAILABLE]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $sibling->id, 'external_resource_id' => $resource->id, 'capability' => 'google_business_profile', 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        DB::table('gbp_location_snapshots')->insert(['digital_asset_id' => $sibling->id, 'external_resource_id' => $resource->id, 'run_id' => 2, 'location_name' => 'locations/33',
+            'title' => 'Panorama Kızılay', 'storefront_address' => $address('Kızılay'), 'captured_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $sentence = 'Panorama Ankara, Çankaya ve Kızılay şubelerinde implant ve zirkonyum kaplama tedavilerinde deneyimli bir ekiple hizmet verir. ';
+        GbpDescriptionAgent::fake([['description' => str_repeat($sentence, 3), 'reason' => 'x']]);
+
+        $this->page('todo')->call('proposeDescription')->call('setTab', 'todo')->assertSee('başka bir şubenin bölgesini');
+
+        GbpDescriptionAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Çankaya, Ankara') && ! str_contains((string) $prompt->prompt, 'Çankaya şubesi'));
+        $this->assertSame(0, Suggestion::query()->where('action_type', 'gbp_description')->count());
+    }
 }

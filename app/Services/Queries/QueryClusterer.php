@@ -28,8 +28,8 @@ use RuntimeException;
 
 /**
  * "AI ile kümele" for one service (clusters belong to SECTOR + SERVICE, shared by brands). The AI never sees raw
- * queries: the rule engine's topics (QueryRuleEngine: variants merged, facet words such as fiyat / nedir taken out)
- * go instead, one line per topic with its facets, variant count, metrics, example queries and the page Google shows
+ * queries: the rule engine's topics (QueryRuleEngine: variants merged, facet words such as fiyat / nedir taken out;
+ * informational searches keep a topic of their own, "implant #info" ≠ "implant") go instead, one line per topic with its facets, variant count, metrics, example queries and the page Google shows
  * for it on the sector's sites (Search Console, last 90 days).
  *
  * A run goes in steps, one AI call each (ClusterQueriesJob runs one step and queues the next), so no topic is cut off

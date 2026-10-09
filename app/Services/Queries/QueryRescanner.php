@@ -7,7 +7,7 @@ use App\Models\QueryReviewItem;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Onaylı tarama: ALL filter terms (every sector) × ALL library queries, and the matching keywords re-run for every
+ * Onaylı tarama: filter terms × ALL library queries (a query meets the general terms and its own sector's terms only), and the matching keywords re-run for every
  * query (manual / locked-cluster assignments untouched). Proposals go into ONE permanent pool (Sorgular ›
  * Silinecekler): queries that contain a filter term (to delete) and queries whose service would change — one line per
  * query, the latest scan wins, lines no scan proposes any more leave. Nothing changes before the operator approves
@@ -98,9 +98,10 @@ final class QueryRescanner
         $deleted = 0;
         $changed = 0;
         foreach (array_chunk(array_values(array_unique(array_map('intval', $itemIds))), QueryPipeline::CHUNK) as $chunk) {
-            $items = QueryReviewItem::query()->whereIn('id', $chunk)->whereNull('kept_at')->with('searchQuery:id,text')->orderBy('id')->get();
+            $items = QueryReviewItem::query()->whereIn('id', $chunk)->whereNull('kept_at')->with('searchQuery:id,text,sector_id')->orderBy('id')->get();
             $toDelete = $items->where('kind', QueryReviewItem::DELETE)
-                ->filter(fn (QueryReviewItem $item): bool => $item->searchQuery !== null && $this->normalizer->matchingTerm((string) $item->searchQuery->text) !== null)
+                ->filter(fn (QueryReviewItem $item): bool => $item->searchQuery !== null
+                    && $this->normalizer->matchingTerm((string) $item->searchQuery->text, $item->searchQuery->sector_id !== null ? (int) $item->searchQuery->sector_id : null) !== null)
                 ->pluck('query_id')->map(fn ($id): int => (int) $id)->values()->all();
             $moved = [];
             foreach ($items->where('kind', QueryReviewItem::SERVICE) as $item) {
@@ -142,7 +143,7 @@ final class QueryRescanner
     /** @return array{kind: string, term: ?string, reason: ?string, from_service_id: ?int, to_service_id: ?int}|null */
     private function proposal(object $row, bool $inLockedCluster): ?array
     {
-        $term = $this->normalizer->matchingTerm((string) $row->text);
+        $term = $this->normalizer->matchingTerm((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
         if ($term !== null) {
             return ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200), 'reason' => null, 'from_service_id' => null, 'to_service_id' => null];
         }

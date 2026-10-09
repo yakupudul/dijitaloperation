@@ -52,7 +52,7 @@ final class SiteAudit
     public function audit(DigitalAsset $site): array
     {
         $pages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereNotNull('wp_post_id')
-            ->get(['id', 'website_asset_id', 'url', 'path', 'title', 'meta_description', 'canonical', 'is_indexable', 'wp_post_id', 'content_hash']);
+            ->get(['id', 'website_asset_id', 'url', 'path', 'language', 'title', 'title_source', 'meta_description', 'canonical', 'is_indexable', 'wp_post_id', 'content_hash']);
         $technical = PageTechnical::many($pages);
         $pages = $pages->filter(fn (Page $p): bool => ($technical[$p->id]['status'] ?? 200) < 400 && ($technical[$p->id]['canonical_ok'] ?? true))->values();
         $titleCounts = $this->counts($pages, 'title');
@@ -90,16 +90,21 @@ final class SiteAudit
         $description = trim((string) $page->meta_description);
         $titleLength = mb_strlen($title);
         $descriptionLength = mb_strlen($description);
+        $titleKey = self::key($page, $title);
+        $descriptionKey = self::key($page, $description);
+        // A post title is what the SEO plugin's template ("%title% | Site name") wraps: Google shows it longer, so its
+        // length says nothing about the title in search results.
+        $lengthKnown = $page->title_source !== 'post';
         $problems[] = match (true) {
             $title === '' => ['field' => 'seo_title', 'code' => 'missing', 'text' => 'SEO başlığı yok'],
-            ($titleCounts[SeoText::fold($title)] ?? 0) > 1 => ['field' => 'seo_title', 'code' => 'duplicate', 'text' => 'Başlık '.$titleCounts[SeoText::fold($title)].' sayfada aynı'],
-            $titleLength > self::TITLE_MAX => ['field' => 'seo_title', 'code' => 'long', 'text' => 'Başlık '.$titleLength.' karakter (en çok '.self::TITLE_MAX.')'],
-            $titleLength < self::TITLE_MIN => ['field' => 'seo_title', 'code' => 'short', 'text' => 'Başlık '.$titleLength.' karakter (en az '.self::TITLE_MIN.')'],
+            ($titleCounts[$titleKey] ?? 0) > 1 => ['field' => 'seo_title', 'code' => 'duplicate', 'text' => 'Başlık '.$titleCounts[$titleKey].' sayfada aynı'],
+            $lengthKnown && $titleLength > self::TITLE_MAX => ['field' => 'seo_title', 'code' => 'long', 'text' => 'Başlık '.$titleLength.' karakter (en çok '.self::TITLE_MAX.')'],
+            $lengthKnown && $titleLength < self::TITLE_MIN => ['field' => 'seo_title', 'code' => 'short', 'text' => 'Başlık '.$titleLength.' karakter (en az '.self::TITLE_MIN.')'],
             default => null,
         };
         $problems[] = match (true) {
             $description === '' => ['field' => 'meta_description', 'code' => 'missing', 'text' => 'Meta açıklama yok'],
-            ($descriptionCounts[SeoText::fold($description)] ?? 0) > 1 => ['field' => 'meta_description', 'code' => 'duplicate', 'text' => 'Açıklama '.$descriptionCounts[SeoText::fold($description)].' sayfada aynı'],
+            ($descriptionCounts[$descriptionKey] ?? 0) > 1 => ['field' => 'meta_description', 'code' => 'duplicate', 'text' => 'Açıklama '.$descriptionCounts[$descriptionKey].' sayfada aynı'],
             $descriptionLength > self::DESCRIPTION_MAX => ['field' => 'meta_description', 'code' => 'long', 'text' => 'Açıklama '.$descriptionLength.' karakter (en çok '.self::DESCRIPTION_MAX.')'],
             $descriptionLength < self::DESCRIPTION_MIN => ['field' => 'meta_description', 'code' => 'short', 'text' => 'Açıklama '.$descriptionLength.' karakter (en az '.self::DESCRIPTION_MIN.')'],
             default => null,
@@ -149,10 +154,18 @@ final class SiteAudit
 
     /**
      * @param  Collection<int, Page>  $pages
-     * @return array<string, int> folded value => pages carrying it
+     * @return array<string, int> language + folded value => pages carrying it
      */
     private function counts(Collection $pages, string $field): array
     {
-        return $pages->map(fn (Page $p): string => SeoText::fold(trim((string) $p->{$field})))->filter(fn (string $v): bool => $v !== '')->countBy()->all();
+        return $pages->map(fn (Page $p): string => self::key($p, trim((string) $p->{$field})))->filter(fn (string $v): bool => $v !== '')->countBy()->all();
+    }
+
+    /** A title / description compared within its language: a TR page and its EN translation are not duplicates. */
+    private static function key(Page $page, string $value): string
+    {
+        $folded = SeoText::fold($value);
+
+        return $folded === '' ? '' : mb_strtolower((string) $page->language).'|'.$folded;
     }
 }
