@@ -3753,6 +3753,16 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   the host blocks that IPv6 address. The client now also retries over IPv4 (`force_ip_resolve` v4; transports path,
   path_v4, query, query_v4, the working one kept in `rest_transport`), and public page reads of a host that needed
   IPv4 go over IPv4 for 30 days (PublicHttpFetcher, also retried once over IPv4 on a 403).
+- Connector 1.13.0 "site işi kendisi alır" (2026-10-09, coded + PHPUnit; real UAT on Avrupadent pending): IPv4 was
+  refused too (yakup 00:57Z), so the host blocks the MoxDOP server entirely. A refused request is now stored as a
+  command (`website_connector_commands`); the 1.13.0 plugin asks `POST /api/connectors/wordpress/commands` (signed
+  like the events) every 15 minutes, every minute once MoxDOP answers `pull: true`, keeps asking for 25 s while work
+  comes and the endpoint holds an empty ask up to 8 s. Each command is MoxDOP's freshly signed request for one
+  `/moxdop/v1/*` route; the plugin runs it through `rest_do_request` (same signature check, same signed envelope) and
+  returns the answer, which the waiting caller verifies as usual (waits up to `pull_wait_seconds` 150, then
+  withdraws the command). The connection switches to `rest_transport = pull` by itself when every way in is refused
+  and the site has asked within a day; `moxdop:wordpress:pull {site} [--off]` switches it by hand. "Bağlantıyı
+  doğrula" on a pull site shows the site's last ask instead of sending a request.
 - Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
   `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 

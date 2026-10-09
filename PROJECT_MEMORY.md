@@ -2030,6 +2030,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   kez `/?rest_route=` adresiyle gönderir ve başarılı olursa o site için bu yolu hatırlar (2026-10-09, Avrupadent).
   Avrupadent'in asıl engeli MoxDOP sunucusunun IPv6 adresiydi (ana sayfa bile 403); istemci 403'te IPv4 ile de dener,
   çalışan yolu saklar; o sitenin sayfa okumaları da 30 gün IPv4 ile gider.
+  IPv4 de reddedildi (hosting sunucumuzu tamamen engelliyor): eklenti 1.13.0 ile site işlerini MoxDOP'tan kendisi
+  alır (`moxdop:wordpress:pull avrupadent.com.tr`), MoxDOP siteye hiç istek atmaz; kalıcı çözüm hostingde IP izni.
   Tek tek ya da toplu (seçilenler / karttaki tüm 301'ler) yapılır. İş, site onaylayınca "yapıldı" olur; site hata
   verirse hata yazısıyla yeniden açılır. Kurallar: hizmet / lokasyon sayfası blog / S&C sayfasına 301'lenmez; kümenin
   gösterimlerinin çoğunu alan sayfa 301'lenmez ("Ana sayfayı gözden geçir", "Ana sayfa bu olsun" düğmesi); bir sayfa

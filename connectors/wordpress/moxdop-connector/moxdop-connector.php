@@ -2,8 +2,8 @@
 
 /**
  * Plugin Name: MoxDOP Website Connector
- * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes (301 merges are kept by the connector, listed under Tools › MoxDOP yönlendirmeleri, and the old page becomes a draft) and approved content updates only when a site admin enables them; tells MoxDOP and IndexNow about changes right after a save; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only); builds a site (ACF, pages, Elementor templates, media, menus) only when a site admin enables site building.
- * Version: 1.12.0
+ * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes (301 merges are kept by the connector, listed under Tools › MoxDOP yönlendirmeleri, and the old page becomes a draft) and approved content updates only when a site admin enables them; tells MoxDOP and IndexNow about changes right after a save; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only); builds a site (ACF, pages, Elementor templates, media, menus) only when a site admin enables site building; when the host refuses MoxDOP's requests, the site fetches its work from MoxDOP itself.
+ * Version: 1.13.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.12.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.13.0');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 
@@ -25,6 +25,7 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-content-expor
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-rest-controller.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-admin.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-events.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-commands.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-health.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-management.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-fixes.php';
@@ -40,6 +41,8 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-translation-p
 
 (new MoxDOP_Connector_Events)->register();
 register_deactivation_hook(__FILE__, ['MoxDOP_Connector_Events', 'deactivate']);
+(new MoxDOP_Connector_Commands)->register();
+register_deactivation_hook(__FILE__, ['MoxDOP_Connector_Commands', 'deactivate']);
 
 register_activation_hook(__FILE__, static function () {
     if (! get_option('moxdop_connector_installation_id')) {

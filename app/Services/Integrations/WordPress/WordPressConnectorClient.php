@@ -291,7 +291,10 @@ final class WordPressConnectorClient
     private function signed(CoreConnection $connection, string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout): array
     {
         $known = (string) data_get($connection->config, 'rest_transport', 'path');
-        $known = $known === 'query' ? 'query' : (in_array($known, self::TRANSPORTS, true) ? $known : 'path');
+        if ($known === 'pull') {
+            return $this->pulled($connection, $method, $url, $route, $query, $payload, $secret, $timeout);
+        }
+        $known = in_array($known, self::TRANSPORTS, true) ? $known : 'path';
         $order = str_contains($url, '/wp-json/') ? array_values(array_unique([$known, ...self::TRANSPORTS]))
             : array_values(array_unique([str_ends_with($known, '_v4') ? 'path_v4' : 'path', 'path', 'path_v4']));
         try {
@@ -299,8 +302,16 @@ final class WordPressConnectorClient
                 $viaQuery = str_starts_with($transport, 'query');
                 $response = $this->send($method, $viaQuery ? self::queryUrl($url) : $url, $route, $viaQuery ? $query + ['rest_route' => $route] : $query,
                     $payload, $clientId, $secret, $timeout, str_ends_with($transport, '_v4'));
-                if ($i < count($order) - 1 && self::serverRefusal($response['response'])) {
-                    continue;
+                if (self::serverRefusal($response['response'])) {
+                    if ($i < count($order) - 1) {
+                        continue;
+                    }
+                    if (WordPressConnectorCommands::available($connection)) {
+                        // Every way in is refused but the site fetches work itself (1.13.0): from now on it goes that way.
+                        $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => 'pull'])])->save();
+
+                        return $this->pulled($connection, $method, $url, $route, $query, $payload, $secret, $timeout);
+                    }
                 }
                 $data = $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
                 if (str_ends_with($transport, '_v4')) {
@@ -314,6 +325,27 @@ final class WordPressConnectorClient
                 return $data;
             }
             throw new RuntimeException('WordPress Connector request was not sent.');
+        } catch (Throwable $e) {
+            $this->markUnhealthy($connection, $e);
+            throw $e;
+        }
+    }
+
+    /**
+     * 1.13.0: the request waits until the site fetches it, runs it and returns the signed answer (checked as usual).
+     *
+     * @param  array<string, scalar>  $query
+     * @return array<string, mixed>
+     */
+    private function pulled(CoreConnection $connection, string $method, string $url, string $route, array $query, string $payload, string $secret, int $timeout): array
+    {
+        try {
+            $response = app(WordPressConnectorCommands::class)->call($connection, $method, $route, $query, $payload,
+                min((int) config('moxdop-wordpress.pull_wait_seconds', 150), max(60, $timeout * 3)));
+            $data = $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
+            $this->markHealthy($connection);
+
+            return $data;
         } catch (Throwable $e) {
             $this->markUnhealthy($connection, $e);
             throw $e;

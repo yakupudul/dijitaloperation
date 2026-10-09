@@ -14,6 +14,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -82,6 +83,17 @@ final class SiteConnectorShow extends Component
             ->where('digital_asset_id', $this->selectedAssetId)
             ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
             ->firstOrFail();
+        if (data_get($connection->config, 'rest_transport') === 'pull') {
+            // 1.13.0: the host refuses MoxDOP, the site fetches its work itself; the test is the site's last visit.
+            $seen = data_get($connection->config, 'pull_seen_at');
+            $fresh = is_string($seen) && Carbon::parse($seen)->gt(now()->subMinutes(20));
+            $this->messageTone = $fresh ? 'success' : 'error';
+            $this->message = $fresh
+                ? 'Bağlantı çalışıyor: hosting MoxDOP\'un isteklerini reddettiği için site işleri kendisi alıyor (son temas '.Carbon::parse($seen)->diffForHumans().').'
+                : 'Site işleri kendisi almalı ama '.(is_string($seen) ? Carbon::parse($seen)->diffForHumans().' beri' : 'hiç').' sormadı: eklenti 1.13.0 kurulu mu, sitede WordPress zamanlanmış görevleri çalışıyor mu?';
+
+            return;
+        }
         try {
             $status = $client->status($connection);
             $this->messageTone = 'success';

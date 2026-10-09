@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Integrations\WhatsAppWebhookController;
+use App\Http\Controllers\Integrations\WordPressConnectorCommandsController;
 use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
 use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
@@ -13,6 +14,11 @@ Route::post('/connectors/wordpress/pair', WordPressConnectorPairController::clas
 Route::post('/connectors/wordpress/events', WordPressConnectorEventsController::class)
     ->middleware('throttle:120,1')
     ->name('api.connectors.wordpress.events');
+
+// 1.13.0: a site whose host refuses MoxDOP's requests fetches them here itself and returns the answers.
+Route::post('/connectors/wordpress/commands', WordPressConnectorCommandsController::class)
+    ->middleware('throttle:240,1')
+    ->name('api.connectors.wordpress.commands');
 
 // 1.4.1: short-lived signed link to one built connector ZIP, fetched by the plugin during an approved self-update.
 Route::get('/connectors/wordpress/releases/{file}', WordPressConnectorReleaseController::class)

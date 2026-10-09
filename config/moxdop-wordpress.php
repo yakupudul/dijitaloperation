@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'connector_version' => '1.12.0',
+    'connector_version' => '1.13.0',
     // 1.6.0: sayfa önbelleği dışa aktarımı (/page-cache) — önbellek eklentisinin diske yazdığı HTML okunur, sayfa işlenmez.
     'page_cache_min_plugin_version' => '1.6.0',
     // 1.7.0: rendered content of published pages (/content-export) replaces most page reads over HTTP.
@@ -21,6 +21,8 @@ return [
     // 1.12.0 (yakup 2026-10-09): "301 ile birleştir" ve her 301 yalnızca MoxDOP eklentisinin kendi listesine yazılır
     // (WP › Araçlar › MoxDOP yönlendirmeleri), SEO eklentisine yazılmaz; sayfa silinmez, taslağa alınır. Geri alınabilir.
     'merge_redirect_min_plugin_version' => '1.12.0',
+    // 1.13.0: hosting MoxDOP'un isteklerini reddediyorsa site işi kendisi alır; çağıran en çok bu kadar saniye bekler.
+    'pull_wait_seconds' => (int) env('MOXDOP_WORDPRESS_PULL_WAIT_SECONDS', 150),
     // Kendini güncelleme için paket bağlantısı bu kadar dakika geçerli.
     'package_link_minutes' => 15,
     'pairing_ttl_minutes' => 15,
