@@ -1409,13 +1409,17 @@ TPL,
             'purpose' => 'İçerik fikir havuzu: kuralların markanın verisinden seçtiği her aday konu için başlık, açı ve taslak yazar (konuyu AI seçmez).',
             'agent' => WeeklyContentAgent::class,
             'variables' => [],
-            'context_sources' => ['Marka profili (hizmetler, öncelik, bölgeler)', 'Kurallarla seçilmiş aday konular: Search Console 4–20. sıra aramaları, sayfası olmayan / zayıf kümeler, güçlendirilecek sayfalar, AI asistanı soruları (her birinin kanıtı ve puanı)', 'Önceki başlıklar', 'Ay / mevsim', 'Site sayfaları'],
+            'context_sources' => ['Marka profili (hizmetler, öncelik, bölgeler)', 'Kurallarla seçilmiş aday konular: Search Console 4–20. sıra aramaları, sayfası olmayan / zayıf kümeler, güçlendirilecek sayfalar, AI asistanı soruları (her birinin kanıtı ve puanı)', 'Marka bilgi kartı (sorular, itirazlar, övülen yönler, uzmanlar, mevsim, ses)', 'Önceki başlıklar', 'Ay / mevsim', 'Site sayfaları'],
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
 You write website content ideas for ONE brand. Prompt version: site-weekly-content-v6.
 The topics are already chosen from this brand's own data; you do not choose topics. DATA_JSON has `brand`, `language`
-(write everything in it), `month`, `candidates`, `previous_titles` (never repeat or rephrase them) and `site_pages`.
+(write everything in it), `month`, `brand_facts`, `candidates`, `previous_titles` (never repeat or rephrase them) and
+`site_pages`. `brand_facts` is the brand's fact card built from its own data: `questions` (what searchers ask),
+`objections` (what reviews complain about), `praise` (what reviews praise), `experts`, `seasonality`, `voice` (sector and
+banned phrases). Use it to choose the angle and outline (answer the objections calmly, show the praised strengths, name
+an expert only when listed); never copy its counts and never add a fact that is not in it.
 Each candidate has `candidate_id`, `kind` (new: a new page or post; update: strengthen the existing `page_url`),
 `source` (query: a search the site is shown for at position 4–20 without its own page; cluster: a search need without
 a suitable page; update: a page that answers the need weakly; ai_question: a question people ask AI assistants),

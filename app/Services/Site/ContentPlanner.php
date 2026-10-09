@@ -15,6 +15,7 @@ use App\Models\Page;
 use App\Models\Query;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Brand\BrandFacts;
 use App\Services\Compliance\BriefCompliance;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\ExternalWrites\ArticleDraft;
@@ -509,6 +510,7 @@ final class ContentPlanner
             'brand' => $this->memory->contextFor($brand, [], $clusterIds)['profile'],
             'language' => $main,
             'month' => self::MONTHS[(int) now()->month].' '.now()->year,
+            'brand_facts' => array_intersect_key(app(BrandFacts::class)->forPrompt($brand), array_flip(['questions', 'objections', 'praise', 'experts', 'seasonality', 'voice'])),
             'candidates' => array_map(function (array $c) use ($brand, $notes): array {
                 $row = $c['row'];
 

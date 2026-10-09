@@ -45,7 +45,7 @@ final class ContentCoverageTest extends SiteTestCase
         $coverage = app(ContentCoverage::class);
         $row = $coverage->rows()[0];
         $this->assertSame(0, $row['clusters']);
-        $this->assertStringContainsString('henüz eşleşmedi', (string) $row['reason']);
+        $this->assertStringContainsString('henüz küme yok', (string) $row['reason']);
 
         $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
         $this->page('/implant-fiyat/', 'İmplant fiyatı', ['category' => 'hizmet', 'language' => 'tr']);
@@ -94,7 +94,8 @@ final class ContentCoverageTest extends SiteTestCase
         Queue::fake();
         $this->travelTo(now('Europe/Istanbul')->next('Tuesday')->setTime(9, 17));
         $this->artisan('moxdop:content:weekly-titles')->assertSuccessful();
-        Queue::assertNothingPushed(); // no matched cluster: nothing to plan from
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['wants' => ['tr' => 20]]); // no cluster yet: the site's own searches
+        Queue::fake();
 
         $this->rowOf('sufficient', 'Ankara implant');
         $this->title('Bir');
@@ -117,9 +118,11 @@ final class ContentCoverageTest extends SiteTestCase
     public function test_fikir_uret_fills_the_pool_now(): void
     {
         Queue::fake();
-        Livewire::test(WorkPage::class)->call('makeTitles', $this->site->id)->assertSee('kümeleri eşleşmedi');
+        BrandOffering::query()->where('brand_id', $this->brand->id)->update(['status' => 'archived']);
+        Livewire::test(WorkPage::class)->call('makeTitles', $this->site->id)->assertSee('markanın hizmeti yok');
         Queue::assertNothingPushed();
 
+        BrandOffering::query()->where('brand_id', $this->brand->id)->update(['status' => 'active']);
         $this->rowOf('no_page', 'İmplant fiyatları');
         Livewire::test(WorkPage::class)->call('makeTitles', $this->site->id)->assertSee('TR 20 fikir hazırlanıyor');
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['wants'] === ['tr' => 20]);

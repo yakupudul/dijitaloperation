@@ -9,6 +9,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\BrandSetup\LanguageServices;
 use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
@@ -188,8 +189,12 @@ final class BrandGaps
     {
         $out = [];
         $bulk = PageCategorizer::bulkSections((int) $site->id);
-        foreach (Page::query()->where('website_asset_id', $site->id)->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category']) as $page) {
+        $main = LanguageServices::mainLanguage($site);
+        foreach (Page::query()->where('website_asset_id', $site->id)->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category', 'language']) as $page) {
             $path = (string) ($page->path ?: SeoText::urlPath((string) $page->url));
+            if (LanguageServices::foreign($page->language, $path, $main)) {
+                continue; // a translation of a service page, not a service of its own
+            }
             if ($page->category !== 'hizmet' && ($page->category !== null || SitePagesReader::pathCategory($path) !== 'hizmet')) {
                 continue;
             }

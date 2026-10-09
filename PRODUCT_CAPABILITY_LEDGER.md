@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — İçerik fikir havuzu yeniden kuruldu, Marka bilgi kartı, toplu başlık/açıklama hazırlığı
+
+- **Neden (yakup, "tamam yap"):** havuzlar boş kalıyordu (OPC 0/20, 357 sayfasız küme). Sebep: konuyu AI seçiyor, beş sessiz süzgeç eliyor, sonra 3 gün donduruluyordu. İçerik sekmesinde de 34 bin başlık/açıklama düzeltmesi vardı. yakup "Fikir üret"e basmak istemiyor.
+- **Fikir havuzu (`ContentPlanner::weekly`, prompt `site-weekly-content-v6`):** konuyu veri seçer. Adaylar şu kaynaklardan gelir: Search Console 4–20. sıra aramaları (sayfası yoksa yeni yazı, varsa güncelleme), sayfası olmayan / zayıf / ince kümeler ve AI asistanı soruları. Puan = talep × ana hizmet / reklam değeri × açı sonucu. Son 8 haftada kullanılan kümeler sona gider. Karışım: %60 yeni, %25 güncelleme, %15 AI sorusu. AI her aday için tek fikir yazar (`candidate_id`); elenen aday sebebiyle ikinci tura gider. Her turun sonucu sitenin satırında yazar (`content-pool:last-run:{site}`: aday / eklenen / elenen ve sebepleri). Sessiz dondurma yok; yeni konu kalmadıysa 20 saat beklenir ve sebep yazar. `moxdop:content:weekly-titles` günde iki kez çalışır (09:17, 15:17); "Fikir üret" düğmesi kalktı. Eşleşmemiş kümeleri sistem kendisi eşleştirir (`ContentCoverage::startMatching`). Kümesi olmayan ama hizmeti olan site kendi GSC aramalarından dolar.
+- **Sonuç geri beslemesi:** her gönderilen yazının 28 ve 90 günlük tıklaması (`ContentCoverage::articleResults`); en az 3 canlı yazısı olan açı 0,7–1,5 ağırlık alır (`angleWeights`).
+- **Başlık / açıklama düzeltmeleri:** İçerik sekmesinden çıktı, Onarım masasına gider. `SeoFieldsBatch` saatte 300 sayfa hazırlar (çağrı başına 15 sayfa, `site.seo_fields_batch`, `moxdop:repair:prepare --batch-only`, saat başı :12). Değerler kuralla denetlenir: uzunluk, sitede tekrar, sayfada olmayan sayı, sektör yasakları. Siteye onaysız hiçbir şey yazılmaz.
+- **Veri düzeltmeleri:** başka dildeki sayfalar artık hizmet sayılmaz (`LanguageServices`). Yalnız yabancı dil sayfasından oluşmuş, kilitsiz ve ana olmayan hizmetler gece arşivlenir (OPC). Hiç okunmamış site için gece marka tamamlama önce site haritasını okur, okuyamazsa tam tarama başlatır (Arısoy). Her turun notu marka sayfasında görünür.
+- **Marka bilgi kartı (`BrandFacts`, Marka › Özet):** 11 alan kuralla doldurulur ve her birinin kaynağı yazar: hizmetler, yerler, uzmanlar (yorumlardaki isimler dahil), soru aramaları, yorum şikâyetleri, övülen yönler, dönüşümler, aynı şehir ve hizmetteki diğer müşteriler, talep mevsimi (GSC aylık), site dilleri, ses ve yasaklar. Operatörün yazdığı alan kilitlenir ve gece ezilmez. Kart marka dosyasında ayrı bölümdür; fikir havuzu soruları, itirazları, övülenleri, uzmanları, mevsimi ve sesi okur.
+- **State:** CODED + PHPUnit (`ContentCoverageTest`, `SiteSuggestionsTest`, `RepairDeskTest`, `BrandAutofillTest`, `BrandFactsTest`). Canlı UAT: deploy sonrası.
+
 ## 2026-10-07 — llms.txt (eklenti 1.11.0)
 
 - **Neden (yakup):** AI görünürlüğü listesinin 6. maddesi.

@@ -833,6 +833,7 @@ Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} 
     $today = now('Europe/Istanbul');
     $weekly = $this->option('weekly') || $today->isMonday();
     $discover = $this->option('discover') || ($today->isMonday() && $today->day <= 7);
+    $matching = $this->option('site') === null ? $coverage->startMatching() : [];
     $needs = $coverage->needs($weekly, $this->option('site') !== null ? (int) $this->option('site') : null);
     foreach ($needs as $need) {
         SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['wants' => $need['wants']]);
@@ -843,7 +844,7 @@ Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} 
             SiteOperations::dispatch($siteId, SiteOperations::DISCOVERY);
         }
     }
-    $this->info('Fikir havuzu: '.count($sites).' site, '.array_sum(array_map(fn (array $n): int => count($n['wants']), $needs)).' dil, '.array_sum(array_map(fn (array $n): int => array_sum($n['wants']), $needs)).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
+    $this->info(($matching !== [] ? count($matching).' sitede küme eşleştirmesi başlatıldı. ' : '').'Fikir havuzu: '.count($sites).' site, '.array_sum(array_map(fn (array $n): int => count($n['wants']), $needs)).' dil, '.array_sum(array_map(fn (array $n): int => array_sum($n['wants']), $needs)).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
 })->purpose('Fill every active language of operational sites to the content idea pool, plus weekly fresh ideas on Monday.');
 
 // Marka tamamlama (yakup, 2026-10-07 "Hemen kullan"): brands missing services, places, sector, context or the Search

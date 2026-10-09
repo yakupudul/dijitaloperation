@@ -10,6 +10,7 @@ use App\Models\Page;
 use App\Models\User;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Operator\BrandWorkspaceReadService;
+use App\Services\Website\SitemapChangeWatcher;
 use App\Support\Roles;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -64,13 +65,19 @@ final class BrandAutofill
      */
     public function run(?int $brandId = null): array
     {
-        $out = ['queued' => 0, 'applied' => 0, 'crawl' => 0, 'waiting' => 0, 'complete' => 0, 'no_site' => 0];
+        $out = ['queued' => 0, 'applied' => 0, 'crawl' => 0, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0];
+        try {
+            $out['archived'] = app(LanguageServices::class)->cleanup($brandId);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
         $brands = Brand::query()->operational()->when($brandId !== null, fn ($q) => $q->whereKey($brandId))->orderBy('id')->get();
         foreach ($brands as $brand) {
             try {
                 $out[$this->forBrand($brand)]++;
             } catch (Throwable $exception) {
                 report($exception);
+                self::note((int) $brand->id, 'Marka tamamlama hata verdi: '.mb_substr(trim($exception->getMessage()) ?: class_basename($exception), 0, 160).'; bir sonraki gece yeniden denenir.');
             }
         }
 
@@ -91,6 +98,8 @@ final class BrandAutofill
         }
         if ($latest !== null && $latest->status === BrandSetupProposal::STATUS_READY) {
             if (! $latest->auto_apply) {
+                self::note((int) $brand->id, 'Senin başlattığın "Otomatik kur" önerisi hazır ve uygulanmayı bekliyor; uygulanana kadar marka tamamlama bekler.');
+
                 return 'waiting'; // the operator's own proposal waits for the operator
             }
             $this->apply($latest);
@@ -103,11 +112,12 @@ final class BrandAutofill
         if ($latest !== null && $latest->auto_apply && $latest->created_at?->gt(now()->subDays(self::COOLDOWN_DAYS))) {
             return 'waiting';
         }
-        if (! Page::query()->where('website_asset_id', $site->id)->exists()) {
-            return $this->crawl($site);
+        if (! Page::query()->where('website_asset_id', $site->id)->exists() && $this->crawl($brand, $site) !== 'read') {
+            return 'crawl';
         }
         $proposal = $this->assistant->queue($brand, $url, null);
         $proposal->forceFill(['auto_apply' => true])->save();
+        self::note((int) $brand->id, 'Eksikler ('.implode(', ', $this->missing($brand)).') sitesinden ve hesaplarından dolduruluyor; hazır olunca kendiliğinden uygulanır.');
 
         return 'queued';
     }
@@ -157,15 +167,44 @@ final class BrandAutofill
         $main?->forceFill(['priority' => 'main'])->save();
     }
 
-    private function crawl(DigitalAsset $site): string
+    /**
+     * A site whose pages were never read: its sitemap is read at once (the pages are stored, bounded per pass), else a
+     * full collection is started; tried again every night until pages exist, with the reason on the brand card.
+     *
+     * @return string read (pages exist now) | crawl (started or waiting)
+     */
+    private function crawl(Brand $brand, DigitalAsset $site): string
     {
         $key = 'brand-autofill:crawl:'.$site->id;
         if (Cache::has($key)) {
-            return 'waiting';
+            return 'crawl';
         }
-        Cache::put($key, now()->toIso8601String(), now()->addDays(self::COOLDOWN_DAYS));
-        app(WebsiteCollectionOrchestrator::class)->start(asset: $site, requestedBy: self::systemUser(), context: ['trigger' => 'brand.autofill', 'force_refresh' => true]);
+        Cache::put($key, now()->toIso8601String(), now()->addHours(20));
+        try {
+            $sitemap = app(SitemapChangeWatcher::class)->check($site);
+            if (Page::query()->where('website_asset_id', $site->id)->exists()) {
+                return 'read';
+            }
+            app(WebsiteCollectionOrchestrator::class)->start(asset: $site, requestedBy: self::systemUser(), context: ['trigger' => 'brand.autofill', 'force_refresh' => true]);
+            self::note((int) $brand->id, 'Sitenin sayfaları okunamadı ('.($sitemap['status'] === 'no_sitemap' ? 'site haritası açılmadı' : 'site haritasında okunabilir sayfa yok')
+                .'); tam tarama başlatıldı, yarın gece yeniden denenir. Site güvenlik duvarı MoxDOP\'u engelliyorsa izin verilmeli.');
+        } catch (Throwable $exception) {
+            report($exception);
+            self::note((int) $brand->id, 'Sitenin sayfaları okunamadı: '.mb_substr(trim($exception->getMessage()) ?: class_basename($exception), 0, 160).'; yarın gece yeniden denenir.');
+        }
 
         return 'crawl';
+    }
+
+    /** What the last automatic round did or why it stopped for the brand (shown on the brand card and the content line). */
+    public static function note(int $brandId, ?string $text = null): ?array
+    {
+        $key = 'brand-autofill:note:'.$brandId;
+        if ($text !== null) {
+            Cache::put($key, ['at' => now()->toIso8601String(), 'text' => $text], now()->addDays(30));
+        }
+        $note = Cache::get($key);
+
+        return is_array($note) ? $note : null;
     }
 }

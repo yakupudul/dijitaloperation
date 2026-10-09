@@ -400,11 +400,13 @@ final class BrandSetupServiceSuggester
             ->orderBy('permalink')->limit(150)->get(['object_id', 'title', 'permalink', 'parent_id']);
         $titles = $rows->mapWithKeys(fn (object $row): array => [(string) $row->object_id => trim(html_entity_decode(strip_tags((string) $row->title), ENT_QUOTES | ENT_HTML5))]);
 
+        $main = LanguageServices::mainLanguage($website);
+
         return $rows->map(fn (object $row): array => [
             'title' => (string) $titles[(string) $row->object_id],
             'path' => SeoText::urlPath((string) $row->permalink),
             'parent' => $row->parent_id !== null && (string) $row->parent_id !== '0' ? ($titles[(string) $row->parent_id] ?? null) : null,
-        ])->filter(fn (array $page): bool => $page['title'] !== '')->values()->all();
+        ])->filter(fn (array $page): bool => $page['title'] !== '' && ! LanguageServices::foreign(null, $page['path'], $main))->values()->all();
     }
 
     /** @return array{business_summary: ?string, business_model: ?string, target_audiences: list<string>, positioning: ?string, differentiators: list<string>}|null */
@@ -504,8 +506,10 @@ final class BrandSetupServiceSuggester
         // Service pages first: categorized "hizmet" or under the site's service section (/tedavilerimiz/…), so a site
         // with hundreds of uncategorized URLs still sends every service page.
         $bulk = PageCategorizer::bulkSections((int) $website->id);
+        $main = LanguageServices::mainLanguage($website);
         $inventory = Page::query()->where('website_asset_id', $website->id)->where(fn ($q) => $q->whereNull('category')->orWhereIn('category', ['hizmet', 'lokasyon', 'diger']))
-            ->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category'])
+            ->orderBy('path')->limit(3000)->get(['url', 'path', 'title', 'h1', 'category', 'language'])
+            ->reject(fn (Page $page): bool => LanguageServices::foreign($page->language, (string) ($page->path ?: $page->url), $main))
             ->groupBy(function (Page $page) use ($bulk): string {
                 $path = (string) ($page->path ?: SeoText::urlPath((string) $page->url));
                 if (PageCategorizer::inTemplateSection($path, $bulk)) {

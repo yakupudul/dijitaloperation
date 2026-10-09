@@ -153,7 +153,7 @@ final class WorkPage extends Component
         $this->act(function () use ($siteId, $coverage): string {
             $needs = $coverage->needs(false, $siteId);
             if ($needs === []) {
-                throw ValidationException::withMessages(['work' => 'Bu sitenin fikir havuzu dolu ya da kümeleri eşleşmedi.']);
+                throw ValidationException::withMessages(['work' => 'Bu sitenin fikir havuzu dolu ya da markanın hizmeti yok.']);
             }
             $wants = $needs[0]['wants'];
             SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, ['wants' => $wants]);

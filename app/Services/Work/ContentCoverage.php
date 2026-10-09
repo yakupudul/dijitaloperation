@@ -9,12 +9,15 @@ use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
+use App\Services\BrandSetup\BrandAutofill;
 use App\Services\Site\ContentPlanner;
+use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use App\Services\Site\SiteSuggestionTypes;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -67,9 +70,12 @@ final class ContentCoverage
                     'writing' => $count['writing'], 'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
                 $row['last_run'] = ContentPlanner::lastRun((int) $site->id);
-                $row['services'] = $row['clusters'] === 0 ? SiteScope::offerings($brand)->count() : null;
+                $row['readiness'] = $row['clusters'] === 0 ? SiteScope::clusterReadiness($brand, $site) : null;
+                $row['services'] = $row['readiness']['services'] ?? null;
                 $row['reason'] = self::reason($row);
-                unset($row['services']);
+                if ($row['services'] === 0 && ($note = BrandAutofill::note((int) $brand->id)) !== null) {
+                    $row['reason'] .= ' Son tur: '.$note['text'];
+                }
                 $rows[] = $row;
             }
         }
@@ -88,7 +94,8 @@ final class ContentCoverage
     {
         $out = [];
         foreach ($this->rows() as $row) {
-            if (($siteId !== null && (int) $row['site']->id !== $siteId) || $row['clusters'] === 0) {
+            // A site without matched clusters still fills from its own Search Console searches once the brand has services.
+            if (($siteId !== null && (int) $row['site']->id !== $siteId) || ($row['clusters'] === 0 && (int) $row['services'] === 0)) {
                 continue;
             }
             $last = $row['last_run'];
@@ -108,6 +115,27 @@ final class ContentCoverage
         }
 
         return $out;
+    }
+
+    /**
+     * Sites whose brand has approved clusters for its services but no cluster row on the site yet: Eşleştir (rules,
+     * cluster ↔ page) is started for them, at most once a day each.
+     *
+     * @return list<int> site ids started
+     */
+    public function startMatching(): array
+    {
+        $started = [];
+        foreach ($this->rows() as $row) {
+            $siteId = (int) $row['site']->id;
+            if ($row['clusters'] > 0 || ($row['readiness']['step'] ?? null) !== 'match' || ! Cache::add('content-pool:match:'.$siteId, true, now()->addHours(20))) {
+                continue;
+            }
+            SiteOperations::dispatch($siteId, SiteOperations::CLUSTER_PAGES);
+            $started[] = $siteId;
+        }
+
+        return $started;
     }
 
     /**
@@ -192,14 +220,14 @@ final class ContentCoverage
     /** @param  array{clusters: int, pool: array<string, int>}  $row  a language below the pool, on a site that can be filled */
     private static function short(array $row): bool
     {
-        return $row['clusters'] > 0 && min($row['pool'] ?: [self::POOL]) < self::POOL;
+        return ($row['clusters'] > 0 || (int) ($row['services'] ?? 0) > 0) && min($row['pool'] ?: [self::POOL]) < self::POOL;
     }
 
     /**
      * Why the pool is not full, or null: no service, clusters not matched, the AI not answering, or the data having no
      * new topic left; otherwise how the last automatic run went.
      *
-     * @param  array{clusters: int, missing: int, waiting: int, reading: int, last_run: ?array<string, mixed>, services: ?int}  $row
+     * @param  array{clusters: int, missing: int, waiting: int, reading: int, last_run: ?array<string, mixed>, services: ?int, readiness: ?array<string, mixed>}  $row
      */
     private static function reason(array $row): ?string
     {
@@ -207,7 +235,9 @@ final class ContentCoverage
 
         return match (true) {
             $row['clusters'] === 0 && $row['services'] === 0 => 'Markanın etkin hizmeti yok; marka tamamlama hizmetleri sitesinden doldurunca kümeler eşleşir ve havuz dolar.',
-            $row['clusters'] === 0 => 'Kümeler bu siteyle henüz eşleşmedi; sistem eşleştirmeyi kendisi başlatır, ardından havuz dolar.',
+            $row['clusters'] === 0 && in_array($row['readiness']['step'] ?? null, ['catalog', 'clusters'], true) => 'Bu markanın hizmetleri için sorgu kütüphanesinde henüz küme yok (sektörde arama verisi az); havuz şimdilik sitenin kendi Search Console aramalarından dolar.',
+            $row['clusters'] === 0 && ($row['readiness']['step'] ?? null) === 'approve' => 'Bu markanın hizmetlerinin kümeleri henüz onaylanmadı (Sorgular › Kümeler); havuz şimdilik sitenin kendi Search Console aramalarından dolar.',
+            $row['clusters'] === 0 => 'Kümeler bu siteyle henüz eşleşmedi; sistem eşleştirmeyi günde iki kez kendisi başlatır, ardından havuz dolar.',
             $row['waiting'] >= self::POOL => null,
             ($last['status'] ?? null) === 'no_candidates' => 'Verilerde yeni konu kalmadı: her arama ve küme için fikir var ya da yazıldı. Yeni arama verisi gelince kendiliğinden dolar.',
             $last !== null && ! in_array($last['status'] ?? 'ready', ['ready', 'no_candidates'], true) && (int) ($last['added'] ?? 0) === 0 => 'Son dolumda AI yanıt vermedi; bir sonraki dolumda yeniden denenir.',

@@ -19,7 +19,10 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Marka eksikleri · {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
-                    <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır.</p>
+                    <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır. Sistem eksikleri her gece kendisi doldurmayı dener.</p>
+                    @if ($autofillNote = \App\Services\BrandSetup\BrandAutofill::note((int) $brandModel->id))
+                        <p class="mt-1 text-xs text-sky-700 dark:text-sky-300" data-autofill-note>Son tur ({{ \Carbon\Carbon::parse($autofillNote['at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}): {{ $autofillNote['text'] }}</p>
+                    @endif
                 </div>
                 <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Otomatik kur</a>
             </div>
@@ -70,6 +73,8 @@
             @endif
         </section>
     @endif
+
+    <livewire:operator.portfolio.brand-facts-card lazy :brand-id="(int) $brandModel->id" :key="'brand-facts-'.$brandModel->id" />
 
     <livewire:operator.portfolio.brand-identity-card lazy :brand-id="(int) $brandModel->id" :key="'brand-identity-'.$brandModel->id" />
 

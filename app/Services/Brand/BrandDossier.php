@@ -43,6 +43,7 @@ final class BrandDossier
     public const array SECTIONS = [
         'identity' => 'Kimlik',
         'context' => 'İş bağlamı',
+        'facts' => 'Marka bilgi kartı',
         'assets' => 'Bağlı varlıklar',
         'services' => 'Hizmetler',
         'demand' => 'Talep',
@@ -221,6 +222,7 @@ final class BrandDossier
         return match ($key) {
             'identity' => $this->identity($brand),
             'context' => $this->context($brand),
+            'facts' => app(BrandFacts::class)->markdown($brand),
             'assets' => $this->assets($brand),
             'services' => $this->services($brand),
             'demand' => $this->demand($brand),

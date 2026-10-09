@@ -2080,6 +2080,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   aramaları sayılmaz. Geçmiş (yükselen / düşen, lider değişimi) günlük anlık görüntüden (10:13) birikir.
   Günlük Meta / Kazananlar hesapları kaçarsa (ör. deploy sabah çalışmasından sonra) saatlik telafi (`moxdop:ads:catch-up`)
   aynı gün tamamlar. Meta ilgi alanına göre sonuç vermez; ilgi alanı analizi reklam setlerinin hedeflemesinden gelir.
+- **İçerik fikirleri: konuyu veri seçer (yakup, 2026-10-09):** AI yalnız başlık, açı ve ana hatları yazar. Adaylar markanın kendi Search Console aramalarından, sayfasız / zayıf kümelerden ve AI asistanı sorularından kuralla seçilir. Havuz günde iki kez kendiliğinden 20'ye tamamlanır; "Fikir üret" düğmesi yok. Her turun sonucu ve elenme sebepleri görünür. Başlık / açıklama düzeltmeleri içerik değildir, Onarım masasında toplu onaylanır. Marka bilgi kartı (kaynaklı, operatör kilitli) AI'ın okuduğu marka gerçeğidir.
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.

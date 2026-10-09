@@ -10,10 +10,13 @@ use App\Models\BrandSetupProposal;
 use App\Models\Collection\CollectionRun;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\BrandSetup\BrandAutofill;
+use App\Services\BrandSetup\LanguageServices;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Website\Pages\PageStore;
 use App\Support\Roles;
@@ -53,9 +56,11 @@ final class BrandAutofillTest extends TestCase
     public function test_a_brand_without_services_gets_an_automatic_run_and_a_site_never_read_is_crawled_first(): void
     {
         Queue::fake();
-        $this->assertSame(['queued' => 0, 'applied' => 0, 'crawl' => 1, 'waiting' => 0, 'complete' => 0, 'no_site' => 0], app(BrandAutofill::class)->run());
+        $this->assertSame(['queued' => 0, 'applied' => 0, 'crawl' => 1, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0], app(BrandAutofill::class)->run());
         $this->assertSame(1, CollectionRun::query()->where('digital_asset_id', $this->site->id)->count());
-        $this->assertSame('waiting', app(BrandAutofill::class)->forBrand($this->brand), 'the crawl is not started again every night');
+        $this->assertSame('crawl', app(BrandAutofill::class)->forBrand($this->brand), 'still no pages: the brand keeps waiting for the crawl');
+        $this->assertSame(1, CollectionRun::query()->where('digital_asset_id', $this->site->id)->count(), 'the crawl is not started again within a day');
+        $this->assertStringContainsString('okunamadı', (string) (BrandAutofill::note($this->brand->id)['text'] ?? ''));
 
         $this->page('/implant/', 'İmplant');
         $this->assertSame('queued', app(BrandAutofill::class)->forBrand($this->brand));
@@ -114,6 +119,37 @@ final class BrandAutofillTest extends TestCase
         $this->assertSame('waiting', app(BrandAutofill::class)->forBrand($this->brand), 'the operator\'s ready proposal waits for the operator');
         $this->assertSame(1, BrandSetupProposal::query()->where('brand_id', $this->brand->id)->count());
         $this->assertSame(0, BrandOffering::query()->where('brand_id', $this->brand->id)->count());
+    }
+
+    public function test_services_made_only_from_translated_pages_are_archived_and_translated_pages_never_become_services(): void
+    {
+        $catalog = app(ServiceCatalogService::class);
+        $offering = fn (string $name, array $extra = []): BrandOffering => BrandOffering::query()->create(['brand_id' => $this->brand->id,
+            'service_catalog_item_id' => $catalog->resolveOrCreate($name, 'saglik', actor: $this->admin)['service']->id, 'status' => 'active', 'priority' => 'secondary'] + $extra);
+        $foreign = $offering('Einzelzahnimplantat');
+        $locked = $offering('Otturazione', ['locked' => true]);
+        $turkish = $offering('İmplant Tedavisi');
+        $mixed = $offering('Dolgu');
+        $de = $this->page('/de/einzelzahnimplantat/', 'Einzelzahnimplantat');
+        $de->forceFill(['language' => 'de'])->save();
+        $it = $this->page('/it/otturazione/', 'Otturazione');
+        $it->forceFill(['language' => null])->save();
+        $tr = $this->page('/implant/', 'İmplant');
+        $dolgu = $this->page('/dolgu/', 'Dolgu');
+        foreach ([[$foreign, $de], [$locked, $it], [$turkish, $tr], [$mixed, $dolgu], [$mixed, $de]] as [$o, $p]) {
+            OfferingPage::query()->create(['brand_offering_id' => $o->id, 'page_id' => $p->id, 'source' => 'rule']);
+        }
+
+        $this->assertSame(1, app(LanguageServices::class)->cleanup($this->brand->id));
+        $this->assertSame('archived', $foreign->fresh()->status instanceof \BackedEnum ? $foreign->fresh()->status->value : $foreign->fresh()->status);
+        $this->assertSame(0, OfferingPage::query()->where('brand_offering_id', $foreign->id)->count());
+        foreach ([$locked, $turkish, $mixed] as $kept) {
+            $status = $kept->fresh()->status;
+            $this->assertSame('active', $status instanceof \BackedEnum ? $status->value : $status);
+        }
+        $this->assertTrue(LanguageServices::foreign(null, '/en/implant/', 'tr'));
+        $this->assertFalse(LanguageServices::foreign(null, '/implant/', 'tr'));
+        $this->assertTrue(LanguageServices::foreign('de-DE', '/implant/', 'tr'));
     }
 
     private function page(string $path, string $title): Page
