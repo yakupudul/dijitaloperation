@@ -8,13 +8,13 @@ use App\Models\ExternalWriteAction;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Integrations\WordPress\WordPressConnectorPackage;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -85,12 +85,12 @@ final class SiteConnectorShow extends Component
             ->firstOrFail();
         if (data_get($connection->config, 'rest_transport') === 'pull') {
             // 1.13.0: the host refuses MoxDOP, the site fetches its work itself; the test is the site's last visit.
-            $seen = data_get($connection->config, 'pull_seen_at');
-            $fresh = is_string($seen) && Carbon::parse($seen)->gt(now()->subMinutes(20));
+            $seen = WordPressConnectorCommands::seenAt($connection);
+            $fresh = $seen !== null && $seen->gt(now()->subMinutes(20));
             $this->messageTone = $fresh ? 'success' : 'error';
             $this->message = $fresh
-                ? 'Bağlantı çalışıyor: hosting MoxDOP\'un isteklerini reddettiği için site işleri kendisi alıyor (son temas '.Carbon::parse($seen)->diffForHumans().').'
-                : 'Site işleri kendisi almalı ama '.(is_string($seen) ? Carbon::parse($seen)->diffForHumans().' beri' : 'hiç').' sormadı: eklenti 1.13.0 kurulu mu, sitede WordPress zamanlanmış görevleri çalışıyor mu?';
+                ? 'Bağlantı çalışıyor: hosting MoxDOP\'un isteklerini reddettiği için site işleri kendisi alıyor (son temas '.$seen->diffForHumans().').'
+                : 'Site işleri kendisi almalı ama '.($seen !== null ? $seen->diffForHumans().' beri' : 'hiç').' sormadı: eklenti 1.13.0 kurulu mu, sitede WordPress zamanlanmış görevleri çalışıyor mu?';
 
             return;
         }

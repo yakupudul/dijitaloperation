@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Closure;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -35,9 +36,30 @@ final class WordPressConnectorCommands
     /** The plugin asked for commands within the last day (1.13.0+ on the site). */
     public static function available(CoreConnection $connection): bool
     {
-        $seen = data_get($connection->config, 'pull_seen_at');
+        return self::seenAt($connection)?->gt(now()->subDay()) ?? false;
+    }
 
-        return is_string($seen) && CarbonImmutable::parse($seen)->gt(now()->subDay());
+    /**
+     * When the site last asked. Kept outside the connection's config, which long-running jobs save back from their own
+     * copy (a stored "last asked" there was overwritten moments after the site asked).
+     */
+    public static function seenAt(CoreConnection $connection): ?CarbonImmutable
+    {
+        $seen = Cache::get(self::seenKey($connection));
+
+        return is_string($seen) ? CarbonImmutable::parse($seen) : null;
+    }
+
+    /** Sets how MoxDOP reaches the site, in the stored config itself (not from a possibly old copy) and on this copy. */
+    public static function setTransport(CoreConnection $connection, string $transport): void
+    {
+        CoreConnection::query()->whereKey($connection->id)->update(['config->rest_transport' => $transport]);
+        $connection->setRawAttributes(array_merge($connection->getAttributes(), ['config' => json_encode(array_merge((array) $connection->config, ['rest_transport' => $transport]))]), true);
+    }
+
+    private static function seenKey(CoreConnection $connection): string
+    {
+        return 'wordpress-connector:pull-seen:'.$connection->id;
     }
 
     /**
@@ -83,7 +105,7 @@ final class WordPressConnectorCommands
      */
     public function exchange(CoreConnection $connection, string $clientId, string $secret, array $results, bool $take): array
     {
-        $connection->forceFill(['config' => array_merge((array) $connection->config, ['pull_seen_at' => now()->toIso8601String()])])->save();
+        Cache::put(self::seenKey($connection), now()->toIso8601String(), now()->addDays(30));
         foreach ($results as $result) {
             DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('id', (int) $result['id'])->where('status', 'sent')
                 ->update(['status' => 'done', 'response_status' => (int) $result['status'], 'response_body' => (string) $result['body'], 'finished_at' => now()]);

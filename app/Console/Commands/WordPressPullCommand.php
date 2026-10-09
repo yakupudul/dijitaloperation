@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
+use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use Illuminate\Console\Command;
 
@@ -31,7 +32,7 @@ final class WordPressPullCommand extends Command
             return self::FAILURE;
         }
         $off = (bool) $this->option('off');
-        $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => $off ? 'path' : 'pull'])])->save();
+        WordPressConnectorCommands::setTransport($connection, $off ? 'path' : 'pull');
         $this->info($off
             ? $asset->name.': istekler yine doğrudan siteye gidecek.'
             : $asset->name.': site işleri MoxDOP\'tan kendisi alacak (eklenti en az 1.13.0 olmalı). Eklenti bunu ilk yoklamasında öğrenir, sonra dakikada bir sorar.');

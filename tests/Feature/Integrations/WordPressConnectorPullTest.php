@@ -76,6 +76,17 @@ final class WordPressConnectorPullTest extends TestCase
         $this->assertTrue($this->ask([], true)['pull']);
     }
 
+    public function test_a_job_saving_its_old_copy_of_the_connection_does_not_lose_the_sites_last_ask(): void
+    {
+        $old = $this->connection->fresh();
+        $this->artisan('moxdop:wordpress:pull', ['site' => 'example.com'])->assertSuccessful();
+        $this->siteAsks();
+        $old->forceFill(['config' => array_merge((array) $old->config, ['plugin_version' => '1.13.0'])])->save();
+
+        $this->assertTrue(WordPressConnectorCommands::available($this->connection->fresh()));
+        $this->assertNotNull(WordPressConnectorCommands::seenAt($this->connection->fresh()));
+    }
+
     public function test_an_ask_with_a_wrong_signature_or_a_reused_nonce_is_refused(): void
     {
         $this->postJson('/api/connectors/wordpress/commands', $this->payload([], true), $this->headers('{}'))->assertStatus(401);
@@ -88,7 +99,7 @@ final class WordPressConnectorPullTest extends TestCase
     public function test_a_caller_that_stops_waiting_withdraws_the_request(): void
     {
         $this->siteAsks();
-        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['rest_transport' => 'pull'])])->save();
+        WordPressConnectorCommands::setTransport($this->connection, 'pull');
         $this->app->instance(WordPressConnectorCommands::class, new WordPressConnectorCommands(fn () => usleep(1000)));
         config(['moxdop-wordpress.pull_wait_seconds' => 1]);
 

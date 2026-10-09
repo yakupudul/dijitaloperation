@@ -308,7 +308,7 @@ final class WordPressConnectorClient
                     }
                     if (WordPressConnectorCommands::available($connection)) {
                         // Every way in is refused but the site fetches work itself (1.13.0): from now on it goes that way.
-                        $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => 'pull'])])->save();
+                        WordPressConnectorCommands::setTransport($connection, 'pull');
 
                         return $this->pulled($connection, $method, $url, $route, $query, $payload, $secret, $timeout);
                     }
@@ -318,7 +318,7 @@ final class WordPressConnectorClient
                     PublicHttpFetcher::preferIpv4((string) parse_url($url, PHP_URL_HOST));
                 }
                 if ($transport !== (string) data_get($connection->config, 'rest_transport', 'path')) {
-                    $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => $transport])])->save();
+                    WordPressConnectorCommands::setTransport($connection, $transport);
                 }
                 $this->markHealthy($connection);
 
