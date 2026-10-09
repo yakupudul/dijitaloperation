@@ -3725,9 +3725,22 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   takes; the preparer now queues up to 400 field fixes a night. Approved on the Onarım masası.
 - Search Console URL Inspection budget per run raised from 25 to 200 URLs (`MOXDOP_GSC_URL_INSPECTION_MAX`; Google allows
   2,000 a day per property), so whole sites are inspected within the 14-day cycle.
-- Open (Faz 3 devamı): Search Console index problems as desk rows, Core Web Vitals per template (CrUX), security headers,
-  broken external links, index bloat (tag / archive pages), conversion path and GA4 health checks.
-- Tests: `RepairDeskTest::test_site_audit_…`.
+- Faz 3 devamı (2026-10-09, IMPLEMENTED V1, coded + PHPUnit; no real UAT yet): `WebHealthAudit` runs inside the nightly
+  `moxdop:repair:audit` and puts technical site rows on the Onarım masası from stored data only. Checks: Search Console
+  index state (noindex on a service / location page → "Site teknik düzeltmesi" sent through the connector; other states,
+  canonical mismatch and robots blocks grouped as tasks), sitemap errors, internal links to 404/410 pages (301 to the
+  closest live page in the same language folder when the match is clear, else a task), broken external links (HEAD,
+  cached 7 days, 60 per run), Core Web Vitals over thresholds, missing security headers (with an .htaccess snippet),
+  index bloat (indexed pages that fail the crawlable-page rule) and service / location landing pages with traffic but
+  no GA4 key events. Rows without a site write are "Senin yapacağın (sitede elle)" with a "Yaptım" button (snoozed 7
+  days, reopened if the problem is still there). A sent fix reopens with the error when the write fails or is undone,
+  or when the problem is still seen 3 days after success; rows whose problem is gone close automatically.
+- WordPress connector transport fallback (2026-10-09): when a hosting firewall refuses a `/wp-json/` request (403 / 406 /
+  415 with a non-JSON body, seen on Avrupadent behind LiteSpeed), the client retries once through
+  `/?rest_route=/moxdop/v1/...` (signed with `rest_route` in the query) and remembers `config.rest_transport = query`
+  for that site. Real UAT on Avrupadent pending.
+- Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
+  `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 
 ## 2026-10-08 — İşletme Profili bilgileri (Onarım Faz 4, ADR-080)
 

@@ -1,6 +1,6 @@
 @php
     $card = 'rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $riskTone = ['low' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'medium' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'high' => 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'];
+    $riskTone = ['low' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'medium' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'high' => 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300', 'manual' => 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300'];
 @endphp
 <div class="space-y-5" data-repair-desk>
     <div>
@@ -68,7 +68,7 @@
                             @forelse ($row['before'] as $line)<p class="break-words">{{ $line }}</p>@empty<p>—</p>@endforelse
                         </div>
                         <div class="text-xs text-gray-800 dark:text-white/90">
-                            <p class="font-semibold uppercase text-gray-400">Onaylanınca</p>
+                            <p class="font-semibold uppercase text-gray-400">{{ $row['risk'] === 'manual' ? 'Yapılacak' : 'Onaylanınca' }}</p>
                             @foreach ($row['after'] as $line)<p class="break-words">{{ $line }}</p>@endforeach
                         </div>
                     </div>
@@ -82,7 +82,11 @@
                 </div>
                 @if ($isAdmin)
                     <div class="flex shrink-0 flex-col items-end gap-1">
-                        <button type="button" wire:click="approve({{ $row['id'] }})" class="rounded-lg bg-brand-500 px-3 py-1 text-xs font-semibold text-white">Onayla</button>
+                        @if ($row['risk'] === 'manual')
+                            <button type="button" wire:click="approve({{ $row['id'] }})" title="Bir hafta gizlenir; gece denetimi sorun kalmadıysa kapatır" class="rounded-lg border border-brand-500 px-3 py-1 text-xs font-semibold text-brand-600" data-repair-done>Yaptım</button>
+                        @else
+                            <button type="button" wire:click="approve({{ $row['id'] }})" class="rounded-lg bg-brand-500 px-3 py-1 text-xs font-semibold text-white">Onayla</button>
+                        @endif
                         @foreach ($row['editable'] as $field)
                             <button type="button" wire:click="startEdit({{ $row['id'] }}, '{{ $field }}', @js((string) ($field === 'description' ? ($row['after'][0] ?? '') : \Illuminate\Support\Str::after(collect($row['after'])->first(fn ($l) => str_starts_with($l, $field === 'seo_title' ? 'Başlık: ' : 'Açıklama: ')) ?? '', ': '))))" class="text-xs text-brand-600 hover:underline">{{ ['seo_title' => 'Başlığı düzelt', 'meta_description' => 'Açıklamayı düzelt', 'description' => 'Metni düzelt'][$field] ?? 'Düzelt' }}</button>
                         @endforeach
@@ -102,7 +106,7 @@
         <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-800">
             @forelse ($writes as $write)
                 <li class="flex flex-wrap items-center justify-between gap-2 py-2" wire:key="write-{{ $write->id }}">
-                    <span>{{ $write->created_at?->timezone('Europe/Istanbul')->format('d.m H:i') }} · {{ $write->digitalAsset?->name }} · {{ $write->action }} · {{ $write->statusLabel() }}@if ($write->error) <span class="text-red-600">· {{ \Illuminate\Support\Str::limit($write->error, 120) }}</span>@endif</span>
+                    <span>{{ $write->created_at?->timezone('Europe/Istanbul')->format('d.m H:i') }} · {{ $write->digitalAsset?->name }} · {{ $write->action }} · {{ $write->statusLabel() }}@if ($write->error) <span class="text-red-600" title="{{ $write->error }}">· {{ \Illuminate\Support\Str::limit($write->error, 400) }}</span>@endif</span>
                     @if ($isAdmin && $write->isUndoable())
                         <button type="button" wire:click="undo({{ $write->id }})" wire:confirm="Bu değişiklik geri alınsın mı?" class="text-xs text-brand-600 hover:underline">Geri al</button>
                     @endif

@@ -270,28 +270,35 @@ final class WordPressConnectorClient
         $this->urlSafety->assertSafePublicHttpUrl($url);
 
         $payload = $body === null ? '' : json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $timestamp = (string) CarbonImmutable::now('UTC')->getTimestamp();
-        $nonce = (string) Str::uuid();
-        $canonical = implode("\n", [$method, $route, '', $timestamp, $nonce, hash('sha256', $payload)]);
-        $signature = hash_hmac('sha256', $canonical, $secret);
 
+        return $this->signed($connection, $method, $url, $route, [], $payload, $clientId, $secret, max(5, $timeout ?? (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
+    }
+
+    /**
+     * One signed request. When the web server itself refuses the /wp-json/ address (an HTML 403/406 page from a
+     * hosting firewall rule, before WordPress runs), the same request is sent once more through WordPress's other REST
+     * address (`/?rest_route=/moxdop/v1/…`), which such path rules do not cover; a connection that needed it keeps
+     * using it (`config.rest_transport = query`). Every connector version accepts it: `rest_route` is signed as a
+     * query parameter, the way WordPress hands it to the plugin.
+     *
+     * @param  array<string, scalar>  $query
+     * @return array<string, mixed>
+     */
+    private function signed(CoreConnection $connection, string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout): array
+    {
+        $viaQuery = data_get($connection->config, 'rest_transport') === 'query' && str_contains($url, '/wp-json/');
         try {
-            $request = Http::acceptJson()
-                ->withUserAgent('MoxDOP-WordPress-Connector/'.config('moxdop-wordpress.connector_version', '1.0.0'))
-                ->withHeaders([
-                    self::HEADER_CLIENT => $clientId,
-                    self::HEADER_TIMESTAMP => $timestamp,
-                    self::HEADER_NONCE => $nonce,
-                    self::HEADER_SIGNATURE => $signature,
-                ])
-                ->withOptions(['allow_redirects' => false])
-                ->timeout(max(5, $timeout ?? (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
-            $response = match ($method) {
-                'POST' => $request->withBody($payload, 'application/json')->post($url),
-                'GET' => $request->get($url),
-                default => $request->delete($url),
-            };
-            $data = $this->verifiedData($response, $secret, $nonce, (string) parse_url($url, PHP_URL_HOST));
+            try {
+                $response = $this->send($method, $viaQuery ? self::queryUrl($url) : $url, $route, $viaQuery ? $query + ['rest_route' => $route] : $query, $payload, $clientId, $secret, $timeout);
+                $data = $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
+            } catch (RuntimeException $refused) {
+                if ($viaQuery || ! str_contains($url, '/wp-json/') || ! isset($response) || ! self::serverRefusal($response['response'])) {
+                    throw $refused;
+                }
+                $response = $this->send($method, self::queryUrl($url), $route, $query + ['rest_route' => $route], $payload, $clientId, $secret, $timeout);
+                $data = $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
+                $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => 'query'])])->save();
+            }
             $this->markHealthy($connection);
 
             return $data;
@@ -299,6 +306,48 @@ final class WordPressConnectorClient
             $this->markUnhealthy($connection, $e);
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<string, scalar>  $query
+     * @return array{response: Response, nonce: string}
+     */
+    private function send(string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout): array
+    {
+        ksort($query, SORT_STRING);
+        $timestamp = (string) CarbonImmutable::now('UTC')->getTimestamp();
+        $nonce = (string) Str::uuid();
+        $canonical = implode("\n", [$method, $route, http_build_query($query, '', '&', PHP_QUERY_RFC3986), $timestamp, $nonce, hash('sha256', $payload)]);
+        $request = Http::acceptJson()
+            ->withUserAgent('MoxDOP-WordPress-Connector/'.config('moxdop-wordpress.connector_version', '1.0.0'))
+            ->withHeaders([
+                self::HEADER_CLIENT => $clientId,
+                self::HEADER_TIMESTAMP => $timestamp,
+                self::HEADER_NONCE => $nonce,
+                self::HEADER_SIGNATURE => hash_hmac('sha256', $canonical, $secret),
+            ])
+            ->withOptions(['allow_redirects' => false])
+            ->timeout($timeout);
+        $target = $query === [] ? $url : $url.(str_contains($url, '?') ? '&' : '?').http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        $response = match ($method) {
+            'POST' => $request->withBody($payload, 'application/json')->post($target),
+            'GET' => $request->get($target),
+            default => $request->delete($target),
+        };
+
+        return ['response' => $response, 'nonce' => $nonce];
+    }
+
+    /** "https://site/wp-json/moxdop/v1/fixes" → "https://site/" (the REST route then goes in `rest_route`). */
+    public static function queryUrl(string $url): string
+    {
+        return substr($url, 0, (int) strpos($url, '/wp-json/')).'/';
+    }
+
+    /** The web server (not WordPress) refused: 403 / 406 / 415 with a page that is not the connector's JSON. */
+    public static function serverRefusal(Response $response): bool
+    {
+        return in_array($response->status(), [403, 406, 415], true) && ! is_array(json_decode($response->body(), true));
     }
 
     /**
@@ -322,35 +371,7 @@ final class WordPressConnectorClient
         }
         $this->urlSafety->assertSafePublicHttpUrl($url);
 
-        ksort($query, SORT_STRING);
-        $canonicalQuery = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
-        $timestamp = (string) CarbonImmutable::now('UTC')->getTimestamp();
-        $nonce = (string) Str::uuid();
-        $bodyHash = hash('sha256', '');
-        $canonical = implode("\n", ['GET', $route, $canonicalQuery, $timestamp, $nonce, $bodyHash]);
-        $signature = hash_hmac('sha256', $canonical, $secret);
-
-        try {
-            $response = Http::acceptJson()
-                ->withUserAgent('MoxDOP-WordPress-Connector/'.config('moxdop-wordpress.connector_version', '1.0.0'))
-                ->withHeaders([
-                    self::HEADER_CLIENT => $clientId,
-                    self::HEADER_TIMESTAMP => $timestamp,
-                    self::HEADER_NONCE => $nonce,
-                    self::HEADER_SIGNATURE => $signature,
-                ])
-                ->withOptions(['allow_redirects' => false])
-                ->timeout($timeout ?? max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)))
-                ->get($url, $query);
-
-            $data = $this->verifiedData($response, $secret, $nonce, (string) parse_url($url, PHP_URL_HOST));
-            $this->markHealthy($connection);
-
-            return $data;
-        } catch (Throwable $e) {
-            $this->markUnhealthy($connection, $e);
-            throw $e;
-        }
+        return $this->signed($connection, 'GET', $url, $route, $query, '', $clientId, $secret, $timeout ?? max(5, (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
     }
 
     /** Connector WP_Error code => the site switch (WordPress › Ayarlar › MoxDOP Connector) that refuses the request. */

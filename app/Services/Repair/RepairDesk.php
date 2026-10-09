@@ -48,6 +48,10 @@ final class RepairDesk
 
     public const string ADS_CHANGE = 'ads_change';
 
+    public const string WEB_FIX = 'web_fix';
+
+    public const string WEB_TASK = 'web_task';
+
     public const array KINDS = [
         self::SITE_FIELDS => 'Başlık, açıklama, iç link, schema',
         self::SITE_CONTENT => 'Sayfa metni',
@@ -57,6 +61,8 @@ final class RepairDesk
         self::ADS_CHANGE => 'Google Ads ayarı',
         self::GBP_DESCRIPTION => 'İşletme Profili açıklaması',
         self::GBP_FIELDS => 'İşletme Profili bilgileri',
+        self::WEB_FIX => 'Site teknik düzeltmesi',
+        self::WEB_TASK => 'Senin yapacağın (sitede elle)',
     ];
 
     public const string LOW = 'low';
@@ -65,7 +71,10 @@ final class RepairDesk
 
     public const string HIGH = 'high';
 
-    public const array RISKS = [self::LOW => 'Düşük', self::MEDIUM => 'Orta', self::HIGH => 'Yüksek (tek tek)'];
+    /** A task only the operator can do on the site or the hosting: "Yaptım" hides it until the nightly check. */
+    public const string MANUAL = 'manual';
+
+    public const array RISKS = [self::LOW => 'Düşük', self::MEDIUM => 'Orta', self::HIGH => 'Yüksek (tek tek)', self::MANUAL => 'Elle yapılacak'];
 
     /** Rows read per kind (the list is a work queue, not an archive). */
     public const int LIMIT = 1500;
@@ -147,6 +156,8 @@ final class RepairDesk
                             (string) data_get($suggestion->action, 'proposed'), $suggestion),
                         self::GBP_FIELDS => app(ProfileInfo::class)->send($user, $suggestion),
                         self::ADS_CHANGE => app(GoogleAdsChanges::class)->send($user, $suggestion),
+                        self::WEB_FIX => app(WebHealthAudit::class)->send($user, $suggestion),
+                        self::WEB_TASK => app(WebHealthAudit::class)->markDone($user, $suggestion),
                     };
                     $result['applied']++;
                 } catch (Throwable $error) {
@@ -212,6 +223,7 @@ final class RepairDesk
             $base()->where('action_type', 'gbp_description')->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ProfileInfo::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', GoogleAdsChanges::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->where('action_type', WebHealthAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
         ])->flatMap(fn (Builder $query): Collection => $query->orderBy('priority')->orderBy('id')->limit(self::LIMIT)->get())
             ->unique('id')->values();
     }
@@ -245,6 +257,10 @@ final class RepairDesk
                 'risk' => in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM], true) ? $action['risk'] : self::MEDIUM,
                 'target' => (string) ($action['target'] ?? ''), 'before' => [GoogleAdsChangeWriter::text($action['before'] ?? null)],
                 'after' => [(string) ($action['label'] ?? '')]] : null,
+            WebHealthAudit::TYPE => $base + ['kind' => ($action['changes'] ?? []) !== [] ? self::WEB_FIX : self::WEB_TASK,
+                'risk' => ($action['changes'] ?? []) !== [] ? self::MEDIUM : self::MANUAL, 'target' => (string) ($action['target'] ?? ''),
+                'before' => array_map('strval', (array) ($action['before'] ?? [])), 'after' => array_map('strval', (array) ($action['after'] ?? [])),
+                'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null],
             default => $this->siteRow($s, $base, $action),
         };
 

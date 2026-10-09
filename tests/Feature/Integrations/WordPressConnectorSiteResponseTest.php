@@ -19,6 +19,7 @@ use App\Support\Roles;
 use Closure;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
@@ -143,6 +144,31 @@ final class WordPressConnectorSiteResponseTest extends TestCase
             'invalid UTF-8 and control characters' => ["\xEF\xBB\xBF\xC3\x28\x00\x01 <b>Warning</b>\r\n\tline", '?( <b>Warning</b> line'],
             'a long run of blank lines in front is not an empty answer' => [str_repeat("\n", 3000).'<b>Notice</b>: x', '<b>Notice</b>: x'],
         ];
+    }
+
+    #[Test]
+    public function a_hosting_firewall_that_refuses_the_wp_json_address_is_passed_through_the_rest_route_address(): void
+    {
+        $seen = [];
+        Http::swap(new Factory);
+        Http::fake(function (Request $request) use (&$seen) {
+            $seen[] = $request->method().' '.$request->url();
+            if (str_contains($request->url(), '/wp-json/')) {
+                return Http::response('<html><head><style>@media (prefers-color-scheme:dark){}</style></head><body>403 Forbidden Access to this resource on the server is denied!</body></html>', 403, ['Server' => 'LiteSpeed']);
+            }
+
+            return Http::response($this->signedJson($request, ['results' => [['ok' => true]]]), 200, ['Content-Type' => 'application/json']);
+        });
+        $client = app(WordPressConnectorClient::class);
+
+        $client->applyFixes($this->connection, [['type' => 'seo_title', 'object_id' => 5, 'reference' => 'r', 'value' => 'Yeni']]);
+
+        $this->assertSame(['POST https://example.com/wp-json/moxdop/v1/fixes', 'POST https://example.com/?rest_route=%2Fmoxdop%2Fv1%2Ffixes'], $seen);
+        $this->assertSame('query', $this->connection->fresh()->config['rest_transport']);
+
+        $seen = [];
+        $client->health($this->connection->fresh());
+        $this->assertSame(['GET https://example.com/?rest_route=%2Fmoxdop%2Fv1%2Fhealth'], $seen, 'the connection keeps the address that works');
     }
 
     #[Test]

@@ -2026,6 +2026,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   yalnızca MoxDOP eklentisinin kendi listesine yazılır; WP › Araçlar › MoxDOP yönlendirmeleri ekranında görünür, oradan
   kaldırılabilir. SEO eklentisine yazılmaz, onların yönlendirme modülleri açılmaz; eskiden SEO eklentisine yazılanlar
   orada kalır, geri alma onları da siler. 301 yazmak için en az eklenti 1.12.0 gerekir.
+  Barındırma güvenlik duvarı `/wp-json/` adresini reddederse (403/406/415, JSON olmayan yanıt) istemci aynı isteği bir
+  kez `/?rest_route=` adresiyle gönderir ve başarılı olursa o site için bu yolu hatırlar (2026-10-09, Avrupadent).
   Tek tek ya da toplu (seçilenler / karttaki tüm 301'ler) yapılır. İş, site onaylayınca "yapıldı" olur; site hata
   verirse hata yazısıyla yeniden açılır. Kurallar: hizmet / lokasyon sayfası blog / S&C sayfasına 301'lenmez; kümenin
   gösterimlerinin çoğunu alan sayfa 301'lenmez ("Ana sayfayı gözden geçir", "Ana sayfa bu olsun" düğmesi); bir sayfa
