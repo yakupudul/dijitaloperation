@@ -274,34 +274,46 @@ final class WordPressConnectorClient
         return $this->signed($connection, $method, $url, $route, [], $payload, $clientId, $secret, max(5, $timeout ?? (int) config('moxdop-wordpress.request_timeout_seconds', 30)));
     }
 
+    /** Ways to reach the site, tried in this order after a server refusal: address form × IP version. */
+    public const array TRANSPORTS = ['path', 'path_v4', 'query', 'query_v4'];
+
     /**
-     * One signed request. When the web server itself refuses the /wp-json/ address (an HTML 403/406 page from a
-     * hosting firewall rule, before WordPress runs), the same request is sent once more through WordPress's other REST
-     * address (`/?rest_route=/moxdop/v1/…`), which such path rules do not cover; a connection that needed it keeps
-     * using it (`config.rest_transport = query`). Every connector version accepts it: `rest_route` is signed as a
-     * query parameter, the way WordPress hands it to the plugin.
+     * One signed request. When the web server itself refuses it (an HTML 403/406 page from a hosting firewall, before
+     * WordPress runs), it is sent again over IPv4 (hosts that block the MoxDOP server's IPv6 address, seen on Avrupadent
+     * 2026-10-09: even the home page answered 403 over IPv6) and through WordPress's other REST address
+     * (`/?rest_route=/moxdop/v1/…`, which path rules do not cover). The way that worked is kept for the connection
+     * (`config.rest_transport`) and tried first next time. Every connector version accepts both addresses: `rest_route`
+     * is signed as a query parameter, the way WordPress hands it to the plugin.
      *
      * @param  array<string, scalar>  $query
      * @return array<string, mixed>
      */
     private function signed(CoreConnection $connection, string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout): array
     {
-        $viaQuery = data_get($connection->config, 'rest_transport') === 'query' && str_contains($url, '/wp-json/');
+        $known = (string) data_get($connection->config, 'rest_transport', 'path');
+        $known = $known === 'query' ? 'query' : (in_array($known, self::TRANSPORTS, true) ? $known : 'path');
+        $order = str_contains($url, '/wp-json/') ? array_values(array_unique([$known, ...self::TRANSPORTS]))
+            : array_values(array_unique([str_ends_with($known, '_v4') ? 'path_v4' : 'path', 'path', 'path_v4']));
         try {
-            try {
-                $response = $this->send($method, $viaQuery ? self::queryUrl($url) : $url, $route, $viaQuery ? $query + ['rest_route' => $route] : $query, $payload, $clientId, $secret, $timeout);
-                $data = $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
-            } catch (RuntimeException $refused) {
-                if ($viaQuery || ! str_contains($url, '/wp-json/') || ! isset($response) || ! self::serverRefusal($response['response'])) {
-                    throw $refused;
+            foreach ($order as $i => $transport) {
+                $viaQuery = str_starts_with($transport, 'query');
+                $response = $this->send($method, $viaQuery ? self::queryUrl($url) : $url, $route, $viaQuery ? $query + ['rest_route' => $route] : $query,
+                    $payload, $clientId, $secret, $timeout, str_ends_with($transport, '_v4'));
+                if ($i < count($order) - 1 && self::serverRefusal($response['response'])) {
+                    continue;
                 }
-                $response = $this->send($method, self::queryUrl($url), $route, $query + ['rest_route' => $route], $payload, $clientId, $secret, $timeout);
                 $data = $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
-                $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => 'query'])])->save();
-            }
-            $this->markHealthy($connection);
+                if (str_ends_with($transport, '_v4')) {
+                    PublicHttpFetcher::preferIpv4((string) parse_url($url, PHP_URL_HOST));
+                }
+                if ($transport !== (string) data_get($connection->config, 'rest_transport', 'path')) {
+                    $connection->forceFill(['config' => array_merge((array) $connection->config, ['rest_transport' => $transport])])->save();
+                }
+                $this->markHealthy($connection);
 
-            return $data;
+                return $data;
+            }
+            throw new RuntimeException('WordPress Connector request was not sent.');
         } catch (Throwable $e) {
             $this->markUnhealthy($connection, $e);
             throw $e;
@@ -312,7 +324,7 @@ final class WordPressConnectorClient
      * @param  array<string, scalar>  $query
      * @return array{response: Response, nonce: string}
      */
-    private function send(string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout): array
+    private function send(string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout, bool $ipv4 = false): array
     {
         ksort($query, SORT_STRING);
         $timestamp = (string) CarbonImmutable::now('UTC')->getTimestamp();
@@ -326,7 +338,7 @@ final class WordPressConnectorClient
                 self::HEADER_NONCE => $nonce,
                 self::HEADER_SIGNATURE => hash_hmac('sha256', $canonical, $secret),
             ])
-            ->withOptions(['allow_redirects' => false])
+            ->withOptions(['allow_redirects' => false] + ($ipv4 ? ['force_ip_resolve' => 'v4'] : []))
             ->timeout($timeout);
         $target = $query === [] ? $url : $url.(str_contains($url, '?') ? '&' : '?').http_build_query($query, '', '&', PHP_QUERY_RFC3986);
         $response = match ($method) {

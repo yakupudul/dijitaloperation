@@ -151,8 +151,8 @@ final class WordPressConnectorSiteResponseTest extends TestCase
     {
         $seen = [];
         Http::swap(new Factory);
-        Http::fake(function (Request $request) use (&$seen) {
-            $seen[] = $request->method().' '.$request->url();
+        Http::fake(function (Request $request, array $options) use (&$seen) {
+            $seen[] = $request->method().' '.$request->url().(($options['force_ip_resolve'] ?? null) === 'v4' ? ' v4' : '');
             if (str_contains($request->url(), '/wp-json/')) {
                 return Http::response('<html><head><style>@media (prefers-color-scheme:dark){}</style></head><body>403 Forbidden Access to this resource on the server is denied!</body></html>', 403, ['Server' => 'LiteSpeed']);
             }
@@ -163,12 +163,39 @@ final class WordPressConnectorSiteResponseTest extends TestCase
 
         $client->applyFixes($this->connection, [['type' => 'seo_title', 'object_id' => 5, 'reference' => 'r', 'value' => 'Yeni']]);
 
-        $this->assertSame(['POST https://example.com/wp-json/moxdop/v1/fixes', 'POST https://example.com/?rest_route=%2Fmoxdop%2Fv1%2Ffixes'], $seen);
+        $this->assertSame(['POST https://example.com/wp-json/moxdop/v1/fixes', 'POST https://example.com/wp-json/moxdop/v1/fixes v4',
+            'POST https://example.com/?rest_route=%2Fmoxdop%2Fv1%2Ffixes'], $seen);
         $this->assertSame('query', $this->connection->fresh()->config['rest_transport']);
 
         $seen = [];
         $client->health($this->connection->fresh());
         $this->assertSame(['GET https://example.com/?rest_route=%2Fmoxdop%2Fv1%2Fhealth'], $seen, 'the connection keeps the address that works');
+    }
+
+    #[Test]
+    public function a_host_that_blocks_the_ipv6_address_is_reached_over_ipv4(): void
+    {
+        $seen = [];
+        Http::swap(new Factory);
+        Http::fake(function (Request $request, array $options) use (&$seen) {
+            $v4 = ($options['force_ip_resolve'] ?? null) === 'v4';
+            $seen[] = $request->method().' '.$request->url().($v4 ? ' v4' : '');
+
+            return $v4
+                ? Http::response($this->signedJson($request, ['wordpress_version' => '6.8']), 200, ['Content-Type' => 'application/json'])
+                : Http::response('<html><body>403 Forbidden Access to this resource on the server is denied!</body></html>', 403, ['Server' => 'LiteSpeed']);
+        });
+        $client = app(WordPressConnectorClient::class);
+
+        $client->health($this->connection);
+
+        $this->assertSame(['GET https://example.com/wp-json/moxdop/v1/health', 'GET https://example.com/wp-json/moxdop/v1/health v4'], $seen);
+        $this->assertSame('path_v4', $this->connection->fresh()->config['rest_transport']);
+        $this->assertNull($this->connection->fresh()->last_error);
+
+        $seen = [];
+        $client->health($this->connection->fresh());
+        $this->assertSame(['GET https://example.com/wp-json/moxdop/v1/health v4'], $seen);
     }
 
     #[Test]

@@ -6,6 +6,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Throwable;
@@ -75,7 +76,16 @@ final class PublicHttpFetcher
             }
 
             try {
-                $response = $this->configure(Http::timeout(DiscoveryConfig::TIMEOUT_SECONDS), $validators)->get($current);
+                $response = $this->configure(Http::timeout(DiscoveryConfig::TIMEOUT_SECONDS), $validators, $current)->get($current);
+                $host = (string) parse_url($current, PHP_URL_HOST);
+                if ($response->status() === 403 && ! self::prefersIpv4($host)) {
+                    // Some hosts refuse the server's IPv6 address only: the same request over IPv4.
+                    $retry = $this->configure(Http::timeout(DiscoveryConfig::TIMEOUT_SECONDS), $validators, $current, true)->get($current);
+                    if ($retry->status() !== 403) {
+                        self::preferIpv4($host);
+                        $response = $retry;
+                    }
+                }
             } catch (ConnectionException $exception) {
                 return $this->failure($url, 'timeout_or_connection: '.$exception->getMessage(), $current, $redirects);
             } catch (Throwable $exception) {
@@ -137,7 +147,7 @@ final class PublicHttpFetcher
                 $responses = Http::pool(function (Pool $pool) use ($batch, $pending, $validators): array {
                     $requests = [];
                     foreach ($batch as $index => $url) {
-                        $requests[] = $this->configure($pool->as('u'.$index), $validators[$url] ?? [])->get($pending[$url]['current']);
+                        $requests[] = $this->configure($pool->as('u'.$index), $validators[$url] ?? [], $pending[$url]['current'])->get($pending[$url]['current']);
                     }
 
                     return $requests;
@@ -197,8 +207,9 @@ final class PublicHttpFetcher
      *
      * @param  array{etag?: ?string, last_modified?: ?string}  $validators
      */
-    private function configure(PendingRequest $request, array $validators = []): PendingRequest
+    private function configure(PendingRequest $request, array $validators = [], ?string $url = null, bool $ipv4 = false): PendingRequest
     {
+        $ipv4 = $ipv4 || ($url !== null && self::prefersIpv4((string) parse_url($url, PHP_URL_HOST)));
         $headers = [
             'User-Agent' => DiscoveryConfig::USER_AGENT,
             'Accept' => DiscoveryConfig::ACCEPT,
@@ -223,8 +234,21 @@ final class PublicHttpFetcher
                 'cookies' => false,
                 // Guzzle decodes the gzip body because Accept-Encoding is set.
                 'decode_content' => true,
-            ])
+            ] + ($ipv4 ? ['force_ip_resolve' => 'v4'] : []))
             ->withHeaders($headers);
+    }
+
+    /** The host refuses this server's IPv6 address (2026-10-09, Avrupadent): its requests go over IPv4 for 30 days. */
+    public static function preferIpv4(string $host): void
+    {
+        if ($host !== '') {
+            Cache::put('public-http:ipv4:'.mb_strtolower($host), true, now()->addDays(30));
+        }
+    }
+
+    public static function prefersIpv4(string $host): bool
+    {
+        return $host !== '' && (bool) Cache::get('public-http:ipv4:'.mb_strtolower($host), false);
     }
 
     /**

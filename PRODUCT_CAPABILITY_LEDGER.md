@@ -3748,7 +3748,11 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
 - WordPress connector transport fallback (2026-10-09): when a hosting firewall refuses a `/wp-json/` request (403 / 406 /
   415 with a non-JSON body, seen on Avrupadent behind LiteSpeed), the client retries once through
   `/?rest_route=/moxdop/v1/...` (signed with `rest_route` in the query) and remembers `config.rest_transport = query`
-  for that site. Real UAT on Avrupadent pending.
+  for that site. Real UAT on Avrupadent pending. 2026-10-09 00:47Z: the ?rest_route address was refused too; from the
+  MoxDOP server even Avrupadent's home page answers 403 (the server goes out over IPv6, 2a01:4f8:1c16:2a71::1), so
+  the host blocks that IPv6 address. The client now also retries over IPv4 (`force_ip_resolve` v4; transports path,
+  path_v4, query, query_v4, the working one kept in `rest_transport`), and public page reads of a host that needed
+  IPv4 go over IPv4 for 30 days (PublicHttpFetcher, also retried once over IPv4 on a 403).
 - Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
   `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 
