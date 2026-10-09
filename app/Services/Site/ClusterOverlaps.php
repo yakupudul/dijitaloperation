@@ -15,6 +15,7 @@ use App\Services\ExternalWrites\WordPressDraftWriter;
 use App\Services\Queries\ClusterEditor;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
+use App\Support\Options\LocationOptions;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -24,8 +25,9 @@ use Throwable;
  * the same need — the AI match's `also_page_ids` (content) and the pages Google shows with ≥ CONFLICT of the cluster's
  * Search Console impressions. Every overlapping page becomes one suggestion in the work list (`site.cluster_overlap`)
  * with a rule recommendation:
- * - redirect ("301 ile birleştir"): the page gets little of the cluster's traffic, is no other cluster's target and is
- *   not a service page while the main page is a blog / Q&A page — its content goes into the main page, the URL
+ * - redirect ("301 ile birleştir"): the page is about the same thing (sameNeed: its address adds no subject word of its
+ *   own), gets little of the cluster's traffic, is no other cluster's target and is not a service page while the main
+ *   page is a blog / Q&A page — its content goes into the main page, the URL
  *   redirects there through the site's SEO plugin and the page becomes a draft (connector 1.9.0, undoable);
  * - differentiate ("Ayrıştır"): the page gets real traffic, is the target of another cluster or is a location page —
  *   it is kept and focused on its own need, with a link to the main page;
@@ -297,6 +299,7 @@ final class ClusterOverlaps
             $recommendation === self::REVIEW && ($action['basis'] ?? null) === 'service' => 'Hizmet sayfası blog / soru-cevap sayfasına yönlendirilmez. Kümenin ana sayfası bu hizmet sayfası olmalı.',
             $recommendation === self::REVIEW => 'Google bu ihtiyaçta bu sayfayı gösteriyor (gösterimlerin %'.(int) round($share * 100).'si). 301 yapılmaz: ana sayfa bu olsun ya da ana sayfa güçlendirilsin.',
             ($action['basis'] ?? null) === 'location' => 'Lokasyon sayfası kendi bölgesini hedefler; birleştirilmez. Ana sayfaya bağlantı versin.',
+            ($action['basis'] ?? null) === 'distinct' => 'Aynı konunun farklı bir sorusunu ya da türünü işliyor; birleştirilmez. Ana sayfaya bağlantı versin.',
             ($action['basis'] ?? null) === 'other_target' || $share < ClusterPageShares::CONFLICT => 'Başka bir kümenin hedef sayfası; birleştirilmez. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
             default => 'Bu kümenin gösterimlerinde payı %'.(int) round($share * 100).'. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
         };
@@ -380,6 +383,7 @@ final class ClusterOverlaps
             $otherTarget => [self::DIFFERENTIATE, 'other_target'],
             $share >= ClusterPageShares::CONFLICT => [self::DIFFERENTIATE, 'traffic'],
             $page->category === 'lokasyon' && $main->category !== 'lokasyon' => [self::DIFFERENTIATE, 'location'],
+            ! self::sameNeed($main, $page) => [self::DIFFERENTIATE, 'distinct'],
             default => [self::REDIRECT, 'low'],
         };
     }
@@ -396,6 +400,7 @@ final class ClusterOverlaps
             'other_target' => $path.' başka bir kümenin hedef sayfası; birleştirilmez. Bu kümeye değil kendi ihtiyacına odaklansın, '.$mainPath.' sayfasına bağlantı versin.',
             'traffic' => $path.' bu kümede trafik alıyor (gösterimlerin %'.(int) round($share * 100).'si); '.$mainPath.' ile aynı ihtiyacı hedefliyor. Farklı bir ihtiyaca odaklanmalı ve '.$mainPath.' sayfasına bağlantı vermeli.',
             'location' => $path.' bir lokasyon sayfası; kendi bölgesini hedeflesin, '.$mainPath.' sayfasına bağlantı versin.',
+            'distinct' => $path.' aynı konunun farklı bir sorusunu ya da türünü işliyor; birleştirilmez. Kendi sorusuna odaklansın, '.$mainPath.' sayfasına bağlantı versin.',
             default => $path.' aynı ihtiyacı işliyor ama bu kümede az trafik alıyor. Eksik bilgisi '.$mainPath.' sayfasına taşınıp 301 ile oraya yönlendirilmeli; sayfa taslağa alınır.',
         };
         $fingerprint = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->cluster_id, $main->id, $page->id]));
@@ -460,6 +465,59 @@ final class ClusterOverlaps
         $first = explode('/', trim(self::path($page), '/'))[0];
 
         return preg_match('/^[a-z]{2}(-[a-z]{2})?$/i', $first) === 1 ? strtolower($first) : '';
+    }
+
+    /** Words that do not change what a page is about: question words, fillers, "tedavi / uygulama" style nouns. */
+    private const array WEAK_WORDS = [
+        'mi', 'mu', 'midir', 'mudur', 'nedir', 'ne', 'nelerdir', 'neler', 'nasil', 'nasildir', 'hangi', 'kadar', 'ile', 've', 'veya', 'icin', 'bir',
+        'olur', 'olurmu', 'gerekir', 'gerekli', 'sart', 'sartmi', 'lazim', 'hakkinda', 'rehberi', 'rehber', 'merkezi', 'klinigi', 'fiyat', 'fiyati', 'fiyatlari',
+        'what', 'is', 'are', 'the', 'a', 'an', 'and', 'or', 'in', 'of', 'for', 'to', 'how', 'does', 'do', 'can', 'it', 'be', 'with', 'on', 'at', 'by', 'about', 'guide',
+    ];
+
+    /** Prefixes of words naming the kind of page, not its subject ("tedavisi", "uygulaması", "treatment"). */
+    private const array WEAK_PREFIXES = ['tedavi', 'uygulama', 'hizmet', 'treatment', 'procedure', 'application', 'service'];
+
+    /**
+     * Rule (yakup, 2026-10-09 "çakışma tespitleri hatalı"): a 301 only between pages about the same thing. Every subject
+     * word of the page's address must also be in the main page's (after dropping question words, "tedavi / uygulama"
+     * nouns and place names), at least half of their words are shared, and no number differs (All-on-4 ≠ All-on-6).
+     * "Tek seansta implant", "implant sonrası beslenme" or "kanal tedavisi: sinir alınır mı" are not "implant" or
+     * "kanal tedavisi nasıl yapılır": each answers its own question and stays.
+     */
+    public static function sameNeed(Page $main, Page $page): bool
+    {
+        $a = self::subject($main);
+        $b = self::subject($page);
+        if ($a === [] || $b === []) {
+            return false;
+        }
+        $numbers = fn (array $words): array => array_values(array_filter($words, fn (string $w): bool => ctype_digit($w)));
+        if ($numbers($a) !== [] && $numbers($b) !== [] && $numbers($a) !== $numbers($b)) {
+            return false;
+        }
+        $shared = array_intersect($b, $a);
+
+        return array_diff($b, $a) === [] && count($shared) / count(array_unique(array_merge($a, $b))) >= 0.5;
+    }
+
+    /** @return list<string> subject words of the page's last path segment, stemmed to 5 letters */
+    private static function subject(Page $page): array
+    {
+        $slug = urldecode((string) last(array_filter(explode('/', trim(self::path($page), '/')))));
+        $words = [];
+        foreach (preg_split('/[^a-z0-9]+/', SeoText::fold(str_replace(['-', '_'], ' ', $slug))) ?: [] as $word) {
+            if ($word === '' || in_array($word, self::WEAK_WORDS, true) || LocationOptions::describe($word) !== []) {
+                continue;
+            }
+            foreach (self::WEAK_PREFIXES as $prefix) {
+                if (str_starts_with($word, $prefix)) {
+                    continue 2;
+                }
+            }
+            $words[] = ctype_digit($word) ? $word : mb_substr($word, 0, 5);
+        }
+
+        return array_values(array_unique($words));
     }
 
     /** Home and language home pages, contact / about / legal pages. */

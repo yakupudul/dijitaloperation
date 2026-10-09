@@ -105,14 +105,14 @@ final class ClusterOverlapsTest extends SiteTestCase
 
     public function test_genel_isler_shows_a_sites_overlaps_in_one_card_under_their_cluster(): void
     {
-        $second = $this->page('/tek-seansta-implant/', 'Tek seansta implant', ['category' => 'blog']);
+        $second = $this->page('/implant-uygulamasi/', 'İmplant uygulaması', ['category' => 'blog']);
         $this->row('tr', $this->main, [$this->copy->id, $second->id]);
         app(ClusterOverlaps::class)->sync($this->site, $this->brand);
 
         // 2026-10-09: a ready 301 waits on the Onarım masası (one place for every yes / no); Genel işler points there.
         Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSeeHtml('data-on-desk')->assertSee('2 düzeltme Onarım masasında')
-            ->assertDontSee('/tek-seansta-implant/');
-        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 · 301 birleştirme')->assertSee('/tek-seansta-implant/');
+            ->assertDontSee('/implant-uygulamasi/');
+        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 · 301 birleştirme')->assertSee('/implant-uygulamasi/');
     }
 
     public function test_a_service_page_is_never_301d_into_a_blog_page_and_a_page_google_prefers_is_not_301d(): void
@@ -120,12 +120,14 @@ final class ClusterOverlapsTest extends SiteTestCase
         $blogMain = $this->page('/sinus-lifting-nedir/', 'Sinüs lifting nedir', ['category' => 'blog']);
         $service = $this->page('/tedavilerimiz/ankara-sinus-lifting/', 'Ankara sinüs lifting', ['category' => 'hizmet']);
         $popular = $this->page('/soru-ve-cevap/sinus-lifting-agrili-mi/', 'Sinüs lifting ağrılı mı', ['category' => 'sss']);
-        $quiet = $this->page('/sinus-lifting-sonrasi/', 'Sinüs lifting sonrası', ['category' => 'blog']);
-        $this->row('tr', $blogMain, [$service->id, $popular->id, $quiet->id]);
+        $quiet = $this->page('/sinus-lifting-tedavisi/', 'Sinüs lifting tedavisi', ['category' => 'blog']);
+        $aftercare = $this->page('/sinus-lifting-sonrasi/', 'Sinüs lifting sonrası', ['category' => 'blog']);
+        $this->row('tr', $blogMain, [$service->id, $popular->id, $quiet->id, $aftercare->id]);
 
         app(ClusterOverlaps::class)->sync($this->site, $this->brand, [$this->treatment->id => [$this->share($popular, 0.99), $this->share($blogMain, 0.01)]]);
 
-        $this->assertSame([$service->id => ClusterOverlaps::REVIEW, $popular->id => ClusterOverlaps::REVIEW, $quiet->id => ClusterOverlaps::REDIRECT], $this->recommendations());
+        $this->assertSame([$service->id => ClusterOverlaps::REVIEW, $popular->id => ClusterOverlaps::REVIEW, $quiet->id => ClusterOverlaps::REDIRECT,
+            $aftercare->id => ClusterOverlaps::DIFFERENTIATE], $this->recommendations(), 'aftercare is its own question, never a 301 into "nedir"');
         $this->assertSame('service', data_get(Suggestion::query()->where('page_id', $service->id)->sole()->action, 'basis'));
         $this->assertStringContainsString('%99', ClusterOverlaps::why((array) Suggestion::query()->where('page_id', $popular->id)->sole()->action));
     }
@@ -161,7 +163,7 @@ final class ClusterOverlapsTest extends SiteTestCase
 
     public function test_301_merge_is_applied_only_when_the_site_confirms_and_reopens_with_the_sites_error(): void
     {
-        $other = $this->page('/tek-seansta-implant/', 'Tek seansta implant', ['category' => 'blog', 'wp_post_id' => 77]);
+        $other = $this->page('/implant-uygulamasi/', 'İmplant uygulaması', ['category' => 'blog', 'wp_post_id' => 77]);
         $this->copy->forceFill(['wp_post_id' => 55])->save();
         $this->row('tr', $this->main, [$this->copy->id, $other->id]);
         app(ClusterOverlaps::class)->sync($this->site, $this->brand);
