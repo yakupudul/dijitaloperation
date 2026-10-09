@@ -3704,6 +3704,9 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   GoogleAdsSuggestions::sendNegatives, ProfileFields::sendDescription), so they are logged and undoable. Edit title /
   description / profile text before approving (`action.edited_by_operator`). Reject with a reason (dismissed). "Son 7
   günde uygulananlar" lists the writes with "Geri al".
+- Seçim (2026-10-09, yakup "Tümünü seç yok?"): "Görünenleri seç (N)" ticks the rows on screen (first 300), "Filtredeki
+  tümünü seç (N)" every row the brand / kind / risk filter matches (shown when more than 300), "Seçimi temizle"; the
+  approve / reject buttons show the count. Changing a filter clears the selection so hidden rows are never approved.
 - Hazırla: `moxdop:repair:prepare` (02:10) queues "AI ile yap" for up to 150 field fixes and 20 page-text fixes without a
   prepared value. Doğrula: `moxdop:repair:verify` (hourly :35) checks a website title / description fix 24 hours after
   the write against the page's stored title / description (confirmed / still seen); a fix whose writes all failed or were

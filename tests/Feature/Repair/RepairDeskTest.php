@@ -85,6 +85,20 @@ final class RepairDeskTest extends SiteTestCase
         $this->get(route('operator.repair'))->assertOk();
     }
 
+    public function test_select_all_picks_the_filtered_rows_and_a_filter_change_clears_the_selection(): void
+    {
+        $fields = $this->suggestion('Başlığı güçlendir', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
+        $alts = $this->suggestion('Alt metin', 'image_alt', ['site_id' => $this->site->id, 'images' => [['image_id' => 7, 'file' => 'a.jpg', 'alt' => 'Alt']]]);
+
+        $page = Livewire::test(RepairDeskPage::class)->assertSee('Görünenleri seç (2)')->assertDontSee('Filtredeki tümünü seç')
+            ->call('selectVisible')->assertSet('selected', [$fields->id, $alts->id])->assertSee('Seçilenleri onayla (2)')
+            ->call('clearSelection')->assertSet('selected', [])
+            ->set('kind', RepairDesk::SITE_FIELDS)->call('selectAllMatching')->assertSet('selected', [$fields->id]);
+
+        $page->set('kind', '')->assertSet('selected', [])
+            ->call('selectAllMatching')->call('approveSelected')->assertSee('2 iş uygulamaya gönderildi');
+    }
+
     public function test_nightly_preparation_queues_unprepared_site_fixes_and_the_digest_counts_ready_ones(): void
     {
         $unprepared = $this->suggestion('Hazır değil', 'title_description', []);

@@ -42,9 +42,18 @@
         </label>
         @if ($isAdmin)
             <button type="button" wire:click="approveAllLow" wire:confirm="Görünen bütün düşük riskli işler uygulansın mı?" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white" data-approve-low>Düşük risklilerin hepsini onayla</button>
+            <div class="flex items-center gap-1" data-repair-select>
+                <button type="button" wire:click="selectVisible" class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 dark:border-gray-700 dark:text-gray-300">Görünenleri seç ({{ $rows->count() }})</button>
+                @if ($total > $rows->count())
+                    <button type="button" wire:click="selectAllMatching" class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 dark:border-gray-700 dark:text-gray-300">Filtredeki tümünü seç ({{ $total }})</button>
+                @endif
+                @if ($selected !== [])
+                    <button type="button" wire:click="clearSelection" class="px-2 py-1.5 text-gray-500 hover:underline">Seçimi temizle</button>
+                @endif
+            </div>
             <button type="button" wire:click="approveSelected" @disabled($selected === []) class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300">Seçilenleri onayla ({{ count($selected) }})</button>
             <input type="text" wire:model="rejectReason" placeholder="Red sebebi (isteğe bağlı)" class="w-56 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
-            <button type="button" wire:click="rejectSelected" @disabled($selected === []) class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300">Seçilenleri reddet</button>
+            <button type="button" wire:click="rejectSelected" @disabled($selected === []) class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300">Seçilenleri reddet ({{ count($selected) }})</button>
         @endif
     </div>
 

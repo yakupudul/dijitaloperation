@@ -8,6 +8,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Repair\RepairDesk;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -62,6 +63,31 @@ final class RepairDeskPage extends Component
         $this->run(fn (): array => $desk->approve($ids, auth()->user()));
     }
 
+    /** Select the rows on screen (the first 300 of the filter). */
+    public function selectVisible(RepairDesk $desk): void
+    {
+        $this->selected = $this->filtered($desk)->take(300)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    /** Select every row the current filters match, also those beyond the first 300. */
+    public function selectAllMatching(RepairDesk $desk): void
+    {
+        $this->selected = $this->filtered($desk)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
+    }
+
+    /** A filter change drops the selection so hidden rows are never approved by mistake. */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['brandId', 'kind', 'risk'], true)) {
+            $this->selected = [];
+        }
+    }
+
     public function rejectSelected(RepairDesk $desk): void
     {
         $this->authorizeAdmin();
@@ -106,7 +132,7 @@ final class RepairDeskPage extends Component
 
     public function render(RepairDesk $desk): View
     {
-        $rows = $desk->rows($this->brandId, $this->kind ?: null, $this->risk ?: null);
+        $rows = $this->filtered($desk);
 
         return view('livewire.operator.repair.repair-desk', [
             'rows' => $rows->take(300),
@@ -117,6 +143,11 @@ final class RepairDeskPage extends Component
                 ->where('created_at', '>=', now()->subDays(7))->latest('id')->limit(40)->get(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
+    }
+
+    private function filtered(RepairDesk $desk): Collection
+    {
+        return $desk->rows($this->brandId, $this->kind ?: null, $this->risk ?: null);
     }
 
     /** @param  callable(): array{applied: int, skipped_high: int, failed: list<string>}  $approve */
