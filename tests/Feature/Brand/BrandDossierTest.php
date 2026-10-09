@@ -72,7 +72,7 @@ final class BrandDossierTest extends TestCase
         BrandDossier::saveNotes($this->brand, 'Implant hastası artsın', 'Fiyat yazma');
         $second = $dossier->build($this->brand);
 
-        $this->assertSame(['services', 'demand', 'notes'], BrandDossier::changedSince($this->brand, $seen));
+        $this->assertSame(['facts', 'services', 'demand', 'notes'], BrandDossier::changedSince($this->brand, $seen));
         $this->assertStringContainsString('İmplant Tedavisi', $second['sections']['services']['markdown']);
         $this->assertStringContainsString('Fiyat yazma', $second['sections']['notes']['markdown']);
         $this->assertSame(1, BrandMemory::query()->where('brand_id', $this->brand->id)->where('kind', BrandDossier::KIND)->count(), 'one row, rebuilt in place');
