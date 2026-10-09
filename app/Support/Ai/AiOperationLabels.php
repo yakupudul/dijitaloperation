@@ -63,6 +63,7 @@ final class AiOperationLabels
         'site.page_summary' => 'Sayfa özeti',
         'site.url_analysis' => 'URL analizi',
         'site.apply_change' => 'AI ile yap (site değişikliği)',
+        'site.seo_fields_batch' => 'Başlık ve açıklama (toplu hazırlık)',
         'site.standard_from_decision' => 'Karardan standart önerisi',
         'site.weekly_content' => 'Haftalık içerik önerisi',
         'site.content_discovery' => 'İçerik fırsatı keşfi',

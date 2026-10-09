@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
  */
 final class RepairPrepareCommand extends Command
 {
-    protected $signature = 'moxdop:repair:prepare {--fields= : Field fixes to queue} {--content= : Page-text fixes to queue}';
+    protected $signature = 'moxdop:repair:prepare {--fields= : Field fixes to queue} {--content= : Page-text fixes to queue} {--batch= : Title / description pages to queue (15 per AI call)} {--batch-only : Only the title / description batches (hourly)}';
 
     protected $description = 'Queue the preparation of website fixes for the repair desk.';
 
@@ -21,8 +21,12 @@ final class RepairPrepareCommand extends Command
     {
         $fields = $this->option('fields');
         $content = $this->option('content');
-        $queued = $preparer->queue($fields !== null ? (int) $fields : null, $content !== null ? (int) $content : null);
-        $this->line(sprintf('%d alan düzeltmesi ve %d sayfa metni düzeltmesi hazırlanmak üzere kuyruğa alındı.', $queued['fields'], $queued['content']));
+        $batch = $this->option('batch');
+        $queued = $preparer->queue($fields !== null ? (int) $fields : null, $content !== null ? (int) $content : null, $batch !== null ? (int) $batch : null, (bool) $this->option('batch-only'));
+        $this->line(sprintf('%d sayfanın başlık / açıklaması toplu, %d alan düzeltmesi ve %d sayfa metni düzeltmesi hazırlanmak üzere kuyruğa alındı.', $queued['batch'], $queued['fields'], $queued['content']));
+        if ($this->option('batch-only')) {
+            return self::SUCCESS;
+        }
         $gbp = $profiles->prepareAll();
         $this->line(sprintf('%d İşletme Profili bilgisi %d profilde hazırlandı.', $gbp['prepared'], $gbp['profiles']));
 

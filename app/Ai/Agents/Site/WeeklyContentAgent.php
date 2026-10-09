@@ -6,7 +6,7 @@ use App\Services\Site\ContentPlanner;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 
-/** `site.weekly_content` ("Haftalık içerik öner"): this week's new pages / posts and updates, within the capacity. */
+/** `site.weekly_content` (içerik fikir havuzu): one title, angle and outline for each topic the rules chose (`candidate_id`). */
 final class WeeklyContentAgent extends SiteAgent
 {
     public function promptOperation(): string
@@ -19,6 +19,7 @@ final class WeeklyContentAgent extends SiteAgent
     {
         return [
             'items' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
+                'candidate_id' => $row->integer()->required(),
                 'language' => $row->string()->required(),
                 'title' => $row->string()->required(),
                 'kind' => $row->string()->enum(['new', 'update'])->required(),

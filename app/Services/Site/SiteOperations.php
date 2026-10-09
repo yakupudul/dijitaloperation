@@ -11,6 +11,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Brand\BrandDossier;
 use App\Services\Queries\QueryPipeline;
+use App\Services\Repair\SeoFieldsBatch;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -69,6 +70,9 @@ final class SiteOperations
     /** Görsel alt metni: alt text proposals for WordPress images without one (one suggestion per page). */
     public const string IMAGE_ALTS = 'image_alts';
 
+    /** Onarım masası toplu hazırlık: titles / descriptions of up to 15 pages in one AI call (params: suggestion_ids). */
+    public const string SEO_FIELDS_BATCH = 'seo_fields_batch';
+
     /** Pages per URL analysis job (each page is one AI call). */
     public const int URL_BATCH = 3;
 
@@ -77,7 +81,7 @@ final class SiteOperations
         self::SUMMARIES => 'Sayfa özetleri', self::URL_ANALYSIS => 'URL analizi', self::APPLY_CHANGE => 'AI ile yap', self::STANDARD => 'Standart önerisi',
         self::WEEKLY_CONTENT => 'Haftalık içerik', self::DISCOVERY => 'Fırsat keşfi', self::WRITE_ARTICLE => 'Taslak', self::WEEKLY_REFRESH => 'Haftalık yenileme',
         self::CLUSTER_AUDIT => 'Eşleştir', self::FIX_GAPS => 'AI ile geliştir', self::PRODUCE => 'AI ile üret', self::REDISCOVER => 'Yeniden keşfet',
-        self::RECIPE => 'SEO analizi', self::SETUP => 'Kurulum sonrası hazırlık', self::IMAGE_ALTS => 'Görsel alt metni',
+        self::RECIPE => 'SEO analizi', self::SETUP => 'Kurulum sonrası hazırlık', self::IMAGE_ALTS => 'Görsel alt metni', self::SEO_FIELDS_BATCH => 'Başlık ve açıklama (toplu)',
     ];
 
     public function __construct(
@@ -92,6 +96,7 @@ final class SiteOperations
         private readonly ClusterAudit $audit,
         private readonly ContentRecipe $recipes,
         private readonly ImageAlts $imageAlts,
+        private readonly SeoFieldsBatch $seoFields,
     ) {}
 
     /** @param  array<string, mixed>  $params */
@@ -130,6 +135,7 @@ final class SiteOperations
         return match ($operation) {
             self::CATEGORIZE => $this->categorizer->categorize($site, (bool) ($params['only_new'] ?? false)),
             self::IMAGE_ALTS => $this->imageAlts->propose($site),
+            self::SEO_FIELDS_BATCH => $this->seoFields->prepare($site, array_map('intval', (array) ($params['suggestion_ids'] ?? []))),
             self::SERVICE_PAGES => $this->servicePages->map($site),
             self::CLUSTER_PAGES => $this->clusterPages->refresh($site),
             self::SUMMARIES => $brand !== null ? $this->memory->summarize($brand, $this->pagesInUse($site)) : ['status' => 'no_brand'],

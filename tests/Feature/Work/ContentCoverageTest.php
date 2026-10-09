@@ -45,7 +45,7 @@ final class ContentCoverageTest extends SiteTestCase
         $coverage = app(ContentCoverage::class);
         $row = $coverage->rows()[0];
         $this->assertSame(0, $row['clusters']);
-        $this->assertStringContainsString('eşleştirilmedi', (string) $row['reason']);
+        $this->assertStringContainsString('henüz eşleşmedi', (string) $row['reason']);
 
         $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
         $this->page('/implant-fiyat/', 'İmplant fiyatı', ['category' => 'hizmet', 'language' => 'tr']);
@@ -63,7 +63,7 @@ final class ContentCoverageTest extends SiteTestCase
         $this->assertSame([4, 2, 1, 1, ['tr' => 1], ['en'], 1, 1, null], [$row['clusters'], $row['missing'], $row['weak'], $row['ok'], $row['pool'], $row['translated'], $row['reading'], $row['sent'], $row['reason']]);
 
         Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('TR 1/20')->assertDontSee('EN 1/20')->assertSee('EN: yazılınca çevrilir')
-            ->assertSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Küme: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
+            ->assertDontSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Küme: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
     }
 
     public function test_the_content_line_shows_where_it_waits_and_what_sent_articles_brought(): void
@@ -83,9 +83,9 @@ final class ContentCoverageTest extends SiteTestCase
         $row = $coverage->rows()[0];
         $this->assertSame([1, 1, 1], [$row['writing'], $row['reading'], $row['sent']]);
         $this->assertSame('1 yazı okumanı bekliyor', ContentCoverage::stage($row)['label']);
-        $this->assertSame([$this->site->id => ['sent' => 2, 'live' => 1, 'clicks' => 12]], $coverage->outcomes([$this->site->id]));
+        $this->assertSame([$this->site->id => ['sent' => 1, 'live' => 1, 'clicks' => 12, 'clicks90' => 12]], $coverage->outcomes([$this->site->id]));
 
-        Livewire::test(WorkPage::class)->assertSee('1 yazı okumanı bekliyor')->assertSee('1/2 yayında')->assertSee('12 tıklama')
+        Livewire::test(WorkPage::class)->assertSee('1 yazı okumanı bekliyor')->assertSee('1/1 yayında')->assertSee('12 tıklama · 90 günde 12')
             ->assertSee('Onayını bekleyen')->assertSee('Sistemin bu hafta yaptığı')->assertSee('Senin elin gerekiyor');
     }
 
@@ -125,6 +125,23 @@ final class ContentCoverageTest extends SiteTestCase
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['wants'] === ['tr' => 20]);
     }
 
+    /**
+     * The candidates of a DATA_JSON pack (the fakes answer each one by its id).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function candidatesOf(string $prompt): array
+    {
+        return json_decode(substr($prompt, strpos($prompt, '{')), true)['candidates'] ?? [];
+    }
+
+    /** @return array<string, mixed> */
+    private function item(int $candidateId, string $title, string $angle = 'decision', string $language = 'tr'): array
+    {
+        return ['candidate_id' => $candidateId, 'language' => $language, 'title' => $title, 'kind' => 'new', 'cluster_id' => null, 'query' => null, 'page_type' => 'blog',
+            'target_url' => null, 'angle' => $angle, 'outline' => ['Giriş', 'Süreç', 'Sonrası'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
+    }
+
     public function test_ideas_are_planned_only_in_the_main_language_of_a_site(): void
     {
         $this->enableAi();
@@ -133,24 +150,26 @@ final class ContentCoverageTest extends SiteTestCase
         $this->page('/en/dental-implant/', 'Dental Implant', ['category' => 'hizmet', 'language' => 'en']);
         $this->rowOf('no_page', 'İmplant fiyatları');
         $prompts = [];
-        $clusterId = (int) BrandClusterPage::query()->value('cluster_id');
-        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts, $clusterId): array {
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
             $prompts[] = $prompt;
-            $item = fn (string $language, string $title): array => ['language' => $language, 'title' => $title, 'kind' => 'new', 'cluster_id' => $clusterId, 'page_type' => 'blog',
-                'target_url' => null, 'angle' => 'decision', 'outline' => ['Giriş'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
 
-            return ['items' => [$item('tr', 'İmplant mı köprü mü'), $item('tr', 'İmplant kimlere uygun'), $item('tr', 'Fazla Türkçe fikir'), $item('en', 'Implant or bridge'), $item('de', 'Implantat')]];
+            return ['items' => array_map(fn (array $c): array => $this->item($c['candidate_id'], 'İmplant mı köprü mü'), $this->candidatesOf($prompt))];
         });
 
-        $this->assertSame(['status' => 'ready', 'added' => 2], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 2, 'en' => 1]));
+        $this->assertSame(['status' => 'ready', 'added' => 1], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 2, 'en' => 1]));
 
         $this->assertCount(1, $prompts);
-        $this->assertStringContainsString('"languages":{"tr":2}', $prompts[0], 'English is never planned on its own');
-        $this->assertSame(['tr' => 2], app(ContentCoverage::class)->rows()[0]['pool']);
-        $this->assertSame(0, Suggestion::query()->where('title', 'Implant or bridge')->count());
+        $this->assertStringContainsString('"language":"tr"', $prompts[0]);
+        $this->assertStringNotContainsString('"language":"en"', $prompts[0], 'English is never planned on its own');
+        $this->assertSame(['tr' => 1], app(ContentCoverage::class)->rows()[0]['pool']);
     }
 
-    public function test_ideas_rest_on_the_brands_own_searches_and_generated_looking_titles_are_left_out(): void
+    /**
+     * yakup, 2026-10-09: the topics come from the brand's data (Search Console 4–20, clusters without a page, pages to
+     * strengthen, AI questions), best first with its evidence; the AI writes one idea per candidate, a title a rule drops
+     * is asked again with the reason, and the run's counts stay on the content line.
+     */
+    public function test_the_data_chooses_the_topics_and_the_ai_writes_one_idea_per_candidate(): void
     {
         $this->enableAi();
         Queue::fake();
@@ -162,36 +181,51 @@ final class ContentCoverageTest extends SiteTestCase
         DB::table('queries')->update(['impressions' => 100]);
         $this->fact('implant ağrı yapar mı', '/implant/', 400, 6, 9.0);
         $prompts = [];
-        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts, $clusters): array {
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
             $prompts[] = $prompt;
-            $item = fn (string $title, ?int $cluster, ?string $query): array => ['language' => 'tr', 'title' => $title, 'kind' => 'new', 'cluster_id' => $cluster, 'query' => $query,
-                'page_type' => 'blog', 'target_url' => null, 'angle' => 'objection', 'outline' => ['Giriş'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
+            $titles = count($prompts) === 1
+                ? ['implant ağrı yapar mı' => 'İmplant ağrı yapar mı?', 'İmplant fiyatları' => 'İmplant fiyatları: kapsamlı rehber', 'Zirkonyum kaplama fiyatı' => 'Zirkonyum kaplama kaç yıl dayanır?']
+                : ['İmplant fiyatları' => 'İmplant tedavisi kaç seansta biter?'];
 
-            return ['items' => [
-                $item('İmplant ağrı yapar mı?', null, 'implant ağrı yapar mı'),
-                $item('İmplant fiyatları: kapsamlı rehber', $clusters['İmplant fiyatları'], null),
-                $item('Diş beyazlatma evde yapılır mı', null, null),
-                $item('İmplant tedavisi kaç seansta biter?', $clusters['İmplant fiyatları'], null),
-            ]];
+            return ['items' => collect($this->candidatesOf($prompt))->map(fn (array $c): ?array => isset($titles[$c['query'] ?? '']) || isset($titles[$c['cluster'] ?? ''])
+                ? $this->item($c['candidate_id'], $titles[$c['query'] ?? ''] ?? $titles[$c['cluster']], 'objection') : null)->filter()->values()->all()];
         });
 
-        $this->assertSame(['status' => 'ready', 'added' => 2], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 5]));
+        $this->assertSame(['status' => 'ready', 'added' => 3], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 5]));
 
-        $this->assertStringContainsString('"search_console":[{"query":"implant ağrı yapar mı","impressions":400,"clicks":6', $prompts[0]);
-        $this->assertLessThan(strpos($prompts[0], 'Zirkonyum kaplama fiyatı'), strpos($prompts[0], '"name":"İmplant fiyatları"'), 'the main service comes first');
+        $first = $this->candidatesOf($prompts[0]);
+        $this->assertSame('implant ağrı yapar mı', $first[0]['query'], 'a search the site already shows for comes first');
+        $this->assertSame('query', $first[0]['source']);
+        $this->assertLessThan(array_search('Zirkonyum kaplama fiyatı', array_column($first, 'cluster'), true), array_search('İmplant fiyatları', array_column($first, 'cluster'), true), 'the main service comes first');
+        $this->assertCount(2, $prompts, 'the dropped title is asked once more');
+        $again = $this->candidatesOf($prompts[1]);
+        $this->assertSame('İmplant fiyatları: kapsamlı rehber', $again[0]['previous_attempt']['rejected_title']);
+        $this->assertStringContainsString('kalıp başlık', $again[0]['previous_attempt']['why']);
+
         $evidence = Suggestion::query()->where('title', 'İmplant ağrı yapar mı?')->sole()->evidence;
-        $this->assertSame('«implant ağrı yapar mı» 28 günde 400 gösterim, 6 tıklama, ortalama 9,0. sıra', $evidence[0]['value']);
-        $this->assertStringContainsString('sorgu kütüphanesinde 100 gösterim', Suggestion::query()->where('title', 'İmplant tedavisi kaç seansta biter?')->sole()->evidence[0]['value']);
-        $this->assertSame(0, Suggestion::query()->whereIn('title', ['İmplant fiyatları: kapsamlı rehber', 'Diş beyazlatma evde yapılır mı'])->count(), 'two-part title and no evidence');
+        $this->assertSame('«implant ağrı yapar mı» 28 günde 400 gösterim, 6 tıklama, ortalama 9,0. sıra · kendi sayfası yok', $evidence[0]['value']);
+        $retried = Suggestion::query()->where('title', 'İmplant tedavisi kaç seansta biter?')->sole();
+        $this->assertStringContainsString('sorgu kütüphanesinde 100 gösterim', $retried->evidence[0]['value']);
+        $this->assertSame('c:'.$clusters['İmplant fiyatları'], $retried->action['candidate']);
+        $this->assertSame(0, Suggestion::query()->where('title', 'İmplant fiyatları: kapsamlı rehber')->count());
 
-        $this->assertNotSame([], app(ContentCoverage::class)->needs(), 'some ideas came: tomorrow tries the next clusters');
+        $run = ContentPlanner::lastRun($this->site->id);
+        $this->assertSame([3, 3], [$run['added'], $run['asked']]);
+        $this->assertStringContainsString('3 eklendi', (string) ContentCoverage::runLine($run));
+        $this->assertNotSame([], app(ContentCoverage::class)->needs(), 'the pool is not full: the next run goes on');
+
+        // Next run: the topics already in the pool are not asked again.
+        $prompts = [];
+        $this->assertSame(['status' => 'ready', 'added' => 0], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 5]));
+        $this->assertSame('no_candidates', ContentPlanner::lastRun($this->site->id)['status']);
+        $this->assertSame([], $prompts);
     }
 
     /**
-     * yakup, 2026-10-07: pools stuck at 1–4 of 20. Each top-up shows the AI the clusters without an idea first, and only a
-     * run that found nothing at all pauses the daily top-up (3 days or Monday), with the reason on the page.
+     * Clusters a recent idea already answers go last; a run whose data has no topic left waits until the next day
+     * (Monday asks anyway) and says why, instead of a silent pause.
      */
-    public function test_each_top_up_puts_clusters_without_an_idea_first_and_only_an_empty_run_pauses_the_pool(): void
+    public function test_used_clusters_go_last_and_a_run_without_topics_waits_a_day_with_the_reason(): void
     {
         $this->enableAi();
         Queue::fake();
@@ -212,11 +246,17 @@ final class ContentCoverageTest extends SiteTestCase
 
         $this->assertSame(['status' => 'ready', 'added' => 0], app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 19]));
 
-        $this->assertLessThan(strpos($prompts[0], '"name":"İmplant fiyatları"'), strpos($prompts[0], '"name":"Zirkonyum kaplama fiyatı"'), 'the cluster without an idea comes first despite less demand');
-        $this->assertSame([], app(ContentCoverage::class)->needs(), 'nothing with evidence: no filler on the next daily top-up');
+        $names = array_column($this->candidatesOf($prompts[0]), 'cluster');
+        $this->assertLessThan(array_search('İmplant fiyatları', $names, true), array_search('Zirkonyum kaplama fiyatı', $names, true), 'the cluster without an idea comes first despite less demand');
+        $this->assertSame(['AI bu konuyu yazmadı' => 2], ContentPlanner::lastRun($this->site->id)['dropped']);
+        $this->assertNotSame([], app(ContentCoverage::class)->needs(), 'the AI wrote nothing: the next run tries again');
+
+        BrandClusterPage::query()->update(['state' => 'sufficient']);
+        app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 19]);
+        $this->assertSame([], app(ContentCoverage::class)->needs(), 'no topic left in the data: no run until tomorrow');
         $this->assertNotSame([], app(ContentCoverage::class)->needs(weekly: true), 'Monday asks again');
-        $this->assertStringContainsString('günlük tamamlama', (string) app(ContentCoverage::class)->rows()[0]['reason']);
-        $this->travel(ContentPlanner::SHORT_RUN_DAYS + 1)->days();
+        $this->assertStringContainsString('yeni konu kalmadı', (string) app(ContentCoverage::class)->rows()[0]['reason']);
+        $this->travel(21)->hours();
         $this->assertNotSame([], app(ContentCoverage::class)->needs());
     }
 

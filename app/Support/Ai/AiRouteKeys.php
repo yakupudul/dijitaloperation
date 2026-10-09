@@ -197,6 +197,9 @@ final class AiRouteKeys
     /** Faz 4a "AI ile yap": the new version of the fields / HTML a suggestion changes. */
     public const string SITE_APPLY_CHANGE = 'site.apply_change';
 
+    /** Onarım masası toplu hazırlık: SEO titles / meta descriptions of up to 15 pages of one site per call. */
+    public const string SITE_SEO_FIELDS_BATCH = 'site.seo_fields_batch';
+
     /** Faz 4a "Bu karardan standart öner": a scoped standard from an approved suggestion. */
     public const string SITE_STANDARD_FROM_DECISION = 'site.standard_from_decision';
 

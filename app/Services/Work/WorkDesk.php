@@ -14,6 +14,7 @@ use App\Services\DataStatus\DataStatusReader;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Repair\RepairDesk;
+use App\Services\Repair\WebHealthAudit;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Clarity\ClarityRules;
 use App\Services\Site\ClusterOverlaps;
@@ -53,6 +54,9 @@ final class WorkDesk
 
     /** Website suggestion types that change a page's fields or markup (the rest of channel `search` is content). */
     public const array TECHNICAL_TYPES = ['title_description', 'internal_links', 'technical_seo', 'conversion', ImageAlts::TYPE];
+
+    /** Kinds the Onarım masası prepares and approves; Genel işler never lists them (yakup, 2026-10-09). */
+    public const array DESK_TYPES = [...SiteSuggestionTypes::APPLICABLE, ImageAlts::TYPE, WebHealthAudit::TYPE];
 
     /** Brand setup work (BrandGaps / BrandAudit): fixed inside MoxDOP and closed by the system when the gap is gone. */
     public const array SETUP_TYPES = ['brand_gap', 'brand_audit'];
@@ -415,12 +419,25 @@ final class WorkDesk
         return $this->deskIds ??= app(RepairDesk::class)->rows()->pluck('id')->map(fn ($id): int => (int) $id)->all();
     }
 
-    /** @return array{total: int, brand: int} rows waiting on the Onarım masası (all brands / the filtered brand) */
+    /**
+     * Rows waiting on the Onarım masası (all brands / the filtered brand) and the page fixes the system is still
+     * preparing for it (shown as a count, never as rows to approve here).
+     *
+     * @return array{total: int, brand: int, preparing: int}
+     */
     public function onDesk(?int $brandId = null): array
     {
         $rows = app(RepairDesk::class)->rows($brandId);
 
-        return ['total' => count($this->deskIds()), 'brand' => $rows->count()];
+        return ['total' => count($this->deskIds()), 'brand' => $rows->count(), 'preparing' => $this->preparing($brandId)];
+    }
+
+    /** Website fixes of the desk's kinds with no prepared value yet (RepairPreparer / SeoFieldsBatch prepare them). */
+    public function preparing(?int $brandId = null): int
+    {
+        return Suggestion::query()->whereHas('brand', fn (Builder $b): Builder => $b->operational())->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])
+            ->whereNotNull('page_id')->whereNull('action->proposal')->whereNull('action->proposal_blocked')->whereNull('action->writes')->count();
     }
 
     private function suggestionQuery(string $tab, string $view, ?int $brandId): Builder
@@ -444,6 +461,13 @@ final class WorkDesk
         if ($view === self::VIEW_DONE) {
             return $query->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::DONE_DAYS));
         }
+
+        // Website fixes the Onarım masası prepares and approves (titles / descriptions, links, technical, page text,
+        // alt texts, web health) are not listed here at all: prepared ones wait on the desk, the rest are being prepared.
+        // A site-wide fix without a page cannot be prepared for the desk and stays here.
+        $query->where(fn (Builder $q): Builder => $q->whereNull('action_type')
+            ->orWhereNotIn('action_type', self::DESK_TYPES)
+            ->orWhere(fn (Builder $site): Builder => $site->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->whereNull('page_id')));
 
         // A content idea whose WordPress draft is sent stays approved; it is no longer open work.
         return $query->whereNotIn('id', $this->deskIds() ?: [0])->whereNull('action->article_write_id')->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)

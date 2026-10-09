@@ -57,9 +57,15 @@
         <span class="text-gray-400">{{ $total }} iş{{ $brandName === null && count($sections) > 1 ? ' · '.(count($sections) + $hiddenSections).' marka' : '' }}</span>
     </div>
 
-    @if($view === 'acik' && $onDesk['brand'] > 0 && $tab !== 'icerik')
+    @if($view === 'acik' && ($onDesk['brand'] > 0 || ($onDesk['preparing'] ?? 0) > 0))
         <a href="{{ route('operator.repair', array_filter(['marka' => $brand])) }}" class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-brand-50 px-4 py-2 text-sm text-brand-800 dark:bg-brand-500/10 dark:text-brand-200" data-on-desk>
-            <span>Hazırlanmış {{ $onDesk['brand'] }} düzeltme Onarım masasında onayını bekliyor; burada tekrar gösterilmez.</span>
+            @php
+                $deskLine = 'Hazırlanmış '.$onDesk['brand'].' düzeltme Onarım masasında onayını bekliyor';
+                if (($onDesk['preparing'] ?? 0) > 0) {
+                    $deskLine .= '; '.number_format($onDesk['preparing'], 0, ',', '.').' sayfa düzeltmesini sistem hazırlıyor (saatte '.\App\Services\Repair\RepairPreparer::BATCH_PAGES_PER_RUN.' sayfa), hazır olan masaya gelir';
+                }
+            @endphp
+            <span>{{ $deskLine }}. Sayfa düzeltmeleri burada tekrar gösterilmez.</span>
             <span class="font-semibold">Onarım masasını aç →</span>
         </a>
     @endif

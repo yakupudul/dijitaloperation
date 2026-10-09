@@ -646,6 +646,13 @@ Schedule::command('moxdop:repair:prepare')
     ->withoutOverlapping(30)
     ->name('repair-desk-prepare');
 
+// Toplu hazırlık (yakup, 2026-10-09): title / description fixes every hour, 15 pages per AI call, until none waits.
+Schedule::command('moxdop:repair:prepare --batch-only')
+    ->hourlyAt(12)
+    ->withoutOverlapping(50)
+    ->when(fn (): bool => AiBudget::automaticAllowed('site.seo_fields_batch'))
+    ->name('repair-desk-prepare-batch');
+
 Schedule::command('moxdop:repair:verify')
     ->hourlyAt(35)
     ->withoutOverlapping(30)
@@ -818,7 +825,7 @@ Schedule::command('moxdop:site:weekly')
     ->name('site-weekly');
 
 // İçerik fikir havuzu (yakup, 2026-10-06: "havuzda her koşulda her dilde 20 içerik fikri olsun, üstüne haftalık
-// otomatik üretim"): every morning each operational site with matched clusters gets every active language's pool of
+// otomatik üretim"; 2026-10-09 "fikir üret butonuna basmayayım"): at 09:17 and 15:17 each operational site with matched clusters gets every active language's pool of
 // waiting titles back to ContentCoverage::POOL; on Monday each language also gets the brand's weekly number of fresh
 // ideas on top, and in the first week of the month the out-of-cluster opportunities. Only titles: an article is
 // written only after the operator approves it.
@@ -888,7 +895,7 @@ Schedule::command('moxdop:bing:collect')
     ->name('bing-collect');
 
 Schedule::command('moxdop:content:weekly-titles')
-    ->dailyAt('09:17')
+    ->twiceDaily(9, 15, 17)
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())

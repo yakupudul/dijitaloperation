@@ -25,6 +25,7 @@ use App\Services\Queries\QueryNormalizer;
 use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\Analysis\SiteAnalysisReader;
+use App\Services\Work\ContentCoverage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -56,13 +57,8 @@ final class ContentPlanner
     /** Gaps read per run; the best ones (brand's own searches, demand, main services) go to the AI. */
     private const int GAP_CANDIDATES = 300;
 
-    private const int GAPS_TO_AI = 40;
-
     /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
     private const int STRIKING_QUERIES = 40;
-
-    /** A run that found no evidence-backed idea at all (no unused gap cluster carried one) is not asked again for this long. */
-    public const int SHORT_RUN_DAYS = 3;
 
     private const array MONTHS = [1 => 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -71,11 +67,6 @@ final class ContentPlanner
         private readonly BrandMemoryService $memory,
         private readonly SiteAnalysisReader $reader,
     ) {}
-
-    public static function shortRunKey(int $siteId): string
-    {
-        return 'content-pool:short-run:v2:'.$siteId; // v2: keys of the old rule (any short run, 7 days) no longer hold pools back
-    }
 
     /**
      * Open pool ideas whose titles read like generated text are closed (dismissed, so the next run never repeats them)
@@ -147,8 +138,13 @@ final class ContentPlanner
     }
 
     /**
-     * One run plans every language the pool asks for (`$wants`: language => ideas), so the clusters, queries and site
-     * pages go to the AI once per site instead of once per language.
+     * İçerik fikir havuzu (yakup, 2026-10-09 "konuyu veri seçsin"): the topics come from rules, the AI only writes them.
+     * Candidates are the site's Search Console queries at position 4–20 without a page of their own, clusters without a
+     * suitable page or with thin coverage, weak pages to strengthen and the questions people ask AI assistants, each with
+     * its numbers as evidence, scored (demand × service weight × what earlier articles of the angle brought) and mixed
+     * (about 60% new, 25% updates, 15% AI questions). The AI writes one title, angle and outline per candidate; what a
+     * rule drops is asked once more with the reason, and every run leaves its counts and reasons on the content line
+     * (`lastRun`). Ideas are only planned in the site's main language (yakup, 2026-10-07).
      *
      * @param  Collection<int, BrandClusterPage>|null  $only  "Konu üret": just these rows, one item
      * @param  array<string, int>|null  $wants  ideas per language; null: the brand's weekly number in the main language
@@ -160,155 +156,406 @@ final class ContentPlanner
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'added' => 0];
         }
-        $siteLanguages = self::siteLanguages($site);
-        $explicit = $wants !== null && $only === null;
-        // Ideas only in the main language (yakup, 2026-10-07); other languages are translations of the written article.
-        $wants = collect($explicit ? $wants : [])->filter(fn ($n, $l): bool => $l === $siteLanguages[0] && (int) $n > 0)
-            ->map(fn ($n): int => min(20, (int) $n))->all();
-        if ($wants === []) {
-            $explicit = false;
-            $wants = [$siteLanguages[0] => $only !== null ? 1 : max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4)))];
-        }
-        $capacity = array_sum($wants);
-        $inLanguage = fn ($q) => ! $explicit ? $q : $q->where(fn ($l) => $l->whereNull('language')->orWhereIn('language', array_keys($wants)));
-        // Earlier plans of 8 weeks and every title still waiting in the pool: never asked again.
-        $previous = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
-            ->where(fn ($q) => $q->where('created_at', '>=', now()->subWeeks(8))->orWhereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED]))
-            ->orderByDesc('id')->limit(150)->get(['title', 'status', 'action', 'cluster_id']);
-        // Clusters those plans already answer go to the back, so every daily top-up shows the AI fresh clusters instead of
-        // the same best 40 whose titles it already gave (yakup, 2026-10-07: pools stuck at 1–4 of 20).
-        $used = $previous->pluck('cluster_id')->filter()->map(fn ($id): int => (int) $id)->unique()->flip()->all();
-        $gaps = $only ?? $inLanguage(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url'])->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->whereIn('state', ['no_page', 'thin_coverage'])->where('excluded', false))->orderBy('id')->limit(self::GAP_CANDIDATES)->get();
-        $brandSearch = $only !== null ? [] : $this->brandSearch($site);
-        $volumes = $this->clusterVolumes($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
-        if ($only === null) {
-            $gaps = $this->rankGaps($brand, $gaps, $volumes, $brandSearch)
-                ->sortBy(fn (BrandClusterPage $row): int => isset($used[(int) $row->cluster_id]) ? 1 : 0)->take(self::GAPS_TO_AI)->values();
-        }
-        $improvable = $only !== null ? collect() : $inLanguage(BrandClusterPage::query()->with('page:id,url,title')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
-            ->whereIn('state', ['weak_performance', 'thin_coverage'])->whereNotNull('page_id'))->limit(20)->get();
+        $main = self::siteLanguages($site)[0];
+        $requested = collect($wants ?? [])->filter(fn ($n, $l): bool => $l === $main && (int) $n > 0)->map(fn ($n): int => min(20, (int) $n))->all();
+        $explicit = $requested !== [] && $only === null;
+        $capacity = $only !== null ? 1 : ($requested[$main] ?? max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4))));
         $sitePages = $this->sitePages($site);
-        $topQueries = $this->clusterQueries($gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all());
-        $striking = $only !== null ? [] : $this->strikingQueries($site);
-        $result = $this->ai->run(new WeeklyContentAgent, [
-            'brand' => $this->memory->contextFor($brand, [], $gaps->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())['profile'],
-            'search_console' => $striking,
-            'paid_results' => $only !== null ? [] : $this->paidResults($brand),
-            'languages' => $wants,
-            'capacity' => $capacity,
-            'month' => self::MONTHS[(int) now()->month].' '.now()->year,
-            'clusters' => $gaps->map(fn (BrandClusterPage $row): array => [
-                'cluster_id' => (int) $row->cluster_id, 'language' => $row->language, 'name' => (string) $row->cluster?->name, 'service' => (string) ($row->cluster?->service?->primaryName?->raw_label ?? ''),
-                'intent' => (string) $row->cluster?->intent, 'page_type' => (string) $row->cluster?->page_type, 'main_query' => (string) ($row->cluster?->mainQuery?->text ?? ''),
-                'target_query' => $row->target_query, 'queries' => $topQueries[(int) $row->cluster_id] ?? [],
-                'library_impressions' => $volumes[(int) $row->cluster_id] ?? 0, 'brand_search' => $brandSearch[(int) $row->cluster_id] ?? null,
-                'state' => $row->stateLabel(), 'page_url' => $row->page?->url, 'subtopics' => array_values((array) $row->cluster?->subtopics),
-                'gaps' => array_column((array) $row->gaps, 'text'),
-                'ai_questions' => $row->cluster !== null ? ClusterAudit::aiQuestions($row->cluster, $brand) : [],
-                'service_areas' => $row->cluster !== null ? ClusterAudit::serviceAreas($row->cluster, $brand) : [],
-            ])->values()->all(),
-            'improvable_urls' => $improvable->map(fn (BrandClusterPage $row): array => ['url' => (string) $row->page?->url, 'title' => $row->page?->title, 'state' => $row->stateLabel(), 'reason' => $row->reason])->values()->all(),
-            'previous_plans' => $previous->map(fn (Suggestion $s): array => ['title' => $s->title, 'status' => $s->status])->values()->all(),
-            'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title, 'category' => $p->category])->values()->all(),
-        ], 240, $only === null ? 'weekly' : null);
-        if ($result['status'] !== 'ready') {
-            return ['status' => $result['status'], 'added' => 0];
+        $previous = $this->previousIdeas($brand);
+        $candidates = $this->candidates($brand, $site, $only, $previous, $sitePages, $main);
+        if ($candidates === []) {
+            $this->logRun($site, ['status' => 'no_candidates', 'candidates' => 0, 'asked' => 0, 'added' => 0, 'dropped' => []]);
+
+            return ['status' => 'ready', 'added' => 0];
         }
-        $clusters = $gaps->keyBy('cluster_id');
+        $chosen = $only !== null ? array_slice($candidates, 0, 1) : self::mix($candidates, $capacity + (int) ceil($capacity / 4));
         $taken = $previous->map(fn (Suggestion $s): string => SeoText::fold((string) $s->title))->all();
         $added = 0;
-        $left = $wants;
-        foreach ((array) ($result['data']['items'] ?? []) as $item) {
-            if (! is_array($item)) {
-                continue;
+        $dropped = [];
+        $pending = $chosen;
+        $notes = [];
+        $promptVersion = null;
+        $status = 'ready';
+        for ($round = 0; $round < 2 && $pending !== [] && $added < $capacity; $round++) {
+            $result = $this->ai->run(new WeeklyContentAgent, $this->pack($brand, $pending, $notes, $previous, $sitePages, $main), 240, $only === null ? 'weekly'.($round > 0 ? '-again' : '') : null);
+            if ($result['status'] !== 'ready') {
+                $status = $result['status'];
+                break;
             }
-            $language = is_string($item['language'] ?? null) && isset($left[strtolower($item['language'])]) ? strtolower($item['language']) : (count($wants) === 1 ? array_key_first($wants) : null);
-            if ($language === null || $left[$language] < 1) {
-                continue;
-            }
-            $clusterId = is_int($item['cluster_id'] ?? null) && $clusters->has($item['cluster_id']) ? $item['cluster_id'] : null;
-            $row = $clusterId !== null ? $clusters->get($clusterId) : null;
-            $evidence = $this->evidence($row, $volumes, $brandSearch, $striking, is_string($item['query'] ?? null) ? $item['query'] : null);
-            if ($evidence === [] && ($item['kind'] ?? 'new') === 'update') {
-                $page = $improvable->first(fn (BrandClusterPage $r): bool => SeoText::urlKey((string) $r->page?->url) === SeoText::urlKey((string) ($item['target_url'] ?? '')));
-                $evidence = [['kind' => 'page', 'value' => $page !== null ? SeoText::urlPath((string) $page->page?->url).' · '.$page->stateLabel() : 'Sitedeki sayfa: '.SeoText::urlPath((string) ($item['target_url'] ?? '')), 'source' => 'site']];
-            }
-            if ($evidence === [] || self::styleProblem(trim((string) ($item['title'] ?? ''))) !== null) {
-                continue; // no evidence (no query, cluster or page of the site) or a generated-looking title: never in the pool
-            }
-            $stored = $this->storeItem($brand, $site, $sitePages, $item, $taken, [
-                'cluster_id' => $clusterId, 'out_of_cluster' => false, 'language' => $explicit ? $language : null,
-                'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : null,
-                'evidence' => $evidence,
-                'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
-            ], $result['prompt_version_id']);
-            $added += $stored ? 1 : 0;
-            $left[$language] -= $stored ? 1 : 0;
-        }
-        if ($only === null && $added === 0) {
-            // Nothing with evidence even from fresh clusters: the daily top-up waits instead of asking for filler. A run
-            // that added some keeps going tomorrow with the next clusters.
-            Cache::put(self::shortRunKey((int) $site->id), now()->toIso8601String(), now()->addDays(self::SHORT_RUN_DAYS));
-        }
+            $promptVersion = $result['prompt_version_id'];
+            $byId = collect((array) ($result['data']['items'] ?? []))->filter(fn ($i): bool => is_array($i) && is_int($i['candidate_id'] ?? null))->keyBy('candidate_id');
+            $retry = [];
+            $notes = [];
+            foreach ($pending as $candidate) {
+                if ($added >= $capacity) {
+                    break;
+                }
+                $item = $byId->get($candidate['id']);
+                $reason = $item === null ? 'AI bu konuyu yazmadı' : $this->storeCandidate($brand, $site, $sitePages, $candidate, $item, $taken, $explicit ? $main : null, $promptVersion);
+                if ($reason === null) {
+                    $added++;
 
-        return ['status' => 'ready', 'added' => $added];
+                    continue;
+                }
+                if ($round === 0 && $item !== null && $reason !== 'aynı başlık zaten var') {
+                    $retry[] = $candidate;
+                    $notes[$candidate['id']] = ['rejected_title' => (string) ($item['title'] ?? ''), 'why' => $reason];
+
+                    continue;
+                }
+                $dropped[$reason] = ($dropped[$reason] ?? 0) + 1;
+            }
+            $pending = $retry;
+        }
+        foreach ($pending as $candidate) {
+            if ($status !== 'ready' && isset($notes[$candidate['id']])) {
+                $dropped[$notes[$candidate['id']]['why']] = ($dropped[$notes[$candidate['id']]['why']] ?? 0) + 1;
+            }
+        }
+        $this->logRun($site, ['status' => $status, 'candidates' => count($candidates), 'asked' => count($chosen), 'added' => $added, 'dropped' => $dropped]);
+
+        return ['status' => $added > 0 ? 'ready' : $status, 'added' => $added];
+    }
+
+    public static function lastRunKey(int $siteId): string
+    {
+        return 'content-pool:last-run:'.$siteId;
     }
 
     /**
-     * Gaps best first: the brand's own Search Console impressions on the cluster, the cluster's search volume and the
-     * weight of its service (main services, services with paid results).
+     * The last pool run of a site: when, how many candidates the data gave, how many were asked, added and why the rest
+     * were dropped (shown on the content line instead of a silent pause).
      *
-     * @param  Collection<int, BrandClusterPage>  $gaps
-     * @param  array<int, int>  $volumes
-     * @param  array<int, array{impressions: int, clicks: int, position: ?float}>  $brandSearch
-     * @return Collection<int, BrandClusterPage>
+     * @return array{at: string, status: string, candidates: int, asked: int, added: int, dropped: array<string, int>}|null
      */
-    private function rankGaps(Brand $brand, Collection $gaps, array $volumes, array $brandSearch): Collection
+    public static function lastRun(int $siteId): ?array
     {
-        $main = BrandOffering::query()->where('brand_id', $brand->id)->where('priority', 'main')->whereNotNull('service_catalog_item_id')->pluck('service_catalog_item_id')->map(fn ($id): int => (int) $id)->all();
-        $paid = array_flip(array_map(fn (array $r): int => $r['service_id'], $this->paidResults($brand)));
+        $run = Cache::get(self::lastRunKey($siteId));
 
-        return $gaps->sortByDesc(function (BrandClusterPage $row) use ($volumes, $brandSearch, $main, $paid): float {
-            $serviceId = (int) ($row->cluster?->service_id ?? 0);
-            $weight = 1.0 + (in_array($serviceId, $main, true) ? 1.0 : 0.0) + (isset($paid[$serviceId]) ? 0.5 : 0.0);
+        return is_array($run) ? $run : null;
+    }
 
-            return $weight * log10(1 + ($volumes[(int) $row->cluster_id] ?? 0)) + 1.5 * log10(1 + ($brandSearch[(int) $row->cluster_id]['impressions'] ?? 0));
+    /** @param  array{status: string, candidates: int, asked: int, added: int, dropped: array<string, int>}  $run */
+    private function logRun(DigitalAsset $site, array $run): void
+    {
+        arsort($run['dropped']);
+        Cache::put(self::lastRunKey((int) $site->id), ['at' => now()->toIso8601String()] + $run, now()->addDays(30));
+    }
+
+    /**
+     * The brand's ideas of the last 180 days (any status) and every idea still waiting, approved or snoozed: their titles,
+     * clusters, queries and pages are never planned again.
+     *
+     * @return Collection<int, Suggestion>
+     */
+    private function previousIdeas(Brand $brand): Collection
+    {
+        return Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
+            ->where(fn ($q) => $q->where('created_at', '>=', now()->subDays(180))->orWhereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED]))
+            ->orderByDesc('id')->limit(2000)->get(['id', 'title', 'status', 'action', 'cluster_id', 'page_id', 'created_at']);
+    }
+
+    /**
+     * Aday konular, best first. Each: id, source (query | cluster | update | ai_question), kind, cluster, query, target
+     * page, score, evidence and the texts its numbers may come from.
+     *
+     * @param  Collection<int, BrandClusterPage>|null  $only
+     * @param  Collection<int, Suggestion>  $previous
+     * @param  Collection<int, Page>  $sitePages
+     * @return list<array<string, mixed>>
+     */
+    private function candidates(Brand $brand, DigitalAsset $site, ?Collection $only, Collection $previous, Collection $sitePages, string $main): array
+    {
+        $usedKeys = $previous->map(fn (Suggestion $s): ?string => data_get($s->action, 'candidate'))->filter()->flip()->all();
+        $usedQueries = $previous->map(fn (Suggestion $s): ?string => is_string(data_get($s->action, 'query')) ? SeoText::fold((string) data_get($s->action, 'query')) : null)->filter()->flip()->all();
+        // Clusters already answered by a recent idea go last (rotation), not out: a cluster can carry more than one article.
+        $recentClusters = $previous->filter(fn (Suggestion $s): bool => $s->cluster_id !== null && ($s->created_at?->gt(now()->subWeeks(8)) ?? false))
+            ->pluck('cluster_id')->map(fn ($id): int => (int) $id)->flip()->all();
+        $updatedPages = $previous->pluck('page_id')->filter()->map(fn ($id): int => (int) $id)->flip()->all();
+        $inMain = fn ($q) => $q->where(fn ($l) => $l->whereNull('language')->orWhere('language', $main));
+        $rows = $only ?? $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path'])->where('brand_id', $brand->id)
+            ->where('website_asset_id', $site->id)->whereIn('state', ['no_page', 'thin_coverage', 'weak_performance'])->where('excluded', false))
+            ->orderBy('id')->limit(self::GAP_CANDIDATES)->get();
+        $clusterIds = $rows->pluck('cluster_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        $volumes = $this->clusterVolumes($clusterIds);
+        $brandSearch = $only !== null ? [] : $this->brandSearch($site);
+        $queries = $this->clusterQueries($clusterIds);
+        $mainServices = BrandOffering::query()->where('brand_id', $brand->id)->where('priority', 'main')->whereNotNull('service_catalog_item_id')->pluck('service_catalog_item_id')->map(fn ($id): int => (int) $id)->flip()->all();
+        $paid = collect($only !== null ? [] : $this->paidResults($brand))->groupBy('service_id')->map(fn (Collection $r): float => (float) $r->sum('results'))->all();
+        $angleWeights = $only !== null ? [] : self::angleWeights();
+        $weight = function (?int $serviceId) use ($mainServices, $paid): float {
+            return 1.0 + ($serviceId !== null && isset($mainServices[$serviceId]) ? 1.0 : 0.0) + ($serviceId !== null && isset($paid[$serviceId]) ? 0.5 : 0.0);
+        };
+        $number = fn (float $n, int $d = 0): string => number_format($n, $d, ',', '.');
+        $paidLine = fn (?int $serviceId): array => $serviceId !== null && isset($paid[$serviceId])
+            ? [['kind' => 'paid', 'value' => 'Reklamda bu hizmet 30 günde '.$number($paid[$serviceId]).' sonuç getirdi', 'source' => 'Google Ads / Meta']] : [];
+        $out = [];
+        $seenQueries = [];
+
+        // 1) Search Console: searches the site is shown for at position 4–20 without a page of their own.
+        if ($only === null) {
+            $striking = $this->strikingQueries($site);
+            $clusterOfQuery = $this->queryClusters(array_column($striking, 'query'), $clusterIds);
+            foreach ($striking as $s) {
+                $folded = SeoText::fold($s['query']);
+                if (isset($usedQueries[$folded]) || isset($usedKeys['q:'.$folded]) || mb_strlen($folded) < 4) {
+                    continue;
+                }
+                $page = $this->pageFor($s['query'], $sitePages);
+                if ($page !== null && isset($updatedPages[(int) $page->id])) {
+                    continue;
+                }
+                $row = isset($clusterOfQuery[$folded]) ? $rows->firstWhere('cluster_id', $clusterOfQuery[$folded]) : null;
+                $serviceId = $row?->cluster?->service_id !== null ? (int) $row->cluster->service_id : null;
+                $angle = $page !== null ? 'update' : (self::isQuestion($s['query']) ? 'expert_answer' : null);
+                $seenQueries[$folded] = true;
+                $out[] = [
+                    'key' => 'q:'.$folded, 'source' => 'query', 'kind' => $page !== null ? 'update' : 'new', 'row' => $row, 'query' => $s['query'], 'page' => $page, 'angle_hint' => $angle,
+                    'score' => 1.5 * log10(1 + $s['impressions']) * ($s['position'] <= 10 ? 1.3 : 1.0) * $weight($serviceId) * ($angleWeights[$angle ?? 'decision'] ?? 1.0),
+                    'evidence' => [['kind' => 'query', 'value' => '«'.$s['query'].'» 28 günde '.$number($s['impressions']).' gösterim, '.$number($s['clicks']).' tıklama'
+                        .($s['position'] !== null ? ', ortalama '.$number((float) $s['position'], 1).'. sıra' : '').($page !== null ? ' · cevaplayan sayfa: '.SeoText::urlPath((string) $page->url) : ' · kendi sayfası yok'), 'source' => 'Search Console'],
+                        ...$paidLine($serviceId)],
+                ];
+            }
+        }
+
+        // 2) Clusters without a suitable page / with thin coverage, 3) weak pages, 4) AI-assistant questions of the clusters.
+        foreach ($rows as $row) {
+            $cluster = $row->cluster;
+            if ($cluster === null) {
+                continue;
+            }
+            $serviceId = $cluster->service_id !== null ? (int) $cluster->service_id : null;
+            $volume = $volumes[(int) $row->cluster_id] ?? 0;
+            $search = $brandSearch[(int) $row->cluster_id] ?? null;
+            $demand = $weight($serviceId) * log10(1 + $volume) + 1.5 * log10(1 + ($search['impressions'] ?? 0));
+            $rotation = isset($recentClusters[(int) $row->cluster_id]) ? 1 : 0;
+            $parts = array_filter([
+                $volume > 0 ? 'sorgu kütüphanesinde '.$number($volume).' gösterim' : null,
+                $search !== null && $search['impressions'] > 0 ? 'sitede 28 günde '.$number($search['impressions']).' gösterim'.($search['position'] !== null ? ', '.$number((float) $search['position'], 1).'. sıra' : '') : null,
+            ]);
+            $clusterLine = ['kind' => 'cluster', 'value' => $cluster->name.' · '.($parts !== [] ? implode(' · ', $parts).' · ' : '').$row->stateLabel(), 'source' => 'küme'];
+            $mainQuery = (string) ($cluster->mainQuery?->text ?? ($queries[(int) $row->cluster_id][0] ?? ''));
+            $isUpdate = $row->state !== 'no_page' && $row->page !== null;
+            if ($isUpdate && isset($updatedPages[(int) $row->page_id])) {
+                continue;
+            }
+            $key = ($isUpdate ? 'p:'.$row->page_id.':' : 'c:').$row->cluster_id;
+            if (! isset($usedKeys[$key])) {
+                $out[] = [
+                    'key' => $key, 'source' => $isUpdate ? 'update' : 'cluster', 'kind' => $isUpdate ? 'update' : 'new', 'row' => $row, 'query' => $mainQuery !== '' ? $mainQuery : null,
+                    'page' => $isUpdate ? $row->page : null, 'angle_hint' => $isUpdate ? 'update' : null,
+                    'tier' => $rotation, 'score' => $demand * ($isUpdate ? ($row->state === 'weak_performance' ? 0.7 : 0.85) : 1.0) * ($angleWeights[$isUpdate ? 'update' : 'decision'] ?? 1.0),
+                    'evidence' => [$clusterLine, ...($isUpdate ? [['kind' => 'page', 'value' => SeoText::urlPath((string) $row->page->url).' · '.$row->stateLabel()
+                        .(filled($row->reason) ? ' · '.mb_substr((string) $row->reason, 0, 120) : ''), 'source' => 'site']] : []), ...$paidLine($serviceId)],
+                ];
+            }
+            if ($only !== null || $row->state !== 'no_page') {
+                continue;
+            }
+            $question = collect(ClusterAudit::aiQuestions($cluster, $brand))->first(fn (string $q): bool => ! isset($usedQueries[SeoText::fold($q)]) && ! isset($usedKeys['a:'.SeoText::fold($q)]));
+            if ($question !== null && $demand > 0) {
+                $out[] = [
+                    'key' => 'a:'.SeoText::fold($question), 'source' => 'ai_question', 'kind' => 'new', 'row' => $row, 'query' => $question, 'page' => null, 'angle_hint' => 'expert_answer',
+                    'tier' => $rotation, 'score' => 0.8 * $demand * ($angleWeights['expert_answer'] ?? 1.0),
+                    'evidence' => [['kind' => 'ai_question', 'value' => 'AI asistanlarında sorulan: «'.$question.'»', 'source' => 'AI aramaları'], $clusterLine],
+                ];
+            }
+        }
+        // Clusters a recent idea already answers go last (rotation; yakup, 2026-10-07: pools stuck on the same clusters).
+        usort($out, fn (array $a, array $b): int => [$a['tier'] ?? 0, $b['score']] <=> [$b['tier'] ?? 0, $a['score']]);
+        foreach ($out as $i => &$candidate) {
+            $candidate['id'] = $i + 1;
+            $candidate['queries'] = $candidate['row'] !== null ? ($queries[(int) $candidate['row']->cluster_id] ?? []) : [];
+        }
+        unset($candidate);
+
+        return $out;
+    }
+
+    /**
+     * Karışım: about 60% new pages, 25% updates of existing pages and 15% answers to AI-assistant questions, best first in
+     * each; a short share is filled from the best of the rest.
+     *
+     * @param  list<array<string, mixed>>  $candidates  best first
+     * @return list<array<string, mixed>>
+     */
+    public static function mix(array $candidates, int $count): array
+    {
+        $groups = ['new' => [], 'update' => [], 'ai' => []];
+        foreach ($candidates as $c) {
+            $groups[$c['source'] === 'ai_question' ? 'ai' : ($c['kind'] === 'update' ? 'update' : 'new')][] = $c;
+        }
+        $quota = ['update' => (int) round($count * 0.25), 'ai' => (int) round($count * 0.15)];
+        $quota['new'] = max(0, $count - $quota['update'] - $quota['ai']);
+        $chosen = [];
+        foreach ($quota as $group => $n) {
+            foreach (array_slice($groups[$group], 0, $n) as $c) {
+                $chosen[$c['id']] = $c;
+            }
+        }
+        foreach ($candidates as $c) {
+            if (count($chosen) >= $count) {
+                break;
+            }
+            $chosen[$c['id']] ??= $c;
+        }
+        $chosen = array_values($chosen);
+        usort($chosen, fn (array $a, array $b): int => $a['id'] <=> $b['id']);
+
+        return array_slice($chosen, 0, $count);
+    }
+
+    /**
+     * What earlier articles of each angle brought (live pages' Search Console clicks in 28 days against the average of
+     * all), 0.7–1.5; an angle with fewer than 3 live articles stays 1.0.
+     *
+     * @return array<string, float>
+     */
+    public static function angleWeights(): array
+    {
+        return Cache::remember('content-pool:angle-weights', now()->addHours(12), function (): array {
+            $clicks = [];
+            foreach (app(ContentCoverage::class)->articleResults() as $result) {
+                if ($result['live'] && $result['angle'] !== null) {
+                    $clicks[$result['angle']][] = $result['clicks'];
+                }
+            }
+            $all = array_merge(...array_values($clicks ?: [[]]));
+            $average = $all !== [] ? array_sum($all) / count($all) : 0.0;
+            $out = [];
+            foreach ($clicks as $angle => $list) {
+                if (count($list) >= 3 && $average > 0) {
+                    $out[$angle] = round(max(0.7, min(1.5, (array_sum($list) / count($list)) / $average)), 2);
+                }
+            }
+
+            return $out;
+        });
+    }
+
+    /** A search phrased as a question (Turkish or English). */
+    public static function isQuestion(string $query): bool
+    {
+        return (bool) preg_match('/\b(ne|neden|nasil|nasıl|nedir|kac|kaç|hangi|mi|mı|mu|mü|mudur|midir|zararli|zararlı|olur|yapilir|yapılır|what|how|why|when|which|can|does|is)\b|\?$/u', mb_strtolower($query));
+    }
+
+    /**
+     * The site page that already answers a search: its title or path holds every word of the search longer than two
+     * letters (at least two such words).
+     *
+     * @param  Collection<int, Page>  $sitePages
+     */
+    private function pageFor(string $query, Collection $sitePages): ?Page
+    {
+        $words = array_values(array_filter(explode(' ', SeoText::fold($query)), fn (string $w): bool => mb_strlen($w) > 2));
+        if (count($words) < 2) {
+            return null;
+        }
+
+        return $sitePages->first(function (Page $p) use ($words): bool {
+            $text = SeoText::fold((string) $p->title.' '.str_replace(['-', '/'], ' ', (string) $p->path));
+            foreach ($words as $word) {
+                if (! str_contains($text, $word)) {
+                    return false;
+                }
+            }
+
+            return true;
         });
     }
 
     /**
-     * Evidence of an idea with real numbers (shown under the title), or [] when it has none.
+     * Folded search text => cluster id, for the given clusters.
      *
-     * @param  array<int, int>  $volumes
-     * @param  array<int, array{impressions: int, clicks: int, position: ?float}>  $brandSearch
-     * @param  list<array{query: string, impressions: int, clicks: int, position: ?float}>  $striking
-     * @return list<array{kind: string, value: string, source: string}>
+     * @param  list<string>  $texts
+     * @param  list<int>  $clusterIds
+     * @return array<string, int>
      */
-    private function evidence(?BrandClusterPage $row, array $volumes, array $brandSearch, array $striking, ?string $query): array
+    private function queryClusters(array $texts, array $clusterIds): array
     {
+        if ($texts === [] || $clusterIds === []) {
+            return [];
+        }
+        $wanted = collect($texts)->mapWithKeys(fn (string $t): array => [SeoText::fold($t) => true])->all();
         $out = [];
-        $number = fn (float $n, int $d = 0): string => number_format($n, $d, ',', '.');
-        if ($query !== null) {
-            foreach ($striking as $s) {
-                if (SeoText::fold($s['query']) === SeoText::fold($query)) {
-                    $out[] = ['kind' => 'query', 'value' => '«'.$s['query'].'» 28 günde '.$number($s['impressions']).' gösterim, '.$number($s['clicks']).' tıklama'
-                        .($s['position'] !== null ? ', ortalama '.$number($s['position'], 1).'. sıra' : ''), 'source' => 'Search Console'];
-                    break;
+        DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds)
+            ->whereIn(DB::raw('lower(q.text)'), array_map(fn (string $t): string => mb_strtolower($t), $texts))->get(['cq.cluster_id', 'q.text'])
+            ->each(function (object $r) use (&$out, $wanted): void {
+                $folded = SeoText::fold((string) $r->text);
+                if (isset($wanted[$folded])) {
+                    $out[$folded] ??= (int) $r->cluster_id;
                 }
-            }
-        }
-        if ($row !== null) {
-            $search = $brandSearch[(int) $row->cluster_id] ?? null;
-            $volume = $volumes[(int) $row->cluster_id] ?? 0;
-            $parts = array_filter([
-                $volume > 0 ? 'sorgu kütüphanesinde '.$number($volume).' gösterim' : null,
-                $search !== null && $search['impressions'] > 0 ? 'sitede 28 günde '.$number($search['impressions']).' gösterim'.($search['position'] !== null ? ', '.$number($search['position'], 1).'. sıra' : '') : null,
-            ]);
-            $out[] = ['kind' => 'cluster', 'value' => $row->cluster?->name.' · '.($parts !== [] ? implode(' · ', $parts) : $row->stateLabel()), 'source' => 'küme'];
-        }
+            });
 
         return $out;
+    }
+
+    /**
+     * DATA_JSON of one writing round: the brand, the month, the chosen candidates (with what a rule found wrong in a
+     * previous title of the same candidate), earlier titles and the site pages.
+     *
+     * @param  list<array<string, mixed>>  $candidates
+     * @param  array<int, array{rejected_title: string, why: string}>  $notes
+     * @param  Collection<int, Suggestion>  $previous
+     * @param  Collection<int, Page>  $sitePages
+     * @return array<string, mixed>
+     */
+    private function pack(Brand $brand, array $candidates, array $notes, Collection $previous, Collection $sitePages, string $main): array
+    {
+        $clusterIds = collect($candidates)->map(fn (array $c): ?int => $c['row']?->cluster_id !== null ? (int) $c['row']->cluster_id : null)->filter()->unique()->values()->all();
+
+        return [
+            'brand' => $this->memory->contextFor($brand, [], $clusterIds)['profile'],
+            'language' => $main,
+            'month' => self::MONTHS[(int) now()->month].' '.now()->year,
+            'candidates' => array_map(function (array $c) use ($brand, $notes): array {
+                $row = $c['row'];
+
+                return array_filter([
+                    'candidate_id' => $c['id'], 'kind' => $c['kind'], 'source' => $c['source'], 'query' => $c['query'], 'angle_hint' => $c['angle_hint'],
+                    'cluster' => $row?->cluster?->name, 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
+                    'queries' => $c['queries'], 'gaps' => $row !== null ? array_column((array) $row->gaps, 'text') : [],
+                    'ai_questions' => $row?->cluster !== null ? ClusterAudit::aiQuestions($row->cluster, $brand) : [],
+                    'service_areas' => $row?->cluster !== null ? ClusterAudit::serviceAreas($row->cluster, $brand) : [],
+                    'page_url' => $c['page']?->url, 'page_title' => $c['page']?->title,
+                    'evidence' => array_column($c['evidence'], 'value'),
+                    'previous_attempt' => $notes[$c['id']] ?? null,
+                ], fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
+            }, $candidates),
+            'previous_titles' => $previous->take(150)->pluck('title')->values()->all(),
+            'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title, 'category' => $p->category])->values()->all(),
+        ];
+    }
+
+    /**
+     * Stores the AI's idea for one candidate, or says in plain Turkish why it was not stored.
+     *
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, mixed>  $item
+     * @param  Collection<int, Page>  $sitePages
+     * @param  list<string>  $taken
+     */
+    private function storeCandidate(Brand $brand, DigitalAsset $site, Collection $sitePages, array $candidate, array $item, array &$taken, ?string $language, ?int $promptVersion): ?string
+    {
+        $title = trim((string) ($item['title'] ?? ''));
+        if (($style = self::styleProblem($title)) !== null) {
+            return $style === 'çok uzun' ? 'başlık çok uzun' : 'kalıp başlık ('.$style.')';
+        }
+        $row = $candidate['row'];
+        $page = $candidate['page'];
+        $item['kind'] = $candidate['kind'];
+        $item['target_url'] = $page?->url;
+        $numbers = implode(' ', [(string) $candidate['query'], ...$candidate['queries'], ...array_column($candidate['evidence'], 'value'), (string) $row?->cluster?->name,
+            ...($row !== null ? array_column((array) $row->gaps, 'text') : [])]);
+
+        return $this->storeItem($brand, $site, $sitePages, $item, $taken, [
+            'cluster_id' => $row?->cluster_id !== null ? (int) $row->cluster_id : null, 'out_of_cluster' => false, 'language' => $language,
+            'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : ($candidate['angle_hint'] ?? null),
+            'evidence' => $candidate['evidence'], 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
+            'candidate' => $candidate['key'], 'source' => $candidate['source'], 'query' => $candidate['query'], 'number_text' => $numbers,
+            'priority' => $candidate['score'] >= 6 ? 1 : ($candidate['score'] >= 3 ? 2 : 3),
+        ], $promptVersion);
     }
 
     /**
@@ -411,7 +658,7 @@ final class ContentPlanner
                 'cluster_id' => null, 'out_of_cluster' => true, 'query_ids' => $ids, 'new_queries' => $newQueries, 'service_id' => $serviceId,
                 'evidence' => array_map(fn (int $id): array => ['kind' => 'query', 'value' => (string) $known[$id], 'source' => 'Search Console'], array_slice($ids, 0, 5)),
                 'service' => $serviceId !== null ? (string) $services->get($serviceId) : '',
-            ], $result['prompt_version_id']);
+            ], $result['prompt_version_id']) === null;
             $added += $stored ? 1 : 0;
         }
 
@@ -799,17 +1046,26 @@ final class ContentPlanner
      * @param  Collection<int, Page>  $sitePages
      * @param  array<string, mixed>  $item
      * @param  list<string>  $taken  folded titles already planned
-     * @param  array<string, mixed>  $extra
+     * @param  array<string, mixed>  $extra  number_text: data the idea's numbers may come from (its queries, evidence)
+     * @return string|null why it was not stored (plain Turkish), null when stored
      */
-    private function storeItem(Brand $brand, DigitalAsset $site, Collection $sitePages, array $item, array &$taken, array $extra, ?int $promptVersionId): bool
+    private function storeItem(Brand $brand, DigitalAsset $site, Collection $sitePages, array $item, array &$taken, array $extra, ?int $promptVersionId): ?string
     {
         $compliance = BriefCompliance::forBrand($brand);
-        $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
+        preg_match_all('/\d+(?:[.,]\d+)?/u', (string) ($extra['number_text'] ?? ''), $dataNumbers);
+        $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all(), $dataNumbers[0]);
         $title = trim((string) ($item['title'] ?? ''));
         $folded = SeoText::fold($title);
         $pageType = in_array($item['page_type'] ?? null, self::PAGE_TYPES, true) ? $item['page_type'] : 'blog';
-        if (mb_strlen($title) < 5 || in_array($folded, $taken, true) || ! $compliance->isCompliant($title) || ! $evidence->grounded($title)) {
-            return false;
+        $problem = match (true) {
+            mb_strlen($title) < 5 => 'başlık boş',
+            in_array($folded, $taken, true) => 'aynı başlık zaten var',
+            ! $compliance->isCompliant($title) => 'sektörde yasaklı ifade',
+            ! $evidence->grounded($title) => 'veride olmayan sayı ya da adres',
+            default => null,
+        };
+        if ($problem !== null) {
+            return $problem;
         }
         $lines = fn (mixed $list, int $max): array => array_values(array_slice($compliance->filter(array_values(array_filter(array_map(fn ($l): string => mb_substr(trim((string) $l), 0, 200), (array) $list),
             fn (string $l): bool => $l !== '' && $evidence->grounded($l)))), 0, $max));
@@ -819,7 +1075,7 @@ final class ContentPlanner
         if ($kind === 'update') {
             $page = $sitePages->first(fn (Page $p): bool => SeoText::urlKey((string) $p->url) === SeoText::urlKey((string) ($item['target_url'] ?? '')));
             if ($page === null) {
-                return false; // an update must name a real page of the site
+                return 'güncellenecek sayfa sitede yok'; // an update must name a real page of the site
             }
             [$target, $pageId] = [(string) $page->url, (int) $page->id];
         } else {
@@ -829,11 +1085,11 @@ final class ContentPlanner
         $reason = trim((string) ($item['reason'] ?? ''));
         $fingerprint = hash('sha256', implode('|', [$brand->id, 'content', $folded]));
         if (Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $fingerprint)->exists()) {
-            return false;
+            return 'aynı başlık zaten var';
         }
         Suggestion::query()->create([
             'brand_id' => $brand->id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => $fingerprint, 'material_hash' => hash('sha256', $folded),
-            'title' => mb_substr($title, 0, 160), 'reason' => mb_substr($evidence->grounded($reason) ? $reason : '', 0, 240), 'priority' => 3,
+            'title' => mb_substr($title, 0, 160), 'reason' => mb_substr($evidence->grounded($reason) ? $reason : '', 0, 240), 'priority' => (int) ($extra['priority'] ?? 3),
             'evidence' => $extra['evidence'] ?? [['kind' => 'none', 'value' => 'veri yok', 'source' => '']],
             'action_type' => SiteSuggestionTypes::CONTENT, 'target_type' => $pageId !== null ? 'page' : 'site', 'target_id' => $pageId ?? $site->id,
             'page_id' => $pageId, 'cluster_id' => $extra['cluster_id'] ?? null, 'prompt_version_id' => $promptVersionId, 'status' => Suggestion::OPEN,
@@ -844,11 +1100,12 @@ final class ContentPlanner
                 'out_of_cluster' => (bool) ($extra['out_of_cluster'] ?? false), 'query_ids' => $extra['query_ids'] ?? null, 'new_queries' => $extra['new_queries'] ?? null,
                 'service_id' => $extra['service_id'] ?? null, 'week' => now()->format('o-\WW'),
                 'language' => $extra['language'] ?? null, 'angle' => $extra['angle'] ?? null,
+                'candidate' => $extra['candidate'] ?? null, 'source' => $extra['source'] ?? null, 'query' => $extra['query'] ?? null,
             ], fn (mixed $v): bool => $v !== null),
         ]);
         $taken[] = $folded;
 
-        return true;
+        return null;
     }
 
     /**

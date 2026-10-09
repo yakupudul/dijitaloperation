@@ -15,7 +15,6 @@ use App\Services\Site\SiteSuggestionTypes;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -39,7 +38,7 @@ final class ContentCoverage
     public const array WEAK_STATES = ['weak_performance', 'possible_conflict', 'wrong_page'];
 
     /**
-     * @return list<array{brand_id: int, brand: string, site: DigitalAsset, clusters: int, missing: int, weak: int, ok: int, pool: array<string, int>, translated: list<string>, waiting: int, weekly: int, reading: int, sent: int, last_title_at: ?CarbonInterface, reason: ?string}>
+     * @return list<array{brand_id: int, brand: string, site: DigitalAsset, clusters: int, missing: int, weak: int, ok: int, pool: array<string, int>, translated: list<string>, waiting: int, weekly: int, reading: int, sent: int, last_title_at: ?CarbonInterface, last_run: ?array<string, mixed>, reason: ?string}>
      */
     public function rows(?int $brandId = null): array
     {
@@ -67,10 +66,10 @@ final class ContentCoverage
                     'pool' => $pool, 'translated' => array_slice($languages, 1), 'waiting' => array_sum($pool), 'weekly' => self::weekly($brand),
                     'writing' => $count['writing'], 'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
-                $row['paused_at'] = $row['clusters'] > 0 ? Cache::get(ContentPlanner::shortRunKey((int) $site->id)) : null;
+                $row['last_run'] = ContentPlanner::lastRun((int) $site->id);
                 $row['services'] = $row['clusters'] === 0 ? SiteScope::offerings($brand)->count() : null;
                 $row['reason'] = self::reason($row);
-                unset($row['paused_at'], $row['services']);
+                unset($row['services']);
                 $rows[] = $row;
             }
         }
@@ -92,8 +91,9 @@ final class ContentCoverage
             if (($siteId !== null && (int) $row['site']->id !== $siteId) || $row['clusters'] === 0) {
                 continue;
             }
-            if (! $weekly && $siteId === null && Cache::has(ContentPlanner::shortRunKey((int) $row['site']->id))) {
-                continue; // the last run had no evidence for more; no filler until Monday or new data
+            $last = $row['last_run'];
+            if (! $weekly && $siteId === null && ($last['status'] ?? null) === 'no_candidates' && Carbon::parse($last['at'])->gt(now()->subHours(20))) {
+                continue; // the data had no topic left today; the next day's data may have
             }
             $wants = [];
             foreach ($row['pool'] as $language => $waiting) {
@@ -112,35 +112,50 @@ final class ContentCoverage
 
     /**
      * Sonuç: of the articles sent as WordPress drafts in the last OUTCOME_DAYS, how many are live on the site now (the
-     * crawl found the post) and the Search Console clicks those pages got in the last 28 days.
+     * crawl found the post) and the Search Console clicks those pages got in the last 28 and 90 days.
      *
      * @param  list<int>  $siteIds
-     * @return array<int, array{sent: int, live: int, clicks: int}>
+     * @return array<int, array{sent: int, live: int, clicks: int, clicks90: int}>
      */
     public function outcomes(array $siteIds): array
     {
-        $writeIds = [];
-        Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->whereNotNull('action->article_write_id')
+        $out = array_fill_keys($siteIds, ['sent' => 0, 'live' => 0, 'clicks' => 0, 'clicks90' => 0]);
+        foreach ($this->articleResults($siteIds) as $result) {
+            $out[$result['site_id']]['sent']++;
+            $out[$result['site_id']]['live'] += $result['live'] ? 1 : 0;
+            $out[$result['site_id']]['clicks'] += $result['clicks'];
+            $out[$result['site_id']]['clicks90'] += $result['clicks90'];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Every article sent in the last OUTCOME_DAYS with its angle, whether its post is live on the site and the Search
+     * Console clicks of the live page in 28 and 90 days (the pool's scoring learns from it: ContentPlanner::angleWeights).
+     *
+     * @param  list<int>|null  $siteIds  null: every site
+     * @return list<array{suggestion_id: int, site_id: int, angle: ?string, live: bool, clicks: int, clicks90: int}>
+     */
+    public function articleResults(?array $siteIds = null): array
+    {
+        $ideas = Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->whereNotNull('action->article_write_id')
             ->where('updated_at', '>=', now()->subDays(self::OUTCOME_DAYS))->get(['id', 'action'])
-            ->each(function (Suggestion $s) use (&$writeIds, $siteIds): void {
-                $site = (int) data_get($s->action, 'site_id');
-                if (in_array($site, $siteIds, true)) {
-                    $writeIds[(int) data_get($s->action, 'article_write_id')] = $site;
-                }
-            });
-        $posts = [];
-        ExternalWriteAction::query()->whereIn('id', array_keys($writeIds) ?: [0])->whereIn('status', ['succeeded', 'partial'])->get(['id', 'result'])
-            ->each(function (ExternalWriteAction $write) use (&$posts, $writeIds): void {
-                $ids = array_filter([(int) data_get($write->result, 'post_id'), ...array_map(fn (mixed $p): int => (int) data_get($p, 'post_id'), (array) data_get($write->result, 'posts', []))]);
-                foreach (array_unique($ids) as $postId) {
-                    $posts[$writeIds[(int) $write->id]][] = $postId;
-                }
-            });
+            ->filter(fn (Suggestion $s): bool => $siteIds === null || in_array((int) data_get($s->action, 'site_id'), $siteIds, true));
+        $writes = ExternalWriteAction::query()->whereIn('id', $ideas->map(fn (Suggestion $s): int => (int) data_get($s->action, 'article_write_id'))->all() ?: [0])
+            ->whereIn('status', ['succeeded', 'partial'])->get(['id', 'result'])->keyBy('id');
         $out = [];
-        foreach ($siteIds as $siteId) {
-            $urls = $posts === [] || ! isset($posts[$siteId]) ? [] : Page::query()->where('website_asset_id', $siteId)->whereIn('wp_post_id', $posts[$siteId])->pluck('url')->all();
-            $clicks = $urls === [] ? 0 : (int) DB::table('gsc_page_daily')->whereIn('page', $urls)->where('reporting_date', '>=', now()->subDays(28)->toDateString())->sum('clicks');
-            $out[$siteId] = ['sent' => count(array_unique($posts[$siteId] ?? [])), 'live' => count($urls), 'clicks' => $clicks];
+        foreach ($ideas as $idea) {
+            $write = $writes->get((int) data_get($idea->action, 'article_write_id'));
+            if ($write === null) {
+                continue;
+            }
+            $siteId = (int) data_get($idea->action, 'site_id');
+            $posts = array_values(array_unique(array_filter([(int) data_get($write->result, 'post_id'), ...array_map(fn (mixed $p): int => (int) data_get($p, 'post_id'), (array) data_get($write->result, 'posts', []))])));
+            $urls = $posts === [] ? [] : Page::query()->where('website_asset_id', $siteId)->whereIn('wp_post_id', $posts)->pluck('url')->all();
+            $clicks = fn (int $days): int => $urls === [] ? 0 : (int) DB::table('gsc_page_daily')->whereIn('page', $urls)->where('reporting_date', '>=', now()->subDays($days)->toDateString())->sum('clicks');
+            $out[] = ['suggestion_id' => (int) $idea->id, 'site_id' => $siteId, 'angle' => is_string(data_get($idea->action, 'angle')) ? (string) data_get($idea->action, 'angle') : null,
+                'live' => $urls !== [], 'clicks' => $clicks(28), 'clicks90' => $clicks(90)];
         }
 
         return $out;
@@ -181,23 +196,47 @@ final class ContentCoverage
     }
 
     /**
-     * Why the pool is not full, or null: no service (only the operator can add one), clusters not matched, the daily
-     * top-up paused after a run without any evidence-backed idea, or an empty pool still to be filled.
+     * Why the pool is not full, or null: no service, clusters not matched, the AI not answering, or the data having no
+     * new topic left; otherwise how the last automatic run went.
      *
-     * @param  array{clusters: int, missing: int, waiting: int, reading: int, paused_at: mixed, services: ?int}  $row
+     * @param  array{clusters: int, missing: int, waiting: int, reading: int, last_run: ?array<string, mixed>, services: ?int}  $row
      */
     private static function reason(array $row): ?string
     {
-        $paused = is_string($row['paused_at']) ? Carbon::parse($row['paused_at']) : null;
+        $last = $row['last_run'];
 
         return match (true) {
-            $row['clusters'] === 0 && $row['services'] === 0 => 'Markanın etkin hizmeti yok; hizmet eklenince kümeler eşleşir ve havuz dolmaya başlar.',
-            $row['clusters'] === 0 => 'Kümeler bu siteyle eşleştirilmedi (onaylı küme yok ya da Eşleştir çalışmadı); havuz dolamaz.',
-            $paused !== null && $row['waiting'] < self::POOL => 'Son üretimde kanıtlı yeni fikir çıkmadı; günlük tamamlama '
-                .$paused->copy()->addDays(ContentPlanner::SHORT_RUN_DAYS)->timezone('Europe/Istanbul')->format('d.m').' tarihine ya da Pazartesi\'ye kadar duruyor ("Fikir üret" hemen dener).',
+            $row['clusters'] === 0 && $row['services'] === 0 => 'Markanın etkin hizmeti yok; marka tamamlama hizmetleri sitesinden doldurunca kümeler eşleşir ve havuz dolar.',
+            $row['clusters'] === 0 => 'Kümeler bu siteyle henüz eşleşmedi; sistem eşleştirmeyi kendisi başlatır, ardından havuz dolar.',
+            $row['waiting'] >= self::POOL => null,
+            ($last['status'] ?? null) === 'no_candidates' => 'Verilerde yeni konu kalmadı: her arama ve küme için fikir var ya da yazıldı. Yeni arama verisi gelince kendiliğinden dolar.',
+            $last !== null && ! in_array($last['status'] ?? 'ready', ['ready', 'no_candidates'], true) && (int) ($last['added'] ?? 0) === 0 => 'Son dolumda AI yanıt vermedi; bir sonraki dolumda yeniden denenir.',
             $row['waiting'] > 0 || $row['reading'] > 0 => null,
-            default => 'Havuz boş; '.self::POOL.' fikre her sabah kendiliğinden tamamlanır (ya da "Fikir üret").',
+            default => 'Havuz boş; günde iki kez kendiliğinden '.self::POOL.' fikre tamamlanır.',
         };
+    }
+
+    /**
+     * The last automatic run in one line, e.g. "Son dolum 09.10 09:17 · 24 aday · 12 eklendi · 3 elendi (2 kalıp başlık, 1 aynı başlık zaten var)".
+     *
+     * @param  array<string, mixed>|null  $run
+     */
+    public static function runLine(?array $run): ?string
+    {
+        if ($run === null) {
+            return null;
+        }
+        $dropped = collect((array) ($run['dropped'] ?? []));
+        $line = 'Son dolum '.Carbon::parse((string) $run['at'])->timezone('Europe/Istanbul')->format('d.m H:i').' · '.(int) $run['candidates'].' aday';
+        if (($run['status'] ?? '') === 'no_candidates') {
+            return $line.' · yeni konu yok';
+        }
+        $line .= ' · '.(int) $run['added'].' eklendi';
+        if ($dropped->sum() > 0) {
+            $line .= ' · '.$dropped->sum().' elendi ('.$dropped->map(fn (int $n, string $why): string => $n.' '.$why)->implode(', ').')';
+        }
+
+        return $line.(! in_array($run['status'] ?? 'ready', ['ready'], true) ? ' · AI yanıt vermedi' : '');
     }
 
     /**

@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Repair;
 
+use App\Ai\Agents\Site\SeoFieldsBatchAgent;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Repair\RepairDeskPage;
+use App\Livewire\Operator\Work\WorkPage;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -13,7 +15,9 @@ use App\Models\Suggestion;
 use App\Services\Repair\RepairDesk;
 use App\Services\Repair\RepairPreparer;
 use App\Services\Repair\RepairVerifier;
+use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\SiteAudit;
+use App\Services\Site\SiteOperations;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
@@ -158,7 +162,8 @@ final class RepairDeskTest extends SiteTestCase
         $this->suggestion('Hazır', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni']]]);
         $this->suggestion('Engelli', 'title_description', ['proposal_blocked' => 'garanti']);
 
-        $this->assertSame(['fields' => 1, 'content' => 0], app(RepairPreparer::class)->queue());
+        $this->assertSame(['batch' => 1, 'fields' => 0, 'content' => 0], app(RepairPreparer::class)->queue());
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::SEO_FIELDS_BATCH && $job->params === ['suggestion_ids' => [$unprepared->id]]);
         Queue::assertPushed(RunSiteOperationJob::class, 1);
 
         $this->artisan('moxdop:repair:prepare', ['--fields' => 0])->expectsOutputToContain('0 alan düzeltmesi')->assertSuccessful();
@@ -202,7 +207,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(1, $rows[$this->implantPage->id]->priority);
         $this->assertStringContainsString('Başlık 2 sayfada aynı', $rows[$long->id]->reason);
         $this->assertFalse($rows->has($fine->id));
-        $this->assertSame(['fields' => 3, 'content' => 0], app(RepairPreparer::class)->queue(), 'prepared overnight like the other field fixes');
+        $this->assertSame(['batch' => 3, 'fields' => 0, 'content' => 0], app(RepairPreparer::class)->queue(), 'prepared in batches of 15 pages per AI call');
 
         $this->implantPage->forceFill(['meta_description' => str_repeat('Ankara implant tedavisi süreci ve fiyatları. ', 2)])->save();
         $this->assertSame(['opened' => 0, 'closed' => 1], app(SiteAudit::class)->audit($this->site));
@@ -226,6 +231,44 @@ final class RepairDeskTest extends SiteTestCase
      * @param  array<string, mixed>  $action
      * @param  array<string, mixed>  $extra
      */
+    /**
+     * yakup, 2026-10-09: thousands of pages without a description are prepared 15 pages per AI call; each value passes
+     * the rules (length, not another page's title, no invented number, sector phrases) before it reaches the desk.
+     */
+    public function test_title_and_description_fixes_are_prepared_in_batches_and_checked_by_rules(): void
+    {
+        $this->enableAi();
+        $this->implantPage->forceFill(['title' => 'İmplant', 'meta_description' => null, 'content_text' => 'Ankara Çankaya şubemizde implant tedavisi yapılır. Tedavi 2 aşamalıdır.'])->save();
+        $zirkonyum = $this->page('/zirkonyum/', 'Zirkonyum', ['wp_post_id' => 43, 'meta_description' => null]);
+        $this->page('/hakkimizda/', 'Hakkımızda | Panorama Ankara Ağız ve Diş Sağlığı', ['wp_post_id' => 45]);
+        $make = fn (Page $page, array $problems): Suggestion => $this->suggestion('Başlık ve açıklamayı düzelt: '.$page->path, SiteAudit::TYPE, ['site_id' => $this->site->id, 'problems' => $problems], ['page_id' => $page->id]);
+        $implant = $make($this->implantPage, ['seo_title:short', 'meta_description:missing']);
+        $other = $make($zirkonyum, ['meta_description:missing']);
+        $prompts = [];
+        SeoFieldsBatchAgent::fake(function (string $prompt) use (&$prompts, $implant, $other): array {
+            $prompts[] = $prompt;
+
+            return ['pages' => [
+                ['id' => $implant->id, 'seo_title' => 'Ankara Çankaya implant tedavisi | Panorama', 'meta_description' => 'Çankaya şubemizde implant tedavisi 2 aşamada yapılır; muayene ve tedavi planı için randevu alabilirsiniz.'],
+                ['id' => $other->id, 'seo_title' => 'Hakkımızda | Panorama Ankara Ağız ve Diş Sağlığı', 'meta_description' => 'Zirkonyum kaplamada 15 yıl garanti veriyoruz, hemen arayın ve fiyat bilgisi alın lütfen.'],
+            ]];
+        });
+
+        $this->assertSame(['status' => 'ready', 'prepared' => 1, 'skipped' => 1], app(SeoFieldsBatch::class)->prepare($this->site, [$implant->id, $other->id]));
+
+        $this->assertCount(1, $prompts, 'one call for both pages');
+        $this->assertStringContainsString('"fix":{"seo_title":"short","meta_description":"missing"}', $prompts[0]);
+        $this->assertSame(['seo_title' => 'Ankara Çankaya implant tedavisi | Panorama', 'meta_description' => 'Çankaya şubemizde implant tedavisi 2 aşamada yapılır; muayene ve tedavi planı için randevu alabilirsiniz.'],
+            $implant->fresh()->action['proposal']['new']);
+        $this->assertArrayNotHasKey('proposal', $other->fresh()->action, 'invented number and claim: nothing prepared, the row waits');
+        $this->assertSame('Başlık: Ankara Çankaya implant tedavisi | Panorama', app(RepairDesk::class)->rows()->firstWhere('id', $implant->id)['after'][0], 'ready on the desk');
+        $this->assertSame(1, SeoFieldsBatch::waitingQuery()->count());
+
+        // Genel işler lists neither: the prepared one waits on the desk, the other is counted as being prepared.
+        Livewire::test(WorkPage::class)->assertDontSee('Başlık ve açıklamayı düzelt: /zirkonyum/')
+            ->assertSee('Hazırlanmış 1 düzeltme Onarım masasında onayını bekliyor; 1 sayfa düzeltmesini sistem hazırlıyor');
+    }
+
     private function suggestion(string $title, string $type, array $action, array $extra = []): Suggestion
     {
         return Suggestion::query()->create(array_merge([

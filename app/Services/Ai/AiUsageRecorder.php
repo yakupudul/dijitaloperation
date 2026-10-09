@@ -67,6 +67,7 @@ final class AiUsageRecorder
         'ContentLocalizerAgent' => AiRouteKeys::CONTENT_LOCALIZE,
         'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
         'ContentIdeasAgent' => AiRouteKeys::CONTENT_IDEAS,
+        'SeoFieldsBatchAgent' => AiRouteKeys::SITE_SEO_FIELDS_BATCH,
         'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,

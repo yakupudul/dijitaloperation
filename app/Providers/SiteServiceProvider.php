@@ -24,6 +24,7 @@ final class SiteServiceProvider extends ServiceProvider
         AiRouteKeys::QUERIES_AI_QUERIES => ['Query AI Questions', 'AI sorguları: 4–8 questions people ask AI assistants per cluster of one service ("{bölge}" placeholder for local ones).', 'classification'],
         AiRouteKeys::SITE_PAGE_SUMMARY => ['Site Page Summaries', 'Marka hafızası: 2–4 sentence summary + key facts of pages used in analysis (batched).', 'classification'],
         AiRouteKeys::SITE_URL_ANALYSIS => ['Site URL Analysis', 'URL analizi: suggestions for one URL from its data pack; URLs / numbers / quotes are checked against the pack.', 'analysis'],
+        AiRouteKeys::SITE_SEO_FIELDS_BATCH => ['Site SEO Fields Batch', 'Onarım masası toplu hazırlık: SEO titles and meta descriptions of up to 15 pages of one site per call; checked by rules, Admin approval before WordPress.', 'classification'],
         AiRouteKeys::SITE_APPLY_CHANGE => ['Site Apply Change', '"AI ile yap": the new version of the fields / HTML a suggestion changes; compliance gate before display, Admin approval before WordPress.', 'analysis'],
         AiRouteKeys::SITE_STANDARD_FROM_DECISION => ['Site Standard From Decision', '"Bu karardan standart öner": a scoped standard (URL / marka / sektör / genel) from an approved decision; operator edits and approves.', 'classification'],
         AiRouteKeys::SITE_WEEKLY_CONTENT => ['Site Weekly Content', 'İçerik: weekly content plan (new pages / posts, updates) within the brand capacity.', 'analysis'],

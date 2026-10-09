@@ -248,31 +248,33 @@ final class SiteSuggestionsTest extends SiteTestCase
         $this->page('/en/dental-implant/', 'Dental Implant', ['category' => 'hizmet', 'language' => 'en']);
         $gap = $this->cluster($this->implant, 'İmplant sonrası bakım', ['implant sonrası bakım'], [], 'informational');
         BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $gap->id, 'website_asset_id' => $this->site->id, 'language' => 'tr', 'state' => 'no_page']);
+        $thin = $this->cluster($this->zirkonyum, 'Zirkonyum kaplama', ['zirkonyum kaplama']);
+        BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $thin->id, 'website_asset_id' => $this->site->id, 'language' => 'tr',
+            'state' => 'thin_coverage', 'page_id' => $this->zirkonyumPage->id]);
         $this->suggestion(['action_type' => 'content', 'title' => 'İmplant sonrası beslenme', 'page_id' => null, 'created_at' => now()->subWeeks(2)]);
         $prompts = [];
-        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts, $gap): array {
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
             $prompts[] = $prompt;
-            $item = fn (string $title, string $kind, ?string $url, ?int $cluster = null): array => ['title' => $title, 'kind' => $kind, 'cluster_id' => $cluster, 'page_type' => 'blog',
-                'target_url' => $url, 'outline' => ['Giriş', 'İlk 24 saat'], 'questions' => ['İmplant sonrası ne yenir?'], 'reason' => 'Kümenin uygun sayfası yok.'];
+            $item = fn (array $c, string $title): array => ['candidate_id' => $c['candidate_id'], 'language' => 'tr', 'title' => $title, 'kind' => 'new', 'cluster_id' => null, 'query' => null,
+                'page_type' => 'blog', 'target_url' => 'https://panorama.com.tr/olmayan/', 'angle' => 'process', 'outline' => ['Giriş', 'İlk 24 saat'], 'questions' => ['İmplant sonrası ne yenir?'], 'reason' => 'Kümenin uygun sayfası yok.'];
+            $candidates = json_decode(substr($prompt, strpos($prompt, '{')), true)['candidates'];
 
             return ['items' => [
-                $item('İmplant sonrası ilk hafta', 'new', null, $gap->id),
-                $item('Zirkonyum kaplama sayfasını genişlet', 'update', 'https://panorama.com.tr/zirkonyum-kaplama/'),
-                $item('Olmayan sayfayı güncelle', 'update', 'https://panorama.com.tr/olmayan/'),
-                $item('İmplant fiyatları rehberi', 'new', null),
-                $item('İmplant sonrası beslenme', 'new', null),
+                ...array_map(fn (array $c): array => $item($c, $c['kind'] === 'update' ? 'Zirkonyum kaplama sayfasını genişlet' : 'İmplant sonrası ilk hafta'), $candidates),
+                $item(['candidate_id' => 999], 'Aday dışı fikir'),
             ]];
         });
 
         $this->assertSame(['status' => 'ready', 'added' => 2], app(ContentPlanner::class)->weekly($this->site));
 
-        $this->assertStringContainsString('İmplant sonrası beslenme', $prompts[0], 'previous plans are in the pack');
-        $this->assertStringContainsString('"capacity":5', $prompts[0]);
+        $this->assertStringContainsString('İmplant sonrası beslenme', $prompts[0], 'previous titles are in the pack');
         $new = Suggestion::query()->where('title', 'İmplant sonrası ilk hafta')->sole();
         $this->assertSame('https://panorama.com.tr/blog/implant-sonrasi-ilk-hafta/', $new->action['target_url'], 'site URL pattern, not invented');
         $this->assertSame($gap->id, $new->cluster_id);
         $this->assertSame(['İmplant sonrası ne yenir?'], $new->action['questions']);
-        $this->assertSame($this->zirkonyumPage->id, Suggestion::query()->where('title', 'Zirkonyum kaplama sayfasını genişlet')->value('page_id'));
+        $update = Suggestion::query()->where('title', 'Zirkonyum kaplama sayfasını genişlet')->sole();
+        $this->assertSame([$this->zirkonyumPage->id, 'update'], [$update->page_id, $update->action['kind']], 'an update names the candidate page, not the AI\'s URL');
+        $this->assertSame(0, Suggestion::query()->where('title', 'Aday dışı fikir')->count());
 
         // Discovery: queries outside every cluster → "küme dışı" → library.
         $free = Query::query()->create(['text' => 'diş taşı temizliği', 'text_hash' => QueryNormalizer::hash('diş taşı temizliği'), 'sector_id' => $this->dental->id, 'assignment' => 'none']);
