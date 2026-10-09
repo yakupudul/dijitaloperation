@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Anahtar Kelime Planlayıcı (salt okuma)
+
+- **Neden (yakup, "hemen bağlayabilirsin"):** arama verisi ince olan markalar (Burcu Kısa: kütüphanede 28 sorgu) küme ve fikir üretemiyordu.
+- **Ne yapar (`KeywordPlanner`, `moxdop:queries:keyword-planner`, her gün 05:47, marka başına 30 günde bir):** Google Ads `generateKeywordIdeas` çağrılır. Tohumlar markanın hizmet adları ve şehirli biçimleridir; konum Türkiye, dil sitenin ana dili. Reklam hesabında hiçbir şey oluşturulmaz. Kalan fikirler: markanın kendi hizmetine eşleşme ifadesiyle düşen ve ayda en az 20 aranan. Bunlar `query_sources` satırı olur (`keyword_planner`, markanın Google Ads ya da Search Console hesabında); kütüphane hattı ve sorgu pilotu onları diğer sorgular gibi işler (Bekleyenler → kütüphane → küme → fikir havuzu). Aylık arama ve 12 aylık eğri `query_volumes`'ta tutulur. Search Console yenilemesi bu satırları silmez (eski satır temizliği kaynağa göre). Son tur Marka › Özet › Marka bilgi kartı altında görünür.
+- **Not:** Planlayıcı, geliştirici jetonunun Basic ya da Standard erişimde olmasını ister; değilse hata mesajı karta yazılır.
+- **State:** CODED + PHPUnit (`KeywordPlannerTest`). Canlı UAT: deploy sonrası `moxdop:queries:keyword-planner --force`.
+
 ## 2026-10-09 — İçerik fikir havuzu yeniden kuruldu, Marka bilgi kartı, toplu başlık/açıklama hazırlığı
 
 - **Neden (yakup, "tamam yap"):** havuzlar boş kalıyordu (OPC 0/20, 357 sayfasız küme). Sebep: konuyu AI seçiyor, beş sessiz süzgeç eliyor, sonra 3 gün donduruluyordu. İçerik sekmesinde de 34 bin başlık/açıklama düzeltmesi vardı. yakup "Fikir üret"e basmak istemiyor.

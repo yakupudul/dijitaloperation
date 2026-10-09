@@ -146,6 +146,22 @@ class GoogleApiClient
     ];
 
     /**
+     * Read-only Anahtar Kelime Planlayıcı (KeywordPlanIdeaService.GenerateKeywordIdeas): search ideas and their average
+     * monthly searches for seed words. Plans and reads only; nothing is created in the account.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function keywordIdeas(CoreIntegration $integration, string $customerId, array $body, ?string $loginCustomerId = null): Response
+    {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        if ($customerId === '') {
+            throw new RuntimeException('Google Ads customer ID is missing.');
+        }
+
+        return $this->adsRequest($integration, 'post', 'customers/'.$customerId.':generateKeywordIdeas', $body, $loginCustomerId ?? $customerId, 'google_ads', 60);
+    }
+
+    /**
      * Read-only Google Ads GAQL SearchStream (googleAds:searchStream).
      * Official REST returns the full result in one streamed response (no pageToken).
      * Callers must process rows in bounded application batches — do not treat this

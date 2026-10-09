@@ -188,7 +188,7 @@ final class QuerySourceAggregator
                 DB::table('query_sources')->upsert($chunk, ['external_resource_id', 'raw_query', 'month'],
                     ['source', 'impressions', 'clicks', 'position', 'cost', 'conversions', 'updated_at']);
             }
-            $staleIds = DB::table('query_sources')->where('external_resource_id', $resourceId)->where('month', $month->toDateString())
+            $staleIds = DB::table('query_sources')->where('external_resource_id', $resourceId)->where('source', $source)->where('month', $month->toDateString())
                 ->get(['id', 'raw_query'])->reject(fn (object $row): bool => isset($merged[(string) $row->raw_query]))->pluck('id')->all();
             foreach (array_chunk($staleIds, 1000) as $ids) {
                 DB::table('query_sources')->whereIn('id', $ids)->delete();

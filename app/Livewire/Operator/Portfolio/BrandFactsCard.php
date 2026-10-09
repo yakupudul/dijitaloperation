@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Portfolio;
 
 use App\Models\Brand;
 use App\Services\Brand\BrandFacts;
+use App\Services\Queries\KeywordPlanner;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
@@ -77,7 +78,7 @@ final class BrandFactsCard extends Component
         $card = $this->rebuild ? $facts->build($this->brand()) : $facts->card($this->brand());
         $this->rebuild = false;
 
-        return view('livewire.operator.portfolio.brand-facts-card', ['card' => $card, 'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN)]);
+        return view('livewire.operator.portfolio.brand-facts-card', ['card' => $card, 'planner' => KeywordPlanner::lastRun($this->brandId), 'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN)]);
     }
 
     private function brand(): Brand

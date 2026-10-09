@@ -504,6 +504,13 @@ Schedule::command('moxdop:google-ads:record-quality-scores')
     ->withoutOverlapping(30)
     ->name('google-ads-quality-score-history');
 
+// Anahtar Kelime Planlayıcı (yakup, 2026-10-09): ince arama verisi olan markalara talep; salt okuma, marka başına 30 günde bir.
+Schedule::command('moxdop:queries:keyword-planner')
+    ->dailyAt('05:47')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('queries-keyword-planner');
+
 // v2 Faz 3: küme ana sorguları + marka hedef sorguları için DataForSEO arama hacmi (ayda bir, harcama tavanı geçerli).
 Schedule::command('moxdop:intel:query-volumes')
     ->monthlyOn(4, '05:37')

@@ -51,5 +51,8 @@
                 </div>
             @endforeach
         </dl>
+        @if ($planner)
+            <p class="mt-2 text-xs text-gray-500" data-keyword-planner="{{ $planner['status'] }}">Anahtar Kelime Planlayıcı ({{ \Carbon\Carbon::parse($planner['at'])->timezone('Europe/Istanbul')->format('d.m') }}): {{ $planner['message'] }}</p>
+        @endif
     </section>
 </div>
