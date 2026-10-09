@@ -13,6 +13,7 @@ use App\Services\Brand\BrandGaps;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Repair\RepairDesk;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Clarity\ClarityRules;
 use App\Services\Site\ClusterOverlaps;
@@ -37,7 +38,7 @@ final class WorkDesk
 {
     public const array TABS = [
         'kurulum' => 'Marka kurulumu',
-        'icerik' => 'Web site SEO içerikler',
+        'icerik' => 'İçerik ve büyüme',
         'cakisma' => 'Küme çakışmaları',
         'teknik' => 'Teknik SEO',
         'saglik' => 'Teknik sağlık',
@@ -89,6 +90,9 @@ final class WorkDesk
         'meta' => ['meta_ads'],
         'isletme' => ['google_business_profile', 'gbp'],
     ];
+
+    /** @var list<int>|null */
+    private ?array $deskIds = null;
 
     public function __construct(
         private readonly AnalystDecisionStore $decisions,
@@ -400,6 +404,25 @@ final class WorkDesk
     }
 
     /** @return Builder<Suggestion> */
+    /**
+     * Suggestions waiting on the Onarım masası (yakup 2026-10-09: one place for every yes / no): Genel işler does not
+     * list them again; each tab says how many wait there instead.
+     *
+     * @return list<int>
+     */
+    public function deskIds(): array
+    {
+        return $this->deskIds ??= app(RepairDesk::class)->rows()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    /** @return array{total: int, brand: int} rows waiting on the Onarım masası (all brands / the filtered brand) */
+    public function onDesk(?int $brandId = null): array
+    {
+        $rows = app(RepairDesk::class)->rows($brandId);
+
+        return ['total' => count($this->deskIds()), 'brand' => $rows->count()];
+    }
+
     private function suggestionQuery(string $tab, string $view, ?int $brandId): Builder
     {
         $query = Suggestion::query()->where('channel', self::TAB_CHANNEL[$tab])
@@ -423,7 +446,7 @@ final class WorkDesk
         }
 
         // A content idea whose WordPress draft is sent stays approved; it is no longer open work.
-        return $query->whereNull('action->article_write_id')->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)
+        return $query->whereNotIn('id', $this->deskIds() ?: [0])->whereNull('action->article_write_id')->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)
             ->orWhere(fn (Builder $open): Builder => $open->actionable()));
     }
 

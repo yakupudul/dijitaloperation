@@ -176,6 +176,23 @@ final class RepairDeskPage extends Component
         }
     }
 
+    /** Hepsini geri al: every undoable write of one "Yapılanlar" group (day · asset · kind). */
+    public function undoGroup(string $key, RepairDesk $desk, ExternalWriteService $writes): void
+    {
+        $this->authorizeAdmin();
+        $group = $desk->done($this->brandId)->firstWhere('key', $key);
+        $count = 0;
+        foreach (collect($group['items'] ?? [])->where('undoable', true) as $item) {
+            try {
+                $writes->requestUndo(auth()->user(), ExternalWriteAction::query()->findOrFail($item['id']));
+                $count++;
+            } catch (ValidationException) {
+                continue;
+            }
+        }
+        $this->message = $count.' iş için geri alma sıraya alındı.';
+    }
+
     public function render(RepairDesk $desk): View
     {
         $all = $desk->rows();
@@ -197,8 +214,7 @@ final class RepairDeskPage extends Component
             'health' => $desk->health($all),
             'pipeline' => $desk->pipeline($this->brandId),
             'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),
-            'writes' => ExternalWriteAction::query()->with('digitalAsset:id,name')->whereNotNull('suggestion_id')
-                ->where('created_at', '>=', now()->subDays(7))->latest('id')->limit(40)->get(),
+            'done' => $desk->done($this->brandId),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
     }
@@ -241,7 +257,7 @@ final class RepairDeskPage extends Component
     {
         $this->authorizeAdmin();
         $result = $approve();
-        $parts = [$result['applied'].' iş uygulamaya gönderildi (kayıtlı, geri alınabilir)'];
+        $parts = [$result['applied'].' iş uygulamaya gönderildi; ne yazıldığı birkaç dakika içinde aşağıda "Yapılanlar"da görünür (kayıtlı, geri alınabilir)'];
         if ($result['skipped_high'] > 0) {
             $parts[] = $result['skipped_high'].' yüksek riskli iş tek tek onaylanmalı';
         }

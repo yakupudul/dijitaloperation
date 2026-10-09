@@ -3719,6 +3719,18 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   Search Console count. Turning a junk sitemap type off and removing it from Search Console are still the operator's
   (new write types await yakup's approval; Search Console writes also need a write scope). Google Ads: a query with more
   pages than one tick allows (large account structure, PAGE_BOUND_EXCEEDED) is read whole with SearchStream.
+- Yapılanlar (2026-10-09, yakup "Yapılanların özeti yazmıyor?"): the raw list of writes became a summary
+  (`RepairDesk::done`): per day · asset · kind one sentence of what was written ("20 başlık, 31 iç link yazıldı"), what
+  could not be done and why in plain words ("bağlantı metni sayfada düz yazı olarak yok…"), counts (tam / kısmen /
+  yazılamadı / sırada), details with single "Geri al" and "Hepsini geri al" per group.
+- Genel işler sadeleştirme (2026-10-09, yakup "Hepsini yap"): suggestions waiting on the Onarım masası are no longer
+  listed in Genel işler (`WorkDesk::deskIds`); each other tab shows "N düzeltme Onarım masasında" with a link. The
+  content tab is "İçerik ve büyüme": per site the line Fikir havuzu → Yazılıyor → Okunacak → Gönderildi → Sonuç (of
+  drafts sent in 120 days: live on the site / sent, Search Console clicks of the live pages in 28 days;
+  `ContentCoverage::outcomes`) with the step it waits on (`ContentCoverage::stage`). Marka kurulumu is a strip of brand
+  links (the tab opens from it). On top three numbers: onayını bekleyen (desk + titles + articles to read), sistemin bu
+  hafta yaptığı (writes + problems closed by themselves), senin elin gerekiyor (manual desk rows). Yapılanlar on the
+  desk lists every write of 7 days with each change ("başlık: …", "iç link: "…" → url") and why one was not done.
 - Hazırla: `moxdop:repair:prepare` (02:10) queues "AI ile yap" for up to 150 field fixes and 20 page-text fixes without a
   prepared value. Doğrula: `moxdop:repair:verify` (hourly :35) checks a website title / description fix 24 hours after
   the write against the page's stored title / description (confirmed / still seen); a fix whose writes all failed or were

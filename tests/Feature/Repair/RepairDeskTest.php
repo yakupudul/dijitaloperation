@@ -81,7 +81,7 @@ final class RepairDeskTest extends SiteTestCase
             ->set('kind', RepairDesk::SITE_FIELDS)->assertDontSee('a.jpg')
             ->call('approve', $fields->id)->assertSee('1 iş uygulamaya gönderildi')
             ->set('kind', '')->call('approveAllLow')->assertSee('1 iş uygulamaya gönderildi')
-            ->assertSee('Son 7 günde uygulananlar (2)');
+            ->assertSee('Yapılanlar')->assertSee('iş sırada');
         $this->get(route('operator.repair'))->assertOk();
     }
 
@@ -113,6 +113,34 @@ final class RepairDeskTest extends SiteTestCase
         Livewire::test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_REVIEW)->call('rejectPackage', $this->brand->id.'.'.RepairDesk::SITE_CONTENT.'.'.RepairDesk::LANE_REVIEW)
             ->assertSee('1 öneri reddedildi');
         $this->assertSame(Suggestion::DISMISSED, $content->fresh()->status);
+    }
+
+    public function test_the_done_summary_says_what_was_written_and_why_some_could_not_be(): void
+    {
+        $fields = $this->suggestion('Başlık', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
+        $desk = app(RepairDesk::class);
+        $desk->approve([$fields->id], $this->admin);
+        $write = ExternalWriteAction::query()->sole();
+        $write->forceFill(['status' => 'partial', 'request_payload' => ['changes' => [
+            ['type' => 'seo_title', 'reference' => 'a', 'value' => 'Yeni başlık'],
+            ['type' => 'internal_link', 'reference' => 'b', 'value' => []],
+            ['type' => 'internal_link', 'reference' => 'c', 'value' => []],
+        ]], 'result' => ['status' => 'partial', 'changes' => [
+            ['reference' => 'a', 'ok' => true], ['reference' => 'b', 'ok' => true],
+            ['reference' => 'c', 'ok' => false, 'error' => 'anchor text not found as plain text in the page'],
+        ]]])->save();
+
+        $group = $desk->done()->sole();
+
+        $this->assertSame('1 başlık, 1 iç link yazıldı', $group['sentence']);
+        $this->assertSame(['1 iç link: bağlantı metni sayfada düz yazı olarak yok (başlıkta, butonda ya da zaten linkli), link eklenmedi'], $group['problems']);
+        $this->assertSame([0, 1], [$group['ok'], $group['partial']]);
+        $this->assertSame([['text' => 'başlık: Yeni başlık', 'ok' => true], ['text' => 'iç link: "" → ', 'ok' => true],
+            ['text' => 'iç link: "" →  — yapılmadı: bağlantı metni sayfada düz yazı olarak yok (başlıkta, butonda ya da zaten linkli), link eklenmedi', 'ok' => false]],
+            $group['items'][0]['lines']);
+        Livewire::test(RepairDeskPage::class)->assertSee('1 başlık, 1 iç link yazıldı')->assertSee('Hepsini geri al')
+            ->call('undoGroup', $group['key'])->assertSee('1 iş için geri alma sıraya alındı');
+        $this->assertSame('undoing', $write->fresh()->status);
     }
 
     public function test_word_difference_marks_only_the_changed_words(): void

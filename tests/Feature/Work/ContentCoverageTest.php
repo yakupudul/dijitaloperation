@@ -8,6 +8,7 @@ use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
+use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteOperations;
@@ -63,6 +64,29 @@ final class ContentCoverageTest extends SiteTestCase
 
         Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('TR 1/20')->assertDontSee('EN 1/20')->assertSee('EN: yazılınca çevrilir')
             ->assertSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Küme: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
+    }
+
+    public function test_the_content_line_shows_where_it_waits_and_what_sent_articles_brought(): void
+    {
+        $this->rowOf('no_page', 'İmplant fiyatları');
+        $this->title('Yazılan', [], Suggestion::APPROVED);
+        $this->title('Okunacak', ['article' => ['title' => 'Okunacak']], Suggestion::APPROVED);
+        $write = ExternalWriteAction::query()->create(['channel' => 'wordpress', 'action' => ExternalWriteAction::ACTION_ARTICLE_DRAFTS, 'status' => 'succeeded',
+            'digital_asset_id' => $this->site->id, 'brand_id' => $this->brand->id, 'requested_by' => $this->admin->id, 'request_payload' => [],
+            'result' => ['post_id' => 31, 'posts' => [['post_id' => 31], ['post_id' => 32]]]]);
+        $this->title('Gönderilen', ['article_write_id' => $write->id], Suggestion::APPROVED);
+        $live = $this->page('/implant-fiyatlari/', 'İmplant fiyatları', ['category' => 'blog', 'wp_post_id' => 31]);
+        DB::table('gsc_page_daily')->insert(['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => now()->subDays(3)->toDateString(),
+            'page' => $live->url, 'clicks' => 12, 'impressions' => 300, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => md5('x')]);
+
+        $coverage = app(ContentCoverage::class);
+        $row = $coverage->rows()[0];
+        $this->assertSame([1, 1, 1], [$row['writing'], $row['reading'], $row['sent']]);
+        $this->assertSame('1 yazı okumanı bekliyor', ContentCoverage::stage($row)['label']);
+        $this->assertSame([$this->site->id => ['sent' => 2, 'live' => 1, 'clicks' => 12]], $coverage->outcomes([$this->site->id]));
+
+        Livewire::test(WorkPage::class)->assertSee('1 yazı okumanı bekliyor')->assertSee('1/2 yayında')->assertSee('12 tıklama')
+            ->assertSee('Onayını bekleyen')->assertSee('Sistemin bu hafta yaptığı')->assertSee('Senin elin gerekiyor');
     }
 
     public function test_every_morning_fills_each_language_to_the_pool_and_monday_adds_fresh_ideas(): void

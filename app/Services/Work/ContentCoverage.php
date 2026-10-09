@@ -5,6 +5,8 @@ namespace App\Services\Work;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
+use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
 use App\Services\Site\ContentPlanner;
@@ -14,6 +16,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Genel işler › Web site SEO içerikler, marka tablosu (yakup, 2026-10-06: "hangi sitede hangi içerik eksik, kümeler
@@ -26,6 +29,9 @@ final class ContentCoverage
 {
     /** Waiting titles the main language of a site always has. */
     public const int POOL = 20;
+
+    /** Sent articles whose result (live, clicks) the table follows. */
+    public const int OUTCOME_DAYS = 120;
 
     /** Cluster states a new or reworked article answers. */
     public const array GAP_STATES = ['no_page', 'thin_coverage'];
@@ -47,7 +53,7 @@ final class ContentCoverage
         foreach ($brands as $brand) {
             foreach ($sites->get($brand->id, collect()) as $site) {
                 $byState = $states->get($site->id, []);
-                $count = $titles[(int) $site->id] ?? ['waiting' => [], 'reading' => 0, 'sent' => 0, 'last' => null];
+                $count = $titles[(int) $site->id] ?? ['waiting' => [], 'writing' => 0, 'reading' => 0, 'sent' => 0, 'last' => null];
                 // yakup, 2026-10-07: ideas are planned in the site's main language only; other languages get the
                 // written article's translation, never ideas of their own.
                 $languages = ContentPlanner::siteLanguages($site);
@@ -59,7 +65,7 @@ final class ContentCoverage
                     'weak' => array_sum(array_intersect_key($byState, array_flip(self::WEAK_STATES))),
                     'ok' => (int) ($byState['sufficient'] ?? 0),
                     'pool' => $pool, 'translated' => array_slice($languages, 1), 'waiting' => array_sum($pool), 'weekly' => self::weekly($brand),
-                    'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
+                    'writing' => $count['writing'], 'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
                 $row['paused_at'] = $row['clusters'] > 0 ? Cache::get(ContentPlanner::shortRunKey((int) $site->id)) : null;
                 $row['services'] = $row['clusters'] === 0 ? SiteScope::offerings($brand)->count() : null;
@@ -104,6 +110,60 @@ final class ContentCoverage
         return $out;
     }
 
+    /**
+     * Sonuç: of the articles sent as WordPress drafts in the last OUTCOME_DAYS, how many are live on the site now (the
+     * crawl found the post) and the Search Console clicks those pages got in the last 28 days.
+     *
+     * @param  list<int>  $siteIds
+     * @return array<int, array{sent: int, live: int, clicks: int}>
+     */
+    public function outcomes(array $siteIds): array
+    {
+        $writeIds = [];
+        Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->whereNotNull('action->article_write_id')
+            ->where('updated_at', '>=', now()->subDays(self::OUTCOME_DAYS))->get(['id', 'action'])
+            ->each(function (Suggestion $s) use (&$writeIds, $siteIds): void {
+                $site = (int) data_get($s->action, 'site_id');
+                if (in_array($site, $siteIds, true)) {
+                    $writeIds[(int) data_get($s->action, 'article_write_id')] = $site;
+                }
+            });
+        $posts = [];
+        ExternalWriteAction::query()->whereIn('id', array_keys($writeIds) ?: [0])->whereIn('status', ['succeeded', 'partial'])->get(['id', 'result'])
+            ->each(function (ExternalWriteAction $write) use (&$posts, $writeIds): void {
+                $ids = array_filter([(int) data_get($write->result, 'post_id'), ...array_map(fn (mixed $p): int => (int) data_get($p, 'post_id'), (array) data_get($write->result, 'posts', []))]);
+                foreach (array_unique($ids) as $postId) {
+                    $posts[$writeIds[(int) $write->id]][] = $postId;
+                }
+            });
+        $out = [];
+        foreach ($siteIds as $siteId) {
+            $urls = $posts === [] || ! isset($posts[$siteId]) ? [] : Page::query()->where('website_asset_id', $siteId)->whereIn('wp_post_id', $posts[$siteId])->pluck('url')->all();
+            $clicks = $urls === [] ? 0 : (int) DB::table('gsc_page_daily')->whereIn('page', $urls)->where('reporting_date', '>=', now()->subDays(28)->toDateString())->sum('clicks');
+            $out[$siteId] = ['sent' => count(array_unique($posts[$siteId] ?? [])), 'live' => count($urls), 'clicks' => $clicks];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Where a site's content line stands, in one phrase: the first step that waits (the operator's step first).
+     *
+     * @param  array{clusters: int, waiting: int, writing: int, reading: int, sent: int}  $row
+     * @return array{label: string, tone: string}
+     */
+    public static function stage(array $row): array
+    {
+        return match (true) {
+            $row['reading'] > 0 => ['label' => $row['reading'].' yazı okumanı bekliyor', 'tone' => 'amber'],
+            $row['writing'] > 0 => ['label' => $row['writing'].' yazı yazılıyor', 'tone' => 'sky'],
+            $row['waiting'] > 0 => ['label' => 'Başlıklar onayını bekliyor', 'tone' => 'amber'],
+            $row['clusters'] === 0 => ['label' => 'Tıkalı: küme yok', 'tone' => 'rose'],
+            $row['sent'] > 0 => ['label' => 'Akıyor', 'tone' => 'emerald'],
+            default => ['label' => 'Tıkalı: havuz boş', 'tone' => 'rose'],
+        };
+    }
+
     public static function automaticAllowed(): bool
     {
         return AiBudget::automaticAllowed('site.weekly_content');
@@ -142,7 +202,7 @@ final class ContentCoverage
 
     /**
      * @param  list<int>  $brandIds
-     * @return array<int, array{waiting: array<string, int>, reading: int, sent: int, last: ?CarbonInterface}> waiting per title language ('' = not set: the site's main language)
+     * @return array<int, array{waiting: array<string, int>, writing: int, reading: int, sent: int, last: ?CarbonInterface}> waiting per title language ('' = not set: the site's main language)
      */
     private function titleCounts(array $brandIds): array
     {
@@ -153,7 +213,7 @@ final class ContentCoverage
             ->get(['id', 'status', 'action', 'created_at', 'applied_at', 'snoozed_until'])
             ->each(function (Suggestion $s) use (&$out): void {
                 $site = (int) data_get($s->action, 'site_id');
-                $out[$site] ??= ['waiting' => [], 'reading' => 0, 'sent' => 0, 'last' => null];
+                $out[$site] ??= ['waiting' => [], 'writing' => 0, 'reading' => 0, 'sent' => 0, 'last' => null];
                 $action = (array) $s->action;
                 $sent = isset($action['article_write_id']) || $s->status === Suggestion::APPLIED;
                 $written = is_array($action['article'] ?? null) || isset($action['article_blocked']);
@@ -161,6 +221,8 @@ final class ContentCoverage
                     $out[$site]['sent'] += ($s->applied_at ?? $s->created_at)?->gte(now()->subDays(WorkDesk::DONE_DAYS)) ? 1 : 0;
                 } elseif ($written) {
                     $out[$site]['reading']++;
+                } elseif ($s->status === Suggestion::APPROVED) {
+                    $out[$site]['writing']++;
                 } elseif ($s->status === Suggestion::OPEN || ($s->status === Suggestion::SNOOZED && $s->snoozed_until?->isPast())) {
                     $language = strtolower((string) ($action['language'] ?? ''));
                     $out[$site]['waiting'][$language] = ($out[$site]['waiting'][$language] ?? 0) + 1;

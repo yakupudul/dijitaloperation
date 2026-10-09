@@ -55,7 +55,7 @@ class WorkDeskTest extends TestCase
         AssetAlert::query()->create(['digital_asset_id' => $this->site->id, 'brand_id' => $this->site->brand_id, 'alert_key' => 'k1', 'kind' => 'site_down',
             'severity' => 'critical', 'title' => 'Site erişilemiyor', 'message' => '5xx', 'data' => [], 'first_detected_at' => now(), 'last_detected_at' => now()]);
 
-        $this->get(route('operator.work'))->assertOk()->assertSee('Genel işler')->assertSee('Web site SEO içerikler')
+        $this->get(route('operator.work'))->assertOk()->assertSee('Genel işler')->assertSee('İçerik ve büyüme')
             ->assertSee('İmplant fiyatları rehberi')->assertSee('İçerik fikirleri')->assertSee('data-write=', false)->assertDontSee('Ana sayfa başlığı çok uzun')
             ->assertSee('Telefona bildirim aç', false);
 

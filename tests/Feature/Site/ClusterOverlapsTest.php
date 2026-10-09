@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Site;
 
+use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
@@ -12,6 +13,7 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Repair\RepairDesk;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterOverlaps;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
@@ -107,13 +109,10 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->row('tr', $this->main, [$this->copy->id, $second->id]);
         app(ClusterOverlaps::class)->sync($this->site, $this->brand);
 
-        $html = Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSee('«İmplant tedavisi»')->assertSee('/implant-tedavisi-nedir/')->assertSee('/tek-seansta-implant/')
-            ->assertSee('2 sayfa aynı ihtiyaca yanıt veriyor')->assertSee('301 öneriliyor')->assertSeeHtml('data-work-action="merge"')->html();
-
-        $this->assertSame(1, substr_count($html, 'data-work-group='), 'one card for the site');
-        $this->assertSame(1, substr_count($html, 'data-work-rule'), 'the rule is said once');
-        $this->assertSame(1, substr_count($html, '«İmplant tedavisi»'), 'the cluster is named once');
-        $this->assertStringNotContainsString('Çakışma: «', $html, 'no row repeats the cluster and the main page');
+        // 2026-10-09: a ready 301 waits on the Onarım masası (one place for every yes / no); Genel işler points there.
+        Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSeeHtml('data-on-desk')->assertSee('2 düzeltme Onarım masasında')
+            ->assertDontSee('/tek-seansta-implant/');
+        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 · 301 birleştirme')->assertSee('/tek-seansta-implant/');
     }
 
     public function test_a_service_page_is_never_301d_into_a_blog_page_and_a_page_google_prefers_is_not_301d(): void
@@ -171,9 +170,8 @@ final class ClusterOverlapsTest extends SiteTestCase
             : ['ok' => false, 'error' => 'SEO fixes are disabled on this site.']);
         $ids = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->orderBy('page_id')->pluck('id', 'page_id');
 
-        $html = Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSeeHtml('data-merge-pick="'.$ids[$this->copy->id].'"')
-            ->set('selected', [$ids[$this->copy->id], $ids[$other->id]])->call('mergeSelected')
-            ->assertSet('selected', [])->html();
+        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)
+            ->set('selected', [$ids[$this->copy->id], $ids[$other->id]])->call('approveSelected')->assertSet('selected', []);
 
         $this->assertCount(1, $this->sent, 'one write for the site');
         $this->assertSame(['merge_redirect', 55, '/implant-tedavisi-nedir/', 'https://panorama.com.tr/implant/'],
@@ -183,7 +181,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         $failed = Suggestion::query()->find($ids[$other->id]);
         $this->assertSame([Suggestion::OPEN, 'SEO fixes are disabled on this site.'], [$failed->status, data_get($failed->action, 'merge_error')]);
         $this->assertSame(['partial', 'SEO fixes are disabled on this site.'], [ExternalWriteAction::query()->sole()->status, ExternalWriteAction::query()->sole()->error]);
-        $this->assertStringContainsString('301 yazılamadı', $html);
+        $this->assertStringContainsString('SEO fixes are disabled on this site.', (string) app(RepairDesk::class)->rows()->firstWhere('id', $ids[$other->id])['reason']);
     }
 
     public function test_an_old_connector_is_refused_before_anything_changes(): void

@@ -221,19 +221,55 @@
         </div>
     @endif
 
-    <details class="{{ $card }} text-sm" data-repair-writes>
-        <summary class="cursor-pointer font-semibold text-gray-800 dark:text-white/90">Son 7 günde uygulananlar ({{ $writes->count() }})</summary>
-        <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-800">
-            @forelse ($writes as $write)
-                <li class="flex flex-wrap items-center justify-between gap-2 py-2" wire:key="write-{{ $write->id }}">
-                    <span>{{ $write->created_at?->timezone('Europe/Istanbul')->format('d.m H:i') }} · {{ $write->digitalAsset?->name }} · {{ $write->action }} · {{ $write->statusLabel() }}@if ($write->error) <span class="text-red-600" title="{{ $write->error }}">· {{ \Illuminate\Support\Str::limit($write->error, 400) }}</span>@endif</span>
-                    @if ($isAdmin && $write->isUndoable())
-                        <button type="button" wire:click="undo({{ $write->id }})" wire:confirm="Bu değişiklik geri alınsın mı?" class="text-xs text-brand-600 hover:underline">Geri al</button>
-                    @endif
+    <section class="{{ $card }} text-sm" data-repair-writes x-data="{ all: false }">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-semibold text-gray-800 dark:text-white/90">Yapılanlar <span class="text-sm font-normal text-gray-500">· son 7 gün</span></h2>
+            @if ($done->isNotEmpty())
+                <p class="text-xs text-gray-500">{{ $done->sum('ok') }} iş tam, {{ $done->sum('partial') }} kısmen, {{ $done->sum('failed') }} yazılamadı @if ($done->sum('pending') > 0)· {{ $done->sum('pending') }} sırada @endif</p>
+            @endif
+        </div>
+        <ul class="mt-3 space-y-2">
+            @forelse ($done as $n => $group)
+                <li class="rounded-lg px-3 py-2 ring-1 ring-inset ring-gray-200 dark:ring-gray-800" wire:key="done-{{ $group['key'] }}" x-data="{ more: false }" @if ($n >= 6) x-show="all" x-cloak @endif>
+                    <div class="flex flex-wrap items-start gap-2">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs text-gray-500">{{ $group['at'] }} · {{ $group['asset'] }} · {{ $group['label'] }}</p>
+                            <p class="font-medium text-gray-800 dark:text-white/90">
+                                @if ($group['failed'] > 0 && $group['ok'] + $group['partial'] === 0)<span class="text-red-600 dark:text-red-400">✕</span>@elseif ($group['partial'] > 0 || $group['failed'] > 0)<span class="text-amber-600">◐</span>@else<span class="text-emerald-600">✓</span>@endif
+                                {{ $group['sentence'] }}.
+                            </p>
+                            @foreach ($group['problems'] as $problem)
+                                <p class="text-xs text-amber-700 dark:text-amber-300">Yapılamayan: {{ $problem }}</p>
+                            @endforeach
+                        </div>
+                        <div class="flex shrink-0 items-center gap-3 text-xs">
+                            <button type="button" @click="more = ! more" class="text-brand-600 hover:underline" x-text="more ? 'Kapat' : 'Ayrıntı ({{ count($group['items']) }})'"></button>
+                            @if ($isAdmin && collect($group['items'])->contains('undoable', true))
+                                <button type="button" wire:click="undoGroup('{{ $group['key'] }}')" wire:confirm="{{ $group['asset'] }}: bu gruptaki işler geri alınsın mı?" class="text-gray-500 hover:underline">Hepsini geri al</button>
+                            @endif
+                        </div>
+                    </div>
+                    <ul x-show="more" x-cloak class="mt-2 divide-y divide-gray-100 text-xs dark:divide-gray-800">
+                        @foreach ($group['items'] as $item)
+                            <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="write-{{ $item['id'] }}">
+                                <span class="min-w-0 flex-1">
+                                    <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</span> · <span class="text-gray-500">{{ $item['status'] }}</span>@if ($item['error'] !== '') <span class="text-amber-700 dark:text-amber-300">· {{ \Illuminate\Support\Str::limit($item['error'], 300) }}</span>@endif
+                                    @if ($item['page'] !== '')<span class="block truncate text-gray-500">{{ $item['page'] }}</span>@endif
+                                    @foreach ($item['lines'] as $line)<span @class(['block break-words', 'text-gray-700 dark:text-gray-300' => $line['ok'], 'text-amber-700 dark:text-amber-300' => ! $line['ok']])>{{ $line['ok'] ? '✓' : '✕' }} {{ $line['text'] }}</span>@endforeach
+                                </span>
+                                @if ($isAdmin && $item['undoable'])
+                                    <button type="button" wire:click="undo({{ $item['id'] }})" wire:confirm="Bu değişiklik geri alınsın mı?" class="text-brand-600 hover:underline">Geri al</button>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
                 </li>
             @empty
-                <li class="py-2 text-gray-500">Henüz yok.</li>
+                <li class="text-gray-500">Henüz yok.</li>
             @endforelse
         </ul>
-    </details>
+        @if ($done->count() > 6)
+            <button type="button" @click="all = ! all" class="mt-2 text-xs font-semibold text-brand-600" x-text="all ? 'Daha az göster' : 'Tümünü göster ({{ $done->count() }})'"></button>
+        @endif
+    </section>
 </div>

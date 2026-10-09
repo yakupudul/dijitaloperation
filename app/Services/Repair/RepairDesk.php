@@ -19,6 +19,7 @@ use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestionTypes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -192,6 +193,131 @@ final class RepairDesk
             return ['brand_id' => $brandId, 'brand' => (string) $group->first()['brand'], 'open' => $group->count(), 'done' => $finished,
                 'percent' => (int) round(100 * $finished / max(1, $finished + $group->count()))];
         })->sortByDesc('open')->values();
+    }
+
+    public const array WRITE_LABELS = [
+        ExternalWriteAction::ACTION_SITE_FIX => 'Site düzeltmesi', ExternalWriteAction::ACTION_ADS_CHANGE => 'Google Ads ayarı',
+        ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD => 'Google Ads negatif kelime', ExternalWriteAction::ACTION_PROFILE_FIELDS => 'İşletme Profili bilgisi',
+        ExternalWriteAction::ACTION_PROFILE_UPDATE => 'İşletme Profili açıklaması', ExternalWriteAction::ACTION_CONTENT_DRAFT => 'Sayfa metni taslağı',
+        ExternalWriteAction::ACTION_CONTENT_APPLY => 'Sayfa metni canlıya', ExternalWriteAction::ACTION_CONNECTOR_UPDATE => 'Eklenti güncellemesi',
+        ExternalWriteAction::ACTION_MEDIA_UPLOAD => 'İşletme Profili fotoğrafı', ExternalWriteAction::ACTION_LOCAL_POST => 'İşletme Profili gönderisi',
+        ExternalWriteAction::ACTION_REVIEW_REPLY => 'Yorum yanıtı', ExternalWriteAction::ACTION_ARTICLE_DRAFTS => 'Yazı taslağı',
+        ExternalWriteAction::ACTION_DRAFT_CREATE => 'Yazı taslağı', ExternalWriteAction::ACTION_SITE_BUILD => 'Site kurulumu', ExternalWriteAction::ACTION_UPDATE_APPLY => 'WordPress güncellemesi',
+    ];
+
+    public const array CHANGE_LABELS = [
+        'seo_title' => 'başlık', 'seo_description' => 'açıklama', 'canonical' => 'asıl adres (canonical)', 'noindex' => 'dizin ayarı',
+        'alt_text' => 'görsel alt metni', 'schema' => 'yapılandırılmış veri', 'redirect' => '301 yönlendirme', 'merge_redirect' => '301 birleştirme',
+        'internal_link' => 'iç link', 'llms_txt' => 'llms.txt', 'content' => 'sayfa metni',
+    ];
+
+    /** The site's short English reasons, in words the operator can act on. */
+    public const array PLAIN_ERRORS = [
+        'anchor text not found as plain text in the page' => 'bağlantı metni sayfada düz yazı olarak yok (başlıkta, butonda ya da zaten linkli), link eklenmedi',
+        'the page already links to this URL' => 'sayfa bu adrese zaten link veriyor',
+        'changed_since' => 'değer MoxDOP\'tan sonra sitede değiştirilmiş, üzerine yazılmadı',
+        'invalid target' => 'sayfa sitede bulunamadı (silinmiş ya da taşınmış olabilir)',
+        'a page cannot redirect to itself' => 'sayfa kendisine yönlendirilemez',
+        'SEO fixes are disabled on this site.' => 'eklenti ayarlarında "SEO fixes" kapalı',
+    ];
+
+    public static function plainError(string $error): string
+    {
+        $error = trim($error);
+
+        return self::PLAIN_ERRORS[$error] ?? WebHealthAudit::plainError($error);
+    }
+
+    /**
+     * Yapılanlar: the approved writes of the last days, grouped per day, asset and kind, each with one sentence saying
+     * what changed (counts per change type), what could not be done and why, and the single writes for undo.
+     *
+     * @return Collection<int, array{key: string, at: string, asset: string, label: string, sentence: string, problems: list<string>, ok: int, partial: int, failed: int, pending: int, items: list<array{id: int, title: string, status: string, error: string, undoable: bool}>}>
+     */
+    public function done(?int $brandId = null, int $days = 7): Collection
+    {
+        $writes = ExternalWriteAction::query()->with('digitalAsset:id,name')->whereNotNull('suggestion_id')
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->where('created_at', '>=', now()->subDays($days))->latest('id')->limit(1000)->get();
+        $suggestions = Suggestion::query()->with('page:id,url')->whereIn('id', $writes->pluck('suggestion_id')->unique())->get(['id', 'title', 'page_id'])->keyBy('id');
+
+        return $writes->groupBy(fn (ExternalWriteAction $w): string => $w->created_at?->timezone('Europe/Istanbul')->format('Y-m-d').'|'.$w->digital_asset_id.'|'.$w->action)
+            ->map(function (Collection $group, string $key) use ($suggestions): array {
+                $first = $group->first();
+                $done = [];
+                $missed = [];
+                foreach ($group as $write) {
+                    $results = collect((array) data_get($write->result, 'changes', []))->keyBy('reference');
+                    foreach ((array) data_get($write->request_payload, 'changes', []) as $change) {
+                        $type = self::CHANGE_LABELS[$change['type'] ?? ''] ?? null;
+                        if ($type === null) {
+                            continue;
+                        }
+                        $result = (array) $results->get($change['reference'] ?? '', []);
+                        if (in_array($write->status, ['succeeded', 'partial', 'undo_failed'], true) && ($result === [] || (bool) ($result['ok'] ?? false))) {
+                            $done[$type] = ($done[$type] ?? 0) + 1;
+                        } elseif (in_array($write->status, ['partial', 'failed'], true)) {
+                            $reason = self::plainError((string) ($result['error'] ?? $write->error ?? ''));
+                            $missed[$type.': '.$reason] = ($missed[$type.': '.$reason] ?? 0) + 1;
+                        }
+                    }
+                }
+                $statuses = $group->countBy(fn (ExternalWriteAction $w): string => match ($w->status) {
+                    'succeeded', 'undo_failed' => 'ok', 'partial' => 'partial', 'failed', 'rejected', 'cancelled' => 'failed', 'undone', 'undoing' => 'undone', default => 'pending',
+                });
+                $label = self::WRITE_LABELS[$first->action] ?? $first->action;
+                $sentence = $done !== []
+                    ? collect($done)->map(fn (int $n, string $type): string => $n.' '.$type)->implode(', ').' yazıldı'
+                    : (($statuses->get('ok', 0) + $statuses->get('partial', 0)) > 0 ? ($statuses->get('ok', 0) + $statuses->get('partial', 0)).' iş yapıldı' : '');
+                if (($statuses['pending'] ?? 0) > 0) {
+                    $sentence = trim($sentence.($sentence !== '' ? '; ' : '').$statuses['pending'].' iş sırada');
+                }
+                if (($statuses['undone'] ?? 0) > 0) {
+                    $sentence = trim($sentence.($sentence !== '' ? '; ' : '').$statuses['undone'].' iş geri alındı');
+                }
+                $problems = collect($missed)->map(fn (int $n, string $text): string => $n.' '.$text)->values()->all();
+                foreach ($group->where('status', 'failed') as $write) {
+                    if ((array) data_get($write->request_payload, 'changes', []) === [] && filled($write->error)) {
+                        $problems[] = self::plainError((string) $write->error);
+                    }
+                }
+
+                return ['key' => $key, 'at' => (string) $first->created_at?->timezone('Europe/Istanbul')->format('d.m H:i'), 'asset' => (string) ($first->digitalAsset?->name ?? ''),
+                    'label' => $label, 'sentence' => $sentence !== '' ? $sentence : 'Yazılamadı', 'problems' => array_values(array_unique($problems)),
+                    'ok' => (int) ($statuses['ok'] ?? 0), 'partial' => (int) ($statuses['partial'] ?? 0), 'failed' => (int) ($statuses['failed'] ?? 0), 'pending' => (int) ($statuses['pending'] ?? 0),
+                    'items' => $group->map(fn (ExternalWriteAction $w): array => ['id' => (int) $w->id, 'title' => (string) ($suggestions[$w->suggestion_id]?->title ?? $w->action),
+                        'page' => (string) ($suggestions[$w->suggestion_id]?->page?->url ?? ''), 'lines' => self::writeLines($w),
+                        'status' => $w->statusLabel(), 'error' => filled($w->error) && (array) data_get($w->request_payload, 'changes', []) === [] ? self::plainError((string) $w->error) : '',
+                        'undoable' => $w->isUndoable()])->values()->all()];
+            })->values();
+    }
+
+    /**
+     * What one write changed, a line per change: "başlık: Yeni değer" (✕ and the reason when the site did not do it).
+     *
+     * @return list<array{text: string, ok: bool}>
+     */
+    public static function writeLines(ExternalWriteAction $write): array
+    {
+        $results = collect((array) data_get($write->result, 'changes', []))->keyBy('reference');
+        $lines = [];
+        foreach ((array) data_get($write->request_payload, 'changes', []) as $change) {
+            $type = (string) ($change['type'] ?? '');
+            $value = $change['value'] ?? null;
+            $text = match ($type) {
+                'redirect', 'merge_redirect' => (string) ($change['from'] ?? '').' → '.(string) $value,
+                'internal_link' => '"'.data_get($value, 'anchor').'" → '.data_get($value, 'url'),
+                'noindex' => $value ? 'Google\'a kapatıldı (noindex)' : 'Google\'a açıldı',
+                'schema', 'content', 'llms_txt' => 'güncellendi',
+                default => is_scalar($value) ? (string) $value : '',
+            };
+            $result = (array) $results->get($change['reference'] ?? '', []);
+            $ok = $result === [] ? ! in_array($write->status, ['failed', 'rejected', 'cancelled'], true) : (bool) ($result['ok'] ?? false);
+            $line = (self::CHANGE_LABELS[$type] ?? $type).': '.Str::limit($text, 160);
+            $lines[] = ['text' => $ok ? $line : $line.' — yapılmadı: '.self::plainError((string) ($result['error'] ?? $write->error ?? '')), 'ok' => $ok];
+        }
+
+        return $lines;
     }
 
     /**
