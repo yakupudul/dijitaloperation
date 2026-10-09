@@ -3735,6 +3735,16 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   no GA4 key events. Rows without a site write are "Senin yapacağın (sitede elle)" with a "Yaptım" button (snoozed 7
   days, reopened if the problem is still there). A sent fix reopens with the error when the write fails or is undone,
   or when the problem is still seen 3 days after success; rows whose problem is gone close automatically.
+- Faz 3 otomatikleştirme (2026-10-09, yakup "Otomatik olmuyor mu?"; coded + PHPUnit): through already approved write
+  types the technical check now prepares fixes instead of manual rows — Search Console 404 addresses get a 301 to the
+  closest live page, "duplicate without user-selected canonical" pages get their own address as canonical (one row per
+  site), pages Google leaves out of the index ("crawled / discovered not indexed", unknown) get "İç link ekle"
+  (`internal_links`) suggestions on the two most related pages that do not link to them yet, and service / location
+  pages with traffic but no conversion get a "Dönüşüm adımı ekle" (`conversion`) suggestion; both are prepared by "AI
+  ile yap" overnight and approved on the desk, and close by themselves when the problem is gone. "Page with redirect"
+  is no longer reported. A sent fix waits per check before it returns as "still seen" (index 30, bloat 45, links 14
+  days, others 3); the bloat check reads the last 28 days. Security headers, by-product noindex, dead-link removal and
+  Search Console sitemap writes wait for yakup's approval of new write types (asked 2026-10-09); speed stays manual.
 - WordPress connector transport fallback (2026-10-09): when a hosting firewall refuses a `/wp-json/` request (403 / 406 /
   415 with a non-JSON body, seen on Avrupadent behind LiteSpeed), the client retries once through
   `/?rest_route=/moxdop/v1/...` (signed with `rest_route` in the query) and remembers `config.rest_transport = query`

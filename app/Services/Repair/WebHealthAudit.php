@@ -26,8 +26,11 @@ use Throwable;
  * pages) plus two light reads of its own (the home page's response headers, a capped HEAD check of outbound links).
  *
  * What the system can fix through the approved site-fix path (ADR-070) arrives on the Onarım masası ready to approve:
- * a service page Google cannot index because of noindex (noindex off) and an internal link to a 404 address (301 to
- * the closest live page, kept by the MoxDOP connector). What only the operator can do on the site or the hosting
+ * a service page Google cannot index because of noindex (noindex off), an internal link or a Search Console address
+ * answering 404 (301 to the closest live page, kept by the MoxDOP connector) and duplicate pages without a canonical
+ * (their own address as canonical). Pages Google leaves out of the index get "link to it" suggestions on related pages
+ * and service pages with traffic but no conversion get a "Dönüşüm adımı" suggestion; both are prepared by "AI ile yap"
+ * overnight and approved on the desk (yakup 2026-10-09: "Otomatik olmuyor mu?"). What only the operator can do on the site or the hosting
  * (headers, speed settings, SEO-plugin archive settings, Search Console) arrives as a "Senin yapacağın" row with the
  * exact steps; "Yaptım" hides it for a week and the next nightly run closes it once the problem is gone.
  */
@@ -51,6 +54,19 @@ final class WebHealthAudit
 
     /** Lines of evidence shown on one desk row. */
     private const int LIST = 12;
+
+    /** Not-indexed pages per site that get "link to it" suggestions per run (two source pages each). */
+    public const int INLINK_TARGETS = 20;
+
+    /** Days a sent fix may wait for Google / the crawl to see it before the row returns with a warning. */
+    private const array GRACE_DAYS = ['index' => 30, 'bloat' => 45, 'broken_link' => 14, 'external_link' => 14];
+
+    /** Index states Google gives a page it knows but leaves out: more internal links help. */
+    private const array WEAK_STATES = ['crawled - currently not indexed', 'discovered - currently not indexed', 'url is unknown to google'];
+
+    /** Words that say nothing about a page's subject. */
+    private const array STOP_WORDS = ['nasil', 'nedir', 'neden', 'hakkinda', 'icin', 'olan', 'gibi', 'daha', 'veya', 'kadar', 'sonra', 'once',
+        'what', 'with', 'your', 'from', 'that', 'this', 'html', 'page', 'sayfa', 'blog'];
 
     /** @var array<string, array{0: string, 1: list<string>}> Search Console coverage state → Turkish name + steps */
     private const array STATES = [
@@ -206,7 +222,8 @@ final class WebHealthAudit
                 if ($write === null || in_array($write->status, ['failed', 'undone'], true)) {
                     $status = Suggestion::OPEN;
                     $action['last_write_error'] = $write?->error ?: 'gönderim tamamlanmadı';
-                } elseif ($write->status === 'succeeded' && $write->finished_at !== null && $write->finished_at->lt(now()->subDays(3))) {
+                } elseif ($write->status === 'succeeded' && $write->finished_at !== null
+                    && $write->finished_at->lt(now()->subDays(self::GRACE_DAYS[$item['check']] ?? 3))) {
                     // Written days ago and the crawl still sees it: back on the desk.
                     $status = Suggestion::OPEN;
                     $action['last_write_error'] = 'Yazıldı ama sitede hâlâ görülüyor (önbellek ya da başka bir ayar).';
@@ -248,8 +265,11 @@ final class WebHealthAudit
             return null;
         }
         $pages = $this->pages($site);
+        $live = $pages->filter(fn (Page $p): bool => (bool) $p->is_indexable);
         $items = [];
         $groups = [];
+        $canonicals = [];
+        $weak = [];
         foreach ($latest as $key => $inspection) {
             $meta = $inspection['meta'];
             if (mb_strtoupper((string) ($meta['verdict'] ?? '')) === 'PASS') {
@@ -274,13 +294,49 @@ final class WebHealthAudit
                 $google !== '' && $user !== '' && SeoText::urlKey($google) !== SeoText::urlKey($user) => 'duplicate, google chose different canonical than user',
                 default => mb_strtolower($state !== '' ? $state : 'url is unknown to google'),
             };
-            $groups[$group][] = $this->path($inspection['url']).($group === 'duplicate, google chose different canonical than user' ? ' → Google: '.$this->path($google) : '');
+            if ($group === 'page with redirect' || $group === 'alternate page with proper canonical tag') {
+                // Normal: the address is redirected / points at its main page on purpose.
+                continue;
+            }
+            $path = $this->path($inspection['url']);
+            if ($group === 'not found (404)' && ($match = $this->closest($path, $live)) !== null && count($items) < 60) {
+                $items[] = ['key' => 'gone-'.md5($key), 'priority' => 2, 'target' => $inspection['url'], 'title' => 'Google 404 görüyor: '.$path,
+                    'reason' => 'Search Console: adres bulunamadı (404). Google ve eski linkler bu adrese gelmeye devam ediyor.',
+                    'before' => [$path.' → 404'], 'after' => ['301 → '.$match, 'Adres en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
+                    'changes' => [['type' => 'redirect', 'from' => $path, 'value' => $match, 'reference' => 'web-health-gsc404-'.substr(md5($key), 0, 12)]]];
+
+                continue;
+            }
+            if ($group === 'duplicate without user-selected canonical' && $page !== null && (int) $page->wp_post_id > 0) {
+                $canonicals[] = $page;
+
+                continue;
+            }
+            if (in_array($group, self::WEAK_STATES, true) && $page !== null && (bool) $page->is_indexable) {
+                $weak[] = ['page' => $page, 'state' => $state !== '' ? $state : 'URL is unknown to Google'];
+            }
+            $groups[$group][] = $path.($group === 'duplicate, google chose different canonical than user' ? ' → Google: '.$this->path($google) : '');
+        }
+        if ($canonicals !== []) {
+            $canonicals = array_slice($canonicals, 0, 100);
+            $items[] = ['key' => 'canonical', 'priority' => 3, 'target' => $this->origin($site),
+                'title' => sprintf('Yinelenen sayfalara kendi asıl adresini (canonical) ver (%d sayfa)', count($canonicals)),
+                'reason' => 'Search Console: "Yinelenen sayfa, asıl sayfa belirtilmemiş". Her sayfa kendi adresini asıl adres olarak gösterir.',
+                'before' => $this->list(array_map(fn (Page $p): string => $this->path((string) $p->url), $canonicals)),
+                'after' => ['Her sayfaya kendi adresi canonical olarak yazılır (SEO eklentisinin alanına; geri alınabilir).'],
+                'changes' => array_map(fn (Page $p): array => ['type' => 'canonical', 'object_id' => (int) $p->wp_post_id,
+                    'reference' => 'web-health-canonical-'.$p->id, 'value' => (string) $p->url], $canonicals)];
+        }
+        $linked = $this->linkSuggestions($site, $weak, $live);
+        foreach (self::WEAK_STATES as $state) {
+            // Pages that got "link to it" suggestions leave the task row; Google then decides on its own.
+            $groups[$state] = array_values(array_diff($groups[$state] ?? [], $linked));
+            if ($groups[$state] === []) {
+                unset($groups[$state]);
+            }
         }
         foreach ($groups as $state => $paths) {
             [$label, $steps] = self::STATES[$state] ?? [$state, ['Search Console › URL denetimi ile sayfanın durumuna bak.']];
-            if ($state === 'alternate page with proper canonical tag') {
-                continue;
-            }
             $items[] = ['key' => 'state-'.md5($state), 'priority' => in_array($state, ['crawled - currently not indexed', 'server error (5xx)', 'blocked by robots.txt'], true) ? 2 : 3,
                 'target' => $this->origin($site), 'title' => sprintf('Google dizin sorunu: %s (%d sayfa)', $label, count($paths)),
                 'reason' => 'Search Console URL denetimi (son 30 gün, sitenin denetlenen sayfaları).', 'before' => $this->list($paths), 'after' => $steps];
@@ -508,7 +564,7 @@ final class WebHealthAudit
         $junk = [];
         $any = false;
         DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')
-            ->where('reporting_date', '>=', now()->subDays(90)->toDateString())->groupBy('page')
+            ->where('reporting_date', '>=', now()->subDays(28)->toDateString())->groupBy('page')
             ->selectRaw('page, sum(impressions) as impressions')->get()->each(function (object $row) use (&$junk, &$any, $host): void {
                 $key = SeoText::urlKey((string) $row->page);
                 if (! str_starts_with($key, $host)) {
@@ -528,7 +584,7 @@ final class WebHealthAudit
         arsort($junk);
 
         return [['key' => 'bloat', 'priority' => 3, 'target' => $this->origin($site), 'title' => sprintf('Google gereksiz adresleri gösteriyor (%d adres)', count($junk)),
-            'reason' => 'Etiket, yazar, sayfalama, medya eki ya da parametreli adresler aramada çıkıyor; asıl sayfaların gücünü bölüyor (son 90 gün).',
+            'reason' => 'Etiket, yazar, sayfalama, medya eki ya da parametreli adresler aramada çıkıyor; asıl sayfaların gücünü bölüyor (son 28 gün).',
             'before' => $this->list(array_map(fn (string $u, int $i): string => $this->path($u).' · '.$i.' gösterim', array_keys($junk), $junk)),
             'after' => ['SEO eklentisinde (SEOPress / Yoast / Rank Math › Arşivler): etiket, yazar ve tarih arşivlerini "noindex" yap.',
                 'Medya ek sayfalarını dosyanın kendisine yönlendir (SEO eklentisinde "attachment" ayarı).', 'Site haritasından bu türleri çıkar.']]];
@@ -549,26 +605,136 @@ final class WebHealthAudit
             // No counted conversions at all: the tracking alert (conversions_not_defined) already covers it.
             return [];
         }
-        $pages = $this->pages($site)->filter(fn (Page $p): bool => in_array($p->category, ['hizmet', 'lokasyon'], true))
+        $pages = $this->pages($site)->filter(fn (Page $p): bool => in_array($p->category, ['hizmet', 'lokasyon'], true) && (bool) $p->is_indexable)
             ->keyBy(fn (Page $p): string => rtrim($this->path((string) $p->url), '/'));
-        $lines = [];
+        $found = [];
         foreach ($rows->sortByDesc('sessions') as $row) {
             $path = rtrim((string) strtok((string) $row->landing, '?'), '/');
             if ((int) $row->sessions >= 60 && (float) $row->key_events <= 0 && $pages->has($path)) {
-                $lines[] = (string) strtok((string) $row->landing, '?').' · '.(int) $row->sessions.' oturum · 0 dönüşüm';
+                $found[] = ['page' => $pages->get($path), 'sessions' => (int) $row->sessions];
             }
         }
-        if ($lines === []) {
-            return [];
-        }
+        $this->conversionSuggestions($site, $found);
 
-        return [['key' => 'conversion', 'priority' => 2, 'target' => $this->origin($site), 'title' => sprintf('Trafik alıp hiç dönüşüm getirmeyen hizmet sayfaları (%d)', count($lines)),
-            'reason' => 'GA4 son 28 gün: sitede dönüşüm sayılıyor ama bu hizmet sayfalarından gelen ziyaretçiler hiç dönüşmüyor.',
-            'before' => $this->list($lines), 'after' => [
-                'Sayfanın üst kısmında arama / WhatsApp / form butonu görünür mü, telefonda dene.',
-                'Butona tıklama GA4\'te dönüşüm olarak sayılıyor mu kontrol et (Etiket Yöneticisi önizleme).',
-                'Gerekirse Web sitesi › bu sayfa › "Dönüşüm adımı" önerisiyle metne çağrı eklenir.',
-            ]]];
+        // The pages are handled as "AI ile yap" page suggestions (Dönüşüm adımı); no manual row.
+        return [];
+    }
+
+    /* ------------------------------------------------------- AI page suggestions */
+
+    /**
+     * Pages Google knows but leaves out of the index get "link to it" suggestions on the two most related pages of the
+     * site that do not link to it yet ("AI ile yap" picks the anchor in that page's own text overnight; approved on the
+     * Onarım masası through the existing internal-link fix). Suggestions whose target got indexed close by themselves.
+     *
+     * @param  list<array{page: Page, state: string}>  $weak
+     * @param  Collection<string, Page>  $live
+     * @return list<string> paths of the pages that have a suggestion
+     */
+    private function linkSuggestions(DigitalAsset $site, array $weak, Collection $live): array
+    {
+        $key = 'repair.'.self::TYPE.'.inlink';
+        $existing = Suggestion::query()->where('brand_id', $site->brand_id)->where('decision_key', $key)
+            ->where('target_type', 'page')->whereIn('page_id', $live->pluck('id'))->get()->keyBy('fingerprint');
+        $edges = DB::table('website_link_edge')->where('digital_asset_id', $site->id)->where('is_internal', true)->limit(30000)
+            ->get(['source_url', 'normalized_target_url', 'target_url'])
+            ->map(fn (object $e): string => SeoText::urlKey((string) $e->source_url).'>'.SeoText::urlKey((string) ($e->normalized_target_url ?: $e->target_url)))
+            ->flip();
+        $sources = $live->filter(fn (Page $p): bool => (int) $p->wp_post_id > 0);
+        $seen = [];
+        $linked = [];
+        foreach (array_slice($weak, 0, self::INLINK_TARGETS) as $entry) {
+            $target = $entry['page'];
+            $targetKey = SeoText::urlKey((string) $target->url);
+            $words = $this->words((string) $target->title.' '.$this->path((string) $target->url));
+            $ranked = $sources->filter(fn (Page $p): bool => $p->id !== $target->id && (string) $p->language === (string) $target->language
+                && ! $edges->has(SeoText::urlKey((string) $p->url).'>'.$targetKey))
+                ->map(fn (Page $p): array => ['page' => $p, 'shared' => count(array_intersect($words, $this->words((string) $p->title.' '.$this->path((string) $p->url))))])
+                ->filter(fn (array $r): bool => $r['shared'] >= 2)->sortByDesc('shared')->take(2);
+            foreach ($ranked as $r) {
+                $source = $r['page'];
+                $fingerprint = hash('sha256', $site->brand_id.'|web-health-inlink|'.$source->id.'|'.$target->id);
+                $seen[] = $fingerprint;
+                $linked[$this->path((string) $target->url)] = true;
+                $row = $existing->get($fingerprint);
+                if ($row !== null && ! in_array($row->status, [Suggestion::OPEN, Suggestion::RECHECK], true)) {
+                    continue;
+                }
+                $values = ['channel' => 'search', 'decision_key' => $key, 'action_type' => 'internal_links', 'priority' => 2,
+                    'title' => mb_substr('İç link ekle: '.$this->path((string) $source->url).' → '.$this->path((string) $target->url), 0, 160),
+                    'reason' => mb_substr('Google bu sayfayı dizine almadı ('.$entry['state'].'): '.(string) $target->url
+                        .'. Bu sayfanın metninde ona doğal bir iç link ver ('.($target->title ?: $this->path((string) $target->url)).').', 0, 240),
+                    'target_type' => 'page', 'target_id' => $source->id, 'page_id' => $source->id, 'last_seen_at' => now(), 'material_hash' => hash('sha256', 'inlink|'.$target->url),
+                    'evidence' => [['kind' => 'quote', 'value' => 'Search Console: '.$entry['state'], 'source' => (string) $target->url]]];
+                if ($row === null) {
+                    Suggestion::query()->create($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
+                        'first_seen_at' => now(), 'action' => ['site_id' => (int) $site->id, 'link_to' => (string) $target->url]]);
+                } else {
+                    $row->forceFill($values)->save();
+                }
+            }
+        }
+        $this->closeUnseen($existing, $seen, 'Sayfa dizine girdi ya da artık link alıyor (otomatik kapandı).');
+
+        return array_keys($linked);
+    }
+
+    /**
+     * A service / location page with traffic but no conversion gets a "Dönüşüm adımı" suggestion: "AI ile yap" writes a
+     * visible call / WhatsApp / form section overnight and the new page text goes to WordPress as a draft copy after
+     * approval (then "Canlıya al"), like every page-text fix.
+     *
+     * @param  list<array{page: Page, sessions: int}>  $pages
+     */
+    private function conversionSuggestions(DigitalAsset $site, array $pages): void
+    {
+        $key = 'repair.'.self::TYPE.'.conversion';
+        $existing = Suggestion::query()->where('brand_id', $site->brand_id)->where('decision_key', $key)->get()->keyBy('fingerprint');
+        $busy = Suggestion::query()->where('brand_id', $site->brand_id)->where('action_type', 'conversion')->where('decision_key', '!=', $key)
+            ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED])->pluck('page_id')->all();
+        $seen = [];
+        foreach ($pages as $entry) {
+            $page = $entry['page'];
+            if (in_array($page->id, $busy, true)) {
+                continue;
+            }
+            $fingerprint = hash('sha256', $site->brand_id.'|web-health-conversion|'.$page->id);
+            $seen[] = $fingerprint;
+            $row = $existing->get($fingerprint);
+            if ($row !== null && ! in_array($row->status, [Suggestion::OPEN, Suggestion::RECHECK], true)) {
+                continue;
+            }
+            $values = ['channel' => 'search', 'decision_key' => $key, 'action_type' => 'conversion', 'priority' => 2,
+                'title' => mb_substr('Dönüşüm adımı ekle: '.$this->path((string) $page->url), 0, 160),
+                'reason' => mb_substr('GA4 son 28 gün: '.$entry['sessions'].' oturum, hiç dönüşüm yok. Sayfanın üstüne ve sonuna görünür bir arama / WhatsApp / form çağrısı ekle; mevcut metni koru.', 0, 240),
+                'target_type' => 'page', 'target_id' => $page->id, 'page_id' => $page->id, 'last_seen_at' => now(), 'material_hash' => hash('sha256', 'conversion|'.$page->url),
+                'evidence' => [['kind' => 'quote', 'value' => $entry['sessions'].' oturum · 0 dönüşüm (GA4, 28 gün)', 'source' => (string) $page->url]]];
+            if ($row === null) {
+                Suggestion::query()->create($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
+                    'first_seen_at' => now(), 'action' => ['site_id' => (int) $site->id]]);
+            } else {
+                $row->forceFill($values)->save();
+            }
+        }
+        $this->closeUnseen($existing, $seen, 'Sayfa artık dönüşüm getiriyor (otomatik kapandı).');
+    }
+
+    /**
+     * @param  Collection<string, Suggestion>  $existing
+     * @param  list<string>  $seen
+     */
+    private function closeUnseen(Collection $existing, array $seen, string $note): void
+    {
+        Suggestion::query()->whereIn('id', $existing->filter(fn (Suggestion $s): bool => ! in_array($s->fingerprint, $seen, true)
+            && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK], true))->pluck('id'))
+            ->update(['status' => Suggestion::APPLIED, 'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now(), 'resolved_at' => now(), 'operator_note' => $note]);
+    }
+
+    /** @return list<string> */
+    private function words(string $text): array
+    {
+        return array_values(array_unique(array_filter(preg_split('/[^\p{L}\p{N}]+/u', SeoText::fold($text)) ?: [],
+            fn (string $w): bool => mb_strlen($w) >= 4 && ! is_numeric($w) && ! in_array($w, self::STOP_WORDS, true))));
     }
 
     /* ------------------------------------------------------------------ helpers */
@@ -576,7 +742,7 @@ final class WebHealthAudit
     /** @return Collection<string, Page> the site's pages by URL key */
     private function pages(DigitalAsset $site): Collection
     {
-        return Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'category', 'wp_post_id', 'is_indexable', 'language'])
+        return Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'title', 'category', 'wp_post_id', 'is_indexable', 'language'])
             ->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
     }
 

@@ -107,6 +107,41 @@ final class WebHealthAuditTest extends SiteTestCase
         $this->assertStringContainsString('Önceki gönderim başarısız: SEO fixes are disabled on this site.', $row['reason']);
     }
 
+    public function test_search_console_404s_duplicates_and_unindexed_pages_are_prepared_automatically(): void
+    {
+        $ankara = $this->page('/ankara-implant-tedavisi/', 'Ankara implant', ['category' => 'hizmet', 'wp_post_id' => 43]);
+        $duplicate = $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'hizmet', 'wp_post_id' => 50]);
+        $weak = $this->page('/blog/implant-tedavisi-sonrasi/', 'İmplant tedavisi sonrası bakım', ['category' => 'blog', 'wp_post_id' => 60]);
+        $this->inspection('https://panorama.com.tr/ankara-implant-tedavisi-eski/', ['verdict' => 'FAIL', 'coverage_state' => 'Not found (404)']);
+        $this->inspection($duplicate->url, ['verdict' => 'NEUTRAL', 'coverage_state' => 'Duplicate without user-selected canonical']);
+        $this->inspection($weak->url, ['verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed']);
+        $this->inspection('https://panorama.com.tr/eski/', ['verdict' => 'NEUTRAL', 'coverage_state' => 'Page with redirect']);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $rows = app(RepairDesk::class)->rows()->keyBy('title');
+        $this->assertSame(['301 → https://panorama.com.tr/ankara-implant-tedavisi/', 'Adres en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
+            $rows['Google 404 görüyor: /ankara-implant-tedavisi-eski/']['after']);
+        $canonical = $rows['Yinelenen sayfalara kendi asıl adresini (canonical) ver (1 sayfa)'];
+        $this->assertSame(RepairDesk::WEB_FIX, $canonical['kind']);
+        $this->assertFalse($rows->keys()->contains(fn (string $t): bool => str_contains($t, 'taradı ama') || str_contains($t, 'Yönlendirilen')),
+            'the unindexed page got link suggestions; a redirected address is normal');
+
+        $links = Suggestion::query()->where('action_type', 'internal_links')->get();
+        $this->assertSame([$this->implantPage->id, $ankara->id], $links->pluck('page_id')->sort()->values()->all());
+        $this->assertStringContainsString($weak->url, $links->first()->reason);
+
+        app(RepairDesk::class)->approve([$canonical['id']], $this->admin);
+        $this->assertSame([['type' => 'canonical', 'object_id' => 50, 'reference' => 'web-health-canonical-'.$duplicate->id, 'value' => $duplicate->url]],
+            ExternalWriteAction::query()->sole()->request_payload['changes']);
+
+        // Google indexed the page: the open link suggestions close by themselves.
+        DB::table('gsc_url_inspection_snapshot')->delete();
+        $this->inspection($weak->url, ['verdict' => 'PASS', 'coverage_state' => 'Submitted and indexed']);
+        app(WebHealthAudit::class)->audit($this->site);
+        $this->assertSame([Suggestion::APPLIED], Suggestion::query()->where('action_type', 'internal_links')->pluck('status')->unique()->values()->all());
+    }
+
     public function test_a_301_needs_connector_1_12_0(): void
     {
         CoreConnection::query()->update(['config->plugin_version' => '1.11.0']);
@@ -121,7 +156,7 @@ final class WebHealthAuditTest extends SiteTestCase
         $this->assertSame(0, ExternalWriteAction::query()->count());
     }
 
-    public function test_headers_speed_bloat_conversion_and_external_links_become_operator_tasks(): void
+    public function test_headers_speed_bloat_and_external_links_become_operator_tasks_and_conversion_an_ai_suggestion(): void
     {
         $ga4 = CoreExternalResource::factory()->create();
         CoreAssetBinding::factory()->create(['digital_asset_id' => $this->site->id, 'external_resource_id' => $ga4->id, 'capability' => 'ga4']);
@@ -155,7 +190,10 @@ final class WebHealthAuditTest extends SiteTestCase
         $this->assertNotContains('Header always set Strict-Transport-Security "max-age=31536000"', $rows['Güvenlik başlıkları eksik (3)']['after'], 'HSTS is already sent');
         $this->assertStringContainsString('5,2 sn', implode(' ', $rows['Site yavaş (mobil)']['before']));
         $this->assertSame(['/tag/implant/ · 40 gösterim'], $rows['Google gereksiz adresleri gösteriyor (1 adres)']['before']);
-        $this->assertSame(['/implant-tedavisi/ · 120 oturum · 0 dönüşüm'], $rows['Trafik alıp hiç dönüşüm getirmeyen hizmet sayfaları (1)']['before']);
+        $conversion = Suggestion::query()->where('action_type', 'conversion')->sole();
+        $this->assertSame([$this->implantPage->id, 'Dönüşüm adımı ekle: /implant-tedavisi/', Suggestion::OPEN],
+            [$conversion->page_id, $conversion->title, $conversion->status], 'prepared overnight by "AI ile yap", no manual row');
+        $this->assertStringContainsString('120 oturum', $conversion->reason);
         $this->assertSame(['https://kapanmis-site.example/rehber/ (404) ← /implant-tedavisi/'], $rows['Kırık dış bağlantı (1)']['before']);
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'instagram.com'));
 
