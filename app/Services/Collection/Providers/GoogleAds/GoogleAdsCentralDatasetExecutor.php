@@ -460,7 +460,8 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
         } while ($pageToken !== null && $pages < $maxPages);
 
         if ($pageToken !== null) {
-            return DatasetExecutionResult::failed(CollectionErrorCategory::InvalidRequest, 'Google Ads paged response exceeded the bounded page limit; use a smaller date slice.', 'PAGE_BOUND_EXCEEDED');
+            // A large account's structure (keywords, ads) cannot be cut by date: read it whole as one stream instead.
+            return $this->fetchStream($scope, $query);
         }
 
         return [$rows, $requestId];

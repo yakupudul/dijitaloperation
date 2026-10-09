@@ -21,6 +21,7 @@ use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
+use App\Services\Repair\WebHealthAudit;
 use App\Services\Site\ClusterOverlaps;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -738,7 +739,7 @@ final class ExternalWriteService
             };
             $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => self::changeErrors($result)])->save();
         } catch (Throwable $exception) {
-            $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
+            $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr(trim($exception->getMessage()) ?: class_basename($exception).' (ayrıntı yok)', 0, 500)])->save();
         }
         if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
             // Shared-list negatives become "Uygulandı" only once Google accepted them.
@@ -750,6 +751,8 @@ final class ExternalWriteService
         if ($action->action === ExternalWriteAction::ACTION_SITE_FIX) {
             // "301 ile birleştir" becomes applied only once the site confirmed it (else open again with the error).
             app(ClusterOverlaps::class)->writeFinished($action);
+            // A site technical fix that failed goes back to the Onarım masası at once, with the reason.
+            app(WebHealthAudit::class)->writeFinished($action);
         }
         if ($action->action === ExternalWriteAction::ACTION_ARTICLE_DRAFTS && str_starts_with((string) data_get($action->request_payload, 'reference'), 'gbp-branch-')) {
             // ADR-079: the branch page draft gets its local-business markup (same approval).

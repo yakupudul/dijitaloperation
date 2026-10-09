@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DatasetExecutorResolver;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralDatasetExecutor;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsDatasetExecutor;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsEligibilityGuard;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsNormalizer;
@@ -595,6 +596,30 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
         $this->assertSame(1, DB::table('google_ads_campaign_daily')->count());
         $this->assertSame(9000000, (int) DB::table('google_ads_campaign_daily')->value('cost_micros'));
+    }
+
+    #[Test]
+    public function a_structure_too_large_for_the_page_limit_is_read_as_one_stream(): void
+    {
+        config(['moxdop-google-ads-collector.max_search_pages_per_tick' => 1]);
+        $streamed = 0;
+        Http::swap(new Factory);
+        Http::fake(function ($request) use (&$streamed) {
+            if (str_contains($request->url(), 'searchStream')) {
+                $streamed++;
+
+                return Http::response([['results' => []]], 200);
+            }
+
+            return Http::response(['results' => [], 'nextPageToken' => 'more'], 200);
+        });
+
+        $executor = app(GoogleAdsCentralDatasetExecutor::class);
+        $fetch = new \ReflectionMethod($executor, 'fetchPaged');
+        $result = $fetch->invoke($executor, ['integration' => $this->integration, 'customer_id' => '1234567890', 'login_customer_id' => ''], 'SELECT keyword_view.resource_name FROM keyword_view');
+
+        $this->assertIsArray($result, $result instanceof DatasetExecutionResult ? (string) $result->errorCode : '');
+        $this->assertGreaterThan(0, $streamed);
     }
 
     #[Test]

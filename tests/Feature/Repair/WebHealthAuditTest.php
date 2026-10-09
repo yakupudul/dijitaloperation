@@ -203,6 +203,42 @@ final class WebHealthAuditTest extends SiteTestCase
     }
 
     /** @param  array<string, mixed>  $meta */
+    public function test_a_sitemap_error_is_explained_by_opening_the_sitemap_and_a_failed_fix_returns_at_once(): void
+    {
+        foreach (['https://panorama.com.tr/sitemap.xml' => 1, 'https://panorama.com.tr/doc_tag-sitemap1.xml' => 1] as $path => $errors) {
+            DB::table('gsc_sitemap_snapshot')->insert(['digital_asset_id' => $this->site->id, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr',
+                'sitemap_path' => $path, 'retrieved_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', $path), 'metadata' => json_encode(['errors' => $errors, 'warnings' => 0])]);
+        }
+        Http::fake([
+            'https://panorama.com.tr/sitemap.xml' => Http::response('<?xml version="1.0"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://panorama.com.tr/page-sitemap.xml</loc></sitemap><sitemap><loc>https://panorama.com.tr/doc_tag-sitemap1.xml</loc></sitemap></sitemapindex>'),
+            'https://panorama.com.tr/page-sitemap.xml' => Http::response('', 200),
+            'https://panorama.com.tr/doc_tag-sitemap1.xml' => Http::response('', 404),
+        ]);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        $rows = app(RepairDesk::class)->rows()->keyBy('title');
+        $index = $rows['Site haritasında 1 hata, 0 uyarı: /sitemap.xml'];
+        $this->assertSame(['1 hata · 0 uyarı (Search Console)', 'Harita 2 alt harita listeliyor.', 'Neden: 1 alt harita düzgün açılmıyor. Haritada yalnız açılan sayfalar olmalı:',
+            '/doc_tag-sitemap1.xml → HTTP 404'], $index['before']);
+        $this->assertStringContainsString('Neden: harita açılmıyor (HTTP 404)', implode(' ', $rows['Site haritasında 1 hata, 0 uyarı: /doc_tag-sitemap1.xml']['before']));
+        $this->assertStringContainsString('yeni yazma türleri', implode(' ', $rows['Gereksiz site haritası gönderilmiş: /doc_tag-sitemap1.xml']['after']));
+
+        // A fix that the site refused comes back to the desk as soon as the write fails, in plain words.
+        $this->edge('https://panorama.com.tr/', 'https://panorama.com.tr/ankara-implant-tedavisi-fiyat/');
+        $this->html('https://panorama.com.tr/ankara-implant-tedavisi-fiyat/', 404);
+        $this->page('/ankara-implant-tedavisi/', 'Ankara implant', ['category' => 'hizmet', 'wp_post_id' => 43]);
+        app(WebHealthAudit::class)->audit($this->site);
+        $fix = app(RepairDesk::class)->rows()->firstWhere('title', 'Kırık iç bağlantı: /ankara-implant-tedavisi-fiyat/');
+        app(RepairDesk::class)->approve([$fix['id']], $this->admin);
+        $write = ExternalWriteAction::query()->sole();
+        $write->forceFill(['status' => 'failed', 'error' => 'no SEO plugin can hold redirects on this site (Rank Math, SEOPress Pro, Yoast SEO Premium or Redirection needed)'])->save();
+        app(WebHealthAudit::class)->writeFinished($write);
+        $row = app(RepairDesk::class)->rows()->firstWhere('id', $fix['id']);
+        $this->assertStringContainsString('Sitedeki MoxDOP eklentisi eski; 1.12.0', $row['reason']);
+    }
+
     private function inspection(string $url, array $meta): void
     {
         DB::table('gsc_url_inspection_snapshot')->insert(['digital_asset_id' => $this->site->id, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr',

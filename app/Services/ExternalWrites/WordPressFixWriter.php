@@ -97,7 +97,7 @@ final class WordPressFixWriter
             $result = (array) ($results[$i] ?? ['ok' => false, 'error' => 'no result']);
             $ok = (bool) ($result['ok'] ?? false);
             $out[] = ['reference' => $change['reference'], 'ok' => $ok, 'change_id' => $result['change_id'] ?? null, 'before' => $result['before'] ?? null,
-                'error' => $ok ? null : mb_substr((string) ($result['error'] ?? 'bilinmeyen hata'), 0, 500)]
+                'error' => $ok ? null : mb_substr(trim(is_scalar($result['error'] ?? null) ? (string) $result['error'] : '') ?: 'Site bu değişikliği yapmadı ve sebebini bildirmedi ('.$change['type'].').', 0, 500)]
                 + (isset($result['provider']) ? ['provider' => (string) $result['provider']] : []);
         }
         $okCount = count(array_filter($out, fn (array $r): bool => $r['ok']));

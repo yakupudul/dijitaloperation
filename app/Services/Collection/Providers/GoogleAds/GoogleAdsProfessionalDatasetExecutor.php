@@ -357,11 +357,8 @@ final class GoogleAdsProfessionalDatasetExecutor implements DatasetExecutor
         } while ($pageToken !== null && $pages < $maxPages);
 
         if ($pageToken !== null) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::InvalidRequest,
-                'Google Ads paged dataset exceeded the bounded page limit; reduce its collection window.',
-                'PAGE_BOUND_EXCEEDED',
-            );
+            // Too many pages for one tick: read the same query whole as one stream instead of stopping the account.
+            return $this->fetchStream($scope, $query);
         }
 
         return [$rows, $requestId];

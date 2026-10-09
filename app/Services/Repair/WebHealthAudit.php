@@ -174,6 +174,38 @@ final class WebHealthAudit
         return $write;
     }
 
+    /**
+     * The write of an approved fix finished: a failed one returns to the desk now (not only at the nightly run), with the
+     * site's reason in plain words.
+     */
+    public function writeFinished(ExternalWriteAction $write): void
+    {
+        if ($write->status !== 'failed' || $write->suggestion_id === null) {
+            return;
+        }
+        $suggestion = Suggestion::query()->where('action_type', self::TYPE)->where('status', Suggestion::APPROVED)->find($write->suggestion_id);
+        if ($suggestion === null || (int) data_get($suggestion->action, 'write_id') !== (int) $write->id) {
+            return;
+        }
+        $error = self::plainError($write->error);
+        $suggestion->forceFill(['status' => Suggestion::OPEN, 'resolved_at' => null, 'resolved_by' => null,
+            'action' => array_merge((array) $suggestion->action, ['last_write_error' => mb_substr($error, 0, 300)])])->save();
+    }
+
+    /** The site's failure reason in words the operator can act on. */
+    public static function plainError(?string $error): string
+    {
+        $error = trim((string) $error);
+        if ($error === '') {
+            return 'gönderim tamamlanmadı';
+        }
+        if (str_contains($error, 'no SEO plugin can hold redirects')) {
+            return 'Sitedeki MoxDOP eklentisi eski; 1.12.0 ve sonrası 301\'i kendi listesine yazar. Eklentiyi güncelle, sonra yeniden onayla.';
+        }
+
+        return $error;
+    }
+
     /** "Yaptım" on a task row: hidden for a week; the nightly run closes it when the problem is gone, else it returns. */
     public function markDone(User $user, Suggestion $suggestion): void
     {
@@ -221,7 +253,7 @@ final class WebHealthAudit
                 $write = ExternalWriteAction::query()->find((int) ($previous['write_id'] ?? 0));
                 if ($write === null || in_array($write->status, ['failed', 'undone'], true)) {
                     $status = Suggestion::OPEN;
-                    $action['last_write_error'] = $write?->error ?: 'gönderim tamamlanmadı';
+                    $action['last_write_error'] = self::plainError($write?->error);
                 } elseif ($write->status === 'succeeded' && $write->finished_at !== null
                     && $write->finished_at->lt(now()->subDays(self::GRACE_DAYS[$item['check']] ?? 3))) {
                     // Written days ago and the crawl still sees it: back on the desk.
@@ -368,20 +400,89 @@ final class WebHealthAudit
             $errors = (int) ($sitemap['meta']['errors'] ?? 0);
             $warnings = (int) ($sitemap['meta']['warnings'] ?? 0);
             if ($errors > 0 || $warnings > 0) {
+                $junk = SeoText::isJunkSitemap($sitemap['url']);
                 $items[] = ['key' => 'errors-'.md5($key), 'priority' => $errors > 0 ? 2 : 3, 'target' => $sitemap['url'],
                     'title' => sprintf('Site haritasında %d hata, %d uyarı: %s', $errors, $warnings, $this->path($sitemap['url'])),
-                    'reason' => 'Search Console site haritası raporu.', 'before' => [$sitemap['url'], $errors.' hata · '.$warnings.' uyarı'],
-                    'after' => ['Search Console › Site haritaları › bu harita: hatanın ayrıntısına bak.', 'SEO eklentisinde site haritasını yenileyip yeniden gönder.']];
+                    'reason' => 'Google bu haritayı okurken sorun bildirdi. MoxDOP haritayı kendisi açıp nedenini aradı (aşağıda).',
+                    'before' => [$errors.' hata · '.$warnings.' uyarı (Search Console)', ...$this->sitemapDiagnosis($sitemap['url'])],
+                    'after' => $junk
+                        ? ['Bu harita gereksiz; düzeltmesi onu kapatmak (bir alttaki satır). Kapanınca bu hata da gider.']
+                        : ['Aşağıdaki nedeni düzelt; harita yenilenince Google bir sonraki okumada hatayı kaldırır.']];
             }
             if (SeoText::isJunkSitemap($sitemap['url'])) {
                 $items[] = ['key' => 'junk-'.md5($key), 'priority' => 3, 'target' => $sitemap['url'],
                     'title' => 'Gereksiz site haritası gönderilmiş: '.$this->path($sitemap['url']),
-                    'reason' => 'Etiket, yazar, medya ya da şablon adreslerini listeleyen harita Google\'a gereksiz sayfa gösterir.',
-                    'before' => [$sitemap['url']], 'after' => ['SEO eklentisinin site haritası ayarında bu türü kapat.', 'Search Console › Site haritaları › haritayı kaldır.']];
+                    'reason' => 'Bu harita etiket, yazar, medya ya da şablon sayfalarını listeliyor. Bu sayfalar ziyaretçiye bir şey anlatmıyor; Google\'a göstermek sitenin değerini düşürür.',
+                    'before' => [$sitemap['url']],
+                    'after' => ['SEO eklentisinin site haritası ayarında bu türü kapat (Rank Math › Site haritası / Yoast › Ayarlar › İçerik türleri).',
+                        'Search Console › Site haritaları › bu haritayı kaldır.', 'İkisini sistemin yapması için "yeni yazma türleri" onayın gerekiyor.']];
             }
         }
 
         return $items;
+    }
+
+    /**
+     * Search Console gives only an error count for a sitemap; MoxDOP opens the sitemap itself and names the cause in
+     * plain words (does not open, broken XML, empty, listed sitemaps or pages that do not open).
+     *
+     * @return list<string>
+     */
+    private function sitemapDiagnosis(string $url): array
+    {
+        try {
+            $response = Http::timeout(15)->connectTimeout(5)->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP sitemap check)'])->get($url);
+        } catch (Throwable $error) {
+            return ['Neden: harita açılamadı ('.mb_substr($error->getMessage(), 0, 120).').'];
+        }
+        if (! $response->successful()) {
+            return ['Neden: harita açılmıyor (HTTP '.$response->status().'). Google da okuyamıyor; SEO eklentisinde site haritasını yeniden oluştur ya da bu haritayı kapat.'];
+        }
+        $previous = libxml_use_internal_errors(true);
+        $xml = simplexml_load_string(ltrim($response->body()));
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if ($xml === false) {
+            return ['Neden: harita geçerli bir XML değil (başında bir eklentinin ya da PHP\'nin yazdığı fazladan metin olabilir).'];
+        }
+        $isIndex = $xml->getName() === 'sitemapindex';
+        $locations = [];
+        foreach ($isIndex ? $xml->sitemap : $xml->url as $entry) {
+            $location = trim((string) $entry->loc);
+            if ($location !== '') {
+                $locations[] = $location;
+            }
+        }
+        if ($locations === []) {
+            return ['Neden: harita boş, hiç adres listelemiyor. Boş harita Google\'da hata sayılır; bu türü kapatmak düzeltir.'];
+        }
+        $lines = [($isIndex ? 'Harita '.count($locations).' alt harita listeliyor.' : 'Harita '.count($locations).' adres listeliyor.')];
+        $sample = array_slice($locations, 0, $isIndex ? 30 : 40);
+        $responses = Http::pool(fn (Pool $pool): array => array_map(fn (string $u) => $pool->as($u)->timeout(8)->connectTimeout(5)
+            ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP sitemap check)'])->withOptions(['allow_redirects' => false])->head($u), $sample));
+        $bad = [];
+        foreach ($sample as $location) {
+            $result = $responses[$location] ?? null;
+            $code = $result instanceof Response ? $result->status() : 0;
+            if ($code === 405 || $code === 501) {
+                continue;
+            }
+            if ($code >= 300 || $code === 0) {
+                $bad[] = $this->path($location).' → '.match (true) {
+                    $code === 0 => 'açılmıyor',
+                    $code < 400 => 'yönlendiriyor ('.$code.')',
+                    default => 'HTTP '.$code,
+                };
+            }
+        }
+        if ($bad === []) {
+            $lines[] = 'Biz açınca sorun görmedik ('.count($sample).' adres denendi). Hata eski olabilir; Google haritayı yeniden okuyunca kalkar.';
+
+            return $lines;
+        }
+        $lines[] = 'Neden: '.count($bad).' '.($isIndex ? 'alt harita' : 'adres').' düzgün açılmıyor. Haritada yalnız açılan sayfalar olmalı:';
+
+        return [...$lines, ...array_slice($bad, 0, 8)];
     }
 
     /** @return list<array<string, mixed>>|null */

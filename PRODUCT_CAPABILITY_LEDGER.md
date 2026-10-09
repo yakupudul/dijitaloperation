@@ -3712,6 +3712,13 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   sticks to the bottom with the count; "Bu şeritteki tümünü seç (N)"; changing brand / kind / lane clears the selection.
   Top: **Marka sağlığı** (open work per brand, done in the last 14 days, bar; click filters) and **Onaydan sonra**
   (`RepairDesk::pipeline`, last 14 days: Onaylandı, sırada → Siteye yazıldı → Doğrulandı, plus Hata, masaya döndü).
+- Düzeltmeler (2026-10-09): a site-health fix whose write failed returns to the desk at once (`WebHealthAudit::writeFinished`)
+  with the reason in plain words (old-plugin "no SEO plugin can hold redirects" → update to 1.12.0); a site refusal or
+  job failure without a reason now says so instead of an empty error. Site haritası rows: MoxDOP opens the sitemap
+  itself (does not open / not XML / empty / listed sitemaps or pages that do not open) and writes the cause under the
+  Search Console count. Turning a junk sitemap type off and removing it from Search Console are still the operator's
+  (new write types await yakup's approval; Search Console writes also need a write scope). Google Ads: a query with more
+  pages than one tick allows (large account structure, PAGE_BOUND_EXCEEDED) is read whole with SearchStream.
 - Hazırla: `moxdop:repair:prepare` (02:10) queues "AI ile yap" for up to 150 field fixes and 20 page-text fixes without a
   prepared value. Doğrula: `moxdop:repair:verify` (hourly :35) checks a website title / description fix 24 hours after
   the write against the page's stored title / description (confirmed / still seen); a fix whose writes all failed or were
