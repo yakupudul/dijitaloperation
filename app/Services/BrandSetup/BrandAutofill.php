@@ -27,8 +27,11 @@ use Throwable;
  */
 final class BrandAutofill
 {
-    /** Checklist items an "Otomatik kur" run can fill. */
-    public const array FILLABLE = ['services', 'main_service', 'areas', 'sector', 'context', 'search_console', 'ga4'];
+    /**
+     * Checklist items an "Otomatik kur" run can fill. Places are not among them (yakup, 2026-10-09): the nightly
+     * Marka verisi denetimi (BrandDataAudit) proposes them with their evidence on the Onarım masası for approval.
+     */
+    public const array FILLABLE = ['services', 'main_service', 'sector', 'context', 'search_console', 'ga4'];
 
     /** A brand is not asked again sooner than this after its last automatic run or crawl. */
     public const int COOLDOWN_DAYS = 7;
@@ -143,8 +146,8 @@ final class BrandAutofill
     {
         $items = array_values(array_map(fn (array $i): string => (string) $i['key'], array_filter($proposal->itemRows(), fn (array $i): bool => (bool) ($i['selected'] ?? false))));
         $services = array_keys(array_filter($proposal->serviceRows(), fn (array $s): bool => (bool) ($s['selected'] ?? false)));
-        $areas = array_keys(array_filter(array_values((array) data_get($proposal->summary, 'areas', [])), fn ($a): bool => is_array($a) && (bool) ($a['selected'] ?? false)));
-        $results = $this->applier->apply($proposal, self::systemUser(), $items, $services, true, $areas);
+        // Places wait for approval on the Onarım masası (BrandDataAudit), never applied silently.
+        $results = $this->applier->apply($proposal, self::systemUser(), $items, $services, true, []);
         if (($brand = $proposal->brand()->first()) instanceof Brand) {
             $this->ensureMain($brand, $proposal);
         }

@@ -6,6 +6,7 @@ use App\Jobs\BuildBrandSetupProposalJob;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\BrandOffering;
+use App\Models\BrandServiceArea;
 use App\Models\BrandSetupProposal;
 use App\Models\Collection\CollectionRun;
 use App\Models\Customer;
@@ -93,6 +94,7 @@ final class BrandAutofillTest extends TestCase
         $this->assertSame(['Diş Beyazlatma', 'İmplant Tedavisi'], $offerings->keys()->sort()->values()->all(), 'only confident rows');
         $this->assertTrue($offerings['İmplant Tedavisi']->isMain(), 'the most searched service becomes ★');
         $this->assertFalse($offerings['Diş Beyazlatma']->isMain());
+        $this->assertSame(0, BrandServiceArea::query()->where('brand_id', $this->brand->id)->count(), 'places wait for approval on the Onarım masası (BrandDataAudit)');
 
         $workspace = app(BrandWorkspaceReadService::class);
         $items = collect($workspace->checklist($this->brand->fresh(), [], $workspace->services($this->brand))['items'])->keyBy('key');

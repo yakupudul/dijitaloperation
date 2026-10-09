@@ -37,6 +37,7 @@ use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
+use App\Services\Brand\BrandDataAudit;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandGaps;
 use App\Services\BrandSetup\BrandAutofill;
@@ -866,6 +867,19 @@ Schedule::command('moxdop:brands:autofill')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('brands-autofill');
+
+// Marka verisi denetimi (yakup, 2026-10-09 "bana onaylamak kalsın"): places and services without evidence, profile
+// addresses and places the site keeps naming go to the Onarım masası as approval rows (no AI, nothing applied by itself).
+Artisan::command('moxdop:brands:audit {--brand= : One brand id}', function (BrandDataAudit $audit): void {
+    $out = $audit->run($this->option('brand') !== null ? (int) $this->option('brand') : null);
+    $this->info(sprintf('Marka verisi denetimi: %d marka, %d yeni onay satırı, %d satır kapandı.', $out['brands'], $out['proposed'], $out['closed']));
+})->purpose('Check brand places and services against their evidence and put the changes on the Onarım masası.');
+
+Schedule::command('moxdop:brands:audit')
+    ->dailyAt('03:20')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('brands-data-audit');
 
 // Bing Webmaster (yakup, 2026-10-07): ChatGPT search reads Bing's index; every morning the sites are matched again and
 // their weekly Bing searches read (read only).

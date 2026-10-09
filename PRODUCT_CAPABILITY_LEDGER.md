@@ -1,5 +1,19 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-09 — Marka verisi denetimi (yer ve hizmet onayı) ve içerik havuzu yedeği
+
+- **Neden (yakup):** bazı markalarda alakasız hizmet ve bölgeler vardı (Decco: Seferihisar, Avrupadent: 5 İzmir ilçesi "şube", OPC: Kadıköy hiç yok). yakup marka ve varlık işlerinin toplu hazırlanmasını, kendisine yalnız onayın kalmasını istedi. Fikir havuzu da dolmuyordu.
+- **Marka verisi denetimi (`BrandDataAudit`, `moxdop:brands:audit`, her gece 03:20):** AI kullanmaz, kuralla çalışır. Markanın yer ve hizmetlerini kendi kanıtıyla karşılaştırır. Gereken değişiklikleri Onarım masasına "Marka bilgisi (yer ve hizmet)" satırı olarak koyar (`brand_data`), satırlar paket olarak toplu onaylanır:
+  - İşletme Profili olmayan, hiçbir sayfanın anmadığı ve Search Console'da 90 günde 30 gösterimin altında kalan yer → kaldır (arşive alınır).
+  - Profili olmayan "şube" → hizmet bölgesi.
+  - Profil adresi yerlerde yoksa → şube olarak ekle.
+  - Sayfaların ≥3'ünün ve ≥%10'unun andığı ilçe veya il → hizmet bölgesi olarak ekle (marka başına en çok 3).
+  - Kilitsiz, ★ olmayan, sayfası, reklam kampanyası ve onu anan arama olmayan hizmet → arşivle.
+  - 10 sayfadan az okunmuşsa hiçbir şey kaldırılmaz. Reddedilen satır geri gelmez, kanıtı değişen açık satır kendiliğinden kapanır.
+- **Otomatik doldurma:** gece "Otomatik kur" artık bölge eklemez; bölgeler yalnız bu denetimden ve onayla gelir.
+- **İçerik havuzu:** AI sağlayıcı hata verirse (kredi, hız sınırı, zaman aşımı) ya da sağlayıcı yoksa, haftalık fikir işi ve toplu başlık/açıklama hazırlığı Claude kuyruğuna düşer. Havuz satırında sebep görünür ("Claude kuyruğunda", "AI sağlayıcısının kredisi bitti: …"). Kuyruktaki site 36 saat yeniden sıraya alınmaz.
+- **State:** CODED + PHPUnit (`BrandDataAuditTest`, `SiteAiFallbackTest`, `BrandAutofillTest`). Canlı UAT: deploy sonrası `moxdop:brands:audit` ve `moxdop:content:weekly-titles`.
+
 ## 2026-10-09 — Anahtar Kelime Planlayıcı (salt okuma)
 
 - **Neden (yakup, "hemen bağlayabilirsin"):** arama verisi ince olan markalar (Burcu Kısa: kütüphanede 28 sorgu) küme ve fikir üretemiyordu.

@@ -89,24 +89,35 @@ final class BrandSetupAreaSuggester
                 continue;
             }
             $resource = CoreExternalResource::query()->find((int) ($item['resource_id'] ?? 0));
-            if ($resource === null) {
-                continue;
+            if ($resource !== null && ($address = self::address($resource)) !== null) {
+                $out[] = $address;
             }
-            $address = (array) ($resource->metadata['storefront_address'] ?? []);
-            if (Schema::hasTable('gbp_location_snapshots')) {
-                $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->value('storefront_address');
-                $decoded = is_string($snapshot) ? json_decode($snapshot, true) : null;
-                $address = is_array($decoded) && $decoded !== [] ? $decoded : $address;
-            }
-            $city = trim((string) ($address['administrativeArea'] ?? ''));
-            if ($city === '' || strtoupper((string) ($address['regionCode'] ?? 'TR')) !== 'TR') {
-                continue;
-            }
-            $district = trim((string) ($address['locality'] ?? $address['sublocality'] ?? ''));
-            $out[] = [$city, $district !== '' ? $district : null, (string) $resource->display_name];
         }
 
         return $out;
+    }
+
+    /**
+     * A Business Profile's Turkish address as [il, ilçe, profile name] (latest collected snapshot, else the discovered
+     * resource's metadata); null when it has none. administrativeArea = il, locality = ilçe.
+     *
+     * @return array{0: string, 1: ?string, 2: string}|null
+     */
+    public static function address(CoreExternalResource $resource): ?array
+    {
+        $address = (array) ($resource->metadata['storefront_address'] ?? []);
+        if (Schema::hasTable('gbp_location_snapshots')) {
+            $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->value('storefront_address');
+            $decoded = is_string($snapshot) ? json_decode($snapshot, true) : null;
+            $address = is_array($decoded) && $decoded !== [] ? $decoded : $address;
+        }
+        $city = trim((string) ($address['administrativeArea'] ?? ''));
+        if ($city === '' || strtoupper((string) ($address['regionCode'] ?? 'TR')) !== 'TR') {
+            return null;
+        }
+        $district = trim((string) ($address['locality'] ?? $address['sublocality'] ?? ''));
+
+        return [$city, $district !== '' ? $district : null, (string) $resource->display_name];
     }
 
     private static function key(string $city, ?string $district): string

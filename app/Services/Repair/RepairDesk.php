@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Brand\BrandDataAudit;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\ExternalWrites\GoogleAdsChangeWriter;
 use App\Services\Gbp\Desk\ProfileFields;
@@ -54,6 +55,8 @@ final class RepairDesk
 
     public const string WEB_TASK = 'web_task';
 
+    public const string BRAND_DATA = 'brand_data';
+
     public const array KINDS = [
         self::SITE_FIELDS => 'Başlık, açıklama, iç link, schema',
         self::SITE_CONTENT => 'Sayfa metni',
@@ -65,6 +68,7 @@ final class RepairDesk
         self::GBP_FIELDS => 'İşletme Profili bilgileri',
         self::WEB_FIX => 'Site teknik düzeltmesi',
         self::WEB_TASK => 'Senin yapacağın (sitede elle)',
+        self::BRAND_DATA => 'Marka bilgisi (yer ve hizmet)',
     ];
 
     public const string LOW = 'low';
@@ -416,6 +420,7 @@ final class RepairDesk
                         self::ADS_CHANGE => app(GoogleAdsChanges::class)->send($user, $suggestion),
                         self::WEB_FIX => app(WebHealthAudit::class)->send($user, $suggestion),
                         self::WEB_TASK => app(WebHealthAudit::class)->markDone($user, $suggestion),
+                        self::BRAND_DATA => app(BrandDataAudit::class)->apply($user, $suggestion),
                     };
                     $result['applied']++;
                 } catch (Throwable $error) {
@@ -482,6 +487,7 @@ final class RepairDesk
             $base()->where('action_type', ProfileInfo::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', GoogleAdsChanges::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', WebHealthAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->where('action_type', BrandDataAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
         ])->flatMap(fn (Builder $query): Collection => $query->orderBy('priority')->orderBy('id')->limit(self::LIMIT)->get())
             ->unique('id')->values();
     }
@@ -519,6 +525,9 @@ final class RepairDesk
                 'risk' => ($action['changes'] ?? []) !== [] ? self::MEDIUM : self::MANUAL, 'target' => (string) ($action['target'] ?? ''),
                 'before' => array_map('strval', (array) ($action['before'] ?? [])), 'after' => array_map('strval', (array) ($action['after'] ?? [])),
                 'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null],
+            BrandDataAudit::TYPE => filled($action['op'] ?? null) ? $base + ['kind' => self::BRAND_DATA,
+                'risk' => in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM], true) ? $action['risk'] : self::MEDIUM,
+                'target' => 'Marka › Ayarlar', 'before' => [(string) ($action['before'] ?? '—')], 'after' => [(string) ($action['after'] ?? '')]] : null,
             default => $this->siteRow($s, $base, $action),
         };
 
