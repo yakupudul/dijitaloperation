@@ -12,6 +12,7 @@
   - 10 sayfadan az okunmuşsa hiçbir şey kaldırılmaz. Reddedilen satır geri gelmez, kanıtı değişen açık satır kendiliğinden kapanır.
 - **Otomatik doldurma:** gece "Otomatik kur" artık bölge eklemez; bölgeler yalnız bu denetimden ve onayla gelir.
 - **İçerik havuzu:** AI sağlayıcı hata verirse (kredi, hız sınırı, zaman aşımı) ya da sağlayıcı yoksa, haftalık fikir işi ve toplu başlık/açıklama hazırlığı Claude kuyruğuna düşer. Havuz satırında sebep görünür ("Claude kuyruğunda", "AI sağlayıcısının kredisi bitti: …"). Kuyruktaki site 36 saat yeniden sıraya alınmaz.
+- **Gereksiz dizin satırı (2026-10-09 akşam, yakup sordu):** sayfalama (/page/2/, /sayfa/2/) artık "gereksiz adres" sayılmaz; Google eski yazılara bu sayfalardan ulaşır, noindex yapılmaz. Satır yalnız listede gerçekten olan türler için adım yazar (etiket/yazar, medya eki, Elementor, parametre).
 - **State:** CODED + PHPUnit (`BrandDataAuditTest`, `SiteAiFallbackTest`, `BrandAutofillTest`). Canlı UAT: deploy sonrası `moxdop:brands:audit` ve `moxdop:content:weekly-titles`.
 
 ## 2026-10-09 — Anahtar Kelime Planlayıcı (salt okuma)

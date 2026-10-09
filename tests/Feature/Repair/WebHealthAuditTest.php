@@ -171,7 +171,7 @@ final class WebHealthAuditTest extends SiteTestCase
         DB::table('website_performance_measurement')->insert(['digital_asset_id' => $this->site->id, 'url' => 'https://panorama.com.tr/', 'strategy' => 'mobile',
             'observed_at' => now()->subDay(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20),
             'metadata' => json_encode(['lcp_ms' => 3000, 'field' => ['scope' => 'origin', 'lcp_ms' => 5200, 'inp_ms' => 150, 'cls' => 0.3]])]);
-        foreach (['https://panorama.com.tr/tag/implant/' => 40, 'https://panorama.com.tr/implant-tedavisi/' => 900] as $page => $impressions) {
+        foreach (['https://panorama.com.tr/tag/implant/' => 40, 'https://panorama.com.tr/blog/page/29/' => 53, 'https://panorama.com.tr/implant-tedavisi/' => 900] as $page => $impressions) {
             $this->insertFacts('gsc_query_page_daily', ['digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr',
                 'search_type' => 'web', 'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'implant', 'page' => $page, 'clicks' => 1, 'impressions' => $impressions,
                 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20)]);
@@ -190,6 +190,8 @@ final class WebHealthAuditTest extends SiteTestCase
         $this->assertNotContains('Header always set Strict-Transport-Security "max-age=31536000"', $rows['Güvenlik başlıkları eksik (3)']['after'], 'HSTS is already sent');
         $this->assertStringContainsString('5,2 sn', implode(' ', $rows['Site yavaş (mobil)']['before']));
         $this->assertSame(['/tag/implant/ · 40 gösterim'], $rows['Google gereksiz adresleri gösteriyor (1 adres)']['before']);
+        $this->assertStringContainsString('etiket ve yazar', $rows['Google gereksiz adresleri gösteriyor (1 adres)']['after'][0], 'pagination stays indexable; only the steps the list needs');
+        $this->assertCount(1, $rows['Google gereksiz adresleri gösteriyor (1 adres)']['after']);
         $conversion = Suggestion::query()->where('action_type', 'conversion')->sole();
         $this->assertSame([$this->implantPage->id, 'Dönüşüm adımı ekle: /implant-tedavisi/', Suggestion::OPEN],
             [$conversion->page_id, $conversion->title, $conversion->status], 'prepared overnight by "AI ile yap", no manual row');

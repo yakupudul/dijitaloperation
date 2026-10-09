@@ -672,7 +672,8 @@ final class WebHealthAudit
                     return;
                 }
                 $any = true;
-                if (! SeoText::isCrawlablePage((string) $row->page) && (int) $row->impressions > 0) {
+                // Pagination (/page/2/) stays indexable on purpose: it is how Google reaches older posts (yakup asked, 2026-10-09).
+                if (! SeoText::isCrawlablePage((string) $row->page) && ! self::isPagination((string) $row->page) && (int) $row->impressions > 0) {
                     $junk[(string) $row->page] = (int) $row->impressions;
                 }
             });
@@ -685,10 +686,43 @@ final class WebHealthAudit
         arsort($junk);
 
         return [['key' => 'bloat', 'priority' => 3, 'target' => $this->origin($site), 'title' => sprintf('Google gereksiz adresleri gösteriyor (%d adres)', count($junk)),
-            'reason' => 'Etiket, yazar, sayfalama, medya eki ya da parametreli adresler aramada çıkıyor; asıl sayfaların gücünü bölüyor (son 28 gün).',
+            'reason' => 'Etiket, yazar, medya eki, sayfa düzenleyici ya da parametreli adresler aramada çıkıyor; asıl sayfaların gücünü bölüyor (son 28 gün). Sayfalama (/page/2/) bu listede yok, dizinde kalmalı.',
             'before' => $this->list(array_map(fn (string $u, int $i): string => $this->path($u).' · '.$i.' gösterim', array_keys($junk), $junk)),
-            'after' => ['SEO eklentisinde (SEOPress / Yoast / Rank Math › Arşivler): etiket, yazar ve tarih arşivlerini "noindex" yap.',
-                'Medya ek sayfalarını dosyanın kendisine yönlendir (SEO eklentisinde "attachment" ayarı).', 'Site haritasından bu türleri çıkar.']]];
+            'after' => self::bloatSteps(array_keys($junk))]];
+    }
+
+    /** Pagination of a list (blog, category): /page/2/, /sayfa/2/, comment pages. */
+    public static function isPagination(string $url): bool
+    {
+        return preg_match('#(^|/)(page/\d+|sayfa/\d+|comment-page-\d+)/?$#', mb_strtolower(SeoText::urlPath($url))) === 1;
+    }
+
+    /**
+     * Only the steps the listed addresses need.
+     *
+     * @param  list<string>  $urls
+     * @return list<string>
+     */
+    private static function bloatSteps(array $urls): array
+    {
+        $paths = array_map(fn (string $u): string => mb_strtolower(SeoText::urlPath($u)), $urls);
+        $queries = array_map(fn (string $u): string => mb_strtolower((string) parse_url($u, PHP_URL_QUERY)), $urls);
+        $has = fn (string $pattern, array $in): bool => preg_grep($pattern, $in) !== [];
+        $steps = [];
+        if ($has('#(^|/)(tag|etiket|author|yazar)(/|$)#', $paths)) {
+            $steps[] = 'SEO eklentisinde (SEOPress / Yoast / Rank Math › Arşivler): etiket ve yazar arşivlerini "noindex" yap ve site haritasından çıkar.';
+        }
+        if ($has('#(^|&)attachment_id=#', $queries)) {
+            $steps[] = 'Medya ek sayfalarını dosyanın kendisine yönlendir (SEO eklentisinde "attachment" ayarı).';
+        }
+        if ($has('#(^|/)(elementor[-_a-z0-9]*|elementor_library|e-landing-page)(/|$)#', $paths)) {
+            $steps[] = 'Elementor şablon ve açılış sayfası adreslerini SEO eklentisinde "noindex" yap.';
+        }
+        if ($has('#(^|&)(utm_[a-z]+|fbclid|gclid|orderby|filter_[a-z_]+|share|ver)=#', $queries)) {
+            $steps[] = 'Parametreli adreslerin asıl adresi (canonical) parametresiz sayfa olmalı; SEO eklentisinin canonical ayarını kontrol et.';
+        }
+
+        return $steps !== [] ? $steps : ['Bu adresleri SEO eklentisinde "noindex" yap ve site haritasından çıkar.'];
     }
 
     /** @return list<array<string, mixed>>|null */
