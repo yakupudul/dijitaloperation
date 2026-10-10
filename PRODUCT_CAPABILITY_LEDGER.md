@@ -41,6 +41,10 @@
   - Not: sunucuda `MOXDOP_ALERTS_TIME` ya da `MOXDOP_COMPLIANCE_SCAN_TIME` ayarlıysa bundan sonra İstanbul saati sayılır.
   - Test: `CommandNamesTest`.
   - Kalan: türetme işlerinin toplamanın bitişini beklemesi (şimdilik sabit saat ve saatlik telafi işi).
+- **6. Masalardan markaya dönüş:**
+  - Onarım masasında her paketin marka adı markanın sayfasına gider; marka seçiliyken "Marka sayfasına git →" bağlantısı çıkar.
+  - Kazananlar › Marka gözüyle ve Meta masası marka seçiliyken "Marka sayfası →" gösterir.
+  - Genel işler (/work) Onarım masasını istek başına bir kez kurar (önceden iki kez kuruyordu) ve bir dakika önbellekte tutar.
 
 ## 2026-10-09 — Marka verisi denetimi (yer ve hizmet onayı) ve içerik havuzu yedeği
 

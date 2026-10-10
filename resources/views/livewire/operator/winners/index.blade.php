@@ -43,6 +43,7 @@
                         @foreach ($brandView['brands'] as $id => $name)<option value="{{ $id }}" @selected($brandView['brand'] === $id)>{{ $name }}</option>@endforeach
                     </select>
                 </label>
+                @if ($brandView['brand'] !== null)<a href="{{ route('operator.brand', ['brand' => $brandView['brand']]) }}" wire:navigate class="pb-1.5 text-sm font-semibold text-brand-600 hover:underline" data-brand-link>Marka sayfası →</a>@endif
                 <p class="text-xs text-gray-500">Markanın yarıştığı pazarlarda geride olduğu kanallar; en kalabalık pazar önce.</p>
             </div>
             @if ($brandView['behind'] === [])

@@ -32,6 +32,7 @@
         <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             @if ($brandId !== null)
                 <button type="button" wire:click="$set('brandId', null)" class="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-left text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">← Tüm markalar</button>
+                <a href="{{ route('operator.brand', ['brand' => $brandId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-left text-sm font-semibold text-brand-600 hover:underline" data-brand-link>Marka sayfasına git →</a>
             @endif
             @foreach ($health->take(12) as $h)
                 <button type="button" wire:key="health-{{ $h['brand_id'] }}" wire:click="$set('brandId', {{ $brandId === $h['brand_id'] ? 'null' : $h['brand_id'] }})" @class(['rounded-lg px-3 py-2 text-left text-sm ring-1 ring-inset', 'bg-brand-50 ring-brand-300 dark:bg-brand-500/10 dark:ring-brand-500/40' => $brandId === $h['brand_id'], 'ring-gray-200 hover:bg-gray-50 dark:ring-gray-800 dark:hover:bg-white/5' => $brandId !== $h['brand_id']])>
@@ -101,7 +102,7 @@
             <article class="{{ $card }}" wire:key="package-{{ $package['key'] }}" data-package="{{ $package['key'] }}">
                 <div class="flex flex-wrap items-start gap-3">
                     <div class="min-w-0 flex-1">
-                        <p class="text-xs text-gray-500">{{ $package['brand'] }}</p>
+                        <a href="{{ route('operator.brand', ['brand' => $package['brand_id']]) }}" wire:navigate class="text-xs text-gray-500 hover:text-brand-600 hover:underline">{{ $package['brand'] }}</a>
                         <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ $package['count'] }} · {{ RepairDesk::KINDS[$package['kind']] }}</h3>
                         @if ($package['high'] > 0)<p class="text-xs text-red-600 dark:text-red-400">{{ $package['high'] }} iş yüksek riskli: paketi açıp tek tek onaylanır.</p>@endif
                     </div>

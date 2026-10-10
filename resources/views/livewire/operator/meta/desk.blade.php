@@ -93,6 +93,7 @@
             </label>
             <label class="text-xs text-gray-500">Marka
                 <select wire:model.live="brand" class="{{ $select }}"><option value="">Tüm markalar</option>@foreach ($desk['options']['brands'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+                @if (filled($brand))<a href="{{ route('operator.brand', ['brand' => (int) $brand]) }}" wire:navigate class="self-center text-sm font-semibold text-brand-600 hover:underline" data-brand-link>Marka sayfası →</a>@endif
             </label>
             <label class="text-xs text-gray-500">Uyarı
                 <select wire:model.live="alert" class="{{ $select }}"><option value="">Hepsi</option>@foreach ($alerts as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>

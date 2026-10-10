@@ -24,6 +24,7 @@ use App\Services\Site\SiteSuggestions;
 use App\Services\Site\SiteSuggestionTypes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -96,6 +97,7 @@ final class WorkDesk
     ];
 
     /** @var list<int>|null */
+    /** @var array<int, int>|null */
     private ?array $deskIds = null;
 
     public function __construct(
@@ -416,7 +418,7 @@ final class WorkDesk
      */
     public function deskIds(): array
     {
-        return $this->deskIds ??= app(RepairDesk::class)->rows()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        return array_keys($this->deskBrands());
     }
 
     /**
@@ -427,9 +429,22 @@ final class WorkDesk
      */
     public function onDesk(?int $brandId = null): array
     {
-        $rows = app(RepairDesk::class)->rows($brandId);
+        $desk = $this->deskBrands();
 
-        return ['total' => count($this->deskIds()), 'brand' => $rows->count(), 'preparing' => $this->preparing($brandId)];
+        return ['total' => count($desk), 'brand' => $brandId === null ? count($desk) : count(array_filter($desk, fn (int $b): bool => $b === $brandId)),
+            'preparing' => $this->preparing($brandId)];
+    }
+
+    /**
+     * Desk row id → brand id. Building the desk reads every waiting row, so Genel işler builds it once per request and
+     * reuses it for a minute (a row approved meanwhile only leaves this list a minute later).
+     *
+     * @return array<int, int>
+     */
+    private function deskBrands(): array
+    {
+        return $this->deskIds ??= Cache::remember('work:desk-rows:v1', 60, fn (): array => app(RepairDesk::class)->rows()
+            ->mapWithKeys(fn (array $r): array => [(int) $r['id'] => (int) $r['brand_id']])->all());
     }
 
     /** Website fixes of the desk's kinds with no prepared value yet (RepairPreparer / SeoFieldsBatch prepare them). */
