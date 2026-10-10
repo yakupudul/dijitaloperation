@@ -378,6 +378,44 @@ final class ContentCoverageTest extends SiteTestCase
         $this->assertStringContainsString('etkin hizmeti yok', (string) app(ContentCoverage::class)->rows()[0]['reason']);
     }
 
+    /**
+     * Several searches answered by the same page make one update idea for it, not one each (Bornova Hurda got ten
+     * update ideas for its copper page); open duplicates for a page are closed, the first stays.
+     */
+    public function test_a_page_gets_one_update_idea(): void
+    {
+        $this->enableAi();
+        Queue::fake();
+        $page = $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'hizmet']);
+        foreach (['zirkonyum kaplama ömrü', 'zirkonyum kaplama fiyatı', 'zirkonyum kaplama kaç yıl gider'] as $i => $text) {
+            Query::query()->create(['text' => $text, 'text_hash' => QueryNormalizer::hash($text), 'sector_id' => $this->dental->id,
+                'service_id' => $this->zirkonyum->id, 'assignment' => 'rule']);
+            $this->fact($text, '/zirkonyum-kaplama/', 40 + $i, 0, 9.0);
+        }
+        $prompts = [];
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
+            $prompts[] = $prompt;
+
+            return ['items' => []];
+        });
+
+        app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 5]);
+
+        $updates = collect($this->candidatesOf($prompts[0]))->where('kind', 'update')->values();
+        $this->assertCount(1, $updates, 'one update per page per run');
+        $this->assertSame('https://panorama.com.tr/zirkonyum-kaplama/', $updates[0]['page_url']);
+
+        $first = $this->title('Zirkonyum kaplama kaç yıl dayanır?');
+        $second = $this->title('Zirkonyum kaplama fiyatını ne belirler?');
+        $new = $this->title('Zirkonyum mu porselen mi?');
+        foreach ([$first, $second] as $idea) {
+            $idea->forceFill(['page_id' => $page->id, 'action' => ['kind' => 'update'] + (array) $idea->action])->save();
+        }
+
+        $this->assertSame(1, ContentPlanner::retireDuplicateUpdates());
+        $this->assertSame([Suggestion::OPEN, Suggestion::DISMISSED, Suggestion::OPEN], [$first->fresh()->status, $second->fresh()->status, $new->fresh()->status]);
+    }
+
     public function test_open_ideas_with_generated_looking_titles_are_closed(): void
     {
         $styled = $this->title('All-on-4 / All-on-6: ömür ve bakım — kapsamlı rehber');

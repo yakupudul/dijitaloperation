@@ -58,6 +58,9 @@ final class ContentPlanner
     /** Gaps read per run; the best ones (brand's own searches, demand, main services) go to the AI. */
     private const int GAP_CANDIDATES = 300;
 
+    /** Why an update idea is not stored: its page already has one waiting. */
+    public const string PAGE_TAKEN = 'bu sayfa için bekleyen güncelleme fikri var';
+
     /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
     private const int STRIKING_QUERIES = 40;
 
@@ -85,6 +88,38 @@ final class ContentPlanner
                     $closed += Suggestion::query()->whereIn('id', $ids)->update(['status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'operator_note' => 'Başlık kalıp gibiydi; kanıta dayalı fikirle değiştirildi.', 'updated_at' => now()]);
                 }
             });
+
+        return $closed;
+    }
+
+    /**
+     * One waiting update idea per page: of several open update ideas for the same page (no article yet), the first
+     * stays and the rest are closed so the pool tops up with other topics.
+     *
+     * @return int ideas closed
+     */
+    public static function retireDuplicateUpdates(): int
+    {
+        $ids = [];
+        $seen = Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->whereNotNull('page_id')
+            ->whereIn('status', [Suggestion::APPROVED, Suggestion::SNOOZED])->pluck('page_id')->map(fn ($id): int => (int) $id)->flip()->all();
+        Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::OPEN)->whereNotNull('page_id')->orderBy('id')
+            ->each(function (Suggestion $s) use (&$ids, &$seen): void {
+                if (data_get($s->action, 'kind') !== 'update' || is_array(data_get($s->action, 'article'))) {
+                    return;
+                }
+                if (isset($seen[(int) $s->page_id])) {
+                    $ids[] = (int) $s->id;
+
+                    return;
+                }
+                $seen[(int) $s->page_id] = true;
+            });
+        $closed = 0;
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $closed += Suggestion::query()->whereIn('id', $chunk)->update(['status' => Suggestion::DISMISSED, 'resolved_at' => now(),
+                'operator_note' => 'Aynı sayfa için başka bir güncelleme fikri bekliyor; sayfa başına bir güncelleme.', 'updated_at' => now()]);
+        }
 
         return $closed;
     }
@@ -202,7 +237,7 @@ final class ContentPlanner
 
                     continue;
                 }
-                if ($round === 0 && $item !== null && $reason !== 'aynı başlık zaten var') {
+                if ($round === 0 && $item !== null && ! in_array($reason, ['aynı başlık zaten var', self::PAGE_TAKEN], true)) {
                     $retry[] = $candidate;
                     $notes[$candidate['id']] = ['rejected_title' => (string) ($item['title'] ?? ''), 'why' => $reason];
 
@@ -384,7 +419,17 @@ final class ContentPlanner
         $newPageClusters = $previous->filter(fn (Suggestion $s): bool => $s->cluster_id !== null && data_get($s->action, 'kind') === 'new'
             && in_array($s->status, [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED], true))
             ->pluck('cluster_id')->map(fn ($id): int => (int) $id)->flip()->all();
-        $out = array_values(array_filter($out, function (array $c) use (&$newPageClusters): bool {
+        // One update per page per run: several searches answered by the same page make one idea for it, not ten.
+        $updatePages = [];
+        $out = array_values(array_filter($out, function (array $c) use (&$newPageClusters, &$updatePages): bool {
+            if ($c['kind'] === 'update' && $c['page'] !== null) {
+                if (isset($updatePages[(int) $c['page']->id])) {
+                    return false;
+                }
+                $updatePages[(int) $c['page']->id] = true;
+
+                return true;
+            }
             $clusterId = $c['row']?->cluster_id !== null ? (int) $c['row']->cluster_id : null;
             if ($c['kind'] !== 'new' || $clusterId === null) {
                 return true;
@@ -1186,6 +1231,10 @@ final class ContentPlanner
                 return 'güncellenecek sayfa sitede yok'; // an update must name a real page of the site
             }
             [$target, $pageId] = [(string) $page->url, (int) $page->id];
+            if (Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)->where('page_id', $pageId)
+                ->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED])->exists()) {
+                return self::PAGE_TAKEN; // one waiting update per page
+            }
         } else {
             $pattern = new SiteUrlPattern($sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->all());
             $target = $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify($title), (string) ($extra['service'] ?? ''));
