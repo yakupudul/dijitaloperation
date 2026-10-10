@@ -44,6 +44,10 @@
     - markanın hiçbir hesabı toplanmıyor ya da sırada değil;
     - en az bir hesap son takipten sonra yeni veri getirmiş ve bitişinin üstünden 10 dakika geçmiş.
   - Sabit saatli gece işleri yedek olarak kalır. Test: `BrandFollowUpTest`.
+- **7. Dönüşüm toplamlarında çift sayım:**
+  - Dönüşüm sözlüğü toplamları artık hesap başına bir kez sayar (`BrandMeasurementScope::rows`). Aynı hesabın merkezi satırı varken varlık üstündeki eski kopyası düşer.
+  - Eskiden aynı gün iki kez toplanabiliyordu.
+  - Test: `test_a_day_stored_both_centrally_and_on_the_asset_is_counted_once`.
 - **6. Masalardan markaya dönüş:**
   - Onarım masasında her paketin marka adı markanın sayfasına gider; marka seçiliyken "Marka sayfasına git →" bağlantısı çıkar.
   - Kazananlar › Marka gözüyle ve Meta masası marka seçiliyken "Marka sayfası →" gösterir.

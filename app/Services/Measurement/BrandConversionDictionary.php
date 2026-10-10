@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Services\SeoTasks\SeoText;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -176,8 +177,8 @@ final class BrandConversionDictionary
             if ($keys === [] || ! Schema::hasTable($table)) {
                 return [];
             }
-            $query = DB::table($table)->whereBetween('reporting_date', [$from, $to])->whereIn($keyColumn, $keys);
-            $scope->apply($query);
+            // Each account counted once: central rows win over legacy per-asset copies of the same account.
+            $query = $scope->rows($table, CarbonImmutable::parse($from), CarbonImmutable::parse($to))->whereIn($keyColumn, $keys);
             if ($extra !== null) {
                 $extra($query);
             }

@@ -6,6 +6,8 @@ use App\Enums\CustomerStatus;
 use App\Livewire\Operator\Portfolio\BrandConversions;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
@@ -119,6 +121,22 @@ final class BrandConversionDictionaryTest extends TestCase
         $this->assertSame(4.0 + 3.0 + 8.0, $summary['current']['by_type'][ConversionGoalTypes::PHONE_CALL]);
         $this->assertSame(2.0, $summary['previous']['total']);
         $this->assertSame(1250.0, $summary['change_pct']);
+    }
+
+    public function test_a_day_stored_both_centrally_and_on_the_asset_is_counted_once(): void
+    {
+        $ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads']);
+        $resource = CoreExternalResource::factory()->create(['provider' => 'google', 'resource_type' => 'google_ads', 'external_id' => '123', 'status' => CoreExternalResource::STATUS_AVAILABLE]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $ads->id, 'external_resource_id' => $resource->id, 'capability' => 'google_ads', 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        // The same account's day stored twice: a legacy copy on the asset and the central row.
+        $this->pool('google_ads_conversion_action_daily', ['digital_asset_id' => $ads->id, 'customer_id' => '123', 'reporting_date' => now()->subDays(2)->toDateString(), 'conversion_action_id' => '12', 'conversions' => 3]);
+        $this->pool('google_ads_conversion_action_daily', ['digital_asset_id' => null, 'external_resource_id' => $resource->id, 'customer_id' => '123', 'reporting_date' => now()->subDays(2)->toDateString(), 'conversion_action_id' => '12', 'conversions' => 3]);
+        $dictionary = app(BrandConversionDictionary::class);
+        $dictionary->discover($this->brand);
+
+        $row = BrandConversionSource::query()->where('brand_id', $this->brand->id)->where('source', 'google_ads_conversion_action')->where('source_key', '12')->firstOrFail();
+        // 3 from the original per-asset row of the website asset + 3 central; the legacy copy on the Ads asset is dropped.
+        $this->assertSame(6.0, $dictionary->summary($this->brand)['current']['by_row'][$row->id]);
     }
 
     public function test_operator_choice_is_kept_by_rediscovery(): void
