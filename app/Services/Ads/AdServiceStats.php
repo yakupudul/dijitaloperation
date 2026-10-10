@@ -82,7 +82,8 @@ class AdServiceStats
             return $this->replace($asset, 'meta', [], []);
         }
         $offerings = array_column($this->services->offerings($brand), null, 'id');
-        $city = self::city($brand);
+        $cities = MarketCity::brandCities((int) $brand->id);
+        $main = $cities[0] ?? '';
         $currency = (string) ($account['currency'] ?? '');
         $entities = $this->screen->entities($account);
         $ads = $this->screen->adPerformance($account, $board['window']['from'], $end, $entities);
@@ -101,9 +102,14 @@ class AdServiceStats
                 + ($hasProfile ? ['profile' => json_encode(MetaCampaignBoard::profile($row['id'], $entities, $ads, $row['type'], $row['budget']), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)] : []);
         }
 
-        // Service numbers: each ad's spend and the results of its campaign's type, split over the ad's services.
+        // Service numbers: each ad's spend and the results of its campaign's type, split over the ad's services; the
+        // city is the brand city the campaign name names, else the brand's main city.
         $map = $this->services->map($asset);
         $types = array_column($board['rows'], 'type', 'id');
+        $campaignCity = [];
+        foreach ($board['rows'] as $row) {
+            $campaignCity[$row['id']] = MarketCity::named((string) $row['name'], $cities) ?? $main;
+        }
         $sum = [];
         foreach ($this->services->adShares($asset, $entities, $map) as $adId => $shares) {
             $ad = $ads[$adId] ?? null;
@@ -114,21 +120,26 @@ class AdServiceStats
             if (! in_array($type, ['leads', 'messages', 'purchases'], true)) {
                 continue;
             }
+            $city = $campaignCity[$ad['campaign_id']] ?? $main;
             foreach ($shares as $offeringId => $share) {
-                $sum[$offeringId][$type]['spend'] = ($sum[$offeringId][$type]['spend'] ?? 0) + $ad['spend'] * $share;
-                $sum[$offeringId][$type]['results'] = ($sum[$offeringId][$type]['results'] ?? 0) + $ad[$type] * $share;
-                $sum[$offeringId][$type]['by'][$ad['campaign_id']] = ($sum[$offeringId][$type]['by'][$ad['campaign_id']] ?? 0) + $ad[$type] * $share;
+                $n = &$sum[$offeringId][$type][$city];
+                $n['spend'] = ($n['spend'] ?? 0) + $ad['spend'] * $share;
+                $n['results'] = ($n['results'] ?? 0) + $ad[$type] * $share;
+                $n['by'][$ad['campaign_id']] = ($n['by'][$ad['campaign_id']] ?? 0) + $ad[$type] * $share;
+                unset($n);
             }
         }
         $names = array_column($board['rows'], 'name', 'id');
         foreach ($sum as $offeringId => $types) {
-            foreach ($types as $type => $n) {
-                arsort($n['by']);
-                $sum[$offeringId][$type]['top'] = (reset($n['by']) ?: 0) > 0 ? ($names[array_key_first($n['by'])] ?? null) : null;
+            foreach ($types as $type => $byCity) {
+                foreach ($byCity as $city => $n) {
+                    arsort($n['by']);
+                    $sum[$offeringId][$type][$city]['top'] = (reset($n['by']) ?: 0) > 0 ? ($names[array_key_first($n['by'])] ?? null) : null;
+                }
             }
         }
 
-        return $this->replace($asset, 'meta', $this->serviceRows($asset, $brand, $city, $end, $sum, $offerings, $currency), $campaigns);
+        return $this->replace($asset, 'meta', $this->serviceRows($asset, $brand, $end, $sum, $offerings, $currency), $campaigns);
     }
 
     private function refreshGoogleAds(DigitalAsset $asset, Brand $brand): int
@@ -143,33 +154,74 @@ class AdServiceStats
                 $offerings[$offering['service_id']] ??= $offering;
             }
         }
+        $split = self::citySplit((array) ($totals['regions'] ?? []), MarketCity::brandCities((int) $brand->id));
         $sum = [];
         foreach ($totals['services'] as $serviceId => $row) {
-            if (isset($offerings[$serviceId])) {
-                $sum[$offerings[$serviceId]['id']]['conversions'] = ['spend' => $row['spend'], 'results' => $row['conversions'], 'top' => $row['campaign'] ?? null];
+            if (! isset($offerings[$serviceId])) {
+                continue;
+            }
+            foreach ($split as $city => $w) {
+                $sum[$offerings[$serviceId]['id']]['conversions'][$city] = ['spend' => $row['spend'] * $w['spend'], 'results' => $row['conversions'] * $w['results'], 'top' => $row['campaign'] ?? null];
             }
         }
 
-        return $this->replace($asset, 'google_ads', $this->serviceRows($asset, $brand, self::city($brand), $totals['period_end'], $sum, array_column($offerings, null, 'id'), (string) ($totals['currency'] ?? '')), null);
+        return $this->replace($asset, 'google_ads', $this->serviceRows($asset, $brand, $totals['period_end'], $sum, array_column($offerings, null, 'id'), (string) ($totals['currency'] ?? '')), null);
     }
 
     /**
-     * @param  array<int, array<string, array{spend: float, results: float, top?: ?string}>>  $sum  offering id => type => numbers
+     * How an ad account's numbers split over the brand's cities: the share of spend and conversions by where people
+     * were (account geo report), counting only the brand's own cities. Without geo numbers in them, all go to the
+     * brand's main city.
+     *
+     * @param  array<string, array{cost: float, conversions: float}>  $regions  region name => numbers
+     * @param  list<string>  $cities  the brand's cities, main first
+     * @return array<string, array{spend: float, results: float}> city => weights (each sums to 1)
+     */
+    public static function citySplit(array $regions, array $cities): array
+    {
+        $main = $cities[0] ?? '';
+        $by = [];
+        foreach ($regions as $name => $n) {
+            $province = MarketCity::canonical((string) $name);
+            $city = $province !== null ? MarketCity::named($province, $cities) : null;
+            if ($city === null) {
+                continue;
+            }
+            $by[$city]['cost'] = ($by[$city]['cost'] ?? 0.0) + (float) ($n['cost'] ?? 0);
+            $by[$city]['conversions'] = ($by[$city]['conversions'] ?? 0.0) + (float) ($n['conversions'] ?? 0);
+        }
+        $cost = array_sum(array_column($by, 'cost'));
+        if ($cost <= 0) {
+            return [$main => ['spend' => 1.0, 'results' => 1.0]];
+        }
+        $conversions = array_sum(array_column($by, 'conversions'));
+        $out = [];
+        foreach ($by as $city => $n) {
+            $out[$city] = ['spend' => $n['cost'] / $cost, 'results' => $conversions > 0 ? $n['conversions'] / $conversions : $n['cost'] / $cost];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int, array<string, array<string, array{spend: float, results: float, top?: ?string}>>>  $sum  offering id => type => city => numbers
      * @param  array<int, array<string, mixed>>  $offerings  offering id => offering
      * @return list<array<string, mixed>>
      */
-    private function serviceRows(DigitalAsset $asset, Brand $brand, string $city, string $end, array $sum, array $offerings, string $currency = ''): array
+    private function serviceRows(DigitalAsset $asset, Brand $brand, string $end, array $sum, array $offerings, string $currency = ''): array
     {
         $rows = [];
         foreach ($sum as $offeringId => $types) {
-            foreach ($types as $type => $n) {
-                if ($n['spend'] <= 0 && $n['results'] <= 0) {
-                    continue;
+            foreach ($types as $type => $byCity) {
+                foreach ($byCity as $city => $n) {
+                    if ($n['spend'] <= 0 && $n['results'] <= 0) {
+                        continue;
+                    }
+                    $rows[] = ['channel' => $asset->type === 'meta_ads' ? 'meta' : 'google_ads', 'digital_asset_id' => $asset->id, 'brand_id' => $brand->id, 'brand_offering_id' => $offeringId,
+                        'service_id' => $offerings[$offeringId]['service_id'] ?? null, 'sector_id' => $brand->sector_id, 'city' => mb_substr((string) $city, 0, 80), 'result_type' => $type,
+                        'spend' => round($n['spend'], 2), 'results' => round($n['results'], 2), 'period_end' => $end]
+                        + ($this->hasTopCampaign() ? ['top_campaign' => isset($n['top']) ? mb_substr((string) $n['top'], 0, 300) : null, 'currency' => $currency !== '' ? mb_substr($currency, 0, 8) : null] : []);
                 }
-                $rows[] = ['channel' => $asset->type === 'meta_ads' ? 'meta' : 'google_ads', 'digital_asset_id' => $asset->id, 'brand_id' => $brand->id, 'brand_offering_id' => $offeringId,
-                    'service_id' => $offerings[$offeringId]['service_id'] ?? null, 'sector_id' => $brand->sector_id, 'city' => $city, 'result_type' => $type,
-                    'spend' => round($n['spend'], 2), 'results' => round($n['results'], 2), 'period_end' => $end]
-                    + ($this->hasTopCampaign() ? ['top_campaign' => isset($n['top']) ? mb_substr((string) $n['top'], 0, 300) : null, 'currency' => $currency !== '' ? mb_substr($currency, 0, 8) : null] : []);
             }
         }
 
@@ -224,18 +276,32 @@ class AdServiceStats
         }
         $clusters = $offerings === [] ? [] : $this->site->clusters($site, self::DAYS);
         $serviceOf = Cluster::query()->whereIn('id', array_column($clusters, 'cluster_id') ?: [0])->pluck('service_id', 'id')->all();
+        // A query naming one of the brand's places counts in that place's city; the others in the brand's main city.
+        $cities = MarketCity::brandCities((int) $brand->id);
+        $main = $cities[0] ?? '';
+        $areaCity = [];
+        foreach (BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->get() as $area) {
+            $raw = trim((string) $area->city_name);
+            $areaCity[$area->displayName()] = $raw !== '' ? (MarketCity::canonical($raw) ?? $raw) : $main;
+        }
         $sum = [];
+        $info = [];
         foreach ($clusters as $cluster) {
             $offering = $offerings[$serviceOf[$cluster['cluster_id']] ?? 0] ?? null;
             if ($offering === null) {
                 continue;
             }
-            $n = &$sum[$offering['id']];
-            $n ??= ['clicks' => 0, 'impressions' => 0, 'weighted' => 0.0, 'pages' => 0, 'top_url' => null, 'top_clicks' => null];
-            $n['clicks'] += (int) $cluster['clicks'];
-            $n['impressions'] += (int) $cluster['impressions'];
-            $n['weighted'] += $cluster['position'] !== null ? (float) $cluster['position'] * (int) $cluster['impressions'] : 0.0;
-            unset($n);
+            $parts = isset($cluster['areas']) && is_array($cluster['areas']) && $cluster['areas'] !== []
+                ? $cluster['areas'] : [['area' => '—', 'clicks' => $cluster['clicks'], 'impressions' => $cluster['impressions'], 'position' => $cluster['position']]];
+            foreach ($parts as $part) {
+                $city = $areaCity[(string) ($part['area'] ?? '—')] ?? $main;
+                $n = &$sum[$offering['id']][$city];
+                $n ??= ['clicks' => 0, 'impressions' => 0, 'weighted' => 0.0];
+                $n['clicks'] += (int) $part['clicks'];
+                $n['impressions'] += (int) $part['impressions'];
+                $n['weighted'] += $part['position'] !== null ? (float) $part['position'] * (int) $part['impressions'] : 0.0;
+                unset($n);
+            }
         }
         $traffic = [];
         foreach ($offerings === [] ? [] : $this->site->pages($site, self::DAYS) as $page) {
@@ -244,8 +310,9 @@ class AdServiceStats
         $links = OfferingPage::query()->join('pages', 'pages.id', '=', 'offering_pages.page_id')->where('pages.website_asset_id', $site->id)
             ->whereIn('offering_pages.brand_offering_id', array_column($offerings, 'id') ?: [0])->get(['offering_pages.brand_offering_id', 'pages.url']);
         foreach ($links as $link) {
-            $n = &$sum[(int) $link->brand_offering_id];
-            $n ??= ['clicks' => 0, 'impressions' => 0, 'weighted' => 0.0, 'pages' => 0, 'top_url' => null, 'top_clicks' => null];
+            $sum[(int) $link->brand_offering_id] ??= [$main => ['clicks' => 0, 'impressions' => 0, 'weighted' => 0.0]];
+            $n = &$info[(int) $link->brand_offering_id];
+            $n ??= ['pages' => 0, 'top_url' => null, 'top_clicks' => null];
             $n['pages']++;
             $clicks = $traffic[SiteAnalysisReader::path((string) $link->url)] ?? 0;
             if ($n['top_clicks'] === null || $clicks > $n['top_clicks']) {
@@ -254,16 +321,18 @@ class AdServiceStats
             unset($n);
         }
         $byId = array_column($offerings, null, 'id');
-        $city = self::city($brand);
         $end = CarbonImmutable::today()->subDay()->toDateString();
         $now = now();
         $rows = [];
-        foreach ($sum as $offeringId => $n) {
-            $rows[] = ['digital_asset_id' => $site->id, 'brand_id' => $brand->id, 'brand_offering_id' => $offeringId, 'service_id' => $byId[$offeringId]['service_id'] ?? null,
-                'sector_id' => $brand->sector_id, 'city' => $city, 'pages' => $n['pages'], 'clicks' => $n['clicks'], 'impressions' => $n['impressions'],
-                'position' => $n['impressions'] > 0 && $n['weighted'] > 0 ? round($n['weighted'] / $n['impressions'], 1) : null,
-                'top_url' => $n['top_url'] !== null ? mb_substr($n['top_url'], 0, 600) : null, 'top_clicks' => $n['top_clicks'], 'period_end' => $end,
-                'created_at' => $now, 'updated_at' => $now];
+        foreach ($sum as $offeringId => $byCity) {
+            $i = $info[$offeringId] ?? ['pages' => 0, 'top_url' => null, 'top_clicks' => null];
+            foreach ($byCity as $city => $n) {
+                $rows[] = ['digital_asset_id' => $site->id, 'brand_id' => $brand->id, 'brand_offering_id' => $offeringId, 'service_id' => $byId[$offeringId]['service_id'] ?? null,
+                    'sector_id' => $brand->sector_id, 'city' => mb_substr((string) $city, 0, 80), 'pages' => $i['pages'], 'clicks' => $n['clicks'], 'impressions' => $n['impressions'],
+                    'position' => $n['impressions'] > 0 && $n['weighted'] > 0 ? round($n['weighted'] / $n['impressions'], 1) : null,
+                    'top_url' => $i['top_url'] !== null ? mb_substr($i['top_url'], 0, 600) : null, 'top_clicks' => $i['top_clicks'], 'period_end' => $end,
+                    'created_at' => $now, 'updated_at' => $now];
+            }
         }
         DB::transaction(function () use ($site, $rows): void {
             DB::table('web_service_stats')->where('digital_asset_id', $site->id)->delete();
@@ -288,7 +357,9 @@ class AdServiceStats
             return 0;
         }
         $rid = (int) $resource->id;
-        $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $rid)->orderByDesc('captured_at')->orderByDesc('id')->first(['average_rating', 'total_review_count']);
+        $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $rid)->orderByDesc('captured_at')->orderByDesc('id')->first(['average_rating', 'total_review_count', 'storefront_address']);
+        $address = (array) json_decode((string) ($snapshot->storefront_address ?? ''), true);
+        $city = MarketCity::canonical((string) ($address['administrativeArea'] ?? '')) ?? MarketCity::canonical((string) ($address['locality'] ?? '')) ?? self::city($brand);
         $reviews = DB::table('gbp_reviews')->where('external_resource_id', $rid);
         $labels = $this->gbpInput->services($rid)['labels'];
         $listed = [];
@@ -298,7 +369,7 @@ class AdServiceStats
             }
         }
         DB::table('gbp_profile_stats')->updateOrInsert(['digital_asset_id' => $asset->id], [
-            'brand_id' => $brand->id, 'name' => mb_substr((string) $asset->name, 0, 300), 'city' => self::city($brand),
+            'brand_id' => $brand->id, 'name' => mb_substr((string) $asset->name, 0, 300), 'city' => mb_substr($city, 0, 80),
             'rating' => $snapshot?->average_rating !== null ? round((float) $snapshot->average_rating, 2) : null,
             'reviews' => $snapshot?->total_review_count !== null ? (int) $snapshot->total_review_count : (clone $reviews)->count(),
             'new_reviews' => (clone $reviews)->where('create_time', '>=', now()->subDays(self::DAYS))->count(),
@@ -328,12 +399,10 @@ class AdServiceStats
         return false;
     }
 
-    /** The brand's city: its first physical branch, else its first service area. */
+    /** The brand's main city: its first physical branch, else its first service area (MarketCity::brandCities). */
     public static function city(Brand $brand): string
     {
-        $areas = BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->orderByDesc('physical_branch')->orderBy('id')->get(['city_name']);
-
-        return mb_substr((string) ($areas->first(fn (BrandServiceArea $a): bool => trim((string) $a->city_name) !== '')?->city_name ?? ''), 0, 80);
+        return MarketCity::brandCities((int) $brand->id)[0] ?? '';
     }
 
     /* ---------------- reading ---------------- */

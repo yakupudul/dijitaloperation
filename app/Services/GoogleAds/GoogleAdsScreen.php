@@ -237,7 +237,7 @@ final class GoogleAdsScreen
      * Spend and conversions per catalog service over the last $days (keyword → hizmet; keywords without a service and
      * campaigns without keywords are left out), for the cross-brand service numbers.
      *
-     * @return array{period_end: ?string, currency: ?string, services: array<int, array{spend: float, conversions: float, campaign: ?string}>} keywords naming the brand (brandTerms) are left out
+     * @return array{period_end: ?string, currency: ?string, services: array<int, array{spend: float, conversions: float, campaign: ?string}>, regions: array<string, array{cost: float, conversions: float}>} keywords naming the brand (brandTerms) are left out
      */
     public function serviceTotals(DigitalAsset $asset, int $days = 30): array
     {
@@ -273,7 +273,34 @@ final class GoogleAdsScreen
             $out[$id]['campaign'] = $top !== '' ? ($names[$top]['name'] ?? null) : null;
         }
 
-        return ['period_end' => $to, 'currency' => $ctx['currency'], 'services' => $out];
+        return ['period_end' => $to, 'currency' => $ctx['currency'], 'services' => $out, 'regions' => $out === [] ? [] : $this->regions($ctx['scope'], $from, $to)];
+    }
+
+    /**
+     * Spend and conversions per region where people were (account geo report), for splitting the account's numbers
+     * over the brand's cities in Kazananlar.
+     *
+     * @return array<string, array{cost: float, conversions: float}> region name => numbers
+     */
+    private function regions(GoogleAdsRowScope $scope, string $from, string $to): array
+    {
+        if (! Schema::hasTable('google_ads_geo_daily') || ! Schema::hasTable('google_ads_geo_names')) {
+            return [];
+        }
+        $rows = $scope->daily('google_ads_geo_daily', $from, $to)->where('location_type', 'LOCATION_OF_PRESENCE')
+            ->groupBy('geo_target_region')->selectRaw('geo_target_region, SUM(cost_amount) as cost, SUM(conversions) as conversions')->get();
+        $names = $rows->isEmpty() ? [] : DB::table('google_ads_geo_names')->whereIn('resource_name', $rows->pluck('geo_target_region')->filter()->unique()->all())->pluck('name', 'resource_name')->all();
+        $out = [];
+        foreach ($rows as $r) {
+            $name = $names[(string) $r->geo_target_region] ?? null;
+            if ($name === null) {
+                continue;
+            }
+            $out[$name]['cost'] = ($out[$name]['cost'] ?? 0.0) + (float) $r->cost;
+            $out[$name]['conversions'] = ($out[$name]['conversions'] ?? 0.0) + (float) $r->conversions;
+        }
+
+        return $out;
     }
 
     /** Words that name the brand: name words of 5+ letters that are not its city or a generic business word. @return list<string> */

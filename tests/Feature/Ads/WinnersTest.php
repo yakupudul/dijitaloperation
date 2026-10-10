@@ -4,8 +4,10 @@ namespace Tests\Feature\Ads;
 
 use App\Livewire\Operator\Winners\LibrariesPage;
 use App\Livewire\Operator\Winners\ServicePage;
+use App\Livewire\Operator\Winners\WinnersPage;
 use App\Models\Brand;
 use App\Models\BrandOffering;
+use App\Models\BrandServiceArea;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -14,6 +16,7 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\Ads\AdLibraries;
 use App\Services\Ads\AdServiceStats;
+use App\Services\Ads\MarketCity;
 use App\Services\Ads\Winners;
 use App\Services\Intel\SerpResults;
 use App\Services\Meta\MetaCampaignServices;
@@ -124,8 +127,12 @@ class WinnersTest extends TestCase
             'created_at' => now(), 'updated_at' => now()]);
         DB::table('gbp_reviews')->insert(['external_resource_id' => $resource->id, 'digital_asset_id' => $profile->id, 'run_id' => 1, 'location_name' => 'locations/77', 'review_id' => 'r1', 'star_rating' => 'FIVE', 'create_time' => now()->subDays(3), 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
 
+        DB::table('gbp_location_snapshots')->insert(['digital_asset_id' => $profile->id, 'external_resource_id' => $resource->id, 'run_id' => 5, 'location_name' => 'locations/77',
+            'storefront_address' => json_encode(['locality' => 'Karşıyaka', 'administrativeArea' => 'İzmir']), 'captured_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
         $this->assertSame(1, app(AdServiceStats::class)->refresh($profile));
         $stats = DB::table('gbp_profile_stats')->sole();
+        $this->assertSame('İzmir', $stats->city, 'a profile races in the city of its address, not the brand\'s main city');
         $this->assertSame([[$this->serviceId], 1, 1], [json_decode($stats->service_ids, true), (int) $stats->reviews, (int) $stats->new_reviews], 'only Diş İmplantı is a brand service on the profile');
     }
 
@@ -155,21 +162,97 @@ class WinnersTest extends TestCase
     {
         $this->race();
         $yesterday = CarbonImmutable::today('Europe/Istanbul')->subDays(8)->toDateString();
-        DB::table('ad_winner_snapshots')->insert(['service_id' => $this->serviceId, 'snapshot_date' => $yesterday,
+        DB::table('ad_winner_snapshots')->insert(['service_id' => $this->serviceId, 'city' => 'Ankara', 'snapshot_date' => $yesterday,
             'leaders' => json_encode(['meta' => ['brand_id' => $this->brand->id, 'value' => '45 TRY / form'], 'web' => null]),
             'ranking' => json_encode([['brand_id' => $this->brand->id, 'score' => 60, 'rank' => 1], ['brand_id' => $this->others['Atlas']->id, 'score' => 40, 'rank' => 3]]),
             'created_at' => now(), 'updated_at' => now()]);
         $this->assertSame(1, app(Winners::class)->snapshot());
 
         $this->actingAs($this->admin)->get(route('operator.winners'))->assertOk()
-            ->assertSee('Kazananlar')->assertSee('Diş sağlığı')->assertSee('Diş İmplantı')->assertSee('4 marka yarışıyor')->assertSee('Lider değişti');
+            ->assertSee('Kazananlar')->assertSee('Diş sağlığı')->assertSee('Diş İmplantı')->assertSee('3 yarışıyor')->assertSee('Lider değişti')
+            ->assertSee('Ankara')->assertSee('Türkiye geneli');
         $this->actingAs($this->admin)->get(route('operator.winner-service', ['serviceId' => $this->serviceId]))->assertOk()
+            ->assertSee('Ankara · 3 marka yarışıyor')
             ->assertSee('Genel sıralama')->assertSee('Atlas implant form')->assertSee('/implant-fiyatlari/')->assertSee('Beta implant arama')
             ->assertSee('Kazananın tarifi')->assertSee('Marka adıyla gelen aramalar sayılmadı')->assertSee('Adil yarış kuralları')
             ->assertSee('↑ 2')->assertSee('↓ 2')->assertSee('Meta liderliği Panorama Ankara markasından Atlas markasına geçti');
         Livewire::actingAs($this->admin)->test(ServicePage::class, ['serviceId' => $this->serviceId])
             ->set('measure', 'volume')->assertSee('64 form')->set('measure', 'bogus')->assertSet('measure', 'cost')
-            ->set('city', 'İzmir')->assertSee('Eşiği geçen marka yok.');
+            ->set('city', 'İzmir')->assertSee('Bu şehirde hiçbir kanalda eşiği geçen marka yok.');
+        Livewire::actingAs($this->admin)->test(WinnersPage::class)->set('tab', 'marka')->set('brand', (string) $this->brand->id)
+            ->assertSee('Marka gözüyle')->assertSee('Atlas implant form')->assertSee('eşiği geçmedi');
+    }
+
+    public function test_a_market_is_a_city_and_a_brand_alone_gets_a_reference_from_other_cities(): void
+    {
+        $this->race();
+        $delta = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Delta', 'sector_id' => $this->brand->sector_id]);
+        DB::table('ad_service_stats')->insert(['channel' => 'meta', 'digital_asset_id' => DigitalAsset::factory()->create(['brand_id' => $delta->id, 'type' => 'meta_ads'])->id,
+            'brand_id' => $delta->id, 'brand_offering_id' => 999, 'service_id' => $this->serviceId, 'sector_id' => $this->brand->sector_id, 'city' => 'Ankara',
+            'result_type' => 'messages', 'spend' => 4000, 'results' => 100, 'period_end' => '2026-10-29', 'currency' => 'TRY', 'created_at' => now(), 'updated_at' => now()]);
+        $winners = app(Winners::class);
+
+        $cities = $winners->cityList();
+        $this->assertSame(['Ankara', 'İzmir'], array_column($cities, 'name'), 'the busiest city first');
+        $this->assertSame([4, 1], array_column($cities, 'brands'));
+
+        $ankara = $winners->overview('', '');
+        $this->assertSame('Ankara', $ankara['city'], 'no city asked: the busiest');
+        $this->assertSame([['Ankara', 4]], array_map(fn (array $m): array => [$m['city'], $m['competing']], $ankara['markets']));
+        $this->assertSame(['Atlas', 'Beta', 'Atlas', 'Atlas'], array_values(array_map(fn (array $l): string => $l['brand'], $ankara['markets'][0]['leaders'])));
+
+        $izmir = $winners->overview('izmir', '');
+        $this->assertSame([[], 'İzmir'], [$izmir['markets'], $izmir['city']], 'Gama is alone in İzmir: no ranking');
+        $this->assertSame('Gama', $izmir['alone'][0]['brand']);
+        $this->assertSame(['Meta: 50 TRY / mesaj · 100 mesaj; diğer şehirlerde ortalama 40 TRY, %25 daha pahalı (1 marka).'], $izmir['alone'][0]['references']);
+
+        Livewire::actingAs($this->admin)->test(WinnersPage::class)->set('city', 'İzmir')->assertSee('Rakipsiz pazarlar')->assertSee('%25 daha pahalı')
+            ->set('city', Winners::ALL_CITIES)->assertSee('Rakipsiz pazarlar')->assertSee('3 eşikte');
+        $all = $winners->overview(Winners::ALL_CITIES, '');
+        $this->assertSame([1, 1], [count($all['markets']), count($all['alone'])], 'Türkiye geneli lists every city and ranks none across cities');
+    }
+
+    public function test_the_website_leads_only_from_the_first_page_with_clicks(): void
+    {
+        $this->race();
+        DB::table('web_service_stats')->update(['position' => 16.3, 'clicks' => 0]);
+        $race = app(Winners::class)->race(app(Winners::class)->load('Ankara'), $this->serviceId);
+        $this->assertSame([], $race['channels']['web']['entries'], '16th place and no clicks is not a winner');
+    }
+
+    public function test_numbers_are_written_to_the_city_they_belong_to(): void
+    {
+        $this->assertSame('İzmir', MarketCity::canonical('Izmir Province'));
+        $this->assertSame('İzmir', MarketCity::canonical('Bornova, İzmir'));
+        $this->assertSame('Afyonkarahisar', MarketCity::canonical('AFYONKARAHİSAR'));
+        $this->assertNull(MarketCity::canonical('London'));
+        $this->assertSame('Ankara', MarketCity::named('Ankara implant form', ['İzmir', 'Ankara']));
+        $this->assertSame(['İzmir' => ['spend' => 0.75, 'results' => 0.75], 'İstanbul' => ['spend' => 0.25, 'results' => 0.25]],
+            AdServiceStats::citySplit(['Izmir' => ['cost' => 300, 'conversions' => 3], 'Istanbul' => ['cost' => 100, 'conversions' => 1], 'Ankara' => ['cost' => 50, 'conversions' => 0]], ['İzmir', 'İstanbul']));
+        $this->assertSame(['Ankara' => ['spend' => 1.0, 'results' => 1.0]], AdServiceStats::citySplit([], ['Ankara']), 'no geo numbers: the main city');
+
+        // Website: a query naming a branch counts in that branch's city.
+        BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'name' => 'Karşıyaka şubesi', 'country_code' => 'TR', 'city_name' => 'İzmir', 'district_name' => 'Karşıyaka',
+            'normalized_key' => 'tr|izmir|karsiyaka', 'status' => 'active', 'physical_branch' => true]);
+        $site = DigitalAsset::query()->where('brand_id', $this->brand->id)->where('type', 'website')->firstOrFail();
+        $cluster = DB::table('clusters')->insertGetId(['sector_id' => $this->brand->sector_id, 'service_id' => $this->serviceId, 'name' => 'İmplant', 'approved' => true, 'created_at' => now(), 'updated_at' => now()]);
+        $w = app(SiteAnalysisReader::class)->window($site, AdServiceStats::DAYS);
+        $key = fn (string $part): string => 'site:analysis:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']]));
+        Cache::put($key('clusters'), [['cluster_id' => $cluster, 'clicks' => 100, 'impressions' => 2000, 'position' => 4.0, 'areas' => [
+            ['area' => 'Çankaya şubesi', 'clicks' => 60, 'impressions' => 1000, 'position' => 3.0],
+            ['area' => 'Karşıyaka şubesi', 'clicks' => 30, 'impressions' => 600, 'position' => 5.0],
+            ['area' => '—', 'clicks' => 10, 'impressions' => 400, 'position' => 6.0],
+        ]]], now()->addHour());
+        Cache::put($key('pages'), [], now()->addHour());
+        $this->assertSame(2, app(AdServiceStats::class)->refresh($site));
+        $rows = DB::table('web_service_stats')->orderBy('city')->get()->map(fn ($r): array => [$r->city, (int) $r->clicks, (float) $r->position])->all();
+        $this->assertSame([['Ankara', 70, 3.9], ['İzmir', 30, 5.0]], $rows, 'queries naming no place go to the main city (Çankaya)');
+    }
+
+    public function test_catalog_services_written_twice_are_flagged(): void
+    {
+        $this->assertSame([['Gömülü Diş Operasyonu', 'Gömülü Diş Operasyonları']],
+            Winners::duplicates([1 => 'Gömülü Diş Operasyonu', 2 => 'Gömülü Diş Operasyonları', 3 => 'Diş Çekimi', 4 => "20'lik Diş Çekimi"]));
     }
 
     public function test_libraries_show_saved_items_the_season_and_the_map(): void

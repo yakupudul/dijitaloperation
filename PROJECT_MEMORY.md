@@ -2086,6 +2086,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   (`/kutuphaneler`: metin, hedefleme, mevsim takvimi, hizmet × marka haritası). Kurallar: her kanal 25 puan, sıraya göre
   paylaştırılır; tek markalı kanal yarış sayılmaz; web ≥ 100 gösterim, profil ≥ 10 yorum; marka adıyla gelen Google Ads
   aramaları sayılmaz. Geçmiş (yükselen / düşen, lider değişimi) günlük anlık görüntüden (10:13) birikir.
+  Karar (yakup, 2026-10-10): yarış birimi pazar = şehir × hizmet; markalar yalnız aynı şehirde sıralanır, Türkiye geneli
+  sıralamaz. Sayılar ait oldukları şehre yazılır (Ads coğrafya payı, Meta kampanya adı, sorgudaki şube, profil adresi).
+  Rakipsiz pazar sıra almaz, diğer şehirlere göre referans gösterir. Web yalnız ilk sayfada ve tık alıyorsa lider olur.
   Günlük Meta / Kazananlar hesapları kaçarsa (ör. deploy sabah çalışmasından sonra) saatlik telafi (`moxdop:ads:catch-up`)
   aynı gün tamamlar. Meta ilgi alanına göre sonuç vermez; ilgi alanı analizi reklam setlerinin hedeflemesinden gelir.
 - **İçerik fikirleri: konuyu veri seçer (yakup, 2026-10-09):** AI yalnız başlık, açı ve ana hatları yazar. Adaylar markanın kendi Search Console aramalarından, sayfasız / zayıf kümelerden ve AI asistanı sorularından kuralla seçilir. Havuz günde iki kez kendiliğinden 20'ye tamamlanır; "Fikir üret" düğmesi yok. Her turun sonucu ve elenme sebepleri görünür. Başlık / açıklama düzeltmeleri içerik değildir, Onarım masasında toplu onaylanır. Marka bilgi kartı (kaynaklı, operatör kilitli) AI'ın okuduğu marka gerçeğidir.

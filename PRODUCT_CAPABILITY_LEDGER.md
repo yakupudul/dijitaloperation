@@ -3692,6 +3692,20 @@ Nothing written to any provider.
   remove), Mevsim takvimi (monthly volume of each service's cluster queries, 0–4 shading, peak note 1–2 months ahead) and
   Hizmet × marka haritası (on how many of web, Google Ads, Meta, profile each brand is present; offered but absent = gap).
 - Menu: "Kazananlar" after Meta reklamları. Tests: `tests/Feature/Ads/WinnersTest.php`.
+- 2026-10-10 redesign (yakup approved "Tamam yap sırayla"; plan `/mnt/project-files/notes/kazananlar-yeniden-tasarim.md`):
+  a market is city × service and brands are ranked only within one city. Each row is written to the city its numbers
+  belong to (`MarketCity`): Google Ads by the account geo report's share of spend / conversions over the brand's cities
+  (`GoogleAdsScreen::serviceTotals` regions, `AdServiceStats::citySplit`), Meta by the brand city named in the campaign
+  name, web by the branch / area a query names (`SiteAnalysisReader::clusters` areas), Business Profile by its address;
+  otherwise the brand's main city. `/kazananlar`: city strip (busiest first, Türkiye geneli lists every city's markets and
+  ranks none across cities), Pazarlar table (only markets with ≥ 2 brands and someone over a threshold; empty channels
+  hidden; leader and gap to the last), Rakipsiz pazarlar (a lone brand against the median of the same service in other
+  cities), "veri birikiyor" count, catalog names written twice flagged; Marka gözüyle tab (where a brand is behind, the
+  leader's numbers and recipe, Strateji öner / pazar links). Pazar page picks the busiest city, shows only channels with
+  a leader. Web leads only from the first page (average position ≤ 10) with clicks. Snapshots per city
+  (`ad_winner_snapshots.city`), so moves and the leadership feed work in every city. Business Profile needs collected
+  reviews (≥ 10) to race; still blocked where reviews are not collected automatically (under investigation).
+  PHPUnit: `WinnersTest` (8 tests). No real UAT yet.
 - 2026-10-07 follow-up (yakup saw /meta empty after the deploy): the morning runs (05:41 breakdowns, 07:43 per-service
   rows) ran before the 10:55 deploy, so the new tables were empty. `moxdop:ads:catch-up` (hourly at :27, `AdsCatchUp`)
   rebuilds per-service rows older than 23 hours, fetches the first 30 days of Meta regions / breakdowns for accounts with
