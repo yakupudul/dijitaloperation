@@ -13,7 +13,7 @@ use App\Services\Ai\AiCostEstimator;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Archive\ProductionArchive;
-use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Brand\BrandPack;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\ServiceScope;
@@ -115,7 +115,7 @@ final class ReviewReplyDrafter
             'business' => $brand?->name,
             'rating' => self::STARS[strtoupper((string) $review->star_rating)] ?? null,
             'review_text' => mb_substr(ReviewDesk::original((string) $review->comment), 0, 3000),
-            'compliance' => $brand !== null ? app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(8)->all() : [],
+            'compliance' => BrandPack::rules($brand),
             'liked_examples' => $brand !== null ? $this->archive->likedExamples(self::KIND, (int) $brand->id, 'reply') : [],
             'recent_openings' => $brand !== null ? $this->recentOpenings((int) $brand->id, (int) $review->id) : [],
         ];

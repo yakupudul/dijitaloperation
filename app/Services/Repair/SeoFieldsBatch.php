@@ -4,10 +4,10 @@ namespace App\Services\Repair;
 
 use App\Ai\Agents\Site\SeoFieldsBatchAgent;
 use App\Models\Brand;
-use App\Models\BrandOffering;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Brand\BrandPack;
 use App\Services\Compliance\BriefCompliance;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
@@ -196,8 +196,8 @@ final class SeoFieldsBatch
     {
         return [
             'name' => (string) $brand->name,
-            'services' => SiteScope::offerings($brand)->map(fn (BrandOffering $o): string => $o->displayName())->filter()->unique()->take(30)->values()->all(),
-            'areas' => SiteScope::areas($brand)->map(fn ($a): string => trim((string) ($a->district_name ?: $a->city_name ?: $a->name)))->filter()->unique()->take(10)->values()->all(),
+            'services' => BrandPack::serviceNames($brand, 30),
+            'areas' => BrandPack::areaNames($brand, 10),
         ];
     }
 

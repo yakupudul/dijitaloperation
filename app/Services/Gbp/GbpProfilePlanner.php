@@ -10,7 +10,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
-use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Brand\BrandPack;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -190,7 +190,7 @@ final class GbpProfilePlanner
             'service_requests' => array_map(fn (array $s): array => array_filter(['line' => $s['line'], 'category' => $s['category'],
                 'description' => mb_substr($s['description'], 0, 160)], fn (string $v): bool => $v !== ''), $serviceLines),
             'offerings' => array_column(app(GbpAssistant::class)->offerings($brand), 'name'),
-            'compliance' => app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all(),
+            'compliance' => BrandPack::rules($brand),
         ];
         [$raw, $versionId] = $this->ask($data);
         if ($raw === null) {

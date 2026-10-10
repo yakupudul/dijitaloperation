@@ -4,11 +4,11 @@ namespace App\Services\Site;
 
 use App\Ai\Agents\Site\ContentIdeasAgent;
 use App\Models\Brand;
-use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ContentIdea;
 use App\Models\Page;
 use App\Models\User;
+use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
@@ -196,10 +196,8 @@ final class ContentIdeaPool
     {
         return [
             'name' => (string) $brand->name,
-            'services' => SiteScope::offerings($brand)->map(fn (BrandOffering $o): string => (string) ($o->primaryName?->raw_label ?? $o->catalogItem?->primaryName?->raw_label ?? ''))
-                ->filter()->unique()->values()->all(),
-            'areas' => SiteScope::areas($brand)->map(fn ($area): string => trim((string) ($area->district_name ?: $area->city_name ?: $area->name)))
-                ->filter()->unique()->take(12)->values()->all(),
+            'services' => BrandPack::serviceNames($brand, 60),
+            'areas' => BrandPack::areaNames($brand, 12),
             'language' => self::language($brand),
         ];
     }

@@ -12,7 +12,7 @@ use App\Models\User;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
-use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Brand\BrandPack;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -413,7 +413,7 @@ final class BranchPages
             'other_branches' => $siblings->map(fn (DigitalAsset $l): array => ['name' => GbpDesk::shortName((string) $l->name), 'area' => (string) ($siblingSnapshots[$l->id]['area'] ?? '')])->values()->all(),
             'offerings' => array_column(app(GbpAssistant::class)->offerings($brand), 'name'),
             'service_pages' => $servicePages->map(fn (Page $p): array => ['title' => (string) ($p->title ?: $p->h1), 'url' => (string) $p->url, 'summary' => mb_substr((string) $p->content_summary, 0, 300)])->values()->all(),
-            'compliance' => app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all(),
+            'compliance' => BrandPack::rules($brand),
             'language' => 'tr',
         ];
         [$raw, $versionId] = $this->ask($data);

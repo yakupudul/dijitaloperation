@@ -20,6 +20,17 @@
   - Listesi henüz boş olan markada eski yazı korunur.
   - `BrandMemory::KINDS` artık `facts` ve `manual_notes` türlerini de içerir.
   - Test: `BrandScopeTest::test_the_brand_context_copies_follow_the_brands_own_services_and_places`.
+- **4. Tek marka paketi (`App\Services\Brand\BrandPack`):**
+  - Yapay zekâ işleri marka bilgisini artık tek yerden alır:
+    - hizmetler: ★ önce, markanın gösterim adlarıyla;
+    - yerler: yalnız **aktif** olanlar, şubeler önce. Eskiden Ads ve Meta asistanları denetimde arşivlenen yerleri de gönderiyordu;
+    - diller: markada ayarlıysa onlar, yoksa site sayfa dilleri;
+    - sektör ve marka kuralları: tamamı (en çok 60). Eskiden ilk 8 ya da 12 kural gidiyor, gerisi düşüyordu;
+    - marka kartı satırları.
+  - Kullananlar: Google Ads asistanı, Meta asistanı, Meta strateji, GBP asistanı, GBP profil planı, şube sayfaları, yorum yanıt taslağı, SEO başlık/açıklama hazırlığı, içerik fikir havuzu.
+  - Reklam metni (Google Ads) ve Meta kreatif paketine `brand_card` eklendi: övülen yönler, şikâyetler, ses ve yasaklar.
+  - İşlerin girdi anahtarları değişmedi; değişen yalnız değerlerin kaynağı.
+  - Test: `BrandPackTest`.
 
 ## 2026-10-09 — Marka verisi denetimi (yer ve hizmet onayı) ve içerik havuzu yedeği
 

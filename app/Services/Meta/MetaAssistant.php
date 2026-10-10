@@ -7,14 +7,13 @@ use App\Ai\Agents\MetaLandingAgent;
 use App\Ai\Agents\MetaStructureAgent;
 use App\Jobs\Meta\RunMetaAssistantJob;
 use App\Models\Brand;
-use App\Models\BrandServiceArea;
 use App\Models\DigitalAsset;
 use App\Models\MetaLead;
 use App\Models\Page;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
-use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
@@ -166,8 +165,9 @@ final class MetaAssistant
 
         return [
             'brand' => $brand->name, 'services' => array_map(fn (array $o): array => ['name' => $o['name'], 'priority' => $o['priority']], $offerings),
-            'areas' => $this->areas($brand), 'languages' => array_values(array_filter((array) ($brand->languages ?? []))),
+            'areas' => $this->areas($brand), 'languages' => BrandPack::languages($brand),
             'creatives' => $creatives, 'pages' => $this->pages($brand), 'compliance' => $this->complianceRules($brand),
+            'brand_card' => BrandPack::card($brand, ['praise', 'objections', 'voice']),
         ];
     }
 
@@ -520,8 +520,7 @@ final class MetaAssistant
     /** @return list<array{name: string, physical_branch: bool}> */
     private function areas(Brand $brand): array
     {
-        return BrandServiceArea::query()->where('brand_id', $brand->id)->orderByDesc('physical_branch')->orderBy('id')->limit(30)->get()
-            ->map(fn (BrandServiceArea $a): array => ['name' => $a->displayName(), 'physical_branch' => (bool) $a->physical_branch])->all();
+        return BrandPack::areas($brand);
     }
 
     /** @return list<array{title: string, url: string}> service pages of the brand's site(s) */
@@ -537,7 +536,7 @@ final class MetaAssistant
     /** @return list<string> */
     private function complianceRules(Brand $brand): array
     {
-        return app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all();
+        return BrandPack::rules($brand);
     }
 
     private static function plain(string $text): string

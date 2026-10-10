@@ -10,7 +10,6 @@ use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\BrandQuery;
-use App\Models\BrandServiceArea;
 use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\GoogleAdsBudgetPlan;
@@ -22,8 +21,8 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Analyst\AnalystNumbers;
 use App\Services\Archive\ProductionArchive;
+use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
-use App\Services\Compliance\SectorPackRegistry;
 use App\Services\ExternalWrites\GoogleAdsNegativeListWriter;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
@@ -216,7 +215,7 @@ final class GoogleAdsAssistant
             'brand' => ['name' => $brand->name, 'sector' => $brand->sectorCategory?->name ?? $brand->sector],
             'offerings' => $this->offerings($brand),
             'areas' => $this->areas($brand),
-            'languages' => array_values((array) ($brand->languages ?? [])),
+            'languages' => BrandPack::languages($brand),
             'terms' => array_map(fn (array $t): array => ['term' => $t['term'], 'campaign' => implode(', ', $t['campaigns']), 'ad_group' => implode(', ', $t['ad_groups']),
                 'cost' => $t['cost'], 'clicks' => $t['clicks'], 'conversions' => $t['conversions'], 'service' => $t['service'] ?? ''], $terms),
             'campaigns' => $campaigns,
@@ -388,7 +387,7 @@ final class GoogleAdsAssistant
                     array_filter($input['keywords'] ?? [], fn (array $k): bool => $k['campaign_id'] === (string) $id))))];
         }
         $pack = [
-            'offerings' => $offerings, 'areas' => $this->areas($brand), 'languages' => array_values((array) ($brand->languages ?? [])),
+            'offerings' => $offerings, 'areas' => $this->areas($brand), 'languages' => BrandPack::languages($brand),
             'clusters' => $this->clusters($brand), 'campaigns' => $campaigns, 'total_daily_budget' => round($budget, 2),
             'currency' => $input['currency'] ?? null, 'pages' => array_map(fn (array $p): array => ['url' => $p['url'], 'title' => $p['title'], 'category' => $p['category']], $pages),
             'performance_period' => $periodEnd === null ? null : ['start' => $periodEnd->subDays(29)->toDateString(), 'end' => $periodEnd->toDateString(), 'excluded_recent_days' => $lag],
@@ -569,6 +568,7 @@ final class GoogleAdsAssistant
             'areas' => $this->areas($brand),
             'pages' => $pages,
             'compliance' => $this->complianceRules($brand),
+            'brand_card' => BrandPack::card($brand, ['praise', 'objections', 'voice']),
         ];
         [$raw, $versionId] = $this->call(self::OP_ADS, $pack);
         $ad = self::validateAdTexts($raw, $pack, fn (string $text): array => self::blockingHits($brand, $text));
@@ -805,21 +805,13 @@ final class GoogleAdsAssistant
     /** @return list<array{name: string, priority: string}> approved (active) offerings, main first */
     private function offerings(?Brand $brand): array
     {
-        if ($brand === null) {
-            return [];
-        }
-
-        return BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)->where('status', 'active')
-            ->orderByRaw("CASE WHEN priority = 'main' THEN 0 ELSE 1 END")->orderBy('id')->get()
-            ->map(fn (BrandOffering $o): array => ['name' => $o->displayName(), 'priority' => $o->priority === 'main' ? 'main' : 'secondary'])
-            ->unique('name')->values()->all();
+        return BrandPack::services($brand);
     }
 
     /** @return list<array{name: string, physical_branch: bool}> */
     private function areas(Brand $brand): array
     {
-        return BrandServiceArea::query()->where('brand_id', $brand->id)->orderByDesc('physical_branch')->orderBy('id')->limit(30)->get()
-            ->map(fn (BrandServiceArea $a): array => ['name' => $a->displayName(), 'physical_branch' => (bool) $a->physical_branch])->all();
+        return BrandPack::areas($brand);
     }
 
     /**
@@ -862,7 +854,7 @@ final class GoogleAdsAssistant
     /** @return list<string> */
     private function complianceRules(Brand $brand): array
     {
-        return app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all();
+        return BrandPack::rules($brand);
     }
 
     public static function matchLabel(string $matchType): string

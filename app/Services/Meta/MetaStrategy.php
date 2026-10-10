@@ -12,7 +12,7 @@ use App\Services\Ads\AdServiceStats;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
-use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Brand\BrandPack;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -294,7 +294,7 @@ class MetaStrategy
                 'settings' => array_intersect_key($o['profile'], array_flip(['objective', 'optimization', 'destination'])), 'targeting' => $o['profile']['targeting'] ?? null], array_slice($view['own'], 0, 5)),
             'pages' => $offering !== null ? OfferingPage::query()->join('pages', 'pages.id', '=', 'offering_pages.page_id')->where('offering_pages.brand_offering_id', $offering['id'])
                 ->limit(5)->get(['pages.title', 'pages.url'])->map(fn ($p): array => ['title' => (string) $p->title, 'url' => (string) $p->url])->all() : [],
-            'compliance' => app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all(),
+            'compliance' => BrandPack::rules($brand),
         ];
         $answer = $this->ask($data);
         if ($answer === null) {

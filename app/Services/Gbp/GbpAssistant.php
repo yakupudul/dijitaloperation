@@ -18,8 +18,8 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
+use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
-use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Database\Eloquent\Builder;
@@ -442,7 +442,7 @@ final class GbpAssistant
     /** @return list<string> */
     private function complianceRules(Brand $brand): array
     {
-        return app(SectorPackRegistry::class)->rulesForBrand($brand)->pluck('message')->unique()->values()->take(12)->all();
+        return BrandPack::rules($brand);
     }
 
     private function page(DigitalAsset $asset, int $pageId): ?Page
