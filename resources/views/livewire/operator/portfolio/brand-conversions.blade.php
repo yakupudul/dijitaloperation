@@ -59,6 +59,11 @@
                             <td class="py-2 pr-3 text-gray-800 dark:text-gray-200">
                                 {{ $row->label }}
                                 @if ($row->origin === 'operator') <span class="text-xs text-gray-400">· elle ayarlandı</span> @endif
+                                @if (! $row->counts && ($row->metadata['note'] ?? null) === 'engagement')
+                                    <span class="block text-xs text-gray-400">İlgi ölçüsü (kaydırma, sayfa ya da profil ziyareti, form başlatma); müşteri sayılmaz.</span>
+                                @elseif ($row->counts && ($summary['current']['by_row'][$row->id] ?? 0) == 0)
+                                    <span class="block text-xs text-amber-600">Son 30 günde hiç tetiklenmedi; kurulumu kontrol et.</span>
+                                @endif
                             </td>
                             <td class="py-2 pr-3">
                                 <select wire:change="setType({{ $row->id }}, $event.target.value)" class="rounded-lg border border-gray-200 bg-transparent px-2 py-1 text-xs dark:border-gray-700 dark:text-white">

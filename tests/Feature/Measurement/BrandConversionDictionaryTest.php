@@ -86,6 +86,26 @@ final class BrandConversionDictionaryTest extends TestCase
         $this->assertArrayNotHasKey('gbp_metric|BUSINESS_IMPRESSIONS_MOBILE_MAPS', $rows->all());
     }
 
+    public function test_attention_signals_are_never_counted_as_customers(): void
+    {
+        $this->ga4('form_start', 40, days: 2);
+        $this->ga4('scroll_kaydirma_sayisi', 300, days: 2);
+        $this->adsAction('15', 'Local actions - Website visits', 'DEFAULT', 'GOOGLE_HOSTED');
+        $this->adsAction('16', 'Scroll Kaydırma Sayısı', 'DEFAULT', 'WEBPAGE');
+        $this->adsAction('17', 'Local actions - Other engagements', 'DEFAULT', 'GOOGLE_HOSTED');
+        $this->adsAction('18', 'Telefon tıklama', 'DEFAULT', 'CLICK_TO_CALL');
+        $this->adsAction('19', 'Ana sayfa görüntüleme', 'PAGE_VIEW', 'WEBPAGE');
+
+        app(BrandConversionDictionary::class)->discover($this->brand);
+
+        $rows = BrandConversionSource::query()->where('brand_id', $this->brand->id)->get()->keyBy(fn ($r) => $r->source.'|'.$r->source_key);
+        foreach (['ga4_key_event|form_start', 'ga4_key_event|scroll_kaydirma_sayisi', 'google_ads_conversion_action|15', 'google_ads_conversion_action|16', 'google_ads_conversion_action|17', 'google_ads_conversion_action|19'] as $key) {
+            $this->assertFalse($rows[$key]->counts, $key);
+        }
+        $this->assertSame('engagement', $rows['google_ads_conversion_action|15']->metadata['note']);
+        $this->assertTrue($rows['google_ads_conversion_action|18']->counts, 'a phone click is a customer');
+    }
+
     public function test_totals_count_only_counted_signals_once(): void
     {
         $dictionary = app(BrandConversionDictionary::class);

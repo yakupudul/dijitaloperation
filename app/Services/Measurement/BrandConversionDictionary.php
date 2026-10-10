@@ -30,7 +30,10 @@ final class BrandConversionDictionary
     ];
 
     /** GA4 events that are engagement, not conversions, even when marked as key events. */
-    private const array GA4_ENGAGEMENT = ['page_view', 'scroll', 'session_start', 'first_visit', 'user_engagement', 'click', 'view_search_results', 'video_start', 'video_progress', 'file_download'];
+    private const array GA4_ENGAGEMENT = ['page_view', 'scroll', 'session_start', 'first_visit', 'user_engagement', 'click', 'view_search_results', 'video_start', 'video_progress', 'file_download', 'form_start', 'video_complete', 'view_item', 'view_item_list'];
+
+    /** Signal names that measure attention, not a customer ("Scroll Kaydırma Sayısı", "Local actions - Website visits"). */
+    private const string ENGAGEMENT_NAME = '/\b(scroll\w*|kaydirma|page ?views?|sayfa goruntu\w*|form starts?|form baslat\w*|website visits?|web sitesi ziyaret\w*|other engagements?|engaged \w+|engagement|etkilesim|first visit|user engagement|session \w+|oturum|time on (site|page)|sitede kalma|video \w+)\b/';
 
     /**
      * @return array{found: int, created: int}
@@ -71,8 +74,8 @@ final class BrandConversionDictionary
 
         $ga4Events = $this->ga4Events($scope);
         foreach ($ga4Events as $event) {
-            $engagement = in_array($event, self::GA4_ENGAGEMENT, true);
-            $save(BrandConversionSource::SOURCE_GA4, $event, $event, $this->guessType($event), ! $engagement, []);
+            $engagement = in_array($event, self::GA4_ENGAGEMENT, true) || $this->isEngagement($event);
+            $save(BrandConversionSource::SOURCE_GA4, $event, $event, $this->guessType($event), ! $engagement, $engagement ? ['note' => 'engagement'] : []);
         }
         $ga4Counted = BrandConversionSource::query()->where('brand_id', $brand->id)
             ->where('source', BrandConversionSource::SOURCE_GA4)->where('counts', true)->exists();
@@ -259,6 +262,9 @@ final class BrandConversionDictionary
             'QUALIFIED_LEAD', 'CONVERTED_LEAD' => ConversionGoalTypes::QUALIFIED_LEAD,
             default => $this->guessType($action['name']),
         };
+        if (in_array($action['category'], ['PAGE_VIEW', 'ENGAGEMENT'], true) || $this->isEngagement($action['name'])) {
+            return [$type, false, 'engagement'];
+        }
         if ($action['status'] !== 'ENABLED' || ! $action['primary']) {
             return [$type, false, 'secondary_or_disabled'];
         }
@@ -339,6 +345,12 @@ final class BrandConversionDictionary
         return $scope->apply(DB::table('gbp_performance_daily'))->whereIn('metric', array_keys(self::GBP_METRICS))
             ->where('reporting_date', '>=', now()->subDays(90)->toDateString())->distinct()->pluck('metric')
             ->map(fn ($metric): string => (string) $metric)->all();
+    }
+
+    /** Whether a signal measures attention (scroll, page view, form start, profile visits) rather than a customer. */
+    public function isEngagement(string $name): bool
+    {
+        return (bool) preg_match(self::ENGAGEMENT_NAME, ' '.str_replace(['_', '-', '.'], ' ', SeoText::fold($name)).' ');
     }
 
     public function guessType(string $name): string
