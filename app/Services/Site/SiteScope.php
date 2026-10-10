@@ -10,9 +10,9 @@ use App\Models\BrandServiceArea;
 use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\Page;
+use App\Services\Brand\BrandScope;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Brand-side context of one website: its brand, whether AI may run (operational brand), approved services, service
@@ -145,11 +145,7 @@ final class SiteScope
      */
     public static function resourceIds(Brand $brand, string $type): array
     {
-        return DB::table('core_asset_bindings as b')
-            ->join('digital_assets as a', 'a.id', '=', 'b.digital_asset_id')
-            ->join('core_external_resources as r', 'r.id', '=', 'b.external_resource_id')
-            ->where('a.brand_id', $brand->id)->where('b.status', 'active')->whereNull('a.deleted_at')->where('r.resource_type', $type)
-            ->distinct()->orderBy('b.external_resource_id')->pluck('b.external_resource_id')->map(fn ($id): int => (int) $id)->all();
+        return BrandScope::resources((int) $brand->id, $type);
     }
 
     /** Most common page language of the site (null when pages carry none). */

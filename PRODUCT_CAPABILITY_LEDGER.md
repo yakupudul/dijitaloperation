@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-10 — Marka merkezli yapı (yakup: "verinin özü = marka")
+
+- **Analiz:** `/mnt/project-files/notes/marka-merkezli-mimari-analizi.md`. yakup sırayla yapılmasını onayladı.
+- **1. Marka verisi denetimi yeniden çalışıyor:** `moxdop:brands:audit` adı Şef denetimiyle çakışıyordu. Sonradan tanımlanan kazandığı için 03:20'de `BrandDataAudit` hiç çalışmıyordu. Şef denetimi artık `moxdop:brands:chief-audit`. `CommandNamesTest`, her komut adının bir kez tanımlandığını denetler.
+- **2. Tek marka kapsamı (`App\Services\Brand\BrandScope`):**
+  - `resources(brand, type)` bir markanın hesaplarını döndürür: markanın herhangi bir (silinmemiş) varlığına etkin bağlantıyla bağlı her hesap.
+  - `siteResources(site, type)` bir sitenin hesaplarını şu sırayla bulur: önce sitenin kendi bağlantıları; yoksa adresinde sitenin alan adı geçen marka hesabı (GSC özelliği); yoksa marka tek siteliyse markanın o türdeki tüm hesapları.
+  - Kullananlar: `SiteScope::resourceIds`, `SiteAnalysisReader` (marka kartı soruları ve mevsim, site analizi), `BrandFacts` ve `BrandDataAudit` İşletme Profili, `SeoPlanInputCollector`, Siteler listesindeki tıklamalar.
+  - `OwnershipIntegrity` artık ayrı bir gsc/ga4 varlığına bağlı GSC/GA4 hesabını "tür uyumsuz" saymıyor (`ExternalResourceAssetCompatibility` ile aynı kural).
+  - Test: `BrandScopeTest`.
+
 ## 2026-10-09 — Marka verisi denetimi (yer ve hizmet onayı) ve içerik havuzu yedeği
 
 - **Neden (yakup):** bazı markalarda alakasız hizmet ve bölgeler vardı (Decco: Seferihisar, Avrupadent: 5 İzmir ilçesi "şube", OPC: Kadıköy hiç yok). yakup marka ve varlık işlerinin toplu hazırlanmasını, kendisine yalnız onayın kalmasını istedi. Fikir havuzu da dolmuyordu.

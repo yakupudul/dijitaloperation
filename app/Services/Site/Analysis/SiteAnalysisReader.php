@@ -6,6 +6,7 @@ use App\Models\BrandClusterPage;
 use App\Models\BrandServiceArea;
 use App\Models\ClusterQuery;
 use App\Models\DigitalAsset;
+use App\Services\Brand\BrandScope;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\Site\Competitors\CompetitorTargets;
 use Carbon\CarbonImmutable;
@@ -382,8 +383,8 @@ final class SiteAnalysisReader
     /** @return list<int> */
     private function resources(DigitalAsset $site, string $capability): array
     {
-        return $this->boundResources[$site->id.'|'.$capability] ??= DB::table('core_asset_bindings')->where('digital_asset_id', $site->id)->where('capability', $capability)
-            ->where('status', 'active')->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        // GSC / GA4 bound to a separate gsc / ga4 asset of the brand measure the site too (BrandScope).
+        return $this->boundResources[$site->id.'|'.$capability] ??= BrandScope::siteResources($site, $capability);
     }
 
     /** @param  list<int>  $resources */

@@ -6,7 +6,6 @@ use App\Enums\OfferingStatus;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
-use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
@@ -257,11 +256,8 @@ final class BrandDataAudit
     /** @return list<array{city: string, district: ?string, name: string, label: string}> addresses of the brand's bound Business Profiles */
     private function profiles(Brand $brand): array
     {
-        $assets = DigitalAsset::query()->where('brand_id', $brand->id)->pluck('id')->all();
-        $ids = CoreAssetBinding::query()->whereIn('digital_asset_id', $assets ?: [0])->where('capability', 'google_business_profile')
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->distinct()->pluck('external_resource_id');
         $out = [];
-        foreach (CoreExternalResource::query()->whereIn('id', $ids->all() ?: [0])->get() as $resource) {
+        foreach (CoreExternalResource::query()->whereIn('id', BrandScope::resources((int) $brand->id, 'google_business_profile') ?: [0])->get() as $resource) {
             if (($address = BrandSetupAreaSuggester::address($resource)) === null) {
                 continue;
             }

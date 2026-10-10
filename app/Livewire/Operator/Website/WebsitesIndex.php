@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Website;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Brand\BrandScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -53,8 +54,12 @@ final class WebsitesIndex extends Component
         if ($siteIds === []) {
             return [];
         }
-        $bindings = DB::table('core_asset_bindings')->whereIn('digital_asset_id', $siteIds)->where('capability', 'search_console')->where('status', 'active')
-            ->orderBy('id')->get(['digital_asset_id', 'external_resource_id']);
+        $bindings = collect();
+        foreach (DigitalAsset::query()->whereIn('id', $siteIds)->get() as $site) {
+            foreach (BrandScope::siteResources($site, 'search_console') as $resourceId) {
+                $bindings->push((object) ['digital_asset_id' => $site->id, 'external_resource_id' => $resourceId]);
+            }
+        }
         if ($bindings->isEmpty()) {
             return [];
         }

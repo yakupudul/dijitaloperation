@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Support\Integrations\ExternalResourceAssetCompatibility;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,12 +17,6 @@ use Illuminate\Support\Facades\DB;
  */
 final class OwnershipIntegrity
 {
-    /** Bindable account types → the asset type they belong on. */
-    private const array ASSET_TYPE = [
-        'search_console' => 'website', 'ga4' => 'website', 'google_ads' => 'google_ads', 'meta_ads' => 'meta_ads',
-        'google_business_profile' => 'google_business_profile',
-    ];
-
     /**
      * @return list<array{code: string, label: string, subject: string, detail: string, fixable: bool, ids: list<int>}>
      */
@@ -50,8 +45,8 @@ final class OwnershipIntegrity
 
                     return;
                 }
-                $expected = self::ASSET_TYPE[(string) $resource?->resource_type] ?? null;
-                if ($resource === null || ($expected !== null && $asset->type !== $expected)) {
+                $allowed = ExternalResourceAssetCompatibility::compatibleAssetTypes((string) $resource?->resource_type);
+                if ($resource === null || ($allowed !== [] && ! in_array($asset->type, $allowed, true))) {
                     $problems[] = ['code' => 'binding_type_mismatch', 'label' => 'Hesap türü varlıkla uyuşmuyor', 'subject' => $this->resourceName((int) $binding->external_resource_id),
                         'detail' => ($resource?->resource_type ?? '?').' → '.$asset->type.' ('.$asset->name.')', 'fixable' => $resource === null, 'ids' => [(int) $binding->id]];
                 }

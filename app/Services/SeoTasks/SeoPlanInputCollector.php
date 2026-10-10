@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Services\Brand\BrandScope;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
@@ -328,13 +329,7 @@ final class SeoPlanInputCollector
         if (! Schema::hasTable('gbp_location_snapshots') || $site->brand_id === null) {
             return null;
         }
-        $resourceIds = DB::table('core_asset_bindings as b')
-            ->join('digital_assets as a', 'a.id', '=', 'b.digital_asset_id')
-            ->where('a.brand_id', $site->brand_id)
-            ->where('b.capability', 'google_business_profile')
-            ->where('b.status', 'active')
-            ->pluck('b.external_resource_id')
-            ->all();
+        $resourceIds = BrandScope::resources((int) $site->brand_id, 'google_business_profile');
         if (count($resourceIds) !== 1) {
             return null; // none, or several locations: no single profile to compare against
         }

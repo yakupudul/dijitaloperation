@@ -7,7 +7,6 @@ use App\Models\BrandConversionSource;
 use App\Models\BrandExpert;
 use App\Models\BrandMemory;
 use App\Models\BrandOffering;
-use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\Ads\AdServiceStats;
@@ -415,9 +414,6 @@ final class BrandFacts
     /** @return list<int> the brand's Business Profile resources */
     private function profileResources(Brand $brand): array
     {
-        $assets = DigitalAsset::query()->where('brand_id', $brand->id)->pluck('id')->all();
-
-        return CoreAssetBinding::query()->whereIn('digital_asset_id', $assets ?: [0])->where('capability', 'google_business_profile')
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->distinct()->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->values()->all();
+        return BrandScope::resources((int) $brand->id, 'google_business_profile');
     }
 }
