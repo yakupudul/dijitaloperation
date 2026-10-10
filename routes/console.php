@@ -433,12 +433,12 @@ Artisan::command('moxdop:collection:activity-refresh', function (): void {
 
 // Monthly fact partitions (incl. compact gsc_f_* tables) for the coming months + DEFAULT safety partition.
 Schedule::command('moxdop:db:ensure-partitions --months=3')
-    ->dailyAt('03:20')
+    ->dailyAt('06:20')
     ->withoutOverlapping(30)
     ->name('moxdop-db-ensure-partitions');
 
 Schedule::command('moxdop:collection:activity-refresh')
-    ->dailyAt('03:35')
+    ->dailyAt('06:35')
     ->withoutOverlapping(60)
     ->name('moxdop-collection-activity-refresh');
 
@@ -446,7 +446,7 @@ Schedule::command('moxdop:collection:activity-refresh')
 // local-only audit daily so newly collected Professional V2 datasets and any
 // later integrity regressions are reflected in REAL/PARTIAL_REAL gating.
 Schedule::command('moxdop:data-pool-audit --provider=META_ADS')
-    ->dailyAt('05:10')
+    ->dailyAt('08:10')
     ->withoutOverlapping(180)
     ->name('moxdop-meta-ads-data-pool-audit');
 
@@ -482,7 +482,7 @@ Artisan::command('moxdop:gsc:inspect-urls {--site= : Yalnız bu web sitesi}', fu
 })->purpose('Queue today\'s Search Console URL Inspection batch of every website.');
 
 Schedule::command('moxdop:gsc:inspect-urls')
-    ->dailyAt('06:05')->withoutOverlapping(60)->name('gsc-inspect-urls');
+    ->dailyAt('09:05')->withoutOverlapping(60)->name('gsc-inspect-urls');
 
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
@@ -526,7 +526,7 @@ Schedule::command('moxdop:queries:prune-pending')
 
 // Faz 7: anahtar kelime kalite puanı günlük kopyası (düşüş kuralı için; snapshot yalnızca son değeri tutar).
 Schedule::command('moxdop:google-ads:record-quality-scores')
-    ->dailyAt('05:40')
+    ->dailyAt('08:40')
     ->withoutOverlapping(30)
     ->name('google-ads-quality-score-history');
 
@@ -546,19 +546,19 @@ Schedule::command('moxdop:intel:query-volumes')
 
 // Faz 9: WordPress Connector v2 sağlık okuması (sürümler, bekleyen güncellemeler, Site Sağlığı).
 Schedule::command('moxdop:wordpress:health')
-    ->dailyAt('06:20')
+    ->dailyAt('09:20')
     ->withoutOverlapping(60)
     ->name('wordpress-health-daily');
 
 // Faz 10d: gece veritabanı yedeği.
 Schedule::command('moxdop:backup')
-    ->dailyAt('03:30')
+    ->dailyAt('06:30')
     ->withoutOverlapping(120)
     ->name('system-backup-nightly');
 
 // Faz D: günlük varlık uyarıları (harcama sıçraması/durması, dönüşüm kesilmesi, arama trafiği düşüşü, eski veri, yanıtsız kötü yorum).
 Schedule::command('moxdop:alerts:scan')
-    ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '06:30'))
+    ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '09:30'))
     ->withoutOverlapping(60)
     ->name('asset-alerts-daily');
 
@@ -598,7 +598,7 @@ Artisan::command('moxdop:meta:geo-results', function (): void {
 })->purpose('Queue the daily Meta country + city results collection of bound ad accounts.');
 
 Schedule::command('moxdop:meta:geo-results')
-    ->dailyAt('05:41')->withoutOverlapping(60)->name('meta-geo-results');
+    ->dailyAt('08:41')->withoutOverlapping(60)->name('meta-geo-results');
 
 // Faz 0: GBP API içerik saklama (yorum, medya, gönderi, profil anlık görüntüleri) — 30 günden eskiler silinir.
 // Performans ve arama anahtar kelimeleri silinmez (altın veri).
@@ -607,14 +607,14 @@ Artisan::command('moxdop:gbp:purge-expired', function (): void {
 })->purpose('Delete Google Business Profile provider content older than the retention window.');
 
 Schedule::command('moxdop:gbp:purge-expired')
-    ->dailyAt('04:40')
+    ->dailyAt('07:40')
     ->withoutOverlapping(60)
     ->name('gbp-content-retention');
 
 // v2 Faz 1: veri saklama (ayda bir) — günlük veriler 16 ay (eskisi aylığa çevrilip silinir), sorgu günlükleri 16 ay
 // (aylık hali query_sources, 24 ay), ham kopyalar 90 gün (her sayfanın son HTML'i kalır), telemetri kendi süresi.
 Schedule::command('moxdop:retention --apply')
-    ->monthlyOn(2, '04:10')
+    ->monthlyOn(2, '07:10')
     ->withoutOverlapping(720)
     ->name('data-retention');
 
@@ -643,7 +643,7 @@ Schedule::command('moxdop:integrations:discover')
 
 // Faz 3: marka dönüşüm sözlüğü (GA4 anahtar olay, Ads dönüşüm işlemi, Meta işlem, İşletme Profili) — uyarı taramasından önce.
 Schedule::command('moxdop:measurement:refresh')
-    ->dailyAt('06:15')
+    ->dailyAt('09:15')
     ->withoutOverlapping(60)
     ->name('brand-measurement-daily');
 
@@ -658,24 +658,24 @@ Schedule::call(function (): void {
 
 // Faz 4: durmuş toplamalara günlük ikinci şans (tekrarlayan hata; yeniden kullanılabilir hale gelen bağlantılar).
 Schedule::command('moxdop:resources:retry-stopped')
-    ->dailyAt('05:10')
+    ->dailyAt('08:10')
     ->withoutOverlapping(30)
     ->name('resource-automation-daily-retry');
 
 // Bağlantı sağlığı (Onarım Faz 1): gecikmiş hesapların çekimi ve taranmamış sitelerin taraması kendiliğinden başlar.
 Schedule::command('moxdop:health:repair')
-    ->dailyAt('05:40')
+    ->dailyAt('08:40')
     ->withoutOverlapping(30)
     ->name('connection-health-repair');
 
 // Onarım masası (Faz 2): gece değeri hazır olmayan site önerileri hazırlanır; sabah onay bekleyenler bildirilir.
 Schedule::command('moxdop:repair:audit')
-    ->dailyAt('01:40')
+    ->dailyAt('04:40')
     ->withoutOverlapping(60)
     ->name('repair-site-audit');
 
 Schedule::command('moxdop:repair:prepare')
-    ->dailyAt('02:10')
+    ->dailyAt('05:10')
     ->withoutOverlapping(30)
     ->name('repair-desk-prepare');
 
@@ -698,7 +698,7 @@ Schedule::command('moxdop:repair:digest')
 
 // Faz 5: sektör paketi uyum denetimi (AI taslakları, Meta reklam metni/hedefleme, site sayfaları, İşletme Profili).
 Schedule::command('moxdop:compliance:scan')
-    ->dailyAt((string) config('moxdop-sector-packs.scan_time', '06:45'))
+    ->dailyAt((string) config('moxdop-sector-packs.scan_time', '09:45'))
     ->withoutOverlapping(60)
     ->name('compliance-scan-daily');
 
@@ -770,7 +770,7 @@ Artisan::command('moxdop:brand-candidates {--sync : Run now instead of queueing}
 })->purpose('Group discovered websites / accounts into brand candidates (deterministic + one AI call per batch).');
 
 Schedule::command('moxdop:brand-candidates')
-    ->dailyAt('06:47')
+    ->dailyAt('09:47')
     ->withoutOverlapping(60)
     ->name('brand-candidates');
 
@@ -852,7 +852,7 @@ Artisan::command('moxdop:site:weekly {--site= : One website asset id}', function
 })->purpose('Queue the weekly website refresh (categories, service ↔ page, cluster ↔ page, summaries) of operational brands.');
 
 Schedule::command('moxdop:site:weekly')
-    ->weeklyOn(1, '05:52')
+    ->weeklyOn(1, '08:52')
     ->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
@@ -1063,7 +1063,7 @@ Artisan::command('moxdop:ops:error-digest', function (ErrorTriage $triage, Query
         route('operator.settings.system-health', [], false));
     $this->info('Digest sent: you='.$you.' code='.$code);
 })->purpose('Daily Hata merkezi digest (only what needs the operator).');
-Schedule::command('moxdop:ops:error-digest')->dailyAt('05:52')->name('ops-error-digest')->withoutOverlapping(30);
+Schedule::command('moxdop:ops:error-digest')->dailyAt('08:52')->name('ops-error-digest')->withoutOverlapping(30);
 
 // Sınıflandırma temizliği: rules only (no AI) over every unlocked page — template / archive sections stop being service
 // pages, their service links are removed. Run once after the template-section rule shipped; safe to repeat.
@@ -1078,7 +1078,8 @@ Artisan::command('moxdop:site:recategorize {site? : website asset id}', function
     $this->info('Recategorized: '.$sites->count());
 })->purpose('Rules-only page recategorization (template / archive sections) and stale service-link cleanup.');
 
-// Marka dosyası: rebuilt every night for operational brands (no AI; unchanged sections keep their hash).
+// Marka dosyası: rebuilt every night for operational brands (no AI; unchanged sections keep their hash), after the
+// Onarım masası audit (04:40) and preparation (05:10) so its open-work section is today's.
 Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDossier $dossier): void {
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
     foreach ($brands as $brand) {
@@ -1099,7 +1100,7 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
     }
     $this->info('Dossiers built: '.$brands->count());
 })->purpose('Rebuild the Marka dosyası of operational brands.');
-Schedule::command('moxdop:brands:dossier')->dailyAt('04:37')->timezone('Europe/Istanbul')->name('brands-dossier')->withoutOverlapping(60);
+Schedule::command('moxdop:brands:dossier')->dailyAt('05:40')->timezone('Europe/Istanbul')->name('brands-dossier')->withoutOverlapping(60);
 
 // Marka bakım ajanı: Sunday night, one queued review per active brand; a brand whose dossier did not change costs nothing.
 Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even when nothing changed}', function (): void {
@@ -1112,7 +1113,6 @@ Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even 
 Schedule::command('moxdop:brands:care')->weeklyOn(0, '21:13')->timezone('Europe/Istanbul')->name('brands-care')->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('brand.care'));
 
-// Şef: Monday morning plan across the active brands, after Sunday's care reviews.
 // AI harcama dökümü: where the money went (per operation, automatic vs operator), and today's automatic ceiling.
 Artisan::command('moxdop:ai:costs {--hours=24 : Kaç saat geriye}', function (AiBudget $budget): void {
     $rows = $budget->breakdown((int) $this->option('hours'));
@@ -1149,7 +1149,8 @@ Artisan::command('moxdop:brands:chief', function (): void {
     RunBrandChiefJob::dispatch();
     $this->info('Chief plan queued.');
 })->purpose('Queue Şef\'s weekly plan.');
-Schedule::command('moxdop:brands:chief')->weeklyOn(1, '07:41')->timezone('Europe/Istanbul')->name('brands-chief')->withoutOverlapping(60)
+// Şef: Monday morning plan across the active brands, two hours after the weekly analysts (07:40) were queued.
+Schedule::command('moxdop:brands:chief')->weeklyOn(1, '09:41')->timezone('Europe/Istanbul')->name('brands-chief')->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('brand.chief'));
 
 // Geliştirme havuzu: sayfa taraması — every operator screen rendered as an Admin (status, time, queries, error, outline)
@@ -1176,7 +1177,7 @@ Schedule::command('moxdop:whatsapp:dispatch')
     ->everyMinute()->withoutOverlapping(2)->name('whatsapp-assistant-dispatch');
 
 Schedule::command('moxdop:whatsapp:retention')
-    ->dailyAt('03:50')
+    ->dailyAt('06:50')
     ->withoutOverlapping(30)
     ->name('whatsapp-retention-daily');
 

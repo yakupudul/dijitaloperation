@@ -25,6 +25,6 @@ return [
     ],
 
     // Daily compliance scan (no provider calls, no AI).
-    'scan_time' => env('MOXDOP_COMPLIANCE_SCAN_TIME', '06:45'),
+    'scan_time' => env('MOXDOP_COMPLIANCE_SCAN_TIME', '09:45'), // Istanbul time (app.schedule_timezone)
     'website_pages_per_brand' => 150,
 ];

@@ -31,6 +31,16 @@
   - Reklam metni (Google Ads) ve Meta kreatif paketine `brand_card` eklendi: övülen yönler, şikâyetler, ses ve yasaklar.
   - İşlerin girdi anahtarları değişmedi; değişen yalnız değerlerin kaynağı.
   - Test: `BrandPackTest`.
+- **5. Gece saatleri tek saatte:**
+  - Bütün zamanlanmış işler artık İstanbul saatiyle çalışır (`app.schedule_timezone`).
+  - Eskiden UTC olan sabit saatli işlerin saati İstanbul karşılığına çevrildi, gerçek çalışma anları aynı kaldı. Örnek: `repair:audit` 01:40 UTC → 04:40.
+  - Üç sıralama düzeltildi:
+    - marka dosyası 04:37 yerine 05:40'ta kurulur, masa denetimi (04:40) ve hazırlığından (05:10) sonra. "Açık işler" bölümü artık bir gün geride değil;
+    - Şef haftalık plan analistlerden iki saat sonra çalışır (Pazartesi 09:41);
+    - onarım özeti öğlen 12:05 yerine sabah 09:05'te gider.
+  - Not: sunucuda `MOXDOP_ALERTS_TIME` ya da `MOXDOP_COMPLIANCE_SCAN_TIME` ayarlıysa bundan sonra İstanbul saati sayılır.
+  - Test: `CommandNamesTest`.
+  - Kalan: türetme işlerinin toplamanın bitişini beklemesi (şimdilik sabit saat ve saatlik telafi işi).
 
 ## 2026-10-09 — Marka verisi denetimi (yer ve hizmet onayı) ve içerik havuzu yedeği
 

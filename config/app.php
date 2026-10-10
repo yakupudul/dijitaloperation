@@ -70,6 +70,11 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Scheduled jobs run on Istanbul time (2026-10-10): one clock for the night chain, whatever the app timezone.
+    */
+    'schedule_timezone' => 'Europe/Istanbul',
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
