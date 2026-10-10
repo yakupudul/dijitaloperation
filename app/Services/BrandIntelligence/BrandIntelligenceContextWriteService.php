@@ -10,6 +10,7 @@ use App\Models\Brand;
 use App\Models\BrandGoal;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
+use App\Models\BrandServiceArea;
 use App\Models\User;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
 use Illuminate\Support\Facades\DB;
@@ -126,25 +127,38 @@ final class BrandIntelligenceContextWriteService
             ->values()
             ->all();
 
-        $priorityOfferings = BrandOffering::query()
-            ->with('primaryName')
-            ->where('brand_id', $brand->id)
-            ->where('status', OfferingStatus::Active)
-            ->whereNotNull('priority_rank')
-            ->orderBy('priority_rank')
-            ->orderBy('id')
-            ->get()
-            ->map(static fn (BrandOffering $o): ?string => $o->primaryName?->raw_label)
-            ->filter(static fn (?string $label): bool => is_string($label) && $label !== '')
-            ->values()
-            ->all();
+        // Brand core (2026-10-10): services, priority and places are copies of the brand's own lists, rebuilt from
+        // them every time (the ★ main services first, then the ranked ones), never typed separately.
+        $offerings = BrandOffering::query()->with(['primaryName', 'catalogItem'])->where('brand_id', $brand->id)
+            ->where('status', OfferingStatus::Active)->orderBy('id')->get();
+        $priorityOfferings = $offerings->filter(static fn (BrandOffering $o): bool => $o->isMain() || $o->priority_rank !== null)
+            ->sortBy(static fn (BrandOffering $o): array => [$o->isMain() ? 0 : 1, $o->priority_rank ?? PHP_INT_MAX, $o->id])
+            ->map(static fn (BrandOffering $o): string => $o->displayName())
+            ->filter(static fn (string $label): bool => $label !== '')
+            ->unique()->values()->all();
+        $services = $offerings->map(static fn (BrandOffering $o): array => ['name' => $o->displayName(), 'description' => $o->catalogItem?->description])
+            ->filter(static fn (array $row): bool => $row['name'] !== '')->values()->all();
+        $areas = BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->orderByDesc('physical_branch')->orderBy('id')->get();
+        $markets = $areas->map(static fn (BrandServiceArea $a): array => ['name' => $a->label(), 'note' => $a->physical_branch ? 'şube' : null])
+            ->filter(static fn (array $row): bool => $row['name'] !== '')->values()->all();
 
-        BrandIntelligenceContext::withLegacyIdentityProjection(function () use ($context, $businessGoals, $conversionGoals, $priorityOfferings): void {
+        BrandIntelligenceContext::withLegacyIdentityProjection(function () use ($context, $businessGoals, $conversionGoals, $priorityOfferings, $services, $markets): void {
             $context->business_goals = $businessGoals;
             $context->conversion_goals = $conversionGoals;
             $context->priority_offerings = $priorityOfferings;
+            // A brand without its own list yet keeps what was written before (nothing is erased).
+            if ($services !== []) {
+                $context->products_services = $services;
+            }
+            if ($markets !== []) {
+                $context->target_markets = $markets;
+            }
             $context->save();
         });
+        $countries = $areas->pluck('country_code')->filter()->unique()->values()->all();
+        if ($countries !== []) {
+            $brand->forceFill(['primary_country' => $countries[0], 'target_markets' => $countries])->saveQuietly();
+        }
     }
 
     /**

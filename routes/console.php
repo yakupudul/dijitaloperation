@@ -41,6 +41,7 @@ use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDataAudit;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandGaps;
+use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandAutofill;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\Collection\CollectionErrorRecorder;
@@ -1088,6 +1089,8 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
             }
             // Eksikler: what blocks the brand's AI work, into the work list (fixes run only on the operator's approval).
             app(BrandGaps::class)->sync($brand);
+            // Marka çekirdeği: the context copies of services, priority and places follow the brand's own lists.
+            app(BrandIntelligenceContextWriteService::class)->projectIdentityFields($brand);
             $dossier->build($brand);
         } catch (Throwable $exception) {
             report($exception);

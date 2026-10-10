@@ -5,6 +5,7 @@ namespace App\Services\BrandIntelligence;
 use App\Enums\OfferingNameKind;
 use App\Enums\OfferingNameProvenance;
 use App\Enums\OfferingStatus;
+use App\Jobs\Brand\RefreshBrandFilesJob;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandOfferingName;
@@ -403,6 +404,8 @@ final class BrandOfferingService
                     ->where('id', $id)
                     ->update(['priority_rank' => $index + 1, 'is_priority' => true, 'priority' => 'main']);
             }
+            // A bulk update skips the model hooks: the brand files follow the new order here.
+            RefreshBrandFilesJob::soon((int) $brand->id);
 
             if ($recordActivity) {
                 $this->activity->record(

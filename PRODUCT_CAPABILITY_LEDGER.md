@@ -10,6 +10,16 @@
   - Kullananlar: `SiteScope::resourceIds`, `SiteAnalysisReader` (marka kartı soruları ve mevsim, site analizi), `BrandFacts` ve `BrandDataAudit` İşletme Profili, `SeoPlanInputCollector`, Siteler listesindeki tıklamalar.
   - `OwnershipIntegrity` artık ayrı bir gsc/ga4 varlığına bağlı GSC/GA4 hesabını "tür uyumsuz" saymıyor (`ExternalResourceAssetCompatibility` ile aynı kural).
   - Test: `BrandScopeTest`.
+- **3. Marka çekirdeği, 1. adım:**
+  - İş bağlamındaki kopyalar artık markanın kendi listelerinden her seferinde yeniden kurulur, ayrıca yazılmaz:
+    - "ürün/hizmetler" ← aktif hizmetler;
+    - "öncelikli teklifler" ← önce ★ ana hizmetler, sonra sıralı olanlar (eskiden ★ hiç girmiyordu);
+    - "hedef pazarlar" ← aktif hizmet bölgeleri (şubeler önce);
+    - marka ülke kodları ← bölgeler.
+  - Ne zaman kurulur: hizmet ya da bölge değişince bir dakika içinde (`RefreshBrandFilesJob`, toplu sıralama değişikliği dahil) ve her gece dosyadan önce.
+  - Listesi henüz boş olan markada eski yazı korunur.
+  - `BrandMemory::KINDS` artık `facts` ve `manual_notes` türlerini de içerir.
+  - Test: `BrandScopeTest::test_the_brand_context_copies_follow_the_brands_own_services_and_places`.
 
 ## 2026-10-09 — Marka verisi denetimi (yer ve hizmet onayı) ve içerik havuzu yedeği
 

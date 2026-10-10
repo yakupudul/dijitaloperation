@@ -5,6 +5,7 @@ namespace App\Jobs\Brand;
 use App\Models\Brand;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandFacts;
+use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -48,6 +49,8 @@ final class RefreshBrandFilesJob implements ShouldBeUnique, ShouldQueue
         if ($brand === null) {
             return;
         }
+        // The context copies (services, priority, places) follow the brand's lists before the files are written.
+        app(BrandIntelligenceContextWriteService::class)->projectIdentityFields($brand);
         $dossier->build($brand);
         $facts->build($brand);
     }
