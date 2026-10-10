@@ -1135,7 +1135,7 @@ Artisan::command('moxdop:ai:close-stuck {--minutes=30 : Bu kadar dakikadır çal
 })->purpose('Close AI job / call rows still marked running long after their worker died.');
 
 // Şef denetimi on demand (it also runs before every weekly plan): errors in what the AI did, rules only.
-Artisan::command('moxdop:brands:audit {brand? : brand id}', function (BrandAudit $audit): void {
+Artisan::command('moxdop:brands:chief-audit {brand? : brand id}', function (BrandAudit $audit): void {
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
     foreach ($brands as $brand) {
         $this->line($brand->id.' '.$brand->name.': '.$audit->sync($brand).' açık hata');

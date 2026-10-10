@@ -529,7 +529,7 @@
   - Eşleştirme artık başka hizmetin sayfasını aday almaz; aynı hata yeniden oluşmaz.
 - **Döngü yok:** "Doğru, bırak" listelenen kayıtları bir daha hata saymaz. Aynı türden yeni bir hata çıkarsa bulgu yalnız yeni kayıtla açılır.
 - **Ne zaman:** her pazartesi Şef planından önce çalışır. Açık hatalar Şef'in planına girer (brand-chief-v2).
-  - Marka dosyası sekmesinde "Şef denetimi" bölümü ve "Şimdi denetle" var. Komut: `moxdop:brands:audit {brand?}`.
+  - Marka dosyası sekmesinde "Şef denetimi" bölümü ve "Şimdi denetle" var. Komut: `moxdop:brands:chief-audit {brand?}` (2026-10-10: renamed; the old name collided with the brand data audit, so `BrandDataAudit` never ran).
 - **Test:** BrandAuditTest. UAT: yok.
 
 ## 2026-11-19 — Site akışı: WordPress bağlıysa kendi kendine akar
