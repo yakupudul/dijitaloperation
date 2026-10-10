@@ -40,6 +40,7 @@ use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDataAudit;
 use App\Services\Brand\BrandDossier;
+use App\Services\Brand\BrandFollowUp;
 use App\Services\Brand\BrandGaps;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandAutofill;
@@ -1003,6 +1004,18 @@ Schedule::command('moxdop:ads:catch-up')
     ->hourlyAt(27)
     ->withoutOverlapping(30)
     ->name('ads-catch-up-hourly');
+
+// Marka takibi: a brand's per-service rows and its file / card are built again once all of its accounts finished
+// collecting and one brought new data (the nightly fixed-time runs stay as the safety net).
+Artisan::command('moxdop:brands:follow-up', function (BrandFollowUp $followUp): void {
+    $out = $followUp->run();
+    $this->info(sprintf('Marka takibi: %d marka, %d yeniden kuruldu, %d hâlâ toplanıyor.', $out['brands'], $out['followed'], $out['busy']));
+})->purpose('Rebuild the per-service rows and brand files of brands whose accounts finished collecting new data.');
+
+Schedule::command('moxdop:brands:follow-up')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(15)
+    ->name('brands-follow-up');
 
 // Faz 5: Google Ads sistem kontrolleri (≤10 kontrol → öneriler; AI yok), operasyonel markalar.
 Artisan::command('moxdop:google-ads:suggestions', function (): void {

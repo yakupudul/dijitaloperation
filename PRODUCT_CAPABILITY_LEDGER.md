@@ -40,7 +40,10 @@
     - onarım özeti öğlen 12:05 yerine sabah 09:05'te gider.
   - Not: sunucuda `MOXDOP_ALERTS_TIME` ya da `MOXDOP_COMPLIANCE_SCAN_TIME` ayarlıysa bundan sonra İstanbul saati sayılır.
   - Test: `CommandNamesTest`.
-  - Kalan: türetme işlerinin toplamanın bitişini beklemesi (şimdilik sabit saat ve saatlik telafi işi).
+  - Toplamayı izleyen yeniden kurma (`moxdop:brands:follow-up`, `BrandFollowUp`, 15 dakikada bir) iki koşul birlikte sağlanınca markanın hizmet satırlarını (Kazananlar, kart) ve dosya/kartını yeniden kurar:
+    - markanın hiçbir hesabı toplanmıyor ya da sırada değil;
+    - en az bir hesap son takipten sonra yeni veri getirmiş ve bitişinin üstünden 10 dakika geçmiş.
+  - Sabit saatli gece işleri yedek olarak kalır. Test: `BrandFollowUpTest`.
 - **6. Masalardan markaya dönüş:**
   - Onarım masasında her paketin marka adı markanın sayfasına gider; marka seçiliyken "Marka sayfasına git →" bağlantısı çıkar.
   - Kazananlar › Marka gözüyle ve Meta masası marka seçiliyken "Marka sayfası →" gösterir.
