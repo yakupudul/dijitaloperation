@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\Winners;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\ClaudeApiWindow;
 use App\Services\Ai\OpenAiCostAudit;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Alerts\AdBudgetWatch;
@@ -494,6 +495,29 @@ Schedule::command('moxdop:queries:autopilot')
     ->everyFifteenMinutes()->withoutOverlapping(30)->name('queries-autopilot');
 Schedule::command('moxdop:queries:autopilot --clean')
     ->hourlyAt(5)->withoutOverlapping(60)->name('queries-autopilot-clean');
+
+// Claude API dönemi (yakup, 2026-10-10): until 25 October every AI operation that may move runs on the Claude API;
+// on that day the operations go back to the models they had before (ClaudeApiWindow).
+Artisan::command('moxdop:ai:claude-api-window {action : start | end}', function (ClaudeApiWindow $window): int {
+    $admin = User::query()->role(Roles::ADMIN)->where('is_active', true)->orderBy('id')->first();
+    if ($admin === null) {
+        $this->error('Aktif Admin kullanıcı yok.');
+
+        return 1;
+    }
+    if ($this->argument('action') === 'start') {
+        $out = $window->start($admin);
+        $this->info(sprintf('Claude API dönemi başladı (%s tarihine kadar): %d işlem taşındı, %d zaten öyleydi, %d yerinde kaldı; bekleyen %d iş yeniden başlatıldı.',
+            ClaudeApiWindow::until()->format('d.m.Y'), $out['changed'], $out['unchanged'], $out['kept'], $out['restarted']));
+    } else {
+        $this->info(sprintf('Claude API dönemi bitti: %d işlem eski modeline döndü.', $window->end($admin)['restored']));
+    }
+
+    return 0;
+})->purpose('Start or end the Claude API period (free credit until 25 October).');
+Schedule::command('moxdop:ai:claude-api-window end')
+    ->dailyAt('00:10')->timezone('Europe/Istanbul')->when(fn (): bool => ! ClaudeApiWindow::active())
+    ->withoutOverlapping(30)->name('claude-api-window-end');
 
 // Sorgular › Bekleyenler: kütüphanede olan / filtre terimine takılan bekleyen sorgular saatlik temizlenir.
 Schedule::command('moxdop:queries:prune-pending')

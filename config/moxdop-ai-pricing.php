@@ -20,6 +20,14 @@ return [
     // the day spent this much. Ayarlar › AI işlemleri overrides it. 0 = no daily ceiling.
     'daily_auto_budget_usd' => (float) env('AI_DAILY_AUTO_BUDGET_USD', 4),
 
+    // Claude API dönemi (yakup, 2026-10-10): 100 USD free Claude credit until 25 October. Until that day (Istanbul)
+    // the daily ceiling is at least daily_usd and the monthly budget gets extra_usd on top (ClaudeApiWindow).
+    'claude_api_window' => [
+        'until' => env('AI_CLAUDE_API_WINDOW_UNTIL', '2026-10-25'),
+        'daily_usd' => (float) env('AI_CLAUDE_API_WINDOW_DAILY_USD', 8),
+        'extra_usd' => (float) env('AI_CLAUDE_API_WINDOW_EXTRA_USD', 100),
+    ],
+
     // Loaded API credit below this many USD shows the "kredi azaldı" warning (Ayarlar › AI işlemleri).
     'credit_low_usd' => (float) env('AI_CREDIT_LOW_USD', 10),
 

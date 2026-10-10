@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-10 — Claude API dönemi (25 Ekim'e kadar)
+
+- **Karar (yakup):** "claude api 25 ekime yani 15 günlüğüne 100 dolar verdi bedava … claude apiye neleri devredebilirsen devret." 25 Ekim'e kadar taşınabilen her AI işlemi "Önerilen" planla Claude API'de (yazı Sonnet 5.5, toplu iş Haiku 5.5; sorgu pilotu, WhatsApp, gömme yerinde). Abonelik kuyruğunda bekleyen işler API ile yeniden başlatıldı. Günlük tavan en az 8 $, aylık bütçeye +100 $ (yalnız dönem boyunca, `moxdop-ai-pricing.claude_api_window`). 25 Ekim 00:10'da (İstanbul) işlemler önceki modellerine döner (`moxdop:ai:claude-api-window end`, önceki modeller `storage/app/ai/claude-api-window.json`).
+
 ## 2026-10-08 — Claude API kredisi, üçlü AI seçimi, onaylı reklam yazımı
 
 - **Karar (yakup):** Her AI işlemi üç yoldan biriyle çalışır: GPT (OpenAI), Claude API (yüklenen krediden düşer), Claude abonelik (MCP kuyruğu). Ayarlar › AI işlemleri'nde işlem işlem ya da toplu plan ("Önerilen": toplu işler Haiku 5.5, yazı işleri Sonnet 5.5) ile seçilir. Sorgu pilotu, WhatsApp ve gömme (embedding) planlarla taşınmaz.

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\AiControl;
 
+use App\Jobs\RefreshBrandCandidatesJob;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Models\AgencySetting;
+use App\Models\AiTask;
 use App\Services\Ai\AiAssignments;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiCredits;
@@ -12,6 +14,8 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
 
@@ -111,6 +115,44 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
 
         $this->assertSame(100.0, app(AiCredits::class)->status('anthropic')['loaded']);
         $this->assertSame(AiAssignments::SONNET, app(PromptRegistry::class)->current(AiRouteKeys::SITE_WRITE_ARTICLE)->model);
+    }
+
+    /**
+     * Claude API dönemi (yakup, 2026-10-10): until 25 October everything that may move runs on the Claude API, work
+     * waiting in the subscription queue starts again there, the limits are raised, and on 25 October every operation
+     * goes back to its earlier model.
+     */
+    public function test_the_claude_api_period_moves_work_raises_limits_and_ends_on_its_day(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        $registry = app(PromptRegistry::class);
+        app(AiAssignments::class)->apply(AiAssignments::PLAN_SUBSCRIPTION, $this->admin);
+        $this->pin(AiRouteKeys::BRAND_SETUP, 'openai:gpt-5-mini');
+        $triage = $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model;
+        $job = serialize(new RefreshBrandCandidatesJob);
+        $waiting = AiTask::query()->create(['operation' => 'site.cluster_match', 'resume_key' => hash('sha256', $job), 'sequence' => 1, 'input_hash' => 'h',
+            'status' => AiTask::PENDING, 'instructions' => 'x', 'input' => 'DATA_JSON {}', 'output_schema' => [], 'resume' => $job]);
+        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
+            ->forceFill(['ai_monthly_budget_usd' => 100, 'ai_daily_auto_budget_usd' => 4])->save();
+
+        config(['moxdop-ai-pricing.claude_api_window.until' => now('Europe/Istanbul')->addDays(15)->toDateString()]);
+        $this->artisan('moxdop:ai:claude-api-window', ['action' => 'start'])->assertSuccessful();
+
+        $this->assertSame(AiAssignments::HAIKU, $registry->current('site.cluster_match')->model);
+        $this->assertSame(AiAssignments::SONNET, $registry->current(AiRouteKeys::SITE_WRITE_ARTICLE)->model);
+        $this->assertSame($triage, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'the query autopilot stays');
+        $this->assertSame(AiTask::CONSUMED, $waiting->fresh()->status);
+        Queue::assertPushed(RefreshBrandCandidatesJob::class, 1);
+        $this->assertSame(8.0, app(AiBudget::class)->dailyBudget());
+        $this->assertSame(200.0, app(AiBudget::class)->monthlyBudget());
+
+        config(['moxdop-ai-pricing.claude_api_window.until' => now('Europe/Istanbul')->subDay()->toDateString()]);
+        $this->assertSame(4.0, app(AiBudget::class)->dailyBudget(), 'the raised ceiling ends by itself');
+        $this->artisan('moxdop:ai:claude-api-window', ['action' => 'end'])->assertSuccessful();
+        $this->assertSame(AiTaskQueue::MODEL, $registry->current('site.cluster_match')->model);
+        $this->assertSame('openai:gpt-5-mini', $registry->current(AiRouteKeys::BRAND_SETUP)->model);
+        $this->artisan('moxdop:ai:claude-api-window', ['action' => 'end'])->assertSuccessful();
     }
 
     private function pin(string $operation, string $model): void

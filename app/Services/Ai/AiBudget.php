@@ -32,7 +32,10 @@ final class AiBudget
             ? AgencySetting::query()->orderBy('id')->value('ai_monthly_budget_usd')
             : null;
 
-        return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
+        $budget = $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
+
+        // Claude API dönemi: the free Claude credit comes on top while it lasts.
+        return $budget > 0 ? $budget + ClaudeApiWindow::monthlyExtra() : $budget;
     }
 
     public function monthSpend(): float
@@ -180,7 +183,11 @@ final class AiBudget
             ? AgencySetting::query()->orderBy('id')->value('ai_daily_auto_budget_usd')
             : null;
 
-        return $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.daily_auto_budget_usd', 1);
+        $budget = $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.daily_auto_budget_usd', 1);
+        $window = ClaudeApiWindow::dailyBudget();
+
+        // Claude API dönemi: the raised ceiling while it lasts (a higher stored ceiling, or none, stays).
+        return $window !== null && $budget > 0 ? max($budget, $window) : $budget;
     }
 
     /** Spend of every AI call today (Europe/Istanbul): the largest of the call list, the usage records and OpenAI's audited cost. */
