@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OfferingStatus;
+use App\Jobs\Brand\RefreshBrandFilesJob;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -32,6 +33,9 @@ class BrandOffering extends Model
                 $offering->priority_rank = null;
             }
         });
+
+        static::saved(fn (BrandOffering $offering) => RefreshBrandFilesJob::soon((int) $offering->brand_id));
+        static::deleted(fn (BrandOffering $offering) => RefreshBrandFilesJob::soon((int) $offering->brand_id));
     }
 
     /** ★: the operator's main service (the SEO plan, Harita and Ads look at it first). */

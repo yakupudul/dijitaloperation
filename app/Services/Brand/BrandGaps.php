@@ -93,7 +93,7 @@ final class BrandGaps
             $uncategorized = Page::query()->where('website_asset_id', $site->id)->whereNull('category')->count();
             if ($uncategorized > PageCategorizer::UNATTENDED_AI_LIMIT) {
                 $gaps[] = ['key' => 'categories:'.$site->id, 'title' => $uncategorized.' sayfa sınıflanmadı ('.$label.')',
-                    'why' => 'Kurallar bu sayfalara karar veremedi; gece bakımı bu kadar sayfayı kendiliğinden AI\'a göndermez. Onaylarsan AI sınıflandırır (yaklaşık '
+                    'why' => 'Kurallar bu sayfalara karar veremedi; gece bakımı her gece '.PageCategorizer::UNATTENDED_AI_LIMIT.' sayfayı (önce üst düzey adresleri) AI ile sınıflandırıyor. Beklemeden bitirmek için onayla (yaklaşık '
                         .(int) ceil($uncategorized / PageCategorizer::AI_BATCH).' AI çağrısı), ardından hizmet ↔ sayfa eşlenir.',
                     'fix' => self::FIX_SITE_SETUP, 'params' => ['site_id' => (int) $site->id], 'url' => null];
             }

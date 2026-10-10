@@ -57,23 +57,25 @@ final class PageTemplateSectionsTest extends SiteTestCase
         $this->assertSame([], BrandGaps::uncoveredServicePages($this->site, ['Diş İmplantı', 'Zirkonyum Kaplama']));
     }
 
-    public function test_unattended_setup_does_not_send_hundreds_of_pages_to_ai_and_asks_the_operator(): void
+    public function test_unattended_setup_sends_a_slice_of_pages_to_ai_shallow_first_and_the_rest_follows(): void
     {
         $this->enableAi();
-        $calls = 0;
-        PageCategoriesAgent::fake(function () use (&$calls): array {
-            $calls++;
+        $asked = [];
+        PageCategoriesAgent::fake(function (string $prompt) use (&$asked): array {
+            $asked[] = $prompt;
 
             return ['pages' => []];
         });
-        for ($i = 1; $i <= PageCategorizer::UNATTENDED_AI_LIMIT + 1; $i++) {
+        $this->page('/hurda/bakir/eski-kablo-alimi/', 'Eski kablo alımı');
+        for ($i = 1; $i <= PageCategorizer::UNATTENDED_AI_LIMIT; $i++) {
             $this->page('/sayfa-'.$i.'/', 'Sayfa '.$i);
         }
 
         $result = app(PageCategorizer::class)->categorize($this->site, onlyNew: true, aiLimit: PageCategorizer::UNATTENDED_AI_LIMIT);
 
-        $this->assertSame('too_many', $result['status']);
-        $this->assertSame(0, $calls);
+        $this->assertSame('partial', $result['status']);
+        $this->assertCount((int) ceil(PageCategorizer::UNATTENDED_AI_LIMIT / PageCategorizer::AI_BATCH), $asked, 'one night: one slice');
+        $this->assertStringNotContainsString('eski-kablo-alimi', implode("\n", $asked), 'deep paths wait for the next night');
         $gaps = collect(app(BrandGaps::class)->detect($this->brand))->keyBy('key');
         $this->assertTrue($gaps->has('categories:'.$this->site->id));
         $this->assertSame(BrandGaps::FIX_SITE_SETUP, $gaps['categories:'.$this->site->id]['fix']);

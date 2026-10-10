@@ -57,5 +57,6 @@
         <env name="MOXDOP_REQUIRE_ADMIN_2FA" value="false"/>
         <env name="MOXDOP_ERROR_ALERTS" value="false"/>
         <env name="MOXDOP_ERROR_GROUPS" value="false"/>
+        <env name="MOXDOP_BRAND_FILES_LIVE_REFRESH" value="false"/>
     </php>
 </phpunit>

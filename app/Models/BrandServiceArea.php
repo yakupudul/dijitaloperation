@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\Brand\RefreshBrandFilesJob;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class BrandServiceArea extends Model
 {
+    protected static function booted(): void
+    {
+        static::saved(fn (BrandServiceArea $area) => RefreshBrandFilesJob::soon((int) $area->brand_id));
+        static::deleted(fn (BrandServiceArea $area) => RefreshBrandFilesJob::soon((int) $area->brand_id));
+    }
+
     protected function casts(): array
     {
         return ['physical_branch' => 'boolean', 'priority_rank' => 'integer', 'lat' => 'float', 'lng' => 'float', 'geocoded_at' => 'datetime'];

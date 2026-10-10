@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // Bilgi dosyası / Marka bilgi kartı rebuilt a minute after a brand's services or areas change (RefreshBrandFilesJob).
+    'brand_files_live_refresh' => (bool) env('MOXDOP_BRAND_FILES_LIVE_REFRESH', true),
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

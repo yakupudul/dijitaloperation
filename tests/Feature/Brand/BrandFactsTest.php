@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Brand;
 
+use App\Jobs\Brand\RefreshBrandFilesJob;
 use App\Livewire\Operator\Portfolio\BrandFactsCard;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Models\BrandExpert;
 use App\Models\BrandOffering;
+use App\Models\BrandServiceArea;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\Customer;
@@ -19,6 +21,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -97,6 +100,29 @@ final class BrandFactsTest extends TestCase
     }
 
     /** @param  list<array{0: string, 1: string}>  $reviews */
+    public function test_the_card_and_file_are_built_again_soon_after_services_or_areas_change(): void
+    {
+        $this->assertSame([], app(BrandFacts::class)->build($this->brand)['fields']['services']['items'], 'built before the services were added');
+        config(['moxdop.brand_files_live_refresh' => true]);
+        Queue::fake();
+
+        $offering = BrandOffering::query()->create(['brand_id' => $this->brand->id, 'status' => 'active', 'priority' => 'main',
+            'service_catalog_item_id' => app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin)['service']->id]);
+        Queue::assertPushed(RefreshBrandFilesJob::class, fn (RefreshBrandFilesJob $job): bool => $job->brandId === $this->brand->id && $job->delay !== null);
+
+        Queue::fake();
+        BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'city_name' => 'Ankara', 'normalized_key' => 'tr|ankara', 'status' => 'active']);
+        Queue::assertPushed(RefreshBrandFilesJob::class);
+
+        Queue::fake();
+        config(['moxdop.brand_files_live_refresh' => false]);
+        $offering->update(['priority' => 'secondary']);
+        Queue::assertNothingPushed();
+
+        app()->call([new RefreshBrandFilesJob($this->brand->id), 'handle']);
+        $this->assertSame(['İmplant Tedavisi'], app(BrandFacts::class)->card($this->brand)['fields']['services']['items'], 'the other tabs now see the service');
+    }
+
     private function reviews(array $reviews): void
     {
         $asset = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'name' => 'Panorama Kadıköy']);

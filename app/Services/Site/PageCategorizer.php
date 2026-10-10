@@ -28,8 +28,12 @@ final class PageCategorizer
 
     public const float LEARN_SHARE = 0.9;
 
-    /** Unattended runs (nightly upkeep) send at most this many unsure pages to AI; more waits for the operator. */
-    public const int UNATTENDED_AI_LIMIT = 200;
+    /**
+     * Unattended runs (nightly upkeep) send at most this many unsure pages to AI per run, shallow paths first (service
+     * pages sit near the root); the rest follows on the next nights, sooner as folders learned from these need no AI
+     * (yakup, 2026-10-10: Arısoy's 2185 pages waited for a click and no service page was ever found).
+     */
+    public const int UNATTENDED_AI_LIMIT = 600;
 
     /** Tag / keyword / archive folders: never a service page. */
     public const array ARCHIVE_SECTIONS = ['kws', 'tag', 'tags', 'etiket', 'etiketler', 'kategori', 'category', 'author', 'yazar', 'arsiv', 'archive', 'page', 'search', 'ara', 'arama', 'anahtar-kelime', 'anahtar-kelimeler', 'keyword', 'keywords', 'feed', 'amp'];
@@ -45,10 +49,11 @@ final class PageCategorizer
     public function __construct(private readonly SiteAi $ai) {}
 
     /**
-     * Categorizes the site's unlocked pages (only uncategorized ones when $onlyNew). $aiLimit: more unsure pages than
-     * this → no AI call at all (status too_many; the operator starts it). $useAi false: rules only.
+     * Categorizes the site's unlocked pages (only uncategorized ones when $onlyNew). $aiLimit: at most this many unsure
+     * pages go to AI in this run, shallow paths first; the rest wait for the next run (status partial). $useAi false:
+     * rules only.
      *
-     * @return array{status: string, rule: int, ai: int, unsure: int} status: ready | not_operational | no_brand | too_many | ai_* (partial)
+     * @return array{status: string, rule: int, ai: int, unsure: int} status: ready | partial | not_operational | no_brand | ai_* (partial)
      */
     public function categorize(DigitalAsset $site, bool $onlyNew = false, ?int $aiLimit = null, bool $useAi = true): array
     {
@@ -100,8 +105,11 @@ final class PageCategorizer
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'rule' => $rule, 'ai' => 0, 'unsure' => $unsure->count()];
         }
+        $left = 0;
         if ($aiLimit !== null && $unsure->count() > $aiLimit) {
-            return ['status' => 'too_many', 'rule' => $rule, 'ai' => 0, 'unsure' => $unsure->count()];
+            $left = $unsure->count() - $aiLimit;
+            $unsure = $unsure->sortBy(fn (Page $page): array => [substr_count(trim((string) ($page->path ?: SeoText::urlPath((string) $page->url)), '/'), '/'), (int) $page->id])
+                ->take($aiLimit)->values();
         }
         $status = 'ready';
         $ai = 0;
@@ -124,7 +132,7 @@ final class PageCategorizer
             $status = 'queued';
         }
 
-        return ['status' => $status, 'rule' => $rule, 'ai' => $ai, 'unsure' => $unsure->count() - $ai];
+        return ['status' => $status === 'ready' && $left > 0 ? 'partial' : $status, 'rule' => $rule, 'ai' => $ai, 'unsure' => $unsure->count() - $ai + $left];
     }
 
     /**

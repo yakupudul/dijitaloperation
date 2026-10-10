@@ -204,7 +204,7 @@ final class SiteOperations
     private function afterSetup(DigitalAsset $site, bool $unattended = false): array
     {
         SiteMetrics::forgetPageTotals((int) $site->id);
-        // Nightly upkeep never sends hundreds of pages to AI on its own: too many → Eksikler asks the operator first.
+        // Nightly upkeep sends a slice of the unsure pages to AI each night (shallow paths first); the rest follow.
         $aiLimit = $unattended ? PageCategorizer::UNATTENDED_AI_LIMIT : null;
         $result = ['status' => 'ready', 'categorize' => $this->categorizer->categorize($site, onlyNew: true, aiLimit: $aiLimit)['status']];
         if ($result['categorize'] === 'queued') {
