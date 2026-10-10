@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git push origin HEAD:claude/project-thread-e5yimf)"
+      "Bash(git push origin HEAD:claude/project-thread-e5yimf)",
+      "Bash(npm init -y)",
+      "Bash(npm i playwright-core@1.56.1)",
+      "Bash(node */scratchpad/browse/*.mjs*)"
     ]
   }
 }
