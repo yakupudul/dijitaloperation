@@ -16,6 +16,15 @@
 ## 2026-10-09 — Marka yer ve hizmet değişiklikleri onaya gider
 
 - **Karar (yakup, 2026-10-09 "bana dijital varlıklar için yapılacaklar onaylamak olarak kalsın"):** markanın yerleri (bölge / şube) ve hizmet arşivleri artık sessizce uygulanmaz. Gece Marka verisi denetimi (`BrandDataAudit`) bunları kanıtıyla Onarım masasına koyar, yakup toplu onaylar. 2026-10-07 kararının bölgeler kısmının yerine geçer; hizmet, sektör, bağlam ve hesap eşleşmesi yine gece doldurulur.
+- **Karar (yakup, 2026-10-10 "verinin özü = marka", "yap", "onaylıyorum"):**
+  - Sistem marka merkezli çalışır:
+    - markanın hesapları tek yerden bulunur (`BrandScope`);
+    - iş bağlamı kopyaları markanın kendi hizmet ve yer listelerinden kurulur;
+    - yapay zekâ işleri marka bilgisini tek paketten alır (`BrandPack`);
+    - zamanlanmış işler İstanbul saatindedir;
+    - markanın sayıları toplamanın bitişini izleyerek yeniden kurulur.
+  - Tek iş listesi: Onarım masası. Genel işler onun "Diğer işler" bölümüdür, `/work` oraya yönlenir.
+  - Analiz: `/mnt/project-files/notes/marka-merkezli-mimari-analizi.md`.
 
 ## 2026-10-07 — Marka bilgilerini Claude doldurur, hemen kullanılır
 

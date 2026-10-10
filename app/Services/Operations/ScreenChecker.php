@@ -53,7 +53,7 @@ final class ScreenChecker
     private bool $recording = false;
 
     private const array STATIC_ROUTES = [
-        'operator.dashboard' => 'Bugün', 'operator.work' => 'Genel işler', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
+        'operator.dashboard' => 'Bugün', 'operator.repair' => 'Onarım masası', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
         'operator.gbp-branch-pages' => 'İşletme profilleri › Şube sayfaları', 'operator.gbp-profile-fields' => 'İşletme profilleri › Açıklama ve saatler',
         'operator.gbp-photos' => 'İşletme profilleri › Fotoğraflar', 'operator.gbp-reviews' => 'İşletme profilleri › Yorumlar', 'operator.customers' => 'Müşteriler', 'operator.brands' => 'Markalar',
         'operator.assets' => 'Dijital varlıklar', 'operator.websites' => 'Web siteleri', 'operator.library.queries' => 'Sorgular',

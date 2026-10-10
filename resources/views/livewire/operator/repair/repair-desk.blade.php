@@ -58,6 +58,19 @@
         @endif
     </section>
 
+    {{-- Tek iş listesi (2026-10-10): hazır düzeltmeler ve diğer işler aynı masada --}}
+    <nav class="flex gap-5 border-b border-gray-200 text-sm dark:border-gray-800" aria-label="Bölümler" role="tablist" data-desk-sections>
+        @foreach ([\App\Livewire\Operator\Repair\RepairDeskPage::SECTION_DESK => ['Hazır düzeltmeler', $counts['total']], \App\Livewire\Operator\Repair\RepairDeskPage::SECTION_OTHER => ['Diğer işler', $otherCount]] as $code => [$label, $n])
+            <button type="button" role="tab" wire:click="$set('section', '{{ $code }}')" aria-selected="{{ $section === $code ? 'true' : 'false' }}" @class(['-mb-px h-11 shrink-0 border-b-2 whitespace-nowrap', 'border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white' => $section === $code, 'border-transparent text-gray-500 hover:text-gray-800' => $section !== $code])>
+                {{ $label }} @if ($n > 0)<span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs text-gray-600 dark:bg-gray-800">{{ number_format($n, 0, ',', '.') }}</span>@endif
+            </button>
+        @endforeach
+    </nav>
+
+    @if ($section === \App\Livewire\Operator\Repair\RepairDeskPage::SECTION_OTHER)
+        <livewire:operator.work.work-page :embedded="true" :brand-filter="$brandId" :key="'desk-other-'.($brandId ?? 'all')" />
+    @else
+
     {{-- Onaydan sonra --}}
     <section class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" data-repair-pipeline>
         @foreach ([['queued', 'Onaylandı, sırada', 'text-gray-800 dark:text-white/90'], ['written', 'Siteye yazıldı', 'text-brand-600 dark:text-brand-300'], ['verified', 'Doğrulandı', 'text-emerald-600 dark:text-emerald-400'], ['returned', 'Hata, masaya döndü', 'text-red-600 dark:text-red-400']] as [$stage, $label, $tone])
@@ -273,4 +286,5 @@
             <button type="button" @click="all = ! all" class="mt-2 text-xs font-semibold text-brand-600" x-text="all ? 'Daha az göster' : 'Tümünü göster ({{ $done->count() }})'"></button>
         @endif
     </section>
+    @endif
 </div>

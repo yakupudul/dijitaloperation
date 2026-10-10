@@ -1030,7 +1030,7 @@ final class ContentPlanner
         $suggestion->forceFill(['action' => array_merge($action, ['article' => $article,
             'article_note' => match (true) {
                 $translate !== [] => 'Sitenin diğer dillerine ('.implode(', ', array_map('strtoupper', $translate)).') bu yazının çevirisi hazırlanıyor.',
-                $others !== [] => 'Sitede başka dil de var ('.implode(', ', $others).'): Genel işler › içerik kutusundan o dile çevrilebilir.',
+                $others !== [] => 'Sitede başka dil de var ('.implode(', ', $others).'): Onarım masası › Diğer işler › içerik kutusundan o dile çevrilebilir.',
                 default => null,
             }])])->save();
         // yakup, 2026-10-07: other languages get no ideas of their own; the written article is translated into them.

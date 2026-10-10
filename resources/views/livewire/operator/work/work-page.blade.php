@@ -1,4 +1,7 @@
 <div class="space-y-5 dark:text-gray-200" data-work-desk>
+    @if($embedded)
+        <div class="flex justify-end">@include('livewire.operator.work.partials.push-toggle', ['devices' => $pushDevices])</div>
+    @else
     <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Genel işler</h1>
@@ -38,6 +41,8 @@
         </a>
     </div>
 
+    @endif
+
     @if($message !== '')<p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
 
     <nav class="flex gap-5 overflow-x-auto border-b border-gray-200 text-sm dark:border-gray-800" aria-label="Sekmeler" role="tablist">
@@ -57,7 +62,7 @@
         <span class="text-gray-400">{{ $total }} iş{{ $brandName === null && count($sections) > 1 ? ' · '.(count($sections) + $hiddenSections).' marka' : '' }}</span>
     </div>
 
-    @if($view === 'acik' && ($onDesk['brand'] > 0 || ($onDesk['preparing'] ?? 0) > 0))
+    @if(! $embedded && $view === 'acik' && ($onDesk['brand'] > 0 || ($onDesk['preparing'] ?? 0) > 0))
         <a href="{{ route('operator.repair', array_filter(['marka' => $brand])) }}" class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-brand-50 px-4 py-2 text-sm text-brand-800 dark:bg-brand-500/10 dark:text-brand-200" data-on-desk>
             @php
                 $deskLine = 'Hazırlanmış '.$onDesk['brand'].' düzeltme Onarım masasında onayını bekliyor';

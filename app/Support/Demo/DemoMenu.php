@@ -31,8 +31,8 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.menu'),
                 'items' => [
                     $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
-                    $item($tr ? 'Genel işler' : 'Work', 'operator.work', 'work'),
-                    ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work')] : []),
+                    // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.
+                    $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
                     $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
                     $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy']),
                     $item($tr ? 'Kazananlar' : 'Winners', 'operator.winners', 'trophy', [], ['operator.winner-service', 'operator.libraries']),

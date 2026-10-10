@@ -48,6 +48,15 @@
   - Dönüşüm sözlüğü toplamları artık hesap başına bir kez sayar (`BrandMeasurementScope::rows`). Aynı hesabın merkezi satırı varken varlık üstündeki eski kopyası düşer.
   - Eskiden aynı gün iki kez toplanabiliyordu.
   - Test: `test_a_day_stored_both_centrally_and_on_the_asset_is_counted_once`.
+- **8. Tek iş listesi (yakup 2026-10-10 "onaylıyorum"):**
+  - Onarım masası (`/onarim`) iki bölüm gösterir:
+    - **Hazır düzeltmeler:** eski masa.
+    - **Diğer işler** (`?bolum=diger`): eski Genel işlerin tamamı, aynı sekmeler ve aynı düğmelerle (içerik ve büyüme, kurulum, küme çakışmaları, teknik SEO, teknik sağlık, Google Ads, Meta, İşletme).
+  - Marka seçimi iki bölümde ortaktır.
+  - `/work` sekmesini koruyarak buraya yönlenir; bildirim ve eski bağlantılar çalışır.
+  - Menüde "Genel işler" yok. "Onarım masası" artık herkes için menüde, onay düğmeleri yine yalnız Admin'de.
+  - Ekran denetimi `/work` yerine masayı tarar.
+  - Test: `WorkDeskTest`, `PanelDesignFreezeTest`.
 - **6. Masalardan markaya dönüş:**
   - Onarım masasında her paketin marka adı markanın sayfasına gider; marka seçiliyken "Marka sayfasına git →" bağlantısı çıkar.
   - Kazananlar › Marka gözüyle ve Meta masası marka seçiliyken "Marka sayfası →" gösterir.

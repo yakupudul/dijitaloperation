@@ -72,8 +72,8 @@ use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Livewire\Operator\Winners\LibrariesPage;
 use App\Livewire\Operator\Winners\ServicePage as WinnerServicePage;
 use App\Livewire\Operator\Winners\WinnersPage;
-use App\Livewire\Operator\Work\WorkPage;
 use App\Support\Ai\AiProviderCatalog;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // MoxDOP v2 (Faz 0): retired operator screens. Old bookmarks land on Bugün instead of a 404.
@@ -174,7 +174,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');
-        Route::livewire('/work', WorkPage::class)->name('operator.work');
+        // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.
+        Route::get('/work', fn (Request $request) => redirect()->route('operator.repair', array_filter([
+            'bolum' => 'diger', 'marka' => $request->query('marka'), 'sekme' => $request->query('sekme'), 'durum' => $request->query('durum'), 'adim' => $request->query('adim'),
+        ], fn ($v): bool => $v !== null && $v !== '')))->name('operator.work');
         Route::livewire('/gbp-posts', GbpPostPlanPage::class)->name('operator.gbp-posts');
         Route::livewire('/gbp', GbpDeskPage::class)->name('operator.gbp-desk');
         Route::livewire('/gbp/sube-sayfalari', GbpBranchPagesPage::class)->name('operator.gbp-branch-pages');

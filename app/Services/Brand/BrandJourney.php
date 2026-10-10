@@ -67,7 +67,7 @@ final class BrandJourney
             $assigned === 0 => ['key' => 'assigned', 'reason' => 'Aramaların hiçbiri markanın hizmetlerine atanmadı; hizmetlerin eşleştirme ifadeleri eksik olabilir.', 'fix' => 'ayarlar'],
             $clusters === 0 => ['key' => 'clusters', 'reason' => $pending > 0 ? $pending.' küme onay bekliyor; onaylanınca siteyle eşleşir.' : 'Hizmetlerin henüz kümesi yok; günlük kümeleme yeni sorgularla kurar.', 'fix' => 'ozet'],
             $matched === 0 => ['key' => 'matched', 'reason' => 'Kümeler siteyle eşleştirilmedi; site ekranında "Eşleştir" çalışmalı.', 'fix' => 'ozet'],
-            $waiting === 0 => ['key' => 'pool', 'reason' => 'Havuzda bekleyen fikir yok; her sabah kanıtı olan kümelerden tamamlanır (nedeni Genel işler › Web site SEO içerikler tablosunda).', 'fix' => 'ozet'],
+            $waiting === 0 => ['key' => 'pool', 'reason' => 'Havuzda bekleyen fikir yok; her sabah kanıtı olan kümelerden tamamlanır (nedeni Onarım masası › Diğer işler › İçerik ve büyüme tablosunda).', 'fix' => 'ozet'],
             default => null,
         };
     }

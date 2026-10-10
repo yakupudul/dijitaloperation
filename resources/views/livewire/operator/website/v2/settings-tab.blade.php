@@ -47,7 +47,7 @@
                 </span>
             @endif
         </div>
-        <p class="text-gray-600 dark:text-gray-400">Ziyaretçinin sitede ne yaşadığı: öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları, kaydırma. Kötü sayfalar Genel işler › Teknik sağlık'a iş olarak düşer. Clarity etiketi sitede yüklü olmalı; token: Clarity › Settings › Data Export › Generate new API token.</p>
+        <p class="text-gray-600 dark:text-gray-400">Ziyaretçinin sitede ne yaşadığı: öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları, kaydırma. Kötü sayfalar Onarım masası › Diğer işler › Teknik sağlık'a iş olarak düşer. Clarity etiketi sitede yüklü olmalı; token: Clarity › Settings › Data Export › Generate new API token.</p>
         @if ($clarity?->last_error)<p class="text-rose-600" data-clarity-error>{{ $clarity->last_error }}</p>@endif
         <div class="flex flex-wrap items-center gap-2">
             <input type="text" wire:model="clarityProjectId" aria-label="Clarity proje kimliği" placeholder="Proje kimliği (ör. abcd1234ef)" class="{{ $input }} w-48">

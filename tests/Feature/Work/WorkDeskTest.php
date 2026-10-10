@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Work;
 
+use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\AssetAlert;
 use App\Models\Brand;
@@ -55,13 +56,24 @@ class WorkDeskTest extends TestCase
         AssetAlert::query()->create(['digital_asset_id' => $this->site->id, 'brand_id' => $this->site->brand_id, 'alert_key' => 'k1', 'kind' => 'site_down',
             'severity' => 'critical', 'title' => 'Site erişilemiyor', 'message' => '5xx', 'data' => [], 'first_detected_at' => now(), 'last_detected_at' => now()]);
 
-        $this->get(route('operator.work'))->assertOk()->assertSee('Genel işler')->assertSee('İçerik ve büyüme')
+        // One work list (2026-10-10): Genel işler is the Onarım masası "Diğer işler" section; old links land there.
+        $this->get(route('operator.work', ['sekme' => 'icerik']))->assertRedirect(route('operator.repair', ['bolum' => 'diger', 'sekme' => 'icerik']));
+        $this->get(route('operator.repair', ['bolum' => 'diger']))->assertOk()->assertSee('Diğer işler')->assertSee('Hazır düzeltmeler')->assertDontSee('Genel işler')->assertSee('İçerik ve büyüme')
             ->assertSee('İmplant fiyatları rehberi')->assertSee('İçerik fikirleri')->assertSee('data-write=', false)->assertDontSee('Ana sayfa başlığı çok uzun')
             ->assertSee('Telefona bildirim aç', false);
 
         Livewire::test(WorkPage::class)->call('setTab', 'teknik')->assertSee('Ana sayfa başlığı çok uzun')->assertDontSee('İmplant fiyatları rehberi')
             ->call('setTab', 'saglik')->assertSee('Site erişilemiyor')->assertSee('Acil')
             ->call('setTab', 'ads')->assertSee('Dönüşüm izleme yok')->assertSee('Yaptım');
+    }
+
+    public function test_the_desk_holds_the_other_work_filtered_by_its_brand(): void
+    {
+        $this->suggestion('google_ads', 'google_ads', $this->ads->id, 'ads_check', 'Dönüşüm izleme yok', ['check' => 'conversion_tracking'], 1);
+
+        Livewire::test(RepairDeskPage::class)->set('section', 'diger')->assertSeeLivewire(WorkPage::class);
+        Livewire::test(WorkPage::class, ['embedded' => true, 'brandFilter' => (int) $this->ads->brand_id, 'tab' => 'ads'])
+            ->assertSet('brand', (int) $this->ads->brand_id)->assertSee('Dönüşüm izleme yok')->assertDontSee('Tüm markaları göster');
     }
 
     public function test_done_waits_for_the_system_and_a_passing_check_closes_work_by_itself(): void

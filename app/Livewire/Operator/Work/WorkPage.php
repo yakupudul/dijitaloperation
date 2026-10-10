@@ -59,9 +59,17 @@ final class WorkPage extends Component
 
     public string $message = '';
 
+    /** Shown inside the Onarım masası "Diğer işler" section (2026-10-10): the desk owns the title and brand filter. */
+    public bool $embedded = false;
+
+    public ?int $brandFilter = null;
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->is_active, 403);
+        if ($this->embedded) {
+            $this->brand = $this->brandFilter;
+        }
         $this->tab = isset(WorkDesk::TABS[$this->tab]) ? $this->tab : 'icerik';
         $this->view = in_array($this->view, [WorkDesk::VIEW_OPEN, WorkDesk::VIEW_DONE], true) ? $this->view : WorkDesk::VIEW_OPEN;
     }

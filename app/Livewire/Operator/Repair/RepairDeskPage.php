@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\ExternalWriteAction;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Repair\RepairDesk;
+use App\Services\Work\WorkDesk;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -17,7 +18,9 @@ use Livewire\Component;
 
 /**
  * Onarım masası: every prepared fix (eski → yeni) across brands; approve one or many (high risk one by one), edit a value
- * before approving, reject with a reason, and undo what was applied in the last 7 days.
+ * before approving, reject with a reason, and undo what was applied in the last 7 days. Since 2026-10-10 it is the one
+ * work list: the "Diğer işler" section holds the rest of the work (content ideas, setup, overlaps, alerts, channel
+ * checks) that used to live on Genel işler (`/work` now opens it).
  */
 #[Layout('operator.layouts.app')]
 #[Title('Onarım masası')]
@@ -25,6 +28,14 @@ final class RepairDeskPage extends Component
 {
     #[Url(as: 'marka')]
     public ?int $brandId = null;
+
+    /** Bölüm (yakup 2026-10-10, one work list): onay = prepared fixes, diger = the rest of the work (former Genel işler). */
+    #[Url(as: 'bolum')]
+    public string $section = self::SECTION_DESK;
+
+    public const string SECTION_DESK = 'onay';
+
+    public const string SECTION_OTHER = 'diger';
 
     #[Url(as: 'tur')]
     public string $kind = '';
@@ -204,7 +215,10 @@ final class RepairDeskPage extends Component
         $inLane = $this->inLane($filtered);
         $openRows = $this->open !== '' ? $inLane->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $this->open)->values() : collect();
 
+        $this->section = $this->section === self::SECTION_OTHER ? self::SECTION_OTHER : self::SECTION_DESK;
+
         return view('livewire.operator.repair.repair-desk', [
+            'otherCount' => array_sum(app(WorkDesk::class)->counts($this->brandId)),
             'packages' => $desk->packages($inLane),
             'openRows' => $openRows->take($this->perPage),
             'openTotal' => $openRows->count(),
