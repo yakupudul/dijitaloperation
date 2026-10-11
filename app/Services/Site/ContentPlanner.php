@@ -643,7 +643,8 @@ final class ContentPlanner
             'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : ($candidate['angle_hint'] ?? null),
             'evidence' => $candidate['evidence'], 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
             'candidate' => $candidate['key'], 'source' => $candidate['source'], 'query' => $candidate['query'], 'number_text' => $numbers,
-            'priority' => $candidate['score'] >= 6 ? 1 : ($candidate['score'] >= 3 ? 2 : 3),
+            // A new content idea is never critical work (priority 3 at most urgent).
+            'priority' => $candidate['score'] >= 6 ? 3 : ($candidate['score'] >= 3 ? 4 : 5),
         ], $promptVersion);
     }
 

@@ -216,6 +216,7 @@ final class GoogleAdsScreenTest extends TestCase
         $this->assertSame('fail', $checks['policy']['state']);
         $this->assertSame('fail', $checks['service_campaign']['state']);
         $this->assertStringContainsString('Zirkonyum Kaplama', $checks['service_campaign']['reason']);
+        $this->assertSame(3, $checks['service_campaign']['priority'], 'a missing service campaign is a plan, not an emergency');
         $this->assertSame('nodata', $checks['targeting']['state'], 'no geo rows');
         $this->assertSame('nodata', $checks['anomaly']['state'], 'too little data for a performance judgement');
 

@@ -400,7 +400,7 @@ final class GoogleAdsChecks
         }
         $reason = $missing !== [] ? 'Ana hizmet «'.$missing[0]['ana_hizmet'].'» için kampanya ya da anahtar kelime yok.' : '«'.$unmatched[0]['kampanya'].'» kampanyası hiçbir hizmetle eşleşmiyor.';
 
-        return $this->result('service_campaign', 'fail', $reason, $missing !== [] ? 1 : 3, array_merge($missing, $unmatched), 'Kampanya Stratejisi › Kampanya yapısı öner.');
+        return $this->result('service_campaign', 'fail', $reason, 3, array_merge($missing, $unmatched), 'Kampanya Stratejisi › Kampanya yapısı öner.');
     }
 
     /** @param  array<string, mixed>  $pack */
