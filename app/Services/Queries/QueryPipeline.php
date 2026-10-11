@@ -35,6 +35,9 @@ final class QueryPipeline
 
     private const int PENDING_LIMIT = 50000;
 
+    /** Content idea states that do not keep an emptied cluster alive. */
+    private const array DROPPED_IDEA_STATUSES = ['archived', 'rejected'];
+
     public function __construct(
         private readonly QueryNormalizer $normalizer,
         private readonly QueryServiceMatcher $matcher,
@@ -97,7 +100,9 @@ final class QueryPipeline
 
     /**
      * Operator decision 2026-10-01: an unlocked cluster with no collected (non-suggested) query left is deleted with
-     * its AI-suggested queries; a locked (operator-edited) cluster stays. `null` checks every cluster.
+     * its AI-suggested queries; a locked (operator-edited) cluster stays. A cluster that carries work stays too: its
+     * content ideas (not archived / rejected) and page scores would go with it through the foreign keys' cascade.
+     * `null` checks every cluster.
      *
      * @param  list<int>|null  $clusterIds
      */
@@ -106,6 +111,8 @@ final class QueryPipeline
         $empty = DB::table('clusters as c')->where('c.locked', false)
             ->when($clusterIds !== null, fn ($q) => $q->whereIn('c.id', array_values(array_unique($clusterIds)) ?: [0]))
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('cluster_queries as cq')->whereColumn('cq.cluster_id', 'c.id')->where('cq.is_suggested', false))
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('content_ideas as ci')->whereColumn('ci.cluster_id', 'c.id')->whereNotIn('ci.status', self::DROPPED_IDEA_STATUSES))
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('cluster_page_scores as ps')->whereColumn('ps.cluster_id', 'c.id'))
             ->pluck('c.id')->map(fn ($id): int => (int) $id)->all();
         $dropped = 0;
         foreach (array_chunk($empty, self::CHUNK) as $chunk) {
