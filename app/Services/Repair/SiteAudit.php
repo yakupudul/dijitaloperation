@@ -244,7 +244,7 @@ final class SiteAudit
         $changed = $existing->material_hash !== $material;
         if ($changed) {
             // The page changed: an old proposal no longer fits.
-            unset($action['proposal'], $action['proposal_blocked'], $action['writes']);
+            unset($action['proposal'], $action['proposal_blocked'], $action['proposal_attempts'], $action['proposal_error'], $action['writes']);
         }
         $reopen = $existing->status === Suggestion::APPLIED;
         $existing->forceFill($values + ['action' => array_merge($action, ['problems' => $codes])]
