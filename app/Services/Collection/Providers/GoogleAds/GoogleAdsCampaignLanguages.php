@@ -24,7 +24,7 @@ final class GoogleAdsCampaignLanguages
      * @param  list<array<string, mixed>>  $rows  GAQL rows (campaign.id, campaign_criterion.language.language_constant)
      * @return int campaign rows updated
      */
-    public static function store(int $resourceId, string $customerId, array $rows): int
+    public static function store(int $resourceId, string $customerId, array $rows, bool $reset = true): int
     {
         if (! Schema::hasColumn('google_ads_campaign_snapshot', 'language_codes')) {
             return 0;
@@ -40,7 +40,8 @@ final class GoogleAdsCampaignLanguages
             $byCampaign[$campaign][] = self::CODES[$id] ?? $id;
         }
         $base = DB::table('google_ads_campaign_snapshot')->where('external_resource_id', $resourceId)->where('customer_id', $customerId);
-        $updated = (clone $base)->update(['language_codes' => 'all']);
+        // A continued page (a structure read over several ticks) adds to the first page's codes instead of resetting them.
+        $updated = $reset ? (clone $base)->update(['language_codes' => 'all']) : 0;
         foreach ($byCampaign as $campaign => $codes) {
             $codes = array_values(array_unique($codes));
             sort($codes);
