@@ -14,6 +14,7 @@ use App\Services\Site\SiteScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 
 /**
@@ -37,6 +38,12 @@ class ClustersBoardTab extends ContentIdeasTab
     public const int VISIBLE = 3;
 
     private const int QUERIES = 8;
+
+    /** An alt küme with less sector demand than this and no impressions of ours goes under "Küçük kümeler". */
+    public const int SMALL_DEMAND = 10;
+
+    /** At most this many pages are queued by one card's "Oluştur". */
+    public const int PRODUCE_LIMIT = 10;
 
     #[Url(as: 'eslesme')]
     public string $match = '';
@@ -100,7 +107,7 @@ class ClustersBoardTab extends ContentIdeasTab
             $open = $openAll || $i === 0 || in_array($section['id'], $this->opened, true);
             $sections[$i]['open'] = $open;
             $sections[$i]['all'] = in_array($section['id'], $this->expanded, true);
-            $sections[$i]['shown'] = ! $open ? [] : ($sections[$i]['all'] ? $section['cards'] : array_slice($section['cards'], 0, self::VISIBLE));
+            $sections[$i]['shown'] = ! $open ? [] : ($sections[$i]['all'] ? $section['big'] : array_slice($section['big'], 0, self::VISIBLE));
         }
         $shown = $groups->only(collect($sections)->flatMap(fn (array $s): array => array_map(fn (array $c): int => (int) $c['cluster']->id, $s['shown']))->all());
         $statuses = $this->statuses($shown);
@@ -145,6 +152,7 @@ class ClustersBoardTab extends ContentIdeasTab
         foreach ($g['extras'] as $r) {
             $ideas[] = $r + ['title' => (string) $r['idea']->title, 'type' => (string) $r['idea']->type, 'must' => false];
         }
+        $ideas = self::uniqueIdeas($ideas);
 
         return [
             'cluster' => $cluster,
@@ -164,6 +172,61 @@ class ClustersBoardTab extends ContentIdeasTab
             }, $queries),
             'warning' => collect($g['mains'])->first(fn (array $r): bool => $r['state'] === 'technical')['reason'] ?? null,
         ];
+    }
+
+    /**
+     * "Oluştur" of a card: queues a new page for each of the card's ideas that has no page on the site (and that Eşleştir /
+     * Sitede ara already looked for), the same checks as one idea's {@see self::produce()}.
+     *
+     * @param  list<array{kind: string, id: int}>  $items
+     */
+    public function produceCard(array $items): void
+    {
+        $queued = 0;
+        foreach (array_slice($items, 0, self::PRODUCE_LIMIT) as $item) {
+            $subject = $this->subject((string) ($item['kind'] ?? ''), (int) ($item['id'] ?? 0));
+            if ($this->row($subject)['state'] !== 'no_page' || ($subject->row->rediscovered_at === null && $subject->row->audited_at === null)) {
+                continue;
+            }
+            SiteOperations::dispatch($this->assetId, SiteOperations::PRODUCE, $subject->params());
+            $queued++;
+        }
+        $this->message = $queued > 0
+            ? $queued.' sayfa yazılıyor; hazır olunca İçerik sekmesinde inceleyip WordPress taslağı olarak gönderirsin.'
+            : 'Oluşturulacak fikir yok: önce "Eşleştir" ya da "Sitede ara".';
+    }
+
+    /**
+     * A weak alt küme: little sector demand and no impressions of ours in the range.
+     *
+     * @param  array<string, mixed>  $card
+     */
+    public static function isSmall(array $card): bool
+    {
+        return $card['demand'] < self::SMALL_DEMAND && (int) ($card['impressions'] ?? 0) === 0;
+    }
+
+    /**
+     * One idea per title in a card: the same topic can come both as the cluster itself (Olmazsa olmaz) and from the pool.
+     * The first one wins, and the must-have one is always first.
+     *
+     * @param  list<array<string, mixed>>  $ideas
+     * @return list<array<string, mixed>>
+     */
+    public static function uniqueIdeas(array $ideas): array
+    {
+        $seen = [];
+        $out = [];
+        foreach ($ideas as $idea) {
+            $key = Str::slug((string) $idea['title']);
+            if ($key !== '' && isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = $idea;
+        }
+
+        return $out;
     }
 
     /** @param  array<string, mixed>  $card */
@@ -194,7 +257,7 @@ class ClustersBoardTab extends ContentIdeasTab
      *
      * @param  Collection<int, array<string, mixed>>  $cards
      * @param  Collection<int, array{name: string, main: bool}>  $services
-     * @return list<array{id: int, name: string, main: bool, cards: list<array<string, mixed>>, matched: int, page: mixed}>
+     * @return list<array{id: int, name: string, main: bool, cards: list<array<string, mixed>>, big: list<array<string, mixed>>, small: list<array<string, mixed>>, matched: int, page: mixed}>
      */
     private function sections(Collection $cards, Collection $services): array
     {
@@ -204,12 +267,17 @@ class ClustersBoardTab extends ContentIdeasTab
             $serviceId = (int) $serviceId;
             $sorted = $group->sortBy([fn (array $a, array $b): int => [$b['cluster']->page_type === 'service', $b['demand'], $a['cluster']->name]
                 <=> [$a['cluster']->page_type === 'service', $a['demand'], $b['cluster']->name]])->values()->all();
+            // The ana küme of a service always shows; weak alt kümeler fold into "Küçük kümeler".
+            $small = array_values(array_filter($sorted, fn (array $c, int $i): bool => ($serviceId === 0 || $i > 0) && self::isSmall($c), ARRAY_FILTER_USE_BOTH));
+            $big = array_values(array_filter($sorted, fn (array $c): bool => ! in_array($c, $small, true)));
             $out[] = [
                 'id' => (int) $serviceId,
                 'name' => $serviceId === 0 ? 'Hizmete bağlı olmayan kümeler' : $services[$serviceId]['name'],
                 'main' => $serviceId !== 0 && $services[$serviceId]['main'],
                 'order' => $serviceId === 0 ? PHP_INT_MAX : (int) ($order[$serviceId] ?? PHP_INT_MAX - 1),
                 'cards' => $sorted,
+                'big' => $big,
+                'small' => $small,
                 'matched' => count(array_filter($sorted, fn (array $c): bool => $c['matched'])),
                 'page' => $sorted[0]['page'] ?? null,
             ];

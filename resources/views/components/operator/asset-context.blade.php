@@ -71,17 +71,30 @@
     </p>
 @endif
 @if ($alerts->isNotEmpty())
-    <div class="space-y-1.5" data-asset-alerts>
-        @foreach ($alerts as $alert)
-            <div @class([
-                'flex flex-wrap items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-inset',
-                'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20' => in_array($alert->severity, ['critical', 'high'], true),
-                'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20' => ! in_array($alert->severity, ['critical', 'high'], true),
-            ])>
-                <span class="font-semibold">⚠ {{ $alert->title }}</span>
-                <span class="min-w-0 flex-1">{{ $alert->message }}</span>
-                <span class="text-xs opacity-70">{{ $alert->first_detected_at?->diffForHumans() }}</span>
-            </div>
-        @endforeach
-    </div>
+    @php
+        // Red only when an alert costs money or traffic (site down, spend stopped, visits dropping): then the strip opens.
+        $isBlocking = fn ($alert): bool => $alert->kind === 'site_down' || in_array($alert->severity, ['critical', 'high'], true);
+        $blocking = $alerts->contains($isBlocking);
+    @endphp
+    <details class="group rounded-lg bg-white text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800" data-asset-alerts data-blocking="{{ $blocking ? '1' : '0' }}"@if ($blocking) open @endif>
+        <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-1.5 text-gray-700 dark:text-gray-200">
+            <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-rose-500' => $blocking, 'bg-amber-400' => ! $blocking])></span>
+            <span class="font-medium">{{ $alerts->count() }} uyarı</span>
+            <span class="min-w-0 flex-1 truncate text-xs text-gray-500">{{ $alerts->pluck('title')->unique()->implode(' · ') }}</span>
+            <span class="text-xs text-gray-400 group-open:rotate-180">▾</span>
+        </summary>
+        <div class="space-y-1.5 border-t border-gray-100 p-2 dark:border-gray-800">
+            @foreach ($alerts as $alert)
+                <div @class([
+                    'flex flex-wrap items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-inset',
+                    'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20' => $isBlocking($alert),
+                    'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20' => ! $isBlocking($alert),
+                ])>
+                    <span class="font-semibold">{{ $alert->title }}</span>
+                    <span class="min-w-0 flex-1">{{ $alert->message }}</span>
+                    <span class="text-xs opacity-70">{{ $alert->first_detected_at?->diffForHumans() }}</span>
+                </div>
+            @endforeach
+        </div>
+    </details>
 @endif

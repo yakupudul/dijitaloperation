@@ -451,7 +451,7 @@ class ContentIdeasTab extends Component
         return [$kind, $id];
     }
 
-    private function subject(string $kind, int $id): ContentIdeaSubject
+    protected function subject(string $kind, int $id): ContentIdeaSubject
     {
         $subject = ContentIdeaSubject::find($this->assetId, $kind, $id);
         abort_if($subject === null, 404);
@@ -460,7 +460,7 @@ class ContentIdeasTab extends Component
     }
 
     /** @return array{state: string, reason: string, technical: ?array<string, mixed>} */
-    private function row(ContentIdeaSubject $subject): array
+    protected function row(ContentIdeaSubject $subject): array
     {
         $row = $subject->row;
         $score = $subject->score();

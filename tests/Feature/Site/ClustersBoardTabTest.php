@@ -115,6 +115,35 @@ final class ClustersBoardTabTest extends SiteTestCase
             'the rows read every page column but the stored text');
     }
 
+    public function test_cards_list_each_idea_once_offer_one_create_and_fold_small_clusters(): void
+    {
+        Queue::fake();
+        $this->actingAs($this->admin);
+        $prices = $this->clusters['İmplant fiyatları'];
+        ContentIdea::query()->create(['cluster_id' => $prices->id, 'title' => 'İmplant Fiyatları!', 'title_key' => 'implant fiyatlari x', 'type' => 'guide', 'angle' => 'x', 'target_queries' => [], 'outline' => []]);
+        $row = BrandClusterPage::query()->where('cluster_id', $prices->id)->sole();
+        $row->forceFill(['coverage' => 'none', 'audited_at' => now()])->save();
+        $tiny = $this->cluster($this->implant, 'İmplant kampanya kodu', ['implant kampanya kodu']);
+        $tiny->forceFill(['page_type' => 'guide'])->save();
+        Query::query()->where('text', 'implant kampanya kodu')->update(['impressions' => 3]);
+        BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $tiny->id, 'website_asset_id' => $this->site->id, 'state' => 'no_page', 'language' => 'tr']);
+
+        $board = Livewire::test(ClustersBoardTab::class, ['assetId' => $this->site->id, 'range' => ['days' => 28]]);
+        $html = $board->html();
+        $card = mb_substr($html, mb_strpos($html, 'data-cluster-card="'.$prices->id.'"'));
+        $card = mb_substr($card, 0, mb_strpos($card, '</article>'));
+        $this->assertSame(1, mb_substr_count($card, 'data-card-idea='), 'the pool idea with the cluster\'s own title is not listed twice');
+        $this->assertStringContainsString('data-produce-card="'.$prices->id.'"', $card);
+        $this->assertStringContainsString('Yalnız bunu oluştur', $card);
+        $board->assertSeeHtml('data-small-clusters="'.$this->implant->id.'"')->assertSee('Küçük kümeler (1)')
+            ->assertDontSeeHtml('data-cluster-card="'.$tiny->id.'"');
+
+        $board->call('produceCard', [['kind' => 'main', 'id' => $row->id]])->assertSet('message', '1 sayfa yazılıyor; hazır olunca İçerik sekmesinde inceleyip WordPress taslağı olarak gönderirsin.');
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::PRODUCE);
+
+        $this->assertSame(['A', 'b'], array_column(ClustersBoardTab::uniqueIdeas([['title' => 'A'], ['title' => 'a '], ['title' => 'b']]), 'title'));
+    }
+
     public function test_card_actions_queue_work_only_on_click(): void
     {
         Queue::fake();

@@ -15,20 +15,24 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Web sitesi ekranı — one level of tabs (Search Console style): Kümeler (service → main cluster → sub clusters, ideas and
- * queries) · Analiz (Search Console × GA4 × pages) · Sayfalar (by type) · Sorgular · Teknik SEO · Yapılacaklar · Ayarlar,
- * and the rarely used views under "Diğer". One date picker in the header (presets, custom range, comparison) drives
- * every tab that reads Search Console / GA4. Each view is its own component that reads stored results only; old tab ids
+ * Web sitesi ekranı — one level of tabs (Search Console style): Yapılacaklar · Kümeler (service → main cluster → sub
+ * clusters, ideas and queries) · Analiz (Search Console × GA4 × pages) · Sayfalar (by type) · Sorgular · Teknik SEO, and
+ * one "Ayarlar" menu with the settings and the rarely used views. One date picker in the header (presets, custom range,
+ * comparison) drives every tab that reads Search Console / GA4. Each view is its own component that reads stored results only; old tab ids
  * keep working through LEGACY_TABS / LEGACY_SUBS.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Web Sitesi')]
 final class WebsiteScreen extends Component
 {
-    public const array TABS = ['kumeler' => 'Kümeler', 'analiz' => 'Analiz', 'sayfalar' => 'Sayfalar', 'sorgular' => 'Sorgular',
-        'teknik' => 'Teknik SEO', 'yapilacaklar' => 'Yapılacaklar', 'ayarlar' => 'Ayarlar'];
+    /** The main row; Yapılacaklar first. "Ayarlar" is not here: it heads the settings menu together with {@see self::MORE}. */
+    public const array TABS = ['yapilacaklar' => 'Yapılacaklar', 'kumeler' => 'Kümeler', 'analiz' => 'Analiz', 'sayfalar' => 'Sayfalar', 'sorgular' => 'Sorgular',
+        'teknik' => 'Teknik SEO'];
 
-    /** Under "Diğer": views kept for detail work, out of the main row. */
+    /** First entry of the "Ayarlar" menu: the site's settings and linked assets. */
+    public const array SETTINGS = ['ayarlar' => 'Site ayarları ve bağlı varlıklar'];
+
+    /** Under the "Ayarlar" menu after the settings: views kept for detail work, out of the main row. */
     public const array MORE = ['fikirler' => 'İçerik fikirleri (ayrıntılı liste)', 'icerik' => 'İçerik planı ve taslaklar', 'hedef' => 'Hedef sorgular',
         'donusumler' => 'Dönüşümler', 'eslestirme' => 'Sayfa ↔ hizmet ↔ küme', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'];
 

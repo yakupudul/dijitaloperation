@@ -2,6 +2,7 @@
     $input = 'h-9 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $pill = fn (bool $on) => $on ? 'h-8 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-900' : 'h-8 rounded-lg px-3 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
     $btn = 'h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
+    $link = 'shrink-0 text-xs font-medium text-brand-700 hover:underline dark:text-brand-300';
     $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
     $num = fn ($v) => $v === null ? '—' : number_format((float) $v, 0, ',', '.');
     $dec = fn ($v) => $v === null ? '—' : number_format((float) $v, 1, ',', '.');
@@ -106,6 +107,12 @@
                         $cluster = $card['cluster'];
                         $ideaStatus = $ideaStatuses[$cluster->id] ?? null;
                         $level = $section['id'] !== 0 && $index === 0 ? 'Ana küme' : 'Alt küme';
+                        // The card's one main action: a page for every idea that has none on the site (and that was looked for).
+                        $producible = collect($card['ideas'])->filter(fn (array $idea): bool => $idea['model'] !== null && $idea['state'] === 'no_page'
+                            && ($idea['model']->rediscovered_at !== null || ($idea['model']->audited_at ?? null) !== null)
+                            && ! isset($runningRows[$idea['kind'].'-'.$idea['model']->id])
+                            && ! isset($suggestions[$idea['kind'].'-'.$idea['model']->id.':content']))
+                            ->map(fn (array $idea): array => ['kind' => (string) $idea['kind'], 'id' => (int) $idea['model']->id])->values()->all();
                     @endphp
                     <article wire:key="cluster-card-{{ $cluster->id }}" data-cluster-card="{{ $cluster->id }}" data-matched="{{ $card['matched'] ? '1' : '0' }}"
                              x-data="{ tab: 'ideas' }" class="flex min-h-[28rem] flex-col overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -163,13 +170,13 @@
                                             @if ($running)
                                                 <span class="shrink-0 text-brand-600">çalışıyor…</span>
                                             @elseif ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal') && $improveSuggestion->applied_at === null)
-                                                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $btn }} inline-flex items-center" data-preview>Önizle ve güncelle</a>
+                                                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $link }}" data-preview>Önizle ve güncelle →</a>
                                             @elseif ($contentSuggestion !== null)
                                                 <button type="button" wire:click="$parent.setTab('icerik')" class="{{ $ghost }}" data-content-link>Taslağa git</button>
                                             @elseif ($idea['state'] === 'improve' && $page?->wp_post_id !== null)
                                                 <button type="button" wire:click="improve('{{ $idea['kind'] }}', {{ $model->id }})" class="{{ $ghost }}" data-improve>Geliştir</button>
                                             @elseif ($idea['state'] === 'no_page' && $audited)
-                                                <button type="button" wire:click="produce('{{ $idea['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce>Oluştur</button>
+                                                <button type="button" wire:click="produce('{{ $idea['kind'] }}', {{ $model->id }})" class="{{ $link }}" data-produce>Yalnız bunu oluştur</button>
                                             @elseif ($idea['state'] === 'technical')
                                                 <button type="button" wire:click="$parent.setTab('teknik')" class="{{ $ghost }}">Teknik sorun</button>
                                             @elseif ($idea['state'] === 'sufficient')
@@ -196,7 +203,11 @@
                             </div>
                         </div>
 
-                        <footer class="flex items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-xs dark:border-gray-800">
+                        <footer class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-xs dark:border-gray-800">
+                            @if ($producible !== [])
+                                <button type="button" wire:click="produceCard(@js($producible))" wire:confirm="{{ count($producible) }} fikir için sayfa yazılsın mı? Taslak olarak İçerik sekmesine düşer; siteye sen gönderirsin."
+                                        class="{{ $btn }} w-full sm:w-auto" data-produce-card="{{ $cluster->id }}">Oluştur ({{ count($producible) }})</button>
+                            @endif
                             @if (($ideaStatus['status'] ?? null) === 'running')
                                 <span class="text-brand-600">Fikirler üretiliyor…</span>
                             @else
@@ -213,10 +224,24 @@
                 @endforeach
             </div>
 
-            @if (count($section['cards']) > \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE)
+            @if (count($section['big']) > \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE)
                 <div class="flex justify-center">
-                    <button type="button" wire:click="toggleAll({{ $section['id'] }})" class="{{ $ghost }}" data-more-clusters>{{ $section['all'] ? 'Daha az göster' : 'Tüm alt kümeler ('.(count($section['cards']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE).' daha)' }}</button>
+                    <button type="button" wire:click="toggleAll({{ $section['id'] }})" class="{{ $ghost }}" data-more-clusters>{{ $section['all'] ? 'Daha az göster' : 'Tüm alt kümeler ('.(count($section['big']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE).' daha)' }}</button>
                 </div>
+            @endif
+            @if ($section['small'] !== [])
+                <details class="rounded-xl bg-gray-50 px-4 py-2 text-xs ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800" data-small-clusters="{{ $section['id'] }}">
+                    <summary class="cursor-pointer font-medium text-gray-600 dark:text-gray-300">Küçük kümeler ({{ count($section['small']) }}) <span class="font-normal text-gray-500">· sektör talebi {{ \App\Livewire\Operator\Website\V2\ClustersBoardTab::SMALL_DEMAND }}’un altında, bizde gösterim yok</span></summary>
+                    <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-800">
+                        @foreach ($section['small'] as $card)
+                            <li class="flex flex-wrap items-center gap-2 py-1.5" wire:key="small-cluster-{{ $card['cluster']->id }}" data-small-cluster="{{ $card['cluster']->id }}">
+                                <span class="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">{{ $card['cluster']->name }}</span>
+                                <span class="tabular-nums text-gray-500">Sektör talebi {{ $num($card['demand']) }} · Bizim gösterim 0</span>
+                                <span @class(['rounded-full px-2 py-0.5 text-[11px]', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $card['matched'], 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400' => ! $card['matched']])>{{ $card['matched'] ? 'Eşlendi' : 'Eşlenmedi' }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </details>
             @endif
             @endif
         </section>
