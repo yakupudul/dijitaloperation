@@ -69,6 +69,15 @@ class ClustersBoardTab extends ContentIdeasTab
         $this->expanded = array_values(array_diff($this->expanded, [$serviceId]));
     }
 
+    /** "Filtreleri temizle" on an empty board. */
+    public function clearFilters(): void
+    {
+        $this->service = '';
+        $this->match = '';
+        $this->type = '';
+        $this->search = '';
+    }
+
     /** "Tüm alt kümeler" / "Daha az göster" in an open service. */
     public function toggleAll(int $serviceId): void
     {

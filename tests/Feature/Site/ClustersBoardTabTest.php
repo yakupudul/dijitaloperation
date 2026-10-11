@@ -79,7 +79,8 @@ final class ClustersBoardTabTest extends SiteTestCase
             ->set('service', '0')->assertSee('Şeffaf plak')->assertDontSee('Zirkonyum kaplama')
             ->set('service', '')->set('type', 'guide')->assertSee('İmplant ağrısı')->assertDontSee('Zirkonyum kaplama')
             ->set('type', '')->set('search', 'nasıl yapılır')->assertSee('İmplant tedavisi')->assertDontSee('Tek diş implant')
-            ->set('search', 'yok-böyle')->assertSee('Bu filtrede küme yok.');
+            ->set('search', 'yok-böyle')->assertSee('Bu filtrede küme yok.')
+            ->call('clearFilters')->assertSet('search', '')->assertSee('İmplant tedavisi');
     }
 
     public function test_the_board_reads_a_fixed_number_of_queries_however_many_clusters_the_site_has(): void

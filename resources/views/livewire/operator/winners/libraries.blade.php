@@ -49,7 +49,7 @@
                     </div>
                 </article>
             @empty
-                <p class="{{ $panel }} p-4 text-sm text-gray-500 md:col-span-2 xl:col-span-3">Kütüphane boş. Strateji öner’deki kazanan kampanyalardan "Metni kütüphaneye kaydet" ile eklenir.</p>
+                <p class="{{ $panel }} p-4 text-sm text-gray-500 md:col-span-2 xl:col-span-3">Kütüphane boş. Strateji öner’deki kazanan kampanyalardan "Metni kütüphaneye kaydet" ile eklenir. <a href="{{ route('operator.meta-strategy') }}" wire:navigate class="font-semibold text-brand-600 hover:underline" data-empty-action>Strateji öner’e git →</a></p>
             @endforelse
         </div>
     @elseif ($tab === 'hedefleme')
@@ -73,7 +73,7 @@
                                 <td class="px-3 py-3 text-right"><button type="button" wire:click="remove({{ $x['id'] }})" wire:confirm="Kütüphaneden çıkarılsın mı?" class="text-xs text-gray-500 hover:text-rose-600">Çıkar</button></td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">Kütüphane boş. Strateji öner’deki kazananlardan "Hedeflemeyi kaydet" ile eklenir.</td></tr>
+                            <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">Kütüphane boş. Strateji öner’deki kazananlardan "Hedeflemeyi kaydet" ile eklenir. <a href="{{ route('operator.meta-strategy') }}" wire:navigate class="font-semibold text-brand-600 hover:underline" data-empty-action>Strateji öner’e git →</a></td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -84,7 +84,7 @@
             <h2 class="font-semibold text-gray-900 dark:text-white">Hizmet talebi, aylara göre</h2>
             <p class="text-xs text-gray-500">Hizmetin küme sorgularının aylık arama hacmi · koyu = yoğun ay · çerçeve = bu ay</p>
             @if (! $season || $season['rows'] === [])
-                <p class="mt-4 text-sm text-gray-500">Bu sektörde aylık arama hacmi verisi yok. Hacimler ayda bir çekilir.</p>
+                <p class="mt-4 text-sm text-gray-500">Bu sektörde aylık arama hacmi verisi yok. Hacimler ayda bir çekilir. <a href="{{ route('operator.winners') }}" wire:navigate class="font-semibold text-brand-600 hover:underline" data-empty-action>Kazananlara git →</a></p>
             @else
                 <div class="mt-4 overflow-x-auto">
                     <table class="w-full min-w-[48rem] text-sm">
@@ -110,7 +110,7 @@
             <h2 class="font-semibold text-gray-900 dark:text-white">Hangi marka hangi hizmette kaç kanalda</h2>
             <p class="text-xs text-gray-500">0–4: web sitesi, Google Ads, Meta, İşletme Profili · kesik çerçeve = markanın hizmeti var ama hiçbir kanalda yok (fırsat) · boş = markada bu hizmet yok</p>
             @if (! $map || $map['rows'] === [])
-                <p class="mt-4 text-sm text-gray-500">Bu sektörde marka ya da hizmet yok.</p>
+                <p class="mt-4 text-sm text-gray-500">Bu sektörde marka ya da hizmet yok. <a href="{{ route('operator.brands') }}" wire:navigate class="font-semibold text-brand-600 hover:underline" data-empty-action>Markalara git →</a></p>
             @else
                 <div class="mt-4 overflow-x-auto">
                     <table class="text-sm">

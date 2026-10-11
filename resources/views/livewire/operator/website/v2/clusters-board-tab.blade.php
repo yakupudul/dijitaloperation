@@ -249,6 +249,9 @@
         <div class="rounded-xl bg-white p-6 text-center text-xs text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <x-operator.cluster-readiness :asset-id="$this->assetId" what="Kümeler" />
             <p>Bu filtrede küme yok.</p>
+            @if ($service !== '' || $match !== '' || $type !== '' || trim($search) !== '')
+                <button type="button" wire:click="clearFilters" class="{{ $ghost }} mt-3" data-empty-action>Filtreleri temizle</button>
+            @endif
         </div>
     @endforelse
 </div>
