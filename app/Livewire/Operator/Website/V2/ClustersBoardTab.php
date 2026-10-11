@@ -13,7 +13,6 @@ use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 
@@ -45,6 +44,30 @@ class ClustersBoardTab extends ContentIdeasTab
     #[Url(as: 'ara')]
     public string $search = '';
 
+    /** @var list<int> services opened with "Göster" (the first service is always open) */
+    public array $opened = [];
+
+    /** @var list<int> open services whose every alt küme is shown ("Tüm alt kümeler") */
+    public array $expanded = [];
+
+    /** "Göster" on a closed service: its cards are rendered (a site can have hundreds of clusters). */
+    public function openSection(int $serviceId): void
+    {
+        $this->opened = array_values(array_unique([...$this->opened, $serviceId]));
+    }
+
+    public function closeSection(int $serviceId): void
+    {
+        $this->opened = array_values(array_diff($this->opened, [$serviceId]));
+        $this->expanded = array_values(array_diff($this->expanded, [$serviceId]));
+    }
+
+    /** "Tüm alt kümeler" / "Daha az göster" in an open service. */
+    public function toggleAll(int $serviceId): void
+    {
+        $this->expanded = in_array($serviceId, $this->expanded, true) ? array_values(array_diff($this->expanded, [$serviceId])) : [...$this->expanded, $serviceId];
+    }
+
     /** @param  array{days?: int, start?: ?string, end?: ?string, compare?: string}  $range */
     public function mount(int $assetId, array $range = []): void
     {
@@ -70,8 +93,18 @@ class ClustersBoardTab extends ContentIdeasTab
         $cards = $groups->map(fn (array $g): array => $this->card($g, $ours->get((int) $g['cluster']->id), $queries[(int) $g['cluster']->id] ?? [], $siteQueries))
             ->map(fn (array $c): array => $c + ['service_key' => $services->has($c['service_id']) ? $c['service_id'] : 0]);
         $sections = $this->sections($cards->filter(fn (array $c): bool => $this->visible($c))->values(), $services);
-        $statuses = $this->statuses($groups);
-        $ideaStatuses = $groups->mapWithKeys(fn (array $g): array => [(int) $g['cluster']->id => Cache::get(ContentIdeaPool::cacheKey((int) $g['cluster']->id))])->filter()->all();
+        // Only the open services render their cards (the first one, those opened with "Göster", or all while searching /
+        // narrowed to one service); in an open service the first VISIBLE cards unless "Tüm alt kümeler" was pressed.
+        $openAll = trim($this->search) !== '' || $this->service !== '';
+        foreach ($sections as $i => $section) {
+            $open = $openAll || $i === 0 || in_array($section['id'], $this->opened, true);
+            $sections[$i]['open'] = $open;
+            $sections[$i]['all'] = in_array($section['id'], $this->expanded, true);
+            $sections[$i]['shown'] = ! $open ? [] : ($sections[$i]['all'] ? $section['cards'] : array_slice($section['cards'], 0, self::VISIBLE));
+        }
+        $shown = $groups->only(collect($sections)->flatMap(fn (array $s): array => array_map(fn (array $c): int => (int) $c['cluster']->id, $s['shown']))->all());
+        $statuses = $this->statuses($shown);
+        $ideaStatuses = ContentIdeaPool::states($shown->keys()->map(fn ($id): int => (int) $id)->values()->all());
         $auditStatus = SiteOperations::line(SiteOperations::status($site->id, SiteOperations::CLUSTER_AUDIT));
 
         return view('livewire.operator.website.v2.clusters-board-tab', [
@@ -82,7 +115,7 @@ class ClustersBoardTab extends ContentIdeasTab
             'pendingClusters' => $brand !== null ? SiteScope::pendingClusters($brand) : collect(),
             'statuses' => $statuses,
             'ideaStatuses' => $ideaStatuses,
-            'suggestions' => $this->suggestions($groups),
+            'suggestions' => $this->suggestions($shown),
             'auditStatus' => $auditStatus,
             'polling' => in_array('çalışıyor…', $statuses, true) || $auditStatus === 'çalışıyor…'
                 || collect($ideaStatuses)->contains(fn ($s): bool => ($s['status'] ?? null) === 'running'),

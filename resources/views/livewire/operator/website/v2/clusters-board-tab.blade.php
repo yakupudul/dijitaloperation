@@ -6,6 +6,7 @@
     $num = fn ($v) => $v === null ? '—' : number_format((float) $v, 0, ',', '.');
     $dec = fn ($v) => $v === null ? '—' : number_format((float) $v, 1, ',', '.');
     $typeLabels = \App\Livewire\Operator\Website\V2\ClustersBoardTab::TYPE_LABELS;
+    $runningRows = collect($statuses)->filter(fn ($line) => $line === 'çalışıyor…')->keys()->map(fn ($k) => \Illuminate\Support\Str::before($k, ':'))->flip()->all();
     $typeTone = ['service' => 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300', 'guide' => 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300'];
 @endphp
 <div class="space-y-6 text-sm" data-clusters-board @if ($polling) wire:poll.5s @endif>
@@ -77,7 +78,7 @@
     @endif
 
     @forelse ($sections as $section)
-        <section class="space-y-3" x-data="{ all: false }" wire:key="service-{{ $section['id'] }}" data-service-section="{{ $section['id'] }}">
+        <section class="space-y-3" wire:key="service-{{ $section['id'] }}" data-service-section="{{ $section['id'] }}" data-open="{{ $section['open'] ? '1' : '0' }}">
             <header class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
                 <div class="min-w-0">
                     <div class="flex items-center gap-2">
@@ -89,17 +90,24 @@
                 @if ($section['page'])
                     <span class="ml-auto text-xs text-gray-600 dark:text-gray-400">Hizmet sayfası: <a href="{{ $section['page']->url }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ $section['page']->title ?: ($section['page']->path ?: '/') }}</a></span>
                 @endif
+                @if (! $section['open'])
+                    <button type="button" wire:click="openSection({{ $section['id'] }})" wire:loading.attr="disabled" wire:target="openSection({{ $section['id'] }})" @class([$ghost, 'ml-auto' => ! $section['page']]) data-open-section="{{ $section['id'] }}">
+                        <span wire:loading.remove wire:target="openSection({{ $section['id'] }})">Göster</span><span wire:loading wire:target="openSection({{ $section['id'] }})">Yükleniyor…</span>
+                    </button>
+                @elseif (! $loop->first && in_array($section['id'], $opened, true))
+                    <button type="button" wire:click="closeSection({{ $section['id'] }})" @class([$ghost, 'ml-auto' => ! $section['page']]) data-close-section="{{ $section['id'] }}">Gizle</button>
+                @endif
             </header>
 
+            @if ($section['open'])
             <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                @foreach ($section['cards'] as $index => $card)
+                @foreach ($section['shown'] as $index => $card)
                     @php
                         $cluster = $card['cluster'];
                         $ideaStatus = $ideaStatuses[$cluster->id] ?? null;
                         $level = $section['id'] !== 0 && $index === 0 ? 'Ana küme' : 'Alt küme';
                     @endphp
                     <article wire:key="cluster-card-{{ $cluster->id }}" data-cluster-card="{{ $cluster->id }}" data-matched="{{ $card['matched'] ? '1' : '0' }}"
-                             @if ($index >= \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE) x-show="all" x-cloak @endif
                              x-data="{ tab: 'ideas' }" class="flex min-h-[28rem] flex-col overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                         <div class="flex items-start gap-3 px-4 pb-3 pt-4">
                             <div class="min-w-0 flex-1">
@@ -135,7 +143,7 @@
                                         $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
                                         $improveSuggestion = $model !== null ? ($suggestions[$idea['kind'].'-'.$model->id.':missing_topic'] ?? null) : null;
                                         $contentSuggestion = $model !== null ? ($suggestions[$idea['kind'].'-'.$model->id.':content'] ?? null) : null;
-                                        $running = collect($statuses)->filter(fn ($line, $k) => str_starts_with($k, $key.':') && $line === 'çalışıyor…')->isNotEmpty();
+                                        $running = isset($runningRows[$key]);
                                     @endphp
                                     <li @class(['px-4 py-3', 'bg-orange-50/50 dark:bg-orange-500/5' => $idea['must']]) wire:key="card-idea-{{ $key }}" data-card-idea="{{ $key }}" data-state="{{ $idea['state'] }}">
                                         <div class="mb-1 flex items-center gap-1.5">
@@ -207,8 +215,9 @@
 
             @if (count($section['cards']) > \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE)
                 <div class="flex justify-center">
-                    <button type="button" @click="all = !all" class="{{ $ghost }}" data-more-clusters x-text="all ? 'Daha az göster' : 'Tüm alt kümeler ({{ count($section['cards']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE }} daha)'">Tüm alt kümeler ({{ count($section['cards']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE }} daha)</button>
+                    <button type="button" wire:click="toggleAll({{ $section['id'] }})" class="{{ $ghost }}" data-more-clusters>{{ $section['all'] ? 'Daha az göster' : 'Tüm alt kümeler ('.(count($section['cards']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE).' daha)' }}</button>
                 </div>
+            @endif
             @endif
         </section>
     @empty

@@ -116,7 +116,7 @@ final class GbpDailyWorkspace
             return [];
         }
         $out = [];
-        ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->latest('id')->limit(500)->get()
+        ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->latest('id')->limit(500)->get(['id', 'action', 'status', 'error', 'request_payload'])
             ->each(function (ExternalWriteAction $action) use (&$out, $reviewIds): void {
                 $reviewId = (int) data_get($action->request_payload, 'review_id');
                 if (isset($out[$reviewId]) || ! in_array($reviewId, $reviewIds, true)) {
@@ -176,11 +176,13 @@ final class GbpDailyWorkspace
         }
         $seen = [];
         Run::query()->whereIn('digital_asset_id', $assetIds)->where('module_id', 'google-business-profile')->where('created_at', '>=', now()->subDays(14))
-            ->latest('id')->limit(count($assetIds) * 20)->get(['id', 'digital_asset_id', 'metadata'])
-            ->each(function (Run $run) use (&$out, &$seen, $datasets): void {
+            ->latest('id')->limit(count($assetIds) * 20)->toBase()->get(['id', 'digital_asset_id', 'metadata->datasets as datasets'])
+            ->each(function (object $run) use (&$out, &$seen, $datasets): void {
+                // Only the datasets part of each run's metadata is read (the rest can be large).
+                $states = is_string($run->datasets) ? json_decode($run->datasets, true) : null;
                 foreach ($datasets as $dataset) {
                     $key = $run->digital_asset_id.'|'.$dataset;
-                    $data = data_get($run->metadata, 'datasets.'.$dataset);
+                    $data = is_array($states) ? ($states[$dataset] ?? null) : null;
                     if (isset($seen[$key]) || ! is_array($data)) {
                         continue;
                     }

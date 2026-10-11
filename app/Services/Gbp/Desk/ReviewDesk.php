@@ -15,6 +15,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\ReviewReplyDrafter;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -59,6 +60,24 @@ final class ReviewDesk
      * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
      */
     public function stats(array $resources): array
+    {
+        if ($resources === []) {
+            return [];
+        }
+        // Every click on the review screen renders these numbers again: they are kept for the current minute as long as
+        // no review of these profiles was added, changed, answered or removed.
+        $version = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
+            ->selectRaw('count(*) as n, count(review_reply) as replies, max(id) as last_id, max(updated_at) as changed')->first();
+        $key = 'gbp-review-stats:'.md5((string) json_encode([$resources, (array) $version, now()->format('YmdHi')]));
+
+        return Cache::remember($key, 60, fn (): array => $this->countStats($resources));
+    }
+
+    /**
+     * @param  array<int, int>  $resources  asset id => resource id
+     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
+     */
+    private function countStats(array $resources): array
     {
         $since = (float) now()->subDays(self::WINDOW_DAYS)->format('U.u');
         $before = (float) now()->subDays(self::WINDOW_DAYS * 2)->format('U.u');
@@ -174,8 +193,9 @@ final class ReviewDesk
         $drafts = $ids === [] ? collect() : AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
             ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
         $actions = $this->daily->replyActions($ids);
+        $states = $this->drafter->states($ids);
 
-        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions): array {
+        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions, $states): array {
             $created = $row->create_time !== null ? CarbonImmutable::parse((string) $row->create_time) : null;
             $hours = $created !== null ? (int) $created->diffInHours(now(), true) : null;
             $reviewer = json_decode((string) $row->reviewer, true);
@@ -198,7 +218,7 @@ final class ReviewDesk
                 'answered' => $answered,
                 'reply' => is_array($reply) ? trim((string) ($reply['comment'] ?? '')) : '',
                 'draft' => $drafts->has((int) $row->id) ? (string) data_get($drafts[(int) $row->id]->content, 'reply') : null,
-                'draft_state' => $answered ? null : $this->drafter->state((int) $row->id),
+                'draft_state' => $answered ? null : ($states[(int) $row->id] ?? null),
                 'action' => $actions[(int) $row->id] ?? null,
             ];
         })->values()->all();
