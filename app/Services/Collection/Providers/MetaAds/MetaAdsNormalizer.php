@@ -28,6 +28,7 @@ final class MetaAdsNormalizer
             'metadata' => [
                 'name' => $row['name'] ?? null,
                 'account_status' => $row['account_status'] ?? null,
+                'disable_reason' => $row['disable_reason'] ?? null,
                 'currency' => $row['currency'] ?? null,
                 'timezone_name' => $row['timezone_name'] ?? $timezone,
                 'business_id' => data_get($row, 'business.id'),
@@ -169,6 +170,8 @@ final class MetaAdsNormalizer
                     'post_id' => $row['effective_object_story_id'] ?? null,
                     'link_url' => $row['link_url'] ?? data_get($row, 'object_story_spec.link_data.link') ?? data_get($row, 'object_story_spec.video_data.call_to_action.value.link')
                         ?? data_get($row, 'asset_feed_spec.link_urls.0.website_url'),
+                    // URL parameters Meta appends to the link (the "URL parametreleri" field: UTM usually lives here).
+                    'url_tags' => $row['url_tags'] ?? null,
                     'thumbnail_url' => $row['thumbnail_url'] ?? null,
                     'image_hash' => $row['image_hash'] ?? null,
                     'video_id' => $row['video_id'] ?? null,

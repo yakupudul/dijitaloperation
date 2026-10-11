@@ -96,7 +96,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     /** @param array<string, mixed> $scope */
     private function executeAdAccountMeta(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
-        $fields = 'id,name,account_status,currency,timezone_name,business{id,name}';
+        $fields = 'id,name,account_status,disable_reason,currency,timezone_name,business{id,name}';
         $path = (string) $scope['act_id'];
         $query = ['fields' => $fields];
 
@@ -287,7 +287,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
 
         $path = (string) $scope['act_id'].'/adcreatives';
         $query = [
-            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
+            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,url_tags,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
             'limit' => 250,
         ];
         [$allCreativeRows, $requestId] = $this->paginateList($scope['integration'], $path, $query);

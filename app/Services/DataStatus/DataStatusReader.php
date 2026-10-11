@@ -84,6 +84,23 @@ class DataStatusReader
      */
     private ?array $activity = null;
 
+    /**
+     * Meta delivery problems of the meta_ads resources the running compute() reads (resource id => reason key), loaded
+     * once per compute() like $activity.
+     *
+     * @var array<int, array{state: string, reason: string}>|null
+     */
+    private ?array $metaHealth = null;
+
+    /** Meta account_status values that stop delivery => reason key (1 = ACTIVE). */
+    private const array META_ACCOUNT_STATUS = [
+        2 => 'meta_disabled', 3 => 'meta_unsettled', 7 => 'meta_risk_review', 8 => 'meta_pending_settlement',
+        9 => 'meta_grace_period', 100 => 'meta_closing', 101 => 'meta_closed',
+    ];
+
+    /** Days ACTIVE Meta campaigns may spend nothing before the source says "Yayın durdu". */
+    public const int META_NO_DELIVERY_DAYS = 3;
+
     /** @var array<string, bool> */
     private static array $tables = [];
 
@@ -166,6 +183,14 @@ class DataStatusReader
         return $row !== null && $row->effectiveTier() !== ActivityTier::Active ? self::ACTIVITY_INACTIVE : null;
     }
 
+    /** The account's activity tier inside a batch (null: no row, or outside a batch). */
+    private function tierFor(?int $externalResourceId): ?ActivityTier
+    {
+        $row = $externalResourceId !== null && $this->activity !== null ? ($this->activity[$externalResourceId] ?? null) : null;
+
+        return $row?->effectiveTier();
+    }
+
     /** Drops the per-request results (after a refresh was started, or between jobs). */
     public function flush(): void
     {
@@ -204,6 +229,15 @@ class DataStatusReader
         $factDates = $this->factDates($bindings, array_keys($wanted));
         $today = CarbonImmutable::today();
         $this->activity = $this->activityRows($resourceIds);
+        $successAt = $lastSuccess;
+        foreach ($automations as $id => $automation) {
+            if ($automation->last_collection_success_at !== null) {
+                $at = CarbonImmutable::parse((string) $automation->last_collection_success_at);
+                $successAt[(int) $id] = isset($successAt[(int) $id]) && $successAt[(int) $id]->greaterThan($at) ? $successAt[(int) $id] : $at;
+            }
+        }
+        $this->metaHealth = $this->metaHealthRows($bindings->where('capability', 'meta_ads')->pluck('external_resource_id')->filter()
+            ->map(fn ($id): int => (int) $id)->unique()->values()->all(), $successAt, $today);
 
         try {
             $out = [];
@@ -222,6 +256,7 @@ class DataStatusReader
             return $out;
         } finally {
             $this->activity = null;
+            $this->metaHealth = null;
         }
     }
 
@@ -282,8 +317,16 @@ class DataStatusReader
                 action: DataStatus::ACTION_RECONNECT, actionUrl: $this->reconnectUrl($resource, $access));
         }
 
+        // A Meta account that cannot deliver, or whose ACTIVE campaigns stopped spending, is a problem even while idle.
+        $meta = $resourceId !== null ? ($this->metaHealth[$resourceId] ?? null) : null;
+        if ($capability === 'meta_ads' && $meta !== null) {
+            return new DataStatus(...$common, state: $meta['state'], reason: $meta['reason']);
+        }
+
         if ($this->activityFor($asset, $capability, $resourceId) === self::ACTIVITY_INACTIVE) {
-            return new DataStatus(...$common, state: DataStatus::PAUSED);
+            // Idle (no spend for 7–30 days) is "Durgun"; only a dormant account is "Pasif".
+            return new DataStatus(...$common, state: DataStatus::PAUSED,
+                reason: $this->tierFor($resourceId) === ActivityTier::Idle ? DataStatus::REASON_IDLE : null);
         }
 
         $reason = $this->collectionReason($automation);
@@ -299,6 +342,79 @@ class DataStatusReader
         }
 
         return new DataStatus(...$common, state: DataStatus::FRESH);
+    }
+
+    /**
+     * Meta delivery problems from the collected (read-only) data: the latest account snapshot's account_status /
+     * disable_reason, and ACTIVE campaigns (collected more than META_NO_DELIVERY_DAYS ago) without any spend in the last
+     * META_NO_DELIVERY_DAYS days — judged only when the account was collected successfully in the last two days.
+     *
+     * @param  list<int>  $resourceIds
+     * @param  array<int, CarbonImmutable>  $lastSuccess
+     * @return array<int, array{state: string, reason: string}>
+     */
+    private function metaHealthRows(array $resourceIds, array $lastSuccess, CarbonImmutable $today): array
+    {
+        $out = [];
+        if ($resourceIds === [] || ! self::hasTable('meta_ad_account_snapshot')) {
+            return $out;
+        }
+        DB::table('meta_ad_account_snapshot')->whereIn('external_resource_id', $resourceIds)->orderBy('last_collected_at')->orderBy('id')
+            ->get(['external_resource_id', 'metadata'])->each(function (object $row) use (&$out): void {
+                $meta = self::decode($row->metadata);
+                $status = isset($meta['account_status']) && is_numeric($meta['account_status']) ? (int) $meta['account_status'] : 1;
+                $disable = isset($meta['disable_reason']) && is_numeric($meta['disable_reason']) ? (int) $meta['disable_reason'] : 0;
+                $reason = self::META_ACCOUNT_STATUS[$status] ?? ($disable > 0 ? 'meta_restricted' : null);
+                $id = (int) $row->external_resource_id;
+                if ($reason !== null) {
+                    $out[$id] = ['state' => DataStatus::ACCOUNT_BLOCKED, 'reason' => $reason];
+                } else {
+                    unset($out[$id]);
+                }
+            });
+        if (! self::hasTable('meta_campaign_snapshot') || ! self::hasTable('meta_campaign_daily')) {
+            return $out;
+        }
+        $judged = array_values(array_filter($resourceIds, fn (int $id): bool => ! isset($out[$id])
+            && isset($lastSuccess[$id]) && $lastSuccess[$id]->greaterThanOrEqualTo($today->subDays(2))));
+        if ($judged === []) {
+            return $out;
+        }
+        $since = $today->subDays(self::META_NO_DELIVERY_DAYS);
+        $active = [];
+        DB::table('meta_campaign_snapshot')->whereIn('external_resource_id', $judged)->where('first_collected_at', '<=', $since)
+            ->get(['external_resource_id', 'campaign_id', 'metadata'])->each(function (object $row) use (&$active, $today): void {
+                $meta = self::decode($row->metadata);
+                $stop = is_string($meta['stop_time'] ?? null) ? CarbonImmutable::parse($meta['stop_time']) : null;
+                if (strtoupper((string) ($meta['effective_status'] ?? '')) === 'ACTIVE' && ($stop === null || $stop->greaterThan($today))) {
+                    $active[(int) $row->external_resource_id][(string) $row->campaign_id] = true;
+                }
+            });
+        if ($active === []) {
+            return $out;
+        }
+        $spending = [];
+        DB::table('meta_campaign_daily')->whereIn('external_resource_id', array_keys($active))
+            ->whereBetween('reporting_date', [$since->toDateString(), $today->subDay()->toDateString()])->where('spend', '>', 0)
+            ->select(['external_resource_id', 'campaign_id'])->distinct()->get()
+            ->each(function (object $row) use (&$spending): void {
+                $spending[(int) $row->external_resource_id][(string) $row->campaign_id] = true;
+            });
+        foreach ($active as $id => $campaigns) {
+            if (array_diff_key($campaigns, $spending[$id] ?? []) !== []) {
+                $out[$id] = ['state' => DataStatus::NOT_DELIVERING, 'reason' => 'meta_no_delivery'];
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    private static function decode(mixed $value): array
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+
+        return is_array($decoded) ? $decoded : (is_object($decoded) ? (array) $decoded : []);
     }
 
     /** Why the source cannot be read at all until someone re-authorizes, or null. */

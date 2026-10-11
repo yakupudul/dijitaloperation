@@ -204,7 +204,7 @@ final class RepairDeskTest extends SiteTestCase
         $rows = Suggestion::query()->where('action_type', SiteAudit::TYPE)->get()->keyBy('page_id');
         $this->assertSame([$this->implantPage->id, $long->id, $twin->id], $rows->keys()->sort()->values()->all());
         $this->assertSame('Meta açıklama yok.', $rows[$this->implantPage->id]->reason);
-        $this->assertSame(1, $rows[$this->implantPage->id]->priority);
+        $this->assertSame(3, $rows[$this->implantPage->id]->priority, 'missing description is not critical');
         $this->assertStringContainsString('Başlık 2 sayfada aynı', $rows[$long->id]->reason);
         $this->assertFalse($rows->has($fine->id));
         $this->assertSame(['batch' => 3, 'fields' => 0, 'content' => 0], app(RepairPreparer::class)->queue(), 'prepared in batches of 15 pages per AI call');
@@ -239,7 +239,7 @@ final class RepairDeskTest extends SiteTestCase
     {
         $this->enableAi();
         $this->implantPage->forceFill(['title' => 'İmplant', 'meta_description' => null, 'content_text' => 'Ankara Çankaya şubemizde implant tedavisi yapılır. Tedavi 2 aşamalıdır.'])->save();
-        $zirkonyum = $this->page('/zirkonyum/', 'Zirkonyum', ['wp_post_id' => 43, 'meta_description' => null]);
+        $zirkonyum = $this->page('/zirkonyum/', 'Zirkonyum', ['wp_post_id' => 43, 'meta_description' => null, 'category' => 'hizmet']);
         $this->page('/hakkimizda/', 'Hakkımızda | Panorama Ankara Ağız ve Diş Sağlığı', ['wp_post_id' => 45]);
         $make = fn (Page $page, array $problems): Suggestion => $this->suggestion('Başlık ve açıklamayı düzelt: '.$page->path, SiteAudit::TYPE, ['site_id' => $this->site->id, 'problems' => $problems], ['page_id' => $page->id]);
         $implant = $make($this->implantPage, ['seo_title:short', 'meta_description:missing']);

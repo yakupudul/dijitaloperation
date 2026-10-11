@@ -22,6 +22,7 @@ use Illuminate\Support\Collection;
  *    exactly as the brand Özet asset card summarises it. A data problem is a source in tone bad (Erişim sorunu) or warn
  *    (Gecikmiş / İlk veri yükleniyor).
  *  - Dikkat: a data problem, an account that must be reconnected, or a critical open suggestion — with the reason text.
+ *    Kritik counts check types, not rows: every (asset, action type) with a critical open suggestion counts once.
  */
 final class PortfolioSignalsReader
 {
@@ -245,8 +246,8 @@ final class PortfolioSignalsReader
         $critical = 'CASE WHEN priority <= '.self::CRITICAL_PRIORITY.' THEN 1 ELSE 0 END';
         $rows = Suggestion::query()->actionable()
             ->whereIn('brand_id', $brands->pluck('id')->all())
-            ->selectRaw('brand_id, channel, target_type, target_id, page_id, '.$critical.' as is_critical, count(*) as n')
-            ->groupBy('brand_id', 'channel', 'target_type', 'target_id', 'page_id')
+            ->selectRaw('brand_id, channel, action_type, target_type, target_id, page_id, '.$critical.' as is_critical, count(*) as n')
+            ->groupBy('brand_id', 'channel', 'action_type', 'target_type', 'target_id', 'page_id')
             ->groupByRaw($critical)
             ->toBase()
             ->get();
@@ -257,6 +258,9 @@ final class PortfolioSignalsReader
 
         $brandWork = [];
         $assetWork = [];
+        // Critical counts one per (asset, check type): 6 000 pages missing a title on one site are one critical issue.
+        $brandCritical = [];
+        $assetCritical = [];
         foreach ($rows as $row) {
             $brandId = (int) $row->brand_id;
             $n = (int) $row->n;
@@ -264,15 +268,26 @@ final class PortfolioSignalsReader
             $label = (string) (Suggestion::CHANNEL_LABELS[$row->channel] ?? $row->channel);
             $brandWork[$brandId] ??= ['total' => 0, 'critical' => 0, 'by_channel' => []];
             $brandWork[$brandId]['total'] += $n;
-            $brandWork[$brandId]['critical'] += $isCritical ? $n : 0;
             $brandWork[$brandId]['by_channel'][$label] = ($brandWork[$brandId]['by_channel'][$label] ?? 0) + $n;
 
             $assetId = $this->assetFor($row, $brandId, $assetById, $pageSites, $firstOfType);
+            $check = (string) ($row->action_type ?? '');
+            if ($isCritical) {
+                $brandCritical[$brandId][($assetId !== null ? 'a'.$assetId : 'c'.$row->channel).'|'.$check] = true;
+            }
             if ($assetId !== null) {
                 $assetWork[$assetId] ??= ['total' => 0, 'critical' => 0];
                 $assetWork[$assetId]['total'] += $n;
-                $assetWork[$assetId]['critical'] += $isCritical ? $n : 0;
+                if ($isCritical) {
+                    $assetCritical[$assetId][$check] = true;
+                }
             }
+        }
+        foreach ($brandCritical as $brandId => $groups) {
+            $brandWork[$brandId]['critical'] = count($groups);
+        }
+        foreach ($assetCritical as $assetId => $groups) {
+            $assetWork[$assetId]['critical'] = count($groups);
         }
 
         return [$brandWork, $assetWork];

@@ -22,6 +22,9 @@ return [
         'stale' => 'Gecikmiş',
         'access_problem' => 'Erişim sorunu',
         'paused' => 'Pasif',
+        'idle' => 'Durgun',
+        'account_blocked' => 'Hesap sorunu',
+        'not_delivering' => 'Yayın durdu',
     ],
 
     'stale_days' => 'Gecikmiş · :days gün',
@@ -46,6 +49,16 @@ return [
         'customer_passive' => 'Müşteri veya varlık pasif',
         'collection_disabled' => 'Otomatik güncelleme kapalı',
         'no_rows' => 'Toplama tamamlandı ama veri gelmedi',
+        'idle' => 'Son 7–30 gündür harcama yok',
+        'meta_disabled' => 'Meta hesabı devre dışı',
+        'meta_unsettled' => 'Ödenmemiş bakiye var',
+        'meta_risk_review' => 'Hesap risk incelemesinde',
+        'meta_pending_settlement' => 'Ödeme bekleniyor',
+        'meta_grace_period' => 'Ödeme için ek süre (grace period)',
+        'meta_closing' => 'Hesap kapanıyor',
+        'meta_closed' => 'Hesap kapalı',
+        'meta_restricted' => 'Meta hesabı kısıtladı (disable_reason)',
+        'meta_no_delivery' => 'Aktif kampanyalar 3+ gündür harcama yapmıyor',
     ],
 
     'actions' => [

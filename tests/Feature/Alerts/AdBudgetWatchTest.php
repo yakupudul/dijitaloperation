@@ -67,6 +67,26 @@ final class AdBudgetWatchTest extends TestCase
         $this->assertSame('critical', AssetAlert::query()->where('kind', 'budget_exhausted')->value('severity'));
     }
 
+    public function test_a_dormant_account_keeps_no_budget_or_spend_alert_open(): void
+    {
+        $asset = $this->metaAsset();
+        $this->metaDaily($asset, 0);
+        $this->fakeMeta([
+            'account' => ['account_status' => 1, 'spend_cap' => '1000000', 'amount_spent' => '1000000', 'currency' => 'TRY', 'timezone_name' => 'Europe/Istanbul', 'is_prepay_account' => false],
+            'today' => 0,
+            'ads' => [],
+        ]);
+
+        app(AdBudgetWatch::class)->check($asset);
+
+        $this->assertSame([], AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->whereIn('kind', ['budget_exhausted', 'budget_low', 'budget_no_spend_today'])->pluck('kind')->all(),
+            'no spend for 30+ days: the brand stopped advertising, "bütçe bitti" is not news');
+
+        DB::table('meta_account_daily')->where('digital_asset_id', $asset->id)->where('reporting_date', now()->subDay()->toDateString())->update(['spend' => 50]);
+        app(AdBudgetWatch::class)->check($asset);
+        $this->assertTrue(AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->where('kind', 'budget_exhausted')->exists(), 'spending again: the alert is back');
+    }
+
     public function test_meta_low_prepaid_balance_and_no_spend_today(): void
     {
         $asset = $this->metaAsset();
