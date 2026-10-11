@@ -14,7 +14,6 @@ use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -576,8 +575,7 @@ final class ReviewsPage extends Component
             $places[$assetId] = (string) ($snapshot['place_id'] ?? '');
         }
         $brandIds = $locations->pluck('brand_id')->filter()->map(fn ($id): int => (int) $id)->unique()->values()->all();
-        $topics = $this->section === 'yanit' ? Cache::remember('gbp-review-topics:'.md5(json_encode([array_values($resources), $brandIds])), now()->addMinutes(30),
-            fn (): array => $desk->topics(array_values($resources), $brandIds)) : ['doctors' => [], 'services' => []];
+        $topics = $this->section === 'yanit' ? $desk->cachedTopics(array_values($resources), $brandIds) : ['doctors' => [], 'services' => []];
         $chips = $all->map(fn ($l): array => ['id' => (int) $l->id, 'name' => GbpDesk::shortName((string) $l->name), 'unanswered' => (int) ($allStats[$l->id]['unanswered'] ?? 0)])
             ->sortBy([['unanswered', 'desc'], ['name', 'asc']])->values()->all();
 

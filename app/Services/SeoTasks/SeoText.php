@@ -35,6 +35,9 @@ final class SeoText
 
     private const int MEMO_LIMIT = 50000;
 
+    /** What Str::ascii(…, 'tr') makes of the Turkish letters (fold()'s fast path). */
+    private const array TURKISH_ASCII = ['ç' => 'c', 'ğ' => 'g', 'ı' => 'i', 'ö' => 'o', 'ş' => 's', 'ü' => 'u', 'Ç' => 'C', 'Ğ' => 'G', 'Ö' => 'O', 'Ş' => 'S', 'Ü' => 'U'];
+
     /** fold() calls that had to compute (memo misses) — performance tests assert this stays linear in the input. */
     private static int $foldComputed = 0;
 
@@ -47,7 +50,12 @@ final class SeoText
             return self::$foldMemo[$text];
         }
         self::$foldComputed++;
-        $folded = mb_strtolower(Str::ascii(strtr($text, ['I' => 'ı', 'İ' => 'i']), 'tr'), 'UTF-8');
+        $dotted = strtr($text, ['I' => 'ı', 'İ' => 'i']);
+        // Printable ASCII plus Turkish letters (most titles, paths and queries) fold with one strtr: the same result as
+        // Str::ascii(…, 'tr'), which costs ~10 µs a call and made screens scanning thousands of pages slow.
+        $folded = preg_match('/^[\x20-\x7EçğıöşüÇĞÖŞÜ]*$/u', $dotted) === 1
+            ? strtolower(strtr($dotted, self::TURKISH_ASCII))
+            : mb_strtolower(Str::ascii($dotted, 'tr'), 'UTF-8');
         $folded = trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', $folded) ?? '');
         if (count(self::$foldMemo) >= self::MEMO_LIMIT) {
             self::$foldMemo = [];

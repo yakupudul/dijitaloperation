@@ -38,6 +38,7 @@ use App\Services\Gbp\Desk\PhotoPlan;
 use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
+use App\Services\Gbp\GbpDailyWorkspace;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -912,5 +913,76 @@ final class GbpDeskTest extends TestCase
         $review('e', 'ONE', null, now()->subHour()->toDateTimeString());
         $stats = $desk->stats($resources)[$this->location->id];
         $this->assertSame([5, 3, 2], [$stats['total'], $stats['unanswered'], $stats['low_open']], 'a new review shows at once, not after the cached minute');
+    }
+
+    public function test_photo_numbers_are_counted_in_the_database(): void
+    {
+        $media = fn (string $name, ?string $format, ?string $category, string $created): bool => DB::table('gbp_media')->insert(['digital_asset_id' => $this->location->id,
+            'external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'media_name' => $name, 'media_format' => $format, 'category' => $category,
+            'create_time' => $created, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $media('m1', 'PHOTO', 'logo', '2026-09-01 10:00:00');
+        $media('m2', null, 'ADDITIONAL', '2026-09-26 10:00:00');
+        $media('m3', 'VIDEO', 'COVER', '2026-10-05 10:00:00');
+        $second = $this->secondBranch();
+        $resources = app(GbpDailyWorkspace::class)->resourceIds([$this->location->id, $second->id]);
+
+        $status = app(PhotoPlan::class)->status($resources);
+
+        $this->assertSame(['photos' => 2, 'last' => '2026-09-26', 'days' => 10, 'logo' => true, 'cover' => false, 'stale' => false], $status[$this->location->id]);
+        $this->assertSame(['photos' => 0, 'last' => null, 'days' => null, 'logo' => false, 'cover' => false, 'stale' => true], $status[$second->id]);
+    }
+
+    public function test_review_topics_name_doctors_and_services_and_follow_new_reviews(): void
+    {
+        $service = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'dental', actor: $this->admin)['service'];
+        BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $service->id, 'status' => 'active', 'priority' => 'main', 'locked' => true]);
+        $n = 0;
+        $review = function (string $stars, string $comment) use (&$n): void {
+            DB::table('gbp_reviews')->insert(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'r'.(++$n),
+                'reviewer' => json_encode(['displayName' => 'Ali']), 'star_rating' => $stars, 'comment' => $comment, 'create_time' => '2026-10-01 10:00:00', 'review_reply' => null,
+                'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        };
+        $review('FIVE', 'Dr. Elif çok ilgiliydi, İmplant işlemim harika geçti. Diş hocam teşekkürler.');
+        $review('FOUR', 'Elif Hanım ve ekip süper. (Translated by Google) Elif Hanim and team great.');
+        $review('ONE', 'Ayşe Hanım geç kaldı, implantım ağrıdı.');
+        $review('THREE', '(Translated by Google) Doctor Zeynep (Original) Dr. Ayşe ile görüştüm, sonra Dr. Ayşe yine aradı.');
+        $desk = app(ReviewDesk::class);
+
+        $expected = ['doctors' => [['name' => 'Elif', 'count' => 2, 'average' => 4.5], ['name' => 'Ayşe', 'count' => 2, 'average' => 2.0]],
+            'services' => [['name' => 'İmplant Tedavisi', 'word' => 'implant', 'count' => 2, 'average' => 3.0]]];
+        $this->assertSame($expected, $desk->topics([$this->resourceId], [$this->brand->id]));
+        $this->assertSame($expected, $desk->cachedTopics([$this->resourceId], [$this->brand->id]));
+
+        $review('FIVE', 'İmplant için Mert Bey ve Mert Bey’in ekibine teşekkürler.');
+        $topics = $desk->cachedTopics([$this->resourceId], [$this->brand->id]);
+        $this->assertSame(3, $topics['services'][0]['count'], 'a new review shows at once, not after the cached time');
+        $this->assertSame(['Elif', 'Ayşe'], array_column($topics['doctors'], 'name'), 'one review naming a doctor twice counts once');
+    }
+
+    public function test_review_numbers_of_a_new_minute_are_counted_without_reading_review_rows(): void
+    {
+        foreach (range(1, 60) as $i) {
+            DB::table('gbp_reviews')->insert(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'r'.$i,
+                'reviewer' => json_encode(['displayName' => 'Ali']), 'star_rating' => 'FIVE', 'comment' => 'Yorum '.$i, 'create_time' => now()->subDays($i)->toDateTimeString(),
+                'review_reply' => $i % 2 === 0 ? json_encode(['comment' => 'Teşekkürler', 'updateTime' => now()->subDays($i)->addHours(4)->toIso8601ZuluString()]) : null,
+                'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $desk = app(ReviewDesk::class);
+        $resources = [$this->location->id => $this->resourceId];
+        $first = $desk->stats($resources)[$this->location->id];
+        $this->travel(1)->minutes();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $next = $desk->stats($resources)[$this->location->id];
+        $queries = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+
+        $this->assertSame($first, $next);
+        $this->assertSame(['total' => 60, 'recent' => 60, 'average' => 5.0, 'previous_average' => null, 'unanswered' => 30, 'reply_rate' => 50, 'reply_hours' => 4, 'late' => 29, 'low_open' => 0], $next);
+        $this->assertCount(2, $queries, 'the version and one grouped count; reply times stay cached until a review changes');
+        $this->assertStringContainsString('group by', $queries[1]);
+        $page = $desk->reviews($resources, 'tumu');
+        $this->assertSame([60, ReviewDesk::PAGE], [$page['total'], count($page['rows'])], 'the grid gets one page of rows, not every review');
     }
 }
