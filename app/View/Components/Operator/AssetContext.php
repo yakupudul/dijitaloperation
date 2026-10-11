@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\View\Component;
 
 /**
- * The shared frame line above every digital asset page: Customer › Brand › Asset breadcrumb, a switcher
+ * The shared frame line above every digital asset page: Customer › Brand › Asset breadcrumb (the brand opens its analysis tab), a switcher
  * to the brand's other assets, the "Veri Kaynakları" and "Düzenle" links, and below it the one "Veri durumu" strip
  * (DataStatusReader) — the only place an asset page says whether its sources are connected and current.
  */
@@ -27,6 +27,12 @@ class AssetContext extends Component
     public array $siblings = [];
 
     public string $typeLabel = '';
+
+    /** Breadcrumb: the customer is left out when it is named like its brand ("Avrupadent › Avrupadent"). */
+    public bool $showCustomer = false;
+
+    /** Breadcrumb: "Meta Ads · Obezite", without repeating the type when the asset name already starts with it. */
+    public string $assetLabel = '';
 
     public bool $hasSources = false;
 
@@ -48,6 +54,9 @@ class AssetContext extends Component
 
         $asset = $this->asset;
         $this->typeLabel = DigitalAssetTypes::options()[(string) $asset->type] ?? (string) $asset->type;
+        $this->assetLabel = self::labelFor($this->typeLabel, (string) $asset->name);
+        $customer = $asset->brand?->customer;
+        $this->showCustomer = $customer !== null && ($asset->brand === null || ! self::namesMatch((string) $customer->name, (string) $asset->brand->name));
         $this->hasSources = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type) !== [];
 
         $brandAssets = DigitalAsset::query()
@@ -74,6 +83,24 @@ class AssetContext extends Component
         $this->alerts = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
             ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
             ->get();
+    }
+
+    /** "Meta Ads" + "Meta Ads · Obezite" → "Meta Ads · Obezite"; "Web sitesi" + "Örnek Site" → "Web sitesi · Örnek Site". */
+    public static function labelFor(string $typeLabel, string $name): string
+    {
+        $name = trim($name);
+        $typeLabel = trim($typeLabel);
+        if ($typeLabel === '' || $name === '') {
+            return $name !== '' ? $name : $typeLabel;
+        }
+
+        return str_starts_with(mb_strtolower($name), mb_strtolower($typeLabel)) ? $name : $typeLabel.' · '.$name;
+    }
+
+    /** Same name, ignoring case and surrounding spaces. */
+    public static function namesMatch(string $a, string $b): bool
+    {
+        return mb_strtolower(trim($a)) === mb_strtolower(trim($b));
     }
 
     /**

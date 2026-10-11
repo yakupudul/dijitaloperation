@@ -8,25 +8,22 @@
         'bad' => 'bg-rose-500',
         default => 'bg-gray-300',
     };
-    // Step 3: analysis lives on the brand workspace; asset screens are data / connection status.
-    $workspaceTab = ['website' => 'arama', 'google_business_profile' => 'harita', 'gbp' => 'harita', 'google_ads' => 'google_ads', 'meta_ads' => 'meta'][$asset->type] ?? null;
+    // Analysis lives on the brand workspace: the brand name in the breadcrumb opens the matching brand tab.
+    $workspaceTab = ['website' => 'arama', 'google_business_profile' => 'harita', 'gbp' => 'harita', 'google_ads' => 'google_ads', 'meta_ads' => 'meta'][$asset->type] ?? 'assets';
 @endphp
-@if ($brand && $workspaceTab)
-    <p class="text-sm text-gray-600 dark:text-gray-400" data-workspace-link>Analiz marka ekranında → <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => $workspaceTab]) }}" wire:navigate class="font-semibold text-brand-600 hover:underline dark:text-brand-400">{{ $brand->name }}</a></p>
-@endif
 <div class="flex flex-col gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800 lg:flex-row lg:items-center lg:justify-between" data-asset-context>
     <nav class="flex min-w-0 flex-wrap items-center gap-1.5 text-gray-500 dark:text-gray-400" aria-label="{{ __($a.'breadcrumb') }}">
-        @if ($customer)
-            <a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="hover:text-brand-600">{{ $customer->name }}</a>
+        @if ($showCustomer)
+            <a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="hover:text-gray-900 hover:underline dark:hover:text-white">{{ $customer->name }}</a>
             <span class="text-gray-300">›</span>
         @endif
         @if ($brand)
-            <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => 'assets']) }}" wire:navigate class="hover:text-brand-600">{{ $brand->name }}</a>
+            <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => $workspaceTab]) }}" wire:navigate class="font-medium text-gray-700 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white" data-brand-link title="Analiz marka ekranında">{{ $brand->name }}</a>
             <span class="text-gray-300">›</span>
         @endif
         <details class="relative">
             <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium text-gray-800 hover:bg-white dark:text-gray-100 dark:hover:bg-white/[0.06]">
-                <span>{{ $typeLabel }}: {{ $asset->name }}</span>
+                <span>{{ $assetLabel }}</span>
                 <span class="text-xs text-gray-400">▾</span>
             </summary>
             <div class="absolute left-0 z-40 mt-1 w-72 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
@@ -34,7 +31,7 @@
                 @foreach ($siblings as $sibling)
                     <a href="{{ $sibling['url'] }}" wire:navigate @class([
                         'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
-                        'bg-brand-50 font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' => $sibling['current'],
+                        'bg-gray-100 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white' => $sibling['current'],
                         'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]' => ! $sibling['current'],
                     ])>
                         <span class="h-2 w-2 shrink-0 rounded-full {{ $dot($sibling['tone']) }}"></span>
@@ -43,7 +40,7 @@
                     </a>
                 @endforeach
                 @if ($brand)
-                    <a href="{{ route('operator.asset.create', ['brandId' => $brand->id]) }}" wire:navigate class="mt-1 block rounded-lg border-t border-gray-100 px-2.5 py-2 text-sm text-brand-600 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.04]">+ {{ __($a.'add_asset') }}</a>
+                    <a href="{{ route('operator.asset.create', ['brandId' => $brand->id]) }}" wire:navigate class="mt-1 block rounded-lg border-t border-gray-100 px-2.5 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">+ {{ __($a.'add_asset') }}</a>
                 @endif
             </div>
         </details>
@@ -53,8 +50,8 @@
         @if ($hasSources)
             <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate @class([
                 'rounded-lg px-2.5 py-1 text-xs font-semibold',
-                'bg-brand-500 text-white' => $current === 'sources',
-                'text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-300 dark:ring-brand-500/30' => $current !== 'sources',
+                'bg-gray-800 text-white dark:bg-white dark:text-gray-900' => $current === 'sources',
+                'text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-white dark:text-gray-300 dark:ring-gray-700' => $current !== 'sources',
             ])>{{ __($a.'sources') }}</a>
         @endif
         <a href="{{ route('operator.asset.edit', ['assetId' => $asset->id]) }}" wire:navigate @class([
