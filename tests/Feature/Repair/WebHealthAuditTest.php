@@ -13,6 +13,7 @@ use App\Services\Repair\RepairDesk;
 use App\Services\Repair\WebHealthAudit;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -204,6 +205,35 @@ final class WebHealthAuditTest extends SiteTestCase
         // A second night uses the stored link results (no new requests to the linked sites).
         app(WebHealthAudit::class)->audit($this->site);
         Http::assertSentCount(4);
+    }
+
+    public function test_a_link_or_sitemap_address_with_an_invalid_host_is_listed_as_broken_instead_of_stopping_the_check(): void
+    {
+        Exceptions::fake();
+        // Seen live: "MalformedUriException: Invalid host" from the nightly audit (a link with a backslash or a space in its host).
+        $this->edge('https://panorama.com.tr/implant-tedavisi/', 'https://saglam.example\\iletisim', false);
+        $this->edge('https://panorama.com.tr/implant-tedavisi/', 'https://kotu site.example/', false);
+        $this->edge('https://panorama.com.tr/implant-tedavisi/', 'https://kapanmis-site.example/rehber/', false);
+        DB::table('gsc_sitemap_snapshot')->insert(['digital_asset_id' => $this->site->id, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr',
+            'sitemap_path' => 'https://panorama.com.tr/page-sitemap.xml', 'retrieved_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'page-sitemap'), 'metadata' => json_encode(['errors' => 1, 'warnings' => 0])]);
+        Http::fake([
+            'https://panorama.com.tr/' => Http::response('<html></html>', 200, ['Strict-Transport-Security' => 'max-age=31536000']),
+            'https://panorama.com.tr/page-sitemap.xml' => Http::response('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://panorama.com.tr/implant-tedavisi/</loc></url><url><loc>https://panorama.com.tr\\hakkimizda/</loc></url></urlset>'),
+            'https://panorama.com.tr/implant-tedavisi/' => Http::response('', 200),
+            'https://kapanmis-site.example/*' => Http::response('', 404),
+        ]);
+
+        app(WebHealthAudit::class)->audit($this->site);
+
+        Exceptions::assertNothingReported();
+        $rows = app(RepairDesk::class)->rows()->keyBy('title');
+        $this->assertEqualsCanonicalizing([
+            'https://kapanmis-site.example/rehber/ (404) ← /implant-tedavisi/',
+            'https://saglam.example\\iletisim (geçersiz adres) ← /implant-tedavisi/',
+            'https://kotu site.example/ (geçersiz adres) ← /implant-tedavisi/',
+        ], $rows['Kırık dış bağlantı (3)']['before']);
+        $this->assertContains('https://panorama.com.tr\\hakkimizda/ → geçersiz adres', $rows['Site haritasında 1 hata, 0 uyarı: /page-sitemap.xml']['before']);
     }
 
     public function test_a_301_goes_only_to_a_page_whose_words_fit_the_dead_address_and_numbers_match(): void

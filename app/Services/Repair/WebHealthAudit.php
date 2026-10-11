@@ -12,6 +12,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\SiteScope;
+use GuzzleHttp\Psr7\Uri;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
@@ -101,7 +102,22 @@ final class WebHealthAudit
     /** @var array<int, array{status: array<string, int>, sources: array<string, array{url: string, from: array<string, bool>}>}|null> internal links to dead addresses, per site (one audit) */
     private array $deadLinks = [];
 
+    /** Link check result of an address no request can be built for (MalformedUriException: invalid host). */
+    private const int INVALID_ADDRESS = -2;
+
     public function __construct(private readonly ExternalWriteService $writes) {}
+
+    /** Whether the HTTP client can build a request for this address (Guzzle rejects e.g. a space or backslash in the host). */
+    private static function isRequestableUrl(string $url): bool
+    {
+        try {
+            new Uri($url);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return true;
+    }
 
     /** @return array{sites: int, opened: int, closed: int} */
     public function run(): array
@@ -549,9 +565,12 @@ final class WebHealthAudit
         }
         $lines = [($isIndex ? 'Harita '.count($locations).' alt harita listeliyor.' : 'Harita '.count($locations).' adres listeliyor.')];
         $sample = array_slice($locations, 0, $isIndex ? 30 : 40);
-        $responses = Http::pool(fn (Pool $pool): array => array_map(fn (string $u) => $pool->as($u)->timeout(8)->connectTimeout(5)
+        // An address the HTTP client cannot even build (a space or backslash in its host) is a broken entry, not a crash.
+        $invalid = array_values(array_filter($sample, fn (string $u): bool => ! self::isRequestableUrl($u)));
+        $sample = array_values(array_diff($sample, $invalid));
+        $responses = $sample === [] ? [] : Http::pool(fn (Pool $pool): array => array_map(fn (string $u) => $pool->as($u)->timeout(8)->connectTimeout(5)
             ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP sitemap check)'])->withOptions(['allow_redirects' => false])->head($u), $sample));
-        $bad = [];
+        $bad = array_map(fn (string $u): string => $u.' → geçersiz adres', $invalid);
         foreach ($sample as $location) {
             $result = $responses[$location] ?? null;
             $code = $result instanceof Response ? $result->status() : 0;
@@ -675,17 +694,27 @@ final class WebHealthAudit
             return null;
         }
         $targets = [];
+        $invalid = [];
         foreach ($edges as $edge) {
             $url = (string) $edge->target_url;
             $host = mb_strtolower((string) parse_url($url, PHP_URL_HOST));
             if (! preg_match('#^https?://#i', $url) || $host === '' || preg_match(self::SKIP_HOSTS, $host) === 1) {
                 continue;
             }
+            if (! self::isRequestableUrl($url)) {
+                // A host with a space, backslash or other character no request can carry: listed as broken, never sent.
+                $invalid[$url] = true;
+            }
             $targets[$url][$this->path((string) $edge->source_url)] = true;
         }
         $results = [];
         $unchecked = [];
         foreach (array_keys($targets) as $url) {
+            if (isset($invalid[$url])) {
+                $results[$url] = self::INVALID_ADDRESS;
+
+                continue;
+            }
             $known = Cache::get($this->cacheKey($url));
             if ($known === null) {
                 $unchecked[] = $url;
@@ -707,14 +736,18 @@ final class WebHealthAudit
                 $results[$url] = $code;
             }
         }
-        $broken = array_filter($results, fn (int $code): bool => in_array($code, [0, 404, 410], true));
+        $broken = array_filter($results, fn (int $code): bool => in_array($code, [0, 404, 410, self::INVALID_ADDRESS], true));
         if ($broken === []) {
             return [];
         }
         $lines = [];
         foreach ($broken as $url => $code) {
             $from = array_keys($targets[$url] ?? []);
-            $lines[] = $url.' ('.($code === 0 ? 'alan adı yok' : $code).') ← '.implode(', ', array_slice($from, 0, 3)).(count($from) > 3 ? ' +'.(count($from) - 3) : '');
+            $lines[] = $url.' ('.match ($code) {
+                0 => 'alan adı yok',
+                self::INVALID_ADDRESS => 'geçersiz adres',
+                default => $code,
+            }.') ← '.implode(', ', array_slice($from, 0, 3)).(count($from) > 3 ? ' +'.(count($from) - 3) : '');
         }
 
         return [['key' => 'external', 'priority' => 3, 'target' => $this->origin($site), 'title' => sprintf('Kırık dış bağlantı (%d)', count($broken)),
