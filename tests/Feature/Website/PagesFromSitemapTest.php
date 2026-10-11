@@ -44,6 +44,23 @@ final class PagesFromSitemapTest extends TestCase
 
         $noindex = (new MainContentExtractor)->fromDocument('<html><head><meta name="robots" content="noindex, follow"></head><body><main><p>x</p></main></body></html>', 'https://site.example/x/');
         $this->assertFalse($noindex['is_indexable']);
+        $this->assertNull($noindex['language'], 'too little text to guess');
+    }
+
+    public function test_a_page_without_html_lang_gets_its_language_from_og_locale_hreflang_or_its_words(): void
+    {
+        $extractor = new MainContentExtractor;
+        $doc = fn (string $head, string $body): string => '<html><head><title>Klinik</title>'.$head.'</head><body><main>'.$body.'</main></body></html>';
+
+        $this->assertSame('de', $extractor->fromDocument($doc('<meta property="og:locale" content="de_DE">', '<p>x</p>'), 'https://site.example/de/')['language']);
+        $this->assertSame('en', $extractor->fromDocument($doc('<link rel="alternate" hreflang="tr" href="https://site.example/">'
+            .'<link rel="alternate" hreflang="en-GB" href="https://site.example/en/implant">', '<p>x</p>'), 'https://site.example/en/implant/')['language'], 'the hreflang link pointing at the page itself');
+        $this->assertSame('tr', $extractor->fromDocument($doc('', '<p>İmplant tedavisi için kliniğimize gelen hastalarımız ve aileleri bu süreçte çok daha rahat eder. Tedavi sonrası kontrol her ay yapılır ve size göre planlanır.</p>'), 'https://site.example/a/')['language']);
+        $this->assertSame('en', $extractor->fromDocument($doc('', '<p>Our clinic offers dental implants for patients from the UK. You can book your visit with the team and we will plan the treatment for you.</p>'), 'https://site.example/b/')['language']);
+        $this->assertSame('de', $extractor->fromDocument($doc('', '<p>Unsere Klinik bietet Zahnimplantate für Patienten aus Deutschland. Sie können einen Termin mit dem Team vereinbaren und wir planen die Behandlung.</p>'), 'https://site.example/c/')['language']);
+        $this->assertSame('ru', $extractor->fromDocument($doc('', '<p>Наша клиника предлагает зубные импланты для пациентов из России и других стран мира.</p>'), 'https://site.example/d/')['language']);
+        $this->assertSame('ar', $extractor->fromDocument($doc('', '<p>عيادتنا تقدم زراعة الأسنان للمرضى من جميع أنحاء العالم مع فريق طبي متخصص</p>'), 'https://site.example/e/')['language']);
+        $this->assertSame('tr', $extractor->fromDocument('<html lang="tr-TR"><head><meta property="og:locale" content="en_US"></head><body><p>The clinic</p></body></html>', 'https://site.example/')['language'], '<html lang> wins');
     }
 
     public function test_sitemap_urls_are_fetched_once_rewritten_only_on_change_and_removed_when_gone(): void

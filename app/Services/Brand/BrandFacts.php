@@ -388,16 +388,26 @@ final class BrandFacts
     private function languages(Brand $brand): array
     {
         $items = [];
+        $read = 0;
+        $unknown = 0;
         foreach ($this->websites($brand) as $site) {
             $main = SiteScope::primaryLanguage($site);
+            $read += Page::query()->where('website_asset_id', $site->id)->count();
+            $unknown += Page::query()->where('website_asset_id', $site->id)->whereNull('language')->count();
             $counts = Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')->groupBy('language')->selectRaw('language, count(*) as n')
                 ->orderByDesc('n')->pluck('n', 'language')->all();
             foreach ($counts as $language => $n) {
                 $items[] = strtoupper(substr((string) $language, 0, 2)).' · '.$n.' sayfa'.(strtolower(substr((string) $language, 0, 2)) === strtolower((string) $main) ? ' (ana dil)' : '').' · '.$site->name;
             }
         }
+        $missingTag = $unknown > 0 ? $unknown.' sayfada dil etiketi (<html lang>) yok ve metinden de anlaşılamadı' : null;
+        $source = match (true) {
+            $read === 0 => 'Sitenin sayfaları henüz okunmadı.',
+            $items === [] => $read.' sayfa okundu; '.$missingTag.'.',
+            default => 'Site taraması, '.$read.' sayfa okundu'.($missingTag !== null ? '; '.$missingTag : ''),
+        };
 
-        return ['items' => array_slice($items, 0, self::ITEMS), 'source' => $items !== [] ? 'Site taraması (sayfa dilleri)' : 'Sayfa dili okunmadı.'];
+        return ['items' => array_slice($items, 0, self::ITEMS), 'source' => $source];
     }
 
     /** @return array{items: list<string>, source: string} */
@@ -418,7 +428,7 @@ final class BrandFacts
     /** @return list<DigitalAsset> */
     private function websites(Brand $brand): array
     {
-        return DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get()->all();
+        return DigitalAsset::query()->operational()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get()->all();
     }
 
     /** @return list<int> the brand's Business Profile resources */

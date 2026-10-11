@@ -31,6 +31,13 @@ final class MainContentExtractor
 
     private const int MAX_TABLE_ROWS = 30;
 
+    /** Very common words per language: enough to tell TR / EN / DE pages apart without a library. */
+    private const array STOPWORDS = [
+        'tr' => ['ve', 'bir', 'bu', 'için', 'ile', 'çok', 'daha', 'olarak', 'gibi', 'olan', 'sonra', 'kadar', 'ise', 'veya', 'değil', 'sizin', 'her', 'hem', 'nasıl', 'neden', 'size', 'ancak', 'göre'],
+        'en' => ['the', 'and', 'of', 'to', 'is', 'for', 'with', 'that', 'are', 'you', 'your', 'this', 'our', 'we', 'from', 'can', 'will', 'have', 'it', 'at', 'by'],
+        'de' => ['der', 'die', 'und', 'das', 'ist', 'mit', 'für', 'nicht', 'sie', 'ein', 'eine', 'zu', 'den', 'von', 'auf', 'auch', 'wir', 'ihre', 'sich', 'bei', 'dem', 'des', 'oder'],
+    ];
+
     /** Inline elements: their text joins the surrounding line. */
     private const array INLINE = ['span', 'strong', 'b', 'em', 'i', 'a', 'small', 'sup', 'sub', 'mark', 'abbr', 'code', 'u', 's', 'del', 'ins', 'q', 'cite', 'time', 'label', 'font', 'bdi', 'bdo', 'kbd', 'var', 'wbr'];
 
@@ -54,6 +61,8 @@ final class MainContentExtractor
         $outline = $main instanceof DOMNode ? $this->outline($main) : '';
         [$text, $headings] = $main instanceof DOMNode ? $this->read($main) : ['', []];
         $h1 = $this->firstLevel($headings, 1) ?? $documentH1;
+        // No language in the head: a cheap stopword count over the page's own words (sites without <html lang>).
+        $head['language'] ??= self::guessLanguage(implode(' ', [(string) $head['title'], (string) $h1, $text]));
 
         return $head + [
             'h1' => $h1,
@@ -122,8 +131,7 @@ final class MainContentExtractor
                 break;
             }
         }
-        $lang = $xpath->query('//html[@lang]')?->item(0);
-        $language = $lang instanceof DOMElement ? mb_strtolower(substr(trim($lang->getAttribute('lang')), 0, 2)) : null;
+        $language = $this->headLanguage($xpath, $url, $canonical);
 
         return [
             'title' => $title !== '' ? mb_substr($title, 0, 500) : null,
@@ -132,6 +140,69 @@ final class MainContentExtractor
             'language' => $language !== '' ? $language : null,
             'is_indexable' => ! str_contains($robots, 'noindex') && ! str_contains($robots, 'none'),
         ];
+    }
+
+    /** The page language from the head: <html lang>, else og:locale, else the hreflang link pointing at the page itself. */
+    private function headLanguage(DOMXPath $xpath, string $url, ?string $canonical): ?string
+    {
+        $short = fn (string $value): ?string => preg_match('/^([a-z]{2})(?:[-_]|$)/i', trim($value), $m) === 1 ? mb_strtolower($m[1]) : null;
+        $lang = $xpath->query('//html[@lang]')?->item(0);
+        if ($lang instanceof DOMElement && ($value = $short($lang->getAttribute('lang'))) !== null) {
+            return $value;
+        }
+        foreach ($xpath->query('//meta[@property]') ?: [] as $meta) {
+            if ($meta instanceof DOMElement && mb_strtolower(trim($meta->getAttribute('property'))) === 'og:locale' && ($value = $short($meta->getAttribute('content'))) !== null) {
+                return $value;
+            }
+        }
+        $self = array_filter([self::sameUrlKey($url), $canonical !== null ? self::sameUrlKey($canonical) : null]);
+        foreach ($xpath->query('//link[@hreflang]') ?: [] as $link) {
+            if (! $link instanceof DOMElement || ! in_array('alternate', preg_split('/\s+/', mb_strtolower($link->getAttribute('rel'))) ?: [], true)) {
+                continue;
+            }
+            $href = $this->absolute(trim($link->getAttribute('href')), $url);
+            if ($href !== null && in_array(self::sameUrlKey($href), $self, true) && ($value = $short($link->getAttribute('hreflang'))) !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private static function sameUrlKey(string $url): string
+    {
+        return mb_strtolower(rtrim((string) preg_replace('#^https?://(www\.)?#i', '', trim($url)), '/'));
+    }
+
+    /**
+     * Language of a text by script (Cyrillic → ru, Arabic → ar) or by stopwords (tr, en, de); null when the text is too
+     * short or no language clearly wins.
+     */
+    public static function guessLanguage(string $text): ?string
+    {
+        $text = mb_strtolower(mb_substr($text, 0, 20000));
+        $letters = preg_match_all('/\p{L}/u', $text);
+        if ($letters < 40) {
+            return null;
+        }
+        if (preg_match_all('/\p{Cyrillic}/u', $text) / $letters > 0.4) {
+            return 'ru';
+        }
+        if (preg_match_all('/\p{Arabic}/u', $text) / $letters > 0.4) {
+            return 'ar';
+        }
+        $words = array_count_values(preg_split('/[^\p{L}]+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+        $hits = [];
+        foreach (self::STOPWORDS as $language => $stopwords) {
+            $hits[$language] = array_sum(array_intersect_key($words, array_flip($stopwords)));
+        }
+        arsort($hits);
+        $scores = array_values($hits);
+        if ($scores[0] < 3 || $scores[0] < 2 * $scores[1]) {
+            return null;
+        }
+
+        return (string) array_key_first($hits);
     }
 
     private function meta(DOMXPath $xpath, string $name): ?string
