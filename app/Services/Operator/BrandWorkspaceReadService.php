@@ -150,8 +150,8 @@ final class BrandWorkspaceReadService
         ];
     }
 
-    /** Checklist items an automatic "Otomatik kur" run fills (Marka tamamlama). */
-    public const array AUTOFILLED_KEYS = ['services', 'main_service', 'areas', 'sector'];
+    /** Checklist items an automatic "Otomatik kur" run fills (Marka tamamlama); places come only through the Onarım masası. */
+    public const array AUTOFILLED_KEYS = ['services', 'main_service', 'sector'];
 
     /** The date of the brand's last automatic run nobody confirmed yet ("Kontrol ettim"), or null. */
     public static function autofilled(Brand $brand): ?string

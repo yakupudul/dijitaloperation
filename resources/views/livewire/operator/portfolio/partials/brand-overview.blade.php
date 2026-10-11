@@ -18,8 +18,13 @@
         <section class="{{ $card }}" data-setup-missing>
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Marka eksikleri · {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
-                    <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır. Sistem eksikleri her gece kendisi doldurmayı dener.</p>
+                    @if ($checklist['done'] >= $checklist['total'])
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white" data-setup-title="review">Kontrol bekleyen · {{ $reviewSetup->count() }}</h2>
+                        <p class="text-xs text-gray-500">Eksik yok; aşağıdakileri sistem doldurdu ya da otomatik seçti. Bakıp "Kontrol ettim" de.</p>
+                    @else
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white" data-setup-title="missing">Marka eksikleri · {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
+                        <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır. Sistem eksikleri her gece kendisi doldurmayı dener.</p>
+                    @endif
                     @if ($autofillNote = \App\Services\BrandSetup\BrandAutofill::note((int) $brandModel->id))
                         <p class="mt-1 text-xs text-sky-700 dark:text-sky-300" data-autofill-note>Son tur ({{ \Carbon\Carbon::parse($autofillNote['at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}): {{ $autofillNote['text'] }}</p>
                     @endif

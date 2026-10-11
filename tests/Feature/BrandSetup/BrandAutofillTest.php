@@ -5,6 +5,7 @@ namespace Tests\Feature\BrandSetup;
 use App\Jobs\BuildBrandSetupProposalJob;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
@@ -20,6 +21,7 @@ use App\Models\User;
 use App\Services\BrandSetup\BrandAutofill;
 use App\Services\BrandSetup\LanguageServices;
 use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Website\Pages\PageStore;
 use App\Support\Roles;
@@ -153,6 +155,29 @@ final class BrandAutofillTest extends TestCase
         $this->assertSame([], app(BrandAutofill::class)->missing($this->brand));
         $this->assertSame('complete', app(BrandAutofill::class)->forBrand($this->brand));
         $this->assertNull(BrandAutofill::note($this->brand->id), 'a finished brand shows no stale note');
+    }
+
+    public function test_with_nothing_missing_the_card_shows_what_waits_for_a_look_and_places_are_never_marked_as_filled_by_claude(): void
+    {
+        $this->completeBrand();
+        app(ServiceKeywordService::class)->append(BrandOffering::query()->where('brand_id', $this->brand->id)->sole()->catalogItem, ['implant']);
+        BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'name' => 'İstanbul', 'city_name' => 'İstanbul', 'normalized_key' => 'tr-istanbul', 'status' => 'active']);
+        BrandConversionSource::query()->create(['brand_id' => $this->brand->id, 'source' => 'ga4_key_event', 'source_key' => 'generate_lead', 'label' => 'generate_lead',
+            'conversion_type' => 'form_submission', 'counts' => true, 'origin' => BrandConversionSource::ORIGIN_OPERATOR]);
+        BrandSetupProposal::query()->create(['brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_APPLIED, 'website_url' => 'https://adadent.com.tr/',
+            'auto_apply' => true, 'applied_at' => now(), 'items' => [], 'services' => [], 'services_status' => 'ready', 'summary' => []]);
+
+        $workspace = app(BrandWorkspaceReadService::class);
+        $checklist = $workspace->checklist($this->brand->fresh(), $workspace->assets($this->brand), $workspace->services($this->brand));
+        $items = collect($checklist['items'])->keyBy('key');
+        $this->assertSame($checklist['total'], $checklist['done']);
+        $this->assertTrue($items['services']['review'] ?? false);
+        $this->assertFalse($items['areas']['review'] ?? false, 'places come only through the Onarım masası');
+
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-setup-title="review"')
+            ->assertSee('Kontrol bekleyen')
+            ->assertDontSee('Marka eksikleri');
     }
 
     private function completeBrand(): void
