@@ -15,6 +15,7 @@ use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
+use App\Services\Catalog\ServiceNameQuality;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Ownership\OwnershipGuard;
@@ -332,6 +333,10 @@ final class BrandSetupApplier
     {
         $result = ['key' => 'service:'.$service['name'], 'label' => $service['name'], 'ok' => false, 'message' => ''];
         try {
+            // A new catalog name must look like a service (raw page titles, sentences, "Ekimi" are never created).
+            if ($service['status'] === 'proposed' && $service['is_new'] && ($problem = ServiceNameQuality::problem((string) $service['name'])) !== null) {
+                return array_merge($result, ['message' => 'Hizmet eklenmedi: '.$problem]);
+            }
             if ($service['status'] === 'proposed' && $service['is_new'] && $service['sector_code'] !== null) {
                 // New catalog entry under the suggested sector (existing names are found, never duplicated).
                 $this->catalog->resolveOrCreate($service['name'], $service['sector_code'], actor: $actor);

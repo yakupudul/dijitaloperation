@@ -11,6 +11,7 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
@@ -99,6 +100,25 @@ final class BrandSetupApplyRobustnessTest extends TestCase
         $this->assertStringContainsString('katalogda yok', $sector['message']);
         $this->assertSame(BrandSetupProposal::STATUS_APPLIED, $proposal->fresh()->status);
         $this->assertSame($results, $proposal->fresh()->apply_result);
+    }
+
+    public function test_new_service_names_that_are_not_service_names_are_never_created(): void
+    {
+        $proposal = $this->proposal(services: [
+            ['name' => 'Ekimi', 'sector_code' => 'saglik', 'is_new' => true, 'status' => 'proposed'],
+            ['name' => 'Hizmetlerimiz', 'sector_code' => 'saglik', 'is_new' => true, 'status' => 'proposed'],
+            ['name' => '/CAM Kaplama', 'sector_code' => 'saglik', 'is_new' => true, 'status' => 'proposed'],
+            ['name' => 'Kliniğimizde en iyi implant tedavisini sunuyoruz.', 'sector_code' => 'saglik', 'is_new' => true, 'status' => 'proposed'],
+            ['name' => 'Hair Transplant in', 'sector_code' => 'saglik', 'is_new' => true, 'status' => 'proposed'],
+            ['name' => 'Saç Ekimi', 'sector_code' => 'saglik', 'is_new' => true, 'status' => 'proposed'],
+        ]);
+
+        $results = app(BrandSetupApplier::class)->apply($proposal, $this->admin, [], [0, 1, 2, 3, 4, 5]);
+
+        $this->assertSame(['Saç Ekimi'], ServiceCatalogName::query()->pluck('raw_label')->all());
+        $refused = collect($results)->filter(fn (array $row): bool => str_starts_with($row['key'], 'service:') && ! $row['ok']);
+        $this->assertCount(5, $refused);
+        $this->assertStringStartsWith('Hizmet eklenmedi:', $refused->first()['message']);
     }
 
     public function test_messy_items_are_reported_per_row_and_a_failing_step_does_not_stop_the_rest(): void
