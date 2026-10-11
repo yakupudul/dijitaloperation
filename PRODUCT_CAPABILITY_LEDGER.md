@@ -1,5 +1,31 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Onarım ve reklam kontrolleri: önem şişmesi, konu dışı SEO önerileri, Meta/Ads kural düzeltmeleri
+
+Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
+- **Önem şişmesi (avrupadent "6686 kritik öneri"):** `SiteAudit` önceliği: başlık eksik/aynı → 1 yalnız son 90 günde GSC
+  gösterimi olan ya da hizmet/lokasyon sayfasında (değilse 2); açıklama eksik/aynı 3, uzunluk 4; 90 günde gösterimi
+  olmayan sayfada açıklama sorunu 5. Eklenti alanı boş/şablon olsa da sitenin bastığı açıklama (`website_metadata_snapshot`,
+  `RenderedMeta`) "var" sayılır; `WordPressPageSync` de bunu saklar. Dikkat/kritik sayısı sayfa değil (varlık, kontrol
+  türü) başına. İçerik fikirleri en az 3, Ads "hizmet ↔ kampanya" 3. Göç `2026_12_11_130000` bekleyen `seo_fields`
+  satırlarını yeniden önceliklendirir (onaylı/uygulanmış satırlara dokunmaz).
+- **Konu dışı SEO önerisi (OPC dermal dolgu → "diş dolgusu"):** `SeoFieldsBatch` çağrı başına en çok 5 sayfa, aynı dil +
+  sayfa türü; SSS/blog paketine marka hizmetleri gitmez; ince sayfada (<80 kelime) kayıtlı tarama metni kullanılır;
+  istem v3 "yalnız bu sayfanın konusu". Öneri sayfanın başlık/H1/URL kelimelerinden en az 2'sini paylaşmalı. Tüm değerleri
+  reddedilen satır deneme sayar, 3. denemede gerekçeyle bloke olur (saatlik sonsuz tekrar bitti). Göç `2026_12_11_140000`
+  konu dışı bekleyen önerileri temizler ve istemi benimser.
+- **Meta:** Veri durumu: Durgun (7–30 gün harcama yok) ile Pasif ayrıldı; `account_status`/`disable_reason` sorunu
+  "Hesap sorunu", 3+ gün harcamasız ACTIVE kampanya "Yayın durdu" — ikisi de Dikkat'e girer (`disable_reason` artık
+  toplanıyor). Pixel anlık görüntü tarihine göre; toplamlar sonuç türü başına, sonuç başı maliyet baskın türden; UTM
+  kontrolü `url_tags`'i de okur (toplanıyor); ABO'da "bütçe almayan reklam" reklam seti içinde karşılaştırılır.
+- **Google Ads:** Paylaşılan negatif liste yalnız bağlandığı kampanyaların (`campaigns_attached`) anahtar kelimelerini
+  engeller, bağlantı bilinmiyorsa atlanır. 30 gündür harcamasız hesapta bütçe/harcama uyarıları kapanır (hesap
+  yayınlayamıyor uyarısı kalır). Açılış sayfası kontrolü parametre/parçayı atar, "sitede bulunamadı"yı yalnız tam
+  WordPress sayfa listesinde söyler. `GoogleAdsAdvisorRuleEngine` kuralları salt-okunur `ads_advice` önerisi olarak
+  (öncelik 3–5) Ads yapılacaklarına girer; onay yalnız "elle yapıldı" kaydıdır, hesaba yazılmaz.
+- Testler: `SeoFieldSeverityTest`, `SeoFieldsGroundingTest`, `RepairDeskTest`, `PagesFromWordPressTest`,
+  `DataStatusTest`, `MetaRuleFixesTest`, `AdBudgetWatchTest`, `GoogleAdsScreenTest`, `SiteSuggestionsTest`.
+
 ## 2026-10-10 — Marka merkezli yapı (yakup: "verinin özü = marka")
 
 - **Analiz:** `/mnt/project-files/notes/marka-merkezli-mimari-analizi.md`. yakup sırayla yapılmasını onayladı.
