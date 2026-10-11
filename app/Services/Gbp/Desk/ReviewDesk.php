@@ -152,18 +152,26 @@ final class ReviewDesk
         $key = 'gbp-review-reply-hours:'.md5((string) json_encode([$ids, $version]));
 
         return Cache::remember($key, now()->addDay(), function () use ($ids): array {
-            $acc = [];
+            $sums = [];
+            $counts = [];
+            // Only the reply's date is read from its JSON (not the reply text).
             foreach (DB::table('gbp_reviews')->whereIn('external_resource_id', $ids)->whereNotNull('create_time')->whereRaw('not '.self::OPEN_SQL)
-                ->get(['external_resource_id', 'create_time', 'review_reply']) as $row) {
-                $reply = json_decode((string) $row->review_reply, true);
-                $at = is_array($reply) && is_string($reply['updateTime'] ?? null) ? self::seconds($reply['updateTime']) : null;
-                $made = self::seconds((string) $row->create_time);
+                ->get(['external_resource_id', 'create_time', 'review_reply->updateTime as replied_at']) as $row) {
+                $at = is_string($row->replied_at) ? self::seconds($row->replied_at) : null;
+                $made = $at !== null ? self::seconds((string) $row->create_time) : null;
                 if ($at !== null && $made !== null && $at >= $made) {
-                    $acc[(int) $row->external_resource_id][] = ($at - $made) / 3600;
+                    $resourceId = (int) $row->external_resource_id;
+                    $sums[$resourceId] = ($sums[$resourceId] ?? 0) + ($at - $made) / 3600;
+                    $counts[$resourceId] = ($counts[$resourceId] ?? 0) + 1;
                 }
             }
 
-            return array_map(static fn (array $hours): int => (int) round(array_sum($hours) / count($hours)), $acc);
+            $hours = [];
+            foreach ($sums as $resourceId => $sum) {
+                $hours[$resourceId] = (int) round($sum / $counts[$resourceId]);
+            }
+
+            return $hours;
         });
     }
 
