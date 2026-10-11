@@ -4028,3 +4028,9 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
 - Tests: `QueryReviewFlowTest`, `QueryPipelineTest`, `QueryAutopilotTest`, `ServiceNameQualityTest`,
   `ServiceCatalogSectorTest`, `ServiceReleaseTest`, `ServiceCatalogCleanTest`, `QueryFinishTest`,
   `AiCreditsAndAssignmentsTest`, `BrandSetupApplyRobustnessTest`, `SiteUpkeepTest`, `QueryVolumeRefreshTest`.
+- Queries page UI (no behavior change): tabs are an underline tab bar with count pills (Silinecekler amber) and
+  "AI ile planla" as a secondary button; "AI ile kümele" / "AI ile filtre kural üret" are secondary and show a gray
+  disabled state with a one-line reason; "AI ile hizmet öner" is the single orange action. The autopilot box shows
+  four counters (Atanan, Bekleyen, AI sırasında, Son kontrol) with a status pill and an (i) popover for the
+  explanation, totals and the full "Son kontrol" line. Table: short non-wrapping source tags, right-aligned
+  tabular numbers, an amber dot for unassigned queries instead of the Durum column. Test: `QueriesScreenTest`.

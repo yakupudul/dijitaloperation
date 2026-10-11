@@ -3,39 +3,72 @@
     $input = 'rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $btn = 'rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
+    // Secondary action: a disabled one turns plainly gray (no faded orange) and its reason sits next to it.
+    $secondary = 'rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:ring-gray-200 disabled:hover:bg-gray-100 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-800 dark:disabled:bg-gray-800 dark:disabled:text-gray-500';
+    $hint = 'text-[11px] text-gray-400 dark:text-gray-500';
     $chip = 'rounded-full px-2 py-0.5 text-xs';
     $num = fn ($value) => number_format((float) $value, 0, ',', '.');
+    $tabClass = fn (bool $active): string => $active
+        ? '-mb-px inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 border-gray-900 text-sm font-semibold text-gray-900 dark:border-white dark:text-white'
+        : '-mb-px inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
+    $countPill = 'rounded-full bg-gray-100 px-1.5 text-[11px] font-medium tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300';
+    $deletionsTotal = array_sum($reviewCounts);
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-queries-page @if ($polling) wire:poll.3s="{{ $negAwaiting ? 'pollNegatives' : '$refresh' }}" @endif>
-    <header class="flex flex-wrap items-center justify-between gap-3">
+    <header class="space-y-2">
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Sorgular</h1>
-        <nav class="flex flex-wrap items-center gap-1" aria-label="Sekmeler">
-            @foreach (\App\Livewire\Operator\Library\QueriesPage::TABS as $key => $label)
-                <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @class(['rounded-lg px-3 py-1.5 text-xs font-semibold', 'bg-brand-500 text-white' => $tab === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $tab !== $key])>{{ $label }}@if ($key === 'pending' && $pendingCount > 0) <span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white" data-pending-count>{{ $pendingCount }}</span>@endif@if ($key === 'deletions' && array_sum($reviewCounts) > 0) <span class="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] text-white" data-deletions-count>{{ array_sum($reviewCounts) }}</span>@endif</button>
-            @endforeach
-            <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="{{ $btn }} ml-2">AI ile planla</a>
-        </nav>
+        <div class="flex items-end gap-3 border-b border-gray-200 dark:border-gray-800">
+            <nav class="-mb-px flex min-w-0 flex-1 gap-5 overflow-x-auto" aria-label="Sekmeler">
+                @foreach (\App\Livewire\Operator\Library\QueriesPage::TABS as $key => $label)
+                    <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @if ($tab === $key) aria-current="page" @endif class="{{ $tabClass($tab === $key) }}">{{ $label }}@if ($key === 'pending' && $pendingCount > 0)<span class="{{ $countPill }}" data-pending-count>{{ $pendingCount }}</span>@endif @if ($key === 'deletions' && $deletionsTotal > 0)<span class="rounded-full bg-amber-50 px-1.5 text-[11px] font-medium tabular-nums text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" data-deletions-count>{{ $deletionsTotal }}</span>@endif</button>
+                @endforeach
+            </nav>
+            <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="{{ $secondary }} mb-1.5 shrink-0">AI ile planla</a>
+        </div>
     </header>
 
-    @php $ap = $autopilot; $apTotals = (array) ($ap['totals'] ?? []); @endphp
-    <section class="{{ $card }} flex flex-wrap items-center gap-2 text-xs" data-autopilot>
-        <span class="font-semibold">Otomatik pilot</span>
-        @if (! $autopilotReady)
-            <span class="text-gray-500">"AI ile planla" ilk içe aktarımı onaylanınca başlar.</span>
-        @elseif ($autopilotPaused)
-            <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">durduruldu</span>
-        @else
-            <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700">açık</span>
-            <span class="text-gray-500">AI'ın bakacağı sorgu: {{ number_format($autopilotQueue, 0, ',', '.') }} · toplam: {{ (int) ($apTotals['assigned'] ?? 0) }} atandı · {{ (int) ($apTotals['filters'] ?? 0) }} filtre kelimesi · {{ (int) ($apTotals['keywords'] ?? 0) }} eşleme kelimesi · {{ (int) ($apTotals['imported'] ?? 0) }} bekleyen içe alındı · temizlikte {{ (int) ($apTotals['deleted'] ?? 0) }} silindi</span>
-            @if (! empty($ap['tick_at']))<span class="text-gray-400">son tur {{ \Illuminate\Support\Carbon::parse($ap['tick_at'])->diffForHumans() }}</span>@endif
-            @if (($ap['status'] ?? null) === 'no_provider')<span class="text-rose-600">AI bağlı değil</span>@endif
-        @endif
-        @if ($autopilotReady)
-            <button type="button" wire:click="toggleAutopilot" class="{{ $ghost }} ml-auto">{{ $autopilotPaused ? 'Başlat' : 'Durdur' }}</button>
-        @endif
-        @if ($finishStage !== null && $finishStage !== 'done')<span class="w-full text-gray-500" data-finish-stage>Bitirme zinciri sürüyor: {{ ['queued' => 'kuyrukta', 'clean' => 'katalog temizliği', 'triage' => 'sorgular yeniden soruluyor', 'cluster' => 'kümeleme', 'wait' => 'kümeleme sürüyor', 'content' => 'içerik başlıkları', 'check' => 'kontrol'][$finishStage] ?? $finishStage }}</span>@endif
-        @if ($finishCheck !== null)<span class="w-full text-gray-500" data-finish-check>{{ $finishCheck }}</span>@endif
-        <span class="w-full text-gray-500">Her 15 dakikada: AI hizmeti atanmamış sorgulara bir kez bakar (hizmet, filtre kelimesi ya da hiçbiri), sonra Bekleyenler içe alınır; günde bir yeni sorgular kümelenir (yeni kümeler onayınla markalara iner). Filtre sepetine uyan sorgular saatte bir toplu silinir.</span>
+    @php
+        $ap = $autopilot;
+        $apTotals = (array) ($ap['totals'] ?? []);
+        $apCounter = 'rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800/60';
+        $apLabel = 'text-[11px] text-gray-500 dark:text-gray-400';
+        $apValue = 'text-base font-semibold tabular-nums text-gray-900 dark:text-white';
+    @endphp
+    <section class="{{ $card }} space-y-3 text-xs" data-autopilot>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-semibold text-gray-900 dark:text-white">Otomatik pilot</span>
+            @if (! $autopilotReady)
+                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">başlamadı</span>
+            @elseif ($autopilotPaused)
+                <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">durduruldu</span>
+            @elseif (($ap['status'] ?? null) === 'no_provider')
+                <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">açık · AI bağlı değil</span>
+            @else
+                <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700 dark:bg-success-500/10 dark:text-success-400">açık</span>
+            @endif
+            <details class="relative" data-autopilot-info>
+                <summary class="flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full text-[11px] font-semibold text-gray-500 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400 dark:ring-gray-700 [&::-webkit-details-marker]:hidden" title="Otomatik pilot nasıl çalışır?" aria-label="Otomatik pilot nasıl çalışır?">i</summary>
+                <div class="absolute left-0 z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] space-y-1.5 rounded-lg bg-white p-3 text-xs text-gray-600 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-800">
+                    <p>Her 15 dakikada: AI hizmeti atanmamış sorgulara bir kez bakar (hizmet, filtre kelimesi ya da hiçbiri), sonra Bekleyenler içe alınır; günde bir yeni sorgular kümelenir (yeni kümeler onayınla markalara iner). Filtre sepetine uyan sorgular saatte bir toplu silinir.</p>
+                    @if (! $autopilotReady)
+                        <p>"AI ile planla" ilk içe aktarımı onaylanınca başlar.</p>
+                    @else
+                        <p class="text-gray-500">Başlangıçtan beri: {{ $num($apTotals['assigned'] ?? 0) }} atandı · {{ $num($apTotals['filters'] ?? 0) }} filtre kelimesi · {{ $num($apTotals['keywords'] ?? 0) }} eşleme kelimesi · {{ $num($apTotals['imported'] ?? 0) }} bekleyen içe alındı · temizlikte {{ $num($apTotals['deleted'] ?? 0) }} silindi @if (! empty($ap['tick_at']))· son tur {{ \Illuminate\Support\Carbon::parse($ap['tick_at'])->diffForHumans() }}@endif</p>
+                    @endif
+                    @if ($finishCheck !== null)<p class="text-gray-500">{{ $finishCheck }}</p>@endif
+                </div>
+            </details>
+            @if ($autopilotReady)
+                <button type="button" wire:click="toggleAutopilot" class="{{ $ghost }} ml-auto">{{ $autopilotPaused ? 'Başlat' : 'Durdur' }}</button>
+            @endif
+        </div>
+        <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4" data-autopilot-counters>
+            <div class="{{ $apCounter }}" title="Otomatik pilotun başlangıçtan beri hizmete atadığı sorgu"><dt class="{{ $apLabel }}">Atanan</dt><dd class="{{ $apValue }}">{{ $num($apTotals['assigned'] ?? 0) }}</dd></div>
+            <div class="{{ $apCounter }}" title="Kütüphanede olmayan, filtreye takılmayan bekleyen sorgu"><dt class="{{ $apLabel }}">Bekleyen</dt><dd class="{{ $apValue }}">{{ $num($pendingCount) }}</dd></div>
+            <div class="{{ $apCounter }}" title="AI'ın bakacağı hizmetsiz sorgu"><dt class="{{ $apLabel }}">AI sırasında</dt><dd class="{{ $apValue }}">{{ $num($autopilotQueue) }}</dd></div>
+            <div class="{{ $apCounter }}" @if ($finishCheck !== null) title="{{ $finishCheck }}" data-finish-check @endif><dt class="{{ $apLabel }}">Son kontrol</dt><dd class="{{ $apValue }}">{{ $finishCheckAt ?? '—' }}</dd></div>
+        </dl>
+        @if ($finishStage !== null && $finishStage !== 'done')<p class="text-gray-500" data-finish-stage>Bitirme zinciri sürüyor: {{ ['queued' => 'kuyrukta', 'clean' => 'katalog temizliği', 'triage' => 'sorgular yeniden soruluyor', 'cluster' => 'kümeleme', 'wait' => 'kümeleme sürüyor', 'content' => 'içerik başlıkları', 'check' => 'kontrol'][$finishStage] ?? $finishStage }}</p>@endif
     </section>
 
     @if ($message !== '')
@@ -71,7 +104,11 @@
             <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ara" aria-label="Ara" class="{{ $input }} w-48">
         @endif
         @if ($tab === 'queries' || $tab === 'clusters')
-            <button type="button" wire:click="clusterService" @disabled(! ctype_digit($service)) class="{{ $btn }} ml-auto" title="Hizmet seçin">AI ile kümele</button>
+            @php $clusterBlocked = ! ctype_digit($service); @endphp
+            <span class="ml-auto inline-flex items-center gap-2">
+                @if ($clusterBlocked)<span class="{{ $hint }}" data-cluster-hint>Önce bir hizmet seçin</span>@endif
+                <button type="button" wire:click="clusterService" @disabled($clusterBlocked) class="{{ $secondary }}" @if ($clusterBlocked) title="Kümelemek için soldan bir hizmet seçin" @endif>AI ile kümele</button>
+            </span>
             <x-operator.ai-prompt-info operation="queries.cluster" />
             @php $runLabel = \App\Services\Queries\QueryClusterer::label($clusterStatus); @endphp
             @if ($runLabel !== null)<span class="text-xs {{ $runLabel['tone'] === 'error' ? 'text-rose-600' : 'text-gray-500' }}" data-cluster-run>{{ $runLabel['text'] }}</span>@endif
@@ -97,7 +134,9 @@
             {{-- Hizmet ataması kuyruğu --}}
             <div class="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200" data-assign-queue>
                 <button type="button" wire:click="$set('service', '__none')" class="font-semibold hover:underline">Hizmet ataması kuyruğu · {{ $num($unassignedCount) }} atanmamış sorgu</button>
-                <button type="button" wire:click="suggestServices" @disabled($assignStatus === 'running' || $unassignedCount === 0) class="{{ $btn }} ml-auto">AI ile hizmet öner</button>
+                @php $suggestBlocked = $assignStatus === 'running' || $unassignedCount === 0; @endphp
+                {{-- The page's single orange action; while a ready proposal waits, its "Onayla" takes that role. --}}
+                <button type="button" wire:click="suggestServices" @disabled($suggestBlocked) class="{{ $assignStatus === 'ready' ? $secondary : $btn }} ml-auto" @if ($suggestBlocked) title="{{ $assignStatus === 'running' ? 'Öneri çalışıyor' : 'Atanmamış sorgu yok' }}" @endif>AI ile hizmet öner</button>
                 <x-operator.ai-prompt-info operation="queries.assign_services" />
             </div>
             @if ($assign !== null)
@@ -177,7 +216,8 @@
                     <button type="button" wire:click="hideSelected" wire:confirm="Seçili sorgular gizlensin mi?" @disabled(! $hasSelection) class="{{ $ghost }}">Sil</button>
                 @endif
                 <button type="button" wire:click="openNegatives" @disabled(! $hasSelection) class="{{ $ghost }}">Filtreye ekle</button>
-                <button type="button" wire:click="proposeRules" @disabled(! $hasSelection) class="{{ $btn }}">AI ile filtre kural üret</button>
+                @if (! $hasSelection)<span class="{{ $hint }}" data-rules-hint>Sorgu seçince açılır</span>@endif
+                <button type="button" wire:click="proposeRules" @disabled(! $hasSelection) class="{{ $secondary }}" @if (! $hasSelection) title="Filtre kuralı üretmek için önce tablodan sorgu seçin" @endif>AI ile filtre kural üret</button>
                 <x-operator.ai-prompt-info operation="queries.filter_rules" />
             </div>
             @if ($selectAll)
@@ -187,31 +227,30 @@
                 <table class="w-full text-left text-xs">
                     <thead class="text-gray-500"><tr>
                         <th class="w-6 py-1"></th><th>Sorgu</th><th>Hizmet</th><th>Küme</th>
-                        <th class="text-right">Gösterim</th><th class="text-right">Tıklama</th><th class="text-right">Ads maliyet</th><th>Kaynaklar</th><th>Durum</th>
+                        <th class="whitespace-nowrap pl-3 text-right">Gösterim</th><th class="whitespace-nowrap pl-3 text-right">Tıklama</th><th class="whitespace-nowrap pl-3 text-right">Ads maliyet</th><th class="whitespace-nowrap pl-3">Kaynaklar</th>
                     </tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse ($queries as $query)
                             <tr wire:key="q-{{ $query->id }}">
                                 <td class="py-1">@if ($selectAll)<input type="checkbox" wire:click="toggleExcluded({{ $query->id }})" @checked(! in_array((int) $query->id, $excludedIds, true)) aria-label="Seç">@else<input type="checkbox" wire:model.live="selected" value="{{ $query->id }}" aria-label="Seç">@endif</td>
                                 @php $group = $variantGroups[(int) $query->sector_id.'|'.$query->variant_key] ?? null; @endphp
-                                <td class="font-medium">{{ $query->text }}@if ($group !== null && $group['count'] > 1) <span class="{{ $chip }} ml-1 bg-gray-100 font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-300" title="Varyantlarla toplam {{ $num($group['impressions']) }} gösterim · {{ $num($group['clicks']) }} tıklama" data-variant-count>+{{ $group['count'] - 1 }} varyant</span>@endif @if ($query->facets)<span class="text-xs font-normal text-gray-400">· {{ str_replace(',', ', ', $query->facets) }}</span>@endif</td>
+                                <td class="font-medium">@if ($query->service_id === null && ! $query->is_suggested)<span class="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 align-middle" title="atanmamış: hizmeti yok" data-unassigned-dot></span><span class="sr-only">atanmamış</span>@else<span class="mr-1.5 inline-block h-1.5 w-1.5 align-middle" aria-hidden="true"></span>@endif{{ $query->text }}@if ($query->is_suggested) <span class="{{ $chip }} ml-1 bg-purple-50 font-normal text-purple-700 dark:bg-purple-500/10">önerilen</span>@endif @if ($group !== null && $group['count'] > 1) <span class="{{ $chip }} ml-1 bg-gray-100 font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-300" title="Varyantlarla toplam {{ $num($group['impressions']) }} gösterim · {{ $num($group['clicks']) }} tıklama" data-variant-count>+{{ $group['count'] - 1 }} varyant</span>@endif @if ($query->facets)<span class="text-xs font-normal text-gray-400">· {{ str_replace(',', ', ', $query->facets) }}</span>@endif</td>
                                 <td>{{ $query->service?->primaryName?->raw_label ?? '—' }}@if ($query->locked)<span class="ml-1 text-gray-400">· elle</span>@endif</td>
                                 <td>{{ $query->clusterLink?->cluster?->name ?? '—' }}</td>
                                 @if ($query->is_suggested)
-                                    <td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td>—</td>
+                                    <td class="pl-3 text-right text-gray-400">—</td><td class="pl-3 text-right text-gray-400">—</td><td class="pl-3 text-right text-gray-400">—</td><td class="pl-3 text-gray-400">—</td>
                                 @else
-                                    <td class="text-right tabular-nums">{{ $num($query->impressions) }}</td>
-                                    <td class="text-right tabular-nums">{{ $num($query->clicks) }}</td>
-                                    <td class="text-right tabular-nums">{{ $query->ads_cost !== null ? number_format($query->ads_cost, 2, ',', '.') : '—' }}</td>
-                                    <td>{{ collect(explode(',', (string) $query->sources))->filter()->map(fn ($s) => \App\Livewire\Operator\Library\QueriesPage::SOURCE_LABELS[$s] ?? $s)->implode(' · ') ?: '—' }}</td>
+                                    <td class="whitespace-nowrap pl-3 text-right tabular-nums">{{ $num($query->impressions) }}</td>
+                                    <td class="whitespace-nowrap pl-3 text-right tabular-nums">{{ $num($query->clicks) }}</td>
+                                    <td class="whitespace-nowrap pl-3 text-right tabular-nums">{{ $query->ads_cost !== null ? number_format($query->ads_cost, 2, ',', '.') : '—' }}</td>
+                                    @php $sourceKeys = array_values(array_filter(explode(',', (string) $query->sources))); @endphp
+                                    <td class="whitespace-nowrap pl-3" data-sources>
+                                        @forelse ($sourceKeys as $source)<span class="mr-0.5 inline-block rounded bg-gray-100 px-1 text-[10px] font-medium leading-4 text-gray-600 dark:bg-gray-800 dark:text-gray-300" title="{{ \App\Livewire\Operator\Library\QueriesPage::SOURCE_TITLES[$source] ?? $source }}">{{ \App\Livewire\Operator\Library\QueriesPage::SOURCE_LABELS[$source] ?? $source }}</span>@empty<span class="text-gray-400">—</span>@endforelse
+                                    </td>
                                 @endif
-                                <td>
-                                    @if ($query->is_suggested)<span class="{{ $chip }} bg-purple-50 text-purple-700 dark:bg-purple-500/10">önerilen</span>
-                                    @elseif ($query->service_id === null)<span class="{{ $chip }} bg-amber-50 text-amber-700 dark:bg-amber-500/10">atanmamış</span>@endif
-                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="py-3 text-gray-500">Sorgu yok.</td></tr>
+                            <tr><td colspan="8" class="py-3 text-gray-500">Sorgu yok.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
