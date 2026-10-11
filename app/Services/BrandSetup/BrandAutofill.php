@@ -36,6 +36,9 @@ final class BrandAutofill
     /** A brand is not asked again sooner than this after its last automatic run or crawl. */
     public const int COOLDOWN_DAYS = 7;
 
+    /** The operator's own ready proposal stops holding the brand back after this many days. */
+    public const int STALE_DAYS = 7;
+
     public const string SYSTEM_EMAIL = 'claude-otomatik@moxdop.local';
 
     public function __construct(
@@ -99,18 +102,21 @@ final class BrandAutofill
         if ($latest !== null && $latest->isPending() && ! $latest->isStuck()) {
             return 'waiting';
         }
-        if ($latest !== null && $latest->status === BrandSetupProposal::STATUS_READY) {
-            if (! $latest->auto_apply) {
-                self::note((int) $brand->id, 'Senin başlattığın "Otomatik kur" önerisi hazır ve uygulanmayı bekliyor; uygulanana kadar marka tamamlama bekler.');
-
-                return 'waiting'; // the operator's own proposal waits for the operator
-            }
+        if ($latest !== null && $latest->status === BrandSetupProposal::STATUS_READY && $latest->auto_apply) {
             $this->apply($latest);
 
             return 'applied';
         }
         if ($this->missing($brand) === []) {
+            Cache::forget('brand-autofill:note:'.$brand->id);
+
             return 'complete';
+        }
+        if ($latest !== null && $latest->status === BrandSetupProposal::STATUS_READY && ! $this->isStale($latest)) {
+            self::note((int) $brand->id, 'Senin başlattığın "Otomatik kur" önerisi hazır ve uygulanmayı bekliyor; uygulanana kadar marka tamamlama bekler ('
+                .self::STALE_DAYS.' gün içinde uygulanmazsa kendisi devam eder).');
+
+            return 'waiting'; // the operator's own proposal waits for the operator, for a week at most
         }
         if ($latest !== null && $latest->auto_apply && $latest->created_at?->gt(now()->subDays(self::COOLDOWN_DAYS))) {
             return 'waiting';
@@ -123,6 +129,14 @@ final class BrandAutofill
         self::note((int) $brand->id, 'Eksikler ('.implode(', ', $this->missing($brand)).') sitesinden ve hesaplarından dolduruluyor; hazır olunca kendiliğinden uygulanır.');
 
         return 'queued';
+    }
+
+    /** An operator's ready proposal nobody applied for a week no longer blocks the nightly round. */
+    private function isStale(BrandSetupProposal $proposal): bool
+    {
+        $readyAt = $proposal->updated_at ?? $proposal->created_at;
+
+        return $readyAt === null || $readyAt->lt(now()->subDays(self::STALE_DAYS));
     }
 
     /**

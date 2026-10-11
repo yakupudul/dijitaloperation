@@ -5,10 +5,12 @@ namespace Tests\Feature\BrandSetup;
 use App\Jobs\BuildBrandSetupProposalJob;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
+use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\BrandSetupProposal;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
@@ -23,6 +25,7 @@ use App\Services\Website\Pages\PageStore;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -121,6 +124,47 @@ final class BrandAutofillTest extends TestCase
         $this->assertSame('waiting', app(BrandAutofill::class)->forBrand($this->brand), 'the operator\'s ready proposal waits for the operator');
         $this->assertSame(1, BrandSetupProposal::query()->where('brand_id', $this->brand->id)->count());
         $this->assertSame(0, BrandOffering::query()->where('brand_id', $this->brand->id)->count());
+    }
+
+    public function test_an_operator_proposal_left_unapplied_for_a_week_no_longer_blocks_the_brand(): void
+    {
+        $proposal = BrandSetupProposal::query()->create([
+            'brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://adadent.com.tr/',
+            'items' => [], 'services' => [], 'services_status' => 'ready', 'summary' => [], 'created_by' => $this->admin->id,
+        ]);
+        $proposal->forceFill(['created_at' => now()->subDays(9), 'updated_at' => now()->subDays(8)])->saveQuietly();
+        $this->page('/', 'Adadent');
+        Queue::fake();
+
+        $this->assertSame('queued', app(BrandAutofill::class)->forBrand($this->brand));
+        $this->assertSame(2, BrandSetupProposal::query()->where('brand_id', $this->brand->id)->count());
+        $this->assertSame(BrandSetupProposal::STATUS_READY, $proposal->fresh()->status, 'the operator\'s proposal is kept, never applied');
+    }
+
+    public function test_a_complete_brand_is_complete_even_with_an_operator_proposal_waiting_and_the_old_note_goes(): void
+    {
+        $this->completeBrand();
+        BrandSetupProposal::query()->create([
+            'brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://adadent.com.tr/',
+            'items' => [], 'services' => [], 'services_status' => 'ready', 'summary' => [], 'created_by' => $this->admin->id,
+        ]);
+        BrandAutofill::note($this->brand->id, 'Senin başlattığın "Otomatik kur" önerisi hazır ve uygulanmayı bekliyor.');
+
+        $this->assertSame([], app(BrandAutofill::class)->missing($this->brand));
+        $this->assertSame('complete', app(BrandAutofill::class)->forBrand($this->brand));
+        $this->assertNull(BrandAutofill::note($this->brand->id), 'a finished brand shows no stale note');
+    }
+
+    private function completeBrand(): void
+    {
+        $this->brand->forceFill(['sector' => 'Sağlık'])->save();
+        BrandIntelligenceContext::query()->create(['brand_id' => $this->brand->id, 'business_summary' => 'Kadıköy diş kliniği.', 'differentiators' => ['Aynı gün implant'], 'source' => 'operator']);
+        BrandOffering::query()->create(['brand_id' => $this->brand->id, 'status' => 'active', 'priority' => 'main',
+            'service_catalog_item_id' => app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin)['service']->id]);
+        foreach (['search_console', 'ga4'] as $capability) {
+            $binding = CoreAssetBinding::factory()->create(['digital_asset_id' => $this->site->id, 'capability' => $capability]);
+            DB::table('resource_automations')->insert(['external_resource_id' => $binding->external_resource_id, 'data_through' => now()->subDay()->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
+        }
     }
 
     public function test_services_made_only_from_translated_pages_are_archived_and_translated_pages_never_become_services(): void
