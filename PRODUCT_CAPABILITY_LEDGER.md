@@ -4073,3 +4073,22 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no production timing re-measured yet).
   (`Page::LIST_COLUMNS`); ideas are grouped per cluster once. Behaviour otherwise unchanged.
 - Tests: `GbpDeskTest` (fixed query count with more brands / profiles / reviews, review numbers), `ClustersBoardTabTest`
   (sections open on demand, fixed query count with more clusters).
+
+## 2026-10-11 — Veri çekme düzeltmeleri (havuz #33, #36, sistem hataları)
+
+- Meta "reduce the amount of data" (code 1, havuz #33): the client already classifies it as `KIND_DATA_TOO_LARGE`
+  (never a transient 5xx) and the collection executors shrink the request. The remaining collector without it, the
+  geo / audience breakdown Insights (`MetaGeoResults`, Analiz › Bölgeye göre), now halves the page size (500 → … → 15,
+  a next page keeps its cursor via `MetaApiClient::withPageLimit`) and then splits the date range in halves down to
+  single days; only a single day at the smallest page still too large fails. An identical oversized request is never
+  sent twice. Tested: `MetaGeoResultsTest` (too_much_data …). Live check pending: Obezite ve Estetik Meta stop.
+- Google Ads account structure (havuz #36, Avrupadent PAGE_BOUND_EXCEEDED): `executeEntitySnapshot` no longer re-reads a
+  structure longer than `max_search_pages_per_tick` as one unbounded SearchStream; each tick writes its pages and saves
+  the next page token (`page_token`, `page_offset`) in the checkpoint, the next tick resumes there (every page once,
+  memory bounded per tick); an expired token restarts that step. Dated datasets keep the stream fallback. Tested:
+  `GoogleAdsStructurePagingResumeTest`. Live check pending: Avrupadent alerts close.
+- Onarım nightly audit (`WebHealthAudit`): an external link or sitemap entry whose host no HTTP request can carry
+  (space, backslash …; was `MalformedUriException: Invalid host` at 04:40) is listed as broken ("geçersiz adres") and
+  never sent, instead of stopping the external-link / sitemap check. Tested: `WebHealthAuditTest`.
+- `RebuildWebsiteProjectionJob` MaxAttemptsExceeded (last 2026-10-05 19:44): cause (supervisor-1 timeout 300 s below the
+  job's 900 s) was fixed in e60f4f45 (pool #3) and is guarded by `QueueTopologyContractTest`; no occurrence since.
