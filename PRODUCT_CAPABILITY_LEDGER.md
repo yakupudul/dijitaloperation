@@ -4018,3 +4018,19 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
 - Tests: `QueryReviewFlowTest`, `QueryPipelineTest`, `QueryAutopilotTest`, `ServiceNameQualityTest`,
   `ServiceCatalogSectorTest`, `ServiceReleaseTest`, `ServiceCatalogCleanTest`, `QueryFinishTest`,
   `AiCreditsAndAssignmentsTest`, `BrandSetupApplyRobustnessTest`, `SiteUpkeepTest`, `QueryVolumeRefreshTest`.
+
+## 2026-10-11 — Yavaş ekranlar: İşletme profilleri (Durum, Şube sayfaları, Yorumlar) ve Web sitesi › Kümeler
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no production timing re-measured yet).
+- `/gbp/yorumlar`, `/gbp`: review numbers (`ReviewDesk::stats`) are counted in one pass with native date parsing
+  (Carbon per review was the PHP time) and kept for the current minute while the profiles' reviews are unchanged
+  (count / replies / last id / last change); draft states, Google fill and AI states are read with one cache call.
+- `/gbp/sube-sayfalari`, `/gbp`: `BranchPages::states` reads site pages as light rows (no models, no text) and only
+  the shown pages become models; the brands' Şubelerimiz hubs come from `BranchPages::hubs` (fixed queries instead of
+  ~8 per brand).
+- `/assets/website/{id}` › Kümeler: only the first service renders its cards; other services open with **Göster**,
+  the rest of an open service with **Tüm alt kümeler** (server side). Operation / idea statuses of the shown cards are
+  one cache read (`SiteOperations::statuses`, `ContentIdeaPool::states`); cluster rows load pages without stored text
+  (`Page::LIST_COLUMNS`); ideas are grouped per cluster once. Behaviour otherwise unchanged.
+- Tests: `GbpDeskTest` (fixed query count with more brands / profiles / reviews, review numbers), `ClustersBoardTabTest`
+  (sections open on demand, fixed query count with more clusters).
