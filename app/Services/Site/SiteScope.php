@@ -148,9 +148,15 @@ final class SiteScope
         return BrandScope::resources((int) $brand->id, $type);
     }
 
-    /** Most common page language of the site (null when pages carry none). */
+    /** The site's main language: its home page's language, else the most common page language (null when pages carry none). */
     public static function primaryLanguage(DigitalAsset $site): ?string
     {
+        // The home page's language is the site's own (drsuadagasimova.com: Turkish at "/", more Russian pages under
+        // "/ru/" — counting pages called it a Russian site and treated every Turkish page as a translation).
+        $home = Page::query()->where('website_asset_id', $site->id)->whereIn('path', ['/', ''])->whereNotNull('language')->value('language');
+        if (filled($home)) {
+            return (string) $home;
+        }
         $row = Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')
             ->groupBy('language')->selectRaw('language, count(*) as n')->orderByDesc('n')->first();
 

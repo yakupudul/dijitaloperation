@@ -249,6 +249,26 @@ final class BrandAutofillTest extends TestCase
         $this->assertTrue(LanguageServices::foreign('de-DE', '/implant/', 'tr'));
     }
 
+    public function test_the_home_page_language_is_the_main_one_even_when_a_translation_has_more_pages(): void
+    {
+        $catalog = app(ServiceCatalogService::class);
+        $turkish = BrandOffering::query()->create(['brand_id' => $this->brand->id, 'status' => 'active', 'priority' => 'secondary',
+            'service_catalog_item_id' => $catalog->resolveOrCreate('Dermal Dolgu', 'saglik', actor: $this->admin)['service']->id]);
+        $this->page('/', 'Medikal Estetik');
+        OfferingPage::query()->create(['brand_offering_id' => $turkish->id, 'page_id' => $this->page('/dermal-dolgu/', 'Dermal Dolgu')->id, 'source' => 'rule']);
+        foreach (['/ru/a/', '/ru/b/', '/ru/c/', '/ru/d/'] as $path) {
+            $this->page($path, 'RU')->forceFill(['language' => 'ru'])->save();
+        }
+
+        $this->assertSame('tr', LanguageServices::mainLanguage($this->site));
+        $this->assertSame(0, app(LanguageServices::class)->cleanup($this->brand->id));
+        $status = $turkish->fresh()->status;
+        $this->assertSame('active', $status instanceof \BackedEnum ? $status->value : $status, 'Turkish services of a site with more Russian pages stay');
+
+        Page::query()->where('path', '/')->delete();
+        $this->assertSame('ru', LanguageServices::mainLanguage($this->site), 'without a home page the most common language decides');
+    }
+
     private function page(string $path, string $title): Page
     {
         $url = 'https://adadent.com.tr'.$path;

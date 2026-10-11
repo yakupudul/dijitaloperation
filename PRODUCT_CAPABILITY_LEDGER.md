@@ -4,6 +4,7 @@
 
 Durum: CODED (sunucuda doğrulanmadı).
 - Otomatik deploy, deploy adımında durursa deploy logunun son 60 satırını `storage/app/auto-deploy-failure.txt`'ye yazar. Bu satırlar Ayarlar › Sürümler ekranında ve MCP `system-health` aracında (`deploy_failed` durumunda da) görünür.
+- Sitenin ana dili artık ana sayfanın dilidir; ana sayfa yoksa en çok sayfanın dili. Sebebi: drsuadagasimova.com'da ana sayfa Türkçe ama Rusça sayfa sayısı daha fazla. Site Rusça sanılmış, Türkçe hizmet sayfaları "çeviri" sayılmış ve markanın hizmetleri boş kalmıştı. Gece çalışan marka tamamlama hizmetleri yeniden dolduracak.
 - 2026-12-11 veri temizliği migration'ları (dönüşüm sinyali, SEO önceliği, konu dışı öneri) hata verirse deploy'u durdurmaz; hata raporlanır, gece işleri aynı temizliği tekrarlar.
 
 ## 2026-10-11 — Onarım masası sonuçları: 30 / 90 gün ölçümü ve öğrenen sıralama
