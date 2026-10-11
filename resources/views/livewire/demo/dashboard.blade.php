@@ -4,7 +4,7 @@
     <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.dashboard_exec.today') }}</h1>
 
     @if (($systemAlerts['critical'] ?? 0) + ($systemAlerts['warning'] ?? 0) > 0)
-        <a href="{{ route('operator.settings.system-health') }}" wire:navigate @class(['flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm ring-1 ring-inset', 'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30' => $systemAlerts['critical'] > 0, 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30' => $systemAlerts['critical'] === 0])>
+        <a href="{{ route('operator.settings.system-health') }}" wire:navigate @class(['flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm', 'tone-look' => $systemAlerts['critical'] > 0, 'tone-info' => $systemAlerts['critical'] === 0])>
             <span><strong>Hata merkezi:</strong> @if ($systemAlerts['critical'] > 0){{ $systemAlerts['critical'] }} iş seni bekliyor @endif @if ($systemAlerts['warning'] > 0){{ $systemAlerts['warning'] }} yazılım hatası @endif @if ($systemAlerts['top']) · {{ $systemAlerts['top'] }}@endif</span>
             <span class="font-medium underline">Hata merkezine git</span>
         </a>
@@ -75,10 +75,17 @@
         @endif
     </section>
 
+    {{-- Loss first, approvals second, the rest closed: the brand list is reference, folded by default. --}}
     @if ($rows === [])
         <p class="text-sm text-gray-500">Hizmet verilen marka yok.</p>
     @else
-        <ul class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-800 dark:bg-gray-900 dark:ring-gray-800" data-portfolio-today>
+        <details wire:ignore.self class="group rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-today-brands>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm">
+            <span class="font-semibold text-gray-800 dark:text-white/90">Markalar <span class="font-normal text-gray-500">· {{ count($rows) }}</span></span>
+            <span class="text-xs text-gray-500 group-open:hidden">Göster</span>
+            <span class="hidden text-xs text-gray-500 group-open:inline">Gizle</span>
+        </summary>
+        <ul class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800" data-portfolio-today>
             @foreach ($rows as $row)
                 <li class="flex flex-col gap-1 px-4 py-3" wire:key="today-{{ $row['id'] }}" data-today-brand="{{ $row['id'] }}">
                     <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -99,5 +106,6 @@
                 </li>
             @endforeach
         </ul>
+        </details>
     @endif
 </div>
