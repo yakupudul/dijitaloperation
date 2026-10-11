@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'service_catalog_item_id',
     'raw_label',
     'normalized_key',
+    'sector_scope',
     'locale',
     'name_kind',
     'is_primary',

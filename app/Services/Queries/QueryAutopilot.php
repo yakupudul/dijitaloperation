@@ -189,11 +189,21 @@ final class QueryAutopilot
         return 'idle';
     }
 
-    /** Starts the "Hepsini kümele" queue at most every CLUSTER_EVERY_HOURS when some service has new queries. */
-    private function clusterIfDue(): bool
+    /**
+     * Starts the "Hepsini kümele" queue at most every CLUSTER_EVERY_HOURS when some service has new queries. A running
+     * queue that has not moved for QueryClusterQueue::STALE_AFTER_HOURS (lost job) is stopped and started again at
+     * once; `$ignoreGate` (moxdop:queries:finish) skips the daily gate.
+     */
+    public function clusterIfDue(bool $ignoreGate = false): bool
     {
+        $stale = QueryClusterQueue::stale();
+        if ($stale) {
+            $this->clusters->stop();
+            Log::warning('queries.autopilot.cluster_queue_stale', ['state' => QueryClusterQueue::state()]);
+        }
         $last = self::state()['clustered_at'] ?? null;
-        if ((QueryClusterQueue::state()['status'] ?? null) === 'running' || ($last !== null && now()->diffInHours(CarbonImmutable::parse((string) $last), true) < self::CLUSTER_EVERY_HOURS)
+        if (QueryClusterQueue::running()
+            || (! $stale && ! $ignoreGate && $last !== null && now()->diffInHours(CarbonImmutable::parse((string) $last), true) < self::CLUSTER_EVERY_HOURS)
             || $this->clusters->servicesToCluster() === []) {
             return false;
         }

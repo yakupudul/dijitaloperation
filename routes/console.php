@@ -540,12 +540,7 @@ Schedule::command('moxdop:queries:keyword-planner')
     ->withoutOverlapping(120)
     ->name('queries-keyword-planner');
 
-// v2 Faz 3: küme ana sorguları + marka hedef sorguları için DataForSEO arama hacmi (ayda bir, harcama tavanı geçerli).
-Schedule::command('moxdop:intel:query-volumes')
-    ->monthlyOn(4, '05:37')
-    ->timezone('Europe/Istanbul')
-    ->withoutOverlapping(120)
-    ->name('intel-query-volumes');
+// DataForSEO arama hacmi zamanlaması kaldırıldı (yakup, 2026-10-11: DataForSEO kullanılmaz); komut elle çalıştırılabilir.
 
 // Faz 9: WordPress Connector v2 sağlık okuması (sürümler, bekleyen güncellemeler, Site Sağlığı).
 Schedule::command('moxdop:wordpress:health')

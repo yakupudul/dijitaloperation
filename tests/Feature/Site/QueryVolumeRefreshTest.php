@@ -7,6 +7,7 @@ use App\Models\BrandClusterPage;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
 use App\Support\ServiceScope;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -66,6 +67,14 @@ final class QueryVolumeRefreshTest extends TestCase
 
         $this->assertSame(0, Artisan::call('moxdop:intel:query-volumes'));
         Http::assertNothingSent();
+    }
+
+    public function test_query_volumes_are_never_scheduled(): void
+    {
+        $scheduled = collect(app(Schedule::class)->events())
+            ->contains(fn ($event): bool => str_contains((string) $event->command, 'moxdop:intel:query-volumes'));
+
+        $this->assertFalse($scheduled, 'DataForSEO is not used: the command only runs by hand');
     }
 
     /** @param array<string, int> $volumes @return array<string, mixed> */

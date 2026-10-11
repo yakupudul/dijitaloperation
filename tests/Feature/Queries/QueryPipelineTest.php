@@ -6,8 +6,10 @@ use App\Jobs\Queries\AggregateQuerySourcesJob;
 use App\Jobs\Queries\ProcessQueriesJob;
 use App\Models\Brand;
 use App\Models\BrandCandidate;
+use App\Models\BrandClusterPage;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\ContentIdea;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\Customer;
@@ -206,6 +208,28 @@ final class QueryPipelineTest extends TestCase
         $this->assertSame(1, $locked->clusterQueries()->count());
         $this->assertNull(Query::query()->where('text', 'implant fiyatı')->value('service_id'));
         $this->assertSame($this->implant->id, Query::query()->where('text', 'implant ağrısı')->value('service_id'));
+    }
+
+    public function test_empty_clusters_with_content_ideas_or_page_scores_are_kept(): void
+    {
+        $make = fn (string $name): Cluster => Cluster::query()->create(['sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'name' => $name]);
+        $withIdea = $make('Fikirli');
+        $withArchivedIdea = $make('Arşivli fikir');
+        $withScore = $make('Puanlı');
+        $bare = $make('Boş');
+        ContentIdea::query()->create(['cluster_id' => $withIdea->id, 'title' => 'İmplant rehberi', 'title_key' => 'implant rehberi', 'type' => 'guide', 'status' => 'active']);
+        ContentIdea::query()->create(['cluster_id' => $withArchivedIdea->id, 'title' => 'Eski', 'title_key' => 'eski', 'type' => 'guide', 'status' => 'archived']);
+        $row = BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $withScore->id, 'website_asset_id' => $this->site->id, 'state' => 'no_page', 'language' => 'tr']);
+        DB::table('cluster_page_scores')->insert(['brand_cluster_page_id' => $row->id, 'brand_id' => $this->brand->id, 'cluster_id' => $withScore->id,
+            'state' => 'no_page', 'computed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->assertSame(2, QueryPipeline::dropEmptyClusters());
+
+        $this->assertNotNull($withIdea->fresh(), 'the active idea survives with its cluster');
+        $this->assertNotNull($withScore->fresh());
+        $this->assertNull($withArchivedIdea->fresh());
+        $this->assertNull($bare->fresh());
+        $this->assertSame(1, ContentIdea::query()->count());
     }
 
     public function test_keyword_is_unique_within_a_sector_but_allowed_in_another_sector(): void

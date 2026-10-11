@@ -11,6 +11,7 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Queries\QueryPipeline;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,13 @@ final class ServiceCatalogService
 {
     public function __construct(private readonly IdentityLabelNormalizer $normalizer) {}
 
-    /** @return array{service: ServiceCatalogItem, created: bool} */
+    /**
+     * The service of this name in the requested sector (or an uncategorized one); a same-name service of ANOTHER sector
+     * is never handed back: a new one is created in the requested sector (its name scoped to that sector). Without a
+     * sector (or with one that is not a catalog sector) any service of the name is found.
+     *
+     * @return array{service: ServiceCatalogItem, created: bool}
+     */
     public function resolveOrCreate(
         string $label,
         ?string $sector = null,
@@ -32,29 +39,22 @@ final class ServiceCatalogService
     ): array {
         $label = trim($label);
         $normalized = $this->normalizer->normalize($label);
+        $sector = $this->nullable($sector);
 
         if ($normalized === '') {
             throw ValidationException::withMessages(['service_name' => 'Hizmet adı gereklidir.']);
         }
 
-        $existing = ServiceCatalogName::withoutGlobalScope('visible_service')
-            ->with('service')
-            ->where('normalized_key', $normalized)
-            ->first();
-
-        if ($existing instanceof ServiceCatalogName) {
-            if ($existing->service === null) {
-                throw ValidationException::withMessages(['service_name' => 'Bu ad silinmiş bir hizmete ait. Hizmetler ekranındaki Silinenler filtresinden geri alın.']);
-            }
-
-            return ['service' => $existing->service, 'created' => false];
+        [$existing, $scope] = $this->findByName($normalized, $sector);
+        if ($existing !== null) {
+            return ['service' => $existing, 'created' => false];
         }
 
         try {
-            $service = DB::transaction(function () use ($label, $normalized, $sector, $description, $locale, $actor, $provenance): ServiceCatalogItem {
+            $service = DB::transaction(function () use ($label, $normalized, $sector, $scope, $description, $locale, $actor, $provenance): ServiceCatalogItem {
                 $service = ServiceCatalogItem::query()->create([
                     'uuid' => (string) Str::uuid(),
-                    'sector' => $this->nullable($sector),
+                    'sector' => $sector,
                     'description' => $this->nullable($description),
                     'status' => 'active',
                     'created_by' => $actor?->id,
@@ -65,6 +65,7 @@ final class ServiceCatalogService
                     'service_catalog_item_id' => $service->id,
                     'raw_label' => $label,
                     'normalized_key' => $normalized,
+                    'sector_scope' => $scope,
                     'locale' => $this->nullable($locale),
                     'name_kind' => 'primary',
                     'is_primary' => true,
@@ -78,21 +79,45 @@ final class ServiceCatalogService
 
             return ['service' => $service, 'created' => true];
         } catch (UniqueConstraintViolationException) {
-            $existing = ServiceCatalogName::withoutGlobalScope('visible_service')
-                ->with('service')
-                ->where('normalized_key', $normalized)
-                ->first();
-
-            if ($existing instanceof ServiceCatalogName) {
-                if ($existing->service === null) {
-                    throw ValidationException::withMessages(['service_name' => 'Bu ad silinmiş bir hizmete ait. Hizmetler ekranındaki Silinenler filtresinden geri alın.']);
-                }
-
-                return ['service' => $existing->service, 'created' => false];
+            [$existing] = $this->findByName($normalized, $sector);
+            if ($existing !== null) {
+                return ['service' => $existing, 'created' => false];
             }
 
             throw ValidationException::withMessages(['service_name' => 'Bu hizmet adı başka bir kayıt tarafından kullanılıyor.']);
         }
+    }
+
+    /**
+     * The visible service a name belongs to within the sector (same sector first, then uncategorized), and the
+     * `sector_scope` a new name would take: '' while the key is free, the sector's code when another sector holds it.
+     *
+     * @return array{0: ?ServiceCatalogItem, 1: string}
+     */
+    private function findByName(string $normalized, ?string $sector): array
+    {
+        if ($sector !== null && ! ServiceCategory::query()->where('code', $sector)->exists()) {
+            $sector = null; // a legacy free-text sector (not a catalog sector) does not restrict the lookup
+        }
+        $names = ServiceCatalogName::withoutGlobalScope('visible_service')
+            ->with(['service' => fn ($query) => $query->withTrashed()])
+            ->where('normalized_key', $normalized)
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (ServiceCatalogName $name): bool => $name->service !== null);
+        $fitting = $names->filter(fn (ServiceCatalogName $name): bool => $sector === null || $name->service->sector === null || $name->service->sector === $sector)
+            ->sortBy(fn (ServiceCatalogName $name): int => $name->service->sector === $sector ? 0 : 1);
+        $hit = $fitting->first();
+        if ($hit instanceof ServiceCatalogName) {
+            if ($hit->service->trashed()) {
+                throw ValidationException::withMessages(['service_name' => 'Bu ad silinmiş bir hizmete ait. Hizmetler ekranındaki Silinenler filtresinden geri alın.']);
+            }
+
+            return [$hit->service, ''];
+        }
+        $taken = $names->pluck('sector_scope')->map(fn ($scope): string => (string) $scope)->all();
+
+        return [null, ! in_array('', $taken, true) ? '' : (string) $sector];
     }
 
     public function addAlias(ServiceCatalogItem $service, string $alias, ?string $locale = null, ?User $actor = null): ServiceCatalogName
@@ -146,6 +171,9 @@ final class ServiceCatalogService
 
         $service = ServiceCatalogItem::query()->findOrFail($service->id);
         $service->forceFill(['status' => $status, 'updated_by' => $actor?->id])->save();
+        if ($status !== 'active') {
+            QueryPipeline::releaseServices([(int) $service->id]); // its queries go back to triage
+        }
 
         return $service->refresh();
     }
@@ -164,7 +192,8 @@ final class ServiceCatalogService
                     && ! ServiceCategory::query()->where('code', $sector)->exists()) {
                     throw ValidationException::withMessages(['service_sector' => 'Sektör bulunamadı. Listeyi yenileyin.']);
                 }
-                $claim = ServiceCatalogName::withoutGlobalScope('visible_service')->where('normalized_key', $normalized)->lockForUpdate()->first();
+                $claim = ServiceCatalogName::withoutGlobalScope('visible_service')->where('normalized_key', $normalized)
+                    ->orderByRaw('case when service_catalog_item_id = ? then 0 else 1 end', [$service->id])->lockForUpdate()->first();
                 if ($claim !== null && (int) $claim->service_catalog_item_id !== (int) $service->id) {
                     throw ValidationException::withMessages(['service_name' => 'Bu ad veya eş ad başka bir hizmete ait.']);
                 }
@@ -200,6 +229,7 @@ final class ServiceCatalogService
             $service->delete();
             $this->refreshBrandContexts($service, $brandIds);
         });
+        QueryPipeline::releaseServices([(int) $service->id]); // its queries go back to triage
     }
 
     public function restore(int $id, ?User $actor = null): void

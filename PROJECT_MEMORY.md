@@ -2104,3 +2104,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Microsoft Clarity (yakup, 2026-10-03):** her site için Clarity proje kimliği + Data Export token (Ayarlar). Günde bir
   çekim; kural tabanlı (AI yok) öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası, kaydırma → Genel işler › Teknik
   sağlık işi. Siteye hiçbir şey yazılmaz; Clarity etiketini siteye yakup ekler.
+- **Hizmet kataloğu temizliği (yakup, 2026-10-11):** hizmet adı sektör içinde tekildir (aynı ad başka sektörde ayrı hizmet);
+  hizmet adlarından yer adı yalnız baştan / sondan bağlacıyla silinir (sorgulardan her yerden silinmeye devam eder, kümeler
+  yersizdir). Sayfa başlığından gelen hizmetler yalnız öneridir; kalite kapısı cümle, "-imiz", tek ek kelime gibi adları
+  otomatik açmaz. Arşivlenen / silinen hizmetin sorguları yeniden triage'a döner. DataForSEO zamanlanmaz.

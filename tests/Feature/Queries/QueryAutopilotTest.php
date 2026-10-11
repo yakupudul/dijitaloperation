@@ -109,6 +109,28 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertSame('running', QueryClusterQueue::state()['status']);
     }
 
+    public function test_a_cluster_queue_stuck_running_for_two_hours_is_restarted_a_moving_one_is_not(): void
+    {
+        $this->enableAi();
+        Queue::fake([ClusterQueriesJob::class]);
+        QueryPipeline::markImported();
+        $this->libraryQuery('implant fiyatları', $this->implant->id);
+        QueryTriageAgent::fake(fn (): array => ['decisions' => [], 'keywords' => []]);
+        cache()->put(QueryAutopilot::KEY, ['clustered_at' => now()->subHour()->toIso8601String()]);
+        cache()->put(QueryClusterQueue::KEY, ['status' => 'running', 'queue' => [], 'current' => 999, 'done' => 0, 'total' => 1, 'touched_at' => now()->subMinutes(30)->toIso8601String()]);
+
+        app(QueryAutopilot::class)->tick();
+        Queue::assertNothingPushed();
+        $this->assertSame(999, QueryClusterQueue::state()['current'], 'a queue that moved recently is left alone');
+
+        $this->travel(2)->hours();
+        app(QueryAutopilot::class)->tick();
+
+        Queue::assertPushed(ClusterQueriesJob::class, fn (ClusterQueriesJob $job): bool => $job->serviceId === $this->implant->id);
+        $this->assertSame(['running', $this->implant->id], [QueryClusterQueue::state()['status'], QueryClusterQueue::state()['current']], 'stale queue restarted despite the daily gate');
+        $this->assertFalse(QueryClusterQueue::stale());
+    }
+
     public function test_the_hourly_clean_up_applies_filter_deletions_and_keeps_what_the_operator_kept(): void
     {
         QueryPipeline::markImported();

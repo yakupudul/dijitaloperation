@@ -86,6 +86,7 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
 
     public function test_recommended_plan_puts_bulk_work_on_haiku_writing_on_sonnet_and_keeps_the_query_autopilot(): void
     {
+        config(['moxdop-ai-pricing.claude_api_window.until' => now('Europe/Istanbul')->subDay()->toDateString()]); // window closed
         $registry = app(PromptRegistry::class);
         $triage = $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model;
 
@@ -141,7 +142,7 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
 
         $this->assertSame(AiAssignments::HAIKU, $registry->current('site.cluster_match')->model);
         $this->assertSame(AiAssignments::SONNET, $registry->current(AiRouteKeys::SITE_WRITE_ARTICLE)->model);
-        $this->assertSame($triage, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'the query autopilot stays');
+        $this->assertSame(AiAssignments::HAIKU, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'query triage runs on the free credit while the window is open');
         $this->assertSame(AiTask::CONSUMED, $waiting->fresh()->status);
         Queue::assertPushed(RefreshBrandCandidatesJob::class, 1);
         $this->assertSame(8.0, app(AiBudget::class)->dailyBudget());
@@ -152,6 +153,7 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->artisan('moxdop:ai:claude-api-window', ['action' => 'end'])->assertSuccessful();
         $this->assertSame(AiTaskQueue::MODEL, $registry->current('site.cluster_match')->model);
         $this->assertSame('openai:gpt-5-mini', $registry->current(AiRouteKeys::BRAND_SETUP)->model);
+        $this->assertSame($triage, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'query triage goes back to its earlier model');
         $this->artisan('moxdop:ai:claude-api-window', ['action' => 'end'])->assertSuccessful();
     }
 

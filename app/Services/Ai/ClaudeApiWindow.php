@@ -88,7 +88,8 @@ final class ClaudeApiWindow
                 continue;
             }
             $current = $this->registry->current((string) $operation);
-            $planned = $this->assignments->target(AiAssignments::PLAN_RECOMMENDED, (string) $operation);
+            // What the window's plan gave it (also for queries.triage, which moves only while the window is open).
+            $planned = $this->assignments->target(AiAssignments::PLAN_RECOMMENDED, (string) $operation, claudeApiWindow: true);
             if ($planned === null || (string) ($current->model ?? '') !== $planned || (string) ($current->model ?? '') === (string) ($model ?? '')) {
                 continue;
             }

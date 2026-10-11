@@ -7,6 +7,7 @@ use App\Models\Cluster;
 use App\Models\ClusterQuery;
 use App\Models\Query;
 use App\Models\ServiceCatalogItem;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -17,7 +18,10 @@ final class QueryClusterQueue
 {
     public const string KEY = 'queries:cluster:all';
 
-    /** @return array{status: string, queue: list<int>, current: ?int, done: int, total: int}|null */
+    /** A running queue that has not moved for this long is stale (a lost job): the autopilot restarts it. */
+    public const int STALE_AFTER_HOURS = 2;
+
+    /** @return array{status: string, queue: list<int>, current: ?int, done: int, total: int, touched_at?: string}|null */
     public static function state(): ?array
     {
         $state = Cache::get(self::KEY);
@@ -25,11 +29,36 @@ final class QueryClusterQueue
         return is_array($state) ? $state : null;
     }
 
+    public static function running(): bool
+    {
+        return (self::state()['status'] ?? null) === 'running';
+    }
+
+    /** Running, but no step moved it for STALE_AFTER_HOURS (a queue from before the mark counts as stale). */
+    public static function stale(): bool
+    {
+        if (! self::running()) {
+            return false;
+        }
+        $touched = self::state()['touched_at'] ?? null;
+
+        return ! is_string($touched) || CarbonImmutable::parse($touched)->addHours(self::STALE_AFTER_HOURS)->isPast();
+    }
+
+    /** Marks the running queue as alive (every clustering step). */
+    public static function touch(): void
+    {
+        $state = self::state();
+        if (($state['status'] ?? null) === 'running') {
+            Cache::put(self::KEY, ['touched_at' => now()->toIso8601String()] + $state, now()->addDays(3));
+        }
+    }
+
     /** @return int services queued */
     public function start(): int
     {
         $queue = $this->servicesToCluster();
-        Cache::put(self::KEY, ['status' => 'running', 'queue' => $queue, 'current' => null, 'done' => 0, 'total' => count($queue)], now()->addDays(3));
+        Cache::put(self::KEY, ['status' => 'running', 'queue' => $queue, 'current' => null, 'done' => 0, 'total' => count($queue), 'touched_at' => now()->toIso8601String()], now()->addDays(3));
         $this->next();
 
         return count($queue);
@@ -63,7 +92,7 @@ final class QueryClusterQueue
 
             return;
         }
-        Cache::put(self::KEY, ['queue' => $queue, 'current' => (int) $serviceId, 'done' => $done] + $state, now()->addDays(3));
+        Cache::put(self::KEY, ['queue' => $queue, 'current' => (int) $serviceId, 'done' => $done, 'touched_at' => now()->toIso8601String()] + $state, now()->addDays(3));
         QueryClusterer::start((int) $serviceId, Cluster::query()->where('service_id', $serviceId)->exists() ? 'place' : 'full');
         ClusterQueriesJob::dispatch((int) $serviceId, true);
     }
