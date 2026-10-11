@@ -113,7 +113,7 @@ class DigitalAssetVisualIdentityTest extends TestCase
             ->assertSee('data-asset-mark="gbp"', false)
             ->assertSee('images/digital-assets/gbp.svg', false);
 
-        Livewire::test(AssetsIndex::class)
+        Livewire::withQueryParams(['view' => 'table'])->test(AssetsIndex::class)
             ->assertSee('data-asset-mark="ga4"', false)
             ->assertSee('data-asset-mark="gsc"', false)
             ->assertSee('data-asset-mark="google_ads"', false)

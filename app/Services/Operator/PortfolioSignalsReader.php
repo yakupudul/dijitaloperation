@@ -145,7 +145,8 @@ final class PortfolioSignalsReader
         $sources = [];
         foreach ($statuses as $status) {
             $sources[$status->capability] = ['label' => $status->sourceLabel(), 'state' => $status->state, 'state_label' => $status->label(),
-                'tone' => $status->tone(), 'detail' => $status->detail(), 'reconnect' => $status->state === DataStatus::ACCESS_PROBLEM];
+                'tone' => $status->tone(), 'detail' => $status->detail(), 'reconnect' => $status->state === DataStatus::ACCESS_PROBLEM,
+                'reason' => $status->reason, 'age_days' => $status->ageDays];
         }
         $worst = collect($sources)->sortByDesc(fn (array $s): int => self::TONE_RANK[$s['tone']] ?? 0)->first();
         $problems = collect($sources)->filter(fn (array $s): bool => in_array($s['tone'], ['bad', 'warn'], true));
