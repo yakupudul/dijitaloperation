@@ -28,6 +28,7 @@ final class MetaAdsNormalizer
             'metadata' => [
                 'name' => $row['name'] ?? null,
                 'account_status' => $row['account_status'] ?? null,
+                'disable_reason' => $row['disable_reason'] ?? null,
                 'currency' => $row['currency'] ?? null,
                 'timezone_name' => $row['timezone_name'] ?? $timezone,
                 'business_id' => data_get($row, 'business.id'),

@@ -96,7 +96,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     /** @param array<string, mixed> $scope */
     private function executeAdAccountMeta(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
-        $fields = 'id,name,account_status,currency,timezone_name,business{id,name}';
+        $fields = 'id,name,account_status,disable_reason,currency,timezone_name,business{id,name}';
         $path = (string) $scope['act_id'];
         $query = ['fields' => $fields];
 

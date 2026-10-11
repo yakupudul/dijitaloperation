@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Operator\PortfolioSignalsReader;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\Meta\MetaResourceType;
@@ -379,6 +380,65 @@ final class DataStatusTest extends TestCase
         if ($state === 'access_problem') {
             $page->assertSee($status->actionUrl, false);
         }
+    }
+
+    public function test_an_idle_account_is_durgun_and_only_a_dormant_one_pasif(): void
+    {
+        $idle = $this->asset('gsc', 'Örnek GSC idle');
+        $idleResource = $this->bind($idle, $this->google, 'google', GoogleResourceType::GSC_PROPERTY, 'search_console', 'sc-domain:idle.test');
+        ResourceActivity::query()->create(['external_resource_id' => $idleResource->id, 'provider' => 'google', 'tier' => ActivityTier::Idle]);
+        $dormant = $this->asset('gsc', 'Örnek GSC dormant');
+        $dormantResource = $this->bind($dormant, $this->google, 'google', GoogleResourceType::GSC_PROPERTY, 'search_console', 'sc-domain:dormant.test');
+        ResourceActivity::query()->create(['external_resource_id' => $dormantResource->id, 'provider' => 'google', 'tier' => ActivityTier::Dormant]);
+
+        $statuses = app(DataStatusReader::class)->forAssets(collect([$idle, $dormant]));
+
+        $this->assertSame([DataStatus::PAUSED, 'Durgun', 'muted'], [$statuses[$idle->id][0]->state, $statuses[$idle->id][0]->label(), $statuses[$idle->id][0]->tone()]);
+        $this->assertStringContainsString('Son 7–30 gündür harcama yok', $statuses[$idle->id][0]->detail());
+        $this->assertSame('Pasif', $statuses[$dormant->id][0]->label());
+    }
+
+    public function test_a_meta_account_that_cannot_deliver_is_a_problem_even_while_idle(): void
+    {
+        $asset = $this->asset('meta_ads', 'Örnek Meta');
+        $resource = $this->bind($asset, $this->meta, 'meta', MetaResourceType::META_AD_ACCOUNT, 'meta_ads', 'act_555');
+        ResourceActivity::query()->create(['external_resource_id' => $resource->id, 'provider' => 'meta', 'tier' => ActivityTier::Idle]);
+        $this->collected($resource);
+        DB::table('meta_ad_account_snapshot')->insert($this->pool(null, ['external_resource_id' => $resource->id, 'account_id' => '555',
+            'metadata' => json_encode(['account_status' => 3, 'disable_reason' => 0])]));
+
+        $status = app(DataStatusReader::class)->forAssetSource($asset, 'meta_ads');
+
+        $this->assertSame([DataStatus::ACCOUNT_BLOCKED, 'bad', 'Hesap sorunu'], [$status->state, $status->tone(), $status->label()]);
+        $this->assertStringContainsString('Ödenmemiş bakiye var', $status->detail());
+        $this->assertTrue(app(PortfolioSignalsReader::class)->forBrands(collect([$this->brand]))['assets'][$asset->id]['needs_attention']);
+    }
+
+    public function test_active_meta_campaigns_without_spend_for_three_days_say_yayin_durdu(): void
+    {
+        $asset = $this->asset('meta_ads', 'Örnek Meta');
+        $resource = $this->bind($asset, $this->meta, 'meta', MetaResourceType::META_AD_ACCOUNT, 'meta_ads', 'act_555');
+        $this->collected($resource);
+        DB::table('meta_ad_account_snapshot')->insert($this->pool(null, ['external_resource_id' => $resource->id, 'account_id' => '555',
+            'metadata' => json_encode(['account_status' => 1, 'disable_reason' => 0])]));
+        $campaign = fn (string $id, string $status) => DB::table('meta_campaign_snapshot')->insert($this->pool(null, ['external_resource_id' => $resource->id,
+            'account_id' => '555', 'campaign_id' => $id, 'first_collected_at' => now()->subDays(20), 'metadata' => json_encode(['effective_status' => $status])]));
+        $campaign('c1', 'ACTIVE');
+        $campaign('c2', 'PAUSED');
+        $this->days('2026-09-10', '2026-09-26', fn (string $day) => $this->insertFact('meta_account_daily', $this->pool(null, [
+            'external_resource_id' => $resource->id, 'account_id' => '555', 'reporting_date' => $day, 'spend' => 0, 'impressions' => 0, 'clicks' => 0,
+        ])));
+        $this->insertFact('meta_campaign_daily', $this->pool(null, ['external_resource_id' => $resource->id, 'account_id' => '555',
+            'reporting_date' => '2026-09-20', 'campaign_id' => 'c1', 'spend' => 120, 'impressions' => 100, 'clicks' => 5]));
+
+        $status = app(DataStatusReader::class)->forAssetSource($asset, 'meta_ads');
+        $this->assertSame([DataStatus::NOT_DELIVERING, 'warn', 'Yayın durdu'], [$status->state, $status->tone(), $status->label()]);
+        $this->assertStringContainsString('Aktif kampanyalar 3+ gündür harcama yapmıyor', $status->detail());
+
+        $this->insertFact('meta_campaign_daily', $this->pool(null, ['external_resource_id' => $resource->id, 'account_id' => '555',
+            'reporting_date' => '2026-09-26', 'campaign_id' => 'c1', 'spend' => 40, 'impressions' => 100, 'clicks' => 5]));
+        app(DataStatusReader::class)->flush();
+        $this->assertSame(DataStatus::FRESH, app(DataStatusReader::class)->forAssetSource($asset, 'meta_ads')->state);
     }
 
     private function website(): DigitalAsset
