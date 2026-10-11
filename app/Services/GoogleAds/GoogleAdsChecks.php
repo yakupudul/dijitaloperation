@@ -7,6 +7,7 @@ use App\Models\BrandServiceArea;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
+use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorRuleEngine;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\Schema;
 
@@ -43,9 +44,16 @@ final class GoogleAdsChecks
     /** A site with at least this many stored pages may be cut by the inventory cap: its page list is not complete. */
     public const int PAGE_INVENTORY_CAP = 5000;
 
+    /** Advisor rules left out of the advice: a system check or the search-term review already covers them. */
+    public const array ADVICE_COVERED = ['negative-keyword-conflict', 'no-primary-conversion', 'negative-keywords'];
+
+    /** Advisor severity => suggestion priority (advice is never critical work: 3 at most urgent). */
+    public const array ADVICE_PRIORITY = ['critical' => 3, 'high' => 3, 'medium' => 4, 'low' => 5];
+
     public function __construct(
         private readonly GoogleAdsAdvisorInputCollector $collector,
         private readonly GoogleAdsScreen $screen,
+        private readonly GoogleAdsAdvisorRuleEngine $rules,
     ) {}
 
     /**
@@ -53,12 +61,81 @@ final class GoogleAdsChecks
      */
     public function run(DigitalAsset $asset): array
     {
+        return $this->evaluate($asset)['checks'];
+    }
+
+    /**
+     * The system checks and, from the same collected pack, the advisor rules (GoogleAdsAdvisorRuleEngine) as read-only
+     * advice: what to look at and do in Google Ads by hand — nothing is written to the account.
+     *
+     * @return array{checks: list<array<string, mixed>>, advice: list<array{key: string, title: string, reason: string, priority: int, evidence: list<array<string, mixed>>, rule: string, todo: string, copy_text: ?string, impact: string}>}
+     */
+    public function evaluate(DigitalAsset $asset): array
+    {
         $pack = $this->collector->collect($asset);
         if (! ($pack['bound'] ?? false)) {
-            return [];
+            return ['checks' => [], 'advice' => []];
         }
         $asset->loadMissing('brand');
 
+        return ['checks' => $this->checks($asset, $pack), 'advice' => $this->advice($pack)];
+    }
+
+    /**
+     * @param  array<string, mixed>  $pack
+     * @return list<array<string, mixed>>
+     */
+    private function advice(array $pack): array
+    {
+        $out = [];
+        foreach ($this->rules->evaluate($pack)['items'] as $item) {
+            if (in_array($item['rule_id'], self::ADVICE_COVERED, true)) {
+                continue;
+            }
+            $out[] = [
+                'key' => 'advice:'.$item['item_key'], 'title' => (string) $item['title'], 'reason' => (string) $item['reason'],
+                'priority' => self::ADVICE_PRIORITY[$item['severity']] ?? 4, 'evidence' => self::adviceEvidence((array) $item['evidence']),
+                'rule' => (string) $item['rule_id'], 'todo' => implode(' ', array_slice(array_map('strval', (array) $item['checklist']), 0, 3)),
+                'copy_text' => $item['copy_text'], 'impact' => (string) $item['impact_label'],
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The advisor's evidence (named lists and numbers) as evidence rows: each listed row with its plain values (up to
+     * 20), and one row of the plain numbers.
+     *
+     * @param  array<string, mixed>  $evidence
+     * @return list<array<string, mixed>>
+     */
+    public static function adviceEvidence(array $evidence): array
+    {
+        $rows = [];
+        $plain = [];
+        foreach ($evidence as $name => $value) {
+            if (is_scalar($value) || $value === null) {
+                $plain[(string) $name] = $value;
+            } elseif (is_array($value) && array_is_list($value)) {
+                foreach (array_slice($value, 0, 20) as $row) {
+                    $row = is_array($row) ? array_filter($row, fn ($v): bool => is_scalar($v) || $v === null) : ['değer' => $row];
+                    if ($row !== []) {
+                        $rows[] = $row;
+                    }
+                }
+            }
+        }
+
+        return array_slice($plain !== [] ? [$plain, ...$rows] : $rows, 0, 21);
+    }
+
+    /**
+     * @param  array<string, mixed>  $pack
+     * @return list<array<string, mixed>>
+     */
+    private function checks(DigitalAsset $asset, array $pack): array
+    {
         return [
             $this->conversionTracking($pack),
             $this->conversionGoals($pack),

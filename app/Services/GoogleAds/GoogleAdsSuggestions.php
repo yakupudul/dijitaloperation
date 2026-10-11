@@ -35,10 +35,14 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         private readonly GoogleAdsChecks $checks,
     ) {}
 
-    /** System checks → suggestions (failing ones) and the state list of the overview. */
+    /** Read-only advisor advice (GoogleAdsAdvisorRuleEngine): done by hand in Google Ads, nothing is written. */
+    public const string ADVICE_TYPE = 'ads_advice';
+
+    /** System checks → suggestions (failing ones) and the state list of the overview; advisor rules → read-only advice. */
     public function syncChecks(DigitalAsset $asset): int
     {
-        $results = $this->checks->run($asset);
+        $evaluated = $this->checks->evaluate($asset);
+        $results = $evaluated['checks'];
         Cache::put(self::checksKey((int) $asset->id), ['at' => now()->toIso8601String(), 'items' => array_map(
             fn (array $c): array => ['id' => $c['id'], 'label' => $c['label'], 'state' => $c['state'], 'reason' => $c['reason']], $results)], now()->addDays(3));
         $items = [];
@@ -51,6 +55,10 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         }
 
         $stored = $this->replaceGroup($asset, 'check', $items);
+        $this->replaceGroup($asset, 'advice', array_map(fn (array $a): array => ['key' => $a['key'], 'title' => $a['title'], 'reason' => $a['reason'],
+            'priority' => max(3, (int) $a['priority']), 'evidence' => $a['evidence'], 'action_type' => self::ADVICE_TYPE,
+            'action' => array_filter(['rule' => $a['rule'], 'todo' => $a['todo'], 'copy_text' => $a['copy_text'], 'impact' => $a['impact'], 'read_only' => true],
+                fn ($v): bool => $v !== null && $v !== '')], $evaluated['advice']));
         app(WorkVerifier::class)->checks($asset, $this->channel(), 'ads_check',
             array_values(array_map(fn (array $c): string => (string) $c['id'], array_filter($results, fn (array $c): bool => $c['state'] === 'pass'))),
             array_values(array_map(fn (array $c): string => (string) $c['id'], array_filter($results, fn (array $c): bool => $c['state'] === 'fail'))));

@@ -264,6 +264,30 @@ final class GoogleAdsScreenTest extends TestCase
             'with the full WordPress page list; the gclid / fragment address is the /implant/ page');
     }
 
+    public function test_advisor_rules_become_read_only_advice_never_critical(): void
+    {
+        $this->seedAccount();
+        for ($day = 1; $day <= 12; $day++) {
+            $this->row('google_ads_campaign_daily', ['campaign_id' => '102', 'reporting_date' => $this->day($day), 'impressions' => 300, 'clicks' => 20, 'cost_micros' => 0, 'cost_amount' => 60,
+                'conversions' => 0, 'currency' => 'TRY', 'metadata' => []]);
+        }
+
+        $advice = app(GoogleAdsChecks::class)->evaluate($this->asset)['advice'];
+        $this->assertNotSame([], $advice, 'the advisor rules run on the same collected pack');
+        $this->assertTrue(collect($advice)->every(fn (array $a): bool => $a['priority'] >= 3));
+        $this->assertSame([], array_values(array_intersect(array_column($advice, 'rule'), GoogleAdsChecks::ADVICE_COVERED)), 'no repeat of a system check');
+
+        app(GoogleAdsSuggestions::class)->syncChecks($this->asset);
+        $rows = Suggestion::query()->where('channel', 'google_ads')->where('action_type', GoogleAdsSuggestions::ADVICE_TYPE)->get();
+        $this->assertCount(count($advice), $rows);
+        $this->assertTrue($rows->every(fn (Suggestion $s): bool => $s->priority >= 3 && ($s->action['read_only'] ?? false) === true && $s->target_id === $this->asset->id));
+
+        $first = $rows->first();
+        app(GoogleAdsSuggestions::class)->approve($first, $this->admin);
+        $this->assertSame(Suggestion::APPLIED, $first->fresh()->status, 'approving advice records that it was done by hand; nothing is written');
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
+
     public function test_campaign_language_targeting_is_collected_and_compared_with_the_brand_languages(): void
     {
         $this->seedAccount();
