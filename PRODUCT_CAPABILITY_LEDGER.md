@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — İşletme profilleri, web sitesi, Kazananlar ve Onarım masası sadeleşti (panel önerileri §5, §8, §9; yalnız arayüz)
+
+- **İşletme profilleri › Durum ve ölçüm (`/gbp`):** listelenen işletmelerin en az %80'inde eksik olan koşul (en az 3 işletme varsa) üstte "Şubelerin çoğunda ortak eksik" kutusunda bir kez yazar, yanında düzeltileceği sekmeye "Hepsini düzenle →" (Özel gün saatleri → Açıklama ve saatler › saatler). Satırlarda yalnız o şubeye özel eksikler (! amber, ? gri) kalır; yoksa "✓ Özel eksik yok". 3'ten fazla şubesi olan marka katlanır grup; yalnız şubeye özel eksiği olan ya da açık satırı içeren grup açık gelir. `DeskPage::sharedGaps`. Hız işleri (BranchPages, ReviewDesk önbelleği) değişmedi.
+- **Varlık uyarıları (`x-operator.asset-context`, bütün varlık ekranları):** kutular tek katlanır "N uyarı" şeridi. Kırmızı nokta ve açık gelme yalnız para / trafik kaybında (`site_down`, `critical`, `high`); diğerleri amber, kapalı.
+- **Web sitesi ekranı:** sekme sırası Yapılacaklar · Kümeler · Analiz · Sayfalar · Sorgular · Teknik SEO; "Ayarlar" ve "Diğer" tek "Ayarlar" menüsü (Site ayarları ve bağlı varlıklar + diğer görünümler). Varsayılan sekme ve eski `?tab=` bağlantıları aynı. Kümeler kartında aynı başlıklı fikir bir kez (Olmazsa olmaz kalır, `ClustersBoardTab::uniqueIdeas`); kart başına tek turuncu "Oluştur (N)" (`produceCard`: sitede sayfası olmayan ve aranmış fikirler, en çok 10, tek fikir `produce` ile aynı kontroller); fikir başına "Yalnız bunu oluştur" ve "Önizle ve güncelle" küçük bağlantı. Sektör talebi < 10 ve bizim gösterimi 0 olan alt kümeler hizmet başına kapalı "Küçük kümeler (N)" listesinde. Hizmet hizmet yükleme aynen. Boş filtrede "Filtreleri temizle".
+- **Boş durumlar:** Kütüphaneler (Strateji öner'e git, Kazananlara git, Markalara git), Kazananlar (Strateji öner'e git, Pazarlara bak, Türkiye geneline bak), İşletme profilleri (Entegrasyonlardan bağla). Kazananlar › pazar "Adil yarış kuralları" (i) ile açılan katlanır yardım.
+- **Onarım masası telefonda (<640px):** marka listesi seçim kutusu; paket, satır ve toplu onay düğmeleri tam genişlik; klavye ipucu gizli. Yalnız duyarlı sınıflar, mantık aynı.
+- **Test:** `GbpDeskTest`, `ClustersBoardTabTest`, `SitePagesTest`, `WinnersTest`, `RepairDeskTest`. UAT yok.
+
 ## 2026-10-11 — Marka sayfası düzeni (panel önerileri §3)
 
 - **Özet sırası:** önce "Son 28 gün" rakamları, sonra markanın Onarım masasında bekleyen onayları (`BrandApprovalsCard`, sayfadan sonra yüklenir: toplam + en büyük 3 paket, her biri `/onarim?marka=…&paket=…` bağlantısı; elle yapılacak işler sayılmaz), sonra Marka eksikleri, Yolculuk, varlıklar, açık işler ve hizmetler. Marka bilgi kartı ve Kimlik tutarlılığı "Bilgi dosyası" sekmesine taşındı (Yenile, Düzenle, Yeniden kontrol et aynen çalışır).
