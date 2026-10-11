@@ -29,7 +29,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Onarım masası</h1>
-            <p class="mt-1 text-sm text-gray-500">Sistemin hazırladığı düzeltmeler paket paket: aynı markanın aynı türdeki işleri tek kararda. Onayladığın an uygulanır, kayda geçer ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300">Onay bekleyen {{ $counts['total'] }}</span></p>
+            <p class="mt-1 text-sm text-gray-500">Sistemin hazırladığı düzeltmeler paket paket: aynı markanın aynı türdeki işleri tek kararda. Onayladığın an uygulanır, kayda geçer ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300">Onay bekleyen {{ number_format($counts['packages'], 0, ',', '.') }} paket · {{ number_format($counts['total'], 0, ',', '.') }} iş</span></p>
         </div>
         <a href="#yapilanlar" @click="$dispatch('show-done')" class="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30" data-done-badge>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı</a>
     </div>
@@ -68,14 +68,14 @@
                     <option value="{{ $brandId }}" selected>{{ $brands[$brandId] ?? 'Marka' }} · bekleyen iş yok</option>
                 @endif
                 @foreach ($health as $h)
-                    <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id'])>{{ $h['brand'] }} · %{{ $h['percent'] }} · {{ $h['open'] }} iş</option>
+                    <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id'])>{{ $h['brand'] }} · %{{ $h['percent'] }} · {{ $h['open'] }} paket</option>
                 @endforeach
             </select>
         </label>
         {{-- Solda markalar: kazandıracak işe göre sıralı --}}
         <aside class="hidden rounded-xl bg-white p-3 sm:block ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-repair-health>
             <h2 class="px-2 text-sm font-semibold text-gray-800 dark:text-white/90">Marka sağlığı</h2>
-            <p class="cursor-help px-2 text-xs text-gray-500" title="Kusursuz yüzdesi = son {{ RepairDesk::TRACK_DAYS }} günde biten işler ÷ (biten + kalan). Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan), eşitse kritik iş sayısı." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
+            <p class="cursor-help px-2 text-xs text-gray-500" title="Kusursuz yüzdesi = son {{ RepairDesk::TRACK_DAYS }} günde biten işler ÷ (biten + kalan). Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan; sayfa işinde puan sayfanın 90 günlük Search Console gösterim ve tıklamasıyla büyür, hiç görünmeyen sayfa 0), eşitse kritik iş sayısı. Kalan işler paket olarak sayılır: aynı markanın aynı türdeki işleri tek paket." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
             <ul class="mt-2 max-h-[70vh] space-y-0.5 overflow-y-auto text-sm">
                 <li>
                     <button type="button" wire:click="$set('brandId', null)" @class(['flex w-full items-baseline justify-between gap-2 rounded-lg px-2 py-1.5 text-left', 'bg-gray-100 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white' => $brandId === null, 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5' => $brandId !== null])>
@@ -88,9 +88,9 @@
                 @foreach ($health as $h)
                     @php $on = $brandId === $h['brand_id']; @endphp
                     <li wire:key="health-{{ $h['brand_id'] }}">
-                        <button type="button" wire:click="$set('brandId', {{ $on ? 'null' : $h['brand_id'] }})" title="{{ $h['brand'] }}: son {{ RepairDesk::TRACK_DAYS }} günde {{ $h['done'] }} iş bitti, {{ $h['open'] }} iş kaldı{{ $h['critical'] > 0 ? ', '.$h['critical'].' kritik' : '' }}" @class(['block w-full rounded-lg px-2 py-1.5 text-left', 'bg-gray-100 dark:bg-gray-800' => $on, 'hover:bg-gray-50 dark:hover:bg-white/5' => ! $on]) data-health-brand="{{ $h['brand_id'] }}">
+                        <button type="button" wire:click="$set('brandId', {{ $on ? 'null' : $h['brand_id'] }})" title="{{ $h['brand'] }}: son {{ RepairDesk::TRACK_DAYS }} günde {{ $h['done'] }} iş bitti, {{ $h['open'] }} paket ({{ $h['rows'] }} iş) kaldı{{ $h['critical'] > 0 ? ', '.$h['critical'].' kritik' : '' }}" @class(['block w-full rounded-lg px-2 py-1.5 text-left', 'bg-gray-100 dark:bg-gray-800' => $on, 'hover:bg-gray-50 dark:hover:bg-white/5' => ! $on]) data-health-brand="{{ $h['brand_id'] }}">
                             <span @class(['block break-words text-gray-800 dark:text-white/90', 'font-semibold' => $on, 'font-medium' => ! $on])>{{ $h['brand'] }}</span>
-                            <span class="block text-xs"><span @class(['font-semibold', 'text-emerald-700 dark:text-emerald-400' => $h['percent'] >= 80, 'text-gray-700 dark:text-gray-300' => $h['percent'] < 80])>%{{ $h['percent'] }} kusursuz</span> <span class="text-gray-500">· {{ $h['open'] }} iş kaldı</span></span>
+                            <span class="block text-xs"><span @class(['font-semibold', 'text-emerald-700 dark:text-emerald-400' => $h['percent'] >= 80, 'text-gray-700 dark:text-gray-300' => $h['percent'] < 80])>%{{ $h['percent'] }} kusursuz</span> <span class="text-gray-500">· {{ $h['open'] }} paket kaldı</span></span>
                         </button>
                     </li>
                 @endforeach

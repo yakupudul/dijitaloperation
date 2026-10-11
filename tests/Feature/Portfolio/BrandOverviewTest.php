@@ -262,11 +262,11 @@ final class BrandOverviewTest extends TestCase
         $gbp = $this->gbp()['asset'];
         app(GbpSuggestions::class)->replaceGroup($gbp, 'standard', [
             ['key' => 'standard:hours', 'title' => 'Çalışma saatlerini ekle', 'reason' => 'Profilde saat yok; aramaların %30\'u saat soruyor.', 'priority' => 1,
-                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard' => 'hours']],
+                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard_id' => 'hours']],
             ['key' => 'standard:photos', 'title' => 'Fotoğraf ekle', 'reason' => 'Son 90 günde fotoğraf yok.', 'priority' => 2,
-                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard' => 'photos']],
+                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard_id' => 'photos']],
             ['key' => 'standard:posts', 'title' => 'Gönderi paylaş', 'reason' => 'Son gönderi 60 gün önce.', 'priority' => 3,
-                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard' => 'posts']],
+                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard_id' => 'posts']],
         ], sweep: false);
         Suggestion::query()->where('title', 'Fotoğraf ekle')->update(['status' => Suggestion::DISMISSED]);
         Suggestion::query()->where('title', 'Gönderi paylaş')->update(['status' => Suggestion::SNOOZED, 'snoozed_until' => now()->subDay()]);
@@ -345,13 +345,13 @@ final class BrandOverviewTest extends TestCase
         $rows = [];
         for ($i = 1; $i <= 7; $i++) {
             $rows[] = ['key' => 'standard:s'.$i, 'title' => 'Harita işi '.$i, 'reason' => 'Neden '.$i, 'priority' => $i,
-                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard' => 's'.$i]];
+                'evidence' => [], 'action_type' => 'gbp_standard', 'action' => ['standard_id' => 's'.$i]];
         }
         app(GbpSuggestions::class)->replaceGroup($gbp, 'standard', $rows, sweep: false);
 
         $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSee('Harita işi 1')->assertDontSee('Harita işi 7')
-            ->assertSee('data-work-more', false)->assertSee('+2 iş daha');
+            ->assertSee('data-work-more', false)->assertSee('+2 iş paketi daha');
         $this->assertCount(BrandShow::WORK_LIMIT, $page->viewData('work')['items']);
         $this->assertSame(7, $page->viewData('channelCounts')['harita']['count']);
 

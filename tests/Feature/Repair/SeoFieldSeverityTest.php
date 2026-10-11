@@ -43,7 +43,7 @@ final class SeoFieldSeverityTest extends SiteTestCase
         $this->assertSame(4, $priorities[$long->id], 'description too long');
     }
 
-    public function test_impressions_decide_title_criticality_and_unseen_description_issues_drop_to_5(): void
+    public function test_impressions_decide_title_criticality_and_unseen_pages_get_no_row(): void
     {
         $seen = $this->wpPage('/blog/goruldu/', '', 42, ['category' => 'blog', 'meta_description' => self::DESCRIPTION]);
         $unseenTitle = $this->wpPage('/blog/gorulmedi/', '', 43, ['category' => 'blog', 'meta_description' => self::DESCRIPTION.' İki']);
@@ -57,9 +57,10 @@ final class SeoFieldSeverityTest extends SiteTestCase
 
         $priorities = Suggestion::query()->where('action_type', SiteAudit::TYPE)->pluck('priority', 'page_id');
         $this->assertSame(1, $priorities[$seen->id]);
-        $this->assertSame(2, $priorities[$unseenTitle->id], 'impressions older than 90 days do not count');
-        $this->assertSame(5, $priorities[$unseenDescription->id]);
+        $this->assertFalse($priorities->has($unseenTitle->id), 'impressions older than 90 days do not count: no gain, no row');
+        $this->assertFalse($priorities->has($unseenDescription->id), 'an unseen blog page gets no row (2026-10-11)');
         $this->assertSame(3, $priorities[$seenDescription->id]);
+        $this->assertSame(5, SiteAudit::priority(['meta_description:missing'], 0, 'hizmet'), 'an unseen service page still opens, as 5');
     }
 
     public function test_the_rendered_description_of_the_crawl_counts_when_the_plugin_field_is_empty(): void
@@ -101,7 +102,7 @@ final class SeoFieldSeverityTest extends SiteTestCase
 
         $signals = app(PortfolioSignalsReader::class)->forBrands(collect([$this->brand->fresh()]));
 
-        $this->assertSame(6, $signals['brands'][$this->brand->id]['open_work']);
+        $this->assertSame(2, $signals['brands'][$this->brand->id]['open_work'], 'five title fixes are one package, the Ads check another');
         $this->assertSame(2, $signals['brands'][$this->brand->id]['critical']);
         $this->assertSame(1, $signals['assets'][$this->site->id]['critical']);
         $this->assertStringContainsString('2 kritik öneri', (string) $signals['brands'][$this->brand->id]['reason']);

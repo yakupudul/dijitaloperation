@@ -135,10 +135,10 @@ final class RepairDeskTest extends SiteTestCase
 
         $health = app(RepairDesk::class)->health(app(RepairDesk::class)->rows());
         $this->assertSame([$other->id, $this->brand->id], $health->pluck('brand_id')->all(), 'three important rows (2 points each) gain more than one critical row (3 points)');
-        $this->assertSame([[6, 0], [3, 1]], [[$health[0]['gain'], $health[0]['critical']], [$health[1]['gain'], $health[1]['critical']]]);
+        $this->assertSame([[6.0, 0], [3.0, 1]], [[$health[0]['gain'], $health[0]['critical']], [$health[1]['gain'], $health[1]['critical']]]);
 
         $page = Livewire::test(RepairDeskPage::class)
-            ->assertSee('%0 kusursuz')->assertSee('3 iş kaldı')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tümü')
+            ->assertSee('%0 kusursuz')->assertSee('1 paket kaldı')->assertSee('1 paket (3 iş) kaldı')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tümü')
             ->set('brandId', $this->brand->id)->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)
             ->assertSee('İmplant Tedavisi Ankara')->assertSee('Başlık: Ankara implant | Panorama')->assertSee('https://panorama.com.tr/implant/')
             ->assertSeeHtml('data-row-target');

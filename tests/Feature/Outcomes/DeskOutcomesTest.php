@@ -187,7 +187,7 @@ final class DeskOutcomesTest extends SiteTestCase
         $this->assertSame([RepairDesk::SITE_FIELDS, RepairDesk::IMAGE_ALT], $packages->pluck('kind')->all());
         $this->assertSame('Bu tür işler: 6 ölçümün 5 tanesi işe yaradı', $packages[0]['track']);
         $health = (new RepairDesk)->health((new RepairDesk)->rows());
-        $this->assertSame(8, $health[0]['gain'], 'two winning rows (2 × 2 × 1.167) + two losing rows (2 × 2 × 0.8) = 7.87');
+        $this->assertSame(7.87, $health[0]['gain'], 'two winning rows (2 × 2 × 1.167) + two losing rows (2 × 2 × 0.8)');
         Livewire::test(RepairDeskPage::class)->assertSee('İş türü sicili')->assertSee('Bu tür işler: 6 ölçümün 5 tanesi işe yaradı');
     }
 

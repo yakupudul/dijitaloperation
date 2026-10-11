@@ -5,6 +5,10 @@
 - **Karar (yakup):** Onarım masasında onaylanıp uygulanan her değişiklik 30 ve 90 gün sonra ölçülür ve sistem bundan öğrenir. 2026-11-01 Faz 9 kararının (28. / 56. gün) yerini alır; mekanizma yine tek servistir (`OutcomeTracker`), yeni tablo yok, AI yok, yalnız saklı veri.
 - **Karar:** Nokta `dN` = uygulamadan sonraki N gün ile önceki N gün (eşit dönemler, uygulama günü hariç). Dört sonuç: işe yaradı / değişmedi / kötüleşti (ana metrikte ±%10) / ölçülemedi (nedeniyle; veri eksikse tahmin yok). Kaynak önceki dönemin tamamında toplanmamışsa karşılaştırılmaz.
 - **Karar:** İş türü sicili masa sırasını küçük ve sınırlı etkiler: 0,8–1,2 (ADR-066'nın `brain.min_measured` / `weight_range` ayarları), 5 ölçümden önce etkisiz; satır gizlenmez, risk şeritleri ve operatör önceliği önce gelir.
+## 2026-10-11 — Açık işler paket olarak sayılır
+
+- **Karar:** Operatöre ya da AI'a gösterilen her açık iş sayısı ve listesi pakettir: aynı marka + aynı iş türü = bir iş ("Başlık / açıklama: 412 sayfa"). Tek kaynak `OpenWork` (gruplama `RepairDesk::packages`); sıra beklenen kazanç (öncelik × sayfanın 90 günlük Search Console erişimi), hiç görünmeyen sayfanın işi en sonda. Yeni bir ekran açık iş sayacaksa satır saymaz, `OpenWork`'ü kullanır.
+- **Karar:** Gösterimi olmayan sayfaya iş açılmaz: Search Console verisi olan sitede 90 günde gösterimi olmayan sayfa (hizmet / lokasyon hariç) başlık / açıklama satırı almaz; sayfalama ve arşiv adresleri (`/page/N/` vb.) hiç denetlenmez ve çöp sayılmaz. Bu, 2026-10-11 öncelik kuralındaki "görünmeyen sayfada açıklama sorunu 5" maddesinin yerine geçer (5 artık yalnız görünmeyen hizmet / lokasyon sayfasında).
 
 ## 2026-10-10 — Claude API dönemi (25 Ekim'e kadar)
 

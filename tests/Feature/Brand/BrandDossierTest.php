@@ -128,7 +128,7 @@ final class BrandDossierTest extends TestCase
         }
         for ($i = 1; $i <= 7; $i++) {
             Suggestion::query()->create(['brand_id' => $this->brand->id, 'channel' => $i <= 4 ? 'maps' : 'search', 'title' => 'İş '.$i, 'reason' => 'Neden '.$i.' çünkü',
-                'status' => Suggestion::OPEN, 'priority' => $i, 'decision_key' => 'test', 'action_type' => 'test',
+                'status' => Suggestion::OPEN, 'priority' => $i, 'decision_key' => 'test', 'action_type' => 'test_'.$i,
                 'fingerprint' => str_pad((string) $i, 64, 'a'), 'material_hash' => str_repeat('b', 64)]);
         }
 
@@ -140,8 +140,8 @@ final class BrandDossierTest extends TestCase
         $this->assertStringContainsString('Kapsam yetersiz: Zirkonyum kaplama', $site);
         $this->assertStringNotContainsString('Yeterli: Diş beyazlatma', $site);
         $open = $file['sections']['open']['markdown'];
-        $this->assertStringContainsString('Toplam 7 açık iş · Harita 4, Arama 3 (en acil 5 tanesi aşağıda)', $open);
-        $this->assertStringContainsString('- [Harita] İş 1 — Neden 1 çünkü', $open);
+        $this->assertStringContainsString('Toplam 7 iş paketi (7 açık satır) · Harita 4, Arama 3', $open);
+        $this->assertStringContainsString('- [Harita] İş 1 · kritik — Neden 1 çünkü', $open);
     }
 
     public function test_the_nightly_command_builds_operational_brands(): void

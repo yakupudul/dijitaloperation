@@ -11,14 +11,15 @@ use App\Models\Cluster;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\Page;
-use App\Models\Suggestion;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteScope;
+use App\Services\Work\OpenWork;
 use App\Support\Collection\LastDataDay;
 use App\Support\Operator\CollectionErrorExplainer;
 use App\Support\Operator\DormantAccountHint;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -58,7 +59,8 @@ final class BrandDossier
 
     private const int DECISIONS = 10;
 
-    private const int OPEN_WORK = 5;
+    /** Open work packages listed in the file, the most gain first (OpenWork). */
+    private const int OPEN_WORK = 8;
 
     /** Pages listed per service in the file (the hub first). */
     private const int SERVICE_PAGES = 5;
@@ -448,21 +450,36 @@ final class BrandDossier
             })->implode("\n") ?: 'Henüz karar yok.';
     }
 
+    /**
+     * Açık işler as packages (OpenWork): the same type of work of this brand is one line ("Başlık / açıklama: 412 sayfa"),
+     * the most expected gain first, with the Search Console reach of its pages and one example.
+     */
     private function openWork(Brand $brand): string
     {
-        $open = Suggestion::query()->where('brand_id', $brand->id)->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::RECHECK]);
-        $count = (clone $open)->count();
-        if ($count === 0) {
+        $packages = app(OpenWork::class)->packages((int) $brand->id);
+        if ($packages->isEmpty()) {
             return 'Açık iş yok.';
         }
-        $top = (clone $open)->orderBy('priority')->orderByDesc('id')->limit(self::OPEN_WORK)->get(['title', 'reason', 'channel', 'status']);
-        $byChannel = (clone $open)->selectRaw('channel, count(*) as n')->groupBy('channel')->orderBy('channel')->pluck('n', 'channel')
-            ->map(fn ($n, $channel): string => (Suggestion::CHANNEL_LABELS[$channel] ?? $channel).' '.$n)->implode(', ');
-        $shown = $count > $top->count() ? ' (en acil '.$top->count().' tanesi aşağıda)' : '';
-        $reason = fn (Suggestion $s): string => trim((string) $s->reason) !== '' ? ' — '.Str::limit((string) preg_replace('/\s+/u', ' ', trim((string) $s->reason)), 140) : '';
+        $rows = (int) $packages->sum('count');
+        $byChannel = $packages->groupBy('channel_label')->map(fn (Collection $group, string $label): string => $label.' '.$group->count())->implode(', ');
+        $top = $packages->take(self::OPEN_WORK);
+        $shown = $packages->count() > $top->count() ? ' (kazancı en yüksek '.$top->count().' paket aşağıda)' : '';
+        $number = fn (int $n): string => number_format($n, 0, ',', '.');
+        $clean = fn (string $text, int $limit): string => Str::limit((string) preg_replace('/\s+/u', ' ', trim($text)), $limit);
 
-        return '- Toplam '.$count.' açık iş · '.$byChannel.$shown."\n"
-            .$top->map(fn (Suggestion $s): string => '- ['.$s->channelLabel().'] '.$s->title.$reason($s))->implode("\n");
+        return '- Toplam '.$packages->count().' iş paketi ('.$number($rows).' açık satır) · '.$byChannel.$shown."\n"
+            .$top->map(function (array $p) use ($number, $clean): string {
+                $sample = $p['sample'][0];
+                $reach = match (true) {
+                    $p['unseen'] => ' · sayfaları 90 günde aramada görünmedi',
+                    $p['measured'] => ' · 90 günde '.$number($p['impressions']).' gösterim, '.$number($p['clicks']).' tıklama',
+                    default => '',
+                };
+                $example = $p['count'] > 1 ? ' · ör. '.$clean((string) $sample['title'], 100) : '';
+                $reason = trim((string) $sample['reason']) !== '' ? ' — '.$clean((string) $sample['reason'], 140) : '';
+
+                return '- ['.$p['channel_label'].'] '.OpenWork::line($p).($p['critical'] > 0 ? ($p['count'] > 1 ? ' · '.$p['critical'].' kritik' : ' · kritik') : '').$reach.$example.$reason;
+            })->implode("\n");
     }
 
     private function notesSection(Brand $brand): string
