@@ -2,6 +2,7 @@
 
 namespace App\Services\Brand;
 
+use App\Livewire\Operator\Portfolio\BrandConversions;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Models\BrandExpert;
@@ -12,6 +13,7 @@ use App\Models\Page;
 use App\Services\Ads\AdServiceStats;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\Gbp\Desk\ReviewDesk;
+use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Meta\MetaDesk;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\ContentPlanner;
@@ -296,14 +298,22 @@ final class BrandFacts
     /** @return array{items: list<string>, source: string} */
     private function conversions(Brand $brand): array
     {
-        $rows = BrandConversionSource::query()->where('brand_id', $brand->id)->where('counts', true)->get(['label', 'origin']);
-        $items = $rows->pluck('label')->map(fn ($l): string => (string) $l)->filter()->unique()->values()->all();
+        $dictionary = app(BrandConversionDictionary::class);
+        $sources = BrandConversions::sourceLabels();
+        $rows = BrandConversionSource::query()->where('brand_id', $brand->id)->where('counts', true)->orderBy('source')->orderBy('label')->get()
+            ->filter(fn (BrandConversionSource $row): bool => $dictionary->countsAsCustomer($row));
+        $items = $rows->map(fn (BrandConversionSource $row): string => trim((string) $row->label).' ('.($sources[$row->source] ?? $row->source).')'
+            .($dictionary->engagementCounted($row) ? ' · Etkileşim sinyali müşteri sayılıyor' : ''))
+            ->filter(fn (string $line): bool => ! str_starts_with($line, ' ('))->unique()->values()->all();
         $auto = $rows->isNotEmpty() && $rows->every(fn (BrandConversionSource $s): bool => $s->origin === BrandConversionSource::ORIGIN_AUTO);
+        if (count($items) > self::ITEMS) {
+            $items = [...array_slice($items, 0, self::ITEMS - 1), '+'.(count($items) - self::ITEMS + 1).' sinyal daha (Dönüşümler)'];
+        }
 
-        return ['items' => array_slice($items, 0, self::ITEMS), 'source' => match (true) {
+        return ['items' => $items, 'source' => match (true) {
             $items === [] => 'Seçilmedi (Marka › Ayarlar › Dönüşümler).',
-            $auto => 'GA4 / Google Ads / Meta olaylarından otomatik seçildi',
-            default => 'Operatör seçti (Marka › Ayarlar › Dönüşümler)',
+            $auto => 'GA4 / Google Ads / Meta / İşletme Profili sinyallerinden otomatik seçildi (Marka › Ayarlar › Dönüşümler)',
+            default => 'Operatör seçti ya da onayladı (Marka › Ayarlar › Dönüşümler)',
         }];
     }
 

@@ -71,7 +71,7 @@ final class BrandFactsTest extends TestCase
         $this->assertSame('Bekleme (2 yorum)', $fields['objections']['items'][0]);
         $this->assertSame('Ağrısız tedavi (3 yorum)', $fields['praise']['items'][0]);
         $this->assertStringContainsString('İşletme Profili yorumları', $fields['praise']['source']);
-        $this->assertSame(['Form gönderimi'], $fields['conversions']['items']);
+        $this->assertSame(['Form gönderimi (GA4)'], $fields['conversions']['items']);
         $this->assertSame([], $fields['seasonality']['items']);
         $this->assertSame('Search Console bağlı değil.', $fields['seasonality']['source'], 'an empty field says why');
 

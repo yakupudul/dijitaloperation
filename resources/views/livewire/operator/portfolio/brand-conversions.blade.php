@@ -54,12 +54,17 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($rows as $row)
-                        <tr wire:key="conversion-{{ $row->id }}" @class(['opacity-60' => ! $row->counts])>
+                        <tr wire:key="conversion-{{ $row->id }}" @class(['opacity-60' => ! in_array($row->id, $counted, true)])>
                             <td class="py-2 pr-3 text-xs text-gray-500">{{ $sources[$row->source] ?? $row->source }}</td>
                             <td class="py-2 pr-3 text-gray-800 dark:text-gray-200">
                                 {{ $row->label }}
-                                @if ($row->origin === 'operator') <span class="text-xs text-gray-400">· elle ayarlandı</span> @endif
-                                @if (! $row->counts && ($row->metadata['note'] ?? null) === 'engagement')
+                                @if ($row->origin === 'operator' || isset($row->metadata['type_by_operator'])) <span class="text-xs text-gray-400">· elle ayarlandı</span> @endif
+                                @php $isEngagement = in_array($row->id, $engagement, true); @endphp
+                                @if ($row->counts && $isEngagement && in_array($row->id, $counted, true))
+                                    <span class="block text-xs font-medium text-amber-600" data-engagement-counted>Etkileşim sinyali müşteri sayılıyor: kaydırma, sayfa ya da profil ziyareti, form başlatma müşteri değildir. Bilerek açık tuttuysan kalsın; değilse kapat.</span>
+                                @elseif ($row->counts && $isEngagement)
+                                    <span class="block text-xs text-gray-400">İlgi ölçüsü; açık görünse de toplama girmiyor. Gerçekten müşteri sayılsın istiyorsan kapatıp yeniden aç.</span>
+                                @elseif (! $row->counts && $isEngagement)
                                     <span class="block text-xs text-gray-400">İlgi ölçüsü (kaydırma, sayfa ya da profil ziyareti, form başlatma); müşteri sayılmaz.</span>
                                 @elseif ($row->counts && ($summary['current']['by_row'][$row->id] ?? 0) == 0)
                                     <span class="block text-xs text-amber-600">Son 30 günde hiç tetiklenmedi; kurulumu kontrol et.</span>

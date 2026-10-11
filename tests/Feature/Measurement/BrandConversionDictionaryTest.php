@@ -3,6 +3,7 @@
 namespace Tests\Feature\Measurement;
 
 use App\Enums\CustomerStatus;
+use App\Jobs\Brand\RefreshBrandFilesJob;
 use App\Livewire\Operator\Portfolio\BrandConversions;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
@@ -11,12 +12,14 @@ use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Brand\BrandFacts;
 use App\Services\Measurement\BrandConversionDictionary;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -167,10 +170,91 @@ final class BrandConversionDictionaryTest extends TestCase
             ->assertSee('Haritalar: arama');
         $row = BrandConversionSource::query()->where('source_key', 'page_view')->sole();
 
-        $component->call('toggleCounts', $row->id)->call('setType', $row->id, ConversionGoalTypes::CUSTOM);
+        $component->call('toggleCounts', $row->id)->call('setType', $row->id, ConversionGoalTypes::CUSTOM)
+            ->assertSee('Etkileşim sinyali müşteri sayılıyor');
 
         $this->assertTrue($row->fresh()->counts);
         $this->assertSame(BrandConversionSource::ORIGIN_OPERATOR, $row->fresh()->origin);
+        $this->assertTrue($row->fresh()->metadata[BrandConversionDictionary::ENGAGEMENT_KEPT], 'counting an attention signal is marked');
+    }
+
+    public function test_changing_only_the_type_keeps_the_row_automatic_and_its_count(): void
+    {
+        $dictionary = app(BrandConversionDictionary::class);
+        $dictionary->discover($this->brand);
+        $row = BrandConversionSource::query()->where('source_key', '11')->sole();
+
+        $dictionary->setType($row, ConversionGoalTypes::QUALIFIED_LEAD);
+        DB::table('google_ads_conversion_action_snapshot')->where('conversion_action_id', '11')->update(['metadata' => json_encode([
+            'name' => 'Website lead', 'category' => 'PHONE_CALL_LEAD', 'type' => 'AD_CALL', 'status' => 'ENABLED', 'primary_for_goal' => true,
+        ])]);
+        $dictionary->discover($this->brand);
+
+        $row->refresh();
+        $this->assertSame(BrandConversionSource::ORIGIN_AUTO, $row->origin);
+        $this->assertTrue($row->counts, 'the count still follows discovery');
+        $this->assertSame(ConversionGoalTypes::QUALIFIED_LEAD, $row->conversion_type, 'the operator\'s type is kept');
+    }
+
+    public function test_clean_up_stops_automatic_attention_signals_and_flags_the_operators(): void
+    {
+        $auto = $this->row('google_ads_conversion_action', '15', 'Local actions - Website visits', BrandConversionSource::ORIGIN_AUTO, ['category' => 'DEFAULT']);
+        $scroll = $this->row('ga4_key_event', 'scroll', 'scroll', BrandConversionSource::ORIGIN_AUTO);
+        $operator = $this->row('ga4_key_event', 'form_start', 'form_start', BrandConversionSource::ORIGIN_OPERATOR);
+        $lead = $this->row('ga4_key_event', 'generate_lead', 'generate_lead', BrandConversionSource::ORIGIN_AUTO);
+        $dictionary = app(BrandConversionDictionary::class);
+
+        $this->assertFalse($dictionary->countsAsCustomer($operator), 'an unflagged attention signal is not in the total');
+
+        $result = $dictionary->cleanEngagement();
+
+        $this->assertSame(['switched' => 2, 'flagged' => 1, 'brands' => [$this->brand->id]], $result);
+        $this->assertFalse($auto->fresh()->counts);
+        $this->assertFalse($scroll->fresh()->counts);
+        $this->assertTrue($operator->fresh()->counts, 'the operator\'s choice is not switched silently');
+        $this->assertTrue($operator->fresh()->metadata[BrandConversionDictionary::ENGAGEMENT_KEPT]);
+        $this->assertTrue($dictionary->countsAsCustomer($operator->fresh()));
+        $this->assertTrue($lead->fresh()->counts);
+        $this->assertSame(['switched' => 0, 'flagged' => 0, 'brands' => []], $dictionary->cleanEngagement(), 'runs once');
+
+        $dictionary->discover($this->brand);
+        $this->assertTrue($operator->fresh()->metadata[BrandConversionDictionary::ENGAGEMENT_KEPT], 'discovery keeps the mark');
+        $card = app(BrandFacts::class)->build($this->brand)['fields']['conversions'];
+        $this->assertContains('form_start (GA4) · Etkileşim sinyali müşteri sayılıyor', $card['items']);
+        $this->assertNotContains('scroll (GA4)', $card['items']);
+    }
+
+    public function test_the_migration_cleans_up_and_rebuilds_the_brand_files(): void
+    {
+        Queue::fake();
+        config(['moxdop.brand_files_live_refresh' => true]);
+        $auto = $this->row('ga4_key_event', 'scroll', 'scroll', BrandConversionSource::ORIGIN_AUTO);
+
+        (require database_path('migrations/2026_12_11_110000_stop_counting_attention_conversion_signals.php'))->up();
+
+        $this->assertFalse($auto->fresh()->counts);
+        Queue::assertPushed(RefreshBrandFilesJob::class, fn (RefreshBrandFilesJob $job): bool => $job->brandId === $this->brand->id);
+    }
+
+    public function test_the_card_lists_every_counted_signal_with_its_source_and_says_how_many_more(): void
+    {
+        foreach (range(1, 10) as $i) {
+            $this->row('google_ads_conversion_action', (string) (100 + $i), 'Arama '.$i, BrandConversionSource::ORIGIN_AUTO, ['category' => 'PHONE_CALL_LEAD']);
+        }
+
+        $field = app(BrandFacts::class)->build($this->brand)['fields']['conversions'];
+
+        $this->assertCount(8, $field['items']);
+        $this->assertSame('Arama 1 (Google Ads)', $field['items'][0]);
+        $this->assertSame('+3 sinyal daha (Dönüşümler)', $field['items'][7]);
+        $this->assertStringContainsString('İşletme Profili', $field['source']);
+    }
+
+    /** @param  array<string, mixed>  $metadata */
+    private function row(string $source, string $key, string $label, string $origin, array $metadata = []): BrandConversionSource
+    {
+        return BrandConversionSource::query()->create(['brand_id' => $this->brand->id, 'source' => $source, 'source_key' => $key, 'label' => $label,
+            'conversion_type' => ConversionGoalTypes::CUSTOM, 'counts' => true, 'origin' => $origin, 'metadata' => $metadata]);
     }
 
     private function ga4(string $event, int $keyEvents, int $days): void

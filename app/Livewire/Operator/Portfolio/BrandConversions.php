@@ -43,7 +43,7 @@ final class BrandConversions extends Component
     {
         $row = BrandConversionSource::query()->where('brand_id', $this->brandId)->findOrFail($id);
         abort_unless(array_key_exists($type, ConversionGoalTypes::options()), 422);
-        $dictionary->set($row, $type, (bool) $row->counts);
+        $dictionary->setType($row, $type);
     }
 
     public function toggleCounts(int $id, BrandConversionDictionary $dictionary): void
@@ -62,6 +62,8 @@ final class BrandConversions extends Component
         return view('livewire.operator.portfolio.brand-conversions', [
             'summary' => $summary,
             'rows' => $rows,
+            'engagement' => $rows->filter(fn (BrandConversionSource $row): bool => $dictionary->isEngagementRow($row))->pluck('id')->all(),
+            'counted' => $rows->filter(fn (BrandConversionSource $row): bool => $dictionary->countsAsCustomer($row))->pluck('id')->all(),
             'types' => self::typeLabels(),
             'sources' => self::sourceLabels(),
             'tags' => $website !== null ? $tracking->tags($website) : null,
