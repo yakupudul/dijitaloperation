@@ -209,7 +209,7 @@ final class BrandFacts
     /** @return array{items: list<string>, source: string} */
     private function services(Brand $brand): array
     {
-        $items = SiteScope::offerings($brand)->map(fn (BrandOffering $o): string => ($o->isMain() ? '★ ' : '').$o->displayName())->filter()->unique()->values()->all();
+        $items = SiteScope::offerings($brand)->sortBy(fn (BrandOffering $o): int => $o->isMain() ? 0 : 1)->map(fn (BrandOffering $o): string => ($o->isMain() ? '★ ' : '').$o->displayName())->filter()->unique()->values()->all();
 
         return ['items' => array_slice($items, 0, 20), 'source' => $items !== [] ? 'Marka › Ayarlar › Hizmetler' : 'Hizmet yok; gece çalışan marka tamamlama siteden doldurmayı dener.'];
     }

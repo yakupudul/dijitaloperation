@@ -28,7 +28,7 @@ final class BrandPack
         }
 
         return BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)->where('status', 'active')
-            ->orderByRaw("CASE WHEN priority = 'main' THEN 0 ELSE 1 END")->orderBy('id')->get()
+            ->orderByRaw("CASE WHEN priority = 'main' OR is_priority THEN 0 ELSE 1 END")->orderBy('id')->get()
             ->map(fn (BrandOffering $o): array => ['name' => $o->displayName(), 'priority' => $o->isMain() ? 'main' : 'secondary'])
             ->filter(fn (array $o): bool => $o['name'] !== '')->unique('name')->values()->all();
     }

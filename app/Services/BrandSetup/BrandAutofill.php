@@ -152,7 +152,8 @@ final class BrandAutofill
     }
 
     /**
-     * Applies a ready automatic proposal with its default picks, then makes sure one service is ★.
+     * Applies a ready automatic proposal with its default picks, then makes sure exactly one service is ★ (the applier
+     * marks every core service; an automatic run leaves one, and never adds one next to the operator's own ★).
      *
      * @return list<array{key: string, label: string, ok: bool, message: string}>
      */
@@ -160,28 +161,45 @@ final class BrandAutofill
     {
         $items = array_values(array_map(fn (array $i): string => (string) $i['key'], array_filter($proposal->itemRows(), fn (array $i): bool => (bool) ($i['selected'] ?? false))));
         $services = array_keys(array_filter($proposal->serviceRows(), fn (array $s): bool => (bool) ($s['selected'] ?? false)));
+        $mainBefore = BrandOffering::query()->where('brand_id', $proposal->brand_id)->where('status', 'active')
+            ->where(fn ($q) => $q->where('priority', 'main')->orWhere('is_priority', true))->pluck('id')->map(fn ($id): int => (int) $id)->all();
         // Places wait for approval on the Onarım masası (BrandDataAudit), never applied silently.
         $results = $this->applier->apply($proposal, self::systemUser(), $items, $services, true, []);
         if (($brand = $proposal->brand()->first()) instanceof Brand) {
-            $this->ensureMain($brand, $proposal);
+            $this->ensureMain($brand, $proposal, $mainBefore);
         }
 
         return $results;
     }
 
-    /** No ★ yet: the proposed service with the most searches (else the first one) becomes the main service. */
-    private function ensureMain(Brand $brand, BrandSetupProposal $proposal): void
+    /**
+     * One ★ after an automatic run: the operator's ★ stays alone; else the proposed service with the most searches
+     * (else the first one) is the main service and any other ★ the run added is taken back.
+     *
+     * @param  list<int>  $mainBefore  services that were ★ before the run
+     */
+    private function ensureMain(Brand $brand, BrandSetupProposal $proposal, array $mainBefore = []): void
     {
         $offerings = BrandOffering::query()->with('primaryName')->where('brand_id', $brand->id)->where('status', 'active')->get();
-        if ($offerings->isEmpty() || $offerings->contains(fn (BrandOffering $o): bool => $o->isMain())) {
+        if ($offerings->isEmpty()) {
             return;
         }
         $demand = [];
         foreach ($proposal->serviceRows() as $row) {
             $demand[mb_strtolower($row['name'])] = array_sum(array_column($row['keywords'], 'impressions'));
         }
-        $main = $offerings->sortByDesc(fn (BrandOffering $o): int => $demand[mb_strtolower($o->displayName())] ?? 0)->first();
-        $main?->forceFill(['priority' => 'main'])->save();
+        $added = $offerings->filter(fn (BrandOffering $o): bool => $o->isMain() && ! in_array((int) $o->id, $mainBefore, true));
+        $operatorMain = $offerings->contains(fn (BrandOffering $o): bool => $o->isMain() && in_array((int) $o->id, $mainBefore, true));
+        $keep = $operatorMain ? null
+            : ($added->isNotEmpty() ? $added : $offerings)->sortByDesc(fn (BrandOffering $o): int => $demand[mb_strtolower($o->displayName())] ?? 0)->first();
+        foreach ($added as $offering) {
+            if ($keep === null || (int) $offering->id !== (int) $keep->id) {
+                $offering->forceFill(['priority' => 'secondary', 'is_priority' => false])->save();
+            }
+        }
+        if ($keep !== null && ! $keep->isMain()) {
+            $keep->forceFill(['priority' => 'main'])->save();
+        }
     }
 
     /**

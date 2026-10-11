@@ -113,6 +113,30 @@ final class BrandAutofillTest extends TestCase
         $this->assertNotNull(data_get($proposal->fresh()->summary, 'checked_at'));
     }
 
+    public function test_an_automatic_run_leaves_one_star_and_never_adds_one_next_to_the_operators(): void
+    {
+        $proposal = fn (): BrandSetupProposal => BrandSetupProposal::query()->create([
+            'brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://adadent.com.tr/', 'auto_apply' => true,
+            'items' => [], 'services_status' => 'ready', 'summary' => [],
+            'services' => [
+                ['name' => 'Diş Beyazlatma', 'sector_code' => 'saglik', 'is_new' => true, 'is_core' => true, 'status' => 'proposed', 'selected' => true, 'keywords' => [['query' => 'diş beyazlatma', 'impressions' => 40]]],
+                ['name' => 'İmplant Tedavisi', 'sector_code' => 'saglik', 'is_new' => true, 'is_core' => true, 'status' => 'proposed', 'selected' => true, 'keywords' => [['query' => 'implant', 'impressions' => 900]]],
+            ],
+        ]);
+
+        app(BrandAutofill::class)->apply($proposal());
+
+        $mains = BrandOffering::query()->with('primaryName')->where('brand_id', $this->brand->id)->get()->filter(fn (BrandOffering $o): bool => $o->isMain());
+        $this->assertSame(['İmplant Tedavisi'], $mains->map(fn (BrandOffering $o): string => $o->displayName())->values()->all(), 'one ★, the most searched');
+
+        // The operator moves ★; a later automatic run marking core services adds no second ★.
+        BrandOffering::query()->where('brand_id', $this->brand->id)->get()->each(fn (BrandOffering $o) => $o->forceFill(['priority' => $o->displayName() === 'Diş Beyazlatma' ? 'main' : 'secondary'])->save());
+        app(BrandAutofill::class)->apply($proposal());
+
+        $mains = BrandOffering::query()->with('primaryName')->where('brand_id', $this->brand->id)->get()->filter(fn (BrandOffering $o): bool => $o->isMain());
+        $this->assertSame(['Diş Beyazlatma'], $mains->map(fn (BrandOffering $o): string => $o->displayName())->values()->all());
+    }
+
     public function test_an_operator_proposal_is_never_applied_by_the_night_run(): void
     {
         BrandSetupProposal::query()->create([
