@@ -7,6 +7,7 @@
 - **★:** `priority='main'` ya da `is_priority` ile işaretli hizmet marka paketinde ve kartta ilk sırada. Test: `BrandPackTest`.
 - **Site dilleri:** `<html lang>` yoksa dil og:locale, sayfanın kendi hreflang bağlantısı ya da metindeki sık kelimelerden (TR/EN/DE, Kiril → RU, Arap → AR) okunur. Kart yalnız çalışan siteleri okur; kaç sayfa okunduğunu ve kaçında dil etiketi olmadığını yazar. Test: `PagesFromSitemapTest`, `BrandFactsTest`.
 - **Claude marka denetimi (`brand.data_review`, `moxdop:brands:review`, her gece 03:50, Claude'a devredilmiş ya da Claude API'deyse):** girdisi (hizmetler, eş anlamlar, ★, sayfa/arama kanıtı; yerler; dönüşüm sinyalleri; sayfa dilleri) değişen aktif markayı okur. Yalnız izinli öneriler: hizmet adı (eski ad kalır), hizmet arşivi, ★, dönüşüm sayılsın/sayılmasın, yer kaldır/ekle (ekleme yalnız sayfa, arama ya da profil adresinin andığı yer). PHP kontrolü bilinmeyen işlemi, bilinmeyen kimliği ve kanıtsızı atar. Kalanlar Onarım masasına "Claude marka denetimi" kaynağıyla düşer; onaysız hiçbir şey uygulanmaz, dışarıya yazılmaz. Önerilen dağılımda Haiku. Migration `2026_12_11_120000` Claude API dönemi açıksa işlemi döneme katar ve aktif markalar için ilk denetimi kuyruğa alır. Test: `BrandDataReviewTest`.
+
 ## 2026-10-11 — Onarım ve reklam kontrolleri: önem şişmesi, konu dışı SEO önerileri, Meta/Ads kural düzeltmeleri
 
 Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
