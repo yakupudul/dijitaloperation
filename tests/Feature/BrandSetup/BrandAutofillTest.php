@@ -200,8 +200,10 @@ final class BrandAutofillTest extends TestCase
 
         Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSeeHtml('data-setup-title="review"')
-            ->assertSee('Kontrol bekleyen')
-            ->assertDontSee('Marka eksikleri');
+            ->assertSeeHtml('data-setup-toggle')
+            ->assertSee('Tamam · '.collect($checklist['items'])->where('review', true)->count().' alan kontrolünü bekliyor')
+            ->assertDontSee('Marka eksikleri')
+            ->assertDontSeeHtml('data-setup-state="missing"');
     }
 
     private function completeBrand(): void

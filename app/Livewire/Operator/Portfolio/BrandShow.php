@@ -51,9 +51,10 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Brand page — one row of tabs, like the website screen: Özet (period numbers, digital assets with their data status,
- * open work with a channel filter, services) · Dijital varlıklar (asset cards, "Hesap ekle", setup status, bindings) ·
- * Bilgi dosyası (the file every AI agent reads first) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama,
+ * Brand page — one row of tabs, like the website screen: Özet (period numbers, approvals waiting on the Onarım masası,
+ * Yolculuk, digital assets with their data status, open work with a channel filter, services) · Dijital varlıklar
+ * (asset cards, "Hesap ekle", setup status, bindings) · Bilgi dosyası (Marka bilgi kartı, Kimlik tutarlılığı and the
+ * file every AI agent reads first) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama,
  * Harita, Google Ads, Meta) appears only once its own component exists; until then its old link opens Özet filtered to
  * that channel. Old ?tab= values resolve to their new place (LEGACY_TABS). Everything shown comes from the database.
  */
@@ -94,6 +95,9 @@ class BrandShow extends Component
 
     /** Open work shown on Özet before "+N iş daha". */
     public const int WORK_LIMIT = 5;
+
+    /** Services shown as chips on Özet before "+N hizmet". */
+    public const int SERVICE_CHIPS = 10;
 
     #[Locked]
     public string $brand = '';
@@ -514,7 +518,7 @@ class BrandShow extends Component
             'channelCounts' => $channelCounts,
             'workTotal' => $all['total'],
             'work' => $work,
-            'serviceSummary' => $overview->services($services),
+            'serviceSummary' => $overview->services($services, count($services)),
             'journey' => $this->journey($brand),
         ];
     }
@@ -586,11 +590,29 @@ class BrandShow extends Component
         return DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get(['id', 'name', 'domain', 'primary_url']);
     }
 
-    /** @return array<string, mixed>|null Yolculuk: searches → services → clusters → site → pool → sent */
+    /**
+     * Yolculuk: searches → services → clusters → site → pool → sent; each stage carries the link to where it is worked
+     * on (the brand's first website screen; services under Ayarlar), or null when the brand has no website.
+     *
+     * @return array<string, mixed>|null
+     */
     private function journey(Brand $brand): ?array
     {
         try {
-            return app(BrandJourney::class)->for($brand);
+            $journey = app(BrandJourney::class)->for($brand);
+            $site = $this->brandWebsite();
+            $website = fn (array $query): ?string => $site === null ? null : route('operator.website', ['assetId' => $site->id, ...$query]);
+            $links = [
+                'searches' => $website(['tab' => 'sorgular']),
+                'assigned' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'ayarlar']),
+                'clusters' => $website(['tab' => 'kumeler']),
+                'matched' => $website(['tab' => 'kumeler', 'eslesme' => 'eslenmedi']),
+                'pool' => $website(['tab' => 'fikirler']),
+                'sent' => $website(['tab' => 'icerik']),
+            ];
+            $journey['stages'] = array_map(fn (array $stage): array => $stage + ['url' => $links[$stage['key']] ?? null], $journey['stages']);
+
+            return $journey;
         } catch (Throwable $exception) {
             report($exception);
 

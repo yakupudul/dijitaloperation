@@ -11,7 +11,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * Marka › Özet › Marka bilgi kartı: the brand facts the AI steps read, each with its source. "Düzenle" writes the
+ * Marka › Bilgi dosyası › Marka bilgi kartı: the brand facts the AI steps read, each with its source. "Düzenle" writes the
  * operator's text and locks the field from the nightly rebuild; "Otomatiğe dön" unlocks it; "Yenile" rebuilds now.
  */
 final class BrandFactsCard extends Component

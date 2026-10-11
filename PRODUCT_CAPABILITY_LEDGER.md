@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Marka sayfası düzeni (panel önerileri §3)
+
+- **Özet sırası:** önce "Son 28 gün" rakamları, sonra markanın Onarım masasında bekleyen onayları (`BrandApprovalsCard`, sayfadan sonra yüklenir: toplam + en büyük 3 paket, her biri `/onarim?marka=…&paket=…` bağlantısı; elle yapılacak işler sayılmaz), sonra Marka eksikleri, Yolculuk, varlıklar, açık işler ve hizmetler. Marka bilgi kartı ve Kimlik tutarlılığı "Bilgi dosyası" sekmesine taşındı (Yenile, Düzenle, Yeniden kontrol et aynen çalışır).
+- **Marka eksikleri:** eksik yoksa tek satır "Tamam · N alan kontrolünü bekliyor", tıklayınca liste açılır. Eksik varsa tam liste (eksik sarı, kontrol bekleyen gri).
+- **Yolculuk:** her kutu çalışıldığı yere bağlanır (sitenin Sorgular, Kümeler, Kümeler › Eşlenmedi, İçerik fikirleri, İçerik planı sekmeleri; hizmetler marka Ayarlar'ı). Site yoksa yalnız hizmet kutusu bağlıdır. En çok kayıp olan adım (`BrandJourney` `worst`: boş aşama ya da onay bekleyen küme / sayfası olmayan küme oranı büyük olan) kırmızıdır ve altında yazar ("En çok kayıp: 20 kümenin sayfası yok ya da zayıf."). Hizmete atanmayan aramalar karşılaştırılmaz (çoğu marka adı aramasıdır).
+- **Hizmetler:** Özet'te ve bilgi kartında çip; ★ olanlar önde ve dolu, en çok 10, sonrası "+N hizmet". Bilgi kartındaki "Düzenle" gri ve yalnız satırın üstüne gelince ya da klavye odağında görünür (dokunmatik ekranda hep görünür).
+- **Hız:** `gsc_query_page_daily (external_resource_id, search_type, reporting_date)` dizini (migration `2026_12_11_150000`; PostgreSQL'de bölümlenmiş tabloda normal `CREATE INDEX`, yazmaları dizin kurulurken bekletir). Sitenin son Search Console günü artık mülk başına tek `max` ile okunur (IN listesiyle max tüm satırları okuyordu; /brands/7'de 1,9 sn).
+- **Test:** `BrandOverviewLayoutTest`, `BrandAutofillTest`, `BrandOverviewTest`, `BrandOverviewKpiCacheTest`, `BrandPageQueryCountTest`, `BrandJourneyTest`, `AnalysisTest`. Görsel kabul operatörde.
+
 ## 2026-10-11 — Marka verisi düzeltmeleri ve Claude marka denetimi
 
 - **Dönüşümler:** ilgi sinyalleri (kaydırma, sayfa görüntüleme, form başlatma, "Local actions - Website visits / Other engagements") eski satırlarda hâlâ sayılıyordu. Migration `2026_12_11_110000` otomatik satırları kapatır; operatörün açık tuttuğu satırları sessizce değiştirmez, işaretler (`metadata.engagement_kept`); Dönüşümler sayfası ve Marka bilgi kartı "Etkileşim sinyali müşteri sayılıyor" der; etkilenen markaların dosyaları yeniden kurulur. İşaretsiz ilgi sinyali toplama girmez. Yalnız türü değiştirmek satırı artık dondurmaz (`metadata.type_by_operator`, otomatik kalır). Kart sayılan sinyalleri kaynağıyla yazar, sığmayanı "+N sinyal daha" der. Test: `BrandConversionDictionaryTest`.

@@ -19,12 +19,14 @@ use App\Services\Work\WorkDesk;
  * brand is seen for → those that belong to one of its services → the services' approved clusters → clusters matched to
  * its site (and how many lack a page) → ideas waiting in the pool → articles sent in 30 days. The first stage that is
  * empty breaks the chain and says why and where it is fixed; searches that belong to a service the brand does not offer
- * are listed as a hint.
+ * are listed as a hint. The step that loses the most on its way to a page (clusters waiting for approval, approved clusters
+ * without a page or with a weak one) is `worst`; an empty stage is always the worst. Searches that never reach a
+ * service are not compared: most of them are brand-name or unrelated searches, not lost work.
  */
 final class BrandJourney
 {
     /**
-     * @return array{stages: list<array{key: string, label: string, value: int, detail: string}>, broken: ?array{key: string, reason: string, fix: string}, foreign: list<array{service: string, queries: int}>}
+     * @return array{stages: list<array{key: string, label: string, value: int, detail: string}>, broken: ?array{key: string, reason: string, fix: string}, worst: ?array{key: string, text: string}, foreign: list<array{service: string, queries: int}>}
      */
     public function for(Brand $brand): array
     {
@@ -52,7 +54,33 @@ final class BrandJourney
             ['key' => 'sent', 'label' => 'Yazılan', 'value' => $sent, 'detail' => 'son 30 gün'],
         ];
 
-        return ['stages' => $stages, 'broken' => $this->broken($searches, $serviceIds, $assigned, $clusters, $pending, $matched, $waiting), 'foreign' => $this->foreign($byService->except($serviceIds)->all())];
+        $broken = $this->broken($searches, $serviceIds, $assigned, $clusters, $pending, $matched, $waiting);
+
+        return ['stages' => $stages, 'broken' => $broken, 'worst' => $this->worst($broken, $clusters, $pending, $matched, $gaps),
+            'foreign' => $this->foreign($byService->except($serviceIds)->all())];
+    }
+
+    /**
+     * The step with the largest share lost: an empty stage first, else clusters waiting for approval or approved
+     * clusters without a (strong) page, whichever loses the larger share. Null when nothing is lost.
+     *
+     * @param  array{key: string, reason: string, fix: string}|null  $broken
+     * @return array{key: string, text: string}|null
+     */
+    private function worst(?array $broken, int $clusters, int $pending, int $matched, int $gaps): ?array
+    {
+        if ($broken !== null) {
+            return ['key' => $broken['key'], 'text' => $broken['reason']];
+        }
+        $withoutPage = $gaps + max(0, $clusters - $matched);
+        $losses = [
+            'clusters' => [$pending / max(1, $clusters + $pending), $pending.' küme onay bekliyor'],
+            'matched' => [$withoutPage / max(1, $clusters), $withoutPage.' kümenin sayfası yok ya da zayıf'],
+        ];
+        uasort($losses, fn (array $a, array $b): int => $b[0] <=> $a[0]);
+        $key = array_key_first($losses);
+
+        return $losses[$key][0] > 0 ? ['key' => $key, 'text' => $losses[$key][1]] : null;
     }
 
     /**
