@@ -281,6 +281,31 @@ final class QueryReviewFlowTest extends TestCase
         $this->assertFalse(QueryReviewItem::query()->whereIn('query_id', [$manual->id, $ai->id])->exists(), 'no "atama kalkıyor" for chosen services');
     }
 
+    public function test_locked_manual_and_locked_cluster_queries_are_never_proposed_or_applied_for_deletion(): void
+    {
+        foreach (['implant forum' => 30, 'zirkonyum forum' => 20, 'kaplama forum' => 10, 'dolgu forum' => 5] as $raw => $impressions) {
+            $this->source($raw, '2026-08-01', $impressions);
+        }
+        app(QueryPipeline::class)->run(import: true);
+        $query = fn (string $text): Query => Query::query()->where('text', $text)->sole();
+        $query('implant forum')->forceFill(['locked' => true])->save();
+        $query('zirkonyum forum')->forceFill(['service_id' => $this->zirkonyum->id, 'assignment' => 'manual'])->save();
+        $cluster = Cluster::query()->create(['sector_id' => $this->dental->id, 'service_id' => $this->implant->id, 'name' => 'Kaplama', 'main_query_id' => $query('kaplama forum')->id, 'locked' => true]);
+        ClusterQuery::query()->create(['cluster_id' => $cluster->id, 'query_id' => $query('kaplama forum')->id]);
+        FilterTerm::query()->create(['sector_id' => null, 'term' => 'forum', 'source' => 'manual', 'created_by' => $this->admin->id]);
+
+        app(QueryRescanner::class)->scan($this->admin->id);
+
+        $this->assertSame([$query('dolgu forum')->id], QueryReviewItem::query()->where('kind', QueryReviewItem::DELETE)->pluck('query_id')->map(fn ($v): int => (int) $v)->all());
+
+        // A line proposed before the query got locked is not applied.
+        $query('dolgu forum')->forceFill(['locked' => true])->save();
+        $result = app(QueryRescanner::class)->apply(QueryReviewItem::query()->pluck('id')->map(fn ($v): int => (int) $v)->all());
+
+        $this->assertSame(0, $result['deleted']);
+        $this->assertSame(6, Query::query()->count());
+    }
+
     public function test_important_notification_is_toasted_once_with_its_target(): void
     {
         FilterTerm::query()->create(['sector_id' => null, 'term' => 'zirkonyum']);

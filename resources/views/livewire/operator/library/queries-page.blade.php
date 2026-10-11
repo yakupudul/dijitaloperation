@@ -272,7 +272,7 @@
                 @unless ($reviewRunning)<button type="button" wire:click="rescanLibrary" class="{{ $ghost }}" data-review-rescan>Kütüphaneyi yeniden tara</button>@endunless
                 @if ($reviewRunning)<span class="inline-flex items-center gap-1 text-xs text-gray-500" data-review-running><svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/></svg>Tarama sürüyor…</span>@endif
             </div>
-            <p class="mb-2 text-xs text-gray-500">Her filtre / eşleme kelimesi değişikliğinin taraması buraya eklenir; bir sorgu için son öneri geçerlidir. Onaylanmadan hiçbir sorgu silinmez veya değişmez. "Tut": sorgu kalır, aynı öneri tekrar gelmez.</p>
+            <p class="mb-2 text-xs text-gray-500">Her filtre / eşleme kelimesi değişikliğinin taraması buraya eklenir; bir sorgu için son öneri geçerlidir. Onaylanmadan hiçbir sorgu silinmez veya değişmez; kilitli sorgular, kilitli kümelerin sorguları ve elle / onaylı AI ile atananlar hiç önerilmez. "Tut": sorgu kalır, aynı öneri tekrar gelmez.</p>
             <div class="mb-2 flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500" data-selection-count>{{ $num($reviewItems->total()) }} satır · seçili {{ $num($selectedCount) }}</span>
                 <button type="button" wire:click="selectPage" class="{{ $ghost }}">Sayfadaki tümünü seç</button>
