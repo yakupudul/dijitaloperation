@@ -57,6 +57,12 @@ final class MetaCampaignBoard
         $recent = MetaScreen::rollup($this->screen->adPerformance($account, $recentFrom, $w['to'], $entities), 'campaign_id');
         $map = $this->services->map($asset);
         $issues = $this->adIssues($account, $entities);
+        $countries = [];
+        foreach ($entities['adsets'] as $adset) {
+            foreach ((array) ($adset['targeting']['geo_locations']['countries'] ?? []) as $country) {
+                $countries[$adset['campaign_id']][strtoupper((string) $country)] = true;
+            }
+        }
         $rows = [];
         foreach ($entities['campaigns'] as $id => $campaign) {
             $cur = $current[$id] ?? null;
@@ -87,6 +93,7 @@ final class MetaCampaignBoard
                 'budget' => $this->budget($campaign, $entities), 'spend' => round((float) ($cur['spend'] ?? 0), 2), 'type' => $type,
                 'results' => $count, 'cpr' => $cpr, 'prev_cpr' => $prevCpr, 'cpr_change' => $change,
                 'service_state' => $entry['state'], 'services' => $entry['services'], 'alerts' => $alerts,
+                'countries' => array_keys($countries[(string) $id] ?? []),
             ];
         }
         usort($rows, fn (array $a, array $b): int => [self::statusOrder($a['status']), -$a['spend']] <=> [self::statusOrder($b['status']), -$b['spend']]);

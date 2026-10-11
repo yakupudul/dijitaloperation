@@ -60,9 +60,9 @@ class OverviewPage extends Component
     #[Url]
     public string $tab = 'campaigns';
 
-    /** Kampanyalar filters: status (live | paused | all), service (offering id or "none"), result type, search. */
+    /** Kampanyalar filters: status (live | paused | all; live by default), service (offering id or "none"), result type, search. */
     #[Url(as: 'durum')]
-    public string $status = 'all';
+    public string $status = 'live';
 
     #[Url(as: 'hizmet')]
     public string $service = '';
@@ -317,6 +317,13 @@ class OverviewPage extends Component
                 $board['counts'][$row['status']]++;
             }
         }
+        // Click campaigns get their own summary card next to form / mesaj / satış (no previous-period change here).
+        if (($board['kpis'] ?? []) !== [] && ! isset($board['kpis']['clicks'])) {
+            $clickRows = array_filter($rows, fn (array $row): bool => $row['type'] === 'clicks');
+            $clicks = (float) array_sum(array_column($clickRows, 'results'));
+            $board['kpis']['clicks'] = ['value' => $clicks, 'cost' => $clicks > 0 ? round(array_sum(array_column($clickRows, 'spend')) / $clicks, 2) : null, 'change' => null];
+        }
+        $board['type_campaigns'] = array_count_values(array_column($rows, 'type'));
         $fold = fn (string $value): string => str_replace('ı', 'i', mb_strtolower(str_replace(['İ', 'I'], ['i', 'ı'], $value)));
         $needle = $fold(trim($this->search));
         $board['rows'] = array_values(array_filter($rows, function (array $row) use ($needle, $fold): bool {
@@ -346,7 +353,7 @@ class OverviewPage extends Component
             $this->tab = 'campaigns';
         }
         if (! in_array($this->status, ['live', 'paused', 'all'], true)) {
-            $this->status = 'all';
+            $this->status = 'live';
         }
         if (! array_key_exists($this->resultType, MetaCampaignBoard::TYPES)) {
             $this->resultType = '';
