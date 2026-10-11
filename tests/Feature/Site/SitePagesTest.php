@@ -254,10 +254,11 @@ final class SitePagesTest extends TestCase
         $this->assertSame('ayarlar', WebsiteScreen::resolve('varliklar', ''));
         $this->assertSame('sayfalar', WebsiteScreen::resolve('pages', ''));
         $this->assertSame('rakipler', WebsiteScreen::resolve('seo', 'rakipler'));
-        $this->assertSame('kumeler', WebsiteScreen::resolve('bilinmeyen', 'x'));
+        $this->assertSame('yapilacaklar', WebsiteScreen::resolve('bilinmeyen', 'x'));
 
         $url = fn (array $query): string => route('operator.website', ['assetId' => $this->site->id, ...$query]);
-        $this->get($url([]))->assertOk()->assertSee('data-clusters-board', false)->assertSee('data-tab="kumeler"', false)->assertSee('data-tab-more', false)
+        $this->get($url([]))->assertOk()->assertSee('data-suggestions', false)->assertDontSee('data-clusters-board', false);
+        $this->get($url(['tab' => 'kumeler']))->assertOk()->assertSee('data-clusters-board', false)->assertSee('data-tab="kumeler"', false)->assertSee('data-tab-more', false)
             ->assertSee('data-date-picker', false)->assertSee('Son 28 gün');
         $this->get($url(['tab' => 'sayfalar']))->assertOk()->assertSee('data-pages-tab', false)->assertSee('data-page-types', false)->assertSee('/implant')
             ->assertDontSee('aria-label="Dönem"', false);

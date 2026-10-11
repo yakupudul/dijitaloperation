@@ -570,7 +570,7 @@
                                 @foreach ($clusterSitePages as $sp)
                                     @php $sc = $sp['score']; @endphp
                                     <tr>
-                                        <td class="py-1"><a href="{{ route('operator.website', ['assetId' => $sp['site_id']]) }}" wire:navigate class="hover:underline">{{ $sp['brand'] }}</a></td>
+                                        <td class="py-1"><a href="{{ route('operator.website', ['assetId' => $sp['site_id'], 'tab' => 'kumeler']) }}" wire:navigate class="hover:underline">{{ $sp['brand'] }}</a></td>
                                         <td class="max-w-[14rem] truncate"><a href="{{ $sp['url'] }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">{{ preg_replace('#^https?://[^/]+#', '', $sp['url']) ?: '/' }}</a></td>
                                         <td class="text-right font-semibold tabular-nums">
                                             @if ($sc?->score !== null){{ $sc->score }}@if ($sc->previous_score !== null && $sc->previous_score != $sc->score) <span class="text-gray-400">{{ $sc->score > $sc->previous_score ? '↑' : '↓' }}</span>@endif

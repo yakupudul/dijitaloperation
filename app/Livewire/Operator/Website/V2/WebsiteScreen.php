@@ -80,7 +80,7 @@ final class WebsiteScreen extends Component
     public int $assetId = 0;
 
     #[Url]
-    public string $tab = 'kumeler';
+    public string $tab = 'yapilacaklar';
 
     /** Kept for old links ("?tab=sorgular&sub=hedef"); cleared once resolved. */
     #[Url]
@@ -124,7 +124,7 @@ final class WebsiteScreen extends Component
         }
         $target = self::LEGACY_TABS[$tab] ?? null;
 
-        return $target !== null && array_key_exists($target, self::COMPONENTS) ? $target : 'kumeler';
+        return $target !== null && array_key_exists($target, self::COMPONENTS) ? $target : 'yapilacaklar';
     }
 
     public function setTab(string $tab): void
