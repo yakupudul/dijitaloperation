@@ -202,7 +202,8 @@ final class MetaChecks
         }
         $rows = [];
         foreach ($links as $c) {
-            if (! str_contains(strtolower($c['link_url']), 'utm_source=')) {
+            // UTM can sit in the link itself or in the ad's URL parameters (url_tags), which Meta appends on click.
+            if (! str_contains(strtolower($c['link_url'].'&'.$c['url_tags']), 'utm_source=')) {
                 $rows[$c['link_url']] = ['reklam' => $c['ad'], 'bağlantı' => mb_substr($c['link_url'], 0, 120)];
             }
         }
@@ -475,20 +476,25 @@ final class MetaChecks
 
     /**
      * Delivery check (marketingskills ads / Meta decision system, stage 1): an ad running at least a week that gets
-     * under half of its fair share of the campaign's spend in the last 7 days was pushed back by Meta.
+     * under half of its fair share of its budget's spend in the last 7 days was pushed back by Meta. The budget is the
+     * campaign's (CBO: campaign daily / lifetime budget) or, without one (ABO), each ad set's own: ads only compete with
+     * the ads of the same ad set then.
      */
     private function checkStarved(array $ctx): array
     {
-        $byCampaign = [];
+        $byBudget = [];
         foreach ($ctx['e']['ads'] as $id => $ad) {
             $ranBefore = ($ctx['ads'][$id]['spend'] ?? 0) > ($ctx['week'][$id]['spend'] ?? 0);
             if ($ad['status'] === 'ACTIVE' && $ranBefore) {
-                $byCampaign[$ad['campaign_id']][] = $id;
+                $campaign = $ctx['e']['campaigns'][$ad['campaign_id']] ?? [];
+                $cbo = ($campaign['daily_budget'] ?? null) !== null || ($campaign['lifetime_budget'] ?? null) !== null;
+                $byBudget[$cbo || $ad['adset_id'] === '' ? 'c:'.$ad['campaign_id'] : 's:'.$ad['adset_id']][] = $id;
             }
         }
         $rows = [];
         $checked = 0;
-        foreach ($byCampaign as $campaignId => $ids) {
+        foreach ($byBudget as $ids) {
+            $campaignId = (string) ($ctx['e']['ads'][$ids[0]]['campaign_id'] ?? '');
             $spend = array_sum(array_map(fn (string $id): float => (float) ($ctx['week'][$id]['spend'] ?? 0), $ids));
             if (count($ids) < 2 || $spend <= 0) {
                 continue;
@@ -514,7 +520,7 @@ final class MetaChecks
             'Bu reklamları kapatın; yerine kancası ya da görseli değişmiş yeni bir sürüm koyun (metni değiştirmek yetmez).');
     }
 
-    /** @return list<array{ad: string, link_url: string, lead_gen_form_id: string}> creatives of the ads that spent in the window */
+    /** @return list<array{ad: string, link_url: string, url_tags: string, lead_gen_form_id: string}> creatives of the ads that spent in the window */
     private function activeCreatives(array $ctx): array
     {
         $out = [];
@@ -525,7 +531,8 @@ final class MetaChecks
             $ad = $ctx['e']['ads'][$id] ?? null;
             $creative = $ctx['e']['creatives'][(string) ($ad['creative_id'] ?? '')] ?? null;
             if ($creative !== null) {
-                $out[] = ['ad' => (string) ($ad['name'] ?? $id), 'link_url' => trim((string) $creative['link_url']), 'lead_gen_form_id' => (string) $creative['lead_gen_form_id']];
+                $out[] = ['ad' => (string) ($ad['name'] ?? $id), 'link_url' => trim((string) $creative['link_url']), 'url_tags' => trim((string) ($creative['url_tags'] ?? '')),
+                    'lead_gen_form_id' => (string) $creative['lead_gen_form_id']];
             }
         }
 

@@ -287,7 +287,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
 
         $path = (string) $scope['act_id'].'/adcreatives';
         $query = [
-            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
+            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,url_tags,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
             'limit' => 250,
         ];
         [$allCreativeRows, $requestId] = $this->paginateList($scope['integration'], $path, $query);
