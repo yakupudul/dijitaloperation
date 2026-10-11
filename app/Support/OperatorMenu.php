@@ -11,9 +11,9 @@ use App\Support\Demo\DemoMenu;
 final class OperatorMenu
 {
     /**
-     * @return list<array{title: string, items: list<array{name: string, path: string, icon: string, external?: bool}>}>
+     * @return list<array{title: string, items: list<array{name: string, path: string, icon: string, routes: list<string>, active: bool, external?: bool}>}>
      */
-    public static function groups(): array
+    public static function groups(?string $currentPath = null, ?string $routeName = null): array
     {
         $groups = [];
         foreach (DemoMenu::groups() as $group) {
@@ -32,7 +32,43 @@ final class OperatorMenu
             ];
         }
 
+        $currentPath ??= '/'.ltrim((string) request()->path(), '/');
+        $routeName ??= request()->route()?->getName();
+        $active = self::activeEntry(array_merge(...array_column($groups, 'items')), $currentPath, $routeName);
+        foreach ($groups as $g => $group) {
+            foreach ($group['items'] as $i => $item) {
+                $groups[$g]['items'][$i]['active'] = $active !== null && $item['path'] === $active;
+            }
+        }
+
         return $groups;
+    }
+
+    /**
+     * The one sidebar entry of the current screen (so "Dijital varlıklar" and "Web siteleri" are never lit together on
+     * /assets/website/5): an entry naming the current route wins, then the longest path prefix.
+     *
+     * @param  list<array{path: string, routes: list<string>}>  $items
+     */
+    public static function activeEntry(array $items, string $currentPath, ?string $routeName): ?string
+    {
+        if ($routeName !== null) {
+            foreach ($items as $item) {
+                if (in_array($routeName, $item['routes'], true)) {
+                    return $item['path'];
+                }
+            }
+        }
+        $best = null;
+        foreach ($items as $item) {
+            $path = $item['path'];
+            $matches = $currentPath === $path || ($path !== '/' && str_starts_with($currentPath, rtrim($path, '/').'/'));
+            if ($matches && ($best === null || strlen($path) > strlen($best))) {
+                $best = $path;
+            }
+        }
+
+        return $best;
     }
 
     /**

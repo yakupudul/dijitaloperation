@@ -5,17 +5,19 @@
 ])
 
 @php
+    // Colour rules: red (error) only for money / traffic loss, amber (warning) for "bak", gray for info, green for ok.
+    $variant = ['critical' => 'error', 'look' => 'warning', 'ok' => 'success'][$variant] ?? $variant;
     $variantClasses = [
         'success' => 'border-success-500 bg-success-50 dark:border-success-500/30 dark:bg-success-500/15',
         'error' => 'border-error-500 bg-error-50 dark:border-error-500/30 dark:bg-error-500/15',
         'warning' => 'border-warning-500 bg-warning-50 dark:border-warning-500/30 dark:bg-warning-500/15',
-        'info' => 'border-brand-500 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/15',
+        'info' => 'border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-white/[0.03]',
     ];
     $iconColor = [
         'success' => 'text-success-500',
         'error' => 'text-error-500',
         'warning' => 'text-warning-500',
-        'info' => 'text-brand-500',
+        'info' => 'text-gray-500',
     ];
     $container = $variantClasses[$variant] ?? $variantClasses['info'];
     $icon = $iconColor[$variant] ?? $iconColor['info'];

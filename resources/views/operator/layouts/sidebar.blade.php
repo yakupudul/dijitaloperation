@@ -2,7 +2,6 @@
     use App\Support\OperatorMenu;
 
     $menuGroups = OperatorMenu::groups();
-    $currentPath = '/'.ltrim(request()->path(), '/');
 @endphp
 
 <aside id="operator-sidebar"
@@ -49,14 +48,14 @@
                         <ul class="flex flex-col gap-1">
                             @foreach ($menuGroup['items'] as $item)
                                 @php
-                                    $isActive = $currentPath === $item['path']
-                                        || ($item['path'] !== '/' && str_starts_with($currentPath, $item['path']))
-                                        || in_array(request()->route()?->getName(), $item['routes'] ?? [], true);
+                                    // Only the most specific entry is lit (OperatorMenu::activeEntry).
+                                    $isActive = $item['active'];
                                     $external = ! empty($item['external']);
                                 @endphp
                                 <li>
                                     <a href="{{ $item['path'] }}"
                                         @if ($external) target="_self" @endif
+                                        @if ($isActive) aria-current="page" @endif
                                         class="menu-item group {{ $isActive ? 'menu-item-active' : 'menu-item-inactive' }}"
                                         :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ? 'xl:justify-center' : 'justify-start'">
                                         <span class="{{ $isActive ? 'menu-item-icon-active' : 'menu-item-icon-inactive' }}">

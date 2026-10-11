@@ -25,7 +25,16 @@ final class BrandMeasurementScope
 
     public static function for(Brand $brand): self
     {
-        $assetIds = $brand->digitalAssets()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        return self::forAssetIds($brand->digitalAssets()->pluck('id')->map(fn ($id): int => (int) $id)->all());
+    }
+
+    /**
+     * The rows of several assets at once (for example every operational brand on Bugün), each account counted once.
+     *
+     * @param  list<int>  $assetIds
+     */
+    public static function forAssetIds(array $assetIds): self
+    {
         $bindings = CoreAssetBinding::query()->whereIn('digital_asset_id', $assetIds)->where('status', CoreAssetBinding::STATUS_ACTIVE)
             ->get(['digital_asset_id', 'external_resource_id']);
         $assetResources = [];

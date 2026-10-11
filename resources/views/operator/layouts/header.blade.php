@@ -23,10 +23,6 @@
                         fill="currentColor"></path>
                 </svg>
             </button>
-
-            <div class="hidden lg:flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</span>
-            </div>
         </div>
 
         <div class="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
@@ -36,28 +32,38 @@
             @endauth
             <livewire:demo.global-search />
 
-            <livewire:demo.locale-switcher />
-
             <x-ta.theme-toggle />
 
             <livewire:demo.notification-bell />
 
-            <a href="{{ route('operator.settings') }}" wire:navigate
-                class="hidden lg:inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-                {{ __('operator.nav.settings') }}
-            </a>
-
             @auth
-                <a href="{{ route('operator.profile') }}" wire:navigate class="flex items-center gap-2 pl-2" aria-label="{{ __('operator.nav.profile') }}">
-                    @if (! empty(auth()->user()->avatar_path))
-                        <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" class="h-9 w-9 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
-                    @else
-                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500/10 text-sm font-semibold text-brand-600 dark:text-brand-400">
-                            {{ strtoupper(mb_substr(auth()->user()->name ?? 'U', 0, 1)) }}
-                        </span>
-                    @endif
-                    <span class="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300">{{ auth()->user()->name }}</span>
-                </a>
+                {{-- Profile menu: profile, language (EN / TR) and sign out; one user, so the language is not on every page. --}}
+                <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" data-profile-menu>
+                    <button type="button" @click="open = ! open" :aria-expanded="open" class="flex items-center gap-2 pl-2" aria-haspopup="menu" aria-label="{{ __('operator.nav.profile') }}">
+                        @if (! empty(auth()->user()->avatar_path))
+                            <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" class="h-9 w-9 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
+                        @else
+                            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700 dark:bg-white/5 dark:text-gray-300">
+                                {{ strtoupper(mb_substr(auth()->user()->name ?? 'U', 0, 1)) }}
+                            </span>
+                        @endif
+                        <span class="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300">{{ auth()->user()->name }}</span>
+                        <svg class="hidden h-4 w-4 text-gray-400 md:block" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <div x-show="open" x-cloak x-transition.opacity role="menu"
+                        class="absolute right-0 z-50 mt-2 w-60 rounded-xl bg-white p-2 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+                        <p class="truncate px-3 pb-2 pt-1 text-xs text-gray-500 dark:text-gray-400">{{ auth()->user()->email }}</p>
+                        <a href="{{ route('operator.profile') }}" wire:navigate role="menuitem" class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.nav.profile') }}</a>
+                        <div class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span>{{ __('operator.profile.locale') }}</span>
+                            <livewire:demo.locale-switcher />
+                        </div>
+                        <form method="POST" action="{{ route('app.logout') }}" class="border-t border-gray-100 pt-1 dark:border-gray-800">
+                            @csrf
+                            <button type="submit" role="menuitem" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.auth.logout') }}</button>
+                        </form>
+                    </div>
+                </div>
             @endauth
         </div>
     </div>

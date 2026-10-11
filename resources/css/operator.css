@@ -139,8 +139,9 @@
   @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-theme-sm;
 }
 
+/* Colour rules: orange (brand) is only the main action, so the active menu entry is neutral. */
 @utility menu-item-active {
-  @apply bg-brand-50 text-brand-600 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  @apply bg-gray-100 text-gray-900 dark:bg-white/[0.08] dark:text-white;
 }
 
 @utility menu-item-inactive {
@@ -148,11 +149,43 @@
 }
 
 @utility menu-item-icon-active {
-  @apply text-brand-600 dark:text-brand-400;
+  @apply text-gray-900 dark:text-white;
 }
 
 @utility menu-item-icon-inactive {
   @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+}
+
+/*
+ * Colour rules (panel-wide, shared by every screen):
+ *  - orange (brand): the one main action of a screen only (x-ta.button primary, link-primary);
+ *  - red (tone-critical): money or traffic is being lost;
+ *  - amber (tone-look): "bak", worth a look;
+ *  - gray (tone-info, link-neutral): information and secondary links such as "Kontrol et →" or "Düzenle";
+ *  - green (tone-ok): fine.
+ */
+@utility link-primary {
+  @apply font-semibold text-brand-600 hover:underline dark:text-brand-400;
+}
+
+@utility link-neutral {
+  @apply font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-400 dark:hover:text-white;
+}
+
+@utility tone-critical {
+  @apply bg-error-50 text-error-800 ring-1 ring-inset ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/30;
+}
+
+@utility tone-look {
+  @apply bg-warning-50 text-warning-800 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-300 dark:ring-warning-500/30;
+}
+
+@utility tone-info {
+  @apply bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:text-gray-300 dark:ring-gray-800;
+}
+
+@utility tone-ok {
+  @apply bg-success-50 text-success-800 ring-1 ring-inset ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/30;
 }
 
 @utility no-scrollbar {

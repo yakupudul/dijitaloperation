@@ -6,11 +6,13 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Support\Demo\DemoMenu;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
 /**
- * Global portfolio search for the operator header.
+ * Global portfolio search for the operator header (Ctrl / Cmd + K): panel pages, customers, brands and digital assets,
+ * and a last row that opens Sorgular filtered by the same words.
  */
 class GlobalSearch extends Component
 {
@@ -34,6 +36,12 @@ class GlobalSearch extends Component
         $results = [];
 
         if ($needle !== '') {
+            foreach (self::pages() as $page) {
+                if (str_contains(mb_strtolower($page['label']), $needle)) {
+                    $results[] = ['label' => $page['label'], 'meta' => __('operator.search.page'), 'url' => $page['url']];
+                }
+            }
+
             Customer::query()
                 ->orderBy('name')
                 ->get()
@@ -97,8 +105,36 @@ class GlobalSearch extends Component
                 });
         }
 
+        $results = array_slice($results, 0, 12);
+        if ($needle !== '') {
+            $results[] = [
+                'label' => __('operator.search.in_queries', ['q' => trim($this->q)]),
+                'meta' => __('operator.search.queries'),
+                'url' => route('operator.library.queries', ['q' => trim($this->q)]),
+            ];
+        }
+
         return view('livewire.demo.global-search', [
-            'results' => array_slice($results, 0, 12),
+            'results' => $results,
         ]);
+    }
+
+    /**
+     * Every sidebar screen and its tabs, by name (no database read).
+     *
+     * @return list<array{label: string, url: string}>
+     */
+    private static function pages(): array
+    {
+        $pages = [];
+        foreach (DemoMenu::groups() as $group) {
+            foreach ($group['items'] as $item) {
+                foreach ([['label' => $item['label'], 'route' => $item['route']], ...($item['children'] ?? [])] as $entry) {
+                    $pages[] = ['label' => (string) $entry['label'], 'url' => route($entry['route'])];
+                }
+            }
+        }
+
+        return $pages;
     }
 }
