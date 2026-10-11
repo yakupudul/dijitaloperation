@@ -7,6 +7,7 @@ use App\Enums\CustomerStatus;
 use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage;
+use App\Livewire\Operator\Gbp\Desk\DeskPage;
 use App\Livewire\Operator\Gbp\Desk\PhotosPage;
 use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
@@ -619,6 +620,28 @@ final class GbpDeskTest extends TestCase
         $this->assertSame(50, $report['change']['calls']);
         $this->assertTrue($report['complete']);
         $this->assertNull($report['last_year']);
+    }
+
+    public function test_gaps_shared_by_most_branches_are_shown_once_and_rows_keep_only_their_own(): void
+    {
+        $check = fn (bool $ok, bool $unknown = false): array => ['ok' => $ok, 'unknown' => $unknown, 'label' => 'x', 'hint' => '', 'route' => 'operator.gbp-desk'];
+        $row = fn (bool $hours, bool $page): array => ['checks' => ['page' => $check($page), 'description' => $check(true), 'hours' => $check($hours),
+            'photos' => $check(false, true), 'reviews' => $check(true), 'posts' => $check(true)]];
+
+        $shared = DeskPage::sharedGaps([$row(false, true), $row(false, true), $row(false, true), $row(false, true), $row(true, false)]);
+        $this->assertSame(['hours'], array_keys($shared));
+        $this->assertSame(4, $shared['hours']['missing']);
+        $this->assertSame(['bolum' => 'saatler'], $shared['hours']['query']);
+        $this->assertSame([], DeskPage::sharedGaps([$row(false, false), $row(false, false)]), 'Two branches keep their own chips.');
+
+        foreach (range(1, 3) as $i) {
+            $this->secondBranch();
+        }
+        $this->actingAs($this->admin)->get(route('operator.gbp-desk'))->assertOk()
+            ->assertSeeHtml('data-testid="gbp-shared-gaps"')
+            ->assertSee('Hepsini düzenle')
+            ->assertSee('Bu şubeye özel eksikler')
+            ->assertSeeHtml('data-testid="gbp-brand-group"');
     }
 
     public function test_every_tab_renders_for_an_admin(): void
