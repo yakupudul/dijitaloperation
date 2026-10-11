@@ -32,7 +32,6 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Ownership\OwnershipGuard;
-use App\Services\Repair\RepairDesk;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
@@ -99,12 +98,6 @@ class BrandShow extends Component
 
     /** Services shown as chips on Özet before "+N hizmet". */
     public const int SERVICE_CHIPS = 10;
-
-    /** Onarım masası packages shown on Özet › Bekleyen onaylar. */
-    public const int APPROVAL_PACKAGES = 3;
-
-    /** Seconds the Özet approvals summary is kept (each Özet click re-renders; the desk read is the heavy part). */
-    private const int APPROVALS_CACHE_SECONDS = 60;
 
     #[Locked]
     public string $brand = '';
@@ -527,34 +520,7 @@ class BrandShow extends Component
             'work' => $work,
             'serviceSummary' => $overview->services($services, count($services)),
             'journey' => $this->journey($brand),
-            'approvals' => $this->approvals($brand),
         ];
-    }
-
-    /**
-     * Özet › Bekleyen onaylar: the brand's prepared fixes on the Onarım masası waiting for the operator's approval (tasks
-     * only the operator can do by hand are not approvals and are left out), with the largest packages first.
-     *
-     * @return array{total: int, url: string, packages: list<array{key: string, label: string, lane: string, count: int, url: string}>}|null
-     */
-    private function approvals(Brand $brand): ?array
-    {
-        try {
-            return Cache::remember('brand:overview:approvals:'.$brand->id, self::APPROVALS_CACHE_SECONDS, function () use ($brand): array {
-                $desk = app(RepairDesk::class);
-                $rows = $desk->rows((int) $brand->id)->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->values();
-                $packages = $desk->packages($rows)->take(self::APPROVAL_PACKAGES)->map(fn (array $p): array => [
-                    'key' => $p['key'], 'label' => RepairDesk::KINDS[$p['kind']] ?? $p['kind'], 'lane' => RepairDesk::LANES[$p['lane']] ?? $p['lane'],
-                    'count' => $p['count'], 'url' => route('operator.repair', ['marka' => $brand->id, 'paket' => $p['key']]),
-                ])->values()->all();
-
-                return ['total' => $rows->count(), 'url' => route('operator.repair', ['marka' => $brand->id]), 'packages' => $packages];
-            });
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return null;
-        }
     }
 
     /**
