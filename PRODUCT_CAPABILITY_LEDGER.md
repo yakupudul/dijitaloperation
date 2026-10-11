@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Marka verisi düzeltmeleri ve Claude marka denetimi
+
+- **Dönüşümler:** ilgi sinyalleri (kaydırma, sayfa görüntüleme, form başlatma, "Local actions - Website visits / Other engagements") eski satırlarda hâlâ sayılıyordu. Migration `2026_12_11_110000` otomatik satırları kapatır; operatörün açık tuttuğu satırları sessizce değiştirmez, işaretler (`metadata.engagement_kept`); Dönüşümler sayfası ve Marka bilgi kartı "Etkileşim sinyali müşteri sayılıyor" der; etkilenen markaların dosyaları yeniden kurulur. İşaretsiz ilgi sinyali toplama girmez. Yalnız türü değiştirmek satırı artık dondurmaz (`metadata.type_by_operator`, otomatik kalır). Kart sayılan sinyalleri kaynağıyla yazar, sığmayanı "+N sinyal daha" der. Test: `BrandConversionDictionaryTest`.
+- **Marka tamamlama:** eksiği kalmayan marka, bekleyen operatör önerisi olsa da "tamam" sayılır ve eski not silinir; 7 günden eski uygulanmamış operatör önerisi artık turu durdurmaz; otomatik tur tek ★ bırakır, operatörün ★'ının yanına ★ eklemez. Yerler artık "Claude doldurdu" diye işaretlenmez; eksik kalmayınca başlık "Kontrol bekleyen". Test: `BrandAutofillTest`.
+- **★:** `priority='main'` ya da `is_priority` ile işaretli hizmet marka paketinde ve kartta ilk sırada. Test: `BrandPackTest`.
+- **Site dilleri:** `<html lang>` yoksa dil og:locale, sayfanın kendi hreflang bağlantısı ya da metindeki sık kelimelerden (TR/EN/DE, Kiril → RU, Arap → AR) okunur. Kart yalnız çalışan siteleri okur; kaç sayfa okunduğunu ve kaçında dil etiketi olmadığını yazar. Test: `PagesFromSitemapTest`, `BrandFactsTest`.
+- **Claude marka denetimi (`brand.data_review`, `moxdop:brands:review`, her gece 03:50, Claude'a devredilmiş ya da Claude API'deyse):** girdisi (hizmetler, eş anlamlar, ★, sayfa/arama kanıtı; yerler; dönüşüm sinyalleri; sayfa dilleri) değişen aktif markayı okur. Yalnız izinli öneriler: hizmet adı (eski ad kalır), hizmet arşivi, ★, dönüşüm sayılsın/sayılmasın, yer kaldır/ekle (ekleme yalnız sayfa, arama ya da profil adresinin andığı yer). PHP kontrolü bilinmeyen işlemi, bilinmeyen kimliği ve kanıtsızı atar. Kalanlar Onarım masasına "Claude marka denetimi" kaynağıyla düşer; onaysız hiçbir şey uygulanmaz, dışarıya yazılmaz. Önerilen dağılımda Haiku. Migration `2026_12_11_120000` Claude API dönemi açıksa işlemi döneme katar ve aktif markalar için ilk denetimi kuyruğa alır. Test: `BrandDataReviewTest`.
+
 ## 2026-10-10 — Marka merkezli yapı (yakup: "verinin özü = marka")
 
 - **Analiz:** `/mnt/project-files/notes/marka-merkezli-mimari-analizi.md`. yakup sırayla yapılmasını onayladı.
