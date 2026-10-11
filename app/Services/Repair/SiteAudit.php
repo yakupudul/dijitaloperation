@@ -23,6 +23,12 @@ use Throwable;
  * missing / duplicate description 3, description length 4; a description issue on a page without impressions in 90
  * days (Search Console connected) 5. A description the plugin leaves empty or as a template but still renders in the
  * HTML (stored crawl) counts as present.
+ *
+ * No row without expected gain (yakup, 2026-10-11 — "Arama 10672" on one small site was noise): when the site has
+ * Search Console data, a page that had no impressions in 90 days gets no row unless it is a service / location page;
+ * WordPress by-products (pagination such as /page/2/, tag / author archives — SeoText::isCrawlablePage) are not checked
+ * at all. Such pages are not junk and get no noindex / delete advice; they are simply not worth a title fix. Their
+ * waiting rows close as "auto dismissed" and come back by themselves when the page starts being seen.
  */
 final class SiteAudit
 {
@@ -41,6 +47,11 @@ final class SiteAudit
 
     /** Page categories whose missing / duplicate title is critical even without impressions. */
     public const array KEY_CATEGORIES = ['hizmet', 'lokasyon'];
+
+    /** `action.auto_closed` of a row the audit closed itself because fixing the page brings nothing (reopens when it does). */
+    public const string NO_GAIN = 'no_gain';
+
+    public const string NOT_A_PAGE = 'not_a_page';
 
     public function __construct(private readonly SiteMetrics $metrics) {}
 
@@ -69,6 +80,9 @@ final class SiteAudit
     {
         $pages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereNotNull('wp_post_id')
             ->get(['id', 'website_asset_id', 'url', 'path', 'language', 'category', 'title', 'title_source', 'meta_description', 'canonical', 'is_indexable', 'wp_post_id', 'content_hash']);
+        // Pagination and archive by-products share their title on purpose; they are not pages to fix (nor junk).
+        $byProducts = $pages->reject(fn (Page $p): bool => SeoText::isCrawlablePage((string) $p->url))->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $pages = $pages->filter(fn (Page $p): bool => SeoText::isCrawlablePage((string) $p->url))->values();
         $technical = PageTechnical::many($pages);
         $pages = $pages->filter(fn (Page $p): bool => ($technical[$p->id]['status'] ?? 200) < 400 && ($technical[$p->id]['canonical_ok'] ?? true))->values();
         $rendered = RenderedMeta::descriptions((int) $site->id, $pages->filter(fn (Page $p): bool => trim((string) $p->meta_description) === '')->pluck('url')->all());
@@ -82,23 +96,49 @@ final class SiteAudit
             ->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))->get()->keyBy('page_id');
         $opened = 0;
         $seen = [];
+        $noGain = [];
         foreach ($pages as $page) {
             $description = $descriptions[(int) $page->id];
             $problems = $this->problems($page, $description, $titleCounts, $descriptionCounts);
             if ($problems === []) {
                 continue;
             }
-            $seen[] = (int) $page->id;
             $seenImpressions = $impressions === null ? null : ($impressions[SeoText::urlKey((string) $page->url)] ?? 0);
+            if (! self::worthFixing($seenImpressions, (string) $page->category)) {
+                $noGain[] = (int) $page->id;
+
+                continue;
+            }
+            $seen[] = (int) $page->id;
             $priority = self::priority($problems, $seenImpressions, (string) $page->category);
             $opened += $this->upsert($site, $page, $description, $problems, $priority, $existing->get($page->id)) ? 1 : 0;
         }
-        $closed = Suggestion::query()->whereIn('id', $existing->filter(fn (Suggestion $s): bool => ! in_array((int) $s->page_id, $seen, true)
-            && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true))->pluck('id'))
+        $waiting = $existing->filter(fn (Suggestion $s): bool => ! in_array((int) $s->page_id, $seen, true)
+            && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true));
+        $closed = 0;
+        foreach ([self::NO_GAIN => $noGain, self::NOT_A_PAGE => $byProducts] as $why => $pageIds) {
+            foreach ($waiting->filter(fn (Suggestion $s): bool => in_array((int) $s->page_id, $pageIds, true)) as $suggestion) {
+                $suggestion->forceFill(['status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'action' => array_merge((array) $suggestion->action, ['auto_closed' => $why]),
+                    'operator_note' => $why === self::NO_GAIN ? 'Sayfa 90 günde aramada görünmedi; düzeltmenin beklenen kazancı yok (otomatik kapandı, sayfa görünmeye başlarsa geri gelir).'
+                        : 'Sayfalama / arşiv adresi; düzeltilecek sayfa değil (otomatik kapandı).'])->save();
+                $closed++;
+            }
+            $waiting = $waiting->reject(fn (Suggestion $s): bool => in_array((int) $s->page_id, $pageIds, true));
+        }
+        $closed += Suggestion::query()->whereIn('id', $waiting->pluck('id'))
             ->update(['status' => Suggestion::APPLIED, 'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now(), 'resolved_at' => now(),
                 'operator_note' => 'Sorun sayfada kalmadı (otomatik kapandı).']);
 
         return ['opened' => $opened, 'closed' => $closed];
+    }
+
+    /**
+     * Whether a page's title / description fix can bring anything: always without Search Console data and on a service
+     * or location page; otherwise only when the page had impressions in the last 90 days.
+     */
+    public static function worthFixing(?int $impressions, ?string $category): bool
+    {
+        return $impressions === null || $impressions > 0 || in_array((string) $category, self::KEY_CATEGORIES, true);
     }
 
     /**
@@ -237,18 +277,20 @@ final class SiteAudit
 
             return true;
         }
-        if ($existing->status === Suggestion::DISMISSED || ($existing->status === Suggestion::APPLIED && $existing->material_hash === $material)) {
+        $action = (array) $existing->action;
+        $autoClosed = $existing->status === Suggestion::DISMISSED && isset($action['auto_closed']);
+        if (($existing->status === Suggestion::DISMISSED && ! $autoClosed) || ($existing->status === Suggestion::APPLIED && $existing->material_hash === $material)) {
             return false;
         }
-        $action = (array) $existing->action;
+        unset($action['auto_closed']);
         $changed = $existing->material_hash !== $material;
         if ($changed) {
             // The page changed: an old proposal no longer fits.
             unset($action['proposal'], $action['proposal_blocked'], $action['proposal_attempts'], $action['proposal_error'], $action['writes']);
         }
-        $reopen = $existing->status === Suggestion::APPLIED;
+        $reopen = $existing->status === Suggestion::APPLIED || $autoClosed;
         $existing->forceFill($values + ['action' => array_merge($action, ['problems' => $codes])]
-            + ($reopen ? ['status' => Suggestion::OPEN, 'applied_at' => null, 'verification' => null, 'verified_at' => null] : []))->save();
+            + ($reopen ? ['status' => Suggestion::OPEN, 'applied_at' => null, 'resolved_at' => null, 'operator_note' => null, 'verification' => null, 'verified_at' => null] : []))->save();
 
         return $reopen;
     }
