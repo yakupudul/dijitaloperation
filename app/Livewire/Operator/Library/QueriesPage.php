@@ -50,6 +50,7 @@ use App\Services\Queries\QueryServiceAssigner;
 use App\Services\Site\ContentIdeaPool;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -87,6 +88,9 @@ final class QueriesPage extends Component
     public const array KEYWORD_VIEWS = ['words' => 'Kelimeler', 'suggestions' => 'Kelime önerileri', 'conflicts' => 'Çakışmalar', 'sectors' => 'Sektör uyumu'];
 
     public const array SOURCE_LABELS = ['gsc' => 'GSC', 'google_ads' => 'Ads', 'gbp' => 'GBP'];
+
+    /** Full source names for the short source tags' tooltips. */
+    public const array SOURCE_TITLES = ['gsc' => 'Search Console', 'google_ads' => 'Google Ads', 'gbp' => 'İşletme Profili'];
 
     public const int PER_PAGE = 50;
 
@@ -1398,6 +1402,7 @@ final class QueriesPage extends Component
         $forbiddenSuggest = $forbiddenSector !== null ? Cache::get(ForbiddenTermsLibrary::cacheKey((int) $forbiddenSector->id)) : null;
         $pending = $this->tab === 'pending' ? $this->pendingList() : null;
         $reviewCounts = QueryRescanner::openCounts();
+        $lastCheck = QueryFinish::lastCheck();
         $reviewRunning = QueryReview::query()->where('status', QueryReview::RUNNING)->where('created_at', '>', now()->subHour())->exists();
 
         return view('livewire.operator.library.queries-page', [
@@ -1449,7 +1454,8 @@ final class QueriesPage extends Component
             'autopilotPaused' => QueryAutopilot::paused(),
             'autopilotReady' => QueryPipeline::importedAt() !== null,
             'autopilotQueue' => QueryAutopilot::queue()->count(),
-            'finishCheck' => QueryFinish::line(QueryFinish::lastCheck()),
+            'finishCheck' => QueryFinish::line($lastCheck),
+            'finishCheckAt' => isset($lastCheck['at']) ? Carbon::parse((string) $lastCheck['at'])->timezone('Europe/Istanbul')->format('d.m H:i') : null,
             'finishStage' => QueryFinish::state()['stage'] ?? null,
             ...$this->keywordInsights(),
             'proposal' => $proposal,
