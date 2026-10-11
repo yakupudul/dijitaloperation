@@ -991,7 +991,7 @@
 ## 2026-11-03 — v2 düzeltmeleri: reklamlar, entegrasyonlar, promptlar
 
 - **Meta: bağsız hesaplar da toplanıyor** (`MetaCentralCollectionService`, GA4 / Google Ads merkezi toplayıcılarının eşi): kaynak ilk (`provider_resource_first`) çalıştırma, varlık / bağlama yok; ilk sefer ailenin geçmiş penceresi, sonra kapsama sonundan (en çok son 7 gün geç atıf) dünkü güne. `ResourceAutomationService::readiness()` Meta için artık `binding` döndürmüyor; eski `binding` bekleyenler yeniden sıraya girer. V1 Meta tabloları (hesap / kampanya / set / kreatif anlık görüntüleri, kampanya / set / reklam günlükleri, tipli eylemler) kaynak anahtarlı (`external_resource_id`); migration aynı hesabın iki varlıkla yazılmış kopyalarını tekler. Sıkıştırılmış tablolar kayıtlı düzen anahtarını korur. Meta kullanım sınırı bekleme süresi (`MetaUsageGovernor`) aynı.
-- **DataForSEO arama hacmi bağlandı:** `moxdop:intel:query-volumes` (ayda bir, 4'ü 05:37 Europe/Istanbul) operasyonel markaların kullandığı kümelerin ana sorguları (`queries.volume`) ve marka hedef sorguları (`brand_cluster_pages.target_query`, yalnız `query_volumes`) için; AI önerisi ana sorguya hacim yazılmaz; 90 gün önbellek + harcama tavanı. Konum `moxdop-intel.query_volumes` (Türkiye).
+- **DataForSEO arama hacmi bağlandı:** `moxdop:intel:query-volumes` (2026-10-11'den beri zamanlanmaz; yalnız elle) operasyonel markaların kullandığı kümelerin ana sorguları (`queries.volume`) ve marka hedef sorguları (`brand_cluster_pages.target_query`, yalnız `query_volumes`) için; AI önerisi ana sorguya hacim yazılmaz; 90 gün önbellek + harcama tavanı. Konum `moxdop-intel.query_volumes` (Türkiye).
 - **Ölü DataForSEO kodu kaldırıldı:** `DataForSeoEnrichmentOrchestrator`, ücretli Labs aileleri (ranked keywords, keywords for site, competitor domains) ve normalizer'ı; `moxdop:intel:collect` + görev kuyruğu yoklaması (harita grid / yorum / prospect) ve `DataForSeoTaskHandler`. `DataForSeoTaskQueue` yalnız canlı çağrı maliyet kaydı.
 - **Google Ads dil kontrolü:** kampanya dil hedeflemesi (campaign_criterion LANGUAGE) `google_ads_campaign_snapshot.language_codes`'a toplanıyor ("all" = tüm diller); "Hedef bölge ve dil" kontrolü markanın dilleriyle karşılaştırır, "veri yok" yalnız bölge ve dil ikisi de bilinmiyorsa.
 - **Google Ads dönüşüm gecikmesi:** maliyet / dönüşüm sapması kontrolü ve yapı / bütçe AI paketi son gecikme penceresini dışarıda bırakır (birincil dönüşümlerin tıklama sonrası penceresi, en çok 14 gün; toplanmadıysa 7 gün) ve kanıtta yazar.
@@ -3955,3 +3955,32 @@ Status: IMPLEMENTED V1 (coded + PHPUnit).
   WordPress › Ayarlar › MoxDOP Connector (SEO düzeltmeleri, İçerik güncelleme, Eklenti güncellemesi, …), a lost
   pairing says to issue a new code, any other 403 points at the site's firewall / security plugin. "Bağlantıyı doğrula"
   shows the reason instead of a bare failure.
+
+## 2026-10-11 — Sorgular / hizmet kataloğu düzeltmeleri ve "bitir" zinciri
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- DataForSEO search volume is no longer scheduled (`moxdop:intel:query-volumes` stays for a manual run).
+- Rescan: locked queries, queries of locked clusters and manual / approved-AI assignments are never proposed for
+  deletion, and a deletion line is not applied once the query got locked.
+- Hourly clean-up no longer drops an empty cluster that carries non-archived content ideas or page scores (the FK
+  cascade deleted them).
+- The "Hepsini kümele" queue records `touched_at`; a running queue that has not moved for 2 hours is stopped and
+  restarted by the autopilot, even inside the daily gate.
+- Service names: places are cut only at the start / end with their connector (`LocationOptions::stripServiceName`;
+  queries keep `strip`, clusters stay location-free). `ServiceNameQuality` rejects lone suffix words, connector
+  endings, sentences, "-imiz" titles and leading punctuation on automatic creation (setup applier, Marka eksikleri,
+  page-title safety net); page-title safety-net rows are proposals (unticked).
+- Catalog names are unique per sector (`service_catalog_names.sector_scope`); `resolveOrCreate` never returns
+  another sector's service, it creates one in the requested sector.
+- Archiving / deleting a service releases its queries (no service, `ai_checked_at` null, unlocked) and drops their
+  memberships in its unlocked clusters.
+- `moxdop:services:clean [--dry-run]`: archives junk names (not operator-created / locked), merges same-sector
+  same-language duplicates by fold key into the most-used service (queries, clusters, offerings, keywords, pending /
+  review lines move; old labels become aliases).
+- While the Claude API window is open `queries.triage` moves with the plan to Haiku; the window end restores it.
+- `moxdop:queries:finish` queues FinishQueriesJob: clean-up → unassigned queries asked again → autopilot ticks →
+  clustering without the 20 h gate → weekly content titles (AiBudget) → a check shown as "Son kontrol" on the queries
+  page. Migration `2026_12_11_100000` queues it once while the window is open.
+- Tests: `QueryReviewFlowTest`, `QueryPipelineTest`, `QueryAutopilotTest`, `ServiceNameQualityTest`,
+  `ServiceCatalogSectorTest`, `ServiceReleaseTest`, `ServiceCatalogCleanTest`, `QueryFinishTest`,
+  `AiCreditsAndAssignmentsTest`, `BrandSetupApplyRobustnessTest`, `SiteUpkeepTest`, `QueryVolumeRefreshTest`.
