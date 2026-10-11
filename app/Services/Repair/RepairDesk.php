@@ -98,7 +98,7 @@ final class RepairDesk
     public const int LIMIT = 1500;
 
     /**
-     * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
+     * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, priority: int, page_title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
      */
     public function rows(?int $brandId = null, ?string $kind = null, ?string $risk = null): Collection
     {
@@ -182,9 +182,11 @@ final class RepairDesk
 
     /**
      * Marka sağlığı: per brand the work left before it is perfect and what was done in the last two weeks.
+     * "Kusursuz" percent = fixes applied in the last TRACK_DAYS days / (applied + still open). Brands are sorted by the
+     * expected gain of their open work: each row weighs by its priority (1 → 3, 2 → 2, else 1), then by critical count.
      *
      * @param  Collection<int, array<string, mixed>>  $rows
-     * @return Collection<int, array{brand_id: int, brand: string, open: int, done: int, percent: int}>
+     * @return Collection<int, array{brand_id: int, brand: string, open: int, done: int, percent: int, gain: int, critical: int}>
      */
     public function health(Collection $rows): Collection
     {
@@ -195,8 +197,15 @@ final class RepairDesk
             $finished = (int) ($done[$brandId] ?? 0);
 
             return ['brand_id' => $brandId, 'brand' => (string) $group->first()['brand'], 'open' => $group->count(), 'done' => $finished,
-                'percent' => (int) round(100 * $finished / max(1, $finished + $group->count()))];
-        })->sortByDesc('open')->values();
+                'percent' => (int) round(100 * $finished / max(1, $finished + $group->count())),
+                'gain' => (int) $group->sum(fn (array $r): int => self::gain($r)), 'critical' => $group->filter(fn (array $r): bool => ($r['priority'] ?? 3) <= 1)->count()];
+        })->sortBy([['gain', 'desc'], ['critical', 'desc'], ['open', 'desc'], ['brand', 'asc']])->values();
+    }
+
+    /** @param  array<string, mixed>  $row */
+    public static function gain(array $row): int
+    {
+        return max(1, 4 - (int) ($row['priority'] ?? 3));
     }
 
     public const array WRITE_LABELS = [
@@ -479,7 +488,7 @@ final class RepairDesk
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED, Suggestion::SNOOZED]);
 
         return collect([
-            $base()->with('page:id,url,website_asset_id')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->with('page:id,url,website_asset_id,title,h1')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ImageAlts::TYPE),
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
@@ -499,7 +508,8 @@ final class RepairDesk
         $action = (array) $s->action;
         $lastError = $action['last_write_error'] ?? $action['merge_error'] ?? null;
         $base = ['id' => (int) $s->id, 'brand_id' => (int) $s->brand_id, 'brand' => $brand, 'channel' => (string) $s->channel,
-            'title' => (string) $s->title,
+            'title' => (string) $s->title, 'priority' => (int) ($s->priority ?? 3),
+            'page_title' => $s->relationLoaded('page') ? (string) ($s->page?->h1 ?: $s->page?->title ?? '') : '',
             'reason' => trim((string) $s->reason.(filled($lastError) ? ' · Önceki gönderim başarısız: '.$lastError : ''), ' ·')];
         if ($s->status === Suggestion::SNOOZED && $s->snoozed_until !== null && $s->snoozed_until->isFuture()) {
             return null;
