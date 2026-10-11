@@ -14,7 +14,11 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('suggestions') && Schema::hasTable('pages')) {
-            app(SiteAudit::class)->reprioritizeWaiting();
+            try {
+                app(SiteAudit::class)->reprioritizeWaiting();
+            } catch (Throwable $exception) {
+                report($exception); // a data clean-up never blocks a deploy; the nightly audit applies the same priorities
+            }
         }
     }
 

@@ -94,7 +94,7 @@ class SystemHealth extends Tool
     private function autoDeploy(): ?array
     {
         $status = AutoDeployStatus::current();
-        $failure = $status !== null && $status['state'] === 'tests_failed' ? AutoDeployStatus::failure(4000) : null;
+        $failure = $status !== null && in_array($status['state'], ['tests_failed', 'deploy_failed'], true) ? AutoDeployStatus::failure(4000) : null;
 
         return $status === null ? null : $status + ($failure !== null ? ['failure' => $failure] : []);
     }

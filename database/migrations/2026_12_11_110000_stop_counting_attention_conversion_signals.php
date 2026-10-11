@@ -18,7 +18,13 @@ return new class extends Migration
         if (! Schema::hasTable('brand_conversion_sources')) {
             return;
         }
-        $result = app(BrandConversionDictionary::class)->cleanEngagement();
+        try {
+            $result = app(BrandConversionDictionary::class)->cleanEngagement();
+        } catch (Throwable $exception) {
+            report($exception); // a data clean-up never blocks a deploy; the nightly dictionary run repeats it
+
+            return;
+        }
         if (! config('moxdop.brand_files_live_refresh', true)) {
             return;
         }

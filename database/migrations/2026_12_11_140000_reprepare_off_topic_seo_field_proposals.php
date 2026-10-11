@@ -16,7 +16,11 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('suggestions') && Schema::hasTable('pages')) {
-            SeoFieldsBatch::clearUngrounded();
+            try {
+                SeoFieldsBatch::clearUngrounded();
+            } catch (Throwable $exception) {
+                report($exception); // a data clean-up never blocks a deploy
+            }
         }
         if (Schema::hasTable('prompt_versions') && Schema::hasTable('users')) {
             try {

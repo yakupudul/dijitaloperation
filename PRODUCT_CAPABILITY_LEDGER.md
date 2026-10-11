@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-11 — Deploy sağlamlığı
+
+Durum: CODED (sunucuda doğrulanmadı).
+- Otomatik deploy, deploy adımında durursa deploy logunun son 60 satırını `storage/app/auto-deploy-failure.txt`'ye yazar. Bu satırlar Ayarlar › Sürümler ekranında ve MCP `system-health` aracında (`deploy_failed` durumunda da) görünür.
+- 2026-12-11 veri temizliği migration'ları (dönüşüm sinyali, SEO önceliği, konu dışı öneri) hata verirse deploy'u durdurmaz; hata raporlanır, gece işleri aynı temizliği tekrarlar.
+
 ## 2026-10-11 — Onarım masası sonuçları: 30 / 90 gün ölçümü ve öğrenen sıralama
 
 Durum: CODED + PHPUnit (gerçek UAT yok, görsel kabul operatörde; DONE değil).
