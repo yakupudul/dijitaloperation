@@ -273,7 +273,7 @@
     </div>
 
     {{-- Yapılanlar: üstteki "Son 7 gün" rozeti buraya getirir ve listeyi açar --}}
-    <section id="yapilanlar" class="{{ $card }} scroll-mt-20 text-sm" data-repair-writes x-data="{ all: false }" @show-done.window="all = true">
+    <section id="yapilanlar" class="{{ $card }} scroll-mt-20 text-sm" data-repair-writes x-data="{ all: false }" x-on:show-done.window="all = true">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Yapılanlar <span class="text-sm font-normal text-gray-500">· son 7 gün</span></h2>
             @if ($done->isNotEmpty())

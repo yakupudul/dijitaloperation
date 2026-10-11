@@ -47,6 +47,9 @@ final class RepairDeskPage extends Component
     #[Url(as: 'paket')]
     public string $open = '';
 
+    /** Set when the operator picked a lane on the switch: an empty lane then stays open instead of jumping to a full one. */
+    public bool $laneChosen = false;
+
     /** Rows shown in the opened package. */
     public int $perPage = 100;
 
@@ -106,6 +109,7 @@ final class RepairDeskPage extends Component
     {
         $this->section = self::SECTION_DESK;
         $this->lane = array_key_exists($lane, RepairDesk::LANES) ? $lane : RepairDesk::LANE_READY;
+        $this->laneChosen = true;
         $this->selected = [];
         $this->open = '';
     }
@@ -158,6 +162,7 @@ final class RepairDeskPage extends Component
         if (in_array($property, ['brandId', 'kind', 'lane', 'section'], true)) {
             $this->selected = [];
             $this->open = '';
+            $this->laneChosen = $property === 'lane' && $this->laneChosen;
         }
     }
 
@@ -225,7 +230,7 @@ final class RepairDeskPage extends Component
         $all = $desk->rows();
         $filtered = $this->filter($all);
         $lanes = $filtered->countBy(fn (array $r): string => RepairDesk::lane($r))->all();
-        if (! array_key_exists($this->lane, RepairDesk::LANES) || (($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {
+        if (! array_key_exists($this->lane, RepairDesk::LANES) || (! $this->laneChosen && ($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {
             $this->lane = (string) (collect(array_keys(RepairDesk::LANES))->first(fn (string $l): bool => ($lanes[$l] ?? 0) > 0) ?? RepairDesk::LANE_READY);
         }
         $inLane = $this->inLane($filtered);

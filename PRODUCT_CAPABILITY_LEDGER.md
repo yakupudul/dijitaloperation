@@ -91,6 +91,7 @@ Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
   - Menüde "Genel işler" yok. "Onarım masası" artık herkes için menüde, onay düğmeleri yine yalnız Admin'de.
   - Ekran denetimi `/work` yerine masayı tarar.
   - Test: `WorkDeskTest`, `PanelDesignFreezeTest`.
+  - **Tek süzgeç düzeni (2026-10-11, panel tasarım önerileri §2):** üstte tek anahtar "Onayla, bitsin / Bir göz at / Senin elin gerekiyor / Diğer işler" (eski şerit ve bölüm sekmesi birleşti; `?serit=`, `?bolum=`, `?marka=`, `?tur=`, `?paket=` aynen çalışır). Solda marka listesi ("Tümü" başta): "%62 kusursuz · 21 iş kaldı" (kusursuz = son 14 günde biten ÷ biten + kalan, ipucunda yazar); sıra beklenen kazanç (açık işin önceliği: kritik 3, önemli 2, diğer 1 puan), eşitse kritik iş sayısı. Tür çipleri paket listesinde küçük ikincil süzgeç. Satır "Sayfa adı (H1, yoksa başlık) → yeni değer", URL altta küçük gri, metin kesilmez. "Hepsini reddet" küçük çerçeveli; 10'dan fazla işi toplu onaylamak 3 örnek ve "Geri alınabilir" notu gösteren pencere açar. Sağ üstte "Son 7 gün: N iş yapıldı" rozeti Yapılanlar'a götürür ve listeyi açar; geri alma aynı. Renk: turuncu yalnız ana eylem, amber "bak", gri bilgi, yeşil tamam. Test: `RepairDeskTest`. UAT yok.
 - **6. Masalardan markaya dönüş:**
   - Onarım masasında her paketin marka adı markanın sayfasına gider; marka seçiliyken "Marka sayfasına git →" bağlantısı çıkar.
   - Kazananlar › Marka gözüyle ve Meta masası marka seçiliyken "Marka sayfası →" gösterir.
