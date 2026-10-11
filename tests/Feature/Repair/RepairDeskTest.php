@@ -138,7 +138,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame([[6, 0], [3, 1]], [[$health[0]['gain'], $health[0]['critical']], [$health[1]['gain'], $health[1]['critical']]]);
 
         $page = Livewire::test(RepairDeskPage::class)
-            ->assertSee('%0 kusursuz')->assertSee('3 iş kaldı')->assertSeeHtml('data-health-help')->assertSee('Tümü')
+            ->assertSee('%0 kusursuz')->assertSee('3 iş kaldı')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tümü')
             ->set('brandId', $this->brand->id)->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)
             ->assertSee('İmplant Tedavisi Ankara')->assertSee('Başlık: Ankara implant | Panorama')->assertSee('https://panorama.com.tr/implant/')
             ->assertSeeHtml('data-row-target');

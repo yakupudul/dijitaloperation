@@ -2,7 +2,7 @@
     use App\Livewire\Operator\Repair\RepairDeskPage;
     use App\Services\Repair\RepairDesk;
     // Renk kuralı (2026-10-11): turuncu yalnız ana eylem, kırmızı yalnız para / trafik kaybı, amber "bak", gri bilgi, yeşil tamam.
-    $card = 'rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
+    $card = 'rounded-xl bg-white p-4 sm:p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $riskTone = ['low' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'medium' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'high' => 'bg-amber-100 font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200', 'manual' => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'];
     $laneDot = [RepairDesk::LANE_READY => 'bg-emerald-500', RepairDesk::LANE_REVIEW => 'bg-amber-500', RepairDesk::LANE_MANUAL => 'bg-gray-400'];
     $laneHint = [
@@ -59,8 +59,21 @@
     </div>
 
     <div class="grid items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        {{-- Telefonda (<640px) marka listesi yerine seçim kutusu --}}
+        <label class="block sm:hidden" data-repair-brand-select>
+            <span class="text-xs text-gray-500">Marka · kazandıracak işe göre sıralı</span>
+            <select x-on:change="$wire.set('brandId', $event.target.value === '' ? null : Number($event.target.value))" class="mt-1 block w-full rounded-lg border-gray-300 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                <option value="" @selected($brandId === null)>Tümü ({{ number_format($counts['total'], 0, ',', '.') }})</option>
+                @if ($brandId !== null && ! $health->contains('brand_id', $brandId))
+                    <option value="{{ $brandId }}" selected>{{ $brands[$brandId] ?? 'Marka' }} · bekleyen iş yok</option>
+                @endif
+                @foreach ($health as $h)
+                    <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id'])>{{ $h['brand'] }} · %{{ $h['percent'] }} · {{ $h['open'] }} iş</option>
+                @endforeach
+            </select>
+        </label>
         {{-- Solda markalar: kazandıracak işe göre sıralı --}}
-        <aside class="rounded-xl bg-white p-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-repair-health>
+        <aside class="hidden rounded-xl bg-white p-3 sm:block ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-repair-health>
             <h2 class="px-2 text-sm font-semibold text-gray-800 dark:text-white/90">Marka sağlığı</h2>
             <p class="cursor-help px-2 text-xs text-gray-500" title="Kusursuz yüzdesi = son {{ RepairDesk::TRACK_DAYS }} günde biten işler ÷ (biten + kalan). Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan), eşitse kritik iş sayısı." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
             <ul class="mt-2 max-h-[70vh] space-y-0.5 overflow-y-auto text-sm">
@@ -114,13 +127,13 @@
                     @endforeach
                 @endif
                 @if ($isAdmin && $laneTotal > 0)
-                    <span class="ml-auto flex flex-wrap items-center gap-2">
+                    <span class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
                         <button type="button" wire:click="selectAllMatching" class="rounded-lg border border-gray-300 px-2.5 py-1 text-gray-700 dark:border-gray-700 dark:text-gray-300">Bu şeritteki tümünü seç ({{ $laneTotal }})</button>
                         @if ($lane === RepairDesk::LANE_READY && $lowTotal > 0)
                             @if ($lowTotal > $bulkLimit)
-                                <button type="button" @click="ask = {{ $ask('Görünen bütün düşük riskli işler uygulansın mı?', $lowSample, $lowTotal, 'approveAllLow') }}" class="rounded-lg bg-brand-500 px-3 py-1 font-semibold text-white" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
+                                <button type="button" @click="ask = {{ $ask('Görünen bütün düşük riskli işler uygulansın mı?', $lowSample, $lowTotal, 'approveAllLow') }}" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold text-white sm:w-auto sm:py-1" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
                             @else
-                                <button type="button" wire:click="approveAllLow" wire:confirm="Görünen bütün düşük riskli işler uygulansın mı?" class="rounded-lg bg-brand-500 px-3 py-1 font-semibold text-white" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
+                                <button type="button" wire:click="approveAllLow" wire:confirm="Görünen bütün düşük riskli işler uygulansın mı?" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold text-white sm:w-auto sm:py-1" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
                             @endif
                         @endif
                     </span>
@@ -143,12 +156,12 @@
                                 @if ($package['high'] > 0)<p class="text-xs text-amber-700 dark:text-amber-300">{{ $package['high'] }} iş yüksek riskli: paketi açıp tek tek onaylanır.</p>@endif
                             </div>
                             @if ($isAdmin)
-                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                <div class="flex w-full flex-wrap items-center gap-2 text-xs sm:w-auto">
                                     @if ($approvable > 0)
                                         @if (! $isManual && $approvable > $bulkLimit)
-                                            <button type="button" @click="ask = {{ $ask($package['brand'].': '.$approvable.' iş uygulansın mı?', $package['sample'], $approvable, 'approvePackage', [$package['key']]) }}" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white" data-approve-package>Hepsini onayla ({{ $approvable }})</button>
+                                            <button type="button" @click="ask = {{ $ask($package['brand'].': '.$approvable.' iş uygulansın mı?', $package['sample'], $approvable, 'approvePackage', [$package['key']]) }}" class="w-full rounded-lg bg-brand-500 px-3 py-2.5 text-sm font-semibold text-white sm:w-auto sm:py-1.5 sm:text-xs" data-approve-package>Hepsini onayla ({{ $approvable }})</button>
                                         @else
-                                            <button type="button" wire:click="approvePackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $approvable }} iş {{ $isManual ? 'yapıldı olarak işaretlensin' : 'uygulansın' }} mı?" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold text-white" data-approve-package>{{ $isManual ? 'Hepsini yaptım' : 'Hepsini onayla' }} ({{ $approvable }})</button>
+                                            <button type="button" wire:click="approvePackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $approvable }} iş {{ $isManual ? 'yapıldı olarak işaretlensin' : 'uygulansın' }} mı?" class="w-full rounded-lg bg-brand-500 px-3 py-2.5 text-sm font-semibold text-white sm:w-auto sm:py-1.5 sm:text-xs" data-approve-package>{{ $isManual ? 'Hepsini yaptım' : 'Hepsini onayla' }} ({{ $approvable }})</button>
                                         @endif
                                     @endif
                                     <button type="button" wire:click="togglePackage('{{ $package['key'] }}')" class="rounded-lg px-2 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">{{ $isOpen ? 'Kapat ▲' : 'İçini aç ▼' }}</button>
@@ -186,10 +199,10 @@
                                         e.preventDefault();
                                     } }"
                                  @keydown.window="key($event)" data-repair-rows>
-                                <p class="py-2 text-xs text-gray-400">Klavye: J / K satır değiştir · X seç · Enter ayrıntı · A onayla · R reddet</p>
+                                <p class="hidden py-2 text-xs text-gray-400 sm:block">Klavye: J / K satır değiştir · X seç · Enter ayrıntı · A onayla · R reddet</p>
                                 @foreach ($openRows as $row)
                                     <div class="py-2 data-[focused]:rounded-lg data-[focused]:bg-gray-50 data-[focused]:px-2 dark:data-[focused]:bg-white/5" wire:key="repair-{{ $row['id'] }}" data-row="{{ $row['id'] }}" x-data="{ more: false }">
-                                        <div class="flex items-start gap-3 text-sm">
+                                        <div class="flex flex-wrap items-start gap-3 text-sm sm:flex-nowrap">
                                             @if ($isAdmin)
                                                 <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mt-1 rounded border-gray-300">
                                             @endif
@@ -202,7 +215,7 @@
                                                 @if ($row['target'] !== '')<span class="block break-all text-xs text-gray-400" data-row-target>{{ $row['target'] }}</span>@endif
                                             </button>
                                             @if ($isAdmin)
-                                                <button type="button" wire:click="approve({{ $row['id'] }})" @class(['shrink-0 rounded-lg px-3 py-1 text-xs font-semibold', 'border border-brand-500 text-brand-600' => $row['risk'] === 'manual', 'bg-brand-500 text-white' => $row['risk'] !== 'manual']) @if ($row['risk'] === 'manual') data-repair-done @endif>{{ $row['risk'] === 'manual' ? 'Yaptım' : 'Onayla' }}</button>
+                                                <button type="button" wire:click="approve({{ $row['id'] }})" @class(['w-full shrink-0 rounded-lg px-3 py-2 text-sm font-semibold sm:w-auto sm:py-1 sm:text-xs', 'border border-brand-500 text-brand-600' => $row['risk'] === 'manual', 'bg-brand-500 text-white' => $row['risk'] !== 'manual']) @if ($row['risk'] === 'manual') data-repair-done @endif>{{ $row['risk'] === 'manual' ? 'Yaptım' : 'Onayla' }}</button>
                                             @endif
                                         </div>
                                         <div x-show="more" x-cloak class="mt-2 space-y-2 pl-7 text-xs">
@@ -259,11 +272,11 @@
                 <div class="sticky bottom-3 z-30 flex flex-wrap items-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-gray-800" data-repair-selection>
                     <span class="font-semibold">{{ $selectedCount }} iş seçili</span>
                     @if ($selectedCount > $bulkLimit)
-                        <button type="button" @click="ask = {{ $ask($selectedCount.' seçili iş uygulansın mı?', $selectedSample, $selectedCount, 'approveSelected') }}" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold">Seçilenleri onayla ({{ $selectedCount }})</button>
+                        <button type="button" @click="ask = {{ $ask($selectedCount.' seçili iş uygulansın mı?', $selectedSample, $selectedCount, 'approveSelected') }}" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold sm:w-auto sm:py-1.5">Seçilenleri onayla ({{ $selectedCount }})</button>
                     @else
-                        <button type="button" wire:click="approveSelected" class="rounded-lg bg-brand-500 px-3 py-1.5 font-semibold">Seçilenleri onayla ({{ $selectedCount }})</button>
+                        <button type="button" wire:click="approveSelected" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold sm:w-auto sm:py-1.5">Seçilenleri onayla ({{ $selectedCount }})</button>
                     @endif
-                    <input type="text" wire:model="rejectReason" placeholder="Red sebebi (isteğe bağlı)" class="w-56 rounded-lg border-0 bg-white/10 px-2 py-1 text-white placeholder:text-gray-400">
+                    <input type="text" wire:model="rejectReason" placeholder="Red sebebi (isteğe bağlı)" class="w-full rounded-lg border-0 bg-white/10 sm:w-56 px-2 py-1 text-white placeholder:text-gray-400">
                     <button type="button" wire:click="rejectSelected" class="rounded-md border border-white/20 px-2 py-1 text-xs text-gray-300 hover:text-white">Seçilenleri reddet ({{ $selectedCount }})</button>
                     <button type="button" wire:click="clearSelection" class="ml-auto text-gray-300 hover:underline">Seçimi temizle</button>
                 </div>
