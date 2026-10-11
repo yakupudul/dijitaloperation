@@ -11,6 +11,7 @@ use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\Queries\QueryPipeline;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -170,6 +171,9 @@ final class ServiceCatalogService
 
         $service = ServiceCatalogItem::query()->findOrFail($service->id);
         $service->forceFill(['status' => $status, 'updated_by' => $actor?->id])->save();
+        if ($status !== 'active') {
+            QueryPipeline::releaseServices([(int) $service->id]); // its queries go back to triage
+        }
 
         return $service->refresh();
     }
@@ -225,6 +229,7 @@ final class ServiceCatalogService
             $service->delete();
             $this->refreshBrandContexts($service, $brandIds);
         });
+        QueryPipeline::releaseServices([(int) $service->id]); // its queries go back to triage
     }
 
     public function restore(int $id, ?User $actor = null): void

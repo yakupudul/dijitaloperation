@@ -480,6 +480,38 @@ final class QueryPipeline
      */
     public static function dropForeignMemberships(array $ids): void
     {
+        self::dropForeignMembershipsOf($ids);
+    }
+
+    /**
+     * Queries of services that are archived or deleted go back to triage: no service, AI asks again (ai_checked_at
+     * null), clustering looks again; their memberships in unlocked clusters of the gone service leave (an emptied
+     * cluster goes unless it carries ideas / scores). `null` releases every query whose service is not active.
+     *
+     * @param  list<int>|null  $serviceIds
+     * @return int released queries
+     */
+    public static function releaseServices(?array $serviceIds = null): int
+    {
+        $inactive = DB::table('service_catalog_items')->where(fn ($q) => $q->where('status', '!=', 'active')->orWhereNotNull('deleted_at'))
+            ->when($serviceIds !== null, fn ($q) => $q->whereIn('id', $serviceIds ?: [0]))
+            ->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $released = 0;
+        foreach (array_chunk($inactive, self::CHUNK) as $services) {
+            DB::table('queries')->whereIn('service_id', $services)->select('id')->chunkById(self::CHUNK, function ($rows) use (&$released): void {
+                $ids = $rows->pluck('id')->map(fn ($id): int => (int) $id)->all();
+                $released += DB::table('queries')->whereIn('id', $ids)->update(['service_id' => null, 'assignment' => 'none', 'locked' => false,
+                    'ai_checked_at' => null, 'cluster_checked_at' => null, 'updated_at' => now()]);
+                self::dropForeignMembershipsOf($ids);
+            });
+        }
+
+        return $released;
+    }
+
+    /** @param list<int> $ids */
+    private static function dropForeignMembershipsOf(array $ids): void
+    {
         foreach (array_chunk($ids, self::CHUNK) as $chunk) {
             $stale = DB::table('cluster_queries as cq')
                 ->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
