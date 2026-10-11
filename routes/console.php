@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\BrandDataReviewAgent;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
@@ -39,6 +40,7 @@ use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDataAudit;
+use App\Services\Brand\BrandDataReview;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandFollowUp;
 use App\Services\Brand\BrandGaps;
@@ -906,6 +908,39 @@ Schedule::command('moxdop:brands:audit')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('brands-data-audit');
+
+// Claude marka denetimi (yakup, 2026-10-11): after the rules, Claude reads each active brand whose services, places,
+// conversions or page languages changed and puts evidenced changes on the Onarım masası (nothing applied by itself).
+Artisan::command('moxdop:brands:review {--brand= : One brand id, reviewed now} {--force : Review even when nothing changed}', function (BrandDataReview $review): int {
+    if ($this->option('brand') !== null) {
+        $brand = Brand::query()->find((int) $this->option('brand'));
+        if ($brand === null) {
+            $this->error('Marka bulunamadı.');
+
+            return 1;
+        }
+        $out = $review->run($brand, (bool) $this->option('force'));
+        $this->info('Claude marka denetimi: '.$out['status'].(isset($out['proposed']) ? ', '.$out['proposed'].' yeni onay satırı, '.$out['dropped'].' öneri elendi' : '')
+            .(isset($out['message']) ? ' ('.$out['message'].')' : '').'.');
+
+        return 0;
+    }
+    $count = 0;
+    Brand::query()->operational()->orderBy('id')->each(function (Brand $brand) use (&$count): void {
+        BrandDataReview::queue($brand, (bool) $this->option('force'));
+        $count++;
+    });
+    $this->info(sprintf('Claude marka denetimi: %d marka kuyruğa alındı.', $count));
+
+    return 0;
+})->purpose('Queue the Claude brand data review (services, places, conversions) for the active brands.');
+
+Schedule::command('moxdop:brands:review')
+    ->dailyAt('03:50')
+    ->timezone('Europe/Istanbul')
+    ->when(fn (): bool => AiBudget::automaticAllowed(BrandDataReviewAgent::OPERATION))
+    ->withoutOverlapping(60)
+    ->name('brands-data-review');
 
 // Bing Webmaster (yakup, 2026-10-07): ChatGPT search reads Bing's index; every morning the sites are matched again and
 // their weekly Bing searches read (read only).

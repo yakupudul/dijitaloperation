@@ -23,11 +23,12 @@ final class AiSchedule
         'site-weekly' => ['Site haftalık yenileme', 'Yeni sayfaların kategorisi, eşleşmeler ve kullanılan sayfaların özetleri.'],
         'analyst-weekly' => ['Kanal analistleri', 'Aktif markaların canlı kanalları (Google Ads, Meta, İşletme Profili) için haftalık inceleme.'],
         'brands-care' => ['Marka bakım ajanı', 'Marka dosyası değiştiyse inceler, işleri İş listesine yazar.'],
+        'brands-data-review' => ['Claude marka denetimi', 'Hizmetler, yerler ve dönüşümler değiştiyse inceler; kanıtlı önerileri Onarım masasına koyar (onaysız uygulanmaz).'],
         'brands-chief' => ['Şef: denetim + haftalık plan', 'AI kararlarında hata arar (AI\'sız), sonra haftalık planı yazar.'],
     ];
 
     /** Schedule name => its gate (routes/console.php `when`): off (no next run) unless it may run by itself (AiBudget::automaticAllowed). */
-    private const array GATES = ['analyst-weekly' => 'analyst.weekly', 'site-weekly' => 'site.weekly_refresh', 'brands-care' => 'brand.care', 'brands-chief' => 'brand.chief'];
+    private const array GATES = ['analyst-weekly' => 'analyst.weekly', 'site-weekly' => 'site.weekly_refresh', 'brands-care' => 'brand.care', 'brands-chief' => 'brand.chief', 'brands-data-review' => 'brand.data_review'];
 
     /**
      * @return list<array{name: string, label: string, what: string, next: ?CarbonImmutable}>

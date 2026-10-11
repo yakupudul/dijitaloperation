@@ -32,6 +32,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::BRAND_DATA_REVIEW,
+            'name' => 'Brand Data Review',
+            'module' => 'advisor',
+            'description' => 'Claude marka denetimi: nightly, active brands only, runs only when the brand\'s services, places, conversions or page languages changed. Proposes service renames / archives / ★, conversion counting and place changes, each with cited evidence, as Onarım masası rows. Nothing applies without approval; nothing is written outside MoxDOP.',
+            'default_steps' => AiDefaultSteps::classification(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_REVIEW_REPLY,
             'name' => 'Google Review Reply Draft',
             'module' => 'advisor',

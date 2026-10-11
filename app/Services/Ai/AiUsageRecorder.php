@@ -47,6 +47,7 @@ final class AiUsageRecorder
         'GbpBranchPageAgent' => AiRouteKeys::GBP_BRANCH_PAGE,
         'BrandCareAgent' => AiRouteKeys::BRAND_CARE,
         'BrandChiefAgent' => AiRouteKeys::BRAND_CHIEF,
+        'BrandDataReviewAgent' => AiRouteKeys::BRAND_DATA_REVIEW,
         'GbpPostFromPageAgent' => AiRouteKeys::GBP_POST_FROM_PAGE,
         'MetaCreativesAgent' => AiRouteKeys::META_CREATIVES,
         'MetaStructureAgent' => AiRouteKeys::META_STRUCTURE,
