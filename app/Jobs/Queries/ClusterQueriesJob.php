@@ -42,6 +42,9 @@ final class ClusterQueriesJob implements ShouldQueue
 
             return;
         }
+        if ($this->all) {
+            QueryClusterQueue::touch();
+        }
         $tasks->begin(new self($this->serviceId, $this->all), null, 'Kümeleme · '.($service->primaryName?->raw_label ?? '#'.$service->id));
         try {
             $state = $clusterer->step($service);
