@@ -367,7 +367,7 @@ final class QueryPlanWizardTest extends TestCase
 
         Livewire::test(QueryPlanWizard::class)->call('goTo', 2)->assertSee('Toplu hizmet ekle')
             ->set('bulkServices.'.$this->dental->id, $text)->call('addServicesBulk', $this->dental->id)
-            ->assertSee('Diş sağlığı: 3 hizmet eklendi · 1 mevcut · 5 eşleme kelimesi · atlanan: Saç Ekimi, Kanal Tedavisi: implant.')
+            ->assertSee('Diş sağlığı: 4 hizmet eklendi · 1 mevcut · 5 eşleme kelimesi · atlanan: Kanal Tedavisi: implant.')
             ->assertSet('bulkServices.'.$this->dental->id, '')
             ->assertSee('Ortodonti')->assertSee('Kanal Tedavisi')
             ->call('addServicesBulk', $this->dental->id)->assertHasErrors('bulkServices.'.$this->dental->id);
@@ -377,7 +377,8 @@ final class QueryPlanWizardTest extends TestCase
         $this->assertSame(['beyazlatma', 'bleaching'], $service('Diş Beyazlatma')->matchingKeywords()->orderBy('normalized_key')->pluck('normalized_key')->all());
         $this->assertSame(['dental implant', 'implant'], $this->implant->matchingKeywords()->orderBy('normalized_key')->pluck('normalized_key')->all(), 'an existing service gets the keywords');
         $this->assertSame(['kanal'], $service('Kanal Tedavisi')->matchingKeywords()->pluck('normalized_key')->all(), 'a keyword taken in the sector is skipped');
-        $this->assertSame('hair', $service('Saç Ekimi')->sector, 'a service of another sector is not moved');
+        $this->assertSame(['hair', 'dental'], ServiceCatalogName::query()->where('raw_label', 'Saç Ekimi')->orderBy('id')->get()->map(fn ($n) => $n->service->sector)->all(),
+            'a service of another sector is not moved: the sector gets its own');
     }
 
     public function test_step_three_proposes_valid_terms_and_the_first_import_filters_each_sector_and_notifies(): void

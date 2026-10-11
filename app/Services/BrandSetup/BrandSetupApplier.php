@@ -337,11 +337,14 @@ final class BrandSetupApplier
             if ($service['status'] === 'proposed' && $service['is_new'] && ($problem = ServiceNameQuality::problem((string) $service['name'])) !== null) {
                 return array_merge($result, ['message' => 'Hizmet eklenmedi: '.$problem]);
             }
+            $catalogItem = null;
             if ($service['status'] === 'proposed' && $service['is_new'] && $service['sector_code'] !== null) {
-                // New catalog entry under the suggested sector (existing names are found, never duplicated).
-                $this->catalog->resolveOrCreate($service['name'], $service['sector_code'], actor: $actor);
+                // New catalog entry under the suggested sector (existing names of that sector are found, never duplicated).
+                $catalogItem = $this->catalog->resolveOrCreate($service['name'], $service['sector_code'], actor: $actor)['service'];
+            } elseif (is_int($service['catalog_item_id'] ?? null)) {
+                $catalogItem = ServiceCatalogItem::query()->find($service['catalog_item_id']);
             }
-            $offering = $this->offerings->resolveOrCreate($brand, $service['name'], actor: $actor)['offering'];
+            $offering = $this->offerings->resolveOrCreate($brand, $service['name'], actor: $actor, catalog: $catalogItem)['offering'];
             foreach ($service['aliases'] as $alias) {
                 try {
                     $this->offerings->addAlias($offering, $alias, null, $actor);

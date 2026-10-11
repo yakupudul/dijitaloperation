@@ -193,7 +193,10 @@ final class BrandSetupServiceSuggester
         $match = null;
         foreach (array_merge([$name], $aliases) as $label) {
             $key = $this->normalizer->normalize($label);
-            $hit = $key !== '' ? ServiceCatalogName::query()->with('service')->where('normalized_key', $key)->first() : null;
+            // Same sector (or uncategorized) only: a same-name service of another sector is not this one.
+            $hit = $key === '' ? null : ServiceCatalogName::query()->with('service')->where('normalized_key', $key)->get()
+                ->filter(fn (ServiceCatalogName $n): bool => $n->service !== null && ($sector === null || $n->service->sector === null || $n->service->sector === $sector))
+                ->sortBy(fn (ServiceCatalogName $n): int => $n->service->sector === $sector ? 0 : 1)->first();
             if ($hit?->service !== null) {
                 $match = $hit->service;
                 break;
