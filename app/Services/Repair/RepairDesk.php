@@ -14,6 +14,7 @@ use App\Services\Gbp\Desk\ProfileFields;
 use App\Services\Gbp\Desk\ProfileInfo;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ImageAlts;
@@ -97,6 +98,9 @@ final class RepairDesk
     /** Rows read per kind (the list is a work queue, not an archive). */
     public const int LIMIT = 1500;
 
+    /** @var array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>|null */
+    private ?array $learned = null;
+
     /**
      * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, priority: int, page_title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
      */
@@ -130,20 +134,42 @@ final class RepairDesk
     /**
      * İş paketleri: rows of one brand, one kind and one lane decided together (323 merges are one decision, not 323).
      *
+     * Order: package size × the learned weight of its work types (OutcomeTracker::weight(), 0.8 … 1.2, 1.0 until
+     * enough results are measured), so work that kept winning 30 / 90 days after approval comes before a package of
+     * about the same size whose work kept losing. `track` is that record in words ("Bu tür işler: 12 ölçümün 9'u işe
+     * yaradı").
+     *
      * @param  Collection<int, array<string, mixed>>  $rows
-     * @return Collection<int, array{key: string, brand_id: int, brand: string, kind: string, lane: string, count: int, high: int, ids: list<int>, sample: list<array<string, mixed>>}>
+     * @return Collection<int, array{key: string, brand_id: int, brand: string, kind: string, lane: string, count: int, high: int, ids: list<int>, sample: list<array<string, mixed>>, weight: float, score: float, track: string}>
      */
     public function packages(Collection $rows): Collection
     {
+        $learned = $this->learned();
+
         return $rows->groupBy(fn (array $r): string => self::packageKey($r))
-            ->map(function (Collection $group, string $key): array {
+            ->map(function (Collection $group, string $key) use ($learned): array {
                 $first = $group->first();
+                $types = $group->pluck('work_type')->filter()->unique()->values();
+                $weight = round((float) $group->avg(fn (array $r): float => (float) ($learned[$r['work_type'] ?? '']['weight'] ?? 1.0)), 3);
+                $won = (int) $types->sum(fn (string $t): int => (int) ($learned[$t]['won'] ?? 0));
+                $measured = (int) $types->sum(fn (string $t): int => (int) ($learned[$t]['measured'] ?? 0));
 
                 return ['key' => $key, 'brand_id' => $first['brand_id'], 'brand' => $first['brand'], 'kind' => $first['kind'], 'lane' => self::lane($first),
                     'count' => $group->count(), 'high' => $group->where('risk', self::HIGH)->count(), 'ids' => $group->pluck('id')->all(),
-                    'sample' => $group->take(3)->values()->all()];
+                    'sample' => $group->take(3)->values()->all(), 'weight' => $weight, 'score' => $group->count() * $weight,
+                    'track' => $measured > 0 ? 'Bu tür işler: '.$measured.' ölçümün '.$won.' tanesi işe yaradı' : ''];
             })
-            ->sortBy([['count', 'desc'], ['brand', 'asc'], ['kind', 'asc']])->values();
+            ->sortBy([['score', 'desc'], ['count', 'desc'], ['brand', 'asc'], ['kind', 'asc']])->values();
+    }
+
+    /**
+     * The learned record per work type (OutcomeTracker::workTypes(), cached), read once per desk instance.
+     *
+     * @return array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>
+     */
+    public function learned(): array
+    {
+        return $this->learned ??= app(OutcomeTracker::class)->workTypes();
     }
 
     /** @param  array{brand_id: int, kind: string, risk: string}  $row */
@@ -181,24 +207,88 @@ final class RepairDesk
     }
 
     /**
+     * Action types whose rows the desk approves (the candidates() queries); their applied rows are the desk's results.
+     *
+     * @return list<string>
+     */
+    public static function workActionTypes(): array
+    {
+        return [...SiteSuggestionTypes::APPLICABLE, ImageAlts::TYPE, ClusterOverlaps::TYPE, 'ads_negative', 'gbp_description', ProfileInfo::TYPE,
+            GoogleAdsChanges::TYPE, WebHealthAudit::TYPE];
+    }
+
+    /**
+     * Sonuçlar (yakup 2026-10-11): what the desk's applied work did 30 / 90 days later, measured nightly by
+     * OutcomeTracker — one short line per item (its latest point, "+38 tıklama (30 gün)"), newest measurement first,
+     * the verdict counts, and the record per work type that orders the packages.
+     *
+     * @return array{counts: array<string, int>, items: list<array{id: int, brand: string, title: string, type: string, page: string, line: string, verdict: string, label: string}>, types: list<array{type: string, label: string, won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>}
+     */
+    public function results(?int $brandId = null, int $days = 120, int $limit = 30): array
+    {
+        $counts = array_fill_keys(array_keys(OutcomeTracker::VERDICT_LABELS), 0);
+        $items = [];
+        $rows = Suggestion::query()->with(['brand:id,name', 'page:id,url'])->where('status', Suggestion::APPLIED)->whereNotNull('measured_at')
+            ->where('measured_at', '>=', now()->subDays($days))->whereIn('action_type', self::workActionTypes())
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->orderByDesc('measured_at')->orderByDesc('id')->limit(1000)->get(['id', 'brand_id', 'page_id', 'action_type', 'action', 'title', 'outcome', 'measured_at']);
+        foreach ($rows as $row) {
+            $latest = OutcomeTracker::latest($row);
+            if ($latest === null) {
+                continue;
+            }
+            $counts[$latest['verdict']]++;
+            if (count($items) < $limit) {
+                $items[] = ['id' => (int) $row->id, 'brand' => (string) ($row->brand?->name ?? '—'), 'title' => (string) $row->title,
+                    'type' => self::workTypeLabel(OutcomeTracker::workType((string) $row->action_type, (array) $row->action)), 'page' => (string) ($row->page?->url ?? ''),
+                    'line' => $latest['line'], 'verdict' => $latest['verdict'], 'label' => OutcomeTracker::VERDICT_LABELS[$latest['verdict']] ?? $latest['verdict']];
+            }
+        }
+        $types = collect($this->learned())->filter(fn (array $t, string $type): bool => in_array(explode('.', $type)[0], self::workActionTypes(), true) && $t['measured'] > 0)
+            ->map(fn (array $t, string $type): array => ['type' => $type, 'label' => self::workTypeLabel($type)] + $t)
+            ->sortByDesc('weight')->values()->all();
+
+        return ['counts' => $counts, 'items' => $items, 'types' => $types];
+    }
+
+    /** "ads_change.budget" → "Google Ads ayarı · budget", "title_description" → "başlık / açıklama". */
+    public static function workTypeLabel(string $workType): string
+    {
+        [$type, $field] = array_pad(explode('.', $workType, 2), 2, null);
+        $label = match ($type) {
+            'ads_negative' => self::KINDS[self::ADS_NEGATIVE],
+            GoogleAdsChanges::TYPE => self::KINDS[self::ADS_CHANGE],
+            'gbp_description' => self::KINDS[self::GBP_DESCRIPTION],
+            ProfileInfo::TYPE => self::KINDS[self::GBP_FIELDS],
+            WebHealthAudit::TYPE => self::KINDS[self::WEB_FIX],
+            ClusterOverlaps::TYPE => self::KINDS[self::REDIRECT],
+            default => Str::ucfirst(SiteSuggestionTypes::label((string) $type)),
+        };
+
+        return $field === null ? $label : $label.' · '.(ProfileInfo::FIELD_LABELS[$field] ?? $field);
+    }
+
+    /**
      * Marka sağlığı: per brand the work left before it is perfect and what was done in the last two weeks.
      * "Kusursuz" percent = fixes applied in the last TRACK_DAYS days / (applied + still open). Brands are sorted by the
-     * expected gain of their open work: each row weighs by its priority (1 → 3, 2 → 2, else 1), then by critical count.
+     * expected gain of their open work: each row weighs by its priority (1 → 3, 2 → 2, else 1) times the learned weight of
+     * its work type (0.8 … 1.2, see packages()), then by critical count.
      *
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return Collection<int, array{brand_id: int, brand: string, open: int, done: int, percent: int, gain: int, critical: int}>
      */
     public function health(Collection $rows): Collection
     {
+        $learned = $this->learned();
         $done = Suggestion::query()->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::TRACK_DAYS))
             ->whereIn('brand_id', $rows->pluck('brand_id')->unique())->selectRaw('brand_id, count(*) as aggregate')->groupBy('brand_id')->pluck('aggregate', 'brand_id');
 
-        return $rows->groupBy('brand_id')->map(function (Collection $group, int $brandId) use ($done): array {
+        return $rows->groupBy('brand_id')->map(function (Collection $group, int $brandId) use ($done, $learned): array {
             $finished = (int) ($done[$brandId] ?? 0);
 
             return ['brand_id' => $brandId, 'brand' => (string) $group->first()['brand'], 'open' => $group->count(), 'done' => $finished,
                 'percent' => (int) round(100 * $finished / max(1, $finished + $group->count())),
-                'gain' => (int) $group->sum(fn (array $r): int => self::gain($r)), 'critical' => $group->filter(fn (array $r): bool => ($r['priority'] ?? 3) <= 1)->count()];
+                'gain' => (int) round($group->sum(fn (array $r): float => self::gain($r) * (float) ($learned[$r['work_type'] ?? '']['weight'] ?? 1.0))), 'critical' => $group->filter(fn (array $r): bool => ($r['priority'] ?? 3) <= 1)->count()];
         })->sortBy([['gain', 'desc'], ['critical', 'desc'], ['open', 'desc'], ['brand', 'asc']])->values();
     }
 
@@ -508,6 +598,7 @@ final class RepairDesk
         $action = (array) $s->action;
         $lastError = $action['last_write_error'] ?? $action['merge_error'] ?? null;
         $base = ['id' => (int) $s->id, 'brand_id' => (int) $s->brand_id, 'brand' => $brand, 'channel' => (string) $s->channel,
+            'work_type' => OutcomeTracker::workType((string) $s->action_type, $action),
             'title' => (string) $s->title, 'priority' => (int) ($s->priority ?? 3),
             'page_title' => $s->relationLoaded('page') ? (string) ($s->page?->h1 ?: $s->page?->title ?? '') : '',
             'reason' => trim((string) $s->reason.(filled($lastError) ? ' · Önceki gönderim başarısız: '.$lastError : ''), ' ·')];

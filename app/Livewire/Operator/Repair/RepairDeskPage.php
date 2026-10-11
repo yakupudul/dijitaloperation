@@ -256,6 +256,7 @@ final class RepairDeskPage extends Component
             'pipeline' => $desk->pipeline($this->brandId),
             'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),
             'done' => $done,
+            'results' => $desk->results($this->brandId),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
     }

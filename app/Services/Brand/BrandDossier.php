@@ -13,6 +13,7 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Operator\BrandWorkspaceReadService;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteScope;
 use App\Support\Collection\LastDataDay;
@@ -439,7 +440,9 @@ final class BrandDossier
         return BrandMemory::query()->where('brand_id', $brand->id)->where('kind', 'decision')->orderByDesc('updated_at')->orderByDesc('id')->limit(self::DECISIONS)->get()
             ->map(function (BrandMemory $m): string {
                 $d = (array) $m->data;
-                $outcome = collect((array) ($d['outcome'] ?? []))->map(fn ($o, $point): string => $point.': '.($o['verdict'] ?? '?'))->implode(', ');
+                // One short line per measured point ("+38 tıklama (30 gün)"); rows measured before the line existed show the verdict.
+                $outcome = collect((array) ($d['outcome'] ?? []))->map(fn ($o, $point): string => (string) ($o['line']
+                    ?? (OutcomeTracker::VERDICT_LABELS[$o['verdict'] ?? ''] ?? '?').' ('.OutcomeTracker::pointLabel((string) $point).')'))->implode(', ');
 
                 return '- '.($d['decision'] ?? '?').': '.($d['title'] ?? $m->summary).(! empty($d['reason']) ? ' — neden: '.$d['reason'] : '').($outcome !== '' ? ' — sonuç: '.$outcome : '');
             })->implode("\n") ?: 'Henüz karar yok.';

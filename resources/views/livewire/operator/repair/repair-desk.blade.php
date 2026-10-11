@@ -154,6 +154,7 @@
                                 <a href="{{ route('operator.brand', ['brand' => $package['brand_id']]) }}" wire:navigate class="text-xs text-gray-500 hover:text-gray-800 hover:underline">{{ $package['brand'] }}</a>
                                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ $package['count'] }} · {{ RepairDesk::KINDS[$package['kind']] }}</h3>
                                 @if ($package['high'] > 0)<p class="text-xs text-amber-700 dark:text-amber-300">{{ $package['high'] }} iş yüksek riskli: paketi açıp tek tek onaylanır.</p>@endif
+                                @if (($package['track'] ?? '') !== '')<p class="text-xs text-gray-500" data-package-track>{{ $package['track'] }}</p>@endif
                             </div>
                             @if ($isAdmin)
                                 <div class="flex w-full flex-wrap items-center gap-2 text-xs sm:w-auto">
@@ -335,6 +336,40 @@
         </ul>
         @if ($done->count() > 6)
             <button type="button" @click="all = ! all" class="mt-2 text-xs font-semibold text-gray-700 dark:text-gray-300" x-text="all ? 'Daha az göster' : 'Tümünü göster ({{ $done->count() }})'"></button>
+        @endif
+    </section>
+
+    {{-- Sonuçlar: uygulanan işlerin 30. ve 90. gün ölçümü (gece, OutcomeTracker); iş türü sicili masa sırasını hafifçe etkiler --}}
+    <section class="{{ $card }} text-sm" data-repair-results x-data="{ all: false }">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-semibold text-gray-800 dark:text-white/90">Sonuçlar <span class="text-sm font-normal text-gray-500">· uygulanan işlerin 30. ve 90. günü</span></h2>
+            <p class="text-xs text-gray-500">
+                <span class="text-emerald-700 dark:text-emerald-400">{{ $results['counts']['worked'] }} işe yaradı</span> ·
+                {{ $results['counts']['neutral'] }} değişmedi ·
+                <span class="text-rose-700 dark:text-rose-300">{{ $results['counts']['not_worked'] }} kötüleşti</span> ·
+                {{ $results['counts']['unclear'] }} ölçülemedi
+            </p>
+        </div>
+        <ul class="mt-3 divide-y divide-gray-100 text-xs dark:divide-gray-800">
+            @forelse ($results['items'] as $n => $item)
+                <li class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-1.5" wire:key="result-{{ $item['id'] }}" data-result="{{ $item['id'] }}" @if ($n >= 8) x-show="all" x-cloak @endif>
+                    <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['brand'] }}</span>
+                    <span class="text-gray-500">{{ $item['type'] }}</span>
+                    <span class="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300" title="{{ $item['page'] }}">{{ $item['title'] }}</span>
+                    <span @class(['font-semibold', 'text-emerald-700 dark:text-emerald-400' => $item['verdict'] === 'worked', 'text-rose-700 dark:text-rose-300' => $item['verdict'] === 'not_worked', 'text-gray-500' => ! in_array($item['verdict'], ['worked', 'not_worked'], true)]) title="{{ $item['label'] }}">{{ $item['line'] }}</span>
+                </li>
+            @empty
+                <li class="py-1.5 text-gray-500">Henüz ölçülen iş yok: onaylanan işler 30. ve 90. günde, önceki aynı uzunluktaki dönemle karşılaştırılır.</li>
+            @endforelse
+        </ul>
+        @if (count($results['items']) > 8)
+            <button type="button" @click="all = ! all" class="mt-2 text-xs font-semibold text-gray-700 dark:text-gray-300" x-text="all ? 'Daha az göster' : 'Tümünü göster ({{ count($results['items']) }})'"></button>
+        @endif
+        @if ($results['types'] !== [])
+            <p class="mt-3 text-xs text-gray-500" data-result-types>İş türü sicili:
+                @foreach ($results['types'] as $type){{ $type['label'] }} {{ $type['won'] }}/{{ $type['measured'] }}@if ($type['weight'] > 1) ↑@elseif ($type['weight'] < 1) ↓@endif{{ $loop->last ? '' : ' · ' }}@endforeach
+                <span class="text-gray-400">(sürekli işe yarayan türler masada biraz öne, kötüleştirenler biraz geriye alınır)</span>
+            </p>
         @endif
     </section>
 

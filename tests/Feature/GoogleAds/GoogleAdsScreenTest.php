@@ -441,7 +441,7 @@ final class GoogleAdsScreenTest extends TestCase
         $this->assertNotNull($suggestion->applied_at);
         $this->assertSame($action->id, $suggestion->baseline['write_action_id']);
         $this->assertArrayHasKey('cost', $suggestion->baseline);
-        $this->assertSame(28, $suggestion->baseline['window_days']);
+        $this->assertSame(30, $suggestion->baseline['window_days']);
 
         $page->call('setTab', 'todo')->assertSee('Gönderildi')->call('undoWrite', $action->id);
         $this->assertSame('undone', $action->fresh()->status);

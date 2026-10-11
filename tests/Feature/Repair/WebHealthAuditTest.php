@@ -78,6 +78,7 @@ final class WebHealthAuditTest extends SiteTestCase
         }
         app(WebHealthAudit::class)->audit($this->site);
         $this->assertSame([Suggestion::APPLIED, Suggestion::APPLIED], Suggestion::query()->whereIn('id', [$fix['id'], $task['id']])->pluck('status')->all());
+        $this->assertSame(2, Suggestion::query()->whereIn('id', [$fix['id'], $task['id']])->whereNotNull('applied_at')->count(), 'desk-approved: measured at 30 / 90 days');
     }
 
     public function test_a_dead_internal_link_gets_a_301_to_the_closest_live_page_and_a_failed_write_returns(): void

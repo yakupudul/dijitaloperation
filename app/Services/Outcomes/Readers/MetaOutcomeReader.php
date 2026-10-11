@@ -25,6 +25,14 @@ final class MetaOutcomeReader implements OutcomeMetricReader
         return $last !== null ? substr((string) $last, 0, 10) : null;
     }
 
+    public function firstDay(array $scope): ?string
+    {
+        $account = $this->account($scope);
+        $first = $account !== null ? $this->screen->q($account, 'meta_ad_daily')?->min('reporting_date') : null;
+
+        return $first !== null ? substr((string) $first, 0, 10) : null;
+    }
+
     public function read(array $scope, string $from, string $to): ?array
     {
         $account = $this->account($scope);

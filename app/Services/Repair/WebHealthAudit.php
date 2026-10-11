@@ -12,6 +12,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\SiteScope;
+use Carbon\Carbon;
 use GuzzleHttp\Psr7\Uri;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
@@ -287,9 +288,15 @@ final class WebHealthAudit
             $row->forceFill($values + ['status' => $status, 'action' => $action]
                 + ($status === Suggestion::OPEN && $row->status !== Suggestion::OPEN ? ['resolved_at' => null, 'resolved_by' => null] : []))->save();
         }
-        $closed = Suggestion::query()->whereIn('id', $existing->filter(fn (Suggestion $s): bool => ! in_array($s->fingerprint, $seen, true)
+        $closing = $existing->filter(fn (Suggestion $s): bool => ! in_array($s->fingerprint, $seen, true)
             && in_array((string) data_get($s->action, 'check'), $ran, true)
-            && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true))->pluck('id'))
+            && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED, Suggestion::APPROVED], true));
+        // Approved on the desk (written, or "Yaptım"): applied when it was sent, so the 30 / 90-day outcome is measured.
+        foreach ($closing->filter(fn (Suggestion $s): bool => $s->resolved_by !== null && $s->applied_at === null) as $done) {
+            $sent = data_get($done->action, 'sent_at');
+            Suggestion::query()->whereKey($done->id)->update(['applied_at' => is_string($sent) ? Carbon::parse($sent) : now()]);
+        }
+        $closed = Suggestion::query()->whereIn('id', $closing->pluck('id'))
             ->update(['status' => Suggestion::APPLIED, 'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now(), 'resolved_at' => now(),
                 'operator_note' => 'Sorun sitede kalmadı (otomatik kapandı).']);
 
