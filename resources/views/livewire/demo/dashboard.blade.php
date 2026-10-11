@@ -55,11 +55,12 @@
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Sonuçlar</h2>
             <span class="text-xs text-gray-500">son 90 gün</span>
             <span class="text-success-700 dark:text-success-400">İşe yaradı <strong>{{ $results['counts']['worked'] ?? 0 }}</strong></span>
-            <span class="text-warning-700 dark:text-warning-400">İşe yaramadı <strong>{{ $results['counts']['not_worked'] ?? 0 }}</strong></span>
-            <span class="text-gray-600 dark:text-gray-300">Belirsiz <strong>{{ $results['counts']['unclear'] ?? 0 }}</strong></span>
+            <span class="text-gray-600 dark:text-gray-300">Değişmedi <strong>{{ $results['counts']['neutral'] ?? 0 }}</strong></span>
+            <span class="text-warning-700 dark:text-warning-400">Kötüleşti <strong>{{ $results['counts']['not_worked'] ?? 0 }}</strong></span>
+            <span class="text-gray-600 dark:text-gray-300">Ölçülemedi <strong>{{ $results['counts']['unclear'] ?? 0 }}</strong></span>
         </div>
         @if ($results['items'] === [])
-            <p class="mt-1 text-xs text-gray-500">Henüz ölçülen öneri yok; uygulanan öneriler 28. ve 56. günde ölçülür.</p>
+            <p class="mt-1 text-xs text-gray-500">Henüz ölçülen öneri yok; uygulanan öneriler 30. ve 90. günde, önceki aynı uzunluktaki dönemle karşılaştırılır.</p>
         @else
             <ul class="mt-2 divide-y divide-gray-100 text-sm dark:divide-gray-800">
                 @foreach ($results['items'] as $item)
@@ -67,7 +68,7 @@
                         <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['brand'] }}</span>
                         <span class="text-xs text-gray-500">{{ $item['channel'] }} · {{ $item['point'] }}</span>
                         <span class="min-w-0 truncate text-gray-700 dark:text-gray-300">{{ $item['title'] }}</span>
-                        <span class="text-xs text-gray-500">{{ $item['reason'] }}</span>
+                        <span class="text-xs text-gray-500" title="{{ $item['reason'] }}">{{ $item['line'] ?? $item['reason'] }}</span>
                         <span class="ml-auto">@include('livewire.demo.partials.outcome-badge', ['verdict' => $item['verdict']])</span>
                     </li>
                 @endforeach

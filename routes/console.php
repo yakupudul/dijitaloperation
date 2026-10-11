@@ -1077,7 +1077,7 @@ Schedule::command('moxdop:clarity:pull')
     ->withoutOverlapping(30)
     ->name('clarity-pull-daily');
 
-// Faz 9: sonuç takibi — uygulanan önerilerin 28. ve 56. gün ölçümü (her nokta bir kez).
+// Faz 9: sonuç takibi — uygulanan işlerin (onarım masası dahil) 30. ve 90. gün ölçümü; eşit önce / sonra dönemleri, her nokta bir kez.
 Schedule::command('moxdop:outcomes:measure')
     ->dailyAt('07:13')
     ->timezone('Europe/Istanbul')

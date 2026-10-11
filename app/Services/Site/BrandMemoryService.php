@@ -187,7 +187,7 @@ final class BrandMemoryService
         }
     }
 
-    /** Application and measured outcomes (28 / 56 days) of a suggestion → its decision history row. */
+    /** Application and measured outcomes (30 / 90 days; older rows 28 / 56) of a suggestion → its decision history row. */
     public function recordOutcome(Suggestion $suggestion): void
     {
         if ($suggestion->applied_at === null) {
@@ -196,7 +196,8 @@ final class BrandMemoryService
         $outcome = [];
         foreach ((array) $suggestion->outcome as $point => $measured) {
             if (is_array($measured) && isset($measured['verdict'])) {
-                $outcome[(string) $point] = ['verdict' => (string) $measured['verdict'], 'reason' => (string) ($measured['reason'] ?? '')];
+                $outcome[(string) $point] = ['verdict' => (string) $measured['verdict'], 'reason' => (string) ($measured['reason'] ?? '')]
+                    + (isset($measured['line']) ? ['line' => (string) $measured['line']] : []);
             }
         }
         $row = BrandMemory::query()->firstOrNew(['brand_id' => $suggestion->brand_id, 'kind' => 'decision', 'ref_type' => 'suggestion', 'ref_id' => $suggestion->id]);

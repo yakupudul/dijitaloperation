@@ -1,4 +1,4 @@
-{{-- Sonuç rozeti (Faz 9): verdict = worked | not_worked | unclear --}}
+{{-- Sonuç rozeti (Faz 9): verdict = worked | neutral | not_worked | unclear --}}
 <span data-outcome="{{ $verdict }}" @class([
     'inline-flex shrink-0 rounded px-1.5 py-0.5 text-xs font-medium',
     'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400' => $verdict === 'worked',

@@ -6,7 +6,7 @@ use App\Models\Suggestion;
 
 /**
  * One channel's numbers for the outcome follow-up (Faz 9). A channel plugs in by adding one reader to
- * OutcomeTracker::READERS (and its metric rule to OutcomeTracker::RULES); the baseline, the 28 / 56-day measurement
+ * OutcomeTracker::READERS (and its metric rule to OutcomeTracker::RULES); the baseline, the 30 / 90-day measurement
  * and the verdict are shared.
  */
 interface OutcomeMetricReader
@@ -25,6 +25,13 @@ interface OutcomeMetricReader
      * @param  array<string, mixed>  $scope
      */
     public function lastDay(array $scope): ?string;
+
+    /**
+     * First collected day (Y-m-d) of the scope's source: a before-window starting earlier is not comparable.
+     *
+     * @param  array<string, mixed>  $scope
+     */
+    public function firstDay(array $scope): ?string;
 
     /**
      * Sums of the window (both days inclusive). Null = no collected row in the window.

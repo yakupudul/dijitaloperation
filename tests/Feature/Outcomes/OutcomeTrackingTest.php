@@ -32,7 +32,8 @@ use Tests\TestCase;
 
 /**
  * Faz 9 Sonuç takibi: uniform baseline on apply (İşletme Profili, Google Ads campaign / account / unknown campaign),
- * 28 / 56-day measurement from seeded facts (işe yaradı / yaramadı / belirsiz), each point once, waiting for late data,
+ * 30 / 90-day measurement against equal windows before apply from seeded facts (işe yaradı / değişmedi / kötüleşti /
+ * ölçülemedi), each point once, waiting for late data,
  * Bugün "Sonuçlar", closed suggestions deleted after 12 months.
  */
 final class OutcomeTrackingTest extends TestCase
@@ -65,9 +66,9 @@ final class OutcomeTrackingTest extends TestCase
         $this->travelTo(CarbonImmutable::parse(self::APPLIED, 'Europe/Istanbul'));
     }
 
-    public function test_apply_stores_the_uniform_baseline_of_the_28_days_before(): void
+    public function test_apply_stores_the_uniform_baseline_of_the_30_days_before(): void
     {
-        $this->gbpDays(-28, -1, 2); // 2 calls a day before apply
+        $this->gbpDays(-30, -1, 2); // 2 calls a day before apply
         $suggestion = $this->gbpSuggestion('hours');
 
         app(AnalystDecisionStore::class)->markDone($suggestion, $this->admin);
@@ -75,10 +76,10 @@ final class OutcomeTrackingTest extends TestCase
         $suggestion->refresh();
         $this->assertSame(Suggestion::APPLIED, $suggestion->status);
         $baseline = $suggestion->baseline;
-        $this->assertSame(56, $baseline['actions']);
-        $this->assertSame(56, $baseline['calls']);
-        $this->assertSame(28, $baseline['window_days']);
-        $this->assertSame(['2026-05-04', '2026-05-31'], [$baseline['from'], $baseline['to']]);
+        $this->assertSame(60, $baseline['actions']);
+        $this->assertSame(60, $baseline['calls']);
+        $this->assertSame(30, $baseline['window_days']);
+        $this->assertSame(['2026-05-02', '2026-05-31'], [$baseline['from'], $baseline['to']]);
         $this->assertSame(['asset_id' => $this->gbp->id, 'resource_id' => $this->gbpResourceId], $baseline['scope']);
         $this->assertArrayHasKey('captured_at', $baseline);
         $this->assertArrayHasKey('facts', $baseline);
@@ -102,85 +103,91 @@ final class OutcomeTrackingTest extends TestCase
             $suggestions->markApplied($suggestion, $this->admin, ['write_action_id' => 7]);
         }
 
-        $this->assertEquals(560, $campaign->fresh()->baseline['cost'], '28 days × 20 of campaign 101 only');
-        $this->assertEquals(28, $campaign->fresh()->baseline['conversions']);
+        $this->assertEquals(600, $campaign->fresh()->baseline['cost'], '30 days × 20 of campaign 101 only');
+        $this->assertEquals(30, $campaign->fresh()->baseline['conversions']);
         $this->assertEquals(20, $campaign->fresh()->baseline['cpa']);
         $this->assertSame('101', $campaign->fresh()->baseline['scope']['campaign_id']);
         $this->assertSame(7, $campaign->fresh()->baseline['write_action_id']);
-        $this->assertEquals(840, $account->fresh()->baseline['cost'], 'no campaign referenced → the whole account');
+        $this->assertEquals(900, $account->fresh()->baseline['cost'], 'no campaign referenced → the whole account');
         $this->assertNull($unknown->fresh()->baseline['scope']);
         $this->assertArrayNotHasKey('cost', $unknown->fresh()->baseline);
 
-        $this->travel(29)->days();
+        $this->travel(31)->days();
         app(OutcomeTracker::class)->measure($unknown->fresh());
-        $this->assertSame(['unclear', 'veri yok'], [$unknown->fresh()->outcome['d28']['verdict'], $unknown->fresh()->outcome['d28']['reason']]);
+        $this->assertSame(['unclear', 'veri yok'], [$unknown->fresh()->outcome['d30']['verdict'], $unknown->fresh()->outcome['d30']['reason']]);
+        $this->assertSame('ölçülemedi: veri yok (30 gün)', $unknown->fresh()->outcome['d30']['line']);
     }
 
-    public function test_measures_28_and_56_days_once_each_with_verdicts(): void
+    public function test_measures_30_and_90_days_once_each_against_equal_windows_before(): void
     {
-        $this->gbpDays(-28, -1, 2);   // baseline 56 actions
-        $this->gbpDays(0, 27, 4);     // days 1–28: 112 → işe yaradı
-        $this->gbpDays(28, 55, 1);    // days 29–56: 28 → işe yaramadı
+        $this->gbpDays(-90, -31, 1);  // 60
+        $this->gbpDays(-30, -1, 2);   // 30 days before: 60 → 90 days before: 120
+        $this->gbpDays(0, 0, 50);     // the apply day itself is in neither window
+        $this->gbpDays(1, 30, 4);     // days 1–30: 120 → işe yaradı
+        $this->gbpDays(31, 90, 0);    // days 1–90: 120 vs 120 before → değişmedi
         $suggestion = $this->gbpSuggestion('hours');
         app(AnalystDecisionStore::class)->markDone($suggestion, $this->admin);
 
         $this->travel(20)->days();
         $this->artisan('moxdop:outcomes:measure')->assertSuccessful();
-        $this->assertNull($suggestion->fresh()->outcome, 'not due before day 28');
+        $this->assertNull($suggestion->fresh()->outcome, 'not due before day 30 is over');
 
-        $this->travel(8)->days(); // day 28 after apply
+        $this->travel(11)->days(); // day 31 after apply
         $this->artisan('moxdop:outcomes:measure')->expectsOutputToContain('Ölçülen sonuç: 1')->assertSuccessful();
         $outcome = $suggestion->fresh()->outcome;
-        $this->assertSame(OutcomeTracker::WORKED, $outcome['d28']['verdict']);
-        $this->assertSame(112, $outcome['d28']['actions']);
-        $this->assertSame('etkileşim 56 → 112 (+%100)', $outcome['d28']['reason']);
-        $this->assertArrayNotHasKey('d56', $outcome);
-        $measuredAt = $suggestion->fresh()->measured_at;
-        $this->assertNotNull($measuredAt);
+        $this->assertSame(OutcomeTracker::WORKED, $outcome['d30']['verdict']);
+        $this->assertSame(120, $outcome['d30']['actions']);
+        $this->assertSame(60, $outcome['d30']['before']['actions']);
+        $this->assertSame(['2026-05-02', '2026-05-31', '2026-06-02', '2026-07-01'], [$outcome['d30']['before_from'], $outcome['d30']['before_to'], $outcome['d30']['from'], $outcome['d30']['to']]);
+        $this->assertSame('etkileşim 60 → 120 (+%100)', $outcome['d30']['reason']);
+        $this->assertSame('+60 etkileşim (30 gün)', $outcome['d30']['line']);
+        $this->assertArrayNotHasKey('d90', $outcome);
+        $this->assertNotNull($suggestion->fresh()->measured_at);
 
         $this->artisan('moxdop:outcomes:measure')->expectsOutputToContain('Ölçülen sonuç: 0')->assertSuccessful();
         $this->assertEquals($outcome, $suggestion->fresh()->outcome, 'no double measurement');
 
-        $this->travel(28)->days(); // day 56
+        $this->travel(60)->days(); // day 91
         $this->artisan('moxdop:outcomes:measure')->expectsOutputToContain('Ölçülen sonuç: 1');
         $outcome = $suggestion->fresh()->outcome;
-        $this->assertSame(OutcomeTracker::WORKED, $outcome['d28']['verdict'], 'd28 kept');
-        $this->assertSame(OutcomeTracker::NOT_WORKED, $outcome['d56']['verdict']);
-        $this->assertSame(['2026-06-29', '2026-07-26'], [$outcome['d56']['from'], $outcome['d56']['to']]);
-        $this->assertSame('d56', OutcomeTracker::latest($suggestion->fresh())['point']);
+        $this->assertSame(OutcomeTracker::WORKED, $outcome['d30']['verdict'], 'd30 kept');
+        $this->assertSame(OutcomeTracker::NEUTRAL, $outcome['d90']['verdict']);
+        $this->assertSame([120, 120], [$outcome['d90']['before']['actions'], $outcome['d90']['actions']]);
+        $this->assertSame(['2026-03-03', '2026-08-30'], [$outcome['d90']['before_from'], $outcome['d90']['to']]);
+        $this->assertSame('+0 etkileşim (90 gün)', $outcome['d90']['line']);
+        $this->assertSame('d90', OutcomeTracker::latest($suggestion->fresh())['point']);
     }
 
-    public function test_little_data_is_belirsiz_and_missing_data_waits_then_is_belirsiz(): void
+    public function test_little_data_is_olculemedi_and_missing_data_waits_then_is_olculemedi(): void
     {
-        $this->gbpDays(-28, -1, 0.25); // 7 actions
-        $this->gbpDays(0, 27, 0.5);     // 14 actions: below 20 in both periods
+        $this->gbpDays(-30, -1, 0.25); // 7 actions
         $small = $this->gbpSuggestion('small');
         app(AnalystDecisionStore::class)->markDone($small, $this->admin);
         $late = $this->gbpSuggestion('late');
         $this->travel(1)->days();
-        DB::table('gbp_performance_daily')->where('reporting_date', '>=', '2026-06-01')->delete(); // nothing collected after apply yet
-        app(AnalystDecisionStore::class)->markDone($late, $this->admin);
+        app(AnalystDecisionStore::class)->markDone($late, $this->admin); // applied 2026-06-02
 
-        $this->travel(29)->days();
-        $this->assertSame([], app(OutcomeTracker::class)->measure($late->fresh()), 'waits for the window to be collected');
-        $this->gbpDays(0, 27, 0.5);
-        $this->assertSame(['d28'], app(OutcomeTracker::class)->measure($small->fresh()));
-        $this->assertSame(OutcomeTracker::UNCLEAR, $small->fresh()->outcome['d28']['verdict']);
-        $this->assertSame('veri az (en az 20 etkileşim)', $small->fresh()->outcome['d28']['reason']);
+        $this->travel(31)->days(); // 2026-07-03
+        $this->assertSame([], app(OutcomeTracker::class)->measure($small->fresh()), 'waits for the window to be collected');
+        $this->gbpDays(1, 30, 0.5); // 15 actions: below 20 in both periods; collected up to 2026-07-01
+        $this->assertSame(['d30'], app(OutcomeTracker::class)->measure($small->fresh()));
+        $this->assertSame(OutcomeTracker::UNCLEAR, $small->fresh()->outcome['d30']['verdict']);
+        $this->assertSame('veri az (en az 20 etkileşim)', $small->fresh()->outcome['d30']['reason']);
+        $this->assertSame([], app(OutcomeTracker::class)->measure($late->fresh()), 'its window ends 2026-07-02: still waiting');
 
-        DB::table('gbp_performance_daily')->where('reporting_date', '>=', '2026-06-02')->delete();
         $this->travel(OutcomeTracker::WAIT_DAYS)->days();
-        $this->assertSame(['d28'], app(OutcomeTracker::class)->measure($late->fresh()));
-        $this->assertSame(['unclear', 'veri yok'], [$late->fresh()->outcome['d28']['verdict'], $late->fresh()->outcome['d28']['reason']]);
+        $this->assertSame(['d30'], app(OutcomeTracker::class)->measure($late->fresh()));
+        $this->assertSame(['unclear', 'veri yok'], [$late->fresh()->outcome['d30']['verdict'], $late->fresh()->outcome['d30']['reason']]);
     }
 
     public function test_verdict_follows_the_better_direction_of_the_primary_metric(): void
     {
-        $base = ['window_days' => 28, 'cost' => 1000.0, 'conversions' => 10.0, 'cpa' => 100.0];
+        $base = ['window_days' => 30, 'cost' => 1000.0, 'conversions' => 10.0, 'cpa' => 100.0];
         $this->assertSame(OutcomeTracker::WORKED, OutcomeTracker::verdict('google_ads', $base, ['cost' => 960.0, 'conversions' => 12.0, 'cpa' => 80.0])[0], 'lower cost per conversion is better');
         $this->assertSame(OutcomeTracker::NOT_WORKED, OutcomeTracker::verdict('google_ads', $base, ['cost' => 1300.0, 'conversions' => 10.0, 'cpa' => 130.0])[0]);
-        $this->assertSame(OutcomeTracker::NOT_WORKED, OutcomeTracker::verdict('google_ads', $base, ['cost' => 950.0, 'conversions' => 10.0, 'cpa' => 95.0])[0], 'under 10 % is not a result');
+        $this->assertSame(OutcomeTracker::NEUTRAL, OutcomeTracker::verdict('google_ads', $base, ['cost' => 950.0, 'conversions' => 10.0, 'cpa' => 95.0])[0], 'under 10 % is not a result');
         $this->assertSame(OutcomeTracker::UNCLEAR, OutcomeTracker::verdict('google_ads', $base, ['cost' => 900.0, 'conversions' => 0.0, 'cpa' => null])[0], 'never guessed');
+        $this->assertSame(OutcomeTracker::NOT_WORKED, OutcomeTracker::verdict('search', ['clicks' => 60, 'impressions' => 900, 'position' => 8.0], ['clicks' => 40, 'impressions' => 800, 'position' => 9.0])[0]);
         $this->assertSame(OutcomeTracker::WORKED, OutcomeTracker::verdict('search', ['window_days' => 28, 'clicks' => 40, 'impressions' => 900, 'position' => 8.0],
             ['clicks' => 55, 'impressions' => 1000, 'position' => 6.0])[0]);
         $this->assertSame(OutcomeTracker::UNCLEAR, OutcomeTracker::verdict('meta', ['spend' => 100.0], ['spend' => 100.0, 'results' => 20, 'cpr' => 5.0])[0], 'no baseline → belirsiz');
@@ -195,10 +202,10 @@ final class OutcomeTrackingTest extends TestCase
         $old->forceFill(['measured_at' => now()->subDays(120)])->save();
 
         Livewire::actingAs($this->admin)->test(Dashboard::class)
-            ->assertSee('Sonuçlar')->assertSeeInOrder(['İşe yaradı', '1', 'İşe yaramadı', '1', 'Belirsiz', '1'])
+            ->assertSee('Sonuçlar')->assertSeeInOrder(['İşe yaradı', '1', 'Değişmedi', '0', 'Kötüleşti', '1', 'Ölçülemedi', '1'])
             ->assertSee('Panorama Ankara')->assertSee('Çalışma saatlerini ekle')->assertSee('etkileşim 56 → 112 (+%100)')
-            ->assertSee('işe yaramadı')->assertDontSee('Eski öneri');
-        $this->assertSame(['worked' => 1, 'not_worked' => 1, 'unclear' => 1], app(OutcomeTracker::class)->summary()['counts']);
+            ->assertSee('kötüleşti')->assertDontSee('Eski öneri');
+        $this->assertSame(['worked' => 1, 'neutral' => 0, 'not_worked' => 1, 'unclear' => 1], app(OutcomeTracker::class)->summary()['counts']);
         $this->assertSame(['Harita', 'Çalışma saatlerini ekle'], [app(OutcomeTracker::class)->summary()['items'][2]['channel'], $worked->title]);
     }
 
