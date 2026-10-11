@@ -33,6 +33,8 @@
         @if ($autopilotReady)
             <button type="button" wire:click="toggleAutopilot" class="{{ $ghost }} ml-auto">{{ $autopilotPaused ? 'Başlat' : 'Durdur' }}</button>
         @endif
+        @if ($finishStage !== null && $finishStage !== 'done')<span class="w-full text-gray-500" data-finish-stage>Bitirme zinciri sürüyor: {{ ['queued' => 'kuyrukta', 'clean' => 'katalog temizliği', 'triage' => 'sorgular yeniden soruluyor', 'cluster' => 'kümeleme', 'wait' => 'kümeleme sürüyor', 'content' => 'içerik başlıkları', 'check' => 'kontrol'][$finishStage] ?? $finishStage }}</span>@endif
+        @if ($finishCheck !== null)<span class="w-full text-gray-500" data-finish-check>{{ $finishCheck }}</span>@endif
         <span class="w-full text-gray-500">Her 15 dakikada: AI hizmeti atanmamış sorgulara bir kez bakar (hizmet, filtre kelimesi ya da hiçbiri), sonra Bekleyenler içe alınır; günde bir yeni sorgular kümelenir (yeni kümeler onayınla markalara iner). Filtre sepetine uyan sorgular saatte bir toplu silinir.</span>
     </section>
 

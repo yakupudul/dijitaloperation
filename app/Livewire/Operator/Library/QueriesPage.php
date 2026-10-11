@@ -39,6 +39,7 @@ use App\Services\Queries\PendingQueries;
 use App\Services\Queries\QueryAutopilot;
 use App\Services\Queries\QueryClusterer;
 use App\Services\Queries\QueryClusterQueue;
+use App\Services\Queries\QueryFinish;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Queries\QueryPlanner;
@@ -1448,6 +1449,8 @@ final class QueriesPage extends Component
             'autopilotPaused' => QueryAutopilot::paused(),
             'autopilotReady' => QueryPipeline::importedAt() !== null,
             'autopilotQueue' => QueryAutopilot::queue()->count(),
+            'finishCheck' => QueryFinish::line(QueryFinish::lastCheck()),
+            'finishStage' => QueryFinish::state()['stage'] ?? null,
             ...$this->keywordInsights(),
             'proposal' => $proposal,
             'clusterStatus' => is_array($clusterStatus) ? $clusterStatus : null,
