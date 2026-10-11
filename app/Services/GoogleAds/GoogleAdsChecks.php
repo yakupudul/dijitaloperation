@@ -40,6 +40,9 @@ final class GoogleAdsChecks
 
     public const int MIN_CONVERSIONS = 10;
 
+    /** A site with at least this many stored pages may be cut by the inventory cap: its page list is not complete. */
+    public const int PAGE_INVENTORY_CAP = 5000;
+
     public function __construct(
         private readonly GoogleAdsAdvisorInputCollector $collector,
         private readonly GoogleAdsScreen $screen,
@@ -285,10 +288,16 @@ final class GoogleAdsChecks
         }
         $hosts = $sites->map(fn (DigitalAsset $s): string => self::host((string) ($s->domain ?: $s->primary_url)))->filter()->unique()->all();
         $pages = Page::query()->whereIn('website_asset_id', $sites->pluck('id'))->pluck('url')->map(fn ($u): string => self::normalizeUrl((string) $u))->flip()->all();
+        // "Sitede bulunamadı" needs the whole page list: only a WordPress Connector inventory is complete; a sitemap
+        // import converges over passes and is capped, so a missing page there proves nothing.
+        $complete = $pages !== [] && count($pages) < self::PAGE_INVENTORY_CAP
+            && Page::query()->whereIn('website_asset_id', $sites->pluck('id'))->whereNotNull('wp_post_id')->exists();
         $evidence = [];
         foreach ($landing as $url => $l) {
             $host = self::host($url);
-            $problem = ! in_array($host, $hosts, true) ? 'markanın sitesi değil' : ($pages !== [] && ! isset($pages[self::normalizeUrl($url)]) ? 'sitede bulunamadı' : null);
+            $key = self::normalizeUrl($url);
+            $problem = ! in_array($host, $hosts, true) ? 'markanın sitesi değil'
+                : ($complete && $key !== $host.'/' && ! isset($pages[$key]) ? 'sitede bulunamadı' : null);
             if ($problem !== null) {
                 $evidence[] = ['url' => mb_substr($url, 0, 200), 'sorun' => $problem, 'maliyet' => round($l['cost'], 2), 'tık' => $l['clicks']];
             }
@@ -347,7 +356,8 @@ final class GoogleAdsChecks
                 $applies = match ($negative['level']) {
                     'campaign' => $negative['campaign_id'] !== null && $negative['campaign_id'] === $k['campaign_id'],
                     'ad_group' => $negative['ad_group_id'] === $k['ad_group_id'],
-                    default => true,
+                    // A shared list blocks only in the campaigns it is attached to; unknown attachments are skipped.
+                    default => is_array($negative['campaign_ids'] ?? null) && in_array((string) $k['campaign_id'], $negative['campaign_ids'], true),
                 };
                 if ($applies && self::blocks($negative['text'], (string) ($negative['match_type'] ?? 'PHRASE'), $k['text'])) {
                     $evidence[] = ['negatif' => $negative['text'], 'eşleme' => $negative['match_type'], 'kapsam' => ['campaign' => 'kampanya', 'ad_group' => 'reklam grubu'][$negative['level']] ?? 'paylaşılan liste',
@@ -467,9 +477,10 @@ final class GoogleAdsChecks
         return preg_replace('/^www\./', '', mb_strtolower($host)) ?? '';
     }
 
+    /** Host + lower-case path: query parameters (gclid, utm_…) and the fragment are dropped. */
     public static function normalizeUrl(string $url): string
     {
-        $parts = parse_url(trim($url));
+        $parts = parse_url(preg_replace('/[?#].*$/s', '', trim($url)) ?? trim($url));
         if (! is_array($parts) || ! isset($parts['host'])) {
             return mb_strtolower(trim($url));
         }

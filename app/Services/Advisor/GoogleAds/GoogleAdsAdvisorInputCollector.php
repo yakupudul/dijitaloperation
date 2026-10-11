@@ -290,7 +290,9 @@ final class GoogleAdsAdvisorInputCollector
 
     /**
      * Negatives MoxDOP added to the account's shared "MoxDOP negatifleri" list (ADR-064). The shared list itself is
-     * not collected, so the written terms are taken from the write log; undone writes are left out.
+     * not collected, so the written terms are taken from the write log; undone writes are left out. `campaign_ids` are
+     * the campaigns the writes attached the list to (`campaigns_attached`); null when no write recorded them, so the
+     * list's reach is unknown.
      *
      * @return list<array<string, mixed>>
      */
@@ -299,16 +301,33 @@ final class GoogleAdsAdvisorInputCollector
         if (! Schema::hasTable('external_write_actions')) {
             return [];
         }
-        $out = [];
-        DB::table('external_write_actions')->where('digital_asset_id', $asset->id)->where('channel', 'google_ads')
-            ->where('action', 'negative_list_add')->whereIn('status', ['succeeded', 'partial'])->whereNull('undone_at')
-            ->orderBy('id')->pluck('result')->each(function ($result) use (&$out): void {
-                foreach ((array) (self::decode($result)['added'] ?? []) as $keyword) {
-                    if (is_array($keyword) && filled($keyword['text'] ?? null)) {
-                        $out[] = ['text' => (string) $keyword['text'], 'match_type' => $keyword['match_type'] ?? 'EXACT', 'level' => 'shared', 'campaign_id' => null, 'ad_group_id' => null];
+        $rows = DB::table('external_write_actions')->where('digital_asset_id', $asset->id)->where('channel', 'google_ads')
+            ->where('action', 'negative_list_add')->whereIn('status', ['succeeded', 'partial'])
+            ->orderBy('id')->get(['result', 'undone_at']);
+        $attached = null;
+        foreach ($rows as $row) {
+            $result = self::decode($row->result);
+            if (array_key_exists('campaigns_attached', $result)) {
+                // An undo removes the terms, not the list's link to the campaigns.
+                foreach ((array) $result['campaigns_attached'] as $campaign) {
+                    $id = (string) preg_replace('#^.*/#', '', (string) $campaign);
+                    if ($id !== '') {
+                        $attached[$id] = true;
                     }
                 }
-            });
+                $attached ??= [];
+            }
+        }
+        $campaignIds = $attached === null ? null : array_map('strval', array_keys($attached));
+        $out = [];
+        foreach ($rows->whereNull('undone_at') as $row) {
+            foreach ((array) (self::decode($row->result)['added'] ?? []) as $keyword) {
+                if (is_array($keyword) && filled($keyword['text'] ?? null)) {
+                    $out[] = ['text' => (string) $keyword['text'], 'match_type' => $keyword['match_type'] ?? 'EXACT', 'level' => 'shared', 'campaign_id' => null, 'ad_group_id' => null,
+                        'campaign_ids' => $campaignIds];
+                }
+            }
+        }
 
         return $out;
     }

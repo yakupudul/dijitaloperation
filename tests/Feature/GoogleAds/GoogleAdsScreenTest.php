@@ -229,6 +229,41 @@ final class GoogleAdsScreenTest extends TestCase
         $this->page('overview')->assertSee('Sistem kontrolleri')->assertSee('Negatif çakışması')->assertSee('Veri yok')->assertSee('Maliyet');
     }
 
+    public function test_a_shared_negative_list_blocks_only_keywords_of_the_campaigns_it_is_attached_to(): void
+    {
+        $this->seedAccount();
+        DB::table('google_ads_campaign_negative_keyword_snapshot')->delete();
+        $write = fn (array $result) => ExternalWriteAction::query()->create(['channel' => ExternalWriteAction::CHANNEL_GOOGLE_ADS, 'action' => ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD,
+            'digital_asset_id' => $this->asset->id, 'brand_id' => $this->asset->brand_id, 'status' => 'succeeded', 'requested_by' => $this->admin->id, 'request_payload' => [], 'result' => $result]);
+        $write(['added' => [['text' => 'kliniği', 'match_type' => 'BROAD']]]);
+
+        $this->assertSame('pass', $this->checks()['negative_conflict']['state'], 'attachments unknown: the shared list is skipped');
+
+        $write(['added' => [], 'campaigns_attached' => ['customers/1112223333/campaigns/101']]);
+        $this->assertSame('pass', $this->checks()['negative_conflict']['state'], '«diş kliniği» is in campaign 102, the list is attached to 101');
+
+        $write(['added' => [], 'campaigns_attached' => ['customers/1112223333/campaigns/102']]);
+        $check = $this->checks()['negative_conflict'];
+        $this->assertSame('fail', $check['state']);
+        $this->assertSame('diş kliniği', $check['evidence'][0]['engellenen_anahtar_kelime']);
+    }
+
+    public function test_landing_pages_are_matched_without_parameters_and_only_against_a_complete_page_list(): void
+    {
+        $this->seedAccount();
+        $this->row('google_ads_landing_page_daily', ['landing_page' => 'https://panorama.test/implant/?gclid=abc#form', 'reporting_date' => $this->day(3), 'impressions' => 100, 'clicks' => 5,
+            'cost_micros' => 0, 'cost_amount' => 30, 'conversions' => 0, 'currency' => 'TRY', 'metadata' => []]);
+        $this->row('google_ads_landing_page_daily', ['landing_page' => 'https://panorama.test/kampanya-sayfasi/', 'reporting_date' => $this->day(3), 'impressions' => 100, 'clicks' => 5,
+            'cost_micros' => 0, 'cost_amount' => 10, 'conversions' => 0, 'currency' => 'TRY', 'metadata' => []]);
+
+        $sorun = fn (): array => collect($this->checks()['landing']['evidence'])->pluck('sorun', 'url')->all();
+        $this->assertSame(['https://baska.test/kampanya' => 'markanın sitesi değil'], $sorun(), 'a sitemap page list may be incomplete: a missing page proves nothing');
+
+        Page::query()->update(['wp_post_id' => 42]);
+        $this->assertSame(['https://baska.test/kampanya' => 'markanın sitesi değil', 'https://panorama.test/kampanya-sayfasi/' => 'sitede bulunamadı'], $sorun(),
+            'with the full WordPress page list; the gclid / fragment address is the /implant/ page');
+    }
+
     public function test_campaign_language_targeting_is_collected_and_compared_with_the_brand_languages(): void
     {
         $this->seedAccount();

@@ -244,6 +244,11 @@ final class AssetAlertScanner
             ->groupBy('reporting_date')
             ->get());
 
+        if (self::dormant($days)) {
+            // No spend for 30+ days: the brand stopped advertising; "bütçe bitti" / spend alerts are resolved, not shown.
+            return array_values(array_filter($this->budgetAlerts($asset, $days, 'Google Ads'), fn (array $a): bool => $a['kind'] === 'budget_account_blocked'));
+        }
+
         return array_values(array_filter([
             ...$this->spendAlerts($days, $currency, 'Google Ads'),
             $this->conversionsStopped($days),
@@ -266,7 +271,26 @@ final class AssetAlertScanner
             ->groupBy('reporting_date')
             ->get());
 
+        if (self::dormant($days)) {
+            return array_values(array_filter($this->budgetAlerts($asset, $days, 'Meta'), fn (array $a): bool => $a['kind'] === 'budget_account_blocked'));
+        }
+
         return [...$this->spendAlerts($days, (string) ($binding->currency ?? ''), 'Meta'), ...$this->budgetAlerts($asset, $days, 'Meta')];
+    }
+
+    /** Days an ad account may spend nothing before it counts as dormant (its spend / budget alerts are resolved). */
+    public const int DORMANT_DAYS = 30;
+
+    /**
+     * True when the account spent nothing in the last DORMANT_DAYS days (the series may be empty: no rows at all).
+     *
+     * @param  array<string, array{spend: float, conversions: float}>  $days
+     */
+    private static function dormant(array $days): bool
+    {
+        $since = now()->subDays(self::DORMANT_DAYS)->toDateString();
+
+        return array_sum(array_column(array_filter($days, fn (string $day): bool => $day >= $since, ARRAY_FILTER_USE_KEY), 'spend')) <= 0.0;
     }
 
     /**
