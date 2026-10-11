@@ -251,7 +251,7 @@ final class RepairDeskPage extends Component
             'openTotal' => $openRows->count(),
             'laneCounts' => $lanes,
             'laneTotal' => $inLane->count(),
-            'counts' => ['total' => $all->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
+            'counts' => ['total' => $all->count(), 'packages' => $desk->packages($all)->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
             'health' => $desk->health($all),
             'pipeline' => $desk->pipeline($this->brandId),
             'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),

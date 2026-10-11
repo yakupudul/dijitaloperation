@@ -54,7 +54,8 @@ final class TodayCockpitTest extends SiteTestCase
 
         $reader = app(TodayCockpitReader::class);
         $approvals = $reader->approvals();
-        $this->assertSame(2, $approvals['total']);
+        $this->assertSame(1, $approvals['total'], 'counted in packages: two negatives of one brand are one decision');
+        $this->assertSame(2, $approvals['rows']);
         $this->assertSame(2, $approvals['packages'][0]['count']);
         $this->assertSame(['current' => 150, 'previous' => 100], $reader->week()['clicks'], 'last 7 complete days (08–14.10) against 01–07.10');
         $alarms = $reader->alarms();

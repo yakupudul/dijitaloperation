@@ -49,13 +49,17 @@ final class TodayCockpitReader
     public function __construct(private readonly RepairDesk $desk) {}
 
     /**
-     * @return array{total: int, packages: list<array{key: string, brand_id: int, brand: string, kind: string, kind_label: string, lane: string, lane_label: string, count: int, url: string}>}
+     * Counted in packages (RepairDesk::packages — the same brand's fixes of one kind are one decision), the most expected
+     * gain first; `rows` is the fixes behind them.
+     *
+     * @return array{total: int, rows: int, packages: list<array{key: string, brand_id: int, brand: string, kind: string, kind_label: string, lane: string, lane_label: string, count: int, url: string}>}
      */
     public function approvals(): array
     {
         try {
             $rows = $this->desk->rows()->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->values();
-            $packages = $this->desk->packages($rows)->take(self::PACKAGE_LIMIT)->map(fn (array $package): array => [
+            $all = $this->desk->packages($rows);
+            $packages = $all->take(self::PACKAGE_LIMIT)->map(fn (array $package): array => [
                 'key' => $package['key'], 'brand_id' => $package['brand_id'], 'brand' => $package['brand'], 'kind' => $package['kind'],
                 'kind_label' => RepairDesk::KINDS[$package['kind']] ?? $package['kind'],
                 'lane' => $package['lane'], 'lane_label' => RepairDesk::LANES[$package['lane']] ?? $package['lane'],
@@ -63,11 +67,11 @@ final class TodayCockpitReader
                 'url' => route('operator.repair', ['marka' => $package['brand_id'], 'tur' => $package['kind'], 'paket' => $package['key']]),
             ])->values()->all();
 
-            return ['total' => $rows->count(), 'packages' => $packages];
+            return ['total' => $all->count(), 'rows' => $rows->count(), 'packages' => $packages];
         } catch (Throwable $error) {
             report($error);
 
-            return ['total' => 0, 'packages' => []];
+            return ['total' => 0, 'rows' => 0, 'packages' => []];
         }
     }
 

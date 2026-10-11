@@ -93,10 +93,11 @@ final class PortfolioSignalsTest extends TestCase
         $signals = app(PortfolioSignalsReader::class)->forBrands(Brand::query()->get());
         $brand = $signals['brands'][$this->late->id];
 
-        $this->assertSame(3, $brand['open_work'], 'open + snoozed-past only; dismissed and still-snoozed are not open work');
-        $this->assertEquals(['Arama' => 2, 'Google Ads' => 1], $brand['open_by_channel']);
+        // Open work counts packages (OpenWork, 2026-10-11): s1 and s2 are the same brand's same type of work.
+        $this->assertSame(2, $brand['open_work'], 'open + snoozed-past only; dismissed and still-snoozed are not open work');
+        $this->assertEquals(['Arama' => 1, 'Google Ads' => 1], $brand['open_by_channel']);
         $this->assertSame(1, $brand['critical']);
-        $this->assertSame(2, $signals['assets'][$this->site->id]['open_work'], 'page suggestion → its website; channel-only → first website');
+        $this->assertSame(1, $signals['assets'][$this->site->id]['open_work'], 'page suggestion → its website; channel-only → first website; one package');
         $this->assertSame(1, $signals['assets'][$this->ads->id]['open_work']);
         $this->assertSame(0, $signals['brands'][$this->calm->id]['open_work']);
     }

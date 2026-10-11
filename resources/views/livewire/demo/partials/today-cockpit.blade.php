@@ -29,7 +29,7 @@
     <a href="{{ route('operator.repair') }}" wire:navigate class="{{ $card }} hover:ring-gray-300 dark:hover:ring-gray-700" data-today-counter="approvals">
         <span class="{{ $label }}">Onay bekleyen</span>
         <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ $num($approvals['total']) }}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $approvals['total'] > 0 ? 'Onarım masasında · hepsini gör →' : 'Onarım masası boş' }}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $approvals['total'] > 0 ? 'paket · '.$num($approvals['rows'] ?? 0).' iş · hepsini gör →' : 'Onarım masası boş' }}</span>
     </a>
 
     <div class="{{ $card }}" data-today-counter="week">
@@ -113,7 +113,7 @@
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Onay bekleyenler</h2>
             @if ($approvals['total'] > 0)
-                <span class="text-xs text-gray-500">{{ $num($approvals['total']) }} iş</span>
+                <span class="text-xs text-gray-500">{{ $num($approvals['total']) }} paket · {{ $num($approvals['rows'] ?? 0) }} iş</span>
             @endif
         </div>
         @if ($approvals['packages'] === [])

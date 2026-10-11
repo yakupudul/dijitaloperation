@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-10-11 — Açık işler paket olarak sayılır
+
+- **Karar:** Operatöre ya da AI'a gösterilen her açık iş sayısı ve listesi pakettir: aynı marka + aynı iş türü = bir iş ("Başlık / açıklama: 412 sayfa"). Tek kaynak `OpenWork` (gruplama `RepairDesk::packages`); sıra beklenen kazanç (öncelik × sayfanın 90 günlük Search Console erişimi), hiç görünmeyen sayfanın işi en sonda. Yeni bir ekran açık iş sayacaksa satır saymaz, `OpenWork`'ü kullanır.
+- **Karar:** Gösterimi olmayan sayfaya iş açılmaz: Search Console verisi olan sitede 90 günde gösterimi olmayan sayfa (hizmet / lokasyon hariç) başlık / açıklama satırı almaz; sayfalama ve arşiv adresleri (`/page/N/` vb.) hiç denetlenmez ve çöp sayılmaz. Bu, 2026-10-11 öncelik kuralındaki "görünmeyen sayfada açıklama sorunu 5" maddesinin yerine geçer (5 artık yalnız görünmeyen hizmet / lokasyon sayfasında).
+
 ## 2026-10-10 — Claude API dönemi (25 Ekim'e kadar)
 
 - **Karar (yakup):** "claude api 25 ekime yani 15 günlüğüne 100 dolar verdi bedava … claude apiye neleri devredebilirsen devret." 25 Ekim'e kadar taşınabilen her AI işlemi "Önerilen" planla Claude API'de (yazı Sonnet 5.5, toplu iş Haiku 5.5; sorgu pilotu, WhatsApp, gömme yerinde). Abonelik kuyruğunda bekleyen işler API ile yeniden başlatıldı. Günlük tavan en az 8 $, aylık bütçeye +100 $ (yalnız dönem boyunca, `moxdop-ai-pricing.claude_api_window`). 25 Ekim 00:10'da (İstanbul) işlemler önceki modellerine döner (`moxdop:ai:claude-api-window end`, önceki modeller `storage/app/ai/claude-api-window.json`).

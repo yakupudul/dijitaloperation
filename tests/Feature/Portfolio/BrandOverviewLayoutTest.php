@@ -41,11 +41,12 @@ final class BrandOverviewLayoutTest extends SiteTestCase
             ->assertSeeHtmlInOrder(['data-brand-kpis', 'operator.portfolio.brand-approvals-card', 'data-brand-journey', 'data-brand-assets'])
             ->assertDontSeeHtml('data-brand-file-tab');
         $approvals = Livewire::test(BrandApprovalsCard::class, ['brandId' => $this->brand->id])
-            ->assertSeeHtml('data-brand-approvals="2"')
+            ->assertSeeHtml('data-brand-approvals="1"')
             ->assertSee(route('operator.repair', ['marka' => $this->brand->id]), false)
             ->assertSee(route('operator.repair', ['marka' => $this->brand->id, 'paket' => $package]))
             ->assertSee(RepairDesk::KINDS[RepairDesk::SITE_FIELDS]);
-        $this->assertSame(2, $approvals->viewData('approvals')['total']);
+        $this->assertSame(1, $approvals->viewData('approvals')['total'], 'one package');
+        $this->assertSame(2, $approvals->viewData('approvals')['rows']);
 
         $view->call('setTab', 'dosya')->assertSeeHtml('data-brand-file-tab')
             ->assertSeeHtml('operator.portfolio.brand-facts-card')->assertSeeHtml('operator.portfolio.brand-identity-card');

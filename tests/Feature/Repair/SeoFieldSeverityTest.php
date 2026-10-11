@@ -102,7 +102,7 @@ final class SeoFieldSeverityTest extends SiteTestCase
 
         $signals = app(PortfolioSignalsReader::class)->forBrands(collect([$this->brand->fresh()]));
 
-        $this->assertSame(6, $signals['brands'][$this->brand->id]['open_work']);
+        $this->assertSame(2, $signals['brands'][$this->brand->id]['open_work'], 'five title fixes are one package, the Ads check another');
         $this->assertSame(2, $signals['brands'][$this->brand->id]['critical']);
         $this->assertSame(1, $signals['assets'][$this->site->id]['critical']);
         $this->assertStringContainsString('2 kritik öneri', (string) $signals['brands'][$this->brand->id]['reason']);

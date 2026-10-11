@@ -194,7 +194,7 @@
                     <p class="px-4 py-3 text-gray-500" data-work-empty>{{ $channelFilter !== null ? 'Bu kanalda açık öneri yok.' : 'Açık öneri yok. Kanal analizleri yeni iş bulduğunda burada görünür.' }}@if ($channelFilter !== null && $assetCards === []) Önce {{ $channelFilter['asset_label'] }} bağlanmalı.@endif</p>
                 @endforelse
                 @if ($work['total'] > count($work['items']))
-                    <button type="button" wire:click="showAllWork" class="block w-full px-4 py-2 text-left text-xs font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]" data-work-more>+{{ $work['total'] - count($work['items']) }} iş daha · tümünü göster</button>
+                    <button type="button" wire:click="showAllWork" class="block w-full px-4 py-2 text-left text-xs font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]" data-work-more>+{{ $work['total'] - count($work['items']) }} iş paketi daha · tümünü göster</button>
                 @elseif ($allWork && $work['total'] > \App\Livewire\Operator\Portfolio\BrandShow::WORK_LIMIT)
                     <button type="button" wire:click="showAllWork(false)" class="block w-full px-4 py-2 text-left text-xs font-medium text-gray-500 hover:bg-gray-50 dark:hover:bg-white/[0.03]">Daha az göster</button>
                 @endif

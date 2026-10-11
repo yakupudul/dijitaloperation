@@ -1,4 +1,4 @@
-{{-- Bekleyen onaylar (panel önerileri §3, 2026-10-11): the brand's prepared fixes waiting on the Onarım masası, largest packages first. --}}
+{{-- Bekleyen onaylar (panel önerileri §3, 2026-10-11): the brand's prepared fixes waiting on the Onarım masası, counted in packages, the most expected gain first. --}}
 <div>
     @if ($approvals !== null)
         <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="approvals-heading" data-brand-approvals="{{ $approvals['total'] }}">
@@ -21,8 +21,8 @@
                         </li>
                     @endforeach
                 </ul>
-                @if ($approvals['total'] > array_sum(array_column($approvals['packages'], 'count')))
-                    <a href="{{ $approvals['url'] }}" wire:navigate class="mt-1 inline-block text-xs font-medium text-gray-600 hover:underline dark:text-gray-300">+{{ $approvals['total'] - array_sum(array_column($approvals['packages'], 'count')) }} düzeltme daha →</a>
+                @if ($approvals['total'] > count($approvals['packages']))
+                    <a href="{{ $approvals['url'] }}" wire:navigate class="mt-1 inline-block text-xs font-medium text-gray-600 hover:underline dark:text-gray-300">+{{ $approvals['total'] - count($approvals['packages']) }} paket daha ({{ $approvals['rows'] }} düzeltme) →</a>
                 @endif
             @endif
         </section>
