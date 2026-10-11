@@ -237,7 +237,12 @@ class WorkDeskTest extends TestCase
     {
         [$header, $claims, $signature] = explode('.', $jwt);
         $raw = base64_decode(strtr($signature, '-_', '+/'));
-        $integer = fn (string $bytes): string => "\x02".chr(strlen($v = (ord($bytes[0]) & 0x80 ? "\0" : '').ltrim($bytes, "\0") ?: "\0")).$v;
+        $integer = function (string $bytes): string {
+            $value = ltrim($bytes, "\0") ?: "\0";
+            $value = (ord($value[0]) & 0x80 ? "\0" : '').$value;
+
+            return "\x02".chr(strlen($value)).$value;
+        };
         $sequence = $integer(substr($raw, 0, 32)).$integer(substr($raw, 32));
         $der = "\x30".chr(strlen($sequence)).$sequence;
         $point = base64_decode(strtr($publicKey, '-_', '+/'));

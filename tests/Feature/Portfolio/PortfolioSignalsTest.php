@@ -254,6 +254,7 @@ final class PortfolioSignalsTest extends TestCase
 
     public function test_lists_run_a_fixed_number_of_queries(): void
     {
+        $this->freezeTime(); // per-minute caches must not expire between the counts
         // The real DataStatusReader, account activity included: it is one batch query, not one per bound source.
         $count = function (string $component): int {
             DB::flushQueryLog();
