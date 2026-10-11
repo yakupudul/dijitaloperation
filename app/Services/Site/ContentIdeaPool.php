@@ -12,6 +12,7 @@ use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -35,6 +36,23 @@ final class ContentIdeaPool
     public static function cacheKey(int $clusterId): string
     {
         return 'content-ideas:'.$clusterId;
+    }
+
+    /**
+     * The idea generation state of several clusters with one cache read; clusters without one are left out.
+     *
+     * @param  list<int>  $clusterIds
+     * @return array<int, mixed> cluster id => state
+     */
+    public static function states(array $clusterIds): array
+    {
+        if ($clusterIds === []) {
+            return [];
+        }
+        $keys = array_combine($clusterIds, array_map(fn (int $id): string => self::cacheKey($id), $clusterIds));
+        $values = Cache::many(array_values($keys));
+
+        return array_filter(array_map(fn (string $key): mixed => $values[$key] ?? null, $keys));
     }
 
     /**

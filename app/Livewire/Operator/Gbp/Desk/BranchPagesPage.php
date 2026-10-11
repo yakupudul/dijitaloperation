@@ -196,19 +196,23 @@ final class BranchPagesPage extends Component
         $states = $pages->states($all, $desk->snapshots($all->pluck('id')->map(fn ($id): int => (int) $id)->all()));
         $counts = collect(self::FILTERS)->map(fn (array $f): int => count(array_filter($states, fn (array $s): bool => in_array($s['state'], $f['states'], true))))->all();
         $locations = $this->filter === '' ? $all : $all->filter(fn ($l): bool => in_array($states[$l->id]['state'] ?? '', self::FILTERS[$this->filter]['states'], true));
-        $running = $all->mapWithKeys(fn ($l): array => [$l->id => Cache::get(PrepareBranchPageJob::stateKey((int) $l->id))])->filter()->all();
+        $keys = $all->mapWithKeys(fn ($l): array => [(int) $l->id => PrepareBranchPageJob::stateKey((int) $l->id)])->all();
+        $cached = $keys !== [] ? Cache::many(array_values($keys)) : [];
+        $running = array_filter(array_map(fn (string $key): mixed => $cached[$key] ?? null, $keys));
         $markups = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_SITE_FIX)->whereIn('status', ['queued', 'running', 'succeeded', 'partial'])
             ->whereRaw('cast(request_payload as text) like ?', ['%gbp-branch-schema-%'])->latest('id')->limit(500)->get(['id', 'status', 'request_payload'])
             ->mapWithKeys(fn ($a): array => [(int) str_replace('gbp-branch-schema-', '', (string) data_get($a->request_payload, 'changes.0.reference')) => $a->status]);
+        $byBrand = $all->groupBy('brand_id');
+        $hubs = $pages->hubs($byBrand->filter(fn ($l): bool => $l->count() >= BranchPages::HUB_MIN)->keys()->map(fn ($id): int => (int) $id)->all());
         $brands = [];
-        foreach ($all->groupBy('brand_id') as $brandId => $brandLocations) {
+        foreach ($byBrand as $brandId => $brandLocations) {
             $brandStates = $brandLocations->map(fn ($l): string => $states[$l->id]['state'] ?? '');
             $brands[(int) $brandId] = [
                 'total' => $brandLocations->count(),
                 'done' => $brandStates->filter(fn (string $s): bool => in_array($s, BranchPages::DONE, true))->count(),
                 'missing' => $brandStates->filter(fn (string $s): bool => in_array($s, ['missing', 'failed'], true))->count(),
                 'no_data' => $brandStates->filter(fn (string $s): bool => $s === 'no_data')->count(),
-                'hub' => $brandLocations->count() >= BranchPages::HUB_MIN ? $pages->hub((int) $brandId) : null,
+                'hub' => $hubs[(int) $brandId] ?? null,
             ];
         }
         $pickLocation = $this->picking !== null ? $all->firstWhere('id', $this->picking) : null;

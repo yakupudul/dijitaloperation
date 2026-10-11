@@ -52,6 +52,8 @@ final class DeskChecks
             ->whereBetween('publish_on', [$today->addDay()->toDateString(), $today->addDays(GbpPostQueue::HORIZON_DAYS)->toDateString()])
             ->selectRaw('digital_asset_id, count(*) as n')->groupBy('digital_asset_id')->pluck('n', 'digital_asset_id');
 
+        $fillKeys = array_combine($ids, array_map(fn (int $id): string => FillGbpPostQueueJob::stateKey($id), $ids));
+        $fills = $fillKeys !== [] ? Cache::many(array_values($fillKeys)) : [];
         $rows = [];
         foreach ($locations as $location) {
             $id = (int) $location->id;
@@ -63,7 +65,7 @@ final class DeskChecks
                     $access[$id]['gbp_media'] ?? null, ($photoStatus[$id]['photos'] ?? 0) > 0, 'Fotoğraf'),
                 'reviews' => self::withAccess(['ok' => ($reviewStats[$id]['unanswered'] ?? 0) === 0, 'label' => 'Yorumlar', 'hint' => ($reviewStats[$id]['unanswered'] ?? 0) > 0 ? $reviewStats[$id]['unanswered'].' yanıtsız yorum' : 'Yanıtsız yorum yok'],
                     $access[$id]['gbp_reviews'] ?? null, ($reviewStats[$id]['recent'] ?? 0) > 0 || ($reviewStats[$id]['reply_rate'] ?? null) !== null, 'Yorum'),
-                'posts' => self::postsCheck($id, (int) ($planned[$id] ?? 0)),
+                'posts' => self::postsCheck((int) ($planned[$id] ?? 0), $fills[$fillKeys[$id]] ?? null),
             ];
             foreach ($checks as $key => $check) {
                 $checks[$key]['route'] = self::ROUTES[$key];
@@ -80,11 +82,11 @@ final class DeskChecks
      * Post plan: at least 15 of the next 30 days planned, or as many as the site's pages allow (the last fill ran out of
      * content: nothing more can be planned until the site gets new pages, so the check is not left open).
      *
+     * @param  mixed  $fill  the profile's last queue fill state (FillGbpPostQueueJob::stateKey())
      * @return array{ok: bool, label: string, hint: string}
      */
-    private static function postsCheck(int $assetId, int $planned): array
+    private static function postsCheck(int $planned, mixed $fill): array
     {
-        $fill = Cache::get(FillGbpPostQueueJob::stateKey($assetId));
         $exhausted = is_array($fill) && (($fill['result'] ?? null) === 'no_content' || (($fill['result'] ?? null) === 'ready' && (int) ($fill['empty'] ?? 0) > 0));
         $hint = $planned.'/'.GbpPostQueue::HORIZON_DAYS.' gün planlı';
 

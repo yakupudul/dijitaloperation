@@ -15,6 +15,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\ReviewReplyDrafter;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -60,41 +61,90 @@ final class ReviewDesk
      */
     public function stats(array $resources): array
     {
-        $since = now()->subDays(self::WINDOW_DAYS);
-        $before = now()->subDays(self::WINDOW_DAYS * 2);
-        $rows = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
-            ->get(['external_resource_id', 'star_rating', 'create_time', 'review_reply'])->groupBy('external_resource_id');
+        if ($resources === []) {
+            return [];
+        }
+        // Every click on the review screen renders these numbers again: they are kept for the current minute as long as
+        // no review of these profiles was added, changed, answered or removed.
+        $version = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
+            ->selectRaw('count(*) as n, count(review_reply) as replies, max(id) as last_id, max(updated_at) as changed')->first();
+        $key = 'gbp-review-stats:'.md5((string) json_encode([$resources, (array) $version, now()->format('YmdHi')]));
+
+        return Cache::remember($key, 60, fn (): array => $this->countStats($resources));
+    }
+
+    /**
+     * @param  array<int, int>  $resources  asset id => resource id
+     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
+     */
+    private function countStats(array $resources): array
+    {
+        $since = (float) now()->subDays(self::WINDOW_DAYS)->format('U.u');
+        $before = (float) now()->subDays(self::WINDOW_DAYS * 2)->format('U.u');
+        $lateBefore = (float) now()->subHours(GbpDailyWorkspace::REPLY_SLA_HOURS)->format('U.u');
+        $empty = ['total' => 0, 'recent' => 0, 'recent_stars' => [], 'previous_stars' => [], 'unanswered' => 0, 'hours' => [], 'late' => 0, 'low_open' => 0];
+        $acc = [];
+        // One pass over plain rows with native date parsing: Carbon objects and collection closures per review made this
+        // the slowest part of the review and status screens (tens of thousands of reviews).
+        foreach (DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
+            ->get(['external_resource_id', 'star_rating', 'create_time', 'review_reply']) as $row) {
+            $resourceId = (int) $row->external_resource_id;
+            $acc[$resourceId] ??= $empty;
+            $item = &$acc[$resourceId];
+            $item['total']++;
+            $made = $row->create_time !== null ? self::seconds((string) $row->create_time) : null;
+            $stars = self::STARS[strtoupper((string) $row->star_rating)] ?? null;
+            if ($made !== null && $made >= $since) {
+                $item['recent']++;
+                if ($stars !== null) {
+                    $item['recent_stars'][] = $stars;
+                }
+            } elseif ($made !== null && $made >= $before && $stars !== null) {
+                $item['previous_stars'][] = $stars;
+            }
+            if (self::noReply($row->review_reply)) {
+                $item['unanswered']++;
+                if ($made !== null && $made < $lateBefore) {
+                    $item['late']++;
+                }
+                if (($stars ?? 5) <= 2) {
+                    $item['low_open']++;
+                }
+            } else {
+                $reply = json_decode((string) $row->review_reply, true);
+                $at = is_array($reply) && is_string($reply['updateTime'] ?? null) ? self::seconds($reply['updateTime']) : null;
+                if ($at !== null && $made !== null && $at >= $made) {
+                    $item['hours'][] = ($at - $made) / 3600;
+                }
+            }
+            unset($item);
+        }
+        $avg = static fn (array $values): float => array_sum($values) / count($values);
         $out = [];
         foreach ($resources as $assetId => $resourceId) {
-            $all = $rows->get($resourceId, collect());
-            $created = fn ($r): ?CarbonImmutable => $r->create_time !== null ? CarbonImmutable::parse((string) $r->create_time) : null;
-            $stars = fn ($r): ?int => self::STARS[strtoupper((string) $r->star_rating)] ?? null;
-            $recent = $all->filter(fn ($r): bool => $created($r)?->greaterThanOrEqualTo($since) ?? false);
-            $previous = $all->filter(fn ($r): bool => ($created($r)?->greaterThanOrEqualTo($before) ?? false) && $created($r)->lessThan($since));
-            $recentStars = $recent->map($stars)->filter();
-            $previousStars = $previous->map($stars)->filter();
-            $unanswered = $all->filter(fn ($r): bool => self::noReply($r->review_reply));
-            $hours = $all->reject(fn ($r): bool => self::noReply($r->review_reply))->map(function ($r) use ($created): ?float {
-                $reply = json_decode((string) $r->review_reply, true);
-                $at = is_array($reply) && is_string($reply['updateTime'] ?? null) ? CarbonImmutable::parse($reply['updateTime']) : null;
-                $made = $created($r);
-
-                return $at !== null && $made !== null && $at->greaterThanOrEqualTo($made) ? $made->diffInMinutes($at, true) / 60 : null;
-            })->filter(fn (?float $h): bool => $h !== null);
+            $item = $acc[(int) $resourceId] ?? $empty;
             $out[$assetId] = [
-                'total' => $all->count(),
-                'recent' => $recent->count(),
-                'average' => $recentStars->isNotEmpty() ? round($recentStars->avg(), 1) : null,
-                'previous_average' => $previousStars->isNotEmpty() ? round($previousStars->avg(), 1) : null,
-                'unanswered' => $unanswered->count(),
-                'reply_rate' => $all->isNotEmpty() ? (int) round(($all->count() - $unanswered->count()) / $all->count() * 100) : null,
-                'reply_hours' => $hours->isNotEmpty() ? (int) round($hours->avg()) : null,
-                'late' => $unanswered->filter(fn ($r): bool => $created($r)?->lessThan(now()->subHours(GbpDailyWorkspace::REPLY_SLA_HOURS)) ?? false)->count(),
-                'low_open' => $unanswered->filter(fn ($r): bool => ($stars($r) ?? 5) <= 2)->count(),
+                'total' => $item['total'],
+                'recent' => $item['recent'],
+                'average' => $item['recent_stars'] !== [] ? round($avg($item['recent_stars']), 1) : null,
+                'previous_average' => $item['previous_stars'] !== [] ? round($avg($item['previous_stars']), 1) : null,
+                'unanswered' => $item['unanswered'],
+                'reply_rate' => $item['total'] > 0 ? (int) round(($item['total'] - $item['unanswered']) / $item['total'] * 100) : null,
+                'reply_hours' => $item['hours'] !== [] ? (int) round($avg($item['hours'])) : null,
+                'late' => $item['late'],
+                'low_open' => $item['low_open'],
             ];
         }
 
         return $out;
+    }
+
+    /** Unix time (with microseconds) of a stored or Google date; null when it does not parse. */
+    private static function seconds(string $value): ?float
+    {
+        $date = date_create_immutable($value);
+
+        return $date !== false ? (float) $date->format('U.u') : null;
     }
 
     /** Review list orders (yakup, 2026-10-07: new reviews first; old ones are worth less on Google). */
@@ -143,8 +193,9 @@ final class ReviewDesk
         $drafts = $ids === [] ? collect() : AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
             ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
         $actions = $this->daily->replyActions($ids);
+        $states = $this->drafter->states($ids);
 
-        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions): array {
+        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions, $states): array {
             $created = $row->create_time !== null ? CarbonImmutable::parse((string) $row->create_time) : null;
             $hours = $created !== null ? (int) $created->diffInHours(now(), true) : null;
             $reviewer = json_decode((string) $row->reviewer, true);
@@ -167,7 +218,7 @@ final class ReviewDesk
                 'answered' => $answered,
                 'reply' => is_array($reply) ? trim((string) ($reply['comment'] ?? '')) : '',
                 'draft' => $drafts->has((int) $row->id) ? (string) data_get($drafts[(int) $row->id]->content, 'reply') : null,
-                'draft_state' => $answered ? null : $this->drafter->state((int) $row->id),
+                'draft_state' => $answered ? null : ($states[(int) $row->id] ?? null),
                 'action' => $actions[(int) $row->id] ?? null,
             ];
         })->values()->all();
@@ -443,12 +494,13 @@ final class ReviewDesk
         $serviceRows = [];
         $names = $brandIds === [] ? collect() : BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->whereIn('brand_id', $brandIds)->where('status', 'active')->get()
             ->map(fn (BrandOffering $o): string => $o->displayName())->unique()->values();
+        $lowered = $names->isEmpty() ? collect() : $reviews->map(fn (array $r): array => $r + ['lower' => self::lower($r['text'])]);
         foreach ($names as $name) {
             $word = self::serviceWord($name);
             if ($word === '' || isset($serviceRows[$word])) {
                 continue;
             }
-            $matched = $reviews->filter(fn (array $r): bool => str_contains(self::lower($r['text']), $word));
+            $matched = $lowered->filter(fn (array $r): bool => str_contains($r['lower'], $word));
             if ($matched->count() >= 2) {
                 $rated = $matched->pluck('stars')->filter();
                 $serviceRows[$word] = ['name' => $name, 'word' => $word, 'count' => $matched->count(), 'average' => $rated->isNotEmpty() ? round($rated->avg(), 1) : null];

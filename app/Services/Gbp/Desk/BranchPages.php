@@ -17,6 +17,7 @@ use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpAssistant;
+use App\Services\Gbp\GbpPostQueue;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -89,15 +90,22 @@ final class BranchPages
     {
         $brandIds = $locations->pluck('brand_id')->unique()->map(fn ($id): int => (int) $id)->values()->all();
         $sites = DigitalAsset::query()->whereIn('brand_id', $brandIds)->where('type', 'website')->orderBy('id')->get(['id', 'brand_id', 'name', 'domain', 'primary_url']);
-        $pages = Page::query()->whereIn('website_asset_id', $sites->pluck('id'))->where('is_indexable', true)
-            ->get(['id', 'website_asset_id', 'url', 'path', 'title', 'h1', 'category', 'wp_post_id', 'language']);
+        $index = $this->pageIndex($sites->pluck('id')->map(fn ($id): int => (int) $id)->all());
         $rows = GbpBranchPage::query()->whereIn('digital_asset_id', $locations->pluck('id'))->with('draftAction:id,status,error,result')->get()->keyBy('digital_asset_id');
-        $byKey = $pages->keyBy(fn (Page $p): string => GbpDesk::urlKey((string) $p->url));
-        $perBrand = $this->desk->locations()->countBy('brand_id');
+        $perBrand = GbpPostQueue::locations()->toBase()->selectRaw('digital_assets.brand_id as brand_id, count(*) as n')->groupBy('digital_assets.brand_id')->pluck('n', 'brand_id');
         $sitesByBrand = $sites->groupBy('brand_id');
-        $pagesBySite = $pages->groupBy('website_asset_id');
-        $branchCandidates = $this->branchCandidates($pages);
+        $branchCandidates = $index['candidates'];
         $claimed = GbpBranchPage::query()->whereIn('brand_id', $brandIds)->get(['digital_asset_id', 'page_id', 'wp_post_id', 'website_asset_id']);
+        // Only the pages a state points at become models (a brand site can have thousands of pages).
+        $models = [];
+        $model = static function (?object $row) use (&$models): ?Page {
+            if ($row === null) {
+                return null;
+            }
+
+            return $models[(int) $row->id] ??= Page::hydrate([$row])->first();
+        };
+        $candidatesBySites = [];
         $taken = [];
         $out = [];
         foreach ($locations as $location) {
@@ -110,33 +118,48 @@ final class BranchPages
             $currentHost = (string) preg_replace('/^www\./', '', strtolower((string) parse_url($current, PHP_URL_HOST)));
             $link = ['current' => $current, 'on_site' => $currentHost !== '' && in_array($currentHost, $domains, true),
                 'home' => $current !== '' && in_array(trim((string) parse_url($current, PHP_URL_PATH), '/'), ['', 'tr'], true)];
-            $state = static fn (string $key, ?Page $page = null, ?string $label = null) => ['state' => $key, 'label' => $label ?? self::STATES[$key], 'page' => $page, 'row' => $row, 'site' => $site,
+            $state = static fn (string $key, ?object $page = null, ?string $label = null) => ['state' => $key, 'label' => $label ?? self::STATES[$key], 'page' => $model($page), 'row' => $row, 'site' => $site,
                 'link' => $link, 'chosen' => $page !== null && $row?->page_id !== null && (int) $row->page_id === (int) $page->id, 'step' => self::step($key)];
             if ($site === null) {
                 $out[$location->id] = $state('no_site');
 
                 continue;
             }
-            $sitePages = $brandSites->flatMap(fn (DigitalAsset $s): Collection => $pagesBySite->get($s->id, collect()));
+            $siteIds = $brandSites->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $onSites = static fn (?object $page): ?object => $page !== null && in_array((int) $page->website_asset_id, $siteIds, true) ? $page : null;
             $linkKey = GbpDesk::urlKey($current);
-            $linked = $linkKey !== '' ? $byKey->get($linkKey) : null;
-            if ($linked !== null && $sitePages->contains('id', $linked->id) && ! self::isHome($linked)
+            $linked = $linkKey !== '' ? ($index['byKey'][$linkKey] ?? null) : null;
+            if ($onSites($linked) !== null && ! self::isHome($linked)
                 && ((int) ($perBrand[$location->brand_id] ?? 0) <= 1 || ! self::isOtherBranchPage($location, $snapshot, $linked, $branchCandidates, $claimed))) {
                 $taken[$linked->id] = true;
                 $out[$location->id] = $state('linked', $linked);
 
                 continue;
             }
-            $chosen = $row?->page_id !== null ? $sitePages->firstWhere('id', (int) $row->page_id) : null;
+            $chosen = $row?->page_id !== null ? $onSites($index['byId'][(int) $row->page_id] ?? null) : null;
             if ($chosen === null && (int) ($perBrand[$location->brand_id] ?? 0) <= 1 && ! in_array($row?->status, [GbpBranchPage::READY, GbpBranchPage::SENT, GbpBranchPage::FAILED], true)) {
-                $home = $sitePages->first(fn (Page $p): bool => self::isHome($p));
+                $home = null;
+                foreach ($siteIds as $siteId) {
+                    if (($home = $index['home'][$siteId] ?? null) !== null) {
+                        break;
+                    }
+                }
                 $out[$location->id] = $state('single', $home, $snapshot === null ? 'Tek işletme · profil verisi henüz çekilmedi'
                     : ($link['on_site'] ? self::STATES['single'] : 'Tek işletme · profil sitenize bağlı değil'));
 
                 continue;
             }
-            $sent = $row?->wp_post_id !== null ? $sitePages->first(fn (Page $p): bool => (int) $p->wp_post_id === (int) $row->wp_post_id) : null;
-            $found = $chosen ?? $sent ?? $this->candidate($location, $snapshot, $brandSites->pluck('id')->all(), $branchCandidates, $taken);
+            $sent = null;
+            if ($row?->wp_post_id !== null) {
+                foreach ($siteIds as $siteId) {
+                    if (($sent = $index['wp'][$siteId][(int) $row->wp_post_id] ?? null) !== null) {
+                        break;
+                    }
+                }
+            }
+            $sitesKey = implode(',', $siteIds);
+            $candidatesBySites[$sitesKey] ??= array_filter($branchCandidates, fn (array $c): bool => in_array((int) $c['page']->website_asset_id, $siteIds, true));
+            $found = $chosen ?? $sent ?? $this->candidate($location, $snapshot, $siteIds, $candidatesBySites[$sitesKey], $taken);
             if ($found !== null) {
                 $taken[$found->id] = true;
                 $out[$location->id] = $state('unlinked', $found);
@@ -153,6 +176,38 @@ final class BranchPages
         }
 
         return $out;
+    }
+
+    /**
+     * The indexable pages of these sites as light rows (no page text, no models), looked up the ways states() needs:
+     * by address key, by id, each site's first home page, each site's first page per WordPress post id, and the
+     * Turkish pages that look like branch pages with their folded text.
+     *
+     * @param  list<int>  $siteIds
+     * @return array{byKey: array<string, object>, byId: array<int, object>, home: array<int, object>, wp: array<int, array<int, object>>, candidates: array<int, array{page: object, text: string}>}
+     */
+    private function pageIndex(array $siteIds): array
+    {
+        $index = ['byKey' => [], 'byId' => [], 'home' => [], 'wp' => [], 'candidates' => []];
+        if ($siteIds === []) {
+            return $index;
+        }
+        $pages = Page::query()->whereIn('website_asset_id', $siteIds)->where('is_indexable', true)->toBase()
+            ->get(['id', 'website_asset_id', 'url', 'path', 'title', 'h1', 'category', 'wp_post_id', 'language']);
+        foreach ($pages as $page) {
+            $site = (int) $page->website_asset_id;
+            $index['byKey'][GbpDesk::urlKey((string) $page->url)] = $page;
+            $index['byId'][(int) $page->id] = $page;
+            if (self::isHome($page)) {
+                $index['home'][$site] ??= $page;
+            }
+            if ($page->wp_post_id !== null) {
+                $index['wp'][$site][(int) $page->wp_post_id] ??= $page;
+            }
+        }
+        $index['candidates'] = $this->branchCandidates($pages);
+
+        return $index;
     }
 
     /** Completed steps of a state (0–4; STEPS). */
@@ -219,16 +274,55 @@ final class BranchPages
      */
     public function hub(int $brandId): array
     {
-        $locations = $this->desk->locations($brandId);
-        $snapshots = $this->desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
-        $sites = DigitalAsset::query()->where('brand_id', $brandId)->where('type', 'website')->pluck('id');
-        $page = Page::query()->whereIn('website_asset_id', $sites)->where('is_indexable', true)->get(['id', 'url', 'path', 'title', 'h1', 'language'])
-            ->first(fn (Page $p): bool => ($p->language === null || $p->language === 'tr')
-                && preg_match(self::HUB_PATTERN, SeoText::fold(implode(' ', [(string) $p->title, (string) $p->h1, str_replace(['-', '/'], ' ', (string) $p->path)]))) === 1);
-        $action = ExternalWriteAction::query()->whereIn('digital_asset_id', $sites)->where('action', ExternalWriteAction::ACTION_ARTICLE_DRAFTS)
-            ->where('request_payload->reference', self::hubReference($brandId))->latest('id')->first();
+        return $this->hubs([$brandId])[$brandId];
+    }
 
-        return ['needed' => $locations->count() >= self::HUB_MIN && $sites->isNotEmpty(), 'page' => $page, 'action' => $action, 'count' => $locations->count(), 'ready' => count($snapshots)];
+    /**
+     * hub() for several brands with a fixed number of queries (the Şube sayfaları screen shows one per brand).
+     *
+     * @param  list<int>  $brandIds
+     * @return array<int, array{needed: bool, page: ?Page, action: ?ExternalWriteAction, count: int, ready: int}>
+     */
+    public function hubs(array $brandIds): array
+    {
+        $brandIds = array_values(array_unique(array_map('intval', $brandIds)));
+        if ($brandIds === []) {
+            return [];
+        }
+        $locations = GbpPostQueue::locations()->whereIn('digital_assets.brand_id', $brandIds)->get(['digital_assets.id', 'digital_assets.brand_id']);
+        $snapshots = $this->desk->snapshots($locations->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $sites = DigitalAsset::query()->whereIn('brand_id', $brandIds)->where('type', 'website')->get(['id', 'brand_id']);
+        $brandOfSite = $sites->mapWithKeys(fn (DigitalAsset $s): array => [(int) $s->id => (int) $s->brand_id])->all();
+        $pages = [];
+        if ($brandOfSite !== []) {
+            foreach (Page::query()->whereIn('website_asset_id', array_keys($brandOfSite))->where('is_indexable', true)->toBase()->get(['id', 'website_asset_id', 'url', 'path', 'title', 'h1', 'language']) as $row) {
+                $brand = $brandOfSite[(int) $row->website_asset_id];
+                if (! isset($pages[$brand]) && ($row->language === null || $row->language === 'tr')
+                    && preg_match(self::HUB_PATTERN, SeoText::fold(implode(' ', [(string) $row->title, (string) $row->h1, str_replace(['-', '/'], ' ', (string) $row->path)]))) === 1) {
+                    unset($row->website_asset_id);
+                    $pages[$brand] = Page::hydrate([$row])->first();
+                }
+            }
+        }
+        $actions = [];
+        if ($brandOfSite !== []) {
+            ExternalWriteAction::query()->whereIn('digital_asset_id', array_keys($brandOfSite))->where('action', ExternalWriteAction::ACTION_ARTICLE_DRAFTS)
+                ->whereIn('request_payload->reference', array_map(fn (int $id): string => self::hubReference($id), $brandIds))->latest('id')->get()
+                ->each(function (ExternalWriteAction $action) use (&$actions, $brandOfSite): void {
+                    $brand = $brandOfSite[(int) $action->digital_asset_id] ?? null;
+                    if ($brand !== null && data_get($action->request_payload, 'reference') === self::hubReference($brand)) {
+                        $actions[$brand] ??= $action;
+                    }
+                });
+        }
+        $out = [];
+        foreach ($brandIds as $brandId) {
+            $ids = $locations->where('brand_id', $brandId)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $out[$brandId] = ['needed' => count($ids) >= self::HUB_MIN && in_array($brandId, $brandOfSite, true), 'page' => $pages[$brandId] ?? null,
+                'action' => $actions[$brandId] ?? null, 'count' => count($ids), 'ready' => count(array_intersect_key($snapshots, array_flip($ids)))];
+        }
+
+        return $out;
     }
 
     public static function hubReference(int $brandId): string
@@ -306,10 +400,10 @@ final class BranchPages
      *
      * @param  array<string, mixed>|null  $snapshot
      * @param  list<int>  $siteIds  the brand's website assets
-     * @param  array<int, array{page: Page, text: string}>  $branchCandidates  branchCandidates()
+     * @param  array<int, array{page: object, text: string}>  $branchCandidates  branchCandidates()
      * @param  array<int, true>  $taken  pages already given to another profile
      */
-    private function candidate(DigitalAsset $location, ?array $snapshot, array $siteIds, array $branchCandidates, array $taken): ?Page
+    private function candidate(DigitalAsset $location, ?array $snapshot, array $siteIds, array $branchCandidates, array $taken): ?object
     {
         $district = SeoText::fold((string) ($snapshot['address']['sublocality'] ?? ''));
         $city = SeoText::fold((string) ($snapshot['address']['locality'] ?? ''));
@@ -338,8 +432,8 @@ final class BranchPages
      * Turkish pages that look like branch pages (category "lokasyon" or "şube" in the address / title), with their folded
      * text: worked out once per call and shared by every profile, so a site with many pages is scanned once, not once per profile.
      *
-     * @param  Collection<int, Page>  $pages
-     * @return array<int, array{page: Page, text: string}> page id => page and folded title / h1 / path
+     * @param  Collection<int, object>  $pages
+     * @return array<int, array{page: object, text: string}> page id => page and folded title / h1 / path
      */
     private function branchCandidates(Collection $pages): array
     {
@@ -362,10 +456,10 @@ final class BranchPages
      * profile, or it is a branch page that does not name this profile's district. Unknown district = not decided here.
      *
      * @param  array<string, mixed>|null  $snapshot
-     * @param  array<int, array{page: Page, text: string}>  $branchCandidates
+     * @param  array<int, array{page: object, text: string}>  $branchCandidates
      * @param  Collection<int, GbpBranchPage>  $claimed  branch page rows of the brands
      */
-    private static function isOtherBranchPage(DigitalAsset $location, ?array $snapshot, Page $page, array $branchCandidates, Collection $claimed): bool
+    private static function isOtherBranchPage(DigitalAsset $location, ?array $snapshot, object $page, array $branchCandidates, Collection $claimed): bool
     {
         $owners = $claimed->filter(fn (GbpBranchPage $r): bool => ($r->page_id !== null && (int) $r->page_id === (int) $page->id)
             || ($r->wp_post_id !== null && $page->wp_post_id !== null && (int) $r->wp_post_id === (int) $page->wp_post_id && (int) $r->website_asset_id === (int) $page->website_asset_id))
@@ -384,7 +478,7 @@ final class BranchPages
         return preg_match('/\b'.preg_quote($district, '/').'\b/', $branchCandidates[(int) $page->id]['text']) !== 1;
     }
 
-    private static function isHome(Page $page): bool
+    private static function isHome(object $page): bool
     {
         return in_array(trim((string) $page->path, '/'), ['', 'tr', 'en', 'anasayfa', 'home'], true);
     }
