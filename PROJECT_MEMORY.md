@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-11 — Sonuç takibi 30 / 90 gün, eşit dönemler, öğrenen masa sırası
+
+- **Karar (yakup):** Onarım masasında onaylanıp uygulanan her değişiklik 30 ve 90 gün sonra ölçülür ve sistem bundan öğrenir. 2026-11-01 Faz 9 kararının (28. / 56. gün) yerini alır; mekanizma yine tek servistir (`OutcomeTracker`), yeni tablo yok, AI yok, yalnız saklı veri.
+- **Karar:** Nokta `dN` = uygulamadan sonraki N gün ile önceki N gün (eşit dönemler, uygulama günü hariç). Dört sonuç: işe yaradı / değişmedi / kötüleşti (ana metrikte ±%10) / ölçülemedi (nedeniyle; veri eksikse tahmin yok). Kaynak önceki dönemin tamamında toplanmamışsa karşılaştırılmaz.
+- **Karar:** İş türü sicili masa sırasını küçük ve sınırlı etkiler: 0,8–1,2 (ADR-066'nın `brain.min_measured` / `weight_range` ayarları), 5 ölçümden önce etkisiz; satır gizlenmez, risk şeritleri ve operatör önceliği önce gelir.
+
 ## 2026-10-10 — Claude API dönemi (25 Ekim'e kadar)
 
 - **Karar (yakup):** "claude api 25 ekime yani 15 günlüğüne 100 dolar verdi bedava … claude apiye neleri devredebilirsen devret." 25 Ekim'e kadar taşınabilen her AI işlemi "Önerilen" planla Claude API'de (yazı Sonnet 5.5, toplu iş Haiku 5.5; sorgu pilotu, WhatsApp, gömme yerinde). Abonelik kuyruğunda bekleyen işler API ile yeniden başlatıldı. Günlük tavan en az 8 $, aylık bütçeye +100 $ (yalnız dönem boyunca, `moxdop-ai-pricing.claude_api_window`). 25 Ekim 00:10'da (İstanbul) işlemler önceki modellerine döner (`moxdop:ai:claude-api-window end`, önceki modeller `storage/app/ai/claude-api-window.json`).
@@ -277,7 +283,7 @@
 
 ## 2026-11-01 — MoxDOP v2 Faz 9 (Sonuç takibi)
 
-- **Karar:** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).
+- **Karar (2026-10-11 itibarıyla 30 / 90 gün, eşit dönemler — yukarıya bak):** Sonuç takibi tek servistir (`OutcomeTracker`): uygulamada 28 günlük baseline (tek şekil), 28. ve 56. günde ölçüm, her nokta bir kez. Kanal yalnız bir metrik okuyucusu ekler; karar kuralı kanal başına tek ana metrik + %10 eşik + hacim alt sınırı, az / eksik veri = belirsiz (tahmin yok).
 - **Karar:** Google Ads ölçümü öneride kampanya varsa o kampanyadır, yoksa hesap; kampanya adı veride bulunamazsa "veri yok".
 - **Karar:** Kapalı öneriler 12 ay sonra `moxdop:retention` ile silinir.
 
