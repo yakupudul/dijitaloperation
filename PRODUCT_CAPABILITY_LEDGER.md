@@ -4073,3 +4073,11 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no production timing re-measured yet).
   (`Page::LIST_COLUMNS`); ideas are grouped per cluster once. Behaviour otherwise unchanged.
 - Tests: `GbpDeskTest` (fixed query count with more brands / profiles / reviews, review numbers), `ClustersBoardTabTest`
   (sections open on demand, fixed query count with more clusters).
+- Second pass (same screens): review counts / averages / late / low-rated come from one grouped SQL query (reply
+  times read row by row only when the reviews change, cached by data version); "Neler konuşuluyor" topics match texts
+  with `preg_grep` and stay cached until a review or service changes (max a day); `SeoText::fold` folds ASCII + Turkish
+  letters with one `strtr` (same output as `Str::ascii`, the page-scan hot spot); profile results read only the three
+  reported months; photo numbers are counted in SQL. Local SQLite bench (5,200 reviews, 11,500 pages, 24 profiles):
+  release 609f7123 ≈ 0.96 s / 1.4 s / 0.6 s (Yorumlar / Durum / Şube sayfaları); now ≈ 0.17–0.20 s / 0.22–0.28 s /
+  0.10 s with an empty cache. Production timing not re-measured yet. Tests:
+  `GbpDeskTest` (topics, photo numbers, next-minute review numbers in 2 queries, one grid page), `SeoTextMatchesPhraseTest`.
