@@ -32,6 +32,56 @@
         <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
     @endif
 
+    @php
+        $gb = fn (float $bytes): string => \App\Services\Operations\ServerStatusReader::gb($bytes);
+        $bar = ['ok' => 'bg-success-500', 'look' => 'bg-warning-500', 'critical' => 'bg-error-500'];
+        $server = $status['server'];
+        $meters = array_values(array_filter([
+            $server['memory'] !== null ? ['label' => 'Bellek (RAM)'] + $server['memory'] : null,
+            $server['swap'] !== null ? ['label' => 'Takas alanı (swap)'] + $server['swap'] : null,
+            ...$server['disks'],
+        ]));
+    @endphp
+    <div class="grid gap-4 lg:grid-cols-2">
+        <section class="{{ $card }} space-y-4" data-testid="server-status">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Sunucu</h2>
+                @if ($server['uptime_days'] !== null)<span class="text-xs text-gray-500">{{ $server['uptime_days'] >= 1 ? (int) floor($server['uptime_days']).' gündür açık' : 'bugün yeniden başladı' }}</span>@endif
+            </div>
+            @forelse ($meters as $m)
+                <div data-testid="server-meter" data-tone="{{ $m['tone'] }}">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ $m['label'] }}</span>
+                        <span class="tabular-nums text-gray-600 dark:text-gray-400"><span class="font-semibold text-gray-900 dark:text-white">{{ $gb($m['used']) }}</span> dolu · {{ $gb($m['free']) }} boş · toplam {{ $gb($m['total']) }}</span>
+                    </div>
+                    <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                        <div class="h-full rounded-full {{ $bar[$m['tone']] }}" style="width: {{ max(1, (int) round($m['share'] * 100)) }}%"></div>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">%{{ (int) round($m['share'] * 100) }} dolu</p>
+                </div>
+            @empty
+                <p class="text-sm text-gray-500">Bu sunucuda bellek ve disk bilgisi okunamadı.</p>
+            @endforelse
+            @if ($server['cpu'] !== null)
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm" data-testid="server-cpu">
+                    <span class="font-medium text-gray-800 dark:text-gray-200">İşlemci yükü ({{ $server['cpu']['cores'] }} çekirdek)</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-medium tabular-nums tone-{{ $server['cpu']['tone'] }}">son 1 / 5 / 15 dk: {{ implode(' / ', array_map(fn (float $l): string => str_replace('.', ',', (string) $l), $server['cpu']['load'])) }}</span>
+                </div>
+                <p class="text-xs text-gray-500">Yük çekirdek sayısını geçerse sunucu yetişemiyor demektir.</p>
+            @endif
+        </section>
+        <section class="{{ $card }} space-y-3" data-testid="software-health">
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Yazılım sağlığı</h2>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-800">
+                @foreach ($status['software'] as $line)
+                    <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm" data-tone="{{ $line['tone'] }}">
+                        <span class="text-gray-700 dark:text-gray-300">{{ $line['label'] }}</span>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium tone-{{ $line['tone'] }}">{{ $line['value'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    </div>
     <section class="space-y-3" data-error-center>
         @php
             $tones = [

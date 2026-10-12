@@ -215,7 +215,7 @@ final class McpWorkspaceTest extends SiteTestCase
         ExternalWriteAction::query()->create(['channel' => ExternalWriteAction::CHANNEL_GBP, 'action' => ExternalWriteAction::ACTION_LOCAL_POST, 'status' => 'failed', 'digital_asset_id' => DigitalAsset::factory()->create(['type' => 'google_business_profile'])->id,
             'request_payload' => ['summary' => 'Gönderi'], 'error' => 'Google izin vermedi.', 'requested_by' => User::factory()->create()->id]);
 
-        MoxdopServer::tool(SystemHealth::class)->assertOk()->assertSee('failed_ai_tasks')->assertSee('alerts')->assertSee('failed_writes')->assertSee('Google izin vermedi.')->assertSee('ai_money')->assertSee('ai_tasks_waiting');
+        MoxdopServer::tool(SystemHealth::class)->assertOk()->assertSee('failed_ai_tasks')->assertSee('alerts')->assertSee('disks')->assertSee('Veritabanı şeması')->assertSee('failed_writes')->assertSee('Google izin vermedi.')->assertSee('ai_money')->assertSee('ai_tasks_waiting');
     }
 
     private function delegate(string $operation): void
