@@ -1006,6 +1006,8 @@ final class ContentPlanner
             'forbidden' => $terms->phrases(),
         ];
         $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
+        // The numbers of the plan and the cluster (title, questions, queries: "20'lik diş") are the writer's own data.
+        $evidence->addNumbersFrom(['plan' => $input['plan'], 'cluster' => $input['cluster'] ?? []]);
         foreach ($context['pages'] as $page) {
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }

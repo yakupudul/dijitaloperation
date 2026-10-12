@@ -25,6 +25,7 @@
 ## 2026-10-12 — Claude API durunca görünür sebep; yazı adresi ana dilden
 
 - "Onayla ve yazdır" sonrası iş MCP kuyruğuna düştüğünde (Claude API kredisi / günlük tavan / aylık bütçe durdurdu) kart artık sebebini de yazıyor: "Claude bekleniyor (MCP)… Claude API durdu: <sebep>". MCP `system-health` artık `ai_money` (günlük harcama/tavan, aylık, kredi) ve `ai_tasks_waiting` veriyor. Kod: `AiBudget::claudeApiStopReason`, `moneyState`, `SiteOperations::line`. Test: `AiCreditsAndAssignmentsTest::test_the_waiting_line_says_why_the_claude_api_stopped`.
+- Başlığında sayı olan yazılar ("20'lik diş") artık "uydurma sayı" sayılıp düşmüyor: yazının planı ve kümesindeki sayılar (başlık, sorular, sorgular) veri sayılıyor; çeviride de kaynak yazının sayıları. Önce bu yazılar "AI çıktısı doğrulanamadı" ile hiç yazılamıyordu. Kod: `SiteEvidence::addNumbersFrom` (metin içindeki sayılar), `ContentPlanner::writeArticle`. Test: `ArticleRulesTest::test_a_number_in_the_approved_title_is_not_dropped_as_invented`.
 - Yeni yazının önerilen adresi yalnız sitenin ana dildeki sayfalarından öğreniliyor; site sayfa listesinde (300) ana dil önce. Önce opcklinik.com'da Türkçe yazı /de/ adresi alıyordu. Kod: `ContentPlanner::urlPattern`, `sitePages`. Test: `ContentTargetUrlLanguageTest`.
 
 ## 2026-10-12 — İçerik fikri kartı
