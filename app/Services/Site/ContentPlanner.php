@@ -11,6 +11,7 @@ use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Query;
 use App\Models\Suggestion;
@@ -22,6 +23,7 @@ use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Meta\MetaDesk;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
@@ -1232,6 +1234,9 @@ final class ContentPlanner
         if (! is_array($action['article'] ?? null) || $site === null) {
             throw ValidationException::withMessages(['write' => 'Önce "Taslak hazırla".']);
         }
+        if (($action['kind'] ?? null) === 'update') {
+            return $this->sendPageUpdate($suggestion, $user, $site, $action);
+        }
         $sent = array_values((array) ($action['sent_languages'] ?? []));
         // The featured image: the one the operator picked (or "görselsiz"), else the best of the site's own media.
         if (! array_key_exists('image', $action)) {
@@ -1255,6 +1260,72 @@ final class ContentPlanner
         $this->memory->recordDecision($suggestion, 'onaylandı', 'WordPress taslağı');
 
         return (int) $write->id;
+    }
+
+    /**
+     * Güncelleme (yakup, 2026-10-12: "bu içeriğin içerisine mi yazılacak?"): the strengthened page's new version goes to
+     * WordPress as a draft copy of that page (ADR-070), not as a separate post; "Sayfaya uygula" puts it live.
+     *
+     * @param  array<string, mixed>  $action
+     */
+    private function sendPageUpdate(Suggestion $suggestion, User $user, DigitalAsset $site, array $action): int
+    {
+        if (isset($action['article_write_id'])) {
+            throw ValidationException::withMessages(['write' => 'Sayfanın yeni sürümü zaten WordPress\'te taslak.']);
+        }
+        $page = $suggestion->page_id !== null ? Page::query()->find($suggestion->page_id) : null;
+        if ($page === null || $page->wp_post_id === null) {
+            throw ValidationException::withMessages(['write' => 'Güncellenecek sayfa WordPress\'ten gelmiyor; metni sayfaya elle taşı.']);
+        }
+        $article = (array) $action['article'];
+        $write = app(ExternalWriteService::class)->requestContentDraft($user, $site, ['object_id' => (int) $page->wp_post_id,
+            'title' => (string) ($article['title'] ?? $suggestion->title), 'html' => (string) ($article['html'] ?? ''), 'reference' => 'suggestion-'.$suggestion->id], $suggestion);
+        $action = array_merge($action, ['article_write_id' => (int) $write->id, 'page_update' => true,
+            'sent_languages' => [(string) ($article['language'] ?? self::articleLanguage($suggestion, $site))]]);
+        $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(), 'action' => $action])->save();
+        $this->memory->recordDecision($suggestion, 'onaylandı', 'Sayfanın yeni sürümü WordPress taslağı');
+
+        return (int) $write->id;
+    }
+
+    /**
+     * "Sayfaya uygula": the draft copy (possibly edited in WordPress) replaces the live page's title and text, and the
+     * article's SEO title and description go to the page (ADR-070, Admin click, logged, undoable).
+     *
+     * @return list<int> write ids
+     */
+    public function applyPageUpdate(Suggestion $suggestion, User $user): array
+    {
+        $action = (array) $suggestion->action;
+        $site = DigitalAsset::query()->find($action['site_id'] ?? null);
+        $draft = ExternalWriteAction::query()->whereKey((int) ($action['article_write_id'] ?? 0))->where('action', ExternalWriteAction::ACTION_CONTENT_DRAFT)->first();
+        if (($action['kind'] ?? null) !== 'update' || $site === null || $draft === null) {
+            throw ValidationException::withMessages(['write' => 'Önce sayfanın yeni sürümünü WordPress\'e taslak olarak gönder.']);
+        }
+        if (isset($action['page_apply_write_id'])) {
+            throw ValidationException::withMessages(['write' => 'Yeni sürüm sayfaya zaten uygulandı.']);
+        }
+        if ($draft->status !== 'succeeded') {
+            throw ValidationException::withMessages(['write' => 'WordPress taslak kopyası henüz hazır değil.']);
+        }
+        $writes = app(ExternalWriteService::class);
+        $ids = [(int) $writes->requestContentApply($user, $site, (int) ($draft->result['post_id'] ?? 0), $suggestion)->id];
+        $page = $suggestion->page_id !== null ? Page::query()->find($suggestion->page_id) : null;
+        $article = (array) ($action['article'] ?? []);
+        $fixes = [];
+        foreach (['meta_title' => 'seo_title', 'meta_description' => 'seo_description'] as $field => $type) {
+            if ($page?->wp_post_id !== null && filled($article[$field] ?? null)) {
+                $fixes[] = ['type' => $type, 'object_id' => (int) $page->wp_post_id, 'reference' => 'suggestion-'.$suggestion->id.'-'.$type, 'value' => (string) $article[$field]];
+            }
+        }
+        if ($fixes !== []) {
+            $ids[] = (int) $writes->requestSiteFixes($user, $site, $fixes, $suggestion)->id;
+        }
+        $suggestion->forceFill(['status' => Suggestion::APPLIED, 'applied_at' => now(), 'action' => array_merge($action, ['page_apply_write_id' => $ids[0], 'page_apply_write_ids' => $ids])])->save();
+        app(OutcomeTracker::class)->apply($suggestion, $user);
+        $this->memory->recordDecision($suggestion, 'onaylandı', 'Sayfanın yeni sürümü canlıya alındı');
+
+        return $ids;
     }
 
     /**

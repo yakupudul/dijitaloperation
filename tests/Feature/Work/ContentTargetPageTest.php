@@ -3,8 +3,12 @@
 namespace Tests\Feature\Work;
 
 use App\Livewire\Operator\Work\WorkPage;
+use App\Models\CoreConnection;
+use App\Models\CoreConnectionCredential;
+use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Services\Site\ContentPlanner;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
 
@@ -45,6 +49,35 @@ final class ContentTargetPageTest extends SiteTestCase
         $this->assertStringNotContainsString('/de/', (string) $update->action['target_url']);
         $this->assertStringNotContainsString('/de/', (string) $new->fresh()->action['target_url']);
         $this->assertSame('https://panorama.com.tr/blog/bonding-kac-seansta-tamamlanir/', $fine->fresh()->action['target_url']);
+    }
+
+    public function test_an_update_goes_as_a_draft_copy_of_the_page_and_goes_live_by_admin_click(): void
+    {
+        Queue::fake();
+        $connection = CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
+            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.14.0']]);
+        CoreConnectionCredential::factory()->create(['connection_id' => $connection->id, 'encrypted_payload' => ['client_id' => 'c', 'shared_secret' => str_repeat('s', 43)]]);
+        $page = $this->page('/kanal-tedavisi-nedir/', 'Kanal tedavisi nedir', ['wp_post_id' => 321]);
+        $idea = $this->idea('Kanal tedavisi adım adım nasıl yapılır?', ['kind' => 'update', 'target_url' => $page->url, 'article' => ['title' => 'Kanal tedavisi adım adım nasıl yapılır?',
+            'slug' => 'kanal', 'html' => '<h2>Adımlar</h2><p>Önce uyuşturma yapılır.</p>', 'meta_title' => 'Kanal tedavisi adım adım', 'meta_description' => 'Adımlar.', 'excerpt' => 'x',
+            'language' => 'tr', 'reference' => 'moxdop-kanal']], $page->id, Suggestion::APPROVED);
+
+        Livewire::test(WorkPage::class)->call('read', $idea->id)->assertSee('Sayfanın yeni sürümü')->call('sendContent', $idea->id);
+
+        $draft = ExternalWriteAction::query()->sole();
+        $this->assertSame(ExternalWriteAction::ACTION_CONTENT_DRAFT, $draft->action);
+        $this->assertSame(321, $draft->request_payload['object_id']);
+        $this->assertSame('Kanal tedavisi adım adım nasıl yapılır?', $draft->request_payload['title']);
+        Livewire::test(WorkPage::class)->call('setStep', 'taslakta')->assertSee('canlıdaki sayfa henüz değişmedi')->assertDontSeeHtml('data-apply-page="'.$idea->id.'"');
+
+        $draft->forceFill(['status' => 'succeeded', 'result' => ['post_id' => 900, 'status' => 'succeeded']])->save();
+        Livewire::test(WorkPage::class)->call('setStep', 'taslakta')->assertSeeHtml('data-apply-page="'.$idea->id.'"')->call('applyPageUpdate', $idea->id);
+
+        $apply = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_CONTENT_APPLY)->sole();
+        $this->assertSame(900, $apply->request_payload['draft_id']);
+        $this->assertTrue(ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_SITE_FIX)->exists(), 'SEO title and description go to the page');
+        $this->assertSame(Suggestion::APPLIED, $idea->fresh()->status);
+        Livewire::test(WorkPage::class)->call('setStep', 'yayinda')->assertSee('Sayfaya uygulandı');
     }
 
     /** @param  array<string, mixed>  $action */

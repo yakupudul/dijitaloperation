@@ -93,7 +93,7 @@
                 @endif
                 <button type="button" wire:click="closeReading" class="{{ $ghost }}">Kapat</button>
                 @if ($article['article'] !== null && ! $sentAll)
-                    <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="{{ implode(', ', array_map('strtoupper', array_keys($versions))) }} WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}" data-send="{{ $article['id'] }}">WordPress'e taslak gönder{{ count($versions) > 1 ? ' ('.implode(' + ', array_map('strtoupper', array_keys($versions))).')' : '' }}</button>
+                    <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="{{ implode(', ', array_map('strtoupper', array_keys($versions))) }} WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}" data-send="{{ $article['id'] }}">{{ ($article['kind'] ?? null) === 'Güncelleme' ? 'Sayfanın yeni sürümü: ' : '' }}WordPress'e taslak gönder{{ count($versions) > 1 ? ' ('.implode(' + ', array_map('strtoupper', array_keys($versions))).')' : '' }}</button>
                 @elseif ($sentAll)
                     <span class="text-xs text-emerald-700 dark:text-emerald-400">WordPress'e taslak olarak gönderildi.</span>
                 @endif

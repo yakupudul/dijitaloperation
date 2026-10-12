@@ -4,6 +4,7 @@ namespace App\Services\Work;
 
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -179,6 +180,14 @@ final class ContentBoard
         return $first ? 'WordPress taslağı kuyruğa alındı (geri alınabilir); Taslakta\'da.' : 'Yeni dil WordPress\'e taslak olarak gönderildi.';
     }
 
+    /** "Sayfaya uygula": the strengthened page's new version goes live (ADR-070, undoable). */
+    public function applyPage(int $id, User $user): string
+    {
+        $this->planner->applyPageUpdate($this->suggestion($id), $user);
+
+        return 'Sayfanın yeni sürümü canlıya alınıyor (geri alınabilir).';
+    }
+
     /** "Görseli değiştir" / "Görselsiz": the featured image the draft will carry (only before it is sent). */
     public function setImage(int $id, ?int $mediaId): string
     {
@@ -241,7 +250,7 @@ final class ContentBoard
             'id' => (int) $suggestion->id, 'idea' => (string) $suggestion->title,
             'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'target_url' => is_string($action['target_url'] ?? null) ? $action['target_url'] : null,
             'target_title' => ($action['kind'] ?? null) === 'update' ? (trim((string) $suggestion->page?->title) ?: null) : null,
-            'missing' => $site !== null && is_array($action['article'] ?? null) ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
+            'missing' => $site !== null && is_array($action['article'] ?? null) && ($action['kind'] ?? null) !== 'update' ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
             'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true)
                 || ($site !== null && self::translating($suggestion, $site, array_diff(ContentPlanner::siteLanguages($site), $written)) !== []),
             'article' => $action['article'] ?? null, 'blocked' => $action['article_blocked'] ?? null, 'blocked_draft' => $action['article_blocked_draft'] ?? null,
@@ -319,7 +328,7 @@ final class ContentBoard
         $why = filled($s->reason) ? (string) $s->reason : (string) (collect((array) $s->evidence)
             ->first(fn ($e): bool => is_array($e) && ($e['kind'] ?? 'none') !== 'none' && filled($e['value'] ?? null))['value'] ?? '');
 
-        return [
+        $item = [
             'id' => (int) $s->id, 'title' => (string) $s->title, 'rank' => max(0, (int) $s->priority), 'status' => (string) $s->status,
             'step' => $sent ? (($post['status'] ?? null) === 'publish' ? 'yayinda' : 'taslakta') : ($hasArticle || isset($action['article_blocked']) ? 'okunacak' : 'yazilacak'),
             'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'page_type' => (string) ($action['page_type'] ?? 'blog'),
@@ -338,7 +347,21 @@ final class ContentBoard
             'link' => $post['link'] ?? null, 'can_date' => $sent && in_array($post['status'] ?? null, ['draft', 'pending', 'future', 'publish'], true),
             'reason' => $why,
             'score' => $scored['score'] ?? 0, 'score_line' => $scored !== null ? ContentScore::explain($scored) : null,
+            'can_apply' => false,
         ];
+        if (! empty($action['page_update'])) {
+            // A strengthened page: its new version waits as a draft copy of the page until "Sayfaya uygula" puts it live.
+            $applied = isset($action['page_apply_write_id']);
+            $item = array_merge($item, [
+                'step' => $applied ? 'yayinda' : 'taslakta', 'post_status' => $applied ? 'publish' : 'draft', 'can_date' => false, 'missing_languages' => [], 'unsent' => [],
+                'post_line' => $applied ? 'Sayfaya uygulandı' : 'Sayfanın yeni sürümü WordPress\'te taslak; canlıdaki sayfa henüz değişmedi',
+                'post_date' => $applied ? CarbonImmutable::parse($s->applied_at ?? now())->timezone('Europe/Istanbul') : null,
+                'link' => $applied ? $item['target_url'] : null,
+                'can_apply' => ! $applied && ExternalWriteAction::query()->whereKey((int) $action['article_write_id'])->where('status', 'succeeded')->exists(),
+            ]);
+        }
+
+        return $item;
     }
 
     /** @param  array{status: string, date: ?CarbonImmutable}|null  $post */

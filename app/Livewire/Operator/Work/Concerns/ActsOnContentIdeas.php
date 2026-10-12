@@ -38,6 +38,15 @@ trait ActsOnContentIdeas
         $this->reading = null;
     }
 
+    /** "Sayfaya uygula": a strengthened page's new version replaces the live page (Admin click, undoable). */
+    public function applyPageUpdate(int $id): void
+    {
+        if (! $this->ownsContentIdea($id)) {
+            return;
+        }
+        $this->contentStep(fn (): string => app(ContentBoard::class)->applyPage($id, auth()->user()));
+    }
+
     /** The featured image of an article before it is sent; null = "Görselsiz". */
     public function pickImage(int $id, ?int $mediaId = null): void
     {

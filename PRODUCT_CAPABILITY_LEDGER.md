@@ -13,7 +13,8 @@
 
 - "Güncelleme" kartları (Yazılacak, Okunacak, okuma penceresi, site kutuları) güçlendirilecek sayfanın gerçek başlığını ve adresini gösteriyor ("Güncellenecek sayfa: …", yeni sekmede açılır). Kart başlığı sayfanın başlığı değil, sayfaya eklenecek konudur.
 - Türkçe fikir artık başka dildeki sayfayı (dil bilgisi boş da olsa `/de/…` adresli) güncellemeye seçmiyor; yeni yazı adresi de o dilin önekini almıyor (`ContentPlanner::inLanguage`). Bekleyen fikirler deploy'da bir kez düzeliyor (`moxdop:content:fix-languages`): başka dilin sayfasını güncelleyen fikir, onayı ve yazısıyla kendi dilinde yeni yazıya dönüyor; yanlış önekli yeni yazı adresleri sitenin kendi adres düzenine çekiliyor.
-- Durum: CODED + TESTED (`ContentTargetPageTest`). Neden (yakup, 2026-10-12, OPC Klinik): "mevcut sayfayı güçlendir adı altında paylaşılmış, ancak web sitesinde bu başlıkta yazı yok."
+- Güncelleme yazısı artık ayrı yazı olarak gitmiyor: "WordPress'e taslak gönder" güçlendirilecek sayfanın **taslak kopyasını** açıyor (ADR-070, sayfa ve canlı metin değişmez). Kart Taslakta'da "Sayfaya uygula" düğmesiyle bekliyor; Admin tıklayınca taslak kopyanın başlığı ve metni canlı sayfanın yerine geçiyor, yazının SEO başlığı ve açıklaması sayfaya yazılıyor (kayıtlı, geri alınabilir). Güncellemelerde başka dil yazılmıyor.
+- Durum: CODED + TESTED (`ContentTargetPageTest`). Neden (yakup, 2026-10-12, OPC Klinik): "mevcut sayfayı güçlendir adı altında paylaşılmış, ancak web sitesinde bu başlıkta yazı yok." / "bu içeriğin içerisine mi yazılacak? ... bana net anlat."
 
 ## 2026-10-12 — İçerik işleri kuyrukta beklemez
 

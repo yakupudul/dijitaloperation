@@ -7,6 +7,9 @@
     <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span @class(['font-medium', 'text-emerald-700 dark:text-emerald-400' => in_array($item['post_status'], ['publish', 'future'], true), 'text-rose-600' => in_array($item['post_status'], ['trash', 'missing'], true), 'text-gray-600 dark:text-gray-300' => ! in_array($item['post_status'], ['publish', 'future', 'trash', 'missing'], true)]) data-post-state="{{ $item['post_status'] ?? 'sent' }}">{{ $item['post_line'] }}</span>
         @if ($item['sent_at'])<span class="text-gray-500">· gönderildi {{ $item['sent_at']->timezone('Europe/Istanbul')->format('d.m.Y') }}</span>@endif
+        @if (! empty($item['can_apply']))
+            <button type="button" wire:click="applyPageUpdate({{ $item['id'] }})" wire:confirm="Canlıdaki sayfanın başlığı ve metni bu yeni sürümle değişsin mi? WordPress'te taslakta düzelttiklerin de gider. Geri alınabilir." class="h-7 rounded-lg bg-brand-500 px-2.5 font-semibold text-white hover:bg-brand-600" data-apply-page="{{ $item['id'] }}">Sayfaya uygula</button>
+        @endif
         @if ($item['can_date'])
             <button type="button" @click="dating = ! dating" class="font-medium text-brand-600 hover:underline" data-date-toggle="{{ $item['id'] }}">{{ $isPublished ? 'Tarihi değiştir' : ($item['post_status'] === 'future' ? 'Planı değiştir' : 'Yayın tarihi planla') }}</button>
         @endif
