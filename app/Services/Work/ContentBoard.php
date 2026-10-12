@@ -5,12 +5,15 @@ namespace App\Services\Work;
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ArticleImagePicker;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
+use App\Services\Site\SiteDiff;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestions;
 use App\Services\Site\SiteSuggestionTypes;
@@ -180,6 +183,65 @@ final class ContentBoard
         return $first ? 'WordPress taslağı kuyruğa alındı (geri alınabilir); Taslakta\'da.' : 'Yeni dil WordPress\'e taslak olarak gönderildi.';
     }
 
+    /**
+     * The page an update replaces, as last collected (yakup, 2026-10-12: "eski sayfanın başlığı ve içeriği de
+     * önizlemeye eklense"): its title, H1, SEO description, length and text, plus which sections the new version adds
+     * and which it leaves out.
+     *
+     * @param  array<string, mixed>|null  $article
+     * @return array{title: string, h1: string, meta_description: string, words: int, collected: ?CarbonImmutable, blocks: list<array{text: string, tag: string}>, added: list<string>, dropped: list<string>, new_words: int}|null
+     */
+    public static function currentPage(?int $pageId, ?array $article): ?array
+    {
+        $page = $pageId !== null ? Page::query()->find($pageId, ['id', 'title', 'h1', 'meta_description', 'word_count', 'content_outline', 'content_text', 'updated_at']) : null;
+        if ($page === null) {
+            return null;
+        }
+        $blocks = self::outlineBlocks($page->aiText(40000));
+        $newBlocks = SiteDiff::blocks((string) ($article['html'] ?? ''));
+        $headings = fn (array $list): array => array_values(array_map(fn (array $b): string => $b['text'], array_filter($list, fn (array $b): bool => str_starts_with($b['tag'], 'h'))));
+        $key = fn (string $text): string => SeoText::fold($text);
+        // The page's own heading repeated as the first section is the title, not a section.
+        $old = array_values(array_filter($headings($blocks), fn (string $h): bool => ! in_array($key($h), [$key((string) $page->h1), $key((string) $page->title)], true)));
+        $new = $headings($newBlocks);
+        $oldKeys = array_map($key, $old);
+        $newKeys = array_map($key, $new);
+
+        return [
+            'title' => trim((string) $page->title), 'h1' => trim((string) $page->h1), 'meta_description' => trim((string) $page->meta_description),
+            'words' => (int) $page->word_count, 'collected' => $page->updated_at !== null ? CarbonImmutable::parse($page->updated_at)->timezone('Europe/Istanbul') : null,
+            'blocks' => $blocks,
+            'added' => array_values(array_filter($new, fn (string $h): bool => ! in_array($key($h), $oldKeys, true))),
+            'dropped' => array_values(array_filter($old, fn (string $h): bool => ! in_array($key($h), $newKeys, true))),
+            'new_words' => count(preg_split('/\\s+/u', trim(strip_tags(str_replace('<', ' <', (string) ($article['html'] ?? ''))))) ?: []),
+        ];
+    }
+
+    /**
+     * The stored Markdown outline as reader blocks: "#" headings, "- " / "1. " list items, paragraphs.
+     *
+     * @return list<array{text: string, tag: string}>
+     */
+    private static function outlineBlocks(string $outline): array
+    {
+        $out = [];
+        foreach (preg_split('/\n+/u', $outline) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            if (preg_match('/^(#{1,6})\s+(.+)$/u', $line, $m) === 1) {
+                $out[] = ['text' => trim($m[2]), 'tag' => 'h'.strlen($m[1])];
+            } elseif (preg_match('/^(?:[-*•]|\d+[.)])\s+(.+)$/u', $line, $m) === 1) {
+                $out[] = ['text' => trim($m[1]), 'tag' => 'li'];
+            } else {
+                $out[] = ['text' => $line, 'tag' => 'p'];
+            }
+        }
+
+        return $out;
+    }
+
     /** "Sayfaya uygula": the strengthened page's new version goes live (ADR-070, undoable). */
     public function applyPage(int $id, User $user): string
     {
@@ -250,6 +312,7 @@ final class ContentBoard
             'id' => (int) $suggestion->id, 'idea' => (string) $suggestion->title,
             'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'target_url' => is_string($action['target_url'] ?? null) ? $action['target_url'] : null,
             'target_title' => ($action['kind'] ?? null) === 'update' ? (trim((string) $suggestion->page?->title) ?: null) : null,
+            'current' => ($action['kind'] ?? null) === 'update' ? self::currentPage($suggestion->page_id, is_array($action['article'] ?? null) ? $action['article'] : null) : null,
             'missing' => $site !== null && is_array($action['article'] ?? null) && ($action['kind'] ?? null) !== 'update' ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
             'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true)
                 || ($site !== null && self::translating($suggestion, $site, array_diff(ContentPlanner::siteLanguages($site), $written)) !== []),

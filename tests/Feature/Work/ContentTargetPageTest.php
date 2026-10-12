@@ -27,6 +27,20 @@ final class ContentTargetPageTest extends SiteTestCase
             ->assertSee('Güncellenecek sayfa')->assertSee('Kanal tedavisi nedir, dişi kurtarmanın en etkili yolu')->assertSee('/kanal-tedavisi-nedir/');
     }
 
+    public function test_the_reader_shows_the_page_it_replaces_and_what_changes(): void
+    {
+        $page = $this->page('/kanal-tedavisi-nedir/', 'Kanal tedavisi nedir', ['h1' => 'Kanal tedavisi nedir', 'meta_description' => 'Eski açıklama.', 'word_count' => 420,
+            'content_outline' => "## Kanal tedavisi nedir\n\nDişin içi temizlenir.\n\n## Kanal tedavisi fiyatları\n\n- Diş sayısına göre değişir."]);
+        $idea = $this->idea('Kanal tedavisi adım adım nasıl yapılır?', ['kind' => 'update', 'target_url' => $page->url, 'article' => ['title' => 'Kanal tedavisi adım adım nasıl yapılır?',
+            'slug' => 'kanal', 'html' => '<h2>Kanal tedavisi nedir</h2><p>Dişin içi temizlenir.</p><h2>Adım adım tedavi</h2><p>Önce uyuşturma yapılır.</p>', 'meta_title' => 'x',
+            'meta_description' => 'Yeni açıklama.', 'excerpt' => 'x', 'language' => 'tr', 'reference' => 'r']], $page->id, Suggestion::APPROVED);
+
+        Livewire::test(WorkPage::class)->call('read', $idea->id)->assertSeeHtml('data-current-page="'.$idea->id.'"')
+            ->assertSee('Ne değişecek')->assertSee('Eski açıklama.')->assertSee('Yeni açıklama.')->assertSee('+ Adım adım tedavi')
+            ->assertSee('− Kanal tedavisi fiyatları')->assertSee('Şimdiki sayfanın metni')->assertSee('Diş sayısına göre değişir.')
+            ->assertDontSeeHtml('data-article-image=');
+    }
+
     public function test_pages_in_another_language_are_never_a_turkish_ideas_page(): void
     {
         $this->page('/', 'Ana sayfa');
