@@ -82,6 +82,25 @@ final class ArticleRulesTest extends SiteTestCase
         Livewire::test(WorkPage::class)->call('read', $idea->id)->assertSeeHtml('data-article-seo')->assertSee('iç bağlantı yok');
     }
 
+    public function test_a_number_in_the_approved_title_is_not_dropped_as_invented(): void
+    {
+        $this->enableAi();
+        $idea = Suggestion::query()->create([
+            'brand_id' => $this->brand->id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => md5('20lik'), 'material_hash' => md5('20lik'),
+            'title' => "20'lik dişe neden dolgu yapılmaz?", 'reason' => 'x', 'priority' => 2, 'evidence' => [], 'action_type' => 'content',
+            'action' => ['site_id' => $this->site->id, 'kind' => 'new', 'page_type' => 'blog', 'outline' => ['Giriş'], 'questions' => ["20'lik dişe dikiş atılır mı?"]],
+            'status' => Suggestion::APPROVED, 'target_type' => 'site', 'target_id' => $this->site->id, 'first_seen_at' => now(), 'last_seen_at' => now(),
+        ]);
+        WriteArticleAgent::fake([['title' => "20'lik Dişe Neden Dolgu Yapılmaz?", 'slug' => '20-lik-dis', 'meta_title' => "20'lik diş", 'meta_description' => 'Dolgu mu çekim mi.',
+            'excerpt' => 'Rehber.', 'html' => "<p>20'lik diş en arkada olduğu için iyi temizlenemez.</p><h3>20'lik dişe dikiş atılır mı?</h3><p>Gömülü dişte atılır; 37 dikiş uydurmadır.</p>"]]);
+
+        $this->assertSame(['status' => 'ready'], app(ContentPlanner::class)->writeArticle($idea->fresh()));
+        $html = $idea->fresh()->action['article']['html'];
+        $this->assertStringContainsString("20'lik diş en arkada", $html);
+        $this->assertStringContainsString("<h3>20'lik dişe dikiş atılır mı?</h3>", $html);
+        $this->assertStringNotContainsString('37 dikiş', $html, 'a number in no data is still dropped');
+    }
+
     public function test_the_new_writer_prompt_reaches_an_operation_handed_to_claude_and_keeps_its_model(): void
     {
         $registry = app(PromptRegistry::class);

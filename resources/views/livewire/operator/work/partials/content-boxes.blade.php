@@ -1,4 +1,4 @@
-{{-- A website's content ideas as one box (the cluster card style) in three steps; on the website İçerik tab. --}}
+{{-- A website's content ideas as one box (the cluster card style) in four steps; on the website İçerik tab. --}}
 @php
     $btn = 'h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
@@ -13,7 +13,7 @@
         @foreach ($boxes as $box)
             @php $site = $box['site']; @endphp
             <article wire:key="content-box-{{ $site->id }}" data-content-box="{{ $site->id }}"
-                     x-data="{ step: '{{ $box['counts']['okunacak'] > 0 ? 'okunacak' : ($box['counts']['yazilacak'] > 0 ? 'yazilacak' : 'gonderildi') }}' }"
+                     x-data="{ step: '{{ $box['counts']['okunacak'] > 0 ? 'okunacak' : ($box['counts']['yazilacak'] > 0 ? 'yazilacak' : ($box['counts']['taslakta'] > 0 ? 'taslakta' : 'yayinda')) }}' }"
                      class="flex min-h-[24rem] flex-col overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <div class="flex items-start gap-3 px-4 pb-3 pt-4">
                     <div class="min-w-0 flex-1">
@@ -27,13 +27,13 @@
                     </div>
                 </div>
 
-                <div role="tablist" class="grid grid-cols-3 gap-2 px-4 pb-3">
+                <div role="tablist" class="grid grid-cols-4 gap-1.5 px-4 pb-3">
                     @foreach (\App\Services\Work\ContentBoard::STEPS as $code => $label)
                         <button type="button" role="tab" @click="step = '{{ $code }}'" :aria-selected="(step === '{{ $code }}').toString()"
                                 :class="step === '{{ $code }}' ? 'ring-gray-900 dark:ring-white' : 'ring-transparent'"
                                 class="rounded-lg bg-gray-50 px-2.5 py-2 text-left ring-2 ring-inset dark:bg-white/[0.03]" data-step-tab="{{ $code }}">
                             <span class="block text-[11px] text-gray-500">{{ $label }}</span>
-                            <span @class(['block text-sm font-semibold tabular-nums', 'text-amber-700 dark:text-amber-300' => $code === 'okunacak' && $box['counts'][$code] > 0, 'text-emerald-700 dark:text-emerald-400' => $code === 'gonderildi' && $box['counts'][$code] > 0])>{{ $box['counts'][$code] }}</span>
+                            <span @class(['block text-sm font-semibold tabular-nums', 'text-amber-700 dark:text-amber-300' => $code === 'okunacak' && $box['counts'][$code] > 0, 'text-emerald-700 dark:text-emerald-400' => $code === 'yayinda' && $box['counts'][$code] > 0])>{{ $box['counts'][$code] }}</span>
                         </button>
                     @endforeach
                 </div>
@@ -68,7 +68,8 @@
                                             @endif
                                             <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $btn }}" data-read="{{ $item['id'] }}">Oku</button>
                                         @else
-                                            <span class="mr-auto text-emerald-700 dark:text-emerald-400">Taslak gönderildi{{ $item['sent_at'] ? ' · '.$item['sent_at']->timezone('Europe/Istanbul')->format('d.m') : '' }}</span>
+                                            <div class="mr-auto w-full">@include('livewire.operator.work.partials.content-post', ['item' => $item, 'step' => $code])</div>
+                                            @if ($item['link'])<a href="{{ $item['link'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">Sitede aç ↗</a>@endif
                                             @if ($item['unsent'] !== [])
                                                 <button type="button" wire:click="sendContent({{ $item['id'] }})" wire:confirm="Yeni dil WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}">{{ implode(', ', array_map('strtoupper', $item['unsent'])) }} gönder</button>
                                             @elseif ($item['missing_languages'] !== [] && ! $item['writing'])
@@ -79,7 +80,7 @@
                                     </div>
                                 </li>
                             @empty
-                                <li class="px-4 py-6 text-center text-xs text-gray-500">{{ $code === 'yazilacak' ? 'Yazılacak fikir yok.' : ($code === 'okunacak' ? 'Okunacak yazı yok.' : 'Son 30 günde gönderilen yok.') }}</li>
+                                <li class="px-4 py-6 text-center text-xs text-gray-500">{{ ['yazilacak' => 'Yazılacak fikir yok.', 'okunacak' => 'Okunacak yazı yok.', 'taslakta' => 'Sitede taslakta yazı yok.', 'yayinda' => 'Yayında yazı yok.'][$code] ?? '' }}</li>
                             @endforelse
                             @if ($box['counts'][$code] > count($box['steps'][$code]))
                                 <li class="px-4 py-2 text-center text-xs text-gray-500">+{{ $box['counts'][$code] - count($box['steps'][$code]) }} daha · aşağıdaki listede</li>

@@ -17,6 +17,7 @@ use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Jobs\Site\PullClarityJob;
+use App\Jobs\Site\SyncContentPostsJob;
 use App\Models\AiLiveOperation;
 use App\Models\Brand;
 use App\Models\ClarityProject;
@@ -25,6 +26,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ScreenCheck;
+use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\Winners;
@@ -66,6 +68,7 @@ use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\Backlinks\SerpMentionSources;
+use App\Services\Site\ContentPosts;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\SiteFlow;
@@ -502,7 +505,12 @@ Schedule::command('moxdop:queries:autopilot --clean')
 
 // Claude API dönemi (yakup, 2026-10-10): until 25 October every AI operation that may move runs on the Claude API;
 // on that day the operations go back to the models they had before (ClaudeApiWindow).
-Artisan::command('moxdop:ai:claude-api-window {action : start | end}', function (ClaudeApiWindow $window): int {
+Artisan::command('moxdop:ai:claude-api-window {action : start | end | resume}', function (ClaudeApiWindow $window): int {
+    if ($this->argument('action') === 'resume') {
+        $this->info(sprintf('Claude kuyruğunda bekleyip artık Claude API ile çalışabilen %d iş yeniden başlatıldı.', $window->restartWaiting(leaveClaimed: true)));
+
+        return 0;
+    }
     $admin = User::query()->role(Roles::ADMIN)->where('is_active', true)->orderBy('id')->first();
     if ($admin === null) {
         $this->error('Aktif Admin kullanıcı yok.');
@@ -522,6 +530,11 @@ Artisan::command('moxdop:ai:claude-api-window {action : start | end}', function 
 Schedule::command('moxdop:ai:claude-api-window end')
     ->dailyAt('00:10')->timezone('Europe/Istanbul')->when(fn (): bool => ! ClaudeApiWindow::active())
     ->withoutOverlapping(30)->name('claude-api-window-end');
+// Work that fell back to the Claude queue because money stopped the API (day's ceiling, credit) goes back to the API
+// as soon as the money allows again, instead of waiting for the subscription routine (yakup, 2026-10-12).
+Schedule::command('moxdop:ai:claude-api-window resume')
+    ->everyFifteenMinutes()->when(fn (): bool => app(AiBudget::class)->claudeApiStopReason() === null)
+    ->withoutOverlapping(15)->name('claude-api-resume');
 
 // Sorgular › Bekleyenler: kütüphanede olan / filtre terimine takılan bekleyen sorgular saatlik temizlenir.
 Schedule::command('moxdop:queries:prune-pending')
@@ -978,6 +991,19 @@ Schedule::command('moxdop:content:weekly-titles')
     ->withoutOverlapping(60)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())
     ->name('content-weekly-titles');
+
+// Taslakta / Yayında (yakup, 2026-10-12): every hour each site with sent articles says where their posts stand.
+Artisan::command('moxdop:content:post-status {--site= : One website asset id}', function (): void {
+    $sites = ContentPosts::sentIdeas()->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()
+        ->when($this->option('site') !== null, fn ($ids) => $ids->intersect([(int) $this->option('site')]));
+    $sites->each(fn (int $siteId) => SyncContentPostsJob::dispatch($siteId));
+    $this->info($sites->count().' site soruldu.');
+})->purpose('Ask the sites where the articles MoxDOP sent stand (draft, scheduled, published)');
+
+Schedule::command('moxdop:content:post-status')
+    ->hourlyAt(23)
+    ->withoutOverlapping(30)
+    ->name('content-post-status');
 
 // Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
 // changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).

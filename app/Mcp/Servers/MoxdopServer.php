@@ -3,6 +3,7 @@
 namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\BuildSite;
+use App\Mcp\Tools\ChannelData;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GetBrand;
@@ -14,6 +15,7 @@ use App\Mcp\Tools\ListChanges;
 use App\Mcp\Tools\ListNotes;
 use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ListTasks;
+use App\Mcp\Tools\MetaPerformance;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\RequestArticle;
 use App\Mcp\Tools\SaveNote;
@@ -37,7 +39,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * enabled "Site building" in the plugin. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.4.0')]
+#[Version('1.6.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -54,6 +56,11 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - Keep what you learn with `save-note` (one point per note, Turkish, with refs). To change your mind write a new
   note with `supersedes_id`; close finished ones with `close_id`. Never repeat a note that is already open.
 - To read a page use `get-page` (the stored copy as a Markdown outline); never fetch a brand site yourself.
+- To analyse a brand's Meta ads use `meta-performance` (stored results by month, campaign, ad, country, region,
+  age/gender, placement, plus ad set targeting). Never add leads, messages and purchases into one "result".
+- For Google Ads, Search Console, GA4 and Business Profile use `channel-data` (one dataset per call: months,
+  campaigns, search terms, keywords, locations, queries, pages, countries, channels, landing pages, key events,
+  profile actions, keywords, reviews). Check `last_day` before drawing a conclusion.
 
 ## AI task queue (routine work)
 1. `list-tasks` → for each task `get-task`. Follow its `instructions` exactly as a system prompt: they are the
@@ -112,6 +119,8 @@ class MoxdopServer extends Server
         ListBrands::class,
         GetBrand::class,
         GetPage::class,
+        MetaPerformance::class,
+        ChannelData::class,
         SaveNote::class,
         ListNotes::class,
         ContentQueue::class,

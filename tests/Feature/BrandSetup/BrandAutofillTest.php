@@ -62,7 +62,7 @@ final class BrandAutofillTest extends TestCase
     public function test_a_brand_without_services_gets_an_automatic_run_and_a_site_never_read_is_crawled_first(): void
     {
         Queue::fake();
-        $this->assertSame(['queued' => 0, 'applied' => 0, 'crawl' => 1, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0], app(BrandAutofill::class)->run());
+        $this->assertSame(['queued' => 0, 'applied' => 0, 'crawl' => 1, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0, 'renamed' => 0, 'linked' => 0], app(BrandAutofill::class)->run());
         $this->assertSame(1, CollectionRun::query()->where('digital_asset_id', $this->site->id)->count());
         $this->assertSame('crawl', app(BrandAutofill::class)->forBrand($this->brand), 'still no pages: the brand keeps waiting for the crawl');
         $this->assertSame(1, CollectionRun::query()->where('digital_asset_id', $this->site->id)->count(), 'the crawl is not started again within a day');

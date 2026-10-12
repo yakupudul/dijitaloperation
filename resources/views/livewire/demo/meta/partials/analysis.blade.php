@@ -115,17 +115,23 @@
 
     <div class="grid gap-4 xl:grid-cols-2">
         <section class="{{ $panel }} overflow-x-auto" data-testid="meta-analysis-regions">
-            <h2 class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900 dark:border-gray-700 dark:text-white">Ülke ve şehir</h2>
+            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-white">Ülke ve bölge</h2>
+                <p class="mt-0.5 text-xs text-gray-500">Kalın satır ülke, altındakiler o ülkenin eyalet / il bölgeleri. Meta şehir değil bölge verir; yer reklamın gösterildiği yerdir.</p>
+            </div>
             @if ($a['regions'] === [])
                 <p class="px-4 py-4 text-sm text-gray-500">Veri yok.</p>
             @else
                 <table class="w-full text-sm">
-                    <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Yer</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th></tr></thead>
-                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
-                        @foreach ($a['regions'] as $row)
-                            <tr class="text-gray-700 dark:text-gray-300"><td class="px-4 py-1.5">{{ $row['region'] }}{{ $row['country'] !== '' ? ' · '.$row['country'] : '' }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $count($row['results']) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td></tr>
-                        @endforeach
-                    </tbody>
+                    <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Ülke / bölge</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th></tr></thead>
+                    @foreach ($a['regions'] as $country)
+                        <tbody class="border-t border-gray-200 tabular-nums dark:border-gray-700" data-testid="meta-analysis-country">
+                            <tr class="font-semibold text-gray-900 dark:text-white"><td class="px-4 py-2">{{ $country['name'] }} <span class="text-xs font-normal text-gray-400">{{ $country['country'] }}</span></td><td class="{{ $td }}">{{ $money($country['spend']) }}</td><td class="{{ $td }}">{{ $count($country['results']) }}</td><td class="{{ $td }}">{{ $money($country['cpr']) }}</td></tr>
+                            @foreach ($country['regions'] as $row)
+                                <tr class="text-gray-600 dark:text-gray-400"><td class="py-1 pl-8 pr-4">{{ $row['region'] }}</td><td class="{{ $td }}">{{ $money($row['spend']) }}</td><td class="{{ $td }}">{{ $count($row['results']) }}</td><td class="{{ $td }}">{{ $money($row['cpr']) }}</td></tr>
+                            @endforeach
+                        </tbody>
+                    @endforeach
                 </table>
             @endif
         </section>
@@ -140,7 +146,10 @@
                     @endforeach
                 </div>
             </div>
-            <p class="mt-0.5 text-xs text-gray-500">Koyu = daha ucuz</p>
+            <p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <span class="rounded px-1.5 py-0.5 tone-ok">ucuz</span><span class="rounded px-1.5 py-0.5 tone-look">orta</span><span class="rounded px-1.5 py-0.5 tone-critical">pahalı</span>
+                <span>{{ \App\Services\Meta\MetaAnalysis::MIN_SLICE_RESULTS }} sonuçtan azı gri: karar için az veri</span>
+            </p>
             @if ($ag['min'] === null)
                 <p class="mt-4 text-sm text-gray-500">Bu türde yaş / cinsiyet verisi yok.</p>
             @else
@@ -151,12 +160,15 @@
                             <tr>
                                 <th class="pr-2 text-left font-medium text-gray-600 dark:text-gray-300">{{ $label }}</th>
                                 @foreach (\App\Services\Meta\MetaAnalysis::AGES as $age)
-                                    @php $cell = $ag['cells'][$age][$gender]; $range = max(0.01, $ag['max'] - $ag['min']); @endphp
+                                    @php $cell = $ag['cells'][$age][$gender]; @endphp
                                     <td class="p-0.5">
                                         @if ($cell['cost'] === null)
                                             <div class="rounded-md bg-gray-50 py-2.5 text-center tabular-nums text-gray-400 dark:bg-white/[0.03]" title="{{ $money($cell['spend']) }} harcama, sonuç yok">—</div>
                                         @else
-                                            <div class="rounded-md py-2.5 text-center font-semibold tabular-nums text-gray-900" style="{{ $shade(0.15 + 0.85 * ($ag['max'] - $cell['cost']) / $range) }}" title="{{ $money($cell['spend']) }} · {{ $count($cell['count']) }} {{ $types[$a['type']][0] }}">{{ $num($cell['cost'], 0) }}</div>
+                                            <div @class(['rounded-md py-1.5 text-center tabular-nums', $cell['tone'] === null ? 'bg-gray-50 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400' : 'font-semibold tone-'.$cell['tone']]) data-tone="{{ $cell['tone'] ?? 'few' }}" title="{{ $money($cell['spend']) }} harcama · {{ $count($cell['count']) }} {{ $types[$a['type']][0] }}">
+                                                {{ $num($cell['cost'], 0) }}
+                                                <span class="block text-[10px] font-normal opacity-75">{{ $count($cell['count']) }} {{ $types[$a['type']][0] }}</span>
+                                            </div>
                                         @endif
                                     </td>
                                 @endforeach

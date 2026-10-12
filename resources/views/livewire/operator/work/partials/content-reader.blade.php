@@ -50,6 +50,34 @@
                     </div>
                 </div>
             @endforeach
+            @if ($article['article'] !== null && ($article['images'] !== [] || $article['image'] !== null))
+                <section class="mx-5 mb-4 rounded-xl bg-gray-50 p-3 dark:bg-white/5" data-article-image="{{ $article['id'] }}">
+                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Yazının görseli <span class="font-normal text-gray-500">· sitenin kendi medya kütüphanesinden, öne çıkan görsel olarak gider</span></p>
+                    @if ($article['image'] !== null)
+                        <div class="mt-2 flex items-start gap-3">
+                            <img src="{{ $article['image']['url'] }}" alt="{{ $article['image']['alt'] }}" loading="lazy" class="h-24 w-36 shrink-0 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-700">
+                            <div class="min-w-0 text-xs text-gray-600 dark:text-gray-300">
+                                <p>{{ $article['image']['why'] ?? '' }}</p>
+                                @if (filled($article['image']['alt'] ?? null))<p class="mt-0.5 text-gray-500">Alt metin: {{ $article['image']['alt'] }}</p>@endif
+                                @if ($article['sent'] === [])<button type="button" wire:click="pickImage({{ $article['id'] }})" class="mt-1 font-medium text-rose-600 hover:underline" data-no-image>Görselsiz gönder</button>@endif
+                            </div>
+                        </div>
+                    @else
+                        <p class="mt-1 text-xs text-gray-500" data-image-none>Görselsiz gidecek.</p>
+                    @endif
+                    @if ($article['sent'] === [] && count($article['images']) > 0)
+                        <div class="mt-2 flex flex-wrap gap-2" data-image-choices>
+                            @foreach ($article['images'] as $choice)
+                                <button type="button" wire:click="pickImage({{ $article['id'] }}, {{ $choice['media_id'] }})" title="{{ $choice['why'] }}"
+                                        @class(['overflow-hidden rounded-lg', 'ring-2 ring-brand-500' => ($article['image']['media_id'] ?? null) === $choice['media_id'], 'ring-1 ring-gray-200 hover:ring-gray-400 dark:ring-gray-700' => ($article['image']['media_id'] ?? null) !== $choice['media_id']])
+                                        data-image-choice="{{ $choice['media_id'] }}">
+                                    <img src="{{ $choice['url'] }}" alt="{{ $choice['alt'] }}" loading="lazy" class="h-14 w-20 object-cover">
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </section>
+            @endif
             @php
                 $sentAll = $article['sent'] !== [] && array_diff(array_keys($versions), $article['sent']) === [];
             @endphp

@@ -7,6 +7,7 @@ use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Site\ArticleFaqSchema;
+use App\Services\Site\ContentPosts;
 use RuntimeException;
 use Throwable;
 
@@ -52,6 +53,8 @@ final class WordPressDraftWriter
             'translation_key' => $article->translationKey,
             'schema' => $brandId !== null ? ArticleFaqSchema::fromHtml($article->html, $article->language) : null,
             'author' => $brandId !== null ? BrandExpert::authorOf($brandId)?->wp_author : null,
+            // 1.14.0 (older plugins ignore it): an image already in the site's media library as the featured image.
+            'featured_media_id' => $article->featuredMediaId,
         ], fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
     }
 
@@ -60,6 +63,9 @@ final class WordPressDraftWriter
     {
         if ($action->action === ExternalWriteAction::ACTION_ARTICLE_DRAFTS) {
             return $this->articles($action);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_POST_DATE) {
+            return $this->dates($action, (string) data_get($action->request_payload, 'date'), (bool) data_get($action->request_payload, 'schedule'));
         }
         $data = $this->client->createDraft($this->connection((int) $action->digital_asset_id), (array) $action->request_payload['draft']);
         if (! is_numeric($data['post_id'] ?? null)) {
@@ -115,9 +121,54 @@ final class WordPressDraftWriter
         return ['posts' => $posts, 'post_id' => $sourceId, 'created' => $ok, 'failed' => count($posts) - $ok, 'status' => $ok === count($posts) ? 'succeeded' : 'partial'];
     }
 
+    /**
+     * 1.14.0: one date for every language post of the article; a failed language does not stop the others. Each
+     * post's previous state is kept for undo.
+     *
+     * @return array<string, mixed>
+     */
+    private function dates(ExternalWriteAction $action, string $date, bool $schedule): array
+    {
+        $connection = $this->connection((int) $action->digital_asset_id);
+        $posts = [];
+        foreach ((array) data_get($action->request_payload, 'posts', []) as $language => $postId) {
+            try {
+                $data = $this->client->changePostDate($connection, (int) $postId, $date, $schedule);
+                ContentPosts::remember((int) $action->digital_asset_id, (int) $postId, $data);
+                $posts[] = ['language' => (string) $language, 'ok' => true, 'post_id' => (int) $postId, 'status' => (string) ($data['status'] ?? ''),
+                    'date_gmt' => $data['date_gmt'] ?? null, 'previous' => array_intersect_key((array) ($data['previous'] ?? []), array_flip(['status', 'date_gmt']))];
+            } catch (Throwable $exception) {
+                $posts[] = ['language' => (string) $language, 'ok' => false, 'post_id' => (int) $postId, 'error' => mb_substr($exception->getMessage(), 0, 300)];
+            }
+        }
+        $ok = count(array_filter($posts, fn (array $p): bool => $p['ok']));
+        if ($ok === 0) {
+            throw new RuntimeException((string) ($posts[0]['error'] ?? 'Yazının tarihi değiştirilemedi.'));
+        }
+
+        return ['posts' => $posts, 'status' => $ok === count($posts) ? 'succeeded' : 'partial'];
+    }
+
     /** @return array<string, mixed> */
     public function undo(ExternalWriteAction $action): array
     {
+        if ($action->action === ExternalWriteAction::ACTION_POST_DATE) {
+            $connection = $this->connection((int) $action->digital_asset_id);
+            $restored = [];
+            foreach ((array) data_get($action->result, 'posts', []) as $post) {
+                if (! ($post['ok'] ?? false)) {
+                    continue;
+                }
+                // A draft that had no date of its own keeps the planned one but goes back to being a draft.
+                $previous = (array) ($post['previous'] ?? []);
+                $date = (string) ($previous['date_gmt'] ?? $post['date_gmt'] ?? data_get($action->request_payload, 'date'));
+                $data = $this->client->changePostDate($connection, (int) $post['post_id'], $date, ($previous['status'] ?? '') === 'future');
+                ContentPosts::remember((int) $action->digital_asset_id, (int) $post['post_id'], $data);
+                $restored[] = (int) $post['post_id'];
+            }
+
+            return ['restored' => count($restored), 'post_ids' => $restored];
+        }
         if ($action->action === ExternalWriteAction::ACTION_ARTICLE_DRAFTS) {
             $connection = $this->connection((int) $action->digital_asset_id);
             $removed = [];

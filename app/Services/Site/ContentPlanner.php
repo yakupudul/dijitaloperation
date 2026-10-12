@@ -886,7 +886,7 @@ final class ContentPlanner
         $pageType = array_search((string) $cluster?->page_type, self::CLUSTER_PAGE_TYPES, true) ?: 'blog';
         $folded = SeoText::fold((string) $competitor->title);
         $sitePages = $this->sitePages($site);
-        $pattern = new SiteUrlPattern($sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->all());
+        $pattern = self::urlPattern($site, $sitePages);
         $target = $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify((string) $competitor->title), (string) ($cluster?->service?->primaryName?->raw_label ?? ''));
 
         return DB::transaction(function () use ($competitor, $user, $brand, $site, $cluster, $pageType, $folded, $target): Suggestion {
@@ -930,7 +930,7 @@ final class ContentPlanner
         $folded = SeoText::fold($title);
         $pageType = array_search($subject->type(), self::CLUSTER_PAGE_TYPES, true) ?: 'blog';
         $sitePages = $this->sitePages($site);
-        $pattern = new SiteUrlPattern($sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->all());
+        $pattern = self::urlPattern($site, $sitePages);
         $outline = $subject->idea !== null ? array_values((array) $subject->idea->outline) : array_values(array_filter((array) $subject->cluster->subtopics, 'is_string'));
         $suggestion = Suggestion::query()->firstOrCreate(['brand_id' => $brand->id, 'fingerprint' => hash('sha256', implode('|', [$brand->id, 'content', $folded]))], [
             'channel' => 'search', 'decision_key' => 'site.content', 'material_hash' => hash('sha256', $folded),
@@ -1006,6 +1006,8 @@ final class ContentPlanner
             'forbidden' => $terms->phrases(),
         ];
         $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
+        // The numbers of the plan and the cluster (title, questions, queries: "20'lik diş") are the writer's own data.
+        $evidence->addNumbersFrom(['plan' => $input['plan'], 'cluster' => $input['cluster'] ?? []]);
         foreach ($context['pages'] as $page) {
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }
@@ -1177,10 +1179,15 @@ final class ContentPlanner
             throw ValidationException::withMessages(['write' => 'Önce "Taslak hazırla".']);
         }
         $sent = array_values((array) ($action['sent_languages'] ?? []));
+        // The featured image: the one the operator picked (or "görselsiz"), else the best of the site's own media.
+        if (! array_key_exists('image', $action)) {
+            $action['image'] = app(ArticleImagePicker::class)->candidates($suggestion, $site, 1)[0] ?? null;
+        }
+        $image = ['featured_media_id' => (int) data_get($action, 'image.media_id') ?: null];
         $pending = array_filter((array) ($action['translations'] ?? []), fn ($article, $lang): bool => is_array($article) && ! in_array($lang, $sent, true), ARRAY_FILTER_USE_BOTH);
-        $drafts = array_map(fn (array $article): ArticleDraft => ArticleDraft::fromArray($article), array_values($pending));
+        $drafts = array_map(fn (array $article): ArticleDraft => ArticleDraft::fromArray($image + $article), array_values($pending));
         if (! isset($action['article_write_id'])) {
-            $source = ArticleDraft::fromArray($action['article']);
+            $source = ArticleDraft::fromArray($image + $action['article']);
             $write = app(ExternalWriteService::class)->requestArticleDrafts($user, $site, $source, $drafts);
             $action = array_merge($action, ['article_write_id' => $write->id, 'sent_languages' => [$source->language ?? self::articleLanguage($suggestion, $site), ...array_keys($pending)]]);
         } elseif ($drafts !== []) {
@@ -1237,7 +1244,7 @@ final class ContentPlanner
                 return self::PAGE_TAKEN; // one waiting update per page
             }
         } else {
-            $pattern = new SiteUrlPattern($sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->all());
+            $pattern = self::urlPattern($site, $sitePages);
             $target = $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify($title), (string) ($extra['service'] ?? ''));
         }
         $reason = trim((string) ($item['reason'] ?? ''));
@@ -1289,7 +1296,23 @@ final class ContentPlanner
     /** @return Collection<int, Page> */
     private function sitePages(DigitalAsset $site): Collection
     {
-        return Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('path')->limit(300)->get(['id', 'url', 'path', 'title', 'category', 'wp_post_type']);
+        // Main-language pages first: ordered by path alone, a site's /de/ and /en/ pages filled the 300 before its own.
+        return Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)
+            ->orderByRaw('CASE WHEN language = ? THEN 0 ELSE 1 END', [SiteScope::primaryLanguage($site) ?? ''])->orderBy('path')->limit(300)
+            ->get(['id', 'url', 'path', 'title', 'category', 'wp_post_type', 'language']);
+    }
+
+    /**
+     * Where a new article of the site would live, learned from the site's main-language pages only: on a site with more
+     * pages under /de/ than in Turkish, a Turkish article's address must not get the /de/ prefix (opcklinik.com).
+     */
+    private static function urlPattern(DigitalAsset $site, Collection $sitePages): SiteUrlPattern
+    {
+        $main = SiteScope::primaryLanguage($site);
+        $own = $main === null ? $sitePages : $sitePages->filter(fn (Page $p): bool => in_array($p->language, [null, '', $main], true));
+
+        return new SiteUrlPattern(($own->isNotEmpty() ? $own : $sitePages)
+            ->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->values()->all());
     }
 
     /** Article HTML with scripts removed, links only to site pages, and blocks with invented numbers dropped. */

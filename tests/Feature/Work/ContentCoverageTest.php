@@ -4,6 +4,7 @@ namespace Tests\Feature\Work;
 
 use App\Ai\Agents\Site\WeeklyContentAgent;
 use App\Jobs\Site\RunSiteOperationJob;
+use App\Jobs\Site\TopUpContentPoolJob;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
@@ -14,6 +15,7 @@ use App\Models\Suggestion;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteOperations;
+use App\Services\Work\ContentBoard;
 use App\Services\Work\ContentCoverage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -165,6 +167,22 @@ final class ContentCoverageTest extends SiteTestCase
     {
         return ['candidate_id' => $candidateId, 'language' => $language, 'title' => $title, 'kind' => 'new', 'cluster_id' => null, 'query' => null, 'page_type' => 'blog',
             'target_url' => null, 'angle' => $angle, 'outline' => ['Giriş', 'Süreç', 'Sonrası'], 'questions' => ['Soru?'], 'reason' => 'Talep var.'];
+    }
+
+    public function test_a_title_approved_for_writing_brings_a_new_idea_into_the_pool_from_the_same_engine(): void
+    {
+        $this->enableAi();
+        Queue::fake();
+        $this->rowOf('no_page', 'İmplant fiyatları');
+        $titles = collect(range(1, ContentCoverage::POOL))->map(fn (int $n): Suggestion => $this->title('Başlık '.$n));
+        $this->assertSame([], app(ContentCoverage::class)->needs(), 'the pool is full');
+
+        app(ContentBoard::class)->write((int) $titles->first()->id, $this->admin);
+
+        Queue::assertPushed(TopUpContentPoolJob::class, fn (TopUpContentPoolJob $job): bool => $job->siteId === (int) $this->site->id);
+        app()->call([new TopUpContentPoolJob((int) $this->site->id), 'handle']);
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT
+            && $job->params === ['wants' => ['tr' => 1]]);
     }
 
     public function test_ideas_are_planned_only_in_the_main_language_of_a_site(): void

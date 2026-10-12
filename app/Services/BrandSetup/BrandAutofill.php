@@ -67,13 +67,13 @@ final class BrandAutofill
     /**
      * One night's round over the operational brands.
      *
-     * @return array<string, int> brands per outcome (queued, applied, crawl, waiting, complete, no_site)
+     * @return array<string, int> brands per outcome (queued, applied, crawl, waiting, complete, no_site) and services archived / renamed / linked by the language round
      */
     public function run(?int $brandId = null): array
     {
-        $out = ['queued' => 0, 'applied' => 0, 'crawl' => 0, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0];
+        $out = ['queued' => 0, 'applied' => 0, 'crawl' => 0, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0, 'renamed' => 0, 'linked' => 0];
         try {
-            $out['archived'] = app(LanguageServices::class)->cleanup($brandId);
+            $out = array_merge($out, app(LanguageServices::class)->run($brandId));
         } catch (Throwable $exception) {
             report($exception);
         }

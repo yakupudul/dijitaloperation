@@ -60,6 +60,14 @@ final class SiteEvidence
         array_walk_recursive($pack, function (mixed $value): void {
             if (is_int($value) || is_float($value)) {
                 $this->addNumber($value);
+            } elseif (is_string($value) && $value !== '') {
+                // Numbers written in the pack's texts ("20'lik diş", "1.234 gösterim") are data too: read them the way
+                // grounded() finds them, else every article whose title carries a number was dropped as invented.
+                preg_match_all('/(?<![\p{L}\d])\d[\d.,]*(?![\p{L}\d])/u', (string) preg_replace('#https?://[^\s"\'<>)]+#i', ' ', $value), $found);
+                foreach ($found[0] as $number) {
+                    $number = rtrim($number, '.,');
+                    $this->addNumber(preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $number) === 1 ? str_replace(['.', ','], ['', '.'], $number) : $number);
+                }
             }
         });
     }

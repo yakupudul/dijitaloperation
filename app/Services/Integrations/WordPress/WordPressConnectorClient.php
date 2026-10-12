@@ -149,6 +149,31 @@ final class WordPressConnectorClient
         return $this->write($connection, 'DELETE', '/moxdop/v1/drafts/'.$postId, null);
     }
 
+    /**
+     * 1.14.0: where the posts MoxDOP made stand now (status draft | future | publish | trash | missing, date_gmt,
+     * modified_gmt, link, featured_media_id), at most 100.
+     *
+     * @param  list<int>  $postIds
+     * @return list<array<string, mixed>>
+     */
+    public function postsStatus(CoreConnection $connection, array $postIds): array
+    {
+        $data = $this->get($connection, null, '/moxdop/v1/posts/status', ['ids' => implode(',', array_slice($postIds, 0, 100))]);
+
+        return array_values(array_filter((array) ($data['posts'] ?? []), 'is_array'));
+    }
+
+    /**
+     * 1.14.0: the admin-approved date of a post MoxDOP made (a draft dated or scheduled, a published post a past
+     * date). The answer carries the post's new state and `previous` (its state before) for undo.
+     *
+     * @return array<string, mixed>
+     */
+    public function changePostDate(CoreConnection $connection, int $postId, string $dateIso, bool $schedule): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/posts/'.$postId.'/date', ['post_date' => $dateIso, 'schedule' => $schedule]);
+    }
+
     /** Connector v2 (≥ 1.3.0): versions, pending updates, Site Health result and basics. */
     public function health(CoreConnection $connection): array
     {
@@ -427,6 +452,7 @@ final class WordPressConnectorClient
         'moxdop_build_disabled' => 'Site kurulumu',
         'moxdop_drafts_disabled' => 'Taslak oluşturma',
         'moxdop_login_disabled' => 'Tek tık giriş',
+        'moxdop_schedule_disabled' => 'Zamanlanmış taslak',
     ];
 
     /** Why the site refused, in words the operator can act on (the HTTP status stays at the end for searching). */

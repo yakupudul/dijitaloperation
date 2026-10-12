@@ -9,6 +9,7 @@ use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Ai\AiBudget;
 use App\Services\Brand\BrandDossier;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Repair\SeoFieldsBatch;
@@ -317,6 +318,12 @@ final class SiteOperations
     }
 
     /** One-line Turkish status. @param  array<string, mixed>|null  $status */
+    /** Why the Claude API is stopped (the reason queued work waits for the MCP routine), cached for a minute. */
+    private static function claudeApiStopped(): ?string
+    {
+        return Cache::remember('site-ops:claude-api-stopped', 60, fn (): string => app(AiBudget::class)->claudeApiStopReason() ?? '') ?: null;
+    }
+
     public static function line(?array $status): ?string
     {
         if ($status === null) {
@@ -325,7 +332,7 @@ final class SiteOperations
 
         return match ((string) ($status['status'] ?? '')) {
             'running' => 'çalışıyor…',
-            'queued' => 'Claude bekleniyor (MCP); sonuç gelince devam eder',
+            'queued' => 'Claude bekleniyor (MCP); sonuç gelince devam eder'.(($stopped = self::claudeApiStopped()) !== null ? '. Claude API durdu: '.$stopped : ''),
             'timeout' => 'süre aşıldı; kalan kısım sonra devam eder',
             'stalled' => 'çok parçaya bölündü, durduruldu; tekrar başlatın',
             'ready' => 'tamam',

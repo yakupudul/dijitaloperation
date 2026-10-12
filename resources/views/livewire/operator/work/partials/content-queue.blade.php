@@ -4,23 +4,23 @@
     $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
     $langs = \App\Services\Work\ContentBoard::LANGUAGE_LABELS;
     $chip = 'rounded px-1.5 py-0.5 text-[10px] font-semibold';
-    $stepLabels = ['yazilacak' => 'Onay bekleyen başlıklar', 'okunacak' => 'Okunacak yazılar', 'gonderildi' => 'Gönderildi (30 gün)'];
+    $stepLabels = ['yazilacak' => 'Onay bekleyen başlıklar', 'okunacak' => 'Okunacak yazılar', 'taslakta' => 'Taslakta', 'yayinda' => 'Yayında'];
 @endphp
 <section class="space-y-4" data-content-queue>
     <div>
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">İçerik fikirleri</h2>
-        <p class="mt-0.5 text-xs text-gray-500">Onayla: Claude yazar. Oku: yazıyı okursun. Gönder: WordPress'e taslak gider (geri alınabilir). Bir siteye tek bakmak için sitenin İçerik sekmesi.</p>
+        <p class="mt-0.5 text-xs text-gray-500">Onayla: Claude yazar ve havuza yeni fikir gelir. Oku: yazıyı ve görselini görürsün. Gönder: WordPress'e taslak gider (geri alınabilir). Taslakta ve Yayında sitenin kendisinden okunur. Bir siteye tek bakmak için sitenin İçerik sekmesi.</p>
     </div>
 
     @include('livewire.operator.work.partials.content-coverage')
 
-    <div role="tablist" class="grid grid-cols-3 gap-2 sm:max-w-2xl">
+    <div role="tablist" class="grid grid-cols-2 gap-2 sm:max-w-3xl sm:grid-cols-4">
         @foreach ($stepLabels as $code => $label)
             <button type="button" role="tab" wire:click="setStep('{{ $code }}')" aria-selected="{{ $step === $code ? 'true' : 'false' }}"
                     @class(['rounded-xl bg-white px-3 py-2.5 text-left ring-inset dark:bg-gray-900', 'ring-2 ring-gray-900 dark:ring-white' => $step === $code, 'ring-1 ring-gray-200 dark:ring-gray-800' => $step !== $code])
                     data-step="{{ $code }}">
                 <span class="block text-xs text-gray-500">{{ $label }}</span>
-                <span @class(['block text-xl font-semibold tabular-nums', 'text-amber-700 dark:text-amber-300' => $code === 'okunacak' && $queue['counts'][$code] > 0, 'text-emerald-700 dark:text-emerald-400' => $code === 'gonderildi' && $queue['counts'][$code] > 0, 'text-gray-900 dark:text-white' => $code === 'yazilacak'])>{{ $queue['counts'][$code] }}</span>
+                <span @class(['block text-xl font-semibold tabular-nums', 'text-amber-700 dark:text-amber-300' => $code === 'okunacak' && $queue['counts'][$code] > 0, 'text-emerald-700 dark:text-emerald-400' => $code === 'yayinda' && $queue['counts'][$code] > 0, 'text-gray-900 dark:text-white' => in_array($code, ['yazilacak', 'taslakta'], true)])>{{ $queue['counts'][$code] }}</span>
             </button>
         @endforeach
     </div>
@@ -62,7 +62,10 @@
                             @if ($step === 'yazilacak' && ($item['cluster'] || $item['reason']))
                                 <p class="mt-0.5 text-xs text-gray-500" data-why>@if ($item['cluster'])<span class="font-medium text-gray-700 dark:text-gray-300">Küme: {{ $item['cluster'] }}</span>@if ($item['reason']) · @endif @endif{{ $item['reason'] }}</p>
                             @endif
-                            @if ($item['line'] && ! $item['writing'])<p class="mt-0.5 text-xs text-rose-600">Son deneme: {{ $item['line'] }}</p>@endif
+                            @if ($item['line'] && ! $item['writing'] && in_array($step, ['yazilacak', 'okunacak'], true))<p class="mt-0.5 text-xs text-rose-600">Son deneme: {{ $item['line'] }}</p>@endif
+                            @if (in_array($step, ['taslakta', 'yayinda'], true))
+                                @include('livewire.operator.work.partials.content-post', ['item' => $item, 'step' => $step])
+                            @endif
                         </div>
                         <div class="flex items-center gap-2 text-xs">
                             @if ($step === 'yazilacak')
@@ -75,7 +78,7 @@
                                 @if ($item['blocked'])<button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>@endif
                                 <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $btn }}" data-read="{{ $item['id'] }}">Oku</button>
                             @else
-                                <span class="text-emerald-700 dark:text-emerald-400">Taslak gönderildi{{ $item['sent_at'] ? ' · '.$item['sent_at']->timezone('Europe/Istanbul')->format('d.m') : '' }}</span>
+                                @if ($item['link'])<a href="{{ $item['link'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline" data-post-link="{{ $item['id'] }}">Sitede aç ↗</a>@endif
                                 @if ($item['unsent'] !== [])
                                     <button type="button" wire:click="sendContent({{ $item['id'] }})" wire:confirm="Yeni dil WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}">{{ implode(', ', array_map('strtoupper', $item['unsent'])) }} gönder</button>
                                 @endif
@@ -90,7 +93,7 @@
             </ul>
         </article>
     @empty
-        <p class="rounded-xl bg-white p-6 text-center text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">{{ $step === 'yazilacak' ? 'Onay bekleyen başlık yok.' : ($step === 'okunacak' ? 'Okunacak yazı yok.' : 'Son 30 günde gönderilen yazı yok.') }}</p>
+        <p class="rounded-xl bg-white p-6 text-center text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">{{ ['yazilacak' => 'Onay bekleyen başlık yok.', 'okunacak' => 'Okunacak yazı yok.', 'taslakta' => 'Sitede taslakta bekleyen yazı yok.', 'yayinda' => 'Son 180 günde gönderilip yayınlanan yazı yok.'][$step] ?? '' }}</p>
     @endforelse
 </section>
 

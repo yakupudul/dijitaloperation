@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Settings;
 use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Observability\ErrorTriage;
+use App\Services\Operations\ServerStatusReader;
 use App\Services\Operations\SystemHealthReader;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -13,7 +14,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * Hata merkezi (Ayarlar › Sistem Sağlığı): open problems split into "Senin işin", "Yazılım hatası" and "Sistem
+ * Hata merkezi (Ayarlar › Sistem Sağlığı): server memory / disk / load and software health on top, open problems split into "Senin işin", "Yazılım hatası" and "Sistem
  * hallediyor" (ErrorTriage, grouped by cause), then the technical details: scheduler and workers, integration
  * authorizations and expiry, brand-bound accounts' collection state and freshness, WordPress plugin versions.
  */
@@ -64,7 +65,7 @@ final class SystemHealthPage extends Component
         $this->datasetsFor = $this->datasetsFor === $automationId ? null : $automationId;
     }
 
-    public function render(SystemHealthReader $reader, ErrorTriage $triage): View
+    public function render(SystemHealthReader $reader, ErrorTriage $triage, ServerStatusReader $server): View
     {
         $health = $reader->read();
         if ($this->onlyProblems) {
@@ -74,6 +75,7 @@ final class SystemHealthPage extends Component
         return view('livewire.operator.settings.system-health', [
             'health' => $health,
             'triage' => $triage->groups(),
+            'status' => $server->read(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'datasets' => $this->datasetsFor !== null ? $reader->datasets($this->datasetsFor) : [],
         ]);

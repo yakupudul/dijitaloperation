@@ -355,7 +355,7 @@ final class RepairDesk
         ExternalWriteAction::ACTION_CONTENT_APPLY => 'Sayfa metni canlıya', ExternalWriteAction::ACTION_CONNECTOR_UPDATE => 'Eklenti güncellemesi',
         ExternalWriteAction::ACTION_MEDIA_UPLOAD => 'İşletme Profili fotoğrafı', ExternalWriteAction::ACTION_LOCAL_POST => 'İşletme Profili gönderisi',
         ExternalWriteAction::ACTION_REVIEW_REPLY => 'Yorum yanıtı', ExternalWriteAction::ACTION_ARTICLE_DRAFTS => 'Yazı taslağı',
-        ExternalWriteAction::ACTION_DRAFT_CREATE => 'Yazı taslağı', ExternalWriteAction::ACTION_SITE_BUILD => 'Site kurulumu', ExternalWriteAction::ACTION_UPDATE_APPLY => 'WordPress güncellemesi',
+        ExternalWriteAction::ACTION_DRAFT_CREATE => 'Yazı taslağı', ExternalWriteAction::ACTION_POST_DATE => 'Yazı tarihi', ExternalWriteAction::ACTION_SITE_BUILD => 'Site kurulumu', ExternalWriteAction::ACTION_UPDATE_APPLY => 'WordPress güncellemesi',
     ];
 
     public const array CHANGE_LABELS = [

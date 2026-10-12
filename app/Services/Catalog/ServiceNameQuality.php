@@ -58,4 +58,23 @@ final class ServiceNameQuality
 
         return null;
     }
+
+    /**
+     * An all-lowercase name with its first letter capitalised ("diş çekimi" → "Diş çekimi"; Turkish i → İ); any other
+     * name unchanged (the operator's or the site's own casing stays). A leading "ı" stays: "I" would fold to another
+     * name key (IdentityLabelNormalizer reads I as i).
+     */
+    public static function capitalised(string $name, ?string $language = 'tr'): string
+    {
+        $name = trim($name);
+        $turkish = $language === null || strtolower(substr($language, 0, 2)) === 'tr';
+        $lower = mb_strtolower($turkish ? strtr($name, ['I' => 'ı', 'İ' => 'i']) : $name, 'UTF-8');
+        if ($name === '' || $name !== $lower || preg_match('/^\p{Ll}/u', $name) !== 1 || str_starts_with($name, 'ı')) {
+            return $name;
+        }
+        $first = mb_substr($name, 0, 1);
+        $upper = $turkish && $first === 'i' ? 'İ' : mb_strtoupper($first, 'UTF-8');
+
+        return $upper.mb_substr($name, 1);
+    }
 }

@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-12 — İçerik akışı: havuz hep 20, yazı görseli, Taslakta / Yayında, yazı tarihi
+
+- **Karar (yakup):** Bir başlık onaylanıp yazdırılınca havuza aynı içerik fikri motoruyla (aynı veri, aynı kurallar) yeni fikir gelir; sitenin ana dilindeki havuz en az 20 kalır (`TopUpContentPoolJob` → `ContentCoverage::needs`).
+- **Karar (yakup):** Yazının görseli sitenin kendi medya kütüphanesinden seçilir, uygun görsel yoksa en yakın sayfanın görseli; görsel yüklenmez, AI görsel üretilmez (ADR-082).
+- **Karar (yakup):** "Gönderildi" sekmesi yerine "Taslakta" (sitede taslak / zamanlanmış) ve "Yayında" (yayın tarihi, 30 / 90 günlük Search Console tık ve gösterimi, sitede aç). Durum siteden saatte bir okunur (eklenti 1.14.0, yoksa içerik anlık görüntüsü).
+- **Karar (yakup):** Taslağa yayın tarihi planlanabilir, yayındaki MoxDOP yazısının tarihi geçmiş bir tarihe değiştirilebilir; Admin tıklaması, kayıtlı, geri alınabilir (ADR-082).
+
 ## 2026-10-11 — Sonuç takibi 30 / 90 gün, eşit dönemler, öğrenen masa sırası
 
 - **Karar (yakup):** Onarım masasında onaylanıp uygulanan her değişiklik 30 ve 90 gün sonra ölçülür ve sistem bundan öğrenir. 2026-11-01 Faz 9 kararının (28. / 56. gün) yerini alır; mekanizma yine tek servistir (`OutcomeTracker`), yeni tablo yok, AI yok, yalnız saklı veri.

@@ -1,5 +1,58 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Hata merkezi: sunucu belleği, disk ve yazılım sağlığı
+
+- Ayarlar › Sistem sayfasının en üstünde iki kart var. **Sunucu** kartı bellek (RAM), takas alanı ve diskleri GB olarak gösteriyor: dolu, boş, toplam ve yüzde, renkli çubukla. %80'de sarı, %90'da kırmızı olur. Aynı kartta işlemci yükü (çekirdek sayısına göre) ve sunucunun ne zamandır açık olduğu da var.
+- **Yazılım sağlığı** kartı şunları tek listede gösteriyor: canlı sürüm, otomatik deploy durumu, son 24 saatin uygulama hataları (bu sürümde çıkanlar kırmızı), başarısız arka plan işleri, bekleyen migration, zamanlayıcı, işçiler, hata ayıklama modu, ayar ve adres önbelleği, veritabanı boyutu ve Redis belleği.
+- Veriler `ServerStatusReader` ile okunuyor; `/proc/meminfo`, disk alanı ve veritabanı yalnızca okunuyor, sonuç 1 dakika önbellekte tutuluyor. MCP `system-health` aracı aynı veriyi `server` ve `software` alanlarında veriyor.
+- Neden (yakup, 2026-10-12): "sistemimizin yazılım sağlığı da gösterilsin. Sunucudaki bellek durumu da görünsün, kaç GB dolu boş." Test: `ServerStatusReaderTest`, `SystemHealthAndCostsTest`, `McpWorkspaceTest`.
+
+## 2026-10-12 — Meta reklam sayfası: net görsel, gönderi reklamlarının formu
+
+- Reklam görselleri (`/adcreatives`) artık 1080 px küçük resimle toplanıyor. Önceden Meta varsayılan 64×64 küçük resim veriyordu; `image_url` olmayan gönderi ve video reklamlarında görsel bulanık görünüyordu.
+- Mevcut Instagram / Facebook gönderisinden yapılan reklamlar butonunu ve anında formunu yaratıcının kendi `call_to_action` alanında taşır. Bu alan da toplanıyor, böylece form soruları ve buton bu reklamlarda da görünür. Önceden "Meta formun kimliğini vermedi" yazıyordu. Lead verisi okunmaz.
+- İkisi de deploy sonrası ilk günlük yaratıcı toplamasında dolar. Neden (yakup, 2026-10-12): "Görsel çok bulanık ve reklama ait tüm metinler görünmüyor." Test: `MetaAdsProductionCollectorTest`, `MetaAdsCreativeNormalizerTest`.
+
+## 2026-10-12 — Meta Analiz: ülke altında bölgeler, yaş tablosu maliyet renkleri
+
+- "Ülke ve şehir" tablosu "Ülke ve bölge" oldu: her ülke kalın satır (Türkçe adıyla), altında o ülkenin en çok harcayan 6 bölgesi. Meta birden çok ülkede yayınlanan reklamın bölge satırında ülkeyi boş bırakıyor; `MetaRegionCountry` bölge adından ülkeyi buluyor (England → Birleşik Krallık). Kod: `MetaAnalysis::regions`.
+- Yaş × cinsiyet tablosu: renk yoğunluğu yerine ucuz (yeşil) / orta (sarı) / pahalı (kırmızı); en az 3 sonucu olmayan dilim gri. Her hücrede sonuç sayısı yazar. Böylece tek formlu dilim en iyi gibi görünmüyor.
+- Neden (yakup, 2026-10-12): "hangisi şehir hangisi ülke belli değil", "yaş grubu tablosundaki renklendirme hatalı". Test: `MetaGeoResultsTest`, `MetaAnalysisTest`, `MetaRegionCountryTest`.
+
+## 2026-10-12 — MCP `channel-data`: Google Ads, Search Console, GA4 ve İşletme Profili verisi Claude'a açık
+
+- Claude bir markanın kayıtlı kanal verisini sorulduğu anda okur (canlı sağlayıcı çağrısı yok, serbest SQL yok): `google_ads.months/campaigns/search_terms/keywords/locations/devices/conversion_actions`, `gsc.months/queries/pages/countries/query_countries` (yalnız web araması), `ga4.months/channels/landing_pages/countries/key_events`, `gbp.performance/keywords/reviews`. Her cevap son veri gününü taşır. Kod: `App\Mcp\Tools\ChannelData`. Test: `McpChannelDataTest` (sqlite + PostgreSQL).
+- Neden (yakup, 2026-10-12): "tüm dijital varlıklarla alakalı buradan sana veri sorabilirim strateji sorabilirim, her şeye erişebilir olmalısın."
+
+## 2026-10-12 — MCP `meta-performance`: markanın Meta sonuçları Claude'a açık
+
+- Claude bir markanın Meta reklamlarını sorulduğu anda kayıtlı veriden okur (canlı Meta çağrısı yok): ay, kampanya, reklam seti, reklam, ülke, bölge, kampanya × ülke, yaş/cinsiyet, yerleşim, cihaz, saat kırılımları; form, mesaj ve satın alma ayrı ayrı ve her birinin maliyeti (toplanmaz); reklam seti hedeflemeleri (ülke, şehir, yaş, dil, kitle, ilgi) ve reklam durumları. Kaynak: `meta_geo_results_daily`, `meta_breakdown_results_daily`, `meta_adset_targeting_snapshot`, `meta_ad_snapshot`. Kod: `App\Mcp\Tools\MetaPerformance`. Test: `McpMetaPerformanceTest` (sqlite + PostgreSQL).
+- Neden (yakup, 2026-10-12): "sana sorduğumda verileri hemen analiz edebilmen gerek."
+
+## 2026-10-12 — Günlük AI tavanı $20; kuyruğa düşen iş API'ye geri döner
+
+- yakup kararı (2026-10-12, karar kartı "$20 yap"): Claude API dönemi boyunca (25 Ekim'e kadar) günlük AI tavanı en az $20 (önce $8; öğlen dolup API'yi durdurmuştu). Kod: `config/moxdop-ai-pricing.php` `claude_api_window.daily_usd`.
+- Para yüzünden (günlük tavan, kredi) Claude kuyruğuna düşen işler, para tekrar izin verince 15 dakikada bir kendiliğinden Claude API ile yeniden başlatılıyor; Claude'un üzerinde çalıştığı iş bırakılıyor. Komut: `moxdop:ai:claude-api-window resume`. Test: `AiCreditsAndAssignmentsTest::test_work_that_fell_back_to_the_claude_queue_returns_to_the_api_when_money_allows_again`.
+
+## 2026-10-12 — Claude API durunca görünür sebep; yazı adresi ana dilden
+
+- "Onayla ve yazdır" sonrası iş MCP kuyruğuna düştüğünde (Claude API kredisi / günlük tavan / aylık bütçe durdurdu) kart artık sebebini de yazıyor: "Claude bekleniyor (MCP)… Claude API durdu: <sebep>". MCP `system-health` artık `ai_money` (günlük harcama/tavan, aylık, kredi) ve `ai_tasks_waiting` veriyor. Kod: `AiBudget::claudeApiStopReason`, `moneyState`, `SiteOperations::line`. Test: `AiCreditsAndAssignmentsTest::test_the_waiting_line_says_why_the_claude_api_stopped`.
+- Başlığında sayı olan yazılar ("20'lik diş") artık "uydurma sayı" sayılıp düşmüyor: yazının planı ve kümesindeki sayılar (başlık, sorular, sorgular) veri sayılıyor; çeviride de kaynak yazının sayıları. Önce bu yazılar "AI çıktısı doğrulanamadı" ile hiç yazılamıyordu. Kod: `SiteEvidence::addNumbersFrom` (metin içindeki sayılar), `ContentPlanner::writeArticle`. Test: `ArticleRulesTest::test_a_number_in_the_approved_title_is_not_dropped_as_invented`.
+- Yeni yazının önerilen adresi yalnız sitenin ana dildeki sayfalarından öğreniliyor; site sayfa listesinde (300) ana dil önce. Önce opcklinik.com'da Türkçe yazı /de/ adresi alıyordu. Kod: `ContentPlanner::urlPattern`, `sitePages`. Test: `ContentTargetUrlLanguageTest`.
+
+## 2026-10-12 — İçerik akışı: havuz hep 20, yazı görseli, Taslakta / Yayında, yazı tarihi
+
+Durum: CODED + TESTED (canlıda eklenti 1.14.0 kurulmadan görsel, durum okuma ve tarih çalışmaz; doğrulanmadı).
+- Başlık onaylanıp yazdırılınca bir dakika sonra sitenin havuzu aynı motorla tamamlanır (en az 20). Kod: `TopUpContentPoolJob`, `ContentBoard::write`. Test: `ContentCoverageTest::test_a_title_approved_for_writing_brings_a_new_idea_into_the_pool_from_the_same_engine`.
+- Yazı görseli: `ArticleImagePicker` sitenin medya anlık görüntüsünden en uygun 5 görseli seçer (logo, ikon, küçük görsel hariç); okuma ekranında değiştirilir ya da "görselsiz"; taslakla `featured_media_id` olarak gider.
+- İçerik fikirleri sekmeleri: Yazılacak · Okunacak · Taslakta · Yayında. Durum `moxdop:content:post-status` (saatte bir, `/posts/status`) ile siteden; eski eklentide içerik anlık görüntüsünden. Yayında: tarih, 30 / 90 gün tık ve gösterim, "Sitede aç". Kod: `ContentPosts`, `ContentBoard`.
+- Tarih (ADR-082): "Yayın tarihi planla" (taslak, tüm diller) ve "Tarihi değiştir" (yayındaki yazı, yalnız geçmiş tarih, SEO uyarısıyla); `post_date` yazması, geri alma önceki tarihi yazar.
+- Eklenti 1.14.0: `featured_media_id`, `GET /posts/status`, `POST /posts/{id}/date` (yalnız MoxDOP'un yazıları). Test: `tests/Feature/Work/ContentFlowTest.php`.
+
+## 2026-10-12 — İçerik fikri kartı
+
+- Gerekçesi boş bir içerik fikri artık kartta seçildiği veri satırını gösteriyor (Search Console sorgusu, küme durumu, AI sorusu). Kod: `ContentBoard::item`. Test: `ContentBoardTest::test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from`.
+
 ## 2026-10-11 — Deploy sağlamlığı
 
 Durum: CODED (sunucuda doğrulanmadı).
@@ -4127,3 +4180,12 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no production timing re-measured yet).
   release 609f7123 ≈ 0.96 s / 1.4 s / 0.6 s (Yorumlar / Durum / Şube sayfaları); now ≈ 0.17–0.20 s / 0.22–0.28 s /
   0.10 s with an empty cache. Production timing not re-measured yet. Tests:
   `GbpDeskTest` (topics, photo numbers, next-minute review numbers in 2 queries, one grid page), `SeoTextMatchesPhraseTest`.
+
+## 2026-10-12 — Hizmet adları sitenin ana dilinde ve düzgün (gece dil turu)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: Avrupadent / Dentocare / OPC Klinik service lists after the 02:40 `moxdop:brands:autofill` run.
+- `ServiceNameRepair` runs inside `LanguageServices::run` (nightly autofill) before the translation-only archive; rules only, no AI, never on locked services, nothing deleted; renames / archives go to the brand activity log (`OFFERING_RENAMED`, `OFFERING_ARCHIVED` with `reason=language_duplicate`) as the automatic user.
+- Main-language page: a service (★ included) whose linked pages are all translations gets the main-language page from the WordPress inventory's Polylang/WPML link (`metadata.translations`, both directions); without one, the single main-language service page carrying its name. Foreign links stay. hreflang alternates are not stored, so they are not used.
+- Wrong-language name: no main-language page title carries the name, and a linked translated page does (or the catalog's primary name is main-language and shares no word; an English marker word on a Turkish site as last signal). A service another active one covers (same name / shared main-language page carrying its name) is archived and its unlocked main-language links move over; otherwise it takes the catalog's main-language name or its main-language page title. ★ services are only renamed.
+- Broken names: "/CAM …" repaired from a catalog name / page title containing it; all-lowercase names get a Turkish-aware capital (shared catalog name too).
+- Sources: `ServiceCatalogService::resolveOrCreate` capitalises an all-lowercase new name; `LocationOptions::strip` no longer cuts "CAD" (Chad) out of "CAD/CAM". Tested: `ServiceNameRepairTest`, `BrandAutofillTest`.

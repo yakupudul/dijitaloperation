@@ -10,17 +10,21 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\SiteScope;
+use Throwable;
 
 /**
  * Hizmetler tek dilde (yakup, 2026-10-09: OPC's services listed "Einzelzahnimplantatbehandlung in", "Otturazione a"…):
  * a site's translated pages are versions of a service in the main language, never services of their own. Service
  * pages in another language are left out wherever services are read from the site, and services the system once made
- * only from such pages are archived (an operator-locked or main service is never touched).
+ * only from such pages are archived (an operator-locked or main service is never touched). Before that, ServiceNameRepair
+ * links main-language pages and fixes names in the wrong language or broken (yakup, 2026-10-12).
  */
 final class LanguageServices
 {
     /** First path segments that name a language (Polylang / WPML style "/en/…"). */
     private const array LANGUAGE_SEGMENTS = ['en', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'nl', 'pl', 'az', 'ka', 'uk', 'ro', 'bg', 'el', 'pt', 'sv', 'da', 'fa', 'he', 'zh', 'ja', 'ko', 'tr'];
+
+    public function __construct(private readonly ServiceNameRepair $names) {}
 
     /** The site's main language: the most common page language, Turkish when pages carry none. */
     public static function mainLanguage(DigitalAsset $site): string
@@ -47,13 +51,31 @@ final class LanguageServices
      */
     public function cleanup(?int $brandId = null): int
     {
-        $archived = 0;
-        Brand::query()->operational()->when($brandId !== null, fn ($q) => $q->whereKey($brandId))->orderBy('id')->each(function (Brand $brand) use (&$archived): void {
-            $sites = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->get();
+        return $this->run($brandId)['archived'];
+    }
+
+    /**
+     * The nightly language round: ServiceNameRepair first (main-language page links, wrong-language and broken names,
+     * duplicates archived), then the services left with only translated pages are archived.
+     *
+     * @return array{archived: int, renamed: int, linked: int}
+     */
+    public function run(?int $brandId = null): array
+    {
+        $out = ['archived' => 0, 'renamed' => 0, 'linked' => 0];
+        Brand::query()->operational()->when($brandId !== null, fn ($q) => $q->whereKey($brandId))->orderBy('id')->each(function (Brand $brand) use (&$out): void {
+            $sites = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")->orderBy('id')->get();
             if ($sites->isEmpty()) {
                 return;
             }
             $mains = $sites->mapWithKeys(fn (DigitalAsset $s): array => [(int) $s->id => self::mainLanguage($s)])->all();
+            try {
+                foreach ($this->names->repair($brand, $mains) as $key => $count) {
+                    $out[$key] += $count;
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
             $offerings = BrandOffering::query()->where('brand_id', $brand->id)->where('status', OfferingStatus::Active->value)->where('locked', false)
                 ->where(fn ($q) => $q->whereNull('priority')->orWhere('priority', '!=', 'main'))->where(fn ($q) => $q->whereNull('is_priority')->orWhere('is_priority', false))->get();
             foreach ($offerings as $offering) {
@@ -67,11 +89,11 @@ final class LanguageServices
                 if ($allForeign) {
                     $offering->forceFill(['status' => OfferingStatus::Archived->value])->save();
                     OfferingPage::query()->where('brand_offering_id', $offering->id)->where('locked', false)->delete();
-                    $archived++;
+                    $out['archived']++;
                 }
             }
         });
 
-        return $archived;
+        return $out;
     }
 }

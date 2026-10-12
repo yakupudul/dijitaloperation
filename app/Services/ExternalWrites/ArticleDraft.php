@@ -32,6 +32,7 @@ final readonly class ArticleDraft
         public ?CarbonImmutable $postDate = null,
         public bool $schedule = false,
         public ?string $translationKey = null,
+        public ?int $featuredMediaId = null,
     ) {
         if (trim($title) === '' || trim($html) === '' || trim($reference) === '') {
             throw new InvalidArgumentException('Makalenin başlığı, metni ve referansı olmalı.');
@@ -59,6 +60,7 @@ final readonly class ArticleDraft
             postDate: $date instanceof CarbonImmutable ? $date : (filled($date) ? CarbonImmutable::parse((string) $date) : null),
             schedule: (bool) ($data['schedule'] ?? false),
             translationKey: filled($data['translation_key'] ?? $data['translationKey'] ?? null) ? (string) ($data['translation_key'] ?? $data['translationKey']) : null,
+            featuredMediaId: (int) ($data['featured_media_id'] ?? 0) > 0 ? (int) $data['featured_media_id'] : null,
         );
     }
 
@@ -76,6 +78,7 @@ final readonly class ArticleDraft
             'meta_title' => $this->metaTitle, 'meta_description' => $this->metaDescription, 'focus_keyword' => $this->focusKeyword,
             'categories' => $this->categories, 'tags' => $this->tags, 'language' => $this->language, 'post_type' => $this->postType,
             'post_date' => $this->postDate?->toIso8601String(), 'schedule' => $this->schedule, 'translation_key' => $this->translationKey,
+            'featured_media_id' => $this->featuredMediaId,
         ];
     }
 

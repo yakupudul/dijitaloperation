@@ -63,6 +63,8 @@ class MetaAnalysisTest extends TestCase
         $this->assertNull($ag['cells']['18-24']['male']['cost']);
         $this->assertSame(['25-34', 'Kadın', 50.0], [$ag['best']['age'], $ag['best']['gender'], $ag['best']['cost']]);
         $this->assertSame(['45-54', 'Erkek', 200.0], [$ag['worst']['age'], $ag['worst']['gender'], $ag['worst']['cost']]);
+        $this->assertSame(['ok', 'look', 'critical'], [$ag['cells']['25-34']['female']['tone'], $ag['cells']['35-44']['female']['tone'], $ag['cells']['45-54']['male']['tone']], 'cheap green, expensive red');
+        $this->assertNull($ag['cells']['18-24']['male']['tone'], 'no results, no tone');
 
         $this->assertSame([5.0, 2.0], [$a['hours']['grid'][1][2], $a['hours']['grid'][1][5]], 'Monday 08–12 and 20–24');
         $this->assertSame(['Facebook akış', 90.0], [$a['placements'][0]['label'], $a['placements'][0]['share']]);

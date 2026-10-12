@@ -43,6 +43,9 @@ class ExternalWriteAction extends Model
     /** ADR-076: an article and its language versions as WordPress drafts (source first, translations linked; undo trashes all). */
     public const string ACTION_ARTICLE_DRAFTS = 'article_drafts';
 
+    /** 1.14.0 (yakup, 2026-10-12): the date of an article MoxDOP sent (a draft scheduled, a published one re-dated); undo writes the previous date back. */
+    public const string ACTION_POST_DATE = 'post_date';
+
     /** ADR-068: install one WordPress-offered plugin / theme / core update. Cannot be undone from MoxDOP. */
     public const string ACTION_UPDATE_APPLY = 'update_apply';
 
