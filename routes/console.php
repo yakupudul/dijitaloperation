@@ -75,6 +75,7 @@ use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Website\SitemapChangeWatcher;
+use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppDispatch;
 use App\Services\Work\ContentCoverage;
 use App\Support\Ai\AiRouteKeys;
@@ -1252,3 +1253,7 @@ Schedule::command('moxdop:whatsapp:retention')
 
 Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
     ->hourly()->name('whatsapp-contact-link')->withoutOverlapping(30);
+
+// A backup extraction cut off without its failure hook (worker killed, server restarted) is started again.
+Schedule::call(fn () => app(WhatsAppBackupImporter::class)->recoverStalled())
+    ->everyFiveMinutes()->name('whatsapp-backup-watchdog')->withoutOverlapping(10);

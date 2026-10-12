@@ -131,8 +131,15 @@
     @endif
 
     @if($activeTab === 'inbox')
-        @if(in_array($backupImport?->status, ['queued', 'running'], true))
-            <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}">Yeni yedek çıkarılıyor; bitince yeni mesajlar listeye eklenir.</p>
+        @if($backupImport?->isBusy())
+            @include('livewire.operator.whatsapp.backup-progress')
+        @elseif($backupImport?->status === 'failed' && $backupImport->updated_at?->greaterThan(now()->subDays(3)))
+            <div role="alert" class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['bad'] }}" data-wa-backup-status="failed">
+                <p class="font-medium">Son yedek çıkarılamadı</p>
+                <p class="mt-1">{{ $backupImport->error }} <button type="button" wire:click="$set('tab', 'setup')" class="font-semibold underline">Yedek yükle</button></p>
+            </div>
+        @elseif($backupImport?->status === 'uploaded')
+            <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-backup-status="uploaded">{{ $backupImport->file_name }} yüklendi ama çıkarılmadı{{ $backupImport->error ? ': '.$backupImport->error : '.' }} <button type="button" wire:click="$set('tab', 'setup')" class="font-semibold underline">Çıkar</button></p>
         @endif
         @if($openQuestions > 0)
             <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-questions-hint>Beyin senden {{ $openQuestions }} konuda bilgi istiyor; cevaplarsan cevaplar daha isabetli olur. <button type="button" wire:click="$set('tab', 'brain')" class="font-semibold underline">Cevapla</button></p>

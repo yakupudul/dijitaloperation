@@ -446,6 +446,77 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertNull($third->fresh()->done_at);
     }
 
+    public function test_an_extraction_cut_off_mid_way_is_started_again_and_finishes(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]])));
+        // The next backup is queued by itself (saved key); its worker dies after starting: no failure hook runs.
+        $next = $this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam'], ['A2', 0, '2026-09-02 10:00', 0, 'Fiyat?']]]]));
+        $this->assertSame(['queued', 1], [$next->status, $next->attempt]);
+        $next->update(['status' => 'running', 'started_at' => now(), 'backup_key' => null, 'stats' => ['phase' => 'import']]);
+
+        $this->actingAs($this->admin);
+        $this->travel(6)->minutes();
+        Livewire::test(Inbox::class)->assertSee('Görüşmeler aktarılıyor')->assertSee('dakikadır ilerleme yok');
+        $this->postJson(route('operator.whatsapp.backup'), ['name' => 'msgstore.db.crypt15', 'size' => 100])
+            ->assertStatus(422)->assertJsonPath('errors.backup.0', 'Önceki yedek şu an çıkarılıyor; bitince yeni dosya yükleyebilirsiniz.');
+
+        $this->travel(11)->minutes();
+        Livewire::test(Inbox::class)->assertSee('Çıkarma sırada bekliyor')->assertSee('2. deneme')->assertSee('yarıda kesildi');
+        $next->refresh();
+        $this->assertSame(['queued', 2], [$next->status, $next->attempt]);
+        Queue::assertPushed(ExtractWhatsAppBackup::class, fn (ExtractWhatsAppBackup $job): bool => $job->importId === $next->id && $job->attempt === 2);
+
+        // The first attempt's job arriving late does nothing; the new attempt imports only what is missing.
+        app(WhatsAppBackupImporter::class)->run($next->id, 1);
+        $this->assertSame('queued', $next->fresh()->status);
+        (new ExtractWhatsAppBackup($next->id, $this->admin->id, 1))->failed(null);
+        $this->assertSame('queued', $next->fresh()->status);
+        app(WhatsAppBackupImporter::class)->run($next->id, 2);
+        $this->assertSame('completed', $next->fresh()->status);
+        $this->assertSame(2, WhatsAppMessage::query()->count());
+        $this->assertNull($next->fresh()->getRawOriginal('backup_key'));
+    }
+
+    public function test_a_job_lost_from_the_queue_is_queued_again_and_the_operator_can_restart_it(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]])));
+        $next = $this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A2', 0, '2026-09-02 10:00', 0, 'Yeni']]]]));
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->assertSee('Çıkarma sırada bekliyor (0 dk)')->assertDontSee('Yeniden başlat')
+            ->call('restartBackup')->assertHasErrors('backup');
+
+        $this->travel(6)->minutes();
+        Livewire::test(Inbox::class)->call('restartBackup')->assertHasNoErrors()->assertSee('Yeniden başlattınız.');
+        $this->assertSame(2, $next->fresh()->attempt);
+
+        $this->travel(21)->minutes();
+        app(WhatsAppBackupImporter::class)->recoverStalled();
+        // Lost from the queue, not cut off: queued again under the same attempt.
+        $this->assertSame(['queued', 2], [$next->fresh()->status, $next->fresh()->attempt]);
+        $this->assertSame(3, Queue::pushed(ExtractWhatsAppBackup::class)->filter(fn (ExtractWhatsAppBackup $job): bool => $job->importId === $next->id)->count());
+    }
+
+    public function test_an_extraction_that_keeps_getting_cut_off_fails_with_the_reason(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]])));
+        $this->travel(1)->minutes();
+        $next = $this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A2', 0, '2026-09-02 10:00', 0, 'Yeni']]]]));
+        foreach ([2, 3] as $attempt) {
+            (new ExtractWhatsAppBackup($next->id, $this->admin->id, $next->fresh()->attempt))->failed(null);
+            $this->assertSame(['queued', $attempt], [$next->fresh()->status, $next->fresh()->attempt]);
+        }
+        (new ExtractWhatsAppBackup($next->id, $this->admin->id, 3))->failed(null);
+        $this->assertSame('failed', $next->fresh()->status);
+        $this->assertStringContainsString('3 denemede de bitmedi', $next->fresh()->error);
+        $this->assertFileDoesNotExist($next->path());
+
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->assertSee('Son yedek çıkarılamadı')->assertSee('3 denemede de bitmedi');
+    }
+
     private function backup(array $chats): string
     {
         $path = tempnam(sys_get_temp_dir(), 'wa-msgstore');

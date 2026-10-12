@@ -25,6 +25,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -208,6 +209,20 @@ class Inbox extends Component
         $this->notice = $result['matched'] > 0
             ? $result['contacts'].' rehber numarasından '.$result['matched'].' görüşmeye isim yazıldı.'
             : $result['contacts'].' rehber numarası okundu ama görüşmelerdeki numaralarla eşleşen olmadı.';
+    }
+
+    /** "Yeniden başlat": an extraction that has shown no progress for a few minutes is started again. */
+    public function restartBackup(WhatsAppBackupImporter $importer): void
+    {
+        $this->resetValidation();
+        try {
+            $importer->restart(auth()->user());
+        } catch (ValidationException $exception) {
+            $this->addError('backup', $exception->errors()['backup'][0] ?? 'Yeniden başlatılamadı.');
+
+            return;
+        }
+        $this->notice = 'Çıkarma yeniden başlatıldı. Daha önce aktarılan mesajlar atlanır, yalnız eksikler eklenir.';
     }
 
     /** Removes the saved backup key: the next backup asks for it again. */
@@ -631,11 +646,29 @@ class Inbox extends Component
         return WhatsAppConversation::query()->where('integration_id', app(WhatsAppConnection::class)->integration()?->id)->findOrFail($this->conversation);
     }
 
+    /** Jobs waiting on the heavy queue the extraction runs on (null when the queue cannot be read). */
+    private function heavyQueueSize(): ?int
+    {
+        try {
+            return Queue::connection('redis')->size('heavy');
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     public function render(WhatsAppConnection $connection): View
     {
         $integration = $connection->integration();
         $query = WhatsAppConversation::query()->where('integration_id', $integration?->id);
         $this->updatedFilter();
+        // A running extraction first: a completed one created in the same second must not hide it.
+        $backupImport = WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->latest()->first()
+            ?? WhatsAppBackupImport::query()->latest()->first();
+        if ($backupImport?->isBusy()) {
+            // An extraction cut off without its failure hook would otherwise show "çıkarılıyor" for good.
+            app(WhatsAppBackupImporter::class)->recoverStalled();
+            $backupImport = $backupImport->fresh();
+        }
         $rows = ($integration ? $this->filtered($integration->id, $this->filter) : (clone $query))->when(trim($this->q) !== '', function ($builder): void {
             $builder->where(function ($nested): void {
                 $term = '%'.mb_substr(trim($this->q), 0, 100).'%';
@@ -659,7 +692,8 @@ class Inbox extends Component
             'credentialStatus' => $connection->credentialStatus($integration),
             'historyDeadline' => $connection->historyDeadline($integration),
             'signupAttempt' => $attempt,
-            'backupImport' => WhatsAppBackupImport::query()->latest()->first(),
+            'backupImport' => $backupImport,
+            'backupQueueAhead' => $backupImport?->status === 'queued' ? $this->heavyQueueSize() : null,
             'awaitingReply' => $integration ? min($this->awaitingReply($integration->id)->count(), self::BULK_LIMIT) : 0,
             'backupKeySaved' => filled(data_get($integration?->config, 'backup_key')),
             'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
