@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Schema;
  * every row of the resource to check search_type; with search_type in the key the max is one index step per
  * partition and the sums read only the window's web rows. On PostgreSQL the table is partitioned by reporting_date, so
  * the index is created on the parent (CONCURRENTLY is not allowed on a partitioned table).
+ *
+ * Where moxdop:db:compact turned the table into a view over gsc_f_query_page (live), nothing is created: a view takes
+ * no index (the 2026-10-11 deploy failed here) and the fact table's primary key already leads with
+ * (resource_id, reporting_date).
  */
 return new class extends Migration
 {
@@ -25,6 +29,9 @@ return new class extends Migration
             return;
         }
         if (DB::getDriverName() === 'pgsql') {
+            if (! $this->isPlainTable()) {
+                return;
+            }
             DB::statement('CREATE INDEX IF NOT EXISTS '.self::INDEX.' ON '.self::TABLE.' (external_resource_id, search_type, reporting_date)');
 
             return;
@@ -40,6 +47,9 @@ return new class extends Migration
             return;
         }
         if (DB::getDriverName() === 'pgsql') {
+            if (! $this->isPlainTable()) {
+                return;
+            }
             DB::statement('DROP INDEX IF EXISTS '.self::INDEX);
 
             return;
@@ -47,5 +57,13 @@ return new class extends Migration
         Schema::table(self::TABLE, function (Blueprint $table): void {
             $table->dropIndex(self::INDEX);
         });
+    }
+
+    /** Whether the PostgreSQL relation is a table or partitioned table (not the compact view). */
+    private function isPlainTable(): bool
+    {
+        $kind = DB::selectOne('select c.relkind as k from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = current_schema() and c.relname = ?', [self::TABLE])->k ?? null;
+
+        return in_array($kind, ['r', 'p'], true);
     }
 };
