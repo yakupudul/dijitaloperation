@@ -59,6 +59,7 @@
                                 @if ($item['angle'])<span class="{{ $chip }} bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300" data-angle>{{ $item['angle'] }}</span>@endif
                             </div>
                             <p class="mt-1 font-medium leading-snug text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                            @include('livewire.operator.work.partials.content-target', ['item' => $item])
                             @if ($step === 'yazilacak' && ($item['cluster'] || $item['reason']))
                                 <p class="mt-0.5 text-xs text-gray-500" data-why>@if ($item['cluster'])<span class="font-medium text-gray-700 dark:text-gray-300">Küme: {{ $item['cluster'] }}</span>@if ($item['reason']) · @endif @endif{{ $item['reason'] }}</p>
                             @endif

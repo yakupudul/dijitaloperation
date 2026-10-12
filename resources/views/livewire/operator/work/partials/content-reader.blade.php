@@ -13,6 +13,7 @@
             <header class="flex items-start gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800">
                 <div class="min-w-0 flex-1">
                     <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Fikir · {{ $article['idea'] }}</p>
+                    @include('livewire.operator.work.partials.content-target', ['item' => $article])
                     @if (count($versions) > 1)
                         <div class="mt-2 flex gap-1.5" role="tablist">
                             @foreach ($versions as $code => $version)
