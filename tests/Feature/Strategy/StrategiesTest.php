@@ -83,11 +83,12 @@ final class StrategiesTest extends TestCase
         Livewire::actingAs($this->admin)->test(StrategiesPage::class)->set('channel', 'meta')->assertSee('Bu filtrede strateji yok');
 
         $page = $this->actingAs($this->admin)->get(route('operator.strategy', ['strategyId' => $strategy->id]))->assertOk()
-            ->assertSee('İçindekiler')->assertSee('id="bolum-1"', false)->assertSee('<table>', false)->assertSee('Zamanlama');
+            ->assertSee('İçindekiler')->assertSee('id="bolum-1"', false)->assertSee('<div class="table-wrap"><table data-sortable="false">', false)->assertSee('Zamanlama')->assertSee('Dayanak')->assertSee('Sürümler (1)');
+        $this->assertStringNotContainsString('<h1>OPC Klinik yurt dışı</h1>', $page->getContent(), 'the leading h1 is the page title, not shown twice');
         $this->assertStringNotContainsString('<script>alert(1)</script>', $page->getContent());
 
         Livewire::actingAs($this->admin)->test(StrategyPage::class, ['strategyId' => $strategy->id])
-            ->set('tab', 'dayanak')->assertSee('240 bin TL harcama')
+            ->assertSee('240 bin TL harcama')->assertSee('Dayanak')
             ->call('setStatus', 'approved')->assertSee('Uygulamaya başladım')
             ->call('startRevision')->set('draftBody', $this->body."\n\n## Yeni bölüm\n\nAlmanca kampanya.")->set('changeNote', 'Almanca')->call('saveRevision')
             ->assertSee('v2 kaydedildi')->assertSee('Yeni bölüm')
@@ -100,7 +101,7 @@ final class StrategiesTest extends TestCase
 
         Livewire::actingAs($this->admin)->test(StrategyPage::class, ['strategyId' => $strategy->id])
             ->set('version', 2)->assertSee('Eski sürüm görüntüleniyor')->assertSee('Yeni bölüm')
-            ->set('tab', 'kapsam')->call('startEdit')->set('scope.budget_amount', '2500')->set('scope.budget_period', 'daily')->call('saveScope')->assertSee('Kapsam kaydedildi');
+            ->call('startEdit')->set('scope.budget_amount', '2500')->set('scope.budget_period', 'daily')->call('saveScope')->assertSee('Kapsam kaydedildi');
         $this->assertSame('2.500 TRY günlük', $strategy->refresh()->budgetLabel());
     }
 

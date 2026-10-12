@@ -1,5 +1,5 @@
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700';
+    $card = 'rounded-2xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700';
     $select = 'mt-1 block rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
     $input = 'mt-1 block w-full rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
     $chip = 'rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-700 dark:bg-white/[0.06] dark:text-gray-300';
@@ -61,22 +61,26 @@
     @else
         <ul class="grid gap-3 lg:grid-cols-2" data-testid="strategy-list">
             @foreach ($strategies as $s)
+                @php $stripe = ['draft' => 'bg-gray-300 dark:bg-gray-600', 'approved' => 'bg-emerald-400', 'active' => 'bg-brand-500', 'archived' => 'bg-gray-200 dark:bg-gray-700'][$s->status] ?? 'bg-gray-300'; @endphp
                 <li>
-                    <a href="{{ route('operator.strategy', ['strategyId' => $s->id]) }}" wire:navigate class="block h-full {{ $card }} hover:ring-brand-300 dark:hover:ring-brand-500/50">
-                        <div class="flex items-start gap-2">
-                            <p class="min-w-0 flex-1 font-semibold text-gray-900 dark:text-white">{{ $s->title }}</p>
+                    <a href="{{ route('operator.strategy', ['strategyId' => $s->id]) }}" wire:navigate class="relative flex h-full flex-col gap-3 overflow-hidden rounded-2xl bg-white p-5 pl-6 ring-1 ring-inset ring-gray-200 transition hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700 dark:hover:ring-brand-500/50">
+                        <span class="absolute inset-y-0 left-0 w-1 {{ $stripe }}" aria-hidden="true"></span>
+                        <div class="flex items-center gap-2 text-xs text-gray-500">
+                            <span class="font-medium text-gray-700 dark:text-gray-200">{{ $s->brand?->name ?? 'Sistem geneli' }}</span>
+                            <span>·</span><span>{{ $s->channelLabel() }}</span>
+                            @if ($s->service)<span>·</span><span class="truncate">{{ $s->service }}</span>@endif
+                            <span class="flex-1"></span>
                             @include('livewire.operator.strategy.partials.status', ['status' => $s->status, 'label' => $s->statusLabel()])
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">{{ $s->brand?->name ?? 'Sistem geneli' }} · {{ $s->channelLabel() }}@if ($s->service) · {{ $s->service }}@endif</p>
-                        @if ($s->summary)<p class="mt-2 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">{{ $s->summary }}</p>@endif
-                        <div class="mt-3 flex flex-wrap items-center gap-1.5">
-                            @foreach (array_slice($s->markets ?? [], 0, 5) as $m)<span class="{{ $chip }}">{{ $m }}</span>@endforeach
-                            @if (count($s->markets ?? []) > 5)<span class="{{ $chip }}">+{{ count($s->markets) - 5 }}</span>@endif
-                            @foreach ($s->languages ?? [] as $l)<span class="{{ $chip }}">{{ $l }}</span>@endforeach
-                            @if ($s->budgetLabel())<span class="{{ $chip }} font-medium">{{ $s->budgetLabel() }}</span>@endif
-                            <span class="flex-1"></span>
-                            <span class="text-xs text-gray-400">v{{ $s->current_version }}@if ($s->versions_count > 1) · {{ $s->versions_count }} sürüm @endif · {{ $s->updated_at?->format('d.m.Y') }}</span>
+                        <p class="text-base font-semibold leading-snug text-gray-900 dark:text-white">{{ $s->title }}</p>
+                        @if ($s->summary)<p class="line-clamp-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $s->summary }}</p>@endif
+                        <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+                            @if ($s->budgetLabel())<span class="{{ $chip }} font-semibold text-gray-900 dark:text-white">{{ $s->budgetLabel() }}</span>@endif
+                            @foreach (array_slice($s->markets ?? [], 0, 4) as $m)<span class="{{ $chip }}">{{ $m }}</span>@endforeach
+                            @if (count($s->markets ?? []) > 4)<span class="{{ $chip }}">+{{ count($s->markets) - 4 }}</span>@endif
+                            @foreach ($s->languages ?? [] as $l)<span class="{{ $chip }} italic">{{ $l }}</span>@endforeach
                         </div>
+                        <p class="text-xs text-gray-400">v{{ $s->current_version }}@if ($s->versions_count > 1) · {{ $s->versions_count }} sürüm @endif · {{ $s->updated_at?->format('d.m.Y H:i') }}</p>
                     </a>
                 </li>
             @endforeach

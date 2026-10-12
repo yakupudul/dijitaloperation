@@ -14,17 +14,15 @@ use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * One strategy (`/stratejiler/{id}`): the text with its table of contents, the scope (editable), the data it was based
- * on, and every version (read an earlier one, bring it back, or save a new one). Status buttons move it between
- * Taslak, Onaylandı, Uygulanıyor and Arşiv. Nothing here writes to an ad account.
+ * One strategy (`/stratejiler/{id}`), all on one screen: the facts strip (brand, channel, service, budget, markets,
+ * languages), the text with a sticky table of contents, and beside it the data it was based on, every version (read
+ * an earlier one, bring it back, or save a new one) and the brand's other strategies. The scope is edited in place;
+ * status buttons move it between Taslak, Onaylandı, Uygulanıyor and Arşiv. Nothing here writes to an ad account.
  */
 #[Layout('operator.layouts.app')]
 final class StrategyPage extends Component
 {
     public int $strategyId;
-
-    #[Url(as: 'sekme')]
-    public string $tab = 'metin';
 
     #[Url(as: 'surum')]
     public ?int $version = null;
@@ -99,7 +97,6 @@ final class StrategyPage extends Component
         $this->draftBody = (string) $s->versions()->where('version', $s->current_version)->value('body');
         $this->changeNote = '';
         $this->revising = true;
-        $this->tab = 'metin';
         $this->version = null;
     }
 
@@ -123,7 +120,6 @@ final class StrategyPage extends Component
     {
         $book->restore($this->strategy(), $version, (string) (auth()->user()?->name ?? 'Operatör'));
         $this->version = null;
-        $this->tab = 'metin';
         $this->flash = 'v'.$version.' yeniden geçerli sürüm yapıldı (v'.$this->strategy()->current_version.').';
     }
 
@@ -141,7 +137,7 @@ final class StrategyPage extends Component
         $strategy = $this->strategy()->load('brand:id,name');
         $versions = $strategy->versions()->get();
         $shown = $versions->firstWhere('version', $this->version ?? $strategy->current_version) ?? $versions->first();
-        $rendered = $shown !== null ? $book->render($shown->body) : ['html' => '', 'toc' => []];
+        $rendered = $shown !== null ? $book->render($shown->body) : ['html' => '', 'toc' => [], 'words' => 0];
         $others = $strategy->brand_id !== null
             ? Strategy::query()->where('brand_id', $strategy->brand_id)->whereKeyNot($strategy->id)->latest('updated_at')->limit(8)->get(['id', 'title', 'status', 'channel', 'updated_at'])
             : collect();
@@ -152,6 +148,7 @@ final class StrategyPage extends Component
             'shown' => $shown,
             'html' => $rendered['html'],
             'toc' => $rendered['toc'],
+            'readMinutes' => max(1, (int) ceil($rendered['words'] / 200)),
             'others' => $others,
             'allBrands' => $this->editing ? Brand::query()->orderBy('name')->pluck('name', 'id')->all() : [],
             'channels' => Strategy::CHANNELS,

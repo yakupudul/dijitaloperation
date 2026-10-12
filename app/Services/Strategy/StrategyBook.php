@@ -117,13 +117,15 @@ final class StrategyBook
     }
 
     /**
-     * The Markdown as HTML with an id on every h2/h3, and the table of contents built from the same headings.
+     * The Markdown as HTML for the strategy page: an id on every h2/h3 (the table of contents is built from them),
+     * tables wrapped so wide ones scroll, and the leading h1 dropped because the page shows the title itself.
      *
-     * @return array{html: string, toc: list<array{id: string, text: string, level: int}>}
+     * @return array{html: string, toc: list<array{id: string, text: string, level: int}>, words: int}
      */
     public function render(string $markdown): array
     {
         $html = Str::markdown($markdown, ['html_input' => 'escape', 'allow_unsafe_links' => false]);
+        $html = (string) preg_replace('/\A\s*<h1>.*?<\/h1>/s', '', $html, 1);
         $toc = [];
         $html = (string) preg_replace_callback('/<h([23])>(.*?)<\/h\1>/s', function (array $m) use (&$toc): string {
             $id = 'bolum-'.(count($toc) + 1);
@@ -131,8 +133,9 @@ final class StrategyBook
 
             return '<h'.$m[1].' id="'.$id.'" class="scroll-mt-24">'.$m[2].'</h'.$m[1].'>';
         }, $html);
+        $html = str_replace(['<table>', '</table>'], ['<div class="table-wrap"><table data-sortable="false">', '</table></div>'], $html);
 
-        return ['html' => $html, 'toc' => $toc];
+        return ['html' => $html, 'toc' => $toc, 'words' => str_word_count(strip_tags($html))];
     }
 
     private function applyStatus(Strategy $strategy, string $status): void

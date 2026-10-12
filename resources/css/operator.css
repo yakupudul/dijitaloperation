@@ -358,3 +358,51 @@ button[data-done], a[data-done] {
 @media (prefers-reduced-motion: reduce) {
     #op-progress, button[data-done], a[data-done] { transition: none; animation: none; }
 }
+
+/* Stratejiler › strateji belgesi: Markdown'dan gelen başlık, tablo, liste, kod ve alıntı stilleri (typography eklentisi yok). */
+.strategy-doc { font-size: 15px; line-height: 1.65; color: var(--color-gray-700); }
+.dark .strategy-doc { color: var(--color-gray-300); }
+.strategy-doc > :first-child { margin-top: 0; }
+.strategy-doc > h1:first-child { display: none; }
+.strategy-doc > h1:first-child + p { margin-top: 0; }
+.strategy-doc h1, .strategy-doc h2, .strategy-doc h3, .strategy-doc h4 { color: var(--color-gray-900); font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.dark .strategy-doc h1, .dark .strategy-doc h2, .dark .strategy-doc h3, .dark .strategy-doc h4 { color: #fff; }
+.strategy-doc h1 { font-size: 1.5rem; margin: 2rem 0 0.75rem; }
+.strategy-doc h2 { font-size: 1.25rem; margin: 2.5rem 0 1rem; padding-top: 1.25rem; border-top: 1px solid var(--color-gray-200); }
+.dark .strategy-doc h2 { border-color: var(--color-gray-700); }
+.strategy-doc h3 { font-size: 1.05rem; margin: 1.75rem 0 0.6rem; }
+.strategy-doc h4 { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; }
+.strategy-doc p { margin: 0.7rem 0; }
+.strategy-doc strong { color: var(--color-gray-900); font-weight: 600; }
+.dark .strategy-doc strong { color: #fff; }
+.strategy-doc em { color: var(--color-gray-500); }
+.strategy-doc a { color: var(--color-brand-600); text-decoration: underline; text-underline-offset: 2px; }
+.strategy-doc hr { display: none; }
+.strategy-doc ul, .strategy-doc ol { margin: 0.6rem 0 0.9rem; padding-left: 1.4rem; }
+.strategy-doc ul { list-style: disc; }
+.strategy-doc ol { list-style: decimal; }
+.strategy-doc li { margin: 0.3rem 0; padding-left: 0.15rem; }
+.strategy-doc li::marker { color: var(--color-gray-400); font-weight: 500; }
+.strategy-doc li > p { margin: 0.25rem 0; }
+.strategy-doc blockquote { margin: 1rem 0; padding: 0.75rem 1rem; border-left: 3px solid var(--color-warning-500, #f59e0b); border-radius: 0 0.75rem 0.75rem 0; background: #fffbeb; color: #92400e; }
+.dark .strategy-doc blockquote { background: rgb(245 158 11 / 0.1); color: #fcd34d; }
+.strategy-doc blockquote p { margin: 0.2rem 0; }
+.strategy-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: var(--color-gray-100); color: var(--color-gray-800); padding: 0.1em 0.4em; border-radius: 0.35rem; }
+.dark .strategy-doc code { background: rgb(255 255 255 / 0.08); color: var(--color-gray-200); }
+.strategy-doc pre { margin: 0.9rem 0 1.2rem; padding: 0.9rem 1rem; border-radius: 0.75rem; background: var(--color-gray-50); border: 1px solid var(--color-gray-200); overflow-x: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+.dark .strategy-doc pre { background: rgb(255 255 255 / 0.04); border-color: var(--color-gray-700); }
+.strategy-doc pre code { background: transparent; padding: 0; font-size: 0.82rem; color: inherit; }
+.strategy-doc .table-wrap { margin: 1rem 0 1.4rem; overflow-x: auto; border: 1px solid var(--color-gray-200); border-radius: 0.75rem; }
+.dark .strategy-doc .table-wrap { border-color: var(--color-gray-700); }
+.strategy-doc table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.5; }
+.strategy-doc thead th { text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-gray-500); background: var(--color-gray-50); padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--color-gray-200); white-space: nowrap; }
+.dark .strategy-doc thead th { background: rgb(255 255 255 / 0.04); border-color: var(--color-gray-700); color: var(--color-gray-400); }
+.strategy-doc tbody td { padding: 0.6rem 0.85rem; vertical-align: top; border-bottom: 1px solid var(--color-gray-100); }
+.dark .strategy-doc tbody td { border-color: var(--color-gray-700); }
+.strategy-doc tbody tr:last-child td { border-bottom: 0; }
+.strategy-doc tbody tr:nth-child(even) td { background: var(--color-gray-25, #fcfcfd); }
+.dark .strategy-doc tbody tr:nth-child(even) td { background: rgb(255 255 255 / 0.02); }
+.strategy-doc tbody td:first-child { font-weight: 500; color: var(--color-gray-900); }
+.dark .strategy-doc tbody td:first-child { color: #fff; }
+.strategy-doc td code, .strategy-doc th code { white-space: nowrap; }
+.strategy-toc a.is-active { color: var(--color-brand-600); font-weight: 500; }
