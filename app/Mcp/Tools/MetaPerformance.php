@@ -14,6 +14,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
+use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 /**
  * Read-only Meta performance of one brand from the stored daily results (meta_geo_results_daily country rows,
@@ -22,6 +23,7 @@ use Laravel\Mcp\Server\Tool;
  * own cost. Ad set targeting and ad statuses come from the latest snapshots of the brand's own ad accounts.
  */
 #[Description('Reads one brand\'s Meta ads performance from stored data (no live Meta call): totals and rows grouped by month, campaign, adset, ad, country, region, campaign_country, age_gender, placement, device or hour, with spend, impressions, clicks, CTR, leads, messages, purchases and the cost of each (result types are never added together). Also the ad set targeting (countries, cities, ages, languages, audiences, interests) and ad statuses. Country data starts when the daily geo collection started for the account; `accounts` shows each account\'s first and last day.')]
+#[IsReadOnly]
 class MetaPerformance extends Tool
 {
     /** @var list<string> */

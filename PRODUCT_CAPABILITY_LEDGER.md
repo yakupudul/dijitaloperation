@@ -1,5 +1,10 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — MCP `channel-data`: Google Ads, Search Console, GA4 ve İşletme Profili verisi Claude'a açık
+
+- Claude bir markanın kayıtlı kanal verisini sorulduğu anda okur (canlı sağlayıcı çağrısı yok, serbest SQL yok): `google_ads.months/campaigns/search_terms/keywords/locations/devices/conversion_actions`, `gsc.months/queries/pages/countries/query_countries` (yalnız web araması), `ga4.months/channels/landing_pages/countries/key_events`, `gbp.performance/keywords/reviews`. Her cevap son veri gününü taşır. Kod: `App\Mcp\Tools\ChannelData`. Test: `McpChannelDataTest` (sqlite + PostgreSQL).
+- Neden (yakup, 2026-10-12): "tüm dijital varlıklarla alakalı buradan sana veri sorabilirim strateji sorabilirim, her şeye erişebilir olmalısın."
+
 ## 2026-10-12 — MCP `meta-performance`: markanın Meta sonuçları Claude'a açık
 
 - Claude bir markanın Meta reklamlarını sorulduğu anda kayıtlı veriden okur (canlı Meta çağrısı yok): ay, kampanya, reklam seti, reklam, ülke, bölge, kampanya × ülke, yaş/cinsiyet, yerleşim, cihaz, saat kırılımları; form, mesaj ve satın alma ayrı ayrı ve her birinin maliyeti (toplanmaz); reklam seti hedeflemeleri (ülke, şehir, yaş, dil, kitle, ilgi) ve reklam durumları. Kaynak: `meta_geo_results_daily`, `meta_breakdown_results_daily`, `meta_adset_targeting_snapshot`, `meta_ad_snapshot`. Kod: `App\Mcp\Tools\MetaPerformance`. Test: `McpMetaPerformanceTest` (sqlite + PostgreSQL).
