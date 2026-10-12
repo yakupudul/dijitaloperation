@@ -51,6 +51,7 @@
                                         @if ($item['blocked'])<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Kurala takıldı</span>@endif
                                     </div>
                                     <p class="font-medium leading-snug text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                                    @include('livewire.operator.work.partials.content-target', ['item' => $item])
                                     @if ($item['line'])<p @class(['mt-1 text-xs', 'text-brand-600' => $item['writing'], 'text-rose-600' => ! $item['writing']])>{{ $item['writing'] ? ($code === 'yazilacak' ? 'Yazılıyor · ' : 'Çeviri yazılıyor · ') : 'Son deneme: ' }}{{ $item['line'] }}</p>@endif
                                     <div class="mt-2 flex flex-wrap items-center justify-end gap-2 text-xs">
                                         @if ($code === 'yazilacak')

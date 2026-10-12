@@ -1032,6 +1032,12 @@ Artisan::command('moxdop:content:rescue', function (ContentCoverage $coverage): 
     $this->info(sprintf('%d yazı, %d çeviri, %d site havuzu içerik kuyruğunda yeniden başladı; %d Claude kuyruğu işi kapandı.', $articles, $translations, $pools, $consumed));
 })->purpose('Start waiting content work (titles, articles, translations) again on the content queue');
 
+// A Turkish idea never names a /de/ page (opcklinik.com, 2026-10-12): waiting ideas get a page of their own language.
+Artisan::command('moxdop:content:fix-languages', function (ContentPlanner $planner): void {
+    $counts = $planner->repairLanguageTargets();
+    $this->info(sprintf('%d güncelleme fikri yeni yazıya döndü, %d yeni yazı adresi düzeldi.', $counts['updates'], $counts['addresses']));
+})->purpose('Point waiting content ideas at pages and addresses of their own language');
+
 // Taslakta / Yayında (yakup, 2026-10-12): every hour each site with sent articles says where their posts stand.
 Artisan::command('moxdop:content:post-status {--site= : One website asset id}', function (): void {
     $sites = ContentPosts::sentIdeas()->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()

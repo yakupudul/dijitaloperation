@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Güncelleme fikri hangi sayfayı güçlendirdiğini söyler; başka dilin sayfası seçilmez
+
+- "Güncelleme" kartları (Yazılacak, Okunacak, okuma penceresi, site kutuları) güçlendirilecek sayfanın gerçek başlığını ve adresini gösteriyor ("Güncellenecek sayfa: …", yeni sekmede açılır). Kart başlığı sayfanın başlığı değil, sayfaya eklenecek konudur.
+- Türkçe fikir artık başka dildeki sayfayı (dil bilgisi boş da olsa `/de/…` adresli) güncellemeye seçmiyor; yeni yazı adresi de o dilin önekini almıyor (`ContentPlanner::inLanguage`). Bekleyen fikirler deploy'da bir kez düzeliyor (`moxdop:content:fix-languages`): başka dilin sayfasını güncelleyen fikir, onayı ve yazısıyla kendi dilinde yeni yazıya dönüyor; yanlış önekli yeni yazı adresleri sitenin kendi adres düzenine çekiliyor.
+- Durum: CODED + TESTED (`ContentTargetPageTest`). Neden (yakup, 2026-10-12, OPC Klinik): "mevcut sayfayı güçlendir adı altında paylaşılmış, ancak web sitesinde bu başlıkta yazı yok."
+
 ## 2026-10-12 — İçerik işleri kuyrukta beklemez
 
 - İçerik fikri (havuz), makale yazımı, çevirisi ve WordPress taslak gönderimi kendi kuyruğunda (`content`, Horizon `supervisor-content`, 3 işçi) çalışıyor. Uzun site işleri (Eşleştir vb.) `heavy` kuyrukta kalıyor ve içerik işlerini artık bekletmiyor.

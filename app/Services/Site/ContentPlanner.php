@@ -158,6 +158,58 @@ final class ContentPlanner
     }
 
     /**
+     * Waiting ideas whose page is in another language than the idea (opcklinik.com, 2026-10-12: Turkish ideas pointed
+     * at /de/ pages). An update of another-language page becomes a new post of its own language, keeping its approval
+     * and article; a new idea's address under another language's prefix gets the site's own address pattern.
+     *
+     * @return array{updates: int, addresses: int}
+     */
+    public function repairLanguageTargets(): array
+    {
+        $counts = ['updates' => 0, 'addresses' => 0];
+        $sites = [];
+        Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED])
+            ->whereNull('action->article_write_id')->with('page:id,url,path,language')->orderBy('id')
+            ->each(function (Suggestion $idea) use (&$counts, &$sites): void {
+                $action = (array) $idea->action;
+                $siteId = (int) ($action['site_id'] ?? 0);
+                if (! array_key_exists($siteId, $sites)) {
+                    $site = DigitalAsset::query()->where('type', 'website')->find($siteId);
+                    $sites[$siteId] = $site !== null ? [$site, self::urlPattern($site, $this->sitePages($site))] : null;
+                }
+                if ($sites[$siteId] === null) {
+                    return;
+                }
+                [$site, $pattern] = $sites[$siteId];
+                $language = self::articleLanguage($idea, $site);
+                $isUpdate = ($action['kind'] ?? null) === 'update';
+                if ($isUpdate && $idea->page !== null && self::inLanguage($idea->page, $language)) {
+                    return;
+                }
+                if (! $isUpdate) {
+                    $target = (string) ($action['target_url'] ?? '');
+                    $probe = (new Page)->forceFill(['url' => $target, 'path' => (string) parse_url($target, PHP_URL_PATH)]);
+                    if ($target === '' || self::inLanguage($probe, $language)) {
+                        return;
+                    }
+                }
+                if ($isUpdate && $idea->page === null) {
+                    return; // the page left the site: the writer says so when the idea is written
+                }
+                $pageType = in_array($action['page_type'] ?? null, self::PAGE_TYPES, true) ? $action['page_type'] : 'blog';
+                $action['target_url'] = $pattern->targetUrl(SiteScope::origin($site), self::URL_TYPES[$pageType], SeoText::slugify((string) $idea->title), (string) ($idea->cluster?->service?->primaryName?->raw_label ?? ''));
+                $action['kind'] = 'new';
+                if (($action['angle'] ?? null) === 'update') {
+                    unset($action['angle']);
+                }
+                $idea->forceFill(['action' => $action] + ($isUpdate ? ['page_id' => null, 'target_type' => 'site', 'target_id' => $site->id] : []))->save();
+                $counts[$isUpdate ? 'updates' : 'addresses']++;
+            });
+
+        return $counts;
+    }
+
+    /**
      * A title that reads like generated text, or null: two-part titles (dash, colon, slash), labels in brackets
      * ("(güncelleme)"), "kapsamlı rehber", "hizmet sayfası" and over-long titles never reach the pool.
      */
@@ -313,7 +365,7 @@ final class ContentPlanner
             ->pluck('cluster_id')->map(fn ($id): int => (int) $id)->flip()->all();
         $updatedPages = $previous->pluck('page_id')->filter()->map(fn ($id): int => (int) $id)->flip()->all();
         $inMain = fn ($q) => $q->where(fn ($l) => $l->whereNull('language')->orWhere('language', $main));
-        $rows = $only ?? $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path'])->where('brand_id', $brand->id)
+        $rows = $only ?? $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path,language'])->where('brand_id', $brand->id)
             ->where('website_asset_id', $site->id)->whereIn('state', ['no_page', 'thin_coverage', 'weak_performance'])->where('excluded', false))
             ->orderBy('id')->limit(self::GAP_CANDIDATES)->get();
         $clusterIds = $rows->pluck('cluster_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
@@ -336,7 +388,7 @@ final class ContentPlanner
         // (strengthen it) or by none (a new page). A search whose cluster already has a sufficient page is left alone.
         if ($only === null) {
             $striking = $this->strikingQueries($site, $brand);
-            $siteRows = $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path'])->where('brand_id', $brand->id)
+            $siteRows = $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path,language'])->where('brand_id', $brand->id)
                 ->where('website_asset_id', $site->id)->where('excluded', false))->orderBy('id')->get()
                 ->sortBy(fn (BrandClusterPage $r): array => [$r->language === $main ? 0 : 1, (int) $r->id])->unique('cluster_id')->keyBy('cluster_id');
             $clusterOfQuery = $this->queryClusters(array_column($striking, 'query'), $siteRows->keys()->map(fn ($id): int => (int) $id)->all());
@@ -351,6 +403,8 @@ final class ContentPlanner
                     continue;
                 }
                 $page = $pageOf[$s['query']] ?? null;
+                // A page in another language is not this idea's page: the main-language idea is a new page instead.
+                $page = $page !== null && self::inLanguage($page, $main) ? $page : null;
                 if ($page !== null && isset($updatedPages[(int) $page->id])) {
                     continue;
                 }
@@ -386,7 +440,7 @@ final class ContentPlanner
             ]);
             $clusterLine = ['kind' => 'cluster', 'value' => $cluster->name.' · '.($parts !== [] ? implode(' · ', $parts).' · ' : '').$row->stateLabel(), 'source' => 'küme'];
             $mainQuery = (string) ($cluster->mainQuery?->text ?? ($queries[(int) $row->cluster_id][0] ?? ''));
-            $isUpdate = $row->state !== 'no_page' && $row->page !== null;
+            $isUpdate = $row->state !== 'no_page' && $row->page !== null && self::inLanguage($row->page, $main);
             if ($isUpdate && isset($updatedPages[(int) $row->page_id])) {
                 continue;
             }
@@ -542,7 +596,7 @@ final class ContentPlanner
             return [];
         }
         $pages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('id')
-            ->get(['id', 'url', 'path', 'title', 'category', 'wp_post_type'])->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
+            ->get(['id', 'url', 'path', 'title', 'category', 'wp_post_type', 'language'])->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
         $out = [];
         foreach ($best as $query => $key) {
             if (in_array($key, $keys, true) && $pages->has($key)) {
@@ -1238,6 +1292,9 @@ final class ContentPlanner
             if ($page === null) {
                 return 'güncellenecek sayfa sitede yok'; // an update must name a real page of the site
             }
+            if (! self::inLanguage($page, (string) ($extra['language'] ?? SiteScope::primaryLanguage($site) ?? ''))) {
+                return 'güncellenecek sayfa başka dilde'; // a Turkish idea never rewrites the /de/ page (opcklinik.com, 2026-10-12)
+            }
             [$target, $pageId] = [(string) $page->url, (int) $page->id];
             if (Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)->where('page_id', $pageId)
                 ->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED])->exists()) {
@@ -1303,13 +1360,31 @@ final class ContentPlanner
     }
 
     /**
+     * Whether the page is in the language (or says none): its detected language, else the language segment of its
+     * address ("/de/…"). Pages without a detected language under /de/ counted as Turkish ones (opcklinik.com, 2026-10-12).
+     */
+    public static function inLanguage(Page $page, ?string $language): bool
+    {
+        if ($language === null || $language === '') {
+            return true;
+        }
+        $own = strtolower(substr((string) $page->language, 0, 2));
+        if ($own === '') {
+            $first = explode('/', trim((string) ($page->path ?: parse_url((string) $page->url, PHP_URL_PATH)), '/'))[0];
+            $own = preg_match('/^[a-z]{2}(-[a-z]{2})?$/i', $first) === 1 ? strtolower(substr($first, 0, 2)) : '';
+        }
+
+        return $own === '' || $own === strtolower(substr($language, 0, 2));
+    }
+
+    /**
      * Where a new article of the site would live, learned from the site's main-language pages only: on a site with more
      * pages under /de/ than in Turkish, a Turkish article's address must not get the /de/ prefix (opcklinik.com).
      */
     private static function urlPattern(DigitalAsset $site, Collection $sitePages): SiteUrlPattern
     {
         $main = SiteScope::primaryLanguage($site);
-        $own = $main === null ? $sitePages : $sitePages->filter(fn (Page $p): bool => in_array($p->language, [null, '', $main], true));
+        $own = $main === null ? $sitePages : $sitePages->filter(fn (Page $p): bool => self::inLanguage($p, $main));
 
         return new SiteUrlPattern(($own->isNotEmpty() ? $own : $sitePages)
             ->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->values()->all());

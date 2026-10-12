@@ -63,7 +63,7 @@ final class ContentBoard
      */
     public function boxes(?int $brandId = null, ?int $siteId = null, int $perStep = self::PER_STEP): Collection
     {
-        $items = $this->query($brandId)->when($siteId !== null, fn (Builder $q): Builder => $q->where('action->site_id', $siteId))->with(['brand:id,name', 'cluster:id,name'])->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
+        $items = $this->query($brandId)->when($siteId !== null, fn (Builder $q): Builder => $q->where('action->site_id', $siteId))->with(['brand:id,name', 'cluster:id,name', 'page:id,title,url'])->orderBy('priority')->orderByDesc('id')->limit(self::LIMIT)->get();
         $scores = $this->scorer->forSuggestions($items);
         $postIds = $this->posts->postIds($items->filter(fn (Suggestion $s): bool => isset(((array) $s->action)['article_write_id'])));
         $siteIds = $items->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()->values();
@@ -239,6 +239,8 @@ final class ContentBoard
 
         return [
             'id' => (int) $suggestion->id, 'idea' => (string) $suggestion->title,
+            'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'target_url' => is_string($action['target_url'] ?? null) ? $action['target_url'] : null,
+            'target_title' => ($action['kind'] ?? null) === 'update' ? (trim((string) $suggestion->page?->title) ?: null) : null,
             'missing' => $site !== null && is_array($action['article'] ?? null) ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
             'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true)
                 || ($site !== null && self::translating($suggestion, $site, array_diff(ContentPlanner::siteLanguages($site), $written)) !== []),
@@ -322,6 +324,8 @@ final class ContentBoard
             'step' => $sent ? (($post['status'] ?? null) === 'publish' ? 'yayinda' : 'taslakta') : ($hasArticle || isset($action['article_blocked']) ? 'okunacak' : 'yazilacak'),
             'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'page_type' => (string) ($action['page_type'] ?? 'blog'),
             'target_url' => is_string($action['target_url'] ?? null) ? $action['target_url'] : null,
+            // An update names the page it strengthens (yakup, 2026-10-12: the card did not say which page it was).
+            'target_title' => ($action['kind'] ?? null) === 'update' ? (trim((string) $s->page?->title) ?: null) : null,
             'language' => $language, 'translations' => $translations, 'sent_languages' => $sentLanguages,
             'cluster' => $s->cluster?->name,
             'angle' => ContentPlanner::ANGLES[$action['angle'] ?? ''] ?? (($action['out_of_cluster'] ?? false) ? 'Kümeler dışı fırsat' : null),
