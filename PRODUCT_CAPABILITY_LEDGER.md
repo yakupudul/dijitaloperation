@@ -1,5 +1,9 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — İçerik fikri kartı
+
+- Gerekçesi boş bir içerik fikri artık kartta seçildiği veri satırını gösteriyor (Search Console sorgusu, küme durumu, AI sorusu). Kod: `ContentBoard::item`. Test: `ContentBoardTest::test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from`.
+
 ## 2026-10-11 — Deploy sağlamlığı
 
 Durum: CODED (sunucuda doğrulanmadı).

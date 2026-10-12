@@ -220,6 +220,9 @@ final class ContentBoard
         $line = SiteOperations::line($status);
         $writing = in_array($status['status'] ?? null, ['running', 'queued'], true);
         $translating = self::translating($s, $site, array_diff($siteLanguages, [$language], $translations));
+        // The card says why the idea is here: the writer's sentence, else the data line it was picked from.
+        $why = filled($s->reason) ? (string) $s->reason : (string) (collect((array) $s->evidence)
+            ->first(fn ($e): bool => is_array($e) && ($e['kind'] ?? 'none') !== 'none' && filled($e['value'] ?? null))['value'] ?? '');
 
         return [
             'id' => (int) $s->id, 'title' => (string) $s->title, 'rank' => max(0, (int) $s->priority), 'status' => (string) $s->status,
@@ -227,14 +230,14 @@ final class ContentBoard
             'kind' => ($action['kind'] ?? null) === 'update' ? 'Güncelleme' : 'Yeni yazı', 'page_type' => (string) ($action['page_type'] ?? 'blog'),
             'target_url' => is_string($action['target_url'] ?? null) ? $action['target_url'] : null,
             'language' => $language, 'translations' => $translations, 'sent_languages' => $sentLanguages,
-            'cluster' => $s->cluster?->name, 'reason' => filled($s->reason) ? (string) $s->reason : null,
+            'cluster' => $s->cluster?->name,
             'angle' => ContentPlanner::ANGLES[$action['angle'] ?? ''] ?? (($action['out_of_cluster'] ?? false) ? 'Kümeler dışı fırsat' : null),
             'missing_languages' => array_values(array_diff($siteLanguages, [$language], $translations, $translating)), 'translating' => $translating,
             'unsent' => $sent ? array_values(array_diff($translations, $sentLanguages)) : [],
             'blocked' => is_string($action['article_blocked'] ?? null) ? $action['article_blocked'] : null,
             'writing' => $writing, 'line' => $writing ? $line : (in_array($status['status'] ?? null, [null, 'ready'], true) ? null : $line),
             'approved' => $s->status === Suggestion::APPROVED, 'sent_at' => $sent ? ($s->resolved_at ?? $s->applied_at) : null,
-            'reason' => (string) $s->reason,
+            'reason' => $why,
             'score' => $scored['score'] ?? 0, 'score_line' => $scored !== null ? ContentScore::explain($scored) : null,
         ];
     }

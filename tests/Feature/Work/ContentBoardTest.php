@@ -74,6 +74,19 @@ final class ContentBoardTest extends SiteTestCase
         Livewire::test(WorkPage::class, ['step' => 'gonderildi'])->assertSee('Taslak gönderildi');
     }
 
+    public function test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from(): void
+    {
+        Suggestion::query()->create([
+            'brand_id' => $this->brand->id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => md5('why'), 'material_hash' => md5('why'),
+            'title' => 'Gülüş tasarımı ne kadar sürer?', 'reason' => '', 'priority' => 1, 'action_type' => 'content',
+            'evidence' => [['kind' => 'query', 'value' => '«gülüş tasarımı süresi» 28 günde 420 gösterim, 3 tıklama · kendi sayfası yok', 'source' => 'Search Console']],
+            'action' => ['site_id' => $this->site->id, 'kind' => 'new', 'page_type' => 'blog', 'outline' => ['Giriş'], 'questions' => []],
+            'status' => Suggestion::OPEN, 'target_type' => 'site', 'target_id' => $this->site->id, 'first_seen_at' => now(), 'last_seen_at' => now(),
+        ]);
+
+        Livewire::test(WorkPage::class)->assertSee('Gülüş tasarımı ne kadar sürer?')->assertSee('28 günde 420 gösterim, 3 tıklama');
+    }
+
     public function test_all_waiting_titles_of_a_site_are_approved_in_one_click_and_the_site_box_is_on_the_content_tab(): void
     {
         Queue::fake();
