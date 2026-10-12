@@ -1026,3 +1026,15 @@
   3. **Hazırlık otomatik** (`moxdop:repair:audit`, 01:40, yalnız okuma): Arama kampanyasında iş ortakları / Görüntülü ağ açık → kapat (düşük risk); Arama / PMax'te "ilgilenenler" → "bölgede bulunanlar" (düşük); otomatik etiketleme kapalı → aç (düşük); hesap 30 günde en az 5 dönüşüm kaydediyorsa: bütçe yüzünden gösterimlerin ≥ %20'sini kaybeden ve dönüşüm maliyeti hesap ortalamasının altında olan kampanyaya bütçe +%20 (orta; paylaşılan bütçe hariç), hesap dönüşüm maliyetinin iki katından fazla harcayıp dönüşüm getirmeyen anahtar kelimeyi durdur (orta).
   4. **Onay:** Onarım masasında tekli ya da toplu ("Google Ads ayarı"); Google Ads ekranındaki Yapılacaklar'da "Onayla" da aynı yazmayı yapar. Başarılı yazma satırı "uygulandı" yapar; geri alma, alan hâlâ MoxDOP'un yazdığı değerdeyse önceki değeri yazar.
 - **İlgili:** `app/Services/ExternalWrites/GoogleAdsChangeWriter.php`, `app/Services/GoogleAds/GoogleAdsChanges.php`, `app/Services/Repair/RepairDesk.php`, `tests/Feature/GoogleAds/GoogleAdsChangesTest.php`.
+
+## ADR-082 — WordPress: MoxDOP yazısının tarihi ve öne çıkan görseli (onaylı, geri alınabilir)
+
+- **Durum:** Kabul (yakup, 2026-10-12: "Yayındakilerin tarihini de değiştirebileyim… Yazı için web sitesinde en uygun görsel bulunup seçilsin" ve "Diğer önerilerinle birlikte bunları da yap.").
+- **Genişlettiği:** ADR-064 / ADR-076 (WordPress taslağı). Yazma yolu aynıdır: `ExternalWriteService::requestPostDate` → `wordpress` / `post_date` (kayıtlı, Admin tıklaması, iş kuyruğunda, geri alınabilir).
+- **Karar:**
+  1. **Yalnız MoxDOP'un yaptığı yazılar** (`_moxdop_created`): sitenin başka hiçbir yazısının tarihi ve durumu değişmez. Eklenti 1.14.0 (`/posts/status`, `/posts/{id}/date`).
+  2. **Taslak:** "Yayın tarihi planla" taslağı ileri bir tarihe zamanlar; WordPress o tarihte kendisi yayınlar (makalenin bütün dilleri birlikte). Sitede "Scheduled drafts" izni açık olmalı.
+  3. **Yayındaki yazı:** "Tarihi değiştir" yalnız geçmiş bir tarih verir; sitede "Content updates" izni açık olmalı. Ekran, yalnız tarihi yenilemenin Google sıralamasını yükseltmediğini söyler.
+  4. **Geri alma:** her yazının önceki tarihi ve durumu saklanır; geri alma onu yazar (zamanlanmış taslak yeniden taslak olur).
+  5. **Görsel:** yazının öne çıkan görseli sitenin kendi medya kütüphanesinden kuralla seçilir (`ArticleImagePicker`: başlık / küme / adres kelimeleri görselin alt metninde, adında, bağlı olduğu sayfada; yoksa en yakın sayfanın görseli). Yükleme ve AI görsel üretimi yok; operatör okuma ekranında değiştirir ya da "görselsiz" seçer. Taslakla birlikte gider (`featured_media_id`).
+- **İlgili:** `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-posts.php`, `app/Services/Site/ContentPosts.php`, `app/Services/Site/ArticleImagePicker.php`, `app/Services/Work/ContentBoard.php`, `tests/Feature/Work/ContentFlowTest.php`.

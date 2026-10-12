@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.13.0
+Stable tag: 1.14.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,11 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.14.0 =
+* Drafts (`/drafts`) accept `featured_media_id`: an image already in the site's media library becomes the post's featured image (nothing is uploaded).
+* `GET /posts/status?ids=` tells where the posts MoxDOP made stand now: status (draft, future, publish, trash or missing), date, last change, link and featured image.
+* `POST /posts/{id}/date` dates a post MoxDOP made after an admin approved it in MoxDOP: a draft is dated, or scheduled when "Scheduled drafts" is on; a published post gets a past date when "Content updates" is on. The previous date and status come back so MoxDOP can undo it. Other posts are refused.
 
 = 1.13.0 =
 * For a host that refuses requests from the MoxDOP server: the site asks MoxDOP for its work itself (every 15 minutes, every minute once MoxDOP sends work this way) and runs each request through the connector's own signed REST routes, then returns the signed answer. Nothing changes for sites MoxDOP can reach.

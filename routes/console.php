@@ -17,6 +17,7 @@ use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Jobs\Site\PullClarityJob;
+use App\Jobs\Site\SyncContentPostsJob;
 use App\Models\AiLiveOperation;
 use App\Models\Brand;
 use App\Models\ClarityProject;
@@ -25,6 +26,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ScreenCheck;
+use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\Winners;
@@ -66,6 +68,7 @@ use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\Backlinks\SerpMentionSources;
+use App\Services\Site\ContentPosts;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\SiteFlow;
@@ -988,6 +991,19 @@ Schedule::command('moxdop:content:weekly-titles')
     ->withoutOverlapping(60)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())
     ->name('content-weekly-titles');
+
+// Taslakta / Yayında (yakup, 2026-10-12): every hour each site with sent articles says where their posts stand.
+Artisan::command('moxdop:content:post-status {--site= : One website asset id}', function (): void {
+    $sites = ContentPosts::sentIdeas()->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->filter()->unique()
+        ->when($this->option('site') !== null, fn ($ids) => $ids->intersect([(int) $this->option('site')]));
+    $sites->each(fn (int $siteId) => SyncContentPostsJob::dispatch($siteId));
+    $this->info($sites->count().' site soruldu.');
+})->purpose('Ask the sites where the articles MoxDOP sent stand (draft, scheduled, published)');
+
+Schedule::command('moxdop:content:post-status')
+    ->hourlyAt(23)
+    ->withoutOverlapping(30)
+    ->name('content-post-status');
 
 // Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
 // changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).

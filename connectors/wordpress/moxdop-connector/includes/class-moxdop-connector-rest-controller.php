@@ -108,6 +108,8 @@ final class MoxDOP_Connector_REST_Controller
             'permission_callback' => [$this->auth, 'authorize'],
             'callback' => [$this, 'trash_draft'],
         ]);
+        // 1.14.0: status and admin-approved date of the posts MoxDOP made.
+        (new MoxDOP_Connector_Posts($this->auth))->register_routes(self::NAMESPACE);
     }
 
     /** Wraps a plain result in the signed envelope; errors pass through unchanged. */
@@ -174,6 +176,12 @@ final class MoxDOP_Connector_REST_Controller
                 update_post_meta($post_id, '_moxdop_schema', wp_slash($schema));
             }
             $decorated = MoxDOP_Connector_Drafts::decorate($post_id, $type, $body);
+        }
+        // 1.14.0: the article's image, an image already in the site's media library (nothing is uploaded).
+        $featured = absint($body['featured_media_id'] ?? 0);
+        if ($featured > 0 && ! has_post_thumbnail($post_id) && wp_attachment_is_image($featured)) {
+            set_post_thumbnail($post_id, $featured);
+            $decorated['featured_media_id'] = $featured;
         }
 
         return $this->auth->envelope(array_merge([
@@ -257,6 +265,8 @@ final class MoxDOP_Connector_REST_Controller
                 self::drafts_allowed() ? 'rich_drafts' : null,
                 MoxDOP_Connector_Drafts::polylang_active() ? 'polylang' : null,
                 MoxDOP_Connector_Drafts::scheduling_allowed() ? 'schedule' : null,
+                MoxDOP_Connector_Fixes::content_allowed() ? 'post_dates' : null,
+                'post_status',
                 $cache['readable'] ? 'page_cache' : null,
                 'content_export',
             ])),

@@ -318,6 +318,48 @@ final class ExternalWriteService
         ]));
     }
 
+    /**
+     * 1.14.0 (yakup, 2026-10-12): the date of an article MoxDOP sent, in every language it went in. A draft is
+     * scheduled (WordPress publishes it then; the site's "Scheduled drafts" switch must be on); a published article
+     * gets a past date (only MoxDOP's own posts; "Content updates" on). Admin click, logged, undo writes the previous
+     * date back.
+     *
+     * @param  array<string, int>  $posts  language => WordPress post id
+     */
+    public function requestPostDate(User $user, DigitalAsset $site, Suggestion $suggestion, array $posts, CarbonImmutable $date, bool $schedule): ExternalWriteAction
+    {
+        $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        try {
+            $connection = $this->drafts->connection((int) $site->id);
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages(['write' => $exception->getMessage()]);
+        }
+        $version = (string) data_get($connection->config, 'plugin_version', '0.0.0');
+        if (version_compare($version, '1.14.0', '<')) {
+            throw ValidationException::withMessages(['write' => 'WordPress Connector '.$version.'; yazı tarihi için en az 1.14.0 gerekli. Web siteleri › eklentiyi güncelle.']);
+        }
+        if ($posts === []) {
+            throw ValidationException::withMessages(['write' => 'Bu yazının sitedeki kaydı bulunamadı.']);
+        }
+        if ($schedule && $date->lt(now()->addMinutes(10))) {
+            throw ValidationException::withMessages(['write' => 'Yayın tarihi en az 10 dakika sonrası olmalı.']);
+        }
+        if (! $schedule && $date->isFuture()) {
+            throw ValidationException::withMessages(['write' => 'Yayındaki yazıya ileri bir tarih verilemez.']);
+        }
+        if (ExternalWriteAction::query()->where('digital_asset_id', $site->id)->where('action', ExternalWriteAction::ACTION_POST_DATE)->where('suggestion_id', $suggestion->id)
+            ->whereIn('status', ['queued', 'running', 'undoing'])->exists()) {
+            throw ValidationException::withMessages(['write' => 'Bu yazının tarihi zaten değiştiriliyor.']);
+        }
+
+        return $this->queue(ExternalWriteAction::query()->create([
+            'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_POST_DATE,
+            'digital_asset_id' => $site->id, 'brand_id' => $site->brand_id, 'suggestion_id' => $suggestion->id, 'status' => 'queued',
+            'request_payload' => ['label' => (string) $suggestion->title, 'posts' => $posts, 'date' => $date->utc()->toIso8601String(), 'schedule' => $schedule],
+            'requested_by' => $user->id,
+        ]));
+    }
+
     private function assertArticleCompliant(?int $brandId, ArticleDraft $article, string $what = 'Metin'): void
     {
         try {

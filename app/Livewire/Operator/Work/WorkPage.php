@@ -38,7 +38,7 @@ final class WorkPage extends Component
     #[Url(as: 'durum')]
     public string $view = WorkDesk::VIEW_OPEN;
 
-    /** İçerik fikirleri step: yazilacak | okunacak | gonderildi. */
+    /** İçerik fikirleri step: yazilacak | okunacak | taslakta | yayinda. */
     #[Url(as: 'adim')]
     public string $step = 'yazilacak';
 

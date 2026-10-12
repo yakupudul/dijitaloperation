@@ -40,6 +40,15 @@
 - Başlığında sayı olan yazılar ("20'lik diş") artık "uydurma sayı" sayılıp düşmüyor: yazının planı ve kümesindeki sayılar (başlık, sorular, sorgular) veri sayılıyor; çeviride de kaynak yazının sayıları. Önce bu yazılar "AI çıktısı doğrulanamadı" ile hiç yazılamıyordu. Kod: `SiteEvidence::addNumbersFrom` (metin içindeki sayılar), `ContentPlanner::writeArticle`. Test: `ArticleRulesTest::test_a_number_in_the_approved_title_is_not_dropped_as_invented`.
 - Yeni yazının önerilen adresi yalnız sitenin ana dildeki sayfalarından öğreniliyor; site sayfa listesinde (300) ana dil önce. Önce opcklinik.com'da Türkçe yazı /de/ adresi alıyordu. Kod: `ContentPlanner::urlPattern`, `sitePages`. Test: `ContentTargetUrlLanguageTest`.
 
+## 2026-10-12 — İçerik akışı: havuz hep 20, yazı görseli, Taslakta / Yayında, yazı tarihi
+
+Durum: CODED + TESTED (canlıda eklenti 1.14.0 kurulmadan görsel, durum okuma ve tarih çalışmaz; doğrulanmadı).
+- Başlık onaylanıp yazdırılınca bir dakika sonra sitenin havuzu aynı motorla tamamlanır (en az 20). Kod: `TopUpContentPoolJob`, `ContentBoard::write`. Test: `ContentCoverageTest::test_a_title_approved_for_writing_brings_a_new_idea_into_the_pool_from_the_same_engine`.
+- Yazı görseli: `ArticleImagePicker` sitenin medya anlık görüntüsünden en uygun 5 görseli seçer (logo, ikon, küçük görsel hariç); okuma ekranında değiştirilir ya da "görselsiz"; taslakla `featured_media_id` olarak gider.
+- İçerik fikirleri sekmeleri: Yazılacak · Okunacak · Taslakta · Yayında. Durum `moxdop:content:post-status` (saatte bir, `/posts/status`) ile siteden; eski eklentide içerik anlık görüntüsünden. Yayında: tarih, 30 / 90 gün tık ve gösterim, "Sitede aç". Kod: `ContentPosts`, `ContentBoard`.
+- Tarih (ADR-082): "Yayın tarihi planla" (taslak, tüm diller) ve "Tarihi değiştir" (yayındaki yazı, yalnız geçmiş tarih, SEO uyarısıyla); `post_date` yazması, geri alma önceki tarihi yazar.
+- Eklenti 1.14.0: `featured_media_id`, `GET /posts/status`, `POST /posts/{id}/date` (yalnız MoxDOP'un yazıları). Test: `tests/Feature/Work/ContentFlowTest.php`.
+
 ## 2026-10-12 — İçerik fikri kartı
 
 - Gerekçesi boş bir içerik fikri artık kartta seçildiği veri satırını gösteriyor (Search Console sorgusu, küme durumu, AI sorusu). Kod: `ContentBoard::item`. Test: `ContentBoardTest::test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from`.

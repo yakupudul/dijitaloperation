@@ -1179,10 +1179,15 @@ final class ContentPlanner
             throw ValidationException::withMessages(['write' => 'Önce "Taslak hazırla".']);
         }
         $sent = array_values((array) ($action['sent_languages'] ?? []));
+        // The featured image: the one the operator picked (or "görselsiz"), else the best of the site's own media.
+        if (! array_key_exists('image', $action)) {
+            $action['image'] = app(ArticleImagePicker::class)->candidates($suggestion, $site, 1)[0] ?? null;
+        }
+        $image = ['featured_media_id' => (int) data_get($action, 'image.media_id') ?: null];
         $pending = array_filter((array) ($action['translations'] ?? []), fn ($article, $lang): bool => is_array($article) && ! in_array($lang, $sent, true), ARRAY_FILTER_USE_BOTH);
-        $drafts = array_map(fn (array $article): ArticleDraft => ArticleDraft::fromArray($article), array_values($pending));
+        $drafts = array_map(fn (array $article): ArticleDraft => ArticleDraft::fromArray($image + $article), array_values($pending));
         if (! isset($action['article_write_id'])) {
-            $source = ArticleDraft::fromArray($action['article']);
+            $source = ArticleDraft::fromArray($image + $action['article']);
             $write = app(ExternalWriteService::class)->requestArticleDrafts($user, $site, $source, $drafts);
             $action = array_merge($action, ['article_write_id' => $write->id, 'sent_languages' => [$source->language ?? self::articleLanguage($suggestion, $site), ...array_keys($pending)]]);
         } elseif ($drafts !== []) {
