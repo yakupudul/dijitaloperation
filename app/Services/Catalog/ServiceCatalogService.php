@@ -37,7 +37,8 @@ final class ServiceCatalogService
         ?User $actor = null,
         string $provenance = 'operator',
     ): array {
-        $label = trim($label);
+        // A new service never starts all-lowercase ("diş çekimi" from a query or an AI row → "Diş çekimi").
+        $label = ServiceNameQuality::capitalised(trim($label), $locale);
         $normalized = $this->normalizer->normalize($label);
         $sector = $this->nullable($sector);
 

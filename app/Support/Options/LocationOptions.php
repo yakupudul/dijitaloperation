@@ -100,7 +100,7 @@ final class LocationOptions
         for ($i = 0; $i < count($tokens); $i++) {
             for ($length = min(10, count($tokens) - $i); $length >= 1; $length--) {
                 $key = implode(' ', array_map(fn (array $token): string => self::fold($token[0]), array_slice($tokens, $i, $length)));
-                if (isset(self::$cache['expressions'][$key])) {
+                if (isset(self::$cache['expressions'][$key]) && ! self::slashGlued($text, $tokens, $i, $length)) {
                     $last = $tokens[$i + $length - 1];
                     $next = $tokens[$i + $length] ?? null;
                     if ($next && in_array(self::fold($next[0]), ['da', 'de', 'ta', 'te', 'dan', 'den', 'tan', 'ten', 'nin', 'nun', 'ya', 'ye', 'a', 'e', 'i', 'u', 's'], true)
@@ -120,6 +120,27 @@ final class LocationOptions
         }
 
         return ['text' => trim(preg_replace('/[\s,;|]+/u', ' ', $text) ?? ''), 'removed' => array_values(array_unique($removed))];
+    }
+
+    /**
+     * "CAD/CAM": a match glued with "/" to a word that is not a place is part of that word ("Cad" is Chad), never a place;
+     * "İstanbul/Kadıköy" (a place on both sides) still is.
+     *
+     * @param  list<array{0: string, 1: int}>  $tokens
+     */
+    private static function slashGlued(string $text, array $tokens, int $i, int $length): bool
+    {
+        $first = $tokens[$i];
+        $last = $tokens[$i + $length - 1];
+        $previous = $tokens[$i - 1] ?? null;
+        $next = $tokens[$i + $length] ?? null;
+        $end = $last[1] + strlen($last[0]);
+        if ($previous !== null && $previous[1] + strlen($previous[0]) === $first[1] - 1 && ($text[$first[1] - 1] ?? '') === '/'
+            && ! isset(self::$cache['expressions'][self::fold($previous[0])])) {
+            return true;
+        }
+
+        return $next !== null && $next[1] === $end + 1 && ($text[$end] ?? '') === '/' && ! isset(self::$cache['expressions'][self::fold($next[0])]);
     }
 
     /**

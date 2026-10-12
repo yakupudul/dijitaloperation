@@ -4127,3 +4127,12 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no production timing re-measured yet).
   release 609f7123 ≈ 0.96 s / 1.4 s / 0.6 s (Yorumlar / Durum / Şube sayfaları); now ≈ 0.17–0.20 s / 0.22–0.28 s /
   0.10 s with an empty cache. Production timing not re-measured yet. Tests:
   `GbpDeskTest` (topics, photo numbers, next-minute review numbers in 2 queries, one grid page), `SeoTextMatchesPhraseTest`.
+
+## 2026-10-12 — Hizmet adları sitenin ana dilinde ve düzgün (gece dil turu)
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: Avrupadent / Dentocare / OPC Klinik service lists after the 02:40 `moxdop:brands:autofill` run.
+- `ServiceNameRepair` runs inside `LanguageServices::run` (nightly autofill) before the translation-only archive; rules only, no AI, never on locked services, nothing deleted; renames / archives go to the brand activity log (`OFFERING_RENAMED`, `OFFERING_ARCHIVED` with `reason=language_duplicate`) as the automatic user.
+- Main-language page: a service (★ included) whose linked pages are all translations gets the main-language page from the WordPress inventory's Polylang/WPML link (`metadata.translations`, both directions); without one, the single main-language service page carrying its name. Foreign links stay. hreflang alternates are not stored, so they are not used.
+- Wrong-language name: no main-language page title carries the name, and a linked translated page does (or the catalog's primary name is main-language and shares no word; an English marker word on a Turkish site as last signal). A service another active one covers (same name / shared main-language page carrying its name) is archived and its unlocked main-language links move over; otherwise it takes the catalog's main-language name or its main-language page title. ★ services are only renamed.
+- Broken names: "/CAM …" repaired from a catalog name / page title containing it; all-lowercase names get a Turkish-aware capital (shared catalog name too).
+- Sources: `ServiceCatalogService::resolveOrCreate` capitalises an all-lowercase new name; `LocationOptions::strip` no longer cuts "CAD" (Chad) out of "CAD/CAM". Tested: `ServiceNameRepairTest`, `BrandAutofillTest`.
