@@ -362,7 +362,7 @@ class OverviewPage extends Component
     {
         $found = $this->peerFound($peers);
         $resource = $daily->resource($this->asset());
-        $boxes = GbpPeerProfiles::boxes($found, $this->peerPick, $peers->profile($resource?->id !== null ? (int) $resource->id : null)['categories']);
+        $boxes = GbpPeerProfiles::boxes($found, $this->peerPick, $found['own_categories'] ?? $peers->profile($resource?->id !== null ? (int) $resource->id : null)['categories']);
         if ($boxes['categories'] === [] && $boxes['services'] === '') {
             DemoState::flash('Eklenecek satır seçin.', 'error');
 

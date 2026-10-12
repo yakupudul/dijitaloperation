@@ -7,7 +7,9 @@ use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 /**
  * Kategori ve hizmetler › "Aynı sektördeki işletmelerden getir" (yakup, 2026-10-06): the categories and service names
@@ -24,11 +26,17 @@ final class GbpPeerProfiles
     public function __construct(
         private readonly GbpDesk $desk,
         private readonly GbpDailyWorkspace $daily,
+        private readonly GbpCategoryCatalog $catalog,
     ) {}
 
     /**
+     * Category names come from each profile's last collected data in the language Google answered for that profile
+     * (an English-language profile gives "Dentist", "Paediatric Dentist"), so categories are counted by Google's
+     * category id and every name is shown with Google's Turkish name of that id (yakup, 2026-10-12: English categories
+     * next to Turkish ones, one category twice). Without an answer from Google the collected names stay.
+     *
      * @return array{peers: int, brands: list<string>, categories: list<array{key: string, name: string, count: int}>,
-     *     services: list<array{key: string, name: string, category: string, count: int}>}
+     *     services: list<array{key: string, name: string, category: string, count: int}>, own_categories: list<string>}
      */
     public function collect(DigitalAsset $asset): array
     {
@@ -38,24 +46,43 @@ final class GbpPeerProfiles
         }
         $peers = $this->desk->locations()->filter(fn (DigitalAsset $l): bool => (int) $l->id !== (int) $asset->id && (int) $l->brand?->sector_id === (int) $sectorId);
         $resources = $this->daily->resourceIds([(int) $asset->id, ...$peers->pluck('id')->map(fn ($id): int => (int) $id)->all()]);
-        $own = $this->profile($resources[(int) $asset->id] ?? null);
-        $ownCategories = array_flip(array_map(fn (string $n): string => SeoText::fold($n), $own['categories']));
+        $own = $this->entries($resources[(int) $asset->id] ?? null);
+        $profiles = [];
+        foreach ($peers as $peer) {
+            $profile = $this->entries($resources[(int) $peer->id] ?? null);
+            if ($profile['categories'] !== [] || $profile['services'] !== []) {
+                $profiles[(int) $peer->id] = $profile;
+            }
+        }
+        $turkish = $this->turkish($asset, [$own, ...array_values($profiles)]);
+        $own = self::translate($own, $turkish);
+        $ownCategories = [];
+        foreach ($own['categories'] as $category) {
+            $ownCategories[self::categoryKey($category)] = true;
+            $ownCategories[SeoText::fold($category['name'])] = true;
+        }
         $ownServices = array_flip(array_map(fn (array $s): string => SeoText::fold($s['name']), $own['services']));
 
         $categories = [];
         $services = [];
         $used = [];
         foreach ($peers as $peer) {
-            $profile = $this->profile($resources[(int) $peer->id] ?? null);
-            if ($profile['categories'] === [] && $profile['services'] === []) {
+            if (! isset($profiles[(int) $peer->id])) {
                 continue;
             }
+            $profile = self::translate($profiles[(int) $peer->id], $turkish);
             $used[(int) $peer->id] = (string) $peer->brand?->name;
-            foreach (array_unique(array_map(fn (string $n): string => SeoText::fold($n), $profile['categories'])) as $i => $folded) {
-                if (! isset($ownCategories[$folded])) {
-                    $categories[$folded] ??= ['key' => 'c'.substr(md5($folded), 0, 10), 'name' => $profile['categories'][$i], 'count' => 0];
-                    $categories[$folded]['count']++;
+            $seen = [];
+            foreach ($profile['categories'] as $category) {
+                $folded = SeoText::fold($category['name']);
+                $key = self::categoryKey($category);
+                if (isset($seen[$key]) || isset($seen[$folded]) || isset($ownCategories[$key]) || isset($ownCategories[$folded])) {
+                    continue;
                 }
+                $seen[$key] = $seen[$folded] = true;
+                // One row per Turkish name: two ids Google names alike are one category to the operator.
+                $categories[$folded] ??= ['key' => 'c'.substr(md5($folded), 0, 10), 'name' => $category['name'], 'count' => 0];
+                $categories[$folded]['count']++;
             }
             $seen = [];
             foreach ($profile['services'] as $service) {
@@ -76,7 +103,7 @@ final class GbpPeerProfiles
         usort($services, $order);
 
         return ['peers' => count($used), 'brands' => array_values(array_unique(array_filter($used))), 'categories' => array_slice($categories, 0, self::CATEGORIES_MAX),
-            'services' => array_slice($services, 0, self::SERVICES_MAX)];
+            'services' => array_slice($services, 0, self::SERVICES_MAX), 'own_categories' => array_values(array_unique(array_column($own['categories'], 'name')))];
     }
 
     /**
@@ -116,6 +143,19 @@ final class GbpPeerProfiles
      */
     public function profile(?int $resourceId): array
     {
+        $entries = $this->entries($resourceId);
+
+        return ['categories' => array_values(array_unique(array_column($entries['categories'], 'name'))),
+            'services' => array_map(fn (array $s): array => ['name' => $s['name'], 'category' => $s['category']], $entries['services'])];
+    }
+
+    /**
+     * One profile's last collected categories and services with Google's ids ("gcid:…", "job_type_id:…"; '' when unknown).
+     *
+     * @return array{categories: list<array{id: string, name: string}>, services: list<array{name: string, category: string, category_id: string, type_id: string}>}
+     */
+    private function entries(?int $resourceId): array
+    {
         if ($resourceId === null) {
             return ['categories' => [], 'services' => []];
         }
@@ -124,15 +164,18 @@ final class GbpPeerProfiles
         $categories = [];
         if ($location !== null) {
             if (trim((string) $location->primary_category) !== '' && ! str_starts_with((string) $location->primary_category, 'categories/')) {
-                $categories[] = trim((string) $location->primary_category);
+                $categories[] = ['id' => '', 'name' => trim((string) $location->primary_category)];
             }
             $decoded = GoogleAdsAdvisorInputCollector::decode($location->additional_categories);
             $list = array_is_list($decoded) ? $decoded : array_merge(isset($decoded['primaryCategory']) ? [$decoded['primaryCategory']] : [], (array) ($decoded['additionalCategories'] ?? []));
             foreach ($list as $category) {
                 $name = trim((string) data_get($category, 'displayName', ''));
+                $id = self::bareId((string) data_get($category, 'name', ''));
                 if ($name !== '') {
-                    $categories[] = $name;
-                    $byId[(string) preg_replace('~^categories/~', '', (string) data_get($category, 'name', ''))] = $name;
+                    // The primary category column holds the same name as the decoded primary category: keep one, with its id.
+                    $categories = array_values(array_filter($categories, fn (array $c): bool => $c['id'] !== '' || SeoText::fold($c['name']) !== SeoText::fold($name)));
+                    $categories[] = ['id' => $id, 'name' => $name];
+                    $byId[$id] = $name;
                 }
             }
         }
@@ -142,14 +185,85 @@ final class GbpPeerProfiles
             if (! is_array($item)) {
                 continue;
             }
-            $name = trim((string) (data_get($item, 'freeFormServiceItem.label.displayName')
-                ?? str_replace(['job_type_id:', '_'], ['', ' '], (string) data_get($item, 'structuredServiceItem.serviceTypeId', ''))));
-            $categoryId = (string) preg_replace('~^categories/~', '', (string) (data_get($item, 'freeFormServiceItem.category') ?? data_get($item, 'structuredServiceItem.category', '')));
+            $typeId = (string) data_get($item, 'structuredServiceItem.serviceTypeId', '');
+            $name = trim((string) (data_get($item, 'freeFormServiceItem.label.displayName') ?? str_replace(['job_type_id:', '_'], ['', ' '], $typeId)));
+            $categoryId = self::bareId((string) (data_get($item, 'freeFormServiceItem.category') ?? data_get($item, 'structuredServiceItem.category', '')));
             if ($name !== '') {
-                $services[] = ['name' => mb_substr($name, 0, GbpProfilePlanner::NAME_MAX), 'category' => $byId[$categoryId] ?? ''];
+                $services[] = ['name' => mb_substr($name, 0, GbpProfilePlanner::NAME_MAX), 'category' => $byId[$categoryId] ?? '', 'category_id' => $categoryId,
+                    'type_id' => data_get($item, 'freeFormServiceItem') === null ? $typeId : ''];
             }
         }
 
-        return ['categories' => array_values(array_unique($categories)), 'services' => $services];
+        return ['categories' => $categories, 'services' => $services];
+    }
+
+    /**
+     * Google's Turkish names of every category the profiles carry, read with this profile's Google connection.
+     *
+     * @param  list<array{categories: list<array{id: string, name: string}>, services: list<array{category_id: string}>}>  $profiles
+     * @return array<string, array{name: string, service_types: array<string, string>}>
+     */
+    private function turkish(DigitalAsset $asset, array $profiles): array
+    {
+        $ids = [];
+        foreach ($profiles as $profile) {
+            foreach ($profile['categories'] as $category) {
+                $ids[] = $category['id'];
+            }
+            foreach ($profile['services'] as $service) {
+                $ids[] = $service['category_id'];
+            }
+        }
+        $ids = array_values(array_unique(array_filter($ids)));
+        if ($ids === []) {
+            return [];
+        }
+        try {
+            [$integration] = $this->catalog->location((int) $asset->id);
+
+            return $this->catalog->turkishNames($integration, $ids);
+        } catch (Throwable $exception) {
+            Log::info('GBP peer categories kept as collected (no Turkish names)', ['asset_id' => $asset->id, 'error' => mb_substr($exception->getMessage(), 0, 200)]);
+
+            return [];
+        }
+    }
+
+    /**
+     * @param  array{categories: list<array{id: string, name: string}>, services: list<array{name: string, category: string, category_id: string, type_id: string}>}  $profile
+     * @param  array<string, array{name: string, service_types: array<string, string>}>  $turkish
+     * @return array{categories: list<array{id: string, name: string}>, services: list<array{name: string, category: string, category_id: string, type_id: string}>}
+     */
+    private static function translate(array $profile, array $turkish): array
+    {
+        foreach ($profile['categories'] as $i => $category) {
+            $profile['categories'][$i]['name'] = $turkish[$category['id']]['name'] ?? $category['name'];
+        }
+        foreach ($profile['services'] as $i => $service) {
+            $known = $turkish[$service['category_id']] ?? null;
+            if ($known === null && $service['type_id'] !== '') {
+                // A predefined service carries no category of its own: the category that offers its type is its heading.
+                $known = collect($turkish)->first(fn (array $c): bool => isset($c['service_types'][$service['type_id']]));
+            }
+            if ($known !== null) {
+                $profile['services'][$i]['category'] = $known['name'];
+                if ($service['type_id'] !== '' && isset($known['service_types'][$service['type_id']])) {
+                    $profile['services'][$i]['name'] = $known['service_types'][$service['type_id']];
+                }
+            }
+        }
+
+        return $profile;
+    }
+
+    /** @param  array{id: string, name: string}  $category */
+    private static function categoryKey(array $category): string
+    {
+        return $category['id'] !== '' ? 'id:'.$category['id'] : 'name:'.SeoText::fold($category['name']);
+    }
+
+    private static function bareId(string $id): string
+    {
+        return (string) preg_replace('~^categories/~', '', trim($id));
     }
 }
