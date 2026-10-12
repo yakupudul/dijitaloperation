@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Hata merkezi: sunucu belleği, disk ve yazılım sağlığı
+
+- Ayarlar › Sistem sayfasının en üstünde iki kart var. **Sunucu** kartı bellek (RAM), takas alanı ve diskleri GB olarak gösteriyor: dolu, boş, toplam ve yüzde, renkli çubukla. %80'de sarı, %90'da kırmızı olur. Aynı kartta işlemci yükü (çekirdek sayısına göre) ve sunucunun ne zamandır açık olduğu da var.
+- **Yazılım sağlığı** kartı şunları tek listede gösteriyor: canlı sürüm, otomatik deploy durumu, son 24 saatin uygulama hataları (bu sürümde çıkanlar kırmızı), başarısız arka plan işleri, bekleyen migration, zamanlayıcı, işçiler, hata ayıklama modu, ayar ve adres önbelleği, veritabanı boyutu ve Redis belleği.
+- Veriler `ServerStatusReader` ile okunuyor; `/proc/meminfo`, disk alanı ve veritabanı yalnızca okunuyor, sonuç 1 dakika önbellekte tutuluyor. MCP `system-health` aracı aynı veriyi `server` ve `software` alanlarında veriyor.
+- Neden (yakup, 2026-10-12): "sistemimizin yazılım sağlığı da gösterilsin. Sunucudaki bellek durumu da görünsün, kaç GB dolu boş." Test: `ServerStatusReaderTest`, `SystemHealthAndCostsTest`, `McpWorkspaceTest`.
+
 ## 2026-10-12 — Meta reklam sayfası: net görsel, gönderi reklamlarının formu
 
 - Reklam görselleri (`/adcreatives`) artık 1080 px küçük resimle toplanıyor. Önceden Meta varsayılan 64×64 küçük resim veriyordu; `image_url` olmayan gönderi ve video reklamlarında görsel bulanık görünüyordu.
