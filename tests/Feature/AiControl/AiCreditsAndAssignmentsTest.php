@@ -12,7 +12,9 @@ use App\Services\Ai\AiCredits;
 use App\Services\Ai\AiPricing;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
+use App\Services\Site\SiteOperations;
 use App\Support\Ai\AiRouteKeys;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -82,6 +84,18 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
             ->forceFill(['ai_monthly_budget_usd' => 1000, 'ai_daily_auto_budget_usd' => 0])->save();
         app(AiCredits::class)->topUp('anthropic', 50, null, $this->admin);
         $this->assertFalse($queue->delegated('site.cluster_match'), 'credit topped up: back on the API');
+    }
+
+    public function test_the_waiting_line_says_why_the_claude_api_stopped(): void
+    {
+        $this->assertNull(app(AiBudget::class)->claudeApiStopReason());
+        app(AiCredits::class)->topUp('anthropic', 5, null, $this->admin);
+        $this->usage(5.00);
+        Cache::flush();
+
+        $this->assertStringContainsString('kredisi bitti', (string) app(AiBudget::class)->claudeApiStopReason());
+        $this->assertSame('Claude API kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).', app(AiBudget::class)->moneyState()['claude_api_stopped']);
+        $this->assertStringContainsString('Claude API durdu: Claude API kredisi bitti', (string) SiteOperations::line(['status' => 'queued']));
     }
 
     public function test_recommended_plan_puts_bulk_work_on_haiku_writing_on_sonnet_and_keeps_the_query_autopilot(): void

@@ -22,6 +22,11 @@
 - Claude bir markanın Meta reklamlarını sorulduğu anda kayıtlı veriden okur (canlı Meta çağrısı yok): ay, kampanya, reklam seti, reklam, ülke, bölge, kampanya × ülke, yaş/cinsiyet, yerleşim, cihaz, saat kırılımları; form, mesaj ve satın alma ayrı ayrı ve her birinin maliyeti (toplanmaz); reklam seti hedeflemeleri (ülke, şehir, yaş, dil, kitle, ilgi) ve reklam durumları. Kaynak: `meta_geo_results_daily`, `meta_breakdown_results_daily`, `meta_adset_targeting_snapshot`, `meta_ad_snapshot`. Kod: `App\Mcp\Tools\MetaPerformance`. Test: `McpMetaPerformanceTest` (sqlite + PostgreSQL).
 - Neden (yakup, 2026-10-12): "sana sorduğumda verileri hemen analiz edebilmen gerek."
 
+## 2026-10-12 — Claude API durunca görünür sebep; yazı adresi ana dilden
+
+- "Onayla ve yazdır" sonrası iş MCP kuyruğuna düştüğünde (Claude API kredisi / günlük tavan / aylık bütçe durdurdu) kart artık sebebini de yazıyor: "Claude bekleniyor (MCP)… Claude API durdu: <sebep>". MCP `system-health` artık `ai_money` (günlük harcama/tavan, aylık, kredi) ve `ai_tasks_waiting` veriyor. Kod: `AiBudget::claudeApiStopReason`, `moneyState`, `SiteOperations::line`. Test: `AiCreditsAndAssignmentsTest::test_the_waiting_line_says_why_the_claude_api_stopped`.
+- Yeni yazının önerilen adresi yalnız sitenin ana dildeki sayfalarından öğreniliyor; site sayfa listesinde (300) ana dil önce. Önce opcklinik.com'da Türkçe yazı /de/ adresi alıyordu. Kod: `ContentPlanner::urlPattern`, `sitePages`. Test: `ContentTargetUrlLanguageTest`.
+
 ## 2026-10-12 — İçerik fikri kartı
 
 - Gerekçesi boş bir içerik fikri artık kartta seçildiği veri satırını gösteriyor (Search Console sorgusu, küme durumu, AI sorusu). Kod: `ContentBoard::item`. Test: `ContentBoardTest::test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from`.

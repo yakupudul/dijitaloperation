@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Models\AiTask;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
+use App\Services\Ai\AiBudget;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Operations\AutoDeployStatus;
@@ -65,6 +66,8 @@ class SystemHealth extends Tool
             ->latest('id')->limit(20)->get(['id', 'operation', 'subject', 'error', 'updated_at'])
             ->map(fn (AiTask $task): array => ['id' => $task->id, 'operation' => $task->operation, 'subject' => $task->subject, 'reason' => $task->error])->all();
         $out['failed_writes'] = $this->failedWrites();
+        $out['ai_money'] = app(AiBudget::class)->moneyState();
+        $out['ai_tasks_waiting'] = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count();
 
         return Response::json($out);
     }

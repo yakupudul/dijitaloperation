@@ -203,6 +203,33 @@ final class AiBudget
         return max($calls, $records, (float) OpenAiCostAudit::todayActual());
     }
 
+    /**
+     * Why paid Claude API calls are stopped right now (credit, day's ceiling, month's budget), null when they run. While
+     * it is set, every operation given to the Claude API waits in the MCP queue instead (AiTaskQueue::fallsBackToClaude).
+     */
+    public function claudeApiStopReason(): ?string
+    {
+        if (app(AiCredits::class)->exhausted(AiProviderCatalog::ANTHROPIC)) {
+            return 'Claude API kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).';
+        }
+        if ($this->dailyExhausted()) {
+            return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f); yarın ya da tavan yükseltilince yeniden çalışır (Ayarlar › AI işlemleri).', $this->dailySpend(), $this->dailyBudget());
+        }
+        if ($this->isExhausted()) {
+            return sprintf('Aylık AI bütçesi doldu ($%.2f / $%.2f).', $this->monthSpend(), $this->monthlyBudget());
+        }
+
+        return null;
+    }
+
+    /** @return array{claude_api_stopped: ?string, daily_spend: float, daily_ceiling: float, month_spend: float, month_budget: float, credits: list<array<string, mixed>>} */
+    public function moneyState(): array
+    {
+        return ['claude_api_stopped' => $this->claudeApiStopReason(), 'daily_spend' => round($this->dailySpend(), 2), 'daily_ceiling' => round($this->dailyBudget(), 2),
+            'month_spend' => round($this->monthSpend(), 2), 'month_budget' => round($this->monthlyBudget(), 2),
+            'credits' => array_map(fn (array $c): array => array_intersect_key($c, array_flip(['label', 'tracked', 'loaded', 'spent', 'remaining', 'exhausted'])), app(AiCredits::class)->all())];
+    }
+
     public function dailyExhausted(): bool
     {
         $budget = $this->dailyBudget();
