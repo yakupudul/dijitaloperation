@@ -23,6 +23,7 @@ use App\Support\Roles;
 use Carbon\Carbon;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
@@ -185,6 +186,59 @@ final class MetaGeoResultsTest extends TestCase
             Exceptions::assertReported(fn (MetaException $reported): bool => $reported === $exception);
         }
         Exceptions::assertReportedCount(2);
+    }
+
+    public function test_too_much_data_halves_the_page_then_the_date_window_and_never_repeats_the_same_request(): void
+    {
+        $reduce = ['error' => ['code' => 1, 'message' => "Please reduce the amount of data you're asking for, then retry your request", 'type' => 'OAuthException']];
+        $requests = [];
+        Http::fake(function (Request $request) use ($reduce, &$requests) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $range = json_decode((string) ($query['time_range'] ?? '{}'), true);
+            $requests[] = [(string) ($query['breakdowns'] ?? ''), (int) ($query['limit'] ?? 0), $range['since'] ?? '', $range['until'] ?? '', (string) ($query['after'] ?? '')];
+            $limit = (int) ($query['limit'] ?? 0);
+            // Too heavy above 125 rows a page; the country breakdown only for one day at a time; the second device page above 60.
+            if ($limit > 125 || ($query['breakdowns'] === 'country' && ($range['since'] ?? '') !== ($range['until'] ?? ''))
+                || (($query['after'] ?? '') === 'p2' && $limit > 60)) {
+                return Http::response($reduce, 500);
+            }
+            $row = ['campaign_id' => 'c1', 'adset_id' => 'as1', 'ad_id' => 'ad1', 'ad_name' => 'Implant', 'spend' => '10', 'impressions' => '100', 'clicks' => '1', 'date_start' => $range['since'] ?? '2026-09-20', 'account_currency' => 'TRY'];
+            if ($query['breakdowns'] === 'device_platform' && ($query['after'] ?? '') === '') {
+                return Http::response(['data' => [$row + ['device_platform' => 'mobile_app']], 'paging' => ['next' => 'https://graph.facebook.com/v26.0/act_777/insights?'.http_build_query(array_merge($query, ['after' => 'p2']))]]);
+            }
+
+            return Http::response(['data' => [$row + ['country' => 'TR', 'region' => 'Istanbul', 'device_platform' => 'desktop']]]);
+        });
+
+        app(MetaGeoResults::class)->collect($this->asset, 3);
+
+        $keys = array_map(static fn (array $request): string => implode('|', $request), $requests);
+        $this->assertSame(array_values(array_unique($keys)), $keys, 'an oversized request is never sent again unchanged');
+        $this->assertSame([500, 250, 125], array_values(array_unique(array_column(array_filter($requests, static fn (array $r): bool => $r[0] === 'region'), 1))), 'the page size halves');
+        $countryDays = array_values(array_filter($requests, static fn (array $r): bool => $r[0] === 'country' && $r[2] === $r[3]));
+        $this->assertSame(['2026-09-20', '2026-09-21', '2026-09-22'], array_column($countryDays, 2), 'the date window halves down to single days');
+        $this->assertContains(['device_platform', 62, '2026-09-20', '2026-09-22', 'p2'], $requests, 'a next page keeps its cursor with a smaller page');
+        $this->assertSame(3, DB::table('meta_geo_results_daily')->where('level', 'country')->count());
+        $this->assertSame(2, DB::table('meta_breakdown_results_daily')->where('dimension', 'device')->count());
+    }
+
+    public function test_too_much_data_at_the_smallest_request_fails_without_a_retry_loop(): void
+    {
+        Exceptions::fake();
+        $count = 0;
+        Http::fake(function () use (&$count) {
+            $count++;
+
+            return Http::response(['error' => ['code' => 1, 'message' => "Please reduce the amount of data you're asking for, then retry your request"]], 500);
+        });
+
+        $job = $this->runGeoJob();
+
+        $job->assertNotReleased();
+        $this->assertSame('failed', Cache::get(CollectMetaGeoResultsJob::stateKey($this->asset->id))['state']);
+        // 30 days: 500 → 250 → 125 → 62 → 31 → 15 on the first 7-day slice, then its halves at the smallest page down to one day.
+        $this->assertLessThan(40, $count, 'bounded: a smaller request each time, then it stops');
+        Exceptions::assertReported(fn (MetaException $e): bool => $e->kind === MetaException::KIND_DATA_TOO_LARGE);
     }
 
     private function runGeoJob(int $attempts = 1): CollectMetaGeoResultsJob

@@ -13,10 +13,12 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\Page;
 use App\Models\User;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandFacts;
 use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Website\Pages\PageStore;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,7 +73,7 @@ final class BrandFactsTest extends TestCase
         $this->assertSame('Bekleme (2 yorum)', $fields['objections']['items'][0]);
         $this->assertSame('Ağrısız tedavi (3 yorum)', $fields['praise']['items'][0]);
         $this->assertStringContainsString('İşletme Profili yorumları', $fields['praise']['source']);
-        $this->assertSame(['Form gönderimi'], $fields['conversions']['items']);
+        $this->assertSame(['Form gönderimi (GA4)'], $fields['conversions']['items']);
         $this->assertSame([], $fields['seasonality']['items']);
         $this->assertSame('Search Console bağlı değil.', $fields['seasonality']['source'], 'an empty field says why');
 
@@ -121,6 +123,32 @@ final class BrandFactsTest extends TestCase
 
         app()->call([new RefreshBrandFilesJob($this->brand->id), 'handle']);
         $this->assertSame(['İmplant Tedavisi'], app(BrandFacts::class)->card($this->brand)['fields']['services']['items'], 'the other tabs now see the service');
+    }
+
+    public function test_site_languages_come_from_operational_sites_and_say_how_many_pages_were_read(): void
+    {
+        $this->assertSame('Sitenin sayfaları henüz okunmadı.', app(BrandFacts::class)->build($this->brand)['fields']['languages']['source']);
+        $live = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'name' => 'panorama.com.tr']);
+        $old = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'name' => 'eski-panorama.com', 'status' => 'archived']);
+        $this->page($live, '/a/', null);
+        $this->page($live, '/b/', null);
+
+        $field = app(BrandFacts::class)->build($this->brand)['fields']['languages'];
+        $this->assertSame([], $field['items']);
+        $this->assertSame('2 sayfa okundu; 2 sayfada dil etiketi (<html lang>) yok ve metinden de anlaşılamadı.', $field['source']);
+
+        $this->page($live, '/c/', 'tr');
+        $this->page($old, '/de/', 'de');
+        $field = app(BrandFacts::class)->build($this->brand)['fields']['languages'];
+        $this->assertSame(['TR · 1 sayfa (ana dil) · panorama.com.tr'], $field['items'], 'an archived site is not the brand\'s');
+        $this->assertStringContainsString('3 sayfa okundu; 2 sayfada dil etiketi', $field['source']);
+    }
+
+    private function page(DigitalAsset $site, string $path, ?string $language): void
+    {
+        $url = 'https://'.$site->name.$path;
+        Page::query()->create(['website_asset_id' => $site->id, 'url' => $url, 'url_hash' => PageStore::urlHash($url), 'path' => $path, 'title' => $path,
+            'language' => $language, 'is_indexable' => true, 'content_hash' => hash('sha256', $url)]);
     }
 
     private function reviews(array $reviews): void

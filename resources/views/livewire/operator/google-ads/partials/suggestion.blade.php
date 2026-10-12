@@ -11,8 +11,8 @@
         <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $s->title }}@if ($a['locked'] ?? false) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">Düzenlendi</span>@endif</p>
             <p class="text-sm text-gray-600 dark:text-gray-300">{{ $s->reason }}</p>
-            @if ($s->action_type === 'ads_check' && filled($a['todo'] ?? null))
-                <p class="mt-0.5 text-xs text-gray-500">Yapılacak: {{ $a['todo'] }}</p>
+            @if (in_array($s->action_type, ['ads_check', 'ads_advice'], true) && filled($a['todo'] ?? null))
+                <p class="mt-0.5 text-xs text-gray-500">@if (filled($a['impact'] ?? null)){{ $a['impact'] }} · @endif Yapılacak (Google Ads'te elle): {{ $a['todo'] }}</p>
             @elseif ($s->action_type === 'ads_negative')
                 <p class="mt-0.5 text-xs text-gray-500">{{ $matchLabel((string) $a['match_type']) }} eşleme · {{ $scopeLabel($a) }} · {{ $money($a['cost'] ?? null) }} {{ $cur }}
                     · Engelleyebileceği faydalı sorgu: {{ ($a['blocks'] ?? []) === [] ? 'yok' : implode(', ', array_slice($a['blocks'], 0, 5)) }}</p>

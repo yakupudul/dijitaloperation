@@ -119,11 +119,22 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
             'conversion_action_meta' => $this->coreGaql->conversionActionMeta(),
             'campaign_languages' => $this->coreGaql->campaignLanguages(),
         };
-        $fetched = $this->fetchPaged($scope, $query);
+        // A large account's structure has more pages than one tick may read: each tick writes its pages and the next
+        // one resumes from the saved page token (bounded memory, every page read once) instead of stopping the account.
+        $resumeToken = is_string($context->checkpoint['page_token'] ?? null) && $context->checkpoint['page_token'] !== ''
+            ? (string) $context->checkpoint['page_token'] : null;
+        $pageOffset = $resumeToken === null ? 0 : max(0, (int) ($context->checkpoint['page_offset'] ?? 0));
+        $fetched = $this->fetchPageBatch($scope, $query, $resumeToken);
+        if ($fetched instanceof DatasetExecutionResult && $resumeToken !== null && $this->isPageTokenRejection($fetched)) {
+            // An expired / invalid saved token: the step starts again from its first page.
+            $pageOffset = 0;
+            $fetched = $this->fetchPageBatch($scope, $query, null);
+        }
         if ($fetched instanceof DatasetExecutionResult) {
             return $fetched;
         }
-        [$rows, $requestId] = $fetched;
+        [$rows, $requestId, $nextPageToken, $pagesRead] = $fetched;
+        $part = $pageOffset === 0 ? $step : $step.':page='.$pageOffset;
         $customer = (string) $scope['customer_id'];
         $timezone = (string) ($scope['time_zone'] ?? 'UTC');
         $resourceId = (int) $scope['resource']->id;
@@ -131,28 +142,35 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
 
         if ($step === 'customer_meta') {
             $records = $this->coreNormalizer->normalizeAccountSnapshot($customer, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_account_snapshot', $step, $query, $rows, $records, $requestId);
+            $written += $this->write($context, $scope, 'google_ads_account_snapshot', $part, $query, $rows, $records, $requestId);
         } elseif ($step === 'campaign_snapshot') {
             $normalized = $this->coreNormalizer->normalizeCampaignSnapshots($customer, $timezone, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_campaign_snapshot', $step, $query, $rows, $normalized['campaigns'], $requestId);
-            $written += $this->write($context, $scope, 'google_ads_campaign_budget_snapshot', 'budget_snapshot', $query, [], $normalized['budgets'], $requestId);
+            $written += $this->write($context, $scope, 'google_ads_campaign_snapshot', $part, $query, $rows, $normalized['campaigns'], $requestId);
+            $written += $this->write($context, $scope, 'google_ads_campaign_budget_snapshot', $pageOffset === 0 ? 'budget_snapshot' : 'budget_snapshot:page='.$pageOffset, $query, [], $normalized['budgets'], $requestId);
         } elseif ($step === 'ad_group_snapshot') {
             $records = $this->coreNormalizer->normalizeAdGroupSnapshots($customer, $timezone, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_ad_group_snapshot', $step, $query, $rows, $records, $requestId);
+            $written += $this->write($context, $scope, 'google_ads_ad_group_snapshot', $part, $query, $rows, $records, $requestId);
         } elseif ($step === 'ad_snapshot') {
             $records = $this->coreNormalizer->normalizeAdSnapshots($customer, $timezone, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_ad_snapshot', $step, $query, $rows, $records, $requestId);
+            $written += $this->write($context, $scope, 'google_ads_ad_snapshot', $part, $query, $rows, $records, $requestId);
         } elseif ($step === 'keyword_snapshot') {
             $records = $this->coreNormalizer->normalizeKeywordSnapshots($customer, $timezone, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_keyword_snapshot', $step, $query, $rows, $records, $requestId);
+            $written += $this->write($context, $scope, 'google_ads_keyword_snapshot', $part, $query, $rows, $records, $requestId);
         } elseif ($step === 'asset_coverage') {
             $records = $this->coreNormalizer->normalizeAssetCoverage($customer, $timezone, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_asset_coverage_snapshot', $step, $query, $rows, $records, $requestId);
+            $written += $this->write($context, $scope, 'google_ads_asset_coverage_snapshot', $part, $query, $rows, $records, $requestId);
         } elseif ($step === 'campaign_languages') {
-            $written += GoogleAdsCampaignLanguages::store($resourceId, $customer, $rows);
+            $written += GoogleAdsCampaignLanguages::store($resourceId, $customer, $rows, reset: $pageOffset === 0);
         } else {
             $records = $this->coreNormalizer->normalizeConversionActionSnapshots($customer, $timezone, $rows, null, $resourceId);
-            $written += $this->write($context, $scope, 'google_ads_conversion_action_snapshot', $step, $query, $rows, $records, $requestId);
+            $written += $this->write($context, $scope, 'google_ads_conversion_action_snapshot', $part, $query, $rows, $records, $requestId);
+        }
+
+        if ($nextPageToken !== null) {
+            return $this->continuing($index, count($steps), [
+                'step_index' => $index, 'last_step' => $step, 'page_token' => $nextPageToken,
+                'page_offset' => $pageOffset + $pagesRead, 'collection_scope' => 'provider_resource_first',
+            ], count($rows), $written);
         }
 
         $next = $index + 1;
@@ -465,6 +483,47 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
         }
 
         return [$rows, $requestId];
+    }
+
+    /**
+     * At most max_search_pages_per_tick Search pages from $pageToken on; the token of the page after them (null when
+     * the query is read to its end) lets the next tick go on where this one stopped.
+     *
+     * @param  array<string,mixed>  $scope
+     * @return array{0:list<array<string,mixed>>,1:?string,2:?string,3:int}|DatasetExecutionResult [rows, request id, next page token, pages read]
+     */
+    private function fetchPageBatch(array $scope, string $query, ?string $pageToken): array|DatasetExecutionResult
+    {
+        $rows = [];
+        $requestId = null;
+        $pages = 0;
+        $maxPages = max(1, (int) config('moxdop-google-ads-collector.max_search_pages_per_tick', 20));
+
+        do {
+            $response = $this->client->search($scope['integration'], (string) $scope['customer_id'], $query, (string) $scope['login_customer_id'], $pageToken);
+            if (! $response->successful()) {
+                return $this->errors->fromHttpResponse($response);
+            }
+            $json = $response->json();
+            if (! is_array($json)) {
+                return DatasetExecutionResult::failed(CollectionErrorCategory::Unknown, 'Google Ads Search returned non-JSON body.', 'INVALID_RESPONSE');
+            }
+            $requestId = isset($json['requestId']) ? (string) $json['requestId'] : $requestId;
+            foreach ($json['results'] ?? [] as $row) {
+                if (is_array($row)) {
+                    $rows[] = $row;
+                }
+            }
+            $pageToken = isset($json['nextPageToken']) && is_string($json['nextPageToken']) && $json['nextPageToken'] !== '' ? $json['nextPageToken'] : null;
+            $pages++;
+        } while ($pageToken !== null && $pages < $maxPages);
+
+        return [$rows, $requestId, $pageToken, $pages];
+    }
+
+    private function isPageTokenRejection(DatasetExecutionResult $result): bool
+    {
+        return str_contains(strtoupper((string) $result->errorMessage.' '.(string) $result->errorCode), 'PAGE_TOKEN');
     }
 
     /** @param array<string,mixed> $scope @return array{0:list<array<string,mixed>>,1:?string}|DatasetExecutionResult */

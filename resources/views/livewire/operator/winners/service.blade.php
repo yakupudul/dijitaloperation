@@ -139,14 +139,17 @@
             </div>
         </div>
 
-        <section class="{{ $panel }} p-5" data-testid="winner-rules">
-            <h2 class="font-semibold text-gray-900 dark:text-white">Adil yarış kuralları</h2>
+        <details class="{{ $panel }} group p-5" data-testid="winner-rules">
+            <summary class="flex cursor-pointer list-none items-center gap-2 font-semibold text-gray-900 dark:text-white">
+                <span class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-600" aria-hidden="true">i</span>
+                Adil yarış kuralları <span class="text-xs font-normal text-gray-500 group-open:hidden">· göster</span>
+            </summary>
             <ol class="mt-2 grid gap-2 text-sm text-gray-600 md:grid-cols-2 dark:text-gray-400">
                 <li><span class="mr-1 font-semibold text-[#a8842f]">1</span> Reklamda sıralamaya girmek için 30 günde {{ number_format(\App\Services\Ads\Winners::MIN_SPEND, 0, ',', '.') }} TL harcama ve {{ \App\Services\Ads\Winners::MIN_RESULTS }} sonuç gerekir (TRY hesaplar).</li>
                 <li><span class="mr-1 font-semibold text-[#a8842f]">2</span> Yalnızca aynı şehirdeki markalar ve aynı sonuç türü karşılaştırılır. Reklam sayıları kişilerin bulunduğu şehre (Google Ads coğrafya raporu) ya da kampanya adındaki şehre, web sayıları sorgudaki şube şehrine yazılır.</li>
                 <li><span class="mr-1 font-semibold text-[#a8842f]">3</span> Google Ads’te marka adını içeren anahtar kelimeler sayılmaz.</li>
                 <li><span class="mr-1 font-semibold text-[#a8842f]">4</span> Web sitesi sırası hizmetin küme sorgularının ortalama sırasıdır; yarışmak için en az {{ \App\Services\Ads\Winners::WEB_MIN_IMPRESSIONS }} gösterim, ilk sayfa (ortalama sıra en çok {{ (int) \App\Services\Ads\Winners::WEB_MAX_POSITION }}) ve tık gerekir; İşletme Profili en az {{ \App\Services\Ads\Winners::GBP_MIN_REVIEWS }} yorumla ve hizmet profilde listeliyse yarışır.</li>
             </ol>
-        </section>
+        </details>
     @endif
 </div>

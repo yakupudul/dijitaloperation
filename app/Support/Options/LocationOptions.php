@@ -123,6 +123,79 @@ final class LocationOptions
     }
 
     /**
+     * strip() for SERVICE names (queries keep strip(): clusters stay location-free): a place goes only at the start
+     * or the end, with its connector ("Ankara'da Saç Ekimi", "Saç Ekimi - Ankara", "Hair Transplant in Istanbul"),
+     * never inside the phrase. A place at the start without a connector goes only when two words stay
+     * ("Ankara Diş Hekimi" → "Diş Hekimi"; "Yumurtalık Kisti", "Araç Eskici" stay whole). A place glued to other
+     * characters ("CAD/CAM") is never one.
+     *
+     * @return array{text: string, removed: list<string>}
+     */
+    public static function stripServiceName(string $name): array
+    {
+        self::expressions();
+        $words = preg_split('/\s+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $removed = [];
+        $suffix = "(?:['’-]?(?:da|de|ta|te|dan|den|tan|ten|daki|deki|taki|teki))";
+        // Start: "Ankara'da …", "Ankara …", "İstanbul Kadıköy'de …"
+        for ($length = min(4, count($words) - 1); $length >= 1; $length--) {
+            $head = array_slice($words, 0, $length);
+            $last = (string) array_pop($head);
+            if (preg_match('/^([\p{L}\p{M}]+)('.$suffix.')?[,:]?$/u', $last, $m) !== 1 || array_filter($head, fn (string $w): bool => preg_match('/^[\p{L}\p{M}]+$/u', $w) !== 1) !== []) {
+                continue;
+            }
+            $key = self::fold(implode(' ', array_merge($head, [$m[1]])));
+            $connector = ($m[2] ?? '') !== '' || str_ends_with($last, ',') || str_ends_with($last, ':');
+            if (isset(self::$cache['expressions'][$key]) && ($connector || count($words) - $length >= 2)) {
+                $removed[] = self::$cache['expressions'][$key];
+                $words = array_slice($words, $length);
+                break;
+            }
+        }
+        // End: "… Ankara", "… - Ankara", "… in Istanbul", "… Ankara'da", "… İstanbul Kadıköy" (two places in a row)
+        for ($round = 0; $round < 2; $round++) {
+            $before = count($words);
+            $words = self::stripEnd($words, $suffix, $removed);
+            if (count($words) === $before) {
+                break;
+            }
+        }
+
+        return ['text' => trim(implode(' ', $words), " \t-–—|,:/"), 'removed' => array_values(array_unique($removed))];
+    }
+
+    /**
+     * @param  list<string>  $words
+     * @param  list<string>  $removed
+     * @return list<string>
+     */
+    private static function stripEnd(array $words, string $suffix, array &$removed): array
+    {
+        for ($length = min(4, count($words) - 1); $length >= 1; $length--) {
+            $tail = array_slice($words, -$length);
+            $first = (string) array_shift($tail);
+            $tail = array_merge([$first], $tail);
+            $lastWord = (string) end($tail);
+            if (preg_match('/^([\p{L}\p{M}]+)'.$suffix.'?$/u', $lastWord, $m) !== 1
+                || array_filter(array_slice($tail, 0, -1), fn (string $w): bool => preg_match('/^[\p{L}\p{M}]+$/u', $w) !== 1) !== []) {
+                continue;
+            }
+            $key = self::fold(implode(' ', array_merge(array_slice($tail, 0, -1), [$m[1]])));
+            if (! isset(self::$cache['expressions'][$key])) {
+                continue;
+            }
+            $removed[] = self::$cache['expressions'][$key];
+            $words = array_slice($words, 0, -$length);
+            while ($words !== [] && in_array(self::fold((string) end($words)), ['in', 'at', 'near', ''], true)) {
+                array_pop($words);
+            }
+            break;
+        }
+
+        return array_values($words);
+    }
+
+    /**
      * What a location name (as returned by strip()) refers to. District names can exist in several
      * provinces, so every reading is returned.
      *

@@ -9,7 +9,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * Marka › Özet › Kimlik tutarlılığı: name, phone, address, website link, profile links (sameAs) and expert author
+ * Marka › Bilgi dosyası › Kimlik tutarlılığı: name, phone, address, website link, profile links (sameAs) and expert author
  * compared between the Business Profiles and the website. Read only; "Yeniden kontrol et" skips the 6-hour cache.
  */
 final class BrandIdentityCard extends Component

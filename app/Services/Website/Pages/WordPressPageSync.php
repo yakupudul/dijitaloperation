@@ -4,6 +4,7 @@ namespace App\Services\Website\Pages;
 
 use App\Models\Page;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
+use App\Services\Repair\RenderedMeta;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -89,7 +90,7 @@ final class WordPressPageSync
                 'wp_post_type' => $page->wp_post_type,
                 'language' => $page->language,
                 'title' => $seo['title'] ?? $postTitle ?? $page->title,
-                'meta_description' => $seo['meta_description'],
+                'meta_description' => $seo['meta_description'] ?? RenderedMeta::description($siteId, (string) $page->url),
                 'canonical' => $seo['canonical'] ?? $page->url,
                 'h1' => $page->h1,
                 'headings' => (array) $page->headings,
@@ -183,7 +184,8 @@ final class WordPressPageSync
             'wp_post_type' => mb_substr((string) $record['object_type'], 0, 64),
             'language' => is_string($record['language'] ?? null) ? $record['language'] : null,
             'title' => $seo['title'] ?? ($title !== '' ? html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8') : null),
-            'meta_description' => $seo['meta_description'],
+            // An empty or template description field (%%excerpt%%) still renders one: the stored crawl of the page keeps it.
+            'meta_description' => $seo['meta_description'] ?? RenderedMeta::description($siteId, (string) $record['permalink']),
             'canonical' => $seo['canonical'] ?? (string) $record['permalink'],
             // Themes print the post title as the H1 outside the content; the content's own H1 wins when present.
             'h1' => $content['h1'] ?? ($title !== '' ? html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8') : null),
@@ -198,7 +200,8 @@ final class WordPressPageSync
 
     /**
      * SEO plugin values. A title that still holds template variables (%%title%%, %sep%, {{…}}) is not the rendered
-     * title and is ignored (the post title is used instead).
+     * title and is ignored (the post title is used instead); such a description is replaced by the rendered one of the
+     * stored crawl when there is one (RenderedMeta).
      *
      * @param  array<string, mixed>  $record
      * @return array{title: ?string, meta_description: ?string, canonical: ?string, is_indexable: bool}

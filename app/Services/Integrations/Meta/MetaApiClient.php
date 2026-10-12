@@ -225,6 +225,22 @@ class MetaApiClient
     }
 
     /**
+     * A Graph paging URL with another page size; the cursor and every other parameter stay. Used to send the same page
+     * again, smaller, after Meta's "reduce the amount of data" answer (KIND_DATA_TOO_LARGE) instead of repeating it.
+     */
+    public static function withPageLimit(string $url, int $limit): string
+    {
+        $parts = parse_url($url);
+        if (! is_array($parts)) {
+            return $url;
+        }
+        parse_str((string) ($parts['query'] ?? ''), $params);
+        $params['limit'] = max(1, $limit);
+
+        return ($parts['scheme'] ?? MetaApiConfig::GRAPH_SCHEME).'://'.($parts['host'] ?? MetaApiConfig::GRAPH_HOST).($parts['path'] ?? '').'?'.http_build_query($params);
+    }
+
+    /**
      * Meta sometimes returns a structured Graph error with an HTTP status that does
      * not describe the actual failure class (observed: HTTP 500 + Graph code 100).
      * Structured Graph diagnostics are therefore interpreted before generic HTTP

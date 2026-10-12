@@ -7,6 +7,7 @@ use App\Enums\CustomerStatus;
 use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage;
+use App\Livewire\Operator\Gbp\Desk\DeskPage;
 use App\Livewire\Operator\Gbp\Desk\PhotosPage;
 use App\Livewire\Operator\Gbp\Desk\ProfileFieldsPage;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
@@ -37,6 +38,7 @@ use App\Services\Gbp\Desk\PhotoPlan;
 use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
+use App\Services\Gbp\GbpDailyWorkspace;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -621,6 +623,28 @@ final class GbpDeskTest extends TestCase
         $this->assertNull($report['last_year']);
     }
 
+    public function test_gaps_shared_by_most_branches_are_shown_once_and_rows_keep_only_their_own(): void
+    {
+        $check = fn (bool $ok, bool $unknown = false): array => ['ok' => $ok, 'unknown' => $unknown, 'label' => 'x', 'hint' => '', 'route' => 'operator.gbp-desk'];
+        $row = fn (bool $hours, bool $page): array => ['checks' => ['page' => $check($page), 'description' => $check(true), 'hours' => $check($hours),
+            'photos' => $check(false, true), 'reviews' => $check(true), 'posts' => $check(true)]];
+
+        $shared = DeskPage::sharedGaps([$row(false, true), $row(false, true), $row(false, true), $row(false, true), $row(true, false)]);
+        $this->assertSame(['hours'], array_keys($shared));
+        $this->assertSame(4, $shared['hours']['missing']);
+        $this->assertSame(['bolum' => 'saatler'], $shared['hours']['query']);
+        $this->assertSame([], DeskPage::sharedGaps([$row(false, false), $row(false, false)]), 'Two branches keep their own chips.');
+
+        foreach (range(1, 3) as $i) {
+            $this->secondBranch();
+        }
+        $this->actingAs($this->admin)->get(route('operator.gbp-desk'))->assertOk()
+            ->assertSeeHtml('data-testid="gbp-shared-gaps"')
+            ->assertSee('Hepsini düzenle')
+            ->assertSee('Bu şubeye özel eksikler')
+            ->assertSeeHtml('data-testid="gbp-brand-group"');
+    }
+
     public function test_every_tab_renders_for_an_admin(): void
     {
         $this->actingAs($this->admin);
@@ -812,5 +836,153 @@ final class GbpDeskTest extends TestCase
         Cache::put(FillGbpPostQueueJob::stateKey($this->location->id), ['status' => 'ready', 'message' => 'x', 'result' => 'no_content', 'empty' => 30], now()->addDay());
         $this->assertTrue($posts()['ok']);
         $this->assertStringContainsString('sitede yeni içerik yok', $posts()['hint']);
+    }
+
+    public function test_desk_screens_read_a_fixed_number_of_queries_however_many_brands_profiles_and_reviews(): void
+    {
+        // Job and draft states live in the cache; with the database store each read used to be a query.
+        config(['cache.default' => 'database']);
+        $this->actingAs($this->admin);
+        $google = CoreIntegration::query()->where('provider', 'google')->firstOrFail();
+        $n = 100;
+        $addBrand = function () use ($google, &$n): Brand {
+            $brand = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Marka '.$n, 'sector_id' => $this->brand->sector_id]);
+            $site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'name' => 'marka'.$n.'.test', 'domain' => 'marka'.$n.'.test', 'primary_url' => 'https://marka'.$n.'.test/']);
+            foreach (['/', '/implant/', '/subelerimiz/'] as $path) {
+                Page::query()->create(['website_asset_id' => $site->id, 'url' => 'https://marka'.$n.'.test'.$path, 'url_hash' => hash('sha256', $n.$path), 'path' => $path,
+                    'title' => $path === '/subelerimiz/' ? 'Şubelerimiz' : 'Sayfa', 'language' => 'tr', 'is_indexable' => true, 'content_text' => 'Metin.']);
+            }
+            for ($i = 0; $i < 3; $i++) {
+                $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_business_profile', 'status' => 'active', 'name' => 'İşletme Profili · Marka '.$n.' Şube '.$i]);
+                $resource = CoreExternalResource::factory()->create(['integration_id' => $google->id, 'provider' => 'google', 'resource_type' => 'google_business_profile',
+                    'external_id' => 'accounts/11/locations/'.(++$n), 'status' => CoreExternalResource::STATUS_AVAILABLE]);
+                CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => 'google_business_profile', 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+                foreach (range(1, 5) as $r) {
+                    DB::table('gbp_reviews')->insert(['external_resource_id' => $resource->id, 'run_id' => 1, 'location_name' => 'l', 'review_id' => 'r'.$n.'-'.$r,
+                        'reviewer' => json_encode(['displayName' => 'Ayşe']), 'star_rating' => 'FIVE', 'comment' => 'Çok iyi', 'create_time' => now()->subDays($r),
+                        'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+                }
+            }
+
+            return $brand;
+        };
+        $routes = ['operator.gbp-desk', 'operator.gbp-branch-pages', 'operator.gbp-reviews'];
+        $queries = function () use ($routes): array {
+            $out = [];
+            foreach ($routes as $route) {
+                $this->get(route($route))->assertOk();
+                DB::flushQueryLog();
+                DB::enableQueryLog();
+                $this->get(route($route))->assertOk();
+                DB::disableQueryLog();
+                $out[$route] = count(DB::getQueryLog());
+            }
+
+            return $out;
+        };
+        $hubBrand = $addBrand();
+        $few = $queries();
+        foreach (range(1, 4) as $ignored) {
+            $addBrand();
+        }
+
+        $this->assertSame($few, $queries(), 'more brands, profiles and reviews do not add queries');
+        $hub = app(BranchPages::class)->hubs([(int) $hubBrand->id, (int) $this->brand->id]);
+        $this->assertSame('/subelerimiz/', $hub[$hubBrand->id]['page']?->path, 'the brand’s branch hub page is found');
+        $this->assertSame(3, $hub[$hubBrand->id]['count']);
+        $this->assertNull($hub[$this->brand->id]['page']);
+        $this->assertEquals(app(BranchPages::class)->hub((int) $hubBrand->id), $hub[$hubBrand->id]);
+    }
+
+    public function test_review_numbers_count_reply_time_and_the_previous_window_and_follow_new_reviews(): void
+    {
+        $review = fn (string $id, string $stars, ?array $reply, string $created): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1,
+            'location_name' => 'locations/22', 'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe']), 'star_rating' => $stars, 'comment' => 'Yorum',
+            'create_time' => $created, 'review_reply' => $reply !== null ? json_encode($reply) : null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $review('a', 'FOUR', ['comment' => 'Teşekkürler', 'updateTime' => '2026-09-20T15:30:00.123456Z'], '2026-09-20 10:00:00');
+        $review('b', 'TWO', ['comment' => 'Teşekkürler', 'updateTime' => '2026-09-01T10:00:00Z'], '2026-09-02 10:00:00');
+        $review('c', 'ONE', null, '2026-06-01 10:00:00');
+        $review('d', 'FIVE', null, '2025-01-01 10:00:00');
+        $desk = app(ReviewDesk::class);
+        $resources = [$this->location->id => $this->resourceId];
+
+        $this->assertSame(['total' => 4, 'recent' => 2, 'average' => 3.0, 'previous_average' => 1.0, 'unanswered' => 2, 'reply_rate' => 50, 'reply_hours' => 6, 'late' => 2, 'low_open' => 1],
+            $desk->stats($resources)[$this->location->id]);
+        $this->assertSame([], $desk->stats([]));
+
+        $review('e', 'ONE', null, now()->subHour()->toDateTimeString());
+        $stats = $desk->stats($resources)[$this->location->id];
+        $this->assertSame([5, 3, 2], [$stats['total'], $stats['unanswered'], $stats['low_open']], 'a new review shows at once, not after the cached minute');
+    }
+
+    public function test_photo_numbers_are_counted_in_the_database(): void
+    {
+        $media = fn (string $name, ?string $format, ?string $category, string $created): bool => DB::table('gbp_media')->insert(['digital_asset_id' => $this->location->id,
+            'external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'media_name' => $name, 'media_format' => $format, 'category' => $category,
+            'create_time' => $created, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $media('m1', 'PHOTO', 'logo', '2026-09-01 10:00:00');
+        $media('m2', null, 'ADDITIONAL', '2026-09-26 10:00:00');
+        $media('m3', 'VIDEO', 'COVER', '2026-10-05 10:00:00');
+        $second = $this->secondBranch();
+        $resources = app(GbpDailyWorkspace::class)->resourceIds([$this->location->id, $second->id]);
+
+        $status = app(PhotoPlan::class)->status($resources);
+
+        $this->assertSame(['photos' => 2, 'last' => '2026-09-26', 'days' => 10, 'logo' => true, 'cover' => false, 'stale' => false], $status[$this->location->id]);
+        $this->assertSame(['photos' => 0, 'last' => null, 'days' => null, 'logo' => false, 'cover' => false, 'stale' => true], $status[$second->id]);
+    }
+
+    public function test_review_topics_name_doctors_and_services_and_follow_new_reviews(): void
+    {
+        $service = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'dental', actor: $this->admin)['service'];
+        BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $service->id, 'status' => 'active', 'priority' => 'main', 'locked' => true]);
+        $n = 0;
+        $review = function (string $stars, string $comment) use (&$n): void {
+            DB::table('gbp_reviews')->insert(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'r'.(++$n),
+                'reviewer' => json_encode(['displayName' => 'Ali']), 'star_rating' => $stars, 'comment' => $comment, 'create_time' => '2026-10-01 10:00:00', 'review_reply' => null,
+                'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        };
+        $review('FIVE', 'Dr. Elif çok ilgiliydi, İmplant işlemim harika geçti. Diş hocam teşekkürler.');
+        $review('FOUR', 'Elif Hanım ve ekip süper. (Translated by Google) Elif Hanim and team great.');
+        $review('ONE', 'Ayşe Hanım geç kaldı, implantım ağrıdı.');
+        $review('THREE', '(Translated by Google) Doctor Zeynep (Original) Dr. Ayşe ile görüştüm, sonra Dr. Ayşe yine aradı.');
+        $desk = app(ReviewDesk::class);
+
+        $expected = ['doctors' => [['name' => 'Elif', 'count' => 2, 'average' => 4.5], ['name' => 'Ayşe', 'count' => 2, 'average' => 2.0]],
+            'services' => [['name' => 'İmplant Tedavisi', 'word' => 'implant', 'count' => 2, 'average' => 3.0]]];
+        $this->assertSame($expected, $desk->topics([$this->resourceId], [$this->brand->id]));
+        $this->assertSame($expected, $desk->cachedTopics([$this->resourceId], [$this->brand->id]));
+
+        $review('FIVE', 'İmplant için Mert Bey ve Mert Bey’in ekibine teşekkürler.');
+        $topics = $desk->cachedTopics([$this->resourceId], [$this->brand->id]);
+        $this->assertSame(3, $topics['services'][0]['count'], 'a new review shows at once, not after the cached time');
+        $this->assertSame(['Elif', 'Ayşe'], array_column($topics['doctors'], 'name'), 'one review naming a doctor twice counts once');
+    }
+
+    public function test_review_numbers_of_a_new_minute_are_counted_without_reading_review_rows(): void
+    {
+        foreach (range(1, 60) as $i) {
+            DB::table('gbp_reviews')->insert(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'r'.$i,
+                'reviewer' => json_encode(['displayName' => 'Ali']), 'star_rating' => 'FIVE', 'comment' => 'Yorum '.$i, 'create_time' => now()->subDays($i)->toDateTimeString(),
+                'review_reply' => $i % 2 === 0 ? json_encode(['comment' => 'Teşekkürler', 'updateTime' => now()->subDays($i)->addHours(4)->toIso8601ZuluString()]) : null,
+                'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $desk = app(ReviewDesk::class);
+        $resources = [$this->location->id => $this->resourceId];
+        $first = $desk->stats($resources)[$this->location->id];
+        $this->travel(1)->minutes();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $next = $desk->stats($resources)[$this->location->id];
+        $queries = array_column(DB::getQueryLog(), 'query');
+        DB::disableQueryLog();
+
+        $this->assertSame($first, $next);
+        $this->assertSame(['total' => 60, 'recent' => 60, 'average' => 5.0, 'previous_average' => null, 'unanswered' => 30, 'reply_rate' => 50, 'reply_hours' => 4, 'late' => 29, 'low_open' => 0], $next);
+        $this->assertCount(2, $queries, 'the version and one grouped count; reply times stay cached until a review changes');
+        $this->assertStringContainsString('group by', $queries[1]);
+        $page = $desk->reviews($resources, 'tumu');
+        $this->assertSame([60, ReviewDesk::PAGE], [$page['total'], count($page['rows'])], 'the grid gets one page of rows, not every review');
     }
 }

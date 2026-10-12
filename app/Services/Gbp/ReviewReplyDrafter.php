@@ -94,6 +94,23 @@ final class ReviewReplyDrafter
         return is_string($state) ? $state : null;
     }
 
+    /**
+     * state() of several reviews with one cache read.
+     *
+     * @param  list<int>  $reviewIds
+     * @return array<int, ?string> review id => state
+     */
+    public function states(array $reviewIds): array
+    {
+        if ($reviewIds === []) {
+            return [];
+        }
+        $keys = array_combine($reviewIds, array_map(fn (int $id): string => $this->stateKey($id), $reviewIds));
+        $values = Cache::many(array_values($keys));
+
+        return array_map(fn (string $key): ?string => is_string($values[$key] ?? null) ? $values[$key] : null, $keys);
+    }
+
     /** Clears a failed draft note (the operator deleted the review's drafts). */
     public function forget(int $reviewId): void
     {

@@ -140,6 +140,10 @@ return [
 
     'search' => [
         'placeholder' => 'Portföyde ara…',
+        'page' => 'Sayfa',
+        'queries' => 'Sorgular',
+        'in_queries' => 'Sorgularda ara: ":q"',
+        'shortcut' => 'Ctrl K',
         'empty' => 'Eşleşen müşteri, marka, varlık, bulgu veya görev yok.',
     ],
 

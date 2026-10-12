@@ -145,7 +145,8 @@ final class MetaScreen
         foreach ($this->q($account, 'meta_campaign_snapshot')?->get(['campaign_id', 'metadata']) ?? [] as $row) {
             $m = self::json($row->metadata);
             $campaigns[(string) $row->campaign_id] = ['id' => (string) $row->campaign_id, 'name' => (string) ($m['name'] ?? $row->campaign_id), 'objective' => (string) ($m['objective'] ?? ''),
-                'status' => (string) ($m['effective_status'] ?? $m['status'] ?? ''), 'daily_budget' => is_numeric($m['daily_budget'] ?? null) ? (float) $m['daily_budget'] : null];
+                'status' => (string) ($m['effective_status'] ?? $m['status'] ?? ''), 'daily_budget' => is_numeric($m['daily_budget'] ?? null) ? (float) $m['daily_budget'] : null,
+                'lifetime_budget' => is_numeric($m['lifetime_budget'] ?? null) ? (float) $m['lifetime_budget'] : null];
         }
         $targeting = [];
         foreach ($this->q($account, 'meta_adset_targeting_snapshot')?->get(['adset_id', 'targeting', 'optimization_goal', 'attribution_spec']) ?? [] as $row) {
@@ -175,7 +176,7 @@ final class MetaScreen
         foreach ($this->q($account, 'meta_creative_snapshot')?->get(['creative_id', 'metadata']) ?? [] as $row) {
             $m = self::json($row->metadata);
             $creatives[(string) $row->creative_id] = ['id' => (string) $row->creative_id, 'name' => (string) ($m['name'] ?? ''), 'title' => (string) ($m['title'] ?? ''),
-                'body' => (string) ($m['body'] ?? ''), 'link_url' => (string) ($m['link_url'] ?? ''), 'thumbnail_url' => (string) ($m['thumbnail_url'] ?? ''),
+                'body' => (string) ($m['body'] ?? ''), 'link_url' => (string) ($m['link_url'] ?? ''), 'url_tags' => (string) ($m['url_tags'] ?? ''), 'thumbnail_url' => (string) ($m['thumbnail_url'] ?? ''),
                 'lead_gen_form_id' => (string) ($m['lead_gen_form_id'] ?? ''), 'video' => filled($m['video_id'] ?? null),
                 'description' => (string) ($m['description'] ?? ''), 'cta' => (string) ($m['call_to_action_type'] ?? ''), 'variants' => is_array($m['variants'] ?? null) ? $m['variants'] : [],
                 'whatsapp_number' => (string) ($m['whatsapp_number'] ?? ''), 'welcome_message' => (string) ($m['welcome_message'] ?? ''),
@@ -297,9 +298,16 @@ final class MetaScreen
         return $out;
     }
 
+    /** Result types of the totals, in tie-break order => label. */
+    public const array RESULT_TYPES = ['leads' => 'form', 'messages' => 'mesaj', 'purchases' => 'satın alma'];
+
     /**
+     * Sums the rows per result type. A lead, a message and a purchase are not the same result: `results` and the cost
+     * per result (`cpr`) are those of the dominant type (the one with the most results; `result_type`), and
+     * `all_results` keeps the plain sum.
+     *
      * @param  iterable<array<string, float|int>>  $rows
-     * @return array<string, float|int|null>
+     * @return array<string, float|int|string|null>
      */
     public static function totals(iterable $rows): array
     {
@@ -308,6 +316,19 @@ final class MetaScreen
             foreach (array_keys($t) as $metric) {
                 $t[$metric] += $row[$metric] ?? 0;
             }
+        }
+        $typed = $t['leads'] + $t['messages'] + $t['purchases'];
+        $t['all_results'] = $typed > 0 ? $typed : $t['results'];
+        $t['result_type'] = null;
+        if ($typed > 0) {
+            $dominant = 'leads';
+            foreach (array_keys(self::RESULT_TYPES) as $type) {
+                if ($t[$type] > $t[$dominant]) {
+                    $dominant = $type;
+                }
+            }
+            $t['result_type'] = $dominant;
+            $t['results'] = $t[$dominant];
         }
 
         return self::derive($t);
@@ -584,7 +605,7 @@ final class MetaScreen
      */
     public function pixel(array $account): array
     {
-        $rows = $this->q($account, 'meta_conversion_source_snapshot')?->where('source_type', 'PIXEL')->get(['source_name', 'source_id', 'last_fired_time', 'is_unavailable']) ?? collect();
+        $rows = $this->q($account, 'meta_conversion_source_snapshot')?->where('source_type', 'PIXEL')->get(['source_name', 'source_id', 'last_fired_time', 'is_unavailable', 'last_collected_at']) ?? collect();
         $collected = $this->q($account, 'meta_conversion_source_snapshot')?->exists() ?? false;
         $pixels = $rows->map(fn ($r): array => ['name' => (string) ($r->source_name ?: $r->source_id), 'last_fired' => $r->last_fired_time !== null ? CarbonImmutable::parse((string) $r->last_fired_time)->toDateString() : null,
             'unavailable' => (bool) $r->is_unavailable])->values()->all();
@@ -592,9 +613,12 @@ final class MetaScreen
             return ['state' => $collected ? 'missing' : 'no_data', 'label' => $collected ? 'Pixel yok' : 'veri yok', 'pixels' => []];
         }
         $last = collect($pixels)->pluck('last_fired')->filter()->max();
-        $active = $last !== null && CarbonImmutable::parse($last)->gte(now()->subDays(3)->startOfDay()) && collect($pixels)->contains(fn (array $p): bool => ! $p['unavailable']);
+        // "Fired in the 3 days before the snapshot was taken": a week-old snapshot says nothing about the last 3 days.
+        $snapshotAt = $rows->pluck('last_collected_at')->filter()->map(fn ($at): CarbonImmutable => CarbonImmutable::parse((string) $at))->max() ?? CarbonImmutable::now();
+        $active = $last !== null && CarbonImmutable::parse($last)->gte($snapshotAt->subDays(3)->startOfDay()) && collect($pixels)->contains(fn (array $p): bool => ! $p['unavailable']);
 
-        return ['state' => $active ? 'ok' : 'silent', 'label' => $active ? 'Olay alıyor' : 'Olay yok', 'last_fired' => $last, 'pixels' => $pixels];
+        return ['state' => $active ? 'ok' : 'silent', 'label' => $active ? 'Olay alıyor' : 'Olay yok', 'last_fired' => $last, 'pixels' => $pixels,
+            'snapshot_date' => $snapshotAt->toDateString()];
     }
 
     /**

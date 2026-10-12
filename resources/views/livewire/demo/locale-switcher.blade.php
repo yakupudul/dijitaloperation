@@ -4,7 +4,7 @@
         wire:click="setLocale('en')"
         @class([
             'rounded-md px-2.5 py-1.5 text-xs font-semibold transition',
-            'bg-brand-500 text-white' => $locale === 'en',
+            'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $locale === 'en',
             'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]' => $locale !== 'en',
         ])
     >
@@ -15,7 +15,7 @@
         wire:click="setLocale('tr')"
         @class([
             'rounded-md px-2.5 py-1.5 text-xs font-semibold transition',
-            'bg-brand-500 text-white' => $locale === 'tr',
+            'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $locale === 'tr',
             'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]' => $locale !== 'tr',
         ])
     >

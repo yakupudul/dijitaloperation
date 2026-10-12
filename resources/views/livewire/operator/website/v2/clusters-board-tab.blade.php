@@ -2,10 +2,12 @@
     $input = 'h-9 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $pill = fn (bool $on) => $on ? 'h-8 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-900' : 'h-8 rounded-lg px-3 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
     $btn = 'h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
+    $link = 'shrink-0 text-xs font-medium text-brand-700 hover:underline dark:text-brand-300';
     $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
     $num = fn ($v) => $v === null ? '—' : number_format((float) $v, 0, ',', '.');
     $dec = fn ($v) => $v === null ? '—' : number_format((float) $v, 1, ',', '.');
     $typeLabels = \App\Livewire\Operator\Website\V2\ClustersBoardTab::TYPE_LABELS;
+    $runningRows = collect($statuses)->filter(fn ($line) => $line === 'çalışıyor…')->keys()->map(fn ($k) => \Illuminate\Support\Str::before($k, ':'))->flip()->all();
     $typeTone = ['service' => 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300', 'guide' => 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300'];
 @endphp
 <div class="space-y-6 text-sm" data-clusters-board @if ($polling) wire:poll.5s @endif>
@@ -77,7 +79,7 @@
     @endif
 
     @forelse ($sections as $section)
-        <section class="space-y-3" x-data="{ all: false }" wire:key="service-{{ $section['id'] }}" data-service-section="{{ $section['id'] }}">
+        <section class="space-y-3" wire:key="service-{{ $section['id'] }}" data-service-section="{{ $section['id'] }}" data-open="{{ $section['open'] ? '1' : '0' }}">
             <header class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
                 <div class="min-w-0">
                     <div class="flex items-center gap-2">
@@ -89,17 +91,30 @@
                 @if ($section['page'])
                     <span class="ml-auto text-xs text-gray-600 dark:text-gray-400">Hizmet sayfası: <a href="{{ $section['page']->url }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ $section['page']->title ?: ($section['page']->path ?: '/') }}</a></span>
                 @endif
+                @if (! $section['open'])
+                    <button type="button" wire:click="openSection({{ $section['id'] }})" wire:loading.attr="disabled" wire:target="openSection({{ $section['id'] }})" @class([$ghost, 'ml-auto' => ! $section['page']]) data-open-section="{{ $section['id'] }}">
+                        <span wire:loading.remove wire:target="openSection({{ $section['id'] }})">Göster</span><span wire:loading wire:target="openSection({{ $section['id'] }})">Yükleniyor…</span>
+                    </button>
+                @elseif (! $loop->first && in_array($section['id'], $opened, true))
+                    <button type="button" wire:click="closeSection({{ $section['id'] }})" @class([$ghost, 'ml-auto' => ! $section['page']]) data-close-section="{{ $section['id'] }}">Gizle</button>
+                @endif
             </header>
 
+            @if ($section['open'])
             <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                @foreach ($section['cards'] as $index => $card)
+                @foreach ($section['shown'] as $index => $card)
                     @php
                         $cluster = $card['cluster'];
                         $ideaStatus = $ideaStatuses[$cluster->id] ?? null;
                         $level = $section['id'] !== 0 && $index === 0 ? 'Ana küme' : 'Alt küme';
+                        // The card's one main action: a page for every idea that has none on the site (and that was looked for).
+                        $producible = collect($card['ideas'])->filter(fn (array $idea): bool => $idea['model'] !== null && $idea['state'] === 'no_page'
+                            && ($idea['model']->rediscovered_at !== null || ($idea['model']->audited_at ?? null) !== null)
+                            && ! isset($runningRows[$idea['kind'].'-'.$idea['model']->id])
+                            && ! isset($suggestions[$idea['kind'].'-'.$idea['model']->id.':content']))
+                            ->map(fn (array $idea): array => ['kind' => (string) $idea['kind'], 'id' => (int) $idea['model']->id])->values()->all();
                     @endphp
                     <article wire:key="cluster-card-{{ $cluster->id }}" data-cluster-card="{{ $cluster->id }}" data-matched="{{ $card['matched'] ? '1' : '0' }}"
-                             @if ($index >= \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE) x-show="all" x-cloak @endif
                              x-data="{ tab: 'ideas' }" class="flex min-h-[28rem] flex-col overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                         <div class="flex items-start gap-3 px-4 pb-3 pt-4">
                             <div class="min-w-0 flex-1">
@@ -135,7 +150,7 @@
                                         $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
                                         $improveSuggestion = $model !== null ? ($suggestions[$idea['kind'].'-'.$model->id.':missing_topic'] ?? null) : null;
                                         $contentSuggestion = $model !== null ? ($suggestions[$idea['kind'].'-'.$model->id.':content'] ?? null) : null;
-                                        $running = collect($statuses)->filter(fn ($line, $k) => str_starts_with($k, $key.':') && $line === 'çalışıyor…')->isNotEmpty();
+                                        $running = isset($runningRows[$key]);
                                     @endphp
                                     <li @class(['px-4 py-3', 'bg-orange-50/50 dark:bg-orange-500/5' => $idea['must']]) wire:key="card-idea-{{ $key }}" data-card-idea="{{ $key }}" data-state="{{ $idea['state'] }}">
                                         <div class="mb-1 flex items-center gap-1.5">
@@ -155,13 +170,13 @@
                                             @if ($running)
                                                 <span class="shrink-0 text-brand-600">çalışıyor…</span>
                                             @elseif ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal') && $improveSuggestion->applied_at === null)
-                                                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $btn }} inline-flex items-center" data-preview>Önizle ve güncelle</a>
+                                                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $link }}" data-preview>Önizle ve güncelle →</a>
                                             @elseif ($contentSuggestion !== null)
                                                 <button type="button" wire:click="$parent.setTab('icerik')" class="{{ $ghost }}" data-content-link>Taslağa git</button>
                                             @elseif ($idea['state'] === 'improve' && $page?->wp_post_id !== null)
                                                 <button type="button" wire:click="improve('{{ $idea['kind'] }}', {{ $model->id }})" class="{{ $ghost }}" data-improve>Geliştir</button>
                                             @elseif ($idea['state'] === 'no_page' && $audited)
-                                                <button type="button" wire:click="produce('{{ $idea['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce>Oluştur</button>
+                                                <button type="button" wire:click="produce('{{ $idea['kind'] }}', {{ $model->id }})" class="{{ $link }}" data-produce>Yalnız bunu oluştur</button>
                                             @elseif ($idea['state'] === 'technical')
                                                 <button type="button" wire:click="$parent.setTab('teknik')" class="{{ $ghost }}">Teknik sorun</button>
                                             @elseif ($idea['state'] === 'sufficient')
@@ -188,7 +203,11 @@
                             </div>
                         </div>
 
-                        <footer class="flex items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-xs dark:border-gray-800">
+                        <footer class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-xs dark:border-gray-800">
+                            @if ($producible !== [])
+                                <button type="button" wire:click="produceCard(@js($producible))" wire:confirm="{{ count($producible) }} fikir için sayfa yazılsın mı? Taslak olarak İçerik sekmesine düşer; siteye sen gönderirsin."
+                                        class="{{ $btn }} w-full sm:w-auto" data-produce-card="{{ $cluster->id }}">Oluştur ({{ count($producible) }})</button>
+                            @endif
                             @if (($ideaStatus['status'] ?? null) === 'running')
                                 <span class="text-brand-600">Fikirler üretiliyor…</span>
                             @else
@@ -205,16 +224,34 @@
                 @endforeach
             </div>
 
-            @if (count($section['cards']) > \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE)
+            @if (count($section['big']) > \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE)
                 <div class="flex justify-center">
-                    <button type="button" @click="all = !all" class="{{ $ghost }}" data-more-clusters x-text="all ? 'Daha az göster' : 'Tüm alt kümeler ({{ count($section['cards']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE }} daha)'">Tüm alt kümeler ({{ count($section['cards']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE }} daha)</button>
+                    <button type="button" wire:click="toggleAll({{ $section['id'] }})" class="{{ $ghost }}" data-more-clusters>{{ $section['all'] ? 'Daha az göster' : 'Tüm alt kümeler ('.(count($section['big']) - \App\Livewire\Operator\Website\V2\ClustersBoardTab::VISIBLE).' daha)' }}</button>
                 </div>
+            @endif
+            @if ($section['small'] !== [])
+                <details class="rounded-xl bg-gray-50 px-4 py-2 text-xs ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800" data-small-clusters="{{ $section['id'] }}">
+                    <summary class="cursor-pointer font-medium text-gray-600 dark:text-gray-300">Küçük kümeler ({{ count($section['small']) }}) <span class="font-normal text-gray-500">· sektör talebi {{ \App\Livewire\Operator\Website\V2\ClustersBoardTab::SMALL_DEMAND }}’un altında, bizde gösterim yok</span></summary>
+                    <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-800">
+                        @foreach ($section['small'] as $card)
+                            <li class="flex flex-wrap items-center gap-2 py-1.5" wire:key="small-cluster-{{ $card['cluster']->id }}" data-small-cluster="{{ $card['cluster']->id }}">
+                                <span class="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">{{ $card['cluster']->name }}</span>
+                                <span class="tabular-nums text-gray-500">Sektör talebi {{ $num($card['demand']) }} · Bizim gösterim 0</span>
+                                <span @class(['rounded-full px-2 py-0.5 text-[11px]', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $card['matched'], 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400' => ! $card['matched']])>{{ $card['matched'] ? 'Eşlendi' : 'Eşlenmedi' }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </details>
+            @endif
             @endif
         </section>
     @empty
         <div class="rounded-xl bg-white p-6 text-center text-xs text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <x-operator.cluster-readiness :asset-id="$this->assetId" what="Kümeler" />
             <p>Bu filtrede küme yok.</p>
+            @if ($service !== '' || $match !== '' || $type !== '' || trim($search) !== '')
+                <button type="button" wire:click="clearFilters" class="{{ $ghost }} mt-3" data-empty-action>Filtreleri temizle</button>
+            @endif
         </div>
     @endforelse
 </div>

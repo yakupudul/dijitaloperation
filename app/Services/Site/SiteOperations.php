@@ -299,6 +299,23 @@ final class SiteOperations
         return is_array($value) ? $value : null;
     }
 
+    /**
+     * status() of many operations with one cache read (a screen with hundreds of rows asks for four each).
+     *
+     * @param  array<string, array{0: string, 1: array<string, mixed>}>  $requests  label => [operation, params]
+     * @return array<string, array<string, mixed>|null> label => status
+     */
+    public static function statuses(int $siteId, array $requests): array
+    {
+        if ($requests === []) {
+            return [];
+        }
+        $keys = array_map(fn (array $request): string => self::key($siteId, $request[0], $request[1]), $requests);
+        $values = Cache::many(array_values(array_unique($keys)));
+
+        return array_map(fn (string $key): ?array => is_array($values[$key] ?? null) ? $values[$key] : null, $keys);
+    }
+
     /** One-line Turkish status. @param  array<string, mixed>|null  $status */
     public static function line(?array $status): ?string
     {

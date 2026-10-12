@@ -83,7 +83,7 @@ final class SiteUpkeepTest extends TestCase
         $this->assertNotContains('Hakkında', $names);
         $this->assertSame(3, count($names), 'implant is not proposed twice');
         $extra = collect($result['services'])->firstWhere('name', 'Gülüş Tasarımı');
-        $this->assertTrue($extra['selected'], 'ticked: the site has its own page');
+        $this->assertFalse($extra['selected'], 'a page title is only a proposal: never applied on its own');
         $this->assertStringStartsWith('Sitede hizmet sayfası var:', $extra['evidence']);
     }
 

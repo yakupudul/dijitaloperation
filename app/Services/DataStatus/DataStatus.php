@@ -6,7 +6,8 @@ use Carbon\CarbonImmutable;
 
 /**
  * The data status of one source (capability) of one digital asset, in the single operator language:
- * Bağlı değil / İlk veri yükleniyor / Güncel / Gecikmiş / Erişim sorunu / Pasif. Built only by DataStatusReader.
+ * Bağlı değil / İlk veri yükleniyor / Güncel / Gecikmiş / Erişim sorunu / Pasif (Durgun when the account only idles)
+ * / Hesap sorunu / Yayın durdu (Meta). Built only by DataStatusReader.
  */
 final readonly class DataStatus
 {
@@ -21,6 +22,15 @@ final readonly class DataStatus
     public const string ACCESS_PROBLEM = 'access_problem';
 
     public const string PAUSED = 'paused';
+
+    /** Meta: the ad account cannot deliver (account_status / disable_reason not OK). */
+    public const string ACCOUNT_BLOCKED = 'account_blocked';
+
+    /** Meta: ACTIVE campaigns spent nothing for 3+ days. */
+    public const string NOT_DELIVERING = 'not_delivering';
+
+    /** PAUSED reason of an account with no spend for 7–30 days (Durgun, not Pasif). */
+    public const string REASON_IDLE = 'idle';
 
     public const string ACTION_REFRESH = 'refresh';
 
@@ -56,6 +66,9 @@ final readonly class DataStatus
     {
         if ($this->state === self::STALE && $this->ageDays !== null) {
             return __('data_status.stale_days', ['days' => $this->ageDays], 'tr');
+        }
+        if ($this->state === self::PAUSED && $this->reason === self::REASON_IDLE) {
+            return __('data_status.states.idle', [], 'tr');
         }
 
         return __('data_status.states.'.$this->state, [], 'tr');
@@ -111,8 +124,9 @@ final readonly class DataStatus
     {
         return match ($this->state) {
             self::FRESH => 'ok',
-            self::FIRST_LOAD, self::STALE => 'warn',
+            self::FIRST_LOAD, self::STALE, self::NOT_DELIVERING => 'warn',
             self::ACCESS_PROBLEM => 'bad',
+            self::ACCOUNT_BLOCKED => $this->reason === 'meta_grace_period' ? 'warn' : 'bad',
             default => 'muted',
         };
     }

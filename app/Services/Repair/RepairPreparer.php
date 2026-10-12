@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Hazırla (Onarım masası): website suggestions that have no prepared value yet are queued for "AI ile yap" each night,
- * so they reach the desk ready to approve. Title / description fixes are prepared every hour in batches of 15 pages
- * per AI call (SeoFieldsBatch), so thousands of pages do not wait months. Field fixes (title / description, internal links, schema) first; page-text
+ * so they reach the desk ready to approve. Title / description fixes are prepared every hour in batches of 5 pages
+ * of one language and page category per AI call (SeoFieldsBatch), so thousands of pages do not wait months. Field fixes (title / description, internal links, schema) first; page-text
  * fixes in a smaller batch. Each run is one queued job per suggestion (unique), budget and credit rules apply.
  */
 final class RepairPreparer
@@ -19,7 +19,7 @@ final class RepairPreparer
     /** Field fixes (internal links, technical) queued per run, one AI call each. */
     public const int FIELDS_PER_RUN = 400;
 
-    /** Title / description pages queued per hourly run, 15 per AI call (SeoFieldsBatch). */
+    /** Title / description pages queued per hourly run, 5 per AI call (SeoFieldsBatch). */
     public const int BATCH_PAGES_PER_RUN = 300;
 
     /** Page-text fixes queued per night (longer and costlier). */
@@ -43,8 +43,8 @@ final class RepairPreparer
     }
 
     /**
-     * Title / description fixes in jobs of 15 pages of one site, most urgent first (missing before duplicate before
-     * length); each job is one AI call.
+     * Title / description fixes in jobs of 5 pages of one site, language and page category, most urgent first; each job
+     * is one AI call.
      */
     private function dispatchBatches(int $pages): int
     {
@@ -52,17 +52,19 @@ final class RepairPreparer
             return 0;
         }
         $bySite = [];
-        SeoFieldsBatch::waitingQuery()->with('page:id,website_asset_id')->orderBy('priority')->orderBy('id')->limit($pages)->get(['id', 'page_id', 'priority'])
+        SeoFieldsBatch::waitingQuery()->with('page:id,website_asset_id,language,category')->orderBy('priority')->orderBy('id')->limit($pages)->get(['id', 'page_id', 'priority'])
             ->each(function (Suggestion $s) use (&$bySite): void {
                 if ($s->page?->website_asset_id !== null) {
-                    $bySite[(int) $s->page->website_asset_id][] = (int) $s->id;
+                    $bySite[(int) $s->page->website_asset_id][SeoFieldsBatch::packKey($s->page)][] = (int) $s->id;
                 }
             });
         $queued = 0;
-        foreach ($bySite as $siteId => $ids) {
-            foreach (array_chunk($ids, SeoFieldsBatch::PAGES_PER_CALL) as $chunk) {
-                RunSiteOperationJob::dispatch($siteId, SiteOperations::SEO_FIELDS_BATCH, ['suggestion_ids' => $chunk]);
-                $queued += count($chunk);
+        foreach ($bySite as $siteId => $packs) {
+            foreach ($packs as $ids) {
+                foreach (array_chunk($ids, SeoFieldsBatch::PAGES_PER_CALL) as $chunk) {
+                    RunSiteOperationJob::dispatch($siteId, SiteOperations::SEO_FIELDS_BATCH, ['suggestion_ids' => $chunk]);
+                    $queued += count($chunk);
+                }
             }
         }
 

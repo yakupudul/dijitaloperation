@@ -15,6 +15,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\ReviewReplyDrafter;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -36,6 +37,9 @@ final class ReviewDesk
     public const int DRAFT_BATCH = 300;
 
     private const array STARS = ['ONE' => 1, 'TWO' => 2, 'THREE' => 3, 'FOUR' => 4, 'FIVE' => 5];
+
+    /** A review without a reply (SQL; the same test as noReply()). */
+    private const string OPEN_SQL = "(review_reply is null or cast(review_reply as text) in ('', 'null', '[]'))";
 
     /** Capitalised words before "hoca / hanım / bey" or after "Dr." that are not names. */
     private const array NOT_NAMES = ['diş', 'doktor', 'doktorum', 'hocam', 'hoca', 'çok', 'tüm', 'bütün', 'her', 'bir', 'ilgili', 'güler', 'değerli', 'sayın', 'sevgili',
@@ -60,41 +64,123 @@ final class ReviewDesk
      */
     public function stats(array $resources): array
     {
+        if ($resources === []) {
+            return [];
+        }
+        // Every click on the review screen renders these numbers again: they are kept for the current minute as long as
+        // no review of these profiles was added, changed, answered or removed.
+        $version = $this->version(array_values($resources));
+        $key = 'gbp-review-stats:'.md5((string) json_encode([$resources, $version, now()->format('YmdHi')]));
+
+        return Cache::remember($key, 60, fn (): array => $this->countStats($resources, $version));
+    }
+
+    /**
+     * What the reviews of these profiles look like now (count, replies, newest id, last change): part of every cache
+     * key of numbers worked out from them.
+     *
+     * @param  list<int>  $resourceIds
+     * @return array<string, mixed>
+     */
+    public function version(array $resourceIds): array
+    {
+        return (array) DB::table('gbp_reviews')->whereIn('external_resource_id', $resourceIds)
+            ->selectRaw('count(*) as n, count(review_reply) as replies, max(id) as last_id, max(updated_at) as changed')->first();
+    }
+
+    /**
+     * Counts and averages in one grouped query (no review rows in PHP); only the reply times are read row by row, and
+     * those are kept until a review of these profiles changes (they do not depend on the clock).
+     *
+     * @param  array<int, int>  $resources  asset id => resource id
+     * @param  array<string, mixed>  $version  version() of these resources
+     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
+     */
+    private function countStats(array $resources, array $version): array
+    {
         $since = now()->subDays(self::WINDOW_DAYS);
         $before = now()->subDays(self::WINDOW_DAYS * 2);
-        $rows = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
-            ->get(['external_resource_id', 'star_rating', 'create_time', 'review_reply'])->groupBy('external_resource_id');
+        $lateBefore = now()->subHours(GbpDailyWorkspace::REPLY_SLA_HOURS);
+        $stars = 'case upper(star_rating)';
+        foreach (self::STARS as $name => $value) {
+            $stars .= " when '".$name."' then ".$value;
+        }
+        $stars .= ' end';
+        $open = self::OPEN_SQL;
+        $counts = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))->groupBy('external_resource_id')
+            ->selectRaw('external_resource_id, count(*) as total')
+            ->selectRaw('sum(case when create_time >= ? then 1 else 0 end) as recent', [$since])
+            ->selectRaw("sum(case when create_time >= ? then {$stars} end) as recent_sum, count(case when create_time >= ? then {$stars} end) as recent_n", [$since, $since])
+            ->selectRaw("sum(case when create_time >= ? and create_time < ? then {$stars} end) as previous_sum, count(case when create_time >= ? and create_time < ? then {$stars} end) as previous_n",
+                [$before, $since, $before, $since])
+            ->selectRaw("sum(case when {$open} then 1 else 0 end) as unanswered")
+            ->selectRaw("sum(case when {$open} and create_time < ? then 1 else 0 end) as late", [$lateBefore])
+            ->selectRaw("sum(case when {$open} and coalesce({$stars}, 5) <= 2 then 1 else 0 end) as low_open")
+            ->get()->keyBy(fn (object $row): int => (int) $row->external_resource_id);
+        $hours = $this->replyHours($resources, $version);
         $out = [];
         foreach ($resources as $assetId => $resourceId) {
-            $all = $rows->get($resourceId, collect());
-            $created = fn ($r): ?CarbonImmutable => $r->create_time !== null ? CarbonImmutable::parse((string) $r->create_time) : null;
-            $stars = fn ($r): ?int => self::STARS[strtoupper((string) $r->star_rating)] ?? null;
-            $recent = $all->filter(fn ($r): bool => $created($r)?->greaterThanOrEqualTo($since) ?? false);
-            $previous = $all->filter(fn ($r): bool => ($created($r)?->greaterThanOrEqualTo($before) ?? false) && $created($r)->lessThan($since));
-            $recentStars = $recent->map($stars)->filter();
-            $previousStars = $previous->map($stars)->filter();
-            $unanswered = $all->filter(fn ($r): bool => self::noReply($r->review_reply));
-            $hours = $all->reject(fn ($r): bool => self::noReply($r->review_reply))->map(function ($r) use ($created): ?float {
-                $reply = json_decode((string) $r->review_reply, true);
-                $at = is_array($reply) && is_string($reply['updateTime'] ?? null) ? CarbonImmutable::parse($reply['updateTime']) : null;
-                $made = $created($r);
-
-                return $at !== null && $made !== null && $at->greaterThanOrEqualTo($made) ? $made->diffInMinutes($at, true) / 60 : null;
-            })->filter(fn (?float $h): bool => $h !== null);
+            $row = $counts->get((int) $resourceId);
+            $total = (int) ($row->total ?? 0);
+            $unanswered = (int) ($row->unanswered ?? 0);
             $out[$assetId] = [
-                'total' => $all->count(),
-                'recent' => $recent->count(),
-                'average' => $recentStars->isNotEmpty() ? round($recentStars->avg(), 1) : null,
-                'previous_average' => $previousStars->isNotEmpty() ? round($previousStars->avg(), 1) : null,
-                'unanswered' => $unanswered->count(),
-                'reply_rate' => $all->isNotEmpty() ? (int) round(($all->count() - $unanswered->count()) / $all->count() * 100) : null,
-                'reply_hours' => $hours->isNotEmpty() ? (int) round($hours->avg()) : null,
-                'late' => $unanswered->filter(fn ($r): bool => $created($r)?->lessThan(now()->subHours(GbpDailyWorkspace::REPLY_SLA_HOURS)) ?? false)->count(),
-                'low_open' => $unanswered->filter(fn ($r): bool => ($stars($r) ?? 5) <= 2)->count(),
+                'total' => $total,
+                'recent' => (int) ($row->recent ?? 0),
+                'average' => (int) ($row->recent_n ?? 0) > 0 ? round((float) $row->recent_sum / (int) $row->recent_n, 1) : null,
+                'previous_average' => (int) ($row->previous_n ?? 0) > 0 ? round((float) $row->previous_sum / (int) $row->previous_n, 1) : null,
+                'unanswered' => $unanswered,
+                'reply_rate' => $total > 0 ? (int) round(($total - $unanswered) / $total * 100) : null,
+                'reply_hours' => $hours[(int) $resourceId] ?? null,
+                'late' => (int) ($row->late ?? 0),
+                'low_open' => (int) ($row->low_open ?? 0),
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * Average hours from a review to its reply per resource (replies Google dates), kept until the reviews change.
+     *
+     * @param  array<int, int>  $resources  asset id => resource id
+     * @param  array<string, mixed>  $version  version() of these resources
+     * @return array<int, int> resource id => hours
+     */
+    private function replyHours(array $resources, array $version): array
+    {
+        $ids = array_values($resources);
+        $key = 'gbp-review-reply-hours:'.md5((string) json_encode([$ids, $version]));
+
+        return Cache::remember($key, now()->addDay(), function () use ($ids): array {
+            $sums = [];
+            $counts = [];
+            // Only the reply's date is read from its JSON (not the reply text).
+            foreach (DB::table('gbp_reviews')->whereIn('external_resource_id', $ids)->whereNotNull('create_time')->whereRaw('not '.self::OPEN_SQL)
+                ->get(['external_resource_id', 'create_time', 'review_reply->updateTime as replied_at']) as $row) {
+                $at = is_string($row->replied_at) ? self::seconds($row->replied_at) : null;
+                $made = $at !== null ? self::seconds((string) $row->create_time) : null;
+                if ($at !== null && $made !== null && $at >= $made) {
+                    $resourceId = (int) $row->external_resource_id;
+                    $sums[$resourceId] = ($sums[$resourceId] ?? 0) + ($at - $made) / 3600;
+                    $counts[$resourceId] = ($counts[$resourceId] ?? 0) + 1;
+                }
+            }
+
+            $hours = [];
+            foreach ($sums as $resourceId => $sum) {
+                $hours[$resourceId] = (int) round($sum / $counts[$resourceId]);
+            }
+
+            return $hours;
+        });
+    }
+
+    /** Unix time (with microseconds) of a stored or Google date; null when it does not parse. */
+    private static function seconds(string $value): ?float
+    {
+        $date = date_create_immutable($value);
+
+        return $date !== false ? (float) $date->format('U.u') : null;
     }
 
     /** Review list orders (yakup, 2026-10-07: new reviews first; old ones are worth less on Google). */
@@ -127,7 +213,7 @@ final class ReviewDesk
     {
         $search = trim(self::lower($search));
         $assetByResource = array_flip($resources);
-        $open = "(review_reply is null or cast(review_reply as text) in ('', 'null', '[]'))";
+        $open = self::OPEN_SQL;
         $query = DB::table('gbp_reviews')->whereIn('external_resource_id', array_values($resources))
             ->when($status === 'bekleyen', fn ($q) => $q->whereRaw($open))
             ->when($status === 'yanitli', fn ($q) => $q->whereRaw('not '.$open))
@@ -143,8 +229,9 @@ final class ReviewDesk
         $drafts = $ids === [] ? collect() : AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
             ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
         $actions = $this->daily->replyActions($ids);
+        $states = $this->drafter->states($ids);
 
-        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions): array {
+        $out = $rows->map(function (object $row) use ($assetByResource, $drafts, $actions, $states): array {
             $created = $row->create_time !== null ? CarbonImmutable::parse((string) $row->create_time) : null;
             $hours = $created !== null ? (int) $created->diffInHours(now(), true) : null;
             $reviewer = json_decode((string) $row->reviewer, true);
@@ -167,7 +254,7 @@ final class ReviewDesk
                 'answered' => $answered,
                 'reply' => is_array($reply) ? trim((string) ($reply['comment'] ?? '')) : '',
                 'draft' => $drafts->has((int) $row->id) ? (string) data_get($drafts[(int) $row->id]->content, 'reply') : null,
-                'draft_state' => $answered ? null : $this->drafter->state((int) $row->id),
+                'draft_state' => $answered ? null : ($states[(int) $row->id] ?? null),
                 'action' => $actions[(int) $row->id] ?? null,
             ];
         })->values()->all();
@@ -399,6 +486,26 @@ final class ReviewDesk
     }
 
     /**
+     * topics() kept until a review of these profiles or a service of these brands changes (at most a day): reading and
+     * matching every review text is the heaviest part of the review screen.
+     *
+     * @param  list<int>  $resources
+     * @param  list<int>  $brandIds
+     * @return array{doctors: list<array{name: string, count: int, average: ?float}>, services: list<array{name: string, word: string, count: int, average: ?float}>}
+     */
+    public function cachedTopics(array $resources, array $brandIds): array
+    {
+        if ($resources === []) {
+            return ['doctors' => [], 'services' => []];
+        }
+        $offerings = $brandIds === [] ? [] : (array) BrandOffering::query()->whereIn('brand_id', $brandIds)->toBase()
+            ->selectRaw('count(*) as n, max(id) as last_id, max(updated_at) as changed')->first();
+        $key = 'gbp-review-topics:'.md5((string) json_encode([$resources, $brandIds, $this->version($resources), $offerings]));
+
+        return Cache::remember($key, now()->addDay(), fn (): array => $this->topics($resources, $brandIds));
+    }
+
+    /**
      * Neler konuşuluyor: doctors and services the reviews of these profiles name, with how many reviews and their
      * average rating. Doctors come from "Dr. Ad", "Ad Hoca(m)", "Ad Hanım / Bey" (named in at least 2 reviews);
      * services from the brands' own service names (their distinctive word). Rules only, no AI.
@@ -412,30 +519,40 @@ final class ReviewDesk
         if ($resources === []) {
             return ['doctors' => [], 'services' => []];
         }
-        $reviews = DB::table('gbp_reviews')->whereIn('external_resource_id', $resources)->whereNotNull('comment')->get(['comment', 'star_rating'])
-            ->map(fn ($r): array => ['text' => self::original((string) $r->comment), 'stars' => self::STARS[strtoupper((string) $r->star_rating)] ?? null])
-            ->filter(fn (array $r): bool => $r['text'] !== '')->values();
+        // Plain arrays and C-level matching (preg_grep) over every review text: closures per review and per service name
+        // made this the slowest part of the review screen on profiles with thousands of reviews.
+        $texts = [];
+        $stars = [];
+        foreach (DB::table('gbp_reviews')->whereIn('external_resource_id', $resources)->whereNotNull('comment')->get(['comment', 'star_rating']) as $row) {
+            $text = self::original((string) $row->comment);
+            if ($text !== '') {
+                $texts[] = $text;
+                $stars[] = self::STARS[strtoupper((string) $row->star_rating)] ?? null;
+            }
+        }
 
         $doctors = [];
         $upper = '[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}';
-        foreach ($reviews as $review) {
-            preg_match_all('/(?:\b(?:[Dd]r|[Dd]t|[Dd]oktor|[Hh]ekim)\.?\s+(?:[Dd]t\.?\s+)?('.$upper.')|('.$upper.')\s+(?:[Hh]oca|[Hh]anım|[Bb]ey)(?:[a-zçğıöşü]*)\b)/u', $review['text'], $m, PREG_SET_ORDER);
+        $pattern = '/(?:\b(?:[Dd]r|[Dd]t|[Dd]oktor|[Hh]ekim)\.?\s+(?:[Dd]t\.?\s+)?('.$upper.')|('.$upper.')\s+(?:[Hh]oca|[Hh]anım|[Bb]ey)(?:[a-zçğıöşü]*)\b)/u';
+        $notNames = array_flip(self::NOT_NAMES);
+        foreach ($texts as $i => $text) {
+            preg_match_all($pattern, $text, $m, PREG_SET_ORDER);
             $names = [];
             foreach ($m as $match) {
                 $name = $match[1] !== '' ? $match[1] : ($match[2] ?? '');
-                if ($name !== '' && ! in_array(self::lower($name), self::NOT_NAMES, true)) {
+                if ($name !== '' && ! isset($notNames[self::lower($name)])) {
                     $names[$name] = true;
                 }
             }
             foreach (array_keys($names) as $name) {
-                $doctors[$name][] = $review['stars'];
+                $doctors[$name][] = $stars[$i];
             }
         }
         $doctorRows = [];
-        foreach ($doctors as $name => $stars) {
-            if (count($stars) >= 2) {
-                $rated = array_filter($stars);
-                $doctorRows[] = ['name' => $name, 'count' => count($stars), 'average' => $rated !== [] ? round(array_sum($rated) / count($rated), 1) : null];
+        foreach ($doctors as $name => $named) {
+            if (count($named) >= 2) {
+                $rated = array_filter($named);
+                $doctorRows[] = ['name' => (string) $name, 'count' => count($named), 'average' => $rated !== [] ? round(array_sum($rated) / count($rated), 1) : null];
             }
         }
         usort($doctorRows, fn (array $a, array $b): int => $b['count'] <=> $a['count']);
@@ -443,15 +560,16 @@ final class ReviewDesk
         $serviceRows = [];
         $names = $brandIds === [] ? collect() : BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->whereIn('brand_id', $brandIds)->where('status', 'active')->get()
             ->map(fn (BrandOffering $o): string => $o->displayName())->unique()->values();
+        $lowered = $names->isEmpty() ? [] : array_map(self::lower(...), $texts);
         foreach ($names as $name) {
             $word = self::serviceWord($name);
             if ($word === '' || isset($serviceRows[$word])) {
                 continue;
             }
-            $matched = $reviews->filter(fn (array $r): bool => str_contains(self::lower($r['text']), $word));
-            if ($matched->count() >= 2) {
-                $rated = $matched->pluck('stars')->filter();
-                $serviceRows[$word] = ['name' => $name, 'word' => $word, 'count' => $matched->count(), 'average' => $rated->isNotEmpty() ? round($rated->avg(), 1) : null];
+            $matched = array_keys(preg_grep('/'.preg_quote($word, '/').'/', $lowered) ?: []);
+            if (count($matched) >= 2) {
+                $rated = array_filter(array_map(fn (int $i): ?int => $stars[$i], $matched));
+                $serviceRows[$word] = ['name' => $name, 'word' => $word, 'count' => count($matched), 'average' => $rated !== [] ? round(array_sum($rated) / count($rated), 1) : null];
             }
         }
         $serviceRows = array_values($serviceRows);

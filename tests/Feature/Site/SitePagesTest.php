@@ -12,6 +12,7 @@ use App\Livewire\Operator\Website\V2\PagesTab;
 use App\Livewire\Operator\Website\V2\SettingsTab;
 use App\Livewire\Operator\Website\V2\TechnicalSeoTab;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
+use App\Models\AssetAlert;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\CoreAssetBinding;
@@ -128,6 +129,19 @@ final class SitePagesTest extends TestCase
         $this->edge('https://www.panorama.example/implant/', 'https://www.panorama.example/hakkimizda/', '2026-09-25 10:00:00');
     }
 
+    public function test_asset_alerts_fold_into_one_strip_that_opens_only_for_traffic_loss(): void
+    {
+        $this->actingAs($this->admin);
+        $alert = fn (string $kind, string $severity, string $title): AssetAlert => AssetAlert::query()->create(['digital_asset_id' => $this->site->id, 'brand_id' => $this->site->brand_id,
+            'alert_key' => hash('sha256', $kind), 'kind' => $kind, 'severity' => $severity, 'title' => $title, 'message' => 'x', 'first_detected_at' => now(), 'last_detected_at' => now()]);
+        $url = route('operator.website', ['assetId' => $this->site->id, 'tab' => 'ayarlar']);
+        $alert('wordpress_plugin_outdated', 'low', 'WordPress eklentisi güncel değil');
+        $this->get($url)->assertOk()->assertSee('1 uyarı')->assertSee('data-blocking="0">', false);
+
+        $alert('site_down', 'critical', 'Site erişilemiyor');
+        $this->get($url)->assertOk()->assertSee('2 uyarı')->assertSee('data-blocking="1" open', false)->assertSeeInOrder(['Site erişilemiyor', 'WordPress eklentisi güncel değil']);
+    }
+
     public function test_rows_merge_inventory_search_console_ga4_ads_and_health(): void
     {
         $rows = app(SitePagesReader::class)->rows($this->site->fresh(), 28);
@@ -240,10 +254,11 @@ final class SitePagesTest extends TestCase
         $this->assertSame('ayarlar', WebsiteScreen::resolve('varliklar', ''));
         $this->assertSame('sayfalar', WebsiteScreen::resolve('pages', ''));
         $this->assertSame('rakipler', WebsiteScreen::resolve('seo', 'rakipler'));
-        $this->assertSame('kumeler', WebsiteScreen::resolve('bilinmeyen', 'x'));
+        $this->assertSame('yapilacaklar', WebsiteScreen::resolve('bilinmeyen', 'x'));
 
         $url = fn (array $query): string => route('operator.website', ['assetId' => $this->site->id, ...$query]);
-        $this->get($url([]))->assertOk()->assertSee('data-clusters-board', false)->assertSee('data-tab="kumeler"', false)->assertSee('data-tab-more', false)
+        $this->get($url([]))->assertOk()->assertSee('data-suggestions', false)->assertDontSee('data-clusters-board', false);
+        $this->get($url(['tab' => 'kumeler']))->assertOk()->assertSee('data-clusters-board', false)->assertSee('data-tab="kumeler"', false)->assertSee('data-tab-more', false)
             ->assertSee('data-date-picker', false)->assertSee('Son 28 gün');
         $this->get($url(['tab' => 'sayfalar']))->assertOk()->assertSee('data-pages-tab', false)->assertSee('data-page-types', false)->assertSee('/implant')
             ->assertDontSee('aria-label="Dönem"', false);

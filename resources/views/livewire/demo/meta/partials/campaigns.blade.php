@@ -7,7 +7,12 @@
     ];
     $cost = fn (array $row) => $row['cpr'] === null ? '—' : $money($row['cpr']);
     $count = fn (float $value) => $value >= 10000 ? $num($value / 1000, 1).' bin' : $num($value, $value == floor($value) ? 0 : 1);
-    $alertCount = $board ? count(array_filter($board['rows'], fn (array $r): bool => $r['alerts'] !== [])) : 0;
+    // "Hizmet yok" is not an alert chip: the row's "+ Hizmet ata" action already says it.
+    $rowAlerts = fn (array $row): array => array_values(array_filter($row['alerts'], fn (array $a): bool => $a['key'] !== 'no_service'));
+    $alertCount = $board ? count(array_filter($board['rows'], fn (array $r): bool => $rowAlerts($r) !== [])) : 0;
+    $statusLabels = ['live' => 'Yayında', 'paused' => 'Durmuş', 'ended' => 'Bitti'];
+    // A row action, not a loss: neutral outline (red stays for money / traffic loss, orange for the page's main action).
+    $assignChip = 'bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:ring-gray-400 hover:text-gray-900 dark:bg-transparent dark:text-gray-300 dark:ring-gray-600';
 @endphp
 
 @if (! ($board['bound'] ?? false))
@@ -45,20 +50,29 @@
 
     @php
         $k = $board['kpis'];
-        $tiles = [
-            ['Harcama', $money($k['spend']['value']), $k['spend']['change'] === null ? 'önceki dönem yok' : $pct($k['spend']['change']).' karşılaştırma dönemine göre', null],
-            ['Form', $count($k['leads']['value']), 'form başı '.$money($k['leads']['cost']), $k['leads']['change']],
-            ['Mesaj', $count($k['messages']['value']), 'mesaj başı '.$money($k['messages']['cost']), $k['messages']['change']],
-            ['Satış', $count($k['purchases']['value']), 'satış başı '.$money($k['purchases']['cost']), $k['purchases']['change']],
-        ];
+        // One card per result type that has campaigns (form / mesaj / satış / tıklama); a card filters the table to that type.
+        $typeTiles = [];
+        foreach (['leads' => 'Form', 'messages' => 'Mesaj', 'purchases' => 'Satış', 'clicks' => 'Tıklama'] as $typeKey => $typeLabel) {
+            $campaignsOfType = (int) ($board['type_campaigns'][$typeKey] ?? 0);
+            if (isset($k[$typeKey]) && ($campaignsOfType > 0 || ($k[$typeKey]['value'] ?? 0) > 0)) {
+                $typeTiles[$typeKey] = [$typeLabel, $count($k[$typeKey]['value']), $types[$typeKey][1].' '.($k[$typeKey]['cost'] === null ? '—' : $money($k[$typeKey]['cost'])), $k[$typeKey]['change'], $campaignsOfType];
+            }
+        }
     @endphp
-    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="meta-campaign-kpis">
-        @foreach ($tiles as [$label, $value, $sub, $change])
-            <section class="{{ $card }}">
-                <p class="text-xs font-medium text-gray-500">{{ $label }}</p>
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="meta-campaign-kpis">
+        <section class="{{ $card }}">
+            <p class="text-xs font-medium text-gray-500">Harcama</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $money($k['spend']['value']) }}</p>
+            <p class="text-xs text-gray-500">{{ $k['spend']['change'] === null ? 'önceki dönem yok' : $pct($k['spend']['change']).' karşılaştırma dönemine göre' }}</p>
+        </section>
+        @foreach ($typeTiles as $typeKey => [$label, $value, $sub, $change, $campaignsOfType])
+            <button type="button" wire:click="$set('resultType', '{{ $resultType === $typeKey ? '' : $typeKey }}')" wire:key="kpi-{{ $typeKey }}" data-kpi-type="{{ $typeKey }}"
+                @class(['rounded-xl p-4 text-left ring-1 ring-inset transition', 'bg-gray-50 ring-gray-400 dark:bg-white/[0.06] dark:ring-gray-500' => $resultType === $typeKey, 'bg-white ring-gray-200 hover:ring-gray-300 dark:bg-gray-800 dark:ring-gray-700' => $resultType !== $typeKey])
+                title="Tabloyu {{ mb_strtolower($label) }} kampanyalarına süz">
+                <p class="text-xs font-medium text-gray-500">{{ $label }} <span class="text-gray-400">· {{ $campaignsOfType }} kampanya</span></p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $value }}</p>
                 <p class="text-xs text-gray-500">{{ $sub }}@if ($change !== null) <span @class(['font-semibold', 'text-emerald-600' => $change < 0, 'text-rose-600' => $change > 0])>{{ $pct($change) }}</span>@endif</p>
-            </section>
+            </button>
         @endforeach
     </div>
 
@@ -83,9 +97,7 @@
     @endif
 
     @if ($alertCount > 0)
-        <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
-            <span class="font-semibold">{{ $alertCount }} kampanyada uyarı var.</span> Satırdaki etikete göre kampanyayı açıp bakın.
-        </p>
+        <p class="text-xs text-gray-500" data-testid="meta-campaign-alert-count">Bu listede {{ $alertCount }} kampanyada uyarı var; etiketler Uyarı sütununda.</p>
     @endif
 
     <section class="{{ $panel }} overflow-hidden" data-testid="meta-campaigns">
@@ -102,10 +114,18 @@
                         <tr class="align-top text-gray-700 dark:text-gray-300" wire:key="campaign-{{ $row['id'] }}">
                             <td class="px-4 py-3">
                                 <div class="flex gap-2.5">
-                                    <span @class(['mt-1.5 h-2 w-2 shrink-0 rounded-full', 'bg-emerald-500' => $row['status'] === 'live', 'bg-gray-400' => $row['status'] !== 'live']) title="{{ ['live' => 'Yayında', 'paused' => 'Durmuş', 'ended' => 'Bitti'][$row['status']] }}"></span>
-                                    <div class="min-w-0">
-                                        <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days, 'bas' => $start ?: null, 'bit' => $end ?: null, 'karsilastir' => $compare !== 'prev' ? $compare : null]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['name'] }}</a>
-                                        <p class="text-xs text-gray-500">{{ $row['objective'] }}</p>
+                                    <span @class(['mt-1.5 h-2 w-2 shrink-0 rounded-full', 'bg-emerald-500' => $row['status'] === 'live', 'bg-gray-400' => $row['status'] !== 'live']) title="{{ $statusLabels[$row['status']] ?? '' }}"></span>
+                                    @php
+                                        // Readable line: the confirmed service(s) and target countries; the raw Meta name goes small and grey below.
+                                        $confirmed = array_column(array_filter($row['services'], fn (array $s): bool => $s['status'] === 'confirmed'), 'name');
+                                        $countries = $row['countries'] ?? [];
+                                        $readable = $confirmed === [] ? null : implode(', ', array_slice($confirmed, 0, 2)).(count($confirmed) > 2 ? ' +'.(count($confirmed) - 2) : '')
+                                            .($countries !== [] ? ' · '.implode(', ', array_slice($countries, 0, 3)).(count($countries) > 3 ? ' +'.(count($countries) - 3) : '') : '');
+                                        $campaignUrl = route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days, 'bas' => $start ?: null, 'bit' => $end ?: null, 'karsilastir' => $compare !== 'prev' ? $compare : null]);
+                                    @endphp
+                                    <div class="min-w-0 max-w-[24rem]" title="{{ $row['name'] }}{{ $row['objective'] !== '' ? ' · '.$row['objective'] : '' }}">
+                                        <a href="{{ $campaignUrl }}" wire:navigate class="block truncate font-semibold text-gray-900 hover:underline dark:text-white" data-campaign-title>{{ $readable ?? $row['name'] }}</a>
+                                        @if ($readable !== null)<p class="truncate text-xs text-gray-400" data-campaign-raw-name>{{ $row['name'] }}</p>@endif
                                     </div>
                                 </div>
                             </td>
@@ -121,13 +141,13 @@
                                     @if ($row['service_state'] === 'excluded')
                                         <span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">Hizmet dışı</span>
                                     @elseif ($row['services'] === [])
-                                        <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="{{ $chip }} bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30">+ Hizmet ata</a>
+                                        <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="{{ $chip }} {{ $assignChip }}" data-assign-service>+ Hizmet ata</a>
                                     @endif
                                 </div>
                             </td>
                             <td class="px-3 py-3 text-right">{{ $row['budget']['amount'] === null ? '—' : $money($row['budget']['amount']) }}@if ($row['budget']['level'] === 'adset' && $row['budget']['amount'] !== null)<span class="block text-[11px] text-gray-400">set bütçeleri</span>@endif</td>
                             <td class="px-3 py-3 text-right">{{ $money($row['spend']) }}</td>
-                            <td class="px-3 py-3 text-right"><span class="font-medium text-gray-900 dark:text-white">{{ $count($row['results']) }}</span> <span class="text-xs text-gray-500">{{ $types[$row['type']][0] }}</span></td>
+                            <td class="whitespace-nowrap px-3 py-3 text-right" data-result-type="{{ $row['type'] }}"><span class="font-medium text-gray-900 dark:text-white">{{ $count($row['results']) }}</span> <span class="ml-1 inline-block min-w-[4.5rem] rounded bg-gray-100 px-1.5 py-0.5 text-center text-[11px] font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $types[$row['type']][0] }}</span></td>
                             <td class="px-3 py-3 text-right">
                                 <span class="font-medium text-gray-900 dark:text-white">{{ $cost($row) }}</span>
                                 @if ($row['cpr_change'] !== null)
@@ -146,12 +166,18 @@
                             </td>
                             <td class="px-3 py-3">
                                 <div class="flex flex-wrap gap-1">
-                                    @foreach ($row['alerts'] as $alert)<span class="rounded-md px-2 py-0.5 text-xs font-semibold {{ $tones[$alert['tone']] }}">{{ $alert['label'] }}</span>@endforeach
+                                    @foreach ($rowAlerts($row) as $alert)<span class="rounded-md px-2 py-0.5 text-xs font-semibold {{ $tones[$alert['tone']] }}">{{ $alert['label'] }}</span>@endforeach
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">Bu süzgeçte kampanya yok.</td></tr>
+                        <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">
+                            @if ($status === 'live' && ($board['counts']['all'] ?? 0) > 0)
+                                Yayında kampanya yok. <button type="button" wire:click="$set('status', 'all')" class="font-medium text-gray-700 underline dark:text-gray-300">Tümünü göster ({{ $board['counts']['all'] }})</button>
+                            @else
+                                Bu süzgeçte kampanya yok.
+                            @endif
+                        </td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -159,7 +185,7 @@
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-700">
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">Hizmet</span> onaylı</span>
             <span class="flex items-center gap-1.5"><span class="{{ $chip }} border border-dashed border-gray-400 text-gray-700">Hizmet</span> sistem önerisi, tıklayınca onaylanır</span>
-            <span class="flex items-center gap-1.5"><span class="{{ $chip }} bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200">+ Hizmet ata</span> eşleşme yok</span>
+            <span class="flex items-center gap-1.5"><span class="{{ $chip }} {{ $assignChip }}">+ Hizmet ata</span> eşleşme yok, eşleştirme ekranını açar</span>
             <span>Sonuç başı maliyet karşılaştırma dönemine göre; her kampanya kendi sonuç türüyle. Hizmet ort.: aynı hizmet ve sonuç türünde diğer markaların son 30 gün ortancası.</span>
         </div>
     </section>

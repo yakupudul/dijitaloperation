@@ -183,6 +183,23 @@ final class PagesFromWordPressTest extends TestCase
         $this->assertSame([70], Page::query()->pluck('wp_post_id')->all());
     }
 
+    public function test_an_empty_or_template_description_field_falls_back_to_the_rendered_one_of_the_crawl(): void
+    {
+        $this->seo(40, 'yoast', 'Dolgu | Klinik', '%%excerpt%%', null, '');
+        $this->seo(41, 'yoast', 'Köprü | Klinik', '', null, '');
+        DB::table('website_metadata_snapshot')->insert(['digital_asset_id' => $this->site->id, 'url' => 'https://klinik.example/dolgu', 'observed_at' => now(),
+            'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20),
+            'metadata' => json_encode(['meta_description' => 'Diş dolgusu hakkında bilgi.']), 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->sync()->syncContent($this->site->id, [
+            $this->wpPost(40, 'https://klinik.example/dolgu/', 'Dolgu', '<p>Dolgu.</p>'),
+            $this->wpPost(41, 'https://klinik.example/kopru/', 'Köprü', '<p>Köprü.</p>'),
+        ]);
+
+        $this->assertSame('Diş dolgusu hakkında bilgi.', Page::query()->where('wp_post_id', 40)->value('meta_description'), 'the plugin renders the template');
+        $this->assertNull(Page::query()->where('wp_post_id', 41)->value('meta_description'), 'nothing rendered: really missing');
+    }
+
     private function sync(): WordPressPageSync
     {
         return app(WordPressPageSync::class);

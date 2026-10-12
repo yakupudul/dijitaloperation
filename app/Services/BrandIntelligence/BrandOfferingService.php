@@ -9,6 +9,7 @@ use App\Jobs\Brand\RefreshBrandFilesJob;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandOfferingName;
+use App\Models\ServiceCatalogItem;
 use App\Models\User;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
@@ -30,7 +31,8 @@ final class BrandOfferingService
     ) {}
 
     /**
-     * Resolve existing Offering by primary/alias claim, or create a new one.
+     * Resolve existing Offering by primary/alias claim, or create a new one. `$catalog`: the catalog service already
+     * resolved by the caller (its sector may differ from the brand's), otherwise found by name in the brand's sector.
      *
      * @return array{offering: BrandOffering, created: bool}
      */
@@ -41,8 +43,9 @@ final class BrandOfferingService
         OfferingNameProvenance $provenance = OfferingNameProvenance::PrimaryOperator,
         ?User $actor = null,
         bool $recordActivity = true,
+        ?ServiceCatalogItem $catalog = null,
     ): array {
-        $catalog = app(ServiceCatalogService::class)
+        $catalog ??= app(ServiceCatalogService::class)
             ->resolveOrCreate($label, $brand->sector, locale: $locale, actor: $actor)['service'];
         $linked = BrandOffering::query()->where('brand_id', $brand->id)
             ->where('service_catalog_item_id', $catalog->id)->first();

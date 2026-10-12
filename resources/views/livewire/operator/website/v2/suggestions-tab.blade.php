@@ -47,6 +47,7 @@
                                 <span class="{{ $chip }} ml-1 {{ $s->status === 'recheck' ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-500' }}">{{ \App\Livewire\Operator\Website\V2\SuggestionsTab::STATUS_LABELS[$s->status] ?? $s->status }}</span>
                                 @if ($s->status === 'applied' && ($outcome = \App\Services\Outcomes\OutcomeTracker::latest($s)) !== null)
                                     <span title="{{ $outcome['reason'] }}">@include('livewire.demo.partials.outcome-badge', ['verdict' => $outcome['verdict']])</span>
+                                    <span class="ml-1 text-gray-500" data-outcome-line>{{ $outcome['line'] }}</span>
                                 @endif
                             </p>
                             <p class="text-gray-500">{{ $s->page?->path }} · {{ $s->reason }}</p>

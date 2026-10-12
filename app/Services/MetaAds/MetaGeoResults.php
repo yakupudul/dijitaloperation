@@ -6,6 +6,7 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\Meta\MetaApiClient;
+use App\Services\Integrations\Meta\MetaException;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -41,6 +42,11 @@ class MetaGeoResults
     private const array MESSAGE_TYPES = ['onsite_conversion.messaging_conversation_started_7d'];
 
     private const int MAX_PAGES = 40;
+
+    /** Insights page size; halved on Meta's "reduce the amount of data" answer down to MIN_PAGE_LIMIT. */
+    private const int PAGE_LIMIT = 500;
+
+    private const int MIN_PAGE_LIMIT = 15;
 
     public function __construct(
         private readonly MetaAdsSpecialistBindingResolver $bindings,
@@ -87,32 +93,75 @@ class MetaGeoResults
     }
 
     /**
+     * One breakdown for one range. Meta's "reduce the amount of data" answer (code 1) is never retried unchanged: the
+     * page size halves first (down to MIN_PAGE_LIMIT, a next page keeps its cursor), then the date range is split in
+     * halves down to single days; only a single day at the smallest page still too large fails.
+     *
      * @param  array{since: string, until: string}  $range
      * @return list<array<string, mixed>>
      */
-    private function fetch(CoreIntegration $integration, string $act, array $range, string $breakdown): array
+    private function fetch(CoreIntegration $integration, string $act, array $range, string $breakdown, int &$limit = self::PAGE_LIMIT): array
     {
-        $payload = $this->client->get($integration, $act.'/insights', [
+        try {
+            return $this->fetchPages($integration, $act, $range, $breakdown, $limit);
+        } catch (MetaException $exception) {
+            if ($exception->kind !== MetaException::KIND_DATA_TOO_LARGE || $range['since'] >= $range['until']) {
+                throw $exception;
+            }
+        }
+        $since = CarbonImmutable::createFromFormat('Y-m-d', $range['since'])->startOfDay();
+        $until = CarbonImmutable::createFromFormat('Y-m-d', $range['until'])->startOfDay();
+        $firstEnd = $since->addDays(intdiv((int) $since->diffInDays($until) + 1, 2) - 1);
+
+        return array_merge(
+            $this->fetch($integration, $act, ['since' => $range['since'], 'until' => $firstEnd->toDateString()], $breakdown, $limit),
+            $this->fetch($integration, $act, ['since' => $firstEnd->addDay()->toDateString(), 'until' => $range['until']], $breakdown, $limit),
+        );
+    }
+
+    /**
+     * @param  array{since: string, until: string}  $range
+     * @return list<array<string, mixed>>
+     */
+    private function fetchPages(CoreIntegration $integration, string $act, array $range, string $breakdown, int &$limit): array
+    {
+        $query = [
             'level' => 'ad',
             'fields' => 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,impressions,clicks,actions,action_values,account_currency,date_start',
             'breakdowns' => $breakdown,
             'time_increment' => 1,
             'time_range' => json_encode($range, JSON_THROW_ON_ERROR),
             'use_unified_attribution_setting' => 'true',
-            'limit' => 500,
-        ]);
+            'limit' => $limit,
+        ];
         $rows = [];
+        $next = null;
         for ($page = 1; ; $page++) {
+            try {
+                $payload = $next === null ? $this->client->get($integration, $act.'/insights', $query) : $this->client->getAbsolute($integration, $next);
+            } catch (MetaException $exception) {
+                if ($exception->kind !== MetaException::KIND_DATA_TOO_LARGE || $limit <= self::MIN_PAGE_LIMIT) {
+                    throw $exception;
+                }
+                // The same page (same cursor) again, half as large.
+                $limit = max(self::MIN_PAGE_LIMIT, intdiv($limit, 2));
+                $query['limit'] = $limit;
+                $next = $next === null ? null : MetaApiClient::withPageLimit($next, $limit);
+                $page--;
+
+                continue;
+            }
             foreach ((array) ($payload['data'] ?? []) as $row) {
                 if (is_array($row)) {
                     $rows[] = $row;
                 }
             }
-            $next = data_get($payload, 'paging.next');
-            if (! is_string($next) || $next === '' || $page >= self::MAX_PAGES) {
+            $following = data_get($payload, 'paging.next');
+            // A smaller page gets proportionally more pages: the same row cap as MAX_PAGES full pages.
+            if (! is_string($following) || $following === '' || $page >= self::MAX_PAGES * intdiv(self::PAGE_LIMIT, $limit)) {
                 break;
             }
-            $payload = $this->client->getAbsolute($integration, $next);
+            $next = MetaApiClient::withPageLimit($following, $limit);
         }
 
         return $rows;

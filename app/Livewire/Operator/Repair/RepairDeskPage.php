@@ -47,6 +47,9 @@ final class RepairDeskPage extends Component
     #[Url(as: 'paket')]
     public string $open = '';
 
+    /** Set when the operator picked a lane on the switch: an empty lane then stays open instead of jumping to a full one. */
+    public bool $laneChosen = false;
+
     /** Rows shown in the opened package. */
     public int $perPage = 100;
 
@@ -101,6 +104,23 @@ final class RepairDeskPage extends Component
         $this->message = $count.' öneri reddedildi; kanıt değişmedikçe geri gelmez.';
     }
 
+    /** The one switch on top (yakup 2026-10-11): a lane of prepared fixes, or the rest of the work. */
+    public function showLane(string $lane): void
+    {
+        $this->section = self::SECTION_DESK;
+        $this->lane = array_key_exists($lane, RepairDesk::LANES) ? $lane : RepairDesk::LANE_READY;
+        $this->laneChosen = true;
+        $this->selected = [];
+        $this->open = '';
+    }
+
+    public function showOther(): void
+    {
+        $this->section = self::SECTION_OTHER;
+        $this->selected = [];
+        $this->open = '';
+    }
+
     public function togglePackage(string $key): void
     {
         $this->open = $this->open === $key ? '' : $key;
@@ -139,9 +159,10 @@ final class RepairDeskPage extends Component
     /** A filter change drops the selection so hidden rows are never approved by mistake. */
     public function updated(string $property): void
     {
-        if (in_array($property, ['brandId', 'kind', 'lane'], true)) {
+        if (in_array($property, ['brandId', 'kind', 'lane', 'section'], true)) {
             $this->selected = [];
             $this->open = '';
+            $this->laneChosen = $property === 'lane' && $this->laneChosen;
         }
     }
 
@@ -209,26 +230,33 @@ final class RepairDeskPage extends Component
         $all = $desk->rows();
         $filtered = $this->filter($all);
         $lanes = $filtered->countBy(fn (array $r): string => RepairDesk::lane($r))->all();
-        if (! array_key_exists($this->lane, RepairDesk::LANES) || (($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {
+        if (! array_key_exists($this->lane, RepairDesk::LANES) || (! $this->laneChosen && ($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {
             $this->lane = (string) (collect(array_keys(RepairDesk::LANES))->first(fn (string $l): bool => ($lanes[$l] ?? 0) > 0) ?? RepairDesk::LANE_READY);
         }
         $inLane = $this->inLane($filtered);
         $openRows = $this->open !== '' ? $inLane->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $this->open)->values() : collect();
 
         $this->section = $this->section === self::SECTION_OTHER ? self::SECTION_OTHER : self::SECTION_DESK;
+        $done = $desk->done($this->brandId);
+        $selectedIds = array_map('intval', $this->selected);
 
         return view('livewire.operator.repair.repair-desk', [
+            'lowSample' => $inLane->where('risk', RepairDesk::LOW)->take(3)->values(),
+            'lowTotal' => $inLane->where('risk', RepairDesk::LOW)->count(),
+            'selectedSample' => $selectedIds === [] ? collect() : $all->whereIn('id', $selectedIds)->take(3)->values(),
+            'doneCount' => (int) $done->sum(fn (array $g): int => (int) $g['ok'] + (int) $g['partial']),
             'otherCount' => array_sum(app(WorkDesk::class)->counts($this->brandId)),
             'packages' => $desk->packages($inLane),
             'openRows' => $openRows->take($this->perPage),
             'openTotal' => $openRows->count(),
             'laneCounts' => $lanes,
             'laneTotal' => $inLane->count(),
-            'counts' => ['total' => $all->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
+            'counts' => ['total' => $all->count(), 'packages' => $desk->packages($all)->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
             'health' => $desk->health($all),
             'pipeline' => $desk->pipeline($this->brandId),
             'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),
-            'done' => $desk->done($this->brandId),
+            'done' => $done,
+            'results' => $desk->results($this->brandId),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
     }

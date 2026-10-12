@@ -89,7 +89,9 @@ final class QueriesScreenTest extends TestCase
         ClusterQuery::query()->create(['cluster_id' => $cluster->id, 'query_id' => $this->queryId('implant fiyatları')]);
 
         $this->get(route('operator.library.queries'))->assertOk()->assertSee('implant fiyatları')->assertSee('atanmamış')
-            ->assertSee('AI ile planla')->assertSee('Bekleyenler')->assertSee('Filtreye ekle');
+            ->assertSee('AI ile planla')->assertSee('Bekleyenler')->assertSee('Filtreye ekle')
+            ->assertSeeHtml('data-unassigned-dot')->assertSeeHtml('data-sources')->assertSeeHtml('data-autopilot-counters')
+            ->assertSee('AI sırasında')->assertSee('Önce bir hizmet seçin')->assertSee('Sorgu seçince açılır')->assertDontSee('>Durum<', false);
 
         Livewire::test(QueriesPage::class)
             ->set('service', '__none')->assertSee('diş taşı temizliği')->assertDontSee('implant fiyatları')

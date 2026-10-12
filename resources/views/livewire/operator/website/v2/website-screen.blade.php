@@ -1,6 +1,6 @@
 @php
     $siteUrl = $site->primary_url ?: ($site->domain ? 'https://'.$site->domain : null);
-    $moreOpen = array_key_exists($tab, \App\Livewire\Operator\Website\V2\WebsiteScreen::MORE);
+    $moreOpen = array_key_exists($tab, \App\Livewire\Operator\Website\V2\WebsiteScreen::SETTINGS + \App\Livewire\Operator\Website\V2\WebsiteScreen::MORE);
 @endphp
 <div class="space-y-5 text-sm dark:text-gray-200" data-website-screen>
     <header class="space-y-3">
@@ -24,15 +24,22 @@
                 <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}"
                         @class(['-mb-px h-11 border-b-2 text-sm', 'border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white' => $tab === $key, 'border-transparent font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400' => $tab !== $key])>{{ $label }}</button>
             @endforeach
+            @php
+                $menu = \App\Livewire\Operator\Website\V2\WebsiteScreen::SETTINGS + \App\Livewire\Operator\Website\V2\WebsiteScreen::MORE;
+            @endphp
             <div class="relative" x-data="{ more: false }" @click.outside="more = false">
-                <button type="button" @click="more = !more" data-tab-more :aria-expanded="more.toString()"
+                <button type="button" @click="more = !more" data-tab-more data-tab-settings :aria-expanded="more.toString()"
                         @class(['-mb-px flex h-11 items-center gap-1 border-b-2 text-sm', 'border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white' => $moreOpen, 'border-transparent font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400' => ! $moreOpen])>
-                    {{ $moreOpen ? \App\Livewire\Operator\Website\V2\WebsiteScreen::MORE[$tab] : 'Diğer' }}
+                    {{ $moreOpen && $tab !== 'ayarlar' ? 'Ayarlar · '.$menu[$tab] : 'Ayarlar' }}
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
                 <div x-show="more" x-cloak class="absolute left-0 z-30 mt-1 w-64 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                    @foreach (\App\Livewire\Operator\Website\V2\WebsiteScreen::MORE as $key => $label)
-                        <button type="button" wire:click="setTab('{{ $key }}')" @click="more = false" data-tab="{{ $key }}" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">{{ $label }}</button>
+                    @foreach ($menu as $key => $label)
+                        @if ($loop->index === count(\App\Livewire\Operator\Website\V2\WebsiteScreen::SETTINGS))
+                            <p class="mt-1 border-t border-gray-100 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800">Diğer görünümler</p>
+                        @endif
+                        <button type="button" wire:click="setTab('{{ $key }}')" @click="more = false" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}"
+                                @class(['block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800', 'font-semibold text-gray-900 dark:text-white' => $tab === $key, 'text-gray-700 dark:text-gray-300' => $tab !== $key])>{{ $label }}</button>
                     @endforeach
                 </div>
             </div>

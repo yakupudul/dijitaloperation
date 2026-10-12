@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class BrandMemory extends Model
 {
-    public const array KINDS = ['profile', 'page', 'decision', 'dossier', 'care', 'claude_seen', 'facts', 'manual_notes'];
+    public const array KINDS = ['profile', 'page', 'decision', 'dossier', 'care', 'claude_seen', 'facts', 'manual_notes', 'data_review'];
 
     protected $table = 'brand_memory';
 

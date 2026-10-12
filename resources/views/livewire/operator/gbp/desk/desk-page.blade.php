@@ -40,21 +40,56 @@
         @endforeach
     </section>
 
+    @if ($shared !== [])
+        <section class="rounded-xl bg-amber-50/60 p-3 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/5 dark:ring-amber-500/30" data-testid="gbp-shared-gaps">
+            <h2 class="text-sm font-semibold text-amber-800 dark:text-amber-300">Şubelerin çoğunda ortak eksik</h2>
+            <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">Bunlar satırlarda tekrar gösterilmiyor; hepsini tek yerden düzenleyebilirsin.</p>
+            <ul class="mt-2 divide-y divide-amber-100 dark:divide-amber-500/20">
+                @foreach ($shared as $key => $gap)
+                    <li class="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                        <span class="text-sm text-gray-800 dark:text-gray-200">{{ $gap['label'] }} <span class="text-xs text-gray-500">· {{ $gap['missing'] }}/{{ $count }} işletmede eksik</span></span>
+                        <a href="{{ route($gap['route'], array_filter(['marka' => $brand] + $gap['query'])) }}" wire:navigate data-testid="gbp-shared-{{ $key }}"
+                            class="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-300 hover:bg-amber-100 dark:text-amber-300 dark:ring-amber-500/40 dark:hover:bg-amber-500/10">Hepsini düzenle →</a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
         <table class="w-full min-w-[760px] text-sm">
             <thead class="text-left text-xs text-gray-500">
                 <tr class="border-b border-gray-100 dark:border-gray-700">
                     <th class="px-4 py-2 font-medium">İşletme</th>
                     @foreach ($columns as $label)<th class="px-2 py-2 text-right font-medium">{{ $label }}</th>@endforeach
-                    <th class="px-4 py-2 font-medium">Koşullar</th>
+                    <th class="px-4 py-2 font-medium">{{ $shared !== [] ? 'Bu şubeye özel eksikler' : 'Koşullar' }}</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                @php
+                    $ownGaps = fn (array $row): array => array_filter($row['checks'], fn (array $c, string $k): bool => ! $c['ok'] && ! isset($shared[$k]), ARRAY_FILTER_USE_BOTH);
+                @endphp
                 @forelse ($groups as $brandName => $brandRows)
-                    <tr class="bg-gray-50 dark:bg-white/[0.03]"><td colspan="{{ count($columns) + 2 }}" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $brandName }} · {{ $brandRows->count() }}</td></tr>
+                    @php
+                        $foldable = $brandRows->count() > \App\Livewire\Operator\Gbp\Desk\DeskPage::GROUP_FOLD_AFTER;
+                        $withOwn = $brandRows->filter(fn (array $row): bool => collect($ownGaps($row))->contains(fn (array $c): bool => ! $c['unknown']))->count();
+                        $expanded = ! $foldable || $withOwn > 0 || $brandRows->contains(fn (array $row): bool => $open === (int) $row['location']->id);
+                    @endphp
+                    <tbody wire:key="group-{{ md5((string) $brandName) }}" x-data="{ show: @js($expanded) }" class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-700 dark:border-gray-700" data-testid="gbp-brand-group">
+                    <tr class="bg-gray-50 dark:bg-white/[0.03]">
+                        <td colspan="{{ count($columns) + 2 }}" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            @if ($foldable)
+                                <button type="button" x-on:click="show = ! show" class="inline-flex items-center gap-1.5 uppercase hover:text-gray-700 dark:hover:text-gray-300" x-bind:aria-expanded="show">
+                                    <span x-text="show ? '▾' : '▸'">{{ $expanded ? '▾' : '▸' }}</span> {{ $brandName }} · {{ $brandRows->count() }}
+                                    <span class="font-normal normal-case tracking-normal {{ $withOwn > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">{{ $withOwn > 0 ? '· '.$withOwn.' şubede özel eksik' : '· şubeye özel eksik yok' }}</span>
+                                </button>
+                            @else
+                                {{ $brandName }} · {{ $brandRows->count() }}
+                            @endif
+                        </td>
+                    </tr>
                     @foreach ($brandRows as $row)
                         @php $location = $row['location']; $r = $row['report']; @endphp
-                        <tr wire:key="row-{{ $location->id }}" class="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:click="toggle({{ $location->id }})">
+                        <tr wire:key="row-{{ $location->id }}" @if ($foldable) x-show="show" @if (! $expanded) style="display: none" @endif @endif class="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:click="toggle({{ $location->id }})">
                             <td class="px-4 py-2">
                                 <span class="block font-medium text-gray-900 dark:text-white" title="{{ $location->name }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $location->name) }}</span>
                                 <span class="block text-xs text-gray-500">{{ $row['snapshot']['area'] ?? 'Profil verisi yok' }}@if (($row['snapshot']['rating'] ?? null) !== null) · ★ {{ $row['snapshot']['rating'] }} ({{ $row['snapshot']['reviews'] }})@endif</span>
@@ -68,15 +103,17 @@
                             @endforeach
                             <td class="px-4 py-2">
                                 <span class="flex flex-wrap gap-1">
-                                    @foreach ($row['checks'] as $check)
+                                    @forelse ($ownGaps($row) as $check)
                                         <a href="{{ route($check['route'], array_filter(['marka' => $location->brand_id])) }}" wire:navigate x-on:click.stop title="{{ $check['label'] }}: {{ $check['hint'] }}"
-                                            @class(['rounded-full px-2 py-0.5 text-[11px] font-medium', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $check['ok'], 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $check['unknown'], 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => ! $check['ok'] && ! $check['unknown']])>{{ $check['ok'] ? '✓' : ($check['unknown'] ? '?' : '!') }} {{ $check['label'] }}</a>
-                                    @endforeach
+                                            @class(['rounded-full px-2 py-0.5 text-[11px] font-medium', 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $check['unknown'], 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => ! $check['unknown']])>{{ $check['unknown'] ? '?' : '!' }} {{ $check['label'] }}</a>
+                                    @empty
+                                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" title="{{ collect($row['checks'])->filter(fn (array $c): bool => $c['ok'])->pluck('label')->join(', ') }}">✓ {{ $shared !== [] ? 'Özel eksik yok' : 'Tamam' }}</span>
+                                    @endforelse
                                 </span>
                             </td>
                         </tr>
                         @if ($open === (int) $location->id)
-                            <tr wire:key="detail-{{ $location->id }}">
+                            <tr wire:key="detail-{{ $location->id }}" @if ($foldable) x-show="show" @endif>
                                 <td colspan="{{ count($columns) + 2 }}" class="bg-gray-50/60 px-4 py-4 dark:bg-white/[0.02]">
                                     @if ($detail === null)
                                         <p class="text-sm text-gray-500">Bu işletmenin performans verisi henüz toplanmadı.</p>
@@ -122,10 +159,10 @@
                             </tr>
                         @endif
                     @endforeach
+                    </tbody>
                 @empty
-                    <tr><td colspan="{{ count($columns) + 2 }}" class="px-4 py-5 text-sm text-gray-500">Operasyonel markaya bağlı İşletme Profili yok.</td></tr>
+                    <tbody><tr><td colspan="{{ count($columns) + 2 }}" class="px-4 py-5 text-sm text-gray-500">Operasyonel markaya bağlı İşletme Profili yok. <a href="{{ route('operator.integrations') }}" wire:navigate class="font-medium text-brand-600 hover:underline">Entegrasyonlardan bağla →</a></td></tr></tbody>
                 @endforelse
-            </tbody>
         </table>
     </section>
 </div>

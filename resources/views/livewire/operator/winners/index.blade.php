@@ -34,7 +34,7 @@
     </section>
 
     @if (! $ready)
-        <p class="{{ $panel }} p-4 text-sm text-gray-500">Kazananlar tabloları henüz hazır değil.</p>
+        <p class="{{ $panel }} p-4 text-sm text-gray-500">Kazananlar tabloları henüz hazır değil; sayılar her sabah hesaplanır. <a href="{{ route('operator.meta-strategy') }}" wire:navigate class="font-semibold text-brand-600 hover:underline" data-empty-action>Strateji öner’e git →</a></p>
     @elseif ($tab === 'marka' && $brandView)
         <section class="{{ $panel }} p-5" data-testid="winners-brand">
             <div class="flex flex-wrap items-end gap-3">
@@ -47,7 +47,8 @@
                 <p class="text-xs text-gray-500">Markanın yarıştığı pazarlarda geride olduğu kanallar; en kalabalık pazar önce.</p>
             </div>
             @if ($brandView['behind'] === [])
-                <p class="mt-4 text-sm text-gray-500">{{ $brandView['brand'] === null ? 'Henüz yarışa giren marka yok.' : 'Bu marka yarıştığı hiçbir pazarda geride değil.' }}</p>
+                <p class="mt-4 text-sm text-gray-500">{{ $brandView['brand'] === null ? 'Henüz yarışa giren marka yok.' : 'Bu marka yarıştığı hiçbir pazarda geride değil.' }}
+                    <button type="button" wire:click="$set('tab', 'pazarlar')" class="ml-1 font-semibold text-brand-600 hover:underline" data-empty-action>Pazarlara bak →</button></p>
             @else
                 <div class="mt-4 overflow-x-auto">
                     <table class="w-full min-w-[56rem] text-sm">
@@ -79,7 +80,7 @@
             @endif
         </section>
     @elseif ($view && $view['sectors'] === [])
-        <p class="{{ $panel }} p-4 text-sm text-gray-500" data-testid="winners-empty">Henüz yarışa giren pazar yok. Aynı şehirde aynı hizmette en az iki markanın verisi olunca burada görünür; sayılar her sabah hesaplanır.</p>
+        <p class="{{ $panel }} p-4 text-sm text-gray-500" data-testid="winners-empty">Henüz yarışa giren pazar yok. Aynı şehirde aynı hizmette en az iki markanın verisi olunca burada görünür; sayılar her sabah hesaplanır. <a href="{{ route('operator.meta-strategy') }}" wire:navigate class="font-semibold text-brand-600 hover:underline" data-empty-action>Strateji öner’e git →</a></p>
     @elseif ($view)
         @if (count($view['sectors']) > 1)
             <div class="flex flex-wrap gap-2" data-testid="winners-sectors">
@@ -100,7 +101,8 @@
                 <p class="text-xs text-gray-500">En az iki markanın yarıştığı ve en az bir kanalda eşiği geçenin olduğu şehir · hizmet; her kanalın lideri.</p>
             </div>
             @if ($view['markets'] === [])
-                <p class="px-5 py-6 text-sm text-gray-500">Bu şehirde henüz gerçek bir yarış yok.</p>
+                <p class="px-5 py-6 text-sm text-gray-500">Bu şehirde henüz gerçek bir yarış yok.
+                    @if ($view['city'] !== $all)<button type="button" wire:click="$set('city', '{{ $all }}')" class="ml-1 font-semibold text-brand-600 hover:underline" data-empty-action>Türkiye geneline bak →</button>@endif</p>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[48rem] text-sm">

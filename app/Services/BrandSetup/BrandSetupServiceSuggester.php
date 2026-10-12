@@ -18,6 +18,7 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandGaps;
 use App\Services\Catalog\ServiceKeywordService;
+use App\Services\Catalog\ServiceNameQuality;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
@@ -153,8 +154,9 @@ final class BrandSetupServiceSuggester
                 $catalog, $sectors, $existing, $grounded ? 0.85 : 0.5, (array) ($row['matching_phrases'] ?? []));
         }
         $brandSector = is_string($structured['sector_code'] ?? null) && isset($sectors[$structured['sector_code']]) ? $structured['sector_code'] : null;
+        // Safety net: service pages no AI row covers. Only proposals (unticked): a raw page title is never applied on its own.
         foreach ($this->uncoveredServicePages($website, $services) as [$title, $path]) {
-            $services[] = $this->serviceRow($title, [], $brandSector, false, 'Sitede hizmet sayfası var: '.$path, $catalog, $sectors, $existing, 0.8);
+            $services[] = ['selected' => false] + $this->serviceRow($title, [], $brandSector, false, 'Sitede hizmet sayfası var: '.$path, $catalog, $sectors, $existing, 0.8);
         }
 
         return [
@@ -173,12 +175,12 @@ final class BrandSetupServiceSuggester
     /** @return array<string, mixed> */
     private function serviceRow(string $name, array $aliases, ?string $sector, bool $core, string $evidence, array $catalog, array $sectors, array $existing, float $confidence, array $matching = []): array
     {
-        // Location-free name and aliases ("uyluk germe ankara" → "uyluk germe").
-        $name = $this->withoutLocation($name) ?? $name;
+        // Location-free name and aliases ("uyluk germe ankara" → "uyluk germe"; a place only at the start / end).
+        $name = $this->withoutLocationInName($name) ?? $name;
         $seenAliases = [SeoText::fold($name) => true];
         $cleanAliases = [];
         foreach ($aliases as $alias) {
-            $alias = $this->withoutLocation((string) $alias);
+            $alias = $this->withoutLocationInName((string) $alias);
             if ($alias === null || isset($seenAliases[SeoText::fold($alias)])) {
                 continue;
             }
@@ -191,7 +193,10 @@ final class BrandSetupServiceSuggester
         $match = null;
         foreach (array_merge([$name], $aliases) as $label) {
             $key = $this->normalizer->normalize($label);
-            $hit = $key !== '' ? ServiceCatalogName::query()->with('service')->where('normalized_key', $key)->first() : null;
+            // Same sector (or uncategorized) only: a same-name service of another sector is not this one.
+            $hit = $key === '' ? null : ServiceCatalogName::query()->with('service')->where('normalized_key', $key)->get()
+                ->filter(fn (ServiceCatalogName $n): bool => $n->service !== null && ($sector === null || $n->service->sector === null || $n->service->sector === $sector))
+                ->sortBy(fn (ServiceCatalogName $n): int => $n->service->sector === $sector ? 0 : 1)->first();
             if ($hit?->service !== null) {
                 $match = $hit->service;
                 break;
@@ -200,6 +205,11 @@ final class BrandSetupServiceSuggester
         $label = $match?->primaryName?->raw_label ?? $name;
         $sector = $match?->sector ?? $sector;
         $already = isset($existing[$this->normalizer->normalize($label)]);
+        // A new name that is not a service name ("Ekimi", a sentence, "Hizmetlerimiz") is shown, never ticked.
+        $problem = $match === null ? ServiceNameQuality::problem($label) : null;
+        if ($problem !== null) {
+            $evidence = 'Hizmet adı uygun değil: '.$problem.' '.$evidence;
+        }
 
         return [
             'name' => $label,
@@ -213,7 +223,7 @@ final class BrandSetupServiceSuggester
             'evidence' => $evidence,
             'status' => $already ? 'already' : 'proposed',
             // A service the brand already has only gains missing matching expressions / keywords (additive).
-            'selected' => $already ? $confidence >= 0.8 : ($confidence >= 0.8 && ($match !== null || $sector !== null)),
+            'selected' => $problem === null && ($already ? $confidence >= 0.8 : ($confidence >= 0.8 && ($match !== null || $sector !== null))),
         ];
     }
 
@@ -231,7 +241,7 @@ final class BrandSetupServiceSuggester
             if (! is_string($phrase)) {
                 continue;
             }
-            $phrase = $this->withoutLocation($phrase);
+            $phrase = $this->withoutLocationInName($phrase);
             $key = $phrase !== null ? LocationOptions::fold($phrase) : '';
             if ($key === '' || mb_strlen($key) < 3 || mb_strlen($phrase) > 60 || ServiceKeywordService::isGeneric($phrase) || isset($out[$key])) {
                 continue;
@@ -240,6 +250,14 @@ final class BrandSetupServiceSuggester
         }
 
         return array_slice(array_values($out), 0, 12);
+    }
+
+    /** Service names, aliases and matching phrases: a place only at the start / end (queries keep withoutLocation). */
+    private function withoutLocationInName(string $text): ?string
+    {
+        $clean = trim(LocationOptions::stripServiceName($text)['text']);
+
+        return mb_strlen($clean) >= 2 ? $clean : null;
     }
 
     private function withoutLocation(string $text): ?string

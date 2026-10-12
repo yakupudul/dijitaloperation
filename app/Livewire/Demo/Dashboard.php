@@ -11,6 +11,7 @@ use App\Services\Brand\BrandChief;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Observability\ErrorTriage;
+use App\Services\Operator\TodayCockpitReader;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Support\Demo\DemoState;
@@ -22,7 +23,9 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Bugün: every operational brand in one list (sector, services, areas, asset types, last data date) and "Sonuçlar" — the
+ * Bugün, the day's cockpit (TodayCockpitReader): four counters (onay bekleyen, bu hafta, alarm veren hesaplar, dün gece
+ * yapılan AI işleri), then "Alarm verenler", "Onay bekleyenler" and "Dün gece yapılanlar"; below them Şef's weekly plan,
+ * every operational brand in one list (sector, services, areas, asset types, last data date) and "Sonuçlar" — the
  * applied suggestions measured at 28 / 56 days (işe yaradı / yaramadı / belirsiz, Faz 9).
  */
 #[Layout('operator.layouts.app')]
@@ -41,7 +44,13 @@ class Dashboard extends Component
 
     public function render(): View
     {
+        $cockpit = app(TodayCockpitReader::class);
+
         return view('livewire.demo.dashboard', [
+            'approvals' => $cockpit->approvals(),
+            'week' => $cockpit->week(),
+            'alarms' => $cockpit->alarms(),
+            'overnight' => $cockpit->overnight(),
             'rows' => $this->rows(),
             'systemAlerts' => $this->systemAlerts(),
             'results' => $this->results(),

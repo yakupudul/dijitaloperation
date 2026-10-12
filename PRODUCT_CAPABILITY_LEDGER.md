@@ -4,6 +4,98 @@
 
 - Gerekçesi boş bir içerik fikri artık kartta seçildiği veri satırını gösteriyor (Search Console sorgusu, küme durumu, AI sorusu). Kod: `ContentBoard::item`. Test: `ContentBoardTest::test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from`.
 
+## 2026-10-11 — Deploy sağlamlığı
+
+Durum: CODED (sunucuda doğrulanmadı).
+- Otomatik deploy, deploy adımında durursa deploy logunun son 60 satırını `storage/app/auto-deploy-failure.txt`'ye yazar. Bu satırlar Ayarlar › Sürümler ekranında ve MCP `system-health` aracında (`deploy_failed` durumunda da) görünür.
+- Sitenin ana dili artık ana sayfanın dilidir; ana sayfa yoksa en çok sayfanın dili. Sebebi: drsuadagasimova.com'da ana sayfa Türkçe ama Rusça sayfa sayısı daha fazla. Site Rusça sanılmış, Türkçe hizmet sayfaları "çeviri" sayılmış ve markanın hizmetleri boş kalmıştı. Gece çalışan marka tamamlama hizmetleri yeniden dolduracak.
+- 2026-12-11 veri temizliği migration'ları (dönüşüm sinyali, SEO önceliği, konu dışı öneri) hata verirse deploy'u durdurmaz; hata raporlanır, gece işleri aynı temizliği tekrarlar.
+
+## 2026-10-11 — Onarım masası sonuçları: 30 / 90 gün ölçümü ve öğrenen sıralama
+
+Durum: CODED + PHPUnit (gerçek UAT yok, görsel kabul operatörde; DONE değil).
+- **Ölçüm (tek mekanizma, `OutcomeTracker`, mevcut Faz 9 genişletildi):** uygulanan her öneri (masadan onaylanan SEO başlık / açıklama, noindex / canonical, iç link, İşletme Profili alanları, Google Ads negatif / bütçe / ayar, sayfa metni; kanal ekranlarının "Uygulandı"sı) 30. ve 90. günde ölçülür. Nokta `dN`: uygulamadan sonraki N gün (uygulama günü hariç) ile önceki N gün, ikisi de saklı veriden (Search Console sayfa tıklama / gösterim / sıra + GA4 açılış sayfası oturum / dönüşüm; Google Ads kampanya, yoksa hesap maliyet / dönüşüm / dönüşüm başı maliyet; İşletme Profili etkileşimleri; Meta). Karar kanalın ana metriğiyle: ≥ %10 iyi → işe yaradı, ≥ %10 kötü → kötüleşti, arası → değişmedi; okuyucu / kapsam yok, kaynak önceki dönemin tamamında toplanmamış ("öncesi için 30 günlük veri yok"), sonrası 14 gün beklenip toplanmamış ("veri yok") ya da hacim alt sınırın altında ("veri az") → ölçülemedi, nedeniyle. Her nokta bir kez; kısa satır saklanır ("+38 tıklama (30 gün)", oranlarda yüzde). Eski d28 / d56 sonuçları okunur, yeniden ölçülmez. Uygulamada saklanan baseline artık 30 gün.
+- **Gece işi:** `moxdop:outcomes:measure` her gün 07:13 (İstanbul, toplamalardan sonra); sonra iş türü sicilinin önbelleğini siler.
+- **Masa:** Onarım masasında "Sonuçlar" bölümü (Yapılanlar'ın altında): ölçülen masa işleri tek satır (marka, iş türü, başlık, sonuç satırı, renkli), sayılar (işe yaradı / değişmedi / kötüleşti / ölçülemedi) ve "İş türü sicili". Paket kartında "Bu tür işler: N ölçümün M tanesi işe yaradı".
+- **Marka sayfası:** Bilgi dosyası › "Kararlar ve sonuçları" satırı "— sonuç: +38 tıklama (30 gün)" yazar (`BrandMemoryService::recordOutcome` satırı da saklar). Bugün "Sonuçlar" dört sayı ve satırı gösterir.
+- **Öğrenme:** iş türü = öneri türü (+ Google Ads / İşletme Profili alanı). Son 365 günün ölçülen sonuçlarından ağırlık = 1 + 0,2 × (işe yarayan − kötüleşen) / ölçülen, 0,8–1,2 arası; 5 ölçümden önce 1,0; "ölçülemedi" sayılmaz (`moxdop-advisor.brain.min_measured`, `weight_range`). Paketler boyut × ağırlıkla, marka sağlığı kazancı ağırlıkla sıralanır; satır gizlenmez, risk şeritleri aynı.
+- **Kapanış:** masadan onaylanıp gece denetiminde kapanan site teknik düzeltmeleri ("Yaptım" dahil) artık `applied_at` alır (gönderildiği an), böylece ölçülür.
+- **Test:** `DeskOutcomesTest` (işe yaradı + GA4, kötüleşti / değişmedi, 90 gün eşit dönem, ölçülemedi nedenleri, kısa geçmiş, sayfasız site düzeltmesi, gece zamanlaması, ağırlık sınırları, masa sırası, masa ve bilgi dosyası satırı), `OutcomeTrackingTest` (30 / 90'a güncellendi), `WebHealthAuditTest`, `GoogleAdsScreenTest`, `MetaScreenTest` (30 günlük baseline).
+## 2026-10-11 — Açık işler paket olarak sayılır; görünmeyen sayfaya başlık / açıklama satırı açılmaz
+
+Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok). Sebep: Arısoy Hurda Metal marka dosyasında "Arama 10672" açık iş (çoğu `/kw/…` sayfalarında "Meta açıklama yok").
+- **Tek okuyucu (`App\Services\Work\OpenWork`):** açık iş = açık, yeniden kontrol, onaylanmış ama gönderilmemiş (yazı taslağı gönderilmemiş) ya da süresi dolan ertelenmiş öneri. Aynı marka + aynı iş türü (kanal + `action_type`; sistem kontrollerinde kontrolün kendisi: `action.check` / `action.standard_id`, Clarity'de kural) = **bir paket** ("SEO başlık / açıklama: 412 sayfa"). Gruplama Onarım masasının `RepairDesk::packages` mantığıyla yapılır (ikinci gruplama yazılmadı; anahtar parametre olarak verilir).
+- **Sıra = beklenen kazanç:** `RepairDesk::gain` = öncelik ağırlığı (1→3, 2→2, diğer 1) × sayfanın son 90 gün Search Console erişimi (1 + log10(1 + gösterim + 10 × tıklama), `PageTraffic`, 10 dk önbellek). 90 günde hiç gösterimi olmayan sayfanın işi 0 puan, paketi en sonda; sayfasız iş ya da Search Console verisi olmayan site yalnız öncelik ağırlığıyla sıralanır.
+- **Aynı sayıyı gösteren ekranlar:** marka dosyası "Açık işler" (AI da bunu okur: "Toplam N iş paketi (M açık satır) · kanal başına paket", kazancı en yüksek 8 paket, gösterim/tıklama ve örnek satırla), marka sayfası Özet sayaçları ve "Açık işler" kutusu (paket listesi, "+N iş paketi daha"), Müşteriler / Markalar / Dijital varlıklar listelerindeki açık iş (`PortfolioSignalsReader`, varlıkta da paket), Bugün "Onay bekleyen" (paket · iş), marka sayfası "Bekleyen onaylar" (paket), Onarım masası başlığı ve Marka sağlığı ("N paket kaldı"; kusursuz yüzdesi satır bazlı kalır). Masa paketleri de kazanca göre sıralanır.
+- **Üretici düzeltmesi (`SiteAudit`):** Search Console verisi olan sitede 90 günde gösterimi olmayan sayfa, hizmet / lokasyon sayfası değilse `seo_fields` satırı almaz. Sayfalama ve arşiv adresleri (`/page/N/`, etiket, yazar — `SeoText::isCrawlablePage`) hiç denetlenmez ve kopya başlık sayısına girmez; bunlar çöp sayılmaz, noindex / silme önerilmez. Bekleyen bu tür satırlar `dismissed` + `action.auto_closed` (`no_gain` / `not_a_page`) ile kendiliğinden kapanır; sayfa görünmeye başlarsa aynı satır yeniden açılır. Operatörün reddettiği satır yine açılmaz. Öncelik kuralları (1–5) aynen geçerli.
+- **Test:** `OpenWorkTest`, `SeoFieldsGainTest`, `SeoFieldSeverityTest`, `RepairDeskTest`, `TodayCockpitTest`, `BrandDossierTest`, `BrandOverviewTest`, `BrandOverviewLayoutTest`, `PortfolioSignalsTest`. Canlıda Arısoy'un satır sayısı ilk gece denetiminden sonra düşmeli: UAT bekliyor.
+
+## 2026-10-11 — İşletme profilleri, web sitesi, Kazananlar ve Onarım masası sadeleşti (panel önerileri §5, §8, §9; yalnız arayüz)
+
+- **İşletme profilleri › Durum ve ölçüm (`/gbp`):** listelenen işletmelerin en az %80'inde eksik olan koşul (en az 3 işletme varsa) üstte "Şubelerin çoğunda ortak eksik" kutusunda bir kez yazar, yanında düzeltileceği sekmeye "Hepsini düzenle →" (Özel gün saatleri → Açıklama ve saatler › saatler). Satırlarda yalnız o şubeye özel eksikler (! amber, ? gri) kalır; yoksa "✓ Özel eksik yok". 3'ten fazla şubesi olan marka katlanır grup; yalnız şubeye özel eksiği olan ya da açık satırı içeren grup açık gelir. `DeskPage::sharedGaps`. Hız işleri (BranchPages, ReviewDesk önbelleği) değişmedi.
+- **Varlık uyarıları (`x-operator.asset-context`, bütün varlık ekranları):** kutular tek katlanır "N uyarı" şeridi. Kırmızı nokta ve açık gelme yalnız para / trafik kaybında (`site_down`, `critical`, `high`); diğerleri amber, kapalı.
+- **Web sitesi ekranı:** sekme sırası Yapılacaklar · Kümeler · Analiz · Sayfalar · Sorgular · Teknik SEO; "Ayarlar" ve "Diğer" tek "Ayarlar" menüsü (Site ayarları ve bağlı varlıklar + diğer görünümler). Sekme belirtilmeden açılınca (ve bilinmeyen `?tab=` ile) **Yapılacaklar** açılır (yakup kararı 2026-10-11); Sorgular sayfasındaki site bağlantısı `tab=kumeler` taşır, eski `?tab=` bağlantıları aynı. Kümeler kartında aynı başlıklı fikir bir kez (Olmazsa olmaz kalır, `ClustersBoardTab::uniqueIdeas`); kart başına tek turuncu "Oluştur (N)" (`produceCard`: sitede sayfası olmayan ve aranmış fikirler, en çok 10, tek fikir `produce` ile aynı kontroller); fikir başına "Yalnız bunu oluştur" ve "Önizle ve güncelle" küçük bağlantı. Sektör talebi < 10 ve bizim gösterimi 0 olan alt kümeler hizmet başına kapalı "Küçük kümeler (N)" listesinde. Hizmet hizmet yükleme aynen. Boş filtrede "Filtreleri temizle".
+- **Boş durumlar:** Kütüphaneler (Strateji öner'e git, Kazananlara git, Markalara git), Kazananlar (Strateji öner'e git, Pazarlara bak, Türkiye geneline bak), İşletme profilleri (Entegrasyonlardan bağla). Kazananlar › pazar "Adil yarış kuralları" (i) ile açılan katlanır yardım.
+- **Onarım masası telefonda (<640px):** marka listesi seçim kutusu; paket, satır ve toplu onay düğmeleri tam genişlik; klavye ipucu gizli. Yalnız duyarlı sınıflar, mantık aynı.
+- **Test:** `GbpDeskTest`, `ClustersBoardTabTest`, `SitePagesTest`, `WinnersTest`, `RepairDeskTest`. UAT yok.
+
+## 2026-10-11 — Marka sayfası düzeni (panel önerileri §3)
+
+- **Özet sırası:** önce "Son 28 gün" rakamları, sonra markanın Onarım masasında bekleyen onayları (`BrandApprovalsCard`, sayfadan sonra yüklenir: toplam + en büyük 3 paket, her biri `/onarim?marka=…&paket=…` bağlantısı; elle yapılacak işler sayılmaz), sonra Marka eksikleri, Yolculuk, varlıklar, açık işler ve hizmetler. Marka bilgi kartı ve Kimlik tutarlılığı "Bilgi dosyası" sekmesine taşındı (Yenile, Düzenle, Yeniden kontrol et aynen çalışır).
+- **Marka eksikleri:** eksik yoksa tek satır "Tamam · N alan kontrolünü bekliyor", tıklayınca liste açılır. Eksik varsa tam liste (eksik sarı, kontrol bekleyen gri).
+- **Yolculuk:** her kutu çalışıldığı yere bağlanır (sitenin Sorgular, Kümeler, Kümeler › Eşlenmedi, İçerik fikirleri, İçerik planı sekmeleri; hizmetler marka Ayarlar'ı). Site yoksa yalnız hizmet kutusu bağlıdır. En çok kayıp olan adım (`BrandJourney` `worst`: boş aşama ya da onay bekleyen küme / sayfası olmayan küme oranı büyük olan) kırmızıdır ve altında yazar ("En çok kayıp: 20 kümenin sayfası yok ya da zayıf."). Hizmete atanmayan aramalar karşılaştırılmaz (çoğu marka adı aramasıdır).
+- **Hizmetler:** Özet'te ve bilgi kartında çip; ★ olanlar önde ve dolu, en çok 10, sonrası "+N hizmet". Bilgi kartındaki "Düzenle" gri ve yalnız satırın üstüne gelince ya da klavye odağında görünür (dokunmatik ekranda hep görünür).
+- **Hız:** `gsc_query_page_daily (external_resource_id, search_type, reporting_date)` dizini (migration `2026_12_11_150000`; PostgreSQL'de bölümlenmiş tabloda normal `CREATE INDEX`, yazmaları dizin kurulurken bekletir). Sitenin son Search Console günü artık mülk başına tek `max` ile okunur (IN listesiyle max tüm satırları okuyordu; /brands/7'de 1,9 sn).
+- **Test:** `BrandOverviewLayoutTest`, `BrandAutofillTest`, `BrandOverviewTest`, `BrandOverviewKpiCacheTest`, `BrandPageQueryCountTest`, `BrandJourneyTest`, `AnalysisTest`. Görsel kabul operatörde.
+
+## 2026-10-11 — Dijital varlıklar listesi ve Meta Kampanyalar sekmesi sadeleşti (yalnız arayüz)
+
+- **`/assets`:** varsayılan görünüm "Marka × kanal" matrisi (marka başına bir satır; Web / Google Ads / Meta / İşletme Profili / GA4-GSC; hücrede renkli nokta + hesap sayısı; tek hesap o varlığı, birden çoğu süzülmüş listeyi açar). Marka süzgeci ya da hızlı görünüm listeye geçer; `?view=table|matrix|cards` korunur. Liste satırının tamamı varlığı açar, "Aç / Veri kaynakları" sütunu kalktı (satırda küçük kaynak simgesi). Veri rozeti tek satır: "Durgun · 12 gün harcama yok", "Engelli", "Yayın durdu", "Gecikmiş · 5 gün", "Güncel"; ayrıntı ipucunda. Sayfa içi renk: kırmızı yalnız yayın durması / engelli hesap, sarı bakılmalı, gri bilgi, yeşil güncel. "Açık iş" ve kritik tek sütun ("21 · 4 kritik"). `PortfolioSignalsReader` kaynak satırına `reason` ve `age_days` ekler. Test: `AssetsIndexLayoutTest`.
+- **Meta Kampanyalar sekmesi:** varsayılan durum "Yayında" (sayılar anahtarda); "Hizmet yok" etiketi ve büyük uyarı bandı kalktı (tek satırlık gri sayı); satırda yalnız nötr "+ Hizmet ata". Sonuç türü sabit etiketle; özet kartları türe göre (form / mesaj / satış / tıklama), karta tıklamak tabloyu süzer. Onaylı hizmeti olan kampanya "hizmet · ülke" diye okunur, ham ad altta gri, tek satır + ipucu (`MetaCampaignBoard` satırına reklam seti hedefinden `countries`). Test: `MetaCampaignServicesTest`.
+
+## 2026-10-11 — Bugün kokpiti, üst çubuk, menü ve renk kuralları (panel tasarım önerileri §1)
+
+Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT / görsel kabul yok).
+- **Bugün = günün kokpiti:** 4 sayaç (Onay bekleyen → Onarım masası; Bu hafta: son 7 tam gün organik tık (GSC), Google Ads dönüşümü ve Ads + Meta harcaması (para birimi başına), önceki 7 güne göre; Alarm veren hesaplar; Claude dün gece: son 24 saatte biten AI işleri). Altında "Alarm verenler" (açık, ertelenmemiş `AssetAlert`; para/trafik kaybı kırmızı ve önce, diğer yüksek uyarılar sarı; veri tazeliği uyarıları hariç), "Onay bekleyenler" (RepairDesk paketlerinden ilk 5, "Senin elin gerekiyor" hariç) ve "Dün gece yapılanlar" (`RepairDesk::done` son 24 saat + AI işleri). Plan ve Sonuçlar aşağıda; boş plan tek satır + "Şimdi hazırla"; marka listesi katlı. Okuyucu `TodayCockpitReader` (her kutu ayrı hata yakalar, hafta rakamları 10 dk önbellek); `BrandMeasurementScope::forAssetIds` tüm operasyonel varlıkları tek kapsamda okur. Sorgu tavanı testi: `TodayCockpitTest`.
+- **Üst çubuk:** "Ajans Operasyonları OS" yazısı ve üstteki Ayarlar düğmesi kalktı (Ayarlar menüde); EN/TR profil menüsünde (Profil, Dil, Çıkış). "Portföyde ara" Ctrl/Cmd+K ile açılır; panel sayfalarını (menü ve sekmeleri) da bulur ve "Sorgularda ara" satırı Sorgular'ı aynı kelimeyle açar.
+- **Menü:** yalnız en özel eşleşen giriş seçili (`OperatorMenu::activeEntry`: rota adı, sonra en uzun yol); /assets/website/X'te yalnız "Web siteleri". Menü sırası değişmedi.
+- **Breadcrumb (varlık sayfaları):** müşteri adı marka adıyla aynıysa bir kez; tür ön eki tekrarlanmaz ("Meta Ads · X"); "Analiz marka ekranında → X" şeridi kalktı, breadcrumb'daki marka adı markanın ilgili analiz sekmesine gider.
+- **Renk kuralları (ortak bileşenler):** turuncu yalnız ana eylem (`x-ta.button` primary, `link-primary`); kırmızı `critical`/`tone-critical` yalnız para/trafik kaybı; sarı `look`/`tone-look` "bak"; gri `info`/`tone-info`/`link-neutral` bilgi ve ikincil bağlantılar; yeşil `ok`/`tone-ok`. `x-ta.badge` varsayılanı gri (eski adlar takma ad), `x-ta.alert` info gri, aktif menü/sekme nötr. Diğer sayfaların kendi turuncu "Kontrol et →"/"Düzenle" bağlantıları `link-neutral`'a o sayfaların işinde geçirilecek.
+
+## 2026-10-11 — Marka verisi düzeltmeleri ve Claude marka denetimi
+
+- **Dönüşümler:** ilgi sinyalleri (kaydırma, sayfa görüntüleme, form başlatma, "Local actions - Website visits / Other engagements") eski satırlarda hâlâ sayılıyordu. Migration `2026_12_11_110000` otomatik satırları kapatır; operatörün açık tuttuğu satırları sessizce değiştirmez, işaretler (`metadata.engagement_kept`); Dönüşümler sayfası ve Marka bilgi kartı "Etkileşim sinyali müşteri sayılıyor" der; etkilenen markaların dosyaları yeniden kurulur. İşaretsiz ilgi sinyali toplama girmez. Yalnız türü değiştirmek satırı artık dondurmaz (`metadata.type_by_operator`, otomatik kalır). Kart sayılan sinyalleri kaynağıyla yazar, sığmayanı "+N sinyal daha" der. Test: `BrandConversionDictionaryTest`.
+- **Marka tamamlama:** eksiği kalmayan marka, bekleyen operatör önerisi olsa da "tamam" sayılır ve eski not silinir; 7 günden eski uygulanmamış operatör önerisi artık turu durdurmaz; otomatik tur tek ★ bırakır, operatörün ★'ının yanına ★ eklemez. Yerler artık "Claude doldurdu" diye işaretlenmez; eksik kalmayınca başlık "Kontrol bekleyen". Test: `BrandAutofillTest`.
+- **★:** `priority='main'` ya da `is_priority` ile işaretli hizmet marka paketinde ve kartta ilk sırada. Test: `BrandPackTest`.
+- **Site dilleri:** `<html lang>` yoksa dil og:locale, sayfanın kendi hreflang bağlantısı ya da metindeki sık kelimelerden (TR/EN/DE, Kiril → RU, Arap → AR) okunur. Kart yalnız çalışan siteleri okur; kaç sayfa okunduğunu ve kaçında dil etiketi olmadığını yazar. Test: `PagesFromSitemapTest`, `BrandFactsTest`.
+- **Claude marka denetimi (`brand.data_review`, `moxdop:brands:review`, her gece 03:50, Claude'a devredilmiş ya da Claude API'deyse):** girdisi (hizmetler, eş anlamlar, ★, sayfa/arama kanıtı; yerler; dönüşüm sinyalleri; sayfa dilleri) değişen aktif markayı okur. Yalnız izinli öneriler: hizmet adı (eski ad kalır), hizmet arşivi, ★, dönüşüm sayılsın/sayılmasın, yer kaldır/ekle (ekleme yalnız sayfa, arama ya da profil adresinin andığı yer). PHP kontrolü bilinmeyen işlemi, bilinmeyen kimliği ve kanıtsızı atar. Kalanlar Onarım masasına "Claude marka denetimi" kaynağıyla düşer; onaysız hiçbir şey uygulanmaz, dışarıya yazılmaz. Önerilen dağılımda Haiku. Migration `2026_12_11_120000` Claude API dönemi açıksa işlemi döneme katar ve aktif markalar için ilk denetimi kuyruğa alır. Test: `BrandDataReviewTest`.
+
+## 2026-10-11 — Onarım ve reklam kontrolleri: önem şişmesi, konu dışı SEO önerileri, Meta/Ads kural düzeltmeleri
+
+Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
+- **Önem şişmesi (avrupadent "6686 kritik öneri"):** `SiteAudit` önceliği: başlık eksik/aynı → 1 yalnız son 90 günde GSC
+  gösterimi olan ya da hizmet/lokasyon sayfasında (değilse 2); açıklama eksik/aynı 3, uzunluk 4; 90 günde gösterimi
+  olmayan sayfada açıklama sorunu 5. Eklenti alanı boş/şablon olsa da sitenin bastığı açıklama (`website_metadata_snapshot`,
+  `RenderedMeta`) "var" sayılır; `WordPressPageSync` de bunu saklar. Dikkat/kritik sayısı sayfa değil (varlık, kontrol
+  türü) başına. İçerik fikirleri en az 3, Ads "hizmet ↔ kampanya" 3. Göç `2026_12_11_130000` bekleyen `seo_fields`
+  satırlarını yeniden önceliklendirir (onaylı/uygulanmış satırlara dokunmaz).
+- **Konu dışı SEO önerisi (OPC dermal dolgu → "diş dolgusu"):** `SeoFieldsBatch` çağrı başına en çok 5 sayfa, aynı dil +
+  sayfa türü; SSS/blog paketine marka hizmetleri gitmez; ince sayfada (<80 kelime) kayıtlı tarama metni kullanılır;
+  istem v3 "yalnız bu sayfanın konusu". Öneri sayfanın başlık/H1/URL kelimelerinden en az 2'sini paylaşmalı. Tüm değerleri
+  reddedilen satır deneme sayar, 3. denemede gerekçeyle bloke olur (saatlik sonsuz tekrar bitti). Göç `2026_12_11_140000`
+  konu dışı bekleyen önerileri temizler ve istemi benimser.
+- **Meta:** Veri durumu: Durgun (7–30 gün harcama yok) ile Pasif ayrıldı; `account_status`/`disable_reason` sorunu
+  "Hesap sorunu", 3+ gün harcamasız ACTIVE kampanya "Yayın durdu" — ikisi de Dikkat'e girer (`disable_reason` artık
+  toplanıyor). Pixel anlık görüntü tarihine göre; toplamlar sonuç türü başına, sonuç başı maliyet baskın türden; UTM
+  kontrolü `url_tags`'i de okur (toplanıyor); ABO'da "bütçe almayan reklam" reklam seti içinde karşılaştırılır.
+- **Google Ads:** Paylaşılan negatif liste yalnız bağlandığı kampanyaların (`campaigns_attached`) anahtar kelimelerini
+  engeller, bağlantı bilinmiyorsa atlanır. 30 gündür harcamasız hesapta bütçe/harcama uyarıları kapanır (hesap
+  yayınlayamıyor uyarısı kalır). Açılış sayfası kontrolü parametre/parçayı atar, "sitede bulunamadı"yı yalnız tam
+  WordPress sayfa listesinde söyler. `GoogleAdsAdvisorRuleEngine` kuralları salt-okunur `ads_advice` önerisi olarak
+  (öncelik 3–5) Ads yapılacaklarına girer; onay yalnız "elle yapıldı" kaydıdır, hesaba yazılmaz.
+- Testler: `SeoFieldSeverityTest`, `SeoFieldsGroundingTest`, `RepairDeskTest`, `PagesFromWordPressTest`,
+  `DataStatusTest`, `MetaRuleFixesTest`, `AdBudgetWatchTest`, `GoogleAdsScreenTest`, `SiteSuggestionsTest`.
+
 ## 2026-10-10 — Marka merkezli yapı (yakup: "verinin özü = marka")
 
 - **Analiz:** `/mnt/project-files/notes/marka-merkezli-mimari-analizi.md`. yakup sırayla yapılmasını onayladı.
@@ -61,6 +153,7 @@
   - Menüde "Genel işler" yok. "Onarım masası" artık herkes için menüde, onay düğmeleri yine yalnız Admin'de.
   - Ekran denetimi `/work` yerine masayı tarar.
   - Test: `WorkDeskTest`, `PanelDesignFreezeTest`.
+  - **Tek süzgeç düzeni (2026-10-11, panel tasarım önerileri §2):** üstte tek anahtar "Onayla, bitsin / Bir göz at / Senin elin gerekiyor / Diğer işler" (eski şerit ve bölüm sekmesi birleşti; `?serit=`, `?bolum=`, `?marka=`, `?tur=`, `?paket=` aynen çalışır). Solda marka listesi ("Tümü" başta): "%62 kusursuz · 21 iş kaldı" (kusursuz = son 14 günde biten ÷ biten + kalan, ipucunda yazar); sıra beklenen kazanç (açık işin önceliği: kritik 3, önemli 2, diğer 1 puan), eşitse kritik iş sayısı. Tür çipleri paket listesinde küçük ikincil süzgeç. Satır "Sayfa adı (H1, yoksa başlık) → yeni değer", URL altta küçük gri, metin kesilmez. "Hepsini reddet" küçük çerçeveli; 10'dan fazla işi toplu onaylamak 3 örnek ve "Geri alınabilir" notu gösteren pencere açar. Sağ üstte "Son 7 gün: N iş yapıldı" rozeti Yapılanlar'a götürür ve listeyi açar; geri alma aynı. Renk: turuncu yalnız ana eylem, amber "bak", gri bilgi, yeşil tamam. Test: `RepairDeskTest`. UAT yok.
 - **6. Masalardan markaya dönüş:**
   - Onarım masasında her paketin marka adı markanın sayfasına gider; marka seçiliyken "Marka sayfasına git →" bağlantısı çıkar.
   - Kazananlar › Marka gözüyle ve Meta masası marka seçiliyken "Marka sayfası →" gösterir.
@@ -468,7 +561,7 @@
 
 ## 2026-11-24 — Web sitesi ekranı v3: tek sıra sekme, ortak tarih seçici, Kümeler panosu, Analiz, Teknik SEO
 
-- **Kabuk:** Tek satır başlık; tek sıra sekme: **Kümeler** (varsayılan) · **Analiz** · **Sayfalar** · **Sorgular** · **Teknik SEO** · **Yapılacaklar** · **Ayarlar**.
+- **Kabuk:** Tek satır başlık; tek sıra sekme: **Yapılacaklar** (varsayılan) · **Kümeler** · **Analiz** · **Sayfalar** · **Sorgular** · **Teknik SEO** · **Ayarlar**.
   - Seyrek kullanılanlar "Diğer" menüsünde: İçerik fikirleri (ayrıntılı liste), İçerik planı, Hedef sorgular, Dönüşümler, Eşleştirme, Rakipler, Backlinkler.
   - Eski sekme / alt sekme bağlantıları yeni sekmeye gider (`LEGACY_TABS`, `LEGACY_SUBS`).
 - **Tarih seçici (Google Ads / Meta tarzı):** hazır aralıklar (7 / 14 / 28 gün, 3 / 6 / 12 ay, geçen ay), iki aylık takvim, özel aralık, önceki dönem ya da geçen yıl ile karşılaştırma.
@@ -995,7 +1088,7 @@
 ## 2026-11-03 — v2 düzeltmeleri: reklamlar, entegrasyonlar, promptlar
 
 - **Meta: bağsız hesaplar da toplanıyor** (`MetaCentralCollectionService`, GA4 / Google Ads merkezi toplayıcılarının eşi): kaynak ilk (`provider_resource_first`) çalıştırma, varlık / bağlama yok; ilk sefer ailenin geçmiş penceresi, sonra kapsama sonundan (en çok son 7 gün geç atıf) dünkü güne. `ResourceAutomationService::readiness()` Meta için artık `binding` döndürmüyor; eski `binding` bekleyenler yeniden sıraya girer. V1 Meta tabloları (hesap / kampanya / set / kreatif anlık görüntüleri, kampanya / set / reklam günlükleri, tipli eylemler) kaynak anahtarlı (`external_resource_id`); migration aynı hesabın iki varlıkla yazılmış kopyalarını tekler. Sıkıştırılmış tablolar kayıtlı düzen anahtarını korur. Meta kullanım sınırı bekleme süresi (`MetaUsageGovernor`) aynı.
-- **DataForSEO arama hacmi bağlandı:** `moxdop:intel:query-volumes` (ayda bir, 4'ü 05:37 Europe/Istanbul) operasyonel markaların kullandığı kümelerin ana sorguları (`queries.volume`) ve marka hedef sorguları (`brand_cluster_pages.target_query`, yalnız `query_volumes`) için; AI önerisi ana sorguya hacim yazılmaz; 90 gün önbellek + harcama tavanı. Konum `moxdop-intel.query_volumes` (Türkiye).
+- **DataForSEO arama hacmi bağlandı:** `moxdop:intel:query-volumes` (2026-10-11'den beri zamanlanmaz; yalnız elle) operasyonel markaların kullandığı kümelerin ana sorguları (`queries.volume`) ve marka hedef sorguları (`brand_cluster_pages.target_query`, yalnız `query_volumes`) için; AI önerisi ana sorguya hacim yazılmaz; 90 gün önbellek + harcama tavanı. Konum `moxdop-intel.query_volumes` (Türkiye).
 - **Ölü DataForSEO kodu kaldırıldı:** `DataForSeoEnrichmentOrchestrator`, ücretli Labs aileleri (ranked keywords, keywords for site, competitor domains) ve normalizer'ı; `moxdop:intel:collect` + görev kuyruğu yoklaması (harita grid / yorum / prospect) ve `DataForSeoTaskHandler`. `DataForSeoTaskQueue` yalnız canlı çağrı maliyet kaydı.
 - **Google Ads dil kontrolü:** kampanya dil hedeflemesi (campaign_criterion LANGUAGE) `google_ads_campaign_snapshot.language_codes`'a toplanıyor ("all" = tüm diller); "Hedef bölge ve dil" kontrolü markanın dilleriyle karşılaştırır, "veri yok" yalnız bölge ve dil ikisi de bilinmiyorsa.
 - **Google Ads dönüşüm gecikmesi:** maliyet / dönüşüm sapması kontrolü ve yapı / bütçe AI paketi son gecikme penceresini dışarıda bırakır (birincil dönüşümlerin tıklama sonrası penceresi, en çok 14 gün; toplanmadıysa 7 gün) ve kanıtta yazar.
@@ -3959,3 +4052,82 @@ Status: IMPLEMENTED V1 (coded + PHPUnit).
   WordPress › Ayarlar › MoxDOP Connector (SEO düzeltmeleri, İçerik güncelleme, Eklenti güncellemesi, …), a lost
   pairing says to issue a new code, any other 403 points at the site's firewall / security plugin. "Bağlantıyı doğrula"
   shows the reason instead of a bare failure.
+
+## 2026-10-11 — Sorgular / hizmet kataloğu düzeltmeleri ve "bitir" zinciri
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
+- DataForSEO search volume is no longer scheduled (`moxdop:intel:query-volumes` stays for a manual run).
+- Rescan: locked queries, queries of locked clusters and manual / approved-AI assignments are never proposed for
+  deletion, and a deletion line is not applied once the query got locked.
+- Hourly clean-up no longer drops an empty cluster that carries non-archived content ideas or page scores (the FK
+  cascade deleted them).
+- The "Hepsini kümele" queue records `touched_at`; a running queue that has not moved for 2 hours is stopped and
+  restarted by the autopilot, even inside the daily gate.
+- Service names: places are cut only at the start / end with their connector (`LocationOptions::stripServiceName`;
+  queries keep `strip`, clusters stay location-free). `ServiceNameQuality` rejects lone suffix words, connector
+  endings, sentences, "-imiz" titles and leading punctuation on automatic creation (setup applier, Marka eksikleri,
+  page-title safety net); page-title safety-net rows are proposals (unticked).
+- Catalog names are unique per sector (`service_catalog_names.sector_scope`); `resolveOrCreate` never returns
+  another sector's service, it creates one in the requested sector.
+- Archiving / deleting a service releases its queries (no service, `ai_checked_at` null, unlocked) and drops their
+  memberships in its unlocked clusters.
+- `moxdop:services:clean [--dry-run]`: archives junk names (not operator-created / locked), merges same-sector
+  same-language duplicates by fold key into the most-used service (queries, clusters, offerings, keywords, pending /
+  review lines move; old labels become aliases).
+- While the Claude API window is open `queries.triage` moves with the plan to Haiku; the window end restores it.
+- `moxdop:queries:finish` queues FinishQueriesJob: clean-up → unassigned queries asked again → autopilot ticks →
+  clustering without the 20 h gate → weekly content titles (AiBudget) → a check shown as "Son kontrol" on the queries
+  page. Migration `2026_12_11_100000` queues it once while the window is open.
+- Tests: `QueryReviewFlowTest`, `QueryPipelineTest`, `QueryAutopilotTest`, `ServiceNameQualityTest`,
+  `ServiceCatalogSectorTest`, `ServiceReleaseTest`, `ServiceCatalogCleanTest`, `QueryFinishTest`,
+  `AiCreditsAndAssignmentsTest`, `BrandSetupApplyRobustnessTest`, `SiteUpkeepTest`, `QueryVolumeRefreshTest`.
+- Queries page UI (no behavior change): tabs are an underline tab bar with count pills (Silinecekler amber) and
+  "AI ile planla" as a secondary button; "AI ile kümele" / "AI ile filtre kural üret" are secondary and show a gray
+  disabled state with a one-line reason; "AI ile hizmet öner" is the single orange action. The autopilot box shows
+  four counters (Atanan, Bekleyen, AI sırasında, Son kontrol) with a status pill and an (i) popover for the
+  explanation, totals and the full "Son kontrol" line. Table: short non-wrapping source tags, right-aligned
+  tabular numbers, an amber dot for unassigned queries instead of the Durum column. Test: `QueriesScreenTest`.
+
+## 2026-10-11 — Yavaş ekranlar: İşletme profilleri (Durum, Şube sayfaları, Yorumlar) ve Web sitesi › Kümeler
+
+Status: IMPLEMENTED V1 (coded + PHPUnit; no production timing re-measured yet).
+- `/gbp/yorumlar`, `/gbp`: review numbers (`ReviewDesk::stats`) are counted in one pass with native date parsing
+  (Carbon per review was the PHP time) and kept for the current minute while the profiles' reviews are unchanged
+  (count / replies / last id / last change); draft states, Google fill and AI states are read with one cache call.
+- `/gbp/sube-sayfalari`, `/gbp`: `BranchPages::states` reads site pages as light rows (no models, no text) and only
+  the shown pages become models; the brands' Şubelerimiz hubs come from `BranchPages::hubs` (fixed queries instead of
+  ~8 per brand).
+- `/assets/website/{id}` › Kümeler: only the first service renders its cards; other services open with **Göster**,
+  the rest of an open service with **Tüm alt kümeler** (server side). Operation / idea statuses of the shown cards are
+  one cache read (`SiteOperations::statuses`, `ContentIdeaPool::states`); cluster rows load pages without stored text
+  (`Page::LIST_COLUMNS`); ideas are grouped per cluster once. Behaviour otherwise unchanged.
+- Tests: `GbpDeskTest` (fixed query count with more brands / profiles / reviews, review numbers), `ClustersBoardTabTest`
+  (sections open on demand, fixed query count with more clusters).
+
+## 2026-10-11 — Veri çekme düzeltmeleri (havuz #33, #36, sistem hataları)
+
+- Meta "reduce the amount of data" (code 1, havuz #33): the client already classifies it as `KIND_DATA_TOO_LARGE`
+  (never a transient 5xx) and the collection executors shrink the request. The remaining collector without it, the
+  geo / audience breakdown Insights (`MetaGeoResults`, Analiz › Bölgeye göre), now halves the page size (500 → … → 15,
+  a next page keeps its cursor via `MetaApiClient::withPageLimit`) and then splits the date range in halves down to
+  single days; only a single day at the smallest page still too large fails. An identical oversized request is never
+  sent twice. Tested: `MetaGeoResultsTest` (too_much_data …). Live check pending: Obezite ve Estetik Meta stop.
+- Google Ads account structure (havuz #36, Avrupadent PAGE_BOUND_EXCEEDED): `executeEntitySnapshot` no longer re-reads a
+  structure longer than `max_search_pages_per_tick` as one unbounded SearchStream; each tick writes its pages and saves
+  the next page token (`page_token`, `page_offset`) in the checkpoint, the next tick resumes there (every page once,
+  memory bounded per tick); an expired token restarts that step. Dated datasets keep the stream fallback. Tested:
+  `GoogleAdsStructurePagingResumeTest`. Live check pending: Avrupadent alerts close.
+- Onarım nightly audit (`WebHealthAudit`): an external link or sitemap entry whose host no HTTP request can carry
+  (space, backslash …; was `MalformedUriException: Invalid host` at 04:40) is listed as broken ("geçersiz adres") and
+  never sent, instead of stopping the external-link / sitemap check. Tested: `WebHealthAuditTest`.
+- `RebuildWebsiteProjectionJob` MaxAttemptsExceeded (last 2026-10-05 19:44): cause (supervisor-1 timeout 300 s below the
+  job's 900 s) was fixed in e60f4f45 (pool #3) and is guarded by `QueueTopologyContractTest`; no occurrence since.
+
+- Second pass (same screens): review counts / averages / late / low-rated come from one grouped SQL query (reply
+  times read row by row only when the reviews change, cached by data version); "Neler konuşuluyor" topics match texts
+  with `preg_grep` and stay cached until a review or service changes (max a day); `SeoText::fold` folds ASCII + Turkish
+  letters with one `strtr` (same output as `Str::ascii`, the page-scan hot spot); profile results read only the three
+  reported months; photo numbers are counted in SQL. Local SQLite bench (5,200 reviews, 11,500 pages, 24 profiles):
+  release 609f7123 ≈ 0.96 s / 1.4 s / 0.6 s (Yorumlar / Durum / Şube sayfaları); now ≈ 0.17–0.20 s / 0.22–0.28 s /
+  0.10 s with an empty cache. Production timing not re-measured yet. Tests:
+  `GbpDeskTest` (topics, photo numbers, next-minute review numbers in 2 queries, one grid page), `SeoTextMatchesPhraseTest`.

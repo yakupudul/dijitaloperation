@@ -13,6 +13,7 @@ use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\Meta\MetaScreen;
 use App\Services\Outcomes\Readers\MapsOutcomeReader;
 use App\Services\Site\Analysis\SiteAnalysisReader;
+use App\Services\Work\OpenWork;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -167,35 +168,43 @@ final class BrandOverviewReader
     }
 
     /**
-     * Open suggestions (open, or snoozed whose date passed) of the brand, most urgent first, with where to act.
+     * Open work of the brand in packages (OpenWork: the same type of work is one item, "Başlık / açıklama: 412 sayfa"),
+     * the most expected gain first, each with where to act. `total` and the per-channel numbers count packages; `rows`
+     * the open suggestions behind them.
      *
-     * @return array{total: int, by_channel: array<string, int>, by_key: array<string, int>, items: list<array{id: int, channel: string, channel_label: string, title: string, reason: string, url: ?string}>}
+     * @return array{total: int, rows: int, by_channel: array<string, int>, by_key: array<string, int>, items: list<array{id: string, channel: string, channel_label: string, title: string, reason: string, count: int, url: ?string}>}
      */
     public function openWork(Brand $brand, ?string $channel = null, int $limit = 5): array
     {
-        $base = fn () => Suggestion::query()->where('brand_id', $brand->id)->actionable()->when($channel !== null, fn ($q) => $q->where('channel', $channel));
-        $byKey = $base()->selectRaw('channel, count(*) as n')->groupBy('channel')->pluck('n', 'channel')
-            ->mapWithKeys(fn ($n, $key): array => [(string) $key => (int) $n])->all();
+        $work = app(OpenWork::class);
+        $counts = $work->counts([(int) $brand->id])[(int) $brand->id] ?? ['packages' => 0, 'items' => 0, 'critical' => 0, 'by_channel' => []];
+        $byKey = $channel === null ? $counts['by_channel'] : array_intersect_key($counts['by_channel'], [$channel => true]);
         $byChannel = [];
         foreach ($byKey as $key => $n) {
             $label = (string) (Suggestion::CHANNEL_LABELS[$key] ?? $key);
             $byChannel[$label] = ($byChannel[$label] ?? 0) + $n;
         }
-        $rows = $limit > 0 ? $base()->orderBy('priority')->orderByDesc('last_seen_at')->orderBy('id')->limit($limit)
-            ->get(['id', 'channel', 'title', 'reason', 'target_type', 'target_id', 'page_id']) : collect();
-        $pageSites = Page::query()->whereIn('id', $rows->pluck('page_id')->filter()->unique()->values())->pluck('website_asset_id', 'id');
-        $firstOfType = $rows->isEmpty() ? collect() : DigitalAsset::query()->where('brand_id', $brand->id)->whereIn('type', ['website', 'google_business_profile', 'google_ads', 'meta_ads'])
+        $packages = $limit > 0 && $byKey !== [] ? $work->packages((int) $brand->id, $channel)->take($limit)->values() : collect();
+        $first = Suggestion::query()->whereIn('id', $packages->map(fn (array $p): int => (int) $p['sample'][0]['id'])->all() ?: [0])
+            ->get(['id', 'channel', 'target_type', 'target_id', 'page_id'])->keyBy('id');
+        $pageSites = Page::query()->whereIn('id', $first->pluck('page_id')->filter()->unique()->values())->pluck('website_asset_id', 'id');
+        $firstOfType = $packages->isEmpty() ? collect() : DigitalAsset::query()->where('brand_id', $brand->id)->whereIn('type', ['website', 'google_business_profile', 'google_ads', 'meta_ads'])
             ->orderBy('id')->get(['id', 'type'])->unique('type')->pluck('id', 'type');
 
         return [
             'total' => array_sum($byKey),
+            'rows' => $channel === null ? $counts['items'] : (int) $work->query((int) $brand->id, $channel)->count(),
             'by_channel' => $byChannel,
             'by_key' => $byKey,
-            'items' => $rows->map(fn (Suggestion $s): array => [
-                'id' => (int) $s->id, 'channel' => (string) $s->channel, 'channel_label' => $s->channelLabel(),
-                'title' => (string) $s->title, 'reason' => (string) $s->reason,
-                'url' => $this->suggestionUrl($s, $pageSites, $firstOfType),
-            ])->values()->all(),
+            'items' => $packages->map(function (array $p) use ($first, $pageSites, $firstOfType): array {
+                $suggestion = $first->get((int) $p['sample'][0]['id']);
+
+                return [
+                    'id' => (string) $p['key'], 'channel' => $p['channel'], 'channel_label' => $p['channel_label'],
+                    'title' => OpenWork::line($p), 'reason' => (string) $p['sample'][0]['reason'], 'count' => (int) $p['count'],
+                    'url' => $suggestion !== null ? $this->suggestionUrl($suggestion, $pageSites, $firstOfType) : null,
+                ];
+            })->values()->all(),
         ];
     }
 

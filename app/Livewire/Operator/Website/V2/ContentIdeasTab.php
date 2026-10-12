@@ -269,6 +269,7 @@ class ContentIdeasTab extends Component
             }
         }
         $statuses = $this->statuses($paginator->getCollection());
+        $ideaStatuses = ContentIdeaPool::states($paginator->getCollection()->map(fn (array $g): int => (int) $g['cluster']->id)->values()->all());
 
         return view('livewire.operator.website.v2.content-ideas-tab', [
             'brand' => $brand,
@@ -284,10 +285,10 @@ class ContentIdeasTab extends Component
             'pageOptions' => $this->pageOptions($site, $paginator->getCollection()),
             'statuses' => $statuses,
             'auditStatus' => SiteOperations::line(SiteOperations::status($site->id, SiteOperations::CLUSTER_AUDIT)),
-            'ideaStatuses' => collect($paginator->getCollection())->mapWithKeys(fn (array $g): array => [(int) $g['cluster']->id => Cache::get(ContentIdeaPool::cacheKey((int) $g['cluster']->id))])->filter()->all(),
+            'ideaStatuses' => $ideaStatuses,
             'suggestions' => $this->suggestions($paginator->getCollection()),
             'polling' => in_array('çalışıyor…', $statuses, true) || SiteOperations::line(SiteOperations::status($site->id, SiteOperations::CLUSTER_AUDIT)) === 'çalışıyor…'
-                || collect($paginator->getCollection())->contains(fn (array $g): bool => (Cache::get(ContentIdeaPool::cacheKey((int) $g['cluster']->id))['status'] ?? null) === 'running'),
+                || collect($ideaStatuses)->contains(fn (mixed $s): bool => ($s['status'] ?? null) === 'running'),
         ]);
     }
 
@@ -298,17 +299,20 @@ class ContentIdeasTab extends Component
      */
     protected function clusterGroups(DigitalAsset $site): array
     {
-        $mains = BrandClusterPage::query()->with(['cluster.service.primaryName', 'cluster.mainQuery', 'page'])->where('website_asset_id', $site->id)
+        // Pages come without their stored text / outline (a site has thousands of pages; the rows only show and check them).
+        $pageColumns = fn ($q) => $q->select(Page::LIST_COLUMNS);
+        $mains = BrandClusterPage::query()->with(['cluster.service.primaryName', 'cluster.mainQuery', 'page' => $pageColumns])->where('website_asset_id', $site->id)
             ->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null);
         $clusterIds = $mains->pluck('cluster_id')->unique()->map(fn ($id): int => (int) $id)->values()->all();
         $ideas = ContentIdea::query()->with('originBrand:id,name')->where('status', 'active')->whereIn('cluster_id', $clusterIds ?: [0])->orderBy('id')->get();
-        $usages = BrandContentIdea::query()->with('page')->where('website_asset_id', $site->id)->whereIn('content_idea_id', $ideas->pluck('id')->all() ?: [0])->get()->keyBy('content_idea_id');
+        $usages = BrandContentIdea::query()->with(['page' => $pageColumns])->where('website_asset_id', $site->id)->whereIn('content_idea_id', $ideas->pluck('id')->all() ?: [0])->get()->keyBy('content_idea_id');
         $scores = DB::table('cluster_page_scores')->whereIn('brand_cluster_page_id', $mains->pluck('id')->all() ?: [0])->get()->keyBy('brand_cluster_page_id');
         $demand = DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')->whereIn('cq.cluster_id', $clusterIds ?: [0])
             ->where('q.hidden', false)->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) as total')->pluck('total', 'cq.cluster_id');
         $technical = PageTechnical::many($mains->pluck('page')->merge($usages->pluck('page'))->filter()->unique('id'));
 
-        $groups = $mains->groupBy('cluster_id')->map(function (Collection $rows) use ($ideas, $usages, $scores, $demand, $technical): array {
+        $ideasByCluster = $ideas->groupBy('cluster_id');
+        $groups = $mains->groupBy('cluster_id')->map(function (Collection $rows) use ($ideasByCluster, $usages, $scores, $demand, $technical): array {
             $cluster = $rows->first()->cluster;
             $mainRows = $rows->map(function (BrandClusterPage $row) use ($scores, $technical): array {
                 $score = $scores[$row->id] ?? null;
@@ -318,7 +322,7 @@ class ContentIdeasTab extends Component
 
                 return ['kind' => ContentIdeaSubject::MAIN, 'model' => $row, 'score' => $score] + $resolved;
             })->values();
-            $extraRows = $ideas->where('cluster_id', $cluster->id)->map(function (ContentIdea $idea) use ($usages, $technical): array {
+            $extraRows = $ideasByCluster->get($cluster->id, collect())->map(function (ContentIdea $idea) use ($usages, $technical): array {
                 $usage = $usages->get($idea->id);
                 $resolved = $usage === null || $usage->audited_at === null && $usage->page_id === null
                     ? ['state' => 'unchecked', 'reason' => 'Henüz eşleştirilmedi — "Yeniden keşfet"', 'technical' => null]
@@ -373,7 +377,7 @@ class ContentIdeasTab extends Component
      */
     protected function statuses(Collection $groups): array
     {
-        $out = [];
+        $requests = [];
         foreach ($groups as $g) {
             foreach ([...$g['mains'], ...$g['extras']] as $r) {
                 if ($r['model'] === null) {
@@ -381,15 +385,13 @@ class ContentIdeasTab extends Component
                 }
                 $params = ['kind' => $r['kind'], 'id' => (int) $r['model']->id];
                 foreach ([SiteOperations::REDISCOVER, SiteOperations::RECIPE, SiteOperations::FIX_GAPS, SiteOperations::PRODUCE] as $op) {
-                    $line = SiteOperations::line(SiteOperations::status($this->assetId, $op, $params));
-                    if ($line !== null) {
-                        $out[$r['kind'].'-'.$r['model']->id.':'.$op] = $line;
-                    }
+                    $requests[$r['kind'].'-'.$r['model']->id.':'.$op] = [$op, $params];
                 }
             }
         }
 
-        return $out;
+        return array_filter(array_map(fn (?array $status): ?string => SiteOperations::line($status), SiteOperations::statuses($this->assetId, $requests)),
+            fn (?string $line): bool => $line !== null);
     }
 
     /**
@@ -449,7 +451,7 @@ class ContentIdeasTab extends Component
         return [$kind, $id];
     }
 
-    private function subject(string $kind, int $id): ContentIdeaSubject
+    protected function subject(string $kind, int $id): ContentIdeaSubject
     {
         $subject = ContentIdeaSubject::find($this->assetId, $kind, $id);
         abort_if($subject === null, 404);
@@ -458,7 +460,7 @@ class ContentIdeasTab extends Component
     }
 
     /** @return array{state: string, reason: string, technical: ?array<string, mixed>} */
-    private function row(ContentIdeaSubject $subject): array
+    protected function row(ContentIdeaSubject $subject): array
     {
         $row = $subject->row;
         $score = $subject->score();

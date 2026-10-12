@@ -103,6 +103,7 @@ final class QueryRescanner
                 ->filter(fn (QueryReviewItem $item): bool => $item->searchQuery !== null
                     && $this->normalizer->matchingTerm((string) $item->searchQuery->text, $item->searchQuery->sector_id !== null ? (int) $item->searchQuery->sector_id : null) !== null)
                 ->pluck('query_id')->map(fn ($id): int => (int) $id)->values()->all();
+            $toDelete = self::withoutProtected($toDelete);
             $moved = [];
             foreach ($items->where('kind', QueryReviewItem::SERVICE) as $item) {
                 $updated = DB::table('queries')->where('id', $item->query_id)->where('locked', false)
@@ -143,13 +144,14 @@ final class QueryRescanner
     /** @return array{kind: string, term: ?string, reason: ?string, from_service_id: ?int, to_service_id: ?int}|null */
     private function proposal(object $row, bool $inLockedCluster): ?array
     {
+        // Locked queries, queries of a locked cluster and assignments the operator or approved AI made are never
+        // proposed — neither for deletion nor for a service change (checked before the filter terms).
+        if ((bool) $row->locked || $inLockedCluster || in_array($row->assignment ?? null, self::KEPT_ASSIGNMENTS, true)) {
+            return null;
+        }
         $term = $this->normalizer->matchingTerm((string) $row->text, $row->sector_id !== null ? (int) $row->sector_id : null);
         if ($term !== null) {
             return ['kind' => QueryReviewItem::DELETE, 'term' => mb_substr($term, 0, 200), 'reason' => null, 'from_service_id' => null, 'to_service_id' => null];
-        }
-        // Only keyword-rule assignments follow the matching keywords; a service set by the operator or by AI stays.
-        if ((bool) $row->locked || $inLockedCluster || in_array($row->assignment ?? null, self::KEPT_ASSIGNMENTS, true)) {
-            return null;
         }
         $current = $row->service_id !== null ? (int) $row->service_id : null;
         $sectorId = $row->sector_id !== null ? (int) $row->sector_id : null;
@@ -176,6 +178,28 @@ final class QueryRescanner
 
         return ['kind' => QueryReviewItem::SERVICE, 'term' => $term !== null ? mb_substr($term, 0, 200) : null, 'reason' => $reason,
             'from_service_id' => $current, 'to_service_id' => $match['service']];
+    }
+
+    /**
+     * Drops locked queries, queries of a locked cluster and operator / approved-AI assignments from a delete list
+     * (a line proposed before the query got locked is never applied).
+     *
+     * @param  list<int>  $queryIds
+     * @return list<int>
+     */
+    private static function withoutProtected(array $queryIds): array
+    {
+        if ($queryIds === []) {
+            return [];
+        }
+        $protected = DB::table('queries')->whereIn('id', $queryIds)
+            ->where(fn ($q) => $q->where('locked', true)->orWhereIn('assignment', self::KEPT_ASSIGNMENTS))
+            ->pluck('id')
+            ->merge(DB::table('cluster_queries as cq')->join('clusters as c', 'c.id', '=', 'cq.cluster_id')
+                ->whereIn('cq.query_id', $queryIds)->where('c.locked', true)->pluck('cq.query_id'))
+            ->map(fn ($id): int => (int) $id)->all();
+
+        return array_values(array_diff($queryIds, $protected));
     }
 
     /** @param array<string, mixed> $item what "Tut" was decided on: the term to delete for, or the target service */

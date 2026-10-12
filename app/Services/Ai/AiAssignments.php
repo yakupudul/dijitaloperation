@@ -42,6 +42,19 @@ final class AiAssignments
      */
     public const array KEEP = [AiRouteKeys::QUERIES_TRIAGE, 'whatsapp.reply', AiRouteKeys::BRAIN_EMBEDDINGS];
 
+    /**
+     * KEEP while the Claude API window is open (yakup, 2026-10-11): the ~53k queries to triage again run on the free
+     * Claude credit (Haiku), so `queries.triage` moves with the plan only then; ClaudeApiWindow::end() puts it back.
+     *
+     * @return list<string>
+     */
+    public static function kept(?bool $claudeApiWindow = null): array
+    {
+        return ($claudeApiWindow ?? ClaudeApiWindow::active())
+            ? array_values(array_diff(self::KEEP, [AiRouteKeys::QUERIES_TRIAGE]))
+            : self::KEEP;
+    }
+
     /** Writing and judgement work: Sonnet 5.5. Everything else (classify, match, extract) is bulk work for Haiku 5.5. */
     public const array WRITING = [
         AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::SITE_CONTENT_DISCOVERY,
@@ -76,10 +89,10 @@ final class AiAssignments
         };
     }
 
-    /** The model a plan gives this operation; null = the plan leaves it as it is. */
-    public function target(string $plan, string $operation): ?string
+    /** The model a plan gives this operation; null = the plan leaves it as it is (`$claudeApiWindow`: as if open / closed). */
+    public function target(string $plan, string $operation, ?bool $claudeApiWindow = null): ?string
     {
-        if (in_array($operation, self::KEEP, true)) {
+        if (in_array($operation, self::kept($claudeApiWindow), true)) {
             return null;
         }
 
@@ -90,6 +103,22 @@ final class AiAssignments
             self::PLAN_ROUTE => '',
             default => throw new InvalidArgumentException('Bilinmeyen dağılım: '.$plan),
         };
+    }
+
+    /** Applies a plan to ONE operation (a new version only when its model changes); true when it changed. */
+    public function applyOne(string $plan, string $operation, User $by): bool
+    {
+        $target = $this->registry->has($operation) ? $this->target($plan, $operation) : null;
+        if ($target === null) {
+            return false;
+        }
+        $current = $this->registry->current($operation);
+        if ((string) ($current->model ?? '') === $target) {
+            return false;
+        }
+        $this->registry->publish($operation, ['template' => (string) $current->template, 'model' => $target], $by);
+
+        return true;
     }
 
     /**

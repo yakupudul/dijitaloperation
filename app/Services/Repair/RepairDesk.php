@@ -14,10 +14,12 @@ use App\Services\Gbp\Desk\ProfileFields;
 use App\Services\Gbp\Desk\ProfileInfo;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Services\Work\PageTraffic;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -97,13 +99,16 @@ final class RepairDesk
     /** Rows read per kind (the list is a work queue, not an archive). */
     public const int LIMIT = 1500;
 
+    /** @var array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>|null */
+    private ?array $learned = null;
+
     /**
-     * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
+     * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, priority: int, page_id: ?int, impressions?: ?int, clicks?: ?int, page_title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
      */
     public function rows(?int $brandId = null, ?string $kind = null, ?string $risk = null): Collection
     {
         $brands = Brand::query()->operational()->pluck('name', 'id');
-        $rows = $this->candidates($brandId)->map(fn (Suggestion $s): ?array => $this->row($s, (string) ($brands[$s->brand_id] ?? '')))->filter()->values();
+        $rows = self::withTraffic($this->candidates($brandId)->map(fn (Suggestion $s): ?array => $this->row($s, (string) ($brands[$s->brand_id] ?? '')))->filter()->values());
 
         return $rows->filter(fn (array $r): bool => ($kind === null || $r['kind'] === $kind) && ($risk === null || $r['risk'] === $risk))
             ->sortBy([['risk', 'asc'], ['brand', 'asc'], ['id', 'asc']])->values();
@@ -120,7 +125,7 @@ final class RepairDesk
     /** @param  array{risk: string}  $row */
     public static function lane(array $row): string
     {
-        return match ($row['risk']) {
+        return match ($row['risk'] ?? null) {
             self::LOW => self::LANE_READY,
             self::MANUAL => self::LANE_MANUAL,
             default => self::LANE_REVIEW,
@@ -129,27 +134,84 @@ final class RepairDesk
 
     /**
      * İş paketleri: rows of one brand, one kind and one lane decided together (323 merges are one decision, not 323).
+     * The same grouping counts and lists the open work of every screen (OpenWork passes its own key: brand + work type).
+     *
+     * Order = expected gain (yakup, 2026-10-11): packages whose pages Google did not show in 90 days come last; the rest
+     * by the sum of their rows' gain (self::gain: priority weight × the page's Search Console reach), then by size.
+     *
+     * Order: package size × the learned weight of its work types (OutcomeTracker::weight(), 0.8 … 1.2, 1.0 until
+     * enough results are measured), so work that kept winning 30 / 90 days after approval comes before a package of
+     * about the same size whose work kept losing. `track` is that record in words ("Bu tür işler: 12 ölçümün 9'u işe
+     * yaradı").
      *
      * @param  Collection<int, array<string, mixed>>  $rows
-     * @return Collection<int, array{key: string, brand_id: int, brand: string, kind: string, lane: string, count: int, high: int, ids: list<int>, sample: list<array<string, mixed>>}>
+     * @param  (callable(array<string, mixed>): string)|null  $keyOf  package key of a row (default: brand.kind.lane)
+     * @return Collection<int, array{key: string, brand_id: int, brand: string, kind: string, lane: string, count: int, high: int, critical: int, impressions: int, clicks: int, measured: bool, unseen: bool, gain: float, ids: list<int>, sample: list<array<string, mixed>>, weight: float, score: float, track: string}>
      */
-    public function packages(Collection $rows): Collection
+    public function packages(Collection $rows, ?callable $keyOf = null): Collection
     {
-        return $rows->groupBy(fn (array $r): string => self::packageKey($r))
-            ->map(function (Collection $group, string $key): array {
+        $keyOf ??= fn (array $r): string => self::packageKey($r);
+        $learned = $this->learned();
+
+        return $rows->groupBy(fn (array $r): string => $keyOf($r))
+            ->map(function (Collection $group, string $key) use ($learned): array {
                 $first = $group->first();
+                $measured = $group->filter(fn (array $r): bool => ($r['impressions'] ?? null) !== null);
+                $impressions = (int) $measured->sum('impressions');
+                $types = $group->pluck('work_type')->filter()->unique()->values();
+                $weight = round((float) $group->avg(fn (array $r): float => (float) ($learned[$r['work_type'] ?? '']['weight'] ?? 1.0)), 3);
+                $won = (int) $types->sum(fn (string $t): int => (int) ($learned[$t]['won'] ?? 0));
+                $measuredResults = (int) $types->sum(fn (string $t): int => (int) ($learned[$t]['measured'] ?? 0));
+                $gain = round((float) $group->sum(fn (array $r): float => self::gain($r)), 2);
 
                 return ['key' => $key, 'brand_id' => $first['brand_id'], 'brand' => $first['brand'], 'kind' => $first['kind'], 'lane' => self::lane($first),
-                    'count' => $group->count(), 'high' => $group->where('risk', self::HIGH)->count(), 'ids' => $group->pluck('id')->all(),
-                    'sample' => $group->take(3)->values()->all()];
+                    'count' => $group->count(), 'high' => $group->where('risk', self::HIGH)->count(),
+                    'critical' => $group->filter(fn (array $r): bool => (int) ($r['priority'] ?? 3) <= 1)->count(),
+                    'impressions' => $impressions, 'clicks' => (int) $measured->sum('clicks'), 'measured' => $measured->isNotEmpty(),
+                    'unseen' => $measured->count() === $group->count() && $impressions === 0,
+                    'gain' => $gain, 'ids' => $group->pluck('id')->all(),
+                    'sample' => $group->sortByDesc(fn (array $r): float => self::gain($r))->take(3)->values()->all(),
+                    'weight' => $weight, 'score' => round($gain * $weight, 2),
+                    'track' => $measuredResults > 0 ? 'Bu tür işler: '.$measuredResults.' ölçümün '.$won.' tanesi işe yaradı' : ''];
             })
-            ->sortBy([['count', 'desc'], ['brand', 'asc'], ['kind', 'asc']])->values();
+            ->sortBy([['unseen', 'asc'], ['score', 'desc'], ['count', 'desc'], ['brand', 'asc'], ['kind', 'asc']])->values();
+    }
+
+    /**
+     * The learned record per work type (OutcomeTracker::workTypes(), cached), read once per desk instance.
+     *
+     * @return array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>
+     */
+    public function learned(): array
+    {
+        return $this->learned ??= app(OutcomeTracker::class)->workTypes();
     }
 
     /** @param  array{brand_id: int, kind: string, risk: string}  $row */
     public static function packageKey(array $row): string
     {
         return $row['brand_id'].'.'.$row['kind'].'.'.self::lane($row);
+    }
+
+    /**
+     * Adds each page-bound row's Search Console impressions and clicks (90 days, PageTraffic); null when the site has
+     * no Search Console data. Rows without a page get no key: their gain is their priority alone.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    public static function withTraffic(Collection $rows): Collection
+    {
+        $traffic = app(PageTraffic::class)->forPages($rows->pluck('page_id'));
+
+        return $rows->map(function (array $r) use ($traffic): array {
+            if (($r['page_id'] ?? null) === null || ! array_key_exists((int) $r['page_id'], $traffic)) {
+                return $r;
+            }
+            $t = $traffic[(int) $r['page_id']];
+
+            return $r + ['impressions' => $t['impressions'] ?? null, 'clicks' => $t['clicks'] ?? null];
+        });
     }
 
     /**
@@ -181,22 +243,109 @@ final class RepairDesk
     }
 
     /**
+     * Action types whose rows the desk approves (the candidates() queries); their applied rows are the desk's results.
+     *
+     * @return list<string>
+     */
+    public static function workActionTypes(): array
+    {
+        return [...SiteSuggestionTypes::APPLICABLE, ImageAlts::TYPE, ClusterOverlaps::TYPE, 'ads_negative', 'gbp_description', ProfileInfo::TYPE,
+            GoogleAdsChanges::TYPE, WebHealthAudit::TYPE];
+    }
+
+    /**
+     * Sonuçlar (yakup 2026-10-11): what the desk's applied work did 30 / 90 days later, measured nightly by
+     * OutcomeTracker — one short line per item (its latest point, "+38 tıklama (30 gün)"), newest measurement first,
+     * the verdict counts, and the record per work type that orders the packages.
+     *
+     * @return array{counts: array<string, int>, items: list<array{id: int, brand: string, title: string, type: string, page: string, line: string, verdict: string, label: string}>, types: list<array{type: string, label: string, won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>}
+     */
+    public function results(?int $brandId = null, int $days = 120, int $limit = 30): array
+    {
+        $counts = array_fill_keys(array_keys(OutcomeTracker::VERDICT_LABELS), 0);
+        $items = [];
+        $rows = Suggestion::query()->with(['brand:id,name', 'page:id,url'])->where('status', Suggestion::APPLIED)->whereNotNull('measured_at')
+            ->where('measured_at', '>=', now()->subDays($days))->whereIn('action_type', self::workActionTypes())
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->orderByDesc('measured_at')->orderByDesc('id')->limit(1000)->get(['id', 'brand_id', 'page_id', 'action_type', 'action', 'title', 'outcome', 'measured_at']);
+        foreach ($rows as $row) {
+            $latest = OutcomeTracker::latest($row);
+            if ($latest === null) {
+                continue;
+            }
+            $counts[$latest['verdict']]++;
+            if (count($items) < $limit) {
+                $items[] = ['id' => (int) $row->id, 'brand' => (string) ($row->brand?->name ?? '—'), 'title' => (string) $row->title,
+                    'type' => self::workTypeLabel(OutcomeTracker::workType((string) $row->action_type, (array) $row->action)), 'page' => (string) ($row->page?->url ?? ''),
+                    'line' => $latest['line'], 'verdict' => $latest['verdict'], 'label' => OutcomeTracker::VERDICT_LABELS[$latest['verdict']] ?? $latest['verdict']];
+            }
+        }
+        $types = collect($this->learned())->filter(fn (array $t, string $type): bool => in_array(explode('.', $type)[0], self::workActionTypes(), true) && $t['measured'] > 0)
+            ->map(fn (array $t, string $type): array => ['type' => $type, 'label' => self::workTypeLabel($type)] + $t)
+            ->sortByDesc('weight')->values()->all();
+
+        return ['counts' => $counts, 'items' => $items, 'types' => $types];
+    }
+
+    /** "ads_change.budget" → "Google Ads ayarı · budget", "title_description" → "başlık / açıklama". */
+    public static function workTypeLabel(string $workType): string
+    {
+        [$type, $field] = array_pad(explode('.', $workType, 2), 2, null);
+        $label = match ($type) {
+            'ads_negative' => self::KINDS[self::ADS_NEGATIVE],
+            GoogleAdsChanges::TYPE => self::KINDS[self::ADS_CHANGE],
+            'gbp_description' => self::KINDS[self::GBP_DESCRIPTION],
+            ProfileInfo::TYPE => self::KINDS[self::GBP_FIELDS],
+            WebHealthAudit::TYPE => self::KINDS[self::WEB_FIX],
+            ClusterOverlaps::TYPE => self::KINDS[self::REDIRECT],
+            default => Str::ucfirst(SiteSuggestionTypes::label((string) $type)),
+        };
+
+        return $field === null ? $label : $label.' · '.(ProfileInfo::FIELD_LABELS[$field] ?? $field);
+    }
+
+    /**
      * Marka sağlığı: per brand the work left before it is perfect and what was done in the last two weeks.
+     * "Kusursuz" percent = fixes applied in the last TRACK_DAYS days / (applied + still open rows). Open work is counted
+     * in packages (`open`, self::packages: same brand + kind + lane), the rows behind them in `rows`. Brands are sorted
+     * by the expected gain of their open work (self::gain times the learned weight of the row's work type, 0.8 … 1.2,
+     * see packages()), then by critical count.
      *
      * @param  Collection<int, array<string, mixed>>  $rows
-     * @return Collection<int, array{brand_id: int, brand: string, open: int, done: int, percent: int}>
+     * @return Collection<int, array{brand_id: int, brand: string, open: int, rows: int, done: int, percent: int, gain: float, critical: int}>
      */
     public function health(Collection $rows): Collection
     {
+        $learned = $this->learned();
         $done = Suggestion::query()->where('status', Suggestion::APPLIED)->where('applied_at', '>=', now()->subDays(self::TRACK_DAYS))
             ->whereIn('brand_id', $rows->pluck('brand_id')->unique())->selectRaw('brand_id, count(*) as aggregate')->groupBy('brand_id')->pluck('aggregate', 'brand_id');
 
-        return $rows->groupBy('brand_id')->map(function (Collection $group, int $brandId) use ($done): array {
+        return $rows->groupBy('brand_id')->map(function (Collection $group, int $brandId) use ($done, $learned): array {
             $finished = (int) ($done[$brandId] ?? 0);
 
-            return ['brand_id' => $brandId, 'brand' => (string) $group->first()['brand'], 'open' => $group->count(), 'done' => $finished,
-                'percent' => (int) round(100 * $finished / max(1, $finished + $group->count()))];
-        })->sortByDesc('open')->values();
+            return ['brand_id' => $brandId, 'brand' => (string) $group->first()['brand'], 'open' => $group->groupBy(fn (array $r): string => self::packageKey($r))->count(),
+                'rows' => $group->count(), 'done' => $finished, 'percent' => (int) round(100 * $finished / max(1, $finished + $group->count())),
+                'gain' => round((float) $group->sum(fn (array $r): float => self::gain($r) * (float) ($learned[$r['work_type'] ?? '']['weight'] ?? 1.0)), 2),
+                'critical' => $group->filter(fn (array $r): bool => ($r['priority'] ?? 3) <= 1)->count()];
+        })->sortBy([['gain', 'desc'], ['critical', 'desc'], ['open', 'desc'], ['brand', 'asc']])->values();
+    }
+
+    /**
+     * Expected gain of one row: its priority weight (1 → 3, 2 → 2, else 1) times its page's Search Console reach
+     * (1 + log10(1 + impressions + 10 × clicks), 90 days). A page Google did not show gains 0; a row without a page or
+     * on a site without Search Console data keeps its priority weight.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    public static function gain(array $row): float
+    {
+        $weight = (float) max(1, 4 - (int) ($row['priority'] ?? 3));
+        if (($row['impressions'] ?? null) === null) {
+            return $weight;
+        }
+        $impressions = (int) $row['impressions'];
+
+        return $impressions <= 0 ? 0.0 : round($weight * (1 + log10(1 + $impressions + 10 * (int) ($row['clicks'] ?? 0))), 2);
     }
 
     public const array WRITE_LABELS = [
@@ -479,7 +628,7 @@ final class RepairDesk
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED, Suggestion::SNOOZED]);
 
         return collect([
-            $base()->with('page:id,url,website_asset_id')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->with('page:id,url,website_asset_id,title,h1')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ImageAlts::TYPE),
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
@@ -499,7 +648,9 @@ final class RepairDesk
         $action = (array) $s->action;
         $lastError = $action['last_write_error'] ?? $action['merge_error'] ?? null;
         $base = ['id' => (int) $s->id, 'brand_id' => (int) $s->brand_id, 'brand' => $brand, 'channel' => (string) $s->channel,
-            'title' => (string) $s->title,
+            'work_type' => OutcomeTracker::workType((string) $s->action_type, $action),
+            'title' => (string) $s->title, 'priority' => (int) ($s->priority ?? 3), 'page_id' => $s->page_id !== null ? (int) $s->page_id : null,
+            'page_title' => $s->relationLoaded('page') ? (string) ($s->page?->h1 ?: $s->page?->title ?? '') : '',
             'reason' => trim((string) $s->reason.(filled($lastError) ? ' · Önceki gönderim başarısız: '.$lastError : ''), ' ·')];
         if ($s->status === Suggestion::SNOOZED && $s->snoozed_until !== null && $s->snoozed_until->isFuture()) {
             return null;

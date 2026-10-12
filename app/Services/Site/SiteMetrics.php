@@ -219,8 +219,13 @@ final class SiteMetrics
             ->values()->all();
     }
 
-    /** @return array{sessions: int, key_events: float}|null GA4 landing page (28 days, all sources); null = no GA4 data */
-    public function ga4Landing(Brand $brand, string $url, int $days = 28): ?array
+    /**
+     * GA4 landing page (all sources): the last $days collected days, or the given [from, to]; null = no GA4 data.
+     *
+     * @param  array{0: string, 1: string}|null  $range
+     * @return array{sessions: int, key_events: float}|null
+     */
+    public function ga4Landing(Brand $brand, string $url, int $days = 28, ?array $range = null): ?array
     {
         $ids = SiteScope::resourceIds($brand, 'ga4');
         $last = $ids === [] ? null : DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $ids)->max('reporting_date');
@@ -228,10 +233,11 @@ final class SiteMetrics
             return null;
         }
         $end = CarbonImmutable::parse((string) $last);
+        $range ??= [$end->subDays($days - 1)->toDateString(), $end->toDateString()];
         $path = SeoText::urlPath($url);
         $paths = array_values(array_unique([$path, rtrim($path, '/') ?: '/', rtrim($path, '/').'/']));
         $row = DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $ids)
-            ->whereBetween('reporting_date', [$end->subDays($days - 1)->toDateString(), $end->toDateString()])->whereIn('landingPage', $paths)
+            ->whereBetween('reporting_date', $range)->whereIn('landingPage', $paths)
             ->selectRaw('sum(sessions) as sessions, sum('.DB::getQueryGrammar()->wrap('keyEvents').') as key_events')->first();
 
         return ['sessions' => (int) ($row->sessions ?? 0), 'key_events' => round((float) ($row->key_events ?? 0), 1)];

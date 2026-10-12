@@ -139,6 +139,10 @@ return [
 
     'search' => [
         'placeholder' => 'Search portfolio…',
+        'page' => 'Page',
+        'queries' => 'Queries',
+        'in_queries' => 'Search queries for ":q"',
+        'shortcut' => 'Ctrl K',
         'empty' => 'No matching customers, brands, assets, findings, or tasks.',
     ],
 

@@ -27,6 +27,13 @@ final class MapsOutcomeReader implements OutcomeMetricReader
         return $last !== null ? substr((string) $last, 0, 10) : null;
     }
 
+    public function firstDay(array $scope): ?string
+    {
+        $first = DB::table('gbp_performance_daily')->where('external_resource_id', (int) ($scope['resource_id'] ?? 0))->min('reporting_date');
+
+        return $first !== null ? substr((string) $first, 0, 10) : null;
+    }
+
     /**
      * lastDay() for several profiles in one query; a profile without rows is left out.
      *

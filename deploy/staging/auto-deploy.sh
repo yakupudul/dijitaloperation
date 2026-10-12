@@ -189,6 +189,8 @@ if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "
   notify deployed "$TARGET_BRANCH" "$TARGET" "$(git log -1 --format=%s "$TARGET" | head -c 160)"
 else
   mark_tried "$TARGET"
+  # The deploy log's last lines go where the system health page and the MCP read them (deploy.sh prints no secrets).
+  { printf '%s · %s · deploy\n\n' "$SHORT" "$(now)"; tail -n 60 "$LOG" | head -c 12000; } > "$FAILURE_FILE" || true
   # Back to the release that was live, so the app never stays on half-deployed code.
   echo "auto-deploy: ${SHORT} failed; restoring ${LIVE:0:8}" >> "$LOG"
   restored="geri alındı, ${LIVE:0:8} canlıda kaldı"

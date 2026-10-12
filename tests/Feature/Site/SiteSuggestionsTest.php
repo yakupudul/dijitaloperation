@@ -275,6 +275,7 @@ final class SiteSuggestionsTest extends SiteTestCase
         $update = Suggestion::query()->where('title', 'Zirkonyum kaplama sayfasını genişlet')->sole();
         $this->assertSame([$this->zirkonyumPage->id, 'update'], [$update->page_id, $update->action['kind']], 'an update names the candidate page, not the AI\'s URL');
         $this->assertSame(0, Suggestion::query()->where('title', 'Aday dışı fikir')->count());
+        $this->assertGreaterThanOrEqual(3, (int) Suggestion::query()->where('decision_key', 'site.content')->min('priority'), 'a content idea is never critical');
 
         // Discovery: queries outside every cluster → "küme dışı" → library.
         $free = Query::query()->create(['text' => 'diş taşı temizliği', 'text_hash' => QueryNormalizer::hash('diş taşı temizliği'), 'sector_id' => $this->dental->id, 'assignment' => 'none']);

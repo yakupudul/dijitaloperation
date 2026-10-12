@@ -49,17 +49,20 @@ final class PhotoPlan
      */
     public function status(array $resources): array
     {
+        // Counted in the database: a profile can have hundreds of photos and only their number, newest date and
+        // whether a logo / cover is among them are shown.
         $rows = DB::table('gbp_media')->whereIn('external_resource_id', array_values($resources))->where(fn ($q) => $q->whereNull('media_format')->orWhere('media_format', 'PHOTO'))
-            ->get(['external_resource_id', 'category', 'create_time'])->groupBy('external_resource_id');
+            ->groupBy('external_resource_id')
+            ->selectRaw("external_resource_id, count(*) as photos, max(create_time) as last, max(case when upper(category) = 'LOGO' then 1 else 0 end) as logo, max(case when upper(category) = 'COVER' then 1 else 0 end) as cover")
+            ->get()->keyBy(fn (object $row): int => (int) $row->external_resource_id);
         $sent = GbpPhoto::query()->whereIn('digital_asset_id', array_keys($resources))->where('status', GbpPhoto::UPLOADED)
             ->selectRaw('digital_asset_id, max(updated_at) as last')->groupBy('digital_asset_id')->pluck('last', 'digital_asset_id');
         $out = [];
         foreach ($resources as $assetId => $resourceId) {
-            $media = $rows->get($resourceId, collect());
-            $last = collect([$media->max('create_time'), $sent->get($assetId)])->filter()->map(fn ($d): string => substr((string) $d, 0, 10))->max();
+            $media = $rows->get((int) $resourceId);
+            $last = collect([$media?->last, $sent->get($assetId)])->filter()->map(fn ($d): string => substr((string) $d, 0, 10))->max();
             $days = $last !== null ? (int) CarbonImmutable::parse($last)->diffInDays(now(), true) : null;
-            $categories = $media->pluck('category')->map(fn ($c): string => strtoupper((string) $c));
-            $out[$assetId] = ['photos' => $media->count(), 'last' => $last, 'days' => $days, 'logo' => $categories->contains('LOGO'), 'cover' => $categories->contains('COVER'),
+            $out[$assetId] = ['photos' => (int) ($media->photos ?? 0), 'last' => $last, 'days' => $days, 'logo' => (bool) ($media->logo ?? false), 'cover' => (bool) ($media->cover ?? false),
                 'stale' => $days === null || $days > self::STALE_DAYS];
         }
 

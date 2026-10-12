@@ -4,6 +4,7 @@ namespace Tests\Unit\SeoTasks;
 
 use App\Services\SeoTasks\SeoText;
 use App\Support\Options\LocationOptions;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -35,5 +36,16 @@ final class SeoTextMatchesPhraseTest extends TestCase
     public function test_one_fold_implementation(): void
     {
         $this->assertSame(SeoText::fold('Kadıköy Diş İmplantı'), LocationOptions::fold('Kadıköy Diş İmplantı'));
+    }
+
+    public function test_fold_fast_path_gives_the_same_text_as_str_ascii(): void
+    {
+        $slow = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ',
+            mb_strtolower(Str::ascii(strtr($text, ['I' => 'ı', 'İ' => 'i']), 'tr'), 'UTF-8')));
+        $texts = ['ÇĞIİÖŞÜ çğıiöşü', 'Diş Sağlığı / Şubelerimiz - Çiğli', '/subeler/karşıyaka-şubesi/', 'IŞIK ışık', 'A-Z a_z 0-9 !?#&%',
+            'Ağız ve Diş Sağlığı Polikliniği · Kadıköy', 'Café “Ünlü” – Größe', "tab\there", ''];
+        foreach (array_merge($texts, array_map('chr', range(0x20, 0x7E))) as $text) {
+            $this->assertSame($slow($text), SeoText::fold($text), $text);
+        }
     }
 }

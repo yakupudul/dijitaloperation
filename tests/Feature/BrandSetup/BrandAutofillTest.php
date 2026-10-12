@@ -5,10 +5,13 @@ namespace Tests\Feature\BrandSetup;
 use App\Jobs\BuildBrandSetupProposalJob;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
+use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\BrandSetupProposal;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\OfferingPage;
@@ -18,11 +21,13 @@ use App\Models\User;
 use App\Services\BrandSetup\BrandAutofill;
 use App\Services\BrandSetup\LanguageServices;
 use App\Services\Catalog\ServiceCatalogService;
+use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Website\Pages\PageStore;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -108,6 +113,30 @@ final class BrandAutofillTest extends TestCase
         $this->assertNotNull(data_get($proposal->fresh()->summary, 'checked_at'));
     }
 
+    public function test_an_automatic_run_leaves_one_star_and_never_adds_one_next_to_the_operators(): void
+    {
+        $proposal = fn (): BrandSetupProposal => BrandSetupProposal::query()->create([
+            'brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://adadent.com.tr/', 'auto_apply' => true,
+            'items' => [], 'services_status' => 'ready', 'summary' => [],
+            'services' => [
+                ['name' => 'Diş Beyazlatma', 'sector_code' => 'saglik', 'is_new' => true, 'is_core' => true, 'status' => 'proposed', 'selected' => true, 'keywords' => [['query' => 'diş beyazlatma', 'impressions' => 40]]],
+                ['name' => 'İmplant Tedavisi', 'sector_code' => 'saglik', 'is_new' => true, 'is_core' => true, 'status' => 'proposed', 'selected' => true, 'keywords' => [['query' => 'implant', 'impressions' => 900]]],
+            ],
+        ]);
+
+        app(BrandAutofill::class)->apply($proposal());
+
+        $mains = BrandOffering::query()->with('primaryName')->where('brand_id', $this->brand->id)->get()->filter(fn (BrandOffering $o): bool => $o->isMain());
+        $this->assertSame(['İmplant Tedavisi'], $mains->map(fn (BrandOffering $o): string => $o->displayName())->values()->all(), 'one ★, the most searched');
+
+        // The operator moves ★; a later automatic run marking core services adds no second ★.
+        BrandOffering::query()->where('brand_id', $this->brand->id)->get()->each(fn (BrandOffering $o) => $o->forceFill(['priority' => $o->displayName() === 'Diş Beyazlatma' ? 'main' : 'secondary'])->save());
+        app(BrandAutofill::class)->apply($proposal());
+
+        $mains = BrandOffering::query()->with('primaryName')->where('brand_id', $this->brand->id)->get()->filter(fn (BrandOffering $o): bool => $o->isMain());
+        $this->assertSame(['Diş Beyazlatma'], $mains->map(fn (BrandOffering $o): string => $o->displayName())->values()->all());
+    }
+
     public function test_an_operator_proposal_is_never_applied_by_the_night_run(): void
     {
         BrandSetupProposal::query()->create([
@@ -121,6 +150,72 @@ final class BrandAutofillTest extends TestCase
         $this->assertSame('waiting', app(BrandAutofill::class)->forBrand($this->brand), 'the operator\'s ready proposal waits for the operator');
         $this->assertSame(1, BrandSetupProposal::query()->where('brand_id', $this->brand->id)->count());
         $this->assertSame(0, BrandOffering::query()->where('brand_id', $this->brand->id)->count());
+    }
+
+    public function test_an_operator_proposal_left_unapplied_for_a_week_no_longer_blocks_the_brand(): void
+    {
+        $proposal = BrandSetupProposal::query()->create([
+            'brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://adadent.com.tr/',
+            'items' => [], 'services' => [], 'services_status' => 'ready', 'summary' => [], 'created_by' => $this->admin->id,
+        ]);
+        $proposal->forceFill(['created_at' => now()->subDays(9), 'updated_at' => now()->subDays(8)])->saveQuietly();
+        $this->page('/', 'Adadent');
+        Queue::fake();
+
+        $this->assertSame('queued', app(BrandAutofill::class)->forBrand($this->brand));
+        $this->assertSame(2, BrandSetupProposal::query()->where('brand_id', $this->brand->id)->count());
+        $this->assertSame(BrandSetupProposal::STATUS_READY, $proposal->fresh()->status, 'the operator\'s proposal is kept, never applied');
+    }
+
+    public function test_a_complete_brand_is_complete_even_with_an_operator_proposal_waiting_and_the_old_note_goes(): void
+    {
+        $this->completeBrand();
+        BrandSetupProposal::query()->create([
+            'brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_READY, 'website_url' => 'https://adadent.com.tr/',
+            'items' => [], 'services' => [], 'services_status' => 'ready', 'summary' => [], 'created_by' => $this->admin->id,
+        ]);
+        BrandAutofill::note($this->brand->id, 'Senin başlattığın "Otomatik kur" önerisi hazır ve uygulanmayı bekliyor.');
+
+        $this->assertSame([], app(BrandAutofill::class)->missing($this->brand));
+        $this->assertSame('complete', app(BrandAutofill::class)->forBrand($this->brand));
+        $this->assertNull(BrandAutofill::note($this->brand->id), 'a finished brand shows no stale note');
+    }
+
+    public function test_with_nothing_missing_the_card_shows_what_waits_for_a_look_and_places_are_never_marked_as_filled_by_claude(): void
+    {
+        $this->completeBrand();
+        app(ServiceKeywordService::class)->append(BrandOffering::query()->where('brand_id', $this->brand->id)->sole()->catalogItem, ['implant']);
+        BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'name' => 'İstanbul', 'city_name' => 'İstanbul', 'normalized_key' => 'tr-istanbul', 'status' => 'active']);
+        BrandConversionSource::query()->create(['brand_id' => $this->brand->id, 'source' => 'ga4_key_event', 'source_key' => 'generate_lead', 'label' => 'generate_lead',
+            'conversion_type' => 'form_submission', 'counts' => true, 'origin' => BrandConversionSource::ORIGIN_OPERATOR]);
+        BrandSetupProposal::query()->create(['brand_id' => $this->brand->id, 'status' => BrandSetupProposal::STATUS_APPLIED, 'website_url' => 'https://adadent.com.tr/',
+            'auto_apply' => true, 'applied_at' => now(), 'items' => [], 'services' => [], 'services_status' => 'ready', 'summary' => []]);
+
+        $workspace = app(BrandWorkspaceReadService::class);
+        $checklist = $workspace->checklist($this->brand->fresh(), $workspace->assets($this->brand), $workspace->services($this->brand));
+        $items = collect($checklist['items'])->keyBy('key');
+        $this->assertSame($checklist['total'], $checklist['done']);
+        $this->assertTrue($items['services']['review'] ?? false);
+        $this->assertFalse($items['areas']['review'] ?? false, 'places come only through the Onarım masası');
+
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-setup-title="review"')
+            ->assertSeeHtml('data-setup-toggle')
+            ->assertSee('Tamam · '.collect($checklist['items'])->where('review', true)->count().' alan kontrolünü bekliyor')
+            ->assertDontSee('Marka eksikleri')
+            ->assertDontSeeHtml('data-setup-state="missing"');
+    }
+
+    private function completeBrand(): void
+    {
+        $this->brand->forceFill(['sector' => 'Sağlık'])->save();
+        BrandIntelligenceContext::query()->create(['brand_id' => $this->brand->id, 'business_summary' => 'Kadıköy diş kliniği.', 'differentiators' => ['Aynı gün implant'], 'source' => 'operator']);
+        BrandOffering::query()->create(['brand_id' => $this->brand->id, 'status' => 'active', 'priority' => 'main',
+            'service_catalog_item_id' => app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin)['service']->id]);
+        foreach (['search_console', 'ga4'] as $capability) {
+            $binding = CoreAssetBinding::factory()->create(['digital_asset_id' => $this->site->id, 'capability' => $capability]);
+            DB::table('resource_automations')->insert(['external_resource_id' => $binding->external_resource_id, 'data_through' => now()->subDay()->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
+        }
     }
 
     public function test_services_made_only_from_translated_pages_are_archived_and_translated_pages_never_become_services(): void
@@ -152,6 +247,26 @@ final class BrandAutofillTest extends TestCase
         $this->assertTrue(LanguageServices::foreign(null, '/en/implant/', 'tr'));
         $this->assertFalse(LanguageServices::foreign(null, '/implant/', 'tr'));
         $this->assertTrue(LanguageServices::foreign('de-DE', '/implant/', 'tr'));
+    }
+
+    public function test_the_home_page_language_is_the_main_one_even_when_a_translation_has_more_pages(): void
+    {
+        $catalog = app(ServiceCatalogService::class);
+        $turkish = BrandOffering::query()->create(['brand_id' => $this->brand->id, 'status' => 'active', 'priority' => 'secondary',
+            'service_catalog_item_id' => $catalog->resolveOrCreate('Dermal Dolgu', 'saglik', actor: $this->admin)['service']->id]);
+        $this->page('/', 'Medikal Estetik');
+        OfferingPage::query()->create(['brand_offering_id' => $turkish->id, 'page_id' => $this->page('/dermal-dolgu/', 'Dermal Dolgu')->id, 'source' => 'rule']);
+        foreach (['/ru/a/', '/ru/b/', '/ru/c/', '/ru/d/'] as $path) {
+            $this->page($path, 'RU')->forceFill(['language' => 'ru'])->save();
+        }
+
+        $this->assertSame('tr', LanguageServices::mainLanguage($this->site));
+        $this->assertSame(0, app(LanguageServices::class)->cleanup($this->brand->id));
+        $status = $turkish->fresh()->status;
+        $this->assertSame('active', $status instanceof \BackedEnum ? $status->value : $status, 'Turkish services of a site with more Russian pages stay');
+
+        Page::query()->where('path', '/')->delete();
+        $this->assertSame('ru', LanguageServices::mainLanguage($this->site), 'without a home page the most common language decides');
     }
 
     private function page(string $path, string $title): Page

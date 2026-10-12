@@ -11,7 +11,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Kimlik tutarlılığı @if ($issues > 0)<span class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ $issues }} fark</span>@endif</h2>
                     <p class="text-xs text-gray-500">İşletme Profili ile site aynı adı, telefonu ve adresi verince arama motorları ve yapay zekâ işletmeye daha çok güvenir.</p>
                 </div>
-                <button type="button" wire:click="recheck" wire:loading.attr="disabled" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Yeniden kontrol et</button>
+                <button type="button" wire:click="recheck" wire:loading.attr="disabled" class="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Yeniden kontrol et</button>
             </div>
             <ul class="mt-3 divide-y divide-gray-100 text-xs dark:divide-gray-800">
                 @foreach ($identity['rows'] as $row)

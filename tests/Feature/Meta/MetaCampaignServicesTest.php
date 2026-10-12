@@ -223,11 +223,32 @@ class MetaCampaignServicesTest extends TestCase
         $implant = $this->offering('Diş İmplantı');
         $page = Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->asset->id]);
 
-        $page->assertSet('tab', 'campaigns')->assertSet('status', 'all')->assertSee('Hizmetlere göre')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Genel Trafik')->assertSee('+ Hizmet ata')
+        $page->assertSet('tab', 'campaigns')->assertSet('status', 'live')->assertDontSee('Hizmet yok')->assertSee('Hizmetlere göre')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Genel Trafik')->assertSee('+ Hizmet ata')
             ->set('service', 'none')->assertDontSee('Diş İmplantı Lead Ankara')->assertSee('Genel Trafik')
             ->set('service', '')->set('search', 'implant')->assertSee('Diş İmplantı Lead Ankara')->assertDontSee('Genel Trafik')
             ->call('confirmService', 'c1', $implant->id);
         $this->assertSame('confirmed', $this->services()->map($this->asset)['c1']['state']);
+    }
+
+    public function test_campaign_rows_read_as_service_and_country_and_cards_split_by_result_type(): void
+    {
+        $this->snapshot('meta_adset_snapshot', ['adset_id' => 'as9'], ['name' => 'Avrupa', 'campaign_id' => 'c1', 'optimization_goal' => 'LEAD_GENERATION', 'effective_status' => 'ACTIVE']);
+        $this->professional('meta_adset_targeting_snapshot', ['adset_id' => 'as9', 'campaign_id' => 'c1', 'adset_name' => 'Avrupa', 'optimization_goal' => 'LEAD_GENERATION',
+            'targeting' => json_encode(['geo_locations' => ['countries' => ['tr', 'DE']]])]);
+        $this->services()->sync($this->asset->load('brand'));
+        $rows = array_column(app(MetaCampaignBoard::class)->board($this->asset, 28)['rows'], null, 'id');
+        $this->assertSame(['TR', 'DE'], $rows['c1']['countries']);
+        $this->assertSame([], $rows['c2']['countries'], 'cities only: no country');
+
+        $page = Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->asset->id]);
+        $page->assertDontSeeHtml('data-campaign-raw-name', 'no confirmed service yet: the raw name is the only line')
+            ->call('confirmService', 'c1', $this->offering('Diş İmplantı')->id)
+            ->assertSee('Diş İmplantı · TR, DE')
+            ->assertSeeHtml('data-campaign-raw-name')
+            ->assertSee('Diş İmplantı Lead Ankara')
+            ->assertSeeHtml('data-kpi-type="leads"')
+            ->assertDontSee('kampanyada uyarı var.')
+            ->assertSeeHtml('data-assign-service');
     }
 
     public function test_short_ad_set_names_find_the_service_and_lead_ad_sets_show_the_form_and_their_budget(): void

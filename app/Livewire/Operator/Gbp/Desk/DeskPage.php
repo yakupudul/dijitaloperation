@@ -23,6 +23,15 @@ final class DeskPage extends Component
 {
     use DeskScope;
 
+    /** Share of profiles a check must be missing in to count as a shared gap. */
+    public const float SHARED_SHARE = 0.8;
+
+    /** Fewer profiles than this are always shown with their own chips. */
+    public const int SHARED_MIN_ROWS = 3;
+
+    /** Brands with more profiles than this are folded into a collapsible group. */
+    public const int GROUP_FOLD_AFTER = 3;
+
     /** Profile whose details are open. */
     #[Url(as: 'isletme')]
     public ?int $open = null;
@@ -70,6 +79,8 @@ final class DeskPage extends Component
                 'route' => DeskChecks::ROUTES[$key]];
         }
 
+        $shared = self::sharedGaps($rows);
+
         $detail = null;
         if ($this->open !== null && isset($rows[$this->open]) && isset($resources[$this->open])) {
             $detail = [
@@ -93,6 +104,32 @@ final class DeskPage extends Component
             'detail' => $detail,
             'brandOptions' => $this->brandOptions(),
             'holiday' => $holiday,
+            'shared' => $shared,
         ]);
+    }
+
+    /**
+     * Checks missing in at least {@see self::SHARED_SHARE} of the listed profiles: they are shown once above the table
+     * with a link to the tab that fixes them all, and the rows only show what is missing for that one branch.
+     *
+     * @param  array<int, array{checks: array<string, array{ok: bool, unknown: bool, label: string, route: string}>}>  $rows
+     * @return array<string, array{label: string, missing: int, route: string, query: array<string, string>}>
+     */
+    public static function sharedGaps(array $rows): array
+    {
+        $count = count($rows);
+        if ($count < self::SHARED_MIN_ROWS) {
+            return [];
+        }
+        $shared = [];
+        foreach (array_keys(DeskChecks::ROUTES) as $key) {
+            $missing = count(array_filter($rows, fn (array $r): bool => isset($r['checks'][$key]) && ! $r['checks'][$key]['ok'] && ! $r['checks'][$key]['unknown']));
+            if ($missing / $count >= self::SHARED_SHARE) {
+                $shared[$key] = ['label' => (string) reset($rows)['checks'][$key]['label'], 'missing' => $missing, 'route' => DeskChecks::ROUTES[$key],
+                    'query' => $key === 'hours' ? ['bolum' => 'saatler'] : []];
+            }
+        }
+
+        return $shared;
     }
 }

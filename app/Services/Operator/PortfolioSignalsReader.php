@@ -9,19 +9,21 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Work\OpenWork;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
  * The list signals of Müşteriler / Markalar / Dijital varlıklar, computed once per render in a fixed number of queries:
  *
- *  - Açık iş: actionable suggestions (Suggestion::actionable — open, or snoozed whose date passed), the same rows the brand
+ *  - Açık iş: open work packages (OpenWork — the same brand's work of one type is one item), the same packages the brand
  *    Özet "Açık işler" box counts (BrandOverviewReader::openWork). Per asset a suggestion belongs to its target asset,
  *    else to the website of its page, else to the brand's first asset of the channel (as the Özet link resolves it).
  *  - Veri durumu: the DataStatusReader state of every bound source of the brand's active assets; the worst tone wins,
  *    exactly as the brand Özet asset card summarises it. A data problem is a source in tone bad (Erişim sorunu) or warn
  *    (Gecikmiş / İlk veri yükleniyor).
  *  - Dikkat: a data problem, an account that must be reconnected, or a critical open suggestion — with the reason text.
+ *    Kritik counts check types, not rows: every (asset, action type) with a critical open suggestion counts once.
  */
 final class PortfolioSignalsReader
 {
@@ -144,7 +146,8 @@ final class PortfolioSignalsReader
         $sources = [];
         foreach ($statuses as $status) {
             $sources[$status->capability] = ['label' => $status->sourceLabel(), 'state' => $status->state, 'state_label' => $status->label(),
-                'tone' => $status->tone(), 'detail' => $status->detail(), 'reconnect' => $status->state === DataStatus::ACCESS_PROBLEM];
+                'tone' => $status->tone(), 'detail' => $status->detail(), 'reconnect' => $status->state === DataStatus::ACCESS_PROBLEM,
+                'reason' => $status->reason, 'age_days' => $status->ageDays];
         }
         $worst = collect($sources)->sortByDesc(fn (array $s): int => self::TONE_RANK[$s['tone']] ?? 0)->first();
         $problems = collect($sources)->filter(fn (array $s): bool => in_array($s['tone'], ['bad', 'warn'], true));
@@ -243,10 +246,11 @@ final class PortfolioSignalsReader
     private function openWork(Collection $brands, Collection $assets): array
     {
         $critical = 'CASE WHEN priority <= '.self::CRITICAL_PRIORITY.' THEN 1 ELSE 0 END';
-        $rows = Suggestion::query()->actionable()
+        $rows = app(OpenWork::class)->query()
             ->whereIn('brand_id', $brands->pluck('id')->all())
-            ->selectRaw('brand_id, channel, target_type, target_id, page_id, '.$critical.' as is_critical, count(*) as n')
-            ->groupBy('brand_id', 'channel', 'target_type', 'target_id', 'page_id')
+            ->select(['brand_id', 'channel', 'action_type', 'target_type', 'target_id', 'page_id', 'action->check as check_id', 'action->standard_id as standard_id'])
+            ->selectRaw($critical.' as is_critical, count(*) as n')
+            ->groupBy('brand_id', 'channel', 'action_type', 'target_type', 'target_id', 'page_id', 'action->check', 'action->standard_id')
             ->groupByRaw($critical)
             ->toBase()
             ->get();
@@ -257,22 +261,45 @@ final class PortfolioSignalsReader
 
         $brandWork = [];
         $assetWork = [];
+        // Critical counts one per (asset, check type): 6 000 pages missing a title on one site are one critical issue.
+        $brandCritical = [];
+        $assetCritical = [];
+        // Open work counts packages (OpenWork): the same brand's work of one type is one item, on the asset too.
+        $brandPackages = [];
+        $assetPackages = [];
         foreach ($rows as $row) {
             $brandId = (int) $row->brand_id;
-            $n = (int) $row->n;
             $isCritical = (int) $row->is_critical === 1;
             $label = (string) (Suggestion::CHANNEL_LABELS[$row->channel] ?? $row->channel);
+            $type = OpenWork::type((string) $row->channel, $row->action_type, OpenWork::checkOf($row->check_id, $row->standard_id));
             $brandWork[$brandId] ??= ['total' => 0, 'critical' => 0, 'by_channel' => []];
-            $brandWork[$brandId]['total'] += $n;
-            $brandWork[$brandId]['critical'] += $isCritical ? $n : 0;
-            $brandWork[$brandId]['by_channel'][$label] = ($brandWork[$brandId]['by_channel'][$label] ?? 0) + $n;
+            if (! isset($brandPackages[$brandId][$type])) {
+                $brandPackages[$brandId][$type] = true;
+                $brandWork[$brandId]['total']++;
+                $brandWork[$brandId]['by_channel'][$label] = ($brandWork[$brandId]['by_channel'][$label] ?? 0) + 1;
+            }
 
             $assetId = $this->assetFor($row, $brandId, $assetById, $pageSites, $firstOfType);
+            $check = (string) ($row->action_type ?? '');
+            if ($isCritical) {
+                $brandCritical[$brandId][($assetId !== null ? 'a'.$assetId : 'c'.$row->channel).'|'.$check] = true;
+            }
             if ($assetId !== null) {
                 $assetWork[$assetId] ??= ['total' => 0, 'critical' => 0];
-                $assetWork[$assetId]['total'] += $n;
-                $assetWork[$assetId]['critical'] += $isCritical ? $n : 0;
+                if (! isset($assetPackages[$assetId][$type])) {
+                    $assetPackages[$assetId][$type] = true;
+                    $assetWork[$assetId]['total']++;
+                }
+                if ($isCritical) {
+                    $assetCritical[$assetId][$check] = true;
+                }
             }
+        }
+        foreach ($brandCritical as $brandId => $groups) {
+            $brandWork[$brandId]['critical'] = count($groups);
+        }
+        foreach ($assetCritical as $assetId => $groups) {
+            $assetWork[$assetId]['critical'] = count($groups);
         }
 
         return [$brandWork, $assetWork];

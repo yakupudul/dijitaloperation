@@ -45,10 +45,14 @@ final class GbpPerformance
             return [];
         }
         sort($months);
-        $from = $months[0].'-01';
-        $to = CarbonImmutable::parse(end($months).'-01')->endOfMonth()->toDateString().' 23:59:59';
+        // Only the asked months are read: the report asks for three months a year apart, and reading the whole year
+        // between them summed four times as many rows.
         $rows = DB::table('gbp_performance_daily')->whereIn('external_resource_id', $resourceIds)->whereIn('metric', array_keys(GbpScreen::DAILY_METRICS))
-            ->whereBetween('reporting_date', [$from, $to])
+            ->where(function ($query) use ($months): void {
+                foreach (array_unique($months) as $month) {
+                    $query->orWhereBetween('reporting_date', [$month.'-01', CarbonImmutable::parse($month.'-01')->endOfMonth()->toDateString().' 23:59:59']);
+                }
+            })
             ->selectRaw('external_resource_id, substr(cast(reporting_date as text), 1, 7) as ym, metric, sum(value) as total, count(distinct reporting_date) as days')
             ->groupBy('external_resource_id', DB::raw('substr(cast(reporting_date as text), 1, 7)'), 'metric')->get();
         $out = [];

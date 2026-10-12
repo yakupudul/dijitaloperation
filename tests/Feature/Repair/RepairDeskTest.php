@@ -7,6 +7,7 @@ use App\Jobs\ExecuteExternalWriteJob;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Work\WorkPage;
+use App\Models\Brand;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -119,6 +120,54 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(Suggestion::DISMISSED, $content->fresh()->status);
     }
 
+    /**
+     * yakup 2026-10-11 (panel tasarım önerileri §2): one switch on top, brands on the left sorted by expected gain with a
+     * clear "kusursuz" percent, rows as "page name → new value" with the URL below, and old ?serit= / ?bolum= links still land.
+     */
+    public function test_one_switch_brand_list_by_gain_and_readable_rows(): void
+    {
+        $this->implantPage->forceFill(['h1' => 'İmplant Tedavisi Ankara'])->save();
+        $this->suggestion('Başlık ve açıklamayı düzelt: /implant/', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Ankara implant | Panorama']]], ['priority' => 1]);
+        $other = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Arka Marka']);
+        foreach (range(1, 3) as $n) {
+            $this->suggestion('Alt '.$n, 'image_alt', ['site_id' => $this->site->id, 'images' => [['image_id' => $n, 'file' => 'x'.$n.'.jpg', 'alt' => 'Alt']]], ['brand_id' => $other->id, 'priority' => 2]);
+        }
+
+        $health = app(RepairDesk::class)->health(app(RepairDesk::class)->rows());
+        $this->assertSame([$other->id, $this->brand->id], $health->pluck('brand_id')->all(), 'three important rows (2 points each) gain more than one critical row (3 points)');
+        $this->assertSame([[6.0, 0], [3.0, 1]], [[$health[0]['gain'], $health[0]['critical']], [$health[1]['gain'], $health[1]['critical']]]);
+
+        $page = Livewire::test(RepairDeskPage::class)
+            ->assertSee('%0 kusursuz')->assertSee('1 paket kaldı')->assertSee('1 paket (3 iş) kaldı')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tümü')
+            ->set('brandId', $this->brand->id)->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)
+            ->assertSee('İmplant Tedavisi Ankara')->assertSee('Başlık: Ankara implant | Panorama')->assertSee('https://panorama.com.tr/implant/')
+            ->assertSeeHtml('data-row-target');
+        $page->call('showOther')->assertSet('section', RepairDeskPage::SECTION_OTHER)->assertSet('open', '')->assertSeeLivewire(WorkPage::class)
+            ->call('showLane', RepairDesk::LANE_REVIEW)->assertSet('section', RepairDeskPage::SECTION_DESK)->assertSet('lane', RepairDesk::LANE_REVIEW);
+
+        Livewire::withQueryParams(['bolum' => 'diger'])->test(RepairDeskPage::class)->assertSet('section', RepairDeskPage::SECTION_OTHER);
+        Livewire::withQueryParams(['serit' => 'bogus'])->test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_READY);
+    }
+
+    public function test_bulk_approval_of_more_than_ten_opens_a_confirm_window_and_reject_is_secondary(): void
+    {
+        foreach (range(1, 11) as $n) {
+            $this->suggestion('Başlık '.$n, 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık '.$n]]]);
+        }
+        $key = $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY;
+
+        $html = Livewire::test(RepairDeskPage::class)->assertSee('Hepsini onayla (11)')->assertSeeHtml('data-bulk-confirm')
+            ->assertSee('Geri alınabilir')->assertSee('Son 7 gün: 0 iş yapıldı')->html();
+        preg_match('/<button[^>]*data-approve-package[^>]*>/', $html, $approve);
+        preg_match('/<button[^>]*data-reject-package[^>]*>/', $html, $reject);
+        $this->assertStringContainsString('ask =', $approve[0], 'more than ten: the window asks first');
+        $this->assertStringNotContainsString('wire:click', $approve[0]);
+        $this->assertStringContainsString('approvePackage', html_entity_decode($approve[0]));
+        $this->assertStringNotContainsString('bg-brand-500', $reject[0], 'reject is an outline, not the main action');
+
+        Livewire::test(RepairDeskPage::class)->call('approvePackage', $key)->assertSee('11 iş uygulamaya gönderildi');
+    }
+
     public function test_the_done_summary_says_what_was_written_and_why_some_could_not_be(): void
     {
         $fields = $this->suggestion('Başlık', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
@@ -142,7 +191,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame([['text' => 'başlık: Yeni başlık', 'ok' => true], ['text' => 'iç link: "" → ', 'ok' => true],
             ['text' => 'iç link: "" →  — yapılmadı: bağlantı metni sayfada düz yazı olarak yok (başlıkta, butonda ya da zaten linkli), link eklenmedi', 'ok' => false]],
             $group['items'][0]['lines']);
-        Livewire::test(RepairDeskPage::class)->assertSee('1 başlık, 1 iç link yazıldı')->assertSee('Hepsini geri al')
+        Livewire::test(RepairDeskPage::class)->assertSee('1 başlık, 1 iç link yazıldı')->assertSee('Hepsini geri al')->assertSee('Son 7 gün: 1 iş yapıldı')
             ->call('undoGroup', $group['key'])->assertSee('1 iş için geri alma sıraya alındı');
         $this->assertSame('undoing', $write->fresh()->status);
     }
@@ -204,7 +253,7 @@ final class RepairDeskTest extends SiteTestCase
         $rows = Suggestion::query()->where('action_type', SiteAudit::TYPE)->get()->keyBy('page_id');
         $this->assertSame([$this->implantPage->id, $long->id, $twin->id], $rows->keys()->sort()->values()->all());
         $this->assertSame('Meta açıklama yok.', $rows[$this->implantPage->id]->reason);
-        $this->assertSame(1, $rows[$this->implantPage->id]->priority);
+        $this->assertSame(3, $rows[$this->implantPage->id]->priority, 'missing description is not critical');
         $this->assertStringContainsString('Başlık 2 sayfada aynı', $rows[$long->id]->reason);
         $this->assertFalse($rows->has($fine->id));
         $this->assertSame(['batch' => 3, 'fields' => 0, 'content' => 0], app(RepairPreparer::class)->queue(), 'prepared in batches of 15 pages per AI call');
@@ -239,7 +288,7 @@ final class RepairDeskTest extends SiteTestCase
     {
         $this->enableAi();
         $this->implantPage->forceFill(['title' => 'İmplant', 'meta_description' => null, 'content_text' => 'Ankara Çankaya şubemizde implant tedavisi yapılır. Tedavi 2 aşamalıdır.'])->save();
-        $zirkonyum = $this->page('/zirkonyum/', 'Zirkonyum', ['wp_post_id' => 43, 'meta_description' => null]);
+        $zirkonyum = $this->page('/zirkonyum/', 'Zirkonyum', ['wp_post_id' => 43, 'meta_description' => null, 'category' => 'hizmet']);
         $this->page('/hakkimizda/', 'Hakkımızda | Panorama Ankara Ağız ve Diş Sağlığı', ['wp_post_id' => 45]);
         $make = fn (Page $page, array $problems): Suggestion => $this->suggestion('Başlık ve açıklamayı düzelt: '.$page->path, SiteAudit::TYPE, ['site_id' => $this->site->id, 'problems' => $problems], ['page_id' => $page->id]);
         $implant = $make($this->implantPage, ['seo_title:short', 'meta_description:missing']);

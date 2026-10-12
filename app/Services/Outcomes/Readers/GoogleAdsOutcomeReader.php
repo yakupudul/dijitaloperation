@@ -49,6 +49,13 @@ final class GoogleAdsOutcomeReader implements OutcomeMetricReader
         return $last !== null ? substr((string) $last, 0, 10) : null;
     }
 
+    public function firstDay(array $scope): ?string
+    {
+        $first = $this->rows($scope, '2000-01-01', '2999-12-31')?->min('reporting_date');
+
+        return $first !== null ? substr((string) $first, 0, 10) : null;
+    }
+
     public function read(array $scope, string $from, string $to): ?array
     {
         $row = $this->rows($scope, $from, $to)

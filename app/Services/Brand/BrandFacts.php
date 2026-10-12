@@ -2,6 +2,7 @@
 
 namespace App\Services\Brand;
 
+use App\Livewire\Operator\Portfolio\BrandConversions;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Models\BrandExpert;
@@ -12,6 +13,7 @@ use App\Models\Page;
 use App\Services\Ads\AdServiceStats;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\Gbp\Desk\ReviewDesk;
+use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Meta\MetaDesk;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\ContentPlanner;
@@ -207,7 +209,7 @@ final class BrandFacts
     /** @return array{items: list<string>, source: string} */
     private function services(Brand $brand): array
     {
-        $items = SiteScope::offerings($brand)->map(fn (BrandOffering $o): string => ($o->isMain() ? '★ ' : '').$o->displayName())->filter()->unique()->values()->all();
+        $items = SiteScope::offerings($brand)->sortBy(fn (BrandOffering $o): int => $o->isMain() ? 0 : 1)->map(fn (BrandOffering $o): string => ($o->isMain() ? '★ ' : '').$o->displayName())->filter()->unique()->values()->all();
 
         return ['items' => array_slice($items, 0, 20), 'source' => $items !== [] ? 'Marka › Ayarlar › Hizmetler' : 'Hizmet yok; gece çalışan marka tamamlama siteden doldurmayı dener.'];
     }
@@ -296,14 +298,22 @@ final class BrandFacts
     /** @return array{items: list<string>, source: string} */
     private function conversions(Brand $brand): array
     {
-        $rows = BrandConversionSource::query()->where('brand_id', $brand->id)->where('counts', true)->get(['label', 'origin']);
-        $items = $rows->pluck('label')->map(fn ($l): string => (string) $l)->filter()->unique()->values()->all();
+        $dictionary = app(BrandConversionDictionary::class);
+        $sources = BrandConversions::sourceLabels();
+        $rows = BrandConversionSource::query()->where('brand_id', $brand->id)->where('counts', true)->orderBy('source')->orderBy('label')->get()
+            ->filter(fn (BrandConversionSource $row): bool => $dictionary->countsAsCustomer($row));
+        $items = $rows->map(fn (BrandConversionSource $row): string => trim((string) $row->label).' ('.($sources[$row->source] ?? $row->source).')'
+            .($dictionary->engagementCounted($row) ? ' · Etkileşim sinyali müşteri sayılıyor' : ''))
+            ->filter(fn (string $line): bool => ! str_starts_with($line, ' ('))->unique()->values()->all();
         $auto = $rows->isNotEmpty() && $rows->every(fn (BrandConversionSource $s): bool => $s->origin === BrandConversionSource::ORIGIN_AUTO);
+        if (count($items) > self::ITEMS) {
+            $items = [...array_slice($items, 0, self::ITEMS - 1), '+'.(count($items) - self::ITEMS + 1).' sinyal daha (Dönüşümler)'];
+        }
 
-        return ['items' => array_slice($items, 0, self::ITEMS), 'source' => match (true) {
+        return ['items' => $items, 'source' => match (true) {
             $items === [] => 'Seçilmedi (Marka › Ayarlar › Dönüşümler).',
-            $auto => 'GA4 / Google Ads / Meta olaylarından otomatik seçildi',
-            default => 'Operatör seçti (Marka › Ayarlar › Dönüşümler)',
+            $auto => 'GA4 / Google Ads / Meta / İşletme Profili sinyallerinden otomatik seçildi (Marka › Ayarlar › Dönüşümler)',
+            default => 'Operatör seçti ya da onayladı (Marka › Ayarlar › Dönüşümler)',
         }];
     }
 
@@ -378,16 +388,26 @@ final class BrandFacts
     private function languages(Brand $brand): array
     {
         $items = [];
+        $read = 0;
+        $unknown = 0;
         foreach ($this->websites($brand) as $site) {
             $main = SiteScope::primaryLanguage($site);
+            $read += Page::query()->where('website_asset_id', $site->id)->count();
+            $unknown += Page::query()->where('website_asset_id', $site->id)->whereNull('language')->count();
             $counts = Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')->groupBy('language')->selectRaw('language, count(*) as n')
                 ->orderByDesc('n')->pluck('n', 'language')->all();
             foreach ($counts as $language => $n) {
                 $items[] = strtoupper(substr((string) $language, 0, 2)).' · '.$n.' sayfa'.(strtolower(substr((string) $language, 0, 2)) === strtolower((string) $main) ? ' (ana dil)' : '').' · '.$site->name;
             }
         }
+        $missingTag = $unknown > 0 ? $unknown.' sayfada dil etiketi (<html lang>) yok ve metinden de anlaşılamadı' : null;
+        $source = match (true) {
+            $read === 0 => 'Sitenin sayfaları henüz okunmadı.',
+            $items === [] => $read.' sayfa okundu; '.$missingTag.'.',
+            default => 'Site taraması, '.$read.' sayfa okundu'.($missingTag !== null ? '; '.$missingTag : ''),
+        };
 
-        return ['items' => array_slice($items, 0, self::ITEMS), 'source' => $items !== [] ? 'Site taraması (sayfa dilleri)' : 'Sayfa dili okunmadı.'];
+        return ['items' => array_slice($items, 0, self::ITEMS), 'source' => $source];
     }
 
     /** @return array{items: list<string>, source: string} */
@@ -408,7 +428,7 @@ final class BrandFacts
     /** @return list<DigitalAsset> */
     private function websites(Brand $brand): array
     {
-        return DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get()->all();
+        return DigitalAsset::query()->operational()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get()->all();
     }
 
     /** @return list<int> the brand's Business Profile resources */

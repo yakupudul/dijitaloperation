@@ -13,6 +13,7 @@ use App\Services\Gbp\GbpSuggestions;
 use App\Support\TurkishPublicHolidays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -43,6 +44,8 @@ final class ProfileFields
             ->where('action_type', 'gbp_description')->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED])->latest('id')->get()->unique('target_id')->keyBy('target_id');
         $writes = ExternalWriteAction::query()->whereIn('digital_asset_id', $ids)->where('action', ExternalWriteAction::ACTION_PROFILE_FIELDS)
             ->latest('id')->get()->filter(fn (ExternalWriteAction $a): bool => array_key_exists('description', (array) data_get($a->request_payload, 'fields', [])))->unique('digital_asset_id')->keyBy('digital_asset_id');
+        $aiKeys = array_combine($ids, array_map(fn (int $id): string => GbpAssistant::stateKey($id, GbpAssistant::OP_DESCRIPTION), $ids));
+        $aiStates = $aiKeys !== [] ? Cache::many(array_values($aiKeys)) : [];
         $out = [];
         foreach ($locations as $location) {
             $current = (string) ($snapshots[$location->id]['description'] ?? '');
@@ -59,7 +62,7 @@ final class ProfileFields
             $out[$location->id] = [
                 'current' => $current, 'length' => $length, 'state' => $state,
                 'label' => ['no_data' => 'Profil verisi yok', 'proposal' => 'Yeni açıklama hazır', 'missing' => 'Açıklama yok', 'short' => 'Açıklama kısa', 'ok' => 'Açıklama yeterli'][$state],
-                'suggestion' => $suggestion, 'proposed' => $proposed, 'ai' => $this->assistant->state((int) $location->id, GbpAssistant::OP_DESCRIPTION),
+                'suggestion' => $suggestion, 'proposed' => $proposed, 'ai' => is_array($aiStates[$aiKeys[(int) $location->id]] ?? null) ? $aiStates[$aiKeys[(int) $location->id]] : null,
                 'last_write' => $writes->get($location->id),
             ];
         }

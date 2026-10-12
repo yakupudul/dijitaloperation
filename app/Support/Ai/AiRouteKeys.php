@@ -80,6 +80,9 @@ final class AiRouteKeys
     /** Şef: Monday plan across the active brands from the care agents' notes and the open work counts. */
     public const string BRAND_CHIEF = 'brand.chief';
 
+    /** Claude marka denetimi: nightly review of one brand's services, places and conversions; proposals go to the Onarım masası. */
+    public const string BRAND_DATA_REVIEW = 'brand.data_review';
+
     /** Faz 7: one Business Profile post from one page of the brand's site (link to the page). */
     public const string GBP_POST_FROM_PAGE = 'gbp.post_from_page';
 

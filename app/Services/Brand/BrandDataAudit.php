@@ -4,6 +4,7 @@ namespace App\Services\Brand;
 
 use App\Enums\OfferingStatus;
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Models\CoreExternalResource;
@@ -12,8 +13,10 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\BrandSetup\BrandSetupAreaSuggester;
 use App\Services\Catalog\BrandCommercialContextService;
+use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Repair\RepairDesk;
 use App\Services\Site\SiteScope;
 use App\Support\Options\LocationOptions;
@@ -33,7 +36,8 @@ use Throwable;
  *  - a district / city the site's own pages keep naming (≥3 pages and ≥10% of them) → hizmet bölgesi olarak ekle;
  *  - an unlocked, non-★ service with no page, no Ads campaign and no search naming it → arşivle.
  * Nothing is removed without enough data (≥10 pages read); a removed place is archived, never deleted, and is not
- * proposed again. A row the operator rejected stays rejected.
+ * proposed again. A row the operator rejected stays rejected. Claude marka denetimi (BrandDataReview) stores its own
+ * evidenced rows here too (renames, ★, conversion counting); each source keeps and closes only its own rows.
  */
 final class BrandDataAudit
 {
@@ -48,6 +52,18 @@ final class BrandDataAudit
     public const string ADD_AREA = 'add_area';
 
     public const string ARCHIVE_SERVICE = 'archive_service';
+
+    /** Claude marka denetimi only (BrandDataReview): a service's own name, the ★ and whether a conversion signal counts. */
+    public const string RENAME_SERVICE = 'rename_service';
+
+    public const string SET_MAIN = 'set_main';
+
+    public const string CONVERSION_COUNTS = 'conversion_counts';
+
+    /** Who proposed a row: the nightly rules or Claude; each source closes only its own rows. */
+    public const string SOURCE_RULES = 'rules';
+
+    public const string SOURCE_CLAUDE = 'claude';
 
     public const int MIN_PAGES = 10;
 
@@ -159,6 +175,56 @@ final class BrandDataAudit
         return $items;
     }
 
+    /**
+     * The evidence behind the brand's services and places, for Claude marka denetimi (BrandDataReview): the same pages,
+     * searches and profile addresses the rules read.
+     *
+     * @return array{pages_read: int, services: list<array<string, mixed>>, areas: list<array<string, mixed>>, profiles: list<array{city: string, district: ?string, name: string}>, place_mentions: list<array{city: string, district: ?string, pages: int, impressions: int}>}
+     */
+    public function reviewFacts(Brand $brand): array
+    {
+        $pages = $this->pages($brand);
+        $queries = $this->queries($brand);
+        $profiles = $this->profiles($brand);
+        $mentions = $this->mentions($pages, $queries, $brand, $profiles);
+        $folded = array_map(fn (array $q): array => [' '.LocationOptions::fold($q['query']).' ', $q['impressions']], $queries);
+        $services = BrandOffering::query()->with(['names', 'primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)
+            ->where('status', OfferingStatus::Active->value)->orderBy('id')->limit(60)->get();
+        $pageCounts = OfferingPage::query()->whereIn('brand_offering_id', $services->pluck('id')->all() ?: [0])->groupBy('brand_offering_id')
+            ->selectRaw('brand_offering_id, count(*) as n')->pluck('n', 'brand_offering_id')->all();
+        $services = $services->map(function (BrandOffering $o) use ($folded, $pageCounts): array {
+            $names = $o->names->where('is_active', true)->pluck('raw_label')->push($o->catalogItem?->primaryName?->raw_label)->filter()->map(fn ($n): string => trim((string) $n))->unique();
+            $keys = $names->map(fn (string $n): string => LocationOptions::fold($n))->filter(fn (string $n): bool => mb_strlen($n) >= 3)->unique()->all();
+            $hits = array_filter($folded, fn (array $q): bool => collect($keys)->contains(fn (string $k): bool => str_contains($q[0], $k)));
+
+            return ['id' => (int) $o->id, 'name' => $o->displayName(), 'aliases' => $names->reject(fn (string $n): bool => $n === $o->displayName())->values()->take(8)->all(),
+                'main' => $o->isMain(), 'locked' => (bool) $o->locked, 'own_name' => $o->primaryName !== null, 'pages' => (int) ($pageCounts[$o->id] ?? 0),
+                'queries' => count($hits), 'impressions' => (int) array_sum(array_column($hits, 1))];
+        })->values()->all();
+        $areas = SiteScope::areas($brand)->map(function (BrandServiceArea $area) use ($mentions, $profiles): array {
+            [$pageCount, $impressions] = $this->evidence($area, $mentions);
+
+            return ['id' => (int) $area->id, 'name' => self::place($area), 'city' => (string) $area->city_name, 'district' => $area->district_name,
+                'branch' => (bool) $area->physical_branch, 'pages' => $pageCount, 'impressions' => $impressions,
+                'at_profile' => collect($profiles)->contains(fn (array $p): bool => self::covers($area, $p['city'], $p['district'], true))];
+        })->values()->all();
+
+        return [
+            'pages_read' => count($pages),
+            'services' => $services,
+            'areas' => $areas,
+            'profiles' => array_map(fn (array $p): array => ['city' => $p['city'], 'district' => $p['district'], 'name' => $p['name']], $profiles),
+            'place_mentions' => collect($mentions)->sortByDesc(fn (array $m): int => $m['pages'] * 100 + $m['impressions'])->take(15)
+                ->map(fn (array $m): array => ['city' => $m['city'], 'district' => $m['district'], 'pages' => $m['pages'], 'impressions' => $m['impressions']])->values()->all(),
+        ];
+    }
+
+    /** The key the rules compare places by (folded il | ilçe). */
+    public static function placeKey(string $city, ?string $district): string
+    {
+        return self::key($city, $district);
+    }
+
     /** Approve: applies one row inside MoxDOP (no external write). */
     public function apply(User $user, Suggestion $suggestion): void
     {
@@ -166,8 +232,13 @@ final class BrandDataAudit
         $params = (array) ($action['params'] ?? []);
         $brand = Brand::query()->findOrFail((int) $suggestion->brand_id);
         $area = fn (): BrandServiceArea => BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->findOrFail((int) ($params['area_id'] ?? 0));
-        DB::transaction(function () use ($action, $params, $brand, $area): void {
+        $offering = fn (): BrandOffering => BrandOffering::query()->where('brand_id', $brand->id)->where('status', OfferingStatus::Active->value)->findOrFail((int) ($params['offering_id'] ?? 0));
+        DB::transaction(function () use ($action, $params, $brand, $area, $offering, $user): void {
             match ((string) ($action['op'] ?? '')) {
+                // The old name stays on the service as its former name, so pages and searches still match it.
+                self::RENAME_SERVICE => app(BrandOfferingService::class)->renameLocal($offering(), (string) ($params['new_name'] ?? ''), $user),
+                self::SET_MAIN => $this->setMain($brand, $offering()),
+                self::CONVERSION_COUNTS => $this->setCounts($brand, $params),
                 self::REMOVE_AREA => $area()->forceFill(['status' => 'archived'])->save(),
                 self::MAKE_SERVICE_AREA => $area()->forceFill(['physical_branch' => false])->save(),
                 self::MAKE_BRANCH => $area()->forceFill(['physical_branch' => true])->save(),
@@ -182,6 +253,22 @@ final class BrandDataAudit
             'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now()])->save();
     }
 
+    /** @param  array<string, mixed>  $params */
+    private function setCounts(Brand $brand, array $params): void
+    {
+        $row = BrandConversionSource::query()->where('brand_id', $brand->id)->findOrFail((int) ($params['conversion_id'] ?? 0));
+        app(BrandConversionDictionary::class)->set($row, (string) $row->conversion_type, (bool) ($params['counts'] ?? false));
+    }
+
+    /** The approved service becomes the only ★. */
+    private function setMain(Brand $brand, BrandOffering $main): void
+    {
+        BrandOffering::query()->where('brand_id', $brand->id)->whereKeyNot($main->id)
+            ->where(fn ($q) => $q->where('priority', 'main')->orWhere('is_priority', true))->get()
+            ->each(fn (BrandOffering $o) => $o->forceFill(['priority' => 'secondary', 'is_priority' => false])->save());
+        $main->forceFill(['priority' => 'main', 'is_priority' => true])->save();
+    }
+
     /**
      * @param  array<string, mixed>  $params
      * @return array{key: string, op: string, title: string, reason: string, priority: int, risk: string, before: string, after: string, params: array<string, mixed>}
@@ -192,25 +279,36 @@ final class BrandDataAudit
     }
 
     /**
-     * Upserts the brand's rows; open rows no longer proposed are closed. Rejected and applied rows are not reopened.
+     * Upserts the brand's rows of one source (the nightly rules, or Claude marka denetimi); open rows of that source no
+     * longer proposed are closed. Rejected and applied rows are not reopened. A Claude row the rules already propose
+     * (same change, same target) is not added twice.
      *
-     * @param  list<array<string, mixed>>  $items
+     * @param  list<array<string, mixed>>  $items  item() rows; Claude rows also carry `evidence` (list<string>)
      * @return array{0: int, 1: int}
      */
-    private function store(Brand $brand, array $items): array
+    public function store(Brand $brand, array $items, string $source = self::SOURCE_RULES): array
     {
-        $existing = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', self::TYPE)->get()->keyBy('fingerprint');
+        $all = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', self::TYPE)->get();
+        $existing = $all->filter(fn (Suggestion $s): bool => (((array) $s->action)['source'] ?? self::SOURCE_RULES) === $source)->keyBy('fingerprint');
+        $ruleKeys = $source === self::SOURCE_RULES ? [] : $all->filter(fn (Suggestion $s): bool => (((array) $s->action)['source'] ?? self::SOURCE_RULES) === self::SOURCE_RULES
+            && in_array($s->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED], true))->pluck('fingerprint')->flip()->all();
+        $label = $source === self::SOURCE_CLAUDE ? 'Claude marka denetimi' : 'Marka verisi denetimi';
         $seen = [];
         $opened = 0;
         foreach ($items as $item) {
-            $fingerprint = hash('sha256', $brand->id.'|brand-data|'.$item['op'].'|'.$item['key']);
+            if (isset($ruleKeys[hash('sha256', $brand->id.'|brand-data|'.$item['op'].'|'.$item['key'])])) {
+                continue;
+            }
+            $fingerprint = hash('sha256', $brand->id.'|brand-data|'.($source === self::SOURCE_RULES ? '' : $source.'|').$item['op'].'|'.$item['key']);
             $seen[] = $fingerprint;
+            $evidence = array_values(array_filter(array_map(fn ($line): string => mb_substr(trim((string) $line), 0, 400), (array) ($item['evidence'] ?? [$item['reason']]))));
             $values = ['channel' => 'search', 'decision_key' => 'repair.'.self::TYPE, 'title' => mb_substr($item['title'], 0, 160),
                 'reason' => mb_substr($item['reason'], 0, 240), 'priority' => $item['priority'], 'action_type' => self::TYPE,
                 'target_type' => 'brand', 'target_id' => null, 'last_seen_at' => now(),
                 'material_hash' => hash('sha256', $item['op'].'|'.$item['key']),
-                'evidence' => [['kind' => 'quote', 'value' => mb_substr($item['reason'], 0, 400), 'source' => 'Marka verisi denetimi']],
-                'action' => ['op' => $item['op'], 'risk' => $item['risk'], 'before' => $item['before'], 'after' => $item['after'], 'params' => $item['params']]];
+                'evidence' => array_map(fn (string $line): array => ['kind' => 'quote', 'value' => $line, 'source' => $label], $evidence),
+                'action' => ['op' => $item['op'], 'risk' => $item['risk'], 'before' => $item['before'], 'after' => $item['after'], 'params' => $item['params']]
+                    + ($source === self::SOURCE_RULES ? [] : ['source' => $source])];
             $row = $existing->get($fingerprint);
             if ($row === null) {
                 Suggestion::query()->create($values + ['brand_id' => $brand->id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN, 'first_seen_at' => now()]);

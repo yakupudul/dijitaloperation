@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\BrandSetup\LanguageServices;
 use App\Services\Catalog\BrandCommercialContextService;
+use App\Services\Catalog\ServiceNameQuality;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\PageCategorizer;
@@ -202,8 +203,9 @@ final class BrandGaps
                 continue;
             }
             $title = self::serviceTitle((string) ($page->h1 ?: $page->title ?: SitePagesReader::slugTitle($path)));
-            if ($title === '' || preg_match(self::NON_SERVICE, SeoText::fold($title)) === 1) {
-                continue;
+            if ($title === '' || preg_match(self::NON_SERVICE, SeoText::fold($title)) === 1
+                || ! ServiceNameQuality::acceptable(LocationOptions::stripServiceName($title)['text'])) {
+                continue; // not a service name ("Hizmetlerimiz", a sentence, "/CAM …")
             }
             $covered = false;
             foreach ($names as $name) {
@@ -233,8 +235,8 @@ final class BrandGaps
         $offerings = app(BrandOfferingService::class);
         $added = 0;
         foreach ($names as $name) {
-            $clean = trim(LocationOptions::strip($name)['text']);
-            if (mb_strlen($clean) < 2) {
+            $clean = trim(LocationOptions::stripServiceName($name)['text']);
+            if (! ServiceNameQuality::acceptable($clean)) {
                 continue;
             }
             try {

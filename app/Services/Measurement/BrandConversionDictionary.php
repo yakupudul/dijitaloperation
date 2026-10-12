@@ -33,6 +33,15 @@ final class BrandConversionDictionary
     /** GA4 events that are engagement, not conversions, even when marked as key events. */
     private const array GA4_ENGAGEMENT = ['page_view', 'scroll', 'session_start', 'first_visit', 'user_engagement', 'click', 'view_search_results', 'video_start', 'video_progress', 'file_download', 'form_start', 'video_complete', 'view_item', 'view_item_list'];
 
+    /** Metadata key: the type the operator picked; discovery keeps it, the row stays automatic otherwise. */
+    public const string TYPE_BY_OPERATOR = 'type_by_operator';
+
+    /** Metadata key: an attention signal the operator keeps counted (shown with a warning, counted in totals). */
+    public const string ENGAGEMENT_KEPT = 'engagement_kept';
+
+    /** Metadata keys discovery never overwrites. */
+    private const array OPERATOR_METADATA = [self::TYPE_BY_OPERATOR, self::ENGAGEMENT_KEPT, 'engagement_flagged_at'];
+
     /** Signal names that measure attention, not a customer ("Scroll Kaydırma Sayısı", "Local actions - Website visits"). */
     private const string ENGAGEMENT_NAME = '/\b(scroll\w*|kaydirma|page ?views?|sayfa goruntu\w*|form starts?|form baslat\w*|website visits?|web sitesi ziyaret\w*|other engagements?|engaged \w+|engagement|etkilesim|first visit|user engagement|session \w+|oturum|time on (site|page)|sitede kalma|video \w+)\b/';
 
@@ -66,9 +75,10 @@ final class BrandConversionDictionary
 
                 return;
             }
-            $attributes = ['label' => mb_substr($label, 0, 255), 'metadata' => $metadata, 'last_seen_at' => now()];
+            $kept = array_intersect_key((array) ($row->metadata ?? []), array_flip(self::OPERATOR_METADATA));
+            $attributes = ['label' => mb_substr($label, 0, 255), 'metadata' => $metadata + $kept, 'last_seen_at' => now()];
             if ($row->origin !== BrandConversionSource::ORIGIN_OPERATOR) {
-                $attributes += ['conversion_type' => $type, 'counts' => $counts];
+                $attributes += ['conversion_type' => (string) ($kept[self::TYPE_BY_OPERATOR] ?? $type), 'counts' => $counts];
             }
             $row->fill($attributes)->save();
         };
@@ -104,13 +114,94 @@ final class BrandConversionDictionary
         return $stats;
     }
 
-    /** Operator choice for one signal; kept by later discovery runs. */
+    /**
+     * Operator choice for one signal; kept by later discovery runs. Counting an attention signal is the operator's
+     * explicit choice: it is marked so the page and the brand card warn about it.
+     */
     public function set(BrandConversionSource $row, string $conversionType, bool $counts): void
+    {
+        $this->assertType($conversionType);
+        $metadata = (array) ($row->metadata ?? []);
+        unset($metadata[self::ENGAGEMENT_KEPT], $metadata['engagement_flagged_at']);
+        if ($counts && $this->isEngagementRow($row)) {
+            $metadata[self::ENGAGEMENT_KEPT] = true;
+        }
+        $row->forceFill(['conversion_type' => $conversionType, 'counts' => $counts, 'origin' => BrandConversionSource::ORIGIN_OPERATOR, 'metadata' => $metadata])->save();
+    }
+
+    /** Only the meaning changes: whether the signal counts stays as it was (automatic rows keep following discovery). */
+    public function setType(BrandConversionSource $row, string $conversionType): void
+    {
+        $this->assertType($conversionType);
+        $metadata = (array) ($row->metadata ?? []);
+        $metadata[self::TYPE_BY_OPERATOR] = $conversionType;
+        $row->forceFill(['conversion_type' => $conversionType, 'metadata' => $metadata])->save();
+    }
+
+    /** Whether the row measures attention (scroll, page view, form start, profile visits) rather than a customer. */
+    public function isEngagementRow(BrandConversionSource $row): bool
+    {
+        $metadata = (array) ($row->metadata ?? []);
+
+        return match (true) {
+            ($metadata['note'] ?? null) === 'engagement' => true,
+            $row->source === BrandConversionSource::SOURCE_GA4 && in_array((string) $row->source_key, self::GA4_ENGAGEMENT, true) => true,
+            $row->source === BrandConversionSource::SOURCE_GOOGLE_ADS && in_array(strtoupper((string) ($metadata['category'] ?? '')), ['ENGAGEMENT', 'PAGE_VIEW'], true) => true,
+            default => $this->isEngagement((string) $row->source_key) || $this->isEngagement((string) $row->label),
+        };
+    }
+
+    /** Whether the row is in the brand total: counted, and an attention signal only when the operator kept it. */
+    public function countsAsCustomer(BrandConversionSource $row): bool
+    {
+        return (bool) $row->counts && (! $this->isEngagementRow($row) || (bool) (((array) ($row->metadata ?? []))[self::ENGAGEMENT_KEPT] ?? false));
+    }
+
+    /** An attention signal the operator keeps counted: shown with "Etkileşim sinyali müşteri sayılıyor". */
+    public function engagementCounted(BrandConversionSource $row): bool
+    {
+        return (bool) $row->counts && $this->isEngagementRow($row);
+    }
+
+    /**
+     * One-off clean-up of signals discovered before attention signals were left out: automatic attention rows stop
+     * counting; operator rows that count one are not switched silently but marked, so the page and card warn about them.
+     *
+     * @return array{switched: int, flagged: int, brands: list<int>}
+     */
+    public function cleanEngagement(): array
+    {
+        $out = ['switched' => 0, 'flagged' => 0, 'brands' => []];
+        BrandConversionSource::query()->where('counts', true)->orderBy('id')->each(function (BrandConversionSource $row) use (&$out): void {
+            if (! $this->isEngagementRow($row)) {
+                return;
+            }
+            $metadata = (array) ($row->metadata ?? []);
+            if ($row->origin === BrandConversionSource::ORIGIN_OPERATOR) {
+                if (! empty($metadata[self::ENGAGEMENT_KEPT])) {
+                    return;
+                }
+                $metadata[self::ENGAGEMENT_KEPT] = true;
+                $metadata['engagement_flagged_at'] = now()->toDateString();
+                $row->forceFill(['metadata' => $metadata])->save();
+                $out['flagged']++;
+            } else {
+                $metadata['note'] = 'engagement';
+                $row->forceFill(['counts' => false, 'metadata' => $metadata])->save();
+                $out['switched']++;
+            }
+            $out['brands'][(int) $row->brand_id] = (int) $row->brand_id;
+        });
+        $out['brands'] = array_values($out['brands']);
+
+        return $out;
+    }
+
+    private function assertType(string $conversionType): void
     {
         if (! array_key_exists($conversionType, ConversionGoalTypes::options())) {
             throw new \InvalidArgumentException('Unknown conversion type: '.$conversionType);
         }
-        $row->forceFill(['conversion_type' => $conversionType, 'counts' => $counts, 'origin' => BrandConversionSource::ORIGIN_OPERATOR])->save();
     }
 
     /**
@@ -132,7 +223,7 @@ final class BrandConversionDictionary
         foreach ($rows as $row) {
             $value = round((float) ($values[$row->source][$row->source_key] ?? 0), 2);
             $result['by_row'][$row->id] = $value;
-            if (! $row->counts) {
+            if (! $this->countsAsCustomer($row)) {
                 continue;
             }
             $result['total'] += $value;
