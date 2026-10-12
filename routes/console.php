@@ -502,7 +502,12 @@ Schedule::command('moxdop:queries:autopilot --clean')
 
 // Claude API dönemi (yakup, 2026-10-10): until 25 October every AI operation that may move runs on the Claude API;
 // on that day the operations go back to the models they had before (ClaudeApiWindow).
-Artisan::command('moxdop:ai:claude-api-window {action : start | end}', function (ClaudeApiWindow $window): int {
+Artisan::command('moxdop:ai:claude-api-window {action : start | end | resume}', function (ClaudeApiWindow $window): int {
+    if ($this->argument('action') === 'resume') {
+        $this->info(sprintf('Claude kuyruğunda bekleyip artık Claude API ile çalışabilen %d iş yeniden başlatıldı.', $window->restartWaiting(leaveClaimed: true)));
+
+        return 0;
+    }
     $admin = User::query()->role(Roles::ADMIN)->where('is_active', true)->orderBy('id')->first();
     if ($admin === null) {
         $this->error('Aktif Admin kullanıcı yok.');
@@ -522,6 +527,11 @@ Artisan::command('moxdop:ai:claude-api-window {action : start | end}', function 
 Schedule::command('moxdop:ai:claude-api-window end')
     ->dailyAt('00:10')->timezone('Europe/Istanbul')->when(fn (): bool => ! ClaudeApiWindow::active())
     ->withoutOverlapping(30)->name('claude-api-window-end');
+// Work that fell back to the Claude queue because money stopped the API (day's ceiling, credit) goes back to the API
+// as soon as the money allows again, instead of waiting for the subscription routine (yakup, 2026-10-12).
+Schedule::command('moxdop:ai:claude-api-window resume')
+    ->everyFifteenMinutes()->when(fn (): bool => app(AiBudget::class)->claudeApiStopReason() === null)
+    ->withoutOverlapping(15)->name('claude-api-resume');
 
 // Sorgular › Bekleyenler: kütüphanede olan / filtre terimine takılan bekleyen sorgular saatlik temizlenir.
 Schedule::command('moxdop:queries:prune-pending')

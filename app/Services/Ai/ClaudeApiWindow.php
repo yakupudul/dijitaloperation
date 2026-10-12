@@ -105,18 +105,25 @@ final class ClaudeApiWindow
         return ['restored' => $restored];
     }
 
-    /** Runs waiting for Claude over MCP whose operations no longer wait: their open calls are closed and the job runs again. */
-    private function restartWaiting(): int
+    /**
+     * Runs waiting for Claude over MCP whose operations no longer wait (the Claude API has money again: the day's ceiling
+     * reset or was raised, credit topped up): their open calls are closed and the job runs again on the API.
+     */
+    public function restartWaiting(bool $leaveClaimed = false): int
     {
         $queue = app(AiTaskQueue::class);
-        $open = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->get(['id', 'resume_key', 'operation', 'resume']);
+        $open = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->get(['id', 'resume_key', 'operation', 'resume', 'status']);
         $restarted = 0;
         foreach ($open->groupBy('resume_key') as $tasks) {
             if ($tasks->contains(fn (AiTask $t): bool => $queue->delegated((string) $t->operation))) {
                 continue;
             }
+            // A run Claude is working on right now is left to finish over MCP.
+            if ($leaveClaimed && $tasks->contains(fn (AiTask $t): bool => $t->status === AiTask::CLAIMED)) {
+                continue;
+            }
             $closed = AiTask::query()->whereIn('id', $tasks->pluck('id')->all())->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
-                ->update(['status' => AiTask::CONSUMED, 'consumed_at' => now(), 'error' => 'Claude API dönemi: iş Claude API ile yeniden başlatıldı.']);
+                ->update(['status' => AiTask::CONSUMED, 'consumed_at' => now(), 'error' => 'Claude API yeniden açık: iş Claude API ile yeniden başlatıldı.']);
             if ($closed === 0) {
                 continue;
             }

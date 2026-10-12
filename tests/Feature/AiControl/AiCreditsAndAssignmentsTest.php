@@ -159,7 +159,7 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->assertSame(AiAssignments::HAIKU, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'query triage runs on the free credit while the window is open');
         $this->assertSame(AiTask::CONSUMED, $waiting->fresh()->status);
         Queue::assertPushed(RefreshBrandCandidatesJob::class, 1);
-        $this->assertSame(8.0, app(AiBudget::class)->dailyBudget());
+        $this->assertSame(20.0, app(AiBudget::class)->dailyBudget());
         $this->assertSame(200.0, app(AiBudget::class)->monthlyBudget());
 
         config(['moxdop-ai-pricing.claude_api_window.until' => now('Europe/Istanbul')->subDay()->toDateString()]);
@@ -169,6 +169,29 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->assertSame('openai:gpt-5-mini', $registry->current(AiRouteKeys::BRAND_SETUP)->model);
         $this->assertSame($triage, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'query triage goes back to its earlier model');
         $this->artisan('moxdop:ai:claude-api-window', ['action' => 'end'])->assertSuccessful();
+    }
+
+    public function test_work_that_fell_back_to_the_claude_queue_returns_to_the_api_when_money_allows_again(): void
+    {
+        Queue::fake();
+        $this->pin('site.cluster_match', AiAssignments::HAIKU);
+        app(AiCredits::class)->topUp('anthropic', 5, null, $this->admin);
+        $this->usage(5.00);
+        $task = fn (string $status, string $run): AiTask => AiTask::query()->create(['operation' => 'site.cluster_match', 'resume_key' => hash('sha256', $run),
+            'sequence' => 1, 'input_hash' => 'h', 'status' => $status, 'instructions' => 'x', 'input' => 'DATA_JSON {}', 'output_schema' => [], 'resume' => serialize(new RefreshBrandCandidatesJob)]);
+        $waiting = $task(AiTask::PENDING, 'waiting');
+        $claimed = $task(AiTask::CLAIMED, 'claimed');
+
+        $this->artisan('moxdop:ai:claude-api-window', ['action' => 'resume'])->assertSuccessful();
+        $this->assertSame(AiTask::PENDING, $waiting->fresh()->status, 'credit used up: it keeps waiting for Claude');
+
+        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
+            ->forceFill(['ai_monthly_budget_usd' => 1000, 'ai_daily_auto_budget_usd' => 0])->save();
+        app(AiCredits::class)->topUp('anthropic', 50, null, $this->admin);
+        $this->artisan('moxdop:ai:claude-api-window', ['action' => 'resume'])->assertSuccessful();
+        $this->assertSame(AiTask::CONSUMED, $waiting->fresh()->status);
+        $this->assertSame(AiTask::CLAIMED, $claimed->fresh()->status, 'a run Claude is working on is left to finish');
+        Queue::assertPushed(RefreshBrandCandidatesJob::class, 1);
     }
 
     private function pin(string $operation, string $model): void

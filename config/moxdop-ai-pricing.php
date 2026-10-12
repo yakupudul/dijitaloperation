@@ -24,7 +24,8 @@ return [
     // the daily ceiling is at least daily_usd and the monthly budget gets extra_usd on top (ClaudeApiWindow).
     'claude_api_window' => [
         'until' => env('AI_CLAUDE_API_WINDOW_UNTIL', '2026-10-25'),
-        'daily_usd' => (float) env('AI_CLAUDE_API_WINDOW_DAILY_USD', 8),
+        // yakup 2026-10-12: 8 USD filled by noon and stopped the API; raised to 20.
+        'daily_usd' => (float) env('AI_CLAUDE_API_WINDOW_DAILY_USD', 20),
         'extra_usd' => (float) env('AI_CLAUDE_API_WINDOW_EXTRA_USD', 100),
     ],
 
