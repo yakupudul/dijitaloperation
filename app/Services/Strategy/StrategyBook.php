@@ -16,7 +16,10 @@ final class StrategyBook
 {
     /** Scope fields that can be set on create and changed later. */
     public const array SCOPE = ['brand_id', 'title', 'channel', 'service', 'markets', 'languages', 'budget_amount', 'budget_currency',
-        'budget_period', 'summary', 'request', 'source_ref'];
+        'budget_period', 'summary', 'request', 'source_ref', 'plan'];
+
+    /** Keyword match types as the plan writes them. */
+    public const array MATCH = ['exact', 'phrase', 'broad'];
 
     /** @return array<string, mixed> validation rules shared by every caller */
     public static function rules(bool $creating): array
@@ -42,6 +45,67 @@ final class StrategyBook
             'evidence' => ['nullable', 'array', 'max:40'],
             'evidence.*.label' => ['required_with:evidence', 'string', 'max:200'],
             'evidence.*.detail' => ['nullable', 'string', 'max:2000'],
+            ...self::planRules(),
+        ];
+    }
+
+    /**
+     * The structured Google Ads plan behind a strategy: what the Ads Editor file is built from. Every campaign is
+     * exported paused; settings the file cannot carry (location option, exclusions, schedule, age) go into `notes`.
+     *
+     * @return array<string, mixed>
+     */
+    public static function planRules(): array
+    {
+        $kw = fn (string $path): array => [
+            $path => ['nullable', 'array', 'max:500'],
+            $path.'.*.text' => ['required', 'string', 'max:80'],
+            $path.'.*.match' => ['nullable', Rule::in(self::MATCH)],
+        ];
+        $c = 'plan.campaigns.*';
+        $g = $c.'.ad_groups.*';
+
+        return [
+            'plan' => ['nullable', 'array'],
+            'plan.campaigns' => ['required_with:plan', 'array', 'min:1', 'max:30'],
+            $c.'.name' => ['required', 'string', 'max:120'],
+            $c.'.daily_budget' => ['nullable', 'numeric', 'min:0'],
+            $c.'.max_cpc' => ['nullable', 'numeric', 'min:0'],
+            $c.'.bid_strategy' => ['nullable', 'string', 'max:120'],
+            $c.'.languages' => ['nullable', 'array', 'max:10'],
+            $c.'.languages.*' => ['string', 'max:40'],
+            $c.'.locations' => ['nullable', 'array', 'max:60'],
+            $c.'.locations.*' => ['string', 'max:80'],
+            $c.'.excluded_locations' => ['nullable', 'array', 'max:20'],
+            $c.'.excluded_locations.*' => ['string', 'max:80'],
+            $c.'.location_bids' => ['nullable', 'array', 'max:60'],
+            $c.'.location_bids.*.location' => ['required', 'string', 'max:80'],
+            $c.'.location_bids.*.modifier' => ['required', 'integer', 'min:-90', 'max:900'],
+            $c.'.ad_schedule' => ['nullable', 'string', 'max:500'],
+            $c.'.age' => ['nullable', 'string', 'max:500'],
+            $c.'.note' => ['nullable', 'string', 'max:1000'],
+            ...$kw($c.'.negatives'),
+            $c.'.ad_groups' => ['nullable', 'array', 'max:50'],
+            $g.'.name' => ['required', 'string', 'max:120'],
+            $g.'.final_url' => ['nullable', 'string', 'max:500'],
+            $g.'.max_cpc' => ['nullable', 'numeric', 'min:0'],
+            ...$kw($g.'.keywords'),
+            ...$kw($g.'.negatives'),
+            $g.'.ads' => ['nullable', 'array', 'max:5'],
+            $g.'.ads.*.headlines' => ['required', 'array', 'min:3', 'max:15'],
+            $g.'.ads.*.headlines.*' => ['string', 'max:30'],
+            $g.'.ads.*.descriptions' => ['required', 'array', 'min:2', 'max:4'],
+            $g.'.ads.*.descriptions.*' => ['string', 'max:90'],
+            $g.'.ads.*.final_url' => ['nullable', 'string', 'max:500'],
+            $g.'.ads.*.path1' => ['nullable', 'string', 'max:15'],
+            $g.'.ads.*.path2' => ['nullable', 'string', 'max:15'],
+            'plan.shared_negative_lists' => ['nullable', 'array', 'max:20'],
+            'plan.shared_negative_lists.*.name' => ['required', 'string', 'max:120'],
+            'plan.shared_negative_lists.*.campaigns' => ['nullable', 'array', 'max:30'],
+            'plan.shared_negative_lists.*.campaigns.*' => ['string', 'max:120'],
+            ...$kw('plan.shared_negative_lists.*.keywords'),
+            'plan.notes' => ['nullable', 'array', 'max:40'],
+            'plan.notes.*' => ['string', 'max:1000'],
         ];
     }
 

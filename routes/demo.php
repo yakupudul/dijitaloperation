@@ -7,6 +7,7 @@ use App\Http\Controllers\Operator\GbpReviewRepliesPdfController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\QueriesExportController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
+use App\Http\Controllers\Operator\StrategyAdsEditorController;
 use App\Http\Controllers\Operator\WordPressLoginController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Demo\Dashboard;
@@ -145,6 +146,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/kazananlar', WinnersPage::class)->name('operator.winners');
         Route::livewire('/stratejiler', StrategiesPage::class)->name('operator.strategies');
         Route::livewire('/stratejiler/{strategyId}', StrategyDetailPage::class)->where('strategyId', '[0-9]{1,18}')->name('operator.strategy');
+        Route::get('/stratejiler/{strategyId}/ads-editor.{format}', StrategyAdsEditorController::class)->where(['strategyId' => '[0-9]{1,18}', 'format' => 'csv|xlsx'])->name('operator.strategy.ads-editor');
         Route::livewire('/kazananlar/{serviceId}', WinnerServicePage::class)->where('serviceId', '[0-9]{1,18}')->name('operator.winner-service');
         Route::livewire('/kutuphaneler', LibrariesPage::class)->name('operator.libraries');
         Route::get('/assets/meta/{assetId}/adsets', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adsets');

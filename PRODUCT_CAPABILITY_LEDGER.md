@@ -7,6 +7,7 @@
 - Belge stili `operator.css` içinde `.strategy-doc` (typography eklentisi yok): başlıklar, numaralı/madde listeler, zebra tablolar (`table-wrap` ile kaydırma, sıralama kapalı), kod blokları, sarı uyarı alıntısı; belgenin baş H1'i sayfa başlığı olduğundan gizlenir.
 - MCP: `save-strategy` (oluştur / yeni sürüm) ve `list-strategies` (liste, tam metin, eski sürüm). Claude yeni strateji yazmadan önce markanın eskilerini okur. Hiçbir şey reklam hesabına yazılmaz.
 - Meta › Strateji öner (kazanan tarifi hesaplayan araç) yerinde kalır; Stratejiler sayfasından bağlantı verilir.
+- **Ads Editor dosyası (yakup 2026-10-12 22:52 "onaylayınca ads editör üzerinden içe aktarabileceğim exceli de indirebileyim"):** Google Ads stratejisi yapılandırılmış `plan` taşır (kampanya, bütçe, teklif, dil, konum ve konum teklif ayarı, negatifler, paylaşılan negatif listeleri, reklam grupları, anahtar kelimeler, RSA'lar, notlar; `StrategyBook::planRules`). Sayfadaki "Google Ads Editor" kartı sayıları gösterir; strateji **Onaylandı / Uygulanıyor** olunca `.csv` (Editor içe aktarma, UTF-8 BOM) ve `.xlsx` (aynı satırlar + "Notlar" sayfası; kütüphane yok, düz OOXML) indirilir (`/stratejiler/{id}/ads-editor.{csv|xlsx}`, `StrategyAdsEditorExport`). Kampanyalar duraklatılmış gelir; konum seçeneği, hariç konum, zamanlama ve yaş dosyaya giremez, yorum sütunu ve Notlar'da yazar. MCP `save-strategy` `plan` alır. Hesaba yazma yok.
 - **State:** CODED + PHPUnit (`StrategiesTest`, `PanelDesignFreezeTest`).
 
 ## 2026-10-12 — Onarım masası: marka süzgecinde sayılar, küme çakışmaları yalnız ana dilde

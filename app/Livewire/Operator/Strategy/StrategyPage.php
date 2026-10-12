@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Strategy;
 
 use App\Models\Brand;
 use App\Models\Strategy;
+use App\Services\Strategy\StrategyAdsEditorExport;
 use App\Services\Strategy\StrategyBook;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Validator;
@@ -149,6 +150,7 @@ final class StrategyPage extends Component
             'html' => $rendered['html'],
             'toc' => $rendered['toc'],
             'readMinutes' => max(1, (int) ceil($rendered['words'] / 200)),
+            'planCounts' => ! empty($strategy->plan['campaigns'] ?? []) ? StrategyAdsEditorExport::counts($strategy) : null,
             'others' => $others,
             'allBrands' => $this->editing ? Brand::query()->orderBy('name')->pluck('name', 'id')->all() : [],
             'channels' => Strategy::CHANNELS,

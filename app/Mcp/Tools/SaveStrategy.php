@@ -10,7 +10,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Saves a strategy you wrote for the operator into Stratejiler (the panel menu where he reads every earlier strategy). Without strategy_id it creates one (title and body required); with strategy_id it changes the given scope fields and, when body differs, adds a new version (earlier versions stay). body is the whole strategy in Turkish Markdown (## headings become its table of contents). evidence lists the data it is based on ({label, detail}: which accounts, period, numbers). Saving never writes to an ad account.')]
+#[Description('Saves a strategy you wrote for the operator into Stratejiler (the panel menu where he reads every earlier strategy). Without strategy_id it creates one (title and body required); with strategy_id it changes the given scope fields and, when body differs, adds a new version (earlier versions stay). body is the whole strategy in Turkish Markdown (## headings become its table of contents). evidence lists the data it is based on ({label, detail}: which accounts, period, numbers). For a Google Ads strategy also send plan: {campaigns:[{name, daily_budget, max_cpc, bid_strategy, languages, locations, excluded_locations, location_bids:[{location, modifier}], ad_schedule, age, note, negatives:[{text, match}], ad_groups:[{name, final_url, keywords:[{text, match:exact|phrase|broad}], negatives, ads:[{headlines:[≤30 chars ×3–15], descriptions:[≤90 ×2–4], final_url, path1, path2}]}]}], shared_negative_lists:[{name, campaigns:[names], keywords}], notes:[strings]}; the operator downloads it as a Google Ads Editor import file once he approves. Saving never writes to an ad account.')]
 class SaveStrategy extends Tool
 {
     public function handle(Request $request, StrategyBook $book): Response
@@ -46,6 +46,7 @@ class SaveStrategy extends Tool
             'source_ref' => $schema->string()->description('Where it was made: project thread link or file path.'),
             'body' => $schema->string()->description('The whole strategy as Turkish Markdown.'),
             'change_note' => $schema->string()->description('What changed in this version.'),
+            'plan' => $schema->object()->description('Structured Google Ads plan (see the tool description); replaces the earlier plan whole.'),
             'evidence' => $schema->array()->items($schema->object([
                 'label' => $schema->string()->required(),
                 'detail' => $schema->string(),

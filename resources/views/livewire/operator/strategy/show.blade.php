@@ -149,6 +149,27 @@
                     @endif
                 </section>
 
+                @if ($planCounts !== null)
+                    <section class="{{ $rail }}" data-testid="strategy-ads-editor">
+                        <h2 class="text-[11px] font-medium uppercase tracking-wide text-gray-500">Google Ads Editor</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $planCounts['campaigns'] }} kampanya · {{ $planCounts['ad_groups'] }} reklam grubu · {{ $planCounts['keywords'] }} anahtar kelime · {{ $planCounts['negatives'] }} negatif · {{ $planCounts['ads'] }} reklam. Kampanyalar duraklatılmış gelir; sen açarsın.</p>
+                        <ul class="mt-2 space-y-1 text-xs text-gray-500">
+                            @foreach ($strategy->plan['campaigns'] as $c)
+                                <li class="flex items-center gap-2"><span class="min-w-0 flex-1 truncate font-medium text-gray-800 dark:text-gray-200" title="{{ $c['name'] }}">{{ $c['name'] }}</span>@if (isset($c['daily_budget']))<span>{{ number_format((float) $c['daily_budget'], 0, ',', '.') }}/gün</span>@endif<span>{{ count($c['ad_groups'] ?? []) }} grup</span></li>
+                            @endforeach
+                        </ul>
+                        @if ($strategy->isExportable())
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <a href="{{ route('operator.strategy.ads-editor', ['strategyId' => $strategy->id, 'format' => 'csv']) }}" class="{{ $primary }} !py-1.5">Ads Editor dosyası (.csv)</a>
+                                <a href="{{ route('operator.strategy.ads-editor', ['strategyId' => $strategy->id, 'format' => 'xlsx']) }}" class="{{ $ghost }} !py-1.5">Excel (.xlsx)</a>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500">Editor'da Hesap › İçe aktar › Dosyadan. Konum seçeneği, hariç konum, zamanlama ve yaş ayarları dosyaya girmez; Excel'in Notlar sayfasında ve yorum sütununda yazar.</p>
+                        @else
+                            <p class="mt-3 text-xs text-gray-500">Stratejiyi onaylayınca Ads Editor dosyası burada indirilir.</p>
+                        @endif
+                    </section>
+                @endif
+
                 <section class="{{ $rail }}" data-testid="strategy-versions">
                     <h2 class="text-[11px] font-medium uppercase tracking-wide text-gray-500">Sürümler ({{ $versions->count() }})</h2>
                     <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-700">

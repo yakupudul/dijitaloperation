@@ -42,6 +42,7 @@ class ListStrategies extends Tool
                 'version' => $version->version,
                 'body' => $version->body,
                 'evidence' => $version->evidence ?? [],
+                'plan' => $strategy->plan,
                 'versions' => $strategy->versions()->get(['version', 'change_note', 'author', 'created_at'])
                     ->map(fn (StrategyVersion $v): array => ['version' => $v->version, 'change_note' => $v->change_note, 'author' => $v->author, 'at' => $v->created_at?->toIso8601String()])->all(),
             ]);

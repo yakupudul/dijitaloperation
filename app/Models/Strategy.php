@@ -21,12 +21,12 @@ class Strategy extends Model
 
     /** @var list<string> */
     protected $fillable = ['brand_id', 'title', 'channel', 'service', 'markets', 'languages', 'budget_amount', 'budget_currency',
-        'budget_period', 'status', 'summary', 'request', 'source_ref', 'current_version', 'status_changed_at'];
+        'budget_period', 'status', 'summary', 'request', 'source_ref', 'current_version', 'status_changed_at', 'plan'];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['markets' => 'array', 'languages' => 'array', 'budget_amount' => 'decimal:2', 'status_changed_at' => 'datetime'];
+        return ['markets' => 'array', 'languages' => 'array', 'plan' => 'array', 'budget_amount' => 'decimal:2', 'status_changed_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Brand, $this> */
@@ -39,6 +39,12 @@ class Strategy extends Model
     public function versions(): HasMany
     {
         return $this->hasMany(StrategyVersion::class)->orderByDesc('version');
+    }
+
+    /** The Ads Editor file is offered once the operator approved the strategy. */
+    public function isExportable(): bool
+    {
+        return $this->channel === 'google_ads' && ! empty($this->plan['campaigns'] ?? []) && in_array($this->status, ['approved', 'active'], true);
     }
 
     public function statusLabel(): string
@@ -78,6 +84,7 @@ class Strategy extends Model
             'status' => $this->status,
             'summary' => $this->summary,
             'current_version' => $this->current_version,
+            'has_plan' => ! empty($this->plan['campaigns'] ?? []),
             'source_ref' => $this->source_ref,
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
