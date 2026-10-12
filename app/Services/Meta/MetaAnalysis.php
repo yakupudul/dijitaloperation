@@ -5,6 +5,7 @@ namespace App\Services\Meta;
 use App\Models\DigitalAsset;
 use App\Services\MetaAds\MetaGeoResults;
 use App\Services\Site\Analysis\SiteRange;
+use App\Support\Meta\MetaRegionCountry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -31,6 +32,9 @@ class MetaAnalysis
 
     /** A slice needs this many results before it is called the cheapest / the most expensive. */
     public const int MIN_SLICE_RESULTS = 3;
+
+    /** Regions listed under each country on Analiz › Ülke ve bölge. */
+    public const int REGIONS_PER_COUNTRY = 6;
 
     private const array PLATFORMS = ['facebook' => 'Facebook', 'instagram' => 'Instagram', 'audience_network' => 'Audience Network', 'messenger' => 'Messenger', 'threads' => 'Threads'];
 
@@ -195,19 +199,56 @@ class MetaAnalysis
         return array_values(array_map(fn (array $w): array => ['week' => $w['week'], 'spend' => round($w['spend'], 2), 'results' => round($w['results'], 1)], $weeks));
     }
 
-    /** @return list<array{region: string, country: string, spend: float, results: float, cpr: ?float}> */
+    /**
+     * Countries (from the country rows, most spend first) each with its own regions (states / provinces) under it.
+     * Meta leaves the country empty on region rows of an ad that ran in several countries; MetaRegionCountry fills it
+     * from the region name so "England" sits under Birleşik Krallık instead of floating without a country.
+     *
+     * @return list<array{country: string, name: string, spend: float, results: float, cpr: ?float, regions: list<array{region: string, spend: float, results: float, cpr: ?float}>}>
+     */
     private function regions(array $account, string $from, string $to, ?array $scope): array
     {
         if (! Schema::hasTable(MetaGeoResults::TABLE)) {
             return [];
         }
+        $rows = fn (string $level) => DB::table(MetaGeoResults::TABLE)->where('digital_asset_id', $account['asset_id'])->where('account_id', $account['account_id'])
+            ->where('level', $level)->whereBetween('reporting_date', [$from, $to])->when($scope !== null, fn ($q) => $q->whereIn('campaign_id', $scope))
+            ->groupBy('country', 'region')->selectRaw('country, region, sum(spend) as spend, sum(leads) + sum(messages) + sum(purchases) as results')->get();
+        $row = fn (float $spend, float $results): array => ['spend' => round($spend, 2), 'results' => round($results, 1), 'cpr' => $results > 0 ? round($spend / $results, 2) : null];
 
-        return DB::table(MetaGeoResults::TABLE)->where('digital_asset_id', $account['asset_id'])->where('account_id', $account['account_id'])
-            ->where('level', 'region')->whereBetween('reporting_date', [$from, $to])->when($scope !== null, fn ($q) => $q->whereIn('campaign_id', $scope))
-            ->groupBy('country', 'region')->selectRaw('country, region, sum(spend) as spend, sum(leads) + sum(messages) + sum(purchases) as results')
-            ->orderByDesc('spend')->limit(15)->get()
-            ->map(fn ($r): array => ['region' => (string) $r->region, 'country' => (string) $r->country, 'spend' => round((float) $r->spend, 2),
-                'results' => round((float) $r->results, 1), 'cpr' => (float) $r->results > 0 ? round((float) $r->spend / (float) $r->results, 2) : null])->all();
+        $countries = [];
+        foreach ($rows('country') as $r) {
+            $code = strtoupper((string) $r->country);
+            $countries[$code] = ['spend' => ($countries[$code]['spend'] ?? 0) + (float) $r->spend, 'results' => ($countries[$code]['results'] ?? 0) + (float) $r->results, 'regions' => []];
+        }
+        foreach ($rows('region') as $r) {
+            $code = strtoupper((string) $r->country) ?: MetaRegionCountry::of((string) $r->region);
+            $countries[$code] ??= ['spend' => 0.0, 'results' => 0.0, 'regions' => [], 'from_regions' => true];
+            $region = $countries[$code]['regions'][(string) $r->region] ?? ['spend' => 0.0, 'results' => 0.0];
+            $countries[$code]['regions'][(string) $r->region] = ['spend' => $region['spend'] + (float) $r->spend, 'results' => $region['results'] + (float) $r->results];
+        }
+
+        $out = [];
+        foreach ($countries as $code => $c) {
+            if (! empty($c['from_regions'])) {
+                $c['spend'] = array_sum(array_column($c['regions'], 'spend'));
+                $c['results'] = array_sum(array_column($c['regions'], 'results'));
+            }
+            if ($c['spend'] <= 0 && $c['results'] <= 0) {
+                continue;
+            }
+            uasort($c['regions'], fn (array $a, array $b): int => $b['spend'] <=> $a['spend']);
+            $regions = [];
+            foreach (array_slice($c['regions'], 0, self::REGIONS_PER_COUNTRY, true) as $name => $region) {
+                if ($region['spend'] > 0 || $region['results'] > 0) {
+                    $regions[] = ['region' => (string) $name] + $row($region['spend'], $region['results']);
+                }
+            }
+            $out[] = ['country' => (string) $code, 'name' => MetaRegionCountry::countryName((string) $code)] + $row($c['spend'], $c['results']) + ['regions' => $regions];
+        }
+        usort($out, fn (array $a, array $b): int => $b['spend'] <=> $a['spend']);
+
+        return $out;
     }
 
     /**
@@ -230,16 +271,18 @@ class MetaAnalysis
 
     /**
      * Cost of the result type per age × gender, with the cheapest and the most expensive slice that has enough results.
+     * Only slices with enough results get a tone (ok / look / critical by cost thirds), so a one-form slice never
+     * looks like the best.
      *
      * @param  list<object>  $rows
-     * @return array{cells: array<string, array<string, array{spend: float, count: float, cost: ?float}>>, best: ?array<string, mixed>, worst: ?array<string, mixed>, min: ?float, max: ?float}
+     * @return array{cells: array<string, array<string, array{spend: float, count: float, cost: ?float, tone: ?string}>>, best: ?array<string, mixed>, worst: ?array<string, mixed>, min: ?float, max: ?float}
      */
     private function ageGender(array $rows, string $type): array
     {
         $cells = [];
         foreach (self::AGES as $age) {
             foreach (array_keys(self::GENDERS) as $gender) {
-                $cells[$age][$gender] = ['spend' => 0.0, 'count' => 0.0, 'cost' => null];
+                $cells[$age][$gender] = ['spend' => 0.0, 'count' => 0.0, 'cost' => null, 'tone' => null];
             }
         }
         foreach ($rows as $row) {
@@ -260,6 +303,13 @@ class MetaAnalysis
             }
         }
         usort($ranked, fn (array $a, array $b): int => $a['cost'] <=> $b['cost']);
+        // Cheapest third green, most expensive third red; slices with too few results stay gray (no tone).
+        $last = max(1, count($ranked) - 1);
+        foreach ($ranked as $i => $slice) {
+            $position = count($ranked) === 1 ? 0.0 : $i / $last;
+            $gender = array_search($slice['gender'], self::GENDERS, true);
+            $cells[$slice['age']][$gender]['tone'] = $position < 1 / 3 ? 'ok' : ($position > 2 / 3 ? 'critical' : 'look');
+        }
         $costs = array_filter(array_merge(...array_map(fn (array $g): array => array_column($g, 'cost'), array_values($cells))), fn ($c): bool => $c !== null);
 
         return ['cells' => $cells, 'best' => $ranked[0] ?? null, 'worst' => count($ranked) > 1 ? $ranked[count($ranked) - 1] : null,

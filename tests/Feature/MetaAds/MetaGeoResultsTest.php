@@ -114,7 +114,7 @@ final class MetaGeoResultsTest extends TestCase
         app(MetaGeoResults::class)->collect($this->asset, 3);
 
         $this->get(route('operator.meta.overview', ['assetId' => $this->asset->id, 'tab' => 'analysis']))
-            ->assertOk()->assertSee('Ülke ve şehir')->assertSee('Istanbul · TR')->assertSee('Yaş × cinsiyet')->assertSee('Facebook akış');
+            ->assertOk()->assertSee('Ülke ve bölge')->assertSeeInOrder(['Türkiye', 'Istanbul'])->assertSee('Berlin')->assertSee('Yaş × cinsiyet')->assertSee('Facebook akış');
 
         Queue::fake();
         Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'analysis'])->call('collectGeoResults');

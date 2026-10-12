@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Meta Analiz: ülke altında bölgeler, yaş tablosu maliyet renkleri
+
+- "Ülke ve şehir" tablosu "Ülke ve bölge" oldu: her ülke kalın satır (Türkçe adıyla), altında o ülkenin en çok harcayan 6 bölgesi. Meta birden çok ülkede yayınlanan reklamın bölge satırında ülkeyi boş bırakıyor; `MetaRegionCountry` bölge adından ülkeyi buluyor (England → Birleşik Krallık). Kod: `MetaAnalysis::regions`.
+- Yaş × cinsiyet tablosu: renk yoğunluğu yerine ucuz (yeşil) / orta (sarı) / pahalı (kırmızı); en az 3 sonucu olmayan dilim gri. Her hücrede sonuç sayısı yazar. Böylece tek formlu dilim en iyi gibi görünmüyor.
+- Neden (yakup, 2026-10-12): "hangisi şehir hangisi ülke belli değil", "yaş grubu tablosundaki renklendirme hatalı". Test: `MetaGeoResultsTest`, `MetaAnalysisTest`, `MetaRegionCountryTest`.
+
 ## 2026-10-12 — MCP `channel-data`: Google Ads, Search Console, GA4 ve İşletme Profili verisi Claude'a açık
 
 - Claude bir markanın kayıtlı kanal verisini sorulduğu anda okur (canlı sağlayıcı çağrısı yok, serbest SQL yok): `google_ads.months/campaigns/search_terms/keywords/locations/devices/conversion_actions`, `gsc.months/queries/pages/countries/query_countries` (yalnız web araması), `ga4.months/channels/landing_pages/countries/key_events`, `gbp.performance/keywords/reviews`. Her cevap son veri gününü taşır. Kod: `App\Mcp\Tools\ChannelData`. Test: `McpChannelDataTest` (sqlite + PostgreSQL).
