@@ -502,6 +502,9 @@ class MetaAdsProductionCollectorTest extends TestCase
             $path = (string) parse_url($request->url(), PHP_URL_PATH);
             $paths[] = $path;
             if (str_contains($path, '/adcreatives')) {
+                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+                $this->assertSame(['1080', '1080'], [$query['thumbnail_width'] ?? null, $query['thumbnail_height'] ?? null], 'a sharp thumbnail, not the 64 px default');
+
                 return Http::response(['data' => [[
                     'id' => '4001', 'name' => 'Creative A', 'object_type' => 'SHARE', 'status' => 'ACTIVE', 'effective_object_story_id' => '111_222',
                     'object_story_spec' => ['page_id' => 'page_1', 'link_data' => ['message' => 'Gurbetçilere özel implant.', 'name' => 'Ücretsiz muayene', 'description' => 'Tatilde tedavi',

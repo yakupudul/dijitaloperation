@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Meta reklam sayfası: net görsel, gönderi reklamlarının formu
+
+- Reklam görselleri (`/adcreatives`) artık 1080 px küçük resimle toplanıyor. Önceden Meta varsayılan 64×64 küçük resim veriyordu; `image_url` olmayan gönderi ve video reklamlarında görsel bulanık görünüyordu.
+- Mevcut Instagram / Facebook gönderisinden yapılan reklamlar butonunu ve anında formunu yaratıcının kendi `call_to_action` alanında taşır. Bu alan da toplanıyor, böylece form soruları ve buton bu reklamlarda da görünür. Önceden "Meta formun kimliğini vermedi" yazıyordu. Lead verisi okunmaz.
+- İkisi de deploy sonrası ilk günlük yaratıcı toplamasında dolar. Neden (yakup, 2026-10-12): "Görsel çok bulanık ve reklama ait tüm metinler görünmüyor." Test: `MetaAdsProductionCollectorTest`, `MetaAdsCreativeNormalizerTest`.
+
 ## 2026-10-12 — Meta Analiz: ülke altında bölgeler, yaş tablosu maliyet renkleri
 
 - "Ülke ve şehir" tablosu "Ülke ve bölge" oldu: her ülke kalın satır (Türkçe adıyla), altında o ülkenin en çok harcayan 6 bölgesi. Meta birden çok ülkede yayınlanan reklamın bölge satırında ülkeyi boş bırakıyor; `MetaRegionCountry` bölge adından ülkeyi buluyor (England → Birleşik Krallık). Kod: `MetaAnalysis::regions`.

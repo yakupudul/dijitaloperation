@@ -41,6 +41,9 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     /** Instant forms read per creative run (the rest follow on the next snapshot). */
     private const int MAX_LEAD_FORMS_PER_RUN = 25;
 
+    /** Creative thumbnail edge in pixels (Meta's default is 64). */
+    private const int CREATIVE_THUMBNAIL_SIZE = 1080;
+
     /** The form's structure only — no field of the leads is ever asked for. */
     private const string LEAD_FORM_FIELDS = 'id,name,status,locale,questions,context_card{title,content},thank_you_page{title,body,button_text,website_url},privacy_policy_url';
 
@@ -287,7 +290,10 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
 
         $path = (string) $scope['act_id'].'/adcreatives';
         $query = [
-            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,link_url,url_tags,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
+            'fields' => 'id,name,object_type,status,title,body,call_to_action_type,call_to_action,link_url,url_tags,thumbnail_url,image_url,image_hash,video_id,object_story_spec,asset_feed_spec,effective_object_story_id,instagram_actor_id,actor_id',
+            // Without a size Meta returns a 64×64 thumbnail: post and video ads (no image_url) looked blurred on the ad page.
+            'thumbnail_width' => self::CREATIVE_THUMBNAIL_SIZE,
+            'thumbnail_height' => self::CREATIVE_THUMBNAIL_SIZE,
             'limit' => 250,
         ];
         [$allCreativeRows, $requestId] = $this->paginateList($scope['integration'], $path, $query);
