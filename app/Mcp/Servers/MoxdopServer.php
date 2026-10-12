@@ -14,11 +14,13 @@ use App\Mcp\Tools\ListBrands;
 use App\Mcp\Tools\ListChanges;
 use App\Mcp\Tools\ListNotes;
 use App\Mcp\Tools\ListSites;
+use App\Mcp\Tools\ListStrategies;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MetaPerformance;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\RequestArticle;
 use App\Mcp\Tools\SaveNote;
+use App\Mcp\Tools\SaveStrategy;
 use App\Mcp\Tools\ScreenChecks;
 use App\Mcp\Tools\SiteBuilds;
 use App\Mcp\Tools\SubmitResult;
@@ -39,7 +41,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * enabled "Site building" in the plugin. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.6.0')]
+#[Version('1.7.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -69,6 +71,13 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
    submit again. If it cannot be done from its input, `fail-task` with a short Turkish reason.
 3. A submitted answer can start the next step of the same job (for example Eşleştir: match first, then gaps), so
    call `list-tasks` again until it returns nothing.
+
+## Strategies (Stratejiler)
+- When the operator asks for a strategy (a campaign plan, a channel roadmap, a market entry), first read that
+  brand's earlier ones with `list-strategies brand_id=…` and build on them. Save the result with `save-strategy`
+  (Turkish Markdown body, scope fields, evidence = the data you used). A revision of the same strategy is
+  `save-strategy strategy_id=…` with the new body: it becomes a new version. Give the operator the link it returns.
+- Status stays `draft` until the operator says it is approved or running.
 
 ## Content
 - `content-queue` lists approved titles without a draft; `request-article` starts writing one (the task then comes
@@ -123,6 +132,8 @@ class MoxdopServer extends Server
         ChannelData::class,
         SaveNote::class,
         ListNotes::class,
+        ListStrategies::class,
+        SaveStrategy::class,
         ContentQueue::class,
         RequestArticle::class,
         SystemHealth::class,

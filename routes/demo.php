@@ -67,6 +67,8 @@ use App\Livewire\Operator\Settings\ReleasesPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
+use App\Livewire\Operator\Strategy\StrategiesPage;
+use App\Livewire\Operator\Strategy\StrategyPage as StrategyDetailPage;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Livewire\Operator\Winners\LibrariesPage;
@@ -141,6 +143,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/meta', MetaDeskPage::class)->name('operator.meta-desk');
         Route::livewire('/meta/strateji', MetaStrategyPage::class)->name('operator.meta-strategy');
         Route::livewire('/kazananlar', WinnersPage::class)->name('operator.winners');
+        Route::livewire('/stratejiler', StrategiesPage::class)->name('operator.strategies');
+        Route::livewire('/stratejiler/{strategyId}', StrategyDetailPage::class)->where('strategyId', '[0-9]{1,18}')->name('operator.strategy');
         Route::livewire('/kazananlar/{serviceId}', WinnerServicePage::class)->where('serviceId', '[0-9]{1,18}')->name('operator.winner-service');
         Route::livewire('/kutuphaneler', LibrariesPage::class)->name('operator.libraries');
         Route::get('/assets/meta/{assetId}/adsets', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adsets');

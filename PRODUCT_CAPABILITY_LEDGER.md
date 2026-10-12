@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Stratejiler menüsü
+
+- Yeni menü **Stratejiler** (`/stratejiler`, Kazananlar'ın altında): Claude'un hazırladığı stratejiler; marka, kanal (Google Ads / Meta / İşletme profili / Web sitesi / Çok kanallı), hizmet, hedef pazarlar, diller, bütçe, durum (Taslak / Onaylandı / Uygulanıyor / Arşiv) ve sürüm. Durum, marka, kanal süzgeci ve arama; arşiv ayrı sekmede.
+- Strateji sayfası (`/stratejiler/{id}`): metin (Markdown, ## başlıklardan içindekiler), Kapsam (düzenlenebilir, markanın diğer stratejileri), Dayanak (hangi veriye dayandığı), Sürümler (eski sürümü oku, geri al: geri alma yeni sürüm olarak eklenir, geçmiş silinmez). Metni düzenle → yeni sürüm; aynı metin sürüm açmaz. .md indir.
+- MCP: `save-strategy` (oluştur / yeni sürüm) ve `list-strategies` (liste, tam metin, eski sürüm). Claude yeni strateji yazmadan önce markanın eskilerini okur. Hiçbir şey reklam hesabına yazılmaz.
+- Meta › Strateji öner (kazanan tarifi hesaplayan araç) yerinde kalır; Stratejiler sayfasından bağlantı verilir.
+- **State:** CODED + PHPUnit (`StrategiesTest`, `PanelDesignFreezeTest`).
+
 ## 2026-10-12 — Onarım masası: marka süzgecinde sayılar, küme çakışmaları yalnız ana dilde
 
 - Marka seçiliyken başlık o markanın onay bekleyen paket ve iş sayısını gösterir (tüm markaların toplamı parantezde); önceden başlık tüm markaları, şeritler seçili markayı sayıyordu (OPC: başlık 1.665, şeritler 873).
