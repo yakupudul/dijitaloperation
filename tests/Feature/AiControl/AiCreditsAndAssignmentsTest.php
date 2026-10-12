@@ -114,7 +114,8 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->assertSame(0, $counts['changed'], 'a second run publishes nothing');
 
         app(AiAssignments::class)->apply(AiAssignments::PLAN_SUBSCRIPTION, $this->admin);
-        $this->assertSame(AiTaskQueue::MODEL, $registry->current(AiRouteKeys::SITE_WRITE_ARTICLE)->model);
+        $this->assertSame(AiTaskQueue::MODEL, $registry->current('site.cluster_match')->model);
+        $this->assertSame(AiAssignments::SONNET, $registry->current(AiRouteKeys::SITE_WRITE_ARTICLE)->model, 'content work never waits for Claude over MCP');
 
         $this->artisan('moxdop:ai:assign', ['plan' => 'yok'])->assertFailed();
     }
@@ -192,6 +193,31 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->assertSame(AiTask::CONSUMED, $waiting->fresh()->status);
         $this->assertSame(AiTask::CLAIMED, $claimed->fresh()->status, 'a run Claude is working on is left to finish');
         Queue::assertPushed(RefreshBrandCandidatesJob::class, 1);
+    }
+
+    public function test_content_work_is_not_stopped_by_the_daily_ceiling_or_the_monthly_budget(): void
+    {
+        config(['moxdop-ai-pricing.claude_api_window.until' => now('Europe/Istanbul')->subDay()->toDateString()]);
+        (AgencySetting::query()->orderBy('id')->first() ?? AgencySetting::query()->create(['agency_name' => 'MoxDOP', 'portal_name' => 'MoxDOP']))
+            ->forceFill(['ai_monthly_budget_usd' => 3, 'ai_daily_auto_budget_usd' => 2])->save();
+        $this->pin('site.cluster_match', AiAssignments::HAIKU);
+        $this->usage(5.00);
+        Cache::flush();
+        $budget = app(AiBudget::class);
+        $queue = app(AiTaskQueue::class);
+
+        $this->assertNotNull($budget->blockReason('anthropic', 'claude-haiku-5-5', AiRouteKeys::BRAND_SETUP), 'other work stops at the ceiling');
+        $this->assertTrue($queue->delegated('site.cluster_match'), 'other work waits for Claude over MCP');
+        foreach ([AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::SITE_CONTENT_RECIPE] as $operation) {
+            $this->assertNull($budget->blockReason('anthropic', 'claude-sonnet-5-5', $operation), $operation);
+            $this->assertFalse($budget->spendBlocked('anthropic', 'claude-sonnet-5-5', $operation), $operation);
+            $this->assertFalse($queue->delegated($operation), $operation.' never waits in the Claude queue');
+            $this->assertTrue(AiBudget::automaticAllowed($operation), $operation.' runs by itself');
+        }
+
+        app(AiCredits::class)->topUp('anthropic', 4, null, $this->admin);
+        $this->usage(4.00);
+        $this->assertStringContainsString('kredisi bitti', (string) $budget->blockReason('anthropic', 'claude-sonnet-5-5', AiRouteKeys::SITE_WRITE_ARTICLE), 'used-up credit still stops it');
     }
 
     private function pin(string $operation, string $model): void

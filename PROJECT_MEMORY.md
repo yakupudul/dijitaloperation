@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-12 — İçerik işleri hiçbir kuyrukta beklemez
+
+- **Karar (yakup):** İçerik fikri, yazım, çeviri ve WordPress gönderimi hiçbir zaman Claude (MCP) kuyruğuna ya da genel ağır kuyruğa girmez. Bu işlerin ayrı bir kuyruğu ve işçisi var, günlük tavan ve aylık bütçe onları durdurmaz. Yalnız Claude API kredisi biterse durur ve hata kartta görünür.
+
 ## 2026-10-12 — İçerik akışı: havuz hep 20, yazı görseli, Taslakta / Yayında, yazı tarihi
 
 - **Karar (yakup):** Bir başlık onaylanıp yazdırılınca havuza aynı içerik fikri motoruyla (aynı veri, aynı kurallar) yeni fikir gelir; sitenin ana dilindeki havuz en az 20 kalır (`TopUpContentPoolJob` → `ContentCoverage::needs`).

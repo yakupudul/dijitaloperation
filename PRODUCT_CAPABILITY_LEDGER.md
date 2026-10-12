@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — İçerik işleri kuyrukta beklemez
+
+- İçerik fikri (havuz), makale yazımı, çevirisi ve WordPress taslak gönderimi kendi kuyruğunda (`content`, Horizon `supervisor-content`, 3 işçi) çalışıyor. Uzun site işleri (Eşleştir vb.) `heavy` kuyrukta kalıyor ve içerik işlerini artık bekletmiyor.
+- İçerik işlemleri günlük AI tavanına ve aylık bütçeye takılmıyor ve hiçbir zaman Claude (MCP) kuyruğuna düşmüyor. Claude API kredisi biterse durur ve hata kartta görünür. Diğer işler eskisi gibi tavanda MCP kuyruğuna geçiyor.
+- `moxdop:content:rescue` komutu (deploy'da migration ile bir kez çalışır) bekleyen içerik MCP görevlerini kapatıyor ve onaylı, yazılmamış başlıkları, eksik çevirileri ve eksik havuzları içerik kuyruğunda yeniden başlatıyor. `heavy` kuyrukta kalan eski kopya, taşındığı işaretini görünce hiçbir şey yapmıyor. Claude API'ye dönüş kontrolü (`claude-api-resume`) her 15 dakikada koşulsuz çalışıyor.
+- Durum: CODED + TESTED (`ContentQueueTest`, `AiCreditsAndAssignmentsTest`, `AiTaskQueueTest`, `SiteAiFallbackTest`). Neden (yakup, 2026-10-12): "yine yazılıyorda kaldı. İçerik fikri, üretimi gönderimi vs. hiçbir zaman kuyruğa girmesin."
+
 ## 2026-10-12 — Hata merkezi: sunucu belleği, disk ve yazılım sağlığı
 
 - Ayarlar › Sistem sayfasının en üstünde iki kart var. **Sunucu** kartı bellek (RAM), takas alanı ve diskleri GB olarak gösteriyor: dolu, boş, toplam ve yüzde, renkli çubukla. %80'de sarı, %90'da kırmızı olur. Aynı kartta işlemci yükü (çekirdek sayısına göre) ve sunucunun ne zamandır açık olduğu da var.

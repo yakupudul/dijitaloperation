@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Jobs\Site\RunSiteOperationJob;
 use App\Models\AiTask;
 use App\Models\User;
 use App\Services\AiTasks\AiTaskQueue;
@@ -129,6 +130,9 @@ final class ClaudeApiWindow
             }
             try {
                 $job = unserialize((string) $tasks->first()->resume);
+                if ($job instanceof RunSiteOperationJob) {
+                    $job->onQueue(RunSiteOperationJob::queueFor($job->operation)); // content work: its own queue
+                }
                 if (is_object($job)) {
                     dispatch($job);
                     $restarted++;

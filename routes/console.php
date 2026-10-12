@@ -19,6 +19,7 @@ use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Jobs\Site\PullClarityJob;
 use App\Jobs\Site\SyncContentPostsJob;
 use App\Models\AiLiveOperation;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\ClarityProject;
 use App\Models\Collection\CollectionDatasetRun;
@@ -68,12 +69,14 @@ use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\Backlinks\SerpMentionSources;
+use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
+use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\WhatsAppDispatch;
 use App\Services\Work\ContentCoverage;
@@ -531,9 +534,10 @@ Schedule::command('moxdop:ai:claude-api-window end')
     ->dailyAt('00:10')->timezone('Europe/Istanbul')->when(fn (): bool => ! ClaudeApiWindow::active())
     ->withoutOverlapping(30)->name('claude-api-window-end');
 // Work that fell back to the Claude queue because money stopped the API (day's ceiling, credit) goes back to the API
-// as soon as the money allows again, instead of waiting for the subscription routine (yakup, 2026-10-12).
+// as soon as the money allows again, instead of waiting for the subscription routine (yakup, 2026-10-12). Runs every
+// time: a run whose operation is still given to the Claude queue is skipped, content work (never queued) always goes.
 Schedule::command('moxdop:ai:claude-api-window resume')
-    ->everyFifteenMinutes()->when(fn (): bool => app(AiBudget::class)->claudeApiStopReason() === null)
+    ->everyFifteenMinutes()
     ->withoutOverlapping(15)->name('claude-api-resume');
 
 // Sorgular › Bekleyenler: kütüphanede olan / filtre terimine takılan bekleyen sorgular saatlik temizlenir.
@@ -991,6 +995,41 @@ Schedule::command('moxdop:content:weekly-titles')
     ->withoutOverlapping(60)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())
     ->name('content-weekly-titles');
+
+// İçerik işleri hiç beklemez (yakup, 2026-10-12): titles, articles and translations that wait behind other jobs or in
+// the Claude queue start again on the content queue; the pool of every site is filled back. Run once on deploy.
+Artisan::command('moxdop:content:rescue', function (ContentCoverage $coverage): void {
+    $consumed = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->whereIn('operation', AiBudget::CONTENT_OPERATIONS)
+        ->update(['status' => AiTask::CONSUMED, 'consumed_at' => now(), 'error' => 'İçerik işi Claude kuyruğunda beklemez: API ile yeniden başlatıldı.']);
+    $articles = 0;
+    $translations = 0;
+    Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
+        ->whereNull('action->article_write_id')->whereHas('brand', fn ($brand) => $brand->operational())->orderBy('id')->get()
+        ->each(function (Suggestion $idea) use (&$articles, &$translations): void {
+            $action = (array) $idea->action;
+            $site = DigitalAsset::query()->where('type', 'website')->find((int) ($action['site_id'] ?? 0));
+            if ($site === null || isset($action['article_blocked'])) {
+                return;
+            }
+            if (! is_array($action['article'] ?? null)) {
+                SiteOperations::moveToContentQueue((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $idea->id]);
+                $articles++;
+
+                return;
+            }
+            $written = [(string) (data_get($action, 'article.language') ?: ContentPlanner::articleLanguage($idea, $site)), ...array_keys(array_filter((array) ($action['translations'] ?? []), 'is_array'))];
+            foreach (array_diff(ContentPlanner::siteLanguages($site), $written) as $language) {
+                SiteOperations::moveToContentQueue((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $idea->id, 'language' => $language]);
+                $translations++;
+            }
+        });
+    $pools = 0;
+    foreach ($coverage->needs() as $need) {
+        SiteOperations::moveToContentQueue($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['wants' => $need['wants']]);
+        $pools++;
+    }
+    $this->info(sprintf('%d yazı, %d çeviri, %d site havuzu içerik kuyruğunda yeniden başladı; %d Claude kuyruğu işi kapandı.', $articles, $translations, $pools, $consumed));
+})->purpose('Start waiting content work (titles, articles, translations) again on the content queue');
 
 // Taslakta / Yayında (yakup, 2026-10-12): every hour each site with sent articles says where their posts stand.
 Artisan::command('moxdop:content:post-status {--site= : One website asset id}', function (): void {

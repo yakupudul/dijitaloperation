@@ -13,6 +13,7 @@ use App\Services\Ai\AiBudget;
 use App\Services\Brand\BrandDossier;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Repair\SeoFieldsBatch;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -40,6 +41,12 @@ final class SiteOperations
     public const string DISCOVERY = 'content_discovery';
 
     public const string WRITE_ARTICLE = 'write_article';
+
+    /**
+     * Content work (yakup, 2026-10-12 "İçerik fikri, üretimi, gönderimi vs. hiçbir zaman kuyruğa girmesin"): runs on
+     * its own queue (`queue.content_queue`) and never waits in the Claude (MCP) queue.
+     */
+    public const array CONTENT_OPERATIONS = [self::WEEKLY_CONTENT, self::DISCOVERY, self::WRITE_ARTICLE, self::PRODUCE, self::RECIPE, self::FIX_GAPS];
 
     /** "Kümeleri içerikle karşılaştır": AI match + gaps of every cluster row (ClusterAudit). */
     public const string CLUSTER_AUDIT = 'cluster_audit';
@@ -105,6 +112,20 @@ final class SiteOperations
     {
         self::putStatus($siteId, $operation, ['status' => 'running'], $params);
         RunSiteOperationJob::dispatch($siteId, $operation, $params);
+    }
+
+    /**
+     * Content work that waits on another queue (behind long jobs) or was queued before content got its own queue: its
+     * unique lock is released, the waiting copy is told to skip, and it starts again on the content queue.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    public static function moveToContentQueue(int $siteId, string $operation, array $params = []): void
+    {
+        $job = new RunSiteOperationJob($siteId, $operation, $params);
+        (new UniqueLock(Cache::driver()))->release($job);
+        Cache::put(RunSiteOperationJob::movedKey($job->uniqueId()), true, now()->addDays(2));
+        self::dispatch($siteId, $operation, $params);
     }
 
     /**

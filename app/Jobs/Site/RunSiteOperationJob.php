@@ -15,7 +15,7 @@ use Throwable;
 
 /**
  * One website-screen operation (categorize, service ↔ page, cluster ↔ page, summaries, URL analysis, AI ile yap,
- * standard proposal, weekly content, discovery, article) on the heavy queue. Unique per site × operation × subject;
+ * standard proposal, weekly content, discovery, article) on the heavy queue (content work on its own queue). Unique per site × operation × subject;
  * each operation is idempotent and bounded. The screen reads the stored result and the status line only.
  * Eşleştir (cluster ↔ page) of a large site runs in parts: a part that ran out of time queues the next one
  * (params part = n), at most MAX_PARTS; one Eşleştir runs per site at a time whatever started it.
@@ -36,7 +36,21 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
     /** @param  array<string, mixed>  $params */
     public function __construct(public int $siteId, public string $operation, public array $params = [])
     {
-        $this->onQueue((string) config('queue.heavy_queue', 'default'));
+        $this->onQueue(self::queueFor($operation));
+    }
+
+    /** Content work has its own queue (never behind Eşleştir); everything else runs on the heavy queue. */
+    public static function queueFor(string $operation): string
+    {
+        return in_array($operation, SiteOperations::CONTENT_OPERATIONS, true)
+            ? (string) config('queue.content_queue', 'default')
+            : (string) config('queue.heavy_queue', 'default');
+    }
+
+    /** Marker: this site × operation × params was moved to the content queue; the copy still waiting elsewhere skips. */
+    public static function movedKey(string $uniqueId): string
+    {
+        return 'site-op-moved:'.md5($uniqueId);
     }
 
     public function uniqueId(): string
@@ -60,6 +74,9 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(SiteOperations $operations): void
     {
+        if ($this->queue !== self::queueFor($this->operation) && Cache::has(self::movedKey($this->uniqueId()))) {
+            return; // the same work was moved to the content queue and runs (or ran) there
+        }
         $site = DigitalAsset::query()->where('type', 'website')->find($this->siteId);
         if ($site === null) {
             SiteOperations::putStatus($this->siteId, $this->operation, ['status' => 'no_site'], $this->params);

@@ -22,6 +22,10 @@ return [
     */
     'heavy_queue' => env('HEAVY_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'heavy' : 'default'),
 
+    // yakup, 2026-10-12: content ideas, article writing, translation and the WordPress draft never wait behind other
+    // work: their own queue with their own workers (Horizon supervisor-content).
+    'content_queue' => env('CONTENT_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'content' : 'default'),
+
     /*
     | Automatic background AI (query autopilot) on its own Horizon supervisor, so operator-triggered heavy jobs never
     | wait behind it. Without Redis it stays on "default".
