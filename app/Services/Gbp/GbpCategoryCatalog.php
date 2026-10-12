@@ -129,6 +129,45 @@ final class GbpCategoryCatalog
         return $out;
     }
 
+    /**
+     * Google's Turkish names of the given categories and of their predefined service types, cached per category for a
+     * week (an unknown or refused id for an hour, so an open panel does not ask Google on every render).
+     *
+     * @param  list<string>  $ids  "gcid:…" or "categories/gcid:…"
+     * @return array<string, array{name: string, service_types: array<string, string>}> keyed by the bare "gcid:…" id
+     */
+    public function turkishNames(CoreIntegration $integration, array $ids): array
+    {
+        $bare = array_values(array_unique(array_filter(array_map(fn (string $id): string => (string) preg_replace('~^categories/~', '', trim($id)), $ids))));
+        $out = [];
+        $missing = [];
+        foreach ($bare as $id) {
+            $cached = Cache::get('gbp-category-tr:'.$id);
+            if (! is_array($cached)) {
+                $missing[] = $id;
+            } elseif ($cached !== []) {
+                $out[$id] = $cached;
+            }
+        }
+        foreach (array_chunk($missing, 20) as $chunk) {
+            $found = [];
+            foreach ($this->batch($integration, array_map(fn (string $id): string => 'categories/'.$id, $chunk)) as $category) {
+                if ($category['name'] !== '') {
+                    $found[(string) preg_replace('~^categories/~', '', $category['id'])] = ['name' => $category['name'], 'service_types' => array_column($category['service_types'], 'name', 'id')];
+                }
+            }
+            foreach ($chunk as $id) {
+                $entry = $found[$id] ?? [];
+                Cache::put('gbp-category-tr:'.$id, $entry, $entry === [] ? now()->addHour() : now()->addWeek());
+                if ($entry !== []) {
+                    $out[$id] = $entry;
+                }
+            }
+        }
+
+        return $out;
+    }
+
     /** @return array{id: string, name: string, service_types: list<array{id: string, name: string}>} */
     private static function category(mixed $row): array
     {

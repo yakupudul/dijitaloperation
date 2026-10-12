@@ -8,6 +8,7 @@ use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ServiceCategory;
@@ -16,7 +17,9 @@ use App\Services\Gbp\GbpPeerProfiles;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use RuntimeException;
 use Tests\TestCase;
@@ -69,7 +72,7 @@ final class GbpPeerProfilesTest extends TestCase
         $common = ['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'run_id' => $asset->id, 'location_name' => 'locations/'.$asset->id,
             'captured_at' => now(), 'created_at' => now(), 'updated_at' => now()];
         DB::table('gbp_location_snapshots')->insert([...$common, 'primary_category' => $primary, 'additional_categories' => json_encode([
-            'primaryCategory' => ['name' => 'categories/gcid:'.($primary === 'Diş kliniği' ? 'dental_clinic' : 'beauty_salon'), 'displayName' => $primary],
+            'primaryCategory' => ['name' => 'categories/gcid:'.(in_array($primary, ['Diş kliniği', 'Dental clinic'], true) ? 'dental_clinic' : 'beauty_salon'), 'displayName' => $primary],
             'additionalCategories' => array_map(fn (array $c): array => ['name' => 'categories/'.$c[0], 'displayName' => $c[1]], $additional),
         ])]);
         DB::table('gbp_service_snapshots')->insert([...$common, 'service_items' => json_encode(array_map(fn (array $s): array => [
@@ -88,6 +91,60 @@ final class GbpPeerProfilesTest extends TestCase
         $this->assertSame([['Pedodontist', 2], ['Estetik diş hekimi', 1]], array_map(fn (array $c): array => [$c['name'], $c['count']], $found['categories']));
         $this->assertSame([['Diş beyazlatma', 2, 'Diş kliniği'], ['Fissür örtücü', 1, 'Pedodontist'], ['Gece plağı', 1, 'Diş kliniği']],
             array_map(fn (array $s): array => [$s['name'], $s['count'], $s['category']], $found['services']));
+    }
+
+    /** Makes the shared Google connection usable, so category names can be asked from Google. */
+    private function authorizeGoogle(): void
+    {
+        config(['moxdop.google.client_id' => 'cid', 'moxdop.google.client_secret' => 'csecret']);
+        CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $this->google->id, 'encrypted_payload' => ['client_id' => 'cid', 'client_secret' => 'csecret']]);
+        CoreIntegrationCredential::factory()->authorization()->create(['integration_id' => $this->google->id, 'encrypted_payload' => ['access_token' => 'a', 'refresh_token' => 'r'], 'expires_at' => now()->addHour()]);
+    }
+
+    public function test_categories_of_an_english_profile_are_shown_once_with_googles_turkish_names(): void
+    {
+        $this->authorizeGoogle();
+        $this->profile('Smile London', $this->dental->id, 'Dental clinic', [['gcid:pediatric_dentist', 'Paediatric Dentist'], ['gcid:orthodontist', 'Orthodontist']],
+            [['gcid:pediatric_dentist', 'Fissure sealant']]);
+        $this->profile('Smile Boston', $this->dental->id, 'Dental clinic', [['gcid:pediatric_dentist', 'Pediatric dentist']], []);
+        $location = DB::table('gbp_location_snapshots')->orderByDesc('id')->first();
+        DB::table('gbp_service_snapshots')->where('external_resource_id', $location->external_resource_id)->update(['service_items' => json_encode([
+            ['structuredServiceItem' => ['serviceTypeId' => 'job_type_id:teeth_whitening']],
+        ])]);
+        $asked = [];
+        Http::fake(function (Request $request) use (&$asked) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            preg_match_all('~names=([^&]+)~', $request->url(), $names);
+            $asked = [...$asked, ...array_map('urldecode', $names[1])];
+            $this->assertSame(['TR', 'tr'], [$query['regionCode'] ?? null, $query['languageCode'] ?? null]);
+            $turkish = ['gcid:dental_clinic' => 'Diş kliniği', 'gcid:pediatric_dentist' => 'Pedodontist', 'gcid:orthodontist' => 'Ortodontist', 'gcid:cosmetic_dentist' => 'Estetik diş hekimi'];
+
+            return Http::response(['categories' => array_map(fn (string $id): array => ['name' => 'categories/'.$id, 'displayName' => $turkish[$id],
+                'serviceTypes' => $id === 'gcid:dental_clinic' ? [['serviceTypeId' => 'job_type_id:teeth_whitening', 'displayName' => 'Diş beyazlatma']] : []],
+                array_values(array_intersect(array_keys($turkish), array_map(fn (string $n): string => preg_replace('~^categories/~', '', urldecode($n)), $names[1]))))]);
+        });
+
+        $found = app(GbpPeerProfiles::class)->collect($this->asset);
+
+        $this->assertSame([['Pedodontist', 4], ['Estetik diş hekimi', 1]], array_map(fn (array $c): array => [$c['name'], $c['count']], $found['categories']));
+        $this->assertContains(['Fissure sealant', 'Pedodontist'], array_map(fn (array $s): array => [$s['name'], $s['category']], $found['services']));
+        $this->assertSame(['Diş beyazlatma', 3, 'Diş kliniği'], [$found['services'][0]['name'], $found['services'][0]['count'], $found['services'][0]['category']]);
+        $this->assertSame(['Diş kliniği', 'Ortodontist'], $found['own_categories']);
+
+        // Names are cached per category: a second render does not ask Google again.
+        $before = count($asked);
+        app(GbpPeerProfiles::class)->collect($this->asset);
+        $this->assertSame($before, count($asked));
+    }
+
+    public function test_without_an_answer_from_google_the_collected_names_stay(): void
+    {
+        $this->authorizeGoogle();
+        Http::fake(['*' => Http::response(['error' => ['message' => 'denied']], 403)]);
+
+        $found = app(GbpPeerProfiles::class)->collect($this->asset);
+
+        $this->assertSame([['Pedodontist', 2], ['Estetik diş hekimi', 1]], array_map(fn (array $c): array => [$c['name'], $c['count']], $found['categories']));
     }
 
     public function test_boxes_put_a_heading_only_over_a_category_the_profile_has_or_gets(): void

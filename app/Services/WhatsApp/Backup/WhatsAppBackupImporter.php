@@ -37,6 +37,18 @@ final class WhatsAppBackupImporter
 
     private const BATCH = 500;
 
+    /** A queued extraction that has not started after this long is queued again (the job was lost). */
+    public const STALL_QUEUED_MINUTES = 20;
+
+    /** A running extraction without progress for this long was cut off: the job's own limit is 14.5 minutes. */
+    public const STALL_RUNNING_MINUTES = 16;
+
+    /** The operator's "Yeniden başlat" appears after this long without progress. */
+    public const RESTART_AFTER_MINUTES = 5;
+
+    /** Attempts cut off mid-way before the import fails for good. */
+    public const MAX_ATTEMPTS = 3;
+
     public function __construct(private WhatsAppConnection $connection, private WhatsAppBackupReader $reader) {}
 
     public function begin(User $user, string $fileName, int $size): WhatsAppBackupImport
@@ -52,6 +64,8 @@ final class WhatsAppBackupImporter
         if ($size < 64 || $size > self::MAX_BYTES) {
             throw ValidationException::withMessages(['backup' => 'Dosya boyutu geçersiz (en çok 2 GB).']);
         }
+
+        $this->recoverStalled();
 
         return DB::transaction(function () use ($user, $name, $size): WhatsAppBackupImport {
             if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->lockForUpdate()->exists()) {
@@ -121,18 +135,97 @@ final class WhatsAppBackupImporter
             if ($import === null || ! is_file($import->path())) {
                 throw ValidationException::withMessages(['backup' => 'Önce yedek dosyasını yükleyin.']);
             }
-            $import->update(['status' => 'queued', 'backup_key' => $hex, 'error' => null]);
+            $import->update(['status' => 'queued', 'backup_key' => $hex, 'error' => null, 'stats' => null,
+                'attempt' => $import->attempt + 1, 'queued_at' => now(), 'started_at' => null]);
 
             return $import;
         });
+        $this->dispatch($import, $user->id);
+
+        return $import;
+    }
+
+    /**
+     * Finds extractions that stopped moving and starts them again: a job that never started (lost from the queue) is
+     * queued once more, one that stopped mid-way (worker killed, server restarted: its failure hook never ran) gets a
+     * new attempt from the start, which is safe because messages already stored are skipped. After MAX_ATTEMPTS
+     * stopped attempts, or with the file gone, the import fails with the reason. Run by the scheduler and the page.
+     */
+    public function recoverStalled(): void
+    {
+        foreach (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->get() as $import) {
+            $last = $import->lastActivityAt();
+            if ($import->status === 'queued' && $last !== null && $last->greaterThan(now()->subMinutes(self::STALL_QUEUED_MINUTES))) {
+                continue;
+            }
+            if ($import->status === 'running' && $last !== null && $last->greaterThan(now()->subMinutes(self::STALL_RUNNING_MINUTES))) {
+                continue;
+            }
+            $this->revive($import, $import->status === 'running');
+        }
+    }
+
+    /** "Yeniden başlat": the operator starts an extraction again once it has shown no progress for a few minutes. */
+    public function restart(User $user): void
+    {
+        $this->connection->authorize($user);
+        $import = WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->latest()->first();
+        if ($import === null) {
+            return;
+        }
+        if (! self::canRestart($import)) {
+            throw ValidationException::withMessages(['backup' => 'Çıkarma şu an ilerliyor; birkaç dakika ilerleme olmazsa yeniden başlatabilirsiniz.']);
+        }
+        $this->revive($import, true, $user->id, 'Yeniden başlattınız.');
+    }
+
+    /** Whether the operator may press "Yeniden başlat": the attempt has shown no progress for RESTART_AFTER_MINUTES. */
+    public static function canRestart(WhatsAppBackupImport $import): bool
+    {
+        $last = $import->lastActivityAt();
+
+        return $import->isBusy() && ($last === null || $last->lessThanOrEqualTo(now()->subMinutes(self::RESTART_AFTER_MINUTES)));
+    }
+
+    /** The job reported it was cut off: a new attempt (or the failure with its reason). */
+    public function recoverInterrupted(WhatsAppBackupImport $import): void
+    {
+        $this->revive($import, true);
+    }
+
+    private function revive(WhatsAppBackupImport $import, bool $newAttempt, ?int $userId = null, ?string $note = null): void
+    {
+        $key = filled($import->backup_key) ? (string) $import->backup_key : $this->savedKey();
+        $reason = $import->status === 'running' || $newAttempt ? 'yarıda kesildi' : 'kuyrukta başlamadı';
+        $failure = match (true) {
+            ! is_file($import->path()) => 'Çıkarma '.$reason.' ve yedek dosyası sunucuda artık yok. Dosyayı yeniden yükleyin.',
+            $key === null => 'Çıkarma '.$reason.'. Anahtar kayıtlı değil: dosyayı yeniden yükleyip 64 haneli anahtarla Çıkar\'a basın.',
+            $newAttempt && $import->attempt >= self::MAX_ATTEMPTS => 'Çıkarma '.$import->attempt.' denemede de bitmedi (iş her seferinde yarıda kesildi; sunucunun belleği ya da süresi yetmiyor olabilir). Dosyayı yeniden yükleyip deneyin; sürerse bu mesajı iletin.',
+            default => null,
+        };
+        if ($failure !== null) {
+            $import->update(['status' => 'failed', 'backup_key' => null, 'finished_at' => now(), 'error' => $failure]);
+            $this->discardFiles($import);
+
+            return;
+        }
+        $import->update([
+            'status' => 'queued', 'backup_key' => $key, 'queued_at' => now(), 'started_at' => null, 'stats' => null,
+            'attempt' => $newAttempt ? $import->attempt + 1 : $import->attempt,
+            'error' => $note ?? 'Önceki deneme '.$reason.'; çıkarma kendiliğinden yeniden başlatıldı.',
+        ]);
+        File::delete($import->path().'.db');
+        $this->dispatch($import, $userId ?? $import->user_id);
+    }
+
+    private function dispatch(WhatsAppBackupImport $import, ?int $userId): void
+    {
         try {
-            ExtractWhatsAppBackup::dispatch($import->id, $user->id);
+            ExtractWhatsAppBackup::dispatch($import->id, $userId, $import->attempt);
         } catch (Throwable $exception) {
             report($exception);
             $import->update(['status' => 'uploaded', 'backup_key' => null, 'error' => 'Çıkarma işi sıraya alınamadı; kuyruk hizmetini kontrol edip tekrar deneyin.']);
         }
-
-        return $import;
     }
 
     /** The key of the last successful extraction (stored encrypted on the integration), or null. */
@@ -161,13 +254,16 @@ final class WhatsAppBackupImporter
     }
 
     /** The background extraction. A wrong key keeps the file so another key can be tried without uploading again. */
-    public function run(string $id): void
+    public function run(string $id, ?int $attempt = null): void
     {
-        $import = WhatsAppBackupImport::query()->find($id);
-        if ($import === null || $import->status !== 'queued' || ! filled($import->backup_key)) {
+        // Claimed in one statement: a duplicate or a late job of an earlier attempt finds nothing to do.
+        $claimed = WhatsAppBackupImport::query()->whereKey($id)->where('status', 'queued')->whereNotNull('backup_key')
+            ->when($attempt !== null, fn ($query) => $query->where('attempt', $attempt))
+            ->update(['status' => 'running', 'started_at' => now(), 'updated_at' => now(), 'stats' => json_encode(['phase' => 'decrypt'])]);
+        $import = $claimed === 1 ? WhatsAppBackupImport::query()->find($id) : null;
+        if ($import === null) {
             return;
         }
-        $import->update(['status' => 'running', 'started_at' => now(), 'stats' => ['phase' => 'decrypt']]);
         $database = $import->path().'.db';
         try {
             if ((int) ini_get('memory_limit') > 0 && $this->bytes((string) ini_get('memory_limit')) < 3 * $import->size + 256 * 1024 * 1024) {
@@ -184,7 +280,7 @@ final class WhatsAppBackupImporter
                 return;
             }
             $stats = $this->import($import, $database);
-            $import->update(['status' => 'completed', 'stats' => $stats, 'finished_at' => now(), 'error' => null]);
+            $import->update(['status' => 'completed', 'stats' => $stats, 'finished_at' => now(), 'error' => null, 'backup_key' => null]);
             $this->discardFiles($import);
             app(WhatsAppBrain::class)->learnAfterFirstImport($import->user_id);
         } catch (WhatsAppBackupKeyException $exception) {

@@ -107,10 +107,7 @@
     </details>
 
     @if($importBusy)
-        <div class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-backup-status="{{ $import->status }}">
-            <p class="font-medium">{{ ($importStats['phase'] ?? '') === 'import' ? 'Görüşmeler aktarılıyor: '.($importStats['chats'] ?? 0).' görüşme, '.($importStats['new_messages'] ?? 0).' yeni mesaj' : ($import->status === 'queued' ? 'Çıkarma sırada…' : 'Yedek açılıyor…') }}</p>
-            <p class="mt-1 text-xs">{{ $import->file_name }} · {{ $megabytes($import->size) }}. Sayfayı açık tutmanız gerekmez.</p>
-        </div>
+        @include('livewire.operator.whatsapp.backup-progress', ['backupImport' => $import])
     @else
         @if($import?->status === 'completed')
             <p class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['ok'] }}" data-wa-backup-status="completed">

@@ -333,6 +333,16 @@ number must stay in the advertising portfolio). The inbox is filled from the pho
   `importContacts`; `WhatsAppContactNames` normalises numbers (00…, 0 5xx…, 5xx… → 90…) and writes `contact_name` on
   matching conversations. Nothing else from the address book is stored.
 
+- Stalled extraction (2026-10-12): a job killed mid-way (worker stopped, server restarted) never ran its failure
+  hook, so the import stayed `queued`/`running` for good and blocked new uploads. Each queueing is now an attempt
+  (`attempt`, `queued_at`); `run($id, $attempt)` claims the import in one conditional update, so a late or duplicate job
+  of another attempt does nothing (the job is no longer unique). `recoverStalled()` (every 5 minutes, on page render
+  and before a new upload) re-queues a job that has not started after 20 minutes under the same attempt, and gives a
+  running one without progress for 16 minutes a new attempt with the saved key (stored messages are skipped). The job's
+  `failed()` (time limit) does the same. After 3 cut-off attempts, or without the file or a key, the import fails with
+  the reason. The inbox shows the real state (queue wait and jobs ahead, decrypting, chats/new messages so far, file,
+  time, attempt), "Yeniden başlat" after 5 minutes without progress, and failures or an unextracted upload.
+
 ## 2026-10-05 — Inbox-first redesign
 
 Benchmarked against Meta Business Suite's inbox and the WhatsApp Business app: the work (the conversation list) was at
