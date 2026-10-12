@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Services\Brand\BrandScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Mcp\Request;
@@ -52,6 +53,14 @@ class ChannelData extends Tool
         'gbp.reviews' => ['gbp_reviews', 'create_time', ['location_name', 'star_rating'], ['count']],
     ];
 
+    /** Dataset prefix => the account type its rows are collected under. */
+    private const array RESOURCE_TYPES = [
+        'google_ads' => 'google_ads',
+        'gsc' => 'search_console',
+        'ga4' => 'ga4',
+        'gbp' => 'google_business_profile',
+    ];
+
     public function handle(Request $request): Response
     {
         $validated = $request->validate([
@@ -71,11 +80,11 @@ class ChannelData extends Tool
             return Response::error('Bu veri tablosu yok: '.$table);
         }
 
-        $assetIds = BrandScope::assetIds((int) $brand->id);
+        $owned = $this->owned((int) $brand->id, $validated['dataset']);
         $from = CarbonImmutable::now()->subDays((int) ($validated['days'] ?? 90))->toDateString();
         $limit = (int) ($validated['limit'] ?? 50);
         $webOnly = str_starts_with($table, 'gsc_') && Schema::hasColumn($table, 'search_type');
-        $base = fn () => DB::table($table)->whereIn('digital_asset_id', $assetIds)->where($dateColumn, '>=', $from)
+        $base = fn () => $owned(DB::table($table), $table)->where($dateColumn, '>=', $from)
             ->when($webOnly, fn ($q) => $q->where(fn ($w) => $w->whereNull('search_type')->orWhere('search_type', 'web')));
         $sums = implode(', ', array_map(fn (string $m): string => $this->sum($table, $m), $metrics));
 
@@ -103,7 +112,7 @@ class ChannelData extends Tool
 
                 return $row + $this->round(array_intersect_key((array) $r, array_flip($metrics)));
             })->all();
-            $rows = $this->named($definition[4] ?? null, $rows, $assetIds);
+            $rows = $this->named($definition[4] ?? null, $rows, $owned);
         }
 
         return Response::json([
@@ -126,6 +135,31 @@ class ChannelData extends Tool
             'limit' => $schema->integer()->description('Rows, highest first (default 50, max 500).'),
             'contains' => $schema->string()->description('Only rows whose first grouping contains this text (e.g. a query word, a page path).'),
         ];
+    }
+
+    /**
+     * Restricts a query to the brand's rows. Collection is resource-first: an account's canonical rows carry its
+     * external_resource_id with digital_asset_id empty; older rows are bound to an asset. Like the Google Ads pool
+     * reader, each account is read from one source only (central when it has central rows, else asset-bound), so the
+     * two are never summed together.
+     *
+     * @return \Closure(Builder, string): Builder
+     */
+    private function owned(int $brandId, string $dataset): \Closure
+    {
+        $assetIds = BrandScope::assetIds($brandId) ?: [0];
+        $resourceIds = BrandScope::resources($brandId, self::RESOURCE_TYPES[strstr($dataset, '.', true)]);
+
+        return function (Builder $query, string $table) use ($assetIds, $resourceIds): Builder {
+            $central = $resourceIds !== [] && Schema::hasColumn($table, 'external_resource_id')
+                ? array_values(array_filter($resourceIds, fn (int $id): bool => DB::table($table)->where('external_resource_id', $id)->whereNull('digital_asset_id')->exists()))
+                : [];
+
+            return $query->where(fn (Builder $scope) => $scope
+                ->where(fn (Builder $legacy) => $legacy->whereIn('digital_asset_id', $assetIds)
+                    ->when($central !== [], fn (Builder $q) => $q->where(fn (Builder $other) => $other->whereNotIn('external_resource_id', $central)->orWhereNull('external_resource_id'))))
+                ->when($central !== [], fn (Builder $q) => $q->orWhere(fn (Builder $c) => $c->whereIn('external_resource_id', $central)->whereNull('digital_asset_id'))));
+        };
     }
 
     private function sum(string $table, string $metric, bool $alias = true): string
@@ -158,16 +192,16 @@ class ChannelData extends Tool
      * Readable names for ids from the latest snapshots.
      *
      * @param  list<array<string, mixed>>  $rows
-     * @param  list<int>  $assetIds
+     * @param  \Closure(Builder, string): Builder  $owned
      * @return list<array<string, mixed>>
      */
-    private function named(?string $resolver, array $rows, array $assetIds): array
+    private function named(?string $resolver, array $rows, \Closure $owned): array
     {
         if ($resolver === null || $rows === []) {
             return $rows;
         }
         $meta = fn (string $table, string $key): array => Schema::hasTable($table)
-            ? DB::table($table)->whereIn('digital_asset_id', $assetIds)->get([$key, 'metadata'])
+            ? $owned(DB::table($table), $table)->get([$key, 'metadata'])
                 ->mapWithKeys(fn (object $r): array => [(string) $r->{$key} => is_string($r->metadata) ? (array) json_decode($r->metadata, true) : (array) $r->metadata])->all()
             : [];
 
@@ -179,7 +213,7 @@ class ChannelData extends Tool
         if ($resolver === 'keyword') {
             $keywords = [];
             if (Schema::hasTable('google_ads_keyword_snapshot')) {
-                foreach (DB::table('google_ads_keyword_snapshot')->whereIn('digital_asset_id', $assetIds)->get(['ad_group_id', 'criterion_id', 'metadata']) as $k) {
+                foreach ($owned(DB::table('google_ads_keyword_snapshot'), 'google_ads_keyword_snapshot')->get(['ad_group_id', 'criterion_id', 'metadata']) as $k) {
                     $keywords[$k->ad_group_id."\0".$k->criterion_id] = is_string($k->metadata) ? (array) json_decode($k->metadata, true) : (array) $k->metadata;
                 }
             }

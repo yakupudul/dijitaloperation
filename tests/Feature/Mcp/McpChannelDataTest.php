@@ -5,7 +5,12 @@ namespace Tests\Feature\Mcp;
 use App\Enums\DigitalAssetStatus;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\ChannelData;
+use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Support\Integrations\Google\GoogleResourceType;
 use App\Models\Brand;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use Carbon\Carbon;
@@ -69,22 +74,41 @@ final class McpChannelDataTest extends TestCase
             ->assertSee('"star_rating":"FIVE","count":1');
     }
 
+    public function test_resource_first_rows_count_for_the_brand_without_adding_older_asset_rows(): void
+    {
+        $integration = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id, 'provider' => 'google', 'resource_type' => GoogleResourceType::GOOGLE_ADS_CUSTOMER,
+            'external_id' => '1234567890', 'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $this->ads->id, 'external_resource_id' => $resource->id, 'capability' => GoogleAdsSpecialistBindingResolver::CAPABILITY, 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        $this->campaignDay(null, '2026-10-03', 'c1', 300, 6, $resource->id);
+        $this->campaignDay($this->ads->id, '2026-10-01', 'c1', 999, 9, $resource->id);
+        DB::table('google_ads_campaign_snapshot')->insert($this->provenance(null) + ['external_resource_id' => $resource->id, 'customer_id' => '1', 'campaign_id' => 'c1', 'metadata' => json_encode(['name' => 'All-on-4 UK', 'status' => 'ENABLED'])]);
+
+        MoxdopServer::tool(ChannelData::class, ['brand_id' => $this->brand->id, 'dataset' => 'google_ads.campaigns'])->assertOk()
+            ->assertSee('"name":"All-on-4 UK"')
+            ->assertSee('"cost":300')
+            ->assertSee('"last_day":"2026-10-03"')
+            ->assertDontSee('"cost":1299');
+    }
+
     public function test_unknown_brand_or_dataset_is_refused(): void
     {
         MoxdopServer::tool(ChannelData::class, ['brand_id' => 999999, 'dataset' => 'gsc.queries'])->assertHasErrors();
         MoxdopServer::tool(ChannelData::class, ['brand_id' => $this->brand->id, 'dataset' => 'users'])->assertHasErrors();
     }
 
-    private function campaignDay(int $assetId, string $date, string $campaign, float $cost, int $conversions): void
+    private function campaignDay(?int $assetId, string $date, string $campaign, float $cost, int $conversions, ?int $resourceId = null): void
     {
-        DB::table('google_ads_campaign_daily')->insert($this->provenance($assetId) + [
+        DB::table('google_ads_campaign_daily')->insert($this->provenance($assetId) + ['external_resource_id' => $resourceId] + [
             'customer_id' => '1', 'reporting_date' => $date, 'campaign_id' => $campaign, 'impressions' => 1000, 'clicks' => 50,
             'cost_micros' => (int) ($cost * 1000000), 'cost_amount' => $cost, 'conversions' => $conversions, 'currency' => 'TRY',
         ]);
     }
 
     /** @return array<string, mixed> */
-    private function provenance(int $assetId): array
+    private function provenance(?int $assetId): array
     {
         return ['digital_asset_id' => $assetId, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => str_repeat('a', 64), 'created_at' => now(), 'updated_at' => now()];
     }
