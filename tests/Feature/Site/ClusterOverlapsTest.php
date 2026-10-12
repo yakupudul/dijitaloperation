@@ -59,13 +59,29 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->row(null, $this->main, [$this->copy->id, $this->enCopy->id]);
         $this->row('en', $this->enMain, [$this->copy->id, $this->enCopy->id]);
 
-        $this->assertSame(2, app(ClusterOverlaps::class)->sync($this->site, $this->brand));
+        $this->page('/hakkimizda/', 'Hakkımızda', ['category' => 'kurumsal']);
+        $this->assertSame(1, app(ClusterOverlaps::class)->sync($this->site, $this->brand));
 
         $open = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->actionable()->get();
-        $this->assertSame([$this->copy->id => $this->main->id, $this->enCopy->id => $this->enMain->id],
+        $this->assertSame([$this->copy->id => $this->main->id],
             $open->mapWithKeys(fn (Suggestion $s): array => [(int) $s->page_id => (int) data_get($s->action, 'main_page_id')])->sortKeys()->all(),
-            'TR row ↔ EN page, EN row ↔ TR page and a language-less row with a TR main page ↔ EN page are translations; the TR and language-less rows find the same pair once');
+            'TR row ↔ EN page, EN row ↔ TR page and a language-less row with a TR main page ↔ EN page are translations; the TR and language-less rows find the same pair once; '
+            .'the EN pages\' own overlap is not listed: overlaps are found in the site\'s main language only (yakup, 2026-10-12)');
         $this->assertSame($tr->id, (int) data_get($open->firstWhere('page_id', $this->copy->id)->action, 'row_id'), 'the pair stays under its language row');
+    }
+
+    public function test_overlaps_found_earlier_among_translations_are_closed(): void
+    {
+        $this->page('/hakkimizda/', 'Hakkımızda', ['category' => 'kurumsal']);
+        $en = $this->row('en', $this->enMain, [$this->enCopy->id]);
+        $tr = $this->row('tr', $this->main, [$this->copy->id]);
+        $foreign = $this->legacy($en, Suggestion::OPEN, $this->enMain);
+        $own = $this->legacy($tr, Suggestion::OPEN);
+
+        $this->assertSame(1, ClusterOverlaps::retireOtherLanguages());
+        $this->assertSame(Suggestion::APPLIED, $foreign->fresh()->status);
+        $this->assertStringContainsString('ana dili dışında', (string) $foreign->fresh()->operator_note);
+        $this->assertSame(Suggestion::OPEN, $own->fresh()->status);
     }
 
     public function test_an_old_per_language_duplicate_keeps_its_decision_and_the_extra_copy_closes(): void

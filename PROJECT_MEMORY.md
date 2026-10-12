@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-12 — Küme çakışmaları yalnız sitenin ana dilinde
+
+- **Karar (Claude; yakup sordu: "Buradaki veriler doğru mu?", OPC Klinik):** Küme çakışması yalnız sitenin ana dilindeki sayfalar arasında aranır. Diğer dillerdeki sayfalar ana dildeki sayfaların Polylang çevirileridir; çakışma her dilde ayrı iş olarak, kümenin Türkçe adıyla tekrar gelmesin. Ana dildeki karar (301, Ayrıştır, ana sayfa) çevirilere elle taşınır.
+
 ## 2026-10-12 — İçerik akışı: havuz hep 20, yazı görseli, Taslakta / Yayında, yazı tarihi
 
 - **Karar (yakup):** Bir başlık onaylanıp yazdırılınca havuza aynı içerik fikri motoruyla (aynı veri, aynı kurallar) yeni fikir gelir; sitenin ana dilindeki havuz en az 20 kalır (`TopUpContentPoolJob` → `ContentCoverage::needs`).

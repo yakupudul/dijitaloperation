@@ -83,6 +83,8 @@ final class RepairDeskTest extends SiteTestCase
         $this->suggestion('Alt metin', 'image_alt', ['site_id' => $this->site->id, 'images' => [['image_id' => 7, 'file' => 'a.jpg', 'alt' => 'Alt']]]);
 
         Livewire::test(RepairDeskPage::class)->assertSee('Onarım masası')->assertSee('Onay bekleyen 2')->assertSee('Yeni başlık')
+            ->set('brandId', $this->brand->id)->assertSee($this->brand->name.': onay bekleyen 2 paket · 2 iş')->assertSee('tüm markalarda 2 iş')
+            ->set('brandId', null)
             ->set('kind', RepairDesk::SITE_FIELDS)->assertDontSee('a.jpg')
             ->call('approve', $fields->id)->assertSee('1 iş uygulamaya gönderildi')
             ->set('kind', '')->call('approveAllLow')->assertSee('1 iş uygulamaya gönderildi')

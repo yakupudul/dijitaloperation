@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-12 — Onarım masası: marka süzgecinde sayılar, küme çakışmaları yalnız ana dilde
+
+- Marka seçiliyken başlık o markanın onay bekleyen paket ve iş sayısını gösterir (tüm markaların toplamı parantezde); önceden başlık tüm markaları, şeritler seçili markayı sayıyordu (OPC: başlık 1.665, şeritler 873).
+- Diğer işler sekmelerinde sayılar etiketli: "30 iş · 23 acil" (acil, açık işlerin içindedir).
+- Toplu onay penceresindeki "ve undefined iş daha" düzeldi.
+- Marka listesindeki "paket" yalnız hazır düzeltmeleri sayar; bu, açıklama ipucunda yazıyor.
+- Küme çakışmaları yalnız sitenin ana dilinde aranır (`ClusterOverlaps::mainLanguage`). /it/, /de/ gibi çeviriler arasındaki çakışmalar artık iş olmuyor; eskiden açılmış olanlar migration ile kapandı (not: "Sitenin ana dili dışında").
+- **State:** CODED + PHPUnit (`ClusterOverlapsTest`, `RepairDeskTest`).
+
 ## 2026-10-12 — Hata merkezi: sunucu belleği, disk ve yazılım sağlığı
 
 - Ayarlar › Sistem sayfasının en üstünde iki kart var. **Sunucu** kartı bellek (RAM), takas alanı ve diskleri GB olarak gösteriyor: dolu, boş, toplam ve yüzde, renkli çubukla. %80'de sarı, %90'da kırmızı olur. Aynı kartta işlemci yükü (çekirdek sayısına göre) ve sunucunun ne zamandır açık olduğu da var.

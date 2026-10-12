@@ -50,8 +50,8 @@
             @continue($code === 'kurulum' && $tab !== 'kurulum')
             <button type="button" role="tab" wire:click="setTab('{{ $code }}')" @class(['-mb-px h-11 shrink-0 border-b-2 whitespace-nowrap', 'border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white' => $tab === $code, 'border-transparent text-gray-500 hover:text-gray-800' => $tab !== $code]) aria-selected="{{ $tab === $code ? 'true' : 'false' }}">
                 {{ $label }}
-                @if($urgent[$code] > 0)<span class="ml-1 rounded-full bg-rose-100 px-1.5 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" title="Acil">{{ $urgent[$code] }}</span>@endif
-                @if($counts[$code] > 0)<span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs text-gray-600 dark:bg-gray-800">{{ $counts[$code] }}</span>@endif
+                @if($counts[$code] > 0)<span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs text-gray-600 dark:bg-gray-800" title="Açık iş">{{ $counts[$code] }} iş</span>@endif
+                @if($urgent[$code] > 0)<span class="ml-1 rounded-full bg-rose-100 px-1.5 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" title="Bunların acil olanları">{{ $urgent[$code] }} acil</span>@endif
             </button>
         @endforeach
     </nav>

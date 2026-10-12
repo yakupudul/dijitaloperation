@@ -29,7 +29,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Onarım masası</h1>
-            <p class="mt-1 text-sm text-gray-500">Sistemin hazırladığı düzeltmeler paket paket: aynı markanın aynı türdeki işleri tek kararda. Onayladığın an uygulanır, kayda geçer ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300">Onay bekleyen {{ number_format($counts['packages'], 0, ',', '.') }} paket · {{ number_format($counts['total'], 0, ',', '.') }} iş</span></p>
+            <p class="mt-1 text-sm text-gray-500">Sistemin hazırladığı düzeltmeler paket paket: aynı markanın aynı türdeki işleri tek kararda. Onayladığın an uygulanır, kayda geçer ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300" data-desk-total>@if ($brandId !== null){{ $brands[$brandId] ?? 'Marka' }}: onay bekleyen {{ number_format($counts['brand_packages'], 0, ',', '.') }} paket · {{ number_format($counts['brand_total'], 0, ',', '.') }} iş <span class="font-normal text-gray-500">(tüm markalarda {{ number_format($counts['total'], 0, ',', '.') }} iş)</span>@else Onay bekleyen {{ number_format($counts['packages'], 0, ',', '.') }} paket · {{ number_format($counts['total'], 0, ',', '.') }} iş @endif</span></p>
         </div>
         <a href="#yapilanlar" @click="$dispatch('show-done')" class="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30" data-done-badge>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı</a>
     </div>
@@ -75,7 +75,7 @@
         {{-- Solda markalar: kazandıracak işe göre sıralı --}}
         <aside class="hidden rounded-xl bg-white p-3 sm:block ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-repair-health>
             <h2 class="px-2 text-sm font-semibold text-gray-800 dark:text-white/90">Marka sağlığı</h2>
-            <p class="cursor-help px-2 text-xs text-gray-500" title="Kusursuz yüzdesi = son {{ RepairDesk::TRACK_DAYS }} günde biten işler ÷ (biten + kalan). Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan; sayfa işinde puan sayfanın 90 günlük Search Console gösterim ve tıklamasıyla büyür, hiç görünmeyen sayfa 0), eşitse kritik iş sayısı. Kalan işler paket olarak sayılır: aynı markanın aynı türdeki işleri tek paket." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
+            <p class="cursor-help px-2 text-xs text-gray-500" title="Kusursuz yüzdesi = son {{ RepairDesk::TRACK_DAYS }} günde biten işler ÷ (biten + kalan). Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan; sayfa işinde puan sayfanın 90 günlük Search Console gösterim ve tıklamasıyla büyür, hiç görünmeyen sayfa 0), eşitse kritik iş sayısı. Kalan işler paket olarak sayılır: aynı markanın aynı türdeki işleri tek paket. Paketler yalnız hazır düzeltmelerdir; küme çakışması, içerik gibi Diğer işler ayrı sayılır." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
             <ul class="mt-2 max-h-[70vh] space-y-0.5 overflow-y-auto text-sm">
                 <li>
                     <button type="button" wire:click="$set('brandId', null)" @class(['flex w-full items-baseline justify-between gap-2 rounded-lg px-2 py-1.5 text-left', 'bg-gray-100 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white' => $brandId === null, 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5' => $brandId !== null])>
@@ -383,7 +383,7 @@
                 <template x-for="(line, n) in (ask?.samples ?? [])" :key="n">
                     <li class="break-words rounded-lg bg-gray-50 px-3 py-1.5 text-gray-800 dark:bg-white/5 dark:text-gray-200" x-text="line"></li>
                 </template>
-                <li class="text-xs text-gray-500" x-show="ask?.more > 0" x-text="'ve ' + ask?.more + ' iş daha'"></li>
+                <li class="text-xs text-gray-500" x-show="(ask?.more ?? 0) > 0" x-text="(ask?.more ?? 0) > 0 ? 've ' + ask.more + ' iş daha' : ''"></li>
             </ul>
             <p class="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">Geri alınabilir: her uygulanan iş kayda geçer, "Yapılanlar"dan tek tek ya da topluca geri alınır.</p>
             <div class="mt-4 flex justify-end gap-2 text-sm">

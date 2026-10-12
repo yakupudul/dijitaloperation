@@ -79,10 +79,11 @@ final class ClusterOverlaps
         $targets = BrandClusterPage::query()->where('website_asset_id', $site->id)->where('excluded', false)->whereNotNull('page_id')
             ->get(['cluster_id', 'page_id'])->groupBy('page_id')->map(fn ($group): array => $group->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())->all();
         $pageServices = BrandAudit::pageServices($site);
+        $primary = SiteScope::primaryLanguage($site);
         $found = [];
         foreach ($rows as $row) {
             $main = $pages->get((int) $row->page_id);
-            if ($main === null) {
+            if ($main === null || ! self::mainLanguage($primary, (string) $row->language, $main)) {
                 continue;
             }
             $gsc = [];
@@ -448,6 +449,51 @@ final class ClusterOverlaps
      * The row's language (or, on a language-less row, its main page's) and the page's must match when both are known,
      * and so must the language prefix of the paths ("/en/…" ↔ "/…"): a TR page ↔ EN page is a translation, not an overlap.
      */
+    /**
+     * Overlaps are found in the site's main language only (yakup, 2026-10-12): other languages are translations of
+     * the main-language pages (Polylang), so the same overlap would come back once per language, under the cluster's
+     * Turkish name. The main-language decision (301, Ayrıştır, ana sayfa) is then carried to the translations by hand.
+     */
+    public static function mainLanguage(?string $primary, string $rowLanguage, Page $main): bool
+    {
+        $language = strtolower($rowLanguage !== '' ? $rowLanguage : (string) $main->language);
+        $prefix = self::pathLanguage($main);
+        if ($primary === null) {
+            return $prefix === '';
+        }
+        $primary = strtolower($primary);
+
+        return ($language === '' || $language === $primary) && ($prefix === '' || $prefix === $primary);
+    }
+
+    /**
+     * Open overlaps found earlier in a language other than the site's main one are closed (one-off, after the rule
+     * above; a later sync would close them too).
+     *
+     * @return int closed
+     */
+    public static function retireOtherLanguages(): int
+    {
+        $closed = 0;
+        $primary = [];
+        Suggestion::query()->where('decision_key', self::DECISION)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED])
+            ->orderBy('id')->each(function (Suggestion $suggestion) use (&$closed, &$primary): void {
+                $site = DigitalAsset::query()->find((int) data_get($suggestion->action, 'site_id'));
+                $main = Page::query()->find((int) data_get($suggestion->action, 'main_page_id'));
+                $row = BrandClusterPage::query()->find((int) data_get($suggestion->action, 'row_id'));
+                if ($site === null || $main === null) {
+                    return;
+                }
+                $primary[(int) $site->id] ??= SiteScope::primaryLanguage($site) ?? '';
+                if (! self::mainLanguage($primary[(int) $site->id] !== '' ? $primary[(int) $site->id] : null, (string) ($row?->language ?? ''), $main)) {
+                    $suggestion->forceFill(['status' => Suggestion::APPLIED, 'resolved_at' => now(), 'operator_note' => 'Sitenin ana dili dışında; çeviriler ana dildeki karara uyar.'])->save();
+                    $closed++;
+                }
+            });
+
+        return $closed;
+    }
+
     private static function sameLanguage(string $language, Page $main, Page $page): bool
     {
         $language = strtolower($language);
