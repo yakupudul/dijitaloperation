@@ -21,7 +21,7 @@ final class TopUpContentPoolJob implements ShouldBeUnique, ShouldQueue
 
     public function __construct(public int $siteId)
     {
-        $this->onQueue((string) config('queue.heavy_queue', 'default'));
+        $this->onQueue((string) config('queue.content_queue', 'default'));
     }
 
     public function uniqueId(): string

@@ -2,14 +2,12 @@
 
 namespace Tests\Feature\Mcp;
 
+use App\Ai\Agents\Site\ClusterMatchAgent;
 use App\Ai\Agents\Site\WriteArticleAgent;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\FailTask;
-use App\Mcp\Tools\GetTask;
-use App\Mcp\Tools\ListTasks;
-use App\Mcp\Tools\SubmitResult;
 use App\Models\AiTask;
 use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
@@ -44,73 +42,33 @@ final class AiTaskQueueTest extends SiteTestCase
         $this->page('/implant/', 'Ankara İmplant Tedavisi', ['category' => 'hizmet']);
     }
 
-    public function test_delegated_article_waits_for_claude_and_continues_with_the_submitted_result(): void
+    public function test_content_writing_never_waits_for_claude_even_when_its_prompt_says_claude(): void
     {
+        // yakup, 2026-10-12: "İçerik fikri, üretimi gönderimi vs. hiçbir zaman kuyruğa girmesin."
         $this->delegate(AiRouteKeys::SITE_WRITE_ARTICLE);
-        WriteArticleAgent::fake()->preventStrayPrompts();
+        WriteArticleAgent::fake([self::ARTICLE]);
         $suggestion = $this->contentSuggestion();
-        $job = new RunSiteOperationJob($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $suggestion->id]);
 
-        $job->handle(app(SiteOperations::class));
+        (new RunSiteOperationJob($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $suggestion->id]))
+            ->handle(app(SiteOperations::class));
 
-        $this->assertSame('queued', SiteOperations::status($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $suggestion->id])['status']);
-        $task = AiTask::query()->sole();
-        $this->assertSame(AiTask::PENDING, $task->status);
-        $this->assertSame($this->brand->id, $task->brand_id);
-        $this->assertStringStartsWith('DATA_JSON', $task->input);
-        $this->assertStringContainsString('İmplant sonrası ilk hafta', $task->input);
-        $this->assertContains('html', $task->output_schema['required']);
-        WriteArticleAgent::assertNeverPrompted();
-
-        // Running the job again while Claude has not answered does not queue a second task.
-        $job->handle(app(SiteOperations::class));
-        $this->assertSame(1, AiTask::query()->count());
-
-        MoxdopServer::tool(ListTasks::class)->assertOk()->assertSee('site.write_article');
-        MoxdopServer::tool(GetTask::class, ['id' => $task->id])->assertOk()->assertSee('output_schema');
-        $this->assertSame(AiTask::CLAIMED, $task->fresh()->status);
-
-        Queue::fake();
-        MoxdopServer::tool(SubmitResult::class, ['id' => $task->id, 'output' => array_diff_key(self::ARTICLE, ['html' => true])])
-            ->assertHasErrors(['zorunlu alan eksik']);
-        $this->assertSame(AiTask::CLAIMED, $task->fresh()->status);
-        Queue::assertNothingPushed();
-
-        MoxdopServer::tool(SubmitResult::class, ['id' => $task->id, 'output' => self::ARTICLE])->assertOk()->assertSee('Kaydedildi');
-        $this->assertSame(AiTask::DONE, $task->fresh()->status);
-        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $pushed): bool => $pushed->operation === SiteOperations::WRITE_ARTICLE
-            && $pushed->params === ['suggestion_id' => $suggestion->id]);
-
-        // The resumed run gets the answer back and stores the article like a provider response.
-        $job->handle(app(SiteOperations::class));
         $this->assertSame('ready', SiteOperations::status($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $suggestion->id])['status']);
         $this->assertSame('İmplant sonrası ilk hafta', $suggestion->fresh()->action['article']['title']);
-        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
-        WriteArticleAgent::assertNeverPrompted();
-
-        // A later "Taslak hazırla" asks Claude again instead of reusing the used answer.
-        $job->handle(app(SiteOperations::class));
-        $this->assertSame(2, AiTask::query()->count());
-        $this->assertSame(1, AiTask::query()->where('status', AiTask::PENDING)->count());
+        $this->assertSame(0, AiTask::query()->count());
     }
 
-    public function test_failed_task_ends_the_run_with_an_error(): void
+    public function test_failed_task_hands_its_run_back_with_an_error(): void
     {
-        $this->delegate(AiRouteKeys::SITE_WRITE_ARTICLE);
-        WriteArticleAgent::fake()->preventStrayPrompts();
-        $suggestion = $this->contentSuggestion();
-        $job = new RunSiteOperationJob($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $suggestion->id]);
-        $job->handle(app(SiteOperations::class));
-        $task = AiTask::query()->sole();
+        $task = AiTask::query()->create(['operation' => 'site.cluster_match', 'resume_key' => hash('sha256', 'run'), 'sequence' => 1, 'input_hash' => 'h',
+            'status' => AiTask::PENDING, 'instructions' => 'x', 'input' => 'DATA_JSON {}', 'output_schema' => [],
+            'resume' => serialize(new RunSiteOperationJob($this->site->id, SiteOperations::CLUSTER_PAGES, []))]);
 
         Queue::fake();
         MoxdopServer::tool(FailTask::class, ['id' => $task->id, 'reason' => 'Girdide küme sorgusu yok.'])->assertOk();
-        Queue::assertPushed(RunSiteOperationJob::class);
-        $job->handle(app(SiteOperations::class));
 
-        $this->assertSame('error', SiteOperations::status($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $suggestion->id])['status']);
-        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
-        $this->assertArrayNotHasKey('article', (array) $suggestion->fresh()->action);
+        Queue::assertPushed(RunSiteOperationJob::class);
+        $this->assertSame(AiTask::FAILED, $task->fresh()->status);
+        $this->assertSame('Girdide küme sorgusu yok.', $task->fresh()->error);
     }
 
     public function test_operation_not_delegated_keeps_the_provider_route(): void
@@ -128,24 +86,26 @@ final class AiTaskQueueTest extends SiteTestCase
     public function test_delegation_needs_the_mcp_token_and_a_supported_operation(): void
     {
         $queue = app(AiTaskQueue::class);
-        $this->delegate(AiRouteKeys::SITE_WRITE_ARTICLE);
-        $this->assertTrue($queue->delegated(AiRouteKeys::SITE_WRITE_ARTICLE));
-        $this->assertTrue($queue->supports(AiRouteKeys::SITE_CONTENT_RECIPE));
+        $this->delegate('site.cluster_match');
+        $this->assertTrue($queue->delegated('site.cluster_match'));
         $this->assertFalse($queue->supports(AiRouteKeys::QUERIES_TRIAGE), 'query autopilot stays on the API');
+        $this->assertFalse($queue->supports(AiRouteKeys::SITE_WRITE_ARTICLE), 'content work never waits for Claude');
+        $this->assertFalse($queue->supports(AiRouteKeys::SITE_CONTENT_RECIPE));
 
         config(['moxdop-mcp.token' => '']);
-        $this->assertFalse($queue->delegated(AiRouteKeys::SITE_WRITE_ARTICLE));
+        $this->assertFalse($queue->delegated('site.cluster_match'));
     }
 
     public function test_ai_operations_screen_offers_claude_mcp_only_where_it_works_and_shows_the_queue(): void
     {
-        Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::SITE_WRITE_ARTICLE)->assertSee('Claude (MCP, abonelik)')
+        Livewire::test(AiOperationsPage::class)->call('open', 'site.cluster_match')->assertSee('Claude (MCP, abonelik)')
             ->set('model', AiTaskQueue::MODEL)->call('save')->assertHasNoErrors();
-        $this->assertTrue(app(AiTaskQueue::class)->delegated(AiRouteKeys::SITE_WRITE_ARTICLE));
+        $this->assertTrue(app(AiTaskQueue::class)->delegated('site.cluster_match'));
         Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::QUERIES_TRIAGE)->assertDontSee('Claude (MCP, abonelik)');
+        Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::SITE_WRITE_ARTICLE)->assertDontSee('Claude (MCP, abonelik)');
 
-        WriteArticleAgent::fake()->preventStrayPrompts();
-        (new RunSiteOperationJob($this->site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $this->contentSuggestion()->id]))->handle(app(SiteOperations::class));
+        AiTask::query()->create(['operation' => 'site.cluster_match', 'resume_key' => hash('sha256', 'run'), 'sequence' => 1, 'input_hash' => 'h',
+            'status' => AiTask::PENDING, 'instructions' => 'x', 'input' => 'DATA_JSON {}', 'output_schema' => [], 'resume' => serialize(new RunSiteOperationJob($this->site->id, SiteOperations::CLUSTER_PAGES, []))]);
         Livewire::test(AiOperationsPage::class)->assertSee('Claude (MCP) iş kuyruğu')->assertSee('Claude bekleniyor');
     }
 
@@ -163,14 +123,14 @@ final class AiTaskQueueTest extends SiteTestCase
 
     public function test_a_delegated_operation_called_outside_a_job_never_uses_the_provider(): void
     {
-        $this->delegate(AiRouteKeys::SITE_WRITE_ARTICLE);
-        WriteArticleAgent::fake()->preventStrayPrompts();
+        $this->delegate('site.cluster_match');
+        ClusterMatchAgent::fake()->preventStrayPrompts();
 
-        $result = app(SiteAi::class)->run(new WriteArticleAgent, ['title' => 'İmplant sonrası ilk hafta']);
+        $result = app(SiteAi::class)->run(new ClusterMatchAgent, ['clusters' => []]);
 
         $this->assertSame('error', $result['status']);
         $this->assertSame(0, AiTask::query()->count());
-        WriteArticleAgent::assertNeverPrompted();
+        ClusterMatchAgent::assertNeverPrompted();
     }
 
     public function test_work_delegated_to_claude_may_run_without_a_click(): void

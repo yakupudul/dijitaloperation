@@ -887,8 +887,10 @@ final class ExternalWriteService
 
     private function dispatch(ExternalWriteAction $action, bool $undo): void
     {
+        // An article's WordPress draft goes on the content queue: content never waits behind other work (2026-10-12).
+        $content = in_array($action->action, [ExternalWriteAction::ACTION_ARTICLE_DRAFTS, ExternalWriteAction::ACTION_POST_DATE], true);
         dispatch(new ExecuteExternalWriteJob($action->id, $undo))
             ->onConnection((string) config('moxdop-external-writes.queue_connection', config('queue.default')))
-            ->onQueue((string) config('moxdop-external-writes.queue', 'default'));
+            ->onQueue($content ? (string) config('queue.content_queue', 'default') : (string) config('moxdop-external-writes.queue', 'default'));
     }
 }

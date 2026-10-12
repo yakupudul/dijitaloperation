@@ -232,6 +232,20 @@ return [
             'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
             'nice' => 10,
         ],
+        // Content ideas, article writing, translations and WordPress drafts (yakup, 2026-10-12: "hiçbir zaman kuyruğa
+        // girmesin"): their own workers, never behind Eşleştir or other long jobs on "heavy".
+        'supervisor-content' => [
+            'connection' => 'redis',
+            'queue' => ['content'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('HORIZON_CONTENT_MAX_PROCESSES', 3),
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            'nice' => 0,
+        ],
         'supervisor-heavy' => [
             'connection' => 'redis',
             'queue' => ['heavy'],

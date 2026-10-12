@@ -65,6 +65,19 @@ final class AiBudget
         return $this->blockReason($provider, $model, $operation) === null;
     }
 
+    /**
+     * Content work (yakup, 2026-10-12 "İçerik fikri, üretimi, gönderimi vs. hiçbir zaman kuyruğa girmesin"): ideas,
+     * articles and their translations are not stopped by the daily ceiling or the monthly budget and never fall back
+     * to the Claude (MCP) queue; only a provider's own exhausted credit stops one step (the route's next provider runs).
+     */
+    public const array CONTENT_OPERATIONS = [AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_WRITE_ARTICLE,
+        AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::CONTENT_LOCALIZE];
+
+    public static function isContent(?string $operation): bool
+    {
+        return $operation !== null && in_array($operation, self::CONTENT_OPERATIONS, true);
+    }
+
     /** Why an AI call must not start (Turkish, for the operator), null when it may. */
     public function blockReason(?string $provider, ?string $model, ?string $operation): ?string
     {
@@ -80,6 +93,9 @@ final class AiBudget
         }
         if (app(AiCredits::class)->exhausted($provider)) {
             return sprintf('%s kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).', AiCredits::label((string) $provider));
+        }
+        if (self::isContent($operation)) {
+            return null;
         }
         if ($this->dailyExhausted()) {
             return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f); yarın yeniden çalışır.', $this->dailySpend(), $this->dailyBudget());
@@ -112,7 +128,8 @@ final class AiBudget
         if ($operation === null) {
             return false;
         }
-        if (in_array(explode('.', $operation)[0], $areas, true)) {
+        // Content work runs by itself: the pool stays full and approved titles are written (yakup, 2026-10-12).
+        if (self::isContent($operation) || in_array(explode('.', $operation)[0], $areas, true)) {
             return true;
         }
         // WhatsApp reply drafts run on their own only when the operator turned automatic suggestions on there.
@@ -129,13 +146,13 @@ final class AiBudget
      * Whether a paid call on this provider/model is stopped by money alone: its loaded credit is used up, the day's
      * ceiling or the month's budget is reached. No automatic-work rule here (the MCP fallback asks this).
      */
-    public function spendBlocked(string $provider, string $model): bool
+    public function spendBlocked(string $provider, string $model, ?string $operation = null): bool
     {
         if ($this->pricing->isFree($provider, $model) || app(OpenAiFreeQuota::class)->hasRoom($provider, $model)) {
             return false;
         }
 
-        return app(AiCredits::class)->exhausted($provider) || $this->dailyExhausted() || $this->isExhausted();
+        return app(AiCredits::class)->exhausted($provider) || (! self::isContent($operation) && ($this->dailyExhausted() || $this->isExhausted()));
     }
 
     /**

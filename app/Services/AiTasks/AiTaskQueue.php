@@ -48,11 +48,10 @@ final class AiTaskQueue
 
     /**
      * Operations whose callers handle "queued" (wait, keep their progress, continue with Claude's answer). Any other
-     * site operation keeps the provider route until its caller is taught to wait.
+     * site operation keeps the provider route until its caller is taught to wait. Content work (ideas, articles,
+     * translations) is never given to the queue (yakup, 2026-10-12: "hiçbir zaman kuyruğa girmesin").
      */
     public const array SUPPORTED = [
-        AiRouteKeys::SITE_WRITE_ARTICLE,
-        AiRouteKeys::SITE_CONTENT_RECIPE,
         AiRouteKeys::SITE_CLUSTER_MATCH,
         AiRouteKeys::SITE_CLUSTER_GAPS,
         AiRouteKeys::QUERIES_AI_QUERIES,
@@ -76,7 +75,6 @@ final class AiTaskQueue
         AiRouteKeys::GBP_BRANCH_PAGE,
         AiRouteKeys::META_CAMPAIGN_SERVICES,
         AiRouteKeys::META_STRATEGY_PLAN,
-        AiRouteKeys::SITE_WEEKLY_CONTENT,
         AiRouteKeys::SITE_SEO_FIELDS_BATCH,
     ];
 
@@ -96,7 +94,8 @@ final class AiTaskQueue
      */
     public function delegated(string $operation): bool
     {
-        if (! self::enabled() || ! $this->supports($operation)) {
+        // Content work never waits in the Claude queue (yakup, 2026-10-12); it runs on the provider route.
+        if (! self::enabled() || ! $this->supports($operation) || AiBudget::isContent($operation)) {
             return false;
         }
         if ($this->registry->current($operation)->model === self::MODEL) {
@@ -111,7 +110,7 @@ final class AiTaskQueue
     {
         $pinned = $this->registry->modelFor($operation);
 
-        return $pinned !== null && $pinned[0] === AiProviderCatalog::ANTHROPIC && app(AiBudget::class)->spendBlocked($pinned[0], $pinned[1]);
+        return $pinned !== null && $pinned[0] === AiProviderCatalog::ANTHROPIC && app(AiBudget::class)->spendBlocked($pinned[0], $pinned[1], $operation);
     }
 
     /**

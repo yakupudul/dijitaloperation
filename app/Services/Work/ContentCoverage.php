@@ -121,9 +121,6 @@ final class ContentCoverage
             if (! $weekly && $siteId === null && ($last['status'] ?? null) === 'no_candidates' && Carbon::parse($last['at'])->gt(now()->subHours(20))) {
                 continue; // the data had no topic left today; the next day's data may have
             }
-            if (($last['status'] ?? null) === 'queued' && Carbon::parse($last['at'])->gt(now()->subHours(36))) {
-                continue; // the ideas wait in the Claude queue; asking again would only queue the same work twice
-            }
             $wants = [];
             foreach ($row['pool'] as $language => $waiting) {
                 $want = max(self::POOL - $waiting, $weekly ? $row['weekly'] : 0);

@@ -4,6 +4,10 @@
 
 - **Karar (Claude; yakup sordu: "Buradaki veriler doğru mu?", OPC Klinik):** Küme çakışması yalnız sitenin ana dilindeki sayfalar arasında aranır. Diğer dillerdeki sayfalar ana dildeki sayfaların Polylang çevirileridir; çakışma her dilde ayrı iş olarak, kümenin Türkçe adıyla tekrar gelmesin. Ana dildeki karar (301, Ayrıştır, ana sayfa) çevirilere elle taşınır.
 
+## 2026-10-12 — İçerik işleri hiçbir kuyrukta beklemez
+
+- **Karar (yakup):** İçerik fikri, yazım, çeviri ve WordPress gönderimi hiçbir zaman Claude (MCP) kuyruğuna ya da genel ağır kuyruğa girmez. Bu işlerin ayrı bir kuyruğu ve işçisi var, günlük tavan ve aylık bütçe onları durdurmaz. Yalnız Claude API kredisi biterse durur ve hata kartta görünür.
+
 ## 2026-10-12 — İçerik akışı: havuz hep 20, yazı görseli, Taslakta / Yayında, yazı tarihi
 
 - **Karar (yakup):** Bir başlık onaylanıp yazdırılınca havuza aynı içerik fikri motoruyla (aynı veri, aynı kurallar) yeni fikir gelir; sitenin ana dilindeki havuz en az 20 kalır (`TopUpContentPoolJob` → `ContentCoverage::needs`).
@@ -16,6 +20,7 @@
 - **Karar (yakup):** Onarım masasında onaylanıp uygulanan her değişiklik 30 ve 90 gün sonra ölçülür ve sistem bundan öğrenir. 2026-11-01 Faz 9 kararının (28. / 56. gün) yerini alır; mekanizma yine tek servistir (`OutcomeTracker`), yeni tablo yok, AI yok, yalnız saklı veri.
 - **Karar:** Nokta `dN` = uygulamadan sonraki N gün ile önceki N gün (eşit dönemler, uygulama günü hariç). Dört sonuç: işe yaradı / değişmedi / kötüleşti (ana metrikte ±%10) / ölçülemedi (nedeniyle; veri eksikse tahmin yok). Kaynak önceki dönemin tamamında toplanmamışsa karşılaştırılmaz.
 - **Karar:** İş türü sicili masa sırasını küçük ve sınırlı etkiler: 0,8–1,2 (ADR-066'nın `brain.min_measured` / `weight_range` ayarları), 5 ölçümden önce etkisiz; satır gizlenmez, risk şeritleri ve operatör önceliği önce gelir.
+
 ## 2026-10-11 — Açık işler paket olarak sayılır
 
 - **Karar:** Operatöre ya da AI'a gösterilen her açık iş sayısı ve listesi pakettir: aynı marka + aynı iş türü = bir iş ("Başlık / açıklama: 412 sayfa"). Tek kaynak `OpenWork` (gruplama `RepairDesk::packages`); sıra beklenen kazanç (öncelik × sayfanın 90 günlük Search Console erişimi), hiç görünmeyen sayfanın işi en sonda. Yeni bir ekran açık iş sayacaksa satır saymaz, `OpenWork`'ü kullanır.
@@ -367,6 +372,7 @@ Operator decision (binding): "çok kapsamlı ama bana hizmette çöp" — too ma
 - **Informational standards** (`informational: true` in standards.json; state `info`) are listed with advice but never set a URL verdict. Low-confidence heuristics (stock photos, self-serving stars) sit in the `info` verdict bucket; site reputation abuse and GBP name keywords are always "Öneri", never "Sorun".
 - **Business Profile standards live in the same catalog** (`asset_type = google_business_profile`, `gbp_*`), evaluated only in Profil sağlığı (`GbpStandardInput` → `GbpStandardEvaluator`); the website assessment and Sayfa Karnesi skip them. Special-hours checks use the static `TurkishPublicHolidays` table (2026–2027); extend it every year before the new bayram dates.
 - **Health promotion regulation (RG 12.11.2025/33075)** is checked on live pages with the health sector pack's website rules and on the site (last update + editor, health tourism certificate for English pages); every hit is "Kontrol et" style advice with a legal-review note, not a legal verdict.
+
 ## 2026-10-24 — Step 2: ownership model, sector assignment, query pipeline (sorgu hattı)
 
 Operator decisions (binding, verbatim intent):
@@ -404,6 +410,7 @@ Operator decisions (binding, verbatim intent):
   - Aggregated alerts must store the affected accounts in `observed.affected` (`AlertSubjects::describe`) and name them (5, then "+N"); never "veri seti", "dataset", run ids or English in operator text. Dataset ids go through `DatasetLabels`, error categories through `CollectionErrorExplainer`.
   - Links point at the exact place (asset Veri kaynakları, reconnect route, Portföy sağlığı, Komuta merkezi topic), not the generic Sistem sağlığı page, except for system-internal alerts (queue, workers, provider rates).
 - **One alert row and one bell row per condition.** `semantic_key` reopens the same row; `occurrence_count` / `first_opened_at` keep the history; the notifier updates the existing notification (unread again only after `reopen_quiet_hours`) and the bell hides resolved conditions.
+
 ## 2026-10-21 — No server errors from operator input
 
 - **AI output is cut to the column before it is written.** Production is PostgreSQL: varchar lengths are enforced (SQLite ignores them). `brand_intelligence_contexts.business_model` is varchar(64).
