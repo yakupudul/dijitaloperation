@@ -14,6 +14,7 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Gbp\GbpProfilePlanner;
 use App\Support\Roles;
@@ -162,5 +163,20 @@ final class GbpProfileCopierTest extends TestCase
         $note = ClaudeNote::query()->sole();
         $this->assertSame($this->brand->id, (int) $note->brand_id);
         $this->assertStringContainsString('kopyalama sonucu', $note->text);
+    }
+
+    public function test_coverage_lists_each_profile_of_the_sector_with_its_live_counts(): void
+    {
+        $sector = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş sağlığı', 'normalized_key' => 'dis sagligi']);
+        $this->brand->update(['sector_id' => $sector->id]);
+        $this->locations['2']['categories'] = [];
+
+        $this->artisan('moxdop:gbp:coverage', ['--like-brand' => (string) $this->brand->id])
+            ->expectsOutputToContain('Avrupadent · Avrupadent Buca Forbes Diş Kliniği (#2): birincil YOK, 0 ek kategori, 1 hizmet')
+            ->expectsOutputToContain('Avrupadent · Avrupadent Karşıyaka Diş Kliniği (#3): birincil Diş kliniği, 2 ek kategori, 4 hizmet')
+            ->assertSuccessful();
+
+        $this->assertNull(ClaudeNote::query()->sole()->brand_id);
+        $this->assertSame([], $this->patches);
     }
 }
