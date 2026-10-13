@@ -60,7 +60,7 @@ final class GbpCopyProfileCommand extends Command
         $this->line('Kategoriler: '.implode(', ', array_column($from['categories'], 'name')));
 
         $sent = [];
-        $failed = 0;
+        $failed = [];
         foreach ($targets as $target) {
             $name = GbpDesk::shortName((string) $target->name).' (#'.$target->id.')';
             try {
@@ -83,9 +83,14 @@ final class GbpCopyProfileCommand extends Command
                 $sent[$name] = (int) $result['action']->id;
                 $this->line($name.': '.$summary.' → gönderildi (işlem #'.$result['action']->id.')'.($result['without_description'] > 0 ? '; '.$result['without_description'].' hizmet açıklamasız' : '').'.');
             } catch (Throwable $exception) {
-                $failed++;
+                $failed[] = $name.': '.mb_substr($exception->getMessage(), 0, 300);
                 $this->error($name.': '.$exception->getMessage());
             }
+        }
+        if ($this->option('send') && $failed !== []) {
+            // A queued run has no screen: why a branch was not sent is kept on the brand (read over MCP).
+            ClaudeNote::query()->create(['brand_id' => $source->brand_id, 'kind' => 'observation', 'status' => ClaudeNote::OPEN,
+                'text' => GbpDesk::shortName((string) $source->name).' kopyası gönderilemedi ('.now()->format('Y-m-d H:i')."):\n".implode("\n", $failed)]);
         }
         if (! $this->option('send')) {
             $this->info('Göndermek için aynı komutu --send ile çalıştırın.');
@@ -93,7 +98,7 @@ final class GbpCopyProfileCommand extends Command
             return self::SUCCESS;
         }
 
-        return $this->report($sent, (int) $this->option('wait')) && $failed === 0 ? self::SUCCESS : self::FAILURE;
+        return $this->report($sent, (int) $this->option('wait')) && $failed === [] ? self::SUCCESS : self::FAILURE;
     }
 
     private function source(string $given, GbpDesk $desk): ?DigitalAsset

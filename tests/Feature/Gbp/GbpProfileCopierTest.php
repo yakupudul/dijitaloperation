@@ -165,6 +165,18 @@ final class GbpProfileCopierTest extends TestCase
         $this->assertStringContainsString('kopyalama sonucu', $note->text);
     }
 
+    public function test_a_branch_that_could_not_be_sent_is_noted_with_the_reason(): void
+    {
+        GbpBranchServicesAgent::fake(fn () => throw new \RuntimeException('Günlük AI tavanı doldu'));
+
+        $this->artisan('moxdop:gbp:copy-profile', ['source' => '1', '--only' => ['2'], '--send' => true, '--wait' => 0])->assertFailed();
+
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+        $note = ClaudeNote::query()->sole();
+        $this->assertSame($this->brand->id, (int) $note->brand_id);
+        $this->assertStringContainsString('Avrupadent Buca Forbes Diş Kliniği (#2): Açıklamalar yazılamadı: Günlük AI tavanı doldu', $note->text);
+    }
+
     public function test_coverage_lists_each_profile_of_the_sector_with_its_live_counts(): void
     {
         $sector = ServiceCategory::query()->firstOrCreate(['code' => 'dental'], ['name' => 'Diş sağlığı', 'normalized_key' => 'dis sagligi']);
