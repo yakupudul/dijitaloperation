@@ -6,6 +6,7 @@ use App\Ai\Agents\GbpBranchServicesAgent;
 use App\Enums\CustomerStatus;
 use App\Models\AiProduction;
 use App\Models\Brand;
+use App\Models\ClaudeNote;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -146,5 +147,20 @@ final class GbpProfileCopierTest extends TestCase
         $plan = AiProduction::query()->where('kind', GbpProfilePlanner::KIND)->sole();
         $this->assertSame(AiProduction::STATUS_USED, $plan->status);
         $this->assertSame('Avrupadent Çiğli Diş Kliniği', $plan->content['input']['copied_from']['name']);
+    }
+
+    public function test_report_lists_each_branchs_send_and_keeps_it_as_a_note(): void
+    {
+        GbpBranchServicesAgent::fake([['services' => []]]);
+        $this->artisan('moxdop:gbp:copy-profile', ['source' => '1', '--only' => ['2'], '--send' => true, '--wait' => 0])->assertSuccessful();
+
+        $this->artisan('moxdop:gbp:copy-profile', ['source' => 'Avrupadent Çiğli', '--report' => true])
+            ->expectsOutputToContain('Avrupadent Buca Forbes Diş Kliniği (#2): succeeded · 1 kategori, 3 hizmet eklendi')
+            ->expectsOutputToContain('Avrupadent Karşıyaka Diş Kliniği (#3): gönderim yok')
+            ->assertSuccessful();
+
+        $note = ClaudeNote::query()->sole();
+        $this->assertSame($this->brand->id, (int) $note->brand_id);
+        $this->assertStringContainsString('kopyalama sonucu', $note->text);
     }
 }

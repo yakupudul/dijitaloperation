@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ClaudeNote;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\User;
@@ -9,18 +10,22 @@ use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\GbpProfileCopier;
 use App\Support\Roles;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
  * moxdop:gbp:copy-profile — one branch's Business Profile categories and services onto the brand's other branches
  * (yakup, 2026-10-13, Avrupadent Çiğli → the other Avrupadent branches). Without --send it only lists what each branch
  * lacks; --send writes each branch's own descriptions and sends the additions as the first active Admin (ADR-077,
- * undoable on each profile's "Kategori ve hizmetler" tab), then waits for the results.
+ * undoable on each profile's "Kategori ve hizmetler" tab), then waits for the results. --report lists each branch's
+ * last send of the day and keeps it as a Claude note on the brand (read over MCP), so a queued run is checked without
+ * the server shell.
  */
 final class GbpCopyProfileCommand extends Command
 {
     protected $signature = 'moxdop:gbp:copy-profile {source : Source profile asset id, or the start of its name (e.g. "Avrupadent Çiğli")}
-        {--only=* : Only these target asset ids} {--send : Write the descriptions and send} {--wait=600 : Seconds to wait for the sends to finish}';
+        {--only=* : Only these target asset ids} {--send : Write the descriptions and send} {--wait=600 : Seconds to wait for the sends to finish}
+        {--report : Only report the last day sends per branch (also kept as a Claude note on the brand)}';
 
     protected $description = 'Copy one Business Profile branch\'s categories and services to the brand\'s other branches (descriptions per branch).';
 
@@ -33,6 +38,11 @@ final class GbpCopyProfileCommand extends Command
         $only = array_map('intval', (array) $this->option('only'));
         $targets = $desk->locations((int) $source->brand_id)->filter(fn (DigitalAsset $l): bool => (int) $l->id !== (int) $source->id
             && ($only === [] || in_array((int) $l->id, $only, true)))->values();
+        if ($this->option('report')) {
+            $this->noteReport($source, $targets);
+
+            return self::SUCCESS;
+        }
         $admin = User::query()->role(Roles::ADMIN)->where('is_active', true)->orderBy('id')->first();
         if ($this->option('send') && $admin === null) {
             $this->error('Aktif Admin kullanıcı yok.');
@@ -104,6 +114,33 @@ final class GbpCopyProfileCommand extends Command
         }
 
         return $asset;
+    }
+
+    /**
+     * Each branch's latest category / service send of the last day, printed and kept as a Claude note on the brand.
+     *
+     * @param  Collection<int, DigitalAsset>  $targets
+     */
+    private function noteReport(DigitalAsset $source, Collection $targets): void
+    {
+        $lines = [];
+        $refs = [];
+        foreach ($targets as $target) {
+            $action = ExternalWriteAction::query()->where('digital_asset_id', $target->id)->where('action', ExternalWriteAction::ACTION_PROFILE_UPDATE)
+                ->where('created_at', '>=', now()->subDay())->latest('id')->first();
+            $result = (array) ($action->result ?? []);
+            $lines[] = GbpDesk::shortName((string) $target->name).' (#'.$target->id.'): '.($action === null ? 'gönderim yok (eksik yoktu ya da hazırlanamadı)'
+                : $action->status.' · '.count((array) ($result['added_categories'] ?? [])).' kategori, '.count((array) ($result['added_services'] ?? [])).' hizmet eklendi'
+                .($action->error ? ' · '.$action->error : ''));
+            if ($action !== null) {
+                $refs[] = 'external_write_action:'.$action->id;
+            }
+        }
+        $text = GbpDesk::shortName((string) $source->name).' kategori ve hizmet kopyalama sonucu ('.now()->format('Y-m-d H:i')."):\n".implode("\n", $lines);
+        foreach (explode("\n", $text) as $line) {
+            $this->line($line);
+        }
+        ClaudeNote::query()->create(['brand_id' => $source->brand_id, 'kind' => 'observation', 'text' => $text, 'refs' => $refs ?: null, 'status' => ClaudeNote::OPEN]);
     }
 
     /** @param  array<string, int>  $sent  branch => action id */
