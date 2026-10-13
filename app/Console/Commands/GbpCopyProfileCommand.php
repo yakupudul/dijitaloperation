@@ -11,6 +11,7 @@ use App\Services\Gbp\GbpProfileCopier;
 use App\Support\Roles;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Throwable;
 
 /**
@@ -48,6 +49,11 @@ final class GbpCopyProfileCommand extends Command
             $this->error('Aktif Admin kullanıcı yok.');
 
             return self::FAILURE;
+        }
+        if ($this->option('send')) {
+            // The Admin's approved send, not automatic work: without a user the AI budget only lets the automatic areas
+            // run, and every branch came back "Uygun AI sağlayıcısı yok" (live, 2026-10-13).
+            Auth::setUser($admin);
         }
         try {
             $from = $copier->source($source);

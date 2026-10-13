@@ -165,6 +165,17 @@ final class GbpProfileCopierTest extends TestCase
         $this->assertStringContainsString('kopyalama sonucu', $note->text);
     }
 
+    public function test_a_queued_send_runs_its_ai_as_the_admin_not_as_automatic_work(): void
+    {
+        config(['moxdop-ai-pricing.automatic_areas' => ['queries']]);
+        GbpBranchServicesAgent::fake([['services' => []]]);
+
+        $this->artisan('moxdop:gbp:copy-profile', ['source' => '1', '--only' => ['2'], '--send' => true, '--wait' => 0])->assertSuccessful();
+
+        $this->assertSame(0, ClaudeNote::query()->count(), 'live 2026-10-13: "Uygun AI sağlayıcısı yok" for every branch');
+        $this->assertSame(1, ExternalWriteAction::query()->count());
+    }
+
     public function test_a_branch_that_could_not_be_sent_is_noted_with_the_reason(): void
     {
         GbpBranchServicesAgent::fake(fn () => throw new \RuntimeException('Günlük AI tavanı doldu'));
