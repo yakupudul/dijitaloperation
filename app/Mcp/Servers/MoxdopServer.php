@@ -18,6 +18,7 @@ use App\Mcp\Tools\ListStrategies;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MetaPerformance;
 use App\Mcp\Tools\ProposeChange;
+use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\RequestArticle;
 use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SaveStrategy;
@@ -144,6 +145,7 @@ class MoxdopServer extends Server
         ListSites::class,
         InspectSite::class,
         BuildSite::class,
+        ReadSite::class,
         SiteBuilds::class,
     ];
 }

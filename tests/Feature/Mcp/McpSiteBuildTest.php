@@ -8,6 +8,7 @@ use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\InspectSite;
 use App\Mcp\Tools\ListSites;
+use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\SiteBuilds;
 use App\Models\Brand;
 use App\Models\CoreConnection;
@@ -95,6 +96,23 @@ final class McpSiteBuildTest extends TestCase
         MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'post', 'ref' => 'page-home', 'title' => 'Ana sayfa']]])
             ->assertHasErrors(['Claude site kurulumu']);
         $this->assertSame([], $this->sent);
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
+
+    public function test_read_site_reads_the_snapshot_and_public_pages_of_the_site_host_only_without_the_build_switch(): void
+    {
+        $this->app->instance(PublicUrlSafety::class, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34']));
+
+        MoxdopServer::tool(ReadSite::class, ['site_id' => $this->site->id, 'section' => 'seo'])->assertOk();
+        $this->assertSame('GET', $this->sent[0][0]);
+        $this->assertStringStartsWith('https://example.com/wp-json/moxdop/v1/snapshot?', $this->sent[0][1]);
+        $this->assertStringContainsString('section=seo', $this->sent[0][1]);
+
+        MoxdopServer::tool(ReadSite::class, ['site_id' => $this->site->id, 'url' => 'https://example.com/robots.txt'])->assertOk()->assertSee('"status":200', false);
+        $this->assertSame('https://example.com/robots.txt', $this->sent[1][1]);
+
+        MoxdopServer::tool(ReadSite::class, ['site_id' => $this->site->id, 'url' => 'https://other.example.org/'])->assertHasErrors(['kendi adresindeki']);
+        $this->assertCount(2, $this->sent, 'another host is never fetched');
         $this->assertSame(0, ExternalWriteAction::query()->count());
     }
 
