@@ -12,7 +12,7 @@
 return [
     'enabled' => env('EXTERNAL_WRITES_ENABLED', true),
     'queue_connection' => env('EXTERNAL_WRITES_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
-    'queue' => env('EXTERNAL_WRITES_QUEUE', 'default'),
+    'queue' => env('EXTERNAL_WRITES_QUEUE', env('WRITES_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'writes' : 'default')),
 
     'google_ads' => [
         'enabled' => env('EXTERNAL_WRITES_GOOGLE_ADS', true),

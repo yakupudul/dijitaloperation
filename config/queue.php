@@ -26,6 +26,10 @@ return [
     // work: their own queue with their own workers (Horizon supervisor-content).
     'content_queue' => env('CONTENT_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'content' : 'default'),
 
+    // yakup, 2026-10-13 (Onarım masası onayı 504): the desk approval and every approved external write (WordPress,
+    // Business Profile, Google Ads) on their own queue and workers (Horizon supervisor-writes), never behind "default".
+    'writes_queue' => env('WRITES_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'writes' : 'default'),
+
     /*
     | Automatic background AI (query autopilot) on its own Horizon supervisor, so operator-triggered heavy jobs never
     | wait behind it. Without Redis it stays on "default".

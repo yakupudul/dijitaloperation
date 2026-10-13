@@ -11,6 +11,7 @@ use App\Services\Observability\ErrorTriage;
 use App\Services\Operations\AutoDeployStatus;
 use App\Services\Operations\ServerStatusReader;
 use App\Services\Operations\SystemHealthReader;
+use App\Services\Repair\RepairDesk;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -18,7 +19,7 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do and approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
+#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do, approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons, and the Onarım masası writes of the last 24 hours (desk_writes, with rows still queued for approval). Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
 #[IsReadOnly]
 class SystemHealth extends Tool
 {
@@ -76,6 +77,7 @@ class SystemHealth extends Tool
             ->latest('id')->limit(20)->get(['id', 'operation', 'subject', 'error', 'updated_at'])
             ->map(fn (AiTask $task): array => ['id' => $task->id, 'operation' => $task->operation, 'subject' => $task->subject, 'reason' => $task->error])->all();
         $out['failed_writes'] = $this->failedWrites();
+        $out['desk_writes'] = $this->deskWrites();
         $out['ai_money'] = app(AiBudget::class)->moneyState();
         $out['ai_tasks_waiting'] = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count();
 
@@ -101,6 +103,23 @@ class SystemHealth extends Tool
                 'reason' => mb_substr((string) $p->note, 0, 400), 'at' => (string) $p->updated_at]);
 
         return [...$writes->all(), ...$posts->all()];
+    }
+
+    /**
+     * Onarım masası approvals of the last 24 hours: each write the desk asked for (status, brand, error) and the rows
+     * approved but still waiting for ApproveRepairRowsJob, to tell whether an approval went through.
+     *
+     * @return array{queued_rows: int, writes: list<array<string, mixed>>}
+     */
+    private function deskWrites(): array
+    {
+        $writes = ExternalWriteAction::query()->whereNotNull('suggestion_id')->where('created_at', '>=', now()->subDay())->latest('id')->limit(60)
+            ->get(['id', 'channel', 'action', 'brand_id', 'digital_asset_id', 'suggestion_id', 'status', 'error', 'created_at', 'updated_at'])
+            ->map(fn (ExternalWriteAction $a): array => ['id' => $a->id, 'channel' => $a->channel, 'action' => $a->action, 'brand_id' => $a->brand_id,
+                'asset_id' => $a->digital_asset_id, 'suggestion_id' => $a->suggestion_id, 'status' => $a->status,
+                'error' => $a->error !== null ? mb_substr((string) $a->error, 0, 200) : null, 'created_at' => (string) $a->created_at, 'updated_at' => (string) $a->updated_at]);
+
+        return ['queued_rows' => app(RepairDesk::class)->queuedCount(), 'writes' => $writes->all()];
     }
 
     /** @return array<string, mixed>|null the last automatic deploy check, with the failing tests when it stopped on them */

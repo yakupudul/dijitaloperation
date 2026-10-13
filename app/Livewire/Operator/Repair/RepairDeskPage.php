@@ -68,7 +68,7 @@ final class RepairDeskPage extends Component
 
     public function approve(int $id, RepairDesk $desk): void
     {
-        $this->run(fn (): array => $desk->approve([$id], auth()->user()));
+        $this->run(fn (): array => $desk->queueApproval([$id], auth()->user()));
         $this->selected = array_values(array_diff($this->selected, [$id]));
     }
 
@@ -82,7 +82,7 @@ final class RepairDeskPage extends Component
 
     public function approveSelected(RepairDesk $desk): void
     {
-        $this->run(fn (): array => $desk->approve($this->selected, auth()->user()));
+        $this->run(fn (): array => $desk->queueApproval($this->selected, auth()->user()));
         $this->selected = [];
     }
 
@@ -90,7 +90,7 @@ final class RepairDeskPage extends Component
     public function approvePackage(string $key, RepairDesk $desk): void
     {
         $ids = $this->packageRows($desk, $key)->pluck('id')->all();
-        $this->run(fn (): array => $desk->approve($ids, auth()->user()));
+        $this->run(fn (): array => $desk->queueApproval($ids, auth()->user()));
         $this->selected = array_values(array_diff($this->selected, $ids));
     }
 
@@ -136,7 +136,7 @@ final class RepairDeskPage extends Component
     public function approveAllLow(RepairDesk $desk): void
     {
         $ids = $this->filtered($desk)->where('risk', RepairDesk::LOW)->pluck('id')->all();
-        $this->run(fn (): array => $desk->approve($ids, auth()->user()));
+        $this->run(fn (): array => $desk->queueApproval($ids, auth()->user()));
     }
 
     /** Select every row of one package. */
@@ -259,6 +259,7 @@ final class RepairDeskPage extends Component
             'done' => $done,
             'results' => $desk->results($this->brandId),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'queuedCount' => $desk->queuedCount($this->brandId),
         ]);
     }
 
@@ -295,17 +296,14 @@ final class RepairDeskPage extends Component
         return $this->filtered($desk)->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $key)->values();
     }
 
-    /** @param  callable(): array{applied: int, skipped_high: int, failed: list<string>}  $approve */
+    /** @param  callable(): array{applied: int, skipped_high: int, failed: list<string>}  $approve  queues the approval (ApproveRepairRowsJob) */
     private function run(callable $approve): void
     {
         $this->authorizeAdmin();
         $result = $approve();
-        $parts = [$result['applied'].' iş uygulamaya gönderildi; ne yazıldığı birkaç dakika içinde aşağıda "Yapılanlar"da görünür (kayıtlı, geri alınabilir)'];
+        $parts = [$result['applied'].' iş uygulamaya gönderildi; arka planda yazılıyor, ne yazıldığı aşağıda "Yapılanlar"da görünür (kayıtlı, geri alınabilir). Gönderilemeyen olursa nedeniyle listeye geri döner'];
         if ($result['skipped_high'] > 0) {
             $parts[] = $result['skipped_high'].' yüksek riskli iş tek tek onaylanmalı';
-        }
-        if ($result['failed'] !== []) {
-            $parts[] = count($result['failed']).' iş gönderilemedi: '.implode(' · ', array_slice($result['failed'], 0, 3));
         }
         $this->message = implode('. ', $parts).'.';
     }

@@ -62,8 +62,9 @@ final class QueueTopologyContractTest extends TestCase
             }
         }
         // Queues chosen at dispatch time (config) and the heartbeat probes.
-        foreach ([$production['seo']['queue'], $production['advisor']['queue'], $production['queue']['heavy_queue'],
-            (string) config('moxdop-external-writes.queue'), (string) config('moxdop-intelligence-scheduling.queue'), (string) config('moxdop-collection.queue'),
+        $this->assertSame('writes', $production['writes']['queue'], 'with Redis approved external writes go to the writes queue');
+        foreach ([$production['seo']['queue'], $production['advisor']['queue'], $production['queue']['heavy_queue'], $production['queue']['writes_queue'],
+            (string) config('moxdop-external-writes.queue'), $production['writes']['queue'], (string) config('moxdop-intelligence-scheduling.queue'), (string) config('moxdop-collection.queue'),
             ...(array) config('moxdop-observability.probe_queues')] as $queue) {
             $queues[$queue][] = 'config';
         }
@@ -242,6 +243,7 @@ final class QueueTopologyContractTest extends TestCase
                 'queue' => require base_path('config/queue.php'),
                 'seo' => require base_path('config/moxdop-seo-tasks.php'),
                 'advisor' => require base_path('config/moxdop-advisor.php'),
+                'writes' => require base_path('config/moxdop-external-writes.php'),
             ];
         } finally {
             $set('QUEUE_CONNECTION', $saved[0] ?? ($saved[2] !== false ? $saved[2] : null));

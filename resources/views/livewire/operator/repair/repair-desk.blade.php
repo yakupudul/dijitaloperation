@@ -37,6 +37,9 @@
     @if ($message !== '')
         <p class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">{{ $message }}</p>
     @endif
+    @if ($queuedCount > 0)
+        <p wire:poll.10s class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300" data-desk-queued>Onaylanan {{ number_format($queuedCount, 0, ',', '.') }} iş arka planda uygulanıyor; bitince "Yapılanlar"da görünür.</p>
+    @endif
 
     {{-- Tek anahtar (2026-10-11): üç şerit ve diğer işler; eski ?serit= / ?bolum= bağlantıları aynı yere düşer --}}
     <div class="space-y-1">

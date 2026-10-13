@@ -246,6 +246,20 @@ return [
             'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
             'nice' => 0,
         ],
+        // Onarım masası approvals and approved external writes (yakup 2026-10-13): a click's write never waits behind
+        // the jobs on "default" (35 min wait seen on 2026-10-13).
+        'supervisor-writes' => [
+            'connection' => 'redis',
+            'queue' => ['writes'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('HORIZON_WRITES_MAX_PROCESSES', 2),
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_WRITES_TIMEOUT', 900),
+            'nice' => 0,
+        ],
         'supervisor-heavy' => [
             'connection' => 'redis',
             'queue' => ['heavy'],

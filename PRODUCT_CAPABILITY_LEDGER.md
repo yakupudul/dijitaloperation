@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-13 — Onarım masası onayı arka planda (504 düzeltmesi)
+
+- **Sorun (yakup 2026-10-13 "onarım masasında işi onayladığımda 504 Gateway Time-out"):** Onayla / Hepsini onayla / Seçilenleri onayla tıklaması onayın tamamını web isteğinin içinde yapıyordu: masanın bütün satırlarını yeniden okuma, her satır için yazma öncesi denetimler, sayfa işlerinde 30 günlük "önceki durum" ölçümü (sitenin tüm Search Console sayfa toplamı + GA4, satır başına), İşletme Profili hesabı araması. Çok satırlı onay nginx süresini aşıyordu.
+- **Artık:** tıklama yalnız hangi satırların onaylanabileceğini seçer (yüksek risk yine tek tek), satırlara "sırada" işareti koyar (`action.desk_queued_at`; satır listeden hemen çıkar) ve `ApproveRepairRowsJob`'u **writes** kuyruğuna atar. İş eski onay yolunu aynen çalıştırır (kayıt, geri alma, Yapılanlar değişmedi). Masada "Onaylanan N iş arka planda uygulanıyor" şeridi 10 sn'de bir yenilenir. Gönderilemeyen satır nedeniyle masaya döner ("Önceki gönderim başarısız: …", `action.desk_error`); iş ölürse satır "Onay uygulanamadı …; tekrar onaylayın" ile döner; 30 dk'dan eski "sırada" işareti satırı gizlemez.
+- **Yeni kuyruk `writes` (Horizon `supervisor-writes`, 2 işçi):** masa onayı ve onaylanmış bütün dış yazmalar (WordPress, İşletme Profili, Google Ads; yazı taslakları `content`'te kalır) artık `default` kuyruğunun arkasında beklemez (2026-10-13'te `default` bekleme 35 dk idi). `EXTERNAL_WRITES_QUEUE` / `WRITES_QUEUE` ile değiştirilebilir; Redis yoksa `default`.
+- MCP `system-health` → `desk_writes`: son 24 saatin masa yazmaları (durum, hata) ve sırada bekleyen satır sayısı.
+- **State:** CODED + PHPUnit (`RepairDeskTest`, `QueueTopologyContractTest`). UAT: yok.
+
 ## 2026-10-13 — Eşleştir yalnız değişeni okur
 
 - **Sorun (yakup 2026-10-13 "her gün site eşleştirmesi mi yapıyor?"):** AI işleri'nde her gün "Site · Eşleştir" satırları. Akış (gece 05:40, kümeleme yeni küme onaylayınca, kurulum sonrası) yalnız girdiler değişince Eşleştir başlatıyordu; ama tek yeni küme ya da tek yeni sayfa bile **tüm siteyi baştan** okutuyordu: her hizmet grubu için eşleştirme çağrısı, eşleşen her sayfa için eksik çağrısı, fikir grupları.
