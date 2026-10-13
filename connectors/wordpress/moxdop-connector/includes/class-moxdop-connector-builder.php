@@ -471,6 +471,18 @@ final class MoxDOP_Connector_Builder
                 $warnings[] = $written->get_error_message();
             }
         }
+        if (array_key_exists('schema', $operation)) {
+            // 1.15.0: JSON-LD printed in the page head by the connector (the same meta the SEO fixes use).
+            $schema = $operation['schema'];
+            $decoded = is_string($schema) ? json_decode($schema, true) : $schema;
+            if ($schema === null || $schema === '') {
+                delete_post_meta($post_id, '_moxdop_schema');
+            } elseif (is_array($decoded)) {
+                update_post_meta($post_id, '_moxdop_schema', wp_slash(wp_json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
+            } else {
+                $warnings[] = 'schema must be JSON-LD';
+            }
+        }
         if (is_array($operation['seo'] ?? null)) {
             $fixes = new MoxDOP_Connector_Fixes;
             foreach (['title' => 120, 'description' => 320] as $field => $limit) {

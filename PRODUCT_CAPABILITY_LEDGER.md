@@ -569,12 +569,12 @@ Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
 - **Kaldır / düzenle (yakup, 2026-10-05):** Entegrasyonlar › Web sitesi listesinde her satırda Admin için "Düzenle" ve "Kaldır". Kaldır siteyi arşivler (soft delete), hesap bağlarını ve WordPress bağlayıcısını kapatır, toplanan verileri silmez; adres yeniden eklenebilir. Markası olmayan site artık marka seçmeden düzenlenebiliyor (önceden marka zorunluydu, kayıt reddediliyordu).
 - **Test:** `tests/Feature/Portfolio/SubfolderWebsiteTest.php` (6). Canlı UAT yok.
 
-## 2026-10-13 — Connector 1.15.0: kayıp site kurulumu özellikleri ana eklentide + mevcut sayfayı devralma
+## 2026-10-13 — Connector 1.15.x: kayıp site kurulumu özellikleri ana eklentide + mevcut sayfayı devralma
 
 - 1.11.1–1.11.3 (aşağıda) yan dalda kalmıştı; 1.12–1.14 onlarsız çıktı. 1.15.0 hepsini ana eklentiye koyar.
 - **Yeni:** `post` / `media` işlemleri `id` alır: kurulumla yapılmamış mevcut bir sayfa/görsel ref'e bağlanır, SEO/içerik/Elementor verisi güncellenir; geri alma önceki hâli (meta dahil) geri koyar. Başka ref'e ait olan devralınmaz.
 - MCP `read-site` (4f27b9c5): eşleşmiş sitenin snapshot'ı, işlenmiş içerik ve sitenin kendi hostundaki herkese açık URL'ler; salt okunur.
-- **State:** CODED + tested. **Operator after deploy:** siteyi 1.15.0'a güncelle.
+- **State:** CODED + tested. **Operator after deploy:** siteyi 1.15.1’e güncelle.
 
 ## 2026-10-08 — Site kurulumu: Elementor Site Settings okuma ve yazma (Connector 1.11.1–1.11.2)
 
