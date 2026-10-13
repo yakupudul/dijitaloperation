@@ -29,6 +29,7 @@ use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Jobs\Gbp\PrepareBranchPageJob;
 use App\Jobs\Gbp\RunGbpAssistantJob;
 use App\Jobs\GoogleAds\RunGoogleAdsAssistantJob;
+use App\Jobs\Integrations\CollectBingQueriesJob;
 use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
 use App\Jobs\Meta\DraftMetaStrategyPlanJob;
 use App\Jobs\Meta\MatchMetaCampaignServicesJob;
@@ -431,6 +432,7 @@ class AppServiceProvider extends ServiceProvider
             RunPromptTrialJob::class => 'heavy',
             SuggestForbiddenTermsJob::class => 'heavy',
             FillGbpPostQueueJob::class => 'heavy',
+            CollectBingQueriesJob::class => 'heavy',
             CollectLiveBoundDataJob::class => 'heavy',
             SeoIntelligenceRefreshJob::class => 'heavy',
             WebsiteDiagnosisJob::class => 'heavy',

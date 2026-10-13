@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Jobs\Integrations\CollectBingQueriesJob;
 use App\Models\AgencySetting;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\Bing\BingWebmasterClient;
@@ -65,9 +66,8 @@ class BingIntegrationPage extends Component
     {
         try {
             $match = $sync->match();
-            $collected = $sync->collect();
-            DemoState::flash(sprintf('Bing\'de %d site var, %d tanesi MoxDOP sitesiyle eşleşti; %d sorgu satırı okundu%s.',
-                $match['sites'], $match['matched'], $collected['rows'], $collected['failed'] > 0 ? ', '.$collected['failed'].' site okunamadı' : ''));
+            CollectBingQueriesJob::dispatch();
+            DemoState::flash(sprintf('Bing\'de %d site var, %d tanesi MoxDOP sitesiyle eşleşti; sorgular arka planda okunuyor.', $match['sites'], $match['matched']));
         } catch (Throwable $exception) {
             DemoState::flash('Bing okunamadı: '.$exception->getMessage(), 'error');
         }
