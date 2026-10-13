@@ -80,6 +80,14 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_BRANCH_SERVICES,
+            'name' => 'Business Profile Branch Services',
+            'module' => 'gbp',
+            'description' => 'One location\'s categories and services copied to the brand\'s other locations (yakup, 2026-10-13): names and categories stay identical, each branch gets its own service descriptions. Sent on the Admin\'s command (additions only, undoable).',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_DESCRIPTION,
             'name' => 'Business Profile Description',
             'module' => 'gbp',

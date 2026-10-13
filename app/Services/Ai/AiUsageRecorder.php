@@ -43,6 +43,7 @@ final class AiUsageRecorder
         'GbpServicesCompareAgent' => AiRouteKeys::GBP_SERVICES_COMPARE,
         'GbpDescriptionAgent' => AiRouteKeys::GBP_DESCRIPTION,
         'GbpProfilePlanAgent' => AiRouteKeys::GBP_PROFILE_PLAN,
+        'GbpBranchServicesAgent' => AiRouteKeys::GBP_BRANCH_SERVICES,
         'GbpPostQueueAgent' => AiRouteKeys::GBP_POST_QUEUE,
         'GbpBranchPageAgent' => AiRouteKeys::GBP_BRANCH_PAGE,
         'BrandCareAgent' => AiRouteKeys::BRAND_CARE,
