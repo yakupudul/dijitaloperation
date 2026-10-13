@@ -2303,6 +2303,7 @@ Beş bağımsız Livewire bileşeni (`App\Livewire\Operator\Website\V2\{Competit
   - a `jobs` backlog older than 30 minutes when the default queue is the database.
 
   Sistem Sağlığı shows whether the watchdog runs.
+  - A silent redis queue goes to `QueueDoctor` (2026-10-13, "default" silent for hours, deploys did not bring it back): a worker holding a job longer than its supervisor timeout + 5 min is killed (that queue's `horizon:work`, once per 30 min; Horizon respawns it); jobs waiting with nothing reserved → `horizon:terminate` (once an hour, supervisor autorestart); a moving backlog is left alone. Pending count by job, the running jobs and the last 6 h failures of that queue are kept as a system Claude note (once an hour per queue). PHPUnit `QueueDoctorTest` (4).
 - `deploy.sh`:
   - stops when `QUEUE_CONNECTION` is empty or `sync`,
   - warns when it is not `redis` (Horizon only works redis),
