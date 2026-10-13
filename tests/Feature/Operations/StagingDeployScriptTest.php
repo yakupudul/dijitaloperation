@@ -84,4 +84,18 @@ final class StagingDeployScriptTest extends TestCase
             ReleaseInfo::forget();
         }
     }
+
+    public function test_deploy_tunes_the_server_safely_after_the_app_is_back_up(): void
+    {
+        $deploy = (string) file_get_contents(base_path('deploy/staging/deploy.sh'));
+        $tune = (string) file_get_contents(base_path('deploy/staging/tune-server.sh'));
+
+        $this->assertGreaterThan(strpos($deploy, 'php artisan up --no-interaction'), strpos($deploy, 'tune-server.sh'), 'runs once the site is back up');
+        $this->assertStringContainsString('tune-server.sh || echo', $deploy, 'a failed tuning never fails the deploy');
+        $this->assertStringContainsString('server-tuning.off', $tune);
+        $this->assertStringContainsString('-t >/dev/null', $tune, 'php-fpm config is tested before a reload');
+        $this->assertStringContainsString('cp -p "$BEFORE" "$POOL"', $tune, 'and put back when the test fails');
+        $this->assertMatchesRegularExpression('/HOUR >= 2 && 10#\$HOUR < 6/', $tune, 'PostgreSQL restarts only at night');
+        $this->assertStringContainsString('exit 0', $tune);
+    }
 }

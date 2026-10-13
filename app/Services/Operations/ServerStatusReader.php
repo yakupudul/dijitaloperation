@@ -325,6 +325,8 @@ final class ServerStatusReader
             $pools[$file] = collect($m)->mapWithKeys(fn (array $row): array => [$row[1] => trim($row[2])])->all();
         }
         $facts['fpm_pools'] = $pools;
+        // What deploy/staging/tune-server.sh found and did on the last deploy.
+        $facts['tuning_report'] = json_decode($this->file(storage_path('app/server-tuning.json')), true);
         if (DB::getDriverName() === 'pgsql') {
             try {
                 $names = ['shared_buffers', 'work_mem', 'maintenance_work_mem', 'effective_cache_size', 'max_connections', 'random_page_cost',
