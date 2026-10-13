@@ -326,9 +326,14 @@ return [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
+            // 2026-10-14: long AI / analysis left "default" for these lanes (AppServiceProvider::jobLanes); the 8 GB
+            // server ran at ~48 % memory, so one more heavy and one more background worker fit.
             'supervisor-heavy' => [
-                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 2),
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            ],
+            'supervisor-background' => [
+                'maxProcesses' => (int) env('HORIZON_BACKGROUND_MAX_PROCESSES', 2),
             ],
         ],
 

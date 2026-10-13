@@ -52,6 +52,8 @@ class SystemHealth extends Tool
             $out['server'] = $status['server'];
             $out['software'] = $status['software'];
             $out['largest_tables'] = app(ServerStatusReader::class)->largestTables();
+            $out['disk_breakdown'] = app(ServerStatusReader::class)->diskBreakdown();
+            $out['tuning'] = app(ServerStatusReader::class)->tuningFacts();
         } catch (Throwable $exception) {
             report($exception);
             $out['server_error'] = mb_substr($exception->getMessage(), 0, 300);

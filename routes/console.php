@@ -65,6 +65,7 @@ use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Operations\ScreenChecker;
+use App\Services\Operations\ServerStatusReader;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
@@ -642,6 +643,19 @@ Schedule::command('moxdop:retention --apply')
     ->monthlyOn(2, '07:10')
     ->withoutOverlapping(720)
     ->name('data-retention');
+
+// Where the disk space went (MCP system-health disk_breakdown): du runs here, never inside a web request.
+Schedule::call(fn () => app(ServerStatusReader::class)->measureDisk())
+    ->hourlyAt(19)
+    ->name('disk-breakdown')
+    ->withoutOverlapping(30);
+
+// failed_jobs keeps every failed job's whole payload and stack trace and was never trimmed (509 failures on 2026-10-13
+// alone); the screens and the queue doctor read at most the last 7 days.
+Schedule::command('queue:prune-failed --hours=720')
+    ->dailyAt('07:25')
+    ->withoutOverlapping(60)
+    ->name('failed-jobs-prune');
 
 // Veri merkezi: the row counts of every source (full table counts) are counted hourly on the background queue; the
 // screen reads them from the cache. An erase counts again at once.
