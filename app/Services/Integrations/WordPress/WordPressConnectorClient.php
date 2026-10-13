@@ -30,6 +30,12 @@ final class WordPressConnectorClient
         private readonly PublicUrlSafety $urlSafety = new PublicUrlSafety,
     ) {}
 
+    /** Refuses private, loopback and non-http(s) targets before MoxDOP fetches a site URL. */
+    public function assertSafePublicUrl(string $url): void
+    {
+        $this->urlSafety->assertSafePublicHttpUrl($url);
+    }
+
     /** @return array<string, mixed> */
     public function status(CoreConnection $connection): array
     {

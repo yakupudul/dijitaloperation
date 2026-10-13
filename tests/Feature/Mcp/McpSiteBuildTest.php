@@ -101,8 +101,6 @@ final class McpSiteBuildTest extends TestCase
 
     public function test_read_site_reads_the_snapshot_and_public_pages_of_the_site_host_only_without_the_build_switch(): void
     {
-        $this->app->instance(PublicUrlSafety::class, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34']));
-
         MoxdopServer::tool(ReadSite::class, ['site_id' => $this->site->id, 'section' => 'seo'])->assertOk();
         $this->assertSame('GET', $this->sent[0][0]);
         $this->assertStringStartsWith('https://example.com/wp-json/moxdop/v1/snapshot?', $this->sent[0][1]);

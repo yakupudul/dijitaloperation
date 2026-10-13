@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use MoxDop\Website\Discovery\PublicUrlSafety;
 use RuntimeException;
 use Throwable;
 
@@ -118,7 +117,7 @@ final class WordPressSiteBuilder
         if ($siteHost === '' || $host !== $siteHost) {
             throw new RuntimeException('Yalnız sitenin kendi adresindeki URL okunur ('.$siteHost.').');
         }
-        app(PublicUrlSafety::class)->assertSafePublicHttpUrl($url);
+        $this->client->assertSafePublicUrl($url);
         $started = microtime(true);
         $response = Http::withHeaders([
             'User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP-SiteReader/1.0)',
