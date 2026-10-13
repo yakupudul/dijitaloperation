@@ -569,6 +569,21 @@ Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
 - **Kaldır / düzenle (yakup, 2026-10-05):** Entegrasyonlar › Web sitesi listesinde her satırda Admin için "Düzenle" ve "Kaldır". Kaldır siteyi arşivler (soft delete), hesap bağlarını ve WordPress bağlayıcısını kapatır, toplanan verileri silmez; adres yeniden eklenebilir. Markası olmayan site artık marka seçmeden düzenlenebiliyor (önceden marka zorunluydu, kayıt reddediliyordu).
 - **Test:** `tests/Feature/Portfolio/SubfolderWebsiteTest.php` (6). Canlı UAT yok.
 
+## 2026-10-13 — Connector 1.15.0: kayıp site kurulumu özellikleri ana eklentide + mevcut sayfayı devralma
+
+- 1.11.1–1.11.3 (aşağıda) yan dalda kalmıştı; 1.12–1.14 onlarsız çıktı. 1.15.0 hepsini ana eklentiye koyar.
+- **Yeni:** `post` / `media` işlemleri `id` alır: kurulumla yapılmamış mevcut bir sayfa/görsel ref'e bağlanır, SEO/içerik/Elementor verisi güncellenir; geri alma önceki hâli (meta dahil) geri koyar. Başka ref'e ait olan devralınmaz.
+- MCP `read-site` (4f27b9c5): eşleşmiş sitenin snapshot'ı, işlenmiş içerik ve sitenin kendi hostundaki herkese açık URL'ler; salt okunur.
+- **State:** CODED + tested. **Operator after deploy:** siteyi 1.15.0'a güncelle.
+
+## 2026-10-08 — Site kurulumu: Elementor Site Settings okuma ve yazma (Connector 1.11.1–1.11.2)
+
+- **Eklenti:** `GET /build` yanıtına `elementor_globals` eklendi: etkin Elementor kit'inin (Site Settings) sistem ve özel renkleri ile fontları, kimlikleriyle. Yalnız okur. MCP `inspect-site` açıklaması bunları global referans olarak kullanmayı söyler.
+- **1.11.2:** `settings` işlemi `elementor_kit` kabul eder: verilen Site Settings anahtarları (global renk/font, theme style, layout) etkin kit'e birleştirilir; geri alma önceki Site Settings'i komple geri koyar.
+- **Neden:** Özel renkler Elementor'da rastgele kimlikle kaydediliyor; Claude bunları bilmeden tasarımda global renk kullanamıyordu (B1yangın kurulumu).
+- **State:** CODED (`php -l`, sürüm testleri). **Operator after deploy:** siteyi 1.11.2'ye güncelle.
+- **1.11.3 (yakup "Eklenti önizlemesi" kartı, 2026-10-08):** `settings` › `render_preview` (en çok 4 site içi yol) bir sonraki `GET /build` yanıtında o sayfaları bir ziyaretçinin gördüğü gibi döndürür (HTML + sitenin kendi stil dosyaları, gzip+base64, tek seferlik). Yalnız okur; sitenin kendi adresine herkese açık GET dışında bir şey çekmez. Neden: Claude siteye erişemediği için tasarımı kör kuruyordu.
+
 ## 2026-10-05 — Claude site kurulumu: WordPress Connector 1.8.0 + MCP (list-sites, inspect-site, build-site)
 
 - **Neden:** yakup boş bir WordPress kurup "şu CPT'yi şu ACF alanlarıyla kur, şu hizmet sayfalarını oluştur, bu görseli Elementor header yap" demek istiyor; Claude bunu MCP üzerinden doğrudan yapar (yakup onayı 2026-10-05: "Siteye doğrudan sen yaz", panelden açılıp kapanan anahtar).
