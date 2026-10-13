@@ -17,8 +17,12 @@ use Throwable;
  */
 final class PageTraffic
 {
-    /** Per-site totals are cached this long (facts arrive once a day). */
-    private const int TTL_SECONDS = 600;
+    /**
+     * Per-site totals are cached this long (facts arrive once a day). A cold read is ~0.4 s per site on live, so the Bugün
+     * screen and the desk opened in ~10 s when the 10-minute cache had run out (13 Oct 2026); warm() refreshes it
+     * every three hours so screens never pay for it.
+     */
+    public const int TTL_SECONDS = 21600;
 
     public function __construct(private readonly SiteMetrics $metrics) {}
 
@@ -44,25 +48,54 @@ final class PageTraffic
         return $out;
     }
 
+    /**
+     * Recomputes the cached totals of every brand website in the background, so no screen waits for them.
+     *
+     * @return int sites refreshed
+     */
+    public function warm(): int
+    {
+        $count = 0;
+        foreach (DigitalAsset::query()->where('type', 'website')->whereNotNull('brand_id')->pluck('id') as $siteId) {
+            try {
+                Cache::put(self::key((int) $siteId), $this->compute((int) $siteId), self::TTL_SECONDS);
+                $count++;
+            } catch (Throwable $error) {
+                report($error);
+            }
+        }
+
+        return $count;
+    }
+
     /** @return array<string, array{impressions: int, clicks: int}>|null */
     private function siteTotals(int $siteId): ?array
     {
         try {
-            return Cache::remember('work:page-traffic:'.$siteId, self::TTL_SECONDS, function () use ($siteId): ?array {
-                $site = DigitalAsset::query()->with('brand')->find($siteId);
-                $last = $site?->brand !== null ? $this->metrics->lastGscDay($site->brand) : null;
-                if ($last === null) {
-                    return null;
-                }
-                $range = [$last->subDays(SiteAudit::IMPRESSION_DAYS - 1)->toDateString(), $last->toDateString()];
-
-                return array_map(fn (array $r): array => ['impressions' => (int) $r['impressions'], 'clicks' => (int) $r['clicks']],
-                    $this->metrics->pageTotals($site->brand, $site, $range));
-            });
+            return Cache::remember(self::key($siteId), self::TTL_SECONDS, fn (): ?array => $this->compute($siteId));
         } catch (Throwable $error) {
             report($error);
 
             return null;
         }
+    }
+
+    private static function key(int $siteId): string
+    {
+        return 'work:page-traffic:'.$siteId;
+    }
+
+    /** @return array<string, array{impressions: int, clicks: int}>|null */
+    private function compute(int $siteId): ?array
+    {
+        $site = DigitalAsset::query()->with('brand')->find($siteId);
+        $last = $site?->brand !== null ? $this->metrics->lastGscDay($site->brand) : null;
+        if ($last === null) {
+            return null;
+        }
+        $range = [$last->subDays(SiteAudit::IMPRESSION_DAYS - 1)->toDateString(), $last->toDateString()];
+
+        return array_map(fn (array $r): array => ['impressions' => (int) $r['impressions'], 'clicks' => (int) $r['clicks']],
+            $this->metrics->pageTotals($site->brand, $site, $range));
     }
 }

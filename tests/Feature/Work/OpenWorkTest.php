@@ -8,7 +8,10 @@ use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
 use App\Services\Repair\SiteAudit;
+use App\Services\Site\SiteMetrics;
 use App\Services\Work\OpenWork;
+use App\Services\Work\PageTraffic;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\Feature\Site\SiteTestCase;
@@ -82,6 +85,21 @@ final class OpenWorkTest extends SiteTestCase
         $this->assertStringContainsString('90 günde 900 gösterim, 40 tıklama', $file);
         $this->assertStringContainsString('sayfaları 90 günde aramada görünmedi', $file);
         $this->assertLessThan(strpos($file, 'Bakır boru') ?: strpos($file, 'bakir-boru'), strpos($file, 'İç bağlantı'));
+    }
+
+    public function test_page_stakes_are_read_from_the_warmed_cache_without_scanning_search_console_on_open(): void
+    {
+        $page = $this->page('/implant/', 'İmplant');
+        $this->fact('implant ankara', '/implant/', 900, 40, 6.0, '2026-09-20');
+
+        $this->assertSame(1, app(PageTraffic::class)->warm());
+        DB::enableQueryLog();
+        $traffic = app(PageTraffic::class)->forPages([$page->id]);
+        $scans = collect(DB::getQueryLog())->filter(fn (array $q): bool => str_contains($q['query'], 'gsc_query_page_daily'))->count();
+
+        $this->assertSame(['impressions' => 900, 'clicks' => 40], $traffic[$page->id]);
+        $this->assertSame(0, $scans, 'Bugün / desk open: 13 Oct 2026 every open re-scanned Search Console per site (~10 s)');
+        $this->assertSame('2026-09-20', app(SiteMetrics::class)->lastGscDay($this->brand)?->toDateString());
     }
 
     public function test_desk_packages_and_brand_health_use_the_same_gain_order(): void

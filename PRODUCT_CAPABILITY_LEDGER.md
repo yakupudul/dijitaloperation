@@ -4234,3 +4234,9 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: Avrup
 - Wrong-language name: no main-language page title carries the name, and a linked translated page does (or the catalog's primary name is main-language and shares no word; an English marker word on a Turkish site as last signal). A service another active one covers (same name / shared main-language page carrying its name) is archived and its unlocked main-language links move over; otherwise it takes the catalog's main-language name or its main-language page title. ★ services are only renamed.
 - Broken names: "/CAM …" repaired from a catalog name / page title containing it; all-lowercase names get a Turkish-aware capital (shared catalog name too).
 - Sources: `ServiceCatalogService::resolveOrCreate` capitalises an all-lowercase new name; `LocationOptions::strip` no longer cuts "CAD" (Chad) out of "CAD/CAM". Tested: `ServiceNameRepairTest`, `BrandAutofillTest`.
+
+## 2026-10-13 — Bugün ekranı hızı (Search Console sayfa toplamları önceden hazır)
+
+- Cause (live screen-check, release 57791c57): Bugün took ~9.4 s in 157 queries, all `SiteMetrics` reads of `gsc_query_page_daily` (a view over the compact fact tables on live) for 11 sites — the desk's page-traffic cache (10 min) had gone cold and each site re-ran `max(reporting_date)` plus the window sums.
+- `SiteMetrics::lastGscDay` is cached 1 h per resource set (and memoised per request); `PageTraffic` totals keep 6 h and are recomputed in the background by `moxdop:work:warm-page-traffic` (every 3 h at :40), so opening Bugün / the desk reads only the cache. Data is at most a few hours old; GSC itself lags 2–3 days.
+- Tested: `OpenWorkTest` (warmed cache → no `gsc_query_page_daily` query on open). Live check after deploy: screen-checks `/`.

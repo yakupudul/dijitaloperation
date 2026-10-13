@@ -20,13 +20,45 @@ final class SiteMetrics
     /** @var array<int, array{start: string, end: string, prev_start: string, prev_end: string}|null> */
     private array $windows = [];
 
-    /** The last day of the brand's Search Console data (web), or null when none arrived. */
+    /** How long the last Search Console day of a set of accounts is kept (facts arrive once a day). */
+    public const int LAST_DAY_CACHE_SECONDS = 3600;
+
+    /** Bumped when a site's screen numbers are cleared, so every cached last day is read again (one max per brand). */
+    private const string LAST_DAY_VERSION_KEY = 'gsc:last-day:version';
+
+    /** @var array<string, string|null> resource-set key => last day, per instance */
+    private array $lastDays = [];
+
+    /**
+     * The last day of the brand's Search Console data (web), or null when none arrived. The max() runs over the compact
+     * query × page view on live (~0.4 s per brand), so it is cached per account set: the Bugün screen asked it once per
+     * site on every open (13 Oct 2026: 11 calls, 4.8 s).
+     */
     public function lastGscDay(Brand $brand): ?CarbonImmutable
     {
-        $ids = SiteScope::resourceIds($brand, 'search_console');
-        $last = $ids === [] ? null : DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')->max('reporting_date');
+        $last = $this->lastDay(SiteScope::resourceIds($brand, 'search_console'));
 
-        return $last === null ? null : CarbonImmutable::parse((string) $last);
+        return $last === null ? null : CarbonImmutable::parse($last);
+    }
+
+    /** @param  list<int>  $ids */
+    private function lastDay(array $ids): ?string
+    {
+        if ($ids === []) {
+            return null;
+        }
+        sort($ids);
+        $key = (int) Cache::get(self::LAST_DAY_VERSION_KEY, 0).':'.implode(',', $ids);
+        if (array_key_exists($key, $this->lastDays)) {
+            return $this->lastDays[$key];
+        }
+        $last = Cache::remember('gsc:last-day:'.md5($key), self::LAST_DAY_CACHE_SECONDS, function () use ($ids): string {
+            $day = DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')->max('reporting_date');
+
+            return $day === null ? '' : substr((string) $day, 0, 10);
+        });
+
+        return $this->lastDays[$key] = $last === '' ? null : $last;
     }
 
     /** @return array{start: string, end: string, prev_start: string, prev_end: string}|null */
@@ -35,12 +67,10 @@ final class SiteMetrics
         if (array_key_exists($brand->id, $this->windows)) {
             return $this->windows[$brand->id];
         }
-        $ids = SiteScope::resourceIds($brand, 'search_console');
-        $last = $ids === [] ? null : DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')->max('reporting_date');
-        if ($last === null) {
+        $end = $this->lastGscDay($brand);
+        if ($end === null) {
             return $this->windows[$brand->id] = null;
         }
-        $end = CarbonImmutable::parse((string) $last);
 
         return $this->windows[$brand->id] = [
             'start' => $end->subDays(27)->toDateString(), 'end' => $end->toDateString(),
@@ -100,6 +130,7 @@ final class SiteMetrics
     {
         Cache::forget('site:page-totals:'.$siteId);
         Cache::forget('site:clicks:'.$siteId);
+        Cache::forever(self::LAST_DAY_VERSION_KEY, (int) Cache::get(self::LAST_DAY_VERSION_KEY, 0) + 1);
     }
 
     /** @return array{clicks: int, impressions: int, position: ?float}|null one page's 28-day totals (null = no data) */

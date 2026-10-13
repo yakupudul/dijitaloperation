@@ -81,6 +81,7 @@ use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppDispatch;
 use App\Services\Work\ContentCoverage;
+use App\Services\Work\PageTraffic;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
@@ -496,6 +497,14 @@ Schedule::command('moxdop:gsc:inspect-urls')
 
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
+
+// Bugün / Onarım masası: each site's Search Console page totals (work stakes) are recomputed in the background every
+// three hours, so the screens read them from the cache instead of scanning the facts on open (13 Oct 2026: ~10 s).
+Artisan::command('moxdop:work:warm-page-traffic', function (): void {
+    $this->info(app(PageTraffic::class)->warm().' site hazırlandı.');
+})->purpose('Recompute the cached Search Console page totals the desk and the Bugün screen read.');
+Schedule::command('moxdop:work:warm-page-traffic')
+    ->cron('40 */3 * * *')->withoutOverlapping(60)->name('work-warm-page-traffic');
 
 // Sorgu otomatik pilotu: AI ile hizmet / filtre (her sorgu bir kez), Bekleyenler içe aktarımı, günlük kümeleme.
 Artisan::command('moxdop:queries:autopilot {--clean : Saatlik temizlik (tam tarama + Silinecekler uygulanır)}', function (): void {
