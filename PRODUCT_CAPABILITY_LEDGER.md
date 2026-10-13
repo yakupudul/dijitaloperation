@@ -574,7 +574,7 @@ Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
 - 1.11.1–1.11.3 (aşağıda) yan dalda kalmıştı; 1.12–1.14 onlarsız çıktı. 1.15.0 hepsini ana eklentiye koyar.
 - **Yeni:** `post` / `media` işlemleri `id` alır: kurulumla yapılmamış mevcut bir sayfa/görsel ref'e bağlanır, SEO/içerik/Elementor verisi güncellenir; geri alma önceki hâli (meta dahil) geri koyar. Başka ref'e ait olan devralınmaz.
 - MCP `read-site` (4f27b9c5): eşleşmiş sitenin snapshot'ı, işlenmiş içerik ve sitenin kendi hostundaki herkese açık URL'ler; salt okunur.
-- **State:** CODED + tested. **Operator after deploy:** siteyi 1.15.1’e güncelle.
+- **State:** CODED + tested. **Operator after deploy:** siteyi 1.15.2’ye güncelle.
 
 ## 2026-10-08 — Site kurulumu: Elementor Site Settings okuma ve yazma (Connector 1.11.1–1.11.2)
 

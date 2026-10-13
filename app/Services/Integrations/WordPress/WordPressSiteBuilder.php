@@ -124,6 +124,8 @@ final class WordPressSiteBuilder
             'Accept-Language' => 'tr-TR,tr;q=0.9,en;q=0.5',
         ])->timeout(30)->withOptions(['allow_redirects' => ['max' => 5, 'track_redirects' => true]])->get($url);
         $body = (string) $response->body();
+        $type = strtolower((string) $response->header('content-type'));
+        $binary = $type !== '' && ! preg_match('#^(text/|application/(json|xml|javascript|ld\+json|xhtml\+xml|rss\+xml|atom\+xml))|image/svg#', $type);
         $redirects = $response->header('X-Guzzle-Redirect-History');
 
         return [
@@ -134,8 +136,9 @@ final class WordPressSiteBuilder
             'headers' => collect(['content-type', 'x-robots-tag', 'cache-control', 'server', 'x-powered-by', 'content-encoding', 'link', 'strict-transport-security', 'x-litespeed-cache', 'cf-cache-status'])
                 ->mapWithKeys(fn (string $name): array => [$name => $response->header($name)])->filter()->all(),
             'bytes' => strlen($body),
-            'body' => mb_substr($body, 0, $maxChars),
-            'truncated' => mb_strlen($body) > $maxChars,
+            ...($binary
+                ? ['body_base64' => strlen($body) <= 8388608 ? base64_encode($body) : null, 'truncated' => strlen($body) > 8388608]
+                : ['body' => mb_substr($body, 0, $maxChars), 'truncated' => mb_strlen($body) > $maxChars]),
         ];
     }
 

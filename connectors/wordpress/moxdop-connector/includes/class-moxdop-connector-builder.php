@@ -518,6 +518,13 @@ final class MoxDOP_Connector_Builder
             return $this->fail('a '.$type.' template needs Elementor Pro');
         }
         $existing = $this->find($ref);
+        if (! $existing && ! empty($operation['id'])) {
+            // 1.15.2: takes over an Elementor template that was not built here (header, footer, loop item, single …).
+            $existing = get_post_type((int) $operation['id']) === 'elementor_library' ? $this->adopt_template((int) $operation['id'], $ref) : 'template '.(int) $operation['id'].' not found';
+            if (is_string($existing)) {
+                return $this->fail($existing);
+            }
+        }
         if ($existing && get_post_type($existing) !== 'elementor_library') {
             return $this->fail('ref "'.$ref.'" already belongs to a '.get_post_type($existing));
         }
@@ -1095,6 +1102,14 @@ final class MoxDOP_Connector_Builder
         }
 
         return (int) $id;
+    }
+
+    /** @return int|string */
+    private function adopt_template($id, $ref)
+    {
+        $owner = (string) get_post_meta($id, self::REF_META, true);
+
+        return $owner !== '' && $owner !== $ref ? 'template '.$id.' already belongs to ref "'.$owner.'"' : (int) $id;
     }
 
     private function find($ref)
