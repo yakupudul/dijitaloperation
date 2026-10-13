@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegrationCredential;
@@ -11,12 +12,13 @@ use App\Models\Run;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 use App\Services\Integrations\ResourceAutomationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use MoxDop\GoogleBusinessProfile\Workspace\OperatorGbpWorkspace;
 use Tests\TestCase;
 
 /**
  * A Business Profile run whose core data arrived but some optional datasets did not (API not enabled, reviews
- * access) keeps the account current; a run without the core data is a failure.
+ * access) keeps the account current and re-checks the profile's Yapılacaklar; a run without the core data is a failure.
  */
 final class GbpPartialCollectionTest extends TestCase
 {
@@ -25,6 +27,7 @@ final class GbpPartialCollectionTest extends TestCase
     /** @param  array<string, array<string, string>>  $datasets */
     private function collectWith(array $datasets, string $status): ResourceAutomation
     {
+        Queue::fake([SyncGbpSuggestionsJob::class]);
         config(['moxdop.google.client_id' => 'cid', 'moxdop.google.client_secret' => 'csecret']);
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/1']);
         CoreIntegrationCredential::factory()->provider()->create(['integration_id' => $resource->integration_id, 'encrypted_payload' => ['client_id' => 'cid', 'client_secret' => 'csecret']]);
@@ -57,6 +60,7 @@ final class GbpPartialCollectionTest extends TestCase
 
         $this->assertSame('current', $automation->collection_status);
         $this->assertNull($automation->collection_error);
+        Queue::assertPushed(SyncGbpSuggestionsJob::class, 1);
     }
 
     public function test_run_without_core_data_fails(): void
@@ -65,6 +69,7 @@ final class GbpPartialCollectionTest extends TestCase
 
         $this->assertSame('attention', $automation->collection_status);
         $this->assertSame('collection_failed', $automation->collection_error);
+        Queue::assertNotPushed(SyncGbpSuggestionsJob::class);
     }
 
     public function test_google_errors_get_a_plain_hint(): void

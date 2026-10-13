@@ -6,6 +6,7 @@ use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\ChannelData;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\FailTask;
+use App\Mcp\Tools\GbpEvidence;
 use App\Mcp\Tools\GetBrand;
 use App\Mcp\Tools\GetPage;
 use App\Mcp\Tools\GetTask;
@@ -138,6 +139,7 @@ class MoxdopServer extends Server
         ContentQueue::class,
         RequestArticle::class,
         SystemHealth::class,
+        GbpEvidence::class,
         ScreenChecks::class,
         ListChanges::class,
         ProposeChange::class,
