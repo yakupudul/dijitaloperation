@@ -2304,6 +2304,7 @@ Beş bağımsız Livewire bileşeni (`App\Livewire\Operator\Website\V2\{Competit
 
   Sistem Sağlığı shows whether the watchdog runs.
   - A silent redis queue goes to `QueueDoctor` (2026-10-13, "default" silent for hours, deploys did not bring it back): a worker holding a job longer than its supervisor timeout + 5 min is killed (that queue's `horizon:work`, once per 30 min; Horizon respawns it); jobs waiting with nothing reserved → `horizon:terminate` (once an hour, supervisor autorestart); a moving backlog is left alone. Pending count by job, the running jobs and the last 6 h failures of that queue are kept as a system Claude note (once an hour per queue). PHPUnit `QueueDoctorTest` (4).
+  - First doctor note (2026-10-13 19:15) showed the cause: 3247 jobs on "default", ~600 approved Avrupadent `ExecuteExternalWriteJob` site writes each timing out at 120 s (300 timeouts in 6 h). Since then a timed-out write ends `failed` with "Zaman aşımı…" (job `failed()`; a site fix returns to the Onarım masası) instead of staying `running`, and a WordPress site with 2 unanswered writes in 30 min gets its next writes returned unsent ("Gönderilmedi: …"); writes a killed worker left `running` over 15 min end as timeouts. PHPUnit `ExecuteExternalWriteJobTest` (3).
 - `deploy.sh`:
   - stops when `QUEUE_CONNECTION` is empty or `sync`,
   - warns when it is not `redis` (Horizon only works redis),
