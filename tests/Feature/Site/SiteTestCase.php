@@ -119,10 +119,10 @@ abstract class SiteTestCase extends TestCase
     }
 
     /** One Search Console query × page fact (2026-09-20, inside the 28-day window). */
-    protected function fact(string $query, string $path, int $impressions, int $clicks, float $position, string $date = '2026-09-20'): void
+    protected function fact(string $query, string $path, int $impressions, int $clicks, float $position, string $date = '2026-09-20', string $searchType = 'web'): void
     {
         $this->insertFacts('gsc_query_page_daily', [
-            'digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr', 'search_type' => 'web',
+            'digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr', 'search_type' => $searchType,
             'reporting_date' => $date, 'query' => $query, 'page' => 'https://panorama.com.tr'.$path, 'clicks' => $clicks, 'impressions' => $impressions,
             'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20),
             'metadata' => json_encode(['provider_average_position' => $position]),

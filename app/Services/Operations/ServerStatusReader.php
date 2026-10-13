@@ -202,6 +202,26 @@ final class ServerStatusReader
         ];
     }
 
+    /**
+     * The biggest tables of the PostgreSQL schema with their indexes and partitions counted under the parent (a compact
+     * fact table is one row, not one per month), to see what fills the disk. Empty on other drivers.
+     *
+     * @return list<array{table: string, bytes: int, size: string}>
+     */
+    public function largestTables(int $limit = 12): array
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return [];
+        }
+        $rows = DB::select("select coalesce(p.relname, c.relname) as name, sum(pg_total_relation_size(c.oid))::bigint as bytes
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            left join pg_inherits i on i.inhrelid = c.oid left join pg_class p on p.oid = i.inhparent
+            where n.nspname = current_schema() and c.relkind in ('r', 'm')
+            group by 1 order by 2 desc limit ?", [$limit]);
+
+        return array_map(fn (object $row): array => ['table' => (string) $row->name, 'bytes' => (int) $row->bytes, 'size' => self::gb((float) $row->bytes)], $rows);
+    }
+
     /** @return list<array{label: string, value: string, tone: string}> */
     private function database(): array
     {

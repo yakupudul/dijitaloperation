@@ -18,7 +18,7 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do and approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
+#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do and approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons. Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
 #[IsReadOnly]
 class SystemHealth extends Tool
 {
@@ -50,6 +50,7 @@ class SystemHealth extends Tool
             $status = app(ServerStatusReader::class)->read();
             $out['server'] = $status['server'];
             $out['software'] = $status['software'];
+            $out['largest_tables'] = app(ServerStatusReader::class)->largestTables();
         } catch (Throwable $exception) {
             report($exception);
             $out['server_error'] = mb_substr($exception->getMessage(), 0, 300);

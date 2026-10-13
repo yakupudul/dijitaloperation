@@ -8,6 +8,7 @@ use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
 use App\Services\Repair\SiteAudit;
+use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\SiteMetrics;
 use App\Services\Work\OpenWork;
 use App\Services\Work\PageTraffic;
@@ -100,6 +101,19 @@ final class OpenWorkTest extends SiteTestCase
         $this->assertSame(['impressions' => 900, 'clicks' => 40], $traffic[$page->id]);
         $this->assertSame(0, $scans, 'Bugün / desk open: 13 Oct 2026 every open re-scanned Search Console per site (~10 s)');
         $this->assertSame('2026-09-20', app(SiteMetrics::class)->lastGscDay($this->brand)?->toDateString());
+    }
+
+    public function test_last_search_console_day_counts_web_rows_only_and_is_shared_by_the_brand_page(): void
+    {
+        $this->fact('implant', '/implant/', 300, 10, 5.0, '2026-09-18');
+        $this->fact('implant', '/implant/', 5, 1, 2.0, '2026-09-25', 'image');
+
+        $this->assertSame('2026-09-18', app(SiteMetrics::class)->lastSearchConsoleDay([$this->gsc->id, $this->gsc->id]));
+        $this->fact('implant', '/implant/', 300, 10, 5.0, '2026-09-19');
+        $this->assertSame('2026-09-18', app(SiteMetrics::class)->lastSearchConsoleDay([$this->gsc->id]), 'cached for an hour');
+        $this->assertSame('2026-09-19', app(SiteAnalysisReader::class)->lastDay($this->site)->toDateString(), 'the brand page reads it fresh');
+        $this->assertSame('2026-09-19', app(SiteMetrics::class)->lastSearchConsoleDay([$this->gsc->id]), 'and refreshes the cache');
+        $this->assertNull(app(SiteMetrics::class)->lastSearchConsoleDay([]));
     }
 
     public function test_desk_packages_and_brand_health_use_the_same_gain_order(): void

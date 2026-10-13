@@ -9,6 +9,7 @@ use App\Models\DigitalAsset;
 use App\Services\Brand\BrandScope;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\Site\Competitors\CompetitorTargets;
+use App\Services\Site\SiteMetrics;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -90,26 +91,10 @@ final class SiteAnalysisReader
     {
         $gsc = $this->resources($site, 'search_console');
         $ga4 = $this->resources($site, 'ga4');
-        $last = $gsc !== [] ? $this->lastSearchConsoleDay($gsc) : null;
+        $last = $gsc !== [] ? app(SiteMetrics::class)->lastSearchConsoleDay($gsc, fresh: true) : null;
         $last ??= $ga4 !== [] ? DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $ga4)->max('reporting_date') : null;
 
         return $last !== null ? CarbonImmutable::parse($last) : CarbonImmutable::yesterday();
-    }
-
-    /**
-     * Newest web day over the site's Search Console properties: one max per property, so each is a single step on the
-     * (external_resource_id, search_type, reporting_date) index; a max over an IN list reads every row of the
-     * properties instead (1.9 s on a large brand). A site has a handful of properties, so the query count stays small.
-     *
-     * @param  list<int>  $resources
-     */
-    private function lastSearchConsoleDay(array $resources): ?string
-    {
-        $days = array_map(fn (int $resource): ?string => ($day = DB::table('gsc_query_page_daily')->where('external_resource_id', $resource)
-            ->where('search_type', 'web')->max('reporting_date')) === null ? null : substr((string) $day, 0, 10), array_map('intval', $resources));
-        $days = array_filter($days);
-
-        return $days === [] ? null : max($days);
     }
 
     /** @return array{current: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}, previous: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}} */

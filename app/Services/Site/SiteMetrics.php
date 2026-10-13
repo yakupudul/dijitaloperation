@@ -4,6 +4,7 @@ namespace App\Services\Site;
 
 use App\Models\Brand;
 use App\Models\DigitalAsset;
+use App\Services\DataPool\Compact\CompactFactStore;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
@@ -36,29 +37,61 @@ final class SiteMetrics
      */
     public function lastGscDay(Brand $brand): ?CarbonImmutable
     {
-        $last = $this->lastDay(SiteScope::resourceIds($brand, 'search_console'));
+        $last = $this->lastSearchConsoleDay(SiteScope::resourceIds($brand, 'search_console'));
 
         return $last === null ? null : CarbonImmutable::parse($last);
     }
 
-    /** @param  list<int>  $ids */
-    private function lastDay(array $ids): ?string
+    /**
+     * Newest web day over a set of Search Console accounts, cached 1 h (shared by Bugün, the desk and the outcome
+     * reader). $fresh reads the facts again and refreshes the cache: for a caller whose own cache already follows the
+     * collections (the brand page KPIs), so a finished collection shows its new day at once.
+     *
+     * @param  list<int>  $ids
+     */
+    public function lastSearchConsoleDay(array $ids, bool $fresh = false): ?string
     {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
         if ($ids === []) {
             return null;
         }
         sort($ids);
         $key = (int) Cache::get(self::LAST_DAY_VERSION_KEY, 0).':'.implode(',', $ids);
-        if (array_key_exists($key, $this->lastDays)) {
+        if (! $fresh && array_key_exists($key, $this->lastDays)) {
             return $this->lastDays[$key];
         }
-        $last = Cache::remember('gsc:last-day:'.md5($key), self::LAST_DAY_CACHE_SECONDS, function () use ($ids): string {
-            $day = DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')->max('reporting_date');
+        $read = function () use ($ids): string {
+            $days = array_filter(array_map(fn (int $id): ?string => $this->readLastWebDay($id), $ids));
 
-            return $day === null ? '' : substr((string) $day, 0, 10);
-        });
+            return $days === [] ? '' : max($days);
+        };
+        if ($fresh) {
+            Cache::put('gsc:last-day:'.md5($key), $last = $read(), self::LAST_DAY_CACHE_SECONDS);
+        } else {
+            $last = Cache::remember('gsc:last-day:'.md5($key), self::LAST_DAY_CACHE_SECONDS, $read);
+        }
 
         return $this->lastDays[$key] = $last === '' ? null : $last;
+    }
+
+    /**
+     * One account's newest web day. Where the table is the compact view (live), the max is read from the fact table:
+     * its primary key leads with (resource_id, reporting_date), so it is one index step per partition, while the
+     * view's join to the dictionary made PostgreSQL aggregate every row of the account (1.8 s on Avrupadent).
+     */
+    private function readLastWebDay(int $resourceId): ?string
+    {
+        $store = app(CompactFactStore::class);
+        if ($store->isCompact('gsc_query_page_daily')) {
+            $web = $store->dimIds([(int) config('moxdop-compact-facts.kinds.search_type') => ['web' => true]]);
+            $typeId = $web[config('moxdop-compact-facts.kinds.search_type').'|web'] ?? null;
+            $day = $typeId === null ? null : DB::table((string) $store->spec('gsc_query_page_daily')['fact'])
+                ->where('resource_id', $resourceId)->where('search_type_id', $typeId)->max('reporting_date');
+        } else {
+            $day = DB::table('gsc_query_page_daily')->where('external_resource_id', $resourceId)->where('search_type', 'web')->max('reporting_date');
+        }
+
+        return $day === null ? null : substr((string) $day, 0, 10);
     }
 
     /** @return array{start: string, end: string, prev_start: string, prev_end: string}|null */

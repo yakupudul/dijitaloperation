@@ -70,6 +70,9 @@ final class SearchOutcomeReader implements OutcomeMetricReader
     {
         $brand = Brand::query()->find($scope['brand_id'] ?? 0);
         $ids = $brand !== null ? SiteScope::resourceIds($brand, 'search_console') : [];
+        if ($aggregate === 'max') {
+            return app(SiteMetrics::class)->lastSearchConsoleDay($ids);
+        }
         $day = $ids === [] ? null : DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')->{$aggregate}('reporting_date');
 
         return $day !== null ? substr((string) $day, 0, 10) : null;
