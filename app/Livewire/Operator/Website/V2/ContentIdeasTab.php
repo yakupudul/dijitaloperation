@@ -11,6 +11,7 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Queries\ClusterEditor;
+use App\Services\Site\ClusterAudit;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\ContentIdeaPool;
@@ -94,6 +95,7 @@ class ContentIdeasTab extends Component
 
             return;
         }
+        ClusterAudit::forceNext($this->assetId); // the operator's click reads every group again, changed or not
         SiteOperations::dispatch($this->assetId, SiteOperations::CLUSTER_AUDIT);
         $this->message = 'Eşleştirme kuyruğa alındı · her fikir için sayfalar okunur, durum ve eksikler yazılır.';
     }

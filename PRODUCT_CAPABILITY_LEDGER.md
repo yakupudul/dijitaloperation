@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-13 — Eşleştir yalnız değişeni okur
+
+- **Sorun (yakup 2026-10-13 "her gün site eşleştirmesi mi yapıyor?"):** AI işleri'nde her gün "Site · Eşleştir" satırları. Akış (gece 05:40, kümeleme yeni küme onaylayınca, kurulum sonrası) yalnız girdiler değişince Eşleştir başlatıyordu; ama tek yeni küme ya da tek yeni sayfa bile **tüm siteyi baştan** okutuyordu: her hizmet grubu için eşleştirme çağrısı, eşleşen her sayfa için eksik çağrısı, fikir grupları.
+- **Artık:** her AI adımı okuduğu girdileri hatırlar (`cluster-audit:done:{site}`): hizmet grubu = kümeleri + aday sayfaları ve metinleri; sayfa = metni + üstündeki kümeler (+ hizmet bölgeleri); fikir grubu = fikirler + adayları. Sonraki geçiş yalnız girdisi değişen grup / sayfa için AI'a sorar; kalanlar önceki cevabını korur. Yeni küme → yalnız o hizmetin grubu ve kümenin düştüğü sayfa; değişen sayfa metni → yalnız o sayfanın grubu ve sayfası.
+- Operatörün «Eşleştir» tıklaması (`ClusterAudit::forceNext`) hepsini yeniden okur.
+- Durum satırı: "tamam · değişmeyen N bölüm yeniden okunmadı".
+- **State:** CODED + PHPUnit (`ClusterAuditIncrementalTest`, `ClusterAuditTest`, `SiteFlowTest`). UAT: yok.
+
 ## 2026-10-12 — Stratejiler menüsü
 
 - Yeni menü **Stratejiler** (`/stratejiler`, Kazananlar'ın altında): Claude'un hazırladığı stratejiler; marka, kanal (Google Ads / Meta / İşletme profili / Web sitesi / Çok kanallı), hizmet, hedef pazarlar, diller, bütçe, durum (Taslak / Onaylandı / Uygulanıyor / Arşiv) ve sürüm. Durum, marka, kanal süzgeci ve arama; arşiv ayrı sekmede.

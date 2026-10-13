@@ -43,6 +43,11 @@ use Illuminate\Support\Facades\DB;
  * Claude (MCP): when match / gaps are delegated, a run queues every call of the current step at once and returns
  * "queued" (the pass is kept); Claude's answers dispatch the job again, which stores them and queues the next step
  * (match → gaps → extra ideas), so one Claude session drains a whole site in a few rounds.
+ *
+ * Yalnız değişen okunur: every AI step remembers the inputs it answered (service group: its clusters, candidate pages
+ * and their texts; page: its text and the clusters on it; idea group likewise). A later pass — the nightly flow, newly
+ * approved clusters, a new page — asks the AI only for the groups and pages whose inputs changed; the rest keep their
+ * answer. The operator's «Eşleştir» (forceNext) reads everything again.
  */
 final class ClusterAudit
 {
@@ -78,6 +83,12 @@ final class ClusterAudit
     /** @var array{since: string, matched: list<string>, gapped: list<int>, idea_groups: list<int>, idea_gapped: list<int>}|null */
     private ?array $pass = null;
 
+    /** @var array{match: array<string, string>, gaps: array<int, string>, ideas: array<int, string>} inputs each answered step read */
+    private array $done = ['match' => [], 'gaps' => [], 'ideas' => []];
+
+    /** Steps of this run whose inputs had not changed since they were answered (no AI call). */
+    private int $skipped = 0;
+
     /** Tür uyumu (blueprint §5.2 c): page categories put first for a page type. */
     private const array TYPE_CATEGORIES = ['service' => ['hizmet'], 'guide' => ['blog'], 'faq' => ['sss', 'blog'], 'location' => ['lokasyon'], 'comparison' => ['blog']];
 
@@ -105,13 +116,18 @@ final class ClusterAudit
             if ($continueOnly) {
                 return ['status' => 'ready', 'clusters' => 0, 'matched' => 0, 'gaps' => 0];
             }
-            $this->pass = ['since' => now()->toIso8601String(), 'matched' => [], 'gapped' => [], 'idea_groups' => [], 'idea_gapped' => []];
+            $this->pass = ['since' => now()->toIso8601String(), 'matched' => [], 'gapped' => [], 'idea_groups' => [], 'idea_gapped' => [],
+                'force' => Cache::pull(self::forceKey($site)) === true];
         }
         $this->startedAt = now()->getTimestamp();
         $this->callsDone = 0;
         $this->waiting = false;
+        $this->skipped = 0;
+        $this->done = self::doneOf($site);
         try {
-            return $this->runPass($site, $brand);
+            $result = $this->runPass($site, $brand);
+
+            return $this->skipped > 0 ? $result + ['skipped' => $this->skipped] : $result;
         } finally {
             $this->startedAt = null;
             $this->pass = null;
@@ -150,7 +166,13 @@ final class ClusterAudit
             if ($this->outOfTime()) {
                 return $this->partial($site, $rows->count());
             }
-            $result = $this->match($site, $group, $members, $shares);
+            $result = $this->match($site, $group, $members, $shares, (string) $key);
+            if ($result === 'skipped') {
+                $this->skipped++;
+                $this->pass['matched'][] = (string) $key;
+
+                continue;
+            }
             if ($result === 'queued') {
                 $this->waiting = true;
                 $this->callsDone++;
@@ -182,6 +204,14 @@ final class ClusterAudit
             }
             $page = Page::query()->where('website_asset_id', $site->id)->find((int) $pageId);
             if ($page !== null) {
+                $inputs = self::hash([$page->content_hash, $pageRows->map(fn (BrandClusterPage $row): array => [(int) $row->cluster_id,
+                    self::serviceAreas($row->cluster, $brand)])->sortBy(fn (array $r): int => $r[0])->values()->all()]);
+                if ($this->unchanged('gaps', (int) $pageId, $inputs) && $pageRows->every(fn (BrandClusterPage $row): bool => $row->gaps !== null)) {
+                    $this->skipped++;
+                    $this->pass['gapped'][] = (int) $pageId;
+
+                    continue;
+                }
                 $found = $this->gaps($brand, $page, $pageRows, $members);
                 $this->callsDone++;
                 if ($found === null) {
@@ -190,6 +220,7 @@ final class ClusterAudit
                     continue;
                 }
                 $gaps += $found;
+                $this->answered('gaps', (int) $pageId, $inputs, $site);
             }
             $this->pass['gapped'][] = (int) $pageId;
         }
@@ -296,9 +327,24 @@ final class ClusterAudit
                     $main->pageIds(), $usage->locked ? $usage->page_id : null);
             }
             $pageIds = array_slice(array_values(array_unique(array_merge(...array_values($candidates ?: [[]])))), 0, self::MAX_PAGES_PER_CALL);
+            $byId = $pages->keyBy('id');
+            $inputs = self::hash([
+                $group->map(fn (BrandContentIdea $u): array => [(int) $u->id, (int) $u->idea->id, $u->idea->title, $u->idea->angle, $u->idea->target_queries,
+                    $u->idea->outline, $u->locked ? $u->page_id : null, $mainRows[$u->idea->cluster_id]->pageIds(), $candidates[(int) $u->id]])->values()->all(),
+                array_map(fn (int $id): array => [$id, $byId[$id]->content_hash], $pageIds),
+            ]);
+            if ($only === null && $this->unchanged('ideas', (int) $serviceId, $inputs)
+                && $group->every(fn (BrandContentIdea $u): bool => $u->audited_at !== null && ($u->page_id === null || $u->gaps !== null))) {
+                $this->skipped++;
+                if ($this->pass !== null) {
+                    $this->pass['idea_groups'][] = (int) $serviceId;
+                }
+
+                continue;
+            }
+            $groupWaits = false;
             $answers = collect();
             if ($pageIds !== []) {
-                $byId = $pages->keyBy('id');
                 $result = $this->ai->run(new ClusterMatchAgent, [
                     'service' => (string) ($mainRows[$group->first()->idea->cluster_id]->cluster->service?->primaryName?->raw_label ?? ''),
                     'clusters' => $group->map(fn (BrandContentIdea $u): array => [
@@ -346,6 +392,7 @@ final class ClusterAudit
                     $this->callsDone++;
                     if (! $this->ideaGaps($brand, $usage)) {
                         $this->waiting = true;
+                        $groupWaits = true;
 
                         continue;
                     }
@@ -356,6 +403,9 @@ final class ClusterAudit
             }
             if ($this->pass !== null) {
                 $this->pass['idea_groups'][] = (int) $serviceId;
+            }
+            if ($only === null && ! $groupWaits) {
+                $this->answered('ideas', (int) $serviceId, $inputs, $site);
             }
         }
 
@@ -446,6 +496,48 @@ final class ClusterAudit
         $pass = Cache::get(self::passKey($site));
 
         return is_array($pass) && isset($pass['since']) ? $pass + ['matched' => [], 'gapped' => [], 'idea_groups' => [], 'idea_gapped' => []] : null;
+    }
+
+    /** The operator's «Eşleştir»: the next pass of the site reads every group and page again, changed or not. */
+    public static function forceNext(int $siteId): void
+    {
+        Cache::put(self::forceKey($siteId), true, now()->addHours(self::PASS_HOURS));
+    }
+
+    /** Whether this step's inputs are the ones it was last answered for (and the pass is not a forced one). */
+    private function unchanged(string $step, string|int $key, string $inputs): bool
+    {
+        return ! ($this->pass['force'] ?? false) && ($this->done[$step][$key] ?? null) === $inputs;
+    }
+
+    /** The step was answered for these inputs: a later pass skips it while they stay the same. */
+    private function answered(string $step, string|int $key, string $inputs, DigitalAsset $site): void
+    {
+        $this->done[$step][$key] = $inputs;
+        Cache::forever(self::doneKey($site), $this->done);
+    }
+
+    /** @return array{match: array<string, string>, gaps: array<int, string>, ideas: array<int, string>} */
+    private static function doneOf(DigitalAsset $site): array
+    {
+        $done = Cache::get(self::doneKey($site));
+
+        return (is_array($done) ? $done : []) + ['match' => [], 'gaps' => [], 'ideas' => []];
+    }
+
+    private static function hash(mixed $inputs): string
+    {
+        return hash('sha256', (string) json_encode($inputs, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE));
+    }
+
+    private static function doneKey(DigitalAsset $site): string
+    {
+        return 'cluster-audit:done:'.$site->id;
+    }
+
+    private static function forceKey(DigitalAsset|int $site): string
+    {
+        return 'cluster-audit:force:'.($site instanceof DigitalAsset ? $site->id : $site);
     }
 
     /** Whether a pass of this site stopped half way and waits for its next part or Claude's answers. */
@@ -577,7 +669,7 @@ final class ClusterAudit
      * @param  array<int, array{queries: list<string>, facets: list<string>}>  $members
      * @param  array<int, list<array{url: string, url_key: string, impressions: int, share: float}>>  $shares
      */
-    private function match(DigitalAsset $site, Collection $rows, array $members, array $shares = []): int|string
+    private function match(DigitalAsset $site, Collection $rows, array $members, array $shares = [], ?string $group = null): int|string
     {
         $pages = $this->candidatePages($site, $rows->first()->language);
         $pageWords = $this->pageWords($pages);
@@ -593,14 +685,26 @@ final class ClusterAudit
                 $lead !== null && $lead['share'] >= ClusterPageShares::LEAD ? $lead['url_key'] : null, $foreign, $row->locked ? $row->page_id : null);
         }
         $pageIds = array_slice(array_values(array_unique(array_merge(...array_values($candidates ?: [[]])))), 0, self::MAX_PAGES_PER_CALL);
+        $byId = $pages->keyBy('id');
+        // What the AI would read: the clusters (name, main query, locked page) and the candidate pages with their texts.
+        $inputs = self::hash([
+            $rows->map(fn (BrandClusterPage $row): array => [(int) $row->id, (int) $row->cluster_id, (string) $row->cluster->name,
+                $row->cluster->main_query_id, $row->locked ? $row->page_id : null, $candidates[(int) $row->id]])->values()->all(),
+            array_map(fn (int $id): array => [$id, $byId[$id]->content_hash, $byId[$id]->category], $pageIds),
+        ]);
+        if ($group !== null && $this->unchanged('match', $group, $inputs) && $rows->every(fn (BrandClusterPage $row): bool => $row->audited_at !== null)) {
+            return 'skipped';
+        }
         if ($pageIds === []) {
             foreach ($rows as $row) {
                 $this->place($row, null, 'none', 'Sitede bu konuyu işleyen sayfa bulunamadı.', []);
             }
+            if ($group !== null) {
+                $this->answered('match', $group, $inputs, $site);
+            }
 
             return 0;
         }
-        $byId = $pages->keyBy('id');
         // Claude (MCP): the call is named by its language, service and clusters, so a re-run of the pass finds the answer
         // although candidate pages, queries or page texts moved while it waited (no second task for the same question).
         $slot = 'match:'.($rows->first()->language ?? '').'|'.$rows->first()->cluster->service_id.'|'
@@ -635,6 +739,9 @@ final class ClusterAudit
             $this->place($row, $pageId, $coverage, preg_match('/https?:|www\.|\d{2,}/u', $reason) === 1 ? '' : $reason, $pageId !== null ? $also : []);
             $matched += $pageId !== null ? 1 : 0;
         }
+        if ($group !== null) {
+            $this->answered('match', $group, $inputs, $site);
+        }
 
         return $matched;
     }
@@ -650,7 +757,7 @@ final class ClusterAudit
         return Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)
             ->where(fn ($q) => $q->whereIn('category', self::PAGE_CATEGORIES)->orWhereNull('category'))
             ->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
-            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'category'])
+            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'category', 'content_hash'])
             ->reject(fn (Page $p): bool => preg_match(self::NEVER_CANDIDATE, '/'.trim((string) $p->path, '/')) === 1 || trim((string) $p->path, '/') === '')
             ->values();
     }

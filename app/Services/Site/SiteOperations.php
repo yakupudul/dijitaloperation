@@ -356,7 +356,7 @@ final class SiteOperations
             'queued' => 'Claude bekleniyor (MCP); sonuç gelince devam eder'.(($stopped = self::claudeApiStopped()) !== null ? '. Claude API durdu: '.$stopped : ''),
             'timeout' => 'süre aşıldı; kalan kısım sonra devam eder',
             'stalled' => 'çok parçaya bölündü, durduruldu; tekrar başlatın',
-            'ready' => 'tamam',
+            'ready' => (int) ($status['skipped'] ?? 0) > 0 ? 'tamam · değişmeyen '.(int) $status['skipped'].' bölüm yeniden okunmadı' : 'tamam',
             'not_operational' => 'pasif müşteri: AI çalışmaz',
             'no_provider', 'ai_no_provider' => 'AI bağlı değil',
             'no_services' => 'onaylı hizmet yok',
