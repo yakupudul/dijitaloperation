@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Jobs\RefreshWordPressConnectorStatusJob;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -14,6 +15,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -84,13 +86,11 @@ final class SiteConnectorShow extends Component
             ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
             ->firstOrFail();
         if (data_get($connection->config, 'rest_transport') === 'pull') {
-            // 1.13.0: the host refuses MoxDOP, the site fetches its work itself; the test is the site's last visit.
+            // 1.13.0: the host refuses MoxDOP, the site fetches its work itself; the status read waits for its next ask.
+            RefreshWordPressConnectorStatusJob::dispatch($connection->id);
+            $this->message = self::pullSummary($connection);
             $seen = WordPressConnectorCommands::seenAt($connection);
-            $fresh = $seen !== null && $seen->gt(now()->subMinutes(20));
-            $this->messageTone = $fresh ? 'success' : 'error';
-            $this->message = $fresh
-                ? 'Bağlantı çalışıyor: hosting MoxDOP\'un isteklerini reddettiği için site işleri kendisi alıyor (son temas '.$seen->diffForHumans().').'
-                : 'Site işleri kendisi almalı ama '.($seen !== null ? $seen->diffForHumans().' beri' : 'hiç').' sormadı: eklenti 1.13.0 kurulu mu, sitede WordPress zamanlanmış görevleri çalışıyor mu?';
+            $this->messageTone = $seen !== null && $seen->gt(now()->subMinutes(20)) ? 'success' : 'error';
 
             return;
         }
@@ -107,6 +107,40 @@ final class SiteConnectorShow extends Component
             $this->messageTone = 'error';
             $this->message = 'Connector bağlantısı doğrulanamadı: '.mb_substr($error->getMessage(), 0, 300);
         }
+    }
+
+    /**
+     * One honest line about a site that fetches its work itself: when it last asked and how, the version it reported,
+     * why MoxDOP last refused it, the work waiting for it and what to do.
+     */
+    public static function pullSummary(CoreConnection $connection): string
+    {
+        $state = WordPressConnectorCommands::state($connection);
+        $version = (string) ($state['report']['plugin_version'] ?? data_get($connection->config, 'plugin_version', ''));
+        $seen = $state['seen_at'] !== null ? CarbonImmutable::parse($state['seen_at']) : null;
+        $parts = ['Hosting MoxDOP\'un isteklerini reddettiği için bu site işleri MoxDOP\'tan kendisi alıyor'];
+        $parts[] = $seen !== null
+            ? 'son soruşu '.$seen->diffForHumans().(($state['report']['trigger'] ?? null) === 'visit' ? ' (bir ziyaretle)' : '')
+            : 'site henüz hiç sormadı';
+        if ($state['refusal'] !== null && $state['refused_at'] !== null && ($seen === null || CarbonImmutable::parse($state['refused_at'])->gt($seen))) {
+            $parts[] = 'MoxDOP son soruşunu reddetti: '.$state['refusal'];
+        }
+        if (($state['report']['last_failure'] ?? null) !== null) {
+            $parts[] = 'sitenin bildirdiği son hata: '.$state['report']['last_failure'];
+        }
+        if ($state['pending'] + $state['sent'] > 0) {
+            $parts[] = ($state['pending'] + $state['sent']).' iş sitenin almasını bekliyor';
+        }
+        $fresh = $seen !== null && $seen->gt(now()->subMinutes(20));
+        if (! $fresh) {
+            $parts[] = $version !== '' && version_compare($version, '1.16.0', '<')
+                ? 'eklenti '.$version.' yalnız WordPress zamanlanmış görevleriyle soruyor; 1.16.0\'a güncelle (Web siteleri › eklentiyi güncelle), o sürüm sitede bir ziyaret olunca da sorar'
+                : 'sitede ziyaret olunca sorar; site açılıyor mu ve eklenti etkin mi kontrol et';
+        } else {
+            $parts[] = 'durum bilgisi (sürüm, site kurulumu ayarı) site bir sonraki soruşunda yenilenecek';
+        }
+
+        return implode('; ', $parts).'.';
     }
 
     /** @var array<int, string> reject reasons typed in the build log, by action id */
@@ -213,6 +247,7 @@ final class SiteConnectorShow extends Component
             'buildLog' => $connection ? app(WordPressSiteBuilder::class)->history((int) $selected->id) : [],
             'isAdmin' => auth()->user()?->hasRole(Roles::ADMIN) ?? false,
             'packageFilename' => $package->filename(),
+            'pullSummary' => $connection !== null && data_get($connection->config, 'rest_transport') === 'pull' ? self::pullSummary($connection) : null,
         ]);
     }
 }

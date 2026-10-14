@@ -41,7 +41,7 @@ final class WordPressSiteBuilder
     /**
      * Paired WordPress sites with their build state.
      *
-     * @return list<array{site_id: int, name: string, brand: ?string, url: ?string, plugin_version: ?string, mode: ?string, plugin_allows_build: bool, ready: bool, reason: ?string}>
+     * @return list<array{site_id: int, name: string, brand: ?string, url: ?string, plugin_version: ?string, mode: ?string, plugin_allows_build: bool, ready: bool, reason: ?string, pull?: array<string, mixed>}>
      */
     public function sites(): array
     {
@@ -58,6 +58,8 @@ final class WordPressSiteBuilder
                 'plugin_allows_build' => in_array('build', (array) data_get($connection->config, 'capabilities', []), true),
                 'ready' => $state === null,
                 'reason' => $state,
+                // Host refuses MoxDOP, the site fetches its work itself: when it last asked, refusals, waiting work.
+                ...(data_get($connection->config, 'rest_transport') === 'pull' ? ['pull' => WordPressConnectorCommands::state($connection)] : []),
             ];
         })->values()->all();
     }
