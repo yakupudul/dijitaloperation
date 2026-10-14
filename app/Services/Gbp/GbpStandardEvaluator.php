@@ -235,7 +235,7 @@ final class GbpStandardEvaluator
                 }
                 $photos = (int) ($media['photo_count'] ?? 0);
                 if ($photos < 10) {
-                    $problems[] = 'yalnız '.$photos.' fotoğraf (en az 10)';
+                    $problems[] = 'işletmenin yüklediği yalnız '.$photos.' fotoğraf var (en az 10; müşteri fotoğrafları sayılmaz)';
                 }
 
                 return $problems === [] ? $this->pass('Logo, kapak ve '.$photos.' fotoğraf var.')

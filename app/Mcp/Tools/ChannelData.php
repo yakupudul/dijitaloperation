@@ -80,8 +80,8 @@ class ChannelData extends Tool
             return Response::error('Bu veri tablosu yok: '.$table);
         }
 
-        $owned = $this->owned((int) $brand->id, $validated['dataset']);
         $from = CarbonImmutable::now()->subDays((int) ($validated['days'] ?? 90))->toDateString();
+        $owned = $this->owned((int) $brand->id, $validated['dataset'], $dateColumn, $from);
         $limit = (int) ($validated['limit'] ?? 50);
         $webOnly = str_starts_with($table, 'gsc_') && Schema::hasColumn($table, 'search_type');
         $base = fn () => $owned(DB::table($table), $table)->where($dateColumn, '>=', $from)
@@ -122,7 +122,28 @@ class ChannelData extends Tool
             'last_day' => $base()->max($dateColumn),
             'totals' => $groups === ['month'] ? null : $this->round((array) ($base()->selectRaw($sums)->first() ?? [])),
             'rows' => $rows,
-        ]);
+        ] + ($rows === [] ? ['sources' => $this->sources((int) $brand->id, $validated['dataset'], $table, $dateColumn)] : []));
+    }
+
+    /**
+     * Why a dataset came back empty: per account of the brand, its rows bound to an asset and its central rows, with
+     * the last day of each.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function sources(int $brandId, string $dataset, string $table, string $dateColumn): array
+    {
+        if (! Schema::hasColumn($table, 'external_resource_id')) {
+            return [];
+        }
+        $out = [];
+        foreach (BrandScope::resources($brandId, self::RESOURCE_TYPES[strstr($dataset, '.', true)]) as $id) {
+            $out[] = ['resource_id' => $id,
+                'central_last_day' => DB::table($table)->where('external_resource_id', $id)->whereNull('digital_asset_id')->max($dateColumn),
+                'asset_bound_last_day' => DB::table($table)->where('external_resource_id', $id)->whereNotNull('digital_asset_id')->max($dateColumn)];
+        }
+
+        return $out;
     }
 
     /** @return array<string, mixed> */
@@ -145,14 +166,17 @@ class ChannelData extends Tool
      *
      * @return \Closure(Builder, string): Builder
      */
-    private function owned(int $brandId, string $dataset): \Closure
+    private function owned(int $brandId, string $dataset, ?string $dateColumn = null, ?string $from = null): \Closure
     {
         $assetIds = BrandScope::assetIds($brandId) ?: [0];
         $resourceIds = BrandScope::resources($brandId, self::RESOURCE_TYPES[strstr($dataset, '.', true)]);
 
-        return function (Builder $query, string $table) use ($assetIds, $resourceIds): Builder {
+        return function (Builder $query, string $table) use ($assetIds, $resourceIds, $dateColumn, $from): Builder {
+            // Central only where the account has central rows in the period read: old central rows outside it must not
+            // hide the asset-bound rows that are inside it.
             $central = $resourceIds !== [] && Schema::hasColumn($table, 'external_resource_id')
-                ? array_values(array_filter($resourceIds, fn (int $id): bool => DB::table($table)->where('external_resource_id', $id)->whereNull('digital_asset_id')->exists()))
+                ? array_values(array_filter($resourceIds, fn (int $id): bool => DB::table($table)->where('external_resource_id', $id)->whereNull('digital_asset_id')
+                    ->when($dateColumn !== null && $from !== null && Schema::hasColumn($table, $dateColumn), fn (Builder $q) => $q->where($dateColumn, '>=', $from))->exists()))
                 : [];
 
             return $query->where(fn (Builder $scope) => $scope

@@ -246,6 +246,20 @@ return [
             'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
             'nice' => 0,
         ],
+        // Onarım masası approvals and approved external writes (yakup 2026-10-13): a click's write never waits behind
+        // the jobs on "default" (35 min wait seen on 2026-10-13).
+        'supervisor-writes' => [
+            'connection' => 'redis',
+            'queue' => ['writes'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('HORIZON_WRITES_MAX_PROCESSES', 2),
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => (int) env('HORIZON_WRITES_TIMEOUT', 900),
+            'nice' => 0,
+        ],
         'supervisor-heavy' => [
             'connection' => 'redis',
             'queue' => ['heavy'],
@@ -312,9 +326,14 @@ return [
                 'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
+            // 2026-10-14: long AI / analysis left "default" for these lanes (AppServiceProvider::jobLanes); the 8 GB
+            // server ran at ~48 % memory, so one more heavy and one more background worker fit.
             'supervisor-heavy' => [
-                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 2),
+                'maxProcesses' => (int) env('HORIZON_HEAVY_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_HEAVY_TIMEOUT', 900),
+            ],
+            'supervisor-background' => [
+                'maxProcesses' => (int) env('HORIZON_BACKGROUND_MAX_PROCESSES', 2),
             ],
         ],
 

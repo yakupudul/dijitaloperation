@@ -25,9 +25,7 @@ final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing
         public readonly ?int $triggerCollectionRunId = null,
         public readonly ?string $periodStart = null,
         public readonly ?string $periodEnd = null,
-    ) {
-        $this->onQueue('default');
-    }
+    ) {}
 
     public function uniqueId(): string
     {

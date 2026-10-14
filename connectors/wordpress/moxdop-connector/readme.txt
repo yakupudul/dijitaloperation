@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.14.0
+Stable tag: 1.16.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,18 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.16.0 =
+* When the host refuses MoxDOP's requests and the site fetches its work itself, the site no longer depends on WP-Cron alone (a page cache serves most visits without PHP, so WP-Cron rarely ran): while work comes this way, pages carry a tiny beacon that lets a visit start the ask (at most once a minute for the whole site, after the visitor already has the answer).
+* Each ask tells MoxDOP how it started (WP-Cron or a visit), whether WP-Cron is disabled and the last failure the site saw, shown on MoxDOP's connector page.
+
+= 1.15.2 =
+* Site building: `elementor_template` takes an optional `id` to take over an existing Elementor template (header, footer, loop item, single, archive) that was not built here; undoable.
+
+= 1.15.1 =
+* Site building: GET /build lists the Elementor global colors and fonts with their ids (`elementor_globals`); the `settings` operation writes Elementor Site Settings (`elementor_kit`), undoable.
+* Site building: `settings` with `render_preview` (1-4 paths) makes the next GET /build return those pages rendered (gzip + base64 HTML and CSS) for design checks.
+* Site building: `post` and `media` take an optional `id` to take over an existing page or image that was not built here; `post` also takes `schema` (JSON-LD for that page's head). Undoable like any build.
 
 = 1.14.0 =
 * Drafts (`/drafts`) accept `featured_media_id`: an image already in the site's media library becomes the post's featured image (nothing is uploaded).

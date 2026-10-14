@@ -27,7 +27,6 @@ use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
-use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandWorkspaceReadService;
@@ -353,7 +352,7 @@ class BrandShow extends Component
         return (string) ($result['message'] ?? 'Hesap bağlandı.');
     }
 
-    /** Kurulum durumu: list the accounts of the provider connection (Google in the background, Meta right away). */
+    /** Kurulum durumu: list the accounts of the provider connection (in the background). */
     public function setupDiscover(string $provider): void
     {
         $actor = $this->adminActor();
@@ -363,12 +362,7 @@ class BrandShow extends Component
 
             return;
         }
-        if ($provider === ProviderRegistry::META) {
-            $result = app(DiscoverMetaResourcesService::class)->discoverAdAccounts($integration, $actor);
-            DemoState::flash((string) ($result['message'] ?? ''), 'info');
-
-            return;
-        }
+        // Both in the background: Meta's ad-account paging ran inside the click (no page limit) and could pass nginx's 60 s.
         Cache::put(DiscoverProviderResourcesJob::cacheKey($provider), ['state' => 'running', 'started_at' => now()->toIso8601String()], now()->addHour());
         DiscoverProviderResourcesJob::dispatch($provider, (int) $actor->id);
         $state = Cache::get(DiscoverProviderResourcesJob::cacheKey($provider));

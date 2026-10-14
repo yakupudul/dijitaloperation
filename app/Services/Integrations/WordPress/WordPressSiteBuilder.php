@@ -9,6 +9,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\User;
 use App\Support\Roles;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +41,7 @@ final class WordPressSiteBuilder
     /**
      * Paired WordPress sites with their build state.
      *
-     * @return list<array{site_id: int, name: string, brand: ?string, url: ?string, plugin_version: ?string, mode: ?string, plugin_allows_build: bool, ready: bool, reason: ?string}>
+     * @return list<array{site_id: int, name: string, brand: ?string, url: ?string, plugin_version: ?string, mode: ?string, plugin_allows_build: bool, ready: bool, reason: ?string, pull?: array<string, mixed>}>
      */
     public function sites(): array
     {
@@ -57,6 +58,8 @@ final class WordPressSiteBuilder
                 'plugin_allows_build' => in_array('build', (array) data_get($connection->config, 'capabilities', []), true),
                 'ready' => $state === null,
                 'reason' => $state,
+                // Host refuses MoxDOP, the site fetches its work itself: when it last asked, refusals, waiting work.
+                ...(data_get($connection->config, 'rest_transport') === 'pull' ? ['pull' => WordPressConnectorCommands::state($connection)] : []),
             ];
         })->values()->all();
     }
@@ -65,6 +68,80 @@ final class WordPressSiteBuilder
     public function inspect(int $siteId): array
     {
         return $this->client->buildInspect($this->connection($siteId));
+    }
+
+    /**
+     * Read-only look at a paired site for Claude (read-site): a snapshot section, the rendered content of posts, or one
+     * public URL of the site's own host fetched from MoxDOP. Needs no build switch: nothing is written.
+     *
+     * @param  array{section?: ?string, page?: int, per_page?: int, ids?: list<int>, url?: ?string, max_chars?: int}  $ask
+     * @return array<string, mixed>
+     */
+    public function read(int $siteId, array $ask): array
+    {
+        $connection = $this->siteConnection($siteId);
+        $maxChars = max(1000, min(200000, (int) ($ask['max_chars'] ?? 60000)));
+        if (($ask['url'] ?? null) !== null && $ask['url'] !== '') {
+            return $this->fetchPublic($connection, (string) $ask['url'], $maxChars);
+        }
+        if (($ask['ids'] ?? []) !== []) {
+            $export = $this->client->contentExport($connection, array_map('intval', $ask['ids']));
+            $records = array_map(function (mixed $record) use ($maxChars): mixed {
+                if (! is_array($record) || ! isset($record['html_gz_b64'])) {
+                    return $record;
+                }
+                $html = (string) @gzdecode((string) base64_decode((string) $record['html_gz_b64'], true));
+                unset($record['html_gz_b64']);
+
+                return $record + ['html' => mb_substr($html, 0, $maxChars), 'truncated' => mb_strlen($html) > $maxChars];
+            }, (array) ($export['records'] ?? []));
+
+            return ['records' => $records, 'pending_ids' => $export['pending_ids'] ?? []];
+        }
+        $section = (string) ($ask['section'] ?? 'content');
+        if (! in_array($section, ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'], true)) {
+            throw new RuntimeException('section: site, extensions, content, media, taxonomies ya da seo.');
+        }
+
+        return $this->client->snapshot($connection, $section, max(1, (int) ($ask['page'] ?? 1)), isset($ask['per_page']) ? (int) $ask['per_page'] : null);
+    }
+
+    /**
+     * One public URL on the site's own host (robots.txt and sitemaps included), fetched like a browser would.
+     *
+     * @return array<string, mixed>
+     */
+    private function fetchPublic(CoreConnection $connection, string $url, int $maxChars): array
+    {
+        $base = (string) ($connection->digitalAsset?->primary_url ?: data_get($connection->config, 'snapshot_url', ''));
+        $siteHost = strtolower((string) parse_url($base, PHP_URL_HOST));
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if ($siteHost === '' || $host !== $siteHost) {
+            throw new RuntimeException('Yalnız sitenin kendi adresindeki URL okunur ('.$siteHost.').');
+        }
+        $this->client->assertSafePublicUrl($url);
+        $started = microtime(true);
+        $response = Http::withHeaders([
+            'User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP-SiteReader/1.0)',
+            'Accept-Language' => 'tr-TR,tr;q=0.9,en;q=0.5',
+        ])->timeout(30)->withOptions(['allow_redirects' => ['max' => 5, 'track_redirects' => true]])->get($url);
+        $body = (string) $response->body();
+        $type = strtolower((string) $response->header('content-type'));
+        $binary = $type !== '' && ! preg_match('#^(text/|application/(json|xml|javascript|ld\+json|xhtml\+xml|rss\+xml|atom\+xml))|image/svg#', $type);
+        $redirects = $response->header('X-Guzzle-Redirect-History');
+
+        return [
+            'url' => $url,
+            'status' => $response->status(),
+            'redirects' => $redirects === '' ? [] : array_map('trim', explode(',', $redirects)),
+            'ms' => (int) round((microtime(true) - $started) * 1000),
+            'headers' => collect(['content-type', 'x-robots-tag', 'cache-control', 'server', 'x-powered-by', 'content-encoding', 'link', 'strict-transport-security', 'x-litespeed-cache', 'cf-cache-status'])
+                ->mapWithKeys(fn (string $name): array => [$name => $response->header($name)])->filter()->all(),
+            'bytes' => strlen($body),
+            ...($binary
+                ? ['body_base64' => strlen($body) <= 8388608 ? base64_encode($body) : null, 'truncated' => strlen($body) > 8388608]
+                : ['body' => mb_substr($body, 0, $maxChars), 'truncated' => mb_strlen($body) > $maxChars]),
+        ];
     }
 
     /**

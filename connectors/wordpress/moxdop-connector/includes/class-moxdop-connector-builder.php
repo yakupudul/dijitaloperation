@@ -19,6 +19,7 @@ defined('ABSPATH') || exit;
  * - menu: a navigation menu with its items, optionally assigned to a theme location.
  * - settings: site title, tagline, front page, posts page, permalink structure, Elementor post types.
  * - trash: removes something the builder made.
+ * 1.15.0: post and media take an optional `id` to take over an existing page / image that was not built here.
  * Everything the builder makes carries a `ref` (post meta), so sending the same operation again updates it instead of
  * making a copy, and a later operation can point at it with "ref:<ref>" (parent, featured image, menu item, ACF value,
  * Elementor image / link). Nothing edits theme or plugin files.
@@ -30,6 +31,13 @@ final class MoxDOP_Connector_Builder
     const LOG_OPTION = 'moxdop_connector_build_log';
 
     const FLUSH_OPTION = 'moxdop_connector_build_flush';
+
+    /** 1.11.3: public paths whose rendered page the next GET /build returns once (settings › render_preview). */
+    const PREVIEW_OPTION = 'moxdop_connector_build_preview';
+
+    const PREVIEW_MAX_PATHS = 4;
+
+    const PREVIEW_MAX_FILES = 60;
 
     const UNDO_PREFIX = 'moxdop_build_undo_';
 
@@ -242,6 +250,11 @@ final class MoxDOP_Connector_Builder
                 set_theme_mod('nav_menu_locations', (array) $step[3]);
 
                 return true;
+            case 'restore_kit':
+                update_post_meta($step[1], '_elementor_page_settings', wp_slash((array) $step[2]));
+                $this->clear_elementor_css($step[1]);
+
+                return true;
             case 'acf_restore':
                 $restored = function_exists('acf_import_internal_post_type') ? acf_import_internal_post_type($step[2], $step[1]) : acf_import_field_group($step[2]);
                 if (in_array($step[1], ['acf-post-type', 'acf-taxonomy'], true)) {
@@ -358,6 +371,14 @@ final class MoxDOP_Connector_Builder
             return $this->fail('post type "'.$type.'" does not exist here or cannot be written');
         }
         $existing = $this->find($ref);
+        if (! $existing && ! empty($operation['id'])) {
+            // 1.15.0: takes over a page that was not built here (by its id), so its SEO, content and builder data can
+            // be updated with the same undo as a built one. A post another ref already owns is not taken over.
+            $existing = $this->adopt((int) $operation['id'], $ref);
+            if (is_string($existing)) {
+                return $this->fail($existing);
+            }
+        }
         if ($existing && get_post_type($existing) !== $type) {
             return $this->fail('ref "'.$ref.'" already belongs to a '.get_post_type($existing));
         }
@@ -450,6 +471,18 @@ final class MoxDOP_Connector_Builder
                 $warnings[] = $written->get_error_message();
             }
         }
+        if (array_key_exists('schema', $operation)) {
+            // 1.15.0: JSON-LD printed in the page head by the connector (the same meta the SEO fixes use).
+            $schema = $operation['schema'];
+            $decoded = is_string($schema) ? json_decode($schema, true) : $schema;
+            if ($schema === null || $schema === '') {
+                delete_post_meta($post_id, '_moxdop_schema');
+            } elseif (is_array($decoded)) {
+                update_post_meta($post_id, '_moxdop_schema', wp_slash(wp_json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
+            } else {
+                $warnings[] = 'schema must be JSON-LD';
+            }
+        }
         if (is_array($operation['seo'] ?? null)) {
             $fixes = new MoxDOP_Connector_Fixes;
             foreach (['title' => 120, 'description' => 320] as $field => $limit) {
@@ -485,6 +518,13 @@ final class MoxDOP_Connector_Builder
             return $this->fail('a '.$type.' template needs Elementor Pro');
         }
         $existing = $this->find($ref);
+        if (! $existing && ! empty($operation['id'])) {
+            // 1.15.2: takes over an Elementor template that was not built here (header, footer, loop item, single …).
+            $existing = get_post_type((int) $operation['id']) === 'elementor_library' ? $this->adopt_template((int) $operation['id'], $ref) : 'template '.(int) $operation['id'].' not found';
+            if (is_string($existing)) {
+                return $this->fail($existing);
+            }
+        }
         if ($existing && get_post_type($existing) !== 'elementor_library') {
             return $this->fail('ref "'.$ref.'" already belongs to a '.get_post_type($existing));
         }
@@ -547,6 +587,12 @@ final class MoxDOP_Connector_Builder
             return $this->fail('ref is required');
         }
         $existing = $this->find($ref);
+        if (! $existing && ! empty($operation['id'])) {
+            $existing = $this->adopt((int) $operation['id'], $ref);
+            if (is_string($existing)) {
+                return $this->fail($existing);
+            }
+        }
         $created = ! $existing;
         if ($created) {
             require_once ABSPATH.'wp-admin/includes/file.php';
@@ -683,6 +729,25 @@ final class MoxDOP_Connector_Builder
         $changed = [];
         $errors = [];
         $previous = [];
+        if (array_key_exists('render_preview', $values)) {
+            $paths = $this->preview_paths($values['render_preview']);
+            if (is_string($paths)) {
+                $errors[] = $paths;
+            } else {
+                update_option(self::PREVIEW_OPTION, $paths, false);
+                $changed['render_preview'] = $paths;
+            }
+            unset($values['render_preview']);
+        }
+        if (array_key_exists('elementor_kit', $values)) {
+            $kit = $this->kit_settings($values['elementor_kit']);
+            if (is_string($kit)) {
+                $errors[] = $kit;
+            } else {
+                $changed['elementor_kit'] = $kit;
+            }
+            unset($values['elementor_kit']);
+        }
         foreach ($values as $key => $value) {
             if (! in_array($key, self::SETTINGS, true)) {
                 $errors[] = 'not allowed: '.$key;
@@ -727,6 +792,44 @@ final class MoxDOP_Connector_Builder
         }
 
         return ['ok' => $errors === [] && $changed !== [], 'changed' => $changed, 'errors' => $errors];
+    }
+
+    /**
+     * 1.11.2: Elementor Site Settings (the active kit): the given keys (system_colors, custom_colors, system_typography,
+     * custom_typography, body / h1-h6 / button typography and colors, container_width, …) are merged into the kit's
+     * settings; other keys keep their values. Undo puts the whole previous settings back. Returns the changed keys or an error.
+     */
+    private function kit_settings($values)
+    {
+        $kit_id = (int) get_option('elementor_active_kit');
+        if (! defined('ELEMENTOR_VERSION') || ! $kit_id || get_post_type($kit_id) !== 'elementor_library') {
+            return 'elementor_kit: Elementor or its active kit is missing';
+        }
+        if (! is_array($values) || $values === [] || array_values($values) === $values) {
+            return 'elementor_kit must be an object of Site Settings keys';
+        }
+        $current = get_post_meta($kit_id, '_elementor_page_settings', true);
+        $current = is_array($current) ? $current : [];
+        $this->undo[] = ['restore_kit', $kit_id, $current];
+        $merged = $current;
+        foreach ($values as $key => $value) {
+            $key = preg_replace('/[^a-z0-9_]/', '', strtolower((string) $key));
+            if ($key !== '') {
+                $merged[$key] = $value;
+            }
+        }
+        update_post_meta($kit_id, '_elementor_page_settings', wp_slash($merged));
+        $this->clear_elementor_css($kit_id);
+
+        return array_keys($values);
+    }
+
+    private function clear_elementor_css($post_id)
+    {
+        delete_post_meta($post_id, '_elementor_css');
+        if (class_exists('\\Elementor\\Plugin') && isset(Plugin::$instance->files_manager)) {
+            Plugin::$instance->files_manager->clear_cache();
+        }
     }
 
     /** Moves something the builder made to the trash (media is deleted: WordPress has no media trash by default). */
@@ -812,9 +915,108 @@ final class MoxDOP_Connector_Builder
             'acf_types' => $acf_types,
             'elementor_templates' => $templates,
             'menus' => $menus,
+            'elementor_globals' => $this->elementor_globals(),
             'built' => $built,
+            'preview' => $this->take_preview(),
             'limits' => ['operations_per_request' => self::MAX_OPERATIONS, 'media_bytes' => self::MAX_MEDIA_BYTES],
         ];
+    }
+
+    /**
+     * 1.11.3: render_preview takes up to 4 public paths of this site ("/", "/products/hr1/"); anything else is refused.
+     *
+     * @return array|string the paths or an error
+     */
+    private function preview_paths($value)
+    {
+        $paths = [];
+        foreach ((array) $value as $path) {
+            $path = (string) $path;
+            if ($path === '' || $path[0] !== '/' || strpos($path, '//') === 0 || strpos($path, '..') !== false || preg_match('/[\s<>"\'\\\\]/', $path)) {
+                return 'render_preview: a path like "/" or "/products/hr1/" is required';
+            }
+            $paths[] = $path;
+        }
+        if ($paths === [] || count($paths) > self::PREVIEW_MAX_PATHS) {
+            return 'render_preview: 1-'.self::PREVIEW_MAX_PATHS.' paths are required';
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * 1.11.3: what a visitor gets for the paths render_preview asked for, once: the page HTML and the stylesheets of this
+     * site it loads, gzip + base64 in `data` (JSON {path: {status, html, css: {url: text}}}). Read only: public GET
+     * requests to this site's own address; nothing else is fetched.
+     */
+    private function take_preview()
+    {
+        $paths = get_option(self::PREVIEW_OPTION);
+        if (! is_array($paths) || $paths === []) {
+            return null;
+        }
+        delete_option(self::PREVIEW_OPTION);
+        $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        $args = ['timeout' => 15, 'redirection' => 3, 'sslverify' => (bool) apply_filters('https_local_ssl_verify', false), 'headers' => ['Cache-Control' => 'no-cache']];
+        $pages = [];
+        $files = 0;
+        foreach ($paths as $path) {
+            $response = wp_remote_get(home_url($path), $args);
+            if (is_wp_error($response)) {
+                $pages[$path] = ['status' => 0, 'error' => $response->get_error_message()];
+
+                continue;
+            }
+            $html = (string) wp_remote_retrieve_body($response);
+            $css = [];
+            preg_match_all('/<link[^>]+rel=[\'"]stylesheet[\'"][^>]*>/i', $html, $links);
+            foreach ($links[0] as $tag) {
+                if (! preg_match('/href=[\'"]([^\'"]+)[\'"]/i', $tag, $match)) {
+                    continue;
+                }
+                $url = html_entity_decode($match[1]);
+                $url = strpos($url, '//') === 0 ? 'https:'.$url : $url;
+                if (strtolower((string) wp_parse_url($url, PHP_URL_HOST)) !== $host || isset($css[$url]) || $files >= self::PREVIEW_MAX_FILES) {
+                    continue;
+                }
+                $files++;
+                $file = wp_remote_get($url, $args);
+                $css[$url] = is_wp_error($file) ? '' : (string) wp_remote_retrieve_body($file);
+            }
+            $pages[$path] = ['status' => (int) wp_remote_retrieve_response_code($response), 'html' => $html, 'css' => $css];
+        }
+        $json = (string) wp_json_encode($pages);
+        $gzip = function_exists('gzencode');
+
+        return ['encoding' => $gzip ? 'gzip+base64' : 'base64', 'data' => base64_encode($gzip ? gzencode($json, 6) : $json)];
+    }
+
+    /**
+     * 1.11.1: the global colors and fonts of the active Elementor kit (Site Settings), with the ids Elementor data needs
+     * to point at them ("globals/colors?id=<id>", "globals/typography?id=<id>"). Read only; null without Elementor.
+     */
+    private function elementor_globals()
+    {
+        $kit_id = (int) get_option('elementor_active_kit');
+        if (! defined('ELEMENTOR_VERSION') || ! $kit_id) {
+            return null;
+        }
+        $settings = get_post_meta($kit_id, '_elementor_page_settings', true);
+        $settings = is_array($settings) ? $settings : [];
+        $colors = function ($key) use ($settings) {
+            return array_values(array_map(function ($c) {
+                return ['id' => (string) ($c['_id'] ?? ''), 'title' => (string) ($c['title'] ?? ''), 'color' => (string) ($c['color'] ?? '')];
+            }, array_filter((array) ($settings[$key] ?? []), 'is_array')));
+        };
+        $fonts = function ($key) use ($settings) {
+            return array_values(array_map(function ($t) {
+                return ['id' => (string) ($t['_id'] ?? ''), 'title' => (string) ($t['title'] ?? ''), 'family' => (string) ($t['typography_font_family'] ?? ''),
+                    'weight' => (string) ($t['typography_font_weight'] ?? '')];
+            }, array_filter((array) ($settings[$key] ?? []), 'is_array')));
+        };
+
+        return ['kit_id' => $kit_id, 'system_colors' => $colors('system_colors'), 'custom_colors' => $colors('custom_colors'),
+            'system_typography' => $fonts('system_typography'), 'custom_typography' => $fonts('custom_typography')];
     }
 
     /** Writes Elementor data (export object with content / page_settings, or a plain element list). */
@@ -885,6 +1087,29 @@ final class MoxDOP_Connector_Builder
         $ref = (string) ($operation['ref'] ?? '');
 
         return preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:\-]{0,79}$/', $ref) ? $ref : '';
+    }
+
+    /** @return int|string the post id, or why it cannot be taken over */
+    private function adopt($id, $ref)
+    {
+        $post = $id > 0 ? get_post($id) : null;
+        if (! $post || in_array($post->post_type, array_diff(self::BLOCKED_TYPES, ['attachment']), true)) {
+            return 'post '.$id.' not found or cannot be written';
+        }
+        $owner = (string) get_post_meta($id, self::REF_META, true);
+        if ($owner !== '' && $owner !== $ref) {
+            return 'post '.$id.' already belongs to ref "'.$owner.'"';
+        }
+
+        return (int) $id;
+    }
+
+    /** @return int|string */
+    private function adopt_template($id, $ref)
+    {
+        $owner = (string) get_post_meta($id, self::REF_META, true);
+
+        return $owner !== '' && $owner !== $ref ? 'template '.$id.' already belongs to ref "'.$owner.'"' : (int) $id;
     }
 
     private function find($ref)

@@ -2,13 +2,12 @@
 
 namespace Tests\Feature\Performance;
 
-use App\Jobs\CollectMetaGeoResultsJob;
-use App\Jobs\EraseSourceDataJob;
+use App\Jobs\ApproveRepairRowsJob;
 use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
 use App\Jobs\RunChannelAnalystJob;
-use App\Jobs\RunScheduledDiscoveryJob;
-use App\Jobs\Verification\RunDataConsistencyCheckJob;
+use App\Jobs\Site\GenerateContentIdeasJob;
 use App\Jobs\Verification\RunLiveVerificationJob;
+use App\Jobs\WhatsApp\CheckWhatsAppConnection;
 use App\Providers\AppServiceProvider;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\QueueRoutes;
@@ -62,8 +61,9 @@ final class QueueTopologyContractTest extends TestCase
             }
         }
         // Queues chosen at dispatch time (config) and the heartbeat probes.
-        foreach ([$production['seo']['queue'], $production['advisor']['queue'], $production['queue']['heavy_queue'],
-            (string) config('moxdop-external-writes.queue'), (string) config('moxdop-intelligence-scheduling.queue'), (string) config('moxdop-collection.queue'),
+        $this->assertSame('writes', $production['writes']['queue'], 'with Redis approved external writes go to the writes queue');
+        foreach ([$production['seo']['queue'], $production['advisor']['queue'], $production['queue']['heavy_queue'], $production['queue']['writes_queue'],
+            (string) config('moxdop-external-writes.queue'), $production['writes']['queue'], (string) config('moxdop-intelligence-scheduling.queue'), (string) config('moxdop-collection.queue'),
             ...(array) config('moxdop-observability.probe_queues')] as $queue) {
             $queues[$queue][] = 'config';
         }
@@ -122,7 +122,8 @@ final class QueueTopologyContractTest extends TestCase
                     .$environment.' '.$supervisor['name'].' timeout ('.$supervisor['timeout'].' s) must be longer, or a scale-down kills it mid-run');
                 $checked[] = $class;
             }
-            $this->assertContains(RebuildWebsiteProjectionJob::class, $checked, $environment);
+            $this->assertNotEmpty($checked, $environment);
+            $this->assertNotContains(RebuildWebsiteProjectionJob::class, $checked, $environment.': the 900 s projection rebuild runs on "background"');
         }
     }
 
@@ -155,14 +156,14 @@ final class QueueTopologyContractTest extends TestCase
         Queue::assertPushed(RunChannelAnalystJob::class, fn (RunChannelAnalystJob $job, ?string $queue): bool => $job->runId === 1 && $queue === null);
         $this->assertSame('redis:default', $this->productionDestination(new RunChannelAnalystJob(1), $production), 'no queue, no route → the connection default');
 
-        $routes->set([RunChannelAnalystJob::class => 'heavy', RebuildWebsiteProjectionJob::class => 'heavy']);
+        $routes->set([RunChannelAnalystJob::class => 'heavy', CheckWhatsAppConnection::class => 'heavy']);
         RunChannelAnalystJob::dispatch(2);
         Queue::assertPushedOn('heavy', RunChannelAnalystJob::class, fn (RunChannelAnalystJob $job): bool => $job->runId === 2);
         $this->assertSame('redis:heavy', $this->productionDestination(new RunChannelAnalystJob(2), $production));
 
-        RebuildWebsiteProjectionJob::dispatch(7);
-        Queue::assertPushedOn('default', RebuildWebsiteProjectionJob::class);
-        $this->assertSame('redis:default', $this->productionDestination(new RebuildWebsiteProjectionJob(7), $production), 'onQueue() wins over a route');
+        CheckWhatsAppConnection::dispatch(7);
+        Queue::assertPushedOn('default', CheckWhatsAppConnection::class);
+        $this->assertSame('redis:default', $this->productionDestination(new CheckWhatsAppConnection(7), $production), 'onQueue() wins over a route');
     }
 
     /**
@@ -170,32 +171,51 @@ final class QueueTopologyContractTest extends TestCase
      * must name each long job as a key. A class list with 'heavy' as the second argument routed nothing, so all six
      * stayed on "default" and held its auto-scaling workers for up to 1500 s.
      */
-    public function test_the_production_route_sends_every_long_job_to_the_heavy_queue(): void
+    public function test_the_production_route_sends_every_long_job_to_its_lane(): void
     {
         $production = $this->productionConfig();
         $this->app->instance('queue.routes', $routes = new QueueRoutes);
         $this->useProductionQueueConfig($production);
-        $long = [
-            RunScheduledDiscoveryJob::class,
-            EraseSourceDataJob::class,
-            CollectMetaGeoResultsJob::class,
-            RunLiveVerificationJob::class,
-            RunDataConsistencyCheckJob::class,
-            RunChannelAnalystJob::class,
-        ];
+        $lanes = AppServiceProvider::jobLanes();
 
-        $this->assertSame($long, array_keys($routes->all()), 'the route table is keyed by class name');
-        foreach ($long as $class) {
+        $this->assertSame(array_keys($lanes), array_keys($routes->all()), 'the route table is keyed by class name');
+        foreach ($lanes as $class => $lane) {
             $job = $this->instantiate($class);
-            $this->assertSame('heavy', Queue::resolveQueueFromQueueRoute($job), $class);
-            $this->assertSame('redis:heavy', $this->productionDestination($job, $production), $class);
+            $this->assertSame($lane, Queue::resolveQueueFromQueueRoute($job), $class);
+            $this->assertSame('redis:'.$lane, $this->productionDestination($job, $production), $class);
         }
+        $this->assertSame('heavy', $lanes[RunChannelAnalystJob::class]);
+        $this->assertSame('content', $lanes[GenerateContentIdeasJob::class], 'content work never waits behind other work');
+        $this->assertSame('writes', $lanes[ApproveRepairRowsJob::class]);
 
         Queue::fake();
         RunLiveVerificationJob::dispatch();
         Queue::assertPushedOn('heavy', RunLiveVerificationJob::class);
         RunChannelAnalystJob::dispatch(3);
         Queue::assertPushedOn('heavy', RunChannelAnalystJob::class, fn (RunChannelAnalystJob $job): bool => $job->runId === 3);
+        RebuildWebsiteProjectionJob::dispatch(7);
+        Queue::assertPushedOn('background', RebuildWebsiteProjectionJob::class);
+    }
+
+    /**
+     * "default" is the quick lane: two auto-scaled workers on the live server. A job that may run for minutes there
+     * holds a worker the uptime checks, notices and short AI drafts wait for (2026-10-13: ~600 site writes at 2 min
+     * each held it for hours). Such a job gets a lane in AppServiceProvider::jobLanes() or its own onQueue().
+     */
+    public function test_no_job_longer_than_three_minutes_lands_on_the_quick_default_queue(): void
+    {
+        $production = $this->productionConfig();
+        $this->useProductionQueueConfig($production);
+        $long = [];
+        foreach ($this->jobClasses() as $class) {
+            $job = $this->instantiate($class);
+            $timeout = (int) ($job->timeout ?? 0);
+            if ($timeout > 180 && $this->productionDestination($job, $production) === 'redis:default') {
+                $long[] = $class.' ('.$timeout.' s)';
+            }
+        }
+
+        $this->assertSame([], $long, 'long jobs on the quick default queue');
     }
 
     public function test_without_redis_no_job_is_routed_away_from_the_default_queue(): void
@@ -242,6 +262,7 @@ final class QueueTopologyContractTest extends TestCase
                 'queue' => require base_path('config/queue.php'),
                 'seo' => require base_path('config/moxdop-seo-tasks.php'),
                 'advisor' => require base_path('config/moxdop-advisor.php'),
+                'writes' => require base_path('config/moxdop-external-writes.php'),
             ];
         } finally {
             $set('QUEUE_CONNECTION', $saved[0] ?? ($saved[2] !== false ? $saved[2] : null));
@@ -277,6 +298,8 @@ final class QueueTopologyContractTest extends TestCase
             'queue.default' => $production['queue']['default'],
             'queue.heavy_queue' => $production['queue']['heavy_queue'],
             'queue.background_queue' => $production['queue']['background_queue'],
+            'queue.content_queue' => $production['queue']['content_queue'],
+            'queue.writes_queue' => $production['queue']['writes_queue'],
             'moxdop-seo-tasks.queue' => $production['seo']['queue'],
             'moxdop-advisor.queue' => $production['advisor']['queue'],
         ]);

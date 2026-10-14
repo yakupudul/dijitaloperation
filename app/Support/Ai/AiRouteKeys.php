@@ -68,6 +68,9 @@ final class AiRouteKeys
     /** Operator's category / service list → Google categories (gcid) and service items to add to the profile (one call). */
     public const string GBP_PROFILE_PLAN = 'gbp.profile_plan';
 
+    /** One location's categories and services copied to the brand's other locations: a description per service for each branch. */
+    public const string GBP_BRANCH_SERVICES = 'gbp.branch_services';
+
     /** ADR-078: the planned posts of a location (one per slot: a page of the brand's site × an angle). */
     public const string GBP_POST_QUEUE = 'gbp.post_queue';
 

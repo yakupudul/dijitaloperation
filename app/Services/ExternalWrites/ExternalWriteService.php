@@ -783,6 +783,22 @@ final class ExternalWriteService
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr(trim($exception->getMessage()) ?: class_basename($exception).' (ayrıntı yok)', 0, 500)])->save();
         }
+        $this->finished($action);
+    }
+
+    /**
+     * A write that was not (or no longer) carried out ends as failed with the reason, and goes through the same follow-ups
+     * as a failed write (a site fix returns to the Onarım masası): its worker timed out, or the site did not answer the
+     * writes before it (ExecuteExternalWriteJob).
+     */
+    public function abandon(ExternalWriteAction $action, string $reason): void
+    {
+        $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($reason, 0, 500)])->save();
+        $this->finished($action);
+    }
+
+    private function finished(ExternalWriteAction $action): void
+    {
         if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
             // Shared-list negatives become "Uygulandı" only once Google accepted them.
             app(GoogleAdsSuggestions::class)->writeFinished($action);

@@ -13,13 +13,14 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Faz 13: watches the scheduler and the workers from OUTSIDE the scheduler. It is run by its own system cron line
  * (deploy/staging/cron.example), so a dead `schedule:run` is still noticed: stale scheduler heartbeat, stale queue
- * heartbeats, and a growing `jobs` backlog when the default queue is the database. Problems go to the phone.
+ * heartbeats, and a growing `jobs` backlog when the default queue is the database. Problems go to the phone; a silent
+ * redis queue is also handed to QueueDoctor.
  */
 final class OpsWatchdog
 {
     public const string LAST_RUN_KEY = 'ops:watchdog:last_run';
 
-    public function __construct(private readonly PushNotifier $push) {}
+    public function __construct(private readonly PushNotifier $push, private readonly QueueDoctor $doctor) {}
 
     /** @return list<string> the problems found */
     public function run(): array
@@ -37,6 +38,8 @@ final class OpsWatchdog
             ->where('last_seen_at', '<', now()->subMinutes((int) config('moxdop-observability.watchdog.queue_minutes', 20)))->pluck('worker_id')->all();
         if ($stale !== []) {
             $problems[] = 'Kuyruk işçisi yanıt vermiyor: '.implode(', ', $stale).'.';
+            // Looks inside the silent redis queues and gets them moving again (kept as a Claude note, not pushed).
+            $this->doctor->treat(array_map(fn (string $id): string => substr($id, 6), $stale));
         }
 
         if (config('queue.connections.'.config('queue.default').'.driver') === 'database' && Schema::hasTable('jobs')) {

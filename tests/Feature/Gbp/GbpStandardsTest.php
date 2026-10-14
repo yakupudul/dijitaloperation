@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Gbp;
 
+use App\Mcp\Servers\MoxdopServer;
+use App\Mcp\Tools\GbpEvidence;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -267,5 +269,39 @@ final class GbpStandardsTest extends TestCase
     {
         return array_replace(['available' => true, 'total' => 10, 'recent_count' => 3, 'recent_avg' => 4.5, 'previous_count' => 2, 'baseline_avg' => 4.5,
             'reply' => ['considered' => 3, 'replied' => 3, 'median_hours' => 5.0]], $overrides);
+    }
+
+    public function test_mcp_evidence_shows_what_each_check_read(): void
+    {
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id]);
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_business_profile', 'status' => 'active']);
+        $integration = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $resource = CoreExternalResource::factory()->create(['integration_id' => $integration->id, 'provider' => 'google', 'resource_type' => 'google_business_profile',
+            'external_id' => 'locations/9', 'status' => CoreExternalResource::STATUS_AVAILABLE]);
+        $binding = CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => 'google_business_profile', 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        $run = Run::query()->create(['digital_asset_id' => $asset->id, 'core_asset_binding_id' => $binding->id, 'module_id' => 'google-business-profile', 'status' => 'completed', 'started_at' => now(), 'finished_at' => now()]);
+        $base = ['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'run_id' => $run->id, 'location_name' => 'locations/9', 'created_at' => now(), 'updated_at' => now()];
+        DB::table('gbp_location_snapshots')->insert($base + ['title' => 'Atlas Diş', 'primary_category' => 'Diş hekimi', 'captured_at' => now()]);
+        DB::table('gbp_media')->insert($base + ['media_name' => 'm1', 'media_format' => 'PHOTO', 'category' => 'LOGO', 'create_time' => now(), 'raw_payload' => '{}', 'collected_at' => now()]);
+
+        MoxdopServer::tool(GbpEvidence::class, ['asset_id' => $asset->id])->assertOk()
+            ->assertSee('captured')->assertSee('LOGO')->assertSee('gbp:photo_set')->assertSee('Diş hekimi');
+        MoxdopServer::tool(GbpEvidence::class, ['asset_id' => 999999])->assertHasErrors();
+    }
+
+    public function test_a_profile_photo_counts_as_the_logo_and_undated_media_is_not_a_photo_date(): void
+    {
+        $asset = DigitalAsset::factory()->create(['type' => 'google_business_profile', 'status' => 'active']);
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/9']);
+        $run = Run::query()->create(['digital_asset_id' => $asset->id, 'module_id' => 'google-business-profile', 'status' => 'completed', 'started_at' => now(), 'finished_at' => now()]);
+        $base = ['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'run_id' => $run->id, 'location_name' => 'locations/9', 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()];
+        DB::table('gbp_media')->insert($base + ['media_name' => 'logo', 'media_format' => 'PHOTO', 'category' => 'PROFILE', 'create_time' => '1970-01-01 00:00:00']);
+        DB::table('gbp_media')->insert($base + ['media_name' => 'p1', 'media_format' => 'PHOTO', 'category' => 'ADDITIONAL', 'create_time' => '2023-11-28 11:41:40']);
+
+        $input = app(GbpStandardInput::class)->build($asset, $resource->id, CarbonImmutable::parse('2026-10-14'));
+
+        $this->assertTrue($input['media']['has_logo']);
+        $this->assertFalse($input['media']['has_cover']);
+        $this->assertSame('2023-11-28', $input['media']['last_photo']);
     }
 }

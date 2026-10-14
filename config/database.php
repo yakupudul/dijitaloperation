@@ -127,6 +127,12 @@ return [
     |
     */
 
+    /*
+    | Seconds one SQL statement of a web request may run on PostgreSQL (App\Support\Database\WebRequestDatabaseLimits).
+    | Just below nginx's 60 s page limit; queue workers and artisan have none. 0 = off.
+    */
+    'web_statement_timeout' => (int) env('DB_WEB_STATEMENT_TIMEOUT', 55),
+
     'migrations' => [
         'table' => 'migrations',
         'update_date_on_publish' => true,

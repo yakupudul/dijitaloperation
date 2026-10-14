@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -23,6 +24,8 @@ final class ServerStatusReader
     private const float LOOK_SHARE = 0.80;
 
     private const float CRITICAL_SHARE = 0.90;
+
+    private const string DISK_BREAKDOWN_KEY = 'server-status:disk-breakdown';
 
     public function __construct(private readonly StorageGuard $storage) {}
 
@@ -213,13 +216,141 @@ final class ServerStatusReader
         if (DB::getDriverName() !== 'pgsql') {
             return [];
         }
-        $rows = DB::select("select coalesce(p.relname, c.relname) as name, sum(pg_total_relation_size(c.oid))::bigint as bytes
+        // rows / dead_rows are PostgreSQL's own estimates (reltuples, n_dead_tup): many dead rows next to the live ones
+        // means the table holds deleted rows' space that autovacuum has not given back yet (bloat).
+        $rows = DB::select("select coalesce(p.relname, c.relname) as name, sum(pg_total_relation_size(c.oid))::bigint as bytes,
+                sum(pg_indexes_size(c.oid))::bigint as index_bytes, sum(greatest(c.reltuples, 0))::bigint as row_estimate,
+                sum(coalesce(s.n_dead_tup, 0))::bigint as dead_rows, max(greatest(s.last_autovacuum, s.last_vacuum)) as vacuumed_at
             from pg_class c join pg_namespace n on n.oid = c.relnamespace
             left join pg_inherits i on i.inhrelid = c.oid left join pg_class p on p.oid = i.inhparent
+            left join pg_stat_user_tables s on s.relid = c.oid
             where n.nspname = current_schema() and c.relkind in ('r', 'm')
             group by 1 order by 2 desc limit ?", [$limit]);
 
-        return array_map(fn (object $row): array => ['table' => (string) $row->name, 'bytes' => (int) $row->bytes, 'size' => self::gb((float) $row->bytes)], $rows);
+        return array_map(fn (object $row): array => [
+            'table' => (string) $row->name,
+            'bytes' => (int) $row->bytes,
+            'size' => self::gb((float) $row->bytes),
+            'index_size' => self::gb((float) ($row->index_bytes ?? 0)),
+            'rows' => (int) ($row->row_estimate ?? 0),
+            'dead_rows' => (int) ($row->dead_rows ?? 0),
+            'vacuumed_at' => $row->vacuumed_at !== null ? (string) $row->vacuumed_at : null,
+        ], $rows);
+    }
+
+    /**
+     * Where the application disk's space went (bytes per folder, largest first): the database files are not under the
+     * app folder, so "disk 80 %, database 17 GB" leaves the rest unexplained without this. du with a time limit; folders
+     * it cannot read are left out. Measured hourly by the scheduler (measureDisk); a web request only reads the result,
+     * so du never holds a page past nginx's 60 s.
+     *
+     * @return list<array{path: string, bytes: int, size: string}>
+     */
+    public function diskBreakdown(): array
+    {
+        return (array) Cache::get(self::DISK_BREAKDOWN_KEY, []);
+    }
+
+    /** @return list<array{path: string, bytes: int, size: string}> */
+    public function measureDisk(): array
+    {
+        $breakdown = (function (): array {
+            $paths = array_values(array_filter([
+                base_path(), storage_path(), storage_path('app'), storage_path('logs'), storage_path('framework'),
+                (string) config('moxdop-backup.directory'), (string) config('moxdop-backup.temp_directory'),
+                ...(glob(storage_path('app').'/*', GLOB_ONLYDIR) ?: []),
+                base_path('vendor'), base_path('node_modules'), base_path('.git'), '/var/log', '/tmp',
+            ], fn (string $path): bool => $path !== '' && is_dir($path)));
+            $out = [];
+            $deadline = microtime(true) + 90;
+            foreach (array_unique($paths) as $path) {
+                // One du per folder: given several, du counts a nested folder only under the first one it walked.
+                $process = new Process(['du', '-sb', $path]);
+                $process->setTimeout(max(1, min(30, $deadline - microtime(true))));
+                try {
+                    $process->run();
+                } catch (Throwable) {
+                    continue;
+                }
+                if (preg_match('/^(\d+)\s/', $process->getOutput(), $m) === 1) {
+                    $out[] = ['path' => $path, 'bytes' => (int) $m[1], 'size' => self::gb((float) $m[1])];
+                }
+                if (microtime(true) >= $deadline) {
+                    break;
+                }
+            }
+            usort($out, fn (array $a, array $b): int => $b['bytes'] <=> $a['bytes']);
+
+            return $out;
+        })();
+        Cache::put(self::DISK_BREAKDOWN_KEY, $breakdown, now()->addHours(3));
+
+        return $breakdown;
+    }
+
+    /**
+     * The runtime settings that decide how much the server can carry at once (read only, for tuning decisions): cache /
+     * session / queue drivers, PHP limits and OPcache as the serving process sees them, the PHP-FPM pool, PostgreSQL
+     * memory settings and connections, Redis memory policy.
+     *
+     * @return array<string, mixed>
+     */
+    public function tuningFacts(): array
+    {
+        $facts = [
+            'drivers' => ['cache' => config('cache.default'), 'session' => config('session.driver'), 'queue' => config('queue.default')],
+            'php' => [
+                'version' => PHP_VERSION, 'sapi' => PHP_SAPI, 'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'), 'realpath_cache_size' => ini_get('realpath_cache_size'),
+            ],
+        ];
+        try {
+            $opcache = function_exists('opcache_get_status') ? @opcache_get_status(false) : false;
+            $facts['opcache'] = is_array($opcache) ? [
+                'enabled' => (bool) ($opcache['opcache_enabled'] ?? false),
+                'memory_used_mb' => round((float) ($opcache['memory_usage']['used_memory'] ?? 0) / 1048576),
+                'memory_free_mb' => round((float) ($opcache['memory_usage']['free_memory'] ?? 0) / 1048576),
+                'cached_scripts' => (int) ($opcache['opcache_statistics']['num_cached_scripts'] ?? 0),
+                'max_files' => (int) ini_get('opcache.max_accelerated_files'),
+                'hit_rate' => round((float) ($opcache['opcache_statistics']['opcache_hit_rate'] ?? 0), 1),
+                'validate_timestamps' => ini_get('opcache.validate_timestamps'),
+                'jit' => ini_get('opcache.jit'),
+            ] : ['enabled' => false];
+        } catch (Throwable) {
+            $facts['opcache'] = null;
+        }
+        $pools = [];
+        foreach (glob('/etc/php/*/fpm/pool.d/*.conf') ?: [] as $file) {
+            preg_match_all('/^\s*(pm(?:\.[a-z_]+)?|request_terminate_timeout|php_admin_value\[memory_limit\])\s*=\s*(.+)$/m', $this->file($file), $m, PREG_SET_ORDER);
+            $pools[$file] = collect($m)->mapWithKeys(fn (array $row): array => [$row[1] => trim($row[2])])->all();
+        }
+        $facts['fpm_pools'] = $pools;
+        // What deploy/staging/tune-server.sh found and did on the last deploy.
+        $facts['tuning_report'] = json_decode($this->file(storage_path('app/server-tuning.json')), true);
+        if (DB::getDriverName() === 'pgsql') {
+            try {
+                $names = ['shared_buffers', 'work_mem', 'maintenance_work_mem', 'effective_cache_size', 'max_connections', 'random_page_cost',
+                    'autovacuum_vacuum_scale_factor', 'autovacuum_max_workers', 'max_wal_size', 'checkpoint_completion_target', 'jit'];
+                $facts['postgres'] = collect(DB::select('select name, setting, unit from pg_settings where name in ('.implode(',', array_fill(0, count($names), '?')).')', $names))
+                    ->mapWithKeys(fn (object $row): array => [$row->name => $row->setting.($row->unit !== null ? ' '.$row->unit : '')])->all();
+                $facts['postgres']['connections_now'] = (int) (DB::selectOne('select count(*) as n from pg_stat_activity')->n ?? 0);
+                $facts['postgres']['version'] = (string) (DB::selectOne('show server_version')->server_version ?? '');
+            } catch (Throwable $exception) {
+                $facts['postgres'] = ['error' => mb_substr($exception->getMessage(), 0, 160)];
+            }
+        }
+        try {
+            $info = Redis::connection()->info('memory');
+            $facts['redis'] = [
+                'used' => self::gb((float) ($info['used_memory'] ?? $info['Memory']['used_memory'] ?? 0)),
+                'maxmemory' => (string) ($info['maxmemory'] ?? $info['Memory']['maxmemory'] ?? ''),
+                'policy' => (string) ($info['maxmemory_policy'] ?? $info['Memory']['maxmemory_policy'] ?? ''),
+            ];
+        } catch (Throwable) {
+            $facts['redis'] = null;
+        }
+
+        return $facts;
     }
 
     /** @return list<array{label: string, value: string, tone: string}> */

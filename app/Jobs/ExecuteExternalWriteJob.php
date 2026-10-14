@@ -6,13 +6,27 @@ use App\Models\ExternalWriteAction;
 use App\Services\ExternalWrites\ExternalWriteService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Throwable;
 
 /**
  * Runs one approved external write (or its undo). One attempt: writes are never retried blindly.
+ *
+ * A worker that times out ends the write as failed with the reason (it used to stay "running" forever). When a site
+ * did not answer two writes in the last half hour, its next writes are not sent at all but returned with the reason:
+ * on 2026-10-13 hundreds of approved Avrupadent site fixes each waited out the timeout one after another and held the
+ * "default" queue for hours.
  */
 final class ExecuteExternalWriteJob implements ShouldQueue
 {
     use Queueable;
+
+    /** Start of the error a timed-out write ends with; the circuit below counts these. */
+    public const string TIMEOUT_ERROR = 'Zaman aşımı';
+
+    /** Unanswered writes on one site within SITE_SILENT_MINUTES after which its next writes are not sent. */
+    private const int SITE_SILENT_WRITES = 2;
+
+    private const int SITE_SILENT_MINUTES = 30;
 
     public int $tries = 1;
 
@@ -33,8 +47,46 @@ final class ExecuteExternalWriteJob implements ShouldQueue
 
             return;
         }
-        if ($action->status === 'queued') {
-            $service->execute($action);
+        if ($action->status !== 'queued') {
+            return;
         }
+        if (($silent = $this->silentSite($action, $service)) > 0) {
+            $service->abandon($action, 'Gönderilmedi: site son '.self::SITE_SILENT_MINUTES.' dakikada '.$silent.' yazmaya yanıt vermedi. Site yanıt verince yeniden onaylayın.');
+
+            return;
+        }
+        $service->execute($action);
+    }
+
+    /** The worker timed out (or died) while the write ran: it ends as failed instead of staying "running". */
+    public function failed(?Throwable $exception = null): void
+    {
+        $action = ExternalWriteAction::query()->find($this->actionId);
+        if ($this->undo || $action === null || ! in_array($action->status, ['queued', 'running'], true)) {
+            return;
+        }
+        app(ExternalWriteService::class)->abandon($action, self::TIMEOUT_ERROR.': yazma '.$this->timeout.' saniyede bitmedi, site yanıt vermedi'
+            .($exception !== null ? ' ('.class_basename($exception).')' : '').'. Sitede sonucu kontrol edin; gerekirse yeniden onaylayın.');
+    }
+
+    /**
+     * How many writes to the same site went unanswered in the last half hour (0 = send). Writes left "running" by a
+     * worker that was killed before this rule existed are ended first, as timeouts.
+     */
+    private function silentSite(ExternalWriteAction $action, ExternalWriteService $service): int
+    {
+        if ($action->channel !== ExternalWriteAction::CHANNEL_WORDPRESS || $action->digital_asset_id === null) {
+            return 0;
+        }
+        $sameSite = fn () => ExternalWriteAction::query()->where('channel', ExternalWriteAction::CHANNEL_WORDPRESS)
+            ->where('digital_asset_id', $action->digital_asset_id)->whereKeyNot($action->id);
+        foreach ($sameSite()->where('status', 'running')->where('started_at', '<', now()->subMinutes(15))->get() as $dead) {
+            $service->abandon($dead, self::TIMEOUT_ERROR.': yazma bitmeden işçisi durdu, site yanıt vermedi. Sitede sonucu kontrol edin; gerekirse yeniden onaylayın.');
+        }
+        $unanswered = $sameSite()->where('status', 'failed')->where('finished_at', '>=', now()->subMinutes(self::SITE_SILENT_MINUTES))
+            ->where(fn ($q) => $q->where('error', 'like', self::TIMEOUT_ERROR.'%')->orWhere('error', 'like', '%saniyede gelip almadı%')
+                ->orWhere('error', 'like', '%saniyede gelmedi%'))->count();
+
+        return $unanswered >= self::SITE_SILENT_WRITES ? $unanswered : 0;
     }
 }

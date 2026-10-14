@@ -8,6 +8,7 @@ use App\Enums\Observability\OperationalAlertSeverity;
 use App\Enums\Observability\OperationalAlertState;
 use App\Enums\Observability\OperationalSignalFamily;
 use App\Jobs\Async\ResourceCollectionJob;
+use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
@@ -556,6 +557,11 @@ final class ResourceAutomationService
             ]);
             if ($finished) {
                 $this->alert($automation->id, 'collection', $success ? null : 'collection_failed', $success ? [] : $this->gbpFailureCause($run, $core));
+            }
+            // The profile's Yapılacaklar checks follow the data they read: a fresh collection re-checks them at once
+            // (they waited for the nightly pass, so a service or photo added on Google still showed as missing).
+            if ($finished && $success && $run->digital_asset_id !== null && ! data_get($run->metadata, 'query_only')) {
+                SyncGbpSuggestionsJob::dispatch((int) $run->digital_asset_id)->afterCommit();
             }
         });
     }

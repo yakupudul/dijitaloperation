@@ -44,6 +44,10 @@ return [
             'default' => (int) env('MOXDOP_OPS_QUEUE_WAIT_DEFAULT_SECONDS', 300),
             'heavy' => (int) env('MOXDOP_OPS_QUEUE_WAIT_HEAVY_SECONDS', 900),
             'collection' => (int) env('MOXDOP_OPS_QUEUE_WAIT_COLLECTION_SECONDS', 1800),
+            // Lanes split off "default" (desk approvals, content writing, automatic catch-up work).
+            'writes' => (int) env('MOXDOP_OPS_QUEUE_WAIT_WRITES_SECONDS', 900),
+            'content' => (int) env('MOXDOP_OPS_QUEUE_WAIT_CONTENT_SECONDS', 1800),
+            'background' => (int) env('MOXDOP_OPS_QUEUE_WAIT_BACKGROUND_SECONDS', 7200),
         ],
     ],
 

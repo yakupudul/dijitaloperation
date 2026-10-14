@@ -3,6 +3,7 @@
 namespace Tests\Feature\Repair;
 
 use App\Ai\Agents\Site\SeoFieldsBatchAgent;
+use App\Jobs\ApproveRepairRowsJob;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Livewire\Operator\Repair\RepairDeskPage;
@@ -34,7 +35,8 @@ final class RepairDeskTest extends SiteTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Queue::fake();
+        // The desk approval itself runs (sync); the writes it requests stay queued.
+        Queue::fake()->except([ApproveRepairRowsJob::class]);
         $this->implantPage = $this->page('/implant/', 'Ankara İmplant Tedavisi', ['category' => 'hizmet', 'wp_post_id' => 42]);
         CoreConnection::factory()->create([
             'digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
@@ -64,14 +66,14 @@ final class RepairDeskTest extends SiteTestCase
         $desk->edit($fields->id, 'seo_title', 'İmplant Ankara | Panorama');
         $result = $desk->approve([$fields->id, $content->id, $alts->id], $this->admin);
 
-        $this->assertSame(['applied' => 2, 'skipped_high' => 1, 'failed' => []], $result);
+        $this->assertSame(['applied' => 2, 'skipped_high' => 1, 'failed' => [], 'failed_ids' => []], $result);
         $write = ExternalWriteAction::query()->where('suggestion_id', $fields->id)->sole();
         $this->assertSame('İmplant Ankara | Panorama', $write->request_payload['changes'][0]['value'], 'the operator\'s edit is written');
         $this->assertSame(Suggestion::APPLIED, $alts->fresh()->status);
         $this->assertSame(Suggestion::OPEN, $content->fresh()->status, 'high risk waits for a single approval');
         Queue::assertPushed(ExecuteExternalWriteJob::class);
 
-        $this->assertSame(['applied' => 1, 'skipped_high' => 0, 'failed' => []], $desk->approve([$content->id], $this->admin));
+        $this->assertSame(['applied' => 1, 'skipped_high' => 0, 'failed' => [], 'failed_ids' => []], $desk->approve([$content->id], $this->admin));
         $this->assertSame(1, $desk->reject([$description->id], $this->admin, 'Marka kendi yazacak'));
         $this->assertSame(Suggestion::DISMISSED, $description->fresh()->status);
         $this->assertSame(0, $desk->counts()['total']);
@@ -320,6 +322,76 @@ final class RepairDeskTest extends SiteTestCase
             ->assertSee('Hazırlanmış 1 düzeltme Onarım masasında onayını bekliyor; 1 sayfa düzeltmesini sistem hazırlıyor');
     }
 
+    /**
+     * yakup 2026-10-13: approving on the desk answered nginx 504. The click only marks the rows queued and dispatches
+     * ApproveRepairRowsJob on the writes queue; the rows leave the list at once and the page says they are being applied.
+     */
+    public function test_approval_returns_at_once_and_runs_on_the_writes_queue(): void
+    {
+        Queue::fake();
+        config(['queue.writes_queue' => 'writes']);
+        $first = $this->suggestion('Başlık 1', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Birinci başlık']]]);
+        $second = $this->suggestion('Başlık 2', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'İkinci başlık']]]);
+        $content = $this->suggestion('Metin', 'missing_topic', ['proposal' => ['kind' => 'content', 'current' => [], 'new' => ['html' => '<p>Yeni bölüm</p>']]]);
+        $desk = app(RepairDesk::class);
+
+        Livewire::test(RepairDeskPage::class)->set('selected', [$first->id, $second->id, $content->id])->call('approveSelected')
+            ->assertSee('2 iş uygulamaya gönderildi')->assertSee('1 yüksek riskli iş tek tek onaylanmalı')
+            ->assertSee('Onaylanan 2 iş arka planda uygulanıyor');
+
+        Queue::assertPushedOn('writes', ApproveRepairRowsJob::class, fn (ApproveRepairRowsJob $job): bool => $job->ids === [$first->id, $second->id] && $job->userId === $this->admin->id);
+        Queue::assertNotPushed(ExecuteExternalWriteJob::class);
+        $this->assertSame(0, ExternalWriteAction::query()->count(), 'nothing is written inside the click');
+        $this->assertSame([$content->id], $desk->rows()->pluck('id')->all(), 'queued rows leave the list');
+        $this->assertSame(2, $desk->queuedCount());
+        $this->assertSame(Suggestion::OPEN, $first->fresh()->status);
+
+        (new ApproveRepairRowsJob([$first->id, $second->id], $this->admin->id))->handle($desk);
+
+        $this->assertSame(0, $desk->queuedCount());
+        $this->assertSame(2, ExternalWriteAction::query()->whereIn('suggestion_id', [$first->id, $second->id])->count());
+        $this->assertArrayNotHasKey(RepairDesk::QUEUED_AT, (array) $first->fresh()->action);
+        Queue::assertPushed(ExecuteExternalWriteJob::class, 2);
+    }
+
+    public function test_a_row_the_approval_job_could_not_send_returns_with_its_reason(): void
+    {
+        Queue::fake();
+        $fields = $this->suggestion('Başlık', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
+        $desk = app(RepairDesk::class);
+        $desk->queueApproval([$fields->id], $this->admin);
+        $this->assertSame([], $desk->rows()->pluck('id')->all());
+        $this->implantPage->forceFill(['wp_post_id' => null])->save();
+
+        (new ApproveRepairRowsJob([$fields->id], $this->admin->id))->handle($desk);
+
+        $row = $desk->rows()->firstWhere('id', $fields->id);
+        $this->assertNotNull($row, 'back on the desk');
+        $this->assertStringContainsString('Önceki gönderim başarısız: Sayfa WordPress’ten gelmiyor', $row['reason']);
+        $this->assertSame(0, $desk->queuedCount());
+
+        // A job that died (timeout) puts the row back with a plain reason; a later successful approval clears it.
+        $desk->queueApproval([$fields->id], $this->admin);
+        (new ApproveRepairRowsJob([$fields->id], $this->admin->id))->failed(new \RuntimeException('Job timed out'));
+        $this->assertStringContainsString('Onay uygulanamadı (Job timed out); tekrar onaylayın.', $desk->rows()->firstWhere('id', $fields->id)['reason']);
+        $this->implantPage->forceFill(['wp_post_id' => 42])->save();
+        (new ApproveRepairRowsJob([$fields->id], $this->admin->id))->handle($desk);
+        $this->assertArrayNotHasKey(RepairDesk::DESK_ERROR, (array) $fields->fresh()->action);
+        $this->assertSame(Suggestion::APPLIED, $fields->fresh()->status);
+    }
+
+    public function test_a_stale_queued_mark_no_longer_hides_the_row(): void
+    {
+        $fields = $this->suggestion('Başlık', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']],
+            RepairDesk::QUEUED_AT => now()->subMinutes(RepairDesk::QUEUED_MINUTES + 5)->toIso8601String()]);
+
+        $this->assertSame([$fields->id], app(RepairDesk::class)->rows()->pluck('id')->all());
+    }
+
+    /**
+     * @param  array<string, mixed>  $action
+     * @param  array<string, mixed>  $extra
+     */
     private function suggestion(string $title, string $type, array $action, array $extra = []): Suggestion
     {
         return Suggestion::query()->create(array_merge([

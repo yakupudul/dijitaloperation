@@ -4,8 +4,10 @@ namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\ChannelData;
+use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\FailTask;
+use App\Mcp\Tools\GbpEvidence;
 use App\Mcp\Tools\GetBrand;
 use App\Mcp\Tools\GetPage;
 use App\Mcp\Tools\GetTask;
@@ -17,7 +19,9 @@ use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ListStrategies;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MetaPerformance;
+use App\Mcp\Tools\OverlapAct;
 use App\Mcp\Tools\ProposeChange;
+use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\RequestArticle;
 use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SaveStrategy;
@@ -137,6 +141,9 @@ class MoxdopServer extends Server
         ContentQueue::class,
         RequestArticle::class,
         SystemHealth::class,
+        GbpEvidence::class,
+        ClusterOverlapsList::class,
+        OverlapAct::class,
         ScreenChecks::class,
         ListChanges::class,
         ProposeChange::class,
@@ -144,6 +151,7 @@ class MoxdopServer extends Server
         ListSites::class,
         InspectSite::class,
         BuildSite::class,
+        ReadSite::class,
         SiteBuilds::class,
     ];
 }

@@ -5,14 +5,14 @@ namespace Tests\Feature\Mcp;
 use App\Enums\DigitalAssetStatus;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\ChannelData;
-use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
-use App\Support\Integrations\Google\GoogleResourceType;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Support\Integrations\Google\GoogleResourceType;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -91,6 +91,23 @@ final class McpChannelDataTest extends TestCase
             ->assertSee('"cost":300')
             ->assertSee('"last_day":"2026-10-03"')
             ->assertDontSee('"cost":1299');
+    }
+
+    public function test_old_central_rows_outside_the_period_do_not_hide_recent_asset_rows_and_empty_answers_say_why(): void
+    {
+        $integration = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id, 'provider' => 'google', 'resource_type' => GoogleResourceType::GOOGLE_ADS_CUSTOMER,
+            'external_id' => '1234567890', 'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $this->ads->id, 'external_resource_id' => $resource->id, 'capability' => GoogleAdsSpecialistBindingResolver::CAPABILITY, 'status' => CoreAssetBinding::STATUS_ACTIVE]);
+        $this->campaignDay(null, '2025-01-03', 'c1', 300, 6, $resource->id);
+        $this->campaignDay($this->ads->id, '2026-10-01', 'c1', 120, 2, $resource->id);
+
+        MoxdopServer::tool(ChannelData::class, ['brand_id' => $this->brand->id, 'dataset' => 'google_ads.campaigns'])->assertOk()
+            ->assertSee('"cost":120')->assertSee('"last_day":"2026-10-01"');
+        MoxdopServer::tool(ChannelData::class, ['brand_id' => $this->brand->id, 'dataset' => 'google_ads.campaigns', 'contains' => 'yok'])->assertOk()
+            ->assertSee('"sources"')->assertSee('"central_last_day":"2025-01-03"');
     }
 
     public function test_unknown_brand_or_dataset_is_refused(): void

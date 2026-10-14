@@ -42,13 +42,18 @@ final class ChangeApplier
         private readonly BrandMemoryService $memory,
     ) {}
 
-    /** @return array{status: string, message?: string} status: ready | not_applicable | not_operational | invalid | blocked | no_provider | error */
-    public function prepare(Suggestion $suggestion): array
+    /**
+     * @param  array<string, mixed>|null  $given  a version Claude wrote over MCP when the API could not (same output shape
+     *                                            as the agent); it goes through the same checks as the AI's
+     * @return array{status: string, message?: string} status: ready | not_applicable | not_operational | invalid | blocked | no_provider | error
+     */
+    public function prepare(Suggestion $suggestion, ?array $given = null): array
     {
         $page = $suggestion->page_id !== null ? Page::query()->find($suggestion->page_id) : null;
         $site = $page?->website;
         $brand = Brand::query()->with('customer', 'sectorCategory')->find($suggestion->brand_id);
-        if ($page === null || $site === null || ! SiteSuggestionTypes::applicable((string) $suggestion->action_type)) {
+        $differentiate = $suggestion->action_type === ClusterOverlaps::TYPE && data_get($suggestion->action, 'recommendation') === ClusterOverlaps::DIFFERENTIATE;
+        if ($page === null || $site === null || ! (SiteSuggestionTypes::applicable((string) $suggestion->action_type) || $differentiate)) {
             return ['status' => 'not_applicable'];
         }
         if (! SiteScope::aiAllowed($brand)) {
@@ -58,13 +63,20 @@ final class ChangeApplier
         $type = match ((string) $suggestion->action_type) {
             'rakip' => 'missing_topic',
             SiteAudit::TYPE => 'title_description',
+            ClusterOverlaps::TYPE => 'differentiate',
             default => (string) $suggestion->action_type,
         };
-        $html = in_array($type, ['missing_topic', 'conversion', 'wrong_intent'], true) ? $this->currentHtml($site, $page) : null;
+        $html = in_array($type, ['missing_topic', 'conversion', 'wrong_intent', 'differentiate'], true) ? $this->currentHtml($site, $page) : null;
+        $main = $differentiate ? Page::query()->find((int) data_get($suggestion->action, 'main_page_id')) : null;
         $sitePages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereKeyNot($page->id)->orderBy('path')->limit(300)->get(['url', 'title']);
+        // The page an overlap must link to is always a known target, even past the first 300 paths.
+        if ($main !== null && ! $sitePages->contains(fn (Page $p): bool => $p->url === $main->url)) {
+            $sitePages->prepend($main);
+        }
         $context = $this->memory->contextFor($brand, [(int) $page->id], $suggestion->cluster_id !== null ? [(int) $suggestion->cluster_id] : []);
-        $result = $this->ai->run(new ApplyChangeAgent, [
+        $result = $given !== null ? ['status' => 'ready', 'data' => $given, 'prompt_version_id' => null] : $this->ai->run(new ApplyChangeAgent, [
             'suggestion' => ['type' => $type, 'title' => $suggestion->title, 'reason' => $suggestion->reason, 'evidence' => $suggestion->evidence],
+            'main_page' => $main !== null ? ['url' => $main->url, 'title' => $main->title, 'h1' => $main->h1, 'headings' => array_slice(array_values((array) $main->headings), 0, 30)] : null,
             'page' => ['url' => $page->url, 'title' => $page->title, 'meta_description' => $page->meta_description, 'h1' => $page->h1,
                 'headings' => array_values((array) $page->headings), 'content' => $page->aiText(12000)],
             'current_html' => $html !== null ? mb_substr($html, 0, self::MAX_HTML) : null,
@@ -112,7 +124,8 @@ final class ChangeApplier
         if ($warnings !== []) {
             $action['proposal_warnings'] = 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»';
         }
-        $suggestion->forceFill(['action' => array_merge($action, ['proposal' => $proposal + ['prepared_at' => now()->toIso8601String(), 'prompt_version_id' => $result['prompt_version_id']]])])->save();
+        $suggestion->forceFill(['action' => array_merge($action, ['proposal' => $proposal + ['prepared_at' => now()->toIso8601String(), 'prompt_version_id' => $result['prompt_version_id'],
+            'written_by' => $given !== null ? 'claude_mcp' : 'ai']])])->save();
 
         return ['status' => 'ready'];
     }
@@ -183,9 +196,14 @@ final class ChangeApplier
         }
         $html = trim((string) ($data['html'] ?? ''));
         if ($html !== '' && $currentHtml !== null) {
-            $html = (string) preg_replace('#<(script|style|iframe)\b[^>]*>.*?</\1>#is', '', $html);
-            // Links to anything but the site's own pages are unlinked (text kept).
-            $html = (string) preg_replace_callback('#<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', fn (array $m): string => str_starts_with($m[1], '#') || $evidence->knowsUrl($m[1]) || str_starts_with($m[1], 'tel:') || str_starts_with($m[1], 'mailto:') ? $m[0] : $m[2], $html);
+            // New scripts / styles / frames are removed; the page's own (its FAQ schema, a map) stay when kept verbatim.
+            $html = (string) preg_replace_callback('#<(script|style|iframe)\b[^>]*>.*?</\1>#is', fn (array $m): string => str_contains($currentHtml, $m[0]) ? $m[0] : '', $html);
+            // Links to anything but the site's own pages are unlinked (text kept); links the page already had (WhatsApp,
+            // a map, a booking site) stay.
+            $origin = (string) preg_replace('#^(https?://[^/]+).*$#i', '$1', (string) $page->url);
+            $html = (string) preg_replace_callback('#<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', fn (array $m): string => str_starts_with($m[1], '#') || $evidence->knowsUrl($m[1])
+                || (str_starts_with($m[1], '/') && ! str_starts_with($m[1], '//') && $evidence->knowsUrl($origin.$m[1])) || str_starts_with($m[1], 'tel:') || str_starts_with($m[1], 'mailto:')
+                || str_contains($currentHtml, $m[1]) || str_contains($currentHtml, htmlspecialchars($m[1], ENT_QUOTES)) ? $m[0] : $m[2], $html);
             $visible = trim(strip_tags($html));
             if ($visible !== '' && $evidence->grounded($visible) && $html !== $currentHtml) {
                 $new['html'] = $html;
@@ -395,7 +413,8 @@ final class ChangeApplier
             $connection = app(WordPressDraftWriter::class)->connection((int) $site->id);
             $payload = app(WordPressConnectorClient::class)->snapshot($connection, 'content', 1, 1, [(int) $page->wp_post_id]);
             foreach ((array) ($payload['records'] ?? []) as $record) {
-                if (is_array($record) && (int) ($record['object_id'] ?? 0) === (int) $page->wp_post_id) {
+                // An Elementor page shows its builder data, not post_content: a rewritten body would never appear.
+                if (is_array($record) && (int) ($record['object_id'] ?? 0) === (int) $page->wp_post_id && data_get($record, 'builder.provider') !== 'elementor') {
                     $html = (string) ($record['content_raw'] ?? $record['content_rendered'] ?? '');
 
                     return trim($html) !== '' ? $html : null;

@@ -34,7 +34,7 @@ final class WordPressConnectorCommandsController
         $provided = strtolower((string) $request->header('X-MoxDOP-Signature', ''));
         abort_unless(preg_match('/^[a-f0-9-]{36}$/i', $installation)
             && preg_match('/^[a-f0-9-]{36}$/i', $nonce)
-            && ctype_digit($timestamp) && abs(time() - (int) $timestamp) <= 300
+            && ctype_digit($timestamp)
             && preg_match('/^[a-f0-9]{64}$/', $provided), 401);
 
         $connection = CoreConnection::query()->with('credential')
@@ -44,13 +44,25 @@ final class WordPressConnectorCommandsController
             ->first(fn (CoreConnection $candidate): bool => hash_equals((string) data_get($candidate->credential?->encrypted_payload, 'client_id', ''), $client));
         $credentials = $connection?->credential?->encrypted_payload;
         abort_unless($connection !== null && is_array($credentials) && is_string($credentials['shared_secret'] ?? null), 401);
+        // From here the site is known: every refusal is kept with its reason (the page showed only "never asked").
+        $skew = time() - (int) $timestamp;
+        if (abs($skew) > 300) {
+            WordPressConnectorCommands::refused($connection, 'Sitenin saati MoxDOP\'tan '.abs($skew).' saniye '.($skew > 0 ? 'geri' : 'ileri').'; imzalı istek reddedildi. Sunucu saati düzeltilmeli.');
+            abort(401);
+        }
         $secret = $credentials['shared_secret'];
         $canonical = implode("\n", ['POST', self::PATH, '', $timestamp, $nonce, hash('sha256', $request->getContent())]);
-        abort_unless(hash_equals(hash_hmac('sha256', $canonical, $secret), $provided), 401);
-        abort_if(DB::table('website_connector_nonces')->where('connection_id', $connection->id)->where('nonce', $nonce)->exists(), 409);
+        if (! hash_equals(hash_hmac('sha256', $canonical, $secret), $provided)) {
+            WordPressConnectorCommands::refused($connection, 'İmza tutmadı (istek yolda değişmiş ya da eklenti anahtarı farklı; eklentiyi yeniden eşleştirmek gerekebilir).');
+            abort(401);
+        }
+        if (DB::table('website_connector_nonces')->where('connection_id', $connection->id)->where('nonce', $nonce)->exists()) {
+            WordPressConnectorCommands::refused($connection, 'Aynı istek ikinci kez geldi (tekrar), reddedildi.');
+            abort(409);
+        }
         DB::table('website_connector_nonces')->insert(['connection_id' => $connection->id, 'nonce' => $nonce, 'created_at' => now()]);
 
-        $input = Validator::make($request->json()->all(), [
+        $validator = Validator::make($request->json()->all(), [
             'schema_version' => ['required', 'integer', 'in:1'],
             'installation_id' => ['required', Rule::in([$installation])],
             'plugin_version' => ['required', 'string', 'max:32'],
@@ -58,15 +70,35 @@ final class WordPressConnectorCommandsController
             'results' => ['present', 'array', 'max:'.WordPressConnectorCommands::PER_EXCHANGE * 2],
             'results.*.id' => ['required', 'integer'],
             'results.*.status' => ['required', 'integer', 'between:100,599'],
-            'results.*.body' => ['present', 'string'],
-        ])->validate();
+            'results.*.body' => ['present', 'nullable', 'string'],
+            // 1.16.0: how the site asked and what failed last time (shown on the connector page).
+            'site' => ['sometimes', 'array'],
+            'site.trigger' => ['sometimes', 'nullable', 'string', 'max:16'],
+            'site.cron_disabled' => ['sometimes', 'nullable', 'boolean'],
+            'site.last_failure' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'site.last_failure_at' => ['sometimes', 'nullable', 'string', 'max:40'],
+        ]);
+        if ($validator->fails()) {
+            WordPressConnectorCommands::refused($connection, 'Eksik ya da bozuk istek: '.mb_substr(implode(' ', $validator->errors()->all()), 0, 150));
+        }
+        $input = $validator->validate();
+        self::recordVersion($connection, (string) $input['plugin_version']);
+        $report = array_filter([
+            'plugin_version' => (string) $input['plugin_version'],
+            'trigger' => $input['site']['trigger'] ?? null,
+            'cron_disabled' => $input['site']['cron_disabled'] ?? null,
+            'last_failure' => $input['site']['last_failure'] ?? null,
+            'last_failure_at' => $input['site']['last_failure_at'] ?? null,
+        ], fn ($value): bool => $value !== null);
+        $results = array_map(fn (array $result): array => ['id' => (int) $result['id'], 'status' => (int) $result['status'], 'body' => (string) ($result['body'] ?? '')],
+            array_values($input['results']));
 
-        $handed = $commands->exchange($connection, $client, $secret, array_values($input['results']), (bool) $input['take']);
+        $handed = $commands->exchange($connection, $client, $secret, $results, (bool) $input['take'], $report);
         $until = microtime(true) + self::HOLD_SECONDS;
         while ($handed === [] && $input['take'] && microtime(true) < $until
             && data_get($connection->config, 'rest_transport') === 'pull' && ! app()->runningUnitTests()) {
             usleep(500_000);
-            $handed = $commands->exchange($connection, $client, $secret, [], true);
+            $handed = $commands->exchange($connection, $client, $secret, [], true, null);
         }
 
         $data = ['commands' => $handed, 'pull' => data_get($connection->fresh()?->config, 'rest_transport') === 'pull'];
@@ -78,5 +110,15 @@ final class WordPressConnectorCommandsController
                 hash('sha256', (new WordPressConnectorCanonicalJson)->encode($data)),
             ]), $secret),
         ]]);
+    }
+
+    /** The version the site reports on every ask (the page showed an old one while the host refused status reads). */
+    private static function recordVersion(CoreConnection $connection, string $version): void
+    {
+        if (preg_match('/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/', $version) !== 1 || data_get($connection->config, 'plugin_version') === $version) {
+            return;
+        }
+        CoreConnection::query()->whereKey($connection->id)->update(['config->plugin_version' => $version]);
+        DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update(['plugin_version' => $version]);
     }
 }

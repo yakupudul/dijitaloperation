@@ -14,10 +14,32 @@ use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
 use App\Events\FindingEvaluationCompleted;
+use App\Jobs\Ads\RefreshAdServiceStatsJob;
+use App\Jobs\ApproveRepairRowsJob;
+use App\Jobs\Async\CollectLiveBoundDataJob;
+use App\Jobs\Async\PublicDiscoveryJob;
+use App\Jobs\Async\ResourceCollectionJob;
+use App\Jobs\Async\SeoIntelligenceRefreshJob;
+use App\Jobs\Async\WebsiteDiagnosisJob;
+use App\Jobs\BuildBrandSetupProposalJob;
 use App\Jobs\CollectMetaGeoResultsJob;
+use App\Jobs\DiscoverProviderResourcesJob;
 use App\Jobs\EraseSourceDataJob;
+use App\Jobs\Gbp\FillGbpPostQueueJob;
+use App\Jobs\Gbp\PrepareBranchPageJob;
+use App\Jobs\Gbp\RunGbpAssistantJob;
+use App\Jobs\GoogleAds\RunGoogleAdsAssistantJob;
+use App\Jobs\Integrations\CollectBingQueriesJob;
+use App\Jobs\IntelligenceProjection\RebuildWebsiteProjectionJob;
+use App\Jobs\Meta\DraftMetaStrategyPlanJob;
+use App\Jobs\Meta\MatchMetaCampaignServicesJob;
+use App\Jobs\Meta\RunMetaAssistantJob;
+use App\Jobs\Prompts\RunPromptTrialJob;
 use App\Jobs\RunChannelAnalystJob;
 use App\Jobs\RunScheduledDiscoveryJob;
+use App\Jobs\Site\GenerateContentIdeasJob;
+use App\Jobs\Site\PrepareOverlapRewriteJob;
+use App\Jobs\Site\SuggestForbiddenTermsJob;
 use App\Jobs\Verification\RunDataConsistencyCheckJob;
 use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Listeners\Collection\AggregateQuerySourcesAfterCollection;
@@ -99,6 +121,7 @@ use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Database\ViewAwarePostgresConnection;
+use App\Support\Database\WebRequestDatabaseLimits;
 use App\Support\Operator\LivewireActionErrors;
 use App\Support\Roles;
 use App\Support\ServiceScope;
@@ -107,6 +130,7 @@ use Closure;
 use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Queue\Events\JobExceptionOccurred;
@@ -291,6 +315,7 @@ class AppServiceProvider extends ServiceProvider
         LivewireActionErrors::register();
         $this->routeHeavyJobs();
         $this->flushServiceScopeOnPortfolioChange();
+        Event::listen(ConnectionEstablished::class, WebRequestDatabaseLimits::class);
         Event::listen(PromptingAgent::class, [AiUsageRecorder::class, 'started']);
         Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
         Event::listen(AgentFailedOver::class, [AiUsageRecorder::class, 'failed']);
@@ -364,10 +389,16 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Long AI / analysis jobs run on the "heavy" Horizon supervisor so quick jobs on "default" never wait behind them.
+     * Every job that can run longer than a couple of minutes leaves "default", so the quick lane (uptime, notices,
+     * WhatsApp, short AI drafts) never waits behind it (2026-10-13: hours-long default backlog):
+     * - heavy: long AI / analysis an operator clicked and waits for;
+     * - background: automatic catch-up work nobody is waiting on;
+     * - content: content writing (ideas, branch pages) — never behind other work (yakup 2026-10-12);
+     * - writes: Onarım masası approvals;
+     * - collection: an account's automatic collection planning, next to the collection it starts.
      * Only with the redis queue (Horizon); other drivers keep everything on "default" so nothing is left unworked.
      * Queue::route() takes a list as a class => queue map and ignores its second argument then, so the map is built
-     * here: a bare class list would route nothing and leave all six on "default".
+     * here. A job's own onQueue() still wins over its route.
      */
     private function routeHeavyJobs(): void
     {
@@ -375,13 +406,45 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        Queue::route(array_fill_keys([
-            RunScheduledDiscoveryJob::class,
-            EraseSourceDataJob::class,
-            CollectMetaGeoResultsJob::class,
-            RunLiveVerificationJob::class,
-            RunDataConsistencyCheckJob::class,
-            RunChannelAnalystJob::class,
-        ], (string) config('queue.heavy_queue', 'heavy')));
+        $routes = [];
+        foreach (self::jobLanes() as $class => $lane) {
+            $routes[$class] = (string) config('queue.'.$lane.'_queue', $lane);
+        }
+        Queue::route($routes);
+    }
+
+    /** @return array<class-string, 'heavy'|'background'|'content'|'writes'|'collection'> */
+    public static function jobLanes(): array
+    {
+        return [
+            RunScheduledDiscoveryJob::class => 'heavy',
+            EraseSourceDataJob::class => 'heavy',
+            CollectMetaGeoResultsJob::class => 'heavy',
+            RunLiveVerificationJob::class => 'heavy',
+            RunDataConsistencyCheckJob::class => 'heavy',
+            RunChannelAnalystJob::class => 'heavy',
+            BuildBrandSetupProposalJob::class => 'heavy',
+            DiscoverProviderResourcesJob::class => 'heavy',
+            DraftMetaStrategyPlanJob::class => 'heavy',
+            MatchMetaCampaignServicesJob::class => 'heavy',
+            RunGbpAssistantJob::class => 'heavy',
+            RunGoogleAdsAssistantJob::class => 'heavy',
+            RunMetaAssistantJob::class => 'heavy',
+            RunPromptTrialJob::class => 'heavy',
+            SuggestForbiddenTermsJob::class => 'heavy',
+            FillGbpPostQueueJob::class => 'heavy',
+            CollectBingQueriesJob::class => 'heavy',
+            CollectLiveBoundDataJob::class => 'heavy',
+            SeoIntelligenceRefreshJob::class => 'heavy',
+            WebsiteDiagnosisJob::class => 'heavy',
+            PublicDiscoveryJob::class => 'heavy',
+            ResourceCollectionJob::class => 'collection',
+            RebuildWebsiteProjectionJob::class => 'background',
+            RefreshAdServiceStatsJob::class => 'background',
+            GenerateContentIdeasJob::class => 'content',
+            PrepareBranchPageJob::class => 'content',
+            PrepareOverlapRewriteJob::class => 'content',
+            ApproveRepairRowsJob::class => 'writes',
+        ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Repair;
 
+use App\Jobs\ApproveRepairRowsJob;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -20,6 +21,7 @@ use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\PageTraffic;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -99,16 +101,27 @@ final class RepairDesk
     /** Rows read per kind (the list is a work queue, not an archive). */
     public const int LIMIT = 1500;
 
+    /** Set on a row the operator approved while ApproveRepairRowsJob has not run yet: the row leaves the list meanwhile. */
+    public const string QUEUED_AT = 'desk_queued_at';
+
+    /** Why the last approval of a row could not be sent (shown on the row until it is approved again). */
+    public const string DESK_ERROR = 'desk_error';
+
+    /** A queued mark older than this (the job died) no longer hides the row. */
+    public const int QUEUED_MINUTES = 30;
+
     /** @var array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>|null */
     private ?array $learned = null;
 
     /**
      * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, priority: int, page_id: ?int, impressions?: ?int, clicks?: ?int, page_title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
      */
-    public function rows(?int $brandId = null, ?string $kind = null, ?string $risk = null): Collection
+    public function rows(?int $brandId = null, ?string $kind = null, ?string $risk = null, bool $withQueued = false): Collection
     {
         $brands = Brand::query()->operational()->pluck('name', 'id');
-        $rows = self::withTraffic($this->candidates($brandId)->map(fn (Suggestion $s): ?array => $this->row($s, (string) ($brands[$s->brand_id] ?? '')))->filter()->values());
+        $rows = self::withTraffic($this->candidates($brandId)
+            ->reject(fn (Suggestion $s): bool => ! $withQueued && self::isQueued($s))
+            ->map(fn (Suggestion $s): ?array => $this->row($s, (string) ($brands[$s->brand_id] ?? '')))->filter()->values());
 
         return $rows->filter(fn (array $r): bool => ($kind === null || $r['kind'] === $kind) && ($risk === null || $r['risk'] === $risk))
             ->sortBy([['risk', 'asc'], ['brand', 'asc'], ['id', 'asc']])->values();
@@ -515,20 +528,25 @@ final class RepairDesk
      * for a single approval.
      *
      * @param  list<int>  $ids
-     * @return array{applied: int, skipped_high: int, failed: list<string>}
+     * @return array{applied: int, skipped_high: int, failed: list<string>, failed_ids: list<int>}
      */
     public function approve(array $ids, User $user): array
     {
-        $rows = $this->rows()->whereIn('id', array_map('intval', $ids))->values();
-        $result = ['applied' => 0, 'skipped_high' => 0, 'failed' => []];
+        $rows = $this->rows(withQueued: true)->whereIn('id', array_map('intval', $ids))->values();
+        $result = ['applied' => 0, 'skipped_high' => 0, 'failed' => [], 'failed_ids' => []];
         if ($rows->count() > 1) {
             $result['skipped_high'] = $rows->where('risk', self::HIGH)->count();
             $rows = $rows->where('risk', '!=', self::HIGH)->values();
         }
         $suggestions = Suggestion::query()->whereIn('id', $rows->pluck('id'))->get()->keyBy('id');
-        $fail = function (array $row, Throwable $error) use (&$result): void {
-            $message = $error instanceof ValidationException ? collect($error->errors())->flatten()->first() : $error->getMessage();
+        /** @param  Collection<int, array<string, mixed>>  $group  every row the failed send carried */
+        $fail = function (Collection $group, Throwable $error) use (&$result): void {
+            $row = $group->first();
+            $message = (string) ($error instanceof ValidationException ? collect($error->errors())->flatten()->first() : $error->getMessage());
             $result['failed'][] = $row['brand'].' · '.$row['title'].': '.$message;
+            $ids = $group->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $result['failed_ids'] = [...$result['failed_ids'], ...$ids];
+            self::markError($ids, $message);
             if (! $error instanceof ValidationException) {
                 report($error);
             }
@@ -539,7 +557,7 @@ final class RepairDesk
                 try {
                     $result['applied'] += app(ClusterOverlaps::class)->redirectMany($group->map(fn (array $r): Suggestion => $suggestions[$r['id']])->values(), $user);
                 } catch (Throwable $error) {
-                    $fail($group->first(), $error);
+                    $fail($group, $error);
                 }
 
                 continue;
@@ -551,7 +569,7 @@ final class RepairDesk
                         app(GoogleAdsSuggestions::class)->sendNegatives($asset, $user, $negatives->pluck('id')->all(), app(ExternalWriteService::class));
                         $result['applied'] += $negatives->count();
                     } catch (Throwable $error) {
-                        $fail($negatives->first(), $error);
+                        $fail($negatives, $error);
                     }
                 }
 
@@ -573,12 +591,96 @@ final class RepairDesk
                     };
                     $result['applied']++;
                 } catch (Throwable $error) {
-                    $fail($row, $error);
+                    $fail(collect([$row]), $error);
                 }
             }
         }
 
+        $result['failed_ids'] = array_values(array_unique($result['failed_ids']));
+
         return $result;
+    }
+
+    /**
+     * Onayla (yakup 2026-10-13: an approval of many rows ended in nginx 504): the click only checks which rows may be
+     * approved (high risk one by one), marks them queued — they leave the list at once — and hands the approval to
+     * ApproveRepairRowsJob on the writes queue. What was written shows under "Yapılanlar"; a row that could not be sent
+     * returns with its reason.
+     *
+     * @param  list<int>  $ids
+     * @return array{applied: int, skipped_high: int, failed: list<string>}
+     */
+    public function queueApproval(array $ids, User $user): array
+    {
+        $rows = $this->rows()->whereIn('id', array_map('intval', $ids))->values();
+        $result = ['applied' => 0, 'skipped_high' => 0, 'failed' => []];
+        if ($rows->count() > 1) {
+            $result['skipped_high'] = $rows->where('risk', self::HIGH)->count();
+            $rows = $rows->where('risk', '!=', self::HIGH)->values();
+        }
+        $queue = $rows->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+        if ($queue === []) {
+            return $result;
+        }
+        foreach (Suggestion::query()->whereIn('id', $queue)->get() as $suggestion) {
+            $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, [self::QUEUED_AT => now()->toIso8601String(), 'desk_queued_by' => $user->id])])->save();
+        }
+        foreach (array_chunk($queue, 200) as $chunk) {
+            dispatch(new ApproveRepairRowsJob($chunk, (int) $user->id))->onQueue((string) config('queue.writes_queue', 'default'));
+        }
+        $result['applied'] = count($queue);
+
+        return $result;
+    }
+
+    /** Rows approved and still waiting for ApproveRepairRowsJob (the desk shows "sırada" and refreshes meanwhile). */
+    public function queuedCount(?int $brandId = null): int
+    {
+        return Suggestion::query()->whereNotNull('action->'.self::QUEUED_AT)
+            ->where('updated_at', '>=', now()->subMinutes(self::QUEUED_MINUTES))
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))->count();
+    }
+
+    /**
+     * The approval job finished (or died): the queued mark goes; $error (whole batch) or the per-row errors stay on the
+     * rows that were not sent, the others lose an earlier error.
+     *
+     * @param  list<int>  $ids
+     * @param  list<int>  $failedIds
+     */
+    public function releaseQueued(array $ids, ?string $error = null, array $failedIds = []): void
+    {
+        foreach (Suggestion::query()->whereIn('id', $ids)->get() as $suggestion) {
+            $action = (array) $suggestion->action;
+            unset($action[self::QUEUED_AT], $action['desk_queued_by']);
+            if ($error !== null) {
+                $action[self::DESK_ERROR] = mb_substr($error, 0, 300);
+            } elseif (! in_array((int) $suggestion->id, $failedIds, true)) {
+                unset($action[self::DESK_ERROR]);
+            }
+            $suggestion->forceFill(['action' => $action])->save();
+        }
+    }
+
+    public static function isQueued(Suggestion $suggestion): bool
+    {
+        $at = data_get($suggestion->action, self::QUEUED_AT);
+        if (! is_string($at) || $at === '') {
+            return false;
+        }
+        try {
+            return CarbonImmutable::parse($at)->gt(now()->subMinutes(self::QUEUED_MINUTES));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /** @param  list<int>  $ids */
+    private static function markError(array $ids, string $message): void
+    {
+        foreach (Suggestion::query()->whereIn('id', $ids)->get() as $suggestion) {
+            $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, [self::DESK_ERROR => mb_substr($message, 0, 300)])])->save();
+        }
     }
 
     /**
@@ -646,7 +748,7 @@ final class RepairDesk
     private function row(Suggestion $s, string $brand): ?array
     {
         $action = (array) $s->action;
-        $lastError = $action['last_write_error'] ?? $action['merge_error'] ?? null;
+        $lastError = $action[self::DESK_ERROR] ?? $action['last_write_error'] ?? $action['merge_error'] ?? null;
         $base = ['id' => (int) $s->id, 'brand_id' => (int) $s->brand_id, 'brand' => $brand, 'channel' => (string) $s->channel,
             'work_type' => OutcomeTracker::workType((string) $s->action_type, $action),
             'title' => (string) $s->title, 'priority' => (int) ($s->priority ?? 3), 'page_id' => $s->page_id !== null ? (int) $s->page_id : null,

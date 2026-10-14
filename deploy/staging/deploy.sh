@@ -322,6 +322,11 @@ restore_web_ownership
 php artisan up --no-interaction
 APP_DOWN=0
 
+# PHP-FPM pool / OPcache, PostgreSQL memory settings and a swap file sized for this server (yakup approved 2026-10-14).
+# Idempotent; each step is tested and undone on failure; never fails the deploy. Off: storage/app/server-tuning.off
+echo "deploy/staging: server tuning"
+as_root bash deploy/staging/tune-server.sh || echo "deploy/staging: WARNING — server tuning did not finish" >&2
+
 # Faz 4: post-deploy checks. The release is already live, so failures are reported loudly but do not
 # roll back; read the FAIL lines and fix before the next deploy.
 echo "deploy/staging: post-deploy smoke (no provider calls)"

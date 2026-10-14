@@ -27,4 +27,23 @@ final class LargestTablesTest extends TestCase
         $this->assertContains('gsc_f_query_page', $names);
         $this->assertSame(array_column($tables, 'bytes'), collect($tables)->sortByDesc('bytes')->pluck('bytes')->all());
     }
+
+    public function test_disk_breakdown_lists_folder_sizes_largest_first(): void
+    {
+        $this->assertSame([], app(ServerStatusReader::class)->diskBreakdown(), 'a web read never runs du itself');
+        app(ServerStatusReader::class)->measureDisk();
+        $breakdown = app(ServerStatusReader::class)->diskBreakdown();
+
+        $this->assertContains(storage_path(), array_column($breakdown, 'path'));
+        $this->assertSame(array_column($breakdown, 'bytes'), collect($breakdown)->sortByDesc('bytes')->pluck('bytes')->all());
+    }
+
+    public function test_tuning_facts_name_the_drivers_and_php_limits(): void
+    {
+        $facts = app(ServerStatusReader::class)->tuningFacts();
+
+        $this->assertSame(config('cache.default'), $facts['drivers']['cache']);
+        $this->assertArrayHasKey('memory_limit', $facts['php']);
+        $this->assertArrayHasKey('opcache', $facts);
+    }
 }
