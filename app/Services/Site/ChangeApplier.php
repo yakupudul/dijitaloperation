@@ -69,6 +69,10 @@ final class ChangeApplier
         $html = in_array($type, ['missing_topic', 'conversion', 'wrong_intent', 'differentiate'], true) ? $this->currentHtml($site, $page) : null;
         $main = $differentiate ? Page::query()->find((int) data_get($suggestion->action, 'main_page_id')) : null;
         $sitePages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereKeyNot($page->id)->orderBy('path')->limit(300)->get(['url', 'title']);
+        // The page an overlap must link to is always a known target, even past the first 300 paths.
+        if ($main !== null && ! $sitePages->contains(fn (Page $p): bool => $p->url === $main->url)) {
+            $sitePages->prepend($main);
+        }
         $context = $this->memory->contextFor($brand, [(int) $page->id], $suggestion->cluster_id !== null ? [(int) $suggestion->cluster_id] : []);
         $result = $given !== null ? ['status' => 'ready', 'data' => $given, 'prompt_version_id' => null] : $this->ai->run(new ApplyChangeAgent, [
             'suggestion' => ['type' => $type, 'title' => $suggestion->title, 'reason' => $suggestion->reason, 'evidence' => $suggestion->evidence],

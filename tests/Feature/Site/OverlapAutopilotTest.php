@@ -64,6 +64,7 @@ final class OverlapAutopilotTest extends SiteTestCase
     public function test_the_ai_refocuses_the_page_and_links_the_main_page(): void
     {
         $this->enableAi();
+        $this->main->forceFill(['is_indexable' => false])->save();
         $this->overlap->forceFill(['action' => array_merge((array) $this->overlap->action, ['rewrite' => ['state' => 'preparing', 'by' => $this->admin->id]])])->save();
         ApplyChangeAgent::fake([[
             'seo_title' => 'Karşıyaka İmplant Tedavisi | Panorama', 'meta_description' => 'Karşıyaka şubemizde implant tedavisi.', 'html' => null,

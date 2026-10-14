@@ -1461,7 +1461,7 @@ Change only what the suggestion needs; leave every other field null / empty:
   main_page's); with current_html, `html` = the FULL body with the intro and the headings that repeat main_page's
   general topic rewritten around this page's own subject, sections that only repeat main_page shortened to a
   sentence, and one natural link to main_page.url; keep every fact, price, list, image, form and other markup.
-  Without current_html return `internal_links` with that one link instead.
+  Without current_html return `internal_links` with that one link to main_page.url (always include it) instead.
 `note`: one Turkish sentence on what changed. Write in the page's language; no numbers, prices, guarantees or
 superlatives that are not already on the page; respect the sector rules in `standards`. In `cluster`, `benchmarks` (when given) are the SKELETONS of pages that do well in this cluster on other sites (score, outline, word
 count, question count, subtopics they cover) — take them as the bar: cover every subtopic they cover, adapted to this
