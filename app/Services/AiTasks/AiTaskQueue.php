@@ -49,12 +49,9 @@ final class AiTaskQueue
     /**
      * Operations whose callers handle "queued" (wait, keep their progress, continue with Claude's answer). Any other
      * site operation keeps the provider route until its caller is taught to wait. Content work (ideas, articles,
-     * translations) waits here only when the Claude API credit is used up (yakup, 2026-10-14: "Claude API bittiğinde
-     * sen devral"); the daily ceiling and the monthly budget never send it here (2026-10-12).
+     * translations) is never given to the queue (yakup, 2026-10-12: "hiçbir zaman kuyruğa girmesin"), except below.
      */
     public const array SUPPORTED = [
-        AiRouteKeys::SITE_WRITE_ARTICLE,
-        AiRouteKeys::SITE_WEEKLY_CONTENT,
         AiRouteKeys::SITE_CLUSTER_MATCH,
         AiRouteKeys::SITE_CLUSTER_GAPS,
         AiRouteKeys::QUERIES_AI_QUERIES,
@@ -81,13 +78,30 @@ final class AiTaskQueue
         AiRouteKeys::SITE_SEO_FIELDS_BATCH,
     ];
 
+    /**
+     * Content work Claude takes over only when the Claude API credit is used up (yakup, 2026-10-14: "Claude API
+     * bittiğinde sen devral"); its model is never set to Claude (MCP), and the daily ceiling or the monthly budget
+     * never send it here (2026-10-12).
+     */
+    public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT];
+
+    /** Whether Claude (MCP) may answer this operation when the provider route fails: a supported one, or content work on a used-up credit. */
+    public function takesOver(string $operation): bool
+    {
+        return $this->supports($operation) || (in_array($operation, self::CREDIT_FALLBACK, true) && $this->resumable($operation));
+    }
+
     /** Whether the operation runs through a resumable path that can wait for Claude (structured registry agents in SUPPORTED). */
     public function supports(string $operation): bool
     {
+        return in_array($operation, self::SUPPORTED, true) && $this->resumable($operation);
+    }
+
+    private function resumable(string $operation): bool
+    {
         $agent = $this->registry->definitions()[$operation]['agent'] ?? null;
 
-        return in_array($operation, self::SUPPORTED, true) && is_string($agent)
-            && is_subclass_of($agent, RegistryPrompted::class) && is_subclass_of($agent, HasStructuredOutput::class);
+        return is_string($agent) && is_subclass_of($agent, RegistryPrompted::class) && is_subclass_of($agent, HasStructuredOutput::class);
     }
 
     /**
@@ -97,12 +111,15 @@ final class AiTaskQueue
      */
     public function delegated(string $operation): bool
     {
-        if (! self::enabled() || ! $this->supports($operation)) {
+        if (! self::enabled()) {
             return false;
         }
         // Content work runs on the provider route; only a used-up Claude API credit hands it to Claude (yakup, 2026-10-14).
         if (AiBudget::isContent($operation)) {
-            return $this->fallsBackToClaude($operation);
+            return $this->takesOver($operation) && $this->fallsBackToClaude($operation);
+        }
+        if (! $this->supports($operation)) {
+            return false;
         }
         if ($this->registry->current($operation)->model === self::MODEL) {
             return true;

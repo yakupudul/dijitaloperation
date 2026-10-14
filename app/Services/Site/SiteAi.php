@@ -74,7 +74,7 @@ final class SiteAi
      */
     private function claudeTakesOver(SiteAgent $agent, array $data, ?string $slot): ?array
     {
-        if (! AiTaskQueue::enabled() || ! $this->tasks->supports($agent->promptOperation())) {
+        if (! AiTaskQueue::enabled() || ! $this->tasks->takesOver($agent->promptOperation())) {
             return null;
         }
         try {

@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
-use App\Services\Ai\AiBudget;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Roles;
@@ -33,8 +32,7 @@ final class McpDelegateCommand extends Command
 
             return self::FAILURE;
         }
-        // Content work stays on its model; it reaches Claude only when the Claude API credit is used up.
-        $operations = (array) $this->argument('operations') ?: array_values(array_filter(AiTaskQueue::SUPPORTED, fn (string $op): bool => ! AiBudget::isContent($op)));
+        $operations = (array) $this->argument('operations') ?: AiTaskQueue::SUPPORTED;
         $model = $this->option('api') ? null : AiTaskQueue::MODEL;
         foreach ($operations as $operation) {
             if (! $tasks->supports((string) $operation)) {
