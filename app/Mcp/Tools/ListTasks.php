@@ -11,7 +11,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
-#[Description('Lists AI tasks waiting for Claude (oldest first): id, operation, brand, subject, status. Optional filters: operation key, brand_id.')]
+#[Description('Lists AI tasks waiting for Claude (oldest first): id, operation, brand, subject, status, plus `by_operation` (waiting count per operation, for get-tasks). Optional filters: operation key, brand_id.')]
 #[IsReadOnly]
 class ListTasks extends Tool
 {
@@ -28,6 +28,9 @@ class ListTasks extends Tool
 
         return Response::json([
             'waiting' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(),
+            'by_operation' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
+                ->selectRaw('operation, count(*) as waiting')->groupBy('operation')->orderByDesc('waiting')
+                ->pluck('waiting', 'operation')->map(fn ($n): int => (int) $n)->all(),
             'tasks' => $tasks->map(fn (AiTask $task): array => [
                 'id' => $task->id,
                 'operation' => $task->operation,
