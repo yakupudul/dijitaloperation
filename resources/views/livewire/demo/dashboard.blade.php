@@ -12,6 +12,8 @@
 
     @include('livewire.demo.partials.today-cockpit')
 
+    <livewire:operator.live-feed />
+
     @if ($chiefPlan === null || $chiefPlan->status === 'failed')
         <p class="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-500 dark:text-gray-400" data-chief-plan data-chief-plan-empty>
             <span class="font-medium text-gray-700 dark:text-gray-300">Bu haftanın planı</span>
