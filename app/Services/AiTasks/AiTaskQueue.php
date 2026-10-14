@@ -112,10 +112,11 @@ final class AiTaskQueue
         AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_CONTENT_RECIPE];
 
     /**
-     * Operations outside SUPPORTED whose callers can wait for Claude all the same (the triage autopilot, 2026-10-14);
+     * Operations outside SUPPORTED whose callers can wait for Claude all the same (the triage autopilot; WhatsApp reply
+     * drafts and the WhatsApp brain, yakup 2026-10-14 "Claude'a geçsin");
      * they are never offered as a model choice, but go to Claude with everything else while Claude takes all.
      */
-    public const array ALWAYS_CLAUDE = [AiRouteKeys::QUERIES_TRIAGE];
+    public const array ALWAYS_CLAUDE = [AiRouteKeys::QUERIES_TRIAGE, 'whatsapp.reply', 'whatsapp.brain'];
 
     /**
      * yakup, 2026-10-14 19:29Z: "sistemdeki tüm işleri sen devral" — every AI operation whose caller can wait goes to
@@ -157,7 +158,7 @@ final class AiTaskQueue
             return false;
         }
         if (self::takesAll()) {
-            return $this->takesOver($operation) || (in_array($operation, self::ALWAYS_CLAUDE, true) && $this->resumable($operation));
+            return $this->takesOver($operation) || in_array($operation, self::ALWAYS_CLAUDE, true);
         }
         // Content work runs on the provider route; only a used-up Claude API credit hands it to Claude (yakup, 2026-10-14).
         if (AiBudget::isContent($operation)) {

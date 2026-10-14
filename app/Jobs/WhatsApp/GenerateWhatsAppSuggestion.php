@@ -3,6 +3,7 @@
 namespace App\Jobs\WhatsApp;
 
 use App\Models\WhatsAppConversation;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,7 +32,13 @@ class GenerateWhatsAppSuggestion implements ShouldBeUnique, ShouldQueue
 
     public function handle(WhatsAppSuggestions $suggestions): void
     {
-        $suggestions->generate($this->conversationId);
+        $tasks = app(AiTaskQueue::class);
+        $tasks->begin(new self($this->conversationId), null, 'WhatsApp yanıt önerisi');
+        try {
+            $suggestions->generate($this->conversationId);
+        } finally {
+            $tasks->settle();
+        }
     }
 
     public function failed(?Throwable $exception): void

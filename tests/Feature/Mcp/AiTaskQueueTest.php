@@ -180,7 +180,7 @@ final class AiTaskQueueTest extends SiteTestCase
             AiRouteKeys::GOOGLE_ADS_AD_TEXTS, AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS, AiRouteKeys::GOOGLE_ADS_STRUCTURE, AiRouteKeys::META_CREATIVES, AiRouteKeys::META_LANDING, AiRouteKeys::META_STRUCTURE] as $operation) {
             $this->assertTrue($queue->delegated($operation), $operation.' waits for Claude (2026-10-14)');
         }
-        $this->assertFalse($queue->delegated('whatsapp.reply'), 'a caller that cannot wait keeps its route');
+        $this->assertTrue($queue->delegated('whatsapp.reply'), 'WhatsApp drafts too (yakup, 2026-10-14)');
 
         config(['moxdop-mcp.takes_all' => false]);
         $this->assertFalse($queue->delegated('site.cluster_match'));

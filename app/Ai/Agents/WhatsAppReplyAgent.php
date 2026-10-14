@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AgencySetting;
 use App\Support\Ai\AiProviderOptions;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -46,6 +47,26 @@ If the latest message needs an unread attachment/audio to understand it, choose 
 The rationale is a short actionable explanation, not hidden chain-of-thought.
 For action=wait leave reply empty. For clarify either suggest a short clarifying question or leave reply empty and explain what the operator must supply.
 PROMPT;
+    }
+
+    /**
+     * The same agent for Claude's MCP queue (yakup, 2026-10-14: Claude takes every job). Only the queued copy names
+     * its operation: the provider route keeps no input in the usage records for these chats.
+     */
+    public static function forQueue(): WhatsAppReplyAgent&RegistryPrompted
+    {
+        return new class extends WhatsAppReplyAgent implements RegistryPrompted
+        {
+            public function promptOperation(): string
+            {
+                return self::ROUTE;
+            }
+
+            public function promptVersionId(): ?int
+            {
+                return null;
+            }
+        };
     }
 
     public function schema(JsonSchema $schema): array

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiProviderOptions;
 use Illuminate\Support\Facades\Context;
@@ -69,16 +70,21 @@ final class WhatsAppBrain
     public function learn(): void
     {
         $integration = $this->connection->integration();
-        if ($integration === null || ! $this->setStatus(['queued', 'failed', 'ready', null], 'running')) {
+        // Claude takes every job (yakup, 2026-10-14): learning waits for Claude over MCP and runs again with the answer.
+        $tasks = app(AiTaskQueue::class);
+        $viaClaude = $tasks->delegated(WhatsAppBrainAgent::ROUTE);
+        if ($integration === null || ! $this->setStatus(['queued', 'failed', 'ready', null, ...($viaClaude ? ['running'] : [])], 'running')) {
             return;
         }
         try {
-            $route = app(AiRouteResolver::class)->resolve(WhatsAppBrainAgent::ROUTE);
-            if (! isset($route->providerModels[AiProviderCatalog::OPENAI])) {
-                $reason = collect($route->steps)->firstWhere('provider', AiProviderCatalog::OPENAI)['reason'] ?? null;
-                $this->markFailed($reason === 'budget_exhausted' ? 'ai_budget_blocked' : 'ai_not_configured');
+            if (! $viaClaude) {
+                $route = app(AiRouteResolver::class)->resolve(WhatsAppBrainAgent::ROUTE);
+                if (! isset($route->providerModels[AiProviderCatalog::OPENAI])) {
+                    $reason = collect($route->steps)->firstWhere('provider', AiProviderCatalog::OPENAI)['reason'] ?? null;
+                    $this->markFailed($reason === 'budget_exhausted' ? 'ai_budget_blocked' : 'ai_not_configured');
 
-                return;
+                    return;
+                }
             }
             [$conversations, $messageCount] = $this->sample($integration);
             if ($conversations === []) {
@@ -86,15 +92,31 @@ final class WhatsAppBrain
 
                 return;
             }
-            $model = WhatsAppSuggestions::model($integration);
-            Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $model);
-            app(AiProviderRuntimeConfig::class)->prepare([AiProviderCatalog::OPENAI]);
-            $response = (new WhatsAppBrainAgent)->prompt(json_encode([
+            $payload = [
                 'today' => now('Europe/Istanbul')->toDateString(),
                 'operator_instructions' => (string) data_get($integration->config, 'business_context', ''),
                 'conversations' => $conversations,
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), provider: [AiProviderCatalog::OPENAI => $model]);
-            $brain = $this->validated($response->toArray());
+            ];
+            if ($viaClaude) {
+                $answer = $tasks->answer(WhatsAppBrainAgent::forQueue(), $payload, 'brain', 'CHATS_JSON');
+                if (($answer['status'] ?? null) === 'queued') {
+                    return;
+                }
+                if (($answer['status'] ?? null) !== 'ready') {
+                    $this->markFailed('ai_request_failed');
+
+                    return;
+                }
+                $output = (array) $answer['data'];
+                $model = AiTaskQueue::MODEL;
+            } else {
+                $model = WhatsAppSuggestions::model($integration);
+                Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $model);
+                app(AiProviderRuntimeConfig::class)->prepare([AiProviderCatalog::OPENAI]);
+                $output = (new WhatsAppBrainAgent)->prompt(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: [AiProviderCatalog::OPENAI => $model])->toArray();
+            }
+            $brain = $this->validated($output);
             if ($brain === null) {
                 $this->markFailed('invalid_ai_output');
 

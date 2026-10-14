@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AgencySetting;
 use App\Support\Ai\AiProviderOptions;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -43,6 +44,26 @@ Write everything in Turkish. Be concrete and short; no marketing language.
 - summary: two or three sentences about the business and its customers.
 Never include customers' names, phone numbers, addresses or other personal data. Do not invent anything not in the chats or operator_instructions.
 PROMPT;
+    }
+
+    /**
+     * The same agent for Claude's MCP queue (yakup, 2026-10-14: Claude takes every job). Only the queued copy names
+     * its operation: the provider route keeps no input in the usage records for these chats.
+     */
+    public static function forQueue(): WhatsAppBrainAgent&RegistryPrompted
+    {
+        return new class extends WhatsAppBrainAgent implements RegistryPrompted
+        {
+            public function promptOperation(): string
+            {
+                return self::ROUTE;
+            }
+
+            public function promptVersionId(): ?int
+            {
+                return null;
+            }
+        };
     }
 
     public function schema(JsonSchema $schema): array

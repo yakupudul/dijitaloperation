@@ -9,11 +9,13 @@ use App\Jobs\WhatsApp\GenerateWhatsAppSuggestion;
 use App\Jobs\WhatsApp\LearnWhatsAppBrain;
 use App\Livewire\Operator\WhatsApp\Inbox;
 use App\Models\AgencySetting;
+use App\Models\AiTask;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\Backup\WhatsAppBackupReader;
 use App\Services\WhatsApp\WhatsAppBrain;
@@ -232,6 +234,43 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertSame(['ready', 'Evet, logo da yapıyoruz.'], [$chat->fresh()->suggestion_status, $chat->fresh()->suggestion]);
         WhatsAppReplyAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Kurumsal site artık 25.000 TL.')
             && str_contains((string) $prompt->prompt, 'Siz diye, kısa ve sıcak.') && str_contains((string) $prompt->prompt, 'WhatsApp backup taken around'));
+    }
+
+    public function test_when_claude_takes_all_the_brain_waits_for_claude_and_stores_its_answer(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [
+            ['A1', 0, '2026-09-01 10:00', 0, 'Web sitesi fiyatı nedir?'],
+            ['A2', 1, '2026-09-01 10:05', 0, 'Merhaba, kurumsal site 20.000 TL.'],
+        ]]])));
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        WhatsAppBrainAgent::fake()->preventStrayPrompts();
+        $this->setBrainStatus('queued');
+
+        (new LearnWhatsAppBrain(null))->handle(app(WhatsAppBrain::class));
+
+        $this->assertSame('running', app(WhatsAppConnection::class)->integration()->config['brain_status']);
+        $task = AiTask::query()->sole();
+        $this->assertSame('whatsapp.brain', $task->operation);
+        $this->assertStringNotContainsString('905321112233', (string) $task->input, 'phone numbers never leave as they are');
+
+        // Claude answers; the job dispatched again (here by hand, the queue is faked) stores the brain.
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, [
+            'summary' => 'Ajans; web sitesi işleri.', 'services' => ['Kurumsal web sitesi'],
+            'prices' => [['item' => 'Kurumsal site', 'price' => '20.000 TL', 'last_quoted' => '2026-09-01']],
+            'faq' => [], 'tone' => 'Siz diye.', 'policies' => [], 'avoid' => [], 'open_questions' => [],
+        ]));
+        (new LearnWhatsAppBrain(null))->handle(app(WhatsAppBrain::class));
+
+        $config = app(WhatsAppConnection::class)->integration()->config;
+        $this->assertSame(['ready', 'Ajans; web sitesi işleri.'], [$config['brain_status'], $config['brain']['summary']]);
+        WhatsAppBrainAgent::assertNeverPrompted();
+    }
+
+    private function setBrainStatus(string $status): void
+    {
+        $integration = app(WhatsAppConnection::class)->integration();
+        $integration->update(['config' => [...$integration->config, 'brain_status' => $status]]);
     }
 
     public function test_imported_chats_are_never_drafted_without_a_click(): void

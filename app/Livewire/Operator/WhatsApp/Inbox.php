@@ -12,6 +12,7 @@ use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Operator\AgencySettingService;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
@@ -363,7 +364,7 @@ class Inbox extends Component
             'whatsapp_retention_days' => $this->retention_days !== '' ? (int) $this->retention_days : null,
         ])->save();
         app(AgencySettingService::class)->forget();
-        $this->notice = 'Yanıt önerisi ayarları kaydedildi. Yeni öneriler '.$this->ai_model.' ile hazırlanır.';
+        $this->notice = 'Yanıt önerisi ayarları kaydedildi. Yeni öneriler '.(AiTaskQueue::takesAll() ? 'Claude kuyruğunda' : $this->ai_model.' ile').' hazırlanır.';
     }
 
     public function refreshConnectionStatus(): void

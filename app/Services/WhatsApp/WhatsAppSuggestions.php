@@ -7,6 +7,7 @@ use App\Models\CoreIntegration;
 use App\Models\WhatsAppConversation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiProviderOptions;
@@ -75,7 +76,12 @@ final class WhatsAppSuggestions
     {
         $conversation = WhatsAppConversation::query()->find($conversationId);
         $integration = $conversation ? CoreIntegration::query()->find($conversation->integration_id) : null;
-        if (! $conversation || ! $integration?->isActive() || ! in_array($conversation->suggestion_status, ['pending', 'requested'], true)) {
+        // Claude takes every job (yakup, 2026-10-14): the draft waits for Claude over MCP; the job runs again with the
+        // answer while the conversation still shows "running".
+        $tasks = app(AiTaskQueue::class);
+        $viaClaude = $tasks->delegated(WhatsAppReplyAgent::ROUTE);
+        $statuses = $viaClaude ? ['pending', 'requested', 'running'] : ['pending', 'requested'];
+        if (! $conversation || ! $integration?->isActive() || ! in_array($conversation->suggestion_status, $statuses, true)) {
             return;
         }
         if ($conversation->suggestion_status === 'pending' && ! data_get($integration->config, 'automatic_suggestions', false)) {
@@ -84,23 +90,25 @@ final class WhatsAppSuggestions
         $revision = $conversation->revision;
         $settings = self::fingerprint($integration);
         $claimed = WhatsAppConversation::query()->whereKey($conversationId)->where('revision', $revision)
-            ->whereIn('suggestion_status', ['pending', 'requested'])
+            ->whereIn('suggestion_status', $statuses)
             ->update(['suggestion_status' => 'running', 'error_code' => null, 'updated_at' => now()]);
         if (! $claimed) {
             return;
         }
         try {
-            $route = app(AiRouteResolver::class)->resolve(WhatsAppReplyAgent::ROUTE);
-            // OpenAI only: no key, the daily AI cap or a disabled OpenAI integration means no suggestion.
-            if (! isset($route->providerModels[AiProviderCatalog::OPENAI])) {
-                $reason = collect($route->steps)->firstWhere('provider', AiProviderCatalog::OPENAI)['reason'] ?? null;
-                $this->fail($conversationId, $revision, $reason === 'budget_exhausted' ? 'ai_budget_blocked' : 'ai_not_configured');
-
-                return;
-            }
             $model = self::model($integration);
-            Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $model);
-            app(AiProviderRuntimeConfig::class)->prepare([AiProviderCatalog::OPENAI]);
+            if (! $viaClaude) {
+                $route = app(AiRouteResolver::class)->resolve(WhatsAppReplyAgent::ROUTE);
+                // OpenAI only: no key, the daily AI cap or a disabled OpenAI integration means no suggestion.
+                if (! isset($route->providerModels[AiProviderCatalog::OPENAI])) {
+                    $reason = collect($route->steps)->firstWhere('provider', AiProviderCatalog::OPENAI)['reason'] ?? null;
+                    $this->fail($conversationId, $revision, $reason === 'budget_exhausted' ? 'ai_budget_blocked' : 'ai_not_configured');
+
+                    return;
+                }
+                Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $model);
+                app(AiProviderRuntimeConfig::class)->prepare([AiProviderCatalog::OPENAI]);
+            }
             $rows = $conversation->messages()->orderByDesc('sent_at')->orderByDesc('id')->limit(201)->get();
             $truncated = $rows->count() > 200;
             $rows = $rows->take(200);
@@ -129,23 +137,37 @@ final class WhatsAppSuggestions
 
                 return;
             }
-            $response = (new WhatsAppReplyAgent)->prompt(
-                json_encode([
-                    'current_time' => now('Europe/Istanbul')->toIso8601String(),
-                    'business_context' => data_get($integration->config, 'business_context', ''),
-                    'learned_profile' => WhatsAppBrain::forPrompt($integration),
-                    'contact_name' => $conversation->contact_name,
-                    'messages' => array_reverse($context),
-                    'context_truncated' => $truncated,
-                    'history_coverage' => $conversation->phone_number_id === WhatsAppBackupImporter::LINE
-                        ? 'Imported from the business phone\'s WhatsApp backup taken around '.data_get($integration->config, 'backup_snapshot_at', 'an unknown time').'. Messages after the backup are not included; the operator may already have replied on the phone.'
-                        : 'Only received provider events. Complete history not verified.',
-                    'outgoing_echo_observed' => filled(data_get($integration->config, 'echo_seen_at')),
-                    'message_delivery_status' => 'Not verified. An outgoing event does not prove delivery or reading.',
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: [AiProviderCatalog::OPENAI => $model],
-            );
-            $result = Validator::make($response->toArray(), [
+            $payload = [
+                'current_time' => now('Europe/Istanbul')->toIso8601String(),
+                'business_context' => data_get($integration->config, 'business_context', ''),
+                'learned_profile' => WhatsAppBrain::forPrompt($integration),
+                'contact_name' => $conversation->contact_name,
+                'messages' => array_reverse($context),
+                'context_truncated' => $truncated,
+                'history_coverage' => $conversation->phone_number_id === WhatsAppBackupImporter::LINE
+                    ? 'Imported from the business phone\'s WhatsApp backup taken around '.data_get($integration->config, 'backup_snapshot_at', 'an unknown time').'. Messages after the backup are not included; the operator may already have replied on the phone.'
+                    : 'Only received provider events. Complete history not verified.',
+                'outgoing_echo_observed' => filled(data_get($integration->config, 'echo_seen_at')),
+                'message_delivery_status' => 'Not verified. An outgoing event does not prove delivery or reading.',
+            ];
+            if ($viaClaude) {
+                $answer = $tasks->answer(WhatsAppReplyAgent::forQueue(), $payload, 'revision-'.$revision, 'CONVERSATION_JSON');
+                if (($answer['status'] ?? null) === 'queued') {
+                    return;
+                }
+                if (($answer['status'] ?? null) !== 'ready') {
+                    $this->fail($conversationId, $revision, 'ai_request_failed');
+
+                    return;
+                }
+                $output = (array) $answer['data'];
+                $signature = AiTaskQueue::MODEL;
+            } else {
+                $output = (new WhatsAppReplyAgent)->prompt(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: [AiProviderCatalog::OPENAI => $model])->toArray();
+                $signature = AiProviderCatalog::OPENAI.':'.$model;
+            }
+            $result = Validator::make($output, [
                 'action' => ['required', 'in:reply,wait,clarify'],
                 'reply' => ['present', 'string', 'max:4000'],
                 'rationale' => ['required', 'string', 'max:2000'],
@@ -156,7 +178,7 @@ final class WhatsAppSuggestions
 
                 return;
             }
-            DB::transaction(function () use ($integration, $conversationId, $revision, $settings, $result, $model, $context, $truncated): void {
+            DB::transaction(function () use ($integration, $conversationId, $revision, $settings, $result, $signature, $context, $truncated): void {
                 $currentIntegration = CoreIntegration::query()->lockForUpdate()->find($integration->id);
                 $current = WhatsAppConversation::query()->lockForUpdate()->find($conversationId);
                 if (! $current || $current->revision !== $revision || $current->suggestion_status !== 'running') {
@@ -173,7 +195,7 @@ final class WhatsAppSuggestions
                     'suggestion' => $result['action'] === 'wait' ? '' : trim($result['reply']),
                     'rationale' => $result['rationale'], 'summary' => $result['summary'],
                     'context_message_count' => count($context), 'context_truncated' => $truncated,
-                    'agent_version' => WhatsAppReplyAgent::VERSION, 'route_signature' => AiProviderCatalog::OPENAI.':'.$model,
+                    'agent_version' => WhatsAppReplyAgent::VERSION, 'route_signature' => $signature,
                     'settings_fingerprint' => $settings, 'suggested_at' => now(), 'error_code' => null,
                 ]);
             });

@@ -3,6 +3,7 @@
 namespace App\Jobs\WhatsApp;
 
 use App\Services\Ai\AiLiveOperations;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\WhatsApp\WhatsAppBrain;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -36,7 +37,13 @@ class LearnWhatsAppBrain implements ShouldBeUnique, ShouldQueue
         if ($this->userId !== null) {
             Context::addHidden(AiLiveOperations::USER_CONTEXT, $this->userId);
         }
-        $brain->learn();
+        $tasks = app(AiTaskQueue::class);
+        $tasks->begin(new self($this->userId), null, 'WhatsApp beyni');
+        try {
+            $brain->learn();
+        } finally {
+            $tasks->settle();
+        }
     }
 
     public function failed(?Throwable $exception): void

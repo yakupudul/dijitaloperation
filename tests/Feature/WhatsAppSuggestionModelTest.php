@@ -6,10 +6,12 @@ use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Jobs\WhatsApp\GenerateWhatsAppSuggestion;
 use App\Livewire\Operator\WhatsApp\Inbox;
 use App\Models\AgencySetting;
+use App\Models\AiTask;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Operator\AgencySettingService;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppSuggestions;
@@ -120,6 +122,27 @@ final class WhatsAppSuggestionModelTest extends TestCase
         app(WhatsAppSuggestions::class)->generate($conversation->id);
 
         $this->assertSame(['failed', 'ai_not_configured'], [$conversation->fresh()->suggestion_status, $conversation->fresh()->error_code]);
+        WhatsAppReplyAgent::assertNeverPrompted();
+    }
+
+    public function test_when_claude_takes_all_the_draft_waits_for_claude_and_lands_like_an_openai_one(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true, 'queue.connections.redis' => ['driver' => 'sync']]);
+        WhatsAppReplyAgent::fake()->preventStrayPrompts();
+        $conversation = $this->conversation();
+        $conversation->update(['suggestion_status' => 'requested']);
+
+        GenerateWhatsAppSuggestion::dispatchSync($conversation->id);
+
+        $this->assertSame('running', $conversation->fresh()->suggestion_status, 'shown as being prepared while Claude works');
+        $task = AiTask::query()->sole();
+        $this->assertSame('whatsapp.reply', $task->operation);
+        $this->assertStringContainsString('fiyat öğrenebilir miyim', (string) $task->input);
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['action' => 'reply', 'reply' => 'Merhaba, fiyatı hemen iletiyorum.', 'rationale' => 'Fiyat sordu.', 'summary' => 'Fiyat sorusu']));
+
+        $fresh = $conversation->fresh();
+        $this->assertSame(['ready', AiTaskQueue::MODEL, 'Merhaba, fiyatı hemen iletiyorum.'], [$fresh->suggestion_status, $fresh->route_signature, $fresh->suggestion]);
         WhatsAppReplyAgent::assertNeverPrompted();
     }
 
