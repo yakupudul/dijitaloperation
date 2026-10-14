@@ -258,9 +258,9 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertSame(0, QueryAutopilot::newFilterTerms());
     }
 
-    public function test_without_a_paying_ai_route_triage_waits_for_claude_and_bekleyenler_still_comes_in(): void
+    public function test_when_claude_takes_all_triage_waits_for_claude_and_bekleyenler_still_comes_in(): void
     {
-        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
         Queue::fake([ClusterQueriesJob::class]);
         QueryPipeline::markImported();
         QueryTriageAgent::fake()->preventStrayPrompts();
@@ -269,7 +269,7 @@ final class QueryAutopilotTest extends SiteTestCase
         $vague = $this->libraryQuery('diş sağlığı önerileri');
         PendingQuery::query()->create(['text' => 'gülüş tasarımı', 'text_hash' => QueryNormalizer::hash('gülüş tasarımı'), 'status' => PendingQuery::PENDING, 'sector_id' => $this->dental->id]);
 
-        $this->assertTrue(app(QueryAutopilot::class)->viaClaude(), 'no AI provider can pay: Claude over MCP takes triage');
+        $this->assertTrue(app(QueryAutopilot::class)->viaClaude(), 'Claude takes every AI job (yakup, 2026-10-14)');
         $this->assertSame('imported', app(QueryAutopilot::class)->tick(), 'importing needs no AI, it does not wait for triage');
 
         $task = AiTask::query()->sole();
@@ -279,7 +279,7 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertTrue(Query::query()->where('text', 'gülüş tasarımı')->exists());
         $this->assertStringNotContainsString('gülüş tasarımı', (string) $task->input, 'the batch was fixed before the import');
         app(ClaudeApiWindow::class)->restartWaiting(leaveClaimed: true);
-        $this->assertSame(AiTask::PENDING, $task->fresh()->status, 'the 15-minute API resume leaves it while no route can pay');
+        $this->assertSame(AiTask::PENDING, $task->fresh()->status, 'the 15-minute API resume leaves Claude\'s work alone');
 
         // The next tick does not send the waiting queries again; the imported one goes in a batch of its own.
         app(QueryAutopilot::class)->tick();

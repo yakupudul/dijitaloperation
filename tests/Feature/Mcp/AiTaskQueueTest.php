@@ -167,4 +167,18 @@ final class AiTaskQueueTest extends SiteTestCase
                 'target_url' => 'https://panorama.com.tr/blog/implant-sonrasi-ilk-hafta/'],
         ]);
     }
+
+    public function test_when_claude_takes_all_every_operation_that_can_wait_goes_to_the_queue_whatever_its_model(): void
+    {
+        $queue = app(AiTaskQueue::class);
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+
+        $this->assertTrue($queue->delegated('site.cluster_match'), 'its model is not Claude (MCP)');
+        $this->assertTrue($queue->delegated(AiRouteKeys::SITE_WRITE_ARTICLE), 'content work too, money or not');
+        $this->assertTrue($queue->delegated(AiRouteKeys::QUERIES_TRIAGE));
+        $this->assertFalse($queue->delegated('whatsapp.reply'), 'a caller that cannot wait keeps its route');
+
+        config(['moxdop-mcp.takes_all' => false]);
+        $this->assertFalse($queue->delegated('site.cluster_match'));
+    }
 }

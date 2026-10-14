@@ -12,6 +12,9 @@ return [
     // Bearer token Claude's MCP client sends (Authorization: Bearer …). Empty = MCP server and delegation off.
     'token' => env('MOXDOP_MCP_TOKEN'),
 
+    // yakup, 2026-10-14: every AI operation that can wait for Claude goes to the MCP queue (AiTaskQueue::takesAll).
+    'takes_all' => (bool) env('MOXDOP_MCP_TAKES_ALL', true),
+
     // URL path of the MCP server (streamable HTTP).
     'path' => env('MOXDOP_MCP_PATH', 'mcp/moxdop'),
 
