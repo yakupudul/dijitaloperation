@@ -154,6 +154,46 @@ final class ContentPosts
         Cache::put(self::cacheKey($siteId), $states, now()->addHours(self::CACHE_HOURS));
     }
 
+    /**
+     * Site events as they arrive (yakup 2026-10-14: a draft published on the site must show in MoxDOP at once). Connector
+     * 1.17.0 sends the state of a post MoxDOP made with the event; for an older plugin a publish / unpublish / trash /
+     * delete event of a post MoxDOP already tracks moves it too. The hourly read still confirms everything.
+     *
+     * @param  list<array<string, mixed>>  $events
+     */
+    public static function applyEvents(int $siteId, array $events): void
+    {
+        $states = (array) Cache::get(self::cacheKey($siteId), []);
+        $changed = false;
+        foreach ($events as $event) {
+            $postId = ctype_digit((string) ($event['object_id'] ?? '')) ? (int) $event['object_id'] : 0;
+            if ($postId < 1) {
+                continue;
+            }
+            $sent = $event['post_state'] ?? null;
+            if (is_array($sent) && (int) ($sent['post_id'] ?? 0) === $postId && filled($sent['status'] ?? null)) {
+                $states[$postId] = array_intersect_key($sent, array_flip(['status', 'date_gmt', 'link', 'featured_media_id']));
+                $changed = true;
+
+                continue;
+            }
+            $status = ['content.published' => 'publish', 'content.unpublished' => 'draft', 'content.trashed' => 'trash', 'content.deleted' => 'missing'][$event['type'] ?? ''] ?? null;
+            if ($status === null || ! isset($states[$postId]) || ! is_array($states[$postId])) {
+                continue;
+            }
+            $before = (string) ($states[$postId]['status'] ?? '');
+            $states[$postId] = ['status' => $status, 'link' => $status === 'publish' ? (string) ($event['url'] ?? '') : ''] + $states[$postId];
+            if ($status === 'publish' && ($before !== 'future' || blank($states[$postId]['date_gmt'] ?? null))) {
+                // A draft published by hand goes out now; a scheduled one keeps its planned date.
+                $states[$postId]['date_gmt'] = (string) ($event['occurred_at'] ?? '');
+            }
+            $changed = true;
+        }
+        if ($changed) {
+            Cache::put(self::cacheKey($siteId), $states, now()->addHours(self::CACHE_HOURS));
+        }
+    }
+
     /** @return Collection<int, Suggestion> ideas whose article went to WordPress */
     public static function sentIdeas(): Collection
     {

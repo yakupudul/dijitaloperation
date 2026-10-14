@@ -8,6 +8,13 @@ defined('ABSPATH') || exit;
  * minute share it; no loopback request per save); the fallback schedule runs every 15 minutes and makes no request
  * at all while the outbox is empty, except a heartbeat when the last acknowledgement is older than 6 hours.
  * Setup (table, schedule) runs once per plugin version, never on every request.
+ *
+ * 1.17.0 (yakup 2026-10-14: "sitede paylaşım olduğunda yayına alındığı bilgisi sisteme anında iletilmeli"): the send
+ * no longer waits for WP-Cron. After the response of the request that saved something (shutdown, never inside a save
+ * hook) the site pokes its own admin-ajax without waiting for it (like WordPress starts its cron); that request answers
+ * at once and sends the outbox, at most every 10 seconds. Where the host blocks such loopback requests, the next page
+ * an admin or a visitor opens carries a tiny beacon doing the same; WP-Cron stays the fallback. An event about a post
+ * MoxDOP made also carries the post's state (status, date, link), so MoxDOP knows it without reading the site.
  */
 final class MoxDOP_Connector_Events
 {
@@ -29,6 +36,20 @@ final class MoxDOP_Connector_Events
     const SETUP_OPTION = 'moxdop_connector_setup_version';
 
     const TRIM_OPTION = 'moxdop_connector_outbox_trimmed_at';
+
+    /** 1.17.0: admin-ajax action that sends the outbox right away. */
+    const SEND_ACTION = 'moxdop_events';
+
+    /** 1.17.0 (autoloaded): unix time of the last save whose events are not yet acknowledged; cleared on an empty outbox. */
+    const WAITING_OPTION = 'moxdop_connector_events_waiting_at';
+
+    /** 1.17.0: unix time the last immediate send started. */
+    const SENT_OPTION = 'moxdop_connector_events_sent_at';
+
+    /** Seconds between two immediate sends; after a failed send, a minute. */
+    const SEND_GAP = 10;
+
+    const RETRY_GAP = 60;
 
     private $pending = [];
 
@@ -52,6 +73,10 @@ final class MoxDOP_Connector_Events
         add_action('switch_theme', [$this, 'theme_changed']);
         add_action('set_user_role', [$this, 'role_changed'], 10, 3);
         add_action('shutdown', [$this, 'persist'], 1);
+        add_action('wp_ajax_nopriv_'.self::SEND_ACTION, [$this, 'send_now']);
+        add_action('wp_ajax_'.self::SEND_ACTION, [$this, 'send_now']);
+        add_action('wp_footer', [$this, 'beacon'], 99);
+        add_action('admin_footer', [$this, 'beacon'], 99);
     }
 
     public function schedules($schedules)
@@ -196,7 +221,7 @@ final class MoxDOP_Connector_Events
 
     public function option_changed($key, $old, $new)
     {
-        if (in_array($key, ['blog_public', 'permalink_structure', 'home', 'siteurl', 'show_on_front', 'page_on_front', 'page_for_posts', 'default_role', 'users_can_register', 'seopress_titles_option_name', 'seopress_xml_sitemap_option_name', 'litespeed.conf'], true)) {
+        if ($key === MoxDOP_Connector_Fixes::REDIRECTS_OPTION || in_array($key, ['blog_public', 'permalink_structure', 'home', 'siteurl', 'show_on_front', 'page_on_front', 'page_for_posts', 'default_role', 'users_can_register', 'seopress_titles_option_name', 'seopress_xml_sitemap_option_name', 'litespeed.conf'], true)) {
             $this->record('settings.updated', 'site', '0', [$key]);
         }
     }
@@ -252,7 +277,10 @@ final class MoxDOP_Connector_Events
             return;
         }
         $user = wp_get_current_user();
+        // 1.17.0: a post MoxDOP made carries its state with the event (read when the event is stored, after the save).
+        $moxdop = $post instanceof WP_Post && get_post_meta($post->ID, '_moxdop_created', true) === '1';
         $this->pending[$key] = [
+            '_moxdop_post' => $moxdop ? (int) $post->ID : 0,
             'event_id' => wp_generate_uuid4(),
             'type' => $type,
             'occurred_at' => gmdate('c'),
@@ -275,12 +303,20 @@ final class MoxDOP_Connector_Events
         }
         $table = $wpdb->prefix.'moxdop_outbox';
         foreach ($this->pending as $event) {
+            if ($event['_moxdop_post'] > 0) {
+                $event['post_state'] = MoxDOP_Connector_Posts::post_state($event['_moxdop_post']);
+                if ($event['post_state']['status'] === 'missing') {
+                    $event['post_state'] = ['post_id' => $event['_moxdop_post'], 'status' => 'missing'];
+                }
+            }
+            unset($event['_moxdop_post']);
             if ($wpdb->insert($table, ['event_id' => $event['event_id'], 'payload' => wp_json_encode($event), 'created_at' => gmdate('Y-m-d H:i:s')]) === false) {
                 update_option('moxdop_connector_events_gap_at', gmdate('c'), false);
             }
         }
         $this->pending = [];
         $this->send_soon();
+        $this->kick();
         // The size cap is checked at most once an hour, not on every save.
         if ((int) get_option(self::TRIM_OPTION, 0) > time() - HOUR_IN_SECONDS) {
             return;
@@ -304,6 +340,61 @@ final class MoxDOP_Connector_Events
         }
     }
 
+    /**
+     * 1.17.0: starts the immediate send in a separate request and does not wait for it (0.01 s, the way WordPress
+     * starts its cron). Runs on shutdown only, after the outbox rows were written.
+     */
+    private function kick()
+    {
+        update_option(self::WAITING_OPTION, time(), true);
+        if (! $this->send_due() || (defined('DOING_AJAX') && DOING_AJAX && ($_REQUEST['action'] ?? '') === self::SEND_ACTION)) {
+            return;
+        }
+        wp_remote_post(admin_url('admin-ajax.php?action='.self::SEND_ACTION), [
+            'timeout' => 0.01, 'blocking' => false, 'redirection' => 0,
+            'sslverify' => apply_filters('https_local_ssl_verify', false),
+        ]);
+    }
+
+    /** Whether an immediate send may start now (one every 10 seconds; a minute after a failed send). */
+    private function send_due()
+    {
+        $gap = (int) get_option('moxdop_connector_events_retry_at', 0) > time() ? self::RETRY_GAP : self::SEND_GAP;
+
+        return (int) get_option(self::SENT_OPTION, 0) <= time() - $gap;
+    }
+
+    /** Prints the beacon while saved events wait for MoxDOP (the loopback request may be blocked on this host). */
+    public function beacon()
+    {
+        $waiting = (int) get_option(self::WAITING_OPTION, 0);
+        if ($waiting < 1 || $waiting < time() - DAY_IN_SECONDS || ! $this->send_due()) {
+            return;
+        }
+        $url = wp_json_encode(admin_url('admin-ajax.php?action='.self::SEND_ACTION));
+        echo "<script>(function(){try{var k='moxdop_events',n=Date.now(),l=+localStorage.getItem(k)||0;if(n-l<10000)return;localStorage.setItem(k,String(n));}catch(e){}var u=".$url.";try{if(navigator.sendBeacon){navigator.sendBeacon(u);}else{fetch(u,{method:'POST',keepalive:true,credentials:'omit'});}}catch(e){}})();</script>\n";
+    }
+
+    /** The loopback or beacon request: answered at once (204), the outbox goes to MoxDOP after the answer. */
+    public function send_now()
+    {
+        $due = $this->send_due() && (int) get_option(self::WAITING_OPTION, 0) > 0;
+        nocache_headers();
+        status_header(204);
+        if (! $due) {
+            exit;
+        }
+        update_option(self::SENT_OPTION, time(), false);
+        ignore_user_abort(true);
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request();
+        }
+        $this->send(true);
+        exit;
+    }
+
     public function status()
     {
         global $wpdb;
@@ -321,7 +412,8 @@ final class MoxDOP_Connector_Events
         ];
     }
 
-    public function send()
+    /** @param bool $now 1.17.0: an immediate send after a save, which does not wait out the retry pause of a failed send */
+    public function send($now = false)
     {
         global $wpdb;
         MoxDOP_Connector_IndexNow::flush();
@@ -329,12 +421,13 @@ final class MoxDOP_Connector_Events
         $app = (string) get_option('moxdop_connector_app_url');
         if (! is_array($credentials) || wp_parse_url($app, PHP_URL_SCHEME) !== 'https'
             || get_option('moxdop_connector_outbox_version') !== '1'
-            || (int) get_option('moxdop_connector_events_retry_at', 0) > time()) {
+            || ($now !== true && (int) get_option('moxdop_connector_events_retry_at', 0) > time())) {
             return;
         }
         $table = $wpdb->prefix.'moxdop_outbox';
         // Nothing to send: no request at all, except a heartbeat every 6 hours so MoxDOP knows the site is fine.
         if (! $wpdb->get_var("SELECT id FROM $table LIMIT 1")) {
+            delete_option(self::WAITING_OPTION);
             $ack = strtotime((string) get_option('moxdop_connector_events_ack_at'));
             if ($ack && $ack > time() - self::HEARTBEAT) {
                 return;
@@ -405,6 +498,9 @@ final class MoxDOP_Connector_Events
                 }
             }
             update_option('moxdop_connector_events_ack_at', gmdate('c'), false);
+            if (! $wpdb->get_var("SELECT id FROM $table LIMIT 1")) {
+                delete_option(self::WAITING_OPTION);
+            }
             delete_option('moxdop_connector_events_error');
             delete_option('moxdop_connector_events_attempt');
             delete_option('moxdop_connector_events_retry_at');
