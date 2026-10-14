@@ -56,7 +56,10 @@ final class ContentIdeaPool
     }
 
     /**
-     * @return array{status: string, added: int, rejected: list<array{title: string, reason: string}>} status: ready | no_provider | error
+     * Inside GenerateContentIdeasJob's run the call may wait for Claude over MCP (status queued): the job runs again
+     * with the answer, found by its slot although the pool or the site pages moved meanwhile.
+     *
+     * @return array{status: string, added: int, rejected: list<array{title: string, reason: string}>} status: ready | queued | no_provider | error
      */
     public function generate(Cluster $cluster, ?Brand $brand, int $count = 3, ?User $user = null): array
     {
@@ -85,7 +88,7 @@ final class ContentIdeaPool
             $data['site_pages'] = $this->sitePages($brand, $cluster, $queries);
         }
 
-        $result = $this->ai->run(new ContentIdeasAgent, $data, 180);
+        $result = $this->ai->run(new ContentIdeasAgent, $data, 180, 'ideas');
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status'], 'added' => 0, 'rejected' => []];
         }

@@ -825,7 +825,13 @@ final class ContentPlanner
             ->mapWithKeys(fn (object $r): array => [(int) $r->cluster_id => ['impressions' => (int) $r->impressions, 'volume' => (int) $r->volume]])->all();
     }
 
-    /** @return array{status: string, added: int} */
+    /**
+     * "Keşfet": out-of-cluster content opportunities from the brand's own queries. Inside RunSiteOperationJob the call
+     * may wait for Claude over MCP (status queued); the job runs again with the answer, found by its slot although the
+     * brand's queries moved meanwhile.
+     *
+     * @return array{status: string, added: int} status: ready | queued | not_operational | no_queries | no_provider | error
+     */
     public function discover(DigitalAsset $site): array
     {
         $brand = SiteScope::brandOf($site);
@@ -848,7 +854,7 @@ final class ContentPlanner
             'existing_clusters' => $clusterNames,
             'queries' => $queries->map(fn (object $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'impressions_28d' => (int) $q->impressions_28d, 'clicks_28d' => (int) $q->clicks_28d])->all(),
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
-        ], 240);
+        ], 240, 'discovery');
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status'], 'added' => 0];
         }

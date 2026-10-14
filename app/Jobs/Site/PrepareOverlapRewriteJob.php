@@ -4,6 +4,7 @@ namespace App\Jobs\Site;
 
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\OverlapAutopilot;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -12,7 +13,8 @@ use Throwable;
 
 /**
  * "Ayrıştır" for one cluster overlap: the AI writes the page's refocused version (OverlapAutopilot::prepare). Runs in
- * the name of the Admin who decided, so the AI budget treats it as the Admin's work, not automatic work.
+ * the name of the Admin who decided, so the AI budget treats it as the Admin's work, not automatic work. When the
+ * call waits for Claude (MCP) the rewrite stays "preparing" and the same job runs again with the answer.
  */
 final class PrepareOverlapRewriteJob implements ShouldQueue
 {
@@ -34,7 +36,13 @@ final class PrepareOverlapRewriteJob implements ShouldQueue
         if ($user !== null) {
             Auth::setUser($user);
         }
-        $autopilot->prepare($suggestion);
+        $tasks = app(AiTaskQueue::class);
+        $tasks->begin(new self($this->suggestionId, $this->userId), (int) $suggestion->brand_id, 'Ayrıştır · öneri #'.$suggestion->id);
+        try {
+            $autopilot->prepare($suggestion);
+        } finally {
+            $tasks->settle();
+        }
     }
 
     public function failed(?Throwable $exception): void

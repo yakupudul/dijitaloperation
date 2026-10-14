@@ -87,6 +87,10 @@ final class AiTaskQueue
         AiRouteKeys::META_CREATIVES,
         AiRouteKeys::META_LANDING,
         AiRouteKeys::META_STRUCTURE,
+        AiRouteKeys::SITE_APPLY_CHANGE,
+        AiRouteKeys::SITE_PAGE_SUMMARY,
+        AiRouteKeys::SITE_STANDARD_FROM_DECISION,
+        AiRouteKeys::SITE_URL_ANALYSIS,
     ];
 
     /**
@@ -94,7 +98,8 @@ final class AiTaskQueue
      * bittiğinde sen devral"); its model is never set to Claude (MCP), and the daily ceiling or the monthly budget
      * never send it here (2026-10-12).
      */
-    public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::CONTENT_REVIEW];
+    public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::CONTENT_REVIEW,
+        AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_CONTENT_RECIPE];
 
     /**
      * Operations outside SUPPORTED whose callers can wait for Claude all the same (the triage autopilot, 2026-10-14);

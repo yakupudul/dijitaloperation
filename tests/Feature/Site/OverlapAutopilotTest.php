@@ -7,13 +7,16 @@ use App\Jobs\Site\PrepareOverlapRewriteJob;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\OverlapAct;
+use App\Models\AiTask;
 use App\Models\BrandClusterPage;
 use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\OverlapAutopilot;
+use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Queue;
 
 /**
@@ -80,6 +83,28 @@ final class OverlapAutopilotTest extends SiteTestCase
         $this->assertSame('Karşıyaka İmplant Tedavisi | Panorama', $action['proposal']['new']['seo_title']);
         $this->assertSame('https://panorama.com.tr/implant/', $action['proposal']['new']['internal_links'][0]['url']);
         ApplyChangeAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'differentiate') && str_contains((string) $prompt->prompt, 'main_page'));
+    }
+
+    public function test_while_claude_takes_all_ayristir_waits_for_claude_and_the_answer_is_the_version(): void
+    {
+        $this->enableAi();
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        ApplyChangeAgent::fake()->preventStrayPrompts();
+        $this->overlap->forceFill(['action' => array_merge((array) $this->overlap->action, ['rewrite' => ['state' => 'preparing', 'by' => $this->admin->id]])])->save();
+
+        (new PrepareOverlapRewriteJob($this->overlap->id, $this->admin->id))->handle(app(OverlapAutopilot::class));
+
+        $this->assertSame('preparing', data_get($this->overlap->fresh()->action, 'rewrite.state'), 'waiting for Claude is still preparing, not needs_claude');
+        $task = AiTask::query()->sole();
+        $this->assertSame([AiRouteKeys::SITE_APPLY_CHANGE, AiTask::PENDING], [$task->operation, $task->status]);
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['seo_title' => 'Karşıyaka İmplant Tedavisi | Panorama', 'meta_description' => 'Karşıyaka şubemizde implant tedavisi.',
+            'html' => null, 'internal_links' => [['anchor' => 'implant tedavisi', 'url' => 'https://panorama.com.tr/implant/']], 'schema_json' => null, 'note' => 'Şubeye odaklandı.']));
+
+        $action = (array) $this->overlap->fresh()->action;
+        $this->assertSame('ready', $action['rewrite']['state']);
+        $this->assertSame('Karşıyaka İmplant Tedavisi | Panorama', $action['proposal']['new']['seo_title']);
+        ApplyChangeAgent::assertNeverPrompted();
     }
 
     public function test_claude_writes_it_when_the_api_cannot_and_the_same_checks_apply(): void

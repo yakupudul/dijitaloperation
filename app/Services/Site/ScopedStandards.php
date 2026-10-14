@@ -37,7 +37,12 @@ final class ScopedStandards
         private readonly WebsiteStandardCatalog $catalog,
     ) {}
 
-    /** @return array{status: string} status: ready | not_approved | not_operational | no_provider | error | invalid */
+    /**
+     * Inside RunSiteOperationJob the call may wait for Claude over MCP (status queued): the job runs again with the
+     * answer, found by its slot although the operator's note changed meanwhile.
+     *
+     * @return array{status: string} status: ready | queued | not_approved | not_operational | no_provider | error | invalid
+     */
     public function propose(Suggestion $suggestion): array
     {
         if (! in_array($suggestion->status, [Suggestion::APPROVED, Suggestion::APPLIED], true)) {
@@ -53,7 +58,7 @@ final class ScopedStandards
             'page' => $page !== null ? ['url' => $page->url, 'title' => $page->title, 'category' => $page->category] : null,
             'brand' => ['name' => $brand->name, 'sector' => $brand->sectorCategory?->name],
             'scopes' => self::SCOPE_LABELS,
-        ]);
+        ], slot: 'standard-'.$suggestion->id);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }

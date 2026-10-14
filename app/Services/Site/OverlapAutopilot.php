@@ -77,10 +77,18 @@ final class OverlapAutopilot
         return $out;
     }
 
-    /** The background "Ayrıştır" step (PrepareOverlapRewriteJob). */
+    /**
+     * The background "Ayrıştır" step (PrepareOverlapRewriteJob). Waiting for Claude over MCP (queued) it stays
+     * "preparing"; the job runs again with the answer.
+     */
     public function prepare(Suggestion $suggestion): string
     {
         $result = $this->changes->prepare($suggestion);
+        if ($result['status'] === 'queued') {
+            $this->state($suggestion->fresh() ?? $suggestion, 'preparing', 'Claude bekleniyor (MCP); yazım gelince sürüm kontrol edilir.');
+
+            return 'preparing';
+        }
         $state = match ($result['status']) {
             'ready' => 'ready',
             'blocked' => 'blocked',
