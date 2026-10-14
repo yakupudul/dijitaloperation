@@ -219,7 +219,17 @@ as_root supervisorctl restart moxdop-staging-collection || true
 as_root supervisorctl restart moxdop-staging-google-ads-collection || true
 as_root supervisorctl restart 'moxdop-staging-website-collection:*' || true
 
-sleep 3
+# A program Supervisor has just (re)started reads STARTING until it has stayed up for startsecs; Horizon in particular
+# restarts the moment its old master exits after horizon:terminate, which can be right before this check (3f528864 was
+# rolled back on "moxdop-staging-horizon STARTING"). Wait until every program is RUNNING or a minute has passed, then
+# judge; a program that keeps crashing ends in BACKOFF/FATAL and still fails the deploy below.
+for _ in $(seq 1 30); do
+  sleep 2
+  if ! as_root supervisorctl status moxdop-staging-horizon moxdop-staging-collection moxdop-staging-google-ads-collection \
+      'moxdop-staging-website-collection:*' 2>/dev/null | grep -qvE '\bRUNNING\b'; then
+    break
+  fi
+done
 
 HORIZON_STATUS="$(as_root supervisorctl status moxdop-staging-horizon 2>/dev/null || true)"
 COLLECTION_STATUS="$(as_root supervisorctl status moxdop-staging-collection 2>/dev/null || true)"

@@ -57,6 +57,16 @@ final class StagingDeployScriptTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/sed[^\n]*\.env/', $this->script(), 'deploy.sh must never rewrite .env');
     }
 
+    public function test_worker_check_waits_for_supervisor_to_leave_starting(): void
+    {
+        // 3f528864 was rolled back because Horizon read STARTING (restarted right after horizon:terminate) three seconds in.
+        $wait = $this->position('for _ in $(seq 1 30); do');
+        $this->assertLessThan($this->position('HORIZON_STATUS="$(as_root supervisorctl status'), $wait);
+        $this->assertLessThan($wait, $this->position('php artisan horizon:terminate'));
+        $this->assertStringContainsString("grep -qvE '\\bRUNNING\\b'", $this->script());
+        $this->assertStringContainsString('ERROR — Horizon is not RUNNING', $this->script());
+    }
+
     public function test_release_info_reads_the_deployed_sha(): void
     {
         $storage = sys_get_temp_dir().'/moxdop-release-'.uniqid();
