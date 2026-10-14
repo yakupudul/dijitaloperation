@@ -198,9 +198,14 @@ final class ChangeApplier
         }
         $html = trim((string) ($data['html'] ?? ''));
         if ($html !== '' && $currentHtml !== null) {
-            $html = (string) preg_replace('#<(script|style|iframe)\b[^>]*>.*?</\1>#is', '', $html);
-            // Links to anything but the site's own pages are unlinked (text kept).
-            $html = (string) preg_replace_callback('#<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', fn (array $m): string => str_starts_with($m[1], '#') || $evidence->knowsUrl($m[1]) || str_starts_with($m[1], 'tel:') || str_starts_with($m[1], 'mailto:') ? $m[0] : $m[2], $html);
+            // New scripts / styles / frames are removed; the page's own (its FAQ schema, a map) stay when kept verbatim.
+            $html = (string) preg_replace_callback('#<(script|style|iframe)\b[^>]*>.*?</\1>#is', fn (array $m): string => str_contains($currentHtml, $m[0]) ? $m[0] : '', $html);
+            // Links to anything but the site's own pages are unlinked (text kept); links the page already had (WhatsApp,
+            // a map, a booking site) stay.
+            $origin = (string) preg_replace('#^(https?://[^/]+).*$#i', '$1', (string) $page->url);
+            $html = (string) preg_replace_callback('#<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', fn (array $m): string => str_starts_with($m[1], '#') || $evidence->knowsUrl($m[1])
+                || (str_starts_with($m[1], '/') && ! str_starts_with($m[1], '//') && $evidence->knowsUrl($origin.$m[1])) || str_starts_with($m[1], 'tel:') || str_starts_with($m[1], 'mailto:')
+                || str_contains($currentHtml, $m[1]) || str_contains($currentHtml, htmlspecialchars($m[1], ENT_QUOTES)) ? $m[0] : $m[2], $html);
             $visible = trim(strip_tags($html));
             if ($visible !== '' && $evidence->grounded($visible) && $html !== $currentHtml) {
                 $new['html'] = $html;

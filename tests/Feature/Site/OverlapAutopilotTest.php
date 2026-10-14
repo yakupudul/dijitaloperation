@@ -10,6 +10,7 @@ use App\Mcp\Tools\OverlapAct;
 use App\Models\BrandClusterPage;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\OverlapAutopilot;
 use Illuminate\Support\Facades\Queue;
@@ -91,6 +92,25 @@ final class OverlapAutopilotTest extends SiteTestCase
             'internal_links' => [['anchor' => 'implant tedavisi', 'url' => 'https://panorama.com.tr/implant/']], 'note' => 'Şubeye odaklandı.']);
         $this->assertStringContainsString('kontrollerden geçti', $done[$this->overlap->id]);
         $this->assertSame(['ready', 'claude_mcp'], [data_get($this->overlap->fresh()->action, 'rewrite.state'), data_get($this->overlap->fresh()->action, 'proposal.written_by')]);
+    }
+
+    public function test_a_rewrite_keeps_the_pages_own_links_and_schema_and_drops_new_outside_ones(): void
+    {
+        $current = '<p>Karşıyaka şubemizde implant tedavisi.</p><p><a href="https://wa.me/905000000000">WhatsApp</a> <a href="/hizmet-bolgelerimiz/">Bölgeler</a></p>'
+            .'<script type="application/ld+json">{"@type":"FAQPage"}</script>';
+        $new = '<p>Karşıyaka şubemizde implant tedavisi; genel bilgi için <a href="/implant/">implant tedavisi</a>.</p>'
+            .'<p><a href="https://wa.me/905000000000">WhatsApp</a> <a href="/hizmet-bolgelerimiz/">Bölgeler</a> <a href="https://evil.example/">dış</a></p>'
+            .'<script type="application/ld+json">{"@type":"FAQPage"}</script><script>alert(1)</script>';
+
+        $proposal = app(ChangeApplier::class)->validated(['html' => $new], $this->branch, $current, ['https://panorama.com.tr/implant/']);
+
+        $html = (string) $proposal['new']['html'];
+        $this->assertStringContainsString('<a href="/implant/">', $html, 'relative link to a site page');
+        $this->assertStringContainsString('href="https://wa.me/905000000000"', $html, 'the page already had it');
+        $this->assertStringContainsString('href="/hizmet-bolgelerimiz/"', $html);
+        $this->assertStringContainsString('{"@type":"FAQPage"}', $html);
+        $this->assertStringNotContainsString('evil.example', $html);
+        $this->assertStringNotContainsString('alert(1)', $html);
     }
 
     public function test_mcp_overlap_act_decides_in_the_admins_name(): void
