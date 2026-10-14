@@ -40,7 +40,8 @@ use Throwable;
  *    draft in the production archive; publishing is the ADR-073 Admin write;
  *  - `gbp.profile_plan`: the operator's category / service list prepared for Google (GbpProfilePlanner) → plan in the
  *    production archive; the Admin's "Gönder" adds the chosen items (ADR-077).
- * AI output is validated against the input before it is stored; a failed check stores nothing.
+ * AI output is validated against the input before it is stored; a failed check stores nothing. Every operation can be
+ * delegated to Claude over MCP (AiTaskQueue): the job then waits and runs again once Claude answered.
  */
 final class GbpAssistant
 {
@@ -74,6 +75,7 @@ final class GbpAssistant
         private readonly GbpStandardInput $input,
         private readonly GbpSuggestions $suggestions,
         private readonly ProductionArchive $archive,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /**
@@ -91,7 +93,7 @@ final class GbpAssistant
             throw ValidationException::withMessages(['gbp' => 'Marka operasyonel değil; AI çalışmaz.']);
         }
         $route = $this->agent($operation)::OPERATION;
-        if (! app(AiTaskQueue::class)->delegated($route) && $this->routes->resolve($route)->isEmpty()) {
+        if (! $this->tasks->delegated($route) && $this->routes->resolve($route)->isEmpty()) {
             throw ValidationException::withMessages(['gbp' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
         if ($operation === self::OP_POST && $this->page($asset, (int) ($params['page_id'] ?? 0)) === null) {
@@ -143,7 +145,8 @@ final class GbpAssistant
         return 'gbp-assistant:'.$assetId.':'.$operation;
     }
 
-    public function compareServices(DigitalAsset $asset): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function compareServices(DigitalAsset $asset): ?string
     {
         $profile = $this->profile($asset);
         $offerings = $this->offerings($asset->brand);
@@ -156,6 +159,9 @@ final class GbpAssistant
             'additional_categories' => $profile['additional_categories'],
             'profile_services' => $profile['services'],
         ]);
+        if ($raw === null) {
+            return null;
+        }
         $valid = self::validateComparison($raw, $offerings, $profile);
         $items = [];
         foreach ($valid['missing_services'] as $row) {
@@ -220,7 +226,8 @@ final class GbpAssistant
         return ['missing_services' => array_values($missing), 'category_notes' => array_slice($notes, 0, 5)];
     }
 
-    public function proposeDescription(DigitalAsset $asset): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function proposeDescription(DigitalAsset $asset): ?string
     {
         $profile = $this->profile($asset);
         $brand = $asset->brand;
@@ -239,6 +246,9 @@ final class GbpAssistant
             'areas' => $place['single'] ? $this->areas($brand) : [],
             'compliance' => $this->complianceRules($brand),
         ]);
+        if ($raw === null) {
+            return null;
+        }
         $description = $this->checkedText($brand, (string) ($raw['description'] ?? ''), self::DESCRIPTION_MAX, 'Açıklama');
         $other = array_values(array_filter($place['siblings'], fn (string $district): bool => SeoText::containsPhrase($description, $district)));
         if ($other !== []) {
@@ -256,7 +266,8 @@ final class GbpAssistant
         return 'Açıklama önerisi hazır ('.mb_strlen($description).' karakter).';
     }
 
-    public function postFromPage(DigitalAsset $asset, int $pageId): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function postFromPage(DigitalAsset $asset, int $pageId): ?string
     {
         $page = $this->page($asset, $pageId) ?? throw new RuntimeException('Sayfa bulunamadı.');
         $brand = $asset->brand;
@@ -270,6 +281,9 @@ final class GbpAssistant
                 ->pluck('summary')->map(fn ($s): string => mb_substr((string) $s, 0, 200))->all() : [],
             'compliance' => $this->complianceRules($brand),
         ]);
+        if ($raw === null) {
+            return null;
+        }
         $text = $this->checkedText($brand, (string) ($raw['text'] ?? ''), self::POST_MAX, 'Gönderi');
         $action = in_array($raw['action_type'] ?? null, ['LEARN_MORE', 'BOOK', 'CALL', 'SIGN_UP'], true) ? (string) $raw['action_type'] : 'LEARN_MORE';
         $this->archive->record(self::POST_KIND, $asset, ['body' => $text, 'action_type' => $action, 'url' => (string) $page->url, 'page_id' => (int) $page->id,
@@ -344,18 +358,31 @@ final class GbpAssistant
     }
 
     /**
+     * The operation's structured answer: from Claude over MCP when the operation is delegated (named by the operation:
+     * the pack can drift while Claude works, e.g. a new post or offering), else from the provider route.
+     *
      * @param  array<string, mixed>  $data
-     * @return array{0: array<mixed>, 1: ?int} structured response and the prompt version used
+     * @return array{0: ?array<mixed>, 1: ?int} structured response (null while Claude has not answered) and the prompt version used
      */
     private function call(string $operation, array $data): array
     {
         $class = $this->agent($operation);
+        $agent = new $class;
+        $answer = $this->tasks->delegatedCall($agent, $data, $operation);
+        if ($answer === 'queued') {
+            return [null, null];
+        }
+        if ($answer === 'error') {
+            throw new RuntimeException('Claude bu öneriyi hazırlayamadı; tekrar deneyin.');
+        }
+        if (is_array($answer)) {
+            return [$answer, $agent->promptVersionId()];
+        }
         $route = $this->routes->resolve($class::OPERATION);
         if ($route->isEmpty()) {
             throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
         }
         $this->runtime->prepare(array_keys($route->providerModels));
-        $agent = new $class;
         $response = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             provider: $route->providerModels, timeout: 120)->toArray();
 

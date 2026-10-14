@@ -19,6 +19,7 @@ use App\Models\Suggestion;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Analyst\AnalystNumbers;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
@@ -42,6 +43,7 @@ use Throwable;
  *  - `google_ads.ad_texts`: one responsive search ad (headlines ≤ 30, descriptions ≤ 90) + landing page for one ad group.
  * Every term, name, URL and number of the output is checked against the data pack before it is stored; texts pass
  * the sector compliance gate; nothing proposes pausing a campaign without enough data. A failed check stores nothing.
+ * Every operation can be delegated to Claude over MCP (AiTaskQueue): the job then waits and runs again once Claude answered.
  */
 final class GoogleAdsAssistant
 {
@@ -79,6 +81,7 @@ final class GoogleAdsAssistant
         private readonly GoogleAdsSuggestions $suggestions,
         private readonly GoogleAdsAdvisorInputCollector $collector,
         private readonly ProductionArchive $archive,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /**
@@ -98,7 +101,7 @@ final class GoogleAdsAssistant
         if ($this->screen->context($asset) === null) {
             throw ValidationException::withMessages(['ads' => 'Google Ads hesabı bağlı değil.']);
         }
-        if ($this->routes->resolve(self::OPERATIONS[$operation]::OPERATION)->isEmpty()) {
+        if (! $this->tasks->delegated(self::OPERATIONS[$operation]::OPERATION) && $this->routes->resolve(self::OPERATIONS[$operation]::OPERATION)->isEmpty()) {
             throw ValidationException::withMessages(['ads' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
         if ($operation === self::OP_ADS && $this->adGroupTarget($asset, (string) ($params['ad_group'] ?? '')) === null) {
@@ -108,7 +111,7 @@ final class GoogleAdsAssistant
         RunGoogleAdsAssistantJob::dispatch((int) $asset->id, $operation, $params);
     }
 
-    /** Executed by the job; the outcome is kept for the screen (running → ready | failed with a Turkish message). */
+    /** Executed by the job; the outcome is kept for the screen (running → ready | failed with a Turkish message; still running while Claude has not answered). */
     public function run(int $assetId, string $operation, array $params = []): void
     {
         try {
@@ -122,6 +125,11 @@ final class GoogleAdsAssistant
                 self::OP_ADS => $this->writeAdTexts($asset, (string) ($params['ad_group'] ?? '')),
                 default => throw new RuntimeException('Bilinmeyen işlem.'),
             };
+            if ($message === null) {
+                Cache::put(self::stateKey($assetId, $operation), ['status' => 'running', 'message' => 'Claude sırasında; yanıtlayınca burada görünür.'], now()->addDay());
+
+                return;
+            }
             Cache::put(self::stateKey($assetId, $operation), ['status' => 'ready', 'message' => $message], now()->addDay());
         } catch (Throwable $exception) {
             Cache::put(self::stateKey($assetId, $operation), ['status' => 'failed', 'message' => mb_substr($exception->getMessage(), 0, 300)], now()->addDay());
@@ -143,8 +151,12 @@ final class GoogleAdsAssistant
 
     /* ------------------------------------------------------------------ search terms */
 
-    /** @param  list<string>  $focus */
-    public function reviewTerms(DigitalAsset $asset, array $focus = []): string
+    /**
+     * Null while the call waits for Claude (the job runs again when it answered).
+     *
+     * @param  list<string>  $focus
+     */
+    public function reviewTerms(DigitalAsset $asset, array $focus = []): ?string
     {
         $all = $this->screen->searchTerms($asset, 30, 1000);
         if ($all === []) {
@@ -160,6 +172,9 @@ final class GoogleAdsAssistant
         $pack['_converting'] = array_values(array_unique([...$pack['_converting'], ...array_map(fn (array $t): string => $t['term'],
             array_filter($this->screen->searchTerms($asset, 90, 5000), fn (array $t): bool => $t['conversions'] > 0))]));
         [$raw, $versionId] = $this->call(self::OP_TERMS, $pack + ['focus' => array_column($terms, 'term')]);
+        if ($raw === null) {
+            return null;
+        }
         $valid = self::validateTermReview($raw, $pack);
 
         $previous = $focusKeys !== [] ? $this->screen->verdicts($asset) : [];
@@ -354,7 +369,8 @@ final class GoogleAdsAssistant
 
     /* ------------------------------------------------------------------ structure */
 
-    public function proposeStructure(DigitalAsset $asset): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function proposeStructure(DigitalAsset $asset): ?string
     {
         $brand = $asset->brand;
         $offerings = $this->offerings($brand);
@@ -395,6 +411,9 @@ final class GoogleAdsAssistant
             'lead_quality' => app(GoogleAdsLeadQuality::class)->recent($asset),
         ];
         [$raw, $versionId] = $this->call(self::OP_STRUCTURE, $pack);
+        if ($raw === null) {
+            return null;
+        }
         $valid = self::validateStructure($raw, $pack);
         if ($valid['campaigns'] === []) {
             throw new RuntimeException('AI veriyle uyumlu bir kampanya yapısı döndürmedi; tekrar deneyin.');
@@ -553,7 +572,8 @@ final class GoogleAdsAssistant
         return $out;
     }
 
-    public function writeAdTexts(DigitalAsset $asset, string $groupKey): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function writeAdTexts(DigitalAsset $asset, string $groupKey): ?string
     {
         $target = $this->adGroupTarget($asset, $groupKey) ?? throw new RuntimeException('Reklam grubu bulunamadı.');
         $brand = $asset->brand;
@@ -571,6 +591,9 @@ final class GoogleAdsAssistant
             'brand_card' => BrandPack::card($brand, ['praise', 'objections', 'voice']),
         ];
         [$raw, $versionId] = $this->call(self::OP_ADS, $pack);
+        if ($raw === null) {
+            return null;
+        }
         $ad = self::validateAdTexts($raw, $pack, fn (string $text): array => self::blockingHits($brand, $text));
         $this->suggestions->replaceGroup($asset, 'rsa:'.$groupKey, [[
             'key' => 'rsa:'.$groupKey, 'title' => 'Reklam metni: '.$target['name'], 'reason' => $ad['landing_reason'] !== '' ? $ad['landing_reason'] : 'Açılış sayfası: '.$ad['final_url'],
@@ -754,19 +777,32 @@ final class GoogleAdsAssistant
     }
 
     /**
+     * The operation's structured answer: from Claude over MCP when the operation is delegated (named by the operation:
+     * live metrics drift while Claude works), else from the provider route. Keys starting with "_" stay local.
+     *
      * @param  array<string, mixed>  $data
-     * @return array{0: array<mixed>, 1: ?int} structured response and the prompt version used
+     * @return array{0: ?array<mixed>, 1: ?int} structured response (null while Claude has not answered) and the prompt version used
      */
     private function call(string $operation, array $data): array
     {
         $class = self::OPERATIONS[$operation];
+        $data = array_filter($data, fn (string $key): bool => ! str_starts_with($key, '_'), ARRAY_FILTER_USE_KEY);
+        $agent = new $class;
+        $answer = $this->tasks->delegatedCall($agent, $data, $operation);
+        if ($answer === 'queued') {
+            return [null, null];
+        }
+        if ($answer === 'error') {
+            throw new RuntimeException('Claude bu öneriyi hazırlayamadı; tekrar deneyin.');
+        }
+        if (is_array($answer)) {
+            return [$answer, $agent->promptVersionId()];
+        }
         $route = $this->routes->resolve($class::OPERATION);
         if ($route->isEmpty()) {
             throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
         }
         $this->runtime->prepare(array_keys($route->providerModels));
-        $data = array_filter($data, fn (string $key): bool => ! str_starts_with($key, '_'), ARRAY_FILTER_USE_KEY);
-        $agent = new $class;
         $response = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             provider: $route->providerModels, timeout: 180)->toArray();
 

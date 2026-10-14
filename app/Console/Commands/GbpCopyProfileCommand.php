@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\Gbp\SendGbpBranchCopyJob;
 use App\Models\ClaudeNote;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -20,7 +21,8 @@ use Throwable;
  * lacks; --send writes each branch's own descriptions and sends the additions as the first active Admin (ADR-077,
  * undoable on each profile's "Kategori ve hizmetler" tab), then waits for the results. --report lists each branch's
  * last send of the day and keeps it as a Claude note on the brand (read over MCP), so a queued run is checked without
- * the server shell.
+ * the server shell. When Claude writes the descriptions over MCP each branch's send waits in SendGbpBranchCopyJob and goes
+ * out once Claude answered (not waited for here; --report shows it).
  */
 final class GbpCopyProfileCommand extends Command
 {
@@ -85,7 +87,16 @@ final class GbpCopyProfileCommand extends Command
 
                     continue;
                 }
+                if ($missing['services'] !== [] && $copier->waitsForClaude()) {
+                    SendGbpBranchCopyJob::dispatch((int) $admin->id, (int) $source->id, (int) $target->id, $missing);
+                    $this->line($name.': '.$summary.' → Claude sırasında; açıklamaları yazınca gönderilir (--report ile bakın).');
+
+                    continue;
+                }
                 $result = $copier->send($admin, $source, $target, $missing);
+                if ($result === null) {
+                    continue;
+                }
                 $sent[$name] = (int) $result['action']->id;
                 $this->line($name.': '.$summary.' → gönderildi (işlem #'.$result['action']->id.')'.($result['without_description'] > 0 ? '; '.$result['without_description'].' hizmet açıklamasız' : '').'.');
             } catch (Throwable $exception) {

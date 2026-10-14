@@ -7,10 +7,13 @@ use App\Ai\Agents\MetaLandingAgent;
 use App\Ai\Agents\MetaStructureAgent;
 use App\Enums\CustomerStatus;
 use App\Livewire\Demo\Meta\OverviewPage;
+use App\Models\AiTask;
 use App\Models\CoreIntegration;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Meta\MetaAssistant;
+use App\Support\Ai\AiRouteKeys;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -150,5 +153,61 @@ final class MetaAssistantTest extends TestCase
         MetaStructureAgent::assertNeverPrompted();
         MetaLandingAgent::assertNeverPrompted();
         $this->assertSame('Marka operasyonel değil; AI çalışmaz.', app(MetaAssistant::class)->state($this->asset->id, MetaAssistant::OP_STRUCTURE)['message']);
+    }
+
+    public function test_when_claude_takes_all_the_three_operations_wait_for_claude_and_land_like_a_provider_answer(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        MetaCreativesAgent::fake()->preventStrayPrompts();
+        MetaStructureAgent::fake()->preventStrayPrompts();
+        MetaLandingAgent::fake()->preventStrayPrompts();
+
+        $this->page('todo')->call('runAi', MetaAssistant::OP_CREATIVES)->call('runAi', MetaAssistant::OP_STRUCTURE)->call('runAi', MetaAssistant::OP_LANDING);
+
+        MetaCreativesAgent::assertNeverPrompted();
+        MetaStructureAgent::assertNeverPrompted();
+        MetaLandingAgent::assertNeverPrompted();
+        // The screen also asks Claude to match campaigns to services (meta.campaign_services); that waits on its own.
+        $tasks = AiTask::query()->where('operation', '!=', AiRouteKeys::META_CAMPAIGN_SERVICES)->orderBy('id')->get()->keyBy('operation');
+        $this->assertSame([AiRouteKeys::META_CREATIVES, AiRouteKeys::META_STRUCTURE, AiRouteKeys::META_LANDING], $tasks->keys()->all());
+        $this->assertStringContainsString('İmplant video reklamı', (string) $tasks[AiRouteKeys::META_CREATIVES]->input);
+        foreach (MetaAssistant::OPERATIONS as $operation => $agent) {
+            $this->assertSame('running', app(MetaAssistant::class)->state($this->asset->id, $operation)['status'], $operation.' waits for Claude');
+        }
+        $this->assertSame(0, Suggestion::query()->whereIn('action_type', ['meta_creative', 'meta_structure', 'meta_landing'])->count());
+
+        $queue = app(AiTaskQueue::class);
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::META_CREATIVES], ['items' => [
+            $this->creative('diş implantı', 'Süreç', 'Çankaya şubemizde implant tedavisi muayene ile başlar; hekimimiz size uygun planı anlatır. Randevu için formu doldurun.'),
+        ]]));
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::META_STRUCTURE], ['items' => [
+            ['title' => 'Site ziyaretçilerine yeniden pazarlama', 'kind' => 'remarketing', 'service' => 'Diş İmplantı', 'campaign' => 'Yeni: İmplant yeniden pazarlama', 'adsets' => ['Yeni: Site ziyaretçileri 30 gün'],
+                'reason' => 'İmplant kampanyası 56 sonuç getirdi; ziyaretçiler tekrar hedeflenmiyor.', 'steps' => 'Özel hedef kitle oluşturun: site ziyaretçileri.'],
+        ]]));
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::META_LANDING], ['items' => [
+            ['target' => 'https://panorama.test/implant/', 'problem' => 'Sayfada randevu formu yok.', 'change' => 'Sayfanın üstüne kısa randevu formu ekleyin.', 'reason' => 'Sayfa 2800 harcamayla 56 sonuç aldı.'],
+        ]]));
+
+        MetaCreativesAgent::assertNeverPrompted();
+        $this->assertSame(['Kreatif: Diş İmplantı · Süreç'], Suggestion::query()->where('action_type', 'meta_creative')->pluck('title')->all());
+        $this->assertSame(['Site ziyaretçilerine yeniden pazarlama'], Suggestion::query()->where('action_type', 'meta_structure')->pluck('title')->all());
+        $this->assertSame(['Sayfa: /implant/'], Suggestion::query()->where('action_type', 'meta_landing')->pluck('title')->all());
+        $this->assertTrue(Suggestion::query()->whereIn('action_type', ['meta_creative', 'meta_structure', 'meta_landing'])->get()->every(fn (Suggestion $s): bool => $s->prompt_version_id !== null));
+        $this->assertSame(['status' => 'ready', 'message' => '1 kreatif önerisi.'], app(MetaAssistant::class)->state($this->asset->id, MetaAssistant::OP_CREATIVES));
+        $this->assertSame([AiTask::CONSUMED], AiTask::query()->whereIn('id', $tasks->pluck('id'))->distinct()->pluck('status')->all());
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+    }
+
+    public function test_claude_answer_that_fails_the_data_checks_stores_nothing(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        MetaLandingAgent::fake()->preventStrayPrompts();
+
+        $this->page('todo')->call('runAi', MetaAssistant::OP_LANDING);
+        app(AiTaskQueue::class)->submit(AiTask::query()->where('operation', AiRouteKeys::META_LANDING)->sole(), ['items' => [['target' => 'https://panorama.test/olmayan/', 'problem' => 'Uydurma sayfa.', 'change' => 'x', 'reason' => 'y']]]);
+
+        $this->assertSame('failed', app(MetaAssistant::class)->state($this->asset->id, MetaAssistant::OP_LANDING)['status']);
+        $this->assertSame(0, Suggestion::query()->where('action_type', 'meta_landing')->count());
+        MetaLandingAgent::assertNeverPrompted();
     }
 }

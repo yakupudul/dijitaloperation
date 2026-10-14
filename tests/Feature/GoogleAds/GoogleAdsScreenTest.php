@@ -8,6 +8,7 @@ use App\Ai\Agents\GoogleAdsStructureAgent;
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Livewire\Operator\GoogleAds\OverviewPage;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
@@ -24,6 +25,7 @@ use App\Models\ServiceMatchingKeyword;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Ads\AdServiceStats;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCampaignLanguages;
 use App\Services\GoogleAds\GoogleAdsAssistant;
@@ -33,6 +35,7 @@ use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Site\Analysis\SiteRange;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
@@ -528,6 +531,52 @@ final class GoogleAdsScreenTest extends TestCase
             'budget_split' => [['service' => 'Zirkonyum Kaplama', 'daily_budget' => 60, 'reason' => '']], 'experiments' => []]]);
         $this->page('strategy')->call('proposeStructure')->call('setTab', 'strategy')->assertSee('Kampanya: Zirkonyum – Ankara')->assertSee('Bütçe dağılımı');
         GoogleAdsStructureAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, '"total_daily_budget":150'));
+    }
+
+    public function test_when_claude_takes_all_the_three_operations_wait_for_claude_and_land_like_a_provider_answer(): void
+    {
+        $this->seedAccount();
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        GoogleAdsSearchTermsAgent::fake()->preventStrayPrompts();
+        GoogleAdsStructureAgent::fake()->preventStrayPrompts();
+        GoogleAdsAdTextsAgent::fake()->preventStrayPrompts();
+
+        $this->page('terms')->call('reviewTerms');
+        $this->page('strategy')->call('proposeStructure')->set('adGroupKey', '201')->call('writeAds');
+
+        GoogleAdsSearchTermsAgent::assertNeverPrompted();
+        GoogleAdsStructureAgent::assertNeverPrompted();
+        GoogleAdsAdTextsAgent::assertNeverPrompted();
+        $ops = [AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS, AiRouteKeys::GOOGLE_ADS_STRUCTURE, AiRouteKeys::GOOGLE_ADS_AD_TEXTS];
+        $tasks = AiTask::query()->whereIn('operation', $ops)->orderBy('id')->get()->keyBy('operation');
+        $this->assertSame($ops, $tasks->keys()->all());
+        $this->assertStringContainsString('ücretsiz implant', (string) $tasks[AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS]->input);
+        $this->assertStringNotContainsString('_converting', (string) $tasks[AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS]->input, 'local keys stay local');
+        $this->assertStringContainsString('"total_daily_budget":150', (string) $tasks[AiRouteKeys::GOOGLE_ADS_STRUCTURE]->input);
+        foreach (array_keys(GoogleAdsAssistant::OPERATIONS) as $operation) {
+            $this->assertSame('running', app(GoogleAdsAssistant::class)->state($this->asset->id, $operation)['status'], $operation.' waits for Claude');
+        }
+        $this->assertSame(0, Suggestion::query()->whereIn('action_type', ['ads_negative', 'ads_campaign', 'ads_rsa'])->count());
+
+        $queue = app(AiTaskQueue::class);
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS], [
+            'terms' => [['term' => 'ücretsiz implant', 'intent' => 'alakasiz', 'service' => 'Diş İmplantı', 'fit' => 'uygunsuz', 'reason' => 'Ücretsiz arıyor.']],
+            'negatives' => [['text' => 'ücretsiz', 'match_type' => 'PHRASE', 'scope' => 'shared', 'campaign' => '', 'ad_group' => '', 'reason' => 'Ücretsiz arayanlar.']],
+        ]));
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::GOOGLE_ADS_STRUCTURE], ['campaigns' => [['name' => 'Zirkonyum – Ankara', 'service' => 'Zirkonyum Kaplama', 'daily_budget' => 60, 'reason' => 'Ana hizmet.',
+            'ad_groups' => [['name' => 'Zirkonyum kaplama', 'landing_url' => 'https://panorama.test/zirkonyum/', 'keywords' => [['text' => 'zirkonyum kaplama', 'match_type' => 'PHRASE']]]]]],
+            'budget_split' => [['service' => 'Zirkonyum Kaplama', 'daily_budget' => 60, 'reason' => '']], 'experiments' => []]));
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::GOOGLE_ADS_AD_TEXTS], ['headlines' => ['Ankara İmplant', 'Çankaya İmplant', 'Randevu Alın'],
+            'descriptions' => ['Çankaya şubemizde implant.', 'Deneyimli ekip.'], 'path1' => 'implant', 'path2' => '', 'final_url' => 'https://panorama.test/implant/', 'landing_reason' => 'Hizmet sayfası.']));
+
+        GoogleAdsSearchTermsAgent::assertNeverPrompted();
+        $this->assertSame(['ücretsiz'], Suggestion::query()->where('action_type', 'ads_negative')->pluck('action')->pluck('text')->all());
+        $this->assertSame(['ücretsiz implant'], array_keys(app(GoogleAdsScreen::class)->verdicts($this->asset)));
+        $this->assertSame(['Kampanya: Zirkonyum – Ankara'], Suggestion::query()->where('action_type', 'ads_campaign')->pluck('title')->all());
+        $this->assertSame(['Ankara İmplant', 'Çankaya İmplant', 'Randevu Alın'], Suggestion::query()->where('action_type', 'ads_rsa')->sole()->action['headlines']);
+        $this->assertSame('ready', app(GoogleAdsAssistant::class)->state($this->asset->id, GoogleAdsAssistant::OP_ADS)['status']);
+        $this->assertSame([AiTask::CONSUMED], AiTask::query()->whereIn('id', $tasks->pluck('id'))->distinct()->pluck('status')->all());
+        $this->assertSame(0, ExternalWriteAction::query()->count(), 'nothing is sent to Google Ads');
     }
 
     public function test_operator_edit_is_locked_and_new_ai_output_only_leaves_a_proposal(): void

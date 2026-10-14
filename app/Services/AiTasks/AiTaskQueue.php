@@ -76,6 +76,17 @@ final class AiTaskQueue
         AiRouteKeys::META_CAMPAIGN_SERVICES,
         AiRouteKeys::META_STRATEGY_PLAN,
         AiRouteKeys::SITE_SEO_FIELDS_BATCH,
+        AiRouteKeys::GBP_BRANCH_SERVICES,
+        AiRouteKeys::GBP_DESCRIPTION,
+        AiRouteKeys::GBP_POST_FROM_PAGE,
+        AiRouteKeys::GBP_SERVICES_COMPARE,
+        AiRouteKeys::GBP_REVIEW_REPLY,
+        AiRouteKeys::GOOGLE_ADS_AD_TEXTS,
+        AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS,
+        AiRouteKeys::GOOGLE_ADS_STRUCTURE,
+        AiRouteKeys::META_CREATIVES,
+        AiRouteKeys::META_LANDING,
+        AiRouteKeys::META_STRUCTURE,
     ];
 
     /**
