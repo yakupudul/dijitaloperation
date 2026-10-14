@@ -8,16 +8,19 @@ use App\Models\ChiefPlan;
 use App\Models\Suggestion;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Queries\QueryNotifier;
 use Illuminate\Support\Carbon;
+use RuntimeException;
 use Throwable;
 
 /**
  * Şef (operator decision 2026-11-17): every Monday one plan for the operator's week across the active brands. First it
  * runs the Şef denetimi (BrandAudit, rules only: errors in what the AI did for each brand). It reads
  * only what the care agents already wrote (note, open tasks), the brands' goals and the open work counts — one small
- * call, never the raw data. The plan is kept per week and sent as one notice.
+ * call, never the raw data. The plan is kept per week and sent as one notice. The call can wait for Claude (MCP):
+ * status queued, RunBrandChiefJob runs again with the answer (the notice goes out then).
  */
 final class BrandChief
 {
@@ -31,6 +34,7 @@ final class BrandChief
         private readonly ErrorTriage $triage,
         private readonly QueryNotifier $notifier,
         private readonly BrandAudit $audit,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     public static function weekStart(): Carbon
@@ -43,7 +47,7 @@ final class BrandChief
         return ChiefPlan::query()->orderByDesc('week_start')->first();
     }
 
-    /** @return array{status: string, lines?: int, message?: string} */
+    /** @return array{status: string, lines?: int, message?: string} status: ready | queued | no_brands | no_ai | failed */
     public function run(bool $notify = true): array
     {
         $week = self::weekStart()->toDateString();
@@ -51,8 +55,9 @@ final class BrandChief
         if ($brands->isEmpty()) {
             return ['status' => 'no_brands'];
         }
-        $route = $this->routes->resolve(BrandChiefAgent::OPERATION);
-        if ($route->isEmpty()) {
+        $delegated = $this->tasks->delegated(BrandChiefAgent::OPERATION);
+        $route = $delegated ? null : $this->routes->resolve(BrandChiefAgent::OPERATION);
+        if ($route !== null && $route->isEmpty()) {
             return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
         }
         try {
@@ -63,9 +68,23 @@ final class BrandChief
             $errors = $this->triage->counts();
             $data = ['brands' => $brands->map(fn (Brand $brand): array => $this->brandInput($brand))->values()->all(),
                 'errors_waiting' => (int) ($errors[ErrorTriage::YOU] ?? 0) + (int) ($errors[ErrorTriage::CODE] ?? 0)];
-            $this->runtime->prepare(array_keys($route->providerModels));
-            $raw = (array) (new BrandChiefAgent)->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels, timeout: 180)->toArray();
+            // The counts can move while Claude reads them: the call is found again by its slot.
+            $raw = $this->tasks->delegatedCall(new BrandChiefAgent, $data, 'plan');
+            if ($raw === 'queued') {
+                return ['status' => 'queued'];
+            }
+            if ($raw === 'error') {
+                throw new RuntimeException('Claude bu planı hazırlayamadı; tekrar deneyin.');
+            }
+            if ($raw === null) {
+                $route ??= $this->routes->resolve(BrandChiefAgent::OPERATION);
+                if ($route->isEmpty()) {
+                    return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $raw = (array) (new BrandChiefAgent)->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels, timeout: 180)->toArray();
+            }
             $plan = $this->validPlan($raw, $brands->pluck('name', 'id')->all());
             ChiefPlan::query()->updateOrCreate(['week_start' => $week], [
                 'headline' => mb_substr(trim((string) ($raw['headline'] ?? '')), 0, 300), 'plan' => $plan, 'status' => 'ready', 'error' => null,

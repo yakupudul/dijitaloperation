@@ -13,6 +13,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Compliance\ComplianceChecker;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Intel\SerpResults;
@@ -26,7 +27,8 @@ use Throwable;
  * yok") + the fetched competitor pages → ONE AI call (`competitors.analyze`). The answer is validated before it is
  * shown: a suggestion must cite ≥ 2 competitor URLs of the input, or be a gap while we have no page; sector compliance
  * rules drop offending suggestions. Suggestions go to the one `suggestions` table (channel search, type rakip) with the
- * competitor URLs as evidence; an unacted open suggestion the new analysis no longer makes is removed.
+ * competitor URLs as evidence; an unacted open suggestion the new analysis no longer makes is removed. The call can
+ * wait for Claude (MCP): status queued, AnalyzeCompetitorClusterJob runs again with the answer.
  */
 final class CompetitorAnalyzer
 {
@@ -41,6 +43,7 @@ final class CompetitorAnalyzer
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly SectorPackRegistry $packs,
         private readonly ComplianceChecker $checker,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     public static function statusKey(int $serpId): string
@@ -53,7 +56,7 @@ final class CompetitorAnalyzer
         Cache::put(self::statusKey($serpId), ['status' => 'running'], now()->addDay());
     }
 
-    /** @return array{status: string, suggestions: int} status: ready | not_operational | few_competitors | no_provider | error */
+    /** @return array{status: string, suggestions: int} status: ready | queued | not_operational | few_competitors | no_provider | error */
     public function analyze(BrandClusterSerp $serp): array
     {
         $brand = $serp->brand;
@@ -70,17 +73,29 @@ final class CompetitorAnalyzer
         $page = $mapping?->page;
 
         try {
-            $route = $this->routes->resolve(CompetitorAnalyzeAgent::OPERATION);
-            if ($route->isEmpty()) {
-                return ['status' => 'no_provider', 'suggestions' => 0];
-            }
-            $this->runtime->prepare(array_keys($route->providerModels));
             $agent = new CompetitorAnalyzeAgent;
-            $structured = $agent->prompt(
-                "DATA_JSON\n".json_encode($this->payload($brand, $cluster, $serp, $page, $competitors), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels,
-                timeout: 300,
-            )->toArray();
+            $payload = $this->payload($brand, $cluster, $serp, $page, $competitors);
+            // Our page and the fetched pages can move while Claude reads them: the call is found again by its slot
+            // (the citations are checked against this run's competitor URLs).
+            $structured = $this->tasks->delegatedCall($agent, $payload, 'analyze');
+            if ($structured === 'queued') {
+                return ['status' => 'queued', 'suggestions' => 0];
+            }
+            if ($structured === 'error') {
+                return ['status' => 'error', 'suggestions' => 0];
+            }
+            if ($structured === null) {
+                $route = $this->routes->resolve(CompetitorAnalyzeAgent::OPERATION);
+                if ($route->isEmpty()) {
+                    return ['status' => 'no_provider', 'suggestions' => 0];
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $structured = $agent->prompt(
+                    "DATA_JSON\n".json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels,
+                    timeout: 300,
+                )->toArray();
+            }
         } catch (Throwable $error) {
             Log::warning('site.competitors.analyze_failed', ['serp' => $serp->id, 'error' => $error->getMessage()]);
 

@@ -10,6 +10,7 @@ use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\SiteDomains;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -19,12 +20,14 @@ use Throwable;
  * "AI ile kaynak öner": ONE call proposes potential link sources for the brand (sector + service areas). Each source
  * needs an https URL; already listed / already linking / own domains are skipped. A fee (ücretsiz / ücretli) is kept
  * only with an evidence URL on the source's own site, otherwise it becomes "teyit gerekli". New rows start at "yok".
+ * The call can wait for Claude (MCP): status queued, the job runs again with the answer.
  */
 final class BacklinkSourceProposer
 {
     public function __construct(
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     public static function statusKey(int $brandId): string
@@ -37,7 +40,7 @@ final class BacklinkSourceProposer
         Cache::put(self::statusKey($brandId), ['status' => 'running'], now()->addDay());
     }
 
-    /** @return array{status: string, added: int} status: ready | not_operational | no_provider | error */
+    /** @return array{status: string, added: int} status: ready | queued | not_operational | no_provider | error */
     public function propose(Brand $brand): array
     {
         if (! $brand->isOperational()) {
@@ -46,28 +49,39 @@ final class BacklinkSourceProposer
         $own = SiteDomains::ownDomains($brand);
         $existing = BacklinkSource::query()->where('brand_id', $brand->id)->pluck('domain')
             ->merge(Backlink::query()->where('brand_id', $brand->id)->distinct()->pluck('source_domain'))->unique()->values()->all();
+        $data = [
+            'brand' => [
+                'name' => $brand->name, 'sector' => $brand->sectorCategory?->name, 'website' => $own[0] ?? null,
+                'main_services' => BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)
+                    ->where('status', 'active')->orderByRaw("CASE WHEN priority = 'main' THEN 0 ELSE 1 END")->limit(10)->get()
+                    ->map(fn (BrandOffering $o): string => $o->displayName())->values()->all(),
+            ],
+            'areas' => BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->get()
+                ->map(fn (BrandServiceArea $a): array => ['city' => $a->city_name, 'district' => $a->district_name, 'name' => $a->name])->values()->all(),
+            'existing' => array_slice($existing, 0, 300),
+        ];
         try {
-            $route = $this->routes->resolve(BacklinkSourcesAgent::OPERATION);
-            if ($route->isEmpty()) {
-                return ['status' => 'no_provider', 'added' => 0];
-            }
-            $this->runtime->prepare(array_keys($route->providerModels));
             $agent = new BacklinkSourcesAgent;
-            $structured = $agent->prompt(
-                "DATA_JSON\n".json_encode([
-                    'brand' => [
-                        'name' => $brand->name, 'sector' => $brand->sectorCategory?->name, 'website' => $own[0] ?? null,
-                        'main_services' => BrandOffering::query()->with(['primaryName', 'catalogItem.primaryName'])->where('brand_id', $brand->id)
-                            ->where('status', 'active')->orderByRaw("CASE WHEN priority = 'main' THEN 0 ELSE 1 END")->limit(10)->get()
-                            ->map(fn (BrandOffering $o): string => $o->displayName())->values()->all(),
-                    ],
-                    'areas' => BrandServiceArea::query()->where('brand_id', $brand->id)->where('status', 'active')->get()
-                        ->map(fn (BrandServiceArea $a): array => ['city' => $a->city_name, 'district' => $a->district_name, 'name' => $a->name])->values()->all(),
-                    'existing' => array_slice($existing, 0, 300),
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels,
-                timeout: 300,
-            )->toArray();
+            // The list of known sources can grow while Claude works on it: the call is found again by its slot.
+            $structured = $this->tasks->delegatedCall($agent, $data, 'sources');
+            if ($structured === 'queued') {
+                return ['status' => 'queued', 'added' => 0];
+            }
+            if ($structured === 'error') {
+                return ['status' => 'error', 'added' => 0];
+            }
+            if ($structured === null) {
+                $route = $this->routes->resolve(BacklinkSourcesAgent::OPERATION);
+                if ($route->isEmpty()) {
+                    return ['status' => 'no_provider', 'added' => 0];
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $structured = $agent->prompt(
+                    "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels,
+                    timeout: 300,
+                )->toArray();
+            }
         } catch (Throwable $error) {
             Log::warning('site.backlinks.sources_failed', ['brand' => $brand->id, 'error' => $error->getMessage()]);
 

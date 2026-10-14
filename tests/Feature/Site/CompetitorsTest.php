@@ -8,12 +8,14 @@ use App\Enums\CustomerStatus;
 use App\Jobs\Site\AnalyzeCompetitorClusterJob;
 use App\Jobs\Site\RefreshCompetitorsJob;
 use App\Livewire\Operator\Website\V2\CompetitorsTab;
+use App\Models\AiTask;
 use App\Models\BrandClusterPage;
 use App\Models\BrandClusterSerp;
 use App\Models\CompetitorPage;
 use App\Models\CoreIntegration;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Site\Competitors\CompetitorAnalyzer;
@@ -21,6 +23,7 @@ use App\Services\Site\Competitors\CompetitorRefresher;
 use App\Services\Site\Competitors\CompetitorTargets;
 use App\Services\Site\Competitors\SerpLocationResolver;
 use App\Services\Website\PageFetcher;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\ServiceScope;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -125,6 +128,71 @@ final class CompetitorsTest extends TestCase
         Http::assertSentCount(1);
         $this->assertSame(1, $classifyCalls);
         $this->assertSame(3, count(app(PageFetcher::class)->fetched));
+    }
+
+    public function test_when_claude_takes_all_domain_classes_wait_for_claude_and_the_refresh_continues_with_its_answer(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        $this->cluster('İmplant merkezi', 'implant merkezi', 'commercial');
+        Http::fake(['api.dataforseo.com/v3/serp/google/organic/live/advanced' => Http::response($this->serpResponse())]);
+        CompetitorClassifyAgent::fake()->preventStrayPrompts();
+        $this->fakePages([
+            'https://rakip-a.example/implant/' => '<html><body><main><h1>İmplant tedavisi</h1><p>'.str_repeat('Uzman kadro ile implant. ', 20).'</p></main></body></html>',
+            'https://rakip-b.example/' => null,
+            'https://saglikrehberi.example/implant' => '<html><body><article><h1>İmplant nedir</h1><p>Bilgi metni uzun uzun.</p></article></body></html>',
+        ]);
+
+        (new RefreshCompetitorsJob($this->site->id))->handle(app(CompetitorRefresher::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([AiRouteKeys::COMPETITORS_CLASSIFY, $this->brand->id], [$task->operation, (int) $task->brand_id]);
+        $this->assertSame(['status' => 'running'], Cache::get(CompetitorRefresher::statusKey($this->site->id)));
+        $this->assertSame(0, BrandClusterSerp::query()->count(), 'nothing stored while Claude classifies');
+        $this->assertSame(0, CompetitorPage::query()->count());
+        CompetitorClassifyAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['domains' => [
+            ['domain' => 'rakip-a.example', 'class' => 'ticari', 'reason' => 'klinik'],
+            ['domain' => 'rakip-b.example', 'class' => 'ticari', 'reason' => 'klinik'],
+            ['domain' => 'saglikrehberi.example', 'class' => 'bilgi', 'reason' => 'portal'],
+        ], 'prompt_version' => CompetitorClassifyAgent::PROMPT_VERSION]));
+
+        $this->assertSame(['status' => 'ready', 'clusters' => 1, 'serps' => 1, 'errors' => 0, 'pages' => 3], Cache::get(CompetitorRefresher::statusKey($this->site->id)));
+        $this->assertSame(['rakip-a.example' => 'ticari', 'rakip-b.example' => 'ticari', 'panorama.example' => 'kendi', 'doktortakvimi.com' => 'dizin',
+            'hurriyet.com.tr' => 'haber', 'saglikrehberi.example' => 'bilgi'], collect(BrandClusterSerp::query()->sole()->results)->pluck('class', 'domain')->all());
+        $this->assertSame(3, DB::table('competitor_domains')->count());
+        Http::assertSentCount(1);
+        CompetitorClassifyAgent::assertNeverPrompted();
+    }
+
+    public function test_when_claude_takes_all_the_analysis_waits_for_claude_and_its_suggestions_land_on_the_tab(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        $cluster = $this->cluster('İmplant merkezi', 'implant merkezi', 'commercial');
+        $serp = $this->serpWithPages($cluster->id);
+        CompetitorAnalyzeAgent::fake()->preventStrayPrompts();
+
+        (new AnalyzeCompetitorClusterJob($serp->id))->handle(app(CompetitorAnalyzer::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::COMPETITORS_ANALYZE, $task->operation);
+        $this->assertSame(['status' => 'running'], Cache::get(CompetitorAnalyzer::statusKey($serp->id)));
+        $this->assertNull($serp->fresh()->analysis);
+        CompetitorAnalyzeAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, [
+            'need' => 'Güvenilir implant kliniği seçmek', 'dominant_page_type' => 'service', 'missing_info' => ['Tedavi süresi'], 'local_trust' => ['Hekim özgeçmişi'],
+            'decision' => 'new_page', 'prompt_version' => CompetitorAnalyzeAgent::PROMPT_VERSION,
+            'suggestions' => [
+                ['title' => 'Tedavi süresini anlatan bölüm ekle', 'reason' => 'İki rakip adım adım süreyi veriyor.', 'competitor_urls' => ['https://rakip-a.example/implant/', 'https://rakip-c.example/implant'], 'gap' => false],
+                ['title' => 'Tek rakibin başlığı', 'reason' => 'Bir rakipte var.', 'competitor_urls' => ['https://rakip-a.example/implant/'], 'gap' => false],
+            ],
+        ]));
+
+        $this->assertSame(['status' => 'ready', 'suggestions' => 1], Cache::get(CompetitorAnalyzer::statusKey($serp->id)));
+        $this->assertSame(['Tedavi süresini anlatan bölüm ekle'], Suggestion::query()->pluck('title')->all());
+        $this->assertSame('new_page', $serp->fresh()->analysis['decision']);
+        CompetitorAnalyzeAgent::assertNeverPrompted();
     }
 
     public function test_refresh_and_analysis_are_gated_to_operational_brands(): void

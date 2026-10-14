@@ -2,13 +2,18 @@
 
 namespace App\Jobs\Brand;
 
+use App\Models\Brand;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandCare;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-/** One Marka bakım ajanı review of one brand, on the background queue (weekly schedule or the tab's button). */
+/**
+ * One Marka bakım ajanı review of one brand, on the background queue (weekly schedule or the tab's button). The review
+ * can wait for Claude (MCP): the job then runs again once Claude answered.
+ */
 final class RunBrandCareJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
@@ -29,9 +34,14 @@ final class RunBrandCareJob implements ShouldBeUnique, ShouldQueue
         return (string) $this->brandId;
     }
 
-    public function handle(BrandCare $care): void
+    public function handle(BrandCare $care, AiTaskQueue $tasks): void
     {
-        $care->runSafely($this->brandId, $this->force);
+        $tasks->begin(new self($this->brandId, $this->force), $this->brandId, 'Marka bakım ajanı · '.(Brand::query()->whereKey($this->brandId)->value('name') ?? $this->brandId));
+        try {
+            $care->runSafely($this->brandId, $this->force);
+        } finally {
+            $tasks->settle();
+        }
     }
 
     public function failed(?Throwable $exception): void

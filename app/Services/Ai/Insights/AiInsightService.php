@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Services\Ai\AiCostEstimator;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Support\ServiceScope;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +21,8 @@ use Throwable;
 /**
  * Runs the on-click AI insights (advisor explanation, search-term triage, review themes, alert causes, ad ↔
  * landing fit, customer brief, lead score, developer task list). Each click queues one job; the answer is filed
- * in the production archive (versioned, 👍/👎) and shown on the page. Nothing runs without a click.
+ * in the production archive (versioned, 👍/👎) and shown on the page. Nothing runs without a click. An insight
+ * whose operation is delegated to Claude (MCP) waits in the AI iş kuyruğu (the job runs again with the answer).
  */
 final class AiInsightService
 {
@@ -59,7 +61,7 @@ final class AiInsightService
         if (! $this->inServiceScope($definition, $subject)) {
             throw ValidationException::withMessages(['insight' => ServiceScope::NOT_SERVED]);
         }
-        if ($this->routes->resolve($definition->routeKey())->isEmpty()) {
+        if (! app(AiTaskQueue::class)->delegated($definition->routeKey()) && $this->routes->resolve($definition->routeKey())->isEmpty()) {
             throw ValidationException::withMessages(['insight' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
         Cache::put($this->stateKey($kind, (int) $subject->getKey()), 'running', now()->addMinutes(10));
@@ -79,20 +81,35 @@ final class AiInsightService
             if (! $this->inServiceScope($definition, $subject)) {
                 throw ServiceScope::notServed();
             }
-            $route = $this->routes->resolve($definition->routeKey());
-            if ($route->isEmpty()) {
-                throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
+            $context = $definition->context($subject);
+            // The numbers can move while Claude reads them: the call is found again by its slot.
+            $response = app(AiTaskQueue::class)->delegatedCall($definition->agent(), $context, 'insight', 'INPUT_JSON');
+            if ($response === 'queued') {
+                Cache::put($this->stateKey($kind, $subjectId), 'running', now()->addDays(2)); // the job runs again with Claude's answer
+
+                return;
             }
-            $this->runtime->prepare(array_keys($route->providerModels));
-            $input = json_encode($definition->context($subject), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR | JSON_PARTIAL_OUTPUT_ON_ERROR);
-            $response = (array) $definition->agent()->prompt("INPUT_JSON\n".$input, provider: $route->providerModels, timeout: 120)->toArray();
+            if ($response === 'error') {
+                throw new RuntimeException('Claude bu incelemeyi yapamadı; tekrar deneyin.');
+            }
+            [$provider, $model] = [AiTaskQueue::PROVIDER, AiTaskQueue::MODEL];
+            if ($response === null) {
+                $route = $this->routes->resolve($definition->routeKey());
+                if ($route->isEmpty()) {
+                    throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $input = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR | JSON_PARTIAL_OUTPUT_ON_ERROR);
+                $response = (array) $definition->agent()->prompt("INPUT_JSON\n".$input, provider: $route->providerModels, timeout: 120)->toArray();
+                [$provider, $model] = [$route->primaryProvider(), $route->primaryModel()];
+            }
             $content = $this->clean($response, $definition);
             if ($content['summary'] === '' && $content['items'] === []) {
                 throw new RuntimeException('AI boş yanıt döndürdü.');
             }
             $meta = $definition->meta($subject);
             $this->archive->record($kind, $subject, $content + [
-                'provider' => $route->primaryProvider(), 'model' => $route->primaryModel(), 'prompt_version' => $kind.'-v1', 'created_at' => now()->toIso8601String(),
+                'provider' => $provider, 'model' => $model, 'prompt_version' => $kind.'-v1', 'created_at' => now()->toIso8601String(),
             ], $meta);
             Cache::forget($this->stateKey($kind, $subjectId));
         } catch (Throwable $exception) {

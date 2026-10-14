@@ -11,9 +11,11 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Repair\RepairDesk;
 use App\Support\Options\LocationOptions;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -22,7 +24,8 @@ use Throwable;
  * answer is an allow-list of changes — rename / archive a service, set the ★, count or stop counting a conversion
  * signal, remove or add a place — each with the evidence it cites. A PHP check drops unknown operations, unknown ids and
  * anything without evidence; what is left waits on the Onarım masası as `brand_data` rows (source "Claude marka
- * denetimi"). Nothing is applied without approval and nothing is written outside MoxDOP.
+ * denetimi"). Nothing is applied without approval and nothing is written outside MoxDOP. The call can wait for Claude
+ * (MCP): status queued, RunBrandDataReviewJob runs again with the answer.
  */
 final class BrandDataReview
 {
@@ -41,6 +44,7 @@ final class BrandDataReview
         private readonly BrandConversionDictionary $conversions,
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     public static function queue(Brand $brand, bool $force = false): void
@@ -48,7 +52,7 @@ final class BrandDataReview
         RunBrandDataReviewJob::dispatch((int) $brand->id, $force);
     }
 
-    /** @return array{status: string, proposed?: int, dropped?: int, message?: string} */
+    /** @return array{status: string, proposed?: int, dropped?: int, message?: string} status: reviewed | queued | unchanged | empty | no_ai | not_operational */
     public function run(Brand $brand, bool $force = false): array
     {
         if (! $brand->isOperational()) {
@@ -63,13 +67,24 @@ final class BrandDataReview
         if (! $force && ($previous['hash'] ?? null) === $hash) {
             return ['status' => 'unchanged'];
         }
-        $route = $this->routes->resolve(BrandDataReviewAgent::OPERATION);
-        if ($route->isEmpty()) {
-            return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
+        // The brand's data can move while Claude reads it: the call is found again by its slot (validate() checks the
+        // answer against the input of this run).
+        $raw = $this->tasks->delegatedCall(new BrandDataReviewAgent, $input, 'review');
+        if ($raw === 'queued') {
+            return ['status' => 'queued'];
         }
-        $this->runtime->prepare(array_keys($route->providerModels));
-        $raw = (array) (new BrandDataReviewAgent)->prompt("DATA_JSON\n".json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-            provider: $route->providerModels, timeout: 180)->toArray();
+        if ($raw === 'error') {
+            throw new RuntimeException('Claude bu denetimi yapamadı; tekrar deneyin.');
+        }
+        if ($raw === null) {
+            $route = $this->routes->resolve(BrandDataReviewAgent::OPERATION);
+            if ($route->isEmpty()) {
+                return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
+            }
+            $this->runtime->prepare(array_keys($route->providerModels));
+            $raw = (array) (new BrandDataReviewAgent)->prompt("DATA_JSON\n".json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                provider: $route->providerModels, timeout: 180)->toArray();
+        }
 
         $operations = (array) ($raw['operations'] ?? []);
         $items = $this->validate($operations, $input);

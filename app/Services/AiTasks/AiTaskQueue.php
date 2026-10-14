@@ -91,6 +91,16 @@ final class AiTaskQueue
         AiRouteKeys::SITE_PAGE_SUMMARY,
         AiRouteKeys::SITE_STANDARD_FROM_DECISION,
         AiRouteKeys::SITE_URL_ANALYSIS,
+        AiRouteKeys::BACKLINKS_SOURCES,
+        AiRouteKeys::BRAND_CARE,
+        AiRouteKeys::BRAND_CHIEF,
+        AiRouteKeys::BRAND_DATA_REVIEW,
+        AiRouteKeys::COMPETITORS_ANALYZE,
+        AiRouteKeys::COMPETITORS_CLASSIFY,
+        AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,
+        AiRouteKeys::INSIGHT_ALERT_CAUSE,
+        AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
+        AiRouteKeys::REPAIR_REVIEW,
     ];
 
     /**

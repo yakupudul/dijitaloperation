@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Repair\RepairAutopilot;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -9,7 +10,8 @@ use Illuminate\Foundation\Queue\Queueable;
 
 /**
  * Otomatik onarım: one nightly pass of the AI check over the next prepared desk rows (RepairAutopilot), on the
- * background queue so operator work never waits behind it. Nothing is written here.
+ * background queue so operator work never waits behind it. Nothing is written here. The check can wait for Claude
+ * (MCP): the job then runs again once Claude answered.
  */
 final class ReviewRepairRowsJob implements ShouldBeUnique, ShouldQueue
 {
@@ -26,8 +28,13 @@ final class ReviewRepairRowsJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue((string) config('queue.background_queue', 'default'));
     }
 
-    public function handle(RepairAutopilot $autopilot): void
+    public function handle(RepairAutopilot $autopilot, AiTaskQueue $tasks): void
     {
-        $autopilot->review();
+        $tasks->begin(new self, null, 'Otomatik onarım · AI kontrolü');
+        try {
+            $autopilot->review();
+        } finally {
+            $tasks->settle();
+        }
     }
 }

@@ -98,9 +98,10 @@ final class ForbiddenTermsLibrary
     }
 
     /**
-     * "AI ile öner": candidates stored in the cache for the operator (never written as rules here).
+     * "AI ile öner": candidates stored in the cache for the operator (never written as rules here). The call can wait
+     * for Claude (MCP): status queued, SuggestForbiddenTermsJob runs again with the answer.
      *
-     * @return array{status: string, items: list<array{phrase: string, reason: string, severity: string}>}
+     * @return array{status: string, items: list<array{phrase: string, reason: string, severity: string}>} status: ready | queued | no_provider | error
      */
     public function suggest(ServiceCategory $sector): array
     {
@@ -110,7 +111,7 @@ final class ForbiddenTermsLibrary
             'services' => ServiceCatalogItem::query()->with('primaryName')->where('sector', $sector->code)->where('status', 'active')->limit(80)->get()
                 ->map(fn (ServiceCatalogItem $s): string => (string) $s->primaryName?->raw_label)->filter()->values()->all(),
             'existing' => array_slice($existing, 0, 200),
-        ], 180);
+        ], 180, 'terms'); // the library can grow while Claude works: the call is found again by its slot
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status'], 'items' => []];
         }

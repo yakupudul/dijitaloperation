@@ -14,7 +14,9 @@ use Throwable;
 /**
  * "Rakipleri güncelle" for one website: every approved brand cluster's representative query → cached top-10
  * (SerpResults: 30-day cache, spend guard) → each domain classified → `brand_cluster_serps` (screen table) → the
- * top commercial / information competitors' pages fetched into `competitor_pages`. Operational brands only.
+ * top commercial / information competitors' pages fetched into `competitor_pages`. Operational brands only. While the
+ * domain classes wait for Claude (MCP) nothing is stored (status queued; the job runs again with the answers and the
+ * cached top-10).
  */
 final class CompetitorRefresher
 {
@@ -37,7 +39,7 @@ final class CompetitorRefresher
         Cache::put(self::statusKey($siteId), ['status' => 'running'], now()->addDay());
     }
 
-    /** @return array{status: string, clusters: int, serps: int, errors: int, pages: int} status: ready | not_operational | no_clusters */
+    /** @return array{status: string, clusters: int, serps: int, errors: int, pages: int} status: ready | queued | not_operational | no_clusters */
     public function refresh(DigitalAsset $site): array
     {
         $stats = ['status' => 'ready', 'clusters' => 0, 'serps' => 0, 'errors' => 0, 'pages' => 0];
@@ -75,6 +77,9 @@ final class CompetitorRefresher
         }
 
         $classes = $domains === [] ? [] : $this->classifier->classify($domains, SiteDomains::ownDomains($brand), $brand->sectorCategory?->name);
+        if ($classes === null) {
+            return ['status' => 'queued'] + $stats; // the screen keeps its last top-10 until Claude has classified the domains
+        }
         foreach ($targets as $i => $target) {
             $values = [
                 'query' => mb_substr($target['query'], 0, 500), 'location_code' => $target['location_code'],

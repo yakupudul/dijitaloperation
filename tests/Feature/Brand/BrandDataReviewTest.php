@@ -6,6 +6,7 @@ use App\Ai\Agents\BrandDataReviewAgent;
 use App\Enums\CustomerStatus;
 use App\Enums\OfferingStatus;
 use App\Jobs\Brand\RunBrandDataReviewJob;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Models\BrandOffering;
@@ -18,11 +19,13 @@ use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Ai\AiAssignments;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandDataAudit;
 use App\Services\Brand\BrandDataReview;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Repair\RepairDesk;
 use App\Services\Website\Pages\PageStore;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -158,6 +161,30 @@ final class BrandDataReviewTest extends TestCase
 
         Queue::assertPushed(RunBrandDataReviewJob::class, fn (RunBrandDataReviewJob $job): bool => $job->brandId === $this->brand->id);
         $this->assertArrayHasKey('brand.data_review', json_decode((string) Storage::disk('local')->get('ai/claude-api-window.json'), true)['models']);
+    }
+
+    public function test_when_claude_takes_all_the_review_waits_for_claude_and_its_changes_reach_the_desk(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        $this->service('İmplant Tedavisi');
+        $hair = $this->service('Saç Ekimi');
+        BrandDataReviewAgent::fake()->preventStrayPrompts();
+
+        (new RunBrandDataReviewJob($this->brand->id))->handle(app(BrandDataReview::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([AiRouteKeys::BRAND_DATA_REVIEW, $this->brand->id], [$task->operation, (int) $task->brand_id]);
+        $this->assertNull(BrandDataReview::stored($this->brand), 'nothing stored while Claude works');
+        BrandDataReviewAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['operations' => [['op' => BrandDataAudit::ARCHIVE_SERVICE, 'target_id' => $hair->id,
+            'new_name' => '', 'city' => '', 'district' => '', 'counts' => false, 'reason' => 'Kanıta göre.', 'evidence' => ['0 sayfa, 0 arama']]]]));
+
+        $row = Suggestion::query()->where('action_type', BrandDataAudit::TYPE)->sole();
+        $this->assertSame([BrandDataAudit::ARCHIVE_SERVICE, 'Claude marka denetimi'], [$row->action['op'], $row->evidence[0]['source']]);
+        $this->assertSame(1, BrandDataReview::stored($this->brand)['proposed']);
+        $this->assertSame(OfferingStatus::Active, $hair->fresh()->status, 'nothing applies before approval');
+        BrandDataReviewAgent::assertNeverPrompted();
     }
 
     /** @param  array<string, mixed>  $extra */
