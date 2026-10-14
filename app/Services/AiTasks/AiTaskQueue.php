@@ -83,7 +83,7 @@ final class AiTaskQueue
      * bittiğinde sen devral"); its model is never set to Claude (MCP), and the daily ceiling or the monthly budget
      * never send it here (2026-10-12).
      */
-    public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT];
+    public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::CONTENT_REVIEW];
 
     /** Whether Claude (MCP) may answer this operation when the provider route fails: a supported one, or content work on a used-up credit. */
     public function takesOver(string $operation): bool

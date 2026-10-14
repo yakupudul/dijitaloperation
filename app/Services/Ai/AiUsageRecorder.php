@@ -70,6 +70,8 @@ final class AiUsageRecorder
         'ArticleWriterAgent' => AiRouteKeys::CONTENT_ARTICLE,
         'ContentIdeasAgent' => AiRouteKeys::CONTENT_IDEAS,
         'SeoFieldsBatchAgent' => AiRouteKeys::SITE_SEO_FIELDS_BATCH,
+        'ContentReviewAgent' => AiRouteKeys::CONTENT_REVIEW,
+        'RepairReviewAgent' => AiRouteKeys::REPAIR_REVIEW,
         'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,
         'AssetSectorAgent' => AiRouteKeys::QUERIES_ASSET_SECTOR,

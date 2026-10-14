@@ -13,6 +13,7 @@ use App\Services\Ai\AiBudget;
 use App\Services\Brand\BrandDossier;
 use App\Services\Queries\QueryPipeline;
 use App\Services\Repair\SeoFieldsBatch;
+use App\Services\Work\ContentAutopilot;
 use Illuminate\Bus\UniqueLock;
 use Illuminate\Support\Facades\Cache;
 
@@ -42,11 +43,14 @@ final class SiteOperations
 
     public const string WRITE_ARTICLE = 'write_article';
 
+    /** İçerik otopilotu: the AI check of the site's dated, written articles before the operator's daily send. */
+    public const string CONTENT_AUTOPILOT = 'content_autopilot';
+
     /**
      * Content work (yakup, 2026-10-12 "İçerik fikri, üretimi, gönderimi vs. hiçbir zaman kuyruğa girmesin"): runs on
      * its own queue (`queue.content_queue`) and never waits in the Claude (MCP) queue.
      */
-    public const array CONTENT_OPERATIONS = [self::WEEKLY_CONTENT, self::DISCOVERY, self::WRITE_ARTICLE, self::PRODUCE, self::RECIPE, self::FIX_GAPS];
+    public const array CONTENT_OPERATIONS = [self::WEEKLY_CONTENT, self::DISCOVERY, self::WRITE_ARTICLE, self::PRODUCE, self::RECIPE, self::FIX_GAPS, self::CONTENT_AUTOPILOT];
 
     /** "Kümeleri içerikle karşılaştır": AI match + gaps of every cluster row (ClusterAudit). */
     public const string CLUSTER_AUDIT = 'cluster_audit';
@@ -90,6 +94,7 @@ final class SiteOperations
         self::WEEKLY_CONTENT => 'Haftalık içerik', self::DISCOVERY => 'Fırsat keşfi', self::WRITE_ARTICLE => 'Taslak', self::WEEKLY_REFRESH => 'Haftalık yenileme',
         self::CLUSTER_AUDIT => 'Eşleştir', self::FIX_GAPS => 'AI ile geliştir', self::PRODUCE => 'AI ile üret', self::REDISCOVER => 'Yeniden keşfet',
         self::RECIPE => 'SEO analizi', self::SETUP => 'Kurulum sonrası hazırlık', self::IMAGE_ALTS => 'Görsel alt metni', self::SEO_FIELDS_BATCH => 'Başlık ve açıklama (toplu)',
+        self::CONTENT_AUTOPILOT => 'İçerik otopilotu',
     ];
 
     public function __construct(
@@ -179,6 +184,7 @@ final class SiteOperations
             self::REDISCOVER => $subject === null ? ['status' => 'no_row'] : ($subject->kind === ContentIdeaSubject::MAIN
                 ? $this->audit->rediscover($subject->row) : $this->audit->rediscoverIdea($subject->row)),
             self::RECIPE => $subject !== null ? $this->recipes->build($subject) : ['status' => 'no_row'],
+            self::CONTENT_AUTOPILOT => app(ContentAutopilot::class)->review($site),
             default => ['status' => 'unknown_operation'],
         };
     }

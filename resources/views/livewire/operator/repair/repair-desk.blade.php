@@ -34,6 +34,8 @@
         <a href="#yapilanlar" @click="$dispatch('show-done')" class="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30" data-done-badge>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı</a>
     </div>
 
+    <livewire:operator.repair.daily-send-strip lazy />
+
     @if ($message !== '')
         <p class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">{{ $message }}</p>
     @endif

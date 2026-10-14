@@ -125,6 +125,15 @@ final class AiRouteKeys
     /** ADR-076: localize an article into another language of the site (title, slug, meta, body, internal links). */
     public const string CONTENT_LOCALIZE = 'content.localize';
 
+    /**
+     * Otopilot kontrolü (yakup, 2026-10-14): an article or Business Profile posts MoxDOP prepared by itself are read
+     * once more; only an "ok" verdict reaches the operator's daily one-click send.
+     */
+    public const string CONTENT_REVIEW = 'content.review';
+
+    /** Otomatik onarım (yakup, 2026-10-14): prepared repair-desk rows are read once more; only "ok" rows reach the daily one-click send. */
+    public const string REPAIR_REVIEW = 'repair.review';
+
     /** Faz 4: write one article of the content studio from an idea. */
     public const string CONTENT_ARTICLE = 'content.article';
 

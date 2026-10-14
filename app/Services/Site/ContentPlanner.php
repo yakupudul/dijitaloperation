@@ -29,6 +29,7 @@ use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Work\ContentCoverage;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -1226,8 +1227,9 @@ final class ContentPlanner
     /**
      * Admin approval: the prepared article goes to WordPress as a draft (existing rich draft path, undoable), with its
      * written translations as linked drafts (ADR-076). A translation written after the source was sent goes on its own.
+     * $postDate (İçerik otopilotu): the drafts carry that date, scheduled when it is still ahead and the site allows it.
      */
-    public function sendDraft(Suggestion $suggestion, User $user): int
+    public function sendDraft(Suggestion $suggestion, User $user, ?CarbonImmutable $postDate = null): int
     {
         $action = (array) $suggestion->action;
         $site = DigitalAsset::query()->find($action['site_id'] ?? null);
@@ -1242,7 +1244,8 @@ final class ContentPlanner
         if (! array_key_exists('image', $action)) {
             $action['image'] = app(ArticleImagePicker::class)->candidates($suggestion, $site, 1)[0] ?? null;
         }
-        $image = ['featured_media_id' => (int) data_get($action, 'image.media_id') ?: null];
+        $image = ['featured_media_id' => (int) data_get($action, 'image.media_id') ?: null]
+            + ($postDate !== null ? ['post_date' => $postDate, 'schedule' => $postDate->isFuture()] : []);
         $pending = array_filter((array) ($action['translations'] ?? []), fn ($article, $lang): bool => is_array($article) && ! in_array($lang, $sent, true), ARRAY_FILTER_USE_BOTH);
         $drafts = array_map(fn (array $article): ArticleDraft => ArticleDraft::fromArray($image + $article), array_values($pending));
         if (! isset($action['article_write_id'])) {

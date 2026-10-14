@@ -69,6 +69,8 @@ final class AiOperationLabels
         'site.weekly_content' => 'Haftalık içerik önerisi',
         'site.content_discovery' => 'İçerik fırsatı keşfi',
         'site.write_article' => 'Makale taslağı',
+        'content.review' => 'Otopilot kontrolü (yazı ve gönderi)',
+        'repair.review' => 'Otomatik onarım kontrolü',
         'site.setup' => 'Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)',
         'site.weekly_refresh' => 'Site haftalık yenileme',
         AiUsageRecorder::TRIAL_ROUTE => 'Prompt denemesi (Örnekte dene)',

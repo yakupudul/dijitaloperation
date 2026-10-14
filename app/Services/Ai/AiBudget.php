@@ -71,7 +71,7 @@ final class AiBudget
      * to the Claude (MCP) queue; only a provider's own exhausted credit stops one step (the route's next provider runs).
      */
     public const array CONTENT_OPERATIONS = [AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_WRITE_ARTICLE,
-        AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::CONTENT_LOCALIZE];
+        AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::CONTENT_LOCALIZE, AiRouteKeys::CONTENT_REVIEW];
 
     public static function isContent(?string $operation): bool
     {
@@ -130,6 +130,10 @@ final class AiBudget
         }
         // Content work runs by itself: the pool stays full and approved titles are written (yakup, 2026-10-12).
         if (self::isContent($operation) || in_array(explode('.', $operation)[0], $areas, true)) {
+            return true;
+        }
+        // Otopilot (yakup, 2026-10-14): the daily Business Profile posts and the repair check are prepared by themselves.
+        if (in_array($operation, [AiRouteKeys::GBP_POST_QUEUE, AiRouteKeys::REPAIR_REVIEW], true)) {
             return true;
         }
         // WhatsApp reply drafts run on their own only when the operator turned automatic suggestions on there.

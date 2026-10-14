@@ -9,6 +9,7 @@ use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\Gbp\FillGbpPostQueueJob;
+use App\Jobs\Gbp\ReviewGbpPostsJob;
 use App\Jobs\Gbp\SyncGbpSuggestionsJob;
 use App\Jobs\GoogleAds\SyncGoogleAdsSuggestionsJob;
 use App\Jobs\Meta\SyncMetaSuggestionsJob;
@@ -16,6 +17,7 @@ use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Jobs\RefreshDataCenterSummaryJob;
+use App\Jobs\ReviewRepairRowsJob;
 use App\Jobs\Site\PullClarityJob;
 use App\Jobs\Site\SyncContentPostsJob;
 use App\Models\AiLiveOperation;
@@ -56,6 +58,7 @@ use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpPostQueue;
+use App\Services\Gbp\GbpPostReview;
 use App\Services\Gsc\UrlInspectionTargets;
 use App\Services\Integrations\Bing\BingWebmasterClient;
 use App\Services\Integrations\Bing\BingWebmasterSync;
@@ -81,6 +84,7 @@ use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppDispatch;
+use App\Services\Work\ContentAutopilot;
 use App\Services\Work\ContentCoverage;
 use App\Services\Work\PageTraffic;
 use App\Support\Ai\AiRouteKeys;
@@ -837,6 +841,21 @@ Schedule::command('moxdop:gbp:fill-post-queue')
     ->withoutOverlapping(60)
     ->name('gbp-fill-post-queue');
 
+// Günde 1 tık (yakup, 2026-10-14): the next days' planned posts of every location are read once more by AI; the
+// operator's daily click on the Onarım masası approves the ones that passed.
+Artisan::command('moxdop:gbp:review-posts', function (): void {
+    $brands = GbpPostReview::brandsToCheck();
+    foreach ($brands as $brandId) {
+        ReviewGbpPostsJob::dispatch($brandId);
+    }
+    $this->info('Kontrole giden marka: '.count($brands));
+})->purpose('AI-check the next days\' planned Business Profile posts for the daily send.');
+
+Schedule::command('moxdop:gbp:review-posts')
+    ->hourlyAt(17)
+    ->withoutOverlapping(30)
+    ->name('gbp-review-posts');
+
 Artisan::command('moxdop:gbp:publish-queue', function (): void {
     $this->info(json_encode(app(GbpPostQueue::class)->publishDue(), JSON_UNESCAPED_UNICODE));
 })->purpose('Publish the approved automatic Business Profile posts whose time has come; expire drafts whose day passed.');
@@ -1073,6 +1092,47 @@ Schedule::command('moxdop:content:post-status')
     ->hourlyAt(23)
     ->withoutOverlapping(30)
     ->name('content-post-status');
+
+// İçerik otopilotu (yakup, 2026-10-14): every site gets a date every two days from its last post (last 60 days at most),
+// each date an idea whose article is written with its translations, then read once more by AI. Nothing is sent here:
+// the checked articles wait for the operator's daily click on the Onarım masası ("Günde 1 tık").
+Artisan::command('moxdop:content:autopilot {--site= : One website asset id}', function (ContentAutopilot $autopilot): void {
+    $actor = ContentAutopilot::actor();
+    if ($actor === null) {
+        $this->warn('Aktif Admin yok; otopilot başlık onaylamaz.');
+
+        return;
+    }
+    $planned = 0;
+    foreach (ContentAutopilot::sites() as $site) {
+        if ($this->option('site') !== null && (int) $this->option('site') !== (int) $site->id) {
+            continue;
+        }
+        $planned += $autopilot->plan($site, $actor)['planned'];
+        SiteOperations::dispatch((int) $site->id, SiteOperations::CONTENT_AUTOPILOT);
+    }
+    $this->info($planned.' yeni tarih planlandı.');
+})->purpose('Date every site\'s next articles (one every two days), write them and AI-check them for the daily send');
+
+// Otomatik onarım (yakup, 2026-10-14): at night the prepared desk rows are read once more by AI, the most useful first
+// (no Google Ads, Meta, 301s, page text or opening hours). Nothing is written: the daily click approves what passed.
+Artisan::command('moxdop:repair:autopilot', function (): void {
+    ReviewRepairRowsJob::dispatch();
+    $this->info('Onarım kontrolü kuyruğa alındı.');
+})->purpose('AI-check the next prepared Onarım masası rows for the daily send (nothing is written).');
+
+Schedule::command('moxdop:repair:autopilot')
+    ->cron('5,35 0-6 * * *')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::REPAIR_REVIEW))
+    ->name('repair-autopilot');
+
+Schedule::command('moxdop:content:autopilot')
+    ->cron('7,27,47 * * * *')
+    ->withoutOverlapping(30)
+    ->when(fn (): bool => ContentCoverage::automaticAllowed())
+    ->name('content-autopilot');
 
 // Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
 // changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).

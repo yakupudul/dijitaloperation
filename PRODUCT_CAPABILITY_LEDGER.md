@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Günde 1 tık: içerik otopilotu, profil gönderisi ve onarım AI kontrolü
+
+- İçerik otopilotu (`moxdop:content:autopilot`, saatte 3 kez): her site için son yayınlanan yazıdan 2 gün sonra başlayıp (en fazla son 60 gün) yarına kadar 2 günde 1 tarih açılır; her tarihe havuzdan bir "yeni yazı" fikri (önce yazılmış olan, sonra en yüksek puanlı) verilir, başlık sistemce onaylanır, makale ve çevirileri yazılır, havuz 20'ye tamamlanır. Güncelleme fikirleri ve sektör kuralına takılanlar tarih almaz.
+- Yazı ve çevirileri bitince `content.review` bir kez daha okur (ok / wrong / unsure). Sektör uyarılı yazı AI'a gitmeden bekletilir.
+- Profil gönderileri: önümüzdeki 2 günün taslakları her saat (`moxdop:gbp:review-posts`) aynı kontrolden geçer. Her işletmeye her gün bir gönderi planı (ADR-078) aynen sürer; elle düzenlenen gönderi kontrol edilmiş sayılır.
+- Onarım: gece 00–07 arası (`moxdop:repair:autopilot`) masadaki hazır satırlar `repair.review` ile okunur, en faydalı önce, gecede en fazla ~1.000 satır. Google Ads, Meta, 301 birleştirme, sayfa metni, yüksek riskli ve elle yapılacak satırlar, çalışma saatleri hiç girmez. Başlık yalnız gösterimi olan sayfada, açıklama yalnız tıklama getiren sayfada. Öneri değişirse kontrol yenilenir.
+- Hiçbir şey kendiliğinden gitmez: Onarım masasının üstündeki "Günlük gönderim" şeridi geçenleri ve kontrolde kalanları (nedeniyle) gösterir. Admin'in tek düğmesi ("AI kontrolünden geçenlerin hepsini gönder") `SendDailyBatchJob`'u writes kuyruğunda başlatır: günü gelmiş yazılar plan tarihiyle (10:00) WordPress'e taslak, gönderiler gününde yayına onaylı, onarımlar masanın kendi onayıyla gider.
+- Durum: CODED + TESTED (`ContentAutopilotTest`). UAT yok. Neden (yakup, 2026-10-14): ofis taşınırken yazılamayan günleri geçmiş tarihli kapatmak, sonra 2 günde 1 yazı; yayın adımında "Günde 1 tık" kararı.
+
 ## 2026-10-13 — Onarım masası onayı arka planda (504 düzeltmesi)
 
 - **Sorun (yakup 2026-10-13 "onarım masasında işi onayladığımda 504 Gateway Time-out"):** Onayla / Hepsini onayla / Seçilenleri onayla tıklaması onayın tamamını web isteğinin içinde yapıyordu: masanın bütün satırlarını yeniden okuma, her satır için yazma öncesi denetimler, sayfa işlerinde 30 günlük "önceki durum" ölçümü (sitenin tüm Search Console sayfa toplamı + GA4, satır başına), İşletme Profili hesabı araması. Çok satırlı onay nginx süresini aşıyordu.

@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-14 — Otopilot: hazırlık otomatik, gönderim günde 1 tık
+
+- İçerik (2 günde 1 yazı, son 60 güne kadar geçmiş tarihli), her gün her işletmeye profil gönderisi ve gece onarımı sistem hazırlar ve AI ile bir kez daha kontrol eder. Dış sisteme (WordPress, Google) giden her şey Admin'in günlük tek tıkıyla gider (Onarım masası › Günlük gönderim). Kontrolde kalan iş nedeniyle masada bekler.
+- Otomatik onarıma Google Ads, Meta, 301, sayfa metni ve çalışma saatleri girmez; başlık yalnız gösterimi olan, açıklama yalnız tıklama getiren sayfada.
+- Karar: yakup, 2026-10-14 ("Yap", kart seçimi "Günde 1 tık").
+
 ## 2026-10-12 — Küme çakışmaları yalnız sitenin ana dilinde
 
 - **Karar (Claude; yakup sordu: "Buradaki veriler doğru mu?", OPC Klinik):** Küme çakışması yalnız sitenin ana dilindeki sayfalar arasında aranır. Diğer dillerdeki sayfalar ana dildeki sayfaların Polylang çevirileridir; çakışma her dilde ayrı iş olarak, kümenin Türkçe adıyla tekrar gelmesin. Ana dildeki karar (301, Ayrıştır, ana sayfa) çevirilere elle taşınır.

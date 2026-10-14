@@ -337,7 +337,8 @@ final class GbpPostQueue
         if ($blocking !== []) {
             throw ValidationException::withMessages(['post' => 'Sektör uyum kuralına takılıyor: '.implode(', ', $blocking).'.']);
         }
-        $post->forceFill(['summary' => $text])->save();
+        // The operator read and wrote it: the daily click takes it like a checked post.
+        $post->forceFill(['summary' => $text, 'review' => ['verdict' => 'ok', 'reason' => 'Elle düzenlendi.', 'at' => now()->toIso8601String()]])->save();
     }
 
     /** Skips a planned post; its day is planned again on the next refill. */
