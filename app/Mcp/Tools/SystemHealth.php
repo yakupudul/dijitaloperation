@@ -7,6 +7,8 @@ use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
 use App\Models\PendingQuery;
 use App\Models\Query;
+use App\Models\ServiceCatalogItem;
+use App\Models\ServiceCategory;
 use App\Services\Ai\AiBudget;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Observability\ErrorTriage;
@@ -154,6 +156,15 @@ class SystemHealth extends Tool
             'autopilot' => ['paused' => QueryAutopilot::paused(), 'status' => $state['status'] ?? null, 'tick_at' => $state['tick_at'] ?? null,
                 'error_wait_until' => $state['error_wait_until'] ?? null, 'totals' => $state['totals'] ?? []],
             'finish_check' => QueryFinish::lastCheck(),
+            // Where the not-checked and the unassigned queries sit: a sector without active services is never triaged.
+            'by_sector' => (clone $unassigned)->selectRaw('sector_id, count(*) as unassigned, sum(case when ai_checked_at is null then 1 else 0 end) as not_checked')
+                ->groupBy('sector_id')->orderByDesc('unassigned')->limit(25)->get()
+                ->map(function ($row): array {
+                    $sector = ServiceCategory::query()->find($row->sector_id);
+
+                    return ['sector' => $sector?->name, 'unassigned' => (int) $row->unassigned, 'not_checked' => (int) $row->not_checked,
+                        'active_services' => $sector !== null ? ServiceCatalogItem::query()->where('sector', $sector->code)->where('status', 'active')->count() : 0];
+                })->all(),
         ];
     }
 

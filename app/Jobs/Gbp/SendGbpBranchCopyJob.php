@@ -27,7 +27,10 @@ final class SendGbpBranchCopyJob implements ShouldQueue
     public int $tries = 1;
 
     /** @param  array{categories: list<array<string, mixed>>, services: list<array<string, mixed>>, skipped: list<array{line: string, reason: string}>, primary: array{id: string, name: string}}  $missing */
-    public function __construct(public int $userId, public int $sourceId, public int $targetId, public array $missing) {}
+    public function __construct(public int $userId, public int $sourceId, public int $targetId, public array $missing)
+    {
+        $this->onQueue((string) config('queue.heavy_queue', 'default'));
+    }
 
     public function handle(GbpProfileCopier $copier, AiTaskQueue $tasks): void
     {
