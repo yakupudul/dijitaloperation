@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Integrations;
 
 use App\Models\CoreConnection;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Site\ContentPosts;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -44,7 +45,7 @@ final class WordPressConnectorEventsController
             'installation_id' => ['required', Rule::in([$installation])],
             'plugin_version' => ['required', 'string', 'max:32'],
             'events' => ['present', 'array', 'max:50'],
-            'events.*' => ['array:event_id,type,occurred_at,object_type,object_id,title,url,actor_id,actor_name,origin,fields'],
+            'events.*' => ['array:event_id,type,occurred_at,object_type,object_id,title,url,actor_id,actor_name,origin,fields,post_state'],
             'events.*.event_id' => ['required', 'uuid', 'distinct'],
             'events.*.type' => ['required', Rule::in([
                 'content.created', 'content.updated', 'content.published', 'content.trashed',
@@ -62,6 +63,13 @@ final class WordPressConnectorEventsController
             'events.*.origin' => ['required', Rule::in(['wordpress_user', 'wordpress_automation'])],
             'events.*.fields' => ['required', 'array', 'max:50'],
             'events.*.fields.*' => ['string', 'max:100'],
+            // 1.17.0: the state of a post MoxDOP made, read on the site right after the save.
+            'events.*.post_state' => ['sometimes', 'nullable', 'array'],
+            'events.*.post_state.post_id' => ['required_with:events.*.post_state', 'integer', 'min:1'],
+            'events.*.post_state.status' => ['required_with:events.*.post_state', 'string', 'max:20'],
+            'events.*.post_state.date_gmt' => ['nullable', 'date'],
+            'events.*.post_state.link' => ['nullable', 'string', 'max:2048'],
+            'events.*.post_state.featured_media_id' => ['nullable', 'integer', 'min:0'],
             'delivery' => ['required', 'array'],
             'delivery.pending' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'delivery.gap_at' => ['nullable', 'date'],
@@ -69,7 +77,8 @@ final class WordPressConnectorEventsController
             'delivery.wp_cron_disabled' => ['required', 'boolean'],
         ])->validate();
 
-        $ids = DB::transaction(function () use ($connection, $input, $nonce, $client): array {
+        $stored = [];
+        $ids = DB::transaction(function () use ($connection, $input, $nonce, $client, &$stored): array {
             $locked = CoreConnection::query()->with('credential')->whereKey($connection->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->enabled && data_get($locked->config, 'pairing_state') === 'paired'
                 && hash_equals((string) data_get($locked->credential?->encrypted_payload, 'client_id', ''), $client), 401);
@@ -81,6 +90,7 @@ final class WordPressConnectorEventsController
                 if (DB::table('website_connector_events')->where('connection_id', $locked->id)->where('event_id', $event['event_id'])->exists()) {
                     continue;
                 }
+                $stored[] = $event;
                 DB::table('website_connector_events')->insert([
                     'connection_id' => $locked->id, 'digital_asset_id' => $locked->digital_asset_id,
                     'event_id' => $event['event_id'], 'type' => $event['type'],
@@ -101,11 +111,23 @@ final class WordPressConnectorEventsController
                 ], JSON_THROW_ON_ERROR),
                 'latest_event_id' => DB::table('website_connector_events')->where('connection_id', $locked->id)->max('id') ?? 0,
             ]);
+
             return $ids;
         });
+        if ($stored !== []) {
+            // A MoxDOP post published / moved to draft / trashed on the site moves between Taslakta and Yayında at once, and
+            // the page data refresh starts on the next minute's tick instead of waiting (a site in its error pause waits).
+            ContentPosts::applyEvents((int) $connection->digital_asset_id, $stored);
+            if (collect($stored)->contains(fn (array $event): bool => str_starts_with($event['type'], 'content.') || str_starts_with($event['type'], 'seo.') || $event['type'] === 'settings.updated')) {
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->whereNull('collection_run_id')
+                    ->where(fn ($q) => $q->whereNull('next_reconcile_at')->orWhere('next_reconcile_at', '<=', now()->addMinutes(15)))
+                    ->update(['next_reconcile_at' => now()]);
+            }
+        }
 
         $data = ['accepted_event_ids' => $ids];
         $time = time();
+
         return response()->json(['data' => $data, 'meta' => [
             'server_time' => $time, 'request_nonce' => $nonce,
             'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce,
