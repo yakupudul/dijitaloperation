@@ -68,7 +68,9 @@ return [
     'ai' => [
         'defaults' => [
             'openai_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
-            'anthropic_model' => env('ANTHROPIC_DEFAULT_MODEL', 'claude-sonnet-5'),
+            'anthropic_model' => env('ANTHROPIC_DEFAULT_MODEL', 'claude-sonnet-5-5'),
+            // Fast / bulk Claude model (Haiku 5.5: $0.10 / $0.50 per 1M tokens, about a tenth of Haiku 4.5).
+            'anthropic_fast_model' => env('ANTHROPIC_FAST_MODEL', 'claude-haiku-5-5'),
             // GPT-5 / o-series reasoning effort (low keeps hidden reasoning tokens — billed as output — small; empty = model default).
             'openai_reasoning_effort' => env('OPENAI_REASONING_EFFORT', 'low'),
             'gemini_model' => env('GEMINI_DEFAULT_MODEL', 'gemini-3.6-flash'),

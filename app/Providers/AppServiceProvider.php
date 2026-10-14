@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
+use App\Ai\Gateway\CachingAnthropicGateway;
 use App\Contracts\Ai\AgentContextGateway as AgentContextGatewayContract;
 use App\Contracts\Collection\ActivityTierReader;
 use App\Enums\CustomerStatus;
@@ -128,6 +129,7 @@ use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Closure;
 use Illuminate\Auth\Events\Authenticated;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\ConnectionEstablished;
@@ -147,11 +149,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Ai\AiManager;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Events\AgentStreamed;
 use Laravel\Ai\Events\PromptingAgent;
 use Laravel\Ai\Events\StreamingAgent;
+use Laravel\Ai\Providers\AnthropicProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -309,6 +313,13 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Claude calls send their system prompt as a cached block (CachingAnthropicGateway).
+        $this->app->make(AiManager::class)->extend('anthropic', fn ($app, array $config): AnthropicProvider => new AnthropicProvider(
+            new CachingAnthropicGateway($app['events']),
+            $config,
+            $app->make(Dispatcher::class),
+        ));
+
         // Integer record ids in operator URLs: anything else (text, a number past bigint) is a 404, never a
         // TypeError on a typed Livewire property or a PostgreSQL "invalid input syntax for type bigint".
         Route::patterns(array_fill_keys(['assetId', 'brandId', 'brand', 'customerId', 'taskId'], '[0-9]{1,18}'));

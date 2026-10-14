@@ -12,28 +12,28 @@ final class AiDefaultSteps
     public static function analysis(): array
     {
         return [
-            ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => (string) config('moxdop.ai.defaults.anthropic_model', 'claude-sonnet-5')],
+            ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => (string) config('moxdop.ai.defaults.anthropic_model', 'claude-sonnet-5-5')],
             ['provider' => AiProviderCatalog::OPENAI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
             ['provider' => AiProviderCatalog::GEMINI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::GEMINI)],
         ];
     }
 
-    /** Matching, labelling, classification: Claude Haiku 4.5 → OpenAI → Gemini. @return list<array{provider: string, model: string}> */
+    /** Matching, labelling, classification: Claude Haiku 5.5 → OpenAI → Gemini. @return list<array{provider: string, model: string}> */
     public static function classification(): array
     {
         return [
-            ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => (string) config('moxdop.ai.defaults.anthropic_fast_model', 'claude-haiku-4-5')],
+            ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => (string) config('moxdop.ai.defaults.anthropic_fast_model', 'claude-haiku-5-5')],
             ['provider' => AiProviderCatalog::OPENAI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
             ['provider' => AiProviderCatalog::GEMINI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::GEMINI)],
         ];
     }
 
-    /** Public / agency-wide text only: free Groq model first, then Haiku 4.5, then OpenAI. @return list<array{provider: string, model: string}> */
+    /** Public / agency-wide text only: free Groq model first, then Haiku 5.5, then OpenAI. @return list<array{provider: string, model: string}> */
     public static function publicData(): array
     {
         return [
             ['provider' => AiProviderCatalog::GROQ, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::GROQ)],
-            ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => (string) config('moxdop.ai.defaults.anthropic_fast_model', 'claude-haiku-4-5')],
+            ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => (string) config('moxdop.ai.defaults.anthropic_fast_model', 'claude-haiku-5-5')],
             ['provider' => AiProviderCatalog::OPENAI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
         ];
     }

@@ -73,7 +73,7 @@ final class AiProviderCatalog
     {
         return match ($provider) {
             self::OPENAI => (string) config('moxdop.ai.defaults.openai_model', 'gpt-5-mini'),
-            self::ANTHROPIC => (string) config('moxdop.ai.defaults.anthropic_model', 'claude-sonnet-5'),
+            self::ANTHROPIC => (string) config('moxdop.ai.defaults.anthropic_model', 'claude-sonnet-5-5'),
             self::GEMINI => (string) config('moxdop.ai.defaults.gemini_model', 'gemini-3.6-flash'),
             self::GROQ => (string) config('moxdop.ai.defaults.groq_model', 'llama-3.3-70b-versatile'),
             self::OPENROUTER => (string) config('moxdop.ai.defaults.openrouter_model', 'meta-llama/llama-3.3-70b-instruct:free'),
@@ -88,6 +88,9 @@ final class AiProviderCatalog
             'gpt-5' => 'GPT-5',
             'gpt-4.1-mini' => 'GPT-4.1 mini',
             'gpt-4.1' => 'GPT-4.1',
+            'claude-sonnet-5-5' => 'Claude Sonnet 5.5',
+            'claude-haiku-5-5' => 'Claude Haiku 5.5',
+            'claude-opus-5-5' => 'Claude Opus 5.5',
             'claude-sonnet-5' => 'Claude Sonnet 5',
             'claude-opus-4-8' => 'Claude Opus 4.8',
             'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5',
