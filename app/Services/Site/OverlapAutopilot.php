@@ -104,6 +104,7 @@ final class OverlapAutopilot
             return 'WordPress taslak kopyası henüz yazılmadı; biraz sonra yeniden dene.';
         }
         if ($draft->status === 'failed') {
+            $this->reopen($suggestion);
             $this->state($suggestion, 'failed', 'WordPress taslak kopyası yazılamadı: '.mb_substr((string) $draft->error, 0, 200));
 
             return 'Taslak kopyası yazılamadı: '.mb_substr((string) $draft->error, 0, 200);
@@ -223,8 +224,21 @@ final class OverlapAutopilot
         return $hasBody ? 'Gönderildi; metin WordPress\'te taslak kopya (go_live ile canlıya alınır).' : 'SEO alanları siteye gönderildi.';
     }
 
+    /**
+     * The body never reached WordPress (its draft copy failed): the suggestion goes back to open so Claude can send
+     * another version (for example only the SEO fields and the link). The SEO fields already sent stay as they are.
+     */
+    private function reopen(Suggestion $suggestion): void
+    {
+        $suggestion->forceFill(['status' => Suggestion::OPEN, 'applied_at' => null, 'resolved_at' => null])->save();
+    }
+
     private function open(Suggestion $suggestion): void
     {
+        if ($suggestion->status === Suggestion::APPROVED && data_get($suggestion->action, 'rewrite.state') === 'failed'
+            && ExternalWriteAction::query()->where('suggestion_id', $suggestion->id)->where('action', ExternalWriteAction::ACTION_CONTENT_DRAFT)->orderByDesc('id')->value('status') === 'failed') {
+            $this->reopen($suggestion);
+        }
         if (! in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED], true)) {
             throw ValidationException::withMessages(['decision' => 'Bu öneri zaten sonuçlandı (durum: '.$suggestion->status.').']);
         }

@@ -344,7 +344,8 @@ final class ChangeApplier
     /** The live page HTML from the WordPress Connector (null when the site has none or it fails). */
     private function currentHtml(DigitalAsset $site, Page $page): ?string
     {
-        if ($page->wp_post_id === null) {
+        // The connector's draft copy takes posts and pages only; a body for another post type could never be sent.
+        if ($page->wp_post_id === null || ! in_array($page->wp_post_type ?? 'page', ['post', 'page'], true)) {
             return null;
         }
         try {

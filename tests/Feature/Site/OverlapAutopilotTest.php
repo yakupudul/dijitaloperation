@@ -8,6 +8,7 @@ use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\OverlapAct;
 use App\Models\BrandClusterPage;
+use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Site\ChangeApplier;
@@ -119,6 +120,23 @@ final class OverlapAutopilotTest extends SiteTestCase
         $this->assertSame([Suggestion::DISMISSED, $this->admin->id], [$this->overlap->fresh()->status, (int) $this->overlap->fresh()->resolved_by]);
         MoxdopServer::tool(OverlapAct::class, ['ids' => [1, 2], 'decision' => 'submit_rewrite'])->assertHasErrors();
         MoxdopServer::tool(OverlapAct::class, ['ids' => [1], 'decision' => 'delete'])->assertHasErrors();
+    }
+
+    public function test_a_failed_draft_copy_reopens_the_overlap_for_another_version(): void
+    {
+        $this->overlap->forceFill(['status' => Suggestion::APPROVED, 'applied_at' => now(),
+            'action' => array_merge((array) $this->overlap->action, ['writes' => [1], 'rewrite' => ['state' => 'publishing']])])->save();
+        ExternalWriteAction::query()->create(['channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_CONTENT_DRAFT,
+            'digital_asset_id' => $this->site->id, 'brand_id' => $this->brand->id, 'suggestion_id' => $this->overlap->id, 'status' => 'failed',
+            'error' => 'WordPress Connector returned HTTP 400.', 'request_payload' => [], 'requested_by' => $this->admin->id]);
+        $autopilot = app(OverlapAutopilot::class);
+
+        $this->assertStringContainsString('HTTP 400', $autopilot->act([$this->overlap->id], 'go_live', $this->admin)[$this->overlap->id]);
+        $this->assertSame([Suggestion::OPEN, 'failed'], [$this->overlap->fresh()->status, data_get($this->overlap->fresh()->action, 'rewrite.state')]);
+
+        $done = $autopilot->act([$this->overlap->id], 'submit_rewrite', $this->admin, ['seo_title' => 'Karşıyaka İmplant Tedavisi', 'meta_description' => 'Karşıyaka şubemizde implant tedavisi.',
+            'internal_links' => [['anchor' => 'implant tedavisi', 'url' => 'https://panorama.com.tr/implant/']], 'note' => 'Yalnız SEO alanları.']);
+        $this->assertStringContainsString('kontrollerden geçti', $done[$this->overlap->id]);
     }
 
     public function test_keep_closes_a_wrong_proposal(): void
