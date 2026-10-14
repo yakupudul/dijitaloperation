@@ -3,6 +3,7 @@
 namespace App\Services\Site;
 
 use App\Ai\Agents\Site\SiteAgent;
+use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
@@ -55,7 +56,10 @@ final class SiteAi
         } catch (Throwable $exception) {
             Log::warning('Site AI operation failed.', ['operation' => $agent->promptOperation(), 'error' => $exception->getMessage()]);
 
-            return $this->claudeTakesOver($agent, $data, $slot)
+            // Content work goes to Claude only when the provider's credit is used up (yakup, 2026-10-14), not on any error.
+            $takeOver = ! AiBudget::isContent($agent->promptOperation()) || str_contains(self::reason($exception), 'kredisi bitti');
+
+            return ($takeOver ? $this->claudeTakesOver($agent, $data, $slot) : null)
                 ?? ['status' => 'error', 'data' => [], 'prompt_version_id' => null, 'message' => self::reason($exception)];
         }
     }

@@ -43,6 +43,12 @@
 - Güncelleme yazısının okuma penceresinde "Ne değişecek" kutusu var: sayfa adresi, eski başlık → yeni başlık, eski SEO açıklaması → yeni, kelime sayısı, eklenen ve çıkan bölümler. Altında açılır "Şimdiki sayfanın metni" (son okunan hâli) duruyor. Neden (yakup): "eski sayfanın başlığı ve içeriği de önizlemeye eklense … hangi sayfa ve neresi değişecek görmüş olurum."
 - Durum: CODED + TESTED (`ContentTargetPageTest`). Neden (yakup, 2026-10-12, OPC Klinik): "mevcut sayfayı güçlendir adı altında paylaşılmış, ancak web sitesinde bu başlıkta yazı yok." / "bu içeriğin içerisine mi yazılacak? ... bana net anlat."
 
+## 2026-10-14 — Claude API kredisi bitince içerik yazımını Claude devralır
+
+- Makale yazımı, çevirisi ve içerik fikri havuzu Claude API kredisi bitince (sistemin kredi takibi ya da sağlayıcının "credit balance" hatası) Claude (MCP) kuyruğuna geçiyor; Claude cevaplayınca iş aynı yerden devam ediyor. Günlük tavan, aylık bütçe ya da başka sağlayıcı hataları (istek sınırı, zaman aşımı) içerik işini yine kuyruğa sokmuyor; hata kartta görünür.
+- `moxdop:mcp:delegate` ve "Hepsi Claude abonelik" dağılımı içerik işlemlerinin modelini değiştirmiyor.
+- Durum: CODED + TESTED (`AiCreditsAndAssignmentsTest`, `SiteAiFallbackTest`). Neden (yakup, 2026-10-14): "Claude api bittiğinde sen devral."
+
 ## 2026-10-12 — İçerik işleri kuyrukta beklemez
 
 - İçerik fikri (havuz), makale yazımı, çevirisi ve WordPress taslak gönderimi kendi kuyruğunda (`content`, Horizon `supervisor-content`, 3 işçi) çalışıyor. Uzun site işleri (Eşleştir vb.) `heavy` kuyrukta kalıyor ve içerik işlerini artık bekletmiyor.

@@ -13,7 +13,7 @@ use Tests\Feature\Site\SiteTestCase;
 
 /**
  * yakup, 2026-10-09 ("halen içerik fikirleri havuza dolmuyor"): every pool run said "AI yanıt vermedi" with no reason.
- * A failed provider call now says why. Content work never falls back to the Claude (MCP) queue (yakup, 2026-10-12).
+ * A failed provider call now says why. Content work falls back to the Claude (MCP) queue only on a used-up credit (yakup, 2026-10-14).
  */
 final class SiteAiFallbackTest extends SiteTestCase
 {
@@ -34,17 +34,29 @@ final class SiteAiFallbackTest extends SiteTestCase
         $this->assertStringContainsString('kredisi bitti', $result['message']);
     }
 
-    public function test_content_work_never_falls_back_to_the_claude_queue(): void
+    public function test_content_work_goes_to_claude_only_when_the_credit_is_used_up(): void
     {
         config(['moxdop-mcp.token' => 'test-mcp-token']);
         $tasks = app(AiTaskQueue::class);
-        $tasks->begin(new RunSiteOperationJob((int) $this->site->id, SiteOperations::WEEKLY_CONTENT, []), (int) $this->brand->id, 'panorama.com.tr');
 
+        // yakup, 2026-10-12: any other provider error shows on the board; the work never waits in a queue for it.
+        WeeklyContentAgent::fake(function (): array {
+            throw new RuntimeException('Rate limit reached for requests.');
+        });
+        $tasks->begin(new RunSiteOperationJob((int) $this->site->id, SiteOperations::WEEKLY_CONTENT, []), (int) $this->brand->id, 'panorama.com.tr');
         $result = app(SiteAi::class)->run(new WeeklyContentAgent, ['candidates' => []], 240, 'weekly');
         $tasks->settle();
-
-        // yakup, 2026-10-12: content ideas, writing and sending never wait in a queue; the error shows on the board instead.
         $this->assertSame('error', $result['status']);
         $this->assertSame(0, AiTask::query()->count());
+
+        // yakup, 2026-10-14 ("Claude API bittiğinde sen devral"): a used-up credit hands it to Claude over MCP.
+        WeeklyContentAgent::fake(function (): array {
+            throw new RuntimeException('Your credit balance is too low to access the Anthropic API.');
+        });
+        $tasks->begin(new RunSiteOperationJob((int) $this->site->id, SiteOperations::WEEKLY_CONTENT, []), (int) $this->brand->id, 'panorama.com.tr');
+        $result = app(SiteAi::class)->run(new WeeklyContentAgent, ['candidates' => []], 240, 'weekly');
+        $tasks->settle();
+        $this->assertSame('queued', $result['status']);
+        $this->assertSame(1, AiTask::query()->count());
     }
 }
