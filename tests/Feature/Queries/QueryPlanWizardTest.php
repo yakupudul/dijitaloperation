@@ -278,6 +278,39 @@ final class QueryPlanWizardTest extends TestCase
         $this->assertSame(['Diş Beyazlatma', 'FUE Saç Ekimi'], array_column($proposal['items'], 'name'));
     }
 
+    public function test_missing_services_are_added_from_unassigned_queries_through_claude_and_the_queries_go_back_to_triage(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        QueryPlanServicesAgent::fake()->preventStrayPrompts();
+        $make = fn (string $text, array $extra = []): Query => Query::query()->create(['text' => $text, 'text_hash' => hash('sha256', $text), 'sector_id' => $this->dental->id] + $extra);
+        $checked = $make('diş beyazlatma fiyatları', ['ai_checked_at' => now(), 'impressions' => 50]);
+        $notLooked = $make('gülüş tasarımı');
+        $assigned = $make('implant fiyat', ['service_id' => $this->implant->id, 'ai_checked_at' => now()]);
+        $keyword = app(ServiceKeywordService::class)->add($this->implant, 'implant');
+
+        $this->artisan('moxdop:queries:fill-gaps')->assertSuccessful();
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([QueryPlanServicesAgent::OPERATION, 'pending'], [$task->operation, $task->status]);
+        $data = json_decode(substr((string) $task->input, strlen("DATA_JSON\n")), true)['sectors'][0];
+        $this->assertSame(['diş beyazlatma fiyatları'], $data['samples'], 'only queries AI found no service for');
+        QueryPlanServicesAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['new_services' => [
+            ['sector_id' => $this->dental->id, 'name' => 'Diş Beyazlatma', 'keywords' => ['diş beyazlatma', 'bleaching'], 'reason' => 'veride var'],
+        ], 'add_keywords' => [['service_id' => $this->zirkonyum->id, 'keyword' => 'zirkon diş', 'reason' => 'veride var']],
+            'remove_keywords' => [['keyword_id' => $keyword->id, 'reason' => 'genel']], 'move_keywords' => [],
+            'prompt_version' => QueryPlanServicesAgent::PROMPT_VERSION]));
+
+        $whitening = ServiceCatalogItem::query()->where('sector', 'dental')->whereHas('primaryName', fn ($q) => $q->where('raw_label', 'Diş Beyazlatma'))->sole();
+        $this->assertSame(['bleaching', 'diş beyazlatma'], $whitening->matchingKeywords()->orderBy('label')->pluck('label')->all());
+        $this->assertTrue($this->zirkonyum->matchingKeywords()->where('label', 'zirkon diş')->exists());
+        $this->assertTrue(ServiceMatchingKeyword::query()->whereKey($keyword->id)->exists(), 'a removal is never applied here');
+        $this->assertNull($checked->fresh()->ai_checked_at, 'the query goes back to triage');
+        $this->assertNull($notLooked->fresh()->ai_checked_at);
+        $this->assertNotNull($assigned->fresh()->ai_checked_at, 'assigned queries are left alone');
+    }
+
     public function test_a_step_with_a_sector_that_never_answers_is_closed_and_can_be_stopped(): void
     {
         Queue::fake();

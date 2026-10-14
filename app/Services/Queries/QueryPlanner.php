@@ -58,6 +58,9 @@ final class QueryPlanner
 
     private const int MAX_ITEMS = 500;
 
+    /** Unassigned queries shown per sector when the missing services are filled. */
+    private const int GAP_SAMPLES = 400;
+
     private const int BRANDS_PER_CALL = 25;
 
     /** Stops starting new per-sector calls before the job's timeout (the rest is reported as not done). */
@@ -501,8 +504,54 @@ final class QueryPlanner
         return $this->filtersFor($sector, self::instruction($instruction), $existing, self::keywordLabels());
     }
 
-    /** @return list<array<string, mixed>>|string */
-    private function servicesFor(ServiceCategory $sector): array|string
+    /**
+     * Eksik hizmetler (yakup, 2026-10-14 "Ekle, yeniden ata"): the sector's queries that AI already looked at and found
+     * no service for go to the step-2 call as `samples`; the missing services and keywords it returns are added at once
+     * (never a removal or a move), then those queries go back to triage so the autopilot assigns them to the new services.
+     *
+     * @return array{services: int, keywords: int, requeued: int}|string counts, or 'queued' (waiting for Claude) / 'no_provider' / 'error'
+     */
+    public function fillServiceGaps(ServiceCategory $sector): array|string
+    {
+        $unassigned = fn () => DB::table('queries')->where('sector_id', $sector->id)->whereNull('service_id')->where('hidden', false)
+            ->where('is_suggested', false)->whereNotNull('ai_checked_at');
+        $samples = $unassigned()->orderByDesc('impressions')->orderBy('id')->limit(self::GAP_SAMPLES)->pluck('text')
+            ->map(fn ($t): string => (string) $t)->all();
+        if ($samples === []) {
+            return ['services' => 0, 'keywords' => 0, 'requeued' => 0];
+        }
+        $items = $this->servicesFor($sector, $samples, 'gaps-'.$sector->id);
+        if (! is_array($items)) {
+            return $items;
+        }
+        $services = 0;
+        $keywords = 0;
+        foreach ($items as $item) {
+            if (! in_array($item['type'], ['new_service', 'add'], true)) {
+                continue;
+            }
+            try {
+                $done = DB::transaction(fn (): int => $this->applyServiceItem($item, null));
+            } catch (ValidationException) {
+                $done = 0;
+            }
+            $item['type'] === 'new_service' ? $services += $done : $keywords += $done;
+        }
+        $requeued = 0;
+        if ($services + $keywords > 0) {
+            $unassigned()->select('id')->chunkById(QueryPipeline::CHUNK, function ($rows) use (&$requeued): void {
+                $requeued += DB::table('queries')->whereIn('id', $rows->pluck('id')->all())->update(['ai_checked_at' => null]);
+            });
+        }
+
+        return ['services' => $services, 'keywords' => $keywords, 'requeued' => $requeued];
+    }
+
+    /**
+     * @param  list<string>|null  $samples  queries to show instead of the sector's top collected ones
+     * @return list<array<string, mixed>>|string
+     */
+    private function servicesFor(ServiceCategory $sector, ?array $samples = null, ?string $slot = null): array|string
     {
         $services = self::sectorServices($sector);
         $brandIds = $this->operationalBrandIds((int) $sector->id);
@@ -514,9 +563,9 @@ final class QueryPlanner
             'id' => (int) $sector->id, 'name' => (string) $sector->name,
             'services' => $services->map(fn (ServiceCatalogItem $s): array => ['id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label,
                 'keywords' => $s->matchingKeywords->map(fn (ServiceMatchingKeyword $k): array => ['id' => (int) $k->id, 'label' => (string) $k->label])->values()->all()])->values()->all(),
-            'brand_services' => $brandServices, 'page_names' => $pageNames, 'samples' => $this->samples((int) $sector->id, $brandIds),
+            'brand_services' => $brandServices, 'page_names' => $pageNames, 'samples' => $samples ?? $this->samples((int) $sector->id, $brandIds),
         ]]];
-        $structured = $this->call(QueryPlanServicesAgent::class, $data, 'sector-'.$sector->id);
+        $structured = $this->call(QueryPlanServicesAgent::class, $data, $slot ?? 'sector-'.$sector->id);
 
         return is_array($structured)
             ? $this->validServiceItems($structured, [(int) $sector->id => ['sector' => $sector, 'services' => $services->keyBy('id')]])
