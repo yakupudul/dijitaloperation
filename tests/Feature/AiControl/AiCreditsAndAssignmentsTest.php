@@ -218,6 +218,11 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         app(AiCredits::class)->topUp('anthropic', 4, null, $this->admin);
         $this->usage(4.00);
         $this->assertStringContainsString('kredisi bitti', (string) $budget->blockReason('anthropic', 'claude-sonnet-5-5', AiRouteKeys::SITE_WRITE_ARTICLE), 'used-up credit still stops it');
+
+        // yakup, 2026-10-14 ("Claude API bittiğinde sen devral"): with the credit used up, Claude takes the writing over.
+        $this->pin(AiRouteKeys::SITE_WRITE_ARTICLE, AiAssignments::SONNET);
+        Cache::flush();
+        $this->assertTrue($queue->delegated(AiRouteKeys::SITE_WRITE_ARTICLE), 'used-up credit hands content to Claude over MCP');
     }
 
     private function pin(string $operation, string $model): void

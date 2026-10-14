@@ -99,7 +99,7 @@ final class AiAssignments
         return match ($plan) {
             self::PLAN_RECOMMENDED => in_array($operation, self::WRITING, true) ? self::SONNET : self::HAIKU,
             self::PLAN_CLAUDE_API => self::SONNET,
-            self::PLAN_SUBSCRIPTION => AiTaskQueue::enabled() && $this->tasks->supports($operation) ? AiTaskQueue::MODEL : null,
+            self::PLAN_SUBSCRIPTION => AiTaskQueue::enabled() && $this->tasks->supports($operation) && ! AiBudget::isContent($operation) ? AiTaskQueue::MODEL : null,
             self::PLAN_ROUTE => '',
             default => throw new InvalidArgumentException('Bilinmeyen dağılım: '.$plan),
         };

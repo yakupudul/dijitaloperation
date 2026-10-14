@@ -49,9 +49,12 @@ final class AiTaskQueue
     /**
      * Operations whose callers handle "queued" (wait, keep their progress, continue with Claude's answer). Any other
      * site operation keeps the provider route until its caller is taught to wait. Content work (ideas, articles,
-     * translations) is never given to the queue (yakup, 2026-10-12: "hiçbir zaman kuyruğa girmesin").
+     * translations) waits here only when the Claude API credit is used up (yakup, 2026-10-14: "Claude API bittiğinde
+     * sen devral"); the daily ceiling and the monthly budget never send it here (2026-10-12).
      */
     public const array SUPPORTED = [
+        AiRouteKeys::SITE_WRITE_ARTICLE,
+        AiRouteKeys::SITE_WEEKLY_CONTENT,
         AiRouteKeys::SITE_CLUSTER_MATCH,
         AiRouteKeys::SITE_CLUSTER_GAPS,
         AiRouteKeys::QUERIES_AI_QUERIES,
@@ -94,9 +97,12 @@ final class AiTaskQueue
      */
     public function delegated(string $operation): bool
     {
-        // Content work never waits in the Claude queue (yakup, 2026-10-12); it runs on the provider route.
-        if (! self::enabled() || ! $this->supports($operation) || AiBudget::isContent($operation)) {
+        if (! self::enabled() || ! $this->supports($operation)) {
             return false;
+        }
+        // Content work runs on the provider route; only a used-up Claude API credit hands it to Claude (yakup, 2026-10-14).
+        if (AiBudget::isContent($operation)) {
+            return $this->fallsBackToClaude($operation);
         }
         if ($this->registry->current($operation)->model === self::MODEL) {
             return true;

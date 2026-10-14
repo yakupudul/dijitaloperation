@@ -43,6 +43,12 @@
 - Güncelleme yazısının okuma penceresinde "Ne değişecek" kutusu var: sayfa adresi, eski başlık → yeni başlık, eski SEO açıklaması → yeni, kelime sayısı, eklenen ve çıkan bölümler. Altında açılır "Şimdiki sayfanın metni" (son okunan hâli) duruyor. Neden (yakup): "eski sayfanın başlığı ve içeriği de önizlemeye eklense … hangi sayfa ve neresi değişecek görmüş olurum."
 - Durum: CODED + TESTED (`ContentTargetPageTest`). Neden (yakup, 2026-10-12, OPC Klinik): "mevcut sayfayı güçlendir adı altında paylaşılmış, ancak web sitesinde bu başlıkta yazı yok." / "bu içeriğin içerisine mi yazılacak? ... bana net anlat."
 
+## 2026-10-14 — Claude API kredisi bitince içerik yazımını Claude devralır
+
+- Makale yazımı, çevirisi ve içerik fikri havuzu Claude API kredisi bitince (sistemin kredi takibi ya da sağlayıcının "credit balance" hatası) Claude (MCP) kuyruğuna geçiyor; Claude cevaplayınca iş aynı yerden devam ediyor. Günlük tavan, aylık bütçe ya da başka sağlayıcı hataları (istek sınırı, zaman aşımı) içerik işini yine kuyruğa sokmuyor; hata kartta görünür.
+- `moxdop:mcp:delegate` ve "Hepsi Claude abonelik" dağılımı içerik işlemlerinin modelini değiştirmiyor.
+- Durum: CODED + TESTED (`AiCreditsAndAssignmentsTest`, `SiteAiFallbackTest`). Neden (yakup, 2026-10-14): "Claude api bittiğinde sen devral."
+
 ## 2026-10-12 — İçerik işleri kuyrukta beklemez
 
 - İçerik fikri (havuz), makale yazımı, çevirisi ve WordPress taslak gönderimi kendi kuyruğunda (`content`, Horizon `supervisor-content`, 3 işçi) çalışıyor. Uzun site işleri (Eşleştir vb.) `heavy` kuyrukta kalıyor ve içerik işlerini artık bekletmiyor.
@@ -4299,3 +4305,8 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: Avrup
 
 - Brand page (pool #38): `SiteAnalysisReader::lastDay` took 1.8 s on Avrupadent (max over the compact `gsc_query_page_daily` view, whose dictionary join made PostgreSQL aggregate every row of the account). `SiteMetrics::lastSearchConsoleDay` now reads the max from the fact table (`gsc_f_query_page`, primary key leads with resource and date) where the table is compact, one account at a time (an index step instead of a full scan). Bugün, the desk and the 30/90-day outcome reader share it cached 1 h; the brand page reads it fresh (its KPI cache already follows collections) and refreshes that cache.
 - System health over MCP lists the largest tables (indexes and partitions counted under the parent) so disk growth (80 % on 13 Oct, DB 17 GB) can be traced to a table. Tested: `OpenWorkTest`, `LargestTablesTest` (PostgreSQL), `McpWorkspaceTest`.
+
+## 2026-10-14 — İç linkler WordPress'te yerleşebildiği yere
+
+- Cause (live system-health, 14 Oct 07:21): most approved site fixes failed with "anchor text not found as plain text in the page". Rewrites sent their links against the old post (the anchors were in the new text, and "Canlıya al" replaces the post anyway); link-only proposals used anchors from the rendered page (menus, headings, existing links).
+- `ChangeApplier` mirrors the connector's `insert_link` rule (`insertLink`): a proposed link is kept only where its anchor is plain text outside links, headings, buttons, scripts and styles — in the new version for a rewrite, else in the post fetched from the connector. With a rewrite the links go inside the new HTML (one content draft, no separate link write). On approval of an older link-only proposal, links the post cannot take are left out; when none is left the proposal is cleared to be prepared again and the desk shows why. Tested: `SiteSuggestionsTest`.

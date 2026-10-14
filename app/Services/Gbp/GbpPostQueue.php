@@ -449,6 +449,14 @@ final class GbpPostQueue
 
             return 'skipped';
         }
+        if (blank($post->image_url) && $post->page !== null) {
+            // The draft was made while the site's media was not read (Avrupadent 2026-10: the connector could not reach
+            // the site, posts went out without a photo); the page's featured image is looked up again before sending.
+            $image = $this->featuredImage($post->page);
+            if ($image !== null) {
+                $post->forceFill(['image_url' => $image])->save();
+            }
+        }
         $approver = User::query()->find($post->approved_by);
         try {
             if ($approver === null) {
