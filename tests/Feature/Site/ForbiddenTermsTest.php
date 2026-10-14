@@ -8,17 +8,21 @@ use App\Ai\Agents\Site\WriteArticleAgent;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Portfolio\BrandSettings;
 use App\Livewire\Operator\Website\V2\ContentTab;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\ComplianceRule;
 use App\Models\ContentIdea;
 use App\Models\Customer;
 use App\Models\Suggestion;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\Compliance\ForbiddenTermsLibrary;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\Site\ContentIdeaPool;
 use App\Services\Site\ContentPlanner;
+use App\Support\Ai\AiRouteKeys;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -56,6 +60,27 @@ final class ForbiddenTermsTest extends SiteTestCase
         $this->assertFalse($rule->fresh()->active);
         $page->call('deleteForbidden', $rule->id);
         $this->assertNull($rule->fresh());
+    }
+
+    public function test_when_claude_takes_all_ai_suggestions_wait_for_claude_and_the_tab_shows_them_after_the_answer(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        ForbiddenTermsAgent::fake()->preventStrayPrompts();
+        $page = Livewire::test(QueriesPage::class)->call('setTab', 'forbidden')->set('sector', (string) $this->dental->id)
+            ->call('suggestForbidden')->assertSee('AI aday ifadeler hazırlıyor…');
+
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS, $task->operation);
+        $this->assertSame('running', Cache::get(ForbiddenTermsLibrary::cacheKey($this->dental->id))['status']);
+        ForbiddenTermsAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['terms' => [['phrase' => 'İnanılmaz Sonuç', 'reason' => 'Ağrısızlık vaadi.', 'severity' => 'block'],
+            ['phrase' => 'yıldız hekim', 'reason' => 'Fiyat iddiası.', 'severity' => 'warn']]]));
+
+        $this->assertSame('ready', Cache::get(ForbiddenTermsLibrary::cacheKey($this->dental->id))['status']);
+        $page->call('setTab', 'forbidden')->assertSee('inanılmaz sonuç')->assertSee('yıldız hekim');
+        $this->assertSame(0, ComplianceRule::query()->where('origin', 'ai')->count(), 'candidates wait for the operator');
+        ForbiddenTermsAgent::assertNeverPrompted();
     }
 
     public function test_four_enforcement_points_and_brand_rules_apply_only_to_their_brand(): void

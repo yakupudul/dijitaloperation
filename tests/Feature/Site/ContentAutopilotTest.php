@@ -5,16 +5,19 @@ namespace Tests\Feature\Site;
 use App\Ai\Agents\Site\ContentReviewAgent;
 use App\Ai\Agents\Site\RepairReviewAgent;
 use App\Jobs\ApproveRepairRowsJob;
+use App\Jobs\ReviewRepairRowsJob;
 use App\Jobs\SendDailyBatchJob;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Livewire\Operator\Repair\DailySendStrip;
+use App\Models\AiTask;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Gbp\GbpPostReview;
 use App\Services\Repair\RepairAutopilot;
 use App\Services\Repair\RepairDesk;
@@ -22,6 +25,7 @@ use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\ContentAutopilot;
 use App\Services\Work\DailySend;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -184,8 +188,8 @@ final class ContentAutopilotTest extends SiteTestCase
 
         RepairReviewAgent::fake([['items' => [['id' => $good->id, 'verdict' => 'ok', 'reason' => 'Uygun.'], ['id' => $bad->id, 'verdict' => 'wrong', 'reason' => 'Üstünlük iddiası.']]]]);
         $autopilot = app(RepairAutopilot::class);
-        $this->assertSame(['checked' => 2], $autopilot->review());
-        $this->assertSame(['checked' => 0], $autopilot->review(), 'a checked proposal is not read again');
+        $this->assertSame(['checked' => 2, 'waiting' => 0], $autopilot->review());
+        $this->assertSame(['checked' => 0, 'waiting' => 0], $autopilot->review(), 'a checked proposal is not read again');
         $this->assertSame([$good->id], $autopilot->checked('ok')->pluck('id')->all());
 
         $this->assertSame(1, $autopilot->approveReady($this->admin)['applied']);
@@ -194,6 +198,34 @@ final class ContentAutopilotTest extends SiteTestCase
         // A changed proposal needs a new check.
         $bad->forceFill(['action' => array_merge($bad->action, ['proposed' => 'Panorama Çankaya diş kliniğidir.'])])->save();
         $this->assertSame([], $autopilot->checked('held')->pluck('id')->all());
+    }
+
+    public function test_when_claude_takes_all_the_nightly_repair_check_waits_for_claude_and_stores_its_verdicts(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        $location = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => 'active', 'name' => 'Panorama Çankaya']);
+        $row = fn (string $title, string $proposed): Suggestion => Suggestion::query()->create(['brand_id' => $this->brand->id, 'channel' => 'gbp', 'decision_key' => 'gbp.description',
+            'fingerprint' => hash('sha256', $title), 'material_hash' => hash('sha256', 'x'), 'title' => $title, 'reason' => 'Açıklama boş.', 'priority' => 2, 'status' => Suggestion::OPEN,
+            'evidence' => [], 'action_type' => 'gbp_description', 'target_id' => $location->id, 'action' => ['current' => '', 'proposed' => $proposed]]);
+        $good = $row('Açıklama ekle', 'Panorama Çankaya, Ankara Çankaya’da implant ve zirkonyum kaplama tedavileri sunan bir diş kliniğidir.');
+        $bad = $row('Açıklama ekle 2', 'Türkiye’nin en iyi kliniği.');
+        RepairReviewAgent::fake()->preventStrayPrompts();
+
+        (new ReviewRepairRowsJob)->handle(app(RepairAutopilot::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::REPAIR_REVIEW, $task->operation);
+        $this->assertNull(data_get($good->fresh()->action, RepairAutopilot::KEY), 'unchecked while Claude works');
+        $this->assertSame(['checked' => 0, 'waiting' => 0], app(RepairAutopilot::class)->review(), 'outside the job no provider is used and nothing is checked');
+        RepairReviewAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['items' => [['id' => $good->id, 'verdict' => 'ok', 'reason' => 'Uygun.'],
+            ['id' => $bad->id, 'verdict' => 'wrong', 'reason' => 'Üstünlük iddiası.']]]));
+
+        $this->assertSame([$good->id], app(RepairAutopilot::class)->checked('ok')->pluck('id')->all());
+        $this->assertSame('Üstünlük iddiası.', app(RepairAutopilot::class)->checked('held')->sole()['review']['reason']);
+        $this->assertSame(1, AiTask::query()->count());
+        RepairReviewAgent::assertNeverPrompted();
     }
 
     public function test_the_strip_shows_what_passed_and_only_the_admin_click_queues_the_send(): void

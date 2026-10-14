@@ -3,6 +3,7 @@
 namespace App\Jobs\Site;
 
 use App\Models\DigitalAsset;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\Competitors\CompetitorRefresher;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,7 +11,10 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/** "Rakipleri güncelle" / monthly: SERP top-10 per approved cluster, domain classes, competitor pages for one site. */
+/**
+ * "Rakipleri güncelle" / monthly: SERP top-10 per approved cluster, domain classes, competitor pages for one site. The
+ * domain classes can wait for Claude (MCP): the job then runs again once Claude answered.
+ */
 final class RefreshCompetitorsJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
@@ -31,11 +35,22 @@ final class RefreshCompetitorsJob implements ShouldBeUnique, ShouldQueue
         return (string) $this->siteId;
     }
 
-    public function handle(CompetitorRefresher $refresher): void
+    public function handle(CompetitorRefresher $refresher, AiTaskQueue $tasks): void
     {
         $site = DigitalAsset::query()->with('brand.customer')->find($this->siteId);
-        $result = $site !== null ? $refresher->refresh($site) : ['status' => 'not_operational'];
-        Cache::put(CompetitorRefresher::statusKey($this->siteId), $result, now()->addDay());
+        if ($site === null) {
+            Cache::put(CompetitorRefresher::statusKey($this->siteId), ['status' => 'not_operational'], now()->addDay());
+
+            return;
+        }
+        $tasks->begin(new self($this->siteId), $site->brand_id !== null ? (int) $site->brand_id : null, 'Rakip sınıflandırma · '.$site->name);
+        try {
+            $result = $refresher->refresh($site);
+        } finally {
+            $tasks->settle();
+        }
+        // Waiting for Claude keeps the tab's "güncelleniyor…" until the answers come back.
+        Cache::put(CompetitorRefresher::statusKey($this->siteId), $result['status'] === 'queued' ? ['status' => 'running'] : $result, now()->addDay());
     }
 
     public function failed(?Throwable $exception): void

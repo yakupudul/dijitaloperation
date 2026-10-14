@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Ai\Agents\Insights\AlertCauseAgent;
+use App\Ai\Agents\Insights\TechnicalTasksAgent;
 use App\Enums\DigitalAssetStatus;
+use App\Models\AiTask;
 use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
@@ -10,6 +13,8 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Ai\Insights\AiInsightService;
+use App\Services\AiTasks\AiTaskQueue;
+use App\Support\Ai\AiRouteKeys;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,6 +52,37 @@ final class AiInsightsTest extends TestCase
             $this->assertNotFalse(json_encode($context), $kind);
         }
         $this->assertArrayHasKey('daily', $insights->definition('alerts.cause')->context($alert));
+    }
+
+    public function test_when_claude_takes_all_the_alert_cause_and_developer_list_wait_for_claude_and_are_archived(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        AlertCauseAgent::fake()->preventStrayPrompts();
+        TechnicalTasksAgent::fake()->preventStrayPrompts();
+        $insights = app(AiInsightService::class);
+        $cases = [
+            'alerts.cause' => [$this->alert(), AiRouteKeys::INSIGHT_ALERT_CAUSE, 'likely'],
+            'website.technical_tasks' => [$this->site, AiRouteKeys::INSIGHT_TECHNICAL_TASKS, 'high'],
+        ];
+
+        foreach ($cases as $kind => [$subject, $operation, $tag]) {
+            $insights->queue($kind, $subject);
+
+            $task = AiTask::query()->where('operation', $operation)->sole();
+            $this->assertStringStartsWith('INPUT_JSON', $task->input, $kind);
+            $this->assertSame('running', $insights->state($kind, (int) $subject->getKey()), $kind.' keeps running while Claude works');
+            $this->assertNull($insights->view($kind, $subject)['production'], $kind);
+
+            $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['summary' => 'Özet '.$kind, 'items' => [['title' => 'Madde', 'detail' => 'Ayrıntı', 'tag' => $tag]]]));
+
+            $production = $insights->view($kind, $subject)['production'];
+            $this->assertNotNull($production, $kind);
+            $this->assertSame(['Özet '.$kind, 'Madde', $tag, AiTaskQueue::PROVIDER], [$production->content['summary'], $production->content['items'][0]['title'],
+                $production->content['items'][0]['tag'], $production->provider]);
+            $this->assertNull($insights->state($kind, (int) $subject->getKey()), $kind);
+        }
+        AlertCauseAgent::assertNeverPrompted();
+        TechnicalTasksAgent::assertNeverPrompted();
     }
 
     private function alert(): AssetAlert

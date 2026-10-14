@@ -2,12 +2,13 @@
 
 namespace App\Jobs\Brand;
 
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandChief;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-/** Şef's weekly plan, on the background queue (Monday schedule or "Planı yenile"). */
+/** Şef's weekly plan, on the background queue (Monday schedule or "Planı yenile"); can wait for Claude (the job then runs again). */
 final class RunBrandChiefJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
@@ -23,8 +24,13 @@ final class RunBrandChiefJob implements ShouldBeUnique, ShouldQueue
         $this->onQueue((string) config('queue.background_queue', 'default'));
     }
 
-    public function handle(BrandChief $chief): void
+    public function handle(BrandChief $chief, AiTaskQueue $tasks): void
     {
-        $chief->run($this->notify);
+        $tasks->begin(new self($this->notify), null, 'Şef haftalık planı · '.BrandChief::weekStart()->format('d.m.Y'));
+        try {
+            $chief->run($this->notify);
+        } finally {
+            $tasks->settle();
+        }
     }
 }

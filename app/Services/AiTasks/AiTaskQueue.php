@@ -76,6 +76,16 @@ final class AiTaskQueue
         AiRouteKeys::META_CAMPAIGN_SERVICES,
         AiRouteKeys::META_STRATEGY_PLAN,
         AiRouteKeys::SITE_SEO_FIELDS_BATCH,
+        AiRouteKeys::BACKLINKS_SOURCES,
+        AiRouteKeys::BRAND_CARE,
+        AiRouteKeys::BRAND_CHIEF,
+        AiRouteKeys::BRAND_DATA_REVIEW,
+        AiRouteKeys::COMPETITORS_ANALYZE,
+        AiRouteKeys::COMPETITORS_CLASSIFY,
+        AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,
+        AiRouteKeys::INSIGHT_ALERT_CAUSE,
+        AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
+        AiRouteKeys::REPAIR_REVIEW,
     ];
 
     /**

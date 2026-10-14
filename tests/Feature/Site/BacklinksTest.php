@@ -4,15 +4,20 @@ namespace Tests\Feature\Site;
 
 use App\Ai\Agents\Site\BacklinkSourcesAgent;
 use App\Enums\CustomerStatus;
+use App\Jobs\Site\ProposeBacklinkSourcesJob;
 use App\Livewire\Operator\Website\V2\BacklinksTab;
+use App\Models\AiTask;
 use App\Models\Backlink;
 use App\Models\BacklinkSource;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\Backlinks\BacklinkImporter;
 use App\Services\Site\Backlinks\BacklinkSourceProposer;
 use App\Services\Site\Backlinks\BacklinkVerifier;
+use App\Support\Ai\AiRouteKeys;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -98,6 +103,29 @@ final class BacklinksTest extends TestCase
             'ilan.example' => ['teyit', null, 'yok', 'ai'],
             'haberler.example' => ['teyit', null, 'yok', 'ai'],
         ], $fees);
+    }
+
+    public function test_when_claude_takes_all_potential_sources_wait_for_claude_and_the_tab_keeps_running(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        BacklinkSourcesAgent::fake()->preventStrayPrompts();
+
+        (new ProposeBacklinkSourcesJob($this->brand->id))->handle(app(BacklinkSourceProposer::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([AiRouteKeys::BACKLINKS_SOURCES, $this->brand->id], [$task->operation, (int) $task->brand_id]);
+        $this->assertSame(['status' => 'running', 'added' => 0], Cache::get(BacklinkSourceProposer::statusKey($this->brand->id)));
+        $this->assertSame(0, BacklinkSource::query()->count());
+        BacklinkSourcesAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['sources' => [
+            ['name' => 'Ankara Rehberi', 'url' => 'https://rehber.example/firma-ekle', 'kind' => 'dizin', 'fee' => 'ucretsiz', 'fee_evidence_url' => 'https://rehber.example/ucretsiz-kayit', 'reason' => 'Yerel rehber.'],
+            ['name' => 'Kanıtsız Ücretli', 'url' => 'https://ilan.example/ekle', 'kind' => 'dizin', 'fee' => 'ucretli', 'fee_evidence_url' => null, 'reason' => 'x'],
+        ], 'prompt_version' => BacklinkSourcesAgent::PROMPT_VERSION]));
+
+        $this->assertSame(['status' => 'ready', 'added' => 2], Cache::get(BacklinkSourceProposer::statusKey($this->brand->id)));
+        $this->assertSame(['rehber.example' => 'ucretsiz', 'ilan.example' => 'teyit'], BacklinkSource::query()->orderBy('id')->pluck('fee', 'domain')->all());
+        BacklinkSourcesAgent::assertNeverPrompted();
     }
 
     public function test_potential_sources_are_not_proposed_for_a_passive_customer(): void

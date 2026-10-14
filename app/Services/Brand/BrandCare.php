@@ -9,9 +9,11 @@ use App\Models\BrandMemory;
 use App\Models\Suggestion;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -22,6 +24,7 @@ use Throwable;
  * Output: a short note (kept on the brand), at most MAX_TASKS tasks that go into the ONE work list (`suggestions`,
  * decision `brand.care`, target the brand) and at most 3 questions for the operator. A task the operator dismissed or
  * did is never reopened; an open task the agent no longer proposes is closed. Nothing is written outside MoxDOP.
+ * The review can wait for Claude (MCP): status queued, RunBrandCareJob runs again with the answer.
  */
 final class BrandCare
 {
@@ -43,6 +46,7 @@ final class BrandCare
         private readonly BrandDossier $dossier,
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /** Queue one review (the tab's "Şimdi incele" or the weekly schedule). */
@@ -52,7 +56,7 @@ final class BrandCare
     }
 
     /**
-     * @return array{status: string, tasks?: int, changed?: list<string>, message?: string}
+     * @return array{status: string, tasks?: int, changed?: list<string>, message?: string} status: reviewed | queued | unchanged | blocked | no_ai | not_operational
      */
     public function run(Brand $brand, bool $force = false): array
     {
@@ -79,11 +83,6 @@ final class BrandCare
 
             return ['status' => 'unchanged', 'changed' => []];
         }
-        $route = $this->routes->resolve(BrandCareAgent::OPERATION);
-        if ($route->isEmpty()) {
-            return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
-        }
-
         $mine = $this->mine($brand);
         $data = [
             'dossier' => $file['markdown'],
@@ -95,10 +94,24 @@ final class BrandCare
             'open_titles' => Suggestion::query()->where('brand_id', $brand->id)->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::RECHECK])
                 ->where('decision_key', '!=', self::DECISION)->orderBy('priority')->orderByDesc('id')->limit(30)->pluck('title')->all(),
         ];
-        $this->runtime->prepare(array_keys($route->providerModels));
         $agent = new BrandCareAgent;
-        $raw = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-            provider: $route->providerModels, timeout: 180)->toArray();
+        // The file can move while Claude reads it: the call is found again by its slot.
+        $raw = $this->tasks->delegatedCall($agent, $data, 'care');
+        if ($raw === 'queued') {
+            return ['status' => 'queued'];
+        }
+        if ($raw === 'error') {
+            throw new RuntimeException('Claude bu incelemeyi yapamadı; tekrar deneyin.');
+        }
+        if ($raw === null) {
+            $route = $this->routes->resolve(BrandCareAgent::OPERATION);
+            if ($route->isEmpty()) {
+                return ['status' => 'no_ai', 'message' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.'];
+            }
+            $this->runtime->prepare(array_keys($route->providerModels));
+            $raw = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                provider: $route->providerModels, timeout: 180)->toArray();
+        }
 
         $tasks = $this->validTasks($raw, $data['open_titles'], $mine);
         $this->syncTasks($brand, $tasks, $mine, $agent->promptVersionId());

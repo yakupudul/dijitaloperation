@@ -17,6 +17,9 @@ use Illuminate\Support\Collection;
  *
  * Never in it: Google Ads and Meta, 301 merges, page text, high-risk and manual rows, Business Profile opening hours.
  * Başlık only on pages Google shows (impressions), açıklama only on pages that bring clicks; SEO plugins fill the rest.
+ *
+ * The check can wait for Claude (MCP): a batch Claude has not answered stays unchecked, the other batches are still
+ * asked, and ReviewRepairRowsJob runs again once Claude answered them all.
  */
 final class RepairAutopilot
 {
@@ -61,7 +64,7 @@ final class RepairAutopilot
     /**
      * Reads the next unchecked rows (at most PER_RUN).
      *
-     * @return array{checked: int}
+     * @return array{checked: int, waiting: int} waiting: rows whose batch waits for Claude (MCP)
      */
     public function review(int $limit = self::PER_RUN): array
     {
@@ -69,28 +72,41 @@ final class RepairAutopilot
         $reviews = Suggestion::query()->whereIn('id', $rows->pluck('id'))->get(['id', 'action'])->mapWithKeys(fn (Suggestion $s): array => [(int) $s->id => data_get($s->action, self::KEY)]);
         $todo = $rows->filter(fn (array $r): bool => ($reviews[$r['id']]['fingerprint'] ?? null) !== self::fingerprint($r))->take($limit);
         $checked = 0;
+        $waiting = 0;
         foreach ($todo->groupBy('brand_id') as $brandId => $brandRows) {
             $brand = Brand::query()->with('sectorCategory')->find((int) $brandId);
             if ($brand === null) {
                 continue;
             }
             foreach ($brandRows->chunk(self::BATCH) as $batch) {
-                $checked += $this->check($brand, $batch->values());
+                $done = $this->check($brand, $batch->values());
+                if ($done === null) {
+                    $waiting += $batch->count();
+
+                    continue;
+                }
+                $checked += $done;
             }
         }
 
-        return ['checked' => $checked];
+        return ['checked' => $checked, 'waiting' => $waiting];
     }
 
-    /** @param  Collection<int, array<string, mixed>>  $rows */
-    private function check(Brand $brand, Collection $rows): int
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return int|null rows checked; null while Claude (MCP) has not answered the batch
+     */
+    private function check(Brand $brand, Collection $rows): ?int
     {
         $result = app(SiteAi::class)->run(new RepairReviewAgent, [
             'brand' => ['name' => $brand->name, 'sector' => $brand->sectorCategory?->name],
             'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
             'rows' => $rows->map(fn (array $r): array => ['id' => (int) $r['id'], 'kind' => RepairDesk::KINDS[$r['kind']] ?? $r['kind'], 'url' => (string) ($r['target'] ?? ''),
                 'title' => (string) ($r['page_title'] ?? ''), 'current' => (array) ($r['before'] ?? []), 'proposed' => (array) ($r['after'] ?? []), 'why' => trim($r['title'].' · '.$r['reason'], ' ·')])->all(),
-        ], 240);
+        ], 240, self::slot((int) $brand->id, $rows));
+        if ($result['status'] === 'queued') {
+            return null;
+        }
         if ($result['status'] !== 'ready') {
             return 0; // no verdict: the next night tries again
         }
@@ -108,6 +124,17 @@ final class RepairAutopilot
         }
 
         return $rows->count();
+    }
+
+    /**
+     * The batch's stable name while it waits for Claude: its rows and what they propose (a row's live numbers in "why"
+     * may move; a changed proposal is a new batch).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     */
+    private static function slot(int $brandId, Collection $rows): string
+    {
+        return 'repair-'.$brandId.'-'.md5($rows->map(fn (array $r): string => $r['id'].':'.self::fingerprint($r))->sort()->implode(','));
     }
 
     /**

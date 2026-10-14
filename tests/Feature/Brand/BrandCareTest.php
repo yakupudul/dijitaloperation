@@ -9,6 +9,7 @@ use App\Jobs\Brand\RunBrandCareJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Operator\Workspace\BrandDossierTab;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\ChiefPlan;
 use App\Models\Customer;
@@ -16,10 +17,12 @@ use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandChief;
 use App\Services\Brand\BrandDossier;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -165,6 +168,51 @@ final class BrandCareTest extends TestCase
         Livewire::test(Dashboard::class)->assertSeeHtml('data-chief-plan')->assertSee('Harita haftası.')->assertSee('Bdent görevi')
             ->call('refreshPlan')->assertDispatched('operator-notice');
         Queue::assertPushed(RunBrandChiefJob::class, fn (RunBrandChiefJob $job): bool => ! $job->notify);
+    }
+
+    public function test_when_claude_takes_all_the_care_review_waits_for_claude_and_lands_like_a_provider_answer(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        BrandCareAgent::fake()->preventStrayPrompts();
+
+        (new RunBrandCareJob($this->brand->id, true))->handle(app(BrandCare::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame([AiRouteKeys::BRAND_CARE, $this->brand->id], [$task->operation, (int) $task->brand_id]);
+        $this->assertArrayNotHasKey('reviewed_at', BrandCare::stored($this->brand) ?? [], 'nothing stored while Claude works');
+        BrandCareAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['summary' => 'Hizmet sayfaları eksik.',
+            'tasks' => [['title' => 'İmplant sayfası oluştur', 'why' => 'Hizmetin sayfası yok.', 'channel' => 'search', 'priority' => 1]],
+            'questions' => ['Kadıköy şubesi hâlâ açık mı?']]));
+
+        $this->assertSame('Hizmet sayfaları eksik.', BrandCare::stored($this->brand)['summary']);
+        $this->assertSame(['Kadıköy şubesi hâlâ açık mı?'], BrandCare::stored($this->brand)['questions']);
+        $this->assertSame('İmplant sayfası oluştur', Suggestion::query()->where('decision_key', BrandCare::DECISION)->sole()->title);
+        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
+        BrandCareAgent::assertNeverPrompted();
+    }
+
+    public function test_when_claude_takes_all_the_chief_plan_waits_for_claude_and_lands_like_a_provider_answer(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        BrandChiefAgent::fake()->preventStrayPrompts();
+
+        (new RunBrandChiefJob)->handle(app(BrandChief::class), app(AiTaskQueue::class));
+
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::BRAND_CHIEF, $task->operation);
+        $this->assertSame(0, ChiefPlan::query()->count(), 'no plan while Claude works');
+        $this->assertSame(0, UserNotification::query()->count());
+        BrandChiefAgent::assertNeverPrompted();
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['headline' => 'Harita haftası.',
+            'plan' => [['brand_id' => $this->brand->id, 'task' => 'Görev 1', 'why' => 'a']]]));
+
+        $plan = ChiefPlan::query()->sole();
+        $this->assertSame(['ready', 'Harita haftası.', ['Adadent']], [$plan->status, $plan->headline, array_column($plan->plan, 'brand')]);
+        $this->assertSame('Şef: bu haftanın planı hazır (1 iş)', UserNotification::query()->sole()->presentation['title']);
+        BrandChiefAgent::assertNeverPrompted();
     }
 
     /** An active brand with a website and one service (no blocking gap). */
