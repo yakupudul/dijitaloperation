@@ -4141,6 +4141,18 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   withdraws the command). The connection switches to `rest_transport = pull` by itself when every way in is refused
   and the site has asked within a day; `moxdop:wordpress:pull {site} [--off]` switches it by hand. "Bağlantıyı
   doğrula" on a pull site shows the site's last ask instead of sending a request.
+- Connector 1.16.0 (2026-10-14, coded + PHPUnit; real UAT on Avrupadent pending the plugin update): the 1.15.2 site
+  asked only through WP-Cron, which a page cache rarely lets run, so approved writes timed out ("90 saniyede gelip
+  almadı") and the page said "hiç sormadı · eklenti 1.13.0 kurulu mu" while showing 1.15.2. Now: while work comes this
+  way (or WP-Cron has not asked for 30 min) pages carry a small beacon (visitor browser → admin-ajax POST, at most once
+  a minute per browser and per site) that starts the ask after the answer; each ask reports trigger, WP-Cron state and
+  the site's last failure. MoxDOP keeps the last ask in `website_connector_delivery.pull_seen_at` (the cache lost it),
+  the reported version on the connection, and why it refused an identified ask (clock skew, signature, replay,
+  malformed; an empty answer body is no longer refused). The connector page shows one line (last ask and how, refusal,
+  waiting work, what to do); "Bağlantıyı doğrula" queues the status read (version, site building) for the site's next
+  ask; a pull call from a screen or MCP waits at most 45 s (was cut by the 60 s gateway). `list-sites` adds a `pull`
+  block. **Operator after deploy:** Avrupadent eklentisini 1.16.0'a güncelle, sonra masaya dönen site düzeltmelerini
+  yeniden onayla.
 - Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
   `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 

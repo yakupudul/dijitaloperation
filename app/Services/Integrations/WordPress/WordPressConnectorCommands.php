@@ -30,6 +30,15 @@ final class WordPressConnectorCommands
     /** A command no site took within this many seconds is failed (the caller stopped waiting long ago). */
     public const int PICKUP_SECONDS = 1800;
 
+    /**
+     * Requests that stay waiting for the site after the caller stopped waiting, with how long (seconds from creation).
+     * A connector update a site that rarely asks would otherwise never get; its package link lives 15 minutes.
+     */
+    public const array LATE_PICKUP_SECONDS = ['/moxdop/v1/self-update' => 840];
+
+    /** A call made inside a web request (screen, MCP) waits at most this long for the site. */
+    public const int WEB_WAIT_SECONDS = 45;
+
     /** @param  Closure(): void|null  $tick  runs between two checks for the answer (sleeps by default) */
     public function __construct(private ?Closure $tick = null) {}
 
@@ -41,13 +50,59 @@ final class WordPressConnectorCommands
 
     /**
      * When the site last asked. Kept outside the connection's config, which long-running jobs save back from their own
-     * copy (a stored "last asked" there was overwritten moments after the site asked).
+     * copy; since 1.16.0 in the delivery row (the cache alone lost it and the page said "never asked").
      */
     public static function seenAt(CoreConnection $connection): ?CarbonImmutable
     {
-        $seen = Cache::get(self::seenKey($connection));
+        $stored = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->value('pull_seen_at');
+        $cached = Cache::get(self::seenKey($connection));
+        $times = array_filter([
+            $stored !== null ? CarbonImmutable::parse((string) $stored) : null,
+            is_string($cached) ? CarbonImmutable::parse($cached) : null,
+        ]);
 
-        return is_string($seen) ? CarbonImmutable::parse($seen) : null;
+        return $times === [] ? null : max($times);
+    }
+
+    /**
+     * What the operator needs to see about a site that fetches its work itself: when it last asked, how it asked
+     * (wp-cron or a page view), what it reported, why MoxDOP last refused an ask and the work waiting for it.
+     *
+     * @return array{transport: string, seen_at: ?string, report: array<string, mixed>, refused_at: ?string, refusal: ?string, pending: int, sent: int, failed_last_hour: int}
+     */
+    public static function state(CoreConnection $connection): array
+    {
+        $row = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first(['pull_report', 'pull_refused_at', 'pull_refusal']);
+        $counts = DB::table('website_connector_commands')->where('connection_id', $connection->id)
+            ->selectRaw("sum(case when status = 'pending' then 1 else 0 end) as pending, sum(case when status = 'sent' then 1 else 0 end) as sent")
+            ->selectRaw("sum(case when status = 'failed' and finished_at >= ? then 1 else 0 end) as failed", [now()->subHour()])->first();
+        $report = $row?->pull_report !== null ? json_decode((string) $row->pull_report, true) : null;
+
+        return [
+            'transport' => (string) data_get($connection->config, 'rest_transport', 'path'),
+            'seen_at' => self::seenAt($connection)?->toIso8601String(),
+            'report' => is_array($report) ? $report : [],
+            'refused_at' => $row?->pull_refused_at !== null ? CarbonImmutable::parse((string) $row->pull_refused_at)->toIso8601String() : null,
+            'refusal' => $row?->pull_refusal,
+            'pending' => (int) ($counts->pending ?? 0),
+            'sent' => (int) ($counts->sent ?? 0),
+            'failed_last_hour' => (int) ($counts->failed ?? 0),
+        ];
+    }
+
+    /** "son soruşu 3 dakika önce" / "hiç sormadı", for messages. */
+    public static function lastAskText(CoreConnection $connection): string
+    {
+        $seen = self::seenAt($connection);
+
+        return $seen !== null ? 'site en son '.$seen->diffForHumans().' sordu' : 'site henüz hiç sormadı';
+    }
+
+    /** MoxDOP refused an ask of an identified site (clock, signature, replay, malformed): kept so the page can say why. */
+    public static function refused(CoreConnection $connection, string $reason): void
+    {
+        DB::table('website_connector_delivery')->updateOrInsert(['connection_id' => $connection->id],
+            ['pull_refused_at' => now(), 'pull_refusal' => mb_substr($reason, 0, 200)]);
     }
 
     /** Sets how MoxDOP reaches the site, in the stored config itself (not from a possibly old copy) and on this copy. */
@@ -76,6 +131,10 @@ final class WordPressConnectorCommands
             'query' => $query === [] ? null : json_encode($query, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'body' => $payload === '' ? null : $payload, 'status' => 'pending', 'created_at' => now(),
         ]);
+        if (! app()->runningInConsole()) {
+            // A screen or MCP call stops waiting before the web server's 60 s gateway timeout (it answered 504 before).
+            $waitSeconds = min($waitSeconds, self::WEB_WAIT_SECONDS);
+        }
         $deadline = microtime(true) + max(1, $waitSeconds);
         do {
             $row = DB::table('website_connector_commands')->find($id);
@@ -88,12 +147,16 @@ final class WordPressConnectorCommands
             }
             ($this->tick ?? fn () => usleep(500_000))();
         } while (microtime(true) < $deadline);
+        if (isset(self::LATE_PICKUP_SECONDS[$route])) {
+            throw new RuntimeException('Site bu isteği henüz almadı ('.self::lastAskText($connection).'); '
+                .intdiv(self::LATE_PICKUP_SECONDS[$route], 60).' dakika boyunca ilk soruşunda alacak. Sayfadaki eklenti sürümü değişince tamamdır.');
+        }
         // Not taken yet: withdrawn so the site never runs it after the caller gave up.
         $withdrawn = DB::table('website_connector_commands')->where('id', $id)->where('status', 'pending')
             ->update(['status' => 'failed', 'error' => 'zaman aşımı', 'finished_at' => now()]);
 
         throw new RuntimeException($withdrawn > 0
-            ? 'Site işleri MoxDOP\'tan kendisi alıyor ama '.$waitSeconds.' saniyede gelip almadı. Sitede WordPress zamanlanmış görevleri (wp-cron) ziyaretle çalışır; birkaç dakika sonra tekrar dene.'
+            ? 'Site işleri MoxDOP\'tan kendisi alıyor ama '.$waitSeconds.' saniyede gelip almadı ('.self::lastAskText($connection).'). Eklenti 1.16.0+ sitede bir ziyaret olunca da sorar; birkaç dakika sonra tekrar dene.'
             : 'Site işi aldı ama cevabı '.$waitSeconds.' saniyede gelmedi; sonucu sitede kontrol et.');
     }
 
@@ -101,11 +164,17 @@ final class WordPressConnectorCommands
      * One exchange with the site: stores the answers it brought and hands out the next commands, freshly signed.
      *
      * @param  list<array{id: int, status: int, body: string}>  $results
+     * @param  array<string, mixed>|null  $report  what the plugin says about itself (1.16.0+): version, trigger, cron, last failure
      * @return list<array<string, mixed>>
      */
-    public function exchange(CoreConnection $connection, string $clientId, string $secret, array $results, bool $take): array
+    public function exchange(CoreConnection $connection, string $clientId, string $secret, array $results, bool $take, ?array $report = null): array
     {
         Cache::put(self::seenKey($connection), now()->toIso8601String(), now()->addDays(30));
+        if ($report !== null) {
+            // Once per ask (the held re-checks of the same ask pass null).
+            DB::table('website_connector_delivery')->updateOrInsert(['connection_id' => $connection->id], ['pull_seen_at' => now()]
+                + ($report !== [] ? ['pull_report' => json_encode($report, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)] : []));
+        }
         foreach ($results as $result) {
             DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('id', (int) $result['id'])->where('status', 'sent')
                 ->update(['status' => 'done', 'response_status' => (int) $result['status'], 'response_body' => (string) $result['body'], 'finished_at' => now()]);
@@ -114,6 +183,10 @@ final class WordPressConnectorCommands
             ->where('sent_at', '<', now()->subSeconds(self::ANSWER_SECONDS))->update(['status' => 'failed', 'error' => 'site cevap vermedi', 'finished_at' => now()]);
         DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('status', 'pending')
             ->where('created_at', '<', now()->subSeconds(self::PICKUP_SECONDS))->update(['status' => 'failed', 'error' => 'site almadı', 'finished_at' => now()]);
+        foreach (self::LATE_PICKUP_SECONDS as $lateRoute => $seconds) {
+            DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('status', 'pending')->where('route', $lateRoute)
+                ->where('created_at', '<', now()->subSeconds($seconds))->update(['status' => 'failed', 'error' => 'site almadı', 'finished_at' => now()]);
+        }
         DB::table('website_connector_commands')->where('finished_at', '<', now()->subDays(2))->delete();
         if (! $take) {
             return [];

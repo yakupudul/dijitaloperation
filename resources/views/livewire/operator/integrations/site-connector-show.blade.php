@@ -60,6 +60,9 @@
                     <div><dt class="text-xs text-gray-400">Eklenti sürümü</dt><dd class="font-medium text-gray-800 dark:text-white">{{ data_get($connection?->config, 'plugin_version', '—') }}</dd></div>
                     <div><dt class="text-xs text-gray-400">Durum endpoint’i</dt><dd class="truncate font-mono text-xs text-gray-600 dark:text-gray-300">{{ data_get($connection?->config, 'status_url', '—') }}</dd></div>
                     <div><dt class="text-xs text-gray-400">Son bağlantı hatası</dt><dd class="text-xs text-gray-600 dark:text-gray-300">{{ $connection?->last_error ?: '—' }}</dd></div>
+                    @if ($pullSummary)
+                        <div class="sm:col-span-2"><dt class="text-xs text-gray-400">Site işleri kendisi alıyor</dt><dd class="text-xs text-gray-600 dark:text-gray-300">{{ $pullSummary }}</dd></div>
+                    @endif
                 </dl>
 
                 <div class="mt-5 flex flex-wrap gap-2">
@@ -75,7 +78,7 @@
                     <div class="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                         <p class="text-sm font-semibold text-gray-900 dark:text-white">Claude site kurulumu</p>
                         <p class="mt-1 max-w-2xl text-xs text-gray-500 dark:text-gray-400">Claude MCP üzerinden bu sitede ACF alan grubu ve CPT, sayfa, Elementor şablonu, görsel, menü ve temel ayarları kurar. <strong>Doğrudan</strong>: hemen uygulanır. <strong>Onaylı</strong>: aşağıdaki kayıtta senin onayını bekler. Her kurulum kayıttan geri alınabilir. Sitede eklentinin “Site building” ayarı da açık olmalı (eklenti {{ config('moxdop-wordpress.build_min_plugin_version') }}+). Tema ve eklenti dosyalarına dokunulmaz.</p>
-                        <p class="mt-1 text-xs {{ $pluginBuild ? 'text-emerald-600' : 'text-amber-600' }}">Eklentide: {{ $pluginBuild ? 'açık' : 'kapalı ya da eski sürüm (Bağlantıyı doğrula ile yenilenir)' }}</p>
+                        <p class="mt-1 text-xs {{ $pluginBuild ? 'text-emerald-600' : 'text-amber-600' }}">Eklentide: {{ $pluginBuild ? 'açık' : (version_compare((string) data_get($connection?->config, 'plugin_version', '0.0.0'), (string) config('moxdop-wordpress.build_min_plugin_version'), '>=') ? 'kapalı (WordPress › Ayarlar › MoxDOP Connector › “Site building” açılmalı)' : 'eski sürüm, eklentiyi güncelle') }}</p>
                         <div class="mt-3 inline-flex rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="group">
                             @foreach (['off' => 'Kapalı', 'direct' => 'Doğrudan', 'approval' => 'Onaylı'] as $value => $label)
                                 @php($active = ($buildMode ?? 'off') === $value)

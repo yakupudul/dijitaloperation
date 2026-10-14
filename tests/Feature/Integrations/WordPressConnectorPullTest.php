@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Integrations;
 
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\DigitalAsset;
@@ -10,6 +11,8 @@ use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use MoxDop\Website\Discovery\PublicUrlSafety;
@@ -113,6 +116,73 @@ final class WordPressConnectorPullTest extends TestCase
         $this->assertSame([], $this->ask([], true)['commands'], 'the withdrawn request never runs on the site');
     }
 
+    public function test_the_last_ask_is_kept_in_the_database_with_what_the_site_reports(): void
+    {
+        $this->ask([], true, ['plugin_version' => '1.16.0', 'site' => ['trigger' => 'visit', 'cron_disabled' => false, 'last_failure' => 'MoxDOP HTTP 504 döndü', 'last_failure_at' => '2026-10-14T06:50:00+00:00']]);
+        Cache::flush();
+
+        $connection = $this->connection->fresh();
+        $this->assertNotNull(WordPressConnectorCommands::seenAt($connection), 'the last ask survives a cache flush');
+        $state = WordPressConnectorCommands::state($connection);
+        $this->assertSame('visit', $state['report']['trigger']);
+        $this->assertSame('MoxDOP HTTP 504 döndü', $state['report']['last_failure']);
+        $this->assertSame('1.16.0', $connection->config['plugin_version'], 'the version the site reports on its ask is kept');
+    }
+
+    public function test_an_ask_from_a_site_with_a_wrong_clock_is_refused_with_the_reason_kept(): void
+    {
+        $body = (string) json_encode($this->payload([], true));
+        $headers = $this->headers($body, time() - 900);
+        $this->call('POST', '/api/connectors/wordpress/commands', [], [], [], $this->server($headers), $body)->assertStatus(401);
+
+        $state = WordPressConnectorCommands::state($this->connection->fresh());
+        $this->assertNull($state['seen_at']);
+        $this->assertStringContainsString('900 saniye geri', (string) $state['refusal']);
+    }
+
+    public function test_an_answer_with_an_empty_body_is_still_accepted(): void
+    {
+        WordPressConnectorCommands::setTransport($this->connection, 'pull');
+        $id = DB::table('website_connector_commands')->insertGetId(['connection_id' => $this->connection->id, 'method' => 'GET', 'route' => '/moxdop/v1/health', 'status' => 'pending', 'created_at' => now()]);
+        $this->assertSame($id, $this->ask([], true)['commands'][0]['id']);
+
+        $this->ask([['id' => $id, 'status' => 500, 'body' => '']], false);
+
+        $this->assertSame('done', DB::table('website_connector_commands')->where('id', $id)->value('status'));
+    }
+
+    public function test_the_connector_page_says_when_the_site_last_asked_instead_of_asking_for_1_13_0(): void
+    {
+        WordPressConnectorCommands::setTransport($this->connection, 'pull');
+        $connection = $this->connection->fresh();
+        $never = SiteConnectorShow::pullSummary($connection);
+        $this->assertStringContainsString('henüz hiç sormadı', $never);
+        $this->assertStringContainsString('1.16.0', $never, 'an older plugin is told to update to the version that also asks on visits');
+        $this->assertStringNotContainsString('1.13.0 kurulu mu', $never);
+
+        $this->ask([], true, ['plugin_version' => '1.16.0', 'site' => ['trigger' => 'visit']]);
+        $fresh = SiteConnectorShow::pullSummary($this->connection->fresh());
+        $this->assertStringContainsString('(bir ziyaretle)', $fresh);
+        $this->assertStringNotContainsString('güncelle', $fresh);
+    }
+
+    public function test_a_connector_update_the_site_did_not_take_in_time_stays_for_its_next_ask(): void
+    {
+        $this->siteAsks();
+        WordPressConnectorCommands::setTransport($this->connection, 'pull');
+        $this->app->instance(WordPressConnectorCommands::class, new WordPressConnectorCommands(fn () => usleep(1000)));
+        config(['moxdop-wordpress.pull_wait_seconds' => 1]);
+
+        try {
+            app(WordPressConnectorClient::class)->selfUpdate($this->connection->fresh(), '1.16.0', 'https://app.example/pkg.zip', str_repeat('a', 64));
+            $this->fail('expected the caller to stop waiting');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('ilk soruşunda alacak', $e->getMessage());
+        }
+
+        $this->assertSame('/moxdop/v1/self-update', $this->ask([], true)['commands'][0]['route'], 'the site still gets the update on its next ask');
+    }
+
     /** One ask of the 1.13.0 plugin: runs every command it gets (verifying MoxDOP's signature) and brings the answers back. */
     private function siteAsks(): void
     {
@@ -134,10 +204,13 @@ final class WordPressConnectorPullTest extends TestCase
         }
     }
 
-    /** @return array{commands: list<array<string, mixed>>, pull: bool} */
-    private function ask(array $results, bool $take): array
+    /**
+     * @param  array<string, mixed>  $extra  fields a newer plugin adds (plugin_version, site)
+     * @return array{commands: list<array<string, mixed>>, pull: bool}
+     */
+    private function ask(array $results, bool $take, array $extra = []): array
     {
-        $body = (string) json_encode($this->payload($results, $take));
+        $body = (string) json_encode(array_merge($this->payload($results, $take), $extra));
         $response = $this->call('POST', '/api/connectors/wordpress/commands', [], [], [], $this->server($this->headers($body)), $body)->assertOk();
         $data = $response->json('data');
         $expected = hash_hmac('sha256', implode("\n", [(string) $response->json('meta.server_time'), $response->json('meta.request_nonce'),
@@ -154,9 +227,9 @@ final class WordPressConnectorPullTest extends TestCase
     }
 
     /** @return array<string, string> */
-    private function headers(string $body): array
+    private function headers(string $body, ?int $time = null): array
     {
-        $timestamp = (string) time();
+        $timestamp = (string) ($time ?? time());
         $nonce = (string) Str::uuid();
 
         return ['X-MoxDOP-Installation' => self::INSTALLATION, 'X-MoxDOP-Client' => 'client-1', 'X-MoxDOP-Timestamp' => $timestamp, 'X-MoxDOP-Nonce' => $nonce,
