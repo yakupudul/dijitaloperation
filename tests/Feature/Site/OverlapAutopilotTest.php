@@ -6,6 +6,7 @@ use App\Ai\Agents\Site\ApplyChangeAgent;
 use App\Jobs\Site\PrepareOverlapRewriteJob;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\ClusterOverlapsList;
+use App\Mcp\Tools\OverlapAct;
 use App\Models\BrandClusterPage;
 use App\Models\Page;
 use App\Models\Suggestion;
@@ -89,6 +90,14 @@ final class OverlapAutopilotTest extends SiteTestCase
             'internal_links' => [['anchor' => 'implant tedavisi', 'url' => 'https://panorama.com.tr/implant/']], 'note' => 'Şubeye odaklandı.']);
         $this->assertStringContainsString('kontrollerden geçti', $done[$this->overlap->id]);
         $this->assertSame(['ready', 'claude_mcp'], [data_get($this->overlap->fresh()->action, 'rewrite.state'), data_get($this->overlap->fresh()->action, 'proposal.written_by')]);
+    }
+
+    public function test_mcp_overlap_act_decides_in_the_admins_name(): void
+    {
+        MoxdopServer::tool(OverlapAct::class, ['ids' => [$this->overlap->id], 'decision' => 'keep'])->assertOk()->assertSee('Ayrı kalsın olarak kapatıldı.');
+        $this->assertSame([Suggestion::DISMISSED, $this->admin->id], [$this->overlap->fresh()->status, (int) $this->overlap->fresh()->resolved_by]);
+        MoxdopServer::tool(OverlapAct::class, ['ids' => [1, 2], 'decision' => 'submit_rewrite'])->assertHasErrors();
+        MoxdopServer::tool(OverlapAct::class, ['ids' => [1], 'decision' => 'delete'])->assertHasErrors();
     }
 
     public function test_keep_closes_a_wrong_proposal(): void

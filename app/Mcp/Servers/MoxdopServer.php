@@ -19,6 +19,7 @@ use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ListStrategies;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MetaPerformance;
+use App\Mcp\Tools\OverlapAct;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\RequestArticle;
@@ -142,6 +143,7 @@ class MoxdopServer extends Server
         SystemHealth::class,
         GbpEvidence::class,
         ClusterOverlapsList::class,
+        OverlapAct::class,
         ScreenChecks::class,
         ListChanges::class,
         ProposeChange::class,
