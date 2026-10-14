@@ -13,11 +13,19 @@ use Throwable;
 
 /**
  * One İşletme Profili AI operation (services compare, description, post from page, category / service plan) on an
- * operator click. The plan can be delegated to Claude: the job then runs again once Claude answered.
+ * operator click. Each can be delegated to Claude: the job then runs again once Claude answered.
  */
 final class RunGbpAssistantJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
+
+    /** Turkish subject of the Claude task, by operation. */
+    private const array SUBJECTS = [
+        GbpAssistant::OP_SERVICES => 'İşletme Profili hizmet karşılaştırması',
+        GbpAssistant::OP_DESCRIPTION => 'İşletme Profili açıklama önerisi',
+        GbpAssistant::OP_POST => 'İşletme Profili sayfadan gönderi',
+        GbpAssistant::OP_PROFILE => 'İşletme Profili kategori ve hizmetler',
+    ];
 
     public int $timeout = 300;
 
@@ -35,14 +43,9 @@ final class RunGbpAssistantJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(GbpAssistant $assistant, AiTaskQueue $tasks): void
     {
-        if ($this->operation !== GbpAssistant::OP_PROFILE) {
-            $assistant->run($this->assetId, $this->operation, $this->params);
-
-            return;
-        }
         $asset = DigitalAsset::query()->with('brand')->find($this->assetId);
         $tasks->begin(new self($this->assetId, $this->operation, $this->params), $asset?->brand_id !== null ? (int) $asset->brand_id : null,
-            'İşletme Profili kategori ve hizmetler · '.($asset?->brand?->name ?? $this->assetId));
+            (self::SUBJECTS[$this->operation] ?? 'İşletme Profili').' · '.($asset?->brand?->name ?? $this->assetId));
         try {
             $assistant->run($this->assetId, $this->operation, $this->params);
         } finally {

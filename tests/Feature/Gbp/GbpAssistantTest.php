@@ -8,6 +8,7 @@ use App\Ai\Agents\GbpServicesCompareAgent;
 use App\Enums\CustomerStatus;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Models\AiProduction;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandMemory;
 use App\Models\BrandOffering;
@@ -23,8 +24,10 @@ use App\Models\Run;
 use App\Models\ServiceCategory;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Gbp\GbpAssistant;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -222,5 +225,55 @@ final class GbpAssistantTest extends TestCase
 
         GbpDescriptionAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Çankaya, Ankara') && ! str_contains((string) $prompt->prompt, 'Çankaya şubesi'));
         $this->assertSame(0, Suggestion::query()->where('action_type', 'gbp_description')->count());
+    }
+
+    public function test_when_claude_takes_all_the_three_operations_wait_for_claude_and_land_like_a_provider_answer(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        GbpServicesCompareAgent::fake()->preventStrayPrompts();
+        GbpDescriptionAgent::fake()->preventStrayPrompts();
+        GbpPostFromPageAgent::fake()->preventStrayPrompts();
+
+        $this->page('todo')->call('compareServices')->call('proposeDescription')->call('setTab', 'posts')
+            ->set('sharePageId', (string) $this->blog->id)->call('sharePage');
+
+        GbpServicesCompareAgent::assertNeverPrompted();
+        GbpDescriptionAgent::assertNeverPrompted();
+        GbpPostFromPageAgent::assertNeverPrompted();
+        $tasks = AiTask::query()->orderBy('id')->get()->keyBy('operation');
+        $this->assertSame([AiRouteKeys::GBP_SERVICES_COMPARE, AiRouteKeys::GBP_DESCRIPTION, AiRouteKeys::GBP_POST_FROM_PAGE], $tasks->keys()->all());
+        $this->assertSame(AiTask::PENDING, $tasks[AiRouteKeys::GBP_POST_FROM_PAGE]->status);
+        $this->assertStringContainsString('sıcak içeceklerden', (string) $tasks[AiRouteKeys::GBP_POST_FROM_PAGE]->input);
+        foreach ([GbpAssistant::OP_SERVICES, GbpAssistant::OP_DESCRIPTION, GbpAssistant::OP_POST] as $operation) {
+            $this->assertSame('running', app(GbpAssistant::class)->state($this->asset->id, $operation)['status'], $operation.' waits for Claude');
+        }
+        $this->assertSame(0, Suggestion::query()->whereIn('action_type', ['gbp_add_service', 'gbp_description'])->count());
+
+        $queue = app(AiTaskQueue::class);
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::GBP_SERVICES_COMPARE], ['missing_services' => [['name' => 'Zirkonyum Kaplama', 'reason' => 'Ana hizmet profilde yok.']],
+            'category_notes' => [['category' => 'diş kliniği', 'note' => 'Birincil kategori ana hizmetlerle uyumlu.']]]));
+        $sentence = 'Panorama Ankara, Çankaya şubesinde implant ve zirkonyum kaplama tedavilerinde deneyimli bir ekiple hizmet verir. ';
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::GBP_DESCRIPTION], ['description' => str_repeat($sentence, 2), 'reason' => 'Ana hizmetler eklendi.']));
+        $this->assertSame([], $queue->submit($tasks[AiRouteKeys::GBP_POST_FROM_PAGE], ['text' => 'İmplant sonrası ilk günler iyileşme için önemlidir. Sıcak içeceklerden kaçının ve kontrollerinizi aksatmayın.', 'action_type' => 'LEARN_MORE']));
+
+        GbpServicesCompareAgent::assertNeverPrompted();
+        $this->assertSame(['Hizmet ekle: Zirkonyum Kaplama'], Suggestion::query()->where('action_type', 'gbp_add_service')->pluck('title')->all());
+        $this->assertStringStartsWith('Panorama Ankara, Çankaya', (string) Suggestion::query()->where('action_type', 'gbp_description')->sole()->action['proposed']);
+        $this->assertSame('https://panorama.test/implant-sonrasi-bakim/', AiProduction::query()->where('kind', GbpAssistant::POST_KIND)->sole()->content['url']);
+        $this->assertSame('Gönderi taslağı hazır.', app(GbpAssistant::class)->state($this->asset->id, GbpAssistant::OP_POST)['message']);
+        $this->assertSame([AiTask::CONSUMED], AiTask::query()->distinct()->pluck('status')->all());
+    }
+
+    public function test_claude_failing_an_operation_shows_a_failed_state(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        GbpDescriptionAgent::fake()->preventStrayPrompts();
+
+        $this->page('todo')->call('proposeDescription');
+        app(AiTaskQueue::class)->fail(AiTask::query()->sole(), 'Veri yetersiz.');
+
+        $this->assertSame(['status' => 'failed', 'message' => 'Claude bu öneriyi hazırlayamadı; tekrar deneyin.'],
+            array_intersect_key(app(GbpAssistant::class)->state($this->asset->id, GbpAssistant::OP_DESCRIPTION), ['status' => 1, 'message' => 1]));
+        GbpDescriptionAgent::assertNeverPrompted();
     }
 }

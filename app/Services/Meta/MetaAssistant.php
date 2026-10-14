@@ -12,6 +12,7 @@ use App\Models\MetaLead;
 use App\Models\Page;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
 use App\Services\SeoTasks\SeoText;
@@ -28,6 +29,7 @@ use Throwable;
  * Every item is validated against the data pack before it is stored as a suggestion: services / campaigns / ad sets /
  * targets must exist, every number (except small counts ≤ 10) and URL must be in the pack, and the sector compliance
  * gate must pass. Invalid items are dropped; nothing valid = the run fails and stores nothing. Nothing goes to Meta.
+ * Every operation can be delegated to Claude over MCP (AiTaskQueue): the job then waits and runs again once Claude answered.
  */
 final class MetaAssistant
 {
@@ -59,6 +61,7 @@ final class MetaAssistant
         private readonly MetaScreen $screen,
         private readonly MetaSuggestions $suggestions,
         private readonly MetaLeads $leads,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /** @throws ValidationException */
@@ -74,14 +77,14 @@ final class MetaAssistant
         if ($this->screen->account($asset) === null) {
             throw ValidationException::withMessages(['meta' => 'Meta reklam hesabı bağlı değil.']);
         }
-        if ($this->routes->resolve(self::OPERATIONS[$operation]::OPERATION)->isEmpty()) {
+        if (! $this->tasks->delegated(self::OPERATIONS[$operation]::OPERATION) && $this->routes->resolve(self::OPERATIONS[$operation]::OPERATION)->isEmpty()) {
             throw ValidationException::withMessages(['meta' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
         Cache::put(self::stateKey((int) $asset->id, $operation), ['status' => 'running'], now()->addMinutes(15));
         RunMetaAssistantJob::dispatch((int) $asset->id, $operation);
     }
 
-    /** Executed by the job; the outcome is kept for the screen (running → ready | failed with a Turkish message). */
+    /** Executed by the job; the outcome is kept for the screen (running → ready | failed with a Turkish message; still running while Claude has not answered). */
     public function run(int $assetId, string $operation): void
     {
         try {
@@ -95,6 +98,11 @@ final class MetaAssistant
                 self::OP_LANDING => $this->landing($asset),
                 default => throw new RuntimeException('Bilinmeyen işlem.'),
             };
+            if ($message === null) {
+                Cache::put(self::stateKey($assetId, $operation), ['status' => 'running', 'message' => 'Claude sırasında; yanıtlayınca burada görünür.'], now()->addDay());
+
+                return;
+            }
             Cache::put(self::stateKey($assetId, $operation), ['status' => 'ready', 'message' => $message], now()->addDay());
         } catch (Throwable $exception) {
             Cache::put(self::stateKey($assetId, $operation), ['status' => 'failed', 'message' => mb_substr($exception->getMessage(), 0, 300)], now()->addDay());
@@ -116,10 +124,14 @@ final class MetaAssistant
 
     /* ---------------- creatives ---------------- */
 
-    public function creatives(DigitalAsset $asset): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function creatives(DigitalAsset $asset): ?string
     {
         $pack = $this->creativesPack($asset);
         [$raw, $versionId] = $this->call(self::OP_CREATIVES, $pack);
+        if ($raw === null) {
+            return null;
+        }
         $items = self::validateCreatives($raw, $pack, $asset->brand);
         if ($items === []) {
             throw new RuntimeException('AI önerileri veriyle doğrulanamadı; tekrar deneyin.');
@@ -213,10 +225,14 @@ final class MetaAssistant
 
     /* ---------------- structure ---------------- */
 
-    public function structure(DigitalAsset $asset): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function structure(DigitalAsset $asset): ?string
     {
         $pack = $this->structurePack($asset);
         [$raw, $versionId] = $this->call(self::OP_STRUCTURE, $pack);
+        if ($raw === null) {
+            return null;
+        }
         $items = self::validateStructure($raw, $pack);
         if ($items === []) {
             throw new RuntimeException('AI önerileri veriyle doğrulanamadı; tekrar deneyin.');
@@ -316,10 +332,14 @@ final class MetaAssistant
 
     /* ---------------- landing ---------------- */
 
-    public function landing(DigitalAsset $asset): string
+    /** Null while the call waits for Claude (the job runs again when it answered). */
+    public function landing(DigitalAsset $asset): ?string
     {
         $pack = $this->landingPack($asset);
         [$raw, $versionId] = $this->call(self::OP_LANDING, $pack);
+        if ($raw === null) {
+            return null;
+        }
         $items = self::validateLanding($raw, $pack, $asset->brand);
         if ($items === []) {
             throw new RuntimeException('AI önerileri veriyle doğrulanamadı; tekrar deneyin.');
@@ -493,18 +513,31 @@ final class MetaAssistant
     }
 
     /**
+     * The operation's structured answer: from Claude over MCP when the operation is delegated (named by the operation:
+     * live metrics drift while Claude works), else from the provider route.
+     *
      * @param  array<string, mixed>  $data
-     * @return array{0: array<mixed>, 1: ?int}
+     * @return array{0: ?array<mixed>, 1: ?int} structured response (null while Claude has not answered) and the prompt version used
      */
     private function call(string $operation, array $data): array
     {
         $class = self::OPERATIONS[$operation];
+        $agent = new $class;
+        $answer = $this->tasks->delegatedCall($agent, $data, $operation);
+        if ($answer === 'queued') {
+            return [null, null];
+        }
+        if ($answer === 'error') {
+            throw new RuntimeException('Claude bu öneriyi hazırlayamadı; tekrar deneyin.');
+        }
+        if (is_array($answer)) {
+            return [$answer, $agent->promptVersionId()];
+        }
         $route = $this->routes->resolve($class::OPERATION);
         if ($route->isEmpty()) {
             throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
         }
         $this->runtime->prepare(array_keys($route->providerModels));
-        $agent = new $class;
         $response = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             provider: $route->providerModels, timeout: 180)->toArray();
 

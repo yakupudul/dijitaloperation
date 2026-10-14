@@ -176,6 +176,10 @@ final class AiTaskQueueTest extends SiteTestCase
         $this->assertTrue($queue->delegated('site.cluster_match'), 'its model is not Claude (MCP)');
         $this->assertTrue($queue->delegated(AiRouteKeys::SITE_WRITE_ARTICLE), 'content work too, money or not');
         $this->assertTrue($queue->delegated(AiRouteKeys::QUERIES_TRIAGE));
+        foreach ([AiRouteKeys::GBP_BRANCH_SERVICES, AiRouteKeys::GBP_DESCRIPTION, AiRouteKeys::GBP_POST_FROM_PAGE, AiRouteKeys::GBP_SERVICES_COMPARE, AiRouteKeys::GBP_REVIEW_REPLY,
+            AiRouteKeys::GOOGLE_ADS_AD_TEXTS, AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS, AiRouteKeys::GOOGLE_ADS_STRUCTURE, AiRouteKeys::META_CREATIVES, AiRouteKeys::META_LANDING, AiRouteKeys::META_STRUCTURE] as $operation) {
+            $this->assertTrue($queue->delegated($operation), $operation.' waits for Claude (2026-10-14)');
+        }
         $this->assertFalse($queue->delegated('whatsapp.reply'), 'a caller that cannot wait keeps its route');
 
         config(['moxdop-mcp.takes_all' => false]);

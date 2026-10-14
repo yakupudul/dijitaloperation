@@ -12,6 +12,7 @@ use App\Models\GbpReview;
 use App\Services\Ai\AiCostEstimator;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
 use App\Services\Gbp\Desk\ReviewDesk;
@@ -24,7 +25,8 @@ use Throwable;
 /**
  * Faz 14: one-click AI reply drafts for the brand's own Google reviews. Drafts go to the production archive
  * (kind `gbp.review_reply`, versioned, 👍/👎); liked earlier replies of the brand are given to the model as tone
- * examples. Nothing is posted to Google (replying stays manual).
+ * examples. Nothing is posted to Google (replying stays manual). The draft can be delegated to Claude over MCP: the job
+ * then waits and runs again once Claude answered.
  */
 final class ReviewReplyDrafter
 {
@@ -36,39 +38,56 @@ final class ReviewReplyDrafter
         private readonly AiRouteResolver $routes,
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly ProductionArchive $archive,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /** Queue a draft; throws a validation error when no AI route is usable. */
     public function queue(GbpReview $review): void
     {
-        if ($this->routes->resolve(AiRouteKeys::GBP_REVIEW_REPLY)->isEmpty()) {
+        if (! $this->tasks->delegated(AiRouteKeys::GBP_REVIEW_REPLY) && $this->routes->resolve(AiRouteKeys::GBP_REVIEW_REPLY)->isEmpty()) {
             throw ValidationException::withMessages(['reply' => 'Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu (Ayarlar → AI).']);
         }
         Cache::put($this->stateKey((int) $review->id), 'running', now()->addMinutes(60));
         DraftReviewReplyJob::dispatch((int) $review->id);
     }
 
+    /** Executed by the job; while Claude has not answered the draft stays "running" (the job runs again when it answered). */
     public function write(int $reviewId): void
     {
         $review = GbpReview::query()->find($reviewId);
         if ($review === null) {
             return;
         }
-        $asset = DigitalAsset::query()->find($review->digital_asset_id ?? CoreAssetBinding::query()->where('external_resource_id', $review->external_resource_id)
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', 'google_business_profile')->value('digital_asset_id'));
+        $asset = $this->assetOf($review);
         $brand = $asset?->brand;
         try {
             if (! app(ServiceScope::class)->isAssetOperational($asset?->id)) {
                 throw ServiceScope::notServed();
             }
-            $route = $this->routes->resolve(AiRouteKeys::GBP_REVIEW_REPLY);
-            if ($route->isEmpty()) {
-                throw new \RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
-            }
-            $this->runtime->prepare(array_keys($route->providerModels));
             $agent = new ReviewReplyAgent;
-            $response = (array) $agent->prompt('REVIEW_JSON'."\n".json_encode($this->context($review, $brand), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels, timeout: 90)->toArray();
+            $context = $this->context($review, $brand);
+            // Named by the review: the liked examples and recent openings drift while Claude works on a batch.
+            $answer = $this->tasks->delegatedCall($agent, $context, 'review:'.$reviewId, 'REVIEW_JSON');
+            if ($answer === 'queued') {
+                Cache::put($this->stateKey($reviewId), 'running', now()->addDay());
+
+                return;
+            }
+            if ($answer === 'error') {
+                throw new \RuntimeException('Claude bu taslağı yazamadı; yeni taslak isteyin.');
+            }
+            if (is_array($answer)) {
+                [$response, $provider, $model] = [$answer, AiTaskQueue::PROVIDER, AiTaskQueue::MODEL];
+            } else {
+                $route = $this->routes->resolve(AiRouteKeys::GBP_REVIEW_REPLY);
+                if ($route->isEmpty()) {
+                    throw new \RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $response = (array) $agent->prompt('REVIEW_JSON'."\n".json_encode($context, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels, timeout: 90)->toArray();
+                [$provider, $model] = [$route->primaryProvider(), $route->primaryModel()];
+            }
             $reply = mb_substr(trim(strip_tags((string) ($response['reply'] ?? ''))), 0, 1500);
             if ($reply === '') {
                 throw new \RuntimeException('AI boş yanıt döndürdü.');
@@ -79,12 +98,19 @@ final class ReviewReplyDrafter
             }
             $this->archive->record(self::KIND, $review, [
                 'reply' => $reply, 'tone' => (string) ($response['tone'] ?? 'neutral'),
-                'provider' => $route->primaryProvider(), 'model' => $route->primaryModel(), 'prompt_version' => (string) $agent->promptVersionId(),
+                'provider' => $provider, 'model' => $model, 'prompt_version' => (string) $agent->promptVersionId(),
             ], ['brand_id' => $brand?->id, 'digital_asset_id' => $asset?->id, 'title' => 'Yorum yanıtı · '.mb_substr((string) $review->comment, 0, 60)]);
             Cache::forget($this->stateKey($reviewId));
         } catch (Throwable $exception) {
             Cache::put($this->stateKey($reviewId), 'failed: '.mb_substr($exception->getMessage(), 0, 200), now()->addHour());
         }
+    }
+
+    /** The Business Profile the review belongs to (its own asset, else the active binding of its location). */
+    public function assetOf(GbpReview $review): ?DigitalAsset
+    {
+        return DigitalAsset::query()->find($review->digital_asset_id ?? CoreAssetBinding::query()->where('external_resource_id', $review->external_resource_id)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', 'google_business_profile')->value('digital_asset_id'));
     }
 
     public function state(int $reviewId): ?string

@@ -9,6 +9,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\User;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -24,7 +25,8 @@ use Throwable;
  * hazırla gönder"). Read live from Google on both sides; what a target lacks is added with the source's exact
  * category ids, service types and names, and a description AI writes for that branch (GbpBranchServicesAgent).
  * Each target becomes a `gbp.profile_plan` record and an ADR-077 write (additions only, undoable on the profile's
- * "Kategori ve hizmetler" tab).
+ * "Kategori ve hizmetler" tab). When Claude writes the descriptions over MCP (AiTaskQueue) the send runs in
+ * SendGbpBranchCopyJob, which waits for Claude and sends once the descriptions are in.
  */
 final class GbpProfileCopier
 {
@@ -35,7 +37,14 @@ final class GbpProfileCopier
         private readonly AiProviderRuntimeConfig $runtime,
         private readonly ProductionArchive $archive,
         private readonly ExternalWriteService $writes,
+        private readonly AiTaskQueue $tasks,
     ) {}
+
+    /** Whether the descriptions are written by Claude over MCP (the send then waits in SendGbpBranchCopyJob). */
+    public function waitsForClaude(): bool
+    {
+        return $this->tasks->delegated(GbpBranchServicesAgent::OPERATION);
+    }
 
     /**
      * The source's live categories (primary first) and services, with Google's names.
@@ -136,15 +145,20 @@ final class GbpProfileCopier
     }
 
     /**
-     * Writes this branch's descriptions, records the plan and sends it (ADR-077 write, queued).
+     * Writes this branch's descriptions, records the plan and sends it (ADR-077 write, queued). Null while Claude has
+     * not written the descriptions yet (nothing is recorded or sent; the job runs again when Claude answered).
      *
      * @param  array{categories: list<array<string, mixed>>, services: list<array<string, mixed>>, skipped: list<array{line: string, reason: string}>, primary: array{id: string, name: string}}  $missing
-     * @return array{action: ExternalWriteAction, without_description: int}
+     * @return array{action: ExternalWriteAction, without_description: int}|null
      */
-    public function send(User $user, DigitalAsset $source, DigitalAsset $target, array $missing): array
+    public function send(User $user, DigitalAsset $source, DigitalAsset $target, array $missing): ?array
     {
         $brand = $target->loadMissing('brand')->brand ?? throw new RuntimeException('Varlık bir markaya bağlı değil.');
-        [$descriptions, $versionId] = $missing['services'] !== [] ? $this->describe($source, $target, $missing['services']) : [[], null];
+        $described = $missing['services'] !== [] ? $this->describe($source, $target, $missing['services']) : [[], null];
+        if ($described === null) {
+            return null;
+        }
+        [$descriptions, $versionId] = $described;
         $withoutDescription = 0;
         $services = [];
         foreach ($missing['services'] as $i => $service) {
@@ -179,9 +193,9 @@ final class GbpProfileCopier
 
     /**
      * @param  list<array<string, mixed>>  $services
-     * @return array{0: array<string, string>, 1: ?int} description per key ("s{index}") and prompt version
+     * @return array{0: array<string, string>, 1: ?int}|null description per key ("s{index}") and prompt version; null while Claude has not answered
      */
-    private function describe(DigitalAsset $source, DigitalAsset $target, array $services): array
+    private function describe(DigitalAsset $source, DigitalAsset $target, array $services): ?array
     {
         $brand = $target->brand;
         $snapshot = $this->desk->snapshots([(int) $target->id])[(int) $target->id] ?? [];
@@ -194,17 +208,27 @@ final class GbpProfileCopier
             'offerings' => array_column(app(GbpAssistant::class)->offerings($brand), 'name'),
             'compliance' => BrandPack::rules($brand),
         ];
-        $route = $this->routes->resolve(GbpBranchServicesAgent::OPERATION);
-        if ($route->isEmpty()) {
-            throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
-        }
-        $this->runtime->prepare(array_keys($route->providerModels));
         $agent = new GbpBranchServicesAgent;
-        try {
-            $answer = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels, timeout: 180)->toArray();
-        } catch (Throwable $exception) {
-            throw new RuntimeException('Açıklamalar yazılamadı: '.mb_substr($exception->getMessage(), 0, 200));
+        // Named by the target: the live snapshot and the offerings can drift while Claude writes.
+        $answer = $this->tasks->delegatedCall($agent, $data, 'target:'.$target->id);
+        if ($answer === 'queued') {
+            return null;
+        }
+        if ($answer === 'error') {
+            throw new RuntimeException('Açıklamalar yazılamadı: Claude bu işi yapamadı.');
+        }
+        if (! is_array($answer)) {
+            $route = $this->routes->resolve(GbpBranchServicesAgent::OPERATION);
+            if ($route->isEmpty()) {
+                throw new RuntimeException('Uygun AI sağlayıcısı yok ya da aylık AI bütçesi doldu.');
+            }
+            $this->runtime->prepare(array_keys($route->providerModels));
+            try {
+                $answer = (array) $agent->prompt("DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels, timeout: 180)->toArray();
+            } catch (Throwable $exception) {
+                throw new RuntimeException('Açıklamalar yazılamadı: '.mb_substr($exception->getMessage(), 0, 200));
+            }
         }
         $out = [];
         foreach ((array) ($answer['services'] ?? []) as $row) {

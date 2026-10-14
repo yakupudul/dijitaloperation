@@ -7,6 +7,7 @@ use App\Enums\DigitalAssetStatus;
 use App\Jobs\DraftReviewReplyJob;
 use App\Livewire\Operator\Gbp\Desk\ReviewsPage;
 use App\Models\AiProduction;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -15,6 +16,7 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\ReviewReplyDrafter;
@@ -139,5 +141,32 @@ final class ReviewReplyDraftTest extends TestCase
         });
         $context = json_decode((string) preg_replace('/^REVIEW_JSON\n/', '', $prompts[0]), true);
         $this->assertSame(['Değerli yorumunuz için çok teşekkür ederiz.'], $context['recent_openings']);
+    }
+
+    public function test_when_claude_takes_all_the_draft_waits_for_claude_and_lands_in_the_archive(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        ReviewReplyAgent::fake()->preventStrayPrompts();
+        $reviewId = (int) DB::table('gbp_reviews')->where('review_id', 'r1')->value('id');
+
+        Livewire::test(ReviewsPage::class, ['asset' => $this->asset->id])->call('draftOne', $reviewId);
+
+        ReviewReplyAgent::assertNeverPrompted();
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::GBP_REVIEW_REPLY, $task->operation);
+        $this->assertSame($this->asset->brand_id, $task->brand_id);
+        $this->assertStringStartsWith('REVIEW_JSON', (string) $task->input);
+        $this->assertStringNotContainsString('Ayşe', (string) $task->input, 'reviewer name is never sent');
+        $this->assertSame('running', app(ReviewReplyDrafter::class)->state($reviewId));
+        $this->assertSame(0, AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->count());
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['reply' => 'Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.', 'tone' => 'apology']));
+
+        ReviewReplyAgent::assertNeverPrompted();
+        $draft = AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->sole();
+        $this->assertSame('Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.', $draft->content['reply']);
+        $this->assertSame(AiTaskQueue::PROVIDER, $draft->content['provider']);
+        $this->assertNull(app(ReviewReplyDrafter::class)->state($reviewId));
+        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
     }
 }

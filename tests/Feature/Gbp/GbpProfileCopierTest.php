@@ -5,6 +5,7 @@ namespace Tests\Feature\Gbp;
 use App\Ai\Agents\GbpBranchServicesAgent;
 use App\Enums\CustomerStatus;
 use App\Models\AiProduction;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\ClaudeNote;
 use App\Models\CoreAssetBinding;
@@ -16,7 +17,9 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Gbp\GbpProfilePlanner;
+use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -186,6 +189,54 @@ final class GbpProfileCopierTest extends TestCase
         $note = ClaudeNote::query()->sole();
         $this->assertSame($this->brand->id, (int) $note->brand_id);
         $this->assertStringContainsString('Avrupadent Buca Forbes Diş Kliniği (#2): Açıklamalar yazılamadı: Günlük AI tavanı doldu', $note->text);
+    }
+
+    public function test_when_claude_takes_all_the_send_waits_for_claudes_descriptions_then_goes_out(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        GbpBranchServicesAgent::fake()->preventStrayPrompts();
+
+        $this->artisan('moxdop:gbp:copy-profile', ['source' => '1', '--only' => ['2'], '--send' => true, '--wait' => 0])
+            ->expectsOutputToContain('Avrupadent Buca Forbes Diş Kliniği (#2): 1 kategori, 3 hizmet eksik → Claude sırasında')
+            ->assertSuccessful();
+
+        GbpBranchServicesAgent::assertNeverPrompted();
+        $task = AiTask::query()->sole();
+        $this->assertSame(AiRouteKeys::GBP_BRANCH_SERVICES, $task->operation);
+        $this->assertSame($this->brand->id, (int) $task->brand_id);
+        $this->assertStringContainsString('Çiğli şubemizde diş beyazlatma.', (string) $task->input);
+        $this->assertSame([], $this->patches, 'nothing is sent before Claude wrote the descriptions');
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+        $this->assertSame(0, AiProduction::query()->where('kind', GbpProfilePlanner::KIND)->count());
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['services' => [
+            ['key' => 's0', 'description' => 'Buca Forbes’ta dişlerin tonunu açmak isteyenler için beyazlatma uygulaması.'],
+            ['key' => 's1', 'description' => 'Buca Forbes’ta şeffaf plaklarla dişlerin düzeltilmesi.'],
+            ['key' => 's2', 'description' => 'Çocukların azı dişlerini çürüğe karşı koruyan ince kaplama.'],
+        ]]));
+
+        GbpBranchServicesAgent::assertNeverPrompted();
+        $this->assertSame(['2', '2'], array_column($this->patches, 0));
+        $items = $this->locations['2']['serviceItems'];
+        $this->assertCount(4, $items);
+        $this->assertSame('Buca Forbes’ta dişlerin tonunu açmak isteyenler için beyazlatma uygulaması.', $items[1]['structuredServiceItem']['description']);
+        $action = ExternalWriteAction::query()->sole();
+        $this->assertSame('succeeded', $action->status);
+        $this->assertSame((int) User::query()->role(Roles::ADMIN)->value('id'), (int) $action->requested_by, 'sent as the Admin who ran the command');
+        $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
+        $this->assertSame(0, ClaudeNote::query()->count());
+    }
+
+    public function test_when_claude_cannot_write_the_descriptions_the_branch_is_noted_and_nothing_is_sent(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        GbpBranchServicesAgent::fake()->preventStrayPrompts();
+
+        $this->artisan('moxdop:gbp:copy-profile', ['source' => '1', '--only' => ['2'], '--send' => true, '--wait' => 0])->assertSuccessful();
+        app(AiTaskQueue::class)->fail(AiTask::query()->sole(), 'Veri yetersiz.');
+
+        $this->assertSame(0, ExternalWriteAction::query()->count());
+        $this->assertStringContainsString('Avrupadent Buca Forbes Diş Kliniği (#2): Açıklamalar yazılamadı', ClaudeNote::query()->sole()->text);
     }
 
     public function test_coverage_lists_each_profile_of_the_sector_with_its_live_counts(): void
