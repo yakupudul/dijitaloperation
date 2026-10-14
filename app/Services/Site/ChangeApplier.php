@@ -77,7 +77,8 @@ final class ChangeApplier
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }
-        $proposal = $this->validated($result['data'], $page, $html, $sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all(), self::existingSchema($page)['seo_plugin'] !== null);
+        $linkHtml = $html ?? ((array) data_get($result['data'], 'internal_links', []) !== [] ? $this->currentHtml($site, $page) : null);
+        $proposal = $this->validated($result['data'], $page, $html, $sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all(), self::existingSchema($page)['seo_plugin'] !== null, $linkHtml);
         if ($proposal === null) {
             return ['status' => 'invalid', 'message' => 'AI çıktısı sayfa verisiyle doğrulanamadı.'];
         }
@@ -152,7 +153,7 @@ final class ChangeApplier
      * @param  list<string>  $siteUrls
      * @return array{kind: string, current: array<string, mixed>, new: array<string, mixed>, note: string}|null
      */
-    public function validated(array $data, Page $page, ?string $currentHtml, array $siteUrls, bool $pluginSchema = false): ?array
+    public function validated(array $data, Page $page, ?string $currentHtml, array $siteUrls, bool $pluginSchema = false, ?string $linkHtml = null): ?array
     {
         $evidence = new SiteEvidence([...$siteUrls, (string) $page->url], [], [(string) $page->content_text]);
         preg_match_all('/\d+(?:[.,]\d+)?/', (string) $page->content_text.' '.$page->title.' '.$page->meta_description, $numbers);
@@ -176,9 +177,6 @@ final class ChangeApplier
                 $links[] = ['anchor' => mb_substr($anchor, 0, 120), 'url' => $url];
             }
         }
-        if ($links !== []) {
-            $new['internal_links'] = $links;
-        }
         $schema = trim((string) ($data['schema_json'] ?? ''));
         if ($schema !== '' && is_array(json_decode($schema, true)) && ! ($pluginSchema && self::onlyPluginTypes((array) json_decode($schema, true)))) {
             $new['schema_json'] = $schema;
@@ -192,6 +190,14 @@ final class ChangeApplier
             if ($visible !== '' && $evidence->grounded($visible) && $html !== $currentHtml) {
                 $new['html'] = $html;
             }
+        }
+        // A link is kept only where WordPress can place it: its anchor as plain text (not in a heading, button or link)
+        // of the content it goes into, the new version when the page is rewritten, else the post as it is now. 14 Oct
+        // 2026: most approved links failed with "anchor text not found" (anchors from the rewrite, menus or headings).
+        $into = $new['html'] ?? $linkHtml ?? $currentHtml;
+        $links = array_values(array_filter($links, fn (array $link): bool => $into === null || self::insertLink($into, $link['anchor'], $link['url']) !== null));
+        if ($links !== []) {
+            $new['internal_links'] = $links;
         }
         if ($new === []) {
             return null;
@@ -284,11 +290,33 @@ final class ChangeApplier
                 $changes[] = ['type' => $type, 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-'.$type, 'value' => (string) $new[$field]];
             }
         }
-        foreach ((array) ($new['internal_links'] ?? []) as $i => $link) {
-            $changes[] = ['type' => 'internal_link', 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-link-'.$i, 'value' => $link];
+        // With a rewrite the links go inside the new version: the live post does not carry the rewrite's anchors and
+        // "Canlıya al" would replace it anyway.
+        if (filled($new['html'] ?? null)) {
+            foreach ((array) ($new['internal_links'] ?? []) as $link) {
+                $new['html'] = self::insertLink((string) $new['html'], (string) data_get($link, 'anchor'), (string) data_get($link, 'url')) ?? $new['html'];
+            }
+        } else {
+            // Proposals prepared before 14 Oct 2026 were not checked against the post: a link WordPress cannot place
+            // is left out instead of failing after the approval.
+            $post = ($new['internal_links'] ?? []) !== [] ? $this->currentHtml($site, $page) : null;
+            foreach ((array) ($new['internal_links'] ?? []) as $i => $link) {
+                if ($post !== null && self::insertLink($post, (string) data_get($link, 'anchor'), (string) data_get($link, 'url')) === null) {
+                    continue;
+                }
+                $changes[] = ['type' => 'internal_link', 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-link-'.$i, 'value' => $link];
+            }
         }
         if (filled($new['schema_json'] ?? null)) {
             $changes[] = ['type' => 'schema', 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-schema', 'value' => (string) $new['schema_json']];
+        }
+        if ($changes === [] && ! filled($new['html'] ?? null)) {
+            // Only links were proposed and none fits the post as it is now: prepared again from the current page.
+            $action = (array) $suggestion->action;
+            unset($action['proposal']);
+            $suggestion->forceFill(['action' => $action])->save();
+
+            throw ValidationException::withMessages(['write' => 'Önerilen bağlantı metinleri sayfada düz yazı olarak yok (başlıkta, butonda ya da zaten linkli); öneri sayfanın bugünkü haline göre yeniden hazırlanacak.']);
         }
         $ids = [];
         if ($changes !== []) {
@@ -321,6 +349,40 @@ final class ChangeApplier
         app(OutcomeTracker::class)->apply($suggestion, $user);
 
         return (int) $action->id;
+    }
+
+    /**
+     * The WordPress Connector's internal_link rule (class-moxdop-connector-fixes.php insert_link): the first plain-text
+     * occurrence of the anchor outside links, headings, buttons, scripts and styles becomes the link. Null when there is
+     * none or the content already links to the URL.
+     */
+    public static function insertLink(string $html, string $anchor, string $url): ?string
+    {
+        $anchor = trim($anchor);
+        if ($anchor === '' || $url === '' || str_contains($html, 'href="'.$url.'"')) {
+            return null;
+        }
+        $parts = preg_split('/(<[^>]+>)/u', $html, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $blocked = 0;
+        foreach ($parts as $i => $part) {
+            if ($part !== '' && $part[0] === '<') {
+                if (preg_match('#^<(a|h[1-6]|script|style|button)\b#i', $part) === 1) {
+                    $blocked++;
+                } elseif (preg_match('#^</(a|h[1-6]|script|style|button)>#i', $part) === 1) {
+                    $blocked = max(0, $blocked - 1);
+                }
+
+                continue;
+            }
+            if ($blocked > 0 || ($pos = mb_stripos($part, $anchor)) === false) {
+                continue;
+            }
+            $parts[$i] = mb_substr($part, 0, $pos).'<a href="'.e($url).'">'.mb_substr($part, $pos, mb_strlen($anchor)).'</a>'.mb_substr($part, $pos + mb_strlen($anchor));
+
+            return implode('', $parts);
+        }
+
+        return null;
     }
 
     /** The live page HTML from the WordPress Connector (null when the site has none or it fails). */

@@ -30,6 +30,7 @@ use App\Models\Page;
 use App\Models\Query;
 use App\Models\ServiceCategory;
 use App\Models\Suggestion;
+use App\Models\User;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Site\BrandMemoryService;
 use App\Services\Site\ChangeApplier;
@@ -195,6 +196,27 @@ final class SiteSuggestionsTest extends SiteTestCase
         $this->assertSame(200, $fresh->baseline['impressions']);
         $this->assertSame($this->implantPage->url, $fresh->baseline['scope']['url']);
         $this->assertSame('onaylandı', BrandMemory::query()->where('kind', 'decision')->sole()->data['decision']);
+    }
+
+    public function test_links_are_kept_only_where_wordpress_can_place_them_and_go_inside_a_rewrite(): void
+    {
+        Queue::fake();
+        $this->connector();
+        $post = '<h2>Zirkonyum kaplama</h2><p>İmplant sonrası diş bakımı önemlidir.</p><p><a href="/x/">kanal tedavisi</a></p>';
+        $url = 'https://panorama.com.tr/zirkonyum-kaplama/';
+        $links = [['anchor' => 'zirkonyum kaplama', 'url' => $url], ['anchor' => 'diş bakımı', 'url' => $url], ['anchor' => 'kanal tedavisi', 'url' => $url]];
+
+        $proposal = app(ChangeApplier::class)->validated(['seo_title' => null, 'internal_links' => $links], $this->implantPage, null, [$url], linkHtml: $post);
+        $this->assertSame([['anchor' => 'diş bakımı', 'url' => $url]], $proposal['new']['internal_links'], '14 Oct 2026: anchors in a heading or an existing link failed on WordPress after approval');
+        $this->assertNull(ChangeApplier::insertLink('<p>diş bakımı <a href="'.$url.'">x</a></p>', 'diş bakımı', $url), 'the page already links there');
+
+        $rewrite = $this->suggestion(['page_id' => $this->implantPage->id, 'action_type' => 'missing_topic', 'title' => 'Bölüm ekle', 'action' => ['proposal' => ['kind' => 'content', 'current' => [],
+            'new' => ['html' => '<h2>Bakım</h2><p>Zirkonyum kaplama sonrası bakım.</p>', 'internal_links' => [['anchor' => 'zirkonyum kaplama', 'url' => 'https://panorama.com.tr/zirkonyum-kaplama/']]]]]]);
+        app(ChangeApplier::class)->approve($rewrite, User::query()->firstOrFail());
+
+        $writes = ExternalWriteAction::query()->where('suggestion_id', $rewrite->id)->get();
+        $this->assertSame([ExternalWriteAction::ACTION_CONTENT_DRAFT], $writes->pluck('action')->all(), 'no separate link write against the old post');
+        $this->assertStringContainsString('<a href="https://panorama.com.tr/zirkonyum-kaplama/">Zirkonyum kaplama</a> sonrası', (string) $writes->first()->request_payload['html']);
     }
 
     public function test_ai_do_output_failing_the_sector_compliance_gate_is_not_shown(): void
