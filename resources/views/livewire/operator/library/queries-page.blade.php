@@ -41,6 +41,8 @@
                 <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">başlamadı</span>
             @elseif ($autopilotPaused)
                 <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">durduruldu</span>
+            @elseif (($ap['status'] ?? null) === 'claude')
+                <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700 dark:bg-success-500/10 dark:text-success-400" data-autopilot-claude>açık · AI bakışı Claude kuyruğunda</span>
             @elseif (($ap['status'] ?? null) === 'no_provider')
                 <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">açık · AI bağlı değil</span>
             @else

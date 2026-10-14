@@ -782,6 +782,7 @@ Durum: IMPLEMENTED V1 (kod + PHPUnit; gerçek UAT yok).
   - **Site akışı:** sayfa ya da kategori değişikliğinde Eşleştir hemen çalışır. Yalnız sayfa metni değişirse (her taramada değişen tarih vb.) en çok haftada bir çalışır.
   - **Kanal analistleri:** haftalık çalışma, veri geçen analizden beri değişmediyse AI çağırmaz. "Yeniden analiz et" her zaman çalışır.
   - **Sorgu otomatik pilotu:** AI üst üste 3 kez hata verirse 2 saat bekler; aynı sorgular her 15 dakikada yeniden gönderilmez.
+  - **Sorgu otomatik pilotu, para bitince (2026-10-14):** hiçbir rota ödeyemiyorsa (Claude API kredisi bitti, günlük tavan / aylık bütçe doldu, ücretsiz OpenAI kotası yok) AI bakışı Claude MCP kuyruğuna gider: aynı anda en çok 25 parti (200'er sorgu) bekler, her cevap API cevabı gibi uygulanır, 3 günde cevaplanmayan parti yeniden sorulur. Bekleyenler içe alımı artık AI'ı beklemez (AI yokken de çalışır). Para dönünce bakış kendi rotasına (GPT / Claude API) döner. Test: QueryAutopilotTest. UAT yok.
 - **Öğrenilen kurallar (sonraki işler AI'sız):**
   - **Klasör kuralı:** sitede en az 5 sayfası sınıflanmış ve %90'ı aynı kategoride olan klasörün yeni sayfaları o kategoriyi AI'sız alır ("hizmet" hariç).
   - **Konu kuralı:** bir kümenin zaten tuttuğu konudan yeni bir sorgu gelirse o kümeye AI'sız girer. Kümeleme sonucu "N sorgu kuralla yerleşti (AI'sız)" yazar.

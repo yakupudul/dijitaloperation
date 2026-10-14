@@ -5,6 +5,7 @@ namespace App\Services\AiTasks;
 use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiRouteResolver;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
@@ -85,6 +86,15 @@ final class AiTaskQueue
      */
     public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::CONTENT_REVIEW];
 
+    /**
+     * Operations that keep their provider route (never moved to Claude by a plan) but wait for Claude over MCP while no
+     * route can pay for them (credit used up, the day's ceiling or the month's budget reached, no free tokens left):
+     * the 15-minute query triage stood still for hours this way (2026-10-14) and its callers know how to wait.
+     */
+    public const array ROUTE_FALLBACK = [AiRouteKeys::QUERIES_TRIAGE];
+
+    private static bool $resolvingRoute = false;
+
     /** Whether Claude (MCP) may answer this operation when the provider route fails: a supported one, or content work on a used-up credit. */
     public function takesOver(string $operation): bool
     {
@@ -117,6 +127,18 @@ final class AiTaskQueue
         // Content work runs on the provider route; only a used-up Claude API credit hands it to Claude (yakup, 2026-10-14).
         if (AiBudget::isContent($operation)) {
             return $this->takesOver($operation) && $this->fallsBackToClaude($operation);
+        }
+        if (in_array($operation, self::ROUTE_FALLBACK, true)) {
+            // Resolving the route asks the budget, which may ask this again: the inner question answers "not delegated".
+            if (self::$resolvingRoute || ! $this->resumable($operation)) {
+                return false;
+            }
+            self::$resolvingRoute = true;
+            try {
+                return app(AiRouteResolver::class)->resolve($operation)->isEmpty();
+            } finally {
+                self::$resolvingRoute = false;
+            }
         }
         if (! $this->supports($operation)) {
             return false;

@@ -6,12 +6,15 @@ use App\Ai\Agents\QueryTriageAgent;
 use App\Jobs\Queries\ClusterQueriesJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Livewire\Operator\Library\QueriesPage;
+use App\Models\AiTask;
 use App\Models\ClusterQuery;
 use App\Models\FilterTerm;
 use App\Models\PendingQuery;
 use App\Models\Query;
 use App\Models\QueryReviewItem;
 use App\Models\ServiceCategory;
+use App\Services\Ai\ClaudeApiWindow;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\QueryAutopilot;
@@ -253,5 +256,59 @@ final class QueryAutopilotTest extends SiteTestCase
         // The hourly clean-up also restarts the count.
         app(QueryAutopilot::class)->clean();
         $this->assertSame(0, QueryAutopilot::newFilterTerms());
+    }
+
+    public function test_without_a_paying_ai_route_triage_waits_for_claude_and_bekleyenler_still_comes_in(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token']);
+        Queue::fake([ClusterQueriesJob::class]);
+        QueryPipeline::markImported();
+        QueryTriageAgent::fake()->preventStrayPrompts();
+        $kaplama = $this->libraryQuery('porselen diş kaplama');
+        $exam = $this->libraryQuery('kpss sonuçları');
+        $vague = $this->libraryQuery('diş sağlığı önerileri');
+        PendingQuery::query()->create(['text' => 'gülüş tasarımı', 'text_hash' => QueryNormalizer::hash('gülüş tasarımı'), 'status' => PendingQuery::PENDING, 'sector_id' => $this->dental->id]);
+
+        $this->assertTrue(app(QueryAutopilot::class)->viaClaude(), 'no AI provider can pay: Claude over MCP takes triage');
+        $this->assertSame('imported', app(QueryAutopilot::class)->tick(), 'importing needs no AI, it does not wait for triage');
+
+        $task = AiTask::query()->sole();
+        $this->assertSame(QueryTriageAgent::OPERATION, $task->operation);
+        $this->assertCount(1, QueryAutopilot::claudeBatches());
+        $this->assertSame('claude', QueryAutopilot::state()['status']);
+        $this->assertTrue(Query::query()->where('text', 'gülüş tasarımı')->exists());
+        $this->assertStringNotContainsString('gülüş tasarımı', (string) $task->input, 'the batch was fixed before the import');
+        app(ClaudeApiWindow::class)->restartWaiting(leaveClaimed: true);
+        $this->assertSame(AiTask::PENDING, $task->fresh()->status, 'the 15-minute API resume leaves it while no route can pay');
+
+        // The next tick does not send the waiting queries again; the imported one goes in a batch of its own.
+        app(QueryAutopilot::class)->tick();
+        $this->assertSame(2, AiTask::query()->count());
+        $this->assertCount(2, QueryAutopilot::claudeBatches());
+
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['decisions' => [
+            ['query_id' => $kaplama->id, 'service_id' => $this->zirkonyum->id, 'filter_term' => null, 'filter_reason' => 'none'],
+            ['query_id' => $exam->id, 'service_id' => null, 'filter_term' => 'kpss', 'filter_reason' => 'irrelevant'],
+        ], 'keywords' => []]));
+
+        $this->assertSame([$this->zirkonyum->id, 'ai'], [$kaplama->fresh()->service_id, $kaplama->fresh()->assignment]);
+        $this->assertTrue(FilterTerm::query()->where('term', 'kpss')->exists());
+        $this->assertNotNull($vague->fresh()->ai_checked_at, 'left out by Claude: none, never asked again');
+        $this->assertCount(1, QueryAutopilot::claudeBatches(), 'the answered batch left the waiting list');
+        QueryTriageAgent::assertNeverPrompted();
+    }
+
+    public function test_without_ai_and_without_claude_bekleyenler_is_still_imported(): void
+    {
+        config(['moxdop-mcp.token' => '']);
+        Queue::fake([ClusterQueriesJob::class]);
+        QueryPipeline::markImported();
+        $this->libraryQuery('porselen diş kaplama');
+        PendingQuery::query()->create(['text' => 'gülüş tasarımı', 'text_hash' => QueryNormalizer::hash('gülüş tasarımı'), 'status' => PendingQuery::PENDING, 'sector_id' => $this->dental->id]);
+
+        $this->assertFalse(app(QueryAutopilot::class)->viaClaude());
+        $this->assertSame('imported', app(QueryAutopilot::class)->tick());
+        $this->assertSame('no_provider', QueryAutopilot::state()['status']);
+        $this->assertTrue(Query::query()->where('text', 'gülüş tasarımı')->exists());
     }
 }

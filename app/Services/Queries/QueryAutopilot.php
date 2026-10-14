@@ -4,6 +4,7 @@ namespace App\Services\Queries;
 
 use App\Ai\Agents\QueryTriageAgent;
 use App\Jobs\Queries\QueryAutopilotJob;
+use App\Jobs\Queries\TriageQueriesJob;
 use App\Models\FilterTerm;
 use App\Models\PendingQuery;
 use App\Models\Query;
@@ -13,6 +14,7 @@ use App\Models\ServiceCategory;
 use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
@@ -43,6 +45,11 @@ use Throwable;
  *     clusters left without a collected query are deleted. Operator decision 2026-10-01: when 50 new filter terms
  *     have come in since the last clean-up, it runs at once (fewer queries for triage); the next forced one waits for
  *     the next 50, the hourly one goes on.
+ *
+ * When the API route cannot pay for triage (Claude API credit used up, the day's ceiling or the month's budget reached;
+ * 2026-10-14 the library stood still for hours this way) or its model waits for Claude, triage goes to Claude over
+ * MCP instead: up to CLAUDE_BATCHES batches wait there at a time (TriageQueriesJob applies each answer), and
+ * Bekleyenler is imported meanwhile, since importing needs no AI.
  */
 final class QueryAutopilot
 {
@@ -65,6 +72,15 @@ final class QueryAutopilot
     /** New filter terms since the last clean-up that start one at once. */
     public const int CLEAN_AFTER_TERMS = 50;
 
+    /** Triage batches (of BATCH queries) waiting for Claude over MCP at a time; each tick tops the list up. */
+    public const int CLAUDE_BATCHES = 25;
+
+    /** The batches waiting for Claude: batch key => sector, query ids, queued at. */
+    public const string CLAUDE_KEY = 'queries:autopilot:claude';
+
+    /** A batch Claude has not answered for this long is asked again (lost task). */
+    private const int CLAUDE_STALE_DAYS = 3;
+
     /** @var array<int, array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}|null> */
     private array $sectors = [];
 
@@ -78,6 +94,7 @@ final class QueryAutopilot
         private readonly PendingQueries $pending,
         private readonly QueryClusterQueue $clusters,
         private readonly QueryRescanner $rescanner,
+        private readonly AiTaskQueue $tasks,
     ) {}
 
     /** @return array<string, mixed> */
@@ -114,7 +131,7 @@ final class QueryAutopilot
     /**
      * One tick: triage until the queue or the time budget ends, then Bekleyenler, then (daily) clustering.
      *
-     * @return string more (call again) | imported | clustering | idle | off | no_provider
+     * @return string more (call again) | imported | clustering | claude (batches wait for Claude) | idle | off | no_provider
      */
     public function tick(): string
     {
@@ -131,8 +148,13 @@ final class QueryAutopilot
         if (is_string($waitUntil) && CarbonImmutable::parse($waitUntil)->isFuture()) {
             $skipSectors = self::queue()->distinct()->pluck('sector_id')->map(fn ($id): int => (int) $id)->all(); // triage waits; the rest goes on
         }
+        $viaClaude = $this->viaClaude();
+        $noProvider = false;
         $termsAdded = false;
-        while (microtime(true) - $started < self::TIME_BUDGET_SECONDS) {
+        if ($viaClaude) {
+            $this->queueForClaude();
+        }
+        while (! $viaClaude && microtime(true) - $started < self::TIME_BUDGET_SECONDS) {
             $first = self::queue()->whereNotIn('sector_id', $skipSectors ?: [0])->orderBy('sector_id')->orderBy('id')->first(['id', 'sector_id']);
             if ($first === null) {
                 break;
@@ -147,9 +169,11 @@ final class QueryAutopilot
             $rows = self::queue()->where('sector_id', $sectorId)->orderByDesc('impressions')->orderBy('id')->limit(self::BATCH)->get(['id', 'text', 'impressions']);
             $structured = $this->call($context, $rows);
             if ($structured === 'no_provider') {
+                // No AI for triage now: Bekleyenler is still imported and clustering still starts.
                 $this->record(['status' => 'no_provider']);
+                $noProvider = true;
 
-                return 'no_provider';
+                break;
             }
             if (! is_array($structured)) {
                 $errors = (int) (self::state()['errors_in_row'] ?? 0) + 1;
@@ -169,14 +193,14 @@ final class QueryAutopilot
         if ($termsAdded) {
             $this->pending->prune();
         }
-        if (self::queue()->whereNotIn('sector_id', $skipSectors ?: [0])->exists()) {
+        if (! $viaClaude && ! $noProvider && self::queue()->whereNotIn('sector_id', $skipSectors ?: [0])->exists()) {
             return 'more';
         }
 
         $pendingIds = PendingQuery::query()->where('status', PendingQuery::PENDING)->orderBy('id')->limit(5000)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         if ($pendingIds !== []) {
             $imported = $this->pending->import($pendingIds);
-            $this->record(['status' => 'running'], ['imported' => $imported]);
+            $this->record(['status' => $viaClaude ? 'claude' : ($noProvider ? 'no_provider' : 'running')], ['imported' => $imported]);
 
             return 'imported';
         }
@@ -184,9 +208,125 @@ final class QueryAutopilot
         if ($clustering || $this->clusterIfDue()) {
             return 'clustering';
         }
+        if ($noProvider) {
+            return 'no_provider';
+        }
+        if ($viaClaude && self::claudeBatches() !== []) {
+            $this->record(['status' => 'claude']);
+
+            return 'claude';
+        }
         $this->record(['status' => 'idle']);
 
         return 'idle';
+    }
+
+    /**
+     * Whether triage goes to Claude over MCP: its model waits there, or the API route cannot pay for it (credit used up,
+     * the day's ceiling or the month's budget reached), so the library goes on being sorted instead of standing still.
+     */
+    public function viaClaude(): bool
+    {
+        return $this->tasks->delegated(QueryTriageAgent::OPERATION);
+    }
+
+    /**
+     * The triage batches waiting for Claude (older than CLAUDE_STALE_DAYS dropped: asked again).
+     *
+     * @return array<string, array{sector: int, ids: list<int>, at: string}>
+     */
+    public static function claudeBatches(): array
+    {
+        $batches = Cache::get(self::CLAUDE_KEY);
+
+        return array_filter(is_array($batches) ? $batches : [], fn ($batch): bool => is_array($batch) && is_array($batch['ids'] ?? null)
+            && CarbonImmutable::parse((string) ($batch['at'] ?? '2000-01-01'))->addDays(self::CLAUDE_STALE_DAYS)->isFuture());
+    }
+
+    /** @param callable(array<string, array{sector: int, ids: list<int>, at: string}>): array<string, array{sector: int, ids: list<int>, at: string}> $change */
+    private static function changeClaudeBatches(callable $change): void
+    {
+        Cache::lock(self::CLAUDE_KEY.':lock', 10)->block(10, fn () => Cache::forever(self::CLAUDE_KEY, $change(self::claudeBatches())));
+    }
+
+    /**
+     * Tops the batches waiting for Claude up to CLAUDE_BATCHES: unchecked queries not already waiting, sector by sector,
+     * most seen first; each batch is a TriageQueriesJob that waits for Claude's answer and applies it.
+     */
+    private function queueForClaude(): int
+    {
+        $open = self::claudeBatches();
+        $new = [];
+        $skip = [];
+        while (count($open) + count($new) < self::CLAUDE_BATCHES) {
+            $waiting = collect([...$open, ...$new])->flatMap(fn (array $batch): array => $batch['ids'])->all();
+            $base = fn (): Builder => self::queue()->when($waiting !== [], fn (Builder $q) => $q->whereNotIn('id', $waiting));
+            $first = $base()->whereNotIn('sector_id', $skip ?: [0])->orderBy('sector_id')->orderBy('id')->first(['id', 'sector_id']);
+            if ($first === null) {
+                break;
+            }
+            $sectorId = (int) $first->sector_id;
+            if ($this->sectorContext($sectorId) === null) {
+                $skip[] = $sectorId; // no active services yet: asked once the sector has some
+
+                continue;
+            }
+            $ids = $base()->where('sector_id', $sectorId)->orderByDesc('impressions')->orderBy('id')->limit(self::BATCH)
+                ->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $new[substr(sha1(implode(',', $ids)), 0, 16)] = ['sector' => $sectorId, 'ids' => $ids, 'at' => now()->toIso8601String()];
+        }
+        if ($new === []) {
+            return 0;
+        }
+        self::changeClaudeBatches(fn (array $batches): array => $batches + $new);
+        foreach ($new as $key => $batch) {
+            TriageQueriesJob::dispatch($key, $batch['sector'], $batch['ids']);
+        }
+        $this->record(['status' => 'claude'], ['claude_batches' => count($new)]);
+
+        return count($new);
+    }
+
+    /**
+     * One batch waiting for Claude (TriageQueriesJob, inside its resumable run): asks Claude once, and applies the answer
+     * when it comes, exactly like an API answer.
+     *
+     * @param  list<int>  $ids
+     * @return string queued | applied | released (asked again by a later tick)
+     */
+    public function triageBatch(string $key, int $sectorId, array $ids): string
+    {
+        $context = $this->sectorContext($sectorId);
+        $rows = Query::query()->whereIn('id', $ids)->whereNull('service_id')->whereNull('ai_checked_at')
+            ->orderByDesc('impressions')->orderBy('id')->get(['id', 'text', 'impressions']);
+        if ($context === null || $rows->isEmpty()) {
+            self::changeClaudeBatches(fn (array $batches): array => array_diff_key($batches, [$key => true]));
+
+            return 'released';
+        }
+        // The API route pays again (credit topped up, a new day): the batch is released and the next tick asks there.
+        $answer = $this->tasks->delegated(QueryTriageAgent::OPERATION) ? $this->tasks->answer(new QueryTriageAgent, $this->pack($context, $rows), 'triage-'.$key) : null;
+        if (($answer['status'] ?? null) === 'queued') {
+            return 'queued';
+        }
+        self::changeClaudeBatches(fn (array $batches): array => array_diff_key($batches, [$key => true]));
+        if (($answer['status'] ?? null) === 'error') {
+            // Claude said it cannot do this batch: its queries count as seen (none), so the same batch is not sent forever.
+            Query::query()->whereIn('id', $rows->pluck('id'))->update(['ai_checked_at' => now()]);
+
+            return 'released';
+        }
+        if ($answer === null) {
+            return 'released';
+        }
+        $result = $this->apply($context, $rows, $answer['data']);
+        $this->record(['status' => 'claude'], $result);
+        if ($result['filters'] > 0) {
+            $this->pending->prune();
+            $this->cleanIfDue();
+        }
+
+        return 'applied';
     }
 
     /**
@@ -389,17 +529,9 @@ final class QueryAutopilot
                 return 'no_provider';
             }
             $this->runtime->prepare(array_keys($route->providerModels));
-            $data = [
-                'sector' => ['id' => (int) $context['sector']->id, 'name' => (string) $context['sector']->name],
-                'services' => $context['services']->map(fn (ServiceCatalogItem $s): array => [
-                    'id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label, 'keywords' => $s->matchingKeywords->pluck('label')->values()->all(),
-                ])->values()->all(),
-                'forbidden' => $context['forbidden'],
-                'queries' => $rows->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'impressions' => (int) $q->impressions])->values()->all(),
-            ];
 
             return (new QueryTriageAgent)->prompt(
-                "DATA_JSON\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                "DATA_JSON\n".json_encode($this->pack($context, $rows), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                 provider: $route->providerModels,
                 timeout: 180,
             )->toArray();
@@ -408,6 +540,25 @@ final class QueryAutopilot
 
             return 'error';
         }
+    }
+
+    /**
+     * The DATA_JSON pack of one triage call.
+     *
+     * @param  array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}  $context
+     * @param  Collection<int, Query>  $rows
+     * @return array<string, mixed>
+     */
+    private function pack(array $context, Collection $rows): array
+    {
+        return [
+            'sector' => ['id' => (int) $context['sector']->id, 'name' => (string) $context['sector']->name],
+            'services' => $context['services']->map(fn (ServiceCatalogItem $s): array => [
+                'id' => (int) $s->id, 'name' => (string) $s->primaryName->raw_label, 'keywords' => $s->matchingKeywords->pluck('label')->values()->all(),
+            ])->values()->all(),
+            'forbidden' => $context['forbidden'],
+            'queries' => $rows->map(fn (Query $q): array => ['id' => (int) $q->id, 'text' => (string) $q->text, 'impressions' => (int) $q->impressions])->values()->all(),
+        ];
     }
 
     /**

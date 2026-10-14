@@ -5,12 +5,16 @@ namespace App\Mcp\Tools;
 use App\Models\AiTask;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
+use App\Models\PendingQuery;
+use App\Models\Query;
 use App\Services\Ai\AiBudget;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Operations\AutoDeployStatus;
 use App\Services\Operations\ServerStatusReader;
 use App\Services\Operations\SystemHealthReader;
+use App\Services\Queries\QueryAutopilot;
+use App\Services\Queries\QueryFinish;
 use App\Services\Repair\RepairDesk;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -82,6 +86,12 @@ class SystemHealth extends Tool
         $out['desk_writes'] = $this->deskWrites();
         $out['ai_money'] = app(AiBudget::class)->moneyState();
         $out['ai_tasks_waiting'] = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count();
+        try {
+            $out['queries'] = $this->queries();
+        } catch (Throwable $exception) {
+            report($exception);
+            $out['queries_error'] = mb_substr($exception->getMessage(), 0, 300);
+        }
 
         return Response::json($out);
     }
@@ -122,6 +132,29 @@ class SystemHealth extends Tool
                 'error' => $a->error !== null ? mb_substr((string) $a->error, 0, 200) : null, 'created_at' => (string) $a->created_at, 'updated_at' => (string) $a->updated_at]);
 
         return ['queued_rows' => app(RepairDesk::class)->queuedCount(), 'writes' => $writes->all()];
+    }
+
+    /**
+     * Sorgular library state: unassigned queries (AI looked and found no service vs not looked at yet), Bekleyenler,
+     * triage batches waiting for Claude and the autopilot's last tick.
+     *
+     * @return array<string, mixed>
+     */
+    private function queries(): array
+    {
+        $unassigned = Query::query()->whereNull('service_id')->where('hidden', false)->where('is_suggested', false)->whereNotNull('sector_id');
+        $state = QueryAutopilot::state();
+
+        return [
+            'unassigned' => (clone $unassigned)->count(),
+            'unassigned_not_checked' => QueryAutopilot::queue()->count(),
+            'unassigned_without_sector' => Query::query()->whereNull('service_id')->where('hidden', false)->where('is_suggested', false)->whereNull('sector_id')->count(),
+            'pending' => PendingQuery::query()->where('status', PendingQuery::PENDING)->count(),
+            'claude_batches' => count(QueryAutopilot::claudeBatches()),
+            'autopilot' => ['paused' => QueryAutopilot::paused(), 'status' => $state['status'] ?? null, 'tick_at' => $state['tick_at'] ?? null,
+                'error_wait_until' => $state['error_wait_until'] ?? null, 'totals' => $state['totals'] ?? []],
+            'finish_check' => QueryFinish::lastCheck(),
+        ];
     }
 
     /** @return array<string, mixed>|null the last automatic deploy check, with the failing tests when it stopped on them */
