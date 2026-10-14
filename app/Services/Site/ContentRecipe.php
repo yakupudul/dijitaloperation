@@ -29,7 +29,7 @@ final class ContentRecipe
         private readonly ClusterBenchmarks $benchmarks,
     ) {}
 
-    /** @return array{status: string} */
+    /** @return array{status: string} status: ready | queued | not_operational | invalid | no_provider | error */
     public function build(ContentIdeaSubject $subject): array
     {
         $brand = $subject->brand();
@@ -37,7 +37,8 @@ final class ContentRecipe
             return ['status' => 'not_operational'];
         }
         $pack = $this->pack($subject);
-        $result = $this->ai->run(new ContentRecipeAgent, $pack, 300);
+        // Claude (MCP): the job runs again with the answer, found by its slot although the page's metrics moved meanwhile.
+        $result = $this->ai->run(new ContentRecipeAgent, $pack, 300, 'recipe');
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }

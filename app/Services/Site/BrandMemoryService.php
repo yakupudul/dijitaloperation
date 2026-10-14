@@ -107,10 +107,12 @@ final class BrandMemoryService
     }
 
     /**
-     * Lazily writes the summaries missing for these pages (one AI call per SUMMARY_BATCH pages).
+     * Lazily writes the summaries missing for these pages (one AI call per SUMMARY_BATCH pages). Inside a resumable job
+     * every batch is asked of Claude (MCP) at once (status queued); the job runs again with the answers, and the same
+     * pages make the same batches.
      *
      * @param  list<int>  $pageIds
-     * @return array{status: string, written: int}
+     * @return array{status: string, written: int} status: ready | queued | not_operational | no_provider | error
      */
     public function summarize(Brand $brand, array $pageIds): array
     {
@@ -124,19 +126,25 @@ final class BrandMemoryService
             return ['status' => 'not_operational', 'written' => 0];
         }
         $written = 0;
+        $waiting = false;
         foreach ($pages->chunk(self::SUMMARY_BATCH) as $batch) {
             $result = $this->ai->run(new PageSummaryAgent, [
                 'brand' => $brand->name,
                 'pages' => $batch->map(fn (Page $p): array => ['id' => (int) $p->id, 'url' => (string) $p->url, 'title' => $p->title, 'h1' => $p->h1,
                     'content' => $p->aiText(self::MAX_CONTENT)])->values()->all(),
             ]);
+            if ($result['status'] === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
             if ($result['status'] !== 'ready') {
                 return ['status' => $result['status'], 'written' => $written];
             }
             $written += $this->storeSummaries($brand, $batch, (array) ($result['data']['pages'] ?? []));
         }
 
-        return ['status' => 'ready', 'written' => $written];
+        return ['status' => $waiting ? 'queued' : 'ready', 'written' => $written];
     }
 
     /**

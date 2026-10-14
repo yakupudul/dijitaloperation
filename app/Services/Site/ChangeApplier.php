@@ -43,9 +43,12 @@ final class ChangeApplier
     ) {}
 
     /**
+     * Inside a resumable job (RunSiteOperationJob, PrepareOverlapRewriteJob) the AI call may wait for Claude over MCP
+     * (status queued); the job runs again with the answer, found by its slot although the live page HTML moved meanwhile.
+     *
      * @param  array<string, mixed>|null  $given  a version Claude wrote over MCP when the API could not (same output shape
      *                                            as the agent); it goes through the same checks as the AI's
-     * @return array{status: string, message?: string} status: ready | not_applicable | not_operational | invalid | blocked | no_provider | error
+     * @return array{status: string, message?: string} status: ready | queued | not_applicable | not_operational | invalid | blocked | no_provider | error
      */
     public function prepare(Suggestion $suggestion, ?array $given = null): array
     {
@@ -85,7 +88,7 @@ final class ChangeApplier
             'existing_schema' => self::existingSchema($page),
             'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
             'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'decisions' => $context['decisions'],
-        ] + $this->clusterPack($suggestion, $brand), 300);
+        ] + $this->clusterPack($suggestion, $brand), 300, 'apply-change-'.$suggestion->id);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }

@@ -135,7 +135,9 @@ final class McpWorkspaceTest extends SiteTestCase
         $queue = app(AiTaskQueue::class);
         $this->assertTrue($queue->supports(AiRouteKeys::SITE_CLUSTER_MATCH));
         $this->assertTrue($queue->supports(AiRouteKeys::SITE_CLUSTER_GAPS));
-        $this->assertFalse($queue->supports(AiRouteKeys::SITE_URL_ANALYSIS), 'its caller does not wait for Claude yet');
+        $this->assertTrue($queue->supports(AiRouteKeys::SITE_URL_ANALYSIS), 'URL analysis waits for Claude since 2026-10-14');
+        $this->assertFalse($queue->supports(AiRouteKeys::SITE_FIX_PAGE), 'its caller does not wait for Claude yet');
+        $this->assertFalse($queue->supports(AiRouteKeys::CONTENT_IDEAS), 'content work is never a model choice; Claude takes it only while it takes all or the credit is used up');
     }
 
     public function test_brand_facts_are_read_once_and_claude_notes_stay_apart(): void

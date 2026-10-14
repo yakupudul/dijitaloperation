@@ -288,7 +288,9 @@ final class SiteOperations
             }
         }
 
-        return $result + ['summaries' => $this->memory->summarize($brand, $this->pagesInUse($site))['status']];
+        $result['summaries'] = $this->memory->summarize($brand, $this->pagesInUse($site))['status'];
+
+        return $result['summaries'] === 'queued' ? ['status' => 'queued'] + $result : $result;
     }
 
     /**

@@ -44,8 +44,12 @@ final class UrlAnalyzer
     ) {}
 
     /**
+     * Inside RunSiteOperationJob every URL is asked of Claude (MCP) at once (status queued); the job runs again with the
+     * answers, each found by its URL although the page's metrics moved meanwhile. A URL whose pack still waits for its
+     * page summaries is asked once they are written.
+     *
      * @param  list<int>  $pageIds
-     * @return array{status: string, pages: int, suggestions: int}
+     * @return array{status: string, pages: int, suggestions: int} status: ready | queued | not_operational | no_pages | no_provider | error
      */
     public function analyze(DigitalAsset $site, array $pageIds): array
     {
@@ -59,9 +63,20 @@ final class UrlAnalyzer
         }
         $done = 0;
         $stored = 0;
+        $waiting = false;
         foreach ($pages as $page) {
-            [$pack, $evidence, $clusterIds] = $this->pack($brand, $site, $page);
-            $result = $this->ai->run(new UrlAnalysisAgent, $pack, 240);
+            [$pack, $evidence, $clusterIds, $summaries] = $this->packOf($brand, $site, $page);
+            if ($summaries === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
+            $result = $this->ai->run(new UrlAnalysisAgent, $pack, 240, 'url-'.$page->id);
+            if ($result['status'] === 'queued') {
+                $waiting = true;
+
+                continue;
+            }
             if ($result['status'] !== 'ready') {
                 return ['status' => $result['status'], 'pages' => $done, 'suggestions' => $stored];
             }
@@ -70,7 +85,7 @@ final class UrlAnalyzer
             $done++;
         }
 
-        return ['status' => 'ready', 'pages' => $done, 'suggestions' => $stored];
+        return ['status' => $waiting ? 'queued' : 'ready', 'pages' => $done, 'suggestions' => $stored];
     }
 
     /**
@@ -80,14 +95,28 @@ final class UrlAnalyzer
      */
     public function pack(Brand $brand, DigitalAsset $site, Page $page): array
     {
+        [$pack, $evidence, $clusterIds] = $this->packOf($brand, $site, $page);
+
+        return [$pack, $evidence, $clusterIds];
+    }
+
+    /**
+     * The pack, its grounding set, the URL's clusters and the status of the lazy page summaries it refers to
+     * (queued: they wait for Claude over MCP).
+     *
+     * @return array{0: array<string, mixed>, 1: SiteEvidence, 2: list<int>, 3: string}
+     */
+    private function packOf(Brand $brand, DigitalAsset $site, Page $page): array
+    {
         $clusters = BrandClusterPage::query()->with('cluster.mainQuery')->where('brand_id', $brand->id)
             ->where(fn ($q) => $q->where('page_id', $page->id)->orWhereJsonContains('extra_page_ids', (int) $page->id))->orderBy('id')->get();
         $clusterIds = $clusters->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all();
         $context = $this->memory->contextFor($brand, [(int) $page->id], $clusterIds);
         // Lazy summaries of the pages the pack refers to.
         $related = array_column($context['related_pages'], 'id');
+        $summaries = 'ready';
         if (collect([...$context['pages'], ...$context['related_pages']])->contains(fn (array $p): bool => $p['summary'] === null)) {
-            $this->memory->summarize($brand, [(int) $page->id, ...$related]);
+            $summaries = $this->memory->summarize($brand, [(int) $page->id, ...$related])['status'];
             $context = $this->memory->contextFor($brand, [(int) $page->id], $clusterIds);
         }
         $gsc = $this->metrics->pageTotal($brand, $site, (string) $page->url);
@@ -135,7 +164,7 @@ final class UrlAnalyzer
         );
         $evidence->addNumbersFrom(['gsc' => $gsc, 'queries' => $queries, 'ga4' => $ga4]);
 
-        return [$pack, $evidence, $clusterIds];
+        return [$pack, $evidence, $clusterIds, $summaries];
     }
 
     /**
