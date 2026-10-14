@@ -190,9 +190,12 @@ final class GbpStandardInput
         $rows = DB::table('gbp_media')->where('external_resource_id', $resourceId)->get(['media_format', 'category', 'create_time']);
         $photos = $rows->filter(static fn (object $r): bool => strtoupper((string) $r->media_format) !== 'VIDEO');
         $categories = $rows->map(static fn (object $r): string => strtoupper((string) $r->category))->unique();
+        // Google returns the logo set in today's Business Profile editor as PROFILE (Karabağlar 2026-10-14), often
+        // without a create time (stored as 1970); such dates are not upload dates.
+        $lastPhoto = $photos->map(static fn (object $r): string => substr((string) $r->create_time, 0, 10))->filter(static fn (string $d): bool => $d >= '2005-01-01')->max();
 
-        return ['available' => $rows->isNotEmpty(), 'last_photo' => $photos->max('create_time') !== null ? substr((string) $photos->max('create_time'), 0, 10) : null,
-            'photo_count' => $photos->count(), 'has_logo' => $categories->contains('LOGO'), 'has_cover' => $categories->contains('COVER')];
+        return ['available' => $rows->isNotEmpty(), 'last_photo' => $lastPhoto,
+            'photo_count' => $photos->count(), 'has_logo' => $categories->contains('LOGO') || $categories->contains('PROFILE'), 'has_cover' => $categories->contains('COVER')];
     }
 
     /** @return array{verified: ?bool} null = not collected */

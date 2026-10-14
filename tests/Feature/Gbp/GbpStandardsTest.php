@@ -288,4 +288,20 @@ final class GbpStandardsTest extends TestCase
             ->assertSee('captured')->assertSee('LOGO')->assertSee('gbp:photo_set')->assertSee('Diş hekimi');
         MoxdopServer::tool(GbpEvidence::class, ['asset_id' => 999999])->assertHasErrors();
     }
+
+    public function test_a_profile_photo_counts_as_the_logo_and_undated_media_is_not_a_photo_date(): void
+    {
+        $asset = DigitalAsset::factory()->create(['type' => 'google_business_profile', 'status' => 'active']);
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/9']);
+        $run = Run::query()->create(['digital_asset_id' => $asset->id, 'module_id' => 'google-business-profile', 'status' => 'completed', 'started_at' => now(), 'finished_at' => now()]);
+        $base = ['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'run_id' => $run->id, 'location_name' => 'locations/9', 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()];
+        DB::table('gbp_media')->insert($base + ['media_name' => 'logo', 'media_format' => 'PHOTO', 'category' => 'PROFILE', 'create_time' => '1970-01-01 00:00:00']);
+        DB::table('gbp_media')->insert($base + ['media_name' => 'p1', 'media_format' => 'PHOTO', 'category' => 'ADDITIONAL', 'create_time' => '2023-11-28 11:41:40']);
+
+        $input = app(GbpStandardInput::class)->build($asset, $resource->id, CarbonImmutable::parse('2026-10-14'));
+
+        $this->assertTrue($input['media']['has_logo']);
+        $this->assertFalse($input['media']['has_cover']);
+        $this->assertSame('2023-11-28', $input['media']['last_photo']);
+    }
 }
