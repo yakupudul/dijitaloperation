@@ -197,6 +197,21 @@ final class GbpPostQueueTest extends TestCase
         $this->assertSame(1, ExternalWriteAction::query()->count());
     }
 
+    public function test_a_post_drafted_before_the_site_media_was_read_still_goes_out_with_the_page_image(): void
+    {
+        $post = GbpQueuedPost::query()->create([
+            'digital_asset_id' => $this->location->id, 'brand_id' => $this->brand->id, 'page_id' => $this->pages['implant']->id, 'angle' => 'tanim',
+            'publish_on' => '2026-10-07', 'summary' => self::text('implant'), 'url' => $this->pages['implant']->url, 'action_type' => 'BOOK',
+            'image_url' => null, 'status' => GbpQueuedPost::APPROVED, 'approved_by' => $this->admin->id]);
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-07 11:00', 'Europe/Istanbul'));
+        $this->assertSame(1, app(GbpPostQueue::class)->publishDue()['published']);
+
+        $sent = collect($this->calls)->first(fn (array $c): bool => $c[0] === 'POST' && str_contains($c[1], 'localPosts'));
+        $this->assertSame([['mediaFormat' => 'PHOTO', 'sourceUrl' => 'https://panorama.test/wp-content/uploads/implant.jpg']], $sent[2]['media']);
+        $this->assertSame('https://panorama.test/wp-content/uploads/implant.jpg', $post->fresh()->image_url);
+    }
+
     public function test_a_manual_post_that_day_wins_and_a_failed_post_can_be_retried(): void
     {
         $queue = app(GbpPostQueue::class);
