@@ -1283,11 +1283,13 @@ final class ContentPlanner
             throw ValidationException::withMessages(['write' => 'Sayfanın yeni sürümü zaten WordPress\'te taslak.']);
         }
         $page = $suggestion->page_id !== null ? Page::query()->find($suggestion->page_id) : null;
-        if ($page === null || $page->wp_post_id === null) {
+        // A correction of a sent article (ResultCorrections) names the WordPress post itself: it may not be collected yet.
+        $postId = $page?->wp_post_id ?? ((int) ($action['wp_post_id'] ?? 0) ?: null);
+        if ($postId === null) {
             throw ValidationException::withMessages(['write' => 'Güncellenecek sayfa WordPress\'ten gelmiyor; metni sayfaya elle taşı.']);
         }
         $article = (array) $action['article'];
-        $write = app(ExternalWriteService::class)->requestContentDraft($user, $site, ['object_id' => (int) $page->wp_post_id,
+        $write = app(ExternalWriteService::class)->requestContentDraft($user, $site, ['object_id' => (int) $postId,
             'title' => (string) ($article['title'] ?? $suggestion->title), 'html' => (string) ($article['html'] ?? ''), 'reference' => 'suggestion-'.$suggestion->id], $suggestion);
         $action = array_merge($action, ['article_write_id' => (int) $write->id, 'page_update' => true,
             'sent_languages' => [(string) ($article['language'] ?? self::articleLanguage($suggestion, $site))]]);

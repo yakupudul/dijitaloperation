@@ -6,6 +6,7 @@ use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\ChannelData;
 use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\ContentQueue;
+use App\Mcp\Tools\CorrectResult;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GbpEvidence;
 use App\Mcp\Tools\GetBrand;
@@ -29,6 +30,7 @@ use App\Mcp\Tools\ScreenChecks;
 use App\Mcp\Tools\SiteBuilds;
 use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SystemHealth;
+use App\Mcp\Tools\TaskResult;
 use App\Mcp\Tools\UpdateChange;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
@@ -45,7 +47,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * enabled "Site building" in the plugin. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.7.0')]
+#[Version('1.8.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -75,6 +77,10 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
    submit again. If it cannot be done from its input, `fail-task` with a short Turkish reason.
 3. A submitted answer can start the next step of the same job (for example Eşleştir: match first, then gaps), so
    call `list-tasks` again until it returns nothing.
+4. A submitted answer is final for the task (a second submit-result is refused). When you later find a mistake in
+   it (a typo, an untranslated part, a template sentence), `task-result id=…` shows where it landed and
+   `correct-result` fixes that field: not sent yet → corrected in place and checked again; already sent → a new row
+   waits for the operator's approval. Nothing reaches a site or Google without the operator's click either way.
 
 ## Strategies (Stratejiler)
 - When the operator asks for a strategy (a campaign plan, a channel roadmap, a market entry), first read that
@@ -129,6 +135,8 @@ class MoxdopServer extends Server
         GetTask::class,
         SubmitResult::class,
         FailTask::class,
+        TaskResult::class,
+        CorrectResult::class,
         ListBrands::class,
         GetBrand::class,
         GetPage::class,

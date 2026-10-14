@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-14 — Claude'un kabul edilmiş AI sonuçlarını düzeltmesi
+
+- MCP `task-result`: Claude cevapladığı (kapanmış) görevi ve cevabın düştüğü satırları okur: masa / içerik satırları (`suggestions.action`) ve planlı GBP gönderileri, her düzeltilebilir alan için metin ve "gönderildi mi".
+- MCP `correct-result`: tek alanı düzeltir (`find → replace` ya da yeni metin; iç linklerde yalnız mevcut linkler kalabilir). Gönderilmemişse yerinde düzeltilir, sektör kontrolleri yeniden çalışır, satır AI kontrolüne yeniden girer (içerik ve GBP gönderisinin kararı silinir; masa satırında öneri değişince kontrol kendiliğinden yenilenir). Gönderilmişse siteye hiçbir şey gitmez: aynı sayfa için yeni başlık/açıklama satırı ya da gönderilen WordPress yazısı için "Güncelleme" içerik satırı (`wp_post_id`) operatör onayına hazırlanır. Yayınlanmış GBP gönderisi düzeltilemez. Her düzeltme satırda `action.corrections` olarak kayıtlı.
+- Yayın kuralı değişmedi: müşteri sitesine ve Google'a giden her şey yine Günlük gönderim ya da Onarım masası onayından geçer.
+- Durum: CODED + TESTED (`ResultCorrectionsTest`). UAT yok. Neden: kabul edilen görev kapanıyor, ikinci `submit-result` reddediliyordu; hatalı çıkan sonuçlar (yazım hatası, Türkçe kalan çeviri, şablon açıklama) düzeltilemiyordu (havuz #42'nin yerine).
+
 ## 2026-10-14 — Günde 1 tık: içerik otopilotu, profil gönderisi ve onarım AI kontrolü
 
 - İçerik otopilotu (`moxdop:content:autopilot`, saatte 3 kez): her site için son yayınlanan yazıdan 2 gün sonra başlayıp (en fazla son 60 gün) yarına kadar 2 günde 1 tarih açılır; her tarihe havuzdan bir "yeni yazı" fikri (önce yazılmış olan, sonra en yüksek puanlı) verilir, başlık sistemce onaylanır, makale ve çevirileri yazılır, havuz 20'ye tamamlanır. Güncelleme fikirleri ve sektör kuralına takılanlar tarih almaz.
