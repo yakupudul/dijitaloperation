@@ -10,6 +10,7 @@ use App\Services\Ai\AiAssignments;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiCredits;
 use App\Services\Ai\AiPricing;
+use App\Services\Ai\ClaudeApiWindow;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Site\SiteOperations;
@@ -170,6 +171,17 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->assertSame('openai:gpt-5-mini', $registry->current(AiRouteKeys::BRAND_SETUP)->model);
         $this->assertSame($triage, $registry->current(AiRouteKeys::QUERIES_TRIAGE)->model, 'query triage goes back to its earlier model');
         $this->artisan('moxdop:ai:claude-api-window', ['action' => 'end'])->assertSuccessful();
+    }
+
+    public function test_when_claude_takes_all_the_period_end_brings_no_old_model_back(): void
+    {
+        config(['moxdop-mcp.takes_all' => true]);
+        $registry = app(PromptRegistry::class);
+        $this->pin(AiRouteKeys::BRAND_SETUP, AiAssignments::SONNET);
+        Storage::disk('local')->put('ai/claude-api-window.json', json_encode(['models' => [AiRouteKeys::BRAND_SETUP => 'openai:gpt-5-mini']]));
+
+        $this->assertSame(['restored' => 0], app(ClaudeApiWindow::class)->end($this->admin));
+        $this->assertSame(AiAssignments::SONNET, $registry->current(AiRouteKeys::BRAND_SETUP)->model);
     }
 
     public function test_work_that_fell_back_to_the_claude_queue_returns_to_the_api_when_money_allows_again(): void

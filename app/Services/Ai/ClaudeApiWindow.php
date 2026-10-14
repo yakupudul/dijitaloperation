@@ -84,6 +84,10 @@ final class ClaudeApiWindow
         }
         $models = (array) (json_decode((string) Storage::disk('local')->get(self::SNAPSHOT), true)['models'] ?? []);
         $restored = 0;
+        // Claude takes every job now (yakup, 2026-10-14): the old GPT models are not brought back.
+        if (AiTaskQueue::takesAll()) {
+            $models = [];
+        }
         foreach ($models as $operation => $model) {
             if (! $this->registry->has((string) $operation)) {
                 continue;
