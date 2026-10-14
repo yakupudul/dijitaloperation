@@ -192,7 +192,9 @@ final class WordPressConnectorCommands
             return [];
         }
         $commands = [];
-        foreach (DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('status', 'pending')->orderBy('id')->limit(self::PER_EXCHANGE)->get() as $row) {
+        foreach (DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('status', 'pending')
+            // A connector update goes first: a site with hundreds of waiting fixes would otherwise take it half an hour later.
+            ->orderByRaw("case when route = '/moxdop/v1/self-update' then 0 else 1 end")->orderBy('id')->limit(self::PER_EXCHANGE)->get() as $row) {
             $query = $row->query !== null ? (array) json_decode((string) $row->query, true) : [];
             $body = (string) ($row->body ?? '');
             $timestamp = (string) CarbonImmutable::now('UTC')->getTimestamp();

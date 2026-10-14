@@ -172,6 +172,7 @@ final class WordPressConnectorPullTest extends TestCase
         WordPressConnectorCommands::setTransport($this->connection, 'pull');
         $this->app->instance(WordPressConnectorCommands::class, new WordPressConnectorCommands(fn () => usleep(1000)));
         config(['moxdop-wordpress.pull_wait_seconds' => 1]);
+        DB::table('website_connector_commands')->insert(['connection_id' => $this->connection->id, 'method' => 'GET', 'route' => '/moxdop/v1/health', 'status' => 'pending', 'created_at' => now()->subMinute()]);
 
         try {
             app(WordPressConnectorClient::class)->selfUpdate($this->connection->fresh(), '1.16.0', 'https://app.example/pkg.zip', str_repeat('a', 64));
@@ -180,7 +181,7 @@ final class WordPressConnectorPullTest extends TestCase
             $this->assertStringContainsString('ilk soruşunda alacak', $e->getMessage());
         }
 
-        $this->assertSame('/moxdop/v1/self-update', $this->ask([], true)['commands'][0]['route'], 'the site still gets the update on its next ask');
+        $this->assertSame('/moxdop/v1/self-update', $this->ask([], true)['commands'][0]['route'], 'the site still gets the update on its next ask, before other waiting work');
     }
 
     /** One ask of the 1.13.0 plugin: runs every command it gets (verifying MoxDOP's signature) and brings the answers back. */
