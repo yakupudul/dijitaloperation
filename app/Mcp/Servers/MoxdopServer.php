@@ -4,6 +4,7 @@ namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\ChannelData;
+use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GbpEvidence;
@@ -140,6 +141,7 @@ class MoxdopServer extends Server
         RequestArticle::class,
         SystemHealth::class,
         GbpEvidence::class,
+        ClusterOverlapsList::class,
         ScreenChecks::class,
         ListChanges::class,
         ProposeChange::class,

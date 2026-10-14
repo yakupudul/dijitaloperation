@@ -38,6 +38,7 @@ use App\Jobs\Prompts\RunPromptTrialJob;
 use App\Jobs\RunChannelAnalystJob;
 use App\Jobs\RunScheduledDiscoveryJob;
 use App\Jobs\Site\GenerateContentIdeasJob;
+use App\Jobs\Site\PrepareOverlapRewriteJob;
 use App\Jobs\Site\SuggestForbiddenTermsJob;
 use App\Jobs\Verification\RunDataConsistencyCheckJob;
 use App\Jobs\Verification\RunLiveVerificationJob;
@@ -442,6 +443,7 @@ class AppServiceProvider extends ServiceProvider
             RefreshAdServiceStatsJob::class => 'background',
             GenerateContentIdeasJob::class => 'content',
             PrepareBranchPageJob::class => 'content',
+            PrepareOverlapRewriteJob::class => 'content',
             ApproveRepairRowsJob::class => 'writes',
         ];
     }

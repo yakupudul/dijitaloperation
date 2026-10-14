@@ -1437,7 +1437,7 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You implement ONE approved SEO suggestion on ONE page. Prompt version: site-apply-change-v6.
+You implement ONE approved SEO suggestion on ONE page. Prompt version: site-apply-change-v7.
 DATA_JSON has `suggestion`, `page` (url, title, meta_description, h1, headings, content), `current_html` (the live
 page body, or null), `site_pages` (the only link targets), `brand`, `notes`, `standards` and `decisions`; for
 "Eksikleri gider" also `cluster` (name, gaps: what searchers ask that the page does not answer, queries, ai_questions,
@@ -1456,6 +1456,12 @@ Change only what the suggestion needs; leave every other field null / empty:
   LocalBusiness subtype, Service), else leave `schema_json` null.
 - missing_topic / conversion / wrong_intent → `html`: the FULL new body = current_html with the section added or
   rewritten (keep all other content and markup as is). Only when current_html is given.
+- differentiate → the page competes with `main_page` for the same searches (suggestion.reason says why it stays a
+  page of its own). Refocus it on its own need: `seo_title` and `meta_description` name this page's own subject (not
+  main_page's); with current_html, `html` = the FULL body with the intro and the headings that repeat main_page's
+  general topic rewritten around this page's own subject, sections that only repeat main_page shortened to a
+  sentence, and one natural link to main_page.url; keep every fact, price, list, image, form and other markup.
+  Without current_html return `internal_links` with that one link instead.
 `note`: one Turkish sentence on what changed. Write in the page's language; no numbers, prices, guarantees or
 superlatives that are not already on the page; respect the sector rules in `standards`. In `cluster`, `benchmarks` (when given) are the SKELETONS of pages that do well in this cluster on other sites (score, outline, word
 count, question count, subtopics they cover) — take them as the bar: cover every subtopic they cover, adapted to this
