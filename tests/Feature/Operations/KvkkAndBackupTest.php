@@ -141,6 +141,7 @@ final class KvkkAndBackupTest extends TestCase
         // ~24 MB of dump lines, then the pg_dump footer the verifier looks for.
         file_put_contents($script, <<<'SH'
             #!/bin/sh
+            echo "-- args: $*"
             for i in $(seq 1 300000); do echo "INSERT INTO t VALUES ($i, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');"; done
             echo '-- PostgreSQL database dump complete'
 
@@ -153,6 +154,9 @@ final class KvkkAndBackupTest extends TestCase
         $backup->dump('pgsql', ['host' => '127.0.0.1', 'port' => 5432, 'username' => 'u', 'database' => 'd', 'password' => ''], $path);
         $backup->verify('pgsql', $path);
         $this->assertLessThan(5 * 1024 * 1024, filesize($path), 'written compressed, chunk by chunk');
+        $gz = gzopen($path, 'rb');
+        $this->assertStringContainsString('--exclude-table-data=website_link_edge', (string) gzgets($gz), 'link edges are rebuilt by the next crawl: not in the nightly dump');
+        gzclose($gz);
 
         file_put_contents($script, "#!/bin/sh\necho 'pg_dump: error: connection refused' >&2\nexit 1\n");
         try {

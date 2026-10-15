@@ -223,7 +223,7 @@ final class SystemBackup
             return;
         }
         [$command, $env] = match ($driver) {
-            'pgsql' => [[(string) config('moxdop-backup.pg_dump'), '--no-owner', '--no-privileges', '--clean', '--if-exists', '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-p', (string) ($cfg['port'] ?? 5432), '-U', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['PGPASSWORD' => (string) ($cfg['password'] ?? '')]],
+            'pgsql' => [[(string) config('moxdop-backup.pg_dump'), '--no-owner', '--no-privileges', '--clean', '--if-exists', ...array_map(fn (string $table): string => '--exclude-table-data='.$table, (array) config('moxdop-backup.exclude_table_data', [])), '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-p', (string) ($cfg['port'] ?? 5432), '-U', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['PGPASSWORD' => (string) ($cfg['password'] ?? '')]],
             'mysql', 'mariadb' => [[(string) config('moxdop-backup.mysqldump'), '--single-transaction', '--quick', '-h', (string) ($cfg['host'] ?? '127.0.0.1'), '-P', (string) ($cfg['port'] ?? 3306), '-u', (string) ($cfg['username'] ?? ''), (string) ($cfg['database'] ?? '')], ['MYSQL_PWD' => (string) ($cfg['password'] ?? '')]],
             default => throw new \RuntimeException('Bu veritabanı sürücüsü için yedek desteklenmiyor: '.$driver),
         };

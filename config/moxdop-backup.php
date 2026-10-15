@@ -14,6 +14,10 @@ return [
     'compression_ratio' => (float) env('MOXDOP_BACKUP_COMPRESSION_RATIO', 0.35),
     'free_space_margin_mb' => (int) env('MOXDOP_BACKUP_FREE_MARGIN_MB', 200),
     'keep' => (int) env('MOXDOP_BACKUP_KEEP', 14),
+    // Tables whose rows are not dumped (their structure is): data the next collection rebuilds. website_link_edge is
+    // every page's outgoing links (9,4 GB of 17,5 GB on 15 Oct 2026, half of each nightly dump); the next site crawl
+    // writes them again (see moxdop:website:reset-collection).
+    'exclude_table_data' => array_values(array_filter(array_map('trim', explode(',', (string) env('MOXDOP_BACKUP_EXCLUDE_DATA', 'website_link_edge'))))),
     'remote_disk' => env('MOXDOP_BACKUP_REMOTE_DISK'),
     // Son başarılı yedek bu kadar saatten eskiyse Sistem Sağlığı uyarır.
     'stale_hours' => 26,
