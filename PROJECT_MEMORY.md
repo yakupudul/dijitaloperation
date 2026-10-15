@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-15 — İçerik: küme haritası, konuya göre uzunluk
+
+- Bir konuyu sitede zaten işleyen sayfa varsa yeni yazı yazılmaz, o sayfa güçlendirilir; aynı konuda ikinci yazı fikri kapanır. Yazı kümenin tamamını değil kendi sorusunu derinlemesine işler, kümenin ana sayfasına bağlanır; ana sayfa yeni yazıya iç link alır (onaylı).
+- Uzunluk ve biçim konunun türünden gelir (kısa soru, süreç, karşılaştırma, maliyet, rehber, ana sayfa); her yazıda markaya özgü bilgi (hekim, şube, kendi süreci) zorunlu; Claude yazmadan önce Google'ın ilk sonuçlarına bakar (DataForSEO yok).
+- Karar: yakup, 2026-10-15 ("Sırayla hepsini yap"); gönderilmemiş 14 Ekim yazıları bu kurala göre yeniden yazılır.
+
 ## 2026-10-14 — Otopilot: hazırlık otomatik, gönderim günde 1 tık
 
 - İçerik (2 günde 1 yazı, son 60 güne kadar geçmiş tarihli), her gün her işletmeye profil gönderisi ve gece onarımı sistem hazırlar ve AI ile bir kez daha kontrol eder. Dış sisteme (WordPress, Google) giden her şey Admin'in günlük tek tıkıyla gider (Onarım masası › Günlük gönderim). Kontrolde kalan iş nedeniyle masada bekler.

@@ -8,7 +8,10 @@ use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Brand\BrandFacts;
 use App\Services\Compliance\ForbiddenTerms;
+use App\Services\Site\ContentFormat;
+use App\Services\Site\ContentMap;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteAi;
 use App\Services\Site\SiteOperations;
@@ -49,6 +52,9 @@ final class ContentAutopilot
 
     /** Articles one review job reads at most (the scheduler comes back for the rest). */
     public const int REVIEWS_PER_RUN = 4;
+
+    /** The writing round of the cluster-map rules (2026-10-15): dated articles written before it are written again once. */
+    public const int REWRITE_ROUND = 1;
 
     public function __construct(private readonly SiteSuggestions $suggestions, private readonly ContentScore $scorer) {}
 
@@ -129,8 +135,14 @@ final class ContentAutopilot
         $scores = $this->scorer->forSuggestions($candidates);
         $ordered = $candidates->sortByDesc(fn (Suggestion $s): int => (is_array($s->action['article'] ?? null) ? 1000 : 0) + (int) ($scores[(int) $s->id]['score'] ?? 0))->values();
         $planned = 0;
-        foreach ($dates as $i => $date) {
-            $suggestion = $ordered->get($i);
+        $map = app(ContentMap::class);
+        $next = 0;
+        foreach ($dates as $date) {
+            // Küme haritası (2026-10-15): an idea a page of the site already answers becomes that page's update, a second
+            // idea of the same subject closes; neither takes a date.
+            do {
+                $suggestion = $ordered->get($next++);
+            } while ($suggestion !== null && $map->resolve($suggestion) !== null);
             if ($suggestion === null) {
                 break; // the pool tops itself up; the next run continues from this date
             }
@@ -220,9 +232,17 @@ final class ContentAutopilot
             return ['verdict' => 'wrong', 'reason' => mb_substr((string) $action['article_warnings'], 0, 200), 'at' => $at];
         }
         $article = (array) $action['article'];
+        $format = (array) ($action['article_format'] ?? []);
+        $words = ContentFormat::words((string) ($article['html'] ?? ''));
+        // Too thin for its subject even after the second write: never sent by the one click (yakup, 2026-10-15).
+        if (isset($format['words_min'], $format['words_max']) && ContentFormat::tooShort($words, ['words' => [(int) $format['words_min'], (int) $format['words_max']]])) {
+            return ['verdict' => 'wrong', 'reason' => 'Yazı kısa: '.$words.' kelime; bu konu için '.$format['words_min'].'–'.$format['words_max'].' kelime gerekiyor.', 'at' => $at];
+        }
+        $facts = array_intersect_key(app(BrandFacts::class)->forPrompt($brand), array_flip(['experts', 'regions', 'questions', 'objections', 'praise']));
         $items = [['id' => 0, 'title' => (string) ($article['title'] ?? ''), 'html' => mb_substr((string) ($article['html'] ?? ''), 0, 30000),
             'language' => (string) ($article['language'] ?? ContentPlanner::articleLanguage($suggestion, $site)),
-            'source' => array_filter(['title' => $suggestion->title, 'reason' => $suggestion->reason, 'outline' => $action['outline'] ?? null, 'questions' => $action['questions'] ?? null])]];
+            'source' => array_filter(['title' => $suggestion->title, 'reason' => $suggestion->reason, 'outline' => $action['outline'] ?? null, 'questions' => $action['questions'] ?? null,
+                'brand_facts' => $facts ?: null, 'format' => $format !== [] ? $format + ['words' => $words] : null])]];
         foreach ((array) ($action['translations'] ?? []) as $language => $translation) {
             $items[] = ['id' => count($items), 'title' => (string) data_get($translation, 'title', ''), 'html' => mb_substr((string) data_get($translation, 'html', ''), 0, 30000),
                 'language' => (string) $language, 'source' => ['translation_of' => (string) ($article['title'] ?? '')]];
@@ -301,6 +321,42 @@ final class ContentAutopilot
         }
 
         return ['sent' => $sent, 'failed' => $failed];
+    }
+
+    /**
+     * Yeni yazım kuralı (yakup, 2026-10-15 "sırayla hepsini yap"): every dated article not sent yet is planned again by
+     * the cluster map (an idea a page of the site already answers becomes that page's update, a second one of the same
+     * subject closes; their dates are freed) and the rest are written again with the new rules (its own question,
+     * length by subject, Google's first results, the brand's own facts), translations included. Once per round.
+     *
+     * @return array{rewrite: int, update: int, closed: int}
+     */
+    public function rework(): array
+    {
+        $map = app(ContentMap::class);
+        $out = ['rewrite' => 0, 'update' => 0, 'closed' => 0];
+        Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
+            ->whereNotNull('action->autopilot')->lazyById(100)->each(function (Suggestion $suggestion) use ($map, &$out): void {
+                $action = (array) $suggestion->action;
+                if (isset($action['article_write_id']) || (int) ($action['rewrite'] ?? 0) >= self::REWRITE_ROUND || data_get($action, 'autopilot.date') === null) {
+                    return;
+                }
+                $resolved = $map->resolve($suggestion);
+                if ($resolved !== null) {
+                    $out[$resolved['outcome'] === 'update' ? 'update' : 'closed']++;
+
+                    return;
+                }
+                unset($action['article'], $action['translations'], $action['translations_blocked'], $action['article_blocked'], $action['article_blocked_draft'],
+                    $action['article_seo'], $action['article_warnings'], $action['article_note'], $action['article_format']);
+                $action['autopilot'] = array_diff_key((array) $action['autopilot'], array_flip(['review', 'written_seen_at']));
+                $action['rewrite'] = self::REWRITE_ROUND;
+                $suggestion->forceFill(['action' => $action])->save();
+                SiteOperations::dispatch((int) $action['site_id'], SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id]);
+                $out['rewrite']++;
+            });
+
+        return $out;
     }
 
     /** The user the otopilot approves titles as (the first active Admin). */

@@ -73,6 +73,7 @@ use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\Backlinks\SerpMentionSources;
+use App\Services\Site\ClusterLinks;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
 use App\Services\Site\PageCategorizer;
@@ -1133,6 +1134,26 @@ Schedule::command('moxdop:content:autopilot')
     ->withoutOverlapping(30)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())
     ->name('content-autopilot');
+
+// Yeni yazım kuralı (yakup, 2026-10-15): the dated articles not sent yet are planned again by the cluster map and written
+// again with the new rules (once; run on deploy).
+Artisan::command('moxdop:content:rework', function (ContentAutopilot $autopilot): void {
+    $result = $autopilot->rework();
+    $this->info($result['rewrite'].' yazı yeniden yazılıyor, '.$result['update'].' fikir mevcut sayfanın güncellemesine döndü, '.$result['closed'].' fikir kapandı.');
+})->purpose('Re-plan the unsent dated articles by the cluster map and write them again with the new writing rules');
+
+// Küme bağları ve ölçüm (yakup, 2026-10-15): a live MoxDOP article gets a link from its cluster's main page (an Onarım
+// masası row, applied on approval); one Google never showed in 90 days gets a "güçlendir" idea.
+Artisan::command('moxdop:content:cluster-links', function (ClusterLinks $links): void {
+    $result = $links->run();
+    $this->info($result['links'].' ana sayfa bağlantısı, '.$result['weak'].' güçlendirme fikri eklendi.');
+})->purpose('Link live articles from their cluster main page and flag articles Google never showed in 90 days');
+
+Schedule::command('moxdop:content:cluster-links')
+    ->dailyAt('05:17')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('content-cluster-links');
 
 // Küme çakışmaları: rebuilt every night from the stored match (no AI, no site call), so a rule change or a page that
 // changed since the last Eşleştir run closes stale overlaps (for example an /en/ page proposed into a Turkish page).

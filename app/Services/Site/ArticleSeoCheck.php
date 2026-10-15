@@ -7,8 +7,10 @@ use App\Services\SeoTasks\SeoText;
 /**
  * Yazı sonrası SEO kontrolü (yakup, 2026-10-02): the written article is checked by rules, not by trusting the AI —
  * the cluster's main query in the title and the opening paragraph, at least one internal link, the service areas when
- * the need is local, and no keyword stuffing. Findings are shown to the operator before "Taslak gönder"; they never
- * block the draft (the compliance gate and the copy check are the blocking ones).
+ * the need is local, and no keyword stuffing. Since 2026-10-15 also the length its subject needs (ContentFormat), the
+ * brand's own facts (an expert, a branch: an article any clinic could publish is generic) and the link to the cluster's
+ * main page. Findings are shown to the operator before "Taslak gönder"; they never block the draft (the compliance gate
+ * and the copy check are the blocking ones; the otopilot check holds a too-short article).
  */
 final class ArticleSeoCheck
 {
@@ -21,9 +23,11 @@ final class ArticleSeoCheck
     /**
      * @param  array{title?: string, html?: string}  $article
      * @param  list<string>  $serviceAreas  the brand's areas, given only when the cluster's need is local
+     * @param  array{type?: string, words_min?: int, words_max?: int}|null  $format  the length its subject needs
+     * @param  list<string>  $brandSignals  names only this brand has (experts, branches), from brandSignals()
      * @return list<string> what to fix, in Turkish; empty = passed
      */
-    public static function check(array $article, ?string $mainQuery, array $serviceAreas, string $siteOrigin): array
+    public static function check(array $article, ?string $mainQuery, array $serviceAreas, string $siteOrigin, ?array $format = null, array $brandSignals = [], ?string $mainPageUrl = null): array
     {
         $html = (string) ($article['html'] ?? '');
         $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace('<', ' <', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
@@ -48,8 +52,42 @@ final class ArticleSeoCheck
         if ($serviceAreas !== [] && ! collect($serviceAreas)->contains(fn (string $area): bool => self::coversQuery($text, $area))) {
             $issues[] = 'Hizmet bölgelerinden hiçbiri ('.implode(', ', array_slice($serviceAreas, 0, 4)).') metinde geçmiyor.';
         }
+        if (isset($format['words_min'], $format['words_max'])) {
+            $words = ContentFormat::words($html);
+            if (ContentFormat::tooShort($words, ['words' => [(int) $format['words_min'], (int) $format['words_max']]])) {
+                $issues[] = 'Yazı kısa: '.$words.' kelime; bu konu ('.($format['type'] ?? 'yazı').') için '.$format['words_min'].'–'.$format['words_max'].' kelime bekleniyor.';
+            }
+        }
+        if (count($brandSignals) >= 2 && count(array_filter($brandSignals, fn (string $signal): bool => self::coversQuery($text, $signal))) === 0) {
+            $issues[] = 'Markaya özgü bilgi yok: hekim, şube ya da kliniğin kendi süreci geçmiyor; yazı her sitede yayınlanabilecek kadar genel.';
+        }
+        if (filled($mainPageUrl) && ! str_contains($html, (string) $mainPageUrl)) {
+            $issues[] = 'Kümenin ana sayfasına ('.SeoText::urlPath((string) $mainPageUrl).') bağlantı yok.';
+        }
 
         return $issues;
+    }
+
+    /**
+     * Names only this brand has, to tell a specific article from a generic one: its experts and its branches / areas
+     * (the brand fact card lines, without titles and notes in brackets).
+     *
+     * @param  array<string, list<string>>  $facts  BrandFacts::forPrompt
+     * @return list<string>
+     */
+    public static function brandSignals(array $facts): array
+    {
+        $names = [];
+        foreach ([...(array) ($facts['experts'] ?? []), ...(array) ($facts['regions'] ?? [])] as $line) {
+            $name = trim((string) preg_replace('/\s*[(\[–—:·,-].*$/u', '', (string) $line));
+            $name = trim((string) preg_replace('/^(prof\.?|doç\.?|doc\.?|uzm\.?|op\.?|dr\.?|dt\.?|dyt\.?)\s+/iu', '', $name));
+            $name = trim((string) preg_replace('/^(prof\.?|doç\.?|doc\.?|uzm\.?|op\.?|dr\.?|dt\.?|dyt\.?)\s+/iu', '', $name));
+            if (mb_strlen($name) >= 3 && mb_strlen($name) <= 40) {
+                $names[] = $name;
+            }
+        }
+
+        return array_values(array_slice(array_unique($names), 0, 20));
     }
 
     /** Every word of the query (2+ letters) has a word in the text that starts with its stem. */

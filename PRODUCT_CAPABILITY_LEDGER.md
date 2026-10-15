@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-15 — Küme haritası ve yeni yazım kuralı
+
+- **Sorun (yakup 2026-10-15 "yazıların uzunluğu hep aynı, kümenin hakkı veriliyor mu"):** 14 Ekim gecesi yazılan 270 Türkçe yazının ortancası 572 kelimeydi, hepsi aynı iskeletteydi (kısa cevap, 7–9 ara başlık, 5 SSS). Talimat her yazıya kümenin ana sorgusunu ve bütün alt başlıklarını koyduruyordu; yeni yazı mı güncelleme mi kararı sitedeki sayfaların konusuna bakmıyordu (OPC "Kanal tedavisi nasıl yapılır" mevcut süreç sayfasının yanına yazıldı; Avrupadent'e aynı gece iki All-on-4 / All-on-6 yazısı).
+- **Küme haritası (`ContentMap`):** sitenin ana dildeki bir sayfası, başlığı / H1'i / adresi fikrin aramasının bütün konu kelimelerini taşıyorsa (ve başlığa az şey ekliyorsa) ya da başlığı aynı konuyu söylüyorsa konunun sahibidir. Böyle bir konuda yeni fikir o sayfanın güncellemesine döner; aynı konuda ikinci fikir kapanır. Fikir havuzu (`storeItem`), otopilot planı ve yeniden yazım aynı kontrolü kullanır. Yazıcıya kümenin ana sayfası ve kümenin diğer sayfaları (`cluster.map`) gider: o konular tek cümle ve linkle geçer.
+- **Biçim ve uzunluk konudan (`ContentFormat`):** kısa soru 450–750, süreç 900–1400, karşılaştırma 1100–1800, maliyet 900–1300, rehber 900–1400, ana sayfa 1500–2500 kelime; kümede iyi giden sayfalar daha uzunsa çıta onlara göre (en fazla 1,5 kat). Yazı alt sınırın %75'inin altında kalırsa bir kez daha yazılır; yine kısaysa otopilot kontrolünde bekler.
+- **Yazım talimatı `site-write-article-v11`:** yazı kendi sorusunu (`plan.focus_query`) derinlemesine cevaplar, yazmadan önce Google'da ilk 3–5 sonuca bakar (web araması olan Claude için; metin kopyalanmaz), marka bilgi kartından en az üç markaya özgü bilgi kullanır (hekim, şube, kendi süreci, hastaların sorduğu), SSS yalnız gövdenin cevaplamadığı sorular için. Otopilot kontrolü `content-review-v2` derinliği ve genelliği de okur. Yazı sonrası SEO kontrolüne kısa yazı, markaya özgü bilgi yokluğu ve ana sayfa linki eksikliği eklendi.
+- **Küme bağları ve ölçüm (`moxdop:content:cluster-links`, her gün 05:17):** yayına giren MoxDOP yazısına kümenin ana sayfası link vermiyorsa Onarım masasına iç link satırı düşer (onayla uygulanır); 90 günde hiç gösterim almayan yazıya "güçlendir" fikri açılır.
+- **Bekleyen yazılar:** deploy'da `moxdop:content:rework` gönderilmemiş tarihli yazıları küme haritasıyla yeniden planlar (sahibi olan sayfanın güncellemesine döner, tarihi boşalır) ve kalanları çevirileriyle yeni kurala göre yeniden yazar; tarihler aynı kalır.
+- Durum: CODED + TESTED (`ContentClusterMapTest`). UAT yok; Claude rutininin web araması yapıp yapmadığı canlıda görülecek.
+
 ## 2026-10-14 — Claude'un kabul edilmiş AI sonuçlarını düzeltmesi
 
 - MCP `task-result`: Claude cevapladığı (kapanmış) görevi ve cevabın düştüğü satırları okur: masa / içerik satırları (`suggestions.action`) ve planlı GBP gönderileri, her düzeltilebilir alan için metin ve "gönderildi mi".

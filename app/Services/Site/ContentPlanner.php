@@ -64,6 +64,9 @@ final class ContentPlanner
     /** Why an update idea is not stored: its page already has one waiting. */
     public const string PAGE_TAKEN = 'bu sayfa için bekleyen güncelleme fikri var';
 
+    /** Why a new idea is not stored: another idea of the site already has its subject (ContentMap). */
+    public const string SAME_SUBJECT = 'aynı konuda başka fikir var';
+
     /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
     private const int STRIKING_QUERIES = 40;
 
@@ -292,7 +295,7 @@ final class ContentPlanner
 
                     continue;
                 }
-                if ($round === 0 && $item !== null && ! in_array($reason, ['aynı başlık zaten var', self::PAGE_TAKEN], true)) {
+                if ($round === 0 && $item !== null && ! in_array($reason, ['aynı başlık zaten var', self::PAGE_TAKEN, self::SAME_SUBJECT], true)) {
                     $retry[] = $candidate;
                     $notes[$candidate['id']] = ['rejected_title' => (string) ($item['title'] ?? ''), 'why' => $reason];
 
@@ -1045,15 +1048,26 @@ final class ContentPlanner
         // Every input the writer copies loses its forbidden phrases first ("En iyi … seçerken" → "… seçerken"); repeated lines go once.
         $scrub = fn (array $lines): array => array_values(array_unique(array_filter(array_map(fn ($line): string => $terms->scrub((string) $line), $lines), fn (string $l): bool => $l !== '')));
         $text = fn (mixed $value): ?string => ($clean = $terms->scrub(trim((string) $value))) !== '' ? $clean : null;
+        // What only this business can say (experts, branches, what its patients ask, praise and complaints): the writer must use some of it.
+        $scrubFacts = fn (array $facts): array => array_filter(array_map(fn (array $lines): array => array_slice($scrub($lines), 0, 12),
+            array_intersect_key($facts, array_flip(['experts', 'regions', 'questions', 'objections', 'praise']))));
         $questions = $scrub((array) ($action['questions'] ?? []));
         $angle = $text($action['angle'] ?? null);
         $reason = $text($suggestion->reason);
         $recipe = isset($action['recipe']) ? $scrub(array_map(fn (array $s): string => trim(($s['where'] ?? '') !== '' ? $s['where'].': '.$s['action'] : (string) ($s['action'] ?? '')), (array) $action['recipe'])) : [];
         $recipeSeo = (array) ($action['recipe_seo'] ?? []);
+        $kind = ($action['kind'] ?? null) === 'update' ? 'update' : 'new';
+        $benchmarks = $cluster !== null ? app(ClusterBenchmarks::class)->for($cluster, (int) $brand->id) : [];
+        // The article answers its own search (the idea's query), not the whole cluster (yakup, 2026-10-15).
+        $focus = $text($action['query'] ?? null) ?? $text($cluster?->mainQuery?->text);
+        $format = ContentFormat::for((string) $suggestion->title, $focus, (string) ($action['page_type'] ?? 'blog'), is_string($action['angle'] ?? null) ? $action['angle'] : null, $benchmarks);
+        $map = $cluster !== null ? app(ContentMap::class)->forWriter($brand, $site, $cluster, $suggestion) : [];
         $input = [
             'plan' => ['title' => $terms->scrub((string) $suggestion->title), 'page_type' => $action['page_type'] ?? 'blog', 'outline' => $scrub((array) ($action['outline'] ?? [])),
-                'questions' => $questions, 'target_url' => $action['target_url'] ?? null, 'kind' => ($action['kind'] ?? null) === 'update' ? 'update' : 'new']
-                + array_filter(['reason' => $reason !== $angle ? $reason : null, 'angle' => $angle, 'target_queries' => $scrub((array) ($action['target_queries'] ?? [])), 'main_page_url' => $action['main_page_url'] ?? null,
+                'questions' => $questions, 'target_url' => $action['target_url'] ?? null, 'kind' => $kind,
+                'format' => ['type' => $format['label'], 'words_min' => $format['words'][0], 'words_max' => $format['words'][1], 'shape' => $format['shape']]]
+                + array_filter(['focus_query' => $focus, 'reason' => $reason !== $angle ? $reason : null, 'angle' => $angle, 'target_queries' => $scrub((array) ($action['target_queries'] ?? [])),
+                    'main_page_url' => $action['main_page_url'] ?? ($kind === 'new' ? data_get($map, 'main_page.url') : null),
                     'recipe' => $recipe, 'seo_title' => $text($recipeSeo['seo_title'] ?? null), 'meta_description' => $text($recipeSeo['meta_description'] ?? null)],
                     fn (mixed $v): bool => $v !== null && $v !== []),
             'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $text($cluster->mainQuery?->text), 'subtopics' => $scrub(array_filter((array) $cluster->subtopics, 'is_string')),
@@ -1061,9 +1075,10 @@ final class ContentPlanner
                     ->sortByDesc(fn (ClusterQuery $q): int => (int) $q->searchQuery->impressions)->map(fn (ClusterQuery $q): string => (string) $q->searchQuery->text)->take(30)->all()),
                 // Questions already in the plan are not sent twice.
                 'ai_questions' => array_values(array_diff($scrub(ClusterAudit::aiQuestions($cluster, $brand)), $questions)), 'service_areas' => ClusterAudit::serviceAreas($cluster, $brand) ?: null,
-                'benchmarks' => app(ClusterBenchmarks::class)->for($cluster, (int) $brand->id) ?: null],
+                'benchmarks' => $benchmarks ?: null, 'map' => $map ?: null],
                 fn (mixed $v): bool => $v !== null && $v !== []) : null,
-            'brand' => $context['profile'], 'notes' => $context['notes'], 'standards' => $context['standards'], 'related_pages' => [...$context['pages'], ...$context['related_pages']],
+            'brand' => $context['profile'], 'brand_facts' => $scrubFacts(app(BrandFacts::class)->forPrompt($brand)) ?: null,
+            'notes' => $context['notes'], 'standards' => $context['standards'], 'related_pages' => [...$context['pages'], ...$context['related_pages']],
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
             'forbidden' => $terms->phrases(),
@@ -1076,11 +1091,28 @@ final class ContentPlanner
         }
         unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
         $action['language'] = $language;
-        $outcome = $this->writeWithFix($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, 'article-'.$suggestion->id);
+        // A rewrite (ContentAutopilot::rework) asks under new names: an answered call of an earlier round is never reused.
+        $slot = 'article-'.$suggestion->id.(($round = (int) ($action['rewrite'] ?? 0)) > 0 ? '-r'.$round : '');
+        $outcome = $this->writeWithFix($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, $slot);
+        $firstWords = $outcome['status'] === 'ready' ? ContentFormat::words((string) $outcome['article']['html']) : 0;
+        if ($outcome['status'] === 'ready' && $outcome['attempts'] === 1 && ContentFormat::tooShort($firstWords, $format)) {
+            // Too thin for its subject: written once more with the length it needs (one extra write at most); the first
+            // one stays when the second is not longer or fails a rule.
+            $input['fix'] = [['field' => 'html', 'phrase' => '', 'rule' => 'length', 'instruction' => 'The article has '.ContentFormat::words((string) $outcome['article']['html'])
+                .' words; this subject ('.$format['label'].') needs '.$format['words'][0].'–'.$format['words'][1].'. Write it again in full depth: answer plan.focus_query completely, '
+                .'cover what the first Google results and benchmarks cover, add the brand\'s own facts. No filler, no repetition.']];
+            $longer = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, $slot.'-long');
+            if ($longer['status'] === 'queued') {
+                return ['status' => 'queued'];
+            }
+            $outcome = $longer['status'] === 'ready' && ContentFormat::words((string) $longer['article']['html']) > $firstWords ? $longer : $outcome;
+        }
         if ($outcome['status'] === 'invalid' || $outcome['status'] !== 'ready' && ! isset($outcome['article'])) {
             return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
         }
         $article = $outcome['article'];
+        $action['article_format'] = ['type' => $format['label'], 'intent' => $format['intent'], 'words_min' => $format['words'][0], 'words_max' => $format['words'][1],
+            'words' => ContentFormat::words((string) $article['html'])];
         if ($outcome['status'] === 'blocked') {
             // Kept to read and fix by hand; never sent while blocked.
             $suggestion->forceFill(['action' => $action + ['article_blocked' => $outcome['message'], 'article_blocked_draft' => $article]])->save();
@@ -1089,7 +1121,8 @@ final class ContentPlanner
         }
         $warnings = $terms->warnings(implode(' . ', [$article['title'], $article['meta_title'], $article['meta_description'], strip_tags($article['html'])]));
         $action['article_warnings'] = $warnings !== [] ? 'Uyarı (yasaklı ifade, uyar): «'.implode('», «', $warnings).'»' : null;
-        $action['article_seo'] = ArticleSeoCheck::check($article, $input['cluster']['main_query'] ?? null, (array) ($input['cluster']['service_areas'] ?? []), SiteScope::origin($site));
+        $action['article_seo'] = ArticleSeoCheck::check($article, $focus, (array) ($input['cluster']['service_areas'] ?? []), SiteScope::origin($site),
+            $action['article_format'], ArticleSeoCheck::brandSignals((array) ($input['brand_facts'] ?? [])), data_get($map, 'main_page.url'));
         $others = array_values(array_diff(self::siteLanguages($site), [$language]));
         $translate = ($action['kind'] ?? null) !== 'update' ? $others : [];
         unset($action['translations'], $action['translations_blocked']);
@@ -1128,7 +1161,8 @@ final class ContentPlanner
         $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
         $evidence->addNumbersFrom(['t' => (string) ($source['title'] ?? ''), 'h' => strip_tags((string) ($source['html'] ?? ''))]);
         $outcome = $this->writeWithFix($input, $evidence, ['kind' => data_get($suggestion->action, 'kind'), 'page_type' => data_get($suggestion->action, 'page_type')],
-            $cluster, $brand, $language, 'suggestion-'.$suggestion->id.'-'.$language, 'translate-'.$suggestion->id.'-'.$language);
+            $cluster, $brand, $language, 'suggestion-'.$suggestion->id.'-'.$language,
+            'translate-'.$suggestion->id.'-'.$language.(($round = (int) data_get($suggestion->action, 'rewrite', 0)) > 0 ? '-r'.$round : ''));
         if ($outcome['status'] === 'invalid' || $outcome['status'] !== 'ready' && ! isset($outcome['article'])) {
             return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
         }
@@ -1153,7 +1187,7 @@ final class ContentPlanner
      *
      * @param  array<string, mixed>  $input
      * @param  array<string, mixed>  $action
-     * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>}
+     * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>, attempts: int}
      */
     private function writeWithFix(array $input, SiteEvidence $evidence, array $action, ?Cluster $cluster, Brand $brand, string $language, string $reference, string $slot): array
     {
@@ -1165,7 +1199,7 @@ final class ContentPlanner
             $input['fix'] = ContentComplianceGate::forPrompt($outcome['violations']);
         }
 
-        return $outcome;
+        return $outcome + ['attempts' => $attempt];
     }
 
     /** The language the article of this idea is (or will be) written in: the operator's pick, else the site's main language. */
@@ -1369,6 +1403,20 @@ final class ContentPlanner
         $kind = ($item['kind'] ?? 'new') === 'update' ? 'update' : 'new';
         $target = null;
         $pageId = null;
+        $mapNote = null;
+        // Küme haritası (yakup, 2026-10-15): a page of the site that already answers the subject is strengthened instead
+        // of getting a competitor; another idea with the same subject keeps it.
+        if ($kind === 'new') {
+            $map = app(ContentMap::class);
+            $query = is_string($extra['query'] ?? null) ? $extra['query'] : null;
+            if (($owner = $map->owner($site, $query, $title)) !== null) {
+                [$kind, $item['target_url'], $sitePages] = ['update', (string) $owner->url, $sitePages->push($owner)->unique('id')->values()];
+                $mapNote = 'Sitede bu konuyu işleyen sayfa var; yeni yazı yerine o sayfa güçlendirilecek.';
+                $extra['angle'] = 'update';
+            } elseif ($map->sibling($site, $query, $title) !== null) {
+                return self::SAME_SUBJECT;
+            }
+        }
         if ($kind === 'update') {
             $page = $sitePages->first(fn (Page $p): bool => SeoText::urlKey((string) $p->url) === SeoText::urlKey((string) ($item['target_url'] ?? '')));
             if ($page === null) {
@@ -1404,7 +1452,7 @@ final class ContentPlanner
                 'out_of_cluster' => (bool) ($extra['out_of_cluster'] ?? false), 'query_ids' => $extra['query_ids'] ?? null, 'new_queries' => $extra['new_queries'] ?? null,
                 'service_id' => $extra['service_id'] ?? null, 'week' => now()->format('o-\WW'),
                 'language' => $extra['language'] ?? null, 'angle' => $extra['angle'] ?? null,
-                'candidate' => $extra['candidate'] ?? null, 'source' => $extra['source'] ?? null, 'query' => $extra['query'] ?? null,
+                'candidate' => $extra['candidate'] ?? null, 'source' => $extra['source'] ?? null, 'query' => $extra['query'] ?? null, 'map_note' => $mapNote,
             ], fn (mixed $v): bool => $v !== null),
         ]);
         $taken[] = $folded;

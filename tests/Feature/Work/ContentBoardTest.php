@@ -43,7 +43,8 @@ final class ContentBoardTest extends SiteTestCase
 
         $article = fn (string $title): array => ['title' => $title, 'slug' => 'implant', 'meta_title' => $title, 'meta_description' => 'İlk hafta.',
             'excerpt' => 'Rehber.', 'html' => '<h2>İlk gün</h2><p>Soğuk uygulama yapılır.</p>'];
-        WriteArticleAgent::fake([$article('İmplant sonrası ilk hafta'), $article('The first week after an implant')]);
+        // The short source is written once more for its length (it stays: the second is not longer), then the translation.
+        WriteArticleAgent::fake([$article('İmplant sonrası ilk hafta'), $article('İmplant sonrası ilk hafta'), $article('The first week after an implant')]);
         $this->assertSame(['status' => 'ready'], app(ContentPlanner::class)->writeArticle($idea->fresh()));
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => ($job->params['language'] ?? null) === 'en'
             && ($job->params['suggestion_id'] ?? null) === $idea->id); // the translation starts by itself
