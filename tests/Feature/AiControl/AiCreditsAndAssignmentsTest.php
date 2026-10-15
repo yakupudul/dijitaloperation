@@ -97,6 +97,10 @@ final class AiCreditsAndAssignmentsTest extends SiteTestCase
         $this->assertStringContainsString('kredisi bitti', (string) app(AiBudget::class)->claudeApiStopReason());
         $this->assertSame('Claude API kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).', app(AiBudget::class)->moneyState()['claude_api_stopped']);
         $this->assertStringContainsString('Claude API durdu: Claude API kredisi bitti', (string) SiteOperations::line(['status' => 'queued']));
+
+        config(['moxdop-mcp.token' => 'test-token', 'moxdop-mcp.takes_all' => true]);
+        $this->assertSame('Claude API kredisi bitti; işler Claude kuyruğunda (MCP) sürüyor, kredi yüklemek gerekmiyor.', app(AiBudget::class)->claudeApiStopReason(),
+            'yakup 2026-10-14: Claude takes all work over, no credit to load');
     }
 
     public function test_recommended_plan_puts_bulk_work_on_haiku_writing_on_sonnet_and_keeps_the_query_autopilot(): void

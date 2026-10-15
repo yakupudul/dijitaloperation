@@ -231,7 +231,10 @@ final class AiBudget
     public function claudeApiStopReason(): ?string
     {
         if (app(AiCredits::class)->exhausted(AiProviderCatalog::ANTHROPIC)) {
-            return 'Claude API kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).';
+            // yakup 2026-10-14: "claude api bitti artık tüm işleri yine sen devral" — no credit to load while Claude takes all.
+            return AiTaskQueue::takesAll()
+                ? 'Claude API kredisi bitti; işler Claude kuyruğunda (MCP) sürüyor, kredi yüklemek gerekmiyor.'
+                : 'Claude API kredisi bitti; yeni kredi yükleyin (Ayarlar › AI işlemleri).';
         }
         if ($this->dailyExhausted()) {
             return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f); yarın ya da tavan yükseltilince yeniden çalışır (Ayarlar › AI işlemleri).', $this->dailySpend(), $this->dailyBudget());
