@@ -76,6 +76,7 @@ use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\ClusterLinks;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
+use App\Services\Site\ContentTopics;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\SiteFlow;
@@ -904,14 +905,21 @@ Artisan::command('moxdop:site:weekly {--site= : One website asset id}', function
         ->whereIn('brand_id', Brand::query()->operational()->select('id'))
         ->when($this->option('site'), fn ($q, $id) => $q->whereKey((int) $id))
         ->orderBy('id')->pluck('id');
+    $topics = app(ContentTopics::class);
     foreach ($sites as $siteId) {
         SiteOperations::dispatch((int) $siteId, SiteOperations::WEEKLY_REFRESH);
+        if (($site = DigitalAsset::query()->find($siteId)) !== null) {
+            $topics->sync($site);
+        }
     }
     $this->info('Kuyruğa alınan site: '.$sites->count());
 })->purpose('Queue the weekly website refresh (categories, service ↔ page, cluster ↔ page, summaries) of operational brands.');
 
+// Haftalık döngü (yakup, 2026-10-16): Tuesday night the sites' pages are read again and matched to the clusters
+// (kümeleme eşitlemesi), so Wednesday's idea run sees Monday's articles; the topic maps are brought up to date by rules.
 Schedule::command('moxdop:site:weekly')
-    ->weeklyOn(1, '08:52')
+    ->weeklyOn(2, '20:00')
+    ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->when(fn (): bool => AiBudget::automaticAllowed('site.weekly_refresh'))
     ->name('site-weekly');
@@ -921,14 +929,17 @@ Schedule::command('moxdop:site:weekly')
 // waiting titles back to ContentCoverage::POOL; on Monday each language also gets the brand's weekly number of fresh
 // ideas on top, and in the first week of the month the out-of-cluster opportunities. Only titles: an article is
 // written only after the operator approves it.
-Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} {--weekly : Add the weekly fresh ideas (default: Monday)} {--discover : Also out-of-cluster opportunities}', function (ContentCoverage $coverage): void {
+// Haftalık döngü (yakup, 2026-10-16): the idea run of the week is Wednesday 06:00 (--weekly): each site gets its
+// rhythm's new articles and updates from the topic maps of its active services; the twice-daily runs only fill the
+// pools of sites still in their one-off back-dated fill and start Eşleştir where clusters are not matched yet.
+Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} {--weekly : The week\'s ideas (Wednesday)} {--discover : Also out-of-cluster opportunities}', function (ContentCoverage $coverage): void {
     $today = now('Europe/Istanbul');
-    $weekly = $this->option('weekly') || $today->isMonday();
-    $discover = $this->option('discover') || ($today->isMonday() && $today->day <= 7);
+    $weekly = (bool) $this->option('weekly');
+    $discover = $this->option('discover') || ($weekly && $today->day <= 7);
     $matching = $this->option('site') === null ? $coverage->startMatching() : [];
     $needs = $coverage->needs($weekly, $this->option('site') !== null ? (int) $this->option('site') : null);
     foreach ($needs as $need) {
-        SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, ['wants' => $need['wants']]);
+        SiteOperations::dispatch($need['site_id'], SiteOperations::WEEKLY_CONTENT, array_intersect_key($need, array_flip(['wants', 'cycle'])));
     }
     $sites = array_column($needs, 'site_id');
     if ($discover) {
@@ -937,7 +948,7 @@ Artisan::command('moxdop:content:weekly-titles {--site= : One website asset id} 
         }
     }
     $this->info(($matching !== [] ? count($matching).' sitede küme eşleştirmesi başlatıldı. ' : '').'Fikir havuzu: '.count($sites).' site, '.array_sum(array_map(fn (array $n): int => count($n['wants']), $needs)).' dil, '.array_sum(array_map(fn (array $n): int => array_sum($n['wants']), $needs)).' başlık istendi'.($discover ? ' (kümeler dışı fırsatlarla)' : '').'.');
-})->purpose('Fill every active language of operational sites to the content idea pool, plus weekly fresh ideas on Monday.');
+})->purpose('Wednesday (--weekly): the week\'s content ideas of every site from its topic maps; otherwise the pools of back-dated fills.');
 
 // Marka tamamlama (yakup, 2026-10-07 "Hemen kullan"): brands missing services, places, sector, context or the Search
 // Console / GA4 match get an "Otomatik kur" run by themselves, applied when ready; before the morning content run.
@@ -1039,6 +1050,50 @@ Schedule::command('moxdop:content:weekly-titles')
     ->withoutOverlapping(60)
     ->when(fn (): bool => ContentCoverage::automaticAllowed())
     ->name('content-weekly-titles');
+
+Schedule::command('moxdop:content:weekly-titles --weekly')
+    ->weeklyOn(3, '06:00')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->when(fn (): bool => ContentCoverage::automaticAllowed())
+    ->name('content-week-ideas');
+
+// Haftalık döngü, pazartesi (yakup, 2026-10-16): the week's new articles of every site (written backlog first, then
+// Wednesday's ideas) get Monday / Wednesday / Friday dates and are written with their translations, then AI-checked;
+// the Monday click on the Onarım masası sends them scheduled for their days. Updates stay manual.
+Artisan::command('moxdop:content:week {--site= : One website asset id}', function (ContentAutopilot $autopilot): void {
+    $actor = ContentAutopilot::actor();
+    if ($actor === null) {
+        $this->warn('Aktif Admin yok; haftanın yazıları planlanmadı.');
+
+        return;
+    }
+    $planned = 0;
+    $sites = 0;
+    foreach (ContentAutopilot::sites() as $site) {
+        if ($this->option('site') !== null && (int) $this->option('site') !== (int) $site->id) {
+            continue;
+        }
+        $result = $autopilot->planWeek($site, $actor);
+        $planned += $result['planned'];
+        $sites += $result['planned'] > 0 ? 1 : 0;
+    }
+    $this->info($sites.' sitede '.$planned.' yeni yazı bu haftaya planlandı.');
+})->purpose('Date the week\'s new articles of every site (Mon / Wed / Fri), write and AI-check them for the Monday click');
+
+Schedule::command('moxdop:content:week')
+    ->weeklyOn(1, '05:00')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->when(fn (): bool => ContentCoverage::automaticAllowed())
+    ->name('content-week');
+
+// Geriye dönük doldurma (yakup, 2026-10-16): once for the existing sites, the back-dated "2 günde 1" fill stays only
+// where no own post was published in the last 60 days; run on deploy.
+Artisan::command('moxdop:content:backfill-scope', function (ContentAutopilot $autopilot): void {
+    $out = $autopilot->scopeBackfill();
+    $this->info($out['eligible'].' sitede geriye dönük doldurma sürüyor, '.$out['off'].' sitede kapandı; '.$out['freed'].' yazının tarihi bırakıldı (haftalık döngüye geçer).');
+})->purpose('Keep the back-dated content fill only on sites without an own post in the last 60 days (one-off)');
 
 // İçerik işleri hiç beklemez (yakup, 2026-10-12): titles, articles and translations that wait behind other jobs or in
 // the Claude queue start again on the content queue; the pool of every site is filled back. Run once on deploy.
@@ -1146,7 +1201,7 @@ Artisan::command('moxdop:content:rework', function (ContentAutopilot $autopilot)
 // masası row, applied on approval); one Google never showed in 90 days gets a "güçlendir" idea.
 Artisan::command('moxdop:content:cluster-links', function (ClusterLinks $links): void {
     $result = $links->run();
-    $this->info($result['links'].' ana sayfa bağlantısı, '.$result['weak'].' güçlendirme fikri eklendi.');
+    $this->info($result['links'].' ana sayfa bağlantısı, '.$result['siblings'].' kardeş yazı bağlantısı, '.$result['weak'].' görünmeyen yazı ve '.$result['refresh'].' 4–20. sıradaki yazı için güçlendirme fikri eklendi.');
 })->purpose('Link live articles from their cluster main page and flag articles Google never showed in 90 days');
 
 Schedule::command('moxdop:content:cluster-links')

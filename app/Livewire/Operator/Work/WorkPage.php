@@ -155,18 +155,18 @@ final class WorkPage extends Component
         $this->step = array_key_exists($step, ContentBoard::STEPS) ? $step : 'yazilacak';
     }
 
-    /** Marka tablosu "Fikir üret": the site's pool is filled now in every language below it, instead of next morning. */
+    /** Marka tablosu "Fikir üret": the site's week of ideas (its rhythm, from its topic maps) now instead of on Wednesday. */
     public function makeTitles(int $siteId, ContentCoverage $coverage): void
     {
         $this->act(function () use ($siteId, $coverage): string {
-            $needs = $coverage->needs(false, $siteId);
+            $needs = $coverage->needs(true, $siteId);
             if ($needs === []) {
-                throw ValidationException::withMessages(['work' => 'Bu sitenin fikir havuzu dolu ya da markanın hizmeti yok.']);
+                throw ValidationException::withMessages(['work' => 'Bu sitenin bu hafta açılacak kanıtlı konusu yok ya da markanın hizmeti yok.']);
             }
-            $wants = $needs[0]['wants'];
-            SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, ['wants' => $wants]);
+            SiteOperations::dispatch($siteId, SiteOperations::WEEKLY_CONTENT, array_intersect_key($needs[0], array_flip(['wants', 'cycle'])));
+            $cycle = $needs[0]['cycle'] ?? ['new' => 0, 'update' => 0];
 
-            return implode(', ', array_map(fn (string $l, int $n): string => strtoupper($l).' '.$n, array_keys($wants), $wants)).' fikir hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
+            return $cycle['new'].' yeni yazı ve '.$cycle['update'].' güncelleme fikri hazırlanıyor; bitince "Onay bekleyen başlıklar"a düşer.';
         });
     }
 

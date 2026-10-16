@@ -28,7 +28,7 @@ final class DailySendStrip extends Component
             return;
         }
         $daily->queue(auth()->user());
-        $this->message = 'Gönderim başladı; birkaç dakika içinde biter. Yazılar WordPress\'e tarihli taslak olarak, gönderiler gününde, onarımlar "Yapılanlar"a gider.';
+        $this->message = 'Gönderim başladı; birkaç dakika içinde biter. Bu haftanın yazıları gününe zamanlanmış olarak, geriye dönük yazılar tarihli taslak olarak, gönderiler gününde, onarımlar "Yapılanlar"a gider.';
     }
 
     public function placeholder(): string

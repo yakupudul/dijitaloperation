@@ -9,7 +9,7 @@
                     <th class="px-3 py-2 text-right font-medium" title="Uygun sayfa yok ya da kapsam yetersiz: yeni yazı / güncelleme gerekiyor">Eksik</th>
                     <th class="px-3 py-2 text-right font-medium" title="Sayfa var ama performansı zayıf, yanlış sayfa görünüyor ya da çakışma olabilir">Zayıf</th>
                     <th class="px-3 py-2 text-right font-medium">Yeterli</th>
-                    <th class="px-3 py-2 font-medium" title="Onay bekleyen fikirler / havuz hedefi, sitenin her aktif dili için">Fikir havuzu (dil başına {{ \App\Services\Work\ContentCoverage::POOL }})</th>
+                    <th class="px-3 py-2 font-medium" title="Sitenin aşamasına göre bu haftanın yeni yazı ve güncelleme sayısı (ana dil; çeviriler ayrıca), şu an yazılan hizmet ve konu haritasının ne kadarı bitti">Bu hafta</th>
                     <th class="px-3 py-2 text-right font-medium" title="Onaylandı, Claude yazıyor">Yazılıyor</th>
                     <th class="px-3 py-2 text-right font-medium">Okunacak</th>
                     <th class="px-3 py-2 text-right font-medium">Gönderildi (30 gün)</th>
@@ -31,13 +31,12 @@
                         <td @class(['px-3 py-2 text-right tabular-nums', 'font-semibold text-rose-700 dark:text-rose-300' => $row['missing'] > 0])>{{ $row['missing'] }}</td>
                         <td class="px-3 py-2 text-right tabular-nums">{{ $row['weak'] }}</td>
                         <td class="px-3 py-2 text-right tabular-nums text-emerald-700 dark:text-emerald-400">{{ $row['ok'] }}</td>
-                        <td class="px-3 py-2">
-                            <div class="flex flex-wrap gap-1" data-pool>
-                                @foreach ($row['pool'] as $code => $waiting)
-                                    <span @class(['rounded px-1.5 py-0.5 text-[11px] font-semibold tabular-nums', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $waiting >= \App\Services\Work\ContentCoverage::POOL, 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => $waiting > 0 && $waiting < \App\Services\Work\ContentCoverage::POOL, 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => $waiting === 0]) title="{{ \App\Services\Work\ContentBoard::LANGUAGE_LABELS[$code] ?? $code }}">{{ strtoupper($code) }} {{ $waiting }}/{{ \App\Services\Work\ContentCoverage::POOL }}</span>
-                                @endforeach
-                            </div>
-                            @if ($row['translated'] !== [])<span class="block text-[11px] text-gray-400" data-translated>{{ implode(', ', array_map('strtoupper', $row['translated'])) }}: yazılınca çevrilir</span>@endif
+                        <td class="px-3 py-2 text-xs" data-week>
+                            <span class="font-semibold tabular-nums">{{ $row['rhythm']['new'] }} yeni + {{ $row['rhythm']['update'] }} güncelleme</span>
+                            <span class="block text-gray-500">{{ $row['rhythm']['label'] }} · kümelerin %{{ $row['rhythm']['filled'] }}'i yeterli</span>
+                            @if ($row['map'] !== [])<span class="block text-gray-500" data-active-service>Yazılan: {{ implode(', ', $row['map']) }}</span>@endif
+                            @if (($row['backfill'] ?? null) === \App\Models\ContentSiteState::BACKFILL_ELIGIBLE)<span class="mt-0.5 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" data-backfill>Geriye dönük doldurma · havuz {{ $row['waiting'] }}/{{ \App\Services\Work\ContentCoverage::POOL }}</span>@endif
+                            @if ($row['translated'] !== [])<span class="block text-[11px] text-gray-400" data-translated>{{ implode(', ', array_map('strtoupper', $row['translated'])) }}: talep varsa yazılınca çevrilir</span>@endif
                         </td>
                         <td class="px-3 py-2 text-right tabular-nums">{{ $row['writing'] }}</td>
                         <td @class(['px-3 py-2 text-right tabular-nums', 'font-semibold text-amber-700 dark:text-amber-300' => $row['reading'] > 0])>{{ $row['reading'] }}</td>
@@ -48,6 +47,6 @@
                 @endforeach
             </tbody>
         </table>
-        <p class="border-t border-gray-100 px-3 py-2 text-xs text-gray-500 dark:border-gray-800">Havuz günde iki kez (09:17, 15:17) kendiliğinden {{ \App\Services\Work\ContentCoverage::POOL }} fikre tamamlanır; pazartesi üstüne haftalık yeni fikirler, ayın ilk haftası kümeler dışı fırsatlar eklenir. Konuyu veri seçer: sitenin 4–20. sırada kendi sayfası olmadan göründüğü aramalar, sayfası olmayan ya da zayıf kümeler, güçlendirilecek sayfalar ve AI asistanı soruları (karışım yaklaşık %60 yeni yazı, %25 güncelleme, %15 AI sorusu); AI yalnız başlığı ve taslağı yazar. Daha önce tıklama getiren yazı türleri öne geçer. Yazı yalnız onayınızla yazılır.</p>
+        <p class="border-t border-gray-100 px-3 py-2 text-xs text-gray-500 dark:border-gray-800">Haftalık döngü: salı akşamı sayfalar yeniden okunur ve kümelerle eşleşir; çarşamba sabahı her siteye aşamasına göre fikir açılır (harita boşsa 3 yeni yazı + 1 güncelleme, yarı doluysa 2 + 2, büyük ölçüde doluysa 1 + 3, dar yerel işte haftada 1). Yeni yazılar şu an yazılan hizmetin konu haritasından, yazım sırasıyla gelir (ana sayfa, karar soruları, süreç, korkular, yerel, mevsim, yurt dışı); bir hizmetin haritası bitmeden sıradakine geçilmez. Pazartesi 05:00 yazılmamış yeni yazılar yazılır, çevrilir ve kontrol edilir; Onarım masasındaki tek tıkla pazartesi, çarşamba ve cuma tarihli olarak siteye gider. Güncellemeler bu tıka girmez, elle gönderilir. Kanıtı olmayan konuya yazı açılmaz.</p>
     </div>
 @endif

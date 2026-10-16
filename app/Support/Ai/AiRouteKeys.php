@@ -131,6 +131,12 @@ final class AiRouteKeys
      */
     public const string CONTENT_REVIEW = 'content.review';
 
+    /** Konu haritası (yakup, 2026-10-16): one main page and 8–15 questions of one service of a site, placed on its pages. */
+    public const string CONTENT_TOPIC_MAP = 'content.topic_map';
+
+    /** Yazı özeti (yakup, 2026-10-16): what Google shows for a new article's search and what the article must do better. */
+    public const string CONTENT_BRIEF = 'content.brief';
+
     /** Otomatik onarım (yakup, 2026-10-14): prepared repair-desk rows are read once more; only "ok" rows reach the daily one-click send. */
     public const string REPAIR_REVIEW = 'repair.review';
 

@@ -11,19 +11,24 @@ use App\Services\Collection\Providers\SearchConsole\SearchConsoleRequestFamilyCa
 use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Work\ContentAutopilot;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
  * Which pages of a site to send to the Search Console URL Inspection API today: the API answers one URL at a time
- * (property quota ~2000 a day), so each day takes a small batch — service pages first, then the pages Google shows most,
+ * (property quota ~2000 a day), so each day takes a small batch — MoxDOP's own articles a week after they went live first
+ * (Dizin kontrolü, yakup 2026-10-16: did Google take the new article in?), then service pages, then the pages Google shows most,
  * then the rest of the inventory — skipping URLs inspected in the last INTERVAL_DAYS. Over a few weeks every page gets
  * its Google index state (Teknik SEO › Google'ın bildirdikleri). Only URLs inside the bound property are returned.
  */
 final class UrlInspectionTargets
 {
     public const int INTERVAL_DAYS = 14;
+
+    /** A MoxDOP article is inspected this many days after it is on the site. */
+    public const int ARTICLE_AFTER_DAYS = 7;
 
     public function __construct(
         private readonly GscSpecialistBindingResolver $bindings,
@@ -68,9 +73,12 @@ final class UrlInspectionTargets
         $shown = DB::table('gsc_query_page_daily')->where('external_resource_id', $binding->externalResourceId)->where('search_type', 'web')
             ->where('reporting_date', '>=', now()->subDays(28)->toDateString())->groupBy('page')->orderByRaw('sum(impressions) desc')->limit($limit * 4)->pluck('page')->all();
         $inventory = Page::query()->where('website_asset_id', $site->id)->orderBy('id')->limit(2000)->pluck('url')->all();
+        $posts = ContentAutopilot::moxdopPostIds($site);
+        $articles = $posts === [] ? [] : Page::query()->where('website_asset_id', $site->id)->whereIn('wp_post_id', $posts)->where('is_indexable', true)
+            ->where('created_at', '<=', now()->subDays(self::ARTICLE_AFTER_DAYS))->orderByDesc('id')->limit($limit)->pluck('url')->all();
 
         $out = [];
-        foreach ([...$service, ...$shown, ...$inventory] as $url) {
+        foreach ([...$articles, ...$service, ...$shown, ...$inventory] as $url) {
             $url = (string) $url;
             $key = SeoText::urlKey($url);
             if ($url === '' || isset($recent[$key]) || isset($out[$key]) || ! str_starts_with($url, 'http')) {

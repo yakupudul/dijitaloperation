@@ -11,6 +11,7 @@ use App\Jobs\Site\RunSiteOperationJob;
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Livewire\Operator\Repair\DailySendStrip;
 use App\Models\AiTask;
+use App\Models\ContentSiteState;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -45,6 +46,8 @@ final class ContentAutopilotTest extends SiteTestCase
         parent::setUp();
         $this->travelTo(CarbonImmutable::parse('2026-10-14 09:00', 'Europe/Istanbul'));
         $this->enableAi();
+        // The back-dated fill runs only where it was kept on 2026-10-16 (ContentCycleTest covers the scoping).
+        ContentSiteState::for($this->site)->forceFill(['backfill' => ContentSiteState::BACKFILL_ELIGIBLE])->save();
     }
 
     private function lastPost(string $date): void
@@ -74,7 +77,7 @@ final class ContentAutopilotTest extends SiteTestCase
     {
         $autopilot = app(ContentAutopilot::class);
         $this->assertSame('2026-08-15', $autopilot->openDates($this->site)[0], 'no post known: the last 60 days');
-        $this->assertSame('2026-10-14', last($autopilot->openDates($this->site)), 'every second day up to tomorrow at most');
+        $this->assertSame('2026-10-14', last($autopilot->openDates($this->site)), 'every second day up to today at most');
 
         $this->lastPost('2026-07-01');
         $this->assertSame('2026-08-15', $autopilot->openDates($this->site)[0], 'an old last post does not reach back further');

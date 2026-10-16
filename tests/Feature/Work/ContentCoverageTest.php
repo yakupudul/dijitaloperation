@@ -9,6 +9,7 @@ use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
+use App\Models\ContentSiteState;
 use App\Models\ExternalWriteAction;
 use App\Models\Query;
 use App\Models\Suggestion;
@@ -32,6 +33,12 @@ final class ContentCoverageTest extends SiteTestCase
     {
         $cluster = $this->cluster($this->implant, $name, [$name]);
         BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $cluster->id, 'website_asset_id' => $this->site->id, 'state' => $state, 'language' => 'tr']);
+    }
+
+    /** The site keeps its one-off back-dated fill (only such sites have the 20-idea pool since 2026-10-16). */
+    private function backfill(): void
+    {
+        ContentSiteState::for($this->site)->forceFill(['backfill' => ContentSiteState::BACKFILL_ELIGIBLE])->save();
     }
 
     private function title(string $title, array $action = [], string $status = Suggestion::OPEN): Suggestion
@@ -66,7 +73,7 @@ final class ContentCoverageTest extends SiteTestCase
         $row = $coverage->rows()[0];
         $this->assertSame([4, 2, 1, 1, ['tr' => 1], ['en'], 1, 1, null], [$row['clusters'], $row['missing'], $row['weak'], $row['ok'], $row['pool'], $row['translated'], $row['reading'], $row['sent'], $row['reason']]);
 
-        Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('TR 1/20')->assertDontSee('EN 1/20')->assertSee('EN: yazılınca çevrilir')
+        Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('2 yeni + 2 güncelleme')->assertDontSeeHtml('data-backfill')->assertSee('EN: talep varsa yazılınca çevrilir')
             ->assertDontSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Küme: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
     }
 
@@ -113,10 +120,13 @@ final class ContentCoverageTest extends SiteTestCase
             ->assertSee('Onayını bekleyen')->assertSee('Sistemin bu hafta yaptığı')->assertSee('Senin elin gerekiyor');
     }
 
-    public function test_every_morning_fills_each_language_to_the_pool_and_monday_adds_fresh_ideas(): void
+    public function test_the_morning_runs_fill_only_back_dated_pools_and_wednesday_asks_for_the_week(): void
     {
         Queue::fake();
         $this->travelTo(now('Europe/Istanbul')->next('Tuesday')->setTime(9, 17));
+        $this->artisan('moxdop:content:weekly-titles')->assertSuccessful();
+        Queue::assertNothingPushed();
+        $this->backfill();
         $this->artisan('moxdop:content:weekly-titles')->assertSuccessful();
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['wants' => ['tr' => 20]]); // no cluster yet: the site's own searches
         Queue::fake();
@@ -127,7 +137,7 @@ final class ContentCoverageTest extends SiteTestCase
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->siteId === $this->site->id
             && $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params === ['wants' => ['tr' => 19]]);
 
-        // A full pool waits for approvals on weekdays; on Monday it still gets the weekly fresh ideas.
+        // A full pool waits for approvals; Wednesday's run asks for the week's rhythm from the topic maps.
         Queue::fake();
         foreach (range(2, 20) as $n) {
             $this->title('Fikir '.$n);
@@ -136,7 +146,8 @@ final class ContentCoverageTest extends SiteTestCase
         Queue::assertNothingPushed();
         Livewire::test(WorkPage::class)->assertDontSeeHtml('data-make-titles');
         $this->artisan('moxdop:content:weekly-titles', ['--weekly' => true])->assertSuccessful();
-        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['wants' => ['tr' => 4]]);
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['wants' => ['tr' => 1], 'cycle' => ['new' => 0, 'update' => 1]],
+            'one sufficient cluster: a narrow site with no empty place gets one update and no new article');
     }
 
     public function test_fikir_uret_fills_the_pool_now(): void
@@ -148,8 +159,8 @@ final class ContentCoverageTest extends SiteTestCase
 
         BrandOffering::query()->where('brand_id', $this->brand->id)->update(['status' => 'active']);
         $this->rowOf('no_page', 'İmplant fiyatları');
-        Livewire::test(WorkPage::class)->call('makeTitles', $this->site->id)->assertSee('TR 20 fikir hazırlanıyor');
-        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['wants'] === ['tr' => 20]);
+        Livewire::test(WorkPage::class)->call('makeTitles', $this->site->id)->assertSee('1 yeni yazı ve 1 güncelleme fikri hazırlanıyor');
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WEEKLY_CONTENT && $job->params['cycle'] === ['new' => 1, 'update' => 1]);
     }
 
     /**
@@ -174,6 +185,7 @@ final class ContentCoverageTest extends SiteTestCase
         $this->enableAi();
         Queue::fake();
         $this->rowOf('no_page', 'İmplant fiyatları');
+        $this->backfill();
         $titles = collect(range(1, ContentCoverage::POOL))->map(fn (int $n): Suggestion => $this->title('Başlık '.$n));
         $this->assertSame([], app(ContentCoverage::class)->needs(), 'the pool is full');
 
@@ -217,6 +229,7 @@ final class ContentCoverageTest extends SiteTestCase
         $this->enableAi();
         Queue::fake();
         $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
+        $this->backfill();
         $this->rowOf('no_page', 'Zirkonyum kaplama fiyatı');
         $this->rowOf('no_page', 'İmplant fiyatları');
         $clusters = Cluster::query()->pluck('id', 'name');
@@ -276,6 +289,7 @@ final class ContentCoverageTest extends SiteTestCase
         $this->enableAi();
         Queue::fake();
         $this->travelTo(now('Europe/Istanbul')->next('Tuesday')->setTime(10, 0));
+        $this->backfill();
         $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
         $this->rowOf('no_page', 'İmplant fiyatları');
         $this->rowOf('no_page', 'Zirkonyum kaplama fiyatı');
@@ -301,7 +315,7 @@ final class ContentCoverageTest extends SiteTestCase
         BrandClusterPage::query()->update(['state' => 'sufficient']);
         app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 19]);
         $this->assertSame([], app(ContentCoverage::class)->needs(), 'no topic left in the data: no run until tomorrow');
-        $this->assertNotSame([], app(ContentCoverage::class)->needs(weekly: true), 'Monday asks again');
+        $this->assertNotSame([], app(ContentCoverage::class)->needs(weekly: true), 'Wednesday asks again');
         $this->assertStringContainsString('yeni konu kalmadı', (string) app(ContentCoverage::class)->rows()[0]['reason']);
         $this->travel(21)->hours();
         $this->assertNotSame([], app(ContentCoverage::class)->needs());

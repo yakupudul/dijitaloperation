@@ -70,6 +70,8 @@ final class AiOperationLabels
         'site.content_discovery' => 'İçerik fırsatı keşfi',
         'site.write_article' => 'Makale taslağı',
         'content.review' => 'Otopilot kontrolü (yazı ve gönderi)',
+        'content.topic_map' => 'Konu haritası (hizmet başına)',
+        'content.brief' => 'Yazı özeti (Google ilk sonuçlar)',
         'repair.review' => 'Otomatik onarım kontrolü',
         'site.setup' => 'Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)',
         'site.weekly_refresh' => 'Site haftalık yenileme',

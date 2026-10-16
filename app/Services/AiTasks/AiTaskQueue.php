@@ -109,7 +109,7 @@ final class AiTaskQueue
      * never send it here (2026-10-12).
      */
     public const array CREDIT_FALLBACK = [AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::CONTENT_REVIEW,
-        AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_CONTENT_RECIPE];
+        AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_TOPIC_MAP, AiRouteKeys::CONTENT_BRIEF];
 
     /**
      * Operations outside SUPPORTED whose callers can wait for Claude all the same (the triage autopilot; WhatsApp reply

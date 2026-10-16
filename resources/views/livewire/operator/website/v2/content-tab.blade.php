@@ -18,7 +18,7 @@
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
         <button type="button" wire:click="run('weekly_content')" class="{{ $btn }}">Haftalık içerik öner</button>
         <x-operator.ai-prompt-info operation="site.weekly_content" />
-        <span class="text-xs text-gray-500">kapasite {{ $capacity }} / hafta</span>
+        <span class="text-xs text-gray-500" data-rhythm>Bu hafta {{ $rhythm['new'] }} yeni yazı + {{ $rhythm['update'] }} güncelleme ({{ $rhythm['label'] }}, kümelerin %{{ $rhythm['filled'] }}'i yeterli)@if ($contentState?->inBackfill()) · geriye dönük doldurma sürüyor @endif</span>
         <button type="button" wire:click="run('content_discovery')" class="{{ $ghost }}">Kümeler dışında fırsat keşfet</button>
         <x-operator.ai-prompt-info operation="site.content_discovery" />
         @foreach ($statuses as $op => $line)<span class="text-xs text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[$op] }}: {{ $line }}</span>@endforeach
@@ -27,6 +27,8 @@
             @foreach (\App\Livewire\Operator\Website\V2\SuggestionsTab::STATUS_LABELS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
         </select>
     </section>
+
+    @include('livewire.operator.website.v2.partials.topic-map')
 
     <section class="{{ $card }}" data-section="content">
         <ul class="divide-y divide-gray-100 text-xs dark:divide-gray-800">

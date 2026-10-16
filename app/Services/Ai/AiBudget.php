@@ -71,7 +71,8 @@ final class AiBudget
      * to the Claude (MCP) queue; only a provider's own exhausted credit stops one step (the route's next provider runs).
      */
     public const array CONTENT_OPERATIONS = [AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::SITE_CONTENT_DISCOVERY, AiRouteKeys::SITE_WRITE_ARTICLE,
-        AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::CONTENT_LOCALIZE, AiRouteKeys::CONTENT_REVIEW];
+        AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::CONTENT_LOCALIZE, AiRouteKeys::CONTENT_REVIEW,
+        AiRouteKeys::CONTENT_TOPIC_MAP, AiRouteKeys::CONTENT_BRIEF];
 
     public static function isContent(?string $operation): bool
     {

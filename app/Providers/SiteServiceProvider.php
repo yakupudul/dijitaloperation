@@ -33,6 +33,8 @@ final class SiteServiceProvider extends ServiceProvider
         AiRouteKeys::SITE_CONTENT_RECIPE => ['Site Content Recipe', 'İçerik fikirleri "SEO analizi": ordered, concrete steps (technical first) for one idea of the site from its page, gaps, Search Console score and site pages; numbers checked against the pack.', 'analysis'],
         AiRouteKeys::CONTENT_IDEAS => ['Content Ideas', '"Yeni fikir üret": extra content ideas of one cluster that each need their own page (system-wide pool; brand context only from a brand screen).', 'analysis'],
         AiRouteKeys::CONTENT_REVIEW => ['Content Review', 'Otopilot: an article or Business Profile posts MoxDOP prepared by itself are read once more (on topic, true to the source, language, sector rules); only "ok" reaches the daily one-click send.', 'classification'],
+        AiRouteKeys::CONTENT_TOPIC_MAP => ['Content Topic Map', 'Konu haritası: one main page and 8–15 questions of one service of a site (decision, process, fears, local, seasonal, abroad), each placed on the page that answers it; checked by rules.', 'analysis'],
+        AiRouteKeys::CONTENT_BRIEF => ['Content Brief', 'Yazı özeti: before a new article is written, the first Google results and People also ask for its search, what they miss and the brand\'s own element.', 'analysis'],
         AiRouteKeys::REPAIR_REVIEW => ['Repair Review', 'Otomatik onarım: prepared repair-desk rows (current → proposed value, page) are read once more; only "ok" rows reach the daily one-click send, the rest stay on the desk with the reason.', 'classification'],
         AiRouteKeys::SITE_WRITE_ARTICLE => ['Site Write Article', 'İçerik "Taslak hazırla": full article HTML; compliance gate and Admin approval before the WordPress draft.', 'analysis'],
     ];

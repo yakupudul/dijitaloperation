@@ -7,7 +7,7 @@
         <div class="min-w-0 flex-1">
             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Günlük gönderim</h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                AI kontrolünden geçen: <span class="font-medium text-gray-900 dark:text-white" data-daily-content>{{ $n($summary['content']) }} yazı</span> ·
+                AI kontrolünden geçen: <span class="font-medium text-gray-900 dark:text-white" data-daily-content>{{ $n($summary['content']) }} yazı</span>@if (($summary['content_preparing'] ?? 0) > 0) <span class="text-gray-500" data-daily-preparing>(bu haftanın {{ $n($summary['content_preparing']) }} yazısı hâlâ yazılıyor)</span>@endif ·
                 <span class="font-medium text-gray-900 dark:text-white" data-daily-posts>{{ $n($summary['posts']) }} profil gönderisi</span> ·
                 <span class="font-medium text-gray-900 dark:text-white" data-daily-repair>{{ $n($summary['repair']) }} onarım</span>
                 @if ($summary['held_total'] > 0)

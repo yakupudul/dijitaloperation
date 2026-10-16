@@ -7,6 +7,7 @@ use App\Ai\Agents\Site\WriteArticleAgent;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Models\BrandClusterPage;
 use App\Models\BrandExpert;
+use App\Models\ContentSiteState;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Services\Site\ClusterLinks;
@@ -119,6 +120,7 @@ final class ContentClusterMapTest extends SiteTestCase
         $first = $this->idea('All-on-4 ve All-on-6 farkları neler?');
         $second = $this->idea('All-on-4 ile All-on-6 farkları');
         $free = $this->idea('Zirkonyum kaplama ne kadar dayanır?');
+        ContentSiteState::for($this->site)->forceFill(['backfill' => ContentSiteState::BACKFILL_ELIGIBLE])->save();
 
         $result = app(ContentAutopilot::class)->plan($this->site, $this->admin);
 
@@ -207,13 +209,13 @@ final class ContentClusterMapTest extends SiteTestCase
         $idea->forceFill(['resolved_at' => now()->subDays(100)])->save();
         $live = $this->page('/kanal-tedavisinde-igne/', 'Kanal tedavisinde iğne yapılır mı?', ['category' => 'blog', 'wp_post_id' => 41]);
 
-        $this->assertSame(['links' => 1, 'weak' => 1], app(ClusterLinks::class)->run());
+        $this->assertSame(['links' => 1, 'weak' => 1, 'siblings' => 0, 'refresh' => 0], app(ClusterLinks::class)->run());
 
         $link = Suggestion::query()->where('action_type', 'internal_links')->sole();
         $this->assertSame([$main->id, $live->url], [(int) $link->page_id, $link->action['link_to']]);
         $weak = Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->where('page_id', $live->id)->sole();
         $this->assertSame(['update', 'weak_article'], [$weak->action['kind'], $weak->action['source']]);
-        $this->assertSame(['links' => 0, 'weak' => 0], app(ClusterLinks::class)->run(), 'never twice');
+        $this->assertSame(['links' => 0, 'weak' => 0, 'siblings' => 0, 'refresh' => 0], app(ClusterLinks::class)->run(), 'never twice');
 
         // A page Google shows is not flagged; a main page that already links is left alone.
         Suggestion::query()->whereKey([$link->id, $weak->id])->delete();
@@ -222,7 +224,7 @@ final class ContentClusterMapTest extends SiteTestCase
         DB::table('website_link_edge')->insert(['digital_asset_id' => $this->site->id, 'edge_key' => hash('sha256', 'e'), 'source_url' => $main->url, 'target_url' => $live->url,
             'normalized_target_url' => $live->url, 'is_internal' => true, 'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
             'record_fingerprint' => hash('sha256', 'edge')]);
-        $this->assertSame(['links' => 0, 'weak' => 0], app(ClusterLinks::class)->run());
+        $this->assertSame(['links' => 0, 'weak' => 0, 'siblings' => 0, 'refresh' => 0], app(ClusterLinks::class)->run());
     }
 
     public function test_the_idea_pool_strengthens_the_page_that_owns_a_subject_instead_of_writing_a_rival(): void

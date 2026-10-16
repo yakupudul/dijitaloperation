@@ -71,6 +71,8 @@ final class AiUsageRecorder
         'ContentIdeasAgent' => AiRouteKeys::CONTENT_IDEAS,
         'SeoFieldsBatchAgent' => AiRouteKeys::SITE_SEO_FIELDS_BATCH,
         'ContentReviewAgent' => AiRouteKeys::CONTENT_REVIEW,
+        'TopicMapAgent' => AiRouteKeys::CONTENT_TOPIC_MAP,
+        'ContentBriefAgent' => AiRouteKeys::CONTENT_BRIEF,
         'RepairReviewAgent' => AiRouteKeys::REPAIR_REVIEW,
         'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,

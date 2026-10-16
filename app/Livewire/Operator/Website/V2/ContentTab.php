@@ -4,13 +4,18 @@ namespace App\Livewire\Operator\Website\V2;
 
 use App\Livewire\Operator\Work\Concerns\ActsOnContentIdeas;
 use App\Models\Cluster;
+use App\Models\ContentSiteState;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Services\Site\ContentPlanner;
+use App\Services\Site\ContentTopics;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestions;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\ContentBoard;
+use App\Services\Work\ContentCoverage;
+use App\Services\Work\ContentRhythm;
+use App\Services\Work\ContentScorecard;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -42,6 +47,12 @@ final class ContentTab extends Component
 
     public string $message = '';
 
+    /** Yazı karnesi is read only when opened (it reads Search Console and GA4 for every sent article). */
+    public bool $showScorecard = false;
+
+    /** The open service of the topic map (its topics listed). */
+    public ?int $openService = null;
+
     public function mount(int $assetId): void
     {
         $this->assetId = $assetId;
@@ -55,6 +66,19 @@ final class ContentTab extends Component
     public function run(string $operation): void
     {
         if (! in_array($operation, [SiteOperations::WEEKLY_CONTENT, SiteOperations::DISCOVERY], true)) {
+            return;
+        }
+        if ($operation === SiteOperations::WEEKLY_CONTENT) {
+            // Haftalık döngü: the button makes this week's ideas now (the site's rhythm, from its topic maps).
+            $need = app(ContentCoverage::class)->needs(true, $this->assetId)[0] ?? null;
+            if ($need === null) {
+                $this->message = 'Bu sitenin bu hafta açılacak kanıtlı konusu yok ya da markanın hizmeti yok.';
+
+                return;
+            }
+            SiteOperations::dispatch($this->assetId, $operation, array_intersect_key($need, array_flip(['wants', 'cycle'])));
+            $this->message = 'Bu haftanın fikirleri hazırlanıyor: '.$need['cycle']['new'].' yeni yazı, '.$need['cycle']['update'].' güncelleme.';
+
             return;
         }
         SiteOperations::dispatch($this->assetId, $operation);
@@ -115,7 +139,10 @@ final class ContentTab extends Component
             'items' => $items,
             'clusterNames' => $clusterNames,
             'opened' => $opened,
-            'capacity' => (int) ($site->brand?->weekly_content_capacity ?? 4),
+            'rhythm' => app(ContentRhythm::class)->for($site),
+            'contentState' => ContentSiteState::query()->where('digital_asset_id', $site->id)->first(),
+            'topicMap' => app(ContentTopics::class)->completion($site),
+            'scorecard' => $this->showScorecard ? app(ContentScorecard::class)->forSite($site) : null,
             'statuses' => collect([SiteOperations::WEEKLY_CONTENT, SiteOperations::DISCOVERY])
                 ->mapWithKeys(fn (string $op): array => [$op => SiteOperations::line(SiteOperations::status($site->id, $op))])->filter()->all(),
             'draftStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $opened->id])) : null,

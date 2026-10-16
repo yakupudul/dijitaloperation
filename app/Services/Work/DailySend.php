@@ -26,7 +26,7 @@ final class DailySend
     public function __construct(private readonly ContentAutopilot $content, private readonly GbpPostReview $posts, private readonly RepairAutopilot $repair) {}
 
     /**
-     * @return array{content: int, posts: int, repair: int, held: list<array{area: string, title: string, reason: string}>, held_total: int}
+     * @return array{content: int, content_preparing: int, posts: int, repair: int, held: list<array{area: string, title: string, reason: string}>, held_total: int}
      */
     public function summary(): array
     {
@@ -36,7 +36,7 @@ final class DailySend
             ...$this->repair->checked('held')->map(fn (array $r): array => ['area' => RepairDesk::KINDS[$r['kind']] ?? 'Onarım', 'title' => $r['brand'].' · '.$r['title'], 'reason' => (string) ($r['review']['reason'] ?? '')]),
         ];
 
-        return ['content' => $this->content->ready()->count(), 'posts' => $this->posts->ready()->count(), 'repair' => $this->repair->checked('ok')->count(),
+        return ['content' => $this->content->ready()->count(), 'content_preparing' => $this->content->preparing(), 'posts' => $this->posts->ready()->count(), 'repair' => $this->repair->checked('ok')->count(),
             'held' => array_slice($held, 0, 30), 'held_total' => count($held)];
     }
 

@@ -11,7 +11,8 @@ use Illuminate\Foundation\Queue\Queueable;
 /**
  * A title left the pool (approved and written): the site's pool is filled back to ContentCoverage::POOL with the same
  * engine as the twice-daily fill (yakup, 2026-10-12 "havuz sürekli min 20 kalsın"). Delayed a minute and unique per
- * site, so "Hepsini onayla ve yazdır" asks once for all the titles it took.
+ * site, so "Hepsini onayla ve yazdır" asks once for all the titles it took. Since the weekly cycle (2026-10-16) only
+ * sites still in their one-off back-dated fill have such a pool; for the rest this does nothing.
  */
 final class TopUpContentPoolJob implements ShouldBeUnique, ShouldQueue
 {

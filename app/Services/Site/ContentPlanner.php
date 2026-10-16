@@ -2,6 +2,7 @@
 
 namespace App\Services\Site;
 
+use App\Ai\Agents\Site\ContentBriefAgent;
 use App\Ai\Agents\Site\ContentDiscoveryAgent;
 use App\Ai\Agents\Site\WeeklyContentAgent;
 use App\Ai\Agents\Site\WriteArticleAgent;
@@ -10,6 +11,7 @@ use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
 use App\Models\Cluster;
 use App\Models\ClusterQuery;
+use App\Models\ContentTopic;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Page;
@@ -242,9 +244,11 @@ final class ContentPlanner
      *
      * @param  Collection<int, BrandClusterPage>|null  $only  "Konu üret": just these rows, one item
      * @param  array<string, int>|null  $wants  ideas per language; null: the brand's weekly number in the main language
+     * @param  array{new: int, update: int}|null  $cycle  haftalık döngü (Wednesday): exactly this many new articles and updates,
+     *                                                    taken from the topic maps of the site's active services (ContentTopics)
      * @return array{status: string, added: int}
      */
-    public function weekly(DigitalAsset $site, ?Collection $only = null, ?array $wants = null): array
+    public function weekly(DigitalAsset $site, ?Collection $only = null, ?array $wants = null, ?array $cycle = null): array
     {
         $brand = SiteScope::brandOf($site);
         if (! SiteScope::aiAllowed($brand)) {
@@ -256,7 +260,17 @@ final class ContentPlanner
         $capacity = $only !== null ? 1 : ($requested[$main] ?? max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4))));
         $sitePages = $this->sitePages($site);
         $previous = $this->previousIdeas($brand);
-        $candidates = $this->candidates($brand, $site, $only, $previous, $sitePages, $main);
+        if ($cycle !== null && $only === null) {
+            $candidates = $this->cycleCandidates($brand, $site, $previous, $sitePages, $main, $cycle);
+            if ($candidates === null) {
+                $this->logRun($site, ['status' => 'queued', 'candidates' => 0, 'asked' => 0, 'added' => 0, 'dropped' => [], 'message' => 'Konu haritası Claude kuyruğunda çiziliyor.']);
+
+                return ['status' => 'queued', 'added' => 0];
+            }
+            [$capacity, $explicit] = [count($candidates), true];
+        } else {
+            $candidates = $this->candidates($brand, $site, $only, $previous, $sitePages, $main);
+        }
         // A page a candidate strengthens is a page of the site even past the first pages by path (an update must find it).
         $sitePages = $sitePages->merge(collect($candidates)->pluck('page')->filter())->unique('id')->values();
         if ($candidates === []) {
@@ -264,7 +278,11 @@ final class ContentPlanner
 
             return ['status' => 'ready', 'added' => 0];
         }
-        $chosen = $only !== null ? array_slice($candidates, 0, 1) : self::mix($candidates, $capacity + (int) ceil($capacity / 4));
+        $chosen = match (true) {
+            $only !== null => array_slice($candidates, 0, 1),
+            $cycle !== null => $candidates,
+            default => self::mix($candidates, $capacity + (int) ceil($capacity / 4)),
+        };
         $taken = $previous->map(fn (Suggestion $s): string => SeoText::fold((string) $s->title))->all();
         $added = 0;
         $dropped = [];
@@ -289,7 +307,7 @@ final class ContentPlanner
                     break;
                 }
                 $item = $byId->get($candidate['id']);
-                $reason = $item === null ? 'AI bu konuyu yazmadı' : $this->storeCandidate($brand, $site, $sitePages, $candidate, $item, $taken, $explicit ? $main : null, $promptVersion);
+                $reason = $item === null ? 'AI bu konuyu yazmadı' : $this->storeCandidate($brand, $site, $sitePages, $candidate + ($cycle !== null ? ['cycle' => now('Europe/Istanbul')->toDateString()] : []), $item, $taken, $explicit ? $main : null, $promptVersion);
                 if ($reason === null) {
                     $added++;
 
@@ -313,6 +331,74 @@ final class ContentPlanner
         $this->logRun($site, ['status' => $status, 'candidates' => count($candidates), 'asked' => count($chosen), 'added' => $added, 'dropped' => $dropped, 'message' => $message]);
 
         return ['status' => $added > 0 ? 'ready' : $status, 'added' => $added];
+    }
+
+    /**
+     * Haftalık döngü (yakup, 2026-10-16): the week's new articles from the empty places of the active services' topic
+     * maps, in writing order, and its updates from their weak places; what the maps cannot give is filled from the
+     * evidenced candidates of the same services (new) or of the whole site (updates). Null while a map is still being
+     * drawn by Claude (the job comes back with the answer).
+     *
+     * @param  Collection<int, Suggestion>  $previous
+     * @param  Collection<int, Page>  $sitePages
+     * @param  array{new: int, update: int}  $cycle
+     * @return list<array<string, mixed>>|null
+     */
+    private function cycleCandidates(Brand $brand, DigitalAsset $site, Collection $previous, Collection $sitePages, string $main, array $cycle): ?array
+    {
+        $topics = app(ContentTopics::class);
+        $active = [];
+        for ($round = 0; $round < 4; $round++) {
+            $active = $topics->activeServices($site, $brand);
+            foreach ($active as $serviceId) {
+                if ($topics->ensureMap($site, $brand, $serviceId)['status'] === 'queued') {
+                    return null;
+                }
+            }
+            $topics->sync($site);
+            if ($topics->activeServices($site, $brand) === $active) {
+                break;
+            }
+        }
+        $next = $topics->next($site, $active, max(0, (int) $cycle['new']), max(0, (int) $cycle['update']));
+        $rows = ContentTopics::mainRows($site)->load(['cluster.mainQuery', 'cluster.service.primaryName'])->keyBy('cluster_id');
+        $pages = Page::query()->whereIn('id', $next['update']->pluck('page_id')->filter()->all() ?: [0])->get(['id', 'url', 'title', 'path', 'language', 'category', 'wp_post_type'])->keyBy('id');
+        $out = [];
+        foreach (['new' => $next['new'], 'update' => $next['update']] as $kind => $list) {
+            foreach ($list as $topic) {
+                $page = $kind === 'update' ? $pages->get((int) $topic->page_id) : null;
+                if ($kind === 'update' && $page === null) {
+                    continue;
+                }
+                $out[] = ['key' => 't:'.$topic->id, 'source' => 'topic', 'kind' => $kind, 'row' => $rows->get((int) $topic->cluster_id), 'query' => $topic->question,
+                    'page' => $page, 'angle_hint' => $kind === 'update' ? 'update' : (ContentTopic::ANGLES[$topic->type] ?? null), 'score' => (float) $topic->priority,
+                    'topic_id' => (int) $topic->id, 'topic_type' => $topic->type, 'topic_title' => $topic->title,
+                    'evidence' => (array) ($topic->evidence ?: [['kind' => 'topic', 'value' => ContentTopic::TYPE_LABELS[$topic->type] ?? $topic->type, 'source' => 'konu haritası']])];
+            }
+        }
+        $short = ['new' => (int) $cycle['new'] - $next['new']->count(), 'update' => (int) $cycle['update'] - collect($out)->where('kind', 'update')->count()];
+        if ($short['new'] > 0 || $short['update'] > 0) {
+            $taken = collect($out)->pluck('page')->filter()->pluck('id')->map(fn ($id): int => (int) $id)->flip()->all();
+            foreach ($this->candidates($brand, $site, null, $previous, $sitePages, $main) as $candidate) {
+                $kind = $candidate['kind'];
+                $service = $candidate['row']?->cluster?->service_id;
+                if ($short[$kind] <= 0 || ($kind === 'new' && ($service === null || ! in_array((int) $service, $active, true)))
+                    || ($candidate['page'] !== null && isset($taken[(int) $candidate['page']->id]))) {
+                    continue;
+                }
+                $out[] = $candidate;
+                $short[$kind]--;
+            }
+        }
+        $clusterIds = collect($out)->map(fn (array $c): ?int => $c['row']?->cluster_id !== null ? (int) $c['row']->cluster_id : null)->filter()->unique()->values()->all();
+        $queries = $this->clusterQueries($clusterIds);
+        foreach ($out as $i => &$candidate) {
+            $candidate['id'] = $i + 1;
+            $candidate['queries'] = $candidate['row'] !== null ? ($queries[(int) $candidate['row']->cluster_id] ?? []) : [];
+        }
+        unset($candidate);
+
+        return $out;
     }
 
     public static function lastRunKey(int $siteId): string
@@ -667,7 +753,7 @@ final class ContentPlanner
                     'queries' => $c['queries'], 'gaps' => $row !== null ? array_column((array) $row->gaps, 'text') : [],
                     'ai_questions' => $row?->cluster !== null ? ClusterAudit::aiQuestions($row->cluster, $brand) : [],
                     'service_areas' => $row?->cluster !== null ? ClusterAudit::serviceAreas($row->cluster, $brand) : [],
-                    'page_url' => $c['page']?->url, 'page_title' => $c['page']?->title,
+                    'page_url' => $c['page']?->url, 'page_title' => $c['page']?->title, 'topic_type' => $c['topic_type'] ?? null, 'topic_title' => $c['topic_title'] ?? null,
                     'evidence' => array_column($c['evidence'], 'value'),
                     'previous_attempt' => $notes[$c['id']] ?? null,
                 ], fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
@@ -703,6 +789,7 @@ final class ContentPlanner
             'angle' => in_array($item['angle'] ?? null, array_keys(self::ANGLES), true) ? $item['angle'] : ($candidate['angle_hint'] ?? null),
             'evidence' => $candidate['evidence'], 'service' => (string) ($row?->cluster?->service?->primaryName?->raw_label ?? ''),
             'candidate' => $candidate['key'], 'source' => $candidate['source'], 'query' => $candidate['query'], 'number_text' => $numbers,
+            'topic_id' => $candidate['topic_id'] ?? null, 'topic_type' => $candidate['topic_type'] ?? null, 'cycle' => $candidate['cycle'] ?? null,
             // A new content idea is never critical work (priority 3 at most urgent).
             'priority' => $candidate['score'] >= 6 ? 3 : ($candidate['score'] >= 3 ? 4 : 5),
         ], $promptVersion);
@@ -1091,8 +1178,24 @@ final class ContentPlanner
         }
         unset($action['article'], $action['article_blocked'], $action['article_blocked_draft']);
         $action['language'] = $language;
+        $round = (int) ($action['rewrite'] ?? 0);
+        // Yazı özeti (yakup, 2026-10-16): a new article first reads Google for its search (the first results, People also
+        // ask, what they miss, the brand's own element); the brief steers the writer and the final check.
+        if ($kind === 'new' && ! is_array($action['brief'] ?? null)) {
+            $brief = $this->brief($suggestion, $site, $brand, $input, $focus, $format, $language, $map, $round);
+            if ($brief === 'queued') {
+                return ['status' => 'queued'];
+            }
+            if (is_array($brief)) {
+                $action['brief'] = $brief;
+                $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, ['brief' => $brief])])->save();
+            }
+        }
+        if (is_array($action['brief'] ?? null)) {
+            $input['brief'] = $action['brief'];
+        }
         // A rewrite (ContentAutopilot::rework) asks under new names: an answered call of an earlier round is never reused.
-        $slot = 'article-'.$suggestion->id.(($round = (int) ($action['rewrite'] ?? 0)) > 0 ? '-r'.$round : '');
+        $slot = 'article-'.$suggestion->id.($round > 0 ? '-r'.$round : '');
         $outcome = $this->writeWithFix($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, $slot);
         $firstWords = $outcome['status'] === 'ready' ? ContentFormat::words((string) $outcome['article']['html']) : 0;
         if ($outcome['status'] === 'ready' && $outcome['attempts'] === 1 && ContentFormat::tooShort($firstWords, $format)) {
@@ -1124,12 +1227,16 @@ final class ContentPlanner
         $action['article_seo'] = ArticleSeoCheck::check($article, $focus, (array) ($input['cluster']['service_areas'] ?? []), SiteScope::origin($site),
             $action['article_format'], ArticleSeoCheck::brandSignals((array) ($input['brand_facts'] ?? [])), data_get($map, 'main_page.url'));
         $others = array_values(array_diff(self::siteLanguages($site), [$language]));
-        $translate = ($action['kind'] ?? null) !== 'update' ? $others : [];
+        // Çeviri talebe göre (yakup, 2026-10-16): a language whose pages Google has shown almost nowhere in 90 days, though
+        // the site has many of them, gets no translation; it can still be translated by hand.
+        $translate = ($action['kind'] ?? null) !== 'update' ? array_values(array_filter($others, fn (string $other): bool => self::languageHasDemand($site, $other))) : [];
+        $others = array_values(array_diff($others, $translate));
         unset($action['translations'], $action['translations_blocked']);
         $suggestion->forceFill(['action' => array_merge($action, ['article' => $article,
             'article_note' => match (true) {
-                $translate !== [] => 'Sitenin diğer dillerine ('.implode(', ', array_map('strtoupper', $translate)).') bu yazının çevirisi hazırlanıyor.',
-                $others !== [] => 'Sitede başka dil de var ('.implode(', ', $others).'): Onarım masası › Diğer işler › içerik kutusundan o dile çevrilebilir.',
+                $translate !== [] => 'Sitenin diğer dillerine ('.implode(', ', array_map('strtoupper', $translate)).') bu yazının çevirisi hazırlanıyor.'
+                    .($others !== [] ? ' '.implode(', ', array_map('strtoupper', $others)).' sayfaları Google\'da neredeyse hiç görünmediği için o dile çevrilmiyor.' : ''),
+                $others !== [] => 'Sitede başka dil de var ('.implode(', ', array_map('strtoupper', $others)).'); o dilin sayfaları Google\'da neredeyse hiç görünmediği için çevrilmedi. Onarım masası › Diğer işler › içerik kutusundan elle çevrilebilir.',
                 default => null,
             }])])->save();
         // yakup, 2026-10-07: other languages get no ideas of their own; the written article is translated into them.
@@ -1200,6 +1307,74 @@ final class ContentPlanner
         }
 
         return $outcome + ['attempts' => $attempt];
+    }
+
+    /** Pages of a language the site needs before a lack of impressions counts as no demand. */
+    public const int DEMAND_PAGES = 10;
+
+    /** Impressions (90 days) of a language's pages below which it has no demand. */
+    public const int DEMAND_IMPRESSIONS = 10;
+
+    /**
+     * Whether a language of the site is searched: true unless the site has DEMAND_PAGES pages in it and Google showed
+     * them fewer than DEMAND_IMPRESSIONS times in 90 days (a new language with few pages always gets translations).
+     */
+    public static function languageHasDemand(DigitalAsset $site, string $language): bool
+    {
+        $urls = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('id')->limit(2000)->get(['id', 'url', 'path', 'language'])
+            ->filter(fn (Page $p): bool => self::inLanguage($p, $language))->pluck('url')->map(fn ($u): string => (string) $u)->values();
+        if ($urls->count() < self::DEMAND_PAGES || ! Schema::hasTable('gsc_page_daily')) {
+            return true;
+        }
+        $variants = $urls->flatMap(fn (string $u): array => [$u, rtrim($u, '/'), rtrim($u, '/').'/'])->unique()->values()->all();
+
+        return (int) DB::table('gsc_page_daily')->whereIn('page', $variants)->where('reporting_date', '>=', now()->subDays(90)->toDateString())->sum('impressions') >= self::DEMAND_IMPRESSIONS;
+    }
+
+    /** Google markets by the article's language (the brief reads that country's results). */
+    private const array MARKETS = ['tr' => 'Türkiye', 'en' => 'United Kingdom', 'de' => 'Deutschland', 'nl' => 'Nederland', 'fr' => 'France', 'it' => 'Italia',
+        'ru' => 'Россия', 'ar' => 'Saudi Arabia', 'es' => 'España', 'pl' => 'Polska', 'sv' => 'Sverige', 'da' => 'Danmark', 'no' => 'Norge'];
+
+    /**
+     * The brief of a new article (`content.brief`): Google's first results for its search and what the article must do
+     * better. "queued" while Claude has not answered; null when no brief could be made (the article is written without).
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $format
+     * @param  array<string, mixed>  $map
+     * @return array<string, mixed>|string|null
+     */
+    private function brief(Suggestion $suggestion, DigitalAsset $site, Brand $brand, array $input, ?string $focus, array $format, string $language, array $map, int $round): array|string|null
+    {
+        $result = $this->ai->run(new ContentBriefAgent, [
+            'title' => (string) $input['plan']['title'], 'focus_query' => $focus ?? (string) $input['plan']['title'], 'language' => $language,
+            'market' => self::MARKETS[$language] ?? strtoupper($language),
+            'format' => ['type' => $format['label'], 'words_min' => $format['words'][0], 'words_max' => $format['words'][1]],
+            'queries' => array_slice((array) data_get($input, 'cluster.queries', []), 0, 20), 'ai_questions' => array_slice((array) data_get($input, 'cluster.ai_questions', []), 0, 10),
+            'brand' => $input['brand'], 'brand_facts' => $input['brand_facts'],
+            'cluster_pages' => array_values(array_filter([data_get($map, 'main_page'), ...(array) ($map['other_pages'] ?? [])])),
+        ], 300, 'brief-'.$suggestion->id.($round > 0 ? '-r'.$round : ''));
+        if ($result['status'] === 'queued') {
+            return 'queued';
+        }
+        if ($result['status'] !== 'ready') {
+            return null;
+        }
+        $terms = ForbiddenTerms::forBrand($brand);
+        $data = (array) $result['data'];
+        $lines = fn (mixed $list, int $max): array => array_values(array_slice(array_filter(array_map(fn ($l): string => $terms->scrub(mb_substr(trim((string) $l), 0, 240)), (array) $list), fn (string $l): bool => $l !== ''), 0, $max));
+        $brief = [
+            'searched' => (bool) ($data['searched'] ?? false), 'intent' => $terms->scrub(mb_substr(trim((string) ($data['intent'] ?? '')), 0, 300)),
+            'format' => mb_substr(trim((string) ($data['format'] ?? '')), 0, 200),
+            'top_results' => array_values(array_slice(array_filter(array_map(fn ($r): ?array => is_array($r) && filled($r['url'] ?? null) && str_starts_with((string) $r['url'], 'http')
+                ? ['title' => mb_substr((string) ($r['title'] ?? ''), 0, 160), 'url' => mb_substr((string) $r['url'], 0, 400), 'covers' => $lines($r['covers'] ?? [], 8)] : null,
+                (array) ($data['top_results'] ?? []))), 0, 5)),
+            'people_also_ask' => $lines($data['people_also_ask'] ?? [], 8), 'must_cover' => $lines($data['must_cover'] ?? [], 10), 'gaps' => $lines($data['gaps'] ?? [], 5),
+            'brand_element' => $terms->scrub(mb_substr(trim((string) ($data['brand_element'] ?? '')), 0, 300)), 'outline' => $lines($data['outline'] ?? [], 10),
+            'at' => now()->toIso8601String(),
+        ];
+
+        return $brief['must_cover'] !== [] || $brief['outline'] !== [] ? $brief : null;
     }
 
     /** The language the article of this idea is (or will be) written in: the operator's pick, else the site's main language. */
@@ -1453,6 +1628,7 @@ final class ContentPlanner
                 'service_id' => $extra['service_id'] ?? null, 'week' => now()->format('o-\WW'),
                 'language' => $extra['language'] ?? null, 'angle' => $extra['angle'] ?? null,
                 'candidate' => $extra['candidate'] ?? null, 'source' => $extra['source'] ?? null, 'query' => $extra['query'] ?? null, 'map_note' => $mapNote,
+                'topic_id' => $extra['topic_id'] ?? null, 'topic_type' => $extra['topic_type'] ?? null, 'cycle' => $extra['cycle'] ?? null,
             ], fn (mixed $v): bool => $v !== null),
         ]);
         $taken[] = $folded;

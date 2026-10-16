@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-16 — İçerik: haftalık döngü ve konu haritası
+
+- Haftalık döngü: Salı eşitleme, Çarşamba fikir, Pazartesi otomatik yazım + tek tık gönderim (Pzt / Çar / Cum tarihli); güncellemeler elle. 20'lik havuz ve 2 günde 1 otopilot yalnız geriye dönük doldurmada kalır.
+- Geriye dönük doldurma yalnız son 60 günde kendi yazısı olmayan mevcut sitelerde, bir kez; bitince o sitede kapanır.
+- Sıklık ana dilde: harita boş 3+1, yarı 2+2, dolu 1+3, dar yerel 1+1; çeviriler kotaya girmez ve yalnız talebi olan dillere yapılır. Her site bir hizmetin konu haritasını bitirip sonrakine geçer (büyük sitede iki hizmet). Yeni yazı brief'le yazılır.
+- Karar: yakup, 2026-10-16 ("Sırayla tüm yol haritasını yap"); markalar farklı işletmeler, markalar arası konu engeli yok.
+
 ## 2026-10-16 — İçerik: eski kalıptaki bütün bekleyen yazılar yeniden
 
 - Yeni kuraldan önce yazılmış ve gönderilmemiş her yazı (tarihli ya da havuzda tarihsiz) yeni kuralla yeniden yazılır; yazıya telefon, e-posta, adres ve "biz rakam vermiyoruz" gibi iç notlar girmez; otopilot kontrolü uzunluğu ölçmez (sistem ölçer).

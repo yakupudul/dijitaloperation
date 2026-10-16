@@ -33,10 +33,11 @@
         </div>
     </section>
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
-        <label for="capacity" class="font-semibold">Haftalık içerik kapasitesi</label>
+        <label for="capacity" class="font-semibold">Haftalık yeni yazı üst sınırı</label>
         <input id="capacity" type="number" min="1" max="20" wire:model="capacity" class="{{ $input }} w-20">
         <button type="button" wire:click="saveCapacity" class="{{ $ghost }}">Kaydet</button>
         @error('capacity')<span class="text-rose-600">{{ $message }}</span>@enderror
+        <span class="w-full text-xs text-gray-500">Sistem haftalık yeni yazı sayısını sitenin aşamasına göre kendisi seçer (1–3); bu sayı yalnız üst sınırdır. Çeviriler sayıya girmez.</span>
     </section>
     <section class="{{ $card }} space-y-2" data-clarity>
         <div class="flex flex-wrap items-center justify-between gap-2">

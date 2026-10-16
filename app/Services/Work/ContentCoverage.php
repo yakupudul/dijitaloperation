@@ -4,6 +4,7 @@ namespace App\Services\Work;
 
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
+use App\Models\ContentSiteState;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Page;
@@ -11,6 +12,7 @@ use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
 use App\Services\BrandSetup\BrandAutofill;
 use App\Services\Site\ContentPlanner;
+use App\Services\Site\ContentTopics;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
 use App\Services\Site\SiteSuggestionTypes;
@@ -50,6 +52,9 @@ final class ContentCoverage
         $clusterRows = BrandClusterPage::query()->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->where('excluded', false)
             ->orderBy('id')->get(['id', 'website_asset_id', 'cluster_id', 'state', 'language'])->groupBy('website_asset_id');
         $titles = $this->titleCounts($brands->pluck('id')->all());
+        $states = ContentSiteState::query()->whereIn('digital_asset_id', $sites->flatten()->pluck('id')->all() ?: [0])->get()->keyBy('digital_asset_id');
+        $rhythm = app(ContentRhythm::class);
+        $topics = app(ContentTopics::class);
         $rows = [];
         foreach ($brands as $brand) {
             foreach ($sites->get($brand->id, collect()) as $site) {
@@ -69,6 +74,9 @@ final class ContentCoverage
                     'writing' => $count['writing'], 'reading' => $count['reading'], 'sent' => $count['sent'], 'last_title_at' => $count['last'],
                 ];
                 $row['last_run'] = ContentPlanner::lastRun((int) $site->id);
+                $row['backfill'] = $states->get((int) $site->id)?->backfill;
+                $row['rhythm'] = $rhythm->for($site);
+                $row['map'] = collect($topics->completion($site))->where('active', true)->map(fn (array $m): string => $m['service'].' %'.$m['percent'])->values()->all();
                 $row['readiness'] = $row['clusters'] === 0 ? SiteScope::clusterReadiness($brand, $site) : null;
                 $row['services'] = $row['readiness']['services'] ?? null;
                 $row['reason'] = self::reason($row);
@@ -104,32 +112,44 @@ final class ContentCoverage
     }
 
     /**
-     * What the title run asks for: the main language of a site with matched clusters gets its pool back to POOL; on
-     * Monday (`$weekly`) it also gets at least the brand's weekly number of fresh ideas on top. One entry per site.
+     * What the title run asks for, one entry per site with matched clusters (or services):
      *
-     * @return list<array{site_id: int, wants: array<string, int>}>
+     *  - Wednesday (`$weekly`, haftalık döngü, yakup 2026-10-16): the site's rhythm of the week (ContentRhythm: new
+     *    articles + updates in its main language, by the stage of its map) as `cycle`, taken from its topic maps.
+     *  - Any other run: only sites still in their one-off back-dated fill get their pool back to POOL (their dates need
+     *    ideas); the twice-daily refill of every site is over.
+     *
+     * @return list<array{site_id: int, wants: array<string, int>, cycle?: array{new: int, update: int}}>
      */
     public function needs(bool $weekly = false, ?int $siteId = null): array
     {
         $out = [];
+        $rhythm = app(ContentRhythm::class);
+        $backfill = ContentSiteState::query()->where('backfill', ContentSiteState::BACKFILL_ELIGIBLE)->pluck('digital_asset_id')->map(fn ($id): int => (int) $id)->flip()->all();
         foreach ($this->rows() as $row) {
             // A site without matched clusters still fills from its own Search Console searches once the brand has services.
             if (($siteId !== null && (int) $row['site']->id !== $siteId) || ($row['clusters'] === 0 && (int) $row['services'] === 0)) {
                 continue;
             }
+            $main = (string) array_key_first($row['pool']);
+            if ($weekly) {
+                $week = $rhythm->store($row['site']);
+                if ($week['new'] + $week['update'] > 0) {
+                    $out[] = ['site_id' => (int) $row['site']->id, 'wants' => [$main => min(20, $week['new'] + $week['update'])], 'cycle' => ['new' => $week['new'], 'update' => $week['update']]];
+                }
+
+                continue;
+            }
+            if (! isset($backfill[(int) $row['site']->id])) {
+                continue;
+            }
             $last = $row['last_run'];
-            if (! $weekly && $siteId === null && ($last['status'] ?? null) === 'no_candidates' && Carbon::parse($last['at'])->gt(now()->subHours(20))) {
+            if ($siteId === null && ($last['status'] ?? null) === 'no_candidates' && Carbon::parse($last['at'])->gt(now()->subHours(20))) {
                 continue; // the data had no topic left today; the next day's data may have
             }
-            $wants = [];
-            foreach ($row['pool'] as $language => $waiting) {
-                $want = max(self::POOL - $waiting, $weekly ? $row['weekly'] : 0);
-                if ($want > 0) {
-                    $wants[(string) $language] = min(20, $want);
-                }
-            }
-            if ($wants !== []) {
-                $out[] = ['site_id' => (int) $row['site']->id, 'wants' => $wants];
+            $want = self::POOL - (int) ($row['pool'][$main] ?? 0);
+            if ($want > 0) {
+                $out[] = ['site_id' => (int) $row['site']->id, 'wants' => [$main => min(20, $want)]];
             }
         }
 
@@ -256,7 +276,8 @@ final class ContentCoverage
             $row['clusters'] === 0 && $row['services'] === 0 => 'Markanın etkin hizmeti yok; marka tamamlama hizmetleri sitesinden doldurunca kümeler eşleşir ve havuz dolar.',
             $row['clusters'] === 0 && in_array($row['readiness']['step'] ?? null, ['catalog', 'clusters'], true) => 'Bu markanın hizmetleri için sorgu kütüphanesinde henüz küme yok (sektörde arama verisi az); havuz şimdilik sitenin kendi Search Console aramalarından dolar.',
             $row['clusters'] === 0 && ($row['readiness']['step'] ?? null) === 'approve' => 'Bu markanın hizmetlerinin kümeleri henüz onaylanmadı (Sorgular › Kümeler); havuz şimdilik sitenin kendi Search Console aramalarından dolar.',
-            $row['clusters'] === 0 => 'Kümeler bu siteyle henüz eşleşmedi; sistem eşleştirmeyi günde iki kez kendisi başlatır, ardından havuz dolar.',
+            $row['clusters'] === 0 => 'Kümeler bu siteyle henüz eşleşmedi; sistem eşleştirmeyi günde iki kez kendisi başlatır, ardından konu haritası çizilir.',
+            ($row['backfill'] ?? null) !== ContentSiteState::BACKFILL_ELIGIBLE => null,
             $row['waiting'] >= self::POOL => null,
             ($last['status'] ?? null) === 'no_candidates' => 'Verilerde yeni konu kalmadı: her arama ve küme için fikir var ya da yazıldı. Yeni arama verisi gelince kendiliğinden dolar.',
             ($last['status'] ?? null) === 'queued' && (int) ($last['added'] ?? 0) === 0 => 'Fikirler Claude kuyruğunda yazılıyor; Claude yanıtlayınca havuz kendiliğinden dolar.',
@@ -264,7 +285,7 @@ final class ContentCoverage
                 ? 'Son dolum yapılamadı: '.$last['message'].' Bir sonraki dolumda yeniden denenir.'
                 : 'Son dolumda AI yanıt vermedi; bir sonraki dolumda yeniden denenir.',
             $row['waiting'] > 0 || $row['reading'] > 0 => null,
-            default => 'Havuz boş; günde iki kez kendiliğinden '.self::POOL.' fikre tamamlanır.',
+            default => 'Geriye dönük doldurmanın havuzu boş; günde iki kez kendiliğinden '.self::POOL.' fikre tamamlanır.',
         };
     }
 

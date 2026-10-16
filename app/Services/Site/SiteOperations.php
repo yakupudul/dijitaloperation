@@ -173,7 +173,7 @@ final class SiteOperations
                 is_array($params['wants'] ?? null) => $params['wants'],
                 isset($params['language']) => [(string) $params['language'] => (int) ($params['want'] ?? 4)], // jobs queued before one-job-per-site
                 default => null,
-            }),
+            }, is_array($params['cycle'] ?? null) ? ['new' => (int) ($params['cycle']['new'] ?? 0), 'update' => (int) ($params['cycle']['update'] ?? 0)] : null),
             self::DISCOVERY => $this->content->discover($site),
             self::WRITE_ARTICLE => $suggestion !== null ? $this->content->writeArticle($suggestion, isset($params['language']) ? (string) $params['language'] : null) : ['status' => 'no_suggestion'],
             self::WEEKLY_REFRESH => $this->weeklyRefresh($site),
