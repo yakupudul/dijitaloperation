@@ -294,6 +294,15 @@ final class GbpPostQueue
                 $ordered[] = array_shift($other);
             }
         }
+        // The page text is read only for the leading candidates; a page with no stored text cannot be written from.
+        $head = array_slice($ordered, 0, count($days) + 20);
+        $texts = Page::query()->whereIn('id', array_map(fn (array $c): int => (int) $c['page']->id, $head))->get(['id', 'content_outline', 'content_text'])->keyBy('id');
+        $ordered = array_values(array_filter($head, function (array $c) use ($texts): bool {
+            $text = $texts->get($c['page']->id);
+            $c['page']->setRawAttributes([...$c['page']->getAttributes(), 'content_outline' => $text?->content_outline, 'content_text' => $text?->content_text], true);
+
+            return $c['page']->aiText(200) !== '';
+        }));
         $out = [];
         foreach (array_slice($ordered, 0, count($days)) as $index => $candidate) {
             $out[] = ['slot' => $index + 1, 'day' => $days[$index], 'page' => $candidate['page'], 'angle' => $candidate['angle']];

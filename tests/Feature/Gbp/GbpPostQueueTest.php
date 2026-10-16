@@ -131,6 +131,18 @@ final class GbpPostQueueTest extends TestCase
         $this->assertSame(['2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10'], array_column($slots, 'day'));
     }
 
+    public function test_slots_carry_the_page_text_and_skip_pages_with_no_stored_text(): void
+    {
+        $this->pages['zirkonyum']->update(['content_text' => null, 'content_outline' => null]);
+
+        $slots = app(GbpPostQueue::class)->slots($this->location, app(GbpPostQueue::class)->emptyDays($this->location));
+
+        $this->assertSame([$this->pages['implant']->id, $this->pages['blog']->id, $this->pages['ortodonti']->id], array_map(fn (array $s): int => $s['page']->id, $slots));
+        foreach ($slots as $slot) {
+            $this->assertStringContainsString('İmplant tedavisinde', $slot['page']->aiText(3500));
+        }
+    }
+
     public function test_fill_keeps_valid_texts_with_the_page_image_and_drops_contact_data_and_near_copies(): void
     {
         $this->fakeTexts([

@@ -15,7 +15,6 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Repair\RepairDesk;
 use App\Support\Options\LocationOptions;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -74,7 +73,10 @@ final class BrandDataReview
             return ['status' => 'queued'];
         }
         if ($raw === 'error') {
-            throw new RuntimeException('Claude bu denetimi yapamadı; tekrar deneyin.');
+            // Claude closed the task as not doable from its data: an expected outcome, not a software error.
+            $this->save($brand, ['failed_at' => now()->toIso8601String(), 'error' => 'Claude bu denetimi yapamadı; tekrar deneyin.'] + (self::stored($brand) ?? []));
+
+            return ['status' => 'failed', 'message' => 'Claude bu denetimi yapamadı; tekrar deneyin.'];
         }
         if ($raw === null) {
             $route = $this->routes->resolve(BrandDataReviewAgent::OPERATION);

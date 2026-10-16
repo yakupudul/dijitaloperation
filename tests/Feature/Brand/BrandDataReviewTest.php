@@ -28,6 +28,7 @@ use App\Services\Website\Pages\PageStore;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -185,6 +186,25 @@ final class BrandDataReviewTest extends TestCase
         $this->assertSame(1, BrandDataReview::stored($this->brand)['proposed']);
         $this->assertSame(OfferingStatus::Active, $hair->fresh()->status, 'nothing applies before approval');
         BrandDataReviewAgent::assertNeverPrompted();
+    }
+
+    public function test_a_review_claude_declines_is_stored_as_failed_without_a_software_error(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        $this->service('İmplant Tedavisi');
+        BrandDataReviewAgent::fake()->preventStrayPrompts();
+        (new RunBrandDataReviewJob($this->brand->id))->handle(app(BrandDataReview::class), app(AiTaskQueue::class));
+        $reported = [];
+        $this->app->make(ExceptionHandler::class)->reportable(function (\Throwable $e) use (&$reported): void {
+            $reported[] = $e;
+        });
+
+        $this->assertTrue(app(AiTaskQueue::class)->fail(AiTask::query()->sole(), 'Veri yetersiz.'));
+
+        $stored = BrandDataReview::stored($this->brand);
+        $this->assertSame('Claude bu denetimi yapamadı; tekrar deneyin.', $stored['error']);
+        $this->assertArrayNotHasKey('hash', $stored, 'the same data is reviewed again on the next run');
+        $this->assertSame([], $reported);
     }
 
     /** @param  array<string, mixed>  $extra */

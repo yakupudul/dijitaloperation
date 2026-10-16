@@ -13,7 +13,6 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -101,7 +100,10 @@ final class BrandCare
             return ['status' => 'queued'];
         }
         if ($raw === 'error') {
-            throw new RuntimeException('Claude bu incelemeyi yapamadı; tekrar deneyin.');
+            // Claude closed the task as not doable from its data: an expected outcome, not a software error.
+            $this->save($brand, ['failed_at' => now()->toIso8601String(), 'error' => 'Claude bu incelemeyi yapamadı; tekrar deneyin.'] + (self::stored($brand) ?? []));
+
+            return ['status' => 'failed', 'message' => 'Claude bu incelemeyi yapamadı; tekrar deneyin.'];
         }
         if ($raw === null) {
             $route = $this->routes->resolve(BrandCareAgent::OPERATION);
