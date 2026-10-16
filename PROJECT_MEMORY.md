@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-16 — İçerik: eski kalıptaki bütün bekleyen yazılar yeniden
+
+- Yeni kuraldan önce yazılmış ve gönderilmemiş her yazı (tarihli ya da havuzda tarihsiz) yeni kuralla yeniden yazılır; yazıya telefon, e-posta, adres ve "biz rakam vermiyoruz" gibi iç notlar girmez; otopilot kontrolü uzunluğu ölçmez (sistem ölçer).
+
 ## 2026-10-15 — İçerik: küme haritası, konuya göre uzunluk
 
 - Bir konuyu sitede zaten işleyen sayfa varsa yeni yazı yazılmaz, o sayfa güçlendirilir; aynı konuda ikinci yazı fikri kapanır. Yazı kümenin tamamını değil kendi sorusunu derinlemesine işler, kümenin ana sayfasına bağlanır; ana sayfa yeni yazıya iç link alır (onaylı).

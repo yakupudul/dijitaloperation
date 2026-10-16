@@ -1139,8 +1139,8 @@ Schedule::command('moxdop:content:autopilot')
 // again with the new rules (once; run on deploy).
 Artisan::command('moxdop:content:rework', function (ContentAutopilot $autopilot): void {
     $result = $autopilot->rework();
-    $this->info($result['rewrite'].' yazı yeniden yazılıyor, '.$result['update'].' fikir mevcut sayfanın güncellemesine döndü, '.$result['closed'].' fikir kapandı.');
-})->purpose('Re-plan the unsent dated articles by the cluster map and write them again with the new writing rules');
+    $this->info($result['rewrite'].' yazı yeniden yazılıyor, '.$result['update'].' fikir mevcut sayfanın güncellemesine döndü, '.$result['closed'].' fikir kapandı, '.$result['recheck'].' yazı yeniden kontrol ediliyor.');
+})->purpose('Re-plan the unsent articles written before the new rules by the cluster map and write them again; re-check held new ones');
 
 // Küme bağları ve ölçüm (yakup, 2026-10-15): a live MoxDOP article gets a link from its cluster's main page (an Onarım
 // masası row, applied on approval); one Google never showed in 90 days gets a "güçlendir" idea.

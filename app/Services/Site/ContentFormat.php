@@ -78,6 +78,22 @@ final class ContentFormat
         return count(preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: []);
     }
 
+    /**
+     * Headings left with nothing under them (the next heading is the same or a higher level, or the text ends) are
+     * removed: a block dropped for an invented number or phone must not leave an empty section behind (Bornova Hurda,
+     * 2026-10-16: the last "teklif alın" heading of 13 articles stood empty).
+     */
+    public static function dropEmptySections(string $html): string
+    {
+        do {
+            $before = $html;
+            $html = (string) preg_replace_callback('#<h(?<level>[2-6])\b[^>]*>(?:(?!</?h[1-6]\b).)*</h\k<level>>\s*(?=<h(?<next>[2-6])\b|\z)#is',
+                fn (array $m): string => ($m['next'] ?? '') === '' || (int) $m['next'] <= (int) $m['level'] ? '' : $m[0], $html);
+        } while ($html !== $before);
+
+        return trim($html);
+    }
+
     /** @param  array{words: array{0: int, 1: int}}  $format */
     public static function tooShort(int $words, array $format): bool
     {

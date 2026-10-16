@@ -142,7 +142,7 @@ final class ContentClusterMapTest extends SiteTestCase
         $owned = $this->idea('Kanal tedavisi nasıl yapılır?', ['query' => 'kanal tedavisi nasıl yapılır', 'article' => $article, 'autopilot' => ['date' => '2026-10-12']], Suggestion::APPROVED);
         $sent = $this->idea('Gönderilmiş yazı', ['article' => $article, 'article_write_id' => 9, 'autopilot' => ['date' => '2026-10-08']], Suggestion::APPROVED);
 
-        $this->assertSame(['rewrite' => 1, 'update' => 1, 'closed' => 0], app(ContentAutopilot::class)->rework());
+        $this->assertSame(['rewrite' => 1, 'update' => 1, 'closed' => 0, 'recheck' => 0], app(ContentAutopilot::class)->rework());
 
         $action = $dated->fresh()->action;
         $this->assertArrayNotHasKey('article', $action);
@@ -152,7 +152,7 @@ final class ContentClusterMapTest extends SiteTestCase
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::WRITE_ARTICLE && $job->params === ['suggestion_id' => $dated->id]);
         $this->assertSame($page->id, $owned->fresh()->page_id);
         $this->assertSame('x', $sent->fresh()->action['article']['title'], 'a sent article is left alone');
-        $this->assertSame(['rewrite' => 0, 'update' => 0, 'closed' => 0], app(ContentAutopilot::class)->rework(), 'once per round');
+        $this->assertSame(['rewrite' => 0, 'update' => 0, 'closed' => 0, 'recheck' => 0], app(ContentAutopilot::class)->rework(), 'once per round');
 
         // The new round asks Claude under a new name: the old round's answer is never reused.
         $prompts = 0;
@@ -163,6 +163,36 @@ final class ContentClusterMapTest extends SiteTestCase
         });
         $this->assertSame(['status' => 'ready'], app(ContentPlanner::class)->writeArticle($dated->fresh()));
         $this->assertSame(1, $prompts);
+    }
+
+    public function test_rework_also_writes_the_old_pool_articles_and_rechecks_held_new_ones_once(): void
+    {
+        Queue::fake();
+        $old = ['title' => 'x', 'html' => '<p>Eski kalıp.</p>', 'language' => 'tr'];
+        $pool = $this->idea('Zirkonyum kaplama ne kadar dayanır?', ['article' => $old], Suggestion::APPROVED);
+        $format = ['type' => 'quick', 'words_min' => 450, 'words_max' => 750, 'words' => 440];
+        $held = $this->idea('İmplant sonrası ne yenir?', ['article' => ['title' => 'y', 'html' => '<p>Cevap.</p><h2>Bize ulaşın</h2>', 'language' => 'tr'],
+            'translations' => ['en' => ['title' => 'y', 'html' => '<p>Answer.</p><h2>Contact us</h2>']], 'article_format' => $format,
+            'autopilot' => ['date' => '2026-10-17', 'review' => ['verdict' => 'wrong', 'reason' => '440 kelime, alt sınır 450.']]], Suggestion::APPROVED);
+        $passed = $this->idea('Diş taşı temizliği acıtır mı?', ['article' => ['title' => 'z', 'html' => '<p>Cevap.</p>'], 'article_format' => $format,
+            'autopilot' => ['date' => '2026-10-18', 'review' => ['verdict' => 'ok']]], Suggestion::APPROVED);
+
+        $this->assertSame(['rewrite' => 1, 'update' => 0, 'closed' => 0, 'recheck' => 1], app(ContentAutopilot::class)->rework());
+
+        $this->assertArrayNotHasKey('article', $pool->fresh()->action, 'an undated pool article of the old template is written again');
+        Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->params === ['suggestion_id' => $pool->id]);
+        $action = $held->fresh()->action;
+        $this->assertSame(['<p>Cevap.</p>', '<p>Answer.</p>'], [$action['article']['html'], $action['translations']['en']['html']], 'the empty heading goes');
+        $this->assertArrayNotHasKey('review', $action['autopilot'], 'checked again');
+        $this->assertSame('ok', data_get($passed->fresh()->action, 'autopilot.review.verdict'));
+        $this->assertSame(['rewrite' => 0, 'update' => 0, 'closed' => 0, 'recheck' => 0], app(ContentAutopilot::class)->rework(), 'once');
+    }
+
+    public function test_a_heading_left_without_text_is_removed(): void
+    {
+        $html = "<p>Giriş.</p>\n<h2>Süreç</h2>\n<h3>Muayene</h3>\n<p>İlk adım.</p>\n<h3>Boş alt başlık</h3>\n<h2>Boş bölüm</h2>\n<h3>Onun da boş alt başlığı</h3>\n<h2>Sık sorulan sorular</h2>\n<h3>Acır mı?</h3>\n<p>Hayır.</p>\n<h2>Bize ulaşın</h2>";
+
+        $this->assertSame("<p>Giriş.</p>\n<h2>Süreç</h2>\n<h3>Muayene</h3>\n<p>İlk adım.</p>\n<h2>Sık sorulan sorular</h2>\n<h3>Acır mı?</h3>\n<p>Hayır.</p>", ContentFormat::dropEmptySections($html));
     }
 
     public function test_a_live_article_gets_a_link_from_its_cluster_main_page_and_an_unseen_one_a_strengthen_idea(): void

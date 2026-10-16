@@ -1520,12 +1520,13 @@ final class ContentPlanner
             ->map(fn (Page $p): array => ['url' => (string) $p->url, 'path' => (string) $p->path, 'cms_type' => $p->wp_post_type])->values()->all());
     }
 
-    /** Article HTML with scripts removed, links only to site pages, and blocks with invented numbers dropped. */
+    /** Article HTML with scripts removed, links only to site pages, blocks with invented numbers dropped and no empty heading left. */
     private function groundedHtml(string $html, SiteEvidence $evidence): string
     {
         $html = (string) preg_replace('#<(script|style|iframe)\b[^>]*>.*?</\1>#is', '', $html);
         $html = (string) preg_replace_callback('#<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', fn (array $m): string => $evidence->knowsUrl($m[1]) ? $m[0] : $m[2], $html);
         $html = (string) preg_replace_callback('#<(p|li|h[2-6]|td)\b[^>]*>.*?</\1>#is', fn (array $m): string => $evidence->grounded(strip_tags($m[0])) ? $m[0] : '', $html);
+        $html = ContentFormat::dropEmptySections($html);
 
         return trim(strip_tags($html)) === '' ? '' : trim($html);
     }

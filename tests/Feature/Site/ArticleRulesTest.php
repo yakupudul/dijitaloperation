@@ -97,8 +97,8 @@ final class ArticleRulesTest extends SiteTestCase
         $this->assertSame(['status' => 'ready'], app(ContentPlanner::class)->writeArticle($idea->fresh()));
         $html = $idea->fresh()->action['article']['html'];
         $this->assertStringContainsString("20'lik diş en arkada", $html);
-        $this->assertStringContainsString("<h3>20'lik dişe dikiş atılır mı?</h3>", $html);
         $this->assertStringNotContainsString('37 dikiş', $html, 'a number in no data is still dropped');
+        $this->assertStringNotContainsString("20'lik dişe dikiş", $html, 'and the heading it leaves empty goes with it');
     }
 
     public function test_the_new_writer_prompt_reaches_an_operation_handed_to_claude_and_keeps_its_model(): void
@@ -111,7 +111,7 @@ final class ArticleRulesTest extends SiteTestCase
             ->expectsOutputToContain('kod varsayılanı yayında')->expectsOutputToContain('bilinmeyen işlem')->assertSuccessful();
 
         $current = $registry->current('site.write_article');
-        $this->assertStringContainsString('site-write-article-v11', $current->template);
+        $this->assertStringContainsString('site-write-article-v12', $current->template);
         $this->assertSame(AiTaskQueue::MODEL, $current->model, 'Claude (MCP) stays');
         $this->assertSame($this->admin->id, $current->created_by);
         $this->artisan('moxdop:prompts:adopt-default', ['operations' => ['site.write_article']])->expectsOutputToContain('zaten')->assertSuccessful();

@@ -1,5 +1,11 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-16 — İçerik canlı kontrolü ve düzeltmeler
+
+- **Canlıda görülen (16 Ekim sabahı, yeni kuralla yazılan 64 yazı / çeviri):** uzunluk artık konuya göre değişiyor (458–2287 kelime, ortanca 918; önce 572 ve hepsi aynı); 14 yazıda tablo, 46'sında adım listesi var. Ama 14 Ekim'in gönderilmemiş 174 yazısından yalnız 14'ü yeniden yazılmıştı: `rework` yalnız tarihli otopilot yazılarını alıyordu, havuzda tarihsiz bekleyen 159 yazı eski kalıpta kaldı. Otopilot kontrolü (`content-review-v2`) 72 metinden 27'sini "yanlış" saydı; çoğu yalnız birkaç kelime alt sınırın altında olduğu için, 13'ü de Bornova Hurda'da son başlığı boş kaldığı için (yazar sitede olmayan bir telefon yazmış, uydurma sayı süzgeci paragrafı silmiş, başlık kalmış). Yazılarda dış kaynak ya da Google sonuçlarına bakıldığına dair iz yok.
+- **Düzeltme:** `rework` artık tarihli ya da tarihsiz, yeni kuraldan önce yazılmış (`article_format` olmayan) her gönderilmemiş yazıyı yeniden yazar; yeni kuralla yazılıp kontrolde tutulan ya da boş başlığı olan yazılar bir kez yeniden kontrol edilir (`autopilot.rechecked`). `ContentFormat::dropEmptySections` altı boş kalan başlığı siler (yazımda ve bekleyen yazılarda). Talimat `site-write-article-v12`: telefon / e-posta / adres yazılmaz, son adım son bölümün içinde iletişim sayfasına link, "şube değildir" gibi açıklama ve "rakam vermiyoruz" gibi kendi verisi hakkında not yazılmaz. `content-review-v3`: uzunluğu sistem ölçer, kontrol kelime sayısı yüzünden yanlış demez. Migration `2026_12_16_090000` talimatları benimser ve `moxdop:content:rework` çalıştırır.
+- Durum: CODED + TESTED (`ContentClusterMapTest`, `ArticleRulesTest`). UAT: yeniden yazılan havuz yazıları canlıda görülecek.
+
 ## 2026-10-15 — Küme haritası ve yeni yazım kuralı
 
 - **Sorun (yakup 2026-10-15 "yazıların uzunluğu hep aynı, kümenin hakkı veriliyor mu"):** 14 Ekim gecesi yazılan 270 Türkçe yazının ortancası 572 kelimeydi, hepsi aynı iskeletteydi (kısa cevap, 7–9 ara başlık, 5 SSS). Talimat her yazıya kümenin ana sorgusunu ve bütün alt başlıklarını koyduruyordu; yeni yazı mı güncelleme mi kararı sitedeki sayfaların konusuna bakmıyordu (OPC "Kanal tedavisi nasıl yapılır" mevcut süreç sayfasının yanına yazıldı; Avrupadent'e aynı gece iki All-on-4 / All-on-6 yazısı).

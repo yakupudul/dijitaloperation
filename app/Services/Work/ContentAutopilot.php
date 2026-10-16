@@ -324,21 +324,34 @@ final class ContentAutopilot
     }
 
     /**
-     * Yeni yazım kuralı (yakup, 2026-10-15 "sırayla hepsini yap"): every dated article not sent yet is planned again by
-     * the cluster map (an idea a page of the site already answers becomes that page's update, a second one of the same
-     * subject closes; their dates are freed) and the rest are written again with the new rules (its own question,
-     * length by subject, Google's first results, the brand's own facts), translations included. Once per round.
+     * Yeni yazım kuralı (yakup, 2026-10-15 "sırayla hepsini yap"): every article not sent yet that was written before the
+     * new rules (no `article_format`), dated or still waiting in the pool, is planned again by the cluster map (an idea a
+     * page of the site already answers becomes that page's update, a second one of the same subject closes; their dates
+     * are freed) and the rest are written again with the new rules, translations included. Once per round. The first
+     * round only took dated ones and left the 159 pool articles of 14 Oct in the old template (2026-10-16 check).
+     * Articles already written by the new rules get their empty headings removed and, once, a fresh otopilot check
+     * (content-review-v3 no longer holds an article for a few words under its range).
      *
-     * @return array{rewrite: int, update: int, closed: int}
+     * @return array{rewrite: int, update: int, closed: int, recheck: int}
      */
     public function rework(): array
     {
         $map = app(ContentMap::class);
-        $out = ['rewrite' => 0, 'update' => 0, 'closed' => 0];
+        $out = ['rewrite' => 0, 'update' => 0, 'closed' => 0, 'recheck' => 0];
         Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
-            ->whereNotNull('action->autopilot')->lazyById(100)->each(function (Suggestion $suggestion) use ($map, &$out): void {
+            ->lazyById(100)->each(function (Suggestion $suggestion) use ($map, &$out): void {
                 $action = (array) $suggestion->action;
-                if (isset($action['article_write_id']) || (int) ($action['rewrite'] ?? 0) >= self::REWRITE_ROUND || data_get($action, 'autopilot.date') === null) {
+                if (! is_array($action['article'] ?? null) || isset($action['article_write_id'])) {
+                    return;
+                }
+                if (isset($action['article_format'])) {
+                    if ($this->recheck($suggestion, $action)) {
+                        $out['recheck']++;
+                    }
+
+                    return;
+                }
+                if ((int) ($action['rewrite'] ?? 0) >= self::REWRITE_ROUND) {
                     return;
                 }
                 $resolved = $map->resolve($suggestion);
@@ -349,7 +362,9 @@ final class ContentAutopilot
                 }
                 unset($action['article'], $action['translations'], $action['translations_blocked'], $action['article_blocked'], $action['article_blocked_draft'],
                     $action['article_seo'], $action['article_warnings'], $action['article_note'], $action['article_format']);
-                $action['autopilot'] = array_diff_key((array) $action['autopilot'], array_flip(['review', 'written_seen_at']));
+                if (isset($action['autopilot'])) {
+                    $action['autopilot'] = array_diff_key((array) $action['autopilot'], array_flip(['review', 'written_seen_at']));
+                }
                 $action['rewrite'] = self::REWRITE_ROUND;
                 $suggestion->forceFill(['action' => $action])->save();
                 SiteOperations::dispatch((int) $action['site_id'], SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id]);
@@ -357,6 +372,45 @@ final class ContentAutopilot
             });
 
         return $out;
+    }
+
+    /**
+     * A new-rule article: headings left empty are removed (text and translations) and a held otopilot check is done
+     * again once with the current review rules.
+     *
+     * @param  array<string, mixed>  $action
+     */
+    private function recheck(Suggestion $suggestion, array $action): bool
+    {
+        if (data_get($action, 'autopilot.rechecked') !== null) {
+            return false;
+        }
+        $changed = false;
+        $tidy = function (array $text) use (&$changed): array {
+            $html = ContentFormat::dropEmptySections((string) ($text['html'] ?? ''));
+            if ($html !== trim((string) ($text['html'] ?? ''))) {
+                $changed = true;
+                $text['html'] = $html;
+            }
+
+            return $text;
+        };
+        $action['article'] = $tidy((array) $action['article']);
+        foreach ((array) ($action['translations'] ?? []) as $language => $translation) {
+            if (is_array($translation)) {
+                $action['translations'][$language] = $tidy($translation);
+            }
+        }
+        $held = isset($action['autopilot']) && data_get($action, 'autopilot.review') !== null && data_get($action, 'autopilot.review.verdict') !== 'ok';
+        if (! $changed && ! $held) {
+            return false;
+        }
+        if (isset($action['autopilot'])) {
+            $action['autopilot'] = array_diff_key((array) $action['autopilot'], array_flip(['review'])) + ['rechecked' => now()->toIso8601String()];
+        }
+        $suggestion->forceFill(['action' => $action])->save();
+
+        return true;
     }
 
     /** The user the otopilot approves titles as (the first active Admin). */
