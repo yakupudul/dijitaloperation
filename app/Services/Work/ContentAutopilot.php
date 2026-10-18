@@ -12,6 +12,8 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Brand\BrandFacts;
 use App\Services\Compliance\ForbiddenTerms;
+use App\Services\Epicrisis\Epicrisis;
+use App\Services\Epicrisis\EpicrisisClaims;
 use App\Services\Site\ContentFormat;
 use App\Services\Site\ContentMap;
 use App\Services\Site\ContentPlanner;
@@ -391,6 +393,13 @@ final class ContentAutopilot
             return ['verdict' => 'wrong', 'reason' => 'Yazı kısa: '.$words.' kelime; bu konu için '.$format['words_min'].'–'.$format['words_max'].' kelime gerekiyor.', 'at' => $at];
         }
         $facts = array_intersect_key(app(BrandFacts::class)->forPrompt($brand), array_flip(['experts', 'regions', 'questions', 'objections', 'praise']));
+        // Bilgi doğrulama (marka epikrizi): a phone, price, warranty, years or patient count the brand's record and the
+        // article's own plan do not hold is invented; the article stays on the desk with the claim named.
+        $claims = app(EpicrisisClaims::class)->unsupported($brand, implode(' ', [(string) ($article['title'] ?? ''), (string) ($article['meta_description'] ?? ''), (string) ($article['html'] ?? '')]),
+            [(string) $suggestion->title, (string) $suggestion->reason, (string) json_encode([$action['outline'] ?? [], $action['questions'] ?? [], $action['brief'] ?? [], $facts], JSON_UNESCAPED_UNICODE)]);
+        if ($claims !== []) {
+            return ['verdict' => 'wrong', 'reason' => EpicrisisClaims::reason($claims), 'at' => $at];
+        }
         $items = [['id' => 0, 'title' => (string) ($article['title'] ?? ''), 'html' => mb_substr((string) ($article['html'] ?? ''), 0, 30000),
             'language' => (string) ($article['language'] ?? ContentPlanner::articleLanguage($suggestion, $site)),
             'source' => array_filter(['title' => $suggestion->title, 'reason' => $suggestion->reason, 'outline' => $action['outline'] ?? null, 'questions' => $action['questions'] ?? null,
@@ -405,7 +414,7 @@ final class ContentAutopilot
             'brand' => ['name' => $brand->name, 'sector' => $brand->sectorCategory?->name],
             'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
             'items' => $items,
-        ], 240, 'autopilot-review-'.$suggestion->id);
+        ] + Epicrisis::input($brand, 'content'), 240, 'autopilot-review-'.$suggestion->id);
         if ($result['status'] === 'queued') {
             return null;
         }

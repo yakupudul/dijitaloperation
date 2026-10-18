@@ -13,6 +13,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandPack;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -509,7 +510,7 @@ final class BranchPages
             'service_pages' => $servicePages->map(fn (Page $p): array => ['title' => (string) ($p->title ?: $p->h1), 'url' => (string) $p->url, 'summary' => mb_substr((string) $p->content_summary, 0, 300)])->values()->all(),
             'compliance' => BrandPack::rules($brand),
             'language' => 'tr',
-        ];
+        ] + Epicrisis::input($brand, 'gbp');
         [$raw, $versionId] = $this->ask($data);
         if ($raw === null) {
             return null;

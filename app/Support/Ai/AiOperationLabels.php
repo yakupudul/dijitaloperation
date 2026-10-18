@@ -72,6 +72,8 @@ final class AiOperationLabels
         'content.review' => 'Otopilot kontrolü (yazı ve gönderi)',
         'content.topic_map' => 'Konu haritası (hizmet başına)',
         'content.brief' => 'Yazı özeti (Google ilk sonuçlar)',
+        'brand.epicrisis_facts' => 'Marka epikrizi: sitedeki ve profildeki bilgiler',
+        'brand.epicrisis_synthesis' => 'Marka epikrizi: konumlanma, ses, itirazlar',
         'repair.review' => 'Otomatik onarım kontrolü',
         'site.setup' => 'Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)',
         'site.weekly_refresh' => 'Site haftalık yenileme',

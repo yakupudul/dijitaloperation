@@ -93,6 +93,8 @@ final class AiTaskQueue
         AiRouteKeys::SITE_URL_ANALYSIS,
         AiRouteKeys::BACKLINKS_SOURCES,
         AiRouteKeys::BRAND_CARE,
+        AiRouteKeys::BRAND_EPICRISIS_FACTS,
+        AiRouteKeys::BRAND_EPICRISIS_SYNTHESIS,
         AiRouteKeys::BRAND_CHIEF,
         AiRouteKeys::BRAND_DATA_REVIEW,
         AiRouteKeys::COMPETITORS_ANALYZE,

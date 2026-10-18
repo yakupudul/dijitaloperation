@@ -20,6 +20,7 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Database\Eloquent\Builder;
@@ -245,7 +246,7 @@ final class GbpAssistant
             'area' => $place['area'],
             'areas' => $place['single'] ? $this->areas($brand) : [],
             'compliance' => $this->complianceRules($brand),
-        ]);
+        ] + Epicrisis::input($brand, 'gbp'));
         if ($raw === null) {
             return null;
         }
@@ -280,7 +281,7 @@ final class GbpAssistant
             'recent_posts' => $resourceId !== null ? DB::table('gbp_posts')->where('external_resource_id', $resourceId)->orderByDesc('create_time')->limit(5)
                 ->pluck('summary')->map(fn ($s): string => mb_substr((string) $s, 0, 200))->all() : [],
             'compliance' => $this->complianceRules($brand),
-        ]);
+        ] + Epicrisis::input($brand, 'gbp'));
         if ($raw === null) {
             return null;
         }

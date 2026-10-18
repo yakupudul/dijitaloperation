@@ -11,6 +11,7 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -191,7 +192,7 @@ final class GbpProfilePlanner
                 'description' => mb_substr($s['description'], 0, 160)], fn (string $v): bool => $v !== ''), $serviceLines),
             'offerings' => array_column(app(GbpAssistant::class)->offerings($brand), 'name'),
             'compliance' => BrandPack::rules($brand),
-        ];
+        ] + Epicrisis::input($brand, 'gbp');
         [$raw, $versionId] = $this->ask($data);
         if ($raw === null) {
             return null;

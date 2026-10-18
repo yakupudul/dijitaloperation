@@ -115,7 +115,7 @@ class PanelDesignFreezeTest extends TestCase
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Özet', 'Dijital varlıklar', 'Hizmet karnesi', 'Bilgi dosyası', 'Ayarlar'] as $tab) {
+        foreach (['Özet', 'Dijital varlıklar', 'Hizmet karnesi', 'Epikriz', 'Ayarlar'] as $tab) {
             $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 

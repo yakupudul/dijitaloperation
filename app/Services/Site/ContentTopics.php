@@ -13,6 +13,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Brand\BrandFacts;
 use App\Services\Compliance\ForbiddenTerms;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\Meta\MetaDesk;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Work\PageSearchStats;
@@ -174,7 +175,7 @@ final class ContentTopics
             'site_pages' => $pages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => (string) ($p->title ?: $p->h1)])->values()->all(),
             'kept_topics' => $existing->filter(fn (ContentTopic $t): bool => $t->status !== 'open')->map(fn (ContentTopic $t): array => ['type' => $t->type, 'question' => $t->question])->values()->all(),
             'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
-        ], 300, 'topic-map-'.$site->id.'-'.$serviceId.'-'.now()->format('Y').'q'.now()->quarter);
+        ] + Epicrisis::input($brand, 'content'), 300, 'topic-map-'.$site->id.'-'.$serviceId.'-'.now()->format('Y').'q'.now()->quarter);
         if ($result['status'] !== 'ready') {
             return ['status' => $result['status']];
         }

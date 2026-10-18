@@ -25,6 +25,7 @@ use App\Mcp\Tools\OverlapAct;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\RequestArticle;
+use App\Mcp\Tools\SaveBrandFact;
 use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SaveStrategy;
 use App\Mcp\Tools\ScreenChecks;
@@ -57,6 +58,10 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 ## Where things are true
 - `get-brand` → `facts`: the brand file MoxDOP builds by rules from its own data (no AI). Treat it as the truth.
 - The operator's decisions and notes (inside the file) win over anything you think.
+- `get-brand` → `epicrisis`: the brand's epikriz, the record every AI step in MoxDOP reads (facts with source and
+  confidence, the synthesis, lessons) and `open_questions` MoxDOP still has for the operator. When the operator tells
+  you a fact about a brand (a phone, warranty, price, expert, what sets it apart) or answers one of those questions,
+  write it with `save-brand-fact` (question_id when it answers one); never write your own guesses there.
 - `claude_notes`: your own earlier notes. They are opinions and reminders, not facts: check them against `facts`.
 - Never invent URLs, numbers, prices or claims that are not in the data you read.
 
@@ -151,6 +156,7 @@ class MoxdopServer extends Server
         MetaPerformance::class,
         ChannelData::class,
         SaveNote::class,
+        SaveBrandFact::class,
         ListNotes::class,
         ListStrategies::class,
         SaveStrategy::class,

@@ -63,8 +63,9 @@
     @elseif ($tab === 'karne')
         <livewire:operator.workspace.brand-scorecard-tab :brand-id="(int) $brandModel->id" :key="'brand-scorecard-'.$brandModel->id" />
     @elseif ($tab === 'dosya')
-        {{-- Bilgi dosyası: what the AI knows (Marka bilgi kartı), whether the brand looks the same everywhere (Kimlik tutarlılığı), then the file itself. --}}
+        {{-- Epikriz: the record every AI step reads (layers, questions), then what the AI knows (Marka bilgi kartı), whether the brand looks the same everywhere (Kimlik tutarlılığı), then the file itself. --}}
         <div class="space-y-4" data-brand-file-tab>
+            <livewire:operator.portfolio.brand-epicrisis-tab lazy :brand-id="(int) $brandModel->id" :key="'brand-epicrisis-'.$brandModel->id" />
             <livewire:operator.portfolio.brand-facts-card lazy :brand-id="(int) $brandModel->id" :key="'brand-facts-'.$brandModel->id" />
             <livewire:operator.portfolio.brand-identity-card lazy :brand-id="(int) $brandModel->id" :key="'brand-identity-'.$brandModel->id" />
             <livewire:operator.workspace.brand-dossier-tab :brand-id="(int) $brandModel->id" :key="'brand-dossier-'.$brandModel->id" />

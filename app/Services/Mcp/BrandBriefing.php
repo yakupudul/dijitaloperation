@@ -4,6 +4,8 @@ namespace App\Services\Mcp;
 
 use App\Models\AiTask;
 use App\Models\Brand;
+use App\Models\BrandEpicrisis;
+use App\Models\BrandEpicrisisItem;
 use App\Models\BrandMemory;
 use App\Models\ClaudeNote;
 use App\Models\DigitalAsset;
@@ -80,11 +82,23 @@ final class BrandBriefing
             }
             $out[$key] = ['title' => $section['title'] ?? $key, 'changed_since_last_read' => $changed, 'markdown' => $section['markdown'] ?? ''];
         }
-        $this->markSeen($brand, $seen, array_map(fn (array $s): string => (string) ($s['hash'] ?? ''), array_intersect_key((array) $stored['sections'], $out)));
+        $read = array_map(fn (array $s): string => (string) ($s['hash'] ?? ''), array_intersect_key((array) $stored['sections'], $out));
+        // Marka epikrizi: the record every AI step reads, and what MoxDOP still asks the operator.
+        $head = BrandEpicrisis::query()->where('brand_id', $brand->id)->first();
+        $epicrisis = null;
+        $epicrisisChanged = $head !== null && ($seen['epicrisis'] ?? null) !== $head->summary_hash;
+        if ($head !== null && ($sections === [] || in_array('epicrisis', $sections, true)) && (! $onlyChanged || $epicrisisChanged)) {
+            $epicrisis = ['changed_since_last_read' => $epicrisisChanged, 'fill_percent' => (int) $head->fill_percent, 'markdown' => (string) $head->summary,
+                'open_questions' => BrandEpicrisisItem::query()->where('brand_id', $brand->id)->where('layer', BrandEpicrisisItem::QUESTION)->where('status', BrandEpicrisisItem::OPEN)
+                    ->orderBy('id')->limit(20)->get()->map(fn (BrandEpicrisisItem $q): array => ['question_id' => (int) $q->id, 'field' => $q->field, 'scope' => $q->scope, 'question' => $q->value])->all()];
+            $read['epicrisis'] = (string) $head->summary_hash;
+        }
+        $this->markSeen($brand, $seen, $read);
 
         return [
             'brand' => ['id' => $brand->id, 'name' => $brand->name],
             'facts' => ['source' => 'Marka dosyası: MoxDOP verisinden kurallarla derlenir, AI yorumu yok.', 'built_at' => $stored['built_at'] ?? null, 'sections' => $out],
+            'epicrisis' => $epicrisis,
             'claude_notes' => ClaudeNote::query()->where('brand_id', $brand->id)->where('status', ClaudeNote::OPEN)->latest('id')->limit(self::NOTES)->get()
                 ->map(fn (ClaudeNote $note): array => $note->toTool())->all(),
         ];

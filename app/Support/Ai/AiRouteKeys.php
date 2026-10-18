@@ -137,6 +137,12 @@ final class AiRouteKeys
     /** Yazı özeti (yakup, 2026-10-16): what Google shows for a new article's search and what the article must do better. */
     public const string CONTENT_BRIEF = 'content.brief';
 
+    /** Marka epikrizi (yakup, 2026-10-16): what the business says about itself on its key pages and profiles, quoted. */
+    public const string BRAND_EPICRISIS_FACTS = 'brand.epicrisis_facts';
+
+    /** Marka epikrizi: positioning, audiences, objections, proof, voice and channel messages from the record. */
+    public const string BRAND_EPICRISIS_SYNTHESIS = 'brand.epicrisis_synthesis';
+
     /** Otomatik onarım (yakup, 2026-10-14): prepared repair-desk rows are read once more; only "ok" rows reach the daily one-click send. */
     public const string REPAIR_REVIEW = 'repair.review';
 

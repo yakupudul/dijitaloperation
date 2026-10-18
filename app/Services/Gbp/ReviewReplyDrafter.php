@@ -15,6 +15,7 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\ServiceScope;
@@ -65,7 +66,7 @@ final class ReviewReplyDrafter
                 throw ServiceScope::notServed();
             }
             $agent = new ReviewReplyAgent;
-            $context = $this->context($review, $brand);
+            $context = $this->context($review, $brand) + Epicrisis::input($brand, 'reply');
             // Named by the review: the liked examples and recent openings drift while Claude works on a batch.
             $answer = $this->tasks->delegatedCall($agent, $context, 'review:'.$reviewId, 'REVIEW_JSON');
             if ($answer === 'queued') {

@@ -14,6 +14,7 @@ use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Compliance\SectorPackRegistry;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
@@ -156,7 +157,7 @@ final class GbpPostQueue
             'offerings' => array_column(app(GbpAssistant::class)->offerings($location->brand), 'name'),
             'compliance' => app(SectorPackRegistry::class)->rulesForBrand($location->brand)->pluck('message')->unique()->values()->take(12)->all(),
             'recent_posts' => array_map(fn (string $t): string => mb_substr($t, 0, 300), array_slice($recent, 0, 12)),
-        ];
+        ] + Epicrisis::input($location->brand, 'gbp');
         $answers = [];
         $waiting = false;
         foreach (array_chunk($slots, self::BATCH) as $batch) {

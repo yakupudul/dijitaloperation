@@ -4,6 +4,7 @@ use App\Ai\Agents\BrandDataReviewAgent;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
+use App\Jobs\Brand\RunBrandEpicrisisJob;
 use App\Jobs\CheckAdBudgetJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
@@ -23,6 +24,7 @@ use App\Jobs\Site\SyncContentPostsJob;
 use App\Models\AiLiveOperation;
 use App\Models\AiTask;
 use App\Models\Brand;
+use App\Models\BrandEpicrisis;
 use App\Models\ClarityProject;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
@@ -98,6 +100,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Schema;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -1375,6 +1378,20 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
     $this->info('Dossiers built: '.$brands->count());
 })->purpose('Rebuild the Marka dosyası of operational brands.');
 Schedule::command('moxdop:brands:dossier')->dailyAt('05:40')->timezone('Europe/Istanbul')->name('brands-dossier')->withoutOverlapping(60);
+
+// Marka epikrizi: after the brand file, one queued pass per operational brand (rules every night; the AI reading of the
+// key pages and the synthesis only when their basis changed or a month passed).
+Artisan::command('moxdop:brands:epicrisis {brand? : brand id} {--force : read the site and write the synthesis again}', function (): void {
+    $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
+    foreach ($brands as $brand) {
+        RunBrandEpicrisisJob::dispatch((int) $brand->id, (bool) $this->option('force'));
+    }
+    $this->info('Epicrisis queued: '.$brands->count());
+})->purpose('Queue the Marka epikrizi pass of the operational brands.');
+Schedule::command('moxdop:brands:epicrisis')->dailyAt('05:55')->timezone('Europe/Istanbul')->name('brands-epicrisis')->withoutOverlapping(60);
+// First fill right after the deploy: once, while no brand has a record yet.
+Schedule::command('moxdop:brands:epicrisis')->hourlyAt(21)->name('brands-epicrisis-first')->withoutOverlapping(60)
+    ->when(fn (): bool => Schema::hasTable('brand_epicrises') && ! BrandEpicrisis::query()->exists());
 
 // Marka bakım ajanı: Sunday night, one queued review per active brand; a brand whose dossier did not change costs nothing.
 Artisan::command('moxdop:brands:care {brand? : brand id} {--force : review even when nothing changed}', function (): void {

@@ -73,6 +73,8 @@ final class AiUsageRecorder
         'ContentReviewAgent' => AiRouteKeys::CONTENT_REVIEW,
         'TopicMapAgent' => AiRouteKeys::CONTENT_TOPIC_MAP,
         'ContentBriefAgent' => AiRouteKeys::CONTENT_BRIEF,
+        'EpicrisisFactsAgent' => AiRouteKeys::BRAND_EPICRISIS_FACTS,
+        'EpicrisisSynthesisAgent' => AiRouteKeys::BRAND_EPICRISIS_SYNTHESIS,
         'RepairReviewAgent' => AiRouteKeys::REPAIR_REVIEW,
         'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,

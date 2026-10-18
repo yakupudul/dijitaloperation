@@ -15,6 +15,7 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
@@ -180,7 +181,7 @@ final class MetaAssistant
             'areas' => $this->areas($brand), 'languages' => BrandPack::languages($brand),
             'creatives' => $creatives, 'pages' => $this->pages($brand), 'compliance' => $this->complianceRules($brand),
             'brand_card' => BrandPack::card($brand, ['praise', 'objections', 'voice']),
-        ];
+        ] + Epicrisis::input($brand, 'meta');
     }
 
     /**

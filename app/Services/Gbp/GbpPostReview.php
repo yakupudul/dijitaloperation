@@ -7,6 +7,8 @@ use App\Models\Brand;
 use App\Models\GbpQueuedPost;
 use App\Models\User;
 use App\Services\Compliance\ForbiddenTerms;
+use App\Services\Epicrisis\Epicrisis;
+use App\Services\Epicrisis\EpicrisisClaims;
 use App\Services\Site\SiteAi;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -61,6 +63,19 @@ final class GbpPostReview
             return ['checked' => 0];
         }
         $checked = 0;
+        // Bilgi doğrulama (marka epikrizi): a post with a phone, price, warranty, years or patient count that neither the
+        // brand's record nor its page holds is held with the claim named, without an AI call.
+        $claims = app(EpicrisisClaims::class);
+        $posts = $posts->reject(function (GbpQueuedPost $post) use ($claims, $brand, &$checked): bool {
+            $found = $claims->unsupported($brand, (string) $post->summary, [(string) ($post->page?->title ?? ''), (string) ($post->page?->content_text ?? '')]);
+            if ($found === []) {
+                return false;
+            }
+            $post->forceFill(['review' => ['verdict' => 'wrong', 'reason' => EpicrisisClaims::reason($found), 'at' => now()->toIso8601String()]])->save();
+            $checked++;
+
+            return true;
+        });
         foreach ($posts->chunk(self::BATCH) as $batch) {
             $items = $batch->values()->map(fn (GbpQueuedPost $post): array => ['id' => (int) $post->id, 'text' => (string) $post->summary, 'language' => 'tr',
                 'source' => array_filter(['location' => (string) ($post->digitalAsset?->name ?? ''), 'page_title' => (string) ($post->page?->title ?: $post->page?->h1 ?? ''),
@@ -70,7 +85,7 @@ final class GbpPostReview
                 'brand' => ['name' => $brand->name, 'sector' => $brand->sectorCategory?->name],
                 'forbidden' => ForbiddenTerms::forBrand($brand)->phrases(),
                 'items' => $items,
-            ], 240, 'gbp-review-'.$batch->first()->id);
+            ] + Epicrisis::input($brand, 'gbp'), 240, 'gbp-review-'.$batch->first()->id);
             if ($result['status'] === 'queued') {
                 return null;
             }

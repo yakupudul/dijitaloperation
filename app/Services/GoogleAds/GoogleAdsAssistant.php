@@ -24,6 +24,7 @@ use App\Services\Analyst\AnalystNumbers;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
 use App\Services\Compliance\ComplianceAuditor;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\ExternalWrites\GoogleAdsNegativeListWriter;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
@@ -409,7 +410,7 @@ final class GoogleAdsAssistant
             'performance_period' => $periodEnd === null ? null : ['start' => $periodEnd->subDays(29)->toDateString(), 'end' => $periodEnd->toDateString(), 'excluded_recent_days' => $lag],
             // The operator's CRM numbers (form / uygun / randevu / satış), separate from Google Ads conversions.
             'lead_quality' => app(GoogleAdsLeadQuality::class)->recent($asset),
-        ];
+        ] + Epicrisis::input($brand, 'ads');
         [$raw, $versionId] = $this->call(self::OP_STRUCTURE, $pack);
         if ($raw === null) {
             return null;
@@ -589,7 +590,7 @@ final class GoogleAdsAssistant
             'pages' => $pages,
             'compliance' => $this->complianceRules($brand),
             'brand_card' => BrandPack::card($brand, ['praise', 'objections', 'voice']),
-        ];
+        ] + Epicrisis::input($brand, 'ads');
         [$raw, $versionId] = $this->call(self::OP_ADS, $pack);
         if ($raw === null) {
             return null;

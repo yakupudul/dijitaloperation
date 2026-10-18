@@ -52,8 +52,8 @@ use Throwable;
 /**
  * Brand page — one row of tabs, like the website screen: Özet (period numbers, approvals waiting on the Onarım masası,
  * Yolculuk, digital assets with their data status, open work with a channel filter, services) · Dijital varlıklar
- * (asset cards, "Hesap ekle", setup status, bindings) · Bilgi dosyası (Marka bilgi kartı, Kimlik tutarlılığı and the
- * file every AI agent reads first) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama,
+ * (asset cards, "Hesap ekle", setup status, bindings) · Epikriz (the marka epikrizi every AI step reads, with its open
+ * questions; then the Marka bilgi kartı, Kimlik tutarlılığı and the brand file) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama,
  * Harita, Google Ads, Meta) appears only once its own component exists; until then its old link opens Özet filtered to
  * that channel. Old ?tab= values resolve to their new place (LEGACY_TABS). Everything shown comes from the database.
  */
@@ -64,7 +64,7 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** The tab row. */
-    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Bilgi dosyası', 'ayarlar' => 'Ayarlar'];
+    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Epikriz', 'ayarlar' => 'Ayarlar'];
 
     /** Ayarlar views. */
     public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];

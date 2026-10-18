@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\Brand\BrandFacts;
 use App\Services\Compliance\BriefCompliance;
 use App\Services\Compliance\ForbiddenTerms;
+use App\Services\Epicrisis\Epicrisis;
 use App\Services\ExternalWrites\ArticleDraft;
 use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\ExternalWriteService;
@@ -760,7 +761,7 @@ final class ContentPlanner
             }, $candidates),
             'previous_titles' => $previous->take(150)->pluck('title')->values()->all(),
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title, 'category' => $p->category])->values()->all(),
-        ];
+        ] + Epicrisis::input($brand, 'content');
     }
 
     /**
@@ -1169,10 +1170,11 @@ final class ContentPlanner
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
             'forbidden' => $terms->phrases(),
-        ];
+        ] + Epicrisis::input($brand, 'content');
         $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
-        // The numbers of the plan and the cluster (title, questions, queries: "20'lik diş") are the writer's own data.
-        $evidence->addNumbersFrom(['plan' => $input['plan'], 'cluster' => $input['cluster'] ?? []]);
+        // The numbers of the plan and the cluster (title, questions, queries: "20'lik diş") are the writer's own data, and
+        // so are the facts of the brand's epikriz ("10 yıl garanti").
+        $evidence->addNumbersFrom(['plan' => $input['plan'], 'cluster' => $input['cluster'] ?? [], 'epicrisis' => data_get($input, 'brand_epicrisis.facts', [])]);
         foreach ($context['pages'] as $page) {
             $evidence->addNumbersFrom(['s' => $page['summary'], 'f' => $page['facts']]);
         }
@@ -1353,7 +1355,7 @@ final class ContentPlanner
             'queries' => array_slice((array) data_get($input, 'cluster.queries', []), 0, 20), 'ai_questions' => array_slice((array) data_get($input, 'cluster.ai_questions', []), 0, 10),
             'brand' => $input['brand'], 'brand_facts' => $input['brand_facts'],
             'cluster_pages' => array_values(array_filter([data_get($map, 'main_page'), ...(array) ($map['other_pages'] ?? [])])),
-        ], 300, 'brief-'.$suggestion->id.($round > 0 ? '-r'.$round : ''));
+        ] + array_intersect_key($input, ['brand_epicrisis' => true]), 300, 'brief-'.$suggestion->id.($round > 0 ? '-r'.$round : ''));
         if ($result['status'] === 'queued') {
             return 'queued';
         }

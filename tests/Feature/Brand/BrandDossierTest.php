@@ -91,7 +91,7 @@ final class BrandDossierTest extends TestCase
 
         $this->assertSame(['goals' => 'Kadıköy şubesi öne çıksın', 'constraints' => 'Rakip adı geçmesin'], BrandDossier::notes($this->brand));
         $this->assertArrayHasKey('dosya', BrandShow::TABS);
-        $this->assertSame('Bilgi dosyası', BrandShow::TABS['dosya']);
+        $this->assertSame('Epikriz', BrandShow::TABS['dosya']);
     }
 
     public function test_goals_typed_only_in_the_older_business_context_are_read_until_the_notes_are_saved(): void

@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-18 — Marka epikrizi
+
+- Her markanın AI işlerinin okuduğu tek kaydı var (Marka › Epikriz): bilgiler, kanıt, sentez, dersler, açık sorular. AI sıfırdan taramaz; kendi işinin dilimini okur.
+- Sentez AI'ın yazdığıyla doğrudan kullanılır, onay beklemez; kurallar tutar (her satır dayandığı kayda bağlı, sayı yalnız o kayıtlardan, yasaklı ifade yok).
+- Operatörün ve sohbette söylenen bilgi her kaynağı yener; çelişkili ya da süresi dolmuş bilgi kullanılmaz, soru olur. Otomatik metinde kaynağı olmayan telefon, fiyat, garanti, deneyim, hasta sayısı tutulur.
+- Karar: yakup, 2026-10-16 ("Ai yazıp doğrudan kullansın. Bu şekilde yap.").
+
 ## 2026-10-16 — İçerik: haftalık döngü ve konu haritası
 
 - Haftalık döngü: Salı eşitleme, Çarşamba fikir, Pazartesi otomatik yazım + tek tık gönderim (Pzt / Çar / Cum tarihli); güncellemeler elle. 20'lik havuz ve 2 günde 1 otopilot yalnız geriye dönük doldurmada kalır.

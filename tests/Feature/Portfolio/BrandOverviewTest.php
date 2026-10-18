@@ -75,7 +75,7 @@ final class BrandOverviewTest extends TestCase
         $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSet('tab', 'ozet')
             ->assertSee('role="tablist" aria-label="Marka"', false)
             ->assertSee('data-tab="varliklar"', false)->assertSee('data-tab="dosya"', false)->assertSee('data-tab="ayarlar"', false)
-            ->assertSee('Bilgi dosyası')
+            ->assertSee('Epikriz')
             ->assertDontSee('data-tab="arama"', false)->assertDontSee('data-tab="harita"', false)->assertDontSee('Dikkat gerektirenler');
         $this->assertSame(['ozet', 'varliklar', 'karne', 'dosya', 'ayarlar'], array_keys($page->viewData('tabs')));
 
