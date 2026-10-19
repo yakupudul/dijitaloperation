@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-19 — Google Ads menüsü (İşletme profilleri gibi, tüm markalar tek yerde)
+
+- **Karar (yakup 2026-10-19 "Tamam yap", thread "Google Ads bölümü"):** sol menüde **Google Ads** (`/google-ads`), altı sekme; hepsi tüm operasyonel markaların hesaplarını birlikte gösterir, marka süzgeci `?marka=`. Hesabın kendi ekranı (`/assets/google-ads/{id}`) aynen kalır, her satırdan açılır. Plan: `notes/google-ads-bolumu-onerisi-2026-10-19.md`.
+- **Durum:** hesap başına 30 gün harcama, dönüşüm, dönüşüm başı ve önceki 30 güne göre değişim; durum (veri gelmiyor / harcama yok / henüz veri yok / hesap bağlı değil), açık alarmlar, başarısız sistem kontrolleri (hesapların %80'inde ortaksa üstte bir kez), sekmelerde bekleyen işler. Üstte kırmızı **Şimdi bakılacaklar** şeridi: veri / harcama durdu, yayın durdu, dönüşüm durdu, hesap yayın yapamıyor, bütçe bitti, harcama sıçradı, hesap bağlı değil. Satır açılınca son 6 ay, 30 günün en çok harcayan kampanyaları ve MoxDOP'un hesaba yazdıkları (`GoogleAdsDesk`).
+- **Yeni alarm `ads_data_gap` (kritik):** son 7 gün ortalaması ≥ 20 harcayan hesabın 3 günden eski son günlük satırı varsa (Panorama Ankara verisi 14 Ekim'de durmuştu, toplama çalıştığı için `stale_data` görmüyordu, `spendAlerts` eski veriyi atlıyordu). Bugün kokpitinde para kaybı (kırmızı) sayılır.
+- **Arama terimleri / Ayarlar ve bütçe / Reklamlar ve kampanyalar:** hesapların açık önerileri tek listede, markaya göre gruplu. Paylaşılan liste negatifi ve ayar değişikliği (ADR-081) Onarım masasının onay yolundan gider (`RepairDesk::queueApproval`, kayıtlı, geri alınabilir, yüksek risk tek tek); kampanya / reklam grubu negatifi, RSA, kampanya, bütçe dağılımı ve deney taslakları hesabın Editor dosyasına girer; sistem kontrolü ve tavsiye elle yapılır, onaylanmaz. Onay / reddet / 7 gün ertele yalnız Admin. Editor dosyası bekleyen hesaplar listelenir. Toplam marka bütçesini artıran yeni yazma yok.
+- **Ölçüm:** hesap başına etkin dönüşüm işlemleri, birincil olanlar ve 30 gün sayısı, birincil zayıf işlem (sayfa görüntüleme / etkileşim) uyarısı, telefon dönüşümü yok uyarısı, son dönüşüm günü (7 günden eskiyse kırmızı), ölçüm kontrolleri, geçen ayın gerçek sonuç girişi (form / uygun / randevu / satış) yapıldı mı.
+- **Hizmet karşılaştırma:** aynı katalog hizmetinde markaların 30 günlük dönüşüm başı maliyeti, markaların ortancası ve farkı (`AdServiceStats::brandCosts('google_ads')`).
+- **Haftalık arama terimi turu:** `moxdop:google-ads:weekly-terms` her pazartesi 06:20 (İstanbul) son 14 günde harcayan hesapların arama terimlerini AI incelemesine (Claude MCP kuyruğu) verir; negatif önerileri Arama terimleri sekmesine düşer.
+- Test: `GoogleAdsDeskTest`.
+
 ## 2026-10-19 — Onarım masası sadeleştirme: Bugün / Karar bekleyenler / Geçmiş
 
 - **Karar (yakup 2026-10-19 "tamamdır yap", thread "Onarım masası arayüz önerileri"):** sayfa üç katman: üstte **Bugün** kartı (kaç iş gönderilmeye hazır, tek "Hepsini gönder" düğmesi; son gönderim 2+ gün önceyse sarı uyarı), ortada **Karar bekleyenler** (şeritler, paketler), altta **Geçmiş** (Yapılanlar, Sonuçlar).

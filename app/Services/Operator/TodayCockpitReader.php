@@ -34,7 +34,7 @@ final class TodayCockpitReader
 
     /** Alarm kinds that mean money or traffic is being lost now (red); the rest of the high alerts are "bak" (amber). */
     public const array LOSS_KINDS = [
-        'site_down', 'delivery_stopped', 'budget_account_blocked', 'budget_exhausted', 'budget_no_spend_today', 'conversions_stopped', 'search_traffic_drop',
+        'site_down', 'delivery_stopped', 'ads_data_gap', 'budget_account_blocked', 'budget_exhausted', 'budget_no_spend_today', 'conversions_stopped', 'search_traffic_drop',
     ];
 
     /** Alarms listed on Bugün. */

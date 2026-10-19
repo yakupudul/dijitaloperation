@@ -61,6 +61,8 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpPostReview;
+use App\Services\GoogleAds\GoogleAdsAssistant;
+use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\Gsc\UrlInspectionTargets;
 use App\Services\Integrations\Bing\BingWebmasterClient;
 use App\Services\Integrations\Bing\BingWebmasterSync;
@@ -101,6 +103,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -1299,6 +1302,30 @@ Schedule::command('moxdop:google-ads:suggestions')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('google-ads-suggestions-daily');
+
+// Google Ads menüsü (yakup 2026-10-19): her pazartesi son 14 günde harcayan hesapların arama terimleri AI ile incelenir;
+// negatif önerileri Google Ads › Arama terimleri sekmesine düşer, Admin onaylamadan hiçbir şey yazılmaz.
+Artisan::command('moxdop:google-ads:weekly-terms', function (GoogleAdsAssistant $assistant, GoogleAdsScreen $screen): void {
+    $queued = 0;
+    foreach (DigitalAsset::query()->operational()->where('type', 'google_ads')->whereNotNull('brand_id')->get() as $asset) {
+        if ((float) ($screen->overview($asset, 14)['current']['cost'] ?? 0) <= 0) {
+            continue;
+        }
+        try {
+            $assistant->queue($asset, GoogleAdsAssistant::OP_TERMS);
+            $queued++;
+        } catch (ValidationException $exception) {
+            $this->warn($asset->id.': '.collect($exception->errors())->flatten()->first());
+        }
+    }
+    $this->info('Arama terimi incelemesi kuyruğa alınan hesap: '.$queued);
+})->purpose('Queue the weekly AI search-term review of every Google Ads account that spent in the last 14 days.');
+
+Schedule::command('moxdop:google-ads:weekly-terms')
+    ->weeklyOn(1, '06:20')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('google-ads-weekly-terms');
 
 // Microsoft Clarity: sitelerin günlük ziyaretçi davranışı (öfkeli / çalışmayan tıklama, hızlı geri dönüş, JS hatası,
 // kaydırma) → Genel işler › Teknik sağlık. Proje başına günde bir istek (API sınırı günde 10). AI yok.

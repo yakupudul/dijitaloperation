@@ -105,7 +105,7 @@ final class TodayCockpitTest extends SiteTestCase
             ->where('active', true)->pluck('path')->values()->all();
 
         $this->assertSame([route('operator.websites', absolute: false)], $active('/assets/website/5', 'operator.website'));
-        $this->assertSame([route('operator.assets', absolute: false)], $active('/assets/google-ads/5', 'operator.google-ads.overview'));
+        $this->assertSame([route('operator.google-ads-desk', absolute: false)], $active('/assets/google-ads/5', 'operator.google-ads.overview'));
         $this->assertSame([route('operator.meta-desk', absolute: false)], $active('/assets/meta/5', 'operator.meta.overview'));
         $this->assertSame(['/'], $active('/', 'operator.dashboard'));
 

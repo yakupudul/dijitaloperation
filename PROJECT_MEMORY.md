@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-19 — Google Ads menüsü
+
+- Google Ads, İşletme profilleri gibi kendi menüsünde: Durum, Arama terimleri, Ayarlar ve bütçe, Reklamlar ve kampanyalar, Ölçüm, Hizmet karşılaştırma. Tüm markalar tek listede; hesabın kendi ekranı alt sayfa.
+- Yazma kuralları değişmedi: paylaşılan negatif ve ayar değişikliği Onarım masası onay yolundan (kayıtlı, geri alınabilir); kampanya, reklam metni ve diğer taslaklar Editor dosyasıyla elle. Sistem markanın toplam bütçesini kendiliğinden artırmaz.
+- Harcayan hesabın verisi 3 gün gelmezse kritik alarm (`ads_data_gap`).
+
 ## 2026-10-18 — Marka epikrizi
 
 - Her markanın AI işlerinin okuduğu tek kaydı var (Marka › Epikriz): bilgiler, kanıt, sentez, dersler, açık sorular. AI sıfırdan taramaz; kendi işinin dilimini okur.

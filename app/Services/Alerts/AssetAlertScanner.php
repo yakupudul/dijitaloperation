@@ -250,6 +250,7 @@ final class AssetAlertScanner
         }
 
         return array_values(array_filter([
+            $this->adsDataGap($days, $currency, 'Google Ads'),
             ...$this->spendAlerts($days, $currency, 'Google Ads'),
             $this->conversionsStopped($days),
             ...$this->budgetAlerts($asset, $days, 'Google Ads'),
@@ -533,6 +534,40 @@ final class AssetAlertScanner
         }
 
         return $alerts;
+    }
+
+    /** Days without a daily row after which a spending ad account counts as "veri / harcama gelmiyor". */
+    public const int ADS_GAP_DAYS = 3;
+
+    /**
+     * An account that was spending has no daily row for ADS_GAP_DAYS days (yakup 2026-10-19: Panorama Ankara's data
+     * stopped on 14 Oct and nothing said so). The collection itself may be running: Google returns no row for a day
+     * without impressions, so this is either lost access, a payment / suspension stop or paused campaigns. The
+     * collection-age alert (stale_data) does not see it, and spendAlerts() skips old data.
+     *
+     * @param  array<string, array{spend: float, conversions: float}>  $days
+     */
+    private function adsDataGap(array $days, string $currency, string $channel): ?array
+    {
+        if ($days === []) {
+            return null;
+        }
+        $dates = array_keys($days);
+        $last = (string) end($dates);
+        if ($last >= now()->subDays(self::ADS_GAP_DAYS)->toDateString()) {
+            return null;
+        }
+        $before = array_slice($days, -7, 7, true);
+        $baseline = array_sum(array_column($before, 'spend')) / 7;
+        if ($baseline < (float) config('moxdop-alerts.delivery_stopped.min_baseline')) {
+            return null;
+        }
+        $money = number_format($baseline, 0, ',', '.').($currency !== '' ? ' '.$currency : '');
+
+        return $this->alert('ads_data_gap', 'critical', $channel.' verisi / harcaması gelmiyor',
+            sprintf('Son veri %s günü; o güne kadar günde ortalama %s harcıyordu. Hesap erişimi kopmuş, ödeme / askıya alma sorunu ya da kampanyalar durmuş olabilir; reklam panelinden kontrol edin.',
+                CarbonImmutable::parse($last)->format('d.m.Y'), $money),
+            ['last_date' => $last, 'baseline' => round($baseline, 2)]);
     }
 
     /** @param  array<string, array{spend: float, conversions: float}>  $days */
