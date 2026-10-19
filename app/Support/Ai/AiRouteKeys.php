@@ -146,6 +146,9 @@ final class AiRouteKeys
     /** Otomatik onarım (yakup, 2026-10-14): prepared repair-desk rows are read once more; only "ok" rows reach the daily one-click send. */
     public const string REPAIR_REVIEW = 'repair.review';
 
+    /** Küme çakışması kontrolü (yakup, 2026-10-19): each open overlap is read once; a wrong pairing closes by itself. */
+    public const string OVERLAP_CHECK = 'overlap.check';
+
     /** Faz 4: write one article of the content studio from an idea. */
     public const string CONTENT_ARTICLE = 'content.article';
 

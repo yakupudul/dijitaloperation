@@ -13,11 +13,11 @@
             @if($row['rank'] <= 1)<span class="{{ $chip }} bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300">Acil</span>@endif
             @if($overlap !== null)
                 @if($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REDIRECT)
-                    <span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300" data-recommendation="redirect">301 öneriliyor</span>
+                    <span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300" data-recommendation="redirect">Birleştirilecek</span>
                 @elseif($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REVIEW)
-                    <span class="{{ $chip }} bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300" data-recommendation="review">Ana sayfayı gözden geçir</span>
+                    <span class="{{ $chip }} bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300" data-recommendation="review">Ana sayfa yanlış seçilmiş</span>
                 @else
-                    <span class="{{ $chip }} bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300" data-recommendation="differentiate">Ayrıştır</span>
+                    <span class="{{ $chip }} bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300" data-recommendation="differentiate">Metni ayrılacak</span>
                 @endif
             @endif
             @if($row['stage'])<span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">{{ $row['stage'] }}</span>@endif
@@ -30,7 +30,7 @@
         @if($overlap !== null && $overlap['cluster'] !== null)
             <p class="mt-1 break-all font-medium leading-snug text-gray-900 dark:text-white">
                 @if($view === 'acik' && in_array('merge', $row['actions'], true))
-                    <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mr-1 rounded border-gray-300 align-middle text-brand-600 dark:border-gray-700" aria-label="301 için seç" data-merge-pick="{{ $row['id'] }}">
+                    <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mr-1 rounded border-gray-300 align-middle text-brand-600 dark:border-gray-700" aria-label="Birleştirmek için seç" data-merge-pick="{{ $row['id'] }}">
                 @endif
                 @if($overlap['url'])<a href="{{ $overlap['url'] }}" target="_blank" rel="noopener" class="hover:underline">{{ $overlap['path'] }}</a>@else{{ $overlap['path'] }}@endif
             </p>

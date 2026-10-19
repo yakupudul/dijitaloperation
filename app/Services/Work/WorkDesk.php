@@ -70,7 +70,7 @@ final class WorkDesk
         'gap_fix' => 'Onayla ve yap',
         'audit_fix' => 'Düzelt',
         'audit_accept' => 'Doğru, bırak',
-        'merge' => '301 ile birleştir',
+        'merge' => 'Birleştir',
         'make_main' => 'Ana sayfa bu olsun',
         'keep' => 'Ayrı kalsın',
         'send_draft' => 'WordPress\'e taslak gönder',
@@ -187,7 +187,7 @@ final class WorkDesk
                 $urls = array_unique(array_map(fn (array $r): string => (string) $r['url'], $items));
                 $overlap = ($items[0]['overlap'] ?? null) !== null;
                 $group['who'] = ! $overlap && count($whos) === 1 ? (string) $whos[0] : null;
-                $group['about'] = $overlap ? 'Aynı arama ihtiyacına birden çok sayfa yanıt veriyor. «301 öneriliyor» olan sayfa ana sayfaya yönlendirilir: yönlendirme sitedeki MoxDOP eklentisine yazılır (WP › Araçlar › MoxDOP yönlendirmeleri), sayfa silinmez, taslağa alınır (geri alınabilir). «Ayrıştır» olanın metni kendi ihtiyacına odaklanır; «Ana sayfayı gözden geçir» olanda yanlış olan ana sayfa seçimidir. Çakışma kalkınca iş kendisi kapanır.' : $group['who'];
+                $group['about'] = $overlap ? 'Aynı soruya sitede birden çok sayfa cevap veriyor, Google hangisini göstereceğine karar veremiyor. «Birleştirilecek» sayfanın ziyaretçileri ana sayfaya yönlendirilir; sayfa silinmez, taslağa alınır, geri alınabilir. «Metni ayrılacak» sayfa kalır ama kendi sorusuna odaklanır. «Ana sayfa yanlış seçilmiş» olanda bu sayfa ana sayfa yapılır. Sorun kalkınca iş kendisi kapanır.' : $group['who'];
                 $group['mergeable'] = $overlap ? array_values(array_map(fn (array $r): int => (int) $r['id'], array_filter($items, fn (array $r): bool => in_array('merge', $r['actions'], true)))) : [];
                 $group['url'] = count($urls) === 1 && $urls[0] !== '' ? $items[0]['url'] : null;
                 $group['url_label'] = $group['url'] !== null ? ($items[0]['external'] ? $items[0]['url_label'] : 'Aç →') : null;
@@ -248,7 +248,7 @@ final class WorkDesk
         return $urgent;
     }
 
-    /** Onayla: a website suggestion goes to its approved queue (titles are then written, changes applied on the site screen). */
+    /** Onayla: a content title goes to the writing queue; a fix the system writes is prepared and waits on the Onarım masası. */
     public function approve(int $id, User $user): string
     {
         $suggestion = $this->suggestion($id);
@@ -259,9 +259,9 @@ final class WorkDesk
             throw ValidationException::withMessages(['work' => 'Bu iş elle yapılır: yaptıktan sonra "Yaptım" deyin.']);
         }
         if ($suggestion->channel === 'search') {
-            $this->siteSuggestions->approve($suggestion, $user);
+            $message = $this->siteSuggestions->approve($suggestion, $user);
 
-            return $suggestion->action_type === SiteSuggestionTypes::CONTENT ? 'Başlık onaylandı; yazı kuyruğa girer.' : 'Onaylandı; sitede "AI ile yap" ile uygulanır.';
+            return $suggestion->action_type === SiteSuggestionTypes::CONTENT ? 'Başlık onaylandı; yazı kuyruğa girer.' : $message;
         }
         if ($suggestion->channel === 'google_ads') {
             app(GoogleAdsSuggestions::class)->approve($suggestion, $user);
@@ -586,7 +586,7 @@ final class WorkDesk
             'main_path' => $mainUrl !== null ? '/'.ltrim(SeoText::urlPath($mainUrl), '/') : '', 'main_url' => $mainUrl,
             'path' => $url !== null ? '/'.ltrim(SeoText::urlPath($url), '/') : (string) $s->title, 'url' => $url,
             'recommendation' => $recommendation,
-            'why' => ClusterOverlaps::why($action),
+            'why' => filled($s->reason) ? (string) $s->reason : ClusterOverlaps::why($action),
         ];
     }
 
@@ -620,9 +620,9 @@ final class WorkDesk
                 $type === ClarityRules::TYPE => ['Clarity kayıtlarına bak · sitede elle düzelt · Yaptım de, sistem sonraki çekimde kontrol eder', false],
                 $type === 'brand_audit' => ['Düzelt: sistem yanlış kararı geri alır · Doğru, bırak: bir daha sorulmaz', false],
                 $type === ClusterOverlaps::TYPE => [match ($action['recommendation'] ?? null) {
-                    ClusterOverlaps::REDIRECT => '301 ile birleştir · yönlendirme SEO eklentisine yazılır, sayfa taslağa alınır (geri alınabilir)',
-                    ClusterOverlaps::REVIEW => 'Ana sayfa bu olsun ya da ayrı kalsın · 301 yapılmaz',
-                    default => 'Sayfa metni elle ayrıştırılır · çakışma kalkınca kendisi kapanır',
+                    ClusterOverlaps::REDIRECT => 'Birleştir · ziyaretçiler ana sayfaya yönlendirilir, sayfa taslağa alınır (geri alınabilir)',
+                    ClusterOverlaps::REVIEW => 'Ana sayfa bu olsun ya da ayrı kalsın · yönlendirme yapılmaz',
+                    default => 'Metin kendi sorusuna odaklanır (Öneriler › Metni ayır) · sorun kalkınca kendisi kapanır',
                 }, false],
                 $type === SiteSuggestionTypes::CONTENT => ['Başlık onayı · Claude yazar · taslak siteye', true],
                 $type === ImageAlts::TYPE || SiteSuggestionTypes::applicable($type) => ['Onayla · sistem siteye yazar', true],
@@ -644,11 +644,7 @@ final class WorkDesk
         return match (true) {
             $type === 'brand_gap' => 'kurulum eksiği',
             $type === 'brand_audit' => 'şef denetimi',
-            $type === ClarityRules::TYPE => 'ziyaretçi davranışı',
-            $s->channel === 'search' => match ($type) {
-                ClusterOverlaps::TYPE, ImageAlts::TYPE, SiteSuggestionTypes::CONTENT, SiteSuggestionTypes::COMPETITOR => SiteSuggestionTypes::label($type),
-                default => SiteSuggestionTypes::ANALYSIS[$type] ?? 'öneri',
-            },
+            $type === ClarityRules::TYPE, $s->channel === 'search' => SiteSuggestionTypes::label($type) !== $type ? SiteSuggestionTypes::label($type) : 'öneri',
             isset(WorkVerifier::CHECK_TYPES[$type]) => 'sistem kontrolü',
             default => 'öneri',
         };

@@ -6,6 +6,7 @@ use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\Brand\RunBrandEpicrisisJob;
 use App\Jobs\CheckAdBudgetJob;
+use App\Jobs\CheckOverlapsJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Jobs\CollectMetaGeoResultsJob;
@@ -1230,6 +1231,20 @@ Schedule::command('moxdop:repair:autopilot')
     ->withoutOverlapping(30)
     ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::REPAIR_REVIEW))
     ->name('repair-autopilot');
+
+// Yanlış çakışmaları ayıklama (yakup, 2026-10-19): at night Claude reads each open overlap once; a wrong pairing closes,
+// a 301 between different questions becomes "Metni ayır". Nothing is written to a site.
+Artisan::command('moxdop:overlaps:check', function (): void {
+    CheckOverlapsJob::dispatch();
+    $this->info('Çakışma kontrolü kuyruğa alındı.');
+})->purpose('Claude reads each open cluster overlap once: wrong pairings close, different questions are never 301d (nothing is written).');
+
+Schedule::command('moxdop:overlaps:check')
+    ->cron('20 1-6 * * *')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::OVERLAP_CHECK))
+    ->name('overlaps-check');
 
 Schedule::command('moxdop:content:autopilot')
     ->cron('7,27,47 * * * *')

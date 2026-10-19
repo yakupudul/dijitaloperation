@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Site;
 
+use App\Ai\Agents\Site\OverlapCheckAgent;
 use App\Livewire\Operator\Repair\RepairDeskPage;
+use App\Livewire\Operator\Website\V2\SuggestionsTab;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\BrandClusterPage;
 use App\Models\Cluster;
@@ -16,8 +18,10 @@ use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Repair\RepairDesk;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\OverlapCheck;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -128,7 +132,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         // 2026-10-09: a ready 301 waits on the Onarım masası (one place for every yes / no); Genel işler points there.
         Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSeeHtml('data-on-desk')->assertSee('2 düzeltme Onarım masasında')
             ->assertDontSee('/implant-uygulamasi/');
-        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 · 301 birleştirme')->assertSee('/implant-uygulamasi/');
+        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 · Aynı konudaki sayfayı birleştirme')->assertSee('/implant-uygulamasi/');
     }
 
     public function test_a_service_page_is_never_301d_into_a_blog_page_and_a_page_google_prefers_is_not_301d(): void
@@ -232,6 +236,59 @@ final class ClusterOverlapsTest extends SiteTestCase
         $this->assertSame(Suggestion::APPLIED, $suggestion->fresh()->status);
     }
 
+    public function test_the_suggestions_screen_says_what_happens_and_birlestir_sends_the_301_with_its_language_version(): void
+    {
+        $this->main->forceFill(['wp_post_id' => 10])->save();
+        $this->copy->forceFill(['wp_post_id' => 55])->save();
+        $this->enMain->forceFill(['wp_post_id' => 11])->save();
+        $this->enCopy->forceFill(['wp_post_id' => 56])->save();
+        $this->snapshot(10, ['tr' => 10, 'en' => 11]);
+        $this->snapshot(55, ['tr' => 55, 'en' => 56]);
+        $this->row('tr', $this->main, [$this->copy->id]);
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+        $suggestion = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->sole();
+        $this->assertSame('İki sayfa aynı konuyu anlatıyor: İmplant tedavisi', $suggestion->title, 'the stored title reads the same on every screen');
+        $this->connector('1.12.0', fn (array $change): array => ['ok' => true, 'change_id' => 'c-'.$change['object_id'], 'provider' => 'moxdop', 'drafted' => true]);
+
+        Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])
+            ->assertSee('Aynı konuyu anlatan sayfalar')->assertSee('İki sayfa aynı konuyu anlatıyor: İmplant tedavisi')
+            ->assertSee('«İmplant tedavisi nedir» sayfası «İmplant Tedavisi» sayfasıyla aynı konuyu anlatıyor')->assertSee('Sayfa silinmez, taslağa alınır')
+            ->assertSee('/implant-tedavisi-nedir/ → /implant/')->assertSee('Birleştir')->assertSee('Gerek yok')->assertSee('Neden?')
+            ->assertDontSee('Çakışma:')->assertDontSee('>Onayla<', false)->assertDontSeeText('cluster_overlap')
+            ->call('overlap', $suggestion->id, 'redirect')->assertHasNoErrors();
+
+        $this->assertSame([['/implant-tedavisi-nedir/', 'https://panorama.com.tr/implant/', 'suggestion-'.$suggestion->id.'-merge'],
+            ['/en/what-is-an-implant/', 'https://panorama.com.tr/en/dental-implant/', 'suggestion-'.$suggestion->id.'-merge-en']],
+            array_map(fn (array $c): array => [$c['from'], $c['value'], $c['reference']], $this->sent[0]), 'the English version follows the Turkish decision in the same write');
+        $this->assertSame(Suggestion::APPLIED, $suggestion->fresh()->status);
+    }
+
+    public function test_claudes_check_closes_a_wrong_pairing_and_keeps_a_different_question_out_of_a_301(): void
+    {
+        $this->enableAi();
+        $other = $this->page('/implant-uygulamasi/', 'İmplant uygulaması', ['category' => 'blog']);
+        $this->row('tr', $this->main, [$this->copy->id, $other->id]);
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+        $this->assertSame([$this->copy->id => ClusterOverlaps::REDIRECT, $other->id => ClusterOverlaps::REDIRECT], $this->recommendations());
+        $ids = Suggestion::query()->where('decision_key', ClusterOverlaps::DECISION)->pluck('id', 'page_id');
+        OverlapCheckAgent::fake([['items' => [
+            ['id' => $ids[$this->copy->id], 'verdict' => 'different', 'reason' => 'Biri tedaviyi anlatıyor, öbürü ne olduğunu.'],
+            ['id' => $ids[$other->id], 'verdict' => 'unrelated', 'reason' => 'Konuları farklı.'],
+        ]]]);
+
+        $this->assertSame(['checked' => 2, 'closed' => 1, 'waiting' => 0], app(OverlapCheck::class)->run());
+
+        $closed = Suggestion::query()->find($ids[$other->id]);
+        $this->assertSame([Suggestion::DISMISSED, ClusterOverlaps::CHECK_CLOSED.' Konuları farklı.'], [$closed->status, $closed->operator_note]);
+        $this->assertSame([$this->copy->id => ClusterOverlaps::DIFFERENTIATE], $this->recommendations(), 'a different question is refocused, never 301d');
+        $copy = Suggestion::query()->find($ids[$this->copy->id]);
+        $this->assertSame('checked_different', data_get($copy->action, 'basis'));
+        $this->assertStringStartsWith('Claude iki sayfayı okudu', (string) $copy->reason);
+        $this->assertSame(['checked' => 0, 'closed' => 0, 'waiting' => 0], app(OverlapCheck::class)->run(), 'a pair is read again only when a page changes');
+        app(ClusterOverlaps::class)->sync($this->site, $this->brand);
+        $this->assertSame(Suggestion::DISMISSED, $closed->fresh()->status, 'the wrong pairing stays closed');
+    }
+
     /** @return array<int, string> page id → recommendation of the open overlaps */
     private function recommendations(): array
     {
@@ -270,6 +327,15 @@ final class ClusterOverlapsTest extends SiteTestCase
 
             return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce, 'signature' => $signature]]);
         });
+    }
+
+    /** @param  array<string, int>  $translations */
+    private function snapshot(int $id, array $translations): void
+    {
+        DB::table('website_cms_object_snapshot')->insert(['digital_asset_id' => $this->site->id, 'cms' => 'wordpress', 'object_type' => 'page', 'object_id' => (string) $id,
+            'status' => 'publish', 'title' => 'p'.$id, 'permalink' => 'https://panorama.com.tr/p'.$id, 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'p'.$id), 'created_at' => now(), 'updated_at' => now(),
+            'metadata' => json_encode(['translations' => $translations])]);
     }
 
     /** @param  list<int>  $overlaps */

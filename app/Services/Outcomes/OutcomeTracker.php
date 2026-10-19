@@ -307,6 +307,56 @@ final class OutcomeTracker
     }
 
     /**
+     * The latest result as one sentence a client could read (yakup, 2026-10-19): "30 gün sonra: tıklama 14'ten 31'e
+     * çıktı." Null before the first measurement.
+     */
+    public static function sentence(Suggestion $suggestion): ?string
+    {
+        $latest = self::latest($suggestion);
+        if ($latest === null) {
+            return null;
+        }
+        $point = (array) (((array) $suggestion->outcome)[$latest['point']] ?? []);
+        $metric = self::RULES[(string) $suggestion->channel]['primary'] ?? null;
+        $before = data_get($point, 'before.'.$metric);
+        $after = $point[$metric] ?? null;
+        $when = self::pointLabel($latest['point']).' sonra: ';
+        if ($latest['verdict'] === self::UNCLEAR || $metric === null || ! is_numeric($before) || ! is_numeric($after)) {
+            return $when.'ölçülemedi'.($latest['reason'] !== '' ? ' ('.$latest['reason'].')' : '').'.';
+        }
+        $label = self::METRIC_LABELS[$metric] ?? $metric;
+        $old = self::format($metric, (float) $before);
+        $now = self::format($metric, (float) $after);
+        if ($old === $now) {
+            return $when.$label.' değişmedi ('.$now.').';
+        }
+        // For a position a smaller number is better: "sıra 8,2'den 5,1'e yükseldi".
+        $better = $metric === 'position' ? (float) $after < (float) $before : (float) $after > (float) $before;
+        $verb = $metric === 'position' ? ($better ? 'yükseldi' : 'geriledi') : ($better ? 'çıktı' : 'düştü');
+
+        return $when.$label.' '.$old.self::suffix($old, 'den').' '.$now.self::suffix($now, 'e').' '.$verb.'.';
+    }
+
+    /** Turkish case ending after a number: "14'ten", "31'e", "8,2'den", "5,1'e" (by how the number is read). */
+    private static function suffix(string $number, string $case): string
+    {
+        $digits = preg_replace('/\D/', '', $number) ?: '0';
+        $last = (int) substr($digits, -1);
+        $tens = (int) substr($digits, -2, 1);
+        // The last spoken word decides: on, yirmi, otuz, … for a trailing zero; else the last digit.
+        $word = $last === 0 ? (strlen($digits) > 1 ? ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'altmış', 'yetmiş', 'seksen', 'doksan'][$tens] ?: 'yüz' : 'sıfır')
+            : ['', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'][$last];
+        $hard = in_array(mb_substr($word, -1), ['ç', 'f', 'h', 'k', 'p', 's', 'ş', 't'], true);
+        $vowels = preg_replace('/[^aeıioöuü]/u', '', $word);
+        $back = in_array(mb_substr((string) $vowels, -1), ['a', 'ı', 'o', 'u'], true);
+
+        return "'".match ($case) {
+            'den' => ($hard ? 't' : 'd').($back ? 'an' : 'en'),
+            default => (in_array(mb_substr($word, -1), ['a', 'e', 'ı', 'i', 'o', 'ö', 'u', 'ü'], true) ? 'y' : '').($back ? 'a' : 'e'),
+        };
+    }
+
+    /**
      * Bugün "Sonuçlar": the last measured suggestions and the verdict counts of the last $days days.
      *
      * @return array{counts: array<string, int>, items: list<array{brand: string, channel: string, title: string, point: string, verdict: string, label: string, reason: string, line: string}>}

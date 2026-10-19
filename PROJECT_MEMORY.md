@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-10-19 — Öneriler sade dilde
+
+- Operatöre görünen iş adları tek yerden: `SiteSuggestionTypes::PLAIN` (yakup: "hiç bilmeyen birine anlatır gibi"). Ekranda iç kod, İngilizce durum, "301", "küme çakışması", "Ayrıştır" yazılmaz; `PlainWordsTest` korur.
+- Bir düğmenin adı yaptığı şeyi söyler; "Onayla" sistemin yazdığı bir işi asla masadan düşürmez (yakup Onayla'nın siteye yazdığını sanıyordu). Siteye yazan düğme onay penceresiyle sorar, geri alınabilir.
+- Çakışmaları gece Claude okur; yanlış eşleşme kendisi kapanır, farklı soru 301'lenmez. Ana dildeki 301 kararı çevirilere aynı yazımla gider (12 Ekim kararındaki "elle taşınır" kalktı).
+
 ## 2026-10-19 — Panel yeni tasarım (3. ve 4. aşama)
 
 - Ekran kodunda ham renk (amber, emerald, rose, red, violet, sky, slate, blue) yazılmaz; `warning` / `success` / `error` / `live` / `gray` token'ları kullanılır. Turuncu sayfa başına tek ana eylem; satır düğmeleri çerçeveli.

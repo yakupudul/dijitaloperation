@@ -38,7 +38,7 @@ final class ImageAltsTest extends SiteTestCase
         $suggestion = Suggestion::query()->where('action_type', ImageAlts::TYPE)->sole();
         $this->assertSame($page->id, $suggestion->page_id);
         $this->assertSame([['image_id' => 501, 'file' => 'implant-vida-modeli.jpg', 'alt' => 'İmplant vidası modeli']], $suggestion->action['images']);
-        Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])->assertSee('Görsel alt metni: 1 görsel')
+        Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])->assertSee('Açıklaması olmayan resim: 1')
             ->call('applyAlts', $suggestion->id)->assertHasNoErrors();
 
         $write = ExternalWriteAction::query()->where('suggestion_id', $suggestion->id)->sole();
@@ -85,7 +85,7 @@ final class ImageAltsTest extends SiteTestCase
 
         $this->assertSame([Suggestion::APPLIED, Suggestion::VERIFY_AUTO], [$done->fresh()->status, $done->fresh()->verification]);
         $this->assertSame([703], array_column($partly->fresh()->action['images'], 'image_id'), 'only the image still without alt stays');
-        $this->assertSame('Görsel alt metni: 1 görsel', $partly->fresh()->title);
+        $this->assertSame('Açıklaması olmayan resim: 1', $partly->fresh()->title);
 
         // Approval of a row prepared before the site changed: an image with alt text on the site is not overwritten.
         $stale = $row([702, 703]);

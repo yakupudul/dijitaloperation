@@ -184,7 +184,7 @@ final class ImageAlts
                 $row->forceFill(['status' => Suggestion::APPLIED, 'verification' => Suggestion::VERIFY_AUTO, 'verified_at' => now(), 'resolved_at' => now(),
                     'operator_note' => 'Görsellerin alt metni sitede var ya da görseller kaldırıldı (otomatik kapandı).'])->save();
             } elseif (count($left) < count($images)) {
-                $row->forceFill(['title' => 'Görsel alt metni: '.count($left).' görsel', 'action' => array_merge((array) $row->action, ['images' => $left]),
+                $row->forceFill(['title' => 'Açıklaması olmayan resim: '.count($left), 'action' => array_merge((array) $row->action, ['images' => $left]),
                     'material_hash' => hash('sha256', (string) json_encode($left))])->save();
             }
         }
@@ -224,7 +224,7 @@ final class ImageAlts
         $images = $rows->map(fn (array $r): array => ['image_id' => $r['object_id'], 'file' => $r['file'], 'alt' => $r['alt']])->values()->all();
         Suggestion::query()->updateOrCreate(['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint], [
             'channel' => 'search', 'decision_key' => self::DECISION, 'material_hash' => hash('sha256', (string) json_encode($images)),
-            'title' => 'Görsel alt metni: '.count($images).' görsel', 'reason' => 'Bu sayfadaki görsellerin alt metni yok; dosya adı ve sayfadan önerildi.',
+            'title' => 'Açıklaması olmayan resim: '.count($images), 'reason' => 'Bu sayfadaki resimlerin açıklaması yok; Google ve görme engelliler resmi bu açıklamayla anlar. Açıklamalar dosya adından ve sayfadan hazırlandı.',
             'priority' => 4, 'evidence' => array_map(fn (array $i): array => ['kind' => 'image', 'source' => $i['file'], 'value' => $i['alt']], $images),
             'action_type' => self::TYPE, 'target_type' => 'page', 'target_id' => (int) $page->id, 'page_id' => (int) $page->id,
             'action' => ['site_id' => (int) $site->id, 'images' => $images], 'status' => Suggestion::OPEN,

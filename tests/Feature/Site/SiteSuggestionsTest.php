@@ -40,6 +40,7 @@ use App\Services\Site\ContentPlanner;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ScopedStandards;
 use App\Services\Site\SiteOperations;
+use App\Services\Site\SiteSuggestions;
 use App\Services\Site\UrlAnalyzer;
 use App\Services\Website\Pages\PageStore;
 use Illuminate\Support\Facades\DB;
@@ -367,15 +368,24 @@ final class SiteSuggestionsTest extends SiteTestCase
         $this->assertTrue(OfferingPage::query()->where('page_id', $this->zirkonyumPage->id)->sole()->locked);
 
         Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])
-            ->assertSee('Başlığı güçlendir')
-            ->call('approve', $suggestion->id)
+            ->assertSee('Başlığı güçlendir')->assertSee('Düzeltmeyi hazırla')->assertSee('Gerek yok')->assertSee('Neden?')->assertDontSee('>Onayla<', false)
+            ->call('approve', $suggestion->id)->assertSee('Onarım masasında')
             ->call('dismiss', $other->id)->assertHasErrors('reason')
             ->set('reasons.'.$other->id, 'Marka istemiyor')->call('dismiss', $other->id)->assertHasNoErrors()
             ->call('aiDo', $suggestion->id);
-        $this->assertSame(Suggestion::APPROVED, $suggestion->fresh()->status);
+        // Onayla never hides a fix the system writes: it stays open and waits on the Onarım masası (2026-10-19).
+        $this->assertSame(Suggestion::OPEN, $suggestion->fresh()->status);
+        $this->assertNotNull(data_get($suggestion->fresh()->action, 'operator_ok'));
         $this->assertSame('Marka istemiyor', $other->fresh()->operator_note);
         $this->assertSame(2, BrandMemory::query()->where('kind', 'decision')->count());
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->operation === SiteOperations::APPLY_CHANGE && $job->params === ['suggestion_id' => $suggestion->id]);
+
+        // An approval made before that, never sent, goes back on the desk; one already written stays.
+        $suggestion->forceFill(['status' => Suggestion::APPROVED])->save();
+        $sent = $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Gönderilmiş', 'status' => Suggestion::APPROVED, 'action' => ['writes' => [1]]]);
+        $this->assertSame(1, SiteSuggestions::returnUnsentApprovals());
+        $this->assertSame(Suggestion::OPEN, $suggestion->fresh()->status);
+        $this->assertSame(Suggestion::APPROVED, $sent->fresh()->status);
 
         Livewire::test(SettingsTab::class, ['assetId' => $this->site->id])
             ->set('sitemapUrl', 'https://panorama.com.tr/sitemap_index.xml')->call('saveSitemap')

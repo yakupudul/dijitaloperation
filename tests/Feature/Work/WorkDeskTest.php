@@ -187,8 +187,9 @@ class WorkDeskTest extends TestCase
         // A snooze that ran out is open work again, and its buttons work.
         $this->travel(8)->days();
         $snoozed = Suggestion::query()->where('title', 'Northwind sayfa 2 başlığı')->sole();
-        Livewire::test(WorkPage::class, ['tab' => 'teknik'])->assertSee('Northwind sayfa 2 başlığı')->call('approve', $snoozed->id)->assertSee('Onaylandı');
-        $this->assertSame(Suggestion::APPROVED, $snoozed->fresh()->status);
+        Livewire::test(WorkPage::class, ['tab' => 'teknik'])->assertSee('Northwind sayfa 2 başlığı')->call('approve', $snoozed->id)->assertSee('Onarım masasında');
+        $this->assertSame(Suggestion::OPEN, $snoozed->fresh()->status, 'a fix the system writes stays open: it waits on the Onarım masası');
+        $this->assertNotNull(data_get($snoozed->fresh()->action, 'operator_ok'));
 
         // An old link to a brand that is no longer served shows every brand, not an empty page.
         Livewire::test(WorkPage::class, ['tab' => 'teknik', 'brand' => 999999])->assertSet('brand', null)->assertSee('Aardvark ana sayfa başlığı');

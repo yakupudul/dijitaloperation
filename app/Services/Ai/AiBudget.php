@@ -134,7 +134,7 @@ final class AiBudget
             return true;
         }
         // Otopilot (yakup, 2026-10-14): the daily Business Profile posts and the repair check are prepared by themselves.
-        if (in_array($operation, [AiRouteKeys::GBP_POST_QUEUE, AiRouteKeys::REPAIR_REVIEW], true)) {
+        if (in_array($operation, [AiRouteKeys::GBP_POST_QUEUE, AiRouteKeys::REPAIR_REVIEW, AiRouteKeys::OVERLAP_CHECK], true)) {
             return true;
         }
         // WhatsApp reply drafts run on their own only when the operator turned automatic suggestions on there.

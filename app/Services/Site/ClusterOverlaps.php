@@ -17,6 +17,8 @@ use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Support\Options\LocationOptions;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -54,6 +56,9 @@ final class ClusterOverlaps
     /** Note of an overlap the system closed because it was gone; it reopens when the overlap comes back. */
     public const string GONE = 'Çakışma kalktı.';
 
+    /** Note of an overlap Claude's check (OverlapCheck) closed as a wrong pairing. */
+    public const string CHECK_CLOSED = 'Claude kontrol etti: yanlış eşleşme.';
+
     /** Page categories that sell a service: never redirected into a blog / Q&A page. */
     private const array MONEY = ['hizmet', 'lokasyon'];
 
@@ -74,7 +79,8 @@ final class ClusterOverlaps
             ->where('excluded', false)->whereNotNull('page_id')->orderBy('id')->get()->filter(fn (BrandClusterPage $row): bool => $row->cluster !== null)
             ->sortBy(fn (BrandClusterPage $row): array => [filled($row->language) ? 1 : 0, (int) $row->id])->values();
         $rowIds = $rows->groupBy('cluster_id')->map(fn ($group): array => $group->pluck('id')->map(fn ($id): int => (int) $id)->all())->all();
-        $pages = Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'path', 'language', 'category'])->keyBy('id');
+        $pages = Page::query()->where('website_asset_id', $site->id)->get(['id', 'url', 'path', 'language', 'category', 'title', 'h1', 'wp_post_id'])->keyBy('id');
+        $checks = self::checks($brand);
         $byKey = $pages->mapWithKeys(fn (Page $p): array => [SeoText::urlKey((string) $p->url) => (int) $p->id])->all();
         $targets = BrandClusterPage::query()->where('website_asset_id', $site->id)->where('excluded', false)->whereNotNull('page_id')
             ->get(['cluster_id', 'page_id'])->groupBy('page_id')->map(fn ($group): array => $group->pluck('cluster_id')->map(fn ($id): int => (int) $id)->all())->all();
@@ -107,7 +113,7 @@ final class ClusterOverlaps
                 }
                 $share = $gsc[$pageId] ?? 0.0;
                 $otherTarget = array_diff($targets[$pageId] ?? [], [(int) $row->cluster_id]) !== [];
-                [$recommendation, $basis] = self::recommend($main, $page, $share, $gsc[(int) $main->id] ?? 0.0, $otherTarget);
+                [$recommendation, $basis] = self::checked(self::recommend($main, $page, $share, $gsc[(int) $main->id] ?? 0.0, $otherTarget), $checks[self::pairKey((int) $main->id, $pageId)] ?? null);
                 $found[] = ['row' => $row, 'main' => $main, 'page' => $page, 'share' => $share, 'recommendation' => $recommendation, 'basis' => $basis];
             }
         }
@@ -154,9 +160,9 @@ final class ClusterOverlaps
         $bySite = [];
         foreach ($suggestions as $suggestion) {
             try {
-                [$site, $change] = $this->mergeChange($suggestion);
+                [$site, $changes] = $this->mergeChange($suggestion);
                 $bySite[(int) $site->id]['site'] = $site;
-                $bySite[(int) $site->id]['items'][] = [$suggestion, $change];
+                $bySite[(int) $site->id]['items'][] = [$suggestion, $changes];
             } catch (ValidationException $exception) {
                 $errors[] = (string) collect($exception->errors())->flatten()->first();
             }
@@ -167,7 +173,8 @@ final class ClusterOverlaps
         $sent = 0;
         foreach ($bySite as ['site' => $site, 'items' => $items]) {
             $this->assertMergeConnector($site);
-            foreach (array_chunk($items, 100) as $chunk) {
+            // A page and its language versions travel together; one write holds at most 100 changes.
+            foreach (array_chunk($items, 20) as $chunk) {
                 $before = [];
                 foreach ($chunk as [$suggestion]) {
                     $before[(int) $suggestion->id] = [$suggestion->status, (array) $suggestion->action];
@@ -176,7 +183,7 @@ final class ClusterOverlaps
                         'action' => array_merge((array) $suggestion->action, ['merge_sent_at' => now()->toIso8601String(), 'merge_error' => null])])->save();
                 }
                 try {
-                    $this->writes->requestSiteFixes($user, $site, array_map(fn (array $item): array => $item[1], $chunk), count($chunk) === 1 ? $chunk[0][0] : null);
+                    $this->writes->requestSiteFixes($user, $site, array_values(array_merge(...array_map(fn (array $item): array => $item[1], $chunk))), count($chunk) === 1 ? $chunk[0][0] : null);
                 } catch (Throwable $exception) {
                     foreach ($chunk as [$suggestion]) {
                         [$status, $action] = $before[(int) $suggestion->id];
@@ -265,11 +272,13 @@ final class ClusterOverlaps
         }
     }
 
-    /** "Ayrı kalsın": the operator keeps both pages; the overlap is not proposed again until it changes. */
-    public function keep(Suggestion $suggestion, User $user): void
+    /** "Ayrı kalsın" / "Gerek yok": the operator keeps both pages; the overlap is not proposed again until it changes. */
+    public function keep(Suggestion $suggestion, User $user, string $reason = ''): void
     {
-        $suggestion->forceFill(['status' => Suggestion::DISMISSED, 'resolved_by' => $user->id, 'resolved_at' => now(), 'operator_note' => 'Ayrı kalsın.'])->save();
-        $this->memory->recordDecision($suggestion, 'reddedildi', 'Ayrı kalsın');
+        $reason = trim($reason);
+        $suggestion->forceFill(['status' => Suggestion::DISMISSED, 'resolved_by' => $user->id, 'resolved_at' => now(),
+            'operator_note' => mb_substr($reason === '' ? 'Ayrı kalsın.' : 'Ayrı kalsın: '.$reason, 0, 1000)])->save();
+        $this->memory->recordDecision($suggestion, 'reddedildi', $reason === '' ? 'Ayrı kalsın' : 'Ayrı kalsın: '.$reason);
     }
 
     /** A merge sent to the site and not answered yet. */
@@ -286,28 +295,105 @@ final class ClusterOverlaps
     }
 
     /**
-     * The short reason shown under the overlapping page (Genel işler).
+     * The short reason shown under the overlapping page (Genel işler): the stored plain sentence, else one from the action.
      *
      * @param  array<string, mixed>  $action
      */
     public static function why(array $action): string
     {
-        $share = (float) ($action['share'] ?? 0);
-        $recommendation = (string) ($action['recommendation'] ?? self::DIFFERENTIATE);
+        return self::sentence($action, 'Bu sayfa', 'ana sayfa');
+    }
+
+    /**
+     * Row heading in plain words (yakup, 2026-10-19): what is wrong, named by the cluster's need.
+     *
+     * @param  array<string, mixed>  $action
+     */
+    public static function heading(array $action, string $topic): string
+    {
+        $topic = trim((string) preg_replace('/\s*\((hizmet|blog|soru|lokasyon|bilgi)[^)]*\)\s*$/iu', '', $topic));
+
+        return match ($action['recommendation'] ?? null) {
+            self::REDIRECT => 'İki sayfa aynı konuyu anlatıyor',
+            self::REVIEW => 'Bu konuda ana sayfa yanlış seçilmiş',
+            default => 'İki sayfa birbirine benziyor',
+        }.($topic !== '' ? ': '.$topic : '');
+    }
+
+    /**
+     * What is going on and what the system proposes, for someone who never heard of clusters or 301s.
+     *
+     * @param  array<string, mixed>  $action
+     */
+    public static function sentence(array $action, string $page, string $main): string
+    {
+        $percent = (int) round((float) ($action['share'] ?? 0) * 100);
+        $p = '«'.$page.'»';
+        $m = '«'.$main.'»';
+        $link = ' ve '.$m.' sayfasına bağlantı versin.';
 
         return match (true) {
-            $recommendation === self::REDIRECT => 'Bu kümede az trafik alıyor. Eksik bilgisi ana sayfaya taşınıp 301 ile oraya yönlendirilsin; sayfa taslağa alınır.',
-            $recommendation === self::REVIEW && ($action['basis'] ?? null) === 'service' => 'Hizmet sayfası blog / soru-cevap sayfasına yönlendirilmez. Kümenin ana sayfası bu hizmet sayfası olmalı.',
-            $recommendation === self::REVIEW => 'Google bu ihtiyaçta bu sayfayı gösteriyor (gösterimlerin %'.(int) round($share * 100).'si). 301 yapılmaz: ana sayfa bu olsun ya da ana sayfa güçlendirilsin.',
-            ($action['basis'] ?? null) === 'location' => 'Lokasyon sayfası kendi bölgesini hedefler; birleştirilmez. Ana sayfaya bağlantı versin.',
-            ($action['basis'] ?? null) === 'distinct' => 'Aynı konunun farklı bir sorusunu ya da türünü işliyor; birleştirilmez. Ana sayfaya bağlantı versin.',
-            ($action['basis'] ?? null) === 'other_target' || $share < ClusterPageShares::CONFLICT => 'Başka bir kümenin hedef sayfası; birleştirilmez. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
-            default => 'Bu kümenin gösterimlerinde payı %'.(int) round($share * 100).'. Kendi ihtiyacına odaklansın, ana sayfaya bağlantı versin.',
+            ($action['recommendation'] ?? null) === self::REDIRECT => $p.' sayfası '.$m.' sayfasıyla aynı konuyu anlatıyor ve Google\'dan az ilgi görüyor'
+                .(($action['basis'] ?? null) === 'checked_same' ? ' (Claude iki sayfayı okudu, aynı soruya cevap veriyorlar)' : '')
+                .'. Öneri: bu sayfanın ziyaretçilerini '.$m.' sayfasına yönlendirelim. Sayfa silinmez, taslağa alınır; istersen geri alınır.',
+            ($action['recommendation'] ?? null) === self::REVIEW && ($action['basis'] ?? null) === 'service' => $p.' bir hizmet sayfası, '.$m.' ise yazı ya da soru-cevap sayfası. Öneri: bu konunun ana sayfası hizmet sayfası olsun. Yönlendirme yapılmaz.',
+            ($action['recommendation'] ?? null) === self::REVIEW => 'Google bu konuda en çok '.$p.' sayfasını gösteriyor (gösterimlerin %'.$percent.'\'i), ama ana sayfa '.$m.' seçilmiş. Öneri: ana sayfa '.$p.' olsun. Yönlendirme yapılmaz.',
+            ($action['basis'] ?? null) === 'checked_different' => 'Claude iki sayfayı okudu: '.$p.' aynı konunun başka bir sorusunu cevaplıyor, birleştirilmez. Öneri: ikisi de kalsın, bu sayfa kendi sorusuna odaklansın'.$link,
+            ($action['basis'] ?? null) === 'location' => $p.' kendi bölgesini anlatan bir sayfa, birleştirilmez. Öneri: bölgesine odaklansın'.$link,
+            ($action['basis'] ?? null) === 'distinct' => $p.' aynı konunun başka bir sorusunu cevaplıyor. Öneri: ikisi de kalsın, bu sayfa kendi sorusuna odaklansın'.$link,
+            ($action['basis'] ?? null) === 'other_target' => $p.' başka bir konunun ana sayfası, birleştirilmez. Öneri: kendi konusuna odaklansın'.$link,
+            default => $p.' bu konuda kendi ziyaretçisini alıyor (gösterimlerin %'.$percent.'\'i), birleştirilmez. Öneri: metni kendi sorusuna odaklansın'.$link,
+        };
+    }
+
+    /** "Kanal Tedavisi | Marka" → "Kanal Tedavisi"; the page's H1 first, its address last. */
+    public static function pageName(?Page $page): string
+    {
+        if ($page === null) {
+            return 'sayfa';
+        }
+        $name = trim((string) ($page->h1 ?: preg_replace('/\s+[|–—-]\s+[^|–—-]+$/u', '', (string) $page->title)));
+
+        return $name !== '' ? mb_strimwidth($name, 0, 80, '…') : self::path($page);
+    }
+
+    /** One overlap pair: main page ↔ overlapping page. */
+    public static function pairKey(int $mainId, int $pageId): string
+    {
+        return $mainId.'-'.$pageId;
+    }
+
+    /**
+     * Claude's check of each pair of the brand (OverlapCheck): pair → verdict, only the verdicts that change a proposal.
+     *
+     * @return array<string, string>
+     */
+    private static function checks(Brand $brand): array
+    {
+        return Suggestion::query()->where('brand_id', $brand->id)->where('decision_key', self::DECISION)->whereNotNull('action->'.OverlapCheck::KEY)->get(['id', 'action'])
+            ->mapWithKeys(fn (Suggestion $s): array => in_array(data_get($s->action, OverlapCheck::KEY.'.verdict'), ['same', 'different'], true)
+                ? [(string) data_get($s->action, OverlapCheck::KEY.'.pair') => (string) data_get($s->action, OverlapCheck::KEY.'.verdict')] : [])->all();
+    }
+
+    /**
+     * The rule's proposal after Claude read both pages: a 301 between pages answering different questions becomes
+     * "Metni ayır"; an "Ayrıştır" that only the address rule kept apart (basis distinct) becomes a 301 when Claude
+     * found both answer the same question. Traffic, another cluster's target, location and service rules stand.
+     *
+     * @param  array{0: string, 1: string}  $proposal
+     * @return array{0: string, 1: string}
+     */
+    private static function checked(array $proposal, ?string $verdict): array
+    {
+        return match (true) {
+            $verdict === 'different' && $proposal[0] === self::REDIRECT => [self::DIFFERENTIATE, 'checked_different'],
+            $verdict === 'same' && $proposal === [self::DIFFERENTIATE, 'distinct'] => [self::REDIRECT, 'checked_same'],
+            default => $proposal,
         };
     }
 
     /**
-     * @return array{0: DigitalAsset, 1: array<string, mixed>} the site and the connector change of one merge
+     * @return array{0: DigitalAsset, 1: list<array<string, mixed>>} the site and the connector changes of one merge (the page, then its language versions)
      */
     private function mergeChange(Suggestion $suggestion): array
     {
@@ -332,10 +418,50 @@ final class ClusterOverlaps
             throw ValidationException::withMessages(['write' => self::path($main).' de başka bir sayfaya yönlendirildi; zincir 301 yapılmaz.']);
         }
 
-        return [$site, [
+        return [$site, [[
             'type' => 'merge_redirect', 'object_id' => (int) ($page->wp_post_id ?? 0), 'from' => self::path($page), 'value' => (string) $main->url,
             'reference' => 'suggestion-'.$suggestion->id.'-merge',
-        ]];
+        ], ...self::translationChanges($site, $page, $main, (int) $suggestion->id)]];
+    }
+
+    /**
+     * The same 301 for each language version (yakup, 2026-10-19 "çeviriler kendiliğinden gelsin"): overlaps are found
+     * in the main language only, so the page's Polylang translation goes to the main page's translation in the same
+     * language. A language where either version is missing, or both are the same page, gets nothing.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function translationChanges(DigitalAsset $site, Page $page, Page $main, int $suggestionId): array
+    {
+        $from = self::translations($site, (int) $page->wp_post_id);
+        $to = self::translations($site, (int) $main->wp_post_id);
+        $changes = [];
+        foreach ($from as $language => $postId) {
+            $target = (int) ($to[$language] ?? 0);
+            if ($postId === (int) $page->wp_post_id || $target <= 0 || $target === $postId) {
+                continue;
+            }
+            $translated = Page::query()->where('website_asset_id', $site->id)->where('wp_post_id', $postId)->first(['id', 'url', 'path', 'wp_post_id']);
+            $targetPage = Page::query()->where('website_asset_id', $site->id)->where('wp_post_id', $target)->first(['id', 'url', 'path']);
+            if ($translated === null || $targetPage === null || self::never($translated)) {
+                continue;
+            }
+            $changes[] = ['type' => 'merge_redirect', 'object_id' => $postId, 'from' => self::path($translated), 'value' => (string) $targetPage->url,
+                'reference' => 'suggestion-'.$suggestionId.'-merge-'.$language];
+        }
+
+        return $changes;
+    }
+
+    /** @return array<string, int> language → WordPress post id, from the connector's Polylang translations */
+    private static function translations(DigitalAsset $site, int $postId): array
+    {
+        if ($postId <= 0 || ! Schema::hasTable('website_cms_object_snapshot')) {
+            return [];
+        }
+        $meta = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->where('object_id', (string) $postId)->value('metadata');
+
+        return array_map('intval', array_filter((array) (json_decode((string) $meta, true)['translations'] ?? []), fn ($id): bool => is_numeric($id) && (int) $id > 0));
     }
 
     private function assertMergeConnector(DigitalAsset $site): void
@@ -393,17 +519,7 @@ final class ClusterOverlaps
     private function upsert(DigitalAsset $site, Brand $brand, array $item, array $clusterRowIds): Suggestion
     {
         ['row' => $row, 'main' => $main, 'page' => $page, 'share' => $share, 'recommendation' => $recommendation, 'basis' => $basis] = $item;
-        $mainPath = self::path($main);
-        $path = self::path($page);
-        $why = match ($basis) {
-            'service' => $path.' bir hizmet sayfası; '.$mainPath.' blog / soru-cevap sayfasına 301 ile yönlendirilmez. Kümenin ana sayfası '.$path.' olmalı.',
-            'share' => $path.' bu kümenin gösterimlerinin %'.(int) round($share * 100).'sini alıyor; ana sayfa '.$mainPath.' değil bu sayfa olmalı ya da '.$mainPath.' güçlendirilmeli. 301 yapılmaz.',
-            'other_target' => $path.' başka bir kümenin hedef sayfası; birleştirilmez. Bu kümeye değil kendi ihtiyacına odaklansın, '.$mainPath.' sayfasına bağlantı versin.',
-            'traffic' => $path.' bu kümede trafik alıyor (gösterimlerin %'.(int) round($share * 100).'si); '.$mainPath.' ile aynı ihtiyacı hedefliyor. Farklı bir ihtiyaca odaklanmalı ve '.$mainPath.' sayfasına bağlantı vermeli.',
-            'location' => $path.' bir lokasyon sayfası; kendi bölgesini hedeflesin, '.$mainPath.' sayfasına bağlantı versin.',
-            'distinct' => $path.' aynı konunun farklı bir sorusunu ya da türünü işliyor; birleştirilmez. Kendi sorusuna odaklansın, '.$mainPath.' sayfasına bağlantı versin.',
-            default => $path.' aynı ihtiyacı işliyor ama bu kümede az trafik alıyor. Eksik bilgisi '.$mainPath.' sayfasına taşınıp 301 ile oraya yönlendirilmeli; sayfa taslağa alınır.',
-        };
+        $why = self::sentence(['recommendation' => $recommendation, 'basis' => $basis, 'share' => $share], self::pageName($page), self::pageName($main));
         $fingerprint = hash('sha256', implode('|', [$brand->id, 'cluster-overlap', $row->cluster_id, $main->id, $page->id]));
         $suggestion = Suggestion::query()->where('brand_id', $brand->id)->where('fingerprint', $fingerprint)->first()
             ?? $this->legacy($brand, $clusterRowIds, $page) ?? new Suggestion;
@@ -414,7 +530,7 @@ final class ClusterOverlaps
         $reopen = $gone || ((in_array($suggestion->status, [Suggestion::DISMISSED, Suggestion::APPLIED], true) || $approvedUnsent) && $suggestion->material_hash !== $material);
         $suggestion->forceFill([
             'brand_id' => $brand->id, 'channel' => 'search', 'decision_key' => self::DECISION, 'fingerprint' => $fingerprint, 'material_hash' => $material,
-            'title' => mb_substr('Çakışma: «'.$row->cluster->name.'» · '.$path.' ↔ '.$mainPath, 0, 160), 'reason' => mb_substr($why, 0, 240),
+            'title' => mb_substr(self::heading(['recommendation' => $recommendation], (string) $row->cluster->name), 0, 160), 'reason' => mb_substr($why, 0, 600),
             'priority' => $recommendation === self::REDIRECT ? 2 : 3,
             'evidence' => [['kind' => 'overlap', 'value' => $why, 'source' => $share > 0 ? 'Search Console + sayfa içeriği' : 'sayfa içeriği']],
             'action_type' => self::TYPE, 'target_type' => 'page', 'target_id' => (int) $page->id, 'page_id' => (int) $page->id, 'cluster_id' => (int) $row->cluster_id,
