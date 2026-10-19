@@ -2168,4 +2168,4 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   otomatik açmaz. Arşivlenen / silinen hizmetin sorguları yeniden triage'a döner. DataForSEO zamanlanmaz.
 - **Akıllı tarih (yakup, 2026-10-19):** müşteri blogunda boş hafta görünmesin diye connector 1.19.0 yazı editöründe son 60
   günün boş Pazartesi / Çarşamba / Cuma gününü (bugüne en yakından geriye; boş yoksa ileriye zamanlama) 09:00-11:30 arası
-  saatle önerir. Yayın düğmesine kişi basar; çeviriler aynı tarihi alır. Aylık iş raporu kararı tutuldu, şimdilik yapılmıyor.
+  saatle önerir. Yayın düğmesine kişi basar; çeviriler aynı tarihi alır. 1.20.0: Yazılar listesinde toplu işlem (en fazla 20 taslak, onay ekranı, her yazıya ayrı boş gün). Aylık iş raporu kararı tutuldu, şimdilik yapılmıyor.

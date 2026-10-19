@@ -3,7 +3,7 @@
 defined('ABSPATH') || exit;
 
 /**
- * Connector 1.19.0: "Akıllı tarihle yayınla" in the post editor (block and classic).
+ * Connector 1.19.0 (bulk 1.20.0): "Akıllı tarihle yayınla" in the post editor (block and classic).
  *
  * The blog of a client site should never show empty weeks. The box finds the publishing days (Monday, Wednesday,
  * Friday) of the last 60 days that have no post yet, nearest to today first; when none is left it offers the next free
@@ -12,6 +12,9 @@ defined('ABSPATH') || exit;
  * Clicking the button only fills the editor's own date and presses its own Publish / Schedule: the person editing
  * publishes, nothing happens from outside. A text that mentions this year, a price or a campaign is flagged before a
  * past date. Not yet published language versions of the post get the same date when it is published.
+ * Posts › Bulk actions › "MoxDOP · Akıllı tarihle yayınla" does the same for up to 20 drafts at once: a confirmation
+ * screen gives each a different free day (nearest first; a translation shares its post's day), the person can change a
+ * row and one click publishes them all with their dates.
  * Off with the `moxdop_connector_smart_date` filter.
  */
 final class MoxDOP_Connector_Smart_Date
@@ -24,11 +27,21 @@ final class MoxDOP_Connector_Smart_Date
 
     const PICKED_META = '_moxdop_smart_date';
 
+    const BULK_MAX = 20;
+
+    const PAGE = 'moxdop-smart-date';
+
     public function register()
     {
         add_action('add_meta_boxes_post', [$this, 'box']);
         add_action('transition_post_status', [$this, 'translations'], 20, 3);
         add_action('wp_ajax_moxdop_smart_date_pick', [$this, 'pick']);
+        add_filter('bulk_actions-edit-post', [$this, 'bulk_action']);
+        add_filter('handle_bulk_actions-edit-post', [$this, 'bulk_start'], 10, 3);
+        add_action('admin_menu', [$this, 'menu']);
+        add_action('admin_head', [$this, 'hide_menu']);
+        add_action('admin_post_moxdop_smart_date_bulk', [$this, 'bulk_publish']);
+        add_action('admin_notices', [$this, 'bulk_notice']);
     }
 
     /** The button marks the post just before it publishes, so its translations follow only that click. */
@@ -57,6 +70,177 @@ final class MoxDOP_Connector_Smart_Date
         }));
     }
 
+    public function bulk_action($actions)
+    {
+        if (self::enabled() && current_user_can('publish_posts')) {
+            $actions['moxdop_smart_date'] = 'MoxDOP · Akıllı tarihle yayınla';
+        }
+
+        return $actions;
+    }
+
+    public function bulk_start($redirect, $action, $ids)
+    {
+        if ($action !== 'moxdop_smart_date') {
+            return $redirect;
+        }
+
+        return add_query_arg(['page' => self::PAGE, 'ids' => implode(',', array_map('intval', (array) $ids))], admin_url('edit.php'));
+    }
+
+    public function menu()
+    {
+        add_submenu_page('edit.php', 'Akıllı tarihle yayınla', 'Akıllı tarihle yayınla', 'publish_posts', self::PAGE, [$this, 'bulk_render']);
+    }
+
+    /** The confirmation screen opens only from the bulk action, so it stays out of the menu. */
+    public function hide_menu()
+    {
+        remove_submenu_page('edit.php', self::PAGE);
+    }
+
+    /**
+     * The selected drafts grouped by language group: a post and its selected translations share one day (the group's
+     * first post decides it), each group a different free day, nearest to today first.
+     *
+     * @param  int[]  $ids
+     * @return array{rows: array<int, array{post: WP_Post, members: WP_Post[], slots: array<int, array{date: string, label: string, past: bool}>, warnings: string[]}>, skipped: WP_Post[]}
+     */
+    public static function plan($ids, $now = null)
+    {
+        $rows = [];
+        $skipped = [];
+        $grouped = [];
+        $used = [];
+        foreach (array_slice(array_values(array_unique(array_map('intval', (array) $ids))), 0, self::BULK_MAX) as $id) {
+            $post = get_post($id);
+            if (! $post || $post->post_type !== 'post') {
+                continue;
+            }
+            if (! in_array($post->post_status, ['draft', 'pending'], true) || ! current_user_can('publish_post', $id)) {
+                $skipped[] = $post;
+
+                continue;
+            }
+            $group = function_exists('pll_get_post_translations') ? array_map('intval', (array) pll_get_post_translations($id)) : [];
+            $leader = null;
+            foreach ($group as $member) {
+                if (isset($grouped[$member])) {
+                    $leader = $grouped[$member];
+                    break;
+                }
+            }
+            if ($leader !== null) {
+                $rows[$leader]['members'][] = $post;
+                $grouped[$id] = $leader;
+
+                continue;
+            }
+            $grouped[$id] = $id;
+            $language = self::language($id);
+            $all = self::slots($id, $now, isset($used[$language]) ? array_keys($used[$language]) : [], 30);
+            if ($all !== []) {
+                $used[$language][substr($all[0]['date'], 0, 10)] = true;
+            }
+            $rows[$id] = ['post' => $post, 'members' => [], 'slots' => $all, 'warnings' => self::warnings($post)];
+        }
+
+        return ['rows' => array_values($rows), 'skipped' => $skipped];
+    }
+
+    public function bulk_render()
+    {
+        if (! current_user_can('publish_posts')) {
+            wp_die('Yetki yok.');
+        }
+        $ids = array_filter(array_map('intval', explode(',', isset($_GET['ids']) ? sanitize_text_field(wp_unslash($_GET['ids'])) : '')));
+        $plan = self::plan($ids);
+        echo '<div class="wrap"><h1>Akıllı tarihle yayınla</h1>';
+        if (count($ids) > self::BULK_MAX) {
+            echo '<div class="notice notice-warning"><p>Bir seferde en fazla '.(int) self::BULK_MAX.' yazı; ilk '.(int) self::BULK_MAX.' yazı alındı.</p></div>';
+        }
+        if ($plan['rows'] === []) {
+            echo '<p>Seçilenler arasında yayınlanabilecek taslak yok.</p><p><a class="button" href="'.esc_url(admin_url('edit.php')).'">Yazılara dön</a></p></div>';
+
+            return;
+        }
+        echo '<p>Her yazı son '.(int) self::DAYS_BACK.' günün farklı bir boş Pazartesi, Çarşamba ya da Cuma gününü alır, bugüne en yakın olandan başlayarak; boş gün kalmazsa ileriye zamanlanır. Satırdaki tarihi değiştirebilirsin. Seçtiğin çeviriler yazısıyla aynı tarihi alır, seçmediğin henüz yayında olmayan çeviriler de.</p>';
+        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
+        echo '<input type="hidden" name="action" value="moxdop_smart_date_bulk">';
+        wp_nonce_field('moxdop_smart_date_bulk');
+        echo '<table class="widefat striped"><thead><tr><th>Yazı</th><th style="width:260px">Tarih</th><th>Not</th></tr></thead><tbody>';
+        foreach ($plan['rows'] as $row) {
+            $post = $row['post'];
+            $titles = array_map(static function ($p) {
+                return get_the_title($p) !== '' ? get_the_title($p) : '(başlıksız #'.(int) $p->ID.')';
+            }, array_merge([$post], $row['members']));
+            echo '<tr><td><strong>'.esc_html(array_shift($titles)).'</strong>';
+            if ($titles !== []) {
+                echo '<br><span class="description">Aynı tarihle: '.esc_html(implode(', ', $titles)).'</span>';
+            }
+            echo '</td><td>';
+            if ($row['slots'] === []) {
+                echo 'Boş gün yok';
+            } else {
+                echo '<select name="dates['.(int) $post->ID.']" style="width:100%"><option value="">Bu yazıyı atla</option>';
+                foreach ($row['slots'] as $i => $slot) {
+                    echo '<option value="'.esc_attr($slot['date']).'"'.($i === 0 ? ' selected' : '').'>'.esc_html($slot['label'].($slot['past'] ? '' : ' (zamanlanır)')).'</option>';
+                }
+                echo '</select>';
+            }
+            echo '</td><td>';
+            if ($row['warnings'] !== []) {
+                echo '<span style="color:#b45309">'.esc_html(implode(', ', $row['warnings'])).' geçiyor; geçmiş tarih yanıltabilir.</span>';
+            }
+            echo '</td></tr>';
+        }
+        echo '</tbody></table>';
+        if ($plan['skipped'] !== []) {
+            echo '<p class="description">Taslak olmadığı için alınmayanlar: '.esc_html(implode(', ', array_map('get_the_title', $plan['skipped']))).'</p>';
+        }
+        echo '<p><button type="submit" class="button button-primary">Yayınla</button> <a class="button" href="'.esc_url(admin_url('edit.php')).'">Vazgeç</a></p></form></div>';
+    }
+
+    /** The person's one click: each chosen post goes out with its date (a future date schedules it). */
+    public function bulk_publish()
+    {
+        check_admin_referer('moxdop_smart_date_bulk');
+        if (! self::enabled() || ! current_user_can('publish_posts')) {
+            wp_die('Yetki yok.');
+        }
+        $dates = isset($_POST['dates']) && is_array($_POST['dates']) ? wp_unslash($_POST['dates']) : [];
+        $done = 0;
+        foreach (array_slice($dates, 0, self::BULK_MAX, true) as $id => $date) {
+            $id = (int) $id;
+            $date = (string) $date;
+            $post = get_post($id);
+            if (! $post || $post->post_type !== 'post' || ! in_array($post->post_status, ['draft', 'pending'], true) || ! current_user_can('publish_post', $id)
+                || ! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/', $date)) {
+                continue;
+            }
+            $local = str_replace('T', ' ', $date);
+            // Its draft translations follow through translations().
+            update_post_meta($id, self::PICKED_META, (string) time());
+            $result = wp_update_post(['ID' => $id, 'post_date' => $local, 'post_date_gmt' => get_gmt_from_date($local), 'edit_date' => true, 'post_status' => 'publish'], true);
+            if (is_wp_error($result)) {
+                delete_post_meta($id, self::PICKED_META);
+
+                continue;
+            }
+            $done++;
+        }
+        wp_safe_redirect(add_query_arg('moxdop_smart_dated', $done, admin_url('edit.php')));
+        exit;
+    }
+
+    public function bulk_notice()
+    {
+        if (! isset($_GET['moxdop_smart_dated'])) {
+            return;
+        }
+        echo '<div class="notice notice-success is-dismissible"><p>'.(int) $_GET['moxdop_smart_dated'].' yazı akıllı tarihle yayınlandı ya da zamanlandı.</p></div>';
+    }
+
     public function box($post)
     {
         if (! self::enabled() || ! in_array($post->post_status, ['draft', 'pending', 'auto-draft'], true) || ! current_user_can('publish_post', $post->ID)) {
@@ -70,21 +254,21 @@ final class MoxDOP_Connector_Smart_Date
      *
      * @return array<int, array{date: string, label: string, past: bool}>
      */
-    public static function slots($post_id, $now = null)
+    public static function slots($post_id, $now = null, $skip = [], $count = self::SHOWN)
     {
         $tz = wp_timezone();
         $today = (new DateTimeImmutable('@'.($now ?? time())))->setTimezone($tz)->setTime(0, 0);
-        $taken = self::taken($post_id, $today);
+        $taken = self::taken($post_id, $today) + array_fill_keys((array) $skip, true);
         $weekdays = self::weekdays();
         $out = [];
-        for ($i = 0; $i <= self::DAYS_BACK && count($out) < self::SHOWN; $i++) {
+        for ($i = 0; $i <= self::DAYS_BACK && count($out) < $count; $i++) {
             $day = $today->modify('-'.$i.' days');
             if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')])) {
                 $out[] = self::slot($post_id, $day, true, $now);
             }
         }
         if ($out === []) {
-            for ($i = 1; $i <= self::DAYS_AHEAD && count($out) < self::SHOWN; $i++) {
+            for ($i = 1; $i <= self::DAYS_AHEAD && count($out) < $count; $i++) {
                 $day = $today->modify('+'.$i.' days');
                 if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')])) {
                     $out[] = self::slot($post_id, $day, false, $now);
@@ -116,6 +300,17 @@ final class MoxDOP_Connector_Smart_Date
         ];
     }
 
+    /** The post's Polylang language, or the default one ('' without Polylang). */
+    private static function language($post_id)
+    {
+        if (! function_exists('pll_get_post_language')) {
+            return '';
+        }
+        $language = pll_get_post_language($post_id, 'slug');
+
+        return $language ? (string) $language : (function_exists('pll_default_language') ? (string) pll_default_language('slug') : '');
+    }
+
     /** @return array<string, true> days (Y-m-d, site time) that already have a post of the post's language */
     private static function taken($post_id, DateTimeImmutable $today)
     {
@@ -125,8 +320,7 @@ final class MoxDOP_Connector_Smart_Date
             'date_query' => [['after' => $today->modify('-'.(self::DAYS_BACK + 1).' days')->format('Y-m-d'), 'before' => $today->modify('+'.(self::DAYS_AHEAD + 1).' days')->format('Y-m-d'), 'inclusive' => true]],
         ];
         if (function_exists('pll_get_post_language')) {
-            $language = pll_get_post_language($post_id, 'slug');
-            $args['lang'] = $language ? $language : (function_exists('pll_default_language') ? (string) pll_default_language('slug') : '');
+            $args['lang'] = self::language($post_id);
         }
         $days = [];
         foreach ((array) get_posts($args) as $id) {
