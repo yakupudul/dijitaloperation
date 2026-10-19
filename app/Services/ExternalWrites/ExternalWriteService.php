@@ -23,6 +23,7 @@ use App\Services\Integrations\WordPress\SiteDidNotTakeWork;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Repair\WebHealthAudit;
+use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ContentPlanner;
 use App\Support\Roles;
@@ -854,6 +855,10 @@ final class ExternalWriteService
         if (in_array($action->action, [ExternalWriteAction::ACTION_ARTICLE_DRAFTS, ExternalWriteAction::ACTION_CONTENT_DRAFT], true) && in_array($action->status, ['failed', 'partial'], true)) {
             // An article (or a language of it) that did not reach WordPress goes back to "send" with the reason.
             app(ContentPlanner::class)->draftFailed($action);
+        }
+        if ($action->action === ExternalWriteAction::ACTION_CONTENT_DRAFT && $action->suggestion_id !== null) {
+            // A broken translation's fix approved on the desk goes live once its draft copy is in WordPress.
+            app(BrokenTranslations::class)->draftFinished($action);
         }
         if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
             // Shared-list negatives become "Uygulandı" only once Google accepted them.

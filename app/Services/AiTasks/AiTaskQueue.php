@@ -88,6 +88,7 @@ final class AiTaskQueue
         AiRouteKeys::META_LANDING,
         AiRouteKeys::META_STRUCTURE,
         AiRouteKeys::SITE_APPLY_CHANGE,
+        AiRouteKeys::SITE_TRANSLATION_FIX,
         AiRouteKeys::SITE_PAGE_SUMMARY,
         AiRouteKeys::SITE_STANDARD_FROM_DECISION,
         AiRouteKeys::SITE_URL_ANALYSIS,

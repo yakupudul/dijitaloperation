@@ -16,6 +16,7 @@ use App\Services\Gbp\Desk\ProfileInfo;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Outcomes\OutcomeTracker;
+use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ImageAlts;
@@ -587,7 +588,8 @@ final class RepairDesk
                 $suggestion = $suggestions[$row['id']];
                 try {
                     match ($kind) {
-                        self::SITE_FIELDS, self::SITE_CONTENT => app(ChangeApplier::class)->approve($suggestion, $user),
+                        self::SITE_FIELDS, self::SITE_CONTENT => $suggestion->action_type === BrokenTranslations::TYPE
+                            ? app(BrokenTranslations::class)->approve($suggestion, $user) : app(ChangeApplier::class)->approve($suggestion, $user),
                         self::IMAGE_ALT => app(ImageAlts::class)->approve($suggestion, $user),
                         self::GBP_DESCRIPTION => app(ProfileFields::class)->sendDescription($user, DigitalAsset::query()->findOrFail((int) $suggestion->target_id),
                             (string) data_get($suggestion->action, 'proposed'), $suggestion),
@@ -740,6 +742,7 @@ final class RepairDesk
         return collect([
             $base()->with('page:id,url,website_asset_id,title,h1')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ImageAlts::TYPE),
+            $base()->with('page:id,url,website_asset_id,title,h1')->where('action_type', BrokenTranslations::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
             // A fill-the-gap row the nightly pass no longer proposes (recheck) is stale: the profile may have the value now.
@@ -844,15 +847,17 @@ final class RepairDesk
             $after[] = 'Yapılandırılmış veri (schema) eklenir';
         }
         $html = filled($new['html'] ?? null);
+        $translation = $s->action_type === BrokenTranslations::TYPE;
         if ($html) {
-            $after[] = 'Sayfa metni güncellenir (WordPress taslağı, sonra "Canlıya al")';
+            $after[] = $translation ? 'Sayfa metni kaynak sürümünden düzgün çeviriyle değişir (onayla canlıya gider, geri alınabilir)' : 'Sayfa metni güncellenir (WordPress taslağı, sonra "Canlıya al")';
         }
         if ($after === []) {
             return null;
         }
 
         return $base + ['kind' => $html ? self::SITE_CONTENT : self::SITE_FIELDS,
-            'risk' => $html ? self::HIGH : (filled($new['schema_json'] ?? null) ? self::MEDIUM : self::LOW),
+            // A broken translation's fix is a faithful translation of the page's own source version, checked by rules.
+            'risk' => $html ? ($translation ? self::MEDIUM : self::HIGH) : (filled($new['schema_json'] ?? null) ? self::MEDIUM : self::LOW),
             'target' => (string) ($s->page?->url ?? ''), 'before' => $before, 'after' => $after, 'editable' => $editable,
             'asset_id' => $s->page?->website_asset_id !== null ? (int) $s->page->website_asset_id : null];
     }
