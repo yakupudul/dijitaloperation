@@ -4223,6 +4223,18 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   ask; a pull call from a screen or MCP waits at most 45 s (was cut by the 60 s gateway). `list-sites` adds a `pull`
   block. **Operator after deploy:** Avrupadent eklentisini 1.16.0'a güncelle, sonra masaya dönen site düzeltmelerini
   yeniden onayla.
+- Pull sites wait instead of failing (2026-10-19, coded + PHPUnit; real UAT on Avrupadent pending): yakup found the 18
+  Avrupadent articles "Taslak gönderildi · 14.10" missing in WordPress, and ~1000 writes of the site "Başarısız"
+  (site silent 30 min, worker timeout at 120 s while one pull call waits 90 s). Now a write for a pull site that has not
+  asked within 15 minutes, or already has 6 commands waiting, stays queued and is tried again every 10 minutes
+  (`ExternalWriteService::waitForSite`, reason in its error line); a command the site never took
+  (`SiteDidNotTakeWork`, nothing ran there) does the same; after 24 h it fails with the reason. Write job timeout 420 s
+  (article + translation = several pull calls). An article / page-update draft write that fails or reaches WordPress
+  only in some languages returns the idea to "send" (`ContentPlanner::draftFailed`: `article_write_id` removed or the
+  missing languages taken out of `sent_languages`, `send_failed` kept and shown as "WordPress'e gitmedi, yeniden
+  gönderilebilir"); dated autopilot articles come back on the Günlük gönderim strip. A sent article with no WordPress
+  post yet shows "Siteye gidiyor" instead of "Taslak gönderildi". Migration `2026_12_19_090000` runs
+  `moxdop:content:release-failed-drafts` once for the earlier failures. Test: `PullSiteDraftWaitTest`.
 - Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
   `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 

@@ -1200,6 +1200,12 @@ Artisan::command('moxdop:content:rework', function (ContentAutopilot $autopilot)
     $this->info($result['rewrite'].' yazı yeniden yazılıyor, '.$result['update'].' fikir mevcut sayfanın güncellemesine döndü, '.$result['closed'].' fikir kapandı, '.$result['recheck'].' yazı yeniden kontrol ediliyor.');
 })->purpose('Re-plan the unsent articles written before the new rules by the cluster map and write them again; re-check held new ones');
 
+// Gönderilemeyen taslaklar (yakup, 2026-10-19): articles whose WordPress draft write failed (Avrupadent 14 Oct) go back
+// to "send" instead of standing as drafts WordPress never got (once; run on deploy).
+Artisan::command('moxdop:content:release-failed-drafts', function (ContentPlanner $planner): void {
+    $this->info($planner->releaseFailedDrafts().' yazı yeniden gönderilebilir.');
+})->purpose('Return ideas whose WordPress draft write failed to the send step');
+
 // Küme bağları ve ölçüm (yakup, 2026-10-15): a live MoxDOP article gets a link from its cluster's main page (an Onarım
 // masası row, applied on approval); one Google never showed in 90 days gets a "güçlendir" idea.
 Artisan::command('moxdop:content:cluster-links', function (ClusterLinks $links): void {

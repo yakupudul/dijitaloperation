@@ -404,9 +404,9 @@ final class ContentBoard
             'missing_languages' => array_values(array_diff($siteLanguages, [$language], $translations, $translating)), 'translating' => $translating,
             'unsent' => $sent ? array_values(array_diff($translations, $sentLanguages)) : [],
             'blocked' => is_string($action['article_blocked'] ?? null) ? $action['article_blocked'] : null,
-            'writing' => $writing, 'line' => $writing ? $line : (in_array($status['status'] ?? null, [null, 'ready'], true) ? null : $line),
+            'writing' => $writing, 'line' => $writing ? $line : (in_array($status['status'] ?? null, [null, 'ready'], true) ? self::sendFailedLine($action, $sent) : $line),
             'approved' => $s->status === Suggestion::APPROVED, 'sent_at' => $sent ? ($s->resolved_at ?? $s->applied_at) : null,
-            'post_status' => $post['status'] ?? null, 'post_line' => $sent ? self::postLine($post) : null, 'post_date' => $post['date'] ?? null,
+            'post_status' => $post['status'] ?? null, 'post_line' => $sent ? self::postLine($post, $posts === [] && $s->status !== Suggestion::APPLIED) : null, 'post_date' => $post['date'] ?? null,
             'link' => $post['link'] ?? null, 'can_date' => $sent && in_array($post['status'] ?? null, ['draft', 'pending', 'future', 'publish'], true),
             'reason' => $why,
             'score' => $scored['score'] ?? 0, 'score_line' => $scored !== null ? ContentScore::explain($scored) : null,
@@ -427,15 +427,30 @@ final class ContentBoard
         return $item;
     }
 
-    /** @param  array{status: string, date: ?CarbonImmutable}|null  $post */
-    private static function postLine(?array $post): string
+    /**
+     * @param  array{status: string, date: ?CarbonImmutable}|null  $post
+     * @param  bool  $onTheWay  no WordPress post yet: the write still waits for the site (a failed one returns the idea to "send")
+     */
+    private static function postLine(?array $post, bool $onTheWay = false): string
     {
         if ($post === null) {
-            return 'Taslak gönderildi';
+            return $onTheWay ? 'Siteye gidiyor; site işi alınca WordPress\'te taslak oluşur' : 'Taslak gönderildi';
         }
         $label = self::POST_STATES[$post['status']] ?? $post['status'];
 
         return in_array($post['status'], ['future', 'publish'], true) && $post['date'] !== null ? $label.' · '.$post['date']->format('d.m.Y H:i') : $label;
+    }
+
+    /**
+     * Why the last send did not reach WordPress (ContentPlanner::draftFailed), while the idea waits to be sent again.
+     *
+     * @param  array<string, mixed>  $action
+     */
+    private static function sendFailedLine(array $action, bool $sent): ?string
+    {
+        $error = data_get($action, 'send_failed.error');
+
+        return is_string($error) && $error !== '' && ! $sent ? 'WordPress\'e gitmedi, yeniden gönderilebilir: '.$error : null;
     }
 
     /** @return Builder<Suggestion> */

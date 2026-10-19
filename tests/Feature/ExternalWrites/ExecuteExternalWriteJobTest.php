@@ -46,7 +46,7 @@ final class ExecuteExternalWriteJobTest extends TestCase
         (new ExecuteExternalWriteJob($action->id))->failed(new TimeoutExceededException('timed out'));
 
         $this->assertSame('failed', $action->refresh()->status);
-        $this->assertStringStartsWith(ExecuteExternalWriteJob::TIMEOUT_ERROR.': yazma 120 saniyede bitmedi', (string) $action->error);
+        $this->assertStringStartsWith(ExecuteExternalWriteJob::TIMEOUT_ERROR.': yazma 420 saniyede bitmedi', (string) $action->error);
         $this->assertNotNull($action->finished_at);
     }
 

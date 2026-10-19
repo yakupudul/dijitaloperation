@@ -155,9 +155,11 @@ final class WordPressConnectorCommands
         $withdrawn = DB::table('website_connector_commands')->where('id', $id)->where('status', 'pending')
             ->update(['status' => 'failed', 'error' => 'zaman aşımı', 'finished_at' => now()]);
 
-        throw new RuntimeException($withdrawn > 0
-            ? 'Site işleri MoxDOP\'tan kendisi alıyor ama '.$waitSeconds.' saniyede gelip almadı ('.self::lastAskText($connection).'). Eklenti 1.16.0+ sitede bir ziyaret olunca da sorar; birkaç dakika sonra tekrar dene.'
-            : 'Site işi aldı ama cevabı '.$waitSeconds.' saniyede gelmedi; sonucu sitede kontrol et.');
+        if ($withdrawn > 0) {
+            throw new SiteDidNotTakeWork('Site işleri MoxDOP\'tan kendisi alıyor ama '.$waitSeconds.' saniyede gelip almadı ('.self::lastAskText($connection).'). Eklenti 1.16.0+ sitede bir ziyaret olunca da sorar; birkaç dakika sonra tekrar dene.');
+        }
+
+        throw new RuntimeException('Site işi aldı ama cevabı '.$waitSeconds.' saniyede gelmedi; sonucu sitede kontrol et.');
     }
 
     /**

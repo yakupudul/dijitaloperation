@@ -72,7 +72,7 @@ final class ContentBoardTest extends SiteTestCase
         $this->assertSame(['tr', 'en'], $write->request_payload['languages'], 'sent together, linked');
         $this->assertSame(['tr', 'en'], $idea->fresh()->action['sent_languages']);
         $this->assertSame(0, app(WorkDesk::class)->counts()['icerik'], 'a sent idea is no longer open work');
-        Livewire::test(WorkPage::class, ['step' => 'taslakta'])->assertSee('Taslak gönderildi');
+        Livewire::test(WorkPage::class, ['step' => 'taslakta'])->assertSee('Siteye gidiyor; site işi alınca WordPress', false);
     }
 
     public function test_an_idea_without_a_written_reason_shows_the_data_line_it_was_picked_from(): void

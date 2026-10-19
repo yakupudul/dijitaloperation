@@ -2,10 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -14,7 +17,9 @@ use Throwable;
  * A worker that times out ends the write as failed with the reason (it used to stay "running" forever). When a site
  * did not answer two writes in the last half hour, its next writes are not sent at all but returned with the reason:
  * on 2026-10-13 hundreds of approved Avrupadent site fixes each waited out the timeout one after another and held the
- * "default" queue for hours.
+ * "default" queue for hours. A site that fetches its work itself (connector pull, Avrupadent) is the exception: while
+ * it is not asking, its writes wait and are tried again (ExternalWriteService::waitForSite) instead of failing, since
+ * nothing ran on the site (2026-10-14: ~1000 approved Avrupadent writes failed this way, none reached WordPress).
  */
 final class ExecuteExternalWriteJob implements ShouldQueue
 {
@@ -28,9 +33,16 @@ final class ExecuteExternalWriteJob implements ShouldQueue
 
     private const int SITE_SILENT_MINUTES = 30;
 
+    /** A pull site that has not asked for work within this many minutes is not handed new writes yet. */
+    private const int PULL_SEEN_MINUTES = 15;
+
+    /** Commands waiting for a pull site above which new writes wait (the site takes 3 per ask). */
+    private const int PULL_MAX_WAITING = 6;
+
     public int $tries = 1;
 
-    public int $timeout = 120;
+    /** A site that fetches its work itself is waited for up to ~90 s per call; an article and its translation are 2-3 calls. */
+    public int $timeout = 420;
 
     public function __construct(public int $actionId, public bool $undo = false) {}
 
@@ -50,6 +62,11 @@ final class ExecuteExternalWriteJob implements ShouldQueue
         if ($action->status !== 'queued') {
             return;
         }
+        if (($waiting = $this->siteNotAsking($action)) !== null) {
+            $service->waitForSite($action, $waiting);
+
+            return;
+        }
         if (($silent = $this->silentSite($action, $service)) > 0) {
             $service->abandon($action, 'Gönderilmedi: site son '.self::SITE_SILENT_MINUTES.' dakikada '.$silent.' yazmaya yanıt vermedi. Site yanıt verince yeniden onaylayın.');
 
@@ -67,6 +84,29 @@ final class ExecuteExternalWriteJob implements ShouldQueue
         }
         app(ExternalWriteService::class)->abandon($action, self::TIMEOUT_ERROR.': yazma '.$this->timeout.' saniyede bitmedi, site yanıt vermedi'
             .($exception !== null ? ' ('.class_basename($exception).')' : '').'. Sitede sonucu kontrol edin; gerekirse yeniden onaylayın.');
+    }
+
+    /**
+     * A site that fetches its work itself (connector pull) and has not asked lately, or already has a full hand of work
+     * waiting, is not handed more: the write waits (ExternalWriteService::waitForSite) instead of holding a worker for
+     * the whole pickup wait and then failing. Null = send now.
+     */
+    private function siteNotAsking(ExternalWriteAction $action): ?string
+    {
+        if ($action->channel !== ExternalWriteAction::CHANNEL_WORDPRESS || $action->digital_asset_id === null) {
+            return null;
+        }
+        $connection = CoreConnection::query()->where('digital_asset_id', $action->digital_asset_id)->where('type', 'wordpress_connector')->where('enabled', true)->first();
+        if ($connection === null || data_get($connection->config, 'rest_transport') !== 'pull') {
+            return null;
+        }
+        $seen = WordPressConnectorCommands::seenAt($connection);
+        if ($seen === null || $seen->lt(now()->subMinutes(self::PULL_SEEN_MINUTES))) {
+            return 'site son '.self::PULL_SEEN_MINUTES.' dakikada iş sormadı; '.WordPressConnectorCommands::lastAskText($connection);
+        }
+        $waiting = DB::table('website_connector_commands')->where('connection_id', $connection->id)->whereIn('status', ['pending', 'sent'])->count();
+
+        return $waiting >= self::PULL_MAX_WAITING ? 'sitede alınmayı bekleyen '.$waiting.' iş var' : null;
     }
 
     /**

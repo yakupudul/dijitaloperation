@@ -1476,10 +1476,79 @@ final class ContentPlanner
         } else {
             throw ValidationException::withMessages(['write' => 'Bu yazı zaten gönderildi; gönderilecek yeni dil yok.']);
         }
+        unset($action['send_failed']);
         $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(), 'action' => $action])->save();
         $this->memory->recordDecision($suggestion, 'onaylandı', 'WordPress taslağı');
 
         return (int) $write->id;
+    }
+
+    /**
+     * A WordPress draft write of an idea that failed (or reached WordPress only in some languages): the languages that
+     * did not get there are no longer counted as sent, so the idea returns to "send" (and to the Günlük gönderim strip)
+     * with the reason instead of showing "Taslak gönderildi" for a post that does not exist (Avrupadent, 2026-10-14:
+     * 18 articles stood as drafts in MoxDOP while WordPress had none of them). Nothing is sent again here: the next
+     * send stays the operator's click.
+     */
+    public function draftFailed(ExternalWriteAction $write): void
+    {
+        $suggestionId = $write->suggestion_id
+            ?? (preg_match('/^suggestion-(\d+)$/', (string) data_get($write->request_payload, 'reference'), $m) === 1 ? (int) $m[1] : null);
+        $suggestion = $suggestionId !== null ? Suggestion::query()->whereKey($suggestionId)->where('action_type', SiteSuggestionTypes::CONTENT)->first() : null;
+        if ($suggestion === null) {
+            return;
+        }
+        $action = (array) $suggestion->action;
+        $writeId = (int) $write->id;
+        $isSource = (int) ($action['article_write_id'] ?? 0) === $writeId;
+        $translationIds = array_map('intval', (array) ($action['translation_write_ids'] ?? []));
+        if (! $isSource && ! in_array($writeId, $translationIds, true)) {
+            return;
+        }
+        $error = trim((string) $write->error) ?: (string) (collect((array) data_get($write->result, 'posts', []))->first(fn (mixed $p): bool => is_array($p) && ! ($p['ok'] ?? false))['error'] ?? 'WordPress taslağı oluşmadı.');
+        $failedLanguages = $write->status === 'failed'
+            ? array_values(array_filter((array) data_get($write->request_payload, 'languages', []), 'is_string'))
+            : array_values(array_filter(array_map(fn (mixed $p): ?string => is_array($p) && ! ($p['ok'] ?? false) ? ($p['language'] ?? null) : null, (array) data_get($write->result, 'posts', [])), 'is_string'));
+        // A language another write of the idea did put on WordPress (sent again later) stays sent.
+        $others = array_values(array_diff(array_filter([(int) ($action['article_write_id'] ?? 0), ...$translationIds]), [$writeId]));
+        $reached = ExternalWriteAction::query()->whereIn('id', $others ?: [0])->whereIn('status', ['succeeded', 'partial'])->get(['id', 'result'])
+            ->flatMap(fn (ExternalWriteAction $w): array => array_map(fn (mixed $p): ?string => is_array($p) && ($p['ok'] ?? false) ? ($p['language'] ?? null) : null, (array) data_get($w->result, 'posts', [])))
+            ->filter(fn (mixed $l): bool => is_string($l))->all();
+        $failedLanguages = array_values(array_diff($failedLanguages, $reached));
+        $failure = ['write_id' => $writeId, 'at' => now()->toIso8601String(), 'error' => mb_substr($error, 0, 300)];
+        if ($isSource && $write->status === 'failed') {
+            unset($action['article_write_id'], $action['page_update'], $action['translation_write_ids']);
+            $action['sent_languages'] = [];
+        } else {
+            $action['sent_languages'] = array_values(array_diff((array) ($action['sent_languages'] ?? []), $failedLanguages));
+            if (! $isSource && $write->status === 'failed') {
+                $action['translation_write_ids'] = array_values(array_diff($translationIds, [$writeId]));
+            }
+        }
+        $action['send_failed'] = $failure;
+        $suggestion->forceFill(['action' => $action])->save();
+    }
+
+    /**
+     * Once (deploy, 2026-10-19): ideas whose WordPress draft write failed before draftFailed existed go back to "send".
+     *
+     * @return int ideas released
+     */
+    public function releaseFailedDrafts(): int
+    {
+        $released = 0;
+        Suggestion::query()->where('action_type', SiteSuggestionTypes::CONTENT)->whereNotNull('action->article_write_id')->orderBy('id')->get()
+            ->each(function (Suggestion $idea) use (&$released): void {
+                $ids = array_values(array_filter([(int) data_get($idea->action, 'article_write_id'), ...array_map('intval', (array) data_get($idea->action, 'translation_write_ids', []))]));
+                $failed = ExternalWriteAction::query()->whereIn('id', $ids ?: [0])->where('status', 'failed')->orderByDesc('id')->get();
+                foreach ($failed as $write) {
+                    $this->draftFailed($write);
+                    $idea->refresh();
+                }
+                $released += $failed->isNotEmpty() && data_get($idea->action, 'article_write_id') === null ? 1 : 0;
+            });
+
+        return $released;
     }
 
     /**
@@ -1504,6 +1573,7 @@ final class ContentPlanner
             'title' => (string) ($article['title'] ?? $suggestion->title), 'html' => (string) ($article['html'] ?? ''), 'reference' => 'suggestion-'.$suggestion->id], $suggestion);
         $action = array_merge($action, ['article_write_id' => (int) $write->id, 'page_update' => true,
             'sent_languages' => [(string) ($article['language'] ?? self::articleLanguage($suggestion, $site))]]);
+        unset($action['send_failed']);
         $suggestion->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $user->id, 'resolved_at' => now(), 'action' => $action])->save();
         $this->memory->recordDecision($suggestion, 'onaylandı', 'Sayfanın yeni sürümü WordPress taslağı');
 

@@ -5,6 +5,7 @@ namespace App\Services\ExternalWrites;
 use App\Models\BrandExpert;
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
+use App\Services\Integrations\WordPress\SiteDidNotTakeWork;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Site\ArticleFaqSchema;
 use App\Services\Site\ContentPosts;
@@ -109,6 +110,12 @@ final class WordPressDraftWriter
                 $linked = $index === 0 || $language === null || (int) (((array) ($data['translations'] ?? []))[$language] ?? 0) === $postId;
                 $posts[] = ['language' => $language, 'ok' => true, 'post_id' => $postId, 'edit_url' => (string) ($data['edit_url'] ?? ''), 'preview_url' => (string) ($data['preview_url'] ?? ''),
                     'wp_status' => (string) ($data['status'] ?? 'draft'), 'translation_of' => $index > 0 ? $sourceId : null, 'translation_linked' => $linked];
+            } catch (SiteDidNotTakeWork $exception) {
+                if ($index === 0) {
+                    // Nothing reached the site yet: the whole write waits for it (ExecuteExternalWriteJob sends it again).
+                    throw $exception;
+                }
+                $posts[] = ['language' => $language, 'ok' => false, 'error' => mb_substr($exception->getMessage(), 0, 300)];
             } catch (Throwable $exception) {
                 $posts[] = ['language' => $language, 'ok' => false, 'error' => mb_substr($exception->getMessage(), 0, 300)];
             }

@@ -19,10 +19,12 @@ use App\Services\Gbp\GbpProfilePlanner;
 use App\Services\Gbp\GbpSuggestions;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Integrations\WordPress\SiteDidNotTakeWork;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Repair\WebHealthAudit;
 use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\ContentPlanner;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,12 @@ final class ExternalWriteService
 {
     /** ADR-070 actions handled by WordPressFixWriter. */
     private const array FIX_ACTIONS = [ExternalWriteAction::ACTION_SITE_FIX, ExternalWriteAction::ACTION_CONTENT_DRAFT, ExternalWriteAction::ACTION_CONTENT_APPLY];
+
+    /** A write for a site that fetches its work itself waits this long for the site before it ends as failed. */
+    public const int SITE_WAIT_HOURS = 24;
+
+    /** Minutes between two tries of a write that waits for such a site. */
+    public const int SITE_WAIT_MINUTES = 10;
 
     public function __construct(
         private readonly GoogleAdsNegativeListWriter $negatives,
@@ -780,6 +788,10 @@ final class ExternalWriteService
                 default => $this->drafts->apply($action),
             };
             $action->forceFill(['status' => $result['status'] ?? 'succeeded', 'result' => $result, 'finished_at' => now(), 'error' => self::changeErrors($result)])->save();
+        } catch (SiteDidNotTakeWork $exception) {
+            $this->waitForSite($action, $exception->getMessage());
+
+            return;
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr(trim($exception->getMessage()) ?: class_basename($exception).' (ayrıntı yok)', 0, 500)])->save();
         }
@@ -797,8 +809,32 @@ final class ExternalWriteService
         $this->finished($action);
     }
 
+    /**
+     * A site that fetches its work itself has not taken this write (it was not asking, or its earlier work is still
+     * waiting): nothing ran on the site, so the write stays queued and is tried again a few minutes later instead of
+     * failing (2026-10-14: Avrupadent's approved articles and ~1000 site fixes all ended as failed this way and had to
+     * be approved again). After SITE_WAIT_HOURS it ends as failed and goes back to the operator with the reason.
+     */
+    public function waitForSite(ExternalWriteAction $action, string $reason): void
+    {
+        $since = data_get($action->result, 'waiting_since');
+        $since = is_string($since) ? CarbonImmutable::parse($since) : CarbonImmutable::now();
+        if ($since->lt(now()->subHours(self::SITE_WAIT_HOURS))) {
+            $this->abandon($action, 'Gönderilmedi: site '.self::SITE_WAIT_HOURS.' saattir işleri almadı ('.$reason.'). Sitede eklentinin çalıştığını kontrol edip yeniden onaylayın.');
+
+            return;
+        }
+        $action->forceFill(['status' => 'queued', 'started_at' => null, 'error' => mb_substr('Site işi almayı bekliyor: '.$reason, 0, 500),
+            'result' => ['waiting_since' => $since->toIso8601String(), 'waits' => (int) data_get($action->result, 'waits', 0) + 1]])->save();
+        $this->dispatch($action, undo: false, delayMinutes: self::SITE_WAIT_MINUTES);
+    }
+
     private function finished(ExternalWriteAction $action): void
     {
+        if (in_array($action->action, [ExternalWriteAction::ACTION_ARTICLE_DRAFTS, ExternalWriteAction::ACTION_CONTENT_DRAFT], true) && in_array($action->status, ['failed', 'partial'], true)) {
+            // An article (or a language of it) that did not reach WordPress goes back to "send" with the reason.
+            app(ContentPlanner::class)->draftFailed($action);
+        }
         if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
             // Shared-list negatives become "Uygulandı" only once Google accepted them.
             app(GoogleAdsSuggestions::class)->writeFinished($action);
@@ -901,12 +937,13 @@ final class ExternalWriteService
         return $action;
     }
 
-    private function dispatch(ExternalWriteAction $action, bool $undo): void
+    private function dispatch(ExternalWriteAction $action, bool $undo, int $delayMinutes = 0): void
     {
         // An article's WordPress draft goes on the content queue: content never waits behind other work (2026-10-12).
         $content = in_array($action->action, [ExternalWriteAction::ACTION_ARTICLE_DRAFTS, ExternalWriteAction::ACTION_POST_DATE], true);
         dispatch(new ExecuteExternalWriteJob($action->id, $undo))
             ->onConnection((string) config('moxdop-external-writes.queue_connection', config('queue.default')))
-            ->onQueue($content ? (string) config('queue.content_queue', 'default') : (string) config('moxdop-external-writes.queue', 'default'));
+            ->onQueue($content ? (string) config('queue.content_queue', 'default') : (string) config('moxdop-external-writes.queue', 'default'))
+            ->delay($delayMinutes > 0 ? now()->addMinutes($delayMinutes) : null);
     }
 }
