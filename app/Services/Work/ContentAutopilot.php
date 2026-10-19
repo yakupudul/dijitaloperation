@@ -505,23 +505,31 @@ final class ContentAutopilot
      * The operator's daily click: every checked article whose date has come goes to WordPress as a draft dated to its
      * plan date (scheduled where the date is still ahead and the site allows it), with its translations.
      *
+     * `$onProgress(done, total)` is called before the first article and after each one (the daily send's live progress).
+     *
+     * @param  (callable(int, int): mixed)|null  $onProgress
      * @return array{sent: int, failed: list<string>}
      */
-    public function sendReady(User $user, ?int $brandId = null): array
+    public function sendReady(User $user, ?int $brandId = null, ?callable $onProgress = null): array
     {
         $planner = app(ContentPlanner::class);
         $sent = 0;
         $failed = [];
         $paired = self::pairedSiteIds();
-        foreach ($this->ready($brandId) as $suggestion) {
-            if (! in_array((int) data_get($suggestion->action, 'site_id'), $paired, true)) {
-                continue;
-            }
+        $ready = $this->ready($brandId)->filter(fn (Suggestion $s): bool => in_array((int) data_get($s->action, 'site_id'), $paired, true))->values();
+        $total = $ready->count();
+        if ($onProgress !== null) {
+            $onProgress(0, $total);
+        }
+        foreach ($ready as $suggestion) {
             try {
                 $planner->sendDraft($suggestion, $user, self::postDate($suggestion));
                 $sent++;
             } catch (Throwable $exception) {
                 $failed[] = $suggestion->title.': '.mb_substr($exception->getMessage(), 0, 160);
+            }
+            if ($onProgress !== null) {
+                $onProgress($sent + count($failed), $total);
             }
         }
 

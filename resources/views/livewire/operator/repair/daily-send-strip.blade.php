@@ -50,6 +50,21 @@
         @endif
     </div>
 
+    @if ($running && is_array($progress))
+        @php $percent = $progress['total'] > 0 ? (int) min(100, round($progress['done'] * 100 / $progress['total'])) : 0; @endphp
+        <div class="mt-3 space-y-1.5" data-daily-progress="{{ $progress['done'] }}/{{ $progress['total'] }}">
+            <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10" role="progressbar" aria-label="Gönderim" aria-valuemin="0" aria-valuemax="{{ $progress['total'] }}" aria-valuenow="{{ $progress['done'] }}">
+                <div class="h-full rounded-full bg-live-500 transition-all duration-500" style="width: {{ $percent }}%"></div>
+            </div>
+            <p class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                <span class="font-semibold tabular-nums text-gray-900 dark:text-white" data-daily-progress-text>{{ $n($progress['done']) }} / {{ $n($progress['total']) }} gönderildi</span>
+                <span class="tabular-nums">{{ $n($progress['content'][0]) }}/{{ $n($progress['content'][1]) }} yazı</span>
+                <span class="tabular-nums">{{ $n($progress['posts'][0]) }}/{{ $n($progress['posts'][1]) }} gönderi</span>
+                <span class="tabular-nums">{{ $n($progress['repair'][0]) }}/{{ $n($progress['repair'][1]) }} onarım</span>
+            </p>
+        </div>
+    @endif
+
     @if ($stale)
         <p class="tone-look mt-3 rounded-lg px-3 py-2 text-sm" data-daily-stale>
             @if ($lastAt === null)

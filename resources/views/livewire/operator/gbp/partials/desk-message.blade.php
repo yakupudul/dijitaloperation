@@ -1,3 +1,3 @@
 @if ($message !== '')
-    <p role="status" @class(['rounded-lg p-3 text-sm', 'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200' => $messageTone !== 'error', 'bg-rose-50 text-rose-800 dark:bg-rose-950 dark:text-rose-200' => $messageTone === 'error'])>{{ $message }}</p>
+    <p role="status" @class(['rounded-lg p-3 text-sm', 'bg-gray-50 text-gray-800 dark:bg-gray-950 dark:text-gray-200' => $messageTone !== 'error', 'bg-error-50 text-error-800 dark:bg-error-950 dark:text-error-200' => $messageTone === 'error'])>{{ $message }}</p>
 @endif

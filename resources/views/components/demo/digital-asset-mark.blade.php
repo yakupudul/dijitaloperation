@@ -51,5 +51,5 @@
         decoding="async"
         onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');"
     />
-    <span class="hidden text-[10px] font-semibold text-slate-600 dark:text-slate-200">{{ $visual['fallback_initials'] }}</span>
+    <span class="hidden text-[10px] font-semibold text-gray-600 dark:text-gray-200">{{ $visual['fallback_initials'] }}</span>
 </span>

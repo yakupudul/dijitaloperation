@@ -5,7 +5,7 @@
 @endphp
 <div class="space-y-4" data-brand-assets-tab>
     @if ($missing->where('required', true)->isNotEmpty() || $missing->contains(fn (array $i): bool => str_contains($i['detail'], 'veri henüz gelmedi')))
-        <section class="rounded-xl bg-amber-50 p-3 text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30" data-accounts-missing>
+        <section class="rounded-xl bg-warning-50 p-3 text-warning-900 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200 dark:ring-warning-500/30" data-accounts-missing>
             <p class="font-semibold">Eksik ya da verisi gelmeyen hesaplar</p>
             <ul class="mt-1 space-y-0.5 text-xs">
                 @foreach ($missing as $item)
@@ -14,14 +14,14 @@
                     @endif
                 @endforeach
             </ul>
-            <p class="mt-1 text-xs text-amber-800 dark:text-amber-300">"Otomatik kur" hesapları adres ve ada göre arar; bulamadığını aşağıdaki "Hesap ekle" listesinden ya da "Varlık ekle" ile bağlayabilirsin.</p>
+            <p class="mt-1 text-xs text-warning-800 dark:text-warning-300">"Otomatik kur" hesapları adres ve ada göre arar; bulamadığını aşağıdaki "Hesap ekle" listesinden ya da "Varlık ekle" ile bağlayabilirsin.</p>
         </section>
     @endif
 
     <section class="space-y-2" aria-labelledby="brand-asset-cards-heading">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="brand-asset-cards-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Dijital varlıklar <span class="font-normal text-gray-400">{{ count($assetCards) }}</span></h2>
-            <a href="{{ route('operator.assets', ['brand' => $brandModel->id]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Varlık listesinde aç →</a>
+            <a href="{{ route('operator.assets', ['brand' => $brandModel->id]) }}" wire:navigate class="link-neutral text-xs">Varlık listesinde aç →</a>
         </div>
         @if ($assetCards === [])
             <p class="{{ $card }} text-gray-500">Henüz dijital varlık yok. "Otomatik kur" ile web sitesinden başla ya da "Varlık ekle".</p>

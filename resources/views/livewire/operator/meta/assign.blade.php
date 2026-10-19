@@ -10,9 +10,9 @@
 <div class="space-y-5">
     @include('livewire.demo.partials.flash')
 
-    <nav class="text-sm text-gray-500" aria-label="Konum">
-        @if ($brand)<a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="hover:text-brand-600">{{ $brand->name }}</a> <span class="text-gray-300">/</span>@endif
-        <a href="{{ route('operator.meta.overview', ['assetId' => $assetId]) }}" wire:navigate class="hover:text-brand-600">{{ $asset['name'] ?? 'Meta' }}</a> <span class="text-gray-300">/</span>
+    <nav class="break-words text-sm text-gray-500" aria-label="Konum">
+        @if ($brand)<a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">{{ $brand->name }}</a> <span class="text-gray-300">/</span>@endif
+        <a href="{{ route('operator.meta.overview', ['assetId' => $assetId]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">{{ $asset['name'] ?? 'Meta' }}</a> <span class="text-gray-300">/</span>
         <span class="text-gray-700 dark:text-gray-300">Eşleşmeyenleri ata</span>
     </nav>
 
@@ -25,9 +25,9 @@
     </div>
 
     @if ($rows !== [])
-        <div class="flex flex-wrap items-center gap-2 rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+        <div class="surface flex flex-wrap items-center gap-2 px-4 py-3">
             <span class="text-sm text-gray-600 dark:text-gray-300">{{ count($selected) }} seçili</span>
-            <span class="flex-1"></span>
+            <span class="hidden flex-1 sm:block"></span>
             @if ($withoutSuggestion > 0)
                 <button type="button" wire:click="askAi" @disabled($aiRunning) class="{{ $btn }}">Önerisi olmayanları AI ile eşleştir ({{ $withoutSuggestion }})</button>
             @endif
@@ -35,13 +35,13 @@
             <button type="button" wire:click="approveSelected" @disabled($selected === []) class="{{ $primary }}">Seçilenlerde öneriyi onayla</button>
         </div>
         @if ($aiState)
-            <p @class(['text-xs', 'text-gray-500' => $aiRunning, 'text-emerald-600' => ($aiState['status'] ?? '') === 'ready', 'text-rose-600' => ($aiState['status'] ?? '') === 'failed']) @if ($aiRunning) wire:poll.10s @endif>AI eşleştirme: {{ $aiState['message'] ?? '' }}</p>
+            <p @class(['text-xs', 'text-gray-500' => $aiRunning, 'text-success-600' => ($aiState['status'] ?? '') === 'ready', 'text-error-600' => ($aiState['status'] ?? '') === 'failed']) @if ($aiRunning) wire:poll.10s @endif>AI eşleştirme: {{ $aiState['message'] ?? '' }}</p>
         @endif
     @endif
 
-    <section class="overflow-hidden rounded-2xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" data-testid="meta-assign">
+    <section class="surface overflow-hidden" data-testid="meta-assign">
         @if ($rows === [])
-            <p class="px-5 py-10 text-center text-sm text-gray-500">Her kampanyanın hizmeti belli. Karar bekleyen kampanya yok.</p>
+            <x-ta.empty-state title="Karar bekleyen kampanya yok." message="Her kampanyanın hizmeti belli." />
         @else
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[70rem] text-sm">
@@ -51,7 +51,7 @@
                             <th class="px-3 py-2.5">Kampanya</th><th class="px-3 py-2.5">Örnek reklam metni</th><th class="px-3 py-2.5">Gidilen sayfa</th><th class="px-3 py-2.5">Önerilen hizmet</th><th class="px-3 py-2.5">Karar</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($rows as $row)
                             <tr wire:key="assign-{{ $row['id'] }}" @class(['align-top', 'bg-gray-50/60 dark:bg-white/[0.02]' => $row['done'] !== null])>
                                 <td class="px-4 py-4">
@@ -60,11 +60,11 @@
                                     @endif
                                 </td>
                                 <td class="min-w-[14rem] px-3 py-4">
-                                    <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id']]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $row['name'] }}</a>
+                                    <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id']]) }}" wire:navigate class="line-clamp-2 break-words font-semibold text-gray-900 hover:underline dark:text-white" title="{{ $row['name'] }}">{{ $row['name'] }}</a>
                                     <p class="mt-0.5 text-xs text-gray-500">{{ $row['objective'] }} · {{ $money($row['spend']) }} · {{ ['live' => 'yayında', 'paused' => 'durmuş', 'ended' => 'bitti'][$row['status']] }}</p>
                                 </td>
                                 <td class="max-w-xs px-3 py-4 text-[13px] leading-relaxed text-gray-700 dark:text-gray-300">@if ($row['sample'] !== '')“{{ \Illuminate\Support\Str::limit($row['sample'], 160) }}”@else<span class="text-gray-400">Metin yok</span>@endif</td>
-                                <td class="px-3 py-4 text-[13px] text-brand-700 dark:text-brand-300">{{ $row['landing'] }}</td>
+                                <td class="max-w-[14rem] break-all px-3 py-4 text-[13px] text-gray-700 dark:text-gray-300">{{ $row['landing'] }}</td>
                                 <td class="min-w-[13rem] px-3 py-4">
                                     @if ($row['done'] !== null)
                                         <span class="text-xs text-gray-400">—</span>
@@ -80,12 +80,12 @@
                                 <td class="min-w-[19rem] px-3 py-4">
                                     @if ($row['done'] !== null)
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <span class="{{ $chip }} {{ $row['service_state'] === 'excluded' ? 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' : 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' }}">{{ $row['done'] }}</span>
+                                            <span class="{{ $chip }} {{ $row['service_state'] === 'excluded' ? 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' : 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400' }}">{{ $row['done'] }}</span>
                                             <button type="button" wire:click="undo('{{ $row['id'] }}')" class="text-xs font-semibold text-gray-500 hover:text-gray-800 hover:underline">Geri al</button>
                                         </div>
                                     @else
                                         <div class="flex flex-wrap items-center gap-2">
-                                            @if ($row['services'] !== [])<button type="button" wire:click="approve('{{ $row['id'] }}')" class="{{ $primary }}">Onayla</button>@endif
+                                            @if ($row['services'] !== [])<button type="button" wire:click="approve('{{ $row['id'] }}')" class="{{ $btn }}">Onayla</button>@endif
                                             <form wire:submit="choose('{{ $row['id'] }}')" class="flex items-center gap-1">
                                                 <label class="sr-only" for="pick-{{ $row['id'] }}">Başka hizmet</label>
                                                 <select id="pick-{{ $row['id'] }}" wire:model="pick.{{ $row['id'] }}" class="rounded-lg border-gray-300 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">

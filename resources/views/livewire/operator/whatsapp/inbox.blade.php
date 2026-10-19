@@ -1,9 +1,9 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800';
     $tone = [
-        'ok' => 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
-        'warn' => 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20',
-        'bad' => 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20',
+        'ok' => 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/20',
+        'warn' => 'bg-warning-50 text-warning-800 ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200 dark:ring-warning-500/20',
+        'bad' => 'bg-error-50 text-error-700 ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/20',
         'muted' => 'bg-gray-100 text-gray-600 ring-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:ring-gray-700',
     ];
     // Backup chats can come with a hidden number (lid…) instead of a phone number.
@@ -69,10 +69,10 @@
     </div>
 
     @if($notice)
-        <p role="status" class="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">{{ $notice }}</p>
+        <p role="status" class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-800 dark:bg-gray-500/10 dark:text-gray-200">{{ $notice }}</p>
     @endif
     @if($errors->any())
-        <div role="alert" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:bg-rose-500/10 dark:text-rose-200">
+        <div role="alert" class="rounded-lg bg-error-50 px-3 py-2 text-sm text-error-800 dark:bg-error-500/10 dark:text-error-200">
             @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
         </div>
     @endif

@@ -73,8 +73,8 @@
                     </div>
                     <span @class([
                         'text-xs font-semibold',
-                        'text-emerald-700 dark:text-emerald-400' => ($o['state'] ?? '') === 'Improvement observed',
-                        'text-amber-700 dark:text-amber-400' => ($o['state'] ?? '') !== 'Improvement observed',
+                        'text-success-700 dark:text-success-400' => ($o['state'] ?? '') === 'Improvement observed',
+                        'text-warning-700 dark:text-warning-400' => ($o['state'] ?? '') !== 'Improvement observed',
                     ])>{{ $o['state'] }}</span>
                 </li>
             @endforeach

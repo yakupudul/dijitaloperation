@@ -4,6 +4,8 @@ namespace App\Services\Work;
 
 use App\Models\Suggestion;
 use App\Services\Brand\BrandDataAudit;
+use App\Services\Gbp\Desk\ProfileInfo;
+use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsChecks;
 use App\Services\Repair\RepairDesk;
 use App\Services\Repair\WebHealthAudit;
@@ -150,6 +152,10 @@ final class OpenWork
             $type === BrandDataAudit::TYPE => RepairDesk::KINDS[RepairDesk::BRAND_DATA],
             $type === 'ads_negative' => RepairDesk::KINDS[RepairDesk::ADS_NEGATIVE],
             $type === 'gbp_description' => RepairDesk::KINDS[RepairDesk::GBP_DESCRIPTION],
+            $type === GoogleAdsChanges::TYPE => RepairDesk::KINDS[RepairDesk::ADS_CHANGE],
+            $type === ProfileInfo::TYPE => RepairDesk::KINDS[RepairDesk::GBP_FIELDS],
+            // A Business Profile standard is packaged per standard: its own title names the work ("Çalışma saatleri").
+            $type === 'gbp_standard' => trim((string) ($row['title'] ?? '')) !== '' ? trim(Str::before((string) $row['title'], ':')) : 'İşletme Profili standardı',
             ($row['channel'] ?? null) === 'search' && $type !== '' && SiteSuggestionTypes::label($type) !== $type => SiteSuggestionTypes::label($type),
             default => null,
         };
@@ -157,6 +163,10 @@ final class OpenWork
             // The generators title a row "<work>: <where>"; the part before the colon names the work.
             $title = trim((string) ($row['title'] ?? ''));
             $label = str_contains($title, ':') ? trim(Str::before($title, ':')) : ($type !== '' ? $type : $title);
+        }
+        // Never an internal code ("gbp_standard", "ads_change") on screen: an unknown type is named by its channel.
+        if ($label === $type && preg_match('/^[a-z0-9]+(_[a-z0-9]+)+$/', $label) === 1) {
+            $label = (Suggestion::CHANNEL_LABELS[$row['channel'] ?? ''] ?? 'Sistem').' işi';
         }
 
         return Str::ucfirst($label);

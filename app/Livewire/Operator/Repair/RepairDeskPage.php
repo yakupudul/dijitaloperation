@@ -53,6 +53,12 @@ final class RepairDeskPage extends Component
     /** Rows shown in the opened package. */
     public int $perPage = 100;
 
+    /** Packages rendered per step of "N paket daha göster" (every package on one page made the desk 1.8 MB). */
+    public const int PACKAGES_PAGE = 20;
+
+    /** Packages shown in the current lane; the counts and the order are those of every package. */
+    public int $packagesShown = self::PACKAGES_PAGE;
+
     /** @var list<int> */
     public array $selected = [];
 
@@ -118,6 +124,7 @@ final class RepairDeskPage extends Component
         $this->laneChosen = true;
         $this->selected = [];
         $this->open = '';
+        $this->packagesShown = self::PACKAGES_PAGE;
     }
 
     public function showOther(): void
@@ -125,6 +132,7 @@ final class RepairDeskPage extends Component
         $this->section = self::SECTION_OTHER;
         $this->selected = [];
         $this->open = '';
+        $this->packagesShown = self::PACKAGES_PAGE;
     }
 
     public function togglePackage(string $key): void
@@ -147,6 +155,11 @@ final class RepairDeskPage extends Component
     public function showMore(): void
     {
         $this->perPage += 100;
+    }
+
+    public function showMorePackages(): void
+    {
+        $this->packagesShown += self::PACKAGES_PAGE;
     }
 
     /** Every visible low-risk row (the filters apply). */
@@ -179,6 +192,7 @@ final class RepairDeskPage extends Component
         if (in_array($property, ['brandId', 'kind', 'lane', 'section'], true)) {
             $this->selected = [];
             $this->open = '';
+            $this->packagesShown = self::PACKAGES_PAGE;
             $this->laneChosen = $property === 'lane' && $this->laneChosen;
         }
     }
@@ -255,6 +269,12 @@ final class RepairDeskPage extends Component
 
         $this->section = $this->section === self::SECTION_OTHER ? self::SECTION_OTHER : self::SECTION_DESK;
         $done = $desk->done($this->brandId);
+        $packages = $desk->packages($inLane)->values();
+        // A package opened from a link (?paket=…) past the first pages is shown with the packages before it.
+        $openIndex = $this->open !== '' ? $packages->search(fn (array $p): bool => $p['key'] === $this->open) : false;
+        if ($openIndex !== false && $openIndex >= $this->packagesShown) {
+            $this->packagesShown = (int) (ceil(($openIndex + 1) / self::PACKAGES_PAGE) * self::PACKAGES_PAGE);
+        }
         $selectedIds = array_map('intval', $this->selected);
 
         return view('livewire.operator.repair.repair-desk', [
@@ -265,7 +285,8 @@ final class RepairDeskPage extends Component
             'doneFailed' => (int) $done->sum('failed'),
             'doneReturned' => (int) $done->sum('returned'),
             'otherCount' => array_sum(app(WorkDesk::class)->counts($this->brandId)),
-            'packages' => $desk->packages($inLane),
+            'packages' => $packages->take(max(self::PACKAGES_PAGE, $this->packagesShown))->values(),
+            'packagesTotal' => $packages->count(),
             'openRows' => $openRows->take($this->perPage),
             'openTotal' => $openRows->count(),
             'laneCounts' => $lanes,

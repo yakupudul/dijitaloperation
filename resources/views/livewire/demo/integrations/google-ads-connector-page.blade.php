@@ -6,14 +6,14 @@
                 <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Google Ads</h1>
                 <div class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     @if ($integration)
-                        <span @class(['inline-flex items-center gap-1.5 font-medium', 'text-emerald-700 dark:text-emerald-400' => $authState['tone'] === 'success', 'text-amber-700 dark:text-amber-400' => $authState['tone'] === 'warning', 'text-rose-700 dark:text-rose-400' => $authState['tone'] === 'error'])><span @class(['h-2 w-2 rounded-full', 'bg-emerald-500' => $authState['tone'] === 'success', 'bg-amber-500' => $authState['tone'] === 'warning', 'bg-rose-500' => $authState['tone'] === 'error'])></span>{{ $authState['label'] }}</span>
+                        <span @class(['inline-flex items-center gap-1.5 font-medium', 'text-success-700 dark:text-success-400' => $authState['tone'] === 'success', 'text-warning-700 dark:text-warning-400' => $authState['tone'] === 'warning', 'text-error-700 dark:text-error-400' => $authState['tone'] === 'error'])><span @class(['h-2 w-2 rounded-full', 'bg-success-500' => $authState['tone'] === 'success', 'bg-warning-500' => $authState['tone'] === 'warning', 'bg-error-500' => $authState['tone'] === 'error'])></span>{{ $authState['label'] }}</span>
                         @if ($authState['tone'] !== 'success')<a href="{{ route('operator.integrations.google') }}" wire:navigate class="font-medium text-brand-600 hover:underline">Google bağlantısı</a>@endif
                         <span class="text-gray-300 dark:text-gray-700">·</span>
                         <span>{{ $stats['accounts'] }} hesap bulundu</span>
                         <span class="text-gray-300 dark:text-gray-700">·</span>
                         <span>{{ $stats['collectable'] }} müşteri hesabı veri çekimine uygun</span>
                     @else
-                        <span class="font-medium text-amber-700 dark:text-amber-400">Google entegrasyonu bulunamadı</span>
+                        <span class="font-medium text-warning-700 dark:text-warning-400">Google entegrasyonu bulunamadı</span>
                     @endif
                 </div>
                 <p class="mt-2 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Google Ads hesaplarını doğrudan merkezi veri havuzuna aktarın. MoxDOP ilk geçmiş aktarımı, güncelleme, eksik veri onarımı ve canlı ilerlemeyi hesap bazında yönetir.</p>
@@ -24,15 +24,15 @@
 
 
     @if ($actionMessage)
-        <div class="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">{{ $actionMessage }}</div>
+        <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-100 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20">{{ $actionMessage }}</div>
     @endif
 
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Hesaplar</p><p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $stats['accounts'] }}</p></div>
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Veri çekilebilir</p><p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $stats['collectable'] }}</p></div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Veri mevcut</p><p class="mt-1 text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{{ $stats['collected'] }}</p></div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Dikkat gerekli</p><p class="mt-1 text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{{ $stats['attention'] }}</p></div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Canlı aktarım</p><p class="mt-1 text-2xl font-bold tabular-nums text-blue-700 dark:text-blue-400">{{ $stats['collecting'] }}</p></div>
+        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Veri mevcut</p><p class="mt-1 text-2xl font-bold tabular-nums text-success-700 dark:text-success-400">{{ $stats['collected'] }}</p></div>
+        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Dikkat gerekli</p><p class="mt-1 text-2xl font-bold tabular-nums text-warning-700 dark:text-warning-400">{{ $stats['attention'] }}</p></div>
+        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Canlı aktarım</p><p class="mt-1 text-2xl font-bold tabular-nums text-gray-700 dark:text-gray-400">{{ $stats['collecting'] }}</p></div>
     </div>
 
     <nav class="flex flex-wrap gap-5 border-b border-gray-200 dark:border-gray-800" aria-label="Google Ads sections">
@@ -43,7 +43,7 @@
                 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:hover:border-gray-700 dark:hover:text-white/90' => $tab !== $key,
             ])>
                 {{ $label }}
-                @if ($key === 'activity' && $stats['collecting'] > 0)<span class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-50 px-1.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">{{ $stats['collecting'] }}</span>@endif
+                @if ($key === 'activity' && $stats['collecting'] > 0)<span class="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gray-50 px-1.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-500/10 dark:text-gray-300">{{ $stats['collecting'] }}</span>@endif
             </button>
         @endforeach
     </nav>
@@ -104,12 +104,12 @@
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $row['name'] }}</h3>
                                         @if ($row['is_manager'])
-                                            <span class="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">MCC / Yönetici</span>
+                                            <span class="rounded-full bg-live-50 px-2 py-0.5 text-[11px] font-medium text-live-700 dark:bg-live-500/10 dark:text-live-300">MCC / Yönetici</span>
                                         @elseif (! $row['provider_selectable'])
                                             <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-400">Veri çekilemez</span>
                                         @endif
                                         @if (! empty($row['bound_assets']))
-                                            <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Dijital varlığa bağlı</span>
+                                            <span class="rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700 dark:bg-success-500/10 dark:text-success-300">Dijital varlığa bağlı</span>
                                         @endif
                                     </div>
                                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Customer ID {{ $row['formatted_customer_id'] ?: '—' }} · {{ $row['currency'] }} · {{ $row['timezone'] }}</p>
@@ -123,10 +123,10 @@
                                 <div>
                                     <p class="text-xs text-gray-400">Veri durumu</p>
                                     @switch($row['data_state'])
-                                        @case('collecting')<p class="mt-1 text-sm font-semibold text-blue-700 dark:text-blue-300">Çekiliyor</p><p class="mt-0.5 text-xs text-gray-400">Run #{{ $row['active_run_id'] }}</p>@break
-                                        @case('needs_repair')<p class="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-300">Eksik veri var</p><p class="mt-0.5 text-xs text-gray-400">{{ $row['failed_datasets'] }} veri grubu tamamlanamadı</p>@break
+                                        @case('collecting')<p class="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-300">Çekiliyor</p><p class="mt-0.5 text-xs text-gray-400">Run #{{ $row['active_run_id'] }}</p>@break
+                                        @case('needs_repair')<p class="mt-1 text-sm font-semibold text-warning-700 dark:text-warning-300">Eksik veri var</p><p class="mt-0.5 text-xs text-gray-400">{{ $row['failed_datasets'] }} veri grubu tamamlanamadı</p>@break
                                         @case('resume')<p class="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-300">Aktarım durduruldu</p><p class="mt-0.5 text-xs text-gray-400">Kaldığı yerden devam edebilir</p>@break
-                                        @case('collected')<p class="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300">Veri mevcut</p><p class="mt-0.5 text-xs text-gray-400">Son başarı {{ $row['last_success'] ?? '—' }}</p>@break
+                                        @case('collected')<p class="mt-1 text-sm font-semibold text-success-700 dark:text-success-300">Veri mevcut</p><p class="mt-0.5 text-xs text-gray-400">Son başarı {{ $row['last_success'] ?? '—' }}</p>@break
                                         @default<p class="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-300">Henüz veri yok</p><p class="mt-0.5 text-xs text-gray-400">İlk geçmiş aktarımı yapılmadı</p>
                                     @endswitch
                                 </div>
@@ -143,7 +143,7 @@
                                 <div class="sm:text-right">
                                     @if ($row['provider_selectable'])
                                         @if ($row['data_state'] === 'collecting')
-                                            <button type="button" wire:click="setTab('activity')" class="rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-50 dark:text-blue-300 dark:ring-blue-800 dark:hover:bg-blue-500/10">Canlı akışı aç</button>
+                                            <button type="button" wire:click="setTab('activity')" class="rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-800 dark:hover:bg-gray-500/10">Canlı akışı aç</button>
                                         @else
                                             <button type="button" wire:click="collectOne({{ $row['id'] }})" wire:loading.attr="disabled" wire:target="collectOne({{ $row['id'] }})" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">
                                                 <span wire:loading.remove wire:target="collectOne({{ $row['id'] }})">{{ $row['action_label'] }}</span>

@@ -1,6 +1,6 @@
 @php
     $select = 'h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white';
-    $chip = ['ok' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'warn' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'bad' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'];
+    $chip = ['ok' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300', 'warn' => 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300', 'bad' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'];
     $band = ['good' => 'ok', 'watch' => 'warn', 'risk' => 'bad'];
     $attentionLabels = ['needs_attention' => 'Dikkat istiyor', 'clear' => 'Sorun yok'];
     $sortHead = fn (string $key, string $label) => '<button type="button" wire:click="sortBy(\''.$key.'\')" class="font-medium hover:text-gray-900 dark:hover:text-white">'.e($label).($sort === $key ? ($dir === 'asc' ? ' ↑' : ' ↓') : '').'</button>';
@@ -9,56 +9,66 @@
     @include('livewire.demo.partials.flash')
 
     <div class="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div class="min-w-0">
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Müşteriler</h1>
-            <p class="mt-1 text-sm text-gray-500">Ajansın müşterileri. Açık iş ve veri sorunları müşterinin markalarından toplanır.</p>
+            <p class="mt-1 text-sm text-gray-500">Ajansın müşterileri. Açık iş ve veri sorunları müşterinin markalarından toplanır; günlük liste <a href="{{ route('operator.brands') }}" wire:navigate class="link-neutral">Markalar</a>.</p>
             @if ($allCount > 0)
                 <p class="mt-1 text-xs text-gray-500" data-customers-summary>{{ $allCount }} müşteri · {{ $attentionCount }} müşteri dikkat istiyor</p>
             @endif
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             @if ($isAdmin)
-                <a href="{{ route('operator.integrations.discovered') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">Keşfedilen varlıklar</a>
+                <a href="{{ route('operator.integrations.discovered') }}" wire:navigate class="link-neutral text-sm">Keşfedilen varlıklar</a>
             @endif
-            <a href="{{ route('operator.customer.create') }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Müşteri ekle</a>
+            <x-ta.button size="sm" :href="route('operator.customer.create')" wire:navigate>Müşteri ekle</x-ta.button>
         </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
+    @php
+        $moreFilters = collect([$industry, $responsible, $type, $hq_country, $service])->filter(fn ($v) => $v !== '')->count();
+    @endphp
+    <div class="flex flex-wrap items-center gap-2" x-data="{ more: false }" data-filter-bar>
         <input wire:model.live.debounce.300ms="search" type="search" placeholder="Müşteri adı, unvan veya e-posta ara" aria-label="Ara"
-            class="h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm sm:w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
-        <select wire:model.live="attention" class="{{ $select }}" aria-label="Dikkat">
+            class="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm sm:w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+        <select wire:model.live="attention" class="{{ $select }} min-w-0 flex-1 sm:flex-none" aria-label="Dikkat">
             <option value="">Dikkat: hepsi</option>
             @foreach ($attentionLabels as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
         </select>
-        <select wire:model.live="status" class="{{ $select }}" aria-label="Durum">
+        <select wire:model.live="status" class="{{ $select }} min-w-0 flex-1 sm:flex-none" aria-label="Durum">
             <option value="">Durum: hepsi</option>
             @foreach ($statusOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
         </select>
-        <select wire:model.live="industry" class="{{ $select }}" aria-label="Sektör">
-            <option value="">Sektör: hepsi</option>
-            @foreach ($industryOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
-        <select wire:model.live="responsible" class="{{ $select }}" aria-label="Sorumlu">
-            <option value="">Sorumlu: herkes</option>
-            @foreach ($teamOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
-        <select wire:model.live="type" class="{{ $select }}" aria-label="Tür">
-            <option value="">Tür: hepsi</option>
-            @foreach ($typeOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
-        <select wire:model.live="hq_country" class="{{ $select }}" aria-label="Merkez ülke">
-            <option value="">Ülke: hepsi</option>
-            @foreach ($countryOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
-        <select wire:model.live="service" class="{{ $select }}" aria-label="Hizmet">
-            <option value="">Hizmet: hepsi</option>
-            @foreach ($serviceOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
-        <label class="ml-auto inline-flex items-center gap-2 text-xs text-gray-500">
-            <input type="checkbox" wire:model.live="showOptionalColumns" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
-            Ek sütunlar
-        </label>
+        <button type="button" @click="more = ! more" :aria-expanded="more.toString()" class="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]" data-more-filters>
+            Filtreler
+            @if ($moreFilters > 0)<span class="rounded-full bg-gray-900 px-1.5 text-[11px] font-semibold text-white tabular-nums dark:bg-white dark:text-gray-900">{{ $moreFilters }}</span>@endif
+            <svg class="h-3.5 w-3.5 transition" :class="more && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
+        </button>
+        <div x-show="more" x-cloak class="surface grid w-full grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3" data-more-filters-panel>
+            <select wire:model.live="industry" class="{{ $select }} w-full min-w-0" aria-label="Sektör">
+                <option value="">Sektör: hepsi</option>
+                @foreach ($industryOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+            <select wire:model.live="responsible" class="{{ $select }} w-full min-w-0" aria-label="Sorumlu">
+                <option value="">Sorumlu: herkes</option>
+                @foreach ($teamOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+            <select wire:model.live="type" class="{{ $select }} w-full min-w-0" aria-label="Tür">
+                <option value="">Tür: hepsi</option>
+                @foreach ($typeOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+            <select wire:model.live="hq_country" class="{{ $select }} w-full min-w-0" aria-label="Merkez ülke">
+                <option value="">Ülke: hepsi</option>
+                @foreach ($countryOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+            <select wire:model.live="service" class="{{ $select }} w-full min-w-0" aria-label="Hizmet">
+                <option value="">Hizmet: hepsi</option>
+                @foreach ($serviceOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+            <label class="inline-flex items-center gap-2 text-xs text-gray-500">
+                <input type="checkbox" wire:model.live="showOptionalColumns" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                Ek sütunlar
+            </label>
+        </div>
     </div>
 
     @if ($hasFilters)
@@ -76,31 +86,20 @@
             ]) as $label)
                 <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-white/10 dark:text-gray-200">{{ $label }}</span>
             @endforeach
-            <button type="button" wire:click="clearFilters" class="font-medium text-brand-600 hover:underline">Temizle</button>
+            <button type="button" wire:click="clearFilters" class="link-neutral font-medium">Temizle</button>
         </div>
     @endif
 
     @if ($allCount === 0)
-        <section class="rounded-xl bg-white p-6 text-center ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Henüz müşteri yok</h2>
-            <p class="mt-1 text-sm text-gray-500">İlk müşteriyi ekleyin; markaları ve hesapları müşterinin altında açılır.</p>
-            <a href="{{ route('operator.customer.create') }}" wire:navigate class="mt-3 inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Müşteri ekle</a>
-        </section>
+        <x-ta.empty-state title="Henüz müşteri yok" message="İlk müşteriyi ekleyin; markaları ve hesapları müşterinin altında açılır.">
+            <x-ta.button size="sm" :href="route('operator.customer.create')" wire:navigate>Müşteri ekle</x-ta.button>
+        </x-ta.empty-state>
     @elseif ($customers->total() === 0)
-        <section class="rounded-xl bg-white p-6 text-center ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Filtreye uyan müşteri yok</h2>
-            <button type="button" wire:click="clearFilters" class="mt-2 text-sm font-medium text-brand-600 hover:underline">Filtreleri temizle</button>
-        </section>
+        <x-ta.empty-state size="sm" title="Filtreye uyan müşteri yok">
+            <button type="button" wire:click="clearFilters" class="link-neutral text-sm">Filtreleri temizle</button>
+        </x-ta.empty-state>
     @else
-        @if ($isAdmin && count($selected) > 0)
-            <div class="flex flex-wrap items-center gap-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/20">
-                <span class="font-medium text-rose-800 dark:text-rose-200">{{ count($selected) }} müşteri seçildi</span>
-                <button type="button" wire:click="deleteSelected" wire:confirm="Seçili {{ count($selected) }} müşteri, markaları ve dijital varlıklarıyla birlikte listeden silinecek. Toplanan veriler silinmez; yalnızca veri çekimi durur. Hesap tekrar bir markaya bağlanırsa çekim kaldığı yerden devam eder. Devam edilsin mi?" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Seçilenleri sil</button>
-                <button type="button" wire:click="$set('selected', [])" class="text-xs text-rose-700 hover:underline dark:text-rose-300">Seçimi temizle</button>
-            </div>
-        @endif
-
-        <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <section class="surface overflow-x-auto">
             <table class="w-full text-left text-sm">
                 <thead class="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
                     <tr>
@@ -145,40 +144,48 @@
                             <td class="hidden px-4 py-3 text-right tabular-nums sm:table-cell">{{ $customer['brands_count'] }}</td>
                             <td class="px-4 py-3 text-right tabular-nums" data-open-work>
                                 {{ $customer['open_work'] }}
-                                @if ($customer['critical'] > 0)<p class="text-xs text-rose-600">{{ $customer['critical'] }} kritik</p>@endif
+                                @if ($customer['critical'] > 0)<p class="text-xs text-error-600">{{ $customer['critical'] }} kritik</p>@endif
                             </td>
-                            <td class="hidden px-4 py-3 text-right tabular-nums sm:table-cell" data-data-issues>@if ($customer['data_issues'] > 0)<span class="text-amber-700 dark:text-amber-300">{{ $customer['data_issues'] }}</span>@else<span class="text-gray-400">0</span>@endif</td>
-                            <td class="px-4 py-3" data-attention>
-                                @if ($customer['needs_attention'])
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $customer['reconnect'] > 0 ? $chip['bad'] : $chip['warn'] }}">Dikkat</span>
-                                    <p class="mt-0.5 max-w-xs text-xs text-gray-500">{{ $customer['attention_reason'] }}</p>
-                                @elseif ($customer['brands_count'] > 0)
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $chip['ok'] }}">Sorun yok</span>
-                                @else
-                                    <span class="text-xs text-gray-400">Marka yok</span>
-                                @endif
+                            <td class="hidden px-4 py-3 text-right tabular-nums sm:table-cell" data-data-issues>@if ($customer['data_issues'] > 0)<span class="text-warning-700 dark:text-warning-300">{{ $customer['data_issues'] }}</span>@else<span class="text-gray-400">0</span>@endif</td>
+                            <td class="px-4 py-3 align-top" data-attention>
+                                @include('livewire.demo.portfolio.partials.attention', ['needsAttention' => $customer['needs_attention'], 'isException' => $customer['reconnect'] > 0 || $customer['critical'] > 0, 'critical' => $customer['reconnect'] > 0, 'reason' => $customer['attention_reason']])
+                                @if (! $customer['needs_attention'] && $customer['brands_count'] === 0)<span class="text-xs text-gray-400">Marka yok</span>@endif
                             </td>
                             @if ($showOptionalColumns)
                                 <td class="hidden px-4 py-3 text-gray-700 lg:table-cell dark:text-gray-300">{{ implode(', ', $customer['responsible_labels'] ?? []) ?: '—' }}</td>
                                 <td class="hidden px-4 py-3 tabular-nums text-gray-500 lg:table-cell">{{ $customer['service_started_at'] ?? '—' }}</td>
                                 <td class="hidden px-4 py-3 text-right tabular-nums lg:table-cell">{{ $customer['digital_assets_count'] ?? 0 }}</td>
                             @endif
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 align-top">
+                                {{-- Status (2026-10-19): only the exception (Pasif / Arşiv) shows; an active customer's switch sits in the row menu. --}}
                                 @if (($customer['status'] ?? '') === 'archived')
-                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">{{ $customer['status_label'] }}</span>
-                                @elseif ($canToggle)
-                                    <button type="button" role="switch" aria-checked="{{ $isActive ? 'true' : 'false' }}"
+                                    <x-ta.pill tone="info">{{ $customer['status_label'] }}</x-ta.pill>
+                                @elseif ($canToggle && ! $isActive)
+                                    <button type="button" role="switch" aria-checked="false"
                                         wire:click="toggleActive('{{ $customer['id'] }}')" wire:loading.attr="disabled"
-                                        @if ($isActive) wire:confirm="{{ __('customer_status.confirm_pause', ['name' => $customer['name']]) }}" @endif
-                                        title="{{ $isActive ? __('customer_status.hint_active') : __('customer_status.hint_passive') }}"
+                                        title="{{ __('customer_status.hint_passive') }}"
                                         class="inline-flex items-center gap-2 text-sm" data-toggle-active>
-                                        <span @class(['relative inline-flex h-5 w-9 shrink-0 rounded-full transition', 'bg-emerald-500' => $isActive, 'bg-gray-300 dark:bg-gray-700' => ! $isActive])>
-                                            <span @class(['absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition', 'left-[18px]' => $isActive, 'left-0.5' => ! $isActive])></span>
-                                        </span>
-                                        <span @class(['text-emerald-700 dark:text-emerald-400' => $isActive, 'text-gray-500' => ! $isActive])>{{ $isActive ? 'Aktif' : 'Pasif' }}</span>
+                                        <span class="relative inline-flex h-5 w-9 shrink-0 rounded-full bg-gray-300 transition dark:bg-gray-700"><span class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition"></span></span>
+                                        <span class="text-gray-500">Pasif</span>
                                     </button>
-                                @else
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $isActive ? $chip['ok'] : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300' }}" title="Yalnız Admin veya müşterinin sorumlusu değiştirebilir">{{ $isActive ? 'Aktif' : 'Pasif' }}</span>
+                                @elseif ($canToggle)
+                                    <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
+                                        <button type="button" @click="open = ! open" :aria-expanded="open.toString()" class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-white" aria-label="Müşteri işlemleri" title="{{ __('customer_status.active') }}">
+                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 5.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 5.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+                                        </button>
+                                        <div x-show="open" x-cloak class="surface absolute right-0 z-20 mt-1 w-56 p-2 shadow-theme-lg">
+                                            <button type="button" role="switch" aria-checked="true"
+                                                wire:click="toggleActive('{{ $customer['id'] }}')" wire:loading.attr="disabled"
+                                                wire:confirm="{{ __('customer_status.confirm_pause', ['name' => $customer['name']]) }}"
+                                                title="{{ __('customer_status.hint_active') }}"
+                                                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5" data-toggle-active>
+                                                <span class="relative inline-flex h-5 w-9 shrink-0 rounded-full bg-success-500 transition"><span class="absolute left-[18px] top-0.5 h-4 w-4 rounded-full bg-white shadow transition"></span></span>
+                                                <span>{{ __('customer_status.active') }} · pasife al</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @elseif (! $isActive)
+                                    <x-ta.pill tone="info" title="Yalnız Admin veya müşterinin sorumlusu değiştirebilir">Pasif</x-ta.pill>
                                 @endif
                             </td>
                         </tr>
@@ -187,5 +194,13 @@
             </table>
         </section>
         @if ($customers->hasPages())<div>{{ $customers->links() }}</div>@endif
+
+        @if ($isAdmin && count($selected) > 0)
+            <div class="sticky bottom-3 z-30 flex flex-wrap items-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-theme-lg ring-1 ring-white/10 dark:bg-gray-800" data-customers-selection>
+                <span class="font-semibold">{{ count($selected) }} müşteri seçildi</span>
+                <button type="button" wire:click="deleteSelected" wire:confirm="Seçili {{ count($selected) }} müşteri, markaları ve dijital varlıklarıyla birlikte listeden silinecek. Toplanan veriler silinmez; yalnızca veri çekimi durur. Hesap tekrar bir markaya bağlanırsa çekim kaldığı yerden devam eder. Devam edilsin mi?" class="h-8 w-full rounded-lg border border-white/20 px-3 text-xs font-semibold text-error-300 hover:bg-white/10 sm:w-auto">Seçilenleri sil</button>
+                <button type="button" wire:click="$set('selected', [])" class="ml-auto text-gray-300 hover:underline">Seçimi temizle</button>
+            </div>
+        @endif
     @endif
 </div>

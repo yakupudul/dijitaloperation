@@ -90,7 +90,7 @@
                 @endif
             </p>
             @if($backupKeySaved)
-                <p class="mt-1 text-xs text-gray-500" data-wa-backup-key-saved>Anahtar kayıtlı: yeni yedekte yalnız dosyayı seçin. <button type="button" wire:click="forgetBackupKey" wire:confirm="Kayıtlı anahtar silinsin mi? Sonraki yedekte yeniden sorulur." class="underline hover:text-rose-600">Kayıtlı anahtarı sil</button></p>
+                <p class="mt-1 text-xs text-gray-500" data-wa-backup-key-saved>Anahtar kayıtlı: yeni yedekte yalnız dosyayı seçin. <button type="button" wire:click="forgetBackupKey" wire:confirm="Kayıtlı anahtar silinsin mi? Sonraki yedekte yeniden sorulur." class="underline hover:text-error-600">Kayıtlı anahtarı sil</button></p>
             @endif
         </div>
     </div>
@@ -122,7 +122,7 @@
 
         @if($import?->status === 'uploaded')
             <form class="space-y-2" data-wa-backup-status="uploaded" @submit.prevent="extract()">
-                <p class="text-sm"><strong>{{ $import->file_name }}</strong> yüklendi ({{ $megabytes($import->size) }}). <button type="button" wire:click="discardBackup" class="text-xs text-gray-500 hover:text-rose-600">Sil</button></p>
+                <p class="text-sm"><strong>{{ $import->file_name }}</strong> yüklendi ({{ $megabytes($import->size) }}). <button type="button" wire:click="discardBackup" class="text-xs text-gray-500 hover:text-error-600">Sil</button></p>
                 @if($import->error)
                     <p role="alert" class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['bad'] }}">{{ $import->error }}</p>
                 @endif
@@ -130,7 +130,7 @@
                     <span wire:ignore class="min-w-0 flex-1"><input x-ref="key" type="password" autocomplete="off" spellcheck="false" aria-label="64 haneli şifreleme anahtarı" placeholder="{{ $backupKeySaved ? 'Boş bırakın: kayıtlı anahtar kullanılır' : '64 haneli şifreleme anahtarı' }}" class="w-full rounded-lg border border-gray-300 bg-transparent p-2 font-mono text-sm dark:border-gray-700" /></span>
                     <button type="submit" :disabled="extracting" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Çıkar</button>
                 </div>
-                @error('backup_key')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('backup_key')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
             </form>
         @else
             <div class="flex flex-wrap items-center gap-3">
@@ -152,9 +152,9 @@
                 <input type="file" class="sr-only" accept=".vcf,text/vcard,text/x-vcard" @change="contacts($event)" />
             </label>
             <span class="text-xs text-gray-500">Yedekte kişi adları yok. Telefonda Kişiler › Ayarlar › Dışa aktar ile .vcf dosyası alıp seçin; numarası eşleşen görüşmelere isim yazılır. Rehberden yalnız ad ve numara okunur.</span>
-            @error('contacts')<p class="w-full text-xs text-rose-600">{{ $message }}</p>@enderror
+            @error('contacts')<p class="w-full text-xs text-error-600">{{ $message }}</p>@enderror
         </div>
     @endif
     <p x-show="message" x-text="message" role="status" class="text-sm text-gray-600 dark:text-gray-300"></p>
-    @error('backup')<p role="alert" class="text-sm text-rose-600">{{ $message }}</p>@enderror
+    @error('backup')<p role="alert" class="text-sm text-error-600">{{ $message }}</p>@enderror
 </section>

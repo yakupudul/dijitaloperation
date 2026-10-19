@@ -1,5 +1,21 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-19 — Panel yeni tasarım, 3. ve 4. aşama (tüm ekranlar, telefon, Müşteriler → Markalar)
+
+- **Karar (yakup 2026-10-19 "Sırasıyla hepsini yap", "Mobil arayüzü de kötü yaparken göz önünde bulundur"):** kalan tüm ekranlar aynı tasarım diline geçti; her ekran telefon genişliğinde de çalışır.
+- **Renk temizliği:** 164 Blade dosyasında ham renk sınıfları token'a çevrildi (amber → `warning`, emerald → `success`, rose / red → `error`, violet / indigo / sky → `live`, slate / blue → `gray`); satır başı turuncu düğmeler çerçeveli (outline) oldu, turuncu sayfa başına bir ana eylem.
+- **Telefon:** `operator.css` taban kuralları (`body` uzun kelimeyi kırar, `.grid > *` `min-width: 0`, `select` en çok kapsayıcı genişliği); tablolar kendi kutusunda kayar. 39 ana ekran 390 / 768 / 1280 px'te uzun marka adı ve uzun URL ile tarandı, sayfa yana taşmıyor.
+- **Ortak varlık başlığı (`x-operator.asset-context`):** yeni `title` / `subtitle` ve `mark` / `status` / `meta` / `actions` / `tabs` yuvaları; sıra kırıntı → başlık → veri durumu (tek satır) → uyarılar (tek katlanır satır) → sekmeler. Web sitesi, Search Console, GA4, Google Ads, Meta, İşletme Profili sayfaları aynı başlığı kullanır.
+- **Web sitesi:** **İçerik** ana sekme (Yapılacaklar'dan sonra; eski `content` / `studio` adresleri çalışır); Yapılacaklar sorun türüne göre gruplu, satır tek satır, gerekçe "Aç" panelinde, Reddet satır içi neden kutusu.
+- **Marka sayfası:** iç kodlar ("Gbp_standard: 8 iş") Türkçe etikete çevrildi (`OpenWork::label`), KPI kartları `metric-card` + sparkline (`BrandOverviewReader` gün gün tek sorgu, önbellek v3), "veri yok" soluk gösterilir, Yolculuk telefonda yana kayar.
+- **Onarım masası:** paketler 20'şer gösterilir ("N paket daha göster", `RepairDeskPage::PACKAGES_PAGE`); "Hepsini gönder" çalışırken "X / Y gönderildi" ilerleme çubuğu (`DailySend::PROGRESS_KEY`).
+- **Kanallar:** Google Ads Durum'da marka başına tek alarm satırı, harcama değişimi nötr; Meta'da durum / hedef / optimizasyon Türkçe, harcama yoksa boş durum; İşletme profillerinde çoğu şubede ortak eksik bir kez gösterilir (`SHARED_SHARE` 0.5), son tam ay belirtilir; Kazananlar normal sayfa başlığı ve sade listeler.
+- **Müşteriler → Markalar (4. aşama):** sol menüde Müşteriler yok; Markalar listesinde müşteri adı / kartı, "Müşteri ekle", "Müşteri listesi"; `/customers` adresleri çalışır, menüde Markalar yanar.
+- **Gizlenen sağlayıcılar:** Entegrasyonlar'da DataForSEO, OpenAI, Gemini, Groq, OpenRouter gösterilmez (`IntegrationsIndex::HIDDEN_PROVIDERS`; kod ve adresler duruyor); Ayarlar › AI yalnız Anthropic.
+- **Sadeleşen ekranlar:** Markalar / Müşteriler (Dikkat rozeti yalnız gerçek istisnada, kanal noktaları, Filtreler paneli, seçim olunca yapışkan toplu işlem çubuğu), Dijital varlıklar, Web siteleri, Sorgular (tek araç çubuğu, seçimle açılan toplu işlemler), Ayarlar (bölüm düğmeleri), AI işleri (işlem adları Türkçe, teknik ayrıntı katlı), Geliştirme havuzu (kod adları başlıktan çıktı), Veri merkezi (bağlı olmayanlar katlı), WhatsApp, Profil.
+- **Kapsam dışı:** müşteri görünümü (5. aşama, ayrı karar; MASTER_SPEC'te müşteri girişi yok).
+- **Durum:** CODED; tam PHPUnit takımı geçer; telefon taraması yerel; görsel kabul yakup'un elle incelemesi.
+
 ## 2026-10-19 — Panel yeni tasarım, 1. ve 2. aşama (kabuk, tema, ortak bileşenler, Bugün, Onarım masası)
 
 - **Karar (yakup 2026-10-19 "tamam yap", thread "Panel tasarımı yenileme planı"):** panel ElevenLabs / Notion sadeliğinde, "yaşayan" ve ileride müşteriye açılabilir olacak. Plan: `https://claude.ai/artifact/MewWfPri3Mnmik9CKYg3Ka`; onaylanan HTML prototip: `https://claude.ai/artifact/25oTRa4xha7sD51ZMVfs3x`. Önce HTML prototip, onay, sonra kod yöntemi.

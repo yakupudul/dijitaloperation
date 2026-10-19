@@ -27,7 +27,7 @@
             @endif
         </div>
         @if ($notice !== '')
-            <p class="border-b border-gray-100 bg-emerald-50 px-4 py-2 text-xs text-emerald-800 dark:border-gray-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $notice }}</p>
+            <p class="border-b border-gray-100 bg-success-50 px-4 py-2 text-xs text-success-800 dark:border-gray-800 dark:bg-success-500/10 dark:text-success-300">{{ $notice }}</p>
         @endif
         <ul class="max-h-[28rem] divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
             @if (count($items) > 0)
@@ -53,7 +53,7 @@
                                 @endif
                             </div>
                         @endif
-                        <p class="mt-1 text-[11px] text-gray-400">{{ $item['when'] ?? '' }}@if (($item['repeat_label'] ?? '') !== '') · <span class="font-medium text-amber-600">{{ $item['repeat_label'] }}</span>@endif</p>
+                        <p class="mt-1 text-[11px] text-gray-400">{{ $item['when'] ?? '' }}@if (($item['repeat_label'] ?? '') !== '') · <span class="font-medium text-warning-600">{{ $item['repeat_label'] }}</span>@endif</p>
                         @if (! empty($item['is_unread']))
                             <button type="button" wire:click="markRead('{{ $item['id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.mark_read') }}</button>
                         @endif

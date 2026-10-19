@@ -15,9 +15,12 @@ use Illuminate\Support\Collection;
 use Illuminate\View\Component;
 
 /**
- * The shared frame line above every digital asset page: Customer › Brand › Asset breadcrumb (the brand opens its analysis tab), a switcher
- * to the brand's other assets, the "Veri Kaynakları" and "Düzenle" links, and below it the one "Veri durumu" strip
- * (DataStatusReader) — the only place an asset page says whether its sources are connected and current.
+ * The one compact page head of every digital asset page: a small gray Customer › Brand › Asset breadcrumb (the brand opens
+ * its analysis tab) with a switcher to the brand's other assets and the "Veri Kaynakları" / "Düzenle" links, then — when the
+ * page passes a `title` — the title row (brand avatar or `mark` slot, h1, `status` slot, `actions` slot on the right, `subtitle`
+ * or `meta` slot under it), then the one-line "Veri durumu" (DataStatusReader; the only place an asset page says whether its
+ * sources are connected and current), the open alerts as one collapsible line, the default slot and finally the `tabs` slot.
+ * Without a title the head is breadcrumb + status line + alerts and the page renders its own title below (older callers).
  */
 class AssetContext extends Component
 {
@@ -42,7 +45,14 @@ class AssetContext extends Component
     /** @var Collection<int, AssetAlert> */
     public Collection $alerts;
 
-    public function __construct(int|string|null $assetId, public string $current = 'page')
+    /** Logo of the brand for the title row avatar. */
+    public ?string $brandLogo = null;
+
+    /**
+     * @param  string|null  $title  h1 of the page; when given the head renders the title row (breadcrumb → title → status → tabs)
+     * @param  string|null  $subtitle  one gray line under the title (or pass a `meta` slot)
+     */
+    public function __construct(int|string|null $assetId, public string $current = 'page', public ?string $title = null, public ?string $subtitle = null)
     {
         $this->alerts = collect();
         $this->asset = ctype_digit((string) $assetId)
@@ -56,6 +66,7 @@ class AssetContext extends Component
         $this->typeLabel = DigitalAssetTypes::options()[(string) $asset->type] ?? (string) $asset->type;
         $this->assetLabel = self::labelFor($this->typeLabel, (string) $asset->name);
         $customer = $asset->brand?->customer;
+        $this->brandLogo = filled($asset->brand?->logo_url) ? (string) $asset->brand->logo_url : null;
         $this->showCustomer = $customer !== null && ($asset->brand === null || ! self::namesMatch((string) $customer->name, (string) $asset->brand->name));
         $this->hasSources = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type) !== [];
 

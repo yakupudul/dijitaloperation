@@ -44,7 +44,7 @@
                     <input type="email" name="email" value="{{ old('email', $email) }}" required autocomplete="username"
                         class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
                     @error('email')
-                        <span class="mt-1 block text-sm text-red-600 dark:text-red-400">{{ $message }}</span>
+                        <span class="mt-1 block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -53,7 +53,7 @@
                     <input type="password" name="password" required autocomplete="new-password"
                         class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
                     @error('password')
-                        <span class="mt-1 block text-sm text-red-600 dark:text-red-400">{{ $message }}</span>
+                        <span class="mt-1 block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
                     @enderror
                 </label>
 

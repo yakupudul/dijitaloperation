@@ -28,7 +28,7 @@
                     <li class="flex flex-wrap items-start justify-between gap-2 py-2">
                         <div class="min-w-0">
                             <p class="font-medium text-gray-800 dark:text-white/90">
-                                <span @class(['mr-1 rounded px-1.5 py-0.5 text-xs', 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' => $row['who'] === 'operator', 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $row['who'] !== 'operator'])>{{ $row['who'] === 'operator' ? 'Senin işin' : 'Sistem onarır' }}</span>
+                                <span @class(['mr-1 rounded px-1.5 py-0.5 text-xs', 'bg-warning-100 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300' => $row['who'] === 'operator', 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $row['who'] !== 'operator'])>{{ $row['who'] === 'operator' ? 'Senin işin' : 'Sistem onarır' }}</span>
                                 {{ $row['title'] }}@if ($row['asset']) <span class="font-normal text-gray-500">· {{ $row['asset'] }}</span>@endif
                             </p>
                             <p class="text-xs text-gray-500">{{ $row['detail'] }}</p>

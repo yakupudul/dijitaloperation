@@ -17,11 +17,11 @@
                 <div class="flex items-center justify-between gap-2">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $channel['label'] }}</h3>
                     @if ($channel['complete'])
-                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Hazır</span>
+                        <span class="rounded-full bg-success-50 px-2 py-0.5 text-xs text-success-700 dark:bg-success-500/10 dark:text-success-300">Hazır</span>
                     @elseif ($channel['unused'])
                         <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800">Kullanılmıyor</span>
                     @else
-                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{{ $channel['done'] }}/{{ $channel['total'] }}</span>
+                        <span class="rounded-full bg-warning-50 px-2 py-0.5 text-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">{{ $channel['done'] }}/{{ $channel['total'] }}</span>
                     @endif
                 </div>
                 @if ($channel['unused'])
@@ -36,9 +36,9 @@
                                 <span class="block text-xs text-gray-500">{{ $step['detail'] }}</span>
                                 @if ($step['action'] !== null && (in_array($step['state'], ['next', 'optional'], true) || ($step['always'] ?? false)) && ($isAdmin || ($step['action']['method'] ?? null) !== 'setupDiscover'))
                                     @if ($step['action']['kind'] === 'link')
-                                        <a href="{{ $step['action']['url'] }}" @if (! str_contains($step['action']['url'], '#')) wire:navigate @endif @class(['mt-1 inline-flex rounded-md px-2.5 py-1 text-xs font-medium', 'bg-brand-500 text-white hover:bg-brand-600' => $step['state'] === 'next', 'text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:ring-brand-500/30' => $step['state'] !== 'next'])>{{ $step['action']['label'] }}</a>
+                                        <a href="{{ $step['action']['url'] }}" @if (! str_contains($step['action']['url'], '#')) wire:navigate @endif @class(['mt-1 inline-flex rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset', 'text-gray-900 ring-gray-400 hover:bg-gray-50 dark:text-white dark:ring-gray-500 dark:hover:bg-white/5' => $step['state'] === 'next', 'text-gray-700 ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5' => $step['state'] !== 'next'])>{{ $step['action']['label'] }}</a>
                                     @else
-                                        <button type="button" wire:click="{{ $step['action']['method'] }}({{ $step['action']['arg'] !== null ? \Illuminate\Support\Js::from($step['action']['arg']) : '' }})" wire:loading.attr="disabled" @class(['mt-1 inline-flex rounded-md px-2.5 py-1 text-xs font-medium', 'bg-brand-500 text-white hover:bg-brand-600' => $step['state'] === 'next', 'text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:ring-brand-500/30' => $step['state'] !== 'next'])>{{ $step['action']['label'] }}</button>
+                                        <button type="button" wire:click="{{ $step['action']['method'] }}({{ $step['action']['arg'] !== null ? \Illuminate\Support\Js::from($step['action']['arg']) : '' }})" wire:loading.attr="disabled" @class(['mt-1 inline-flex rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset', 'text-gray-900 ring-gray-400 hover:bg-gray-50 dark:text-white dark:ring-gray-500 dark:hover:bg-white/5' => $step['state'] === 'next', 'text-gray-700 ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5' => $step['state'] !== 'next'])>{{ $step['action']['label'] }}</button>
                                     @endif
                                 @endif
                             </span>

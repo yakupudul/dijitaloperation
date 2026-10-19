@@ -90,7 +90,7 @@ final class IntegrationE2E3Test extends TestCase
 
         Livewire::test(Dashboard::class)->assertSee('Hata merkezi:')->assertSee('iş seni bekliyor');
         $this->get(route('operator.integrations'))->assertOk()->assertSee('Bağlantı sağlığı')->assertSee('Google yetkisi 3 gün içinde doluyor')
-            ->assertSee('Groq')->assertSee('OpenRouter');
+            ->assertDontSee('Groq')->assertDontSee('OpenRouter'); // hidden from the hub 2026-10-19: all AI runs on the Claude MCP queue, DataForSEO is never added
     }
 
     public function test_health_table_row_action_queues_a_stopped_account(): void

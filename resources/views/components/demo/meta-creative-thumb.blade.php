@@ -5,13 +5,13 @@
 
 @php
     $gradientClass = match ($gradient) {
-        'trust', 'emerald' => 'from-emerald-500/50 via-teal-400/25 to-slate-200/80 dark:to-slate-900/80',
-        'price', 'amber', 'orange' => 'from-amber-500/50 via-orange-400/25 to-stone-200/80 dark:to-stone-900/80',
-        'transform', 'rose' => 'from-rose-500/50 via-pink-400/25 to-slate-200/80 dark:to-slate-900/80',
-        'expert', 'blue' => 'from-blue-500/50 via-sky-400/25 to-slate-200/80 dark:to-slate-900/80',
-        'violet' => 'from-violet-500/50 via-fuchsia-400/20 to-slate-200/80 dark:to-slate-900/80',
-        'cyan' => 'from-cyan-500/45 via-teal-400/20 to-slate-200/80 dark:to-slate-900/80',
-        default => 'from-slate-500/45 via-slate-400/20 to-slate-200/80 dark:to-slate-900/80',
+        'trust', 'emerald' => 'from-success-500/50 via-teal-400/25 to-gray-200/80 dark:to-gray-900/80',
+        'price', 'amber', 'orange' => 'from-warning-500/50 via-orange-400/25 to-stone-200/80 dark:to-stone-900/80',
+        'transform', 'rose' => 'from-error-500/50 via-pink-400/25 to-gray-200/80 dark:to-gray-900/80',
+        'expert', 'blue' => 'from-gray-500/50 via-sky-400/25 to-gray-200/80 dark:to-gray-900/80',
+        'violet' => 'from-live-500/50 via-fuchsia-400/20 to-gray-200/80 dark:to-gray-900/80',
+        'cyan' => 'from-cyan-500/45 via-teal-400/20 to-gray-200/80 dark:to-gray-900/80',
+        default => 'from-gray-500/45 via-gray-400/20 to-gray-200/80 dark:to-gray-900/80',
     };
 @endphp
 

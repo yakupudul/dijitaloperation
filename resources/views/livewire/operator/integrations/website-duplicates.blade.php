@@ -27,8 +27,8 @@
         <p class="mt-1 max-w-3xl text-sm text-gray-500">Aynı alan adına (www., http/https ve sondaki / fark etmez) sahip birden fazla web sitesi kaydı. Birleştirince kopyanın bağlı hesapları, toplanmış verisi ve WordPress bağlayıcısı tutulan kayda taşınır; aynı şey iki kayıtta da varsa tutulanınki kalır. Kopya kayıt arşivlenir, silinmez. Birleştirmeyi yalnız Admin yapar; farklı müşterilere ait kayıtlar yetki devri onayı ister.</p>
     </div>
 
-    @if ($message !== '')<p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
-    @if ($error !== '')<p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ $error }}</p>@endif
+    @if ($message !== '')<p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>@endif
+    @if ($error !== '')<p class="rounded-lg bg-error-50 px-3 py-2 text-sm text-error-800">{{ $error }}</p>@endif
 
     @forelse ($groups as $group)
         @php $keeperId = $keeperFor($group); @endphp
@@ -37,7 +37,7 @@
                 <div>
                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ $group['host'] }}
                         <span class="font-normal text-gray-500">· {{ count($group['assets']) }} kayıt</span>
-                        @if ($group['cross_customer'])<span class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">farklı müşteriler</span>@endif
+                        @if ($group['cross_customer'])<span class="ml-1 rounded-full bg-warning-50 px-2 py-0.5 text-xs text-warning-800">farklı müşteriler</span>@endif
                     </p>
                     <p class="text-xs text-gray-500">Tutulacak kaydı seçin; varsayılan: aktif müşterinin markasındaki, bağlı hesabı olan, en çok verisi olan, en eski kayıt.</p>
                 </div>
@@ -79,7 +79,7 @@
                                 </td>
                                 <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
                                     {{ $row['customer'] ?? 'markasız' }}@if ($row['brand']) › {{ $row['brand'] }}@endif
-                                    @if ($row['customer'] && ! $row['customer_active'])<span class="text-xs text-amber-700">(pasif)</span>@endif
+                                    @if ($row['customer'] && ! $row['customer_active'])<span class="text-xs text-warning-700">(pasif)</span>@endif
                                 </td>
                                 <td class="py-2 pr-3 text-gray-500">{{ $row['created_at'] ? \Illuminate\Support\Carbon::parse($row['created_at'])->format('d.m.Y') : '—' }}</td>
                                 <td class="py-2 pr-3 text-right">{{ $row['counts']['bindings'] }}</td>
@@ -103,12 +103,12 @@
                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">Önizleme (deneme — hiçbir şey değişmez)</p>
                     @foreach ($plans as $duplicateId => $plan)
                         @if (isset($plan['error']))
-                            <p class="rounded-lg bg-rose-50 p-3 text-sm text-rose-800" wire:key="plan-{{ $duplicateId }}">#{{ $duplicateId }}: {{ $plan['error'] }}</p>
+                            <p class="rounded-lg bg-error-50 p-3 text-sm text-error-800" wire:key="plan-{{ $duplicateId }}">#{{ $duplicateId }}: {{ $plan['error'] }}</p>
                             @continue
                         @endif
                         <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]" wire:key="plan-{{ $duplicateId }}">
                             <p class="font-medium text-gray-800 dark:text-gray-100">#{{ $duplicateId }} → #{{ $keeperId }}: {{ $plan['move_total'] }} satır taşınır, {{ $plan['collision_total'] }} çakışma
-                                @if ($plan['cross_customer'])<span class="text-amber-700">· yetki devri</span>@endif
+                                @if ($plan['cross_customer'])<span class="text-warning-700">· yetki devri</span>@endif
                             </p>
                             @if ($plan['bindings'] !== [])
                                 <ul class="mt-2 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
@@ -128,7 +128,7 @@
                                             <tr>
                                                 <td class="py-0.5 pr-3">{{ $tableLabels[$table['table']] ?? $table['table'] }}</td>
                                                 <td class="py-0.5 pr-3 text-right">{{ $table['rows'] }}</td>
-                                                <td @class(['py-0.5 pr-3 text-right', 'text-amber-700' => $table['collisions'] > 0])>{{ $table['collisions'] }}</td>
+                                                <td @class(['py-0.5 pr-3 text-right', 'text-warning-700' => $table['collisions'] > 0])>{{ $table['collisions'] }}</td>
                                                 <td class="py-0.5 pr-3 text-gray-500">{{ $table['collisions'] > 0 ? ($ruleLabels[$table['rule']] ?? $table['rule']) : '—' }}</td>
                                             </tr>
                                         @endforeach

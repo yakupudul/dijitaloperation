@@ -12,15 +12,7 @@
     @if (! empty($behavior['engagement']))
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
             @foreach ($behavior['engagement'] as $metric)
-                <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                    <p class="text-xs text-gray-500">{{ $metric['metric'] }}</p>
-                    <p @class([
-                        'mt-1 text-xl font-semibold tabular-nums',
-                        'text-slate-400' => ($metric['state'] ?? '') === 'Not mapped' || ($metric['value'] ?? '') === 'Unavailable',
-                        'text-gray-900 dark:text-white' => ($metric['state'] ?? '') !== 'Not mapped' && ($metric['value'] ?? '') !== 'Unavailable',
-                    ])>{{ $metric['value'] }}</p>
-                    <p class="mt-1 text-[11px] text-gray-400">{{ $metric['state'] ?? '' }}</p>
-                </div>
+                <x-ta.metric-card :label="$metric['metric']" :value="$metric['value']" :hint="$metric['state'] ?? null" />
             @endforeach
         </div>
     @endif
@@ -47,7 +39,7 @@
                 <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['mapped_actions']) }}</td>
                 <td class="px-4 py-2.5">
                     @if (! empty($row['attention']))
-                        <span class="text-xs text-amber-700 dark:text-amber-400">{{ $row['attention'] }}</span>
+                        <span class="text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</span>
                     @else
                         <span class="text-xs text-gray-400">—</span>
                     @endif
@@ -69,8 +61,8 @@
                             <span>{{ $device['device'] }}</span>
                             <span class="tabular-nums">{{ $device['share_pct'] }}% · {{ number_format($device['sessions']) }}</span>
                         </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-sky-500" style="width: {{ min(100, (int) $device['share_pct']) }}%"></div>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                            <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, (int) $device['share_pct']) }}%"></div>
                         </div>
                     </li>
                 @endforeach
@@ -78,5 +70,5 @@
         </section>
     @endif
 
-    <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — pages without mapped business actions are not failed conversions.' }}</p>
+    <p class="text-[11px] text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — pages without mapped business actions are not failed conversions.' }}</p>
 </div>

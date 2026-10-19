@@ -9,41 +9,26 @@
     ];
 @endphp
 
-<div class="space-y-4">
+<div class="min-w-0 space-y-4">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" />
-
-    <div class="flex flex-col gap-3 border-b border-gray-200 pb-4 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex min-w-0 items-start gap-3">
-            <x-demo.digital-asset-mark type="ga4" size="lg" class="mt-0.5" />
-            <div class="min-w-0">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $identity['eyebrow'] ?? 'Google Analytics' }}</p>
-                <div class="mt-1 flex flex-wrap items-center gap-2">
-                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $identity['title'] }}</h1>
-                </div>
-                <a href="{{ route('operator.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    {{ $identity['relationship_line'] ?? $identity['measures_line'] ?? 'Measures · Website' }}
-                    @if (filled($identity['website_asset_id'] ?? null))
-                    ·
-                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website') }}</a>
-                    @endif
-                </p>
-                @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'ga4'])
-            </div>
-        </div>
-        <div class="shrink-0">
+    <x-operator.asset-context :asset-id="$assetId" :title="$identity['title']">
+        <x-slot:mark><x-demo.digital-asset-mark type="ga4" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
+        <x-slot:meta>
+                {{ $identity['relationship_line'] ?? $identity['measures_line'] ?? 'Measures · Website' }}
+                @if (filled($identity['website_asset_id'] ?? null))
+                    · <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
+                @endif
+        </x-slot:meta>
+        <x-slot:actions>
+            @if ($showPeriodBar)
+                <x-operator.date-range-picker :range="$this->pickerRange()" :last-day="$this->periodPickerMaxDate()" note="Analytics verisi 1–2 gün gecikmeli." class="w-full sm:w-auto" />
+            @endif
             @include('livewire.demo.partials._analytics-header-actions')
-        </div>
-    </div>
-
-    @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])
-
-    @if ($showPeriodBar)
-        <div class="flex justify-end">
-            <x-operator.date-range-picker :range="$this->pickerRange()" :last-day="$this->periodPickerMaxDate()" note="Analytics verisi 1–2 gün gecikmeli." />
-        </div>
-    @endif
+        </x-slot:actions>
+        <x-slot:tabs>
+            @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])
+        </x-slot:tabs>
+    </x-operator.asset-context>
 
     <p class="text-xs text-gray-400">{{ $data['demo_boundary'] }}</p>
 
@@ -114,7 +99,7 @@
         @if (! empty($selectedLanding['attention']))
             <div>
                 <p class="text-xs text-gray-400">Site uyarıları</p>
-                <p class="text-amber-700 dark:text-amber-400">{{ $selectedLanding['attention'] }}</p>
+                <p class="text-warning-700 dark:text-warning-400">{{ $selectedLanding['attention'] }}</p>
             </div>
         @endif
         @if (filled($selectedLanding['website_asset_id'] ?? $identity['website_asset_id'] ?? null))
@@ -147,7 +132,7 @@
                     @if (array_key_exists('count', $selectedEvent) && $selectedEvent['count'] !== null)
                         {{ number_format($selectedEvent['count']) }}
                     @else
-                        <span class="text-slate-400">Yok</span>
+                        <span class="text-gray-400">Yok</span>
                     @endif
                 </p>
             </div>
@@ -156,7 +141,7 @@
                 <p class="font-semibold">{{ $selectedEvent['mapped_action'] ?? 'Not mapped' }}</p>
             </div>
         </div>
-        <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — absent event signal is not performance.' }}</p>
+        <p class="text-[11px] text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — absent event signal is not performance.' }}</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -173,7 +158,7 @@
                     @if (array_key_exists('event_count', $selectedAction) && $selectedAction['event_count'] !== null)
                         {{ number_format($selectedAction['event_count']) }}
                     @else
-                        <span class="text-slate-400">Yok</span>
+                        <span class="text-gray-400">Yok</span>
                     @endif
                 </p>
             </div>
@@ -193,6 +178,6 @@
             </div>
         @endif
         <button type="button" wire:click="setMeasSub('business_actions')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Ölçüm eşlemesini aç</button>
-        <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Not mapped / Unavailable ≠ measured zero.' }}</p>
+        <p class="text-[11px] text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Not mapped / Unavailable ≠ measured zero.' }}</p>
     </x-demo.gads-drawer>
 @endif

@@ -8,10 +8,10 @@
 @endphp
 
 @if ($a === null)
-    <p class="{{ $card }} text-sm text-gray-500">Veri yok.</p>
+    <x-ta.empty-state size="sm" title="Veri yok." />
 @else
     <div class="flex flex-wrap items-end gap-3" data-testid="meta-analysis-filters">
-        <label class="min-w-[14rem] text-xs text-gray-500">Neye göre
+        <label class="w-full text-xs text-gray-500 sm:w-auto sm:min-w-[14rem]">Neye göre
             <select wire:model.live="focus" class="mt-1 block w-full rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
                 <option value="">Tüm hesap</option>
                 @if ($a['options']['services'] !== [])
@@ -47,7 +47,7 @@
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $value }}</p>
                 <p class="text-xs text-gray-500">
                     @if ($sub){{ $sub }} · @endif
-                    @if ($change === null)<span class="text-gray-400">karşılaştırma yok</span>@else<span @class(['font-semibold', 'text-emerald-600' => $moreIsGood ? $change > 0 : false, 'text-rose-600' => $moreIsGood && $change < 0, 'text-gray-600 dark:text-gray-300' => ! $moreIsGood])>{{ $pct($change) }}</span>@endif
+                    @if ($change === null)<span class="text-gray-400">karşılaştırma yok</span>@else<span @class(['font-semibold', 'text-success-600' => $moreIsGood ? $change > 0 : false, 'text-error-600' => $moreIsGood && $change < 0, 'text-gray-600 dark:text-gray-300' => ! $moreIsGood])>{{ $pct($change) }}</span>@endif
                 </p>
             </section>
         @endforeach
@@ -122,7 +122,7 @@
             @if ($a['regions'] === [])
                 <p class="px-4 py-4 text-sm text-gray-500">Veri yok.</p>
             @else
-                <table class="w-full text-sm">
+                <div class="overflow-x-auto"><table class="w-full min-w-[30rem] text-sm">
                     <thead><tr class="text-left text-xs text-gray-500"><th class="px-4 py-2 font-medium">Ülke / bölge</th><th class="{{ $th }}">Harcama</th><th class="{{ $th }}">Sonuç</th><th class="{{ $th }}">Sonuç başı</th></tr></thead>
                     @foreach ($a['regions'] as $country)
                         <tbody class="border-t border-gray-200 tabular-nums dark:border-gray-700" data-testid="meta-analysis-country">
@@ -132,7 +132,7 @@
                             @endforeach
                         </tbody>
                     @endforeach
-                </table>
+                </table></div>
             @endif
         </section>
 
@@ -142,7 +142,7 @@
                 <h2 class="font-semibold text-gray-900 dark:text-white">Yaş × cinsiyet · {{ $types[$a['type']][1] }}</h2>
                 <div class="flex gap-1">
                     @foreach (['leads', 'messages', 'purchases'] as $key)
-                        <button type="button" wire:click="$set('analysisType', '{{ $key }}')" @class(['rounded-md px-2 py-0.5 text-xs font-medium', 'bg-brand-500 text-white' => $a['type'] === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $a['type'] !== $key])>{{ ucfirst($types[$key][0]) }}</button>
+                        <button type="button" wire:click="$set('analysisType', '{{ $key }}')" @class(['rounded-md px-2 py-0.5 text-xs font-medium', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $a['type'] === $key, 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' => $a['type'] !== $key])>{{ ucfirst($types[$key][0]) }}</button>
                     @endforeach
                 </div>
             </div>
@@ -236,8 +236,8 @@
         <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-700">
             @forelse ($a['interests'] as $set)
                 <div class="flex flex-wrap items-start gap-3 py-2.5">
-                    <div class="w-64 min-w-0 shrink-0">
-                        <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $set['set'] }}</p>
+                    <div class="w-full min-w-0 sm:w-64 sm:shrink-0">
+                        <p class="truncate text-sm font-medium text-gray-900 dark:text-white" title="{{ $set['set'] }}">{{ $set['set'] }}</p>
                         <p class="text-xs text-gray-500">{{ $count($set['results']) }} {{ $set['label'] }} · {{ $types[$set['type']][1] }} {{ $money($set['cost']) }}</p>
                     </div>
                     <div class="flex min-w-0 flex-1 flex-wrap gap-1.5">

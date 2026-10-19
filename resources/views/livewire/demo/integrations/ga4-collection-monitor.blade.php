@@ -1,6 +1,6 @@
 <div wire:poll.15s.visible class="space-y-3">
     @if ($actionMessage)
-        <div class="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
+        <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-100 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20">
             {{ $actionMessage }}
         </div>
     @endif
@@ -14,8 +14,8 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <span @class([
                                 'h-2.5 w-2.5 rounded-full',
-                                'bg-blue-500 animate-pulse' => in_array($run['status'], ['queued', 'running', 'retrying']),
-                                'bg-amber-500' => $run['status'] === 'cancellation_requested',
+                                'bg-gray-500 animate-pulse' => in_array($run['status'], ['queued', 'running', 'retrying']),
+                                'bg-warning-500' => $run['status'] === 'cancellation_requested',
                             ])></span>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">
                                 GA4 · {{ $run['status_label'] }}
@@ -31,7 +31,7 @@
                             wire:click="stopRun({{ $run['id'] }})"
                             wire:loading.attr="disabled"
                             wire:target="stopRun({{ $run['id'] }})"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-rose-600 ring-1 ring-inset ring-gray-200 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:ring-gray-700 dark:hover:bg-rose-500/10"
+                            class="rounded-lg px-3 py-2 text-sm font-medium text-error-600 ring-1 ring-inset ring-gray-200 hover:bg-error-50 disabled:opacity-50 dark:text-error-300 dark:ring-gray-700 dark:hover:bg-error-500/10"
                         >
                             Durdur
                         </button>
@@ -55,7 +55,7 @@
                     @php
                         $liveErrors = collect($run['resources'])->flatMap(fn (array $resource) => collect($resource['errors'] ?? [])->map(fn (array $error) => [...$error, 'resource_name' => $resource['name']]));
                     @endphp
-                    <div class="mt-4 rounded-lg bg-amber-50 px-3.5 py-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                    <div class="mt-4 rounded-lg bg-warning-50 px-3.5 py-3 text-sm text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">
                         <div class="flex items-start gap-2">
                             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.7 2.5 17.2A2 2 0 0 0 4.2 20h15.6a2 2 0 0 0 1.7-2.8L13.7 3.7a2 2 0 0 0-3.4 0Z"></path></svg>
                             <div class="min-w-0 flex-1">
@@ -118,10 +118,10 @@
 
                                 @if (! empty($resource['errors']))
                                     <details class="mt-2">
-                                        <summary class="cursor-pointer select-none text-xs font-medium text-amber-700 dark:text-amber-300">{{ count($resource['errors']) }} hata ayrıntısı</summary>
+                                        <summary class="cursor-pointer select-none text-xs font-medium text-warning-700 dark:text-warning-300">{{ count($resource['errors']) }} hata ayrıntısı</summary>
                                         <div class="mt-2 space-y-2">
                                             @foreach ($resource['errors'] as $error)
-                                                <div class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                                                <div class="rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">
                                                     <p class="font-semibold">{{ $error['label'] }}</p>
                                                     <p class="mt-1 break-words">{{ $error['message'] }}</p>
                                                     @if (! empty($error['code']) || ! empty($error['category']))
@@ -144,7 +144,7 @@
                                     wire:click="stopResource({{ $resource['id'] }})"
                                     wire:loading.attr="disabled"
                                     wire:target="stopResource({{ $resource['id'] }})"
-                                    class="shrink-0 text-xs font-medium text-rose-600 hover:underline disabled:opacity-50 dark:text-rose-300"
+                                    class="shrink-0 text-xs font-medium text-error-600 hover:underline disabled:opacity-50 dark:text-error-300"
                                 >
                                     Bu mülkü durdur
                                 </button>
@@ -171,12 +171,12 @@
     @endforeach
 
     @if (! empty($issues))
-        <details class="rounded-xl border border-amber-200 p-4 dark:border-amber-900">
-            <summary class="cursor-pointer text-sm font-medium text-amber-800 dark:text-amber-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
-        <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-amber-200 dark:bg-gray-900 dark:ring-amber-800/60">
-            <div class="border-b border-amber-100 px-5 py-4 dark:border-amber-900/40">
+        <details class="rounded-xl border border-warning-200 p-4 dark:border-warning-900">
+            <summary class="cursor-pointer text-sm font-medium text-warning-800 dark:text-warning-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
+        <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-warning-200 dark:bg-gray-900 dark:ring-warning-800/60">
+            <div class="border-b border-warning-100 px-5 py-4 dark:border-warning-900/40">
                 <div class="flex items-start gap-3">
-                    <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">!</span>
+                    <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">!</span>
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Tamamlanamayan GA4 verileri</h2>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Son aktarımda hata kalan veri gruplarını inceleyebilir ve yalnızca eksikleri yeniden deneyebilirsiniz.</p>
@@ -191,7 +191,7 @@
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3>
-                                    <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ $issue['failed_count'] }} hata</span>
+                                    <span class="rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-medium text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">{{ $issue['failed_count'] }} hata</span>
                                 </div>
                                 <p class="mt-1 text-xs text-gray-500">{{ $issue['account_name'] }} · Property {{ $issue['property_id'] }} · {{ $issue['last_activity'] }}</p>
 

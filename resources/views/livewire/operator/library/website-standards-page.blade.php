@@ -19,8 +19,8 @@
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $tr ? 'Standartlar' : 'Standards' }}</h1>
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $tr ? 'Tüm markalar için ortak kontrol kütüphanesi. Değişiklikler sonraki değerlendirmelere uygulanır.' : 'Shared checks for every brand. Changes apply to future assessments.' }}</p>
     </header>
-    @if($message)<p role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>@endif
-    @if($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
+    @if($message)<p role="status" class="rounded-lg bg-success-50 p-3 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>@endif
+    @if($errors->any())<div role="alert" class="rounded-lg bg-error-50 p-3 text-sm text-error-700">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
     <nav class="flex gap-6 border-b border-gray-200 dark:border-gray-800" aria-label="{{ $tr ? 'Dijital varlık türü' : 'Asset type' }}">
         @foreach(['website' => $tr ? 'Web sitesi' : 'Website', 'google_business_profile' => $tr ? 'İşletme Profili' : 'Business Profile', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta Ads'] as $key => $label)
             <button type="button" wire:click="$set('assetType', '{{ $key }}')" @class(['border-b-2 px-1 pb-3 text-sm font-medium', 'border-brand-500 text-brand-600' => $assetType === $key, 'border-transparent text-gray-500' => $assetType !== $key])>{{ $label }}</button>
@@ -85,7 +85,7 @@
                                     @endif
                                 </div>
                                 @if($admin)
-                                    <button type="button" role="switch" aria-checked="{{ $standard['enabled'] ? 'true' : 'false' }}" aria-label="{{ $standard['title'] }}" wire:click="setEnabled('{{ $standard['id'] }}', {{ $standard['enabled'] ? 'false' : 'true' }})" wire:loading.attr="disabled" class="rounded-full border px-3 py-1.5 text-xs font-medium {{ $standard['enabled'] ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-gray-300 text-gray-500 dark:border-gray-700' }}">{{ $standard['enabled'] ? ($tr ? 'Etkin' : 'Enabled') : ($tr ? 'Devre dışı' : 'Disabled') }}</button>
+                                    <button type="button" role="switch" aria-checked="{{ $standard['enabled'] ? 'true' : 'false' }}" aria-label="{{ $standard['title'] }}" wire:click="setEnabled('{{ $standard['id'] }}', {{ $standard['enabled'] ? 'false' : 'true' }})" wire:loading.attr="disabled" class="rounded-full border px-3 py-1.5 text-xs font-medium {{ $standard['enabled'] ? 'border-success-200 bg-success-50 text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-300' : 'border-gray-300 text-gray-500 dark:border-gray-700' }}">{{ $standard['enabled'] ? ($tr ? 'Etkin' : 'Enabled') : ($tr ? 'Devre dışı' : 'Disabled') }}</button>
                                 @else<span class="text-xs text-gray-500">{{ $standard['enabled'] ? ($tr ? 'Etkin' : 'Enabled') : ($tr ? 'Devre dışı' : 'Disabled') }}</span>@endif
                             </div>
                             <details class="mt-3 text-sm text-gray-600 dark:text-gray-400">

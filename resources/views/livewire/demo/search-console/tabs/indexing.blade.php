@@ -26,11 +26,8 @@
 
     @if ($index_sub === 'coverage')
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            @foreach (['indexed' => 'Indexed', 'not_indexed' => 'Not indexed', 'unknown' => 'Unknown', 'excluded' => 'Excluded'] as $key => $label)
-                <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                    <p class="text-xs text-gray-500">{{ $label }}</p>
-                    <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($coverage[$key] ?? 0) }}</p>
-                </div>
+            @foreach (['indexed' => 'Dizinde', 'not_indexed' => 'Dizinde değil', 'unknown' => 'Bilinmiyor', 'excluded' => 'Hariç tutulan'] as $key => $label)
+                <x-ta.metric-card :label="$label" :value="number_format($coverage[$key] ?? 0, 0, ',', '.')" />
             @endforeach
         </div>
 
@@ -67,7 +64,7 @@
                         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
                         <p class="text-[11px] text-gray-400">{{ $row['role'] ?? '' }}</p>
                         @if (! empty($row['attention']))
-                            <p class="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">{{ $row['attention'] }}</p>
+                            <p class="mt-0.5 text-[11px] text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
                         @endif
                     </td>
                     <td class="px-4 py-2.5 text-xs">
@@ -75,7 +72,7 @@
                     </td>
                     <td class="px-4 py-2.5 text-xs">{{ $row['sitemap'] ?? '—' }}</td>
                     <td class="px-4 py-2.5 text-xs">
-                        <span @class(['font-medium text-amber-700 dark:text-amber-400' => ($row['canonical'] ?? '') === 'Mismatch'])>{{ $row['canonical'] ?? '—' }}</span>
+                        <span @class(['font-medium text-warning-700 dark:text-warning-400' => ($row['canonical'] ?? '') === 'Mismatch'])>{{ $row['canonical'] ?? '—' }}</span>
                     </td>
                     <td class="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300">{{ $row['search_visibility'] ?? '—' }}</td>
                     <td class="px-4 py-2.5">
@@ -112,22 +109,9 @@
         </x-ta.table>
     @else
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-500">Website URLs</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">{{ number_format($reconciliation['website_urls'] ?? 0) }}</p>
-            </div>
-            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-500">Sitemap URLs</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">{{ number_format($reconciliation['sitemap_urls'] ?? 0) }}</p>
-            </div>
-            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-500">Index observed</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">{{ number_format($reconciliation['index_observed'] ?? 0) }}</p>
-            </div>
-            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-500">Priority missing sitemap</p>
-                <p class="mt-1 text-xl font-semibold tabular-nums">{{ number_format($reconciliation['priority_missing_sitemap'] ?? 0) }}</p>
-            </div>
+            @foreach (['website_urls' => 'Sitedeki URL', 'sitemap_urls' => 'Site haritasındaki URL', 'index_observed' => 'Dizinde görülen', 'priority_missing_sitemap' => 'Site haritasında olmayan öncelikli'] as $key => $label)
+                <x-ta.metric-card :label="$label" :value="number_format($reconciliation[$key] ?? 0, 0, ',', '.')" />
+            @endforeach
         </div>
 
         <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -135,7 +119,7 @@
             <ul class="mt-3 space-y-2 text-sm text-gray-700 dark:text-gray-300">
                 @foreach ($reconciliation['gaps'] ?? [] as $gap)
                     <li class="flex gap-2">
-                        <span class="text-amber-500">·</span>
+                        <span class="text-warning-500">·</span>
                         <span>{{ $gap }}</span>
                     </li>
                 @endforeach

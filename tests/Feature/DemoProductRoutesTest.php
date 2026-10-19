@@ -53,7 +53,7 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee(__('operator.dashboard_exec.today'))
             ->assertDontSee('Agency Health');
 
-        $this->get(route('operator.customers'))->assertOk()->assertSee('Customers');
+        $this->get(route('operator.customers'))->assertOk()->assertSee('Müşteriler'); // Müşteriler merged into Markalar 2026-10-19: "Customers" was the sidebar entry
         $this->get(route('operator.brands'))->assertOk()->assertSee('Brands');
         $this->get(route('operator.brand', ['brand' => $this->workBrand->id]))
             ->assertOk()

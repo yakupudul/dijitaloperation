@@ -11,7 +11,7 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Journeys</h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Aggregated paths · no PII · configured measurement only</p>
         </div>
-        <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:bg-white/5 dark:text-gray-300">No PII · aggregated only</span>
+        <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">No PII · aggregated only</span>
     </div>
 
     <section>
@@ -31,7 +31,7 @@
                                 @if (array_key_exists('mapped_actions', $path))
                                     ·
                                     @if ($path['mapped_actions'] === null)
-                                        <span class="text-amber-700 dark:text-amber-400">actions Unavailable</span>
+                                        <span class="text-warning-700 dark:text-warning-400">actions Unavailable</span>
                                     @else
                                         {{ number_format($path['mapped_actions']) }} mapped actions
                                     @endif
@@ -65,7 +65,7 @@
                                 @endif
                                 <span @class([
                                     'inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 ring-inset',
-                                    'bg-slate-50 text-slate-400 ring-slate-200 dark:bg-white/[0.02] dark:ring-gray-700' => in_array($lane['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
+                                    'bg-gray-50 text-gray-400 ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-700' => in_array($lane['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
                                     'bg-white text-gray-800 ring-gray-200 dark:bg-white/[0.04] dark:text-white/90 dark:ring-gray-700' => ! in_array($lane['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
                                 ])>
                                     {{ $lane['label'] }}
@@ -75,7 +75,7 @@
                     @endif
 
                     @if (! empty($path['note']))
-                        <p class="mt-2 text-[11px] text-amber-700 dark:text-amber-400">{{ $path['note'] }}</p>
+                        <p class="mt-2 text-[11px] text-warning-700 dark:text-warning-400">{{ $path['note'] }}</p>
                     @endif
                 </article>
             @empty
@@ -109,11 +109,11 @@
                         @if (! empty($funnel['steps']))
                             <ol class="mt-3 space-y-2">
                                 @foreach ($funnel['steps'] as $step)
-                                    <li class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
+                                    <li class="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
                                         <span class="text-gray-700 dark:text-gray-300">{{ $step['label'] }}</span>
                                         <span @class([
                                             'font-semibold tabular-nums',
-                                            'text-slate-400' => in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
+                                            'text-gray-400' => in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
                                             'text-gray-900 dark:text-white' => ! in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
                                         ])>
                                             @if (in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true))

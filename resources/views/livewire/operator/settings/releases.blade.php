@@ -11,25 +11,25 @@
     <section class="rounded-xl bg-white p-4 text-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-live>
         <p class="text-gray-900 dark:text-white"><span class="font-semibold">Canlı sürüm:</span> {{ $release['sha'] ? substr($release['sha'], 0, 8) : 'bilinmiyor' }}@if($release['deployed_at']) · {{ $when($release['deployed_at']) }} deploy edildi @endif</p>
         @if($autoDeploy !== null)
-            <p @class(['mt-1', 'text-rose-700 dark:text-rose-300' => $autoDeploy['problem'], 'text-gray-600 dark:text-gray-400' => ! $autoDeploy['problem']]) data-auto-deploy="{{ $autoDeploy['state'] }}">
+            <p @class(['mt-1', 'text-error-700 dark:text-error-300' => $autoDeploy['problem'], 'text-gray-600 dark:text-gray-400' => ! $autoDeploy['problem']]) data-auto-deploy="{{ $autoDeploy['state'] }}">
                 Otomatik deploy: {{ $autoDeploy['label'] }}@if($autoDeploy['message'] !== '' && $autoDeploy['state'] !== 'idle') · {{ $autoDeploy['message'] }}@endif
                 @if($autoDeploy['checked_at'])<span class="text-xs opacity-70"> · son kontrol {{ $when($autoDeploy['checked_at']) }}</span>@endif
             </p>
             @if($autoDeploy['state'] === 'tests_failed' && $failure)
                 <details class="mt-2 text-xs" data-auto-deploy-failure>
-                    <summary class="cursor-pointer font-semibold text-rose-700 dark:text-rose-300">Geçmeyen testlerin ayrıntısı</summary>
+                    <summary class="cursor-pointer font-semibold text-error-700 dark:text-error-300">Geçmeyen testlerin ayrıntısı</summary>
                     <pre class="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ $failure }}</pre>
                 </details>
             @endif
         @else
-            <p class="mt-1 text-amber-700 dark:text-amber-300">Otomatik deploy sunucuda kurulu değil; canlıya almak için sunucuda <code>bash deploy/staging/auto-deploy.sh --install</code> bir kez çalıştırılmalı.</p>
+            <p class="mt-1 text-warning-700 dark:text-warning-300">Otomatik deploy sunucuda kurulu değil; canlıya almak için sunucuda <code>bash deploy/staging/auto-deploy.sh --install</code> bir kez çalıştırılmalı.</p>
         @endif
     </section>
 
     <section class="space-y-2" data-pending>
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Henüz canlıda değil ({{ count($pending) }})</h2>
         @forelse($pending as $commit)
-            <div wire:key="p-{{ $commit['sha'] }}" class="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm dark:bg-amber-500/10">
+            <div wire:key="p-{{ $commit['sha'] }}" class="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg bg-warning-50 px-3 py-2 text-sm dark:bg-warning-500/10">
                 <span class="min-w-0 flex-1 text-gray-900 dark:text-white">{{ $commit['subject'] }}</span>
                 <span class="text-xs text-gray-500">{{ substr($commit['sha'], 0, 8) }} · {{ $when($commit['at']) }} · {{ $commit['branch'] }}</span>
             </div>

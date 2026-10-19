@@ -3,12 +3,12 @@
     @if ($identity)
         @php
             $issues = collect($identity['rows'])->where('state', 'warn')->count();
-            $dot = ['ok' => 'bg-emerald-500', 'warn' => 'bg-amber-400', 'unknown' => 'bg-gray-300 dark:bg-gray-600'];
+            $dot = ['ok' => 'bg-success-500', 'warn' => 'bg-warning-400', 'unknown' => 'bg-gray-300 dark:bg-gray-600'];
         @endphp
         <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-brand-identity>
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Kimlik tutarlılığı @if ($issues > 0)<span class="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ $issues }} fark</span>@endif</h2>
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Kimlik tutarlılığı @if ($issues > 0)<span class="ml-1 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">{{ $issues }} fark</span>@endif</h2>
                     <p class="text-xs text-gray-500">İşletme Profili ile site aynı adı, telefonu ve adresi verince arama motorları ve yapay zekâ işletmeye daha çok güvenir.</p>
                 </div>
                 <button type="button" wire:click="recheck" wire:loading.attr="disabled" class="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Yeniden kontrol et</button>
@@ -18,7 +18,7 @@
                     <li class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2" data-identity-row="{{ $row['key'] }}" data-identity-state="{{ $row['state'] }}">
                         <span class="h-2 w-2 shrink-0 translate-y-[-1px] rounded-full {{ $dot[$row['state']] ?? $dot['unknown'] }}"></span>
                         <span class="w-44 shrink-0 font-semibold text-gray-900 dark:text-white">{{ $row['label'] }}</span>
-                        <span @class(['min-w-0 flex-1', 'text-amber-700 dark:text-amber-300' => $row['state'] === 'warn', 'text-gray-600 dark:text-gray-400' => $row['state'] !== 'warn'])>{{ $row['detail'] }}</span>
+                        <span @class(['min-w-0 flex-1', 'text-warning-700 dark:text-warning-300' => $row['state'] === 'warn', 'text-gray-600 dark:text-gray-400' => $row['state'] !== 'warn'])>{{ $row['detail'] }}</span>
                     </li>
                 @endforeach
             </ul>

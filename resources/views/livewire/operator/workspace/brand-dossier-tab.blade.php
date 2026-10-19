@@ -1,12 +1,12 @@
 <section class="space-y-4" data-brand-dossier>
     @if ($message !== '')
-        <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
+        <p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>
     @endif
 
     @if ($gaps->isNotEmpty())
-        <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-brand-gaps>
-            <h2 class="font-semibold text-amber-900 dark:text-amber-200">Eksikler · {{ $gaps->count() }}</h2>
-            <p class="mt-1 text-sm text-amber-800 dark:text-amber-300">AI işlerini tıkayan şeyler. "Onayla ve yap" yalnız MoxDOP içinde düzeltir; dışarıya hiçbir şey yazmaz.</p>
+        <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30" data-brand-gaps>
+            <h2 class="font-semibold text-warning-900 dark:text-warning-200">Eksikler · {{ $gaps->count() }}</h2>
+            <p class="mt-1 text-sm text-warning-800 dark:text-warning-300">AI işlerini tıkayan şeyler. "Onayla ve yap" yalnız MoxDOP içinde düzeltir; dışarıya hiçbir şey yazmaz.</p>
             <ul class="mt-3 space-y-3 text-sm">
                 @foreach ($gaps as $gap)
                     <li class="flex flex-wrap items-start justify-between gap-2" data-gap="{{ $gap->id }}">
@@ -42,7 +42,7 @@
                 @foreach ($audit as $finding)
                     <li class="flex flex-wrap items-start justify-between gap-2" data-audit-finding="{{ $finding->id }}">
                         <div class="min-w-0">
-                            <p class="font-medium text-rose-700 dark:text-rose-300">{{ $finding->title }}</p>
+                            <p class="font-medium text-error-700 dark:text-error-300">{{ $finding->title }}</p>
                             <p class="text-xs text-gray-600 dark:text-gray-400">{{ $finding->reason }}</p>
                             <ul class="mt-1 list-disc pl-4 text-xs text-gray-500">@foreach ((array) data_get($finding->action, 'examples', []) as $example)<li>{{ $example }}</li>@endforeach</ul>
                         </div>
@@ -88,7 +88,7 @@
                 </ul>
             @endif
             @if (! empty($care['questions']))
-                <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                <div class="mt-3 rounded-lg bg-warning-50 px-3 py-2 text-sm text-warning-900 dark:bg-warning-500/10 dark:text-warning-200">
                     <p class="font-medium">Ajanın soruları (cevabı Ayarlar › İş bağlamı içindeki hedefler / kısıtlara ya da ilgili ayara yaz):</p>
                     <ul class="mt-1 list-disc pl-5">
                         @foreach ($care['questions'] as $question)
@@ -99,10 +99,10 @@
             @endif
         @endif
         @if (! empty($care['blocked']))
-            <p class="mt-3 text-sm text-amber-700 dark:text-amber-300" data-care-blocked>{{ $care['blocked'] }}</p>
+            <p class="mt-3 text-sm text-warning-700 dark:text-warning-300" data-care-blocked>{{ $care['blocked'] }}</p>
         @endif
         @if (! empty($care['failed_at']) && (empty($care['reviewed_at']) || $care['failed_at'] > $care['reviewed_at']))
-            <p class="mt-3 text-sm text-rose-600">Son inceleme tamamlanamadı: {{ $care['error'] ?? '' }}</p>
+            <p class="mt-3 text-sm text-error-600">Son inceleme tamamlanamadı: {{ $care['error'] ?? '' }}</p>
         @endif
     </div>
 

@@ -123,8 +123,8 @@
                                         <span class="font-medium text-gray-800 dark:text-white/90">{{ $obs['path'] }}</span>
                                         <span class="tabular-nums text-gray-500">{{ $obs['share_pct'] }}%</span>
                                     </div>
-                                    <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                                        <div class="h-full rounded-full bg-violet-500" style="width: {{ min(100, $obs['share_pct']) }}%"></div>
+                                    <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                                        <div class="h-full rounded-full bg-live-500" style="width: {{ min(100, $obs['share_pct']) }}%"></div>
                                     </div>
                                 </li>
                             @endforeach
@@ -139,6 +139,6 @@
                 @endif
             </section>
         @endforeach
-        <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $demand['observed_query_note'] ?? '' }}</p>
+        <p class="text-[11px] text-gray-700 dark:text-gray-300">{{ $demand['observed_query_note'] ?? '' }}</p>
     @endif
 </div>

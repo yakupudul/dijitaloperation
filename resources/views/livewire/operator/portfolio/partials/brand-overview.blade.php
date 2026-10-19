@@ -28,26 +28,20 @@
         </div>
         <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             @foreach ($kpis as $kpi)
-                <div class="{{ $card }}" data-kpi="{{ $kpi['key'] }}" data-state="{{ $kpi['state'] }}">
-                    <p class="truncate text-xs text-gray-500">{{ $kpi['label'] }}</p>
-                    @if ($kpi['state'] === 'ok')
-                        <p class="truncate text-2xl font-semibold tabular-nums text-gray-900 dark:text-white" title="{{ $kpi['value'] }}">{{ $kpi['value'] }}</p>
-                        <p class="text-xs">
-                            @if ($kpi['delta'] !== null)
-                                <span @class(['font-medium', 'text-emerald-600' => $kpi['delta'] > 0, 'text-rose-600' => $kpi['delta'] < 0, 'text-gray-500' => $kpi['delta'] === 0])>{{ $kpi['delta'] > 0 ? '▲ +' : ($kpi['delta'] < 0 ? '▼ ' : '') }}%{{ abs($kpi['delta']) }}</span>
-                            @else
-                                <span class="text-gray-400">karşılaştırma yok</span>
-                            @endif
-                        </p>
-                    @else
-                        <p class="text-lg font-semibold text-gray-300 dark:text-gray-600">veri yok</p>
-                    @endif
-                    <p class="mt-1 text-[11px] leading-snug text-gray-500">{{ $kpi['note'] }}</p>
-                    <p class="mt-1 flex items-center justify-between gap-2 text-[11px]">
-                        <span class="truncate text-gray-400">{{ $kpi['source'] }}</span>
-                        @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="shrink-0 font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">{{ $kpi['action']['label'] }} →</a>@endif
+                @php
+                    $kpiOk = $kpi['state'] === 'ok';
+                    $kpiDelta = $kpiOk && $kpi['delta'] !== null ? ($kpi['delta'] > 0 ? '▲ +' : ($kpi['delta'] < 0 ? '▼ ' : '')).'%'.abs($kpi['delta']) : null;
+                    // Spend going up is not good or bad by itself: only results are coloured.
+                    $kpiTone = ! $kpiOk || $kpi['delta'] === null || $kpi['delta'] === 0 || $kpi['key'] === 'ad_spend' ? 'neutral' : ($kpi['delta'] > 0 ? 'positive' : 'negative');
+                @endphp
+                <x-ta.metric-card class="min-w-0" :label="$kpi['label']" :value="$kpiOk ? $kpi['value'] : 'veri yok'" :delta="$kpiDelta" :tone="$kpiTone" :muted="! $kpiOk"
+                    :spark="$kpiOk ? ($kpi['spark'] ?? null) : null" :hint="$kpi['note']" data-kpi="{{ $kpi['key'] }}" data-state="{{ $kpi['state'] }}" title="{{ $kpiOk ? $kpi['value'] : '' }}">
+                    @if ($kpiOk && $kpi['delta'] === null)<p class="text-[11px] text-gray-400">karşılaştırma yok</p>@endif
+                    <p class="flex min-w-0 items-center justify-between gap-2 text-[11px]">
+                        <span class="truncate text-gray-400" title="{{ $kpi['source'] }}">{{ $kpi['source'] }}</span>
+                        @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="link-neutral shrink-0 font-medium">{{ $kpi['action']['label'] }} →</a>@endif
                     </p>
-                </div>
+                </x-ta.metric-card>
             @endforeach
         </div>
     </section>
@@ -59,21 +53,21 @@
     @if (! $setupComplete)
         <section class="{{ $card }}" data-setup-missing>
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <div>
+                <div class="min-w-0">
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-white" data-setup-title="missing">Marka eksikleri · {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
                     <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır. Sistem eksikleri her gece kendisi doldurmayı dener.</p>
                     @if ($autofillNote = \App\Services\BrandSetup\BrandAutofill::note((int) $brandModel->id))
                         <p class="mt-1 text-xs text-gray-500" data-autofill-note>Son tur ({{ \Carbon\Carbon::parse($autofillNote['at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}): {{ $autofillNote['text'] }}</p>
                     @endif
                 </div>
-                <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Otomatik kur</a>
+                <x-ta.button variant="outline" size="xs" :href="route('operator.brand.setup', ['brand' => $brandModel->id])" wire:navigate class="w-full sm:w-auto">Otomatik kur</x-ta.button>
             </div>
             @include('livewire.operator.portfolio.partials.brand-setup-items', ['items' => $missingSetup->concat($reviewSetup)])
         </section>
     @elseif ($reviewSetup->isNotEmpty())
         <section x-data="{ open: false }" class="rounded-xl bg-white px-4 py-2.5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-setup-missing>
             <button type="button" x-on:click="open = ! open" x-bind:aria-expanded="open.toString()" aria-expanded="false" aria-controls="setup-review-list" class="flex w-full items-center gap-2 text-left text-xs" data-setup-toggle>
-                <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
+                <span class="h-2 w-2 shrink-0 rounded-full bg-success-500"></span>
                 <span class="font-semibold text-gray-900 dark:text-white" data-setup-title="review">Tamam · {{ $reviewSetup->count() }} alan kontrolünü bekliyor</span>
                 <span class="ml-auto text-gray-500" x-text="open ? 'Gizle' : 'Göster'">Göster</span>
             </button>
@@ -88,25 +82,27 @@
     @if ($journey)
         @php $worstKey = $journey['worst']['key'] ?? null; @endphp
         <section class="{{ $card }}" data-brand-journey>
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-2">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Yolculuk</h2>
-                <span class="text-xs text-gray-500">aramadan yazılan içeriğe</span>
+                <span class="text-xs text-gray-500">aramadan yazılan içeriğe<span class="sm:hidden"> · kaydır →</span></span>
             </div>
-            <ol class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            {{-- Phone: the steps scroll sideways inside the card (the page itself never does); wider screens show them all. --}}
+            <div class="-mx-4 mt-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0" data-journey-scroll>
+            <ol class="flex snap-x snap-mandatory gap-2 sm:grid sm:grid-cols-3 xl:grid-cols-6">
                 @foreach ($journey['stages'] as $stage)
                     @php
                         $isWorst = $worstKey === $stage['key'];
-                        $box = $isWorst ? 'bg-red-50 ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30' : 'bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800';
+                        $box = $isWorst ? 'bg-error-50 ring-error-200 dark:bg-error-500/10 dark:ring-error-500/30' : 'bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800';
                     @endphp
-                    <li data-journey-stage="{{ $stage['key'] }}" @if ($isWorst) data-journey-worst @endif @if (($journey['broken']['key'] ?? null) === $stage['key']) data-journey-broken @endif>
+                    <li class="w-36 shrink-0 snap-start sm:w-auto" data-journey-stage="{{ $stage['key'] }}" @if ($isWorst) data-journey-worst @endif @if (($journey['broken']['key'] ?? null) === $stage['key']) data-journey-broken @endif>
                         @if ($stage['url'] ?? null)
                             <a href="{{ $stage['url'] }}" wire:navigate class="block h-full rounded-lg p-2.5 ring-1 ring-inset transition hover:ring-gray-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 dark:hover:ring-gray-600 dark:focus-visible:outline-white {{ $box }}" data-journey-link="{{ $stage['key'] }}">
                         @else
                             <div class="h-full rounded-lg p-2.5 ring-1 ring-inset {{ $box }}">
                         @endif
-                            <p class="truncate text-xs text-gray-500">{{ $loop->iteration }}. {{ $stage['label'] }}</p>
-                            <p @class(['text-xl font-semibold tabular-nums', 'text-red-700 dark:text-red-300' => $isWorst, 'text-gray-900 dark:text-white' => ! $isWorst])>{{ number_format($stage['value'], 0, ',', '.') }}</p>
-                            <p @class(['truncate text-xs', 'font-medium text-red-700 dark:text-red-300' => $isWorst, 'text-gray-500' => ! $isWorst]) title="{{ $stage['detail'] }}">{{ $stage['detail'] }}</p>
+                            <p class="truncate text-xs text-gray-500" title="{{ $stage['label'] }}">{{ $loop->iteration }}. {{ $stage['label'] }}</p>
+                            <p @class(['text-xl font-semibold tabular-nums', 'text-error-700 dark:text-error-300' => $isWorst, 'text-gray-900 dark:text-white' => ! $isWorst])>{{ number_format($stage['value'], 0, ',', '.') }}</p>
+                            <p @class(['truncate text-xs', 'font-medium text-error-700 dark:text-error-300' => $isWorst, 'text-gray-500' => ! $isWorst]) title="{{ $stage['detail'] }}">{{ $stage['detail'] }}</p>
                         @if ($stage['url'] ?? null)
                             </a>
                         @else
@@ -115,15 +111,16 @@
                     </li>
                 @endforeach
             </ol>
+            </div>
             @if ($journey['broken'])
-                <p class="mt-2 flex flex-wrap items-baseline gap-x-2 text-xs text-red-700 dark:text-red-300" data-journey-reason>
+                <p class="mt-2 flex flex-wrap items-baseline gap-x-2 text-xs text-error-700 dark:text-error-300" data-journey-reason>
                     <span>{{ $journey['broken']['reason'] }}</span>
                     @if ($journey['broken']['fix'] !== 'ozet')
                         <button type="button" wire:click="setTab('{{ $journey['broken']['fix'] }}')" class="font-semibold text-gray-700 hover:underline dark:text-gray-200">Düzelt →</button>
                     @endif
                 </p>
             @elseif ($journey['worst'])
-                <p class="mt-2 text-xs text-red-700 dark:text-red-300" data-journey-reason>En çok kayıp: {{ $journey['worst']['text'] }}.</p>
+                <p class="mt-2 text-xs text-error-700 dark:text-error-300" data-journey-reason>En çok kayıp: {{ $journey['worst']['text'] }}.</p>
             @endif
             @if ($journey['foreign'] !== [])
                 <p class="mt-2 text-xs text-gray-500" data-journey-foreign>Markada olmayan hizmetlere ait aramalar: @foreach ($journey['foreign'] as $row){{ $row['service'] }} ({{ $row['queries'] }})@if (! $loop->last), @endif @endforeach · Bu hizmetler veriliyorsa markaya ekle.</p>
@@ -153,19 +150,19 @@
             </div>
             @if ($assetCards === [] && $channelFilter !== null)
                 <div class="{{ $card }} flex flex-wrap items-center justify-between gap-3" data-channel-missing>
-                    <div>
+                    <div class="min-w-0">
                         <p class="font-medium text-gray-900 dark:text-white">Markaya bağlı {{ $channelFilter['asset_label'] }} yok.</p>
                         <p class="text-xs text-gray-500">Bağlanmadan bu kanal için veri toplanmaz ve öneri üretilmez. Markada yoksa sorun değil.</p>
                     </div>
                     <span class="flex items-center gap-2">
-                        <a href="{{ route('operator.brand', ['brand' => $brandModel->id, 'tab' => 'varliklar']) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Hesap bağla</a>
-                        <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Varlık ekle</a>
+                        <x-ta.button variant="outline" size="xs" :href="route('operator.brand', ['brand' => $brandModel->id, 'tab' => 'varliklar'])" wire:navigate>Hesap bağla</x-ta.button>
+                        <x-ta.button variant="ghost" size="xs" :href="route('operator.asset.create', ['brandId' => $brandModel->id])" wire:navigate>Varlık ekle</x-ta.button>
                     </span>
                 </div>
             @elseif ($assetCards === [])
                 <div class="{{ $card }} text-gray-500">
                     Henüz dijital varlık yok. Web sitesini ekleyip Google / Meta hesaplarını bağlayınca rakamlar burada görünür.
-                    <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="ml-1 font-medium text-gray-700 hover:underline dark:text-gray-200">Otomatik kur →</a>
+                    <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="link-neutral ml-1 font-medium">Otomatik kur →</a>
                 </div>
             @else
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -185,7 +182,7 @@
                 @forelse ($work['items'] as $item)
                     <div wire:key="work-{{ $item['id'] }}" class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800" data-work-item="{{ $item['id'] }}">
                         <div class="flex items-start justify-between gap-3">
-                            <p class="min-w-0 font-medium text-gray-900 dark:text-white">@if ($channelFilter === null)<span class="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800">{{ $item['channel_label'] }}</span>@endif{{ $item['title'] }}</p>
+                            <p class="min-w-0 break-words font-medium text-gray-900 dark:text-white">@if ($channelFilter === null)<span class="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800">{{ $item['channel_label'] }}</span>@endif{{ $item['title'] }}</p>
                             @if ($item['url'])<a href="{{ $item['url'] }}" wire:navigate class="shrink-0 text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Aç →</a>@endif
                         </div>
                         @if ($item['reason'] !== '')<p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ $item['reason'] }}</p>@endif
@@ -224,7 +221,7 @@
                                 @endif
                                     @if ($service['is_priority'])<span aria-label="Ana hizmet">★</span>@endif
                                     <span class="truncate">{{ $service['name'] }}</span>
-                                    @if ($service['pages'] === 0)<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-hidden="true"></span><span class="sr-only">Sayfa eşlenmedi</span>@endif
+                                    @if ($service['pages'] === 0)<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-400" aria-hidden="true"></span><span class="sr-only">Sayfa eşlenmedi</span>@endif
                                 @if ($service['hub'])
                                     </a>
                                 @else
@@ -242,7 +239,7 @@
                         @endif
                     </ul>
                     @if ($serviceSummary['mapped'] < $serviceSummary['total'])
-                        <p class="flex items-center gap-1.5 px-4 pb-3 text-[11px] text-gray-500"><span class="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true"></span>Sayfa eşlenmedi</p>
+                        <p class="flex items-center gap-1.5 px-4 pb-3 text-[11px] text-gray-500"><span class="h-1.5 w-1.5 rounded-full bg-warning-400" aria-hidden="true"></span>Sayfa eşlenmedi</p>
                     @endif
                 @else
                     <p class="px-4 py-3 text-gray-500">Markaya hizmet eklenmedi. "Otomatik kur" siteden önerir ya da Ayarlar → Marka bilgileri'nden eklenir.</p>

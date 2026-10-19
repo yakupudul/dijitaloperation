@@ -1,10 +1,10 @@
 @php
     $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $select = 'h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white';
-    $chip = ['ok' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'warn' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'bad' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300', 'muted' => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'];
+    $chip = ['ok' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300', 'warn' => 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300', 'bad' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300', 'muted' => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'];
     // Page-local badge colours: red only for lost money / traffic, amber "look at it", grey information, green current.
     $badge = ['loss' => $chip['bad'], 'warn' => $chip['warn'], 'ok' => $chip['ok'], 'muted' => $chip['muted']];
-    $dot = ['loss' => 'bg-rose-500', 'warn' => 'bg-amber-500', 'ok' => 'bg-emerald-500', 'muted' => 'bg-gray-400'];
+    $dot = ['loss' => 'bg-error-500', 'warn' => 'bg-warning-500', 'ok' => 'bg-success-500', 'muted' => 'bg-gray-400'];
     $quickViews = ['all' => 'Tümü', 'needs_attention' => 'Dikkat istiyor', 'data_issues' => 'Veri sorunu', 'active_work' => 'Açık işi olan', 'recent' => 'Son güncellenen'];
     $views = ['matrix' => 'Marka × kanal', 'table' => 'Liste', 'cards' => 'Kart'];
 @endphp
@@ -86,8 +86,14 @@
                     @forelse ($matrix['rows'] as $row)
                         <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:key="matrix-{{ $row['brand_id'] }}" data-matrix-row="{{ $row['brand_id'] }}">
                             <th scope="row" class="px-4 py-2.5 font-normal">
-                                <a href="{{ route('operator.assets', ['brand' => $row['brand_id']]) }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</a>
-                                <p class="text-xs text-gray-500">{{ $row['customer'] }}</p>
+                                <div class="flex min-w-0 items-center gap-2">
+                                    <x-ta.brand-avatar :name="$row['brand']" :logo="$row['logo_url'] ?? null" size="xs" />
+                                    <div class="min-w-0">
+                                        <a href="{{ route('operator.assets', ['brand' => $row['brand_id']]) }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</a>
+                                        {{-- The customer only when it is not the brand's own name (2026-10-19: it was the same name under itself). --}}
+                                        @if (filled($row['customer']) && mb_strtolower(trim((string) $row['customer'])) !== mb_strtolower(trim((string) $row['brand'])))<p class="break-words text-xs text-gray-500">{{ $row['customer'] }}</p>@endif
+                                    </div>
+                                </div>
                             </th>
                             @foreach ($matrix['columns'] as $column => $label)
                                 @php($cell = $row['cells'][$column] ?? ['count' => 0])
@@ -131,13 +137,13 @@
                         <div class="min-w-0">
                             <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $asset['display_name'] }}</a>
                             <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']) · {{ $asset['stored_name'] }}@endif</p>
-                            <p class="text-xs text-gray-500"><a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="hover:underline">{{ $asset['brand_name'] }}</a> · {{ $asset['customer_name'] }}</p>
+                            <p class="text-xs text-gray-500"><a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="hover:underline">{{ $asset['brand_name'] }}</a>@if (mb_strtolower(trim((string) $asset['customer_name'])) !== mb_strtolower(trim((string) $asset['brand_name']))) · {{ $asset['customer_name'] }}@endif</p>
                         </div>
                     </div>
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
                         <span class="whitespace-nowrap rounded-full px-2 py-0.5 font-medium {{ $badge[$asset['badge']['tone']] ?? $chip['muted'] }}" title="{{ $asset['badge']['title'] }}">{{ $asset['badge']['label'] }}</span>
                         @if ($asset['operational_status'] !== 'active')<span class="rounded-full px-2 py-0.5 {{ $chip['muted'] }}">{{ $asset['operational_status_label'] }}</span>@endif
-                        <span class="text-gray-500"><span class="tabular-nums">{{ $asset['open_work'] }}</span> açık iş @if ($asset['critical'] > 0)· <span class="font-medium text-amber-700 dark:text-amber-300">{{ $asset['critical'] }} kritik</span>@endif</span>
+                        <span class="text-gray-500"><span class="tabular-nums">{{ $asset['open_work'] }}</span> açık iş @if ($asset['critical'] > 0)· <span class="font-medium text-warning-700 dark:text-warning-300">{{ $asset['critical'] }} kritik</span>@endif</span>
                     </div>
                     <p class="mt-3 flex gap-3 text-xs">
                         <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">Aç</a>
@@ -177,7 +183,7 @@
                             </td>
                             <td class="hidden px-4 py-3 md:table-cell">
                                 <a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="text-gray-700 hover:underline dark:text-gray-300">{{ $asset['brand_name'] }}</a>
-                                <p class="text-xs text-gray-400">{{ $asset['customer_name'] }}</p>
+                                @if (mb_strtolower(trim((string) $asset['customer_name'])) !== mb_strtolower(trim((string) $asset['brand_name'])))<p class="text-xs text-gray-400">{{ $asset['customer_name'] }}</p>@endif
                             </td>
                             <td class="px-4 py-3" data-asset-data="{{ $asset['tone'] }}">
                                 <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -188,7 +194,7 @@
                                 </span>
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums" data-asset-work>
-                                {{ $asset['open_work'] }}@if ($asset['critical'] > 0)<span class="text-gray-400"> · </span><span class="font-medium text-amber-700 dark:text-amber-300">{{ $asset['critical'] }} kritik</span>@endif
+                                {{ $asset['open_work'] }}@if ($asset['critical'] > 0)<span class="text-gray-400"> · </span><span class="font-medium text-warning-700 dark:text-warning-300">{{ $asset['critical'] }} kritik</span>@endif
                             </td>
                             <td class="hidden px-4 py-3 sm:table-cell">
                                 <span @class(['whitespace-nowrap rounded-full px-2 py-0.5 text-xs', $chip['ok'] => $asset['operational_status'] === 'active', $chip['muted'] => $asset['operational_status'] !== 'active'])>{{ $asset['operational_status_label'] }}</span>

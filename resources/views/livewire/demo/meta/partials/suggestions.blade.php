@@ -1,5 +1,5 @@
 {{-- Meta suggestions: label · reason · copyable instruction · buttons. $items, $panel, $editId --}}
-<section class="{{ $panel }} divide-y divide-gray-100 dark:divide-gray-700" data-testid="meta-suggestions">
+<section class="{{ $panel }} divide-y divide-gray-100 dark:divide-gray-800" data-testid="meta-suggestions">
     @forelse ($items as $s)
         @php
             $action = $s->action ?? [];
@@ -9,11 +9,11 @@
         <div class="px-4 py-3" wire:key="sug-{{ $s->id }}">
             <div class="flex flex-wrap items-start gap-2">
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $s->title }}@if ($locked) <span class="ml-1 rounded bg-gray-100 px-1.5 text-[11px] font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">elle düzenlendi</span>@endif</p>
+                    <p class="break-words text-sm font-semibold text-gray-900 dark:text-white">{{ $s->title }}@if ($locked) <span class="ml-1 rounded bg-gray-100 px-1.5 text-[11px] font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">elle düzenlendi</span>@endif</p>
                     <p class="text-sm text-gray-600 dark:text-gray-300">{{ $s->reason }}</p>
                 </div>
-                <div class="flex shrink-0 gap-1.5">
-                    <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded bg-success-500 px-2 py-1 text-xs font-semibold text-white hover:bg-success-600">Onayla</button>
+                <div class="flex shrink-0 flex-wrap gap-1.5">
+                    <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-200 dark:ring-gray-700">Onayla</button>
                     <button type="button" wire:click="startEdit({{ $s->id }})" class="rounded px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Düzenle</button>
                     <button type="button" wire:click="dismissSuggestion({{ $s->id }})" class="rounded px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Reddet</button>
                     <button type="button" wire:click="snoozeSuggestion({{ $s->id }})" class="rounded px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Ertele</button>
@@ -29,15 +29,15 @@
                 </div>
             @elseif ($text !== '')
                 <div class="mt-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]" x-data="{ text: @js($text) }">
-                    <p class="whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $text }}</p>
-                    <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="mt-1 text-xs font-semibold text-brand-600 hover:underline">Kopyala</button>
+                    <p class="whitespace-pre-line break-words text-gray-800 dark:text-gray-200">{{ $text }}</p>
+                    <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="link-neutral mt-1 text-xs font-medium">Kopyala</button>
                 </div>
             @endif
             @if (is_array($action['change_proposal'] ?? null))
-                <div class="mt-2 rounded-lg bg-amber-50 p-3 text-sm dark:bg-amber-500/10">
-                    <p class="text-xs font-semibold text-amber-800 dark:text-amber-200">Değişiklik önerisi</p>
+                <div class="mt-2 rounded-lg bg-warning-50 p-3 text-sm dark:bg-warning-500/10">
+                    <p class="text-xs font-semibold text-warning-800 dark:text-warning-200">Değişiklik önerisi</p>
                     <p class="mt-1 whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $action['change_proposal']['text'] ?? '' }}</p>
-                    <button type="button" wire:click="takeProposal({{ $s->id }})" class="mt-1 text-xs font-semibold text-brand-600 hover:underline">Öneriyi al</button>
+                    <button type="button" wire:click="takeProposal({{ $s->id }})" class="link-neutral mt-1 text-xs font-medium">Öneriyi al</button>
                 </div>
             @endif
             @if (($s->evidence ?? []) !== [])
@@ -50,6 +50,6 @@
             @endif
         </div>
     @empty
-        <p class="px-4 py-5 text-sm text-gray-500">Açık öneri yok.</p>
+        <x-ta.empty-state size="sm" title="Açık öneri yok." class="m-4" />
     @endforelse
 </section>

@@ -1,7 +1,7 @@
 @php
     $num = fn ($value) => $value === null ? '—' : number_format((float) $value, 0, ',', '.');
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700';
-    $panel = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700';
+    $card = 'surface p-4';
+    $panel = 'surface';
     $btn = 'rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]';
     $primary = 'rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $profile = $data['profile'] ?? [];
@@ -9,8 +9,8 @@
     $stateLine = function (?array $state): ?array {
         return match ($state['status'] ?? null) {
             'running' => ['text-gray-500', 'Çalışıyor…', true],
-            'failed' => ['text-rose-600', (string) ($state['message'] ?? 'Başarısız.'), false],
-            'ready' => ['text-emerald-600', (string) ($state['message'] ?? 'Hazır.'), false],
+            'failed' => ['text-error-600', (string) ($state['message'] ?? 'Başarısız.'), false],
+            'ready' => ['text-success-600', (string) ($state['message'] ?? 'Hazır.'), false],
             default => null,
         };
     };
@@ -18,44 +18,38 @@
 
 <div class="space-y-5">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" />
-
-    <div class="flex flex-col gap-3 border-b border-gray-200 pb-4 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex min-w-0 items-center gap-3">
-            <x-demo.digital-asset-mark type="gbp" size="lg" />
-            <div class="min-w-0">
-                <h1 class="truncate text-xl font-bold text-gray-900 dark:text-white" title="{{ $identity['title'] }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $identity['title']) }}</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $identity['location_line'] ?: '—' }} · Son veri: {{ $identity['last_refresh'] ?? '—' }}</p>
-            </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
+    <x-operator.asset-context :asset-id="$assetId" :title="\App\Services\Gbp\Desk\GbpDesk::shortName((string) $identity['title'])">
+        <x-slot:mark><x-demo.digital-asset-mark type="gbp" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
+        <x-slot:meta>{{ $identity['location_line'] ?: '—' }} · Son veri: {{ $identity['last_refresh'] ?? '—' }}</x-slot:meta>
+        <x-slot:actions>
             @if ($ranged)
-                <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="İşletme Profili verisi birkaç gün gecikmeli." />
+                <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="İşletme Profili verisi birkaç gün gecikmeli." class="w-full sm:w-auto" />
             @endif
             <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $primary }}">Verileri yenile</button>
-        </div>
-    </div>
-
-    <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="İşletme Profili">
-        @foreach ($tabs as $key => $label)
-            <button type="button" wire:click="setTab('{{ $key }}')" @class([
-                'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium',
-                'border-brand-500 text-brand-600 dark:text-brand-400' => $tab === $key,
-                'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => $tab !== $key,
-            ])>{{ $label }}@if ($key === 'todo' && $openCount > 0) <span class="ml-1 rounded-full bg-brand-50 px-1.5 text-xs text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ $openCount }}</span>@endif</button>
-        @endforeach
-    </nav>
+        </x-slot:actions>
+        <x-slot:tabs>
+            <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="İşletme Profili">
+                @foreach ($tabs as $key => $label)
+                    <button type="button" wire:click="setTab('{{ $key }}')" @class([
+                        'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium',
+                        'border-brand-500 text-brand-600 dark:text-brand-400' => $tab === $key,
+                        'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => $tab !== $key,
+                    ])>{{ $label }}@if ($key === 'todo' && $openCount > 0) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-xs tabular-nums text-gray-700 dark:bg-white/5 dark:text-gray-300">{{ $openCount }}</span>@endif</button>
+                @endforeach
+            </nav>
+        </x-slot:tabs>
+    </x-operator.asset-context>
 
     @if (! $bound)
-        <section class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-900/50 dark:bg-amber-950/20">
-            <p class="font-semibold text-amber-900 dark:text-amber-200">Konum bağlı değil</p>
-            <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="mt-2 inline-flex rounded-lg bg-amber-600 px-3 py-1.5 font-semibold text-white">Bağla</a>
+        <section class="tone-look rounded-xl p-4 text-sm">
+            <p class="font-semibold">Konum bağlı değil</p>
+            <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="{{ $primary }} mt-2 inline-flex">Bağla</a>
         </section>
     @elseif (($data['migration_mode'] ?? '') !== 'real')
-        <p class="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">Veri yok: profil henüz toplanmadı. “Verileri yenile”.</p>
+        <p class="tone-look rounded-lg px-4 py-2 text-sm">Veri yok: profil henüz toplanmadı. “Verileri yenile”.</p>
     @endif
     @if (filled($connection['last_error'] ?? null))
-        <p class="rounded-lg bg-rose-50 px-4 py-2 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">Son toplama: {{ $connection['last_error_hint'] ?? $connection['last_error'] }}</p>
+        <p class="tone-look rounded-lg px-4 py-2 text-xs">Son toplama: {{ $connection['last_error_hint'] ?? $connection['last_error'] }}</p>
     @endif
 
     @if ($tab === 'overview')
@@ -64,51 +58,51 @@
             $views = $n['views'];
             $pct = $views['change_pct'] ?? null;
         @endphp
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="gbp-numbers">
-            <section class="{{ $card }}">
+        <div class="grid grid-cols-2 gap-3 xl:grid-cols-5" data-testid="gbp-numbers">
+            <section class="{{ $card }} min-w-0">
                 <p class="text-xs text-gray-500">Görüntüleme (harita + arama) · {{ $range->label() }}</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $num($views['current'] ?? null) }}</p>
-                <p @class(['text-xs', 'text-emerald-600' => ($pct ?? 0) >= 0, 'text-rose-600' => ($pct ?? 0) < 0, 'text-gray-400' => $pct === null])>{{ $pct === null ? 'önceki dönem yok' : (($pct > 0 ? '+' : '').$pct.'% karşılaştırma dönemine göre') }}</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $num($views['current'] ?? null) }}</p>
+                <p @class(['text-xs', 'text-success-600' => ($pct ?? 0) >= 0, 'text-error-600' => ($pct ?? 0) < 0, 'text-gray-400' => $pct === null])>{{ $pct === null ? 'önceki dönem yok' : (($pct > 0 ? '+' : '').$pct.'% karşılaştırma dönemine göre') }}</p>
             </section>
-            <section class="{{ $card }}">
+            <section class="{{ $card }} min-w-0">
                 <p class="text-xs text-gray-500">Tıklama · {{ $range->label() }}</p>
                 @if ($n['actions'])
-                    <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $num($n['actions']['calls'] + $n['actions']['directions'] + $n['actions']['website_clicks']) }}</p>
+                    <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $num($n['actions']['calls'] + $n['actions']['directions'] + $n['actions']['website_clicks']) }}</p>
                     <p class="text-xs text-gray-500">Arama {{ $num($n['actions']['calls']) }} · Yol {{ $num($n['actions']['directions']) }} · Web {{ $num($n['actions']['website_clicks']) }}</p>
                 @else
-                    <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">—</p><p class="text-xs text-gray-400">veri yok</p>
+                    <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">—</p><p class="text-xs text-gray-400">veri yok</p>
                 @endif
             </section>
-            <section class="{{ $card }}">
+            <section class="{{ $card }} min-w-0">
                 <p class="text-xs text-gray-500">Puan</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $n['rating'] !== null ? number_format($n['rating'], 1, ',', '.') : '—' }} <span class="text-amber-500">★</span></p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $n['rating'] !== null ? number_format($n['rating'], 1, ',', '.') : '—' }} <span class="text-warning-500">★</span></p>
                 <p class="text-xs text-gray-500">{{ $num($n['review_count']) }} yorum</p>
             </section>
-            <section class="{{ $card }}">
+            <section class="{{ $card }} min-w-0">
                 <p class="text-xs text-gray-500">Yanıtsız yorum</p>
-                <p @class(['mt-1 text-2xl font-bold', 'text-rose-600' => ($n['unanswered'] ?? 0) > 0, 'text-gray-900 dark:text-white' => ($n['unanswered'] ?? 0) === 0])>{{ $num($n['unanswered']) }}</p>
-                @if (($n['unanswered'] ?? 0) > 0)<button type="button" wire:click="showUnanswered" class="text-xs font-medium text-brand-600 hover:underline">Yanıtla</button>@endif
+                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $num($n['unanswered']) }}</p>
+                @if (($n['unanswered'] ?? 0) > 0)<button type="button" wire:click="showUnanswered" class="text-xs font-medium link-neutral">Yanıtla</button>@endif
             </section>
-            <section class="{{ $card }}">
+            <section class="{{ $card }} min-w-0">
                 <p class="text-xs text-gray-500">Profil standartları</p>
-                <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $n['standards'] ? $n['standards']['passed'].' / '.$n['standards']['total'] : '—' }}</p>
+                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $n['standards'] ? $n['standards']['passed'].' / '.$n['standards']['total'] : '—' }}</p>
                 <p class="text-xs text-gray-500">geçen / toplam</p>
             </section>
         </div>
         @if ($openCount > 0)
-            <p class="text-sm text-gray-600 dark:text-gray-300">{{ $openCount }} açık öneri · <button type="button" wire:click="setTab('todo')" class="font-semibold text-brand-600 hover:underline">Yapılacaklar</button></p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">{{ $openCount }} açık öneri · <button type="button" wire:click="setTab('todo')" class="font-semibold link-neutral">Yapılacaklar</button></p>
         @endif
 
         @if ($desk)
             <section class="{{ $card }}" data-testid="gbp-desk-state">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">İşletme profilleri · {{ $desk['score'] }}/6 tamam</h3>
-                    <a href="{{ route('operator.gbp-desk', ['marka' => $desk['brand_id'], 'isletme' => $desk['asset_id']]) }}" class="text-xs font-medium text-brand-600 hover:underline">Durum ve ölçümde aç →</a>
+                    <a href="{{ route('operator.gbp-desk', ['marka' => $desk['brand_id'], 'isletme' => $desk['asset_id']]) }}" class="text-xs font-medium link-neutral">Durum ve ölçümde aç →</a>
                 </div>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach ($desk['checks'] as $key => $check)
-                        <a href="{{ route($check['route'], ['marka' => $desk['brand_id']]) }}" wire:key="desk-check-{{ $key }}" @class(['flex items-start gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset hover:bg-gray-50 dark:hover:bg-white/[0.03]', 'ring-emerald-200 dark:ring-emerald-500/30' => $check['ok'], 'ring-amber-200 dark:ring-amber-500/30' => ! $check['ok']])>
-                            <span @class(['font-bold', 'text-emerald-600' => $check['ok'], 'text-amber-600' => ! $check['ok']])>{{ $check['ok'] ? '✓' : '!' }}</span>
+                        <a href="{{ route($check['route'], ['marka' => $desk['brand_id']]) }}" wire:key="desk-check-{{ $key }}" @class(['flex items-start gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset hover:bg-gray-50 dark:hover:bg-white/[0.03]', 'ring-success-200 dark:ring-success-500/30' => $check['ok'], 'ring-warning-200 dark:ring-warning-500/30' => ! $check['ok']])>
+                            <span @class(['font-semibold', 'text-success-600' => $check['ok'], 'text-warning-600' => ! $check['ok']])>{{ $check['ok'] ? '✓' : '!' }}</span>
                             <span><span class="font-semibold text-gray-900 dark:text-white">{{ $check['label'] }}</span><span class="block text-gray-500">{{ $check['hint'] }}</span></span>
                         </a>
                     @endforeach
@@ -116,9 +110,9 @@
                 <h4 class="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">MoxDOP’un bu profilde yaptıkları</h4>
                 @forelse ($desk['history'] as $item)
                     <div wire:key="desk-work-{{ $item['id'] }}" class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-gray-100 py-1.5 text-xs last:border-0 dark:border-gray-800">
-                        <span class="w-28 shrink-0 tabular-nums text-gray-500">{{ $item['at'] }}</span>
-                        <span class="min-w-0 flex-1 text-gray-800 dark:text-gray-200">{{ $item['label'] }}@if ($item['error'])<span class="block text-rose-600">{{ $item['error'] }}</span>@endif</span>
-                        <span @class(['font-medium', 'text-emerald-600' => in_array($item['status'], ['succeeded', 'partial'], true), 'text-rose-600' => $item['status'] === 'failed', 'text-gray-500' => ! in_array($item['status'], ['succeeded', 'partial', 'failed'], true)])>{{ $item['status_label'] }}</span>
+                        <span class="shrink-0 tabular-nums text-gray-500 sm:w-28">{{ $item['at'] }}</span>
+                        <span class="min-w-0 flex-1 text-gray-800 dark:text-gray-200">{{ $item['label'] }}@if ($item['error'])<span class="block text-error-600">{{ $item['error'] }}</span>@endif</span>
+                        <span @class(['font-medium', 'text-success-600' => in_array($item['status'], ['succeeded', 'partial'], true), 'text-error-600' => $item['status'] === 'failed', 'text-gray-500' => ! in_array($item['status'], ['succeeded', 'partial', 'failed'], true)])>{{ $item['status_label'] }}</span>
                         @if ($item['by'] !== '')<span class="text-gray-400">{{ $item['by'] }}</span>@endif
                     </div>
                 @empty
@@ -147,7 +141,7 @@
                 @foreach ($approved as $s)
                     <div class="flex flex-wrap items-center gap-2 px-4 py-2" wire:key="approved-{{ $s->id }}">
                         <span class="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-200">{{ $s->title }}</span>
-                        <button type="button" wire:click="markApplied({{ $s->id }})" class="rounded bg-success-500 px-2 py-1 text-xs font-semibold text-white hover:bg-success-600">Uygulandı</button>
+                        <button type="button" wire:click="markApplied({{ $s->id }})" class="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-200 dark:ring-gray-700">Uygulandı</button>
                     </div>
                 @endforeach
             </section>
@@ -165,7 +159,7 @@
                             @endif
                         </div>
                         <div class="flex shrink-0 gap-1.5">
-                            <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded bg-success-500 px-2 py-1 text-xs font-semibold text-white hover:bg-success-600">Onayla</button>
+                            <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-200 dark:ring-gray-700">Onayla</button>
                             <button type="button" wire:click="dismissSuggestion({{ $s->id }})" class="rounded px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Reddet</button>
                             <button type="button" wire:click="snoozeSuggestion({{ $s->id }})" class="rounded px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Ertele</button>
                         </div>
@@ -176,10 +170,10 @@
                                 <p class="text-xs font-semibold text-gray-500">Mevcut · {{ mb_strlen((string) ($s->action['current'] ?? '')) }} karakter</p>
                                 <p class="mt-1 whitespace-pre-line text-gray-700 dark:text-gray-300">{{ filled($s->action['current'] ?? null) ? $s->action['current'] : 'Açıklama yok' }}</p>
                             </div>
-                            <div class="rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/10">
-                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">Önerilen · {{ mb_strlen((string) ($s->action['proposed'] ?? '')) }} karakter</p>
+                            <div class="rounded-lg bg-gray-50 p-3 text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800">
+                                <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Önerilen · {{ mb_strlen((string) ($s->action['proposed'] ?? '')) }} karakter</p>
                                 <p class="mt-1 whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $s->action['proposed'] ?? '' }}</p>
-                                <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="mt-1 text-xs font-semibold text-brand-600 hover:underline">Kopyala</button>
+                                <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="mt-1 text-xs font-semibold link-neutral">Kopyala</button>
                                 <span class="text-xs text-gray-500">→ Google’da yapıştırın</span>
                             </div>
                         </div>
@@ -215,10 +209,10 @@
             $pageGroups = collect($pages)->groupBy(fn (array $p): string => $p['language'] ?: 'tr')->sortByDesc(fn ($rows) => $rows->count())
                 ->map(fn ($rows) => $rows->unique(fn (array $p): string => mb_strtolower($p['title']))->groupBy(fn (array $p): string => $categoryNames[$p['category'] ?? ''] ?? 'Diğer sayfalar'));
             $statusTone = [
-                \App\Models\GbpQueuedPost::DRAFT => 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20',
-                \App\Models\GbpQueuedPost::APPROVED => 'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-500/20',
-                \App\Models\GbpQueuedPost::PUBLISHED => 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20',
-                \App\Models\GbpQueuedPost::FAILED => 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/20',
+                \App\Models\GbpQueuedPost::DRAFT => 'bg-warning-50 text-warning-700 ring-warning-200 dark:bg-warning-500/10 dark:text-warning-300 dark:ring-warning-500/20',
+                \App\Models\GbpQueuedPost::APPROVED => 'bg-gray-100 text-gray-700 ring-gray-200 dark:bg-white/[0.06] dark:text-gray-200 dark:ring-gray-700',
+                \App\Models\GbpQueuedPost::PUBLISHED => 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/20',
+                \App\Models\GbpQueuedPost::FAILED => 'bg-error-50 text-error-700 ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/20',
             ];
             $postHint = $planned->isNotEmpty() ? 'Otomatik plan açık: her gün 1 gönderi.' : $postData['hint'];
         @endphp
@@ -229,9 +223,9 @@
                         <h2 class="font-semibold text-gray-900 dark:text-white">Gönderi takvimi</h2>
                         <p class="mt-0.5 text-xs text-gray-500">Her gün 10:00 civarı bir gönderi. Onaylananlar günü gelince kendiliğinden yayınlanır; onaylanmayan gün boş geçer.</p>
                         <div class="mt-2 flex flex-wrap gap-1.5 text-xs">
-                            <span class="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">{{ $ready }} onaylı</span>
-                            <span @class(['rounded-full px-2 py-0.5 font-medium', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => $waiting > 0, 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $waiting === 0])>{{ $waiting }} onay bekliyor</span>
-                            <span @class(['rounded-full px-2 py-0.5 font-medium', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => $emptyDays > 7, 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $emptyDays <= 7])>{{ $emptyDays }} boş gün</span>
+                            <span class="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700 dark:bg-white/[0.06] dark:text-gray-200">{{ $ready }} onaylı</span>
+                            <span @class(['rounded-full px-2 py-0.5 font-medium', 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300' => $waiting > 0, 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $waiting === 0])>{{ $waiting }} onay bekliyor</span>
+                            <span @class(['rounded-full px-2 py-0.5 font-medium', 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300' => $emptyDays > 7, 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $emptyDays <= 7])>{{ $emptyDays }} boş gün</span>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -250,9 +244,9 @@
                             @if ($loop->first || $row['week'] !== $calendar[$loop->index - 1]['week'])
                                 <li class="bg-gray-50/80 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/[0.02]">{{ $row['week'] }}</li>
                             @endif
-                            <li wire:key="day-{{ $row['day'] }}" @class(['flex gap-4 px-5 py-3', 'bg-brand-50/40 dark:bg-brand-500/[0.04]' => $row['today']]) data-calendar-day="{{ $row['day'] }}">
+                            <li wire:key="day-{{ $row['day'] }}" @class(['flex gap-4 px-5 py-3', 'bg-gray-50 dark:bg-white/[0.03]' => $row['today']]) data-calendar-day="{{ $row['day'] }}">
                                 <div class="w-14 shrink-0 text-center">
-                                    <span @class(['block text-xl font-semibold leading-none tabular-nums', 'text-brand-600 dark:text-brand-400' => $row['today'], 'text-gray-900 dark:text-white' => ! $row['today']])>{{ \Illuminate\Support\Str::before($row['label'], ' ') }}</span>
+                                    <span @class(['block text-xl font-semibold leading-none tabular-nums', 'text-gray-900 underline decoration-2 underline-offset-4 dark:text-white' => $row['today'], 'text-gray-900 dark:text-white' => ! $row['today']])>{{ \Illuminate\Support\Str::before($row['label'], ' ') }}</span>
                                     <span class="mt-1 block text-[11px] text-gray-500">{{ $row['today'] ? 'Bugün' : \Illuminate\Support\Str::after($row['label'], ' ') }}</span>
                                 </div>
                                 @if ($item)
@@ -261,18 +255,18 @@
                                             <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $statusTone[$item->status] ?? '' }}">{{ $item->statusLabel() }}</span>
                                             <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $angles[$item->angle]['label'] ?? $item->angle }}</span>
                                             @if ($item->page)
-                                                <a href="{{ $item->page->url }}" target="_blank" rel="noopener" class="truncate text-xs font-medium text-gray-700 hover:text-brand-600 dark:text-gray-300">{{ \Illuminate\Support\Str::limit((string) ($item->page->title ?: $item->page->path), 60) }} ↗</a>
+                                                <a href="{{ $item->page->url }}" target="_blank" rel="noopener" class="truncate text-xs font-medium text-gray-700 hover:underline dark:text-gray-300">{{ \Illuminate\Support\Str::limit((string) ($item->page->title ?: $item->page->path), 60) }} ↗</a>
                                             @endif
                                         </div>
                                         <p class="mt-1.5 line-clamp-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300" title="{{ $item->summary }}">{{ $item->summary }}</p>
-                                        @if (filled($item->note))<p @class(['mt-1 text-xs', 'text-rose-600' => $item->status === \App\Models\GbpQueuedPost::FAILED, 'text-gray-500' => $item->status !== \App\Models\GbpQueuedPost::FAILED])>{{ $item->note }}</p>@endif
+                                        @if (filled($item->note))<p @class(['mt-1 text-xs', 'text-error-600' => $item->status === \App\Models\GbpQueuedPost::FAILED, 'text-gray-500' => $item->status !== \App\Models\GbpQueuedPost::FAILED])>{{ $item->note }}</p>@endif
                                         @if (in_array($item->status, [\App\Models\GbpQueuedPost::DRAFT, \App\Models\GbpQueuedPost::APPROVED], true))
                                             <div class="mt-2 flex flex-wrap items-center gap-3 text-xs font-medium">
                                                 @if ($item->status === \App\Models\GbpQueuedPost::DRAFT && $canWrite)
-                                                    <button type="button" wire:click="approvePlanned({{ $item->id }})" class="text-emerald-700 hover:underline dark:text-emerald-400" data-approve-planned="{{ $item->id }}">Onayla</button>
+                                                    <button type="button" wire:click="approvePlanned({{ $item->id }})" class="text-success-700 hover:underline dark:text-success-400" data-approve-planned="{{ $item->id }}">Onayla</button>
                                                 @endif
                                                 <a href="{{ route('operator.gbp-posts', ['isletme' => $assetId, 'gun' => $row['day']]) }}" wire:navigate class="text-gray-600 hover:underline dark:text-gray-300">Metni düzenle</a>
-                                                <button type="button" wire:click="skipPlanned({{ $item->id }})" wire:confirm="Bu günün gönderisi atlansın mı?" class="text-gray-500 hover:text-rose-600 hover:underline">Atla</button>
+                                                <button type="button" wire:click="skipPlanned({{ $item->id }})" wire:confirm="Bu günün gönderisi atlansın mı?" class="text-gray-500 hover:text-error-600 hover:underline">Atla</button>
                                             </div>
                                         @endif
                                     </div>
@@ -317,21 +311,21 @@
                         @if ($pages === [])<p class="mt-1 text-xs text-gray-500">Markanın sitesinde sayfa yok.</p>@endif
                         @if ($pState)<p class="mt-1 text-xs {{ $pState[0] }}" @if ($pState[2]) wire:poll.5s @endif>{{ $pState[1] }}</p>@endif
                         @if ($postDraft)
-                            <div class="mt-2 rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/10">
-                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{{ data_get($postDraft->content, 'page_title') }}</p>
+                            <div class="mt-2 rounded-lg bg-gray-50 p-3 text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800">
+                                <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ data_get($postDraft->content, 'page_title') }}</p>
                                 <p class="mt-1 whitespace-pre-line text-gray-700 dark:text-gray-300">{{ \Illuminate\Support\Str::limit((string) data_get($postDraft->content, 'body'), 400) }}</p>
-                                <button type="button" wire:click="useAiDraft({{ $postDraft->id }})" class="mt-1 text-xs font-semibold text-brand-600 hover:underline">Düzenle ve yayınla</button>
+                                <button type="button" wire:click="useAiDraft({{ $postDraft->id }})" class="mt-1 text-xs font-semibold link-neutral">Düzenle ve yayınla</button>
                             </div>
                         @endif
                     </div>
 
                     @if (! $postFormOpen)
-                        <button type="button" wire:click="startPost" class="text-sm font-medium text-brand-600 hover:underline">Ya da kendin yaz →</button>
+                        <button type="button" wire:click="startPost" class="text-sm font-medium link-neutral">Ya da kendin yaz →</button>
                     @else
                         <div class="space-y-2 border-t border-gray-100 pt-3 dark:border-gray-700">
                             <label class="block text-sm"><span class="text-xs text-gray-500">Metin (en çok 1500)</span>
                                 <textarea wire:model="post.body" rows="7" maxlength="1500" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>
-                                @error('post.body')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                                @error('post.body')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                             </label>
                             <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                                 <label class="block text-sm"><span class="text-xs text-gray-500">Buton</span>
@@ -343,7 +337,7 @@
                                 </label>
                                 <label class="block text-sm"><span class="text-xs text-gray-500">Bağlantı</span>
                                     <input type="url" wire:model="post.url" placeholder="https://" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
-                                    @error('post.url')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                                    @error('post.url')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                                 </label>
                             </div>
                             <div class="flex flex-wrap items-center gap-3 text-sm">
@@ -352,11 +346,11 @@
                                 @if (($post['when'] ?? 'now') === 'later')
                                     <input type="datetime-local" wire:model="post.publish_at" aria-label="Yayın zamanı" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
                                 @endif
-                                @error('post.publish_at')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                                @error('post.publish_at')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                             </div>
                             <div class="flex flex-wrap gap-2">
                                 @if ($canWrite)
-                                    <button type="button" x-on:click="if (confirm('Gönderi onaylansın mı? Yayından sonra geri alınabilir.')) $wire.publishPost()" class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600">Onayla ve yayınla</button>
+                                    <button type="button" x-on:click="if (confirm('Gönderi onaylansın mı? Yayından sonra geri alınabilir.')) $wire.publishPost()" class="{{ $primary }}">Onayla ve yayınla</button>
                                 @else
                                     <span class="text-xs text-gray-500">Yayını Admin onaylar.</span>
                                 @endif
@@ -369,7 +363,7 @@
                 <section class="{{ $panel }}" data-published-posts>
                     <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
                         <h2 class="font-semibold text-gray-900 dark:text-white">Google'daki gönderiler</h2>
-                        <p @class(['mt-0.5 text-xs', 'text-amber-600' => $postData['late'] && $planned->isEmpty(), 'text-gray-500' => ! $postData['late'] || $planned->isNotEmpty()])>{{ $postHint }}</p>
+                        <p @class(['mt-0.5 text-xs', 'text-warning-600' => $postData['late'] && $planned->isEmpty(), 'text-gray-500' => ! $postData['late'] || $planned->isNotEmpty()])>{{ $postHint }}</p>
                     </div>
                     <div class="divide-y divide-gray-100 dark:divide-gray-700">
                         @forelse ($postData['items'] as $item)
@@ -378,23 +372,23 @@
                                     <span class="min-w-0 flex-1 font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</span>
                                     <span @class([
                                         'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => in_array($item['status'], ['succeeded', 'live'], true),
-                                        'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300' => $item['status'] === 'scheduled',
-                                        'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => in_array($item['status'], ['failed', 'rejected'], true),
+                                        'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => in_array($item['status'], ['succeeded', 'live'], true),
+                                        'bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-200' => $item['status'] === 'scheduled',
+                                        'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' => in_array($item['status'], ['failed', 'rejected'], true),
                                         'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! in_array($item['status'], ['succeeded', 'live', 'scheduled', 'failed', 'rejected'], true),
                                     ])>{{ $item['status_label'] }}</span>
                                 </div>
                                 <p class="text-xs text-gray-400">{{ $item['when'] }}</p>
-                                @if (filled($item['error']))<p class="mt-1 text-xs text-rose-600">{{ $item['error'] }}</p>@endif
+                                @if (filled($item['error']))<p class="mt-1 text-xs text-error-600">{{ $item['error'] }}</p>@endif
                                 @if (in_array($item['action_status'], ['queued', 'running', 'undoing'], true))<p class="mt-1 text-xs text-gray-500" wire:poll.5s>Google’a gönderiliyor…</p>@endif
                                 @if ($item['kind'] === 'moxdop' && $canWrite)
                                     @if ($item['scheduled'] ?? false)
-                                        <button type="button" x-on:click="if (confirm('Zamanlanmış gönderi iptal edilsin mi?')) $wire.cancelScheduled({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">İptal et</button>
+                                        <button type="button" x-on:click="if (confirm('Zamanlanmış gönderi iptal edilsin mi?')) $wire.cancelScheduled({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-error-600 hover:underline">İptal et</button>
                                     @elseif ($item['undoable'])
-                                        <button type="button" x-on:click="if (confirm('Gönderi Google’dan silinsin mi?')) $wire.undoWrite({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
+                                        <button type="button" x-on:click="if (confirm('Gönderi Google’dan silinsin mi?')) $wire.undoWrite({{ $item['action_id'] }})" class="mt-1 text-xs font-medium text-error-600 hover:underline">Geri al</button>
                                     @endif
                                 @elseif ($item['kind'] === 'google' && filled($item['url']))
-                                    <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs text-brand-600 hover:underline">Google’da gör ↗</a>
+                                    <a href="{{ $item['url'] }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs link-neutral">Google’da gör ↗</a>
                                 @endif
                             </div>
                         @empty
@@ -410,9 +404,9 @@
             $plState = $stateLine($planState);
             $additionalNow = $profile['categories']['additional'] ?? [];
             $chip = fn (string $status): array => match ($status) {
-                'new' => ['Eklenecek', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'],
+                'new' => ['Eklenecek', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300'],
                 'exists' => ['Profilde var', 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300'],
-                default => ['9 ek kategori sınırı dolu', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
+                default => ['9 ek kategori sınırı dolu', 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300'],
             };
         @endphp
         @if ($peerFound !== null)
@@ -434,8 +428,8 @@
                 </div>
                 @if (($peerFound['categories'] ?? []) !== [] || ($peerFound['services'] ?? []) !== [])
                     <div class="flex flex-wrap gap-3 text-xs font-medium">
-                        <button type="button" wire:click="pickPeers('common')" class="text-brand-600 hover:underline">En az 2 işletmede olanları seç</button>
-                        <button type="button" wire:click="pickPeers('all')" class="text-brand-600 hover:underline">Hepsini seç</button>
+                        <button type="button" wire:click="pickPeers('common')" class="link-neutral">En az 2 işletmede olanları seç</button>
+                        <button type="button" wire:click="pickPeers('all')" class="link-neutral">Hepsini seç</button>
                         <button type="button" wire:click="pickPeers('none')" class="text-gray-500 hover:underline">Seçimi temizle</button>
                     </div>
                     <div class="grid gap-4 lg:grid-cols-3">
@@ -471,20 +465,20 @@
                     $nowPrimary = $live !== null && ! isset($live['error']) ? $live['primary'] : ($profile['categories']['primary'] ?? '');
                     $nowAdditional = $live !== null && ! isset($live['error']) ? $live['additional'] : $additionalNow;
                     $nowServices = $live !== null && ! isset($live['error']) ? $live['services'] : ($profile['services'] ?? []);
-                    $step = 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300';
+                    $step = 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200';
                 @endphp
                 <div class="text-sm" data-testid="gbp-services-now">
                     <div class="flex items-center justify-between gap-2">
                         <p class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><span class="{{ $step }}">1</span> Profilde şu an</p>
                         @if ($live !== null)
-                            <button type="button" wire:click="refreshLive" wire:loading.attr="disabled" class="text-xs font-medium text-brand-600 hover:underline">Google’dan yenile</button>
+                            <button type="button" wire:click="refreshLive" wire:loading.attr="disabled" class="text-xs font-medium link-neutral">Google’dan yenile</button>
                         @endif
                     </div>
                     <p class="mt-0.5 text-xs text-gray-500">
                         @if ($live === null)
                             Son toplanan veri (profil bağlı değil).
                         @elseif (isset($live['error']))
-                            <span class="text-amber-700 dark:text-amber-300">Google’dan şu an okunamadı ({{ $live['error'] }}); son toplanan veri gösteriliyor.</span>
+                            <span class="text-warning-700 dark:text-warning-300">Google’dan şu an okunamadı ({{ $live['error'] }}); son toplanan veri gösteriliyor.</span>
                         @else
                             Google’dan canlı okundu · {{ \Carbon\CarbonImmutable::parse($live['read_at'])->locale('tr')->diffForHumans() }}
                         @endif
@@ -493,7 +487,7 @@
                     <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Ek ({{ count($nowAdditional) }}/9):</span> {{ $nowAdditional === [] ? 'yok' : implode(', ', $nowAdditional) }}</p>
                     <p class="text-gray-600 dark:text-gray-300"><span class="text-xs text-gray-500">Hizmetler ({{ count($nowServices) }}):</span> {{ $nowServices === [] ? 'yok' : \Illuminate\Support\Str::limit(implode(', ', $nowServices), 300) }}</p>
                     @if ($nowAdditional === [] || $nowServices === [])
-                        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ $nowAdditional === [] && $nowServices === [] ? 'Ek kategori ve hizmet yok' : ($nowAdditional === [] ? 'Ek kategori yok' : 'Hizmet yok') }}: aramada bu profil yalnız birincil kategoriyle görünür. Aşağıdan ekleyin.</p>
+                        <p class="mt-1 text-xs text-warning-700 dark:text-warning-300">{{ $nowAdditional === [] && $nowServices === [] ? 'Ek kategori ve hizmet yok' : ($nowAdditional === [] ? 'Ek kategori yok' : 'Hizmet yok') }}: aramada bu profil yalnız birincil kategoriyle görünür. Aşağıdan ekleyin.</p>
                     @elseif (count($nowAdditional) >= 9)
                         <p class="mt-1 text-xs text-gray-500">9 ek kategori sınırı dolu; yalnız hizmet eklenebilir.</p>
                     @endif
@@ -533,7 +527,7 @@
 
             <section class="{{ $panel }} xl:col-span-3">
                 <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
-                    <h2 class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><span class="flex h-5 w-5 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">4</span> Kontrol edip gönderin</h2>
+                    <h2 class="flex items-center gap-2 font-semibold text-gray-900 dark:text-white"><span class="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[11px] font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200">4</span> Kontrol edip gönderin</h2>
                     @if ($plan)<span class="text-xs text-gray-500">{{ $plan->created_at?->diffForHumans() }}</span>@endif
                 </div>
                 @if (! $plan)
@@ -593,7 +587,7 @@
                         @if ($canWrite)
                             <button type="button" @disabled($picked === 0)
                                 x-on:click="if (confirm('Seçilen {{ count($pickCategories) }} kategori ve {{ count($pickServices) }} hizmet İşletme Profili’ne eklenecek. Mevcut kategori ve hizmetler değişmez; geri alınabilir. Gönderilsin mi?')) $wire.sendPlan()"
-                                class="rounded-lg bg-success-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-success-600 disabled:opacity-50">Seçilenleri gönder ({{ $picked }})</button>
+                                class="{{ $primary }}">Seçilenleri gönder ({{ $picked }})</button>
                         @else
                             <span class="text-xs text-gray-500">Gönderimi Admin onaylar.</span>
                         @endif
@@ -615,15 +609,15 @@
                                     <span class="min-w-0 flex-1 text-gray-800 dark:text-gray-200">{{ \Illuminate\Support\Str::limit(implode(', ', [...$sentCategories, ...$sentServices]), 160) }}</span>
                                     <span @class([
                                         'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $write->status === 'succeeded',
-                                        'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => in_array($write->status, ['failed', 'undo_failed', 'partial'], true),
+                                        'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $write->status === 'succeeded',
+                                        'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' => in_array($write->status, ['failed', 'undo_failed', 'partial'], true),
                                         'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! in_array($write->status, ['succeeded', 'failed', 'undo_failed', 'partial'], true),
                                     ])>{{ $write->statusLabel() }}</span>
                                 </div>
-                                @if (filled($write->error) || filled(data_get($write->result, 'error')))<p class="mt-1 text-xs text-rose-600">{{ $write->error ?: data_get($write->result, 'error') }}</p>@endif
+                                @if (filled($write->error) || filled(data_get($write->result, 'error')))<p class="mt-1 text-xs text-error-600">{{ $write->error ?: data_get($write->result, 'error') }}</p>@endif
                                 @if (in_array($write->status, ['queued', 'running', 'undoing'], true))<p class="mt-1 text-xs text-gray-500" wire:poll.5s>Google’a gönderiliyor…</p>@endif
                                 @if ($canWrite && $write->isUndoable())
-                                    <button type="button" x-on:click="if (confirm('Bu gönderimle eklenen kategori ve hizmetler profilden kaldırılsın mı?')) $wire.undoWrite({{ $write->id }})" class="mt-1 text-xs font-medium text-rose-600 hover:underline">Geri al</button>
+                                    <button type="button" x-on:click="if (confirm('Bu gönderimle eklenen kategori ve hizmetler profilden kaldırılsın mı?')) $wire.undoWrite({{ $write->id }})" class="mt-1 text-xs font-medium text-error-600 hover:underline">Geri al</button>
                                 @endif
                             </div>
                         @endforeach
@@ -710,7 +704,7 @@
                         <dt class="text-gray-500">{{ $label }}</dt>
                         <dd class="whitespace-pre-line text-gray-900 dark:text-gray-100 sm:col-span-3">
                             @if ($label === 'Marka' && $brand)
-                                <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $value }}</a>
+                                <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="font-medium link-neutral">{{ $value }}</a>
                             @else
                                 {{ $value }}
                             @endif
@@ -719,8 +713,8 @@
                 @endforeach
             </dl>
             <div class="flex flex-wrap gap-3 border-t border-gray-100 px-4 py-3 text-sm dark:border-gray-700">
-                @if (filled($identity['maps_uri'] ?? null))<a href="{{ $identity['maps_uri'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">Haritada aç ↗</a>@endif
-                <a href="{{ \App\Services\Gbp\GbpDailyWorkspace::MANAGER_URL }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">Google’da düzenle ↗</a>
+                @if (filled($identity['maps_uri'] ?? null))<a href="{{ $identity['maps_uri'] }}" target="_blank" rel="noopener" class="font-medium link-neutral">Haritada aç ↗</a>@endif
+                <a href="{{ \App\Services\Gbp\GbpDailyWorkspace::MANAGER_URL }}" target="_blank" rel="noopener" class="font-medium link-neutral">Google’da düzenle ↗</a>
                 <a href="{{ route('operator.asset.edit', ['assetId' => $assetId]) }}" wire:navigate class="font-medium text-gray-600 hover:underline dark:text-gray-300">Varlığı düzenle</a>
             </div>
         </section>

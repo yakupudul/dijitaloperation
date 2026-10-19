@@ -15,7 +15,7 @@
                 <span class="text-gray-500 dark:text-gray-400">{{ __('operator.actions.upload') }}</span>
                 <input type="file" wire:model="upload"
                     class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white dark:text-gray-300" />
-                @error('upload') <span class="mt-1 block text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
+                @error('upload') <span class="mt-1 block text-error-600 dark:text-error-400">{{ $message }}</span> @enderror
             </label>
             <label class="block">
                 <span class="text-gray-500 dark:text-gray-400">{{ __('operator.files.scope') }}</span>
@@ -79,7 +79,7 @@
                                         <button type="button" wire:click="saveRename" class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.save') }}</button>
                                         <button type="button" wire:click="cancelRename" class="text-xs text-gray-500">{{ __('operator.actions.cancel') }}</button>
                                     </div>
-                                    @error('renameName') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                                    @error('renameName') <span class="text-xs text-error-600">{{ $message }}</span> @enderror
                                 @else
                                     <p class="font-medium text-gray-800 dark:text-white/90">{{ $file->original_name }}</p>
                                     <p class="text-xs text-gray-500">{{ $file->mime }}</p>
@@ -93,14 +93,14 @@
                                     <a href="{{ route('operator.files.download', $file) }}" class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.download') }}</a>
                                     <button type="button" wire:click="startRename({{ $file->id }})" class="text-xs font-medium text-gray-600 dark:text-gray-300">{{ __('operator.actions.rename') }}</button>
                                     @if ($confirmDeleteId === $file->id)
-                                        <button type="button" wire:click="deleteFile" class="text-xs font-medium text-red-600 dark:text-red-400">{{ __('operator.actions.confirm') }}</button>
+                                        <button type="button" wire:click="deleteFile" class="text-xs font-medium text-error-600 dark:text-error-400">{{ __('operator.actions.confirm') }}</button>
                                         <button type="button" wire:click="cancelDelete" class="text-xs text-gray-500">{{ __('operator.actions.cancel') }}</button>
                                     @else
-                                        <button type="button" wire:click="askDelete({{ $file->id }})" class="text-xs font-medium text-red-600 dark:text-red-400">{{ __('operator.actions.delete') }}</button>
+                                        <button type="button" wire:click="askDelete({{ $file->id }})" class="text-xs font-medium text-error-600 dark:text-error-400">{{ __('operator.actions.delete') }}</button>
                                     @endif
                                 </div>
                                 @if ($confirmDeleteId === $file->id)
-                                    <p class="mt-1 text-right text-xs text-amber-600 dark:text-amber-400">{{ __('operator.files.confirm_delete') }}</p>
+                                    <p class="mt-1 text-right text-xs text-warning-600 dark:text-warning-400">{{ __('operator.files.confirm_delete') }}</p>
                                 @endif
                             </td>
                         </tr>

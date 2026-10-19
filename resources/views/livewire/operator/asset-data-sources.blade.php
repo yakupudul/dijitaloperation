@@ -24,9 +24,9 @@
     @if ($message !== '')
         <div @class([
             'rounded-xl border px-4 py-3 text-sm',
-            'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300' => $messageTone === 'error',
-            'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300' => $messageTone === 'success',
-            'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300' => ! in_array($messageTone, ['error', 'success'], true),
+            'border-error-200 bg-error-50 text-error-700 dark:border-error-900/50 dark:bg-error-950/20 dark:text-error-300' => $messageTone === 'error',
+            'border-success-200 bg-success-50 text-success-700 dark:border-success-900/50 dark:bg-success-950/20 dark:text-success-300' => $messageTone === 'success',
+            'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-900/50 dark:bg-gray-950/20 dark:text-gray-300' => ! in_array($messageTone, ['error', 'success'], true),
         ])>{{ $message }}</div>
     @endif
 
@@ -74,8 +74,8 @@
                             <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $source['name'] }}</p>
                             <span @class([
                                 'rounded-full px-2 py-1 text-[10px] font-semibold',
-                                'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' => $sourceReady,
-                                'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' => ! $sourceReady && str_contains($sourceStatus, 'required'),
+                                'bg-success-100 text-success-700 dark:bg-success-950/40 dark:text-success-300' => $sourceReady,
+                                'bg-warning-100 text-warning-700 dark:bg-warning-950/40 dark:text-warning-300' => ! $sourceReady && str_contains($sourceStatus, 'required'),
                                 'bg-gray-200 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' => ! $sourceReady && ! str_contains($sourceStatus, 'required'),
                             ])>{{ $sourceStatusLabel }}</span>
                         </div>
@@ -103,7 +103,7 @@
                     <span>{{ $websiteCollection->datasets_completed }}/{{ $websiteCollection->datasets_total }} {{ app()->getLocale() === 'tr' ? 'veri seti tamamlandı' : 'datasets completed' }}</span>
                     @if ((int) $websiteCollection->datasets_failed > 0)
                         <span class="mx-2">·</span>
-                        <span class="text-rose-600 dark:text-rose-400">{{ $websiteCollection->datasets_failed }} {{ app()->getLocale() === 'tr' ? 'başarısız' : 'failed' }}</span>
+                        <span class="text-error-600 dark:text-error-400">{{ $websiteCollection->datasets_failed }} {{ app()->getLocale() === 'tr' ? 'başarısız' : 'failed' }}</span>
                     @endif
                     <span class="mx-2">·</span>
                     <span>{{ $websiteCollection->updated_at?->diffForHumans() }}</span>
@@ -134,7 +134,7 @@
                         </div>
                         <span @class([
                             'rounded-full px-2.5 py-1 text-xs font-semibold',
-                            'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' => $active,
+                            'bg-success-50 text-success-700 dark:bg-success-950/30 dark:text-success-300' => $active,
                             'bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400' => ! $active,
                         ])>{{ $active ? __('operator_runtime.sources.connected') : __('operator_runtime.sources.not_connected') }}</span>
                     </div>
@@ -154,7 +154,7 @@
                                     $automation = $automations->get($current->id);
                                 @endphp
                                 @if ($automation)
-                                    <p @class(['mt-3 text-xs', 'text-rose-700 dark:text-rose-300' => $automation->collection_status === 'attention', 'text-gray-500' => $automation->collection_status !== 'attention'])>
+                                    <p @class(['mt-3 text-xs', 'text-error-700 dark:text-error-300' => $automation->collection_status === 'attention', 'text-gray-500' => $automation->collection_status !== 'attention'])>
                                         Otomatik veri çekimi: {{ $automation->collection_enabled ? ($automation->collection_status === 'attention' ? 'durdu' : 'açık') : 'kapalı' }}
                                         · son başarılı: {{ $automation->last_collection_success_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? 'henüz yok' }}
                                         @if ($automation->collection_status === 'attention' && $automation->collection_error) · {{ __('resource-auto.'.$automation->collection_error) }} — <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="underline">Sistem Sağlığı</a>@endif
@@ -211,10 +211,10 @@
                                 @endif
                             </select>
                             @error('selectedResource.'.$capability)
-                                <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
+                                <p class="mt-1 text-xs text-error-600">{{ $message }}</p>
                             @enderror
                             @if ($available->isEmpty() && ($ownedElsewhere[$capability] ?? []) === [])
-                                <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ __('operator_runtime.sources.no_resources') }}</p>
+                                <p class="mt-2 text-xs text-warning-600 dark:text-warning-400">{{ __('operator_runtime.sources.no_resources') }}</p>
                             @endif
                         </div>
 

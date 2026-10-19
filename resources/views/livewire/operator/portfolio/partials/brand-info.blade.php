@@ -7,7 +7,7 @@
 @endphp
 <div class="space-y-4" data-brand-info>
     @if ($brandItems->isNotEmpty())
-        <section class="rounded-xl bg-amber-50 p-3 text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30" data-brand-checklist>
+        <section class="rounded-xl bg-warning-50 p-3 text-warning-900 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200 dark:ring-warning-500/30" data-brand-checklist>
             <p class="font-semibold">Marka bilgileri eksik</p>
             <ul class="mt-1 space-y-0.5 text-xs">
                 @foreach ($brandItems as $item)
@@ -36,7 +36,7 @@
                         <label class="block">
                             <span class="text-xs text-gray-500">{{ $label }}</span>
                             <textarea wire:model="{{ $field }}" rows="2" class="{{ $input }}"></textarea>
-                            @error($field)<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                            @error($field)<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
                         </label>
                     @endforeach
                     <div class="flex gap-2 md:col-span-2">

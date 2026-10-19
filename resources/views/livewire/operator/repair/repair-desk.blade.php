@@ -255,6 +255,12 @@
                 @empty
                     <p class="{{ $card }} text-sm text-gray-500">Onay bekleyen hazır düzeltme yok.</p>
                 @endforelse
+                @if ($packagesTotal > $packages->count())
+                    <x-ta.button type="button" variant="outline" size="sm" wire:click="showMorePackages" wire:loading.attr="disabled" class="w-full" data-packages-more>
+                        {{ number_format(min(RepairDeskPage::PACKAGES_PAGE, $packagesTotal - $packages->count()), 0, ',', '.') }} paket daha göster
+                        <span class="font-normal text-gray-500">({{ number_format($packages->count(), 0, ',', '.') }} / {{ number_format($packagesTotal, 0, ',', '.') }})</span>
+                    </x-ta.button>
+                @endif
             </div>
 
             {{-- Seçim çubuğu --}}

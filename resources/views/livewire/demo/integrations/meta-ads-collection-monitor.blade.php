@@ -1,6 +1,6 @@
 <div wire:poll.10s.visible class="space-y-4">
     @if ($actionMessage)
-        <div class="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
+        <div class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-100 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20">
             {{ $actionMessage }}
         </div>
     @endif
@@ -12,8 +12,8 @@
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="relative flex h-2.5 w-2.5">
-                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-60"></span>
-                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span>
+                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-gray-400 opacity-60"></span>
+                                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-gray-500"></span>
                             </span>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Meta Ads verileri çekiliyor</h2>
                             <span class="text-xs font-medium text-gray-500">{{ $run['status_label'] }}</span>

@@ -634,6 +634,9 @@ final class GbpDeskTest extends TestCase
         $this->assertSame(4, $shared['hours']['missing']);
         $this->assertSame(['bolum' => 'saatler'], $shared['hours']['query']);
         $this->assertSame([], DeskPage::sharedGaps([$row(false, false), $row(false, false)]), 'Two branches keep their own chips.');
+        $majority = DeskPage::sharedGaps([$row(true, false), $row(true, false), $row(true, false), $row(true, true), $row(true, true)]);
+        $this->assertSame(['page'], array_keys($majority), 'A gap most branches share is shown once, not as the same marker on every row.');
+        $this->assertSame(3, $majority['page']['missing']);
 
         foreach (range(1, 3) as $i) {
             $this->secondBranch();

@@ -26,7 +26,7 @@
 
     <ol class="mt-5 space-y-5">
         <li class="flex gap-4">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $metaReady ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $metaReady ? '✓' : '1' }}</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $metaReady ? 'bg-success-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $metaReady ? '✓' : '1' }}</span>
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2"><h3 class="font-medium text-gray-900 dark:text-white">Meta uygulama bilgileri</h3>{!! $stepBadge($metaReady, 'Kayıtlı', 'Eksik') !!}</div>
                 @if($metaReady)
@@ -60,7 +60,7 @@
         </li>
 
         <li class="flex gap-4">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $webhookVerified && $subscribed ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $webhookVerified && $subscribed ? '✓' : '3' }}</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $webhookVerified && $subscribed ? 'bg-success-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $webhookVerified && $subscribed ? '✓' : '3' }}</span>
             <div class="min-w-0 flex-1 space-y-2">
                 <h3 class="font-medium text-gray-900 dark:text-white">Mesajların MoxDOP'a gelmesi</h3>
                 <p class="text-sm text-gray-500">Meta uygulamasında WhatsApp → Yapılandırma → Webhook bölümüne bu adresi ve kayıtlı Verify Token'ı girin; <code class="text-xs">messages</code>, <code class="text-xs">history</code> ve <code class="text-xs">smb_message_echoes</code> alanlarına abone olun.</p>

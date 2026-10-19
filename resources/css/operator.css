@@ -90,6 +90,9 @@
   --color-live-500: #8b5cf6;
   --color-live-600: #7c3aed;
   --color-live-700: #6d28d9;
+  --color-live-800: #5b21b6;
+  --color-live-900: #4c1d95;
+  --color-live-950: #2e1065;
 
   --color-success-25: #f6fef9;
   --color-success-50: #ecfdf3;
@@ -161,6 +164,18 @@
   }
   h1, h2, h3, h4 {
     letter-spacing: -0.01em;
+  }
+  /* Phones: long names, ids and URLs wrap instead of pushing cards past the screen edge (yakup 2026-10-19). */
+  body {
+    overflow-wrap: break-word;
+  }
+  .grid > * {
+    min-width: 0;
+  }
+  /* A brand filter with a long brand name must not widen the page. */
+  select {
+    max-width: 100%;
+    text-overflow: ellipsis;
   }
 }
 

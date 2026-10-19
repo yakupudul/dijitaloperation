@@ -7,7 +7,7 @@
     <div>
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Pages</h2>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $pages['subtitle'] ?? '' }}</p>
-        <p class="mt-1 text-xs text-blue-700 dark:text-blue-300">{{ $pages['attribution_note'] ?? '' }}</p>
+        <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">{{ $pages['attribution_note'] ?? '' }}</p>
     </div>
 
     <x-ta.table>
@@ -36,7 +36,7 @@
                     · {{ number_format($ga4['mapped_actions'] ?? 0) }} actions
                     <span class="block text-[10px] text-gray-400">{{ $ga4['note'] ?? $pages['attribution_note'] ?? '' }}</span>
                 </td>
-                <td class="px-4 py-2.5 text-xs text-amber-700 dark:text-amber-400">{{ $row['website_attention'] ?? '—' }}</td>
+                <td class="px-4 py-2.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['website_attention'] ?? '—' }}</td>
                 <td class="px-4 py-2.5">
                     <button type="button" wire:click="openPage('{{ $row['path'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Inspect</button>
                 </td>

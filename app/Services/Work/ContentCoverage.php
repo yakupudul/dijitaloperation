@@ -75,7 +75,7 @@ final class ContentCoverage
                 ];
                 $row['last_run'] = ContentPlanner::lastRun((int) $site->id);
                 $row['backfill'] = $states->get((int) $site->id)?->backfill;
-                $row['rhythm'] = $rhythm->for($site);
+                $row['rhythm'] = $rhythm->for($site->setRelation('brand', $brand));
                 $row['map'] = collect($topics->completion($site))->where('active', true)->map(fn (array $m): string => $m['service'].' %'.$m['percent'])->values()->all();
                 $row['readiness'] = $row['clusters'] === 0 ? SiteScope::clusterReadiness($brand, $site) : null;
                 $row['services'] = $row['readiness']['services'] ?? null;

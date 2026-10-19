@@ -17,6 +17,7 @@ use App\Livewire\Operator\Website\V2\ClustersPagesTab;
 use App\Livewire\Operator\Website\V2\ContentTab;
 use App\Livewire\Operator\Website\V2\SettingsTab;
 use App\Livewire\Operator\Website\V2\SuggestionsTab;
+use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandMemory;
@@ -416,6 +417,27 @@ final class SiteSuggestionsTest extends SiteTestCase
         $this->artisan('moxdop:site:weekly')->assertSuccessful();
         Queue::assertPushed(RunSiteOperationJob::class, 1);
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => $job->siteId === $activeSite->id);
+    }
+
+    public function test_yapilacaklar_groups_rows_by_issue_type_and_content_has_its_own_tab(): void
+    {
+        $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Başlığı güçlendir', 'priority' => 1]);
+        $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Açıklamayı yaz', 'priority' => 2]);
+        $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Bağlantı ekle', 'action_type' => 'internal_links', 'priority' => 3]);
+
+        $html = Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])
+            ->assertSeeHtml('data-suggestion-group="title_description"')->assertSeeHtml('data-suggestion-group="internal_links"')
+            ->assertSeeInOrder(['Başlığı güçlendir', 'Açıklamayı yaz', 'Bağlantı ekle'])
+            ->html();
+        $this->assertMatchesRegularExpression('/data-suggestion-group="title_description"\s+open/', $html, 'the first group is open');
+        $this->assertDoesNotMatchRegularExpression('/data-suggestion-group="internal_links"\s+open/', $html);
+        $this->assertSame(['2', '1'], array_map(fn (string $count): string => trim(strip_tags($count)), preg_match_all('/<span[^>]*data-group-count>([^<]*)</', $html, $m) ? $m[1] : []));
+
+        $this->assertSame(['yapilacaklar', 'icerik'], array_slice(array_keys(WebsiteScreen::TABS), 0, 2), 'İçerik sits right after Yapılacaklar');
+        $this->assertSame('icerik', WebsiteScreen::resolve('content'));
+        $this->assertSame('icerik', WebsiteScreen::resolve('ozet', 'icerik'));
+        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'icerik']))->assertOk()
+            ->assertSee('data-tab="icerik" aria-current="page"', false)->assertSee('data-content', false)->assertSee('Haftalık içerik öner');
     }
 
     /** @param  array<string, mixed>  $overrides */

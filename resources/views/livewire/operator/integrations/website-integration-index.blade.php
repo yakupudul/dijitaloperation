@@ -1,10 +1,10 @@
 @php
     $tr = app()->getLocale() === 'tr';
     $toneClasses = fn (string $tone): string => match ($tone) {
-        'success' => 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200',
-        'warning' => 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200',
-        'error' => 'border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200',
-        'info' => 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200',
+        'success' => 'border-success-200 bg-success-50 text-success-800 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-200',
+        'warning' => 'border-warning-200 bg-warning-50 text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200',
+        'error' => 'border-error-200 bg-error-50 text-error-800 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-200',
+        'info' => 'border-gray-200 bg-gray-50 text-gray-800 dark:border-gray-500/30 dark:bg-gray-500/10 dark:text-gray-200',
         default => 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200',
     };
     $stateTone = fn (string $state): string => match ($state) {
@@ -66,7 +66,7 @@
 
         <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="flex flex-wrap gap-3 border-b border-gray-100 p-4 dark:border-gray-800">
-                <input wire:model.live.debounce.300ms="search" type="search" class="min-w-64 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="{{ $tr ? 'Website, müşteri veya alan adı ara' : 'Search website, customer, or domain' }}">
+                <input wire:model.live.debounce.300ms="search" type="search" class="w-full min-w-0 flex-1 rounded-lg border-gray-300 text-sm sm:min-w-64 dark:border-gray-700 dark:bg-gray-950" placeholder="{{ $tr ? 'Website, müşteri veya alan adı ara' : 'Search website, customer, or domain' }}">
                 <select wire:model.live="filter" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
                     @foreach ($filters as $option)
                         <option value="{{ $option['key'] }}">{{ $option['label'] }} ({{ $option['count'] }})</option>
@@ -93,7 +93,7 @@
                                     <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="font-semibold text-gray-900 hover:text-brand-600 dark:text-white dark:hover:text-brand-400">{{ $row['asset']->name }}</a>
                                     <p class="mt-1 max-w-72 truncate text-xs text-gray-500">{{ $row['asset']->domain ?: $row['asset']->primary_url ?: '—' }}</p>
                                     @if ($row['asset']->brand_id === null)
-                                        <p class="mt-1 text-xs text-amber-700">Markaya bağlı değil</p>
+                                        <p class="mt-1 text-xs text-warning-700">Markaya bağlı değil</p>
                                         @if ($canAssign && $assigningSiteId === $row['asset']->id)
                                             <div class="mt-2 space-y-2" data-assign-website="{{ $row['asset']->id }}">
                                                 <select wire:model.live="assignCustomerId" aria-label="Müşteri" class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
@@ -108,7 +108,7 @@
                                                         <option value="{{ $brandId }}">{{ $brandName }}</option>
                                                     @endforeach
                                                 </select>
-                                                @error('assignBrandId')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                                                @error('assignBrandId')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                                                 <div class="flex gap-2">
                                                     <button type="button" wire:click="assignWebsite" class="rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Ata</button>
                                                     <button type="button" wire:click="cancelAssign" class="rounded-lg px-2.5 py-1.5 text-xs ring-1 ring-inset ring-gray-300">Vazgeç</button>
@@ -217,18 +217,18 @@
                         @endforeach
                     </dl>
                     @if (! $deliveryState['enabled'])
-                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Otomatik çekim duraklatıldı. Site bildirimleri kaydedilir; aktif çekim tamamlanır. Manuel çekim başlatabilirsiniz.' : 'Automatic collection is paused. Events are recorded and active work finishes. Manual collection remains available.' }}</p>
+                        <p class="mt-3 text-xs text-warning-700 dark:text-warning-300">{{ $tr ? 'Otomatik çekim duraklatıldı. Site bildirimleri kaydedilir; aktif çekim tamamlanır. Manuel çekim başlatabilirsiniz.' : 'Automatic collection is paused. Events are recorded and active work finishes. Manual collection remains available.' }}</p>
                     @elseif ($deliveryState['stale'])
-                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Son 24 saatte site bildirimi gelmedi. Connector bağlantısını ve WordPress zamanlanmış görevlerini kontrol edin.' : 'No site delivery in the last 24 hours. Check the Connector connection and WordPress scheduled tasks.' }}</p>
+                        <p class="mt-3 text-xs text-warning-700 dark:text-warning-300">{{ $tr ? 'Son 24 saatte site bildirimi gelmedi. Connector bağlantısını ve WordPress zamanlanmış görevlerini kontrol edin.' : 'No site delivery in the last 24 hours. Check the Connector connection and WordPress scheduled tasks.' }}</p>
                     @endif
                     @if ($deliveryState['outdated'] ?? false)
-                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Eklenti sürümü '.($deliveryState['version'] ?: 'bilinmiyor').'; güncel sürüm '.config('moxdop-wordpress.connector_version').'. Yeni sürümü indirip sitede güncelleyin.' : 'Plugin version '.($deliveryState['version'] ?: 'unknown').'; current is '.config('moxdop-wordpress.connector_version').'. Download and update it on the site.' }}</p>
+                        <p class="mt-3 text-xs text-warning-700 dark:text-warning-300">{{ $tr ? 'Eklenti sürümü '.($deliveryState['version'] ?: 'bilinmiyor').'; güncel sürüm '.config('moxdop-wordpress.connector_version').'. Yeni sürümü indirip sitede güncelleyin.' : 'Plugin version '.($deliveryState['version'] ?: 'unknown').'; current is '.config('moxdop-wordpress.connector_version').'. Download and update it on the site.' }}</p>
                     @endif
                     @if ($deliveryState['error'])
-                        <p class="mt-3 text-xs text-red-700 dark:text-red-300">{{ $deliveryState['error'] }} @if ($deliveryState['enabled'] && $deliveryState['next_retry']) {{ $tr ? 'Yeniden deneme en erken:' : 'Retry no earlier than:' }} {{ $deliveryState['next_retry'] }} @endif</p>
+                        <p class="mt-3 text-xs text-error-700 dark:text-error-300">{{ $deliveryState['error'] }} @if ($deliveryState['enabled'] && $deliveryState['next_retry']) {{ $tr ? 'Yeniden deneme en erken:' : 'Retry no earlier than:' }} {{ $deliveryState['next_retry'] }} @endif</p>
                     @endif
                 @else
-                    <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Eşleştirilmiş Connector için otomatik envanter sıradaki zamanlayıcı çalışmasında hazırlanır. Bağlantıyı test ederek de başlatabilirsiniz; ilk site bildirimi gerekmez.' : 'Automatic inventory for a paired Connector is prepared on the next scheduler tick. A connection test also initializes it; no first site delivery is required.' }}</p>
+                    <p class="mt-3 text-xs text-warning-700 dark:text-warning-300">{{ $tr ? 'Eşleştirilmiş Connector için otomatik envanter sıradaki zamanlayıcı çalışmasında hazırlanır. Bağlantıyı test ederek de başlatabilirsiniz; ilk site bildirimi gerekmez.' : 'Automatic inventory for a paired Connector is prepared on the next scheduler tick. A connection test also initializes it; no first site delivery is required.' }}</p>
                     <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress', 'site' => $selectedRow['asset']->id]) }}" wire:navigate class="mt-2 inline-block text-xs font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Connector bağlantısını aç' : 'Open Connector connection' }}</a>
                 @endif
             </section>
@@ -252,7 +252,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             @if ($liveConsole['active'])
-                                <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span></span>
+                                <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-gray-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-gray-500"></span></span>
                             @endif
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Veri çekim konsolu' : 'Collection console' }}</h2>
                             <span class="inline-flex rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone($liveConsole['state'])) }}">{{ $liveConsole['status_label'] }}</span>
@@ -278,12 +278,12 @@
                                 <span class="rounded-full border px-2 py-0.5 text-[11px] {{ $toneClasses($stateTone($stage['state'])) }}">{{ $stage['status_label'] }}</span>
                             </div>
                             @if ($stage['summary'])<p class="mt-2 text-xs text-gray-500">{{ $stage['summary'] }}</p>@endif
-                            @if ($stage['error'])<p class="mt-2 line-clamp-2 text-xs text-red-600 dark:text-red-400">{{ $stage['error'] }}</p>@endif
+                            @if ($stage['error'])<p class="mt-2 line-clamp-2 text-xs text-error-600 dark:text-error-400">{{ $stage['error'] }}</p>@endif
                         </div>
                     @endforeach
                 </div>
                 @if ($liveConsole['failure_summary'])
-                    <div class="border-t border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">{{ $liveConsole['failure_summary'] }}</div>
+                    <div class="border-t border-error-100 bg-error-50 px-5 py-3 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300">{{ $liveConsole['failure_summary'] }}</div>
                 @endif
             </section>
         @endif
@@ -337,7 +337,7 @@
                         </div>
 
                         @if ($source['key'] === 'site_connector' && ! $selectedRow['wordpress_ready'])
-                            <div class="border-b border-gray-100 bg-amber-50/60 px-5 py-3 text-sm dark:border-gray-800 dark:bg-amber-500/5">
+                            <div class="border-b border-gray-100 bg-warning-50/60 px-5 py-3 text-sm dark:border-gray-800 dark:bg-warning-500/5">
                                 <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress', 'site' => $selectedRow['asset']->id]) }}" wire:navigate class="font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'WordPress paketini indir ve siteyi eşleştir →' : 'Download the WordPress package and pair the site →' }}</a>
                             </div>
                         @endif
@@ -381,9 +381,9 @@
                             @forelse ($history as $run)
                                 <tr>
                                     <td class="px-5 py-4 font-mono text-xs">#{{ $run['id'] }}</td>
-                                    <td class="px-5 py-4"><span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone((string) $run['status'])) }}">{{ $run['status_label'] }}</span>@if ($run['failure_summary'])<p class="mt-2 max-w-72 text-xs text-red-600 dark:text-red-400">{{ $run['failure_summary'] }}</p>@endif</td>
+                                    <td class="px-5 py-4"><span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone((string) $run['status'])) }}">{{ $run['status_label'] }}</span>@if ($run['failure_summary'])<p class="mt-2 max-w-72 text-xs text-error-600 dark:text-error-400">{{ $run['failure_summary'] }}</p>@endif</td>
                                     <td class="px-5 py-4"><p>{{ $run['trigger_label'] }}<span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ $run['scope_label'] }}</span></p><p class="mt-1 text-xs text-gray-400">{{ $run['requested_by'] }}</p></td>
-                                    <td class="px-5 py-4">{{ $run['datasets_completed'] }}/{{ $run['datasets_total'] }}@if ($run['datasets_failed'] > 0)<p class="mt-1 text-xs text-red-500">{{ $run['datasets_failed'] }} {{ $tr ? 'başarısız' : 'failed' }}</p>@endif</td>
+                                    <td class="px-5 py-4">{{ $run['datasets_completed'] }}/{{ $run['datasets_total'] }}@if ($run['datasets_failed'] > 0)<p class="mt-1 text-xs text-error-500">{{ $run['datasets_failed'] }} {{ $tr ? 'başarısız' : 'failed' }}</p>@endif</td>
                                     <td class="px-5 py-4">{{ number_format((int) $run['rows_written'], 0, ',', '.') }}</td>
                                     <td class="px-5 py-4">{{ $run['duration_label'] ?: '—' }}</td>
                                     <td class="px-5 py-4"><p>{{ $run['started_at']?->format('d.m.Y H:i') ?? '—' }}</p><p class="mt-1 text-xs text-gray-400">{{ $run['started_at']?->diffForHumans() ?? '—' }}</p></td>

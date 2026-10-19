@@ -36,11 +36,11 @@
          class="absolute right-0 z-40 mt-2 grid w-[min(760px,92vw)] grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:grid-cols-[190px_minmax(0,1fr)] dark:border-gray-700 dark:bg-gray-900">
         <div class="flex flex-row flex-wrap gap-1 border-b border-gray-200 p-2 sm:flex-col sm:border-b-0 sm:border-r dark:border-gray-700">
             @foreach ($presets as $presetDays => $presetLabel)
-                <button type="button" @click="preset({{ $presetDays }})" :class="days === {{ $presetDays }} ? 'bg-blue-50 font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'"
+                <button type="button" @click="preset({{ $presetDays }})" :class="days === {{ $presetDays }} ? 'bg-gray-50 font-semibold text-gray-700 dark:bg-gray-500/10 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'"
                         class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{ $presetLabel }}</button>
             @endforeach
-            <button type="button" @click="lastMonth()" :class="days === -1 ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Geçen ay</button>
-            <button type="button" @click="custom()" :class="days === 0 ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Özel aralık</button>
+            <button type="button" @click="lastMonth()" :class="days === -1 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Geçen ay</button>
+            <button type="button" @click="custom()" :class="days === 0 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Özel aralık</button>
         </div>
         <div class="space-y-3 p-4">
             <div class="flex items-end gap-2">

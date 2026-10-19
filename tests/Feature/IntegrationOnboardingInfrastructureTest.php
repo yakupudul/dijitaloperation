@@ -37,8 +37,8 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Meta')
-            ->assertSee('DataForSEO')
-            ->assertSee('OpenAI');
+            ->assertDontSee('DataForSEO') // hidden from the hub 2026-10-19: all AI runs on the Claude MCP queue, DataForSEO is never added
+            ->assertDontSee('OpenAI');
 
         // Faz 13: Google's overview links every connector (no separate Connectors tab).
         $this->get(route('operator.integrations.google'))

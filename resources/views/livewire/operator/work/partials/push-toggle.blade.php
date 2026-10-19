@@ -8,7 +8,7 @@
     </template>
     <template x-if="state === 'on'">
         <span class="flex items-center gap-2">
-            <span class="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Bildirim açık</span>
+            <span class="rounded-full bg-success-50 px-2 py-1 text-success-700 dark:bg-success-500/10 dark:text-success-300">Bildirim açık</span>
             <button type="button" x-on:click="sendTest()" :disabled="busy" class="text-gray-500 hover:underline">Dene</button>
             <button type="button" x-on:click="disable()" :disabled="busy" class="text-gray-500 hover:underline">Kapat</button>
         </span>

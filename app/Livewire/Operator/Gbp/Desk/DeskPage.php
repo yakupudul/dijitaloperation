@@ -23,8 +23,11 @@ final class DeskPage extends Component
 {
     use DeskScope;
 
-    /** Share of profiles a check must be missing in to count as a shared gap. */
-    public const float SHARED_SHARE = 0.8;
+    /**
+     * Share of profiles a check must be missing in to count as a shared gap (shown once above the table).
+     * A majority (2026-10-19): rows show only exceptions, not the same marker on every line.
+     */
+    public const float SHARED_SHARE = 0.5;
 
     /** Fewer profiles than this are always shown with their own chips. */
     public const int SHARED_MIN_ROWS = 3;

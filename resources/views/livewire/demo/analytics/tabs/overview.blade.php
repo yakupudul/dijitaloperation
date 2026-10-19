@@ -8,10 +8,10 @@
 
 <div class="space-y-4">
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <x-ta.metric-card label="Users" :value="$glance['users']['value'] ?? '—'" :delta="$glance['users']['secondary'] ?? null" :tone="$glance['users']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Sessions" :value="$glance['sessions']['value'] ?? '—'" :delta="$glance['sessions']['secondary'] ?? null" :tone="$glance['sessions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Business actions" :value="$glance['business_actions']['value'] ?? '—'" :delta="$glance['business_actions']['secondary'] ?? null" :tone="$glance['business_actions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Measurement" :value="$glance['measurement_state']['value'] ?? '—'" :delta="$glance['measurement_state']['secondary'] ?? null" :tone="$glance['measurement_state']['tone'] ?? 'warning'" />
+        <x-ta.metric-card label="Kullanıcı" :value="$glance['users']['value'] ?? '—'" :delta="$glance['users']['secondary'] ?? null" :tone="$glance['users']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Oturum" :value="$glance['sessions']['value'] ?? '—'" :delta="$glance['sessions']['secondary'] ?? null" :tone="$glance['sessions']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="İş aksiyonu" :value="$glance['business_actions']['value'] ?? '—'" :delta="$glance['business_actions']['secondary'] ?? null" :tone="$glance['business_actions']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Ölçüm" :value="$glance['measurement_state']['value'] ?? '—'" :delta="$glance['measurement_state']['secondary'] ?? null" :tone="$glance['measurement_state']['tone'] ?? 'warning'" />
     </div>
 
     <div class="grid gap-3 lg:grid-cols-12">
@@ -49,7 +49,7 @@
                             <span class="font-medium text-gray-800 dark:text-white/90">{{ $row['channel'] }}</span>
                             <span class="tabular-nums text-gray-500">{{ number_format($row['sessions']) }} · {{ $row['share_pct'] }}%</span>
                         </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
                             <div class="h-full rounded-full bg-orange-500" style="width: {{ min(100, $row['bar'] ?? round(($row['sessions'] / $maxAcq) * 100)) }}%"></div>
                         </div>
                     </li>
@@ -113,7 +113,7 @@
                     </li>
                 @endforeach
             </ul>
-            <p class="mt-3 text-[11px] font-medium text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Missing ≠ zero' }}</p>
+            <p class="mt-3 text-[11px] font-medium text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero' }}</p>
         </section>
 
         <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -123,7 +123,7 @@
             </div>
             <ul class="space-y-3">
                 @foreach (array_slice($data['journeys'] ?? [], 0, 4) as $journey)
-                    <li class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                    <li class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
                         <div class="flex items-center justify-between gap-2">
                             <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $journey['path'] }}</span>
                             <span class="text-xs tabular-nums text-gray-500">{{ number_format($journey['sessions']) }}</span>
@@ -135,9 +135,9 @@
                             @endforeach
                         </div>
                         @if (array_key_exists('mapped_actions', $journey) && $journey['mapped_actions'] === null)
-                            <p class="mt-1 text-[11px] text-amber-700 dark:text-amber-400">{{ $journey['note'] ?? 'Mapped actions unavailable' }}</p>
+                            <p class="mt-1 text-[11px] text-warning-700 dark:text-warning-400">{{ $journey['note'] ?? 'Mapped actions unavailable' }}</p>
                         @elseif (! empty($journey['note']))
-                            <p class="mt-1 text-[11px] text-amber-700 dark:text-amber-400">{{ $journey['note'] }}</p>
+                            <p class="mt-1 text-[11px] text-warning-700 dark:text-warning-400">{{ $journey['note'] }}</p>
                         @endif
                     </li>
                 @endforeach
@@ -155,8 +155,8 @@
                         <span class="text-gray-800 dark:text-white/90">{{ $o['title'] }}</span>
                         <span @class([
                             'shrink-0 text-xs font-semibold',
-                            'text-emerald-700 dark:text-emerald-400' => ($o['state'] ?? '') === 'Improvement observed',
-                            'text-amber-700 dark:text-amber-400' => ($o['state'] ?? '') !== 'Improvement observed',
+                            'text-success-700 dark:text-success-400' => ($o['state'] ?? '') === 'Improvement observed',
+                            'text-warning-700 dark:text-warning-400' => ($o['state'] ?? '') !== 'Improvement observed',
                         ])>{{ $o['state'] }}</span>
                     </li>
                 @endforeach

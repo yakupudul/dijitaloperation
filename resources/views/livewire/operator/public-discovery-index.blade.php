@@ -11,8 +11,8 @@
     @if ($message !== '')
         <div @class([
             'rounded-xl px-4 py-3 text-sm ring-1 ring-inset',
-            'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20' => $messageTone === 'success',
-            'bg-blue-50 text-blue-800 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20' => $messageTone !== 'success',
+            'bg-success-50 text-success-800 ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/20' => $messageTone === 'success',
+            'bg-gray-50 text-gray-800 ring-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20' => $messageTone !== 'success',
         ])>{{ $message }}</div>
     @endif
 
@@ -66,15 +66,15 @@
                                 <p class="mt-1 text-xs text-gray-400">{{ $row['asset']->primary_url ?: $row['asset']->domain ?: 'URL/domain yok' }}</p>
                             </td>
                             <td class="px-5 py-4">
-                                <span class="text-xs font-semibold {{ $row['ready'] ? 'text-emerald-600' : 'text-rose-600' }}">{{ $row['ready'] ? 'Hazır' : 'URL gerekli' }}</span>
+                                <span class="text-xs font-semibold {{ $row['ready'] ? 'text-success-600' : 'text-error-600' }}">{{ $row['ready'] ? 'Hazır' : 'URL gerekli' }}</span>
                             </td>
                             <td class="px-5 py-4">
                                 <span class="text-xs font-semibold uppercase text-gray-600 dark:text-gray-300">{{ str($row['status'])->replace('_', ' ') }}</span>
                                 <p class="mt-1 text-xs text-gray-400">{{ $row['last_run_human'] ?: 'Henüz yok' }}</p>
                             </td>
                             <td class="px-5 py-4 font-medium">{{ $row['pages'] }}</td>
-                            <td class="px-5 py-4"><span class="font-semibold {{ $row['pending'] > 0 ? 'text-amber-600' : 'text-gray-500' }}">{{ $row['pending'] }}</span></td>
-                            <td class="px-5 py-4 font-medium text-emerald-600">{{ $row['accepted'] }}</td>
+                            <td class="px-5 py-4"><span class="font-semibold {{ $row['pending'] > 0 ? 'text-warning-600' : 'text-gray-500' }}">{{ $row['pending'] }}</span></td>
+                            <td class="px-5 py-4 font-medium text-success-600">{{ $row['accepted'] }}</td>
                             <td class="px-5 py-4">
                                 <div class="flex justify-end gap-2">
                                     <a href="{{ route('operator.website.discovery', ['assetId' => $row['asset']->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-300 dark:ring-brand-500/30">İncele</a>

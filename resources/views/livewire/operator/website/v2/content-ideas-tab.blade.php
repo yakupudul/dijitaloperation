@@ -4,14 +4,14 @@
     $btn = 'rounded-lg bg-brand-500 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
     $chip = 'rounded-full px-2 py-0.5 text-xs';
-    $tone = ['technical' => 'bg-rose-100 text-rose-800', 'no_page' => 'bg-rose-50 text-rose-700', 'improve' => 'bg-amber-50 text-amber-700', 'sufficient' => 'bg-success-50 text-success-700', 'unchecked' => 'bg-gray-100 text-gray-600', 'excluded' => 'bg-gray-100 text-gray-500'];
+    $tone = ['technical' => 'bg-error-100 text-error-800', 'no_page' => 'bg-error-50 text-error-700', 'improve' => 'bg-warning-50 text-warning-700', 'sufficient' => 'bg-success-50 text-success-700', 'unchecked' => 'bg-gray-100 text-gray-600', 'excluded' => 'bg-gray-100 text-gray-500'];
     $kinds = ['soru' => 'soru', 'bolum' => 'bölüm', 'yon' => 'yön', 'lokasyon' => 'lokasyon', 'ai_sorusu' => 'AI sorusu'];
     $types = \App\Models\ContentIdea::TYPE_LABELS;
     $num = fn ($v) => number_format((int) $v, 0, ',', '.');
 @endphp
 <div class="space-y-4 text-xs" data-content-ideas-tab @if ($polling) wire:poll.5s @endif>
     @if ($message !== '')
-        <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+        <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
         </p>
     @endif
@@ -76,7 +76,7 @@
 
     @if ($pendingClusters->isNotEmpty())
         <details class="{{ $card }}" data-pending-clusters @if ($groups->total() === 0) open @endif>
-            <summary class="cursor-pointer font-semibold text-amber-800 dark:text-amber-200">Onay bekleyen kümeler ({{ $pendingClusters->count() }}) · markanın hizmetlerinde</summary>
+            <summary class="cursor-pointer font-semibold text-warning-800 dark:text-warning-200">Onay bekleyen kümeler ({{ $pendingClusters->count() }}) · markanın hizmetlerinde</summary>
             <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                 <p class="text-gray-500">Onaylanan küme bu listeye iner (kümeler ortak: aynı hizmetteki diğer markalara da iner).</p>
                 <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="{{ $btn }}" data-approve-all-clusters>Tümünü onayla</button>
@@ -109,8 +109,8 @@
                     @if (($ideaStatus['status'] ?? null) === 'done' || in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true) || ! empty($ideaStatus['rejected']))
                         <tbody wire:key="idea-status-{{ $cluster->id }}"><tr><td colspan="7" class="py-1 pl-6">
                             @if (($ideaStatus['status'] ?? null) === 'done')<span class="text-gray-500">{{ $ideaStatus['added'] }} yeni fikir eklendi.</span>
-                            @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))<span class="text-rose-600">Fikir üretilemedi.</span>@endif
-                            @foreach ((array) ($ideaStatus['rejected'] ?? []) as $rej)<span class="text-amber-700">Eklenmedi: {{ $rej['title'] }} · {{ $rej['reason'] }}</span>@endforeach
+                            @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))<span class="text-error-600">Fikir üretilemedi.</span>@endif
+                            @foreach ((array) ($ideaStatus['rejected'] ?? []) as $rej)<span class="text-warning-700">Eklenmedi: {{ $rej['title'] }} · {{ $rej['reason'] }}</span>@endforeach
                         </td></tr></tbody>
                     @endif
                 @empty

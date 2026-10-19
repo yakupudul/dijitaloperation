@@ -254,4 +254,31 @@ final class ContentAutopilotTest extends SiteTestCase
         Cache::forget(DailySend::RUNNING_KEY);
         Livewire::test(DailySendStrip::class)->assertDontSeeHtml('data-daily-send-button')->call('send')->assertForbidden();
     }
+
+    /** While "Hepsini gönder" runs the strip polls and says how far the job got (yakup 2026-10-19: no sign of life before). */
+    public function test_the_strip_shows_live_progress_while_the_send_runs(): void
+    {
+        Queue::fake();
+        $this->idea('İmplant sonrası beslenme', ['article' => self::article('İmplant sonrası beslenme'), 'autopilot' => ['date' => '2026-10-12', 'review' => ['verdict' => 'ok', 'reason' => 'Uygun.']]], Suggestion::APPROVED);
+
+        CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
+            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.5.0']]);
+        Livewire::test(DailySendStrip::class)->assertDontSeeHtml('data-daily-progress')->call('send');
+        $this->assertSame(['content' => [0, 1], 'posts' => [0, 0], 'repair' => [0, 0], 'done' => 0, 'total' => 1], DailySend::currentProgress(), 'the click starts the progress from the ready counts');
+
+        Cache::put(DailySend::PROGRESS_KEY, ['content' => [3, 5], 'posts' => [0, 2], 'repair' => [0, 4]]);
+        Livewire::test(DailySendStrip::class)->assertSeeHtml('wire:poll.10s')->assertSeeHtml('data-daily-progress="3/11"')
+            ->assertSee('3 / 11 gönderildi')->assertSee('3/5 yazı')->assertSee('0/2 gönderi')->assertSee('0/4 onarım')->assertSee('Gönderiliyor');
+
+        $seen = [];
+        $result = app(ContentAutopilot::class)->sendReady($this->admin, null, function (int $done, int $total) use (&$seen): void {
+            $seen[] = [$done, $total];
+        });
+        $this->assertSame(['sent' => 1, 'failed' => []], $result);
+        $this->assertSame([[0, 1], [1, 1]], $seen, 'before the first article and after each one');
+
+        app(DailySend::class)->send($this->admin);
+        $this->assertNull(DailySend::currentProgress(), 'a finished send clears its progress');
+        Livewire::test(DailySendStrip::class)->assertDontSeeHtml('data-daily-progress')->assertDontSeeHtml('wire:poll.10s');
+    }
 }

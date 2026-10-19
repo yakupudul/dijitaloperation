@@ -15,10 +15,10 @@
     </div>
 
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <x-ta.metric-card label="Clicks" :value="$glance['clicks']['value'] ?? '—'" :delta="$glance['clicks']['secondary'] ?? null" :tone="$glance['clicks']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Impressions" :value="$glance['impressions']['value'] ?? '—'" :delta="$glance['impressions']['secondary'] ?? null" :tone="$glance['impressions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="CTR" :value="$glance['ctr']['value'] ?? '—'" :delta="$glance['ctr']['secondary'] ?? null" :tone="$glance['ctr']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Avg position" :value="isset($glance['clicks']['avg_position']) ? number_format($glance['clicks']['avg_position'], 1) : '—'" delta="Impression-weighted · not global rank" :tone="'neutral'" />
+        <x-ta.metric-card label="Tıklama" :value="$glance['clicks']['value'] ?? '—'" :delta="$glance['clicks']['secondary'] ?? null" :tone="$glance['clicks']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Gösterim" :value="$glance['impressions']['value'] ?? '—'" :delta="$glance['impressions']['secondary'] ?? null" :tone="$glance['impressions']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="TO (CTR)" :value="$glance['ctr']['value'] ?? '—'" :delta="$glance['ctr']['secondary'] ?? null" :tone="$glance['ctr']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Ort. sıra" :value="isset($glance['clicks']['avg_position']) ? number_format($glance['clicks']['avg_position'], 1) : '—'" delta="Impression-weighted · not global rank" :tone="'neutral'" />
     </div>
 
     <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -37,7 +37,7 @@
         <div data-chart='@json($performanceChartOptions)' aria-label="Search performance trend chart" class="min-h-[240px]"></div>
         <p class="mt-2 text-[11px] text-gray-400">{{ $data['performance_trend']['note'] ?? '' }}</p>
         @if ($metric === 'position')
-            <p class="mt-1 text-[11px] text-amber-700 dark:text-amber-400" title="Average position is impression-weighted across queries — not a single global rank.">Average position ≠ global rank — impression-weighted aggregate across queries.</p>
+            <p class="mt-1 text-[11px] text-warning-700 dark:text-warning-400" title="Average position is impression-weighted across queries — not a single global rank.">Average position ≠ global rank — impression-weighted aggregate across queries.</p>
         @endif
     </section>
 
@@ -54,7 +54,7 @@
                                 · {{ $row['ctr'] }}% CTR · pos {{ $row['position'] }}
                             </span>
                         </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
                             <div class="h-full rounded-full bg-orange-500" style="width: {{ min(100, round(($row['clicks'] / $maxDeviceClicks) * 100)) }}%"></div>
                         </div>
                     </li>
@@ -89,7 +89,7 @@
         <div class="grid gap-3 sm:grid-cols-2">
             @foreach (['brand' => 'Brand', 'nonbrand' => 'Non-brand'] as $key => $label)
                 @php $row = $brandNonbrand[$key] ?? []; @endphp
-                <div class="rounded-lg bg-slate-50 px-3 py-3 dark:bg-white/[0.03]">
+                <div class="rounded-lg bg-gray-50 px-3 py-3 dark:bg-white/[0.03]">
                     <p class="text-xs font-medium text-gray-500">{{ $label }}</p>
                     <p class="mt-1 text-sm tabular-nums text-gray-800 dark:text-white/90">
                         {{ number_format($row['clicks'] ?? 0) }} clicks · {{ number_format($row['impressions'] ?? 0) }} impr
@@ -103,7 +103,7 @@
         @endif
     </section>
 
-    <section class="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+    <section class="rounded-2xl border border-warning-200 bg-warning-50/50 p-4 dark:border-warning-900/40 dark:bg-warning-950/20">
         <div class="mb-2 flex items-center gap-2">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Diagnosis</h3>
             <x-ta.badge color="warning" size="sm">{{ $diagnosis['source'] ?? 'Derived' }}</x-ta.badge>

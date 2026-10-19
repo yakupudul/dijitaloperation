@@ -5,7 +5,7 @@
     $iconBg = match ($family) {
         'spend' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300',
         'result' => 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400',
-        'efficiency' => 'bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400',
+        'efficiency' => 'bg-live-50 text-live-600 dark:bg-live-500/15 dark:text-live-400',
         'delivery' => 'bg-blue-light-50 text-blue-light-600 dark:bg-blue-light-500/15 dark:text-blue-light-400',
         default => 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300',
     };

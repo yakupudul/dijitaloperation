@@ -3,7 +3,7 @@
     $input = 'rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $btn = 'rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
-    $tone = ['ok' => 'bg-emerald-50 text-emerald-700', 'warn' => 'bg-amber-50 text-amber-700', 'critical' => 'bg-rose-50 text-rose-700', 'unknown' => 'bg-gray-100 text-gray-600'];
+    $tone = ['ok' => 'bg-success-50 text-success-700', 'warn' => 'bg-warning-50 text-warning-700', 'critical' => 'bg-error-50 text-error-700', 'unknown' => 'bg-gray-100 text-gray-600'];
     $label = ['ok' => 'iyi', 'warn' => 'uyarı', 'critical' => 'kritik', 'unknown' => '—'];
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-health-tab>
@@ -21,10 +21,11 @@
     </header>
 
     @if ($message !== '')
-        <p role="status" class="rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>
+        <p role="status" class="rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">{{ $message }}</p>
     @endif
 
     <section class="{{ $card }}">
+        <div class="min-w-0 overflow-x-auto">
         <table class="w-full text-left text-xs">
             <thead class="text-gray-500"><tr><th class="py-1">Kontrol</th><th class="w-20">Durum</th><th class="w-32">Tarih</th><th></th></tr></thead>
             <tbody>
@@ -38,11 +39,12 @@
                 @endforeach
             </tbody>
         </table>
+        </div>
         <form wire:submit="saveHosting" class="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
             <label for="hosting-date" class="text-xs text-gray-500">Hosting bitiş</label>
             <input id="hosting-date" type="date" wire:model="hostingDate" class="{{ $input }} py-1">
             <button type="submit" class="{{ $ghost }}">Kaydet</button>
-            @error('hostingDate')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+            @error('hostingDate')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
         </form>
     </section>
 </div>

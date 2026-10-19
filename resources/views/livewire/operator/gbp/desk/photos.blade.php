@@ -1,8 +1,8 @@
 <div class="space-y-5 dark:text-gray-200" data-gbp-photos>
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">İşletme profilleri</h1>
-            <p class="mt-1 max-w-3xl text-xs text-gray-500">Gerçek ve güncel fotoğrafı olan profiller daha çok tıklanır. Her profile ayda en az bir yeni fotoğraf hedeflenir: önce sitenin kendi görselleri (hizmet sayfalarındakiler önce), yoksa şubenin kendi fotoğrafını buradan yüklersin. Aynı fotoğraf bir profile bir kez gider; başka şubede kullanılanlar işaretlidir. Gönderilen fotoğraf geri alınabilir.</p>
+            <p class="mt-1 max-w-3xl text-sm text-gray-500">Gerçek ve güncel fotoğrafı olan profiller daha çok tıklanır. Her profile ayda en az bir yeni fotoğraf hedeflenir: önce sitenin kendi görselleri (hizmet sayfalarındakiler önce), yoksa şubenin kendi fotoğrafını buradan yüklersin. Aynı fotoğraf bir profile bir kez gider; başka şubede kullanılanlar işaretlidir. Gönderilen fotoğraf geri alınabilir.</p>
         </div>
         @include('livewire.operator.gbp.partials.brand-filter')
     </header>
@@ -10,17 +10,17 @@
     @include('livewire.operator.gbp.partials.desk-message')
 
     <section class="flex flex-wrap items-center gap-3 text-sm">
-        <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $staleCount > 0 ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' }}">{{ $staleCount > 0 ? $staleCount.' profilde 30 günden eski ya da hiç fotoğraf yok' : 'Tüm profillerde son 30 günde fotoğraf var' }}</span>
+        <span class="rounded-full px-2.5 py-1 text-xs font-medium {{ $staleCount > 0 ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300' : 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' }}">{{ $staleCount > 0 ? $staleCount.' profilde 30 günden eski ya da hiç fotoğraf yok' : 'Tüm profillerde son 30 günde fotoğraf var' }}</span>
         <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="staleOnly" class="rounded border-gray-300 text-brand-500"> Yalnız fotoğrafı eski olanlar</label>
     </section>
 
-    <section class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-700 dark:bg-gray-800 dark:ring-gray-700">
+    <section class="surface divide-y divide-gray-100 dark:divide-gray-800">
         @forelse ($groups as $brandName => $locations)
             @php $groupStale = $locations->filter(fn ($l) => $status[$l->id]['stale'] ?? true)->count(); @endphp
             <div class="flex flex-wrap items-center gap-2 bg-gray-50 px-4 py-1.5 text-xs dark:bg-white/[0.03]">
                 <span class="font-semibold uppercase tracking-wide text-gray-500">{{ $brandName }} · {{ $locations->count() }}</span>
                 @if ($canWrite && $groupStale > 0 && $locations->first()?->brand_id)
-                    <button type="button" wire:click="sendMonthly({{ $locations->first()->brand_id }})" wire:confirm="Fotoğrafı 30 günden eski olan {{ $groupStale }} profile siteden birer kullanılmamış fotoğraf gönderilsin mi?" class="ml-auto font-medium text-brand-600 hover:underline">Eski olanlara birer fotoğraf gönder ({{ $groupStale }})</button>
+                    <button type="button" wire:click="sendMonthly({{ $locations->first()->brand_id }})" wire:confirm="Fotoğrafı 30 günden eski olan {{ $groupStale }} profile siteden birer kullanılmamış fotoğraf gönderilsin mi?" class="ml-auto font-medium link-neutral">Eski olanlara birer fotoğraf gönder ({{ $groupStale }})</button>
                 @endif
             </div>
             @foreach ($locations as $location)
@@ -38,9 +38,9 @@
                             <span class="text-xs text-gray-500">{{ $s['days'] !== null ? 'son: '.$s['days'].' gün önce' : 'tarih yok' }}</span>
                             @unless ($s['logo'])<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">Logo yok</span>@endunless
                             @unless ($s['cover'])<span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">Kapak yok</span>@endunless
-                            <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $s['stale'] ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' }}">{{ $s['stale'] ? 'Yeni fotoğraf gerekli' : 'Güncel' }}</span>
+                            <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $s['stale'] ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300' : 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' }}">{{ $s['stale'] ? 'Yeni fotoğraf gerekli' : 'Güncel' }}</span>
                         @endif
-                        <button type="button" wire:click="toggle({{ $location->id }})" class="text-xs font-medium text-brand-600 hover:underline">{{ $isOpen ? 'Kapat' : 'Fotoğraf seç' }}</button>
+                        <button type="button" wire:click="toggle({{ $location->id }})" class="text-xs font-medium link-neutral">{{ $isOpen ? 'Kapat' : 'Fotoğraf seç' }}</button>
                     </div>
 
                     @if ($isOpen)
@@ -67,7 +67,7 @@
                                                             <span class="block truncate" title="{{ $c['title'] }}">{{ $c['title'] }}</span>
                                                             @if ($c['width'])<span class="block text-gray-400">{{ $c['width'] }} × {{ $c['height'] }}</span>@endif
                                                             @if ($c['page'])<span class="block truncate text-gray-500" title="{{ $c['page'] }}">Hizmet: {{ $c['page'] }}</span>@endif
-                                                            @if ($c['used_by'] > 0)<span class="block text-amber-600">{{ $c['used_by'] }} şubede kullanıldı</span>@endif
+                                                            @if ($c['used_by'] > 0)<span class="block text-warning-600">{{ $c['used_by'] }} şubede kullanıldı</span>@endif
                                                         </span>
                                                     </span>
                                                 </label>
@@ -94,7 +94,7 @@
                                     </label>
                                     <button type="submit" wire:loading.attr="disabled" wire:target="photo,uploadPhoto" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Yükle ve gönder</button>
                                     <span wire:loading wire:target="photo" class="text-xs text-gray-500">Yükleniyor…</span>
-                                    @error('photo')<p class="w-full text-xs text-rose-600">{{ $message }}</p>@enderror
+                                    @error('photo')<p class="w-full text-xs text-error-600">{{ $message }}</p>@enderror
                                 </form>
                             @endif
 
@@ -108,8 +108,8 @@
                                                 <img src="{{ $item->source_url }}" alt="" loading="lazy" class="h-10 w-10 rounded object-cover">
                                                 <span class="min-w-0 flex-1 truncate">{{ $item->title ?: basename((string) $item->source_url) }} · {{ $labels[$item->category] ?? $item->category }} · {{ $item->source === 'upload' ? 'yüklendi' : 'siteden' }}</span>
                                                 <span class="text-gray-500">{{ $item->created_at?->locale('tr')->translatedFormat('d M Y') }}</span>
-                                                <span @class(['font-medium', 'text-emerald-600' => $item->status === 'uploaded', 'text-rose-600' => $item->status === 'failed', 'text-gray-500' => ! in_array($item->status, ['uploaded', 'failed'], true)])>{{ ['sending' => 'Gönderiliyor', 'uploaded' => 'Profilde', 'failed' => 'Gönderilemedi', 'removed' => 'Kaldırıldı'][$item->status] ?? $item->status }}</span>
-                                                @if ($item->status === 'failed' && $write?->error)<span class="w-full text-rose-600">{{ \Illuminate\Support\Str::limit($write->error, 200) }}</span>@endif
+                                                <span @class(['font-medium', 'text-success-600' => $item->status === 'uploaded', 'text-error-600' => $item->status === 'failed', 'text-gray-500' => ! in_array($item->status, ['uploaded', 'failed'], true)])>{{ ['sending' => 'Gönderiliyor', 'uploaded' => 'Profilde', 'failed' => 'Gönderilemedi', 'removed' => 'Kaldırıldı'][$item->status] ?? $item->status }}</span>
+                                                @if ($item->status === 'failed' && $write?->error)<span class="w-full text-error-600">{{ \Illuminate\Support\Str::limit($write->error, 200) }}</span>@endif
                                                 @if ($canWrite && $write?->isUndoable())<button type="button" wire:click="undo({{ $write->id }})" wire:confirm="Fotoğraf profilden kaldırılsın mı?" class="font-medium text-gray-600 hover:underline dark:text-gray-300">Kaldır</button>@endif
                                             </li>
                                         @endforeach

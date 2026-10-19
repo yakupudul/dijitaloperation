@@ -9,14 +9,14 @@
     $p = $trend['previous'];
     $pageUrl = fn (array $query) => route('operator.website', ['assetId' => $this->assetId, 'tab' => 'sayfalar', ...$query]);
     $stateLabels = ['iyi' => 'İyi', 'dususte' => 'Düşüşte', 'sorunlu' => 'Sorunlu'];
-    $stateClass = ['iyi' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'dususte' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'sorunlu' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'];
+    $stateClass = ['iyi' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300', 'dususte' => 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300', 'sorunlu' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'];
 @endphp
 <div class="space-y-4" data-overview>
     @foreach ($banners as $bannerState => $group)
-        <section class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200" data-data-status-banner="{{ $bannerState }}">
+        <section class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warning-50 p-3 text-sm text-warning-900 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200" data-data-status-banner="{{ $bannerState }}">
             <span>{{ __('data_status.banner.'.$bannerState.'_title', ['sources' => $group->map(fn ($status) => $status->sourceLabel())->implode(' / ')], 'tr') }}</span>
             @if ($bannerState === 'not_bound')
-                <a href="{{ route('operator.asset.sources', ['assetId' => $this->assetId]) }}" wire:navigate class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white">{{ __('data_status.actions.bind', [], 'tr') }}</a>
+                <a href="{{ route('operator.asset.sources', ['assetId' => $this->assetId]) }}" wire:navigate class="rounded-lg bg-warning-600 px-3 py-1.5 text-xs font-semibold text-white">{{ __('data_status.actions.bind', [], 'tr') }}</a>
             @endif
         </section>
     @endforeach
@@ -48,7 +48,7 @@
             <div class="{{ $card }}" data-number="{{ $label }}">
                 <p class="text-xs text-gray-500">{{ $label }}</p>
                 <p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $bound && $value !== null ? $format($value) : '—' }}</p>
-                <p @class(['text-xs', 'text-emerald-600' => $delta !== null && $delta !== 0 && $good, 'text-rose-600' => $delta !== null && $delta !== 0 && ! $good, 'text-gray-500' => $delta === null || $delta === 0])>
+                <p @class(['text-xs', 'text-success-600' => $delta !== null && $delta !== 0 && $good, 'text-error-600' => $delta !== null && $delta !== 0 && ! $good, 'text-gray-500' => $delta === null || $delta === 0])>
                     @if (! $bound){{ $missing }}@elseif ($delta === null)önceki dönem verisi yok@else{{ $delta > 0 ? '▲ +' : ($delta < 0 ? '▼ ' : '') }}{{ $delta }}% · önceki {{ $format($previous) }}@endif
                 </p>
             </div>
@@ -71,8 +71,9 @@
         <section class="{{ $card }}" data-bing-queries>
             <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="text-sm font-semibold">Bing'de en çok görülen sorgular</h2>
-                <span class="text-xs text-gray-500">son 4 hafta · {{ $num($bing['impressions']) }} gösterim · {{ $num($bing['clicks']) }} tıklama @if ($bing['error']) · <span class="text-rose-600">{{ $bing['error'] }}</span>@endif</span>
+                <span class="text-xs text-gray-500">son 4 hafta · {{ $num($bing['impressions']) }} gösterim · {{ $num($bing['clicks']) }} tıklama @if ($bing['error']) · <span class="text-error-600">{{ $bing['error'] }}</span>@endif</span>
             </div>
+            <div class="min-w-0 overflow-x-auto">
             <table class="w-full text-xs">
                 <thead class="text-gray-500"><tr><th class="py-1 text-left font-medium">Sorgu</th><th class="text-right font-medium">Tıklama</th><th class="text-right font-medium">Gösterim</th><th class="text-right font-medium">Sıra</th></tr></thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -88,6 +89,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </section>
     @endif
 
@@ -98,6 +100,7 @@
                     <h2 class="text-sm font-semibold">En çok tıklanan sorgular</h2>
                     <a href="{{ route('operator.website', ['assetId' => $this->assetId, 'tab' => 'sorgular', 'sub' => 'sorgular']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Tümü →</a>
                 </div>
+                <div class="min-w-0 overflow-x-auto">
                 <table class="w-full text-xs">
                     <thead class="text-gray-500"><tr><th class="py-1 text-left font-medium">Sorgu</th><th class="text-right font-medium">Tıklama</th><th class="text-right font-medium">Gösterim</th><th class="text-right font-medium">Sıra</th></tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -105,7 +108,7 @@
                             @php($qDelta = $pct($q['clicks'], $q['prev_clicks']))
                             <tr wire:key="tq-{{ md5($q['query']) }}">
                                 <td class="max-w-[16rem] truncate py-1.5">{{ $q['query'] }}</td>
-                                <td class="text-right tabular-nums">{{ $num($q['clicks']) }}@if ($qDelta !== null) <span @class(['text-[10px]', 'text-emerald-600' => $qDelta > 0, 'text-rose-600' => $qDelta < 0, 'text-gray-400' => $qDelta === 0])>{{ $qDelta > 0 ? '+' : '' }}{{ $qDelta }}%</span>@endif</td>
+                                <td class="text-right tabular-nums">{{ $num($q['clicks']) }}@if ($qDelta !== null) <span @class(['text-[10px]', 'text-success-600' => $qDelta > 0, 'text-error-600' => $qDelta < 0, 'text-gray-400' => $qDelta === 0])>{{ $qDelta > 0 ? '+' : '' }}{{ $qDelta }}%</span>@endif</td>
                                 <td class="text-right tabular-nums">{{ $num($q['impressions']) }}</td>
                                 <td class="text-right tabular-nums">{{ $q['position'] !== null ? $dec($q['position']) : '—' }}</td>
                             </tr>
@@ -114,6 +117,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </section>
 
             <section class="{{ $card }}" data-top-pages>
@@ -121,13 +125,14 @@
                     <h2 class="text-sm font-semibold">En çok tıklanan sayfalar</h2>
                     <a href="{{ $pageUrl(['filtre' => 'tum']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Tümü →</a>
                 </div>
+                <div class="min-w-0 overflow-x-auto">
                 <table class="w-full text-xs">
                     <thead class="text-gray-500"><tr><th class="py-1 text-left font-medium">Sayfa</th><th class="text-right font-medium">Tıklama</th><th class="text-right font-medium">Oturum</th><th class="text-right font-medium">Sıra</th></tr></thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse ($topPages as $row)
                             <tr wire:key="tp-{{ md5($row['path']) }}">
                                 <td class="max-w-[16rem] py-1.5"><a href="{{ $pageUrl(['sayfa' => $row['path']]) }}" wire:navigate class="block truncate hover:underline">{{ $row['title'] ?? $row['path'] }}</a><span class="block truncate text-gray-400">{{ $row['path'] }}</span></td>
-                                <td class="text-right tabular-nums">{{ $num($row['clicks']) }}@if ($row['delta'] !== null) <span @class(['text-[10px]', 'text-emerald-600' => $row['delta'] > 0, 'text-rose-600' => $row['delta'] < 0, 'text-gray-400' => $row['delta'] === 0])>{{ $row['delta'] > 0 ? '+' : '' }}{{ $row['delta'] }}%</span>@endif</td>
+                                <td class="text-right tabular-nums">{{ $num($row['clicks']) }}@if ($row['delta'] !== null) <span @class(['text-[10px]', 'text-success-600' => $row['delta'] > 0, 'text-error-600' => $row['delta'] < 0, 'text-gray-400' => $row['delta'] === 0])>{{ $row['delta'] > 0 ? '+' : '' }}{{ $row['delta'] }}%</span>@endif</td>
                                 <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td>
                                 <td class="text-right tabular-nums">{{ $row['position'] !== null ? $dec($row['position']) : '—' }}</td>
                             </tr>
@@ -136,6 +141,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </section>
         </div>
 
@@ -145,12 +151,12 @@
                 <div class="grid gap-4 md:grid-cols-2">
                     @foreach (['Kazananlar' => $winners, 'Kaybedenler' => $losers] as $heading => $list)
                         <div>
-                            <p class="mb-1 text-xs font-medium {{ $heading === 'Kazananlar' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300' }}">{{ $heading }}</p>
+                            <p class="mb-1 text-xs font-medium {{ $heading === 'Kazananlar' ? 'text-success-700 dark:text-success-300' : 'text-error-700 dark:text-error-300' }}">{{ $heading }}</p>
                             <ul class="divide-y divide-gray-100 text-xs dark:divide-gray-800">
                                 @forelse ($list as $row)
                                     <li class="flex items-center justify-between gap-3 py-1.5" wire:key="mv-{{ md5($row['path']) }}">
                                         <a href="{{ $pageUrl(['sayfa' => $row['path']]) }}" wire:navigate class="min-w-0 truncate hover:underline">{{ $row['title'] ?? $row['path'] }}</a>
-                                        <span class="shrink-0 tabular-nums text-gray-500">{{ $num($row['prev_clicks']) }} → {{ $num($row['clicks']) }} <span class="{{ $row['change'] > 0 ? 'text-emerald-600' : 'text-rose-600' }}">({{ $row['change'] > 0 ? '+' : '' }}{{ $num($row['change']) }})</span></span>
+                                        <span class="shrink-0 tabular-nums text-gray-500">{{ $num($row['prev_clicks']) }} → {{ $num($row['clicks']) }} <span class="{{ $row['change'] > 0 ? 'text-success-600' : 'text-error-600' }}">({{ $row['change'] > 0 ? '+' : '' }}{{ $num($row['change']) }})</span></span>
                                     </li>
                                 @empty
                                     <li class="py-1.5 text-gray-500">—</li>

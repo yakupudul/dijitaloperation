@@ -1,15 +1,15 @@
-<div class="flex flex-wrap gap-2">
+<div class="flex flex-wrap items-center gap-2">
     <button type="button" wire:click="refreshData"
-        class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+        class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3.5 text-sm font-medium text-white hover:bg-brand-600">
         {{ __('operator_runtime.sources.refresh_data') }}
     </button>
     <button type="button" wire:click="runAnalysis"
-        class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
+        class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
         title="{{ __('operator.workspace.analysis_requires_data') }}">
         {{ __('operator.workspace.run_analysis') }}
     </button>
     <details class="relative">
-        <summary class="cursor-pointer list-none inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">
+        <summary class="cursor-pointer list-none inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">
             {{ __('operator_runtime.sources.more') }}
         </summary>
         <div class="absolute right-0 z-20 mt-2 w-56 rounded-xl bg-white p-2 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">

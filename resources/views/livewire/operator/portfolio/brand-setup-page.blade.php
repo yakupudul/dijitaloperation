@@ -26,7 +26,7 @@
     </div>
 
     @if ($message !== '')
-        <p role="status" @class(['rounded-lg p-3 text-sm', 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300' => $messageTone === 'success', 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300' => $messageTone === 'error'])>{{ $message }}</p>
+        <p role="status" @class(['rounded-lg p-3 text-sm', 'bg-success-50 text-success-800 dark:bg-success-500/10 dark:text-success-300' => $messageTone === 'success', 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' => $messageTone === 'error'])>{{ $message }}</p>
     @endif
 
     <form wire:submit="start" class="flex flex-wrap items-end gap-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -44,22 +44,22 @@
     </form>
 
     @if ($warnings !== [])
-        <div class="rounded-xl bg-amber-50 p-5 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-setup-warnings>
-            <h2 class="font-semibold text-amber-900 dark:text-amber-200">Otomatik kur şu an doğru çalışamaz</h2>
-            <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-200">
+        <div class="rounded-xl bg-warning-50 p-5 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30" data-setup-warnings>
+            <h2 class="font-semibold text-warning-900 dark:text-warning-200">Otomatik kur şu an doğru çalışamaz</h2>
+            <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-warning-900 dark:text-warning-200">
                 @foreach ($warnings as $warning)
                     <li>{{ $warning }}</li>
                 @endforeach
             </ul>
             <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" wire:click="start(true)" wire:loading.attr="disabled" class="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700">Yine de getir</button>
-                <button type="button" wire:click="$set('warnings', [])" class="rounded-lg px-3 py-1.5 text-sm font-medium text-amber-900 ring-1 ring-inset ring-amber-300 dark:text-amber-200">Vazgeç</button>
+                <button type="button" wire:click="start(true)" wire:loading.attr="disabled" class="rounded-lg bg-warning-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-warning-700">Yine de getir</button>
+                <button type="button" wire:click="$set('warnings', [])" class="rounded-lg px-3 py-1.5 text-sm font-medium text-warning-900 ring-1 ring-inset ring-warning-300 dark:text-warning-200">Vazgeç</button>
             </div>
         </div>
     @endif
 
     @if ($proposal?->isStuck())
-        <p class="rounded-lg bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">Hazırlık 15 dakikadır ilerlemiyor (arka plan işi durmuş olabilir). "Yeniden tara" ile tekrar başlatın.</p>
+        <p class="rounded-lg bg-warning-50 p-4 text-sm text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">Hazırlık 15 dakikadır ilerlemiyor (arka plan işi durmuş olabilir). "Yeniden tara" ile tekrar başlatın.</p>
     @elseif ($proposal?->isPending())
         @php
             $steps = \App\Services\BrandSetup\BrandSetupAssistant::STEPS;
@@ -67,11 +67,11 @@
             $order = array_keys($steps);
             $currentIndex = array_search($current, $order, true);
         @endphp
-        <section class="rounded-xl bg-blue-50 p-4 text-sm text-blue-900 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20" data-setup-progress="{{ $current }}"
+        <section class="rounded-xl bg-gray-50 p-4 text-sm text-gray-900 ring-1 ring-inset ring-gray-200 dark:bg-gray-500/10 dark:text-gray-200 dark:ring-gray-500/20" data-setup-progress="{{ $current }}"
             x-data="{ started: {{ $proposal->created_at->getTimestamp() }}, now: Math.floor(Date.now() / 1000) }" x-init="setInterval(() => now = Math.floor(Date.now() / 1000), 1000)">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="flex items-center gap-2 font-semibold">
-                    <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500"></span></span>
+                    <span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-gray-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-gray-500"></span></span>
                     @if ($proposal->waitsForClaude())
                         Hizmet önerisi Claude'da bekliyor (kuyruk iş saatlerinde 2 saatte bir çalışır) — bu sayfadan çıkabilirsin; yanıt gelince öneriler hazırlanır.
                     @else
@@ -85,19 +85,19 @@
                     @php $index = array_search($key, $order, true); @endphp
                     <li class="flex items-center gap-2 text-xs">
                         @if ($index < $currentIndex)
-                            <span class="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] text-white">✓</span><span class="text-blue-800/70 line-through dark:text-blue-200/60">{{ $label }}</span>
+                            <span class="flex h-4 w-4 items-center justify-center rounded-full bg-success-500 text-[10px] text-white">✓</span><span class="text-gray-800/70 line-through dark:text-gray-200/60">{{ $label }}</span>
                         @elseif ($index === $currentIndex)
-                            <svg class="h-4 w-4 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="font-medium">{{ $label }}</span>
+                            <svg class="h-4 w-4 animate-spin text-gray-600" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="font-medium">{{ $label }}</span>
                         @else
-                            <span class="h-4 w-4 rounded-full ring-1 ring-inset ring-blue-300"></span><span class="text-blue-800/60 dark:text-blue-200/50">{{ $label }}</span>
+                            <span class="h-4 w-4 rounded-full ring-1 ring-inset ring-gray-300"></span><span class="text-gray-800/60 dark:text-gray-200/50">{{ $label }}</span>
                         @endif
                     </li>
                 @endforeach
             </ol>
-            <p class="mt-3 text-xs text-blue-800/80 dark:text-blue-200/70">En uzun adım AI'ın sayfaları ve sorguları okumasıdır (genelde 1–3 dakika).</p>
+            <p class="mt-3 text-xs text-gray-800/80 dark:text-gray-200/70">En uzun adım AI'ın sayfaları ve sorguları okumasıdır (genelde 1–3 dakika).</p>
         </section>
     @elseif ($proposal?->status === 'failed')
-        <p class="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">Öneriler hazırlanamadı: {{ $proposal->error_summary }}</p>
+        <p class="rounded-lg bg-error-50 p-4 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-300">Öneriler hazırlanamadı: {{ $proposal->error_summary }}</p>
     @endif
 
     @if ($proposal && in_array($proposal->status, ['ready', 'applied'], true))
@@ -105,7 +105,7 @@
             <p class="text-sm text-gray-700 dark:text-gray-300"><strong>AI özeti:</strong> {{ data_get($proposal->summary, 'brand_summary') }}@if (data_get($proposal->summary, 'sector_label')) · Sektör önerisi: <strong>{{ data_get($proposal->summary, 'sector_label') }}</strong>@endif</p>
         @endif
         @if ($sectorName !== null && data_get($proposal->summary, 'sector_label') !== null && data_get($proposal->summary, 'sector_label') !== $sectorName)
-            <p class="rounded-lg bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200" data-sector-mismatch>Markada «{{ $sectorName }}» sektörü seçili, AI siteden «{{ data_get($proposal->summary, 'sector_label') }}» öneriyor. Sektör kendiliğinden değiştirilmez; doğruysa <a wire:navigate href="{{ route('operator.brand.edit', ['brandId' => $brand->id]) }}" class="font-semibold underline">markayı düzenle</a>.</p>
+            <p class="rounded-lg bg-warning-50 p-3 text-xs text-warning-900 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200" data-sector-mismatch>Markada «{{ $sectorName }}» sektörü seçili, AI siteden «{{ data_get($proposal->summary, 'sector_label') }}» öneriyor. Sektör kendiliğinden değiştirilmez; doğruysa <a wire:navigate href="{{ route('operator.brand.edit', ['brandId' => $brand->id]) }}" class="font-semibold underline">markayı düzenle</a>.</p>
         @endif
         @php $businessContext = data_get($proposal->summary, 'business_context'); @endphp
         @if (is_array($businessContext))

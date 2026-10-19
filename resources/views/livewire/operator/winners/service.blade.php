@@ -1,60 +1,64 @@
 @php
-    $panel = 'rounded-2xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700';
-    $select = 'mt-1 block rounded-lg border-white/20 bg-white/10 py-1.5 text-sm text-white [&>option]:text-gray-900';
-    $medal = ['bg-[#d8b45e] text-[#14171f]', 'bg-[#d7dbe2] text-[#14171f]', 'bg-[#d9a77b] text-[#14171f]'];
+    $panel = 'surface';
+    $select = 'mt-1 block w-full rounded-lg border-gray-300 py-1.5 text-sm sm:w-auto dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
+    // Rank marks: neutral (the gold / silver / bronze palette was a different visual language).
+    $medal = ['bg-gray-900 text-white dark:bg-white dark:text-gray-900', 'bg-gray-200 text-gray-800 dark:bg-white/15 dark:text-gray-100', 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200'];
+    $segment = 'flex h-8 items-center rounded-md px-3 whitespace-nowrap';
+    $segmentOn = 'bg-white font-semibold text-gray-900 shadow-theme-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-white dark:ring-gray-700';
+    $segmentOff = 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
 @endphp
 
 <div class="space-y-5">
-    @include('livewire.operator.winners.partials.nav', ['current' => 'operator.winners'])
-
     @if (! $ready || ! $view)
-        <p class="{{ $panel }} p-4 text-sm text-gray-500">Kazananlar tabloları henüz hazır değil.</p>
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Kazananlar</h1>
+        @include('livewire.operator.winners.partials.nav', ['current' => 'operator.winners'])
+        <x-ta.empty-state title="Kazananlar tabloları henüz hazır değil." />
     @else
-        <section class="relative overflow-hidden rounded-2xl bg-[#14171f] px-6 py-7 text-white" data-testid="winner-service-hero">
-            <div class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#d8b45e]/15 blur-2xl"></div>
-            <p class="text-xs text-white/60"><a href="{{ route('operator.winners', ['sehir' => $view['city']]) }}" wire:navigate class="hover:text-[#e9cf8a]">Kazananlar</a>@if ($view['sector']) / {{ $view['sector'] }}@endif / {{ $view['name'] }}</p>
-            <h1 class="mt-2 font-serif text-4xl tracking-tight">{{ $view['name'] }}</h1>
-            <p class="mt-1 text-sm text-white/70">{{ $view['city'] !== '' ? $view['city'] : 'Şehir yok' }} · {{ $view['competing'] }} marka yarışıyor · eşiği geçen {{ $view['eligible'] }} · son 30 gün</p>
-            <div class="mt-5 flex flex-wrap items-end gap-4">
-                <div>
-                    <p class="text-xs text-white/60">Ölçü</p>
-                    <div class="mt-1 flex gap-0.5 rounded-lg bg-white/10 p-0.5">
-                        @foreach ($measures as $key => $label)
-                            <button type="button" wire:click="$set('measure', '{{ $key }}')" @class(['rounded-md px-3 py-1 text-sm font-medium', 'bg-[#d8b45e] text-[#14171f]' => $measure === $key, 'text-white/70' => $measure !== $key])>{{ $label }}</button>
-                        @endforeach
-                    </div>
+        <div class="min-w-0" data-testid="winner-service-hero">
+            <p class="break-words text-xs text-gray-500"><a href="{{ route('operator.winners', ['sehir' => $view['city']]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">Kazananlar</a>@if ($view['sector']) / {{ $view['sector'] }}@endif / {{ $view['name'] }}</p>
+            <h1 class="mt-1 break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $view['name'] }}</h1>
+            <p class="mt-1 text-sm text-gray-500">{{ $view['city'] !== '' ? $view['city'] : 'Şehir yok' }} · {{ $view['competing'] }} marka yarışıyor · eşiği geçen {{ $view['eligible'] }} · son 30 gün</p>
+        </div>
+        @include('livewire.operator.winners.partials.nav', ['current' => 'operator.winners'])
+        <div class="flex flex-wrap items-end gap-4">
+            <div>
+                <p class="text-xs text-gray-500">Ölçü</p>
+                <div class="mt-1 inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-gray-100 p-1 text-sm dark:bg-white/5">
+                    @foreach ($measures as $key => $label)
+                        <button type="button" wire:click="$set('measure', '{{ $key }}')" class="{{ $segment }} {{ $measure === $key ? $segmentOn : $segmentOff }}">{{ $label }}</button>
+                    @endforeach
                 </div>
-                @if (count($view['cities']) > 1)
-                    <label class="text-xs text-white/60">Şehir
-                        <select wire:model.live="city" class="{{ $select }}">@foreach ($view['cities'] as $c)<option value="{{ $c['name'] }}" @selected($view['city'] === $c['name'])>{{ $c['name'] }} · {{ $c['brands'] }} marka</option>@endforeach</select>
-                    </label>
-                @endif
             </div>
-        </section>
+            @if (count($view['cities']) > 1)
+                <label class="w-full text-xs text-gray-500 sm:w-auto">Şehir
+                    <select wire:model.live="city" class="{{ $select }}">@foreach ($view['cities'] as $c)<option value="{{ $c['name'] }}" @selected($view['city'] === $c['name'])>{{ $c['name'] }} · {{ $c['brands'] }} marka</option>@endforeach</select>
+                </label>
+            @endif
+        </div>
 
         @if ($view['podium'] === [])
-            <p class="{{ $panel }} p-4 text-sm text-gray-500" data-testid="winner-podium">Bu şehirde hiçbir kanalda eşiği geçen marka yok.</p>
+            <x-ta.empty-state size="sm" title="Bu şehirde hiçbir kanalda eşiği geçen marka yok." data-testid="winner-podium" />
         @endif
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4" data-testid="winner-podium-grid">
             @foreach ($view['podium'] as $key => $p)
-                <section class="{{ $panel }} p-5" wire:key="pod-{{ $key }}">
+                <section class="{{ $panel }} min-w-0 p-4 sm:p-5" wire:key="pod-{{ $key }}">
                     <div class="flex items-baseline gap-2">
                         <h2 class="font-semibold text-gray-900 dark:text-white">{{ $p['label'] }}</h2>
                         <span class="text-xs text-gray-500">{{ $p['competing'] }} marka</span>
                     </div>
                     @forelse ($p['top'] as $i => $t)
                         @if ($i === 0)
-                            <div class="mt-3 rounded-xl bg-[#fbf3dd] p-4 dark:bg-[#d8b45e]/10">
+                            <div class="mt-3 rounded-xl bg-gray-50 p-4 dark:bg-white/[0.03]">
                                 <div class="flex items-center gap-2">
-                                    <span class="flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold {{ $medal[0] }}">1</span>
-                                    <p class="font-serif text-lg text-gray-900 dark:text-white">{{ $t['brand'] }}</p>
+                                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $medal[0] }}">1</span>
+                                    <p class="min-w-0 break-words text-base font-semibold text-gray-900 dark:text-white">{{ $t['brand'] }}</p>
                                 </div>
-                                <p class="mt-2 text-sm font-semibold tabular-nums text-[#8a6a1f] dark:text-[#e9cf8a]">{{ $t['value'] }}</p>
+                                <p class="mt-2 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{{ $t['value'] }}</p>
                                 <p class="mt-1 truncate text-xs text-gray-600 dark:text-gray-400" title="{{ $t['what'] }}">{{ $t['what'] }}</p>
                             </div>
                         @else
                             <div class="mt-2 flex items-center gap-2 px-1 text-sm">
-                                <span class="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold {{ $medal[$i] }}">{{ $i + 1 }}</span>
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold {{ $medal[$i] ?? $medal[2] }}">{{ $i + 1 }}</span>
                                 <span class="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">{{ $t['brand'] }}</span>
                                 <span class="text-xs tabular-nums text-gray-500">{{ $t['value'] }}</span>
                             </div>
@@ -69,8 +73,8 @@
         @endif
 
         <section class="{{ $panel }} overflow-hidden" data-testid="winner-ranking">
-            <div class="flex flex-wrap items-baseline gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-                <h2 class="font-serif text-xl text-gray-900 dark:text-white">Genel sıralama</h2>
+            <div class="flex flex-wrap items-baseline gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                <h2 class="font-semibold text-gray-900 dark:text-white">Genel sıralama</h2>
                 <p class="text-xs text-gray-500">Her kanalda sıraya göre puan (lider {{ \App\Services\Ads\Winners::CHANNEL_POINTS }}); kanalı olmayan o kanaldan puan almaz.</p>
             </div>
             <div class="overflow-x-auto">
@@ -78,21 +82,21 @@
                     <thead class="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/[0.02]">
                         <tr><th class="px-5 py-2.5">Sıra</th><th class="px-3 py-2.5">Marka</th>@foreach ($channels as $label)<th class="px-3 py-2.5">{{ $label }}</th>@endforeach<th class="px-3 py-2.5 text-right">Puan</th><th class="px-5 py-2.5 text-right">7 gün</th></tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-700">
+                    <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-800">
                         @forelse ($view['ranking'] as $r)
                             <tr wire:key="rank-{{ $r['brand_id'] }}" class="text-gray-700 dark:text-gray-300">
-                                <td class="px-5 py-3"><span @class(['flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold', $medal[$r['rank'] - 1] ?? 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'])>{{ $r['rank'] }}</span></td>
-                                <td class="px-3 py-3 font-semibold text-gray-900 dark:text-white">{{ $r['brand'] }}</td>
+                                <td class="px-5 py-3"><span @class(['flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold', $medal[$r['rank'] - 1] ?? 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'])>{{ $r['rank'] }}</span></td>
+                                <td class="px-3 py-3"><span class="flex items-center gap-2"><x-ta.brand-avatar :name="$r['brand']" size="xs" /><span class="font-semibold text-gray-900 dark:text-white">{{ $r['brand'] }}</span></span></td>
                                 @foreach ($channels as $key => $label)
                                     <td class="px-3 py-3 text-xs">@if (isset($r['values'][$key])){{ $r['values'][$key] }} <span class="text-gray-400">· {{ $r['channels'][$key]['rank'] }}.</span>@else<span class="text-gray-400">—</span>@endif</td>
                                 @endforeach
                                 <td class="px-3 py-3 text-right text-base font-semibold text-gray-900 dark:text-white">{{ $r['score'] }}</td>
-                                <td @class(['px-5 py-3 text-right text-xs font-semibold', 'text-emerald-600' => ($r['move'] ?? 0) > 0, 'text-rose-600' => ($r['move'] ?? 0) < 0, 'text-gray-400' => ($r['move'] ?? 0) === 0])>
+                                <td @class(['px-5 py-3 text-right text-xs font-semibold', 'text-success-600' => ($r['move'] ?? 0) > 0, 'text-error-600' => ($r['move'] ?? 0) < 0, 'text-gray-400' => ($r['move'] ?? 0) === 0])>
                                     {{ $r['move'] === null ? '—' : ($r['move'] > 0 ? '↑ '.$r['move'] : ($r['move'] < 0 ? '↓ '.abs($r['move']) : '→')) }}
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="px-5 py-6 text-center text-sm text-gray-500">Eşiği geçen marka yok.</td></tr>
+                            <tr><td colspan="{{ count($channels) + 4 }}" class="px-5 py-6 text-center text-sm text-gray-500">Eşiği geçen marka yok.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -100,15 +104,15 @@
         </section>
 
         <div class="grid gap-4 xl:grid-cols-3">
-            <section class="{{ $panel }} p-5 xl:col-span-2" data-testid="winner-recipes">
-                <h2 class="font-serif text-xl text-gray-900 dark:text-white">Kazananın tarifi</h2>
+            <section class="{{ $panel }} p-4 sm:p-5 xl:col-span-2" data-testid="winner-recipes">
+                <h2 class="font-semibold text-gray-900 dark:text-white">Kazananın tarifi</h2>
                 <div class="mt-3 grid gap-3 md:grid-cols-2">
                     @forelse ($view['recipes'] as $rc)
                         <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/[0.03]">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-[#a8842f]">{{ $rc['label'] }} · {{ $rc['brand'] }}</p>
-                            <p class="mt-1 text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $rc['text'] }}</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $rc['label'] }} · {{ $rc['brand'] }}</p>
+                            <p class="mt-1 break-words text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $rc['text'] }}</p>
                             @if ($rc['channel'] === 'meta' && $view['meta_type'] && in_array($view['meta_type'], ['leads', 'messages', 'purchases'], true))
-                                <a href="{{ route('operator.meta-strategy', ['hizmet' => $view['service_id'], 'tur' => $view['meta_type'], 'sehir' => $view['city']]) }}" wire:navigate class="mt-2 inline-block text-xs font-semibold text-brand-600 hover:underline">Meta tarifini Strateji öner’de aç →</a>
+                                <a href="{{ route('operator.meta-strategy', ['hizmet' => $view['service_id'], 'tur' => $view['meta_type'], 'sehir' => $view['city']]) }}" wire:navigate class="link-neutral mt-2 inline-block text-xs font-medium">Meta tarifini Strateji öner’de aç →</a>
                             @endif
                         </div>
                     @empty
@@ -117,18 +121,18 @@
                 </div>
             </section>
             <div class="space-y-4">
-                <section class="{{ $panel }} p-5" data-testid="winner-moves">
+                <section class="{{ $panel }} p-4 sm:p-5" data-testid="winner-moves">
                     <h2 class="font-semibold text-gray-900 dark:text-white">Yükselenler ve düşenler</h2>
                     @if ($view['risers'] === [] && $view['fallers'] === [])
                         <p class="mt-2 text-sm text-gray-500">Bir hafta önceki sıralama birikince burada görünür.</p>
                     @else
                         <div class="mt-2 grid grid-cols-2 gap-3 text-sm">
-                            <ul class="space-y-1">@foreach ($view['risers'] as $x)<li class="flex justify-between gap-2"><span class="truncate">{{ $x['brand'] }}</span><span class="font-semibold text-emerald-600">↑ {{ $x['move'] }}</span></li>@endforeach</ul>
-                            <ul class="space-y-1">@foreach ($view['fallers'] as $x)<li class="flex justify-between gap-2"><span class="truncate">{{ $x['brand'] }}</span><span class="font-semibold text-rose-600">↓ {{ abs($x['move']) }}</span></li>@endforeach</ul>
+                            <ul class="space-y-1">@foreach ($view['risers'] as $x)<li class="flex justify-between gap-2"><span class="truncate">{{ $x['brand'] }}</span><span class="font-semibold text-success-600">↑ {{ $x['move'] }}</span></li>@endforeach</ul>
+                            <ul class="space-y-1">@foreach ($view['fallers'] as $x)<li class="flex justify-between gap-2"><span class="truncate">{{ $x['brand'] }}</span><span class="font-semibold text-error-600">↓ {{ abs($x['move']) }}</span></li>@endforeach</ul>
                         </div>
                     @endif
                 </section>
-                <section class="{{ $panel }} p-5" data-testid="winner-feed">
+                <section class="{{ $panel }} p-4 sm:p-5" data-testid="winner-feed">
                     <h2 class="font-semibold text-gray-900 dark:text-white">Liderlik değişimleri</h2>
                     @forelse ($view['feed'] as $f)
                         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300"><span class="mr-2 text-xs font-semibold text-gray-500">{{ \Carbon\CarbonImmutable::parse($f['date'])->format('d.m') }}</span>{{ $f['text'] }}</p>
@@ -139,16 +143,16 @@
             </div>
         </div>
 
-        <details class="{{ $panel }} group p-5" data-testid="winner-rules">
+        <details class="{{ $panel }} group p-4 sm:p-5" data-testid="winner-rules">
             <summary class="flex cursor-pointer list-none items-center gap-2 font-semibold text-gray-900 dark:text-white">
                 <span class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-600" aria-hidden="true">i</span>
                 Adil yarış kuralları <span class="text-xs font-normal text-gray-500 group-open:hidden">· göster</span>
             </summary>
             <ol class="mt-2 grid gap-2 text-sm text-gray-600 md:grid-cols-2 dark:text-gray-400">
-                <li><span class="mr-1 font-semibold text-[#a8842f]">1</span> Reklamda sıralamaya girmek için 30 günde {{ number_format(\App\Services\Ads\Winners::MIN_SPEND, 0, ',', '.') }} TL harcama ve {{ \App\Services\Ads\Winners::MIN_RESULTS }} sonuç gerekir (TRY hesaplar).</li>
-                <li><span class="mr-1 font-semibold text-[#a8842f]">2</span> Yalnızca aynı şehirdeki markalar ve aynı sonuç türü karşılaştırılır. Reklam sayıları kişilerin bulunduğu şehre (Google Ads coğrafya raporu) ya da kampanya adındaki şehre, web sayıları sorgudaki şube şehrine yazılır.</li>
-                <li><span class="mr-1 font-semibold text-[#a8842f]">3</span> Google Ads’te marka adını içeren anahtar kelimeler sayılmaz.</li>
-                <li><span class="mr-1 font-semibold text-[#a8842f]">4</span> Web sitesi sırası hizmetin küme sorgularının ortalama sırasıdır; yarışmak için en az {{ \App\Services\Ads\Winners::WEB_MIN_IMPRESSIONS }} gösterim, ilk sayfa (ortalama sıra en çok {{ (int) \App\Services\Ads\Winners::WEB_MAX_POSITION }}) ve tık gerekir; İşletme Profili en az {{ \App\Services\Ads\Winners::GBP_MIN_REVIEWS }} yorumla ve hizmet profilde listeliyse yarışır.</li>
+                <li><span class="mr-1 font-semibold text-gray-900 dark:text-white">1</span> Reklamda sıralamaya girmek için 30 günde {{ number_format(\App\Services\Ads\Winners::MIN_SPEND, 0, ',', '.') }} TL harcama ve {{ \App\Services\Ads\Winners::MIN_RESULTS }} sonuç gerekir (TRY hesaplar).</li>
+                <li><span class="mr-1 font-semibold text-gray-900 dark:text-white">2</span> Yalnızca aynı şehirdeki markalar ve aynı sonuç türü karşılaştırılır. Reklam sayıları kişilerin bulunduğu şehre (Google Ads coğrafya raporu) ya da kampanya adındaki şehre, web sayıları sorgudaki şube şehrine yazılır.</li>
+                <li><span class="mr-1 font-semibold text-gray-900 dark:text-white">3</span> Google Ads’te marka adını içeren anahtar kelimeler sayılmaz.</li>
+                <li><span class="mr-1 font-semibold text-gray-900 dark:text-white">4</span> Web sitesi sırası hizmetin küme sorgularının ortalama sırasıdır; yarışmak için en az {{ \App\Services\Ads\Winners::WEB_MIN_IMPRESSIONS }} gösterim, ilk sayfa (ortalama sıra en çok {{ (int) \App\Services\Ads\Winners::WEB_MAX_POSITION }}) ve tık gerekir; İşletme Profili en az {{ \App\Services\Ads\Winners::GBP_MIN_REVIEWS }} yorumla ve hizmet profilde listeliyse yarışır.</li>
             </ol>
         </details>
     @endif

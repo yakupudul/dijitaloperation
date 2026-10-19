@@ -31,9 +31,9 @@ final class DigitalAssetVisualCatalog
             'ga4' => self::entry('ga4', 'Google Analytics', 'ga4', 'GA4', 'bg-white dark:bg-white/95', 'Google Analytics'),
             'gsc' => self::entry('gsc', 'Search Console', 'gsc', 'GSC', 'bg-white dark:bg-white/95', 'Search Console'),
             'instagram' => self::entry('instagram', 'Instagram', 'instagram', 'IG', 'bg-white dark:bg-white/95', 'Instagram'),
-            'domain' => self::entry('domain', 'Domain', 'globe', 'DOM', 'bg-slate-100 dark:bg-white/10', 'Domain'),
-            'hosting' => self::entry('hosting', 'Hosting', 'server', 'HST', 'bg-slate-100 dark:bg-white/10', 'Hosting'),
-            default => self::entry($normalized, ucfirst(str_replace('_', ' ', $normalized)), 'globe', 'AST', 'bg-slate-100 dark:bg-white/10', 'Digital Asset'),
+            'domain' => self::entry('domain', 'Domain', 'globe', 'DOM', 'bg-gray-100 dark:bg-white/10', 'Domain'),
+            'hosting' => self::entry('hosting', 'Hosting', 'server', 'HST', 'bg-gray-100 dark:bg-white/10', 'Hosting'),
+            default => self::entry($normalized, ucfirst(str_replace('_', ' ', $normalized)), 'globe', 'AST', 'bg-gray-100 dark:bg-white/10', 'Digital Asset'),
         };
     }
 

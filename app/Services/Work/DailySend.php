@@ -24,6 +24,9 @@ final class DailySend
 
     public const string RUNNING_KEY = 'daily-send:running';
 
+    /** Live progress of the running send (the strip polls it): per part `[done, total]`, set by queue() and send(). */
+    public const string PROGRESS_KEY = 'daily-send:progress';
+
     public function __construct(private readonly ContentAutopilot $content, private readonly GbpPostReview $posts, private readonly RepairAutopilot $repair) {}
 
     /**
@@ -50,11 +53,49 @@ final class DailySend
             'held' => array_slice($held, 0, 30), 'held_total' => count($held), 'no_connector' => $noConnector];
     }
 
-    /** The Admin's click: everything that passed goes off the web request. */
-    public function queue(User $user): void
+    /**
+     * The Admin's click: everything that passed goes off the web request. `$totals` (the strip's ready counts) start
+     * the progress the strip shows while the job runs.
+     *
+     * @param  array{content?: int, posts?: int, repair?: int}  $totals
+     */
+    public function queue(User $user, array $totals = []): void
     {
         Cache::put(self::RUNNING_KEY, now()->toIso8601String(), now()->addMinutes(30));
+        $this->progress(['content' => [0, (int) ($totals['content'] ?? 0)], 'posts' => [0, (int) ($totals['posts'] ?? 0)], 'repair' => [0, (int) ($totals['repair'] ?? 0)]]);
         SendDailyBatchJob::dispatch((int) $user->id);
+    }
+
+    /**
+     * The running send's progress: per part (content, posts, repair) `[done, total]`, null when nothing runs.
+     *
+     * @return array{content: array{0: int, 1: int}, posts: array{0: int, 1: int}, repair: array{0: int, 1: int}, done: int, total: int}|null
+     */
+    public static function currentProgress(): ?array
+    {
+        $state = Cache::get(self::PROGRESS_KEY);
+        if (! is_array($state)) {
+            return null;
+        }
+        $parts = [];
+        foreach (['content', 'posts', 'repair'] as $part) {
+            [$done, $total] = array_map('intval', array_pad(array_values((array) ($state[$part] ?? [])), 2, 0));
+            $parts[$part] = [$done, max($done, $total)];
+        }
+
+        return $parts + ['done' => array_sum(array_column($parts, 0)), 'total' => array_sum(array_column($parts, 1))];
+    }
+
+    /** @param  array<string, array{0: int, 1: int}>  $parts  merged into the stored progress */
+    private function progress(array $parts): void
+    {
+        $state = Cache::get(self::PROGRESS_KEY);
+        Cache::put(self::PROGRESS_KEY, array_replace(is_array($state) ? $state : [], $parts), now()->addMinutes(30));
+    }
+
+    public static function clearProgress(): void
+    {
+        Cache::forget(self::PROGRESS_KEY);
     }
 
     /**
@@ -62,9 +103,19 @@ final class DailySend
      */
     public function send(User $user): array
     {
-        $result = ['content' => $this->content->sendReady($user), 'posts' => $this->posts->approveReady($user), 'repair' => $this->repair->approveReady($user)];
+        // Same parts in the same order as before; each step only writes how far it got (the strip polls it).
+        $content = $this->content->sendReady($user, null, fn (int $done, int $total) => $this->progress(['content' => [$done, $total]]));
+        $sentContent = $content['sent'] + count($content['failed']);
+        $this->progress(['content' => [$sentContent, $sentContent]]);
+        $posts = $this->posts->approveReady($user);
+        $this->progress(['posts' => [$posts, $posts]]);
+        $repair = $this->repair->approveReady($user);
+        $repairDone = $repair['applied'] + $repair['skipped_high'] + count($repair['failed']);
+        $this->progress(['repair' => [$repairDone, $repairDone]]);
+        $result = ['content' => $content, 'posts' => $posts, 'repair' => $repair];
         Cache::put(self::LAST_KEY, $result + ['at' => now()->toIso8601String(), 'by' => $user->name], now()->addDays(7));
         Cache::forget(self::RUNNING_KEY);
+        self::clearProgress();
 
         return $result;
     }

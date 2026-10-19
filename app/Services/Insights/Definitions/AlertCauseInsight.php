@@ -37,8 +37,8 @@ final class AlertCauseInsight extends BaseInsight
     public function tagStyles(): array
     {
         return [
-            'likely' => ['Büyük ihtimalle', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'],
-            'possible' => ['Olabilir', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
+            'likely' => ['Büyük ihtimalle', 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'],
+            'possible' => ['Olabilir', 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300'],
             'ruled_out' => ['Değil', 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300'],
         ];
     }

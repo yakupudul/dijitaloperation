@@ -34,8 +34,8 @@ document.addEventListener('alpine:init', () => {
         cellClass(c) {
             if (!c.day) { return 'cursor-default'; }
             if (c.future) { return 'cursor-default text-gray-300 dark:text-gray-600'; }
-            if (c.iso === this.start || c.iso === this.end) { return 'rounded-full bg-blue-600 font-semibold text-white'; }
-            if (c.iso > this.start && c.iso < this.end) { return 'bg-blue-50 text-gray-900 dark:bg-blue-500/10 dark:text-gray-100'; }
+            if (c.iso === this.start || c.iso === this.end) { return 'rounded-full bg-gray-900 font-semibold text-white dark:bg-white dark:text-gray-900'; }
+            if (c.iso > this.start && c.iso < this.end) { return 'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-gray-100'; }
             return 'rounded-full text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800';
         },
         apply() {

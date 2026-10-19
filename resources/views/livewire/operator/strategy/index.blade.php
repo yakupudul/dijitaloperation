@@ -20,19 +20,19 @@
         <form wire:submit="create" class="{{ $card }} space-y-3" data-testid="strategy-create">
             <p class="text-sm text-gray-500">Claude stratejileri buraya kendisi kaydeder. Elinde başka bir strateji metni varsa buraya yapıştır (Markdown; ## başlıklar içindekiler olur).</p>
             <div class="grid gap-3 md:grid-cols-3">
-                <label class="text-xs text-gray-500 md:col-span-2">Başlık<input type="text" wire:model="form.title" class="{{ $input }}" placeholder="OPC Klinik · All-on-4/6 yurt dışı Google Ads">@error('form.title')<span class="text-rose-600">{{ $message }}</span>@enderror</label>
+                <label class="text-xs text-gray-500 md:col-span-2">Başlık<input type="text" wire:model="form.title" class="{{ $input }}" placeholder="OPC Klinik · All-on-4/6 yurt dışı Google Ads">@error('form.title')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                 <label class="text-xs text-gray-500">Marka<select wire:model="form.brand_id" class="{{ $select }} w-full"><option value="">Sistem geneli</option>@foreach ($allBrands as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
                 <label class="text-xs text-gray-500">Kanal<select wire:model="form.channel" class="{{ $select }} w-full">@foreach ($channels as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
                 <label class="text-xs text-gray-500">Hizmet<input type="text" wire:model="form.service" class="{{ $input }}" placeholder="All-on-4 / All-on-6"></label>
                 <div class="flex gap-2">
-                    <label class="flex-1 text-xs text-gray-500">Bütçe<input type="text" inputmode="decimal" wire:model="form.budget_amount" class="{{ $input }}" placeholder="4000">@error('form.budget_amount')<span class="text-rose-600">{{ $message }}</span>@enderror</label>
+                    <label class="flex-1 text-xs text-gray-500">Bütçe<input type="text" inputmode="decimal" wire:model="form.budget_amount" class="{{ $input }}" placeholder="4000">@error('form.budget_amount')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                     <label class="text-xs text-gray-500">TRY<select wire:model="form.budget_period" class="{{ $select }}">@foreach ($periods as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
                 </div>
                 <label class="text-xs text-gray-500 md:col-span-2">Hedef pazarlar (virgülle)<input type="text" wire:model="form.markets" class="{{ $input }}" placeholder="Birleşik Krallık, Almanya, İtalya"></label>
                 <label class="text-xs text-gray-500">Diller (virgülle)<input type="text" wire:model="form.languages" class="{{ $input }}" placeholder="İngilizce, Almanca"></label>
             </div>
             <label class="block text-xs text-gray-500">Özet<textarea wire:model="form.summary" rows="2" class="{{ $input }}"></textarea></label>
-            <label class="block text-xs text-gray-500">Strateji metni<textarea wire:model="form.body" rows="12" class="{{ $input }} font-mono"></textarea>@error('form.body')<span class="text-rose-600">{{ $message }}</span>@enderror</label>
+            <label class="block text-xs text-gray-500">Strateji metni<textarea wire:model="form.body" rows="12" class="{{ $input }} font-mono"></textarea>@error('form.body')<span class="text-error-600">{{ $message }}</span>@enderror</label>
             <button type="submit" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Kaydet</button>
         </form>
     @endif
@@ -61,7 +61,7 @@
     @else
         <ul class="grid gap-3 lg:grid-cols-2" data-testid="strategy-list">
             @foreach ($strategies as $s)
-                @php $stripe = ['draft' => 'bg-gray-300 dark:bg-gray-600', 'approved' => 'bg-emerald-400', 'active' => 'bg-brand-500', 'archived' => 'bg-gray-200 dark:bg-gray-700'][$s->status] ?? 'bg-gray-300'; @endphp
+                @php $stripe = ['draft' => 'bg-gray-300 dark:bg-gray-600', 'approved' => 'bg-success-400', 'active' => 'bg-brand-500', 'archived' => 'bg-gray-200 dark:bg-gray-700'][$s->status] ?? 'bg-gray-300'; @endphp
                 <li>
                     <a href="{{ route('operator.strategy', ['strategyId' => $s->id]) }}" wire:navigate class="relative flex h-full flex-col gap-3 overflow-hidden rounded-2xl bg-white p-5 pl-6 ring-1 ring-inset ring-gray-200 transition hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700 dark:hover:ring-brand-500/50">
                         <span class="absolute inset-y-0 left-0 w-1 {{ $stripe }}" aria-hidden="true"></span>

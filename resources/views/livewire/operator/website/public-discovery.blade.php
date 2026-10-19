@@ -14,15 +14,15 @@
     </div>
 
     @if($statusMessage !== '')
-        <p role="status" class="rounded-xl border p-4 text-sm {{ $statusTone === 'error' ? 'border-rose-300 text-rose-700' : 'border-brand-200 text-brand-700 dark:text-brand-300' }}">{{ $statusMessage }}</p>
+        <p role="status" class="rounded-xl border p-4 text-sm {{ $statusTone === 'error' ? 'border-error-300 text-error-700' : 'border-brand-200 text-brand-700 dark:text-brand-300' }}">{{ $statusMessage }}</p>
     @endif
     @if($errors->any() && $selectedCandidate === null)
-        <p role="alert" class="text-sm text-rose-600">{{ $errors->first() }}</p>
+        <p role="alert" class="text-sm text-error-600">{{ $errors->first() }}</p>
     @endif
     @if($runtime['run'])
         <div class="flex flex-wrap justify-between gap-2 rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
             <p>{{ __('operator_runtime.discovery.latest_run') }} #{{ $runtime['run']->id }} · {{ $runtime['phase'] }}</p>
-            @if($runtime['failure'])<p class="w-full text-rose-600">{{ $runtime['failure'] }}</p>@endif
+            @if($runtime['failure'])<p class="w-full text-error-600">{{ $runtime['failure'] }}</p>@endif
             @if(data_get($runtime['run']->metadata, 'source_collection_run_id'))
                 <a href="{{ route('operator.integrations.website', ['assetId' => $asset->id]) }}" wire:navigate class="text-brand-600">
                     {{ __('public_discovery.source_collection') }} #{{ data_get($runtime['run']->metadata, 'source_collection_run_id') }}
@@ -51,7 +51,7 @@
                 </details>
             @endif
         @elseif($discovery['last_run'])
-            <p class="text-sm text-amber-700">{{ __('public_discovery.legacy') }} · {{ __('public_discovery.inspected') }}: {{ $discovery['pages_inspected'] }}</p>
+            <p class="text-sm text-warning-700">{{ __('public_discovery.legacy') }} · {{ __('public_discovery.inspected') }}: {{ $discovery['pages_inspected'] }}</p>
         @else
             <p class="text-sm text-gray-500">{{ __('public_discovery.no_data') }}</p>
         @endif
@@ -98,7 +98,7 @@
                     <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="replaceExisting" />{{ __('public_discovery.replace') }}</label>
                     <p class="text-xs text-gray-500">{{ __('public_discovery.keep') }}</p>
                 @endif
-                @if($errors->any())<ul role="alert" class="text-sm text-rose-600">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
+                @if($errors->any())<ul role="alert" class="text-sm text-error-600">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
                 <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{{ __('public_discovery.save') }}</button>
             </form>
         </section>
@@ -131,8 +131,8 @@
                             </div>
                         @endif
                     </div>
-                    @if($candidate->candidate_kind === 'inference')<p class="text-xs text-amber-700">{{ __('public_discovery.inference') }}</p>
-                    @elseif(data_get($candidate->support_json, 'normalization_version') !== 'website-public-discovery-v3-stored')<p class="text-xs text-amber-700">{{ __('public_discovery.legacy') }}</p>
+                    @if($candidate->candidate_kind === 'inference')<p class="text-xs text-warning-700">{{ __('public_discovery.inference') }}</p>
+                    @elseif(data_get($candidate->support_json, 'normalization_version') !== 'website-public-discovery-v3-stored')<p class="text-xs text-warning-700">{{ __('public_discovery.legacy') }}</p>
                     @else<p class="text-xs text-gray-500">{{ __('public_discovery.source_claim') }}</p>@endif
                     @if($receipt)
                         <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
@@ -140,7 +140,7 @@
                             @if($receipt['record_id'] ?? null)<p class="mt-1 text-xs text-gray-500">#{{ $receipt['record_id'] }} · {{ $receipt['label'] ?? '' }}</p>@endif
                             @if($url = $candidate->applicationUrl())<a href="{{ $url }}" wire:navigate class="mt-1 inline-block text-brand-600">{{ __('public_discovery.open_destination') }} →</a>@endif
                         </div>
-                    @elseif($candidate->status === 'accepted')<p class="text-sm text-amber-700">{{ __('public_discovery.legacy_accepted') }}</p>@endif
+                    @elseif($candidate->status === 'accepted')<p class="text-sm text-warning-700">{{ __('public_discovery.legacy_accepted') }}</p>@endif
                     @php($sources = data_get($candidate->support_json, 'sources', [['url' => data_get($candidate->support_json, 'source_url'), 'observed_at' => data_get($candidate->support_json, 'retrieved_at')]]))
                     <details class="text-xs text-gray-500">
                         <summary class="cursor-pointer">{{ __('public_discovery.sources') }} ({{ count($sources) }})</summary>

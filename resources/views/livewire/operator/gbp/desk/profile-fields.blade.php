@@ -1,9 +1,9 @@
 @php
     $tone = fn (string $state): string => match ($state) {
-        'ok' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-        'proposal' => 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300',
-        'short' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
-        'missing' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
+        'ok' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300',
+        'proposal' => 'bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-200',
+        'short' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300',
+        'missing' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300',
         default => 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300',
     };
     $writeLine = function (?\App\Models\ExternalWriteAction $write): string {
@@ -16,9 +16,9 @@
 @endphp
 <div class="space-y-5 dark:text-gray-200" data-gbp-profile-fields>
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">İşletme profilleri</h1>
-            <p class="mt-1 max-w-3xl text-xs text-gray-500">Açıklama, Google’ın profili hangi hizmet ve bölge için göstereceğini anlamasına yardım eder (en çok {{ $max }} karakter, iletişim bilgisi yazılmaz). Resmî tatil ve bayram saatleri girilmezse Google “saatler doğru olmayabilir” uyarısı gösterir. İkisi de senin onayınla Google’a gider ve geri alınabilir.</p>
+            <p class="mt-1 max-w-3xl text-sm text-gray-500">Açıklama, Google’ın profili hangi hizmet ve bölge için göstereceğini anlamasına yardım eder (en çok {{ $max }} karakter, iletişim bilgisi yazılmaz). Resmî tatil ve bayram saatleri girilmezse Google “saatler doğru olmayabilir” uyarısı gösterir. İkisi de senin onayınla Google’a gider ve geri alınabilir.</p>
         </div>
         @include('livewire.operator.gbp.partials.brand-filter')
     </header>
@@ -43,7 +43,7 @@
             @endif
         </section>
 
-        <section class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-700 dark:bg-gray-800 dark:ring-gray-700">
+        <section class="surface divide-y divide-gray-100 dark:divide-gray-800">
             @forelse ($groups as $brandName => $locations)
                 <div class="bg-gray-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/[0.03]">{{ $brandName }} · {{ $locations->count() }}</div>
                 @foreach ($locations as $location)
@@ -59,17 +59,17 @@
                             <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $tone($d['state']) }}">{{ $d['label'] }}</span>
                             @if ($canWrite && $editing !== (int) $location->id && $d['state'] !== 'no_data')
                                 <span class="flex flex-wrap gap-3 text-xs font-medium">
-                                    <button type="button" wire:click="startEdit({{ $location->id }})" class="text-brand-600 hover:underline">{{ $d['state'] === 'proposal' ? 'Oku / düzenle' : 'Düzenle' }}</button>
+                                    <button type="button" wire:click="startEdit({{ $location->id }})" class="link-neutral">{{ $d['state'] === 'proposal' ? 'Oku / düzenle' : 'Düzenle' }}</button>
                                     <button type="button" wire:click="prepare({{ $location->id }})" @disabled(($ai['status'] ?? '') === 'running') class="text-gray-600 hover:underline disabled:opacity-50 dark:text-gray-300">{{ $d['proposed'] ? 'Yeniden yaz' : 'Yapay zekâ ile yaz' }}</button>
                                     @if ($d['suggestion'] && $d['state'] === 'proposal')<button type="button" wire:click="dismiss({{ $d['suggestion']->id }})" class="text-gray-500 hover:underline">Öneriyi kaldır</button>@endif
                                 </span>
                             @endif
                         </div>
                         @if ($ai && ($ai['status'] ?? '') !== 'ready')
-                            <p @class(['mt-1 text-xs', 'text-rose-600' => ($ai['status'] ?? '') === 'failed', 'text-gray-500' => ($ai['status'] ?? '') !== 'failed']) @if (($ai['status'] ?? '') === 'running') wire:poll.10s @endif>{{ ($ai['status'] ?? '') === 'running' ? ($ai['message'] ?? 'Yazılıyor…') : ($ai['message'] ?? '') }}</p>
+                            <p @class(['mt-1 text-xs', 'text-error-600' => ($ai['status'] ?? '') === 'failed', 'text-gray-500' => ($ai['status'] ?? '') !== 'failed']) @if (($ai['status'] ?? '') === 'running') wire:poll.10s @endif>{{ ($ai['status'] ?? '') === 'running' ? ($ai['message'] ?? 'Yazılıyor…') : ($ai['message'] ?? '') }}</p>
                         @endif
                         @if ($write)
-                            <p class="mt-1 text-xs {{ $write->status === 'failed' ? 'text-rose-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
+                            <p class="mt-1 text-xs {{ $write->status === 'failed' ? 'text-error-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
                                 Son gönderim: {{ $writeLine($write) }}@if ($write->status === 'failed' && $write->error) · {{ \Illuminate\Support\Str::limit($write->error, 160) }}@endif
                                 @if ($canWrite && $write->isUndoable()) · <button type="button" wire:click="undo({{ $write->id }})" wire:confirm="Önceki açıklama geri yüklensin mi?" class="font-medium text-gray-600 hover:underline dark:text-gray-300">Geri al</button>@endif
                             </p>
@@ -104,11 +104,11 @@
         </section>
     @elseif ($section === 'saatler')
         @if ($holidays === [])
-            <p class="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">Önümüzdeki {{ \App\Services\Gbp\Desk\ProfileFields::HOLIDAY_WINDOW_DAYS }} günde resmî tatil yok.</p>
+            <p class="surface p-4 text-sm text-gray-500">Önümüzdeki {{ \App\Services\Gbp\Desk\ProfileFields::HOLIDAY_WINDOW_DAYS }} günde resmî tatil yok.</p>
         @else
             <section class="flex flex-wrap gap-2">
                 @foreach ($holidays as $h)
-                    <button type="button" wire:click="$set('holiday', '{{ $h['key'] }}')" @class(['rounded-lg px-3 py-2 text-left text-sm ring-1 ring-inset', 'bg-brand-50 ring-brand-300 dark:bg-brand-500/10' => $h['key'] === $holiday, 'bg-white ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700' => $h['key'] !== $holiday])>
+                    <button type="button" wire:click="$set('holiday', '{{ $h['key'] }}')" @class(['rounded-lg px-3 py-2 text-left text-sm ring-1 ring-inset', 'ring-2 ring-gray-900 dark:ring-white' => $h['key'] === $holiday, 'bg-white ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700' => $h['key'] !== $holiday])>
                         <span class="block font-medium text-gray-900 dark:text-white">{{ $h['name'] }}</span>
                         <span class="block text-xs text-gray-500">{{ \Illuminate\Support\Carbon::parse($h['dates'][0])->locale('tr')->translatedFormat('d M') }}@if (count($h['dates']) > 1) – {{ \Illuminate\Support\Carbon::parse(end($h['dates']))->locale('tr')->translatedFormat('d M') }}@endif</span>
                     </button>
@@ -117,7 +117,7 @@
 
             @if ($current)
                 <section class="grid gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
-                    <div class="space-y-2 rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div class="space-y-2 surface p-4">
                         <h2 class="font-semibold text-gray-900 dark:text-white">{{ $current['name'] }} saatleri</h2>
                         <p class="text-xs text-gray-500">Her gün için seç; “Değiştirme” seçilen gün Google’da olduğu gibi kalır. Yalnız bu tarihler değişir, haftalık saatler aynı kalır.</p>
                         @foreach ($current['dates'] as $date)
@@ -142,11 +142,11 @@
                         @endif
                     </div>
 
-                    <div class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div class="surface">
                         <div class="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-2 text-xs dark:border-gray-700">
                             <span class="font-medium text-gray-700 dark:text-gray-300">{{ $missingHours }} işletmede bu tatilin saatleri eksik</span>
                             @if ($canWrite)
-                                <button type="button" wire:click="$set('selected', {{ json_encode(collect($hourStates)->filter(fn ($h) => $h['missing'] !== [])->keys()->map(fn ($id) => (string) $id)->values()->all()) }})" class="ml-auto font-medium text-brand-600 hover:underline">Eksik olanları seç</button>
+                                <button type="button" wire:click="$set('selected', {{ json_encode(collect($hourStates)->filter(fn ($h) => $h['missing'] !== [])->keys()->map(fn ($id) => (string) $id)->values()->all()) }})" class="ml-auto font-medium link-neutral">Eksik olanları seç</button>
                                 <button type="button" wire:click="$set('selected', [])" class="font-medium text-gray-500 hover:underline">Seçimi temizle</button>
                             @endif
                         </div>
@@ -169,7 +169,7 @@
                                             <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $tone('missing') }}">{{ count($h['missing']) }} gün eksik</span>
                                         @endif
                                         @if ($write)
-                                            <span class="w-full text-xs {{ $write->status === 'failed' ? 'text-rose-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
+                                            <span class="w-full text-xs {{ $write->status === 'failed' ? 'text-error-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
                                                 {{ data_get($write->request_payload, 'label', 'Özel gün saatleri') }}: {{ $writeLine($write) }}@if ($write->status === 'failed' && $write->error) · {{ \Illuminate\Support\Str::limit($write->error, 160) }}@endif
                                                 @if ($canWrite && $write->isUndoable()) · <button type="button" wire:click.prevent="undo({{ $write->id }})" wire:confirm="Bu tarihlerin önceki saatleri geri yüklensin mi?" class="font-medium text-gray-600 hover:underline dark:text-gray-300">Geri al</button>@endif
                                             </span>
@@ -187,7 +187,7 @@
         @endif
     @else
         <p class="max-w-3xl text-xs text-gray-500">Haftalık saatler, telefon, birincil kategori, randevu bağlantısı, evet / hayır özellikleri ve video. Markanın kendi verisinden doldurulabilenler (diğer şubelerin saatleri, kendi sitesi, sitedeki randevu sayfası) her gece hazırlanır ve burada ve Onarım masasında onayını bekler. Telefon, kategori ve özellikler tahmin edilmez; sen seçersin. Her gönderim geri alınabilir.</p>
-        <section class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-700 dark:bg-gray-800 dark:ring-gray-700">
+        <section class="surface divide-y divide-gray-100 dark:divide-gray-800">
             @forelse ($groups as $brandName => $locations)
                 <div class="bg-gray-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/[0.03]">{{ $brandName }} · {{ $locations->count() }}</div>
                 @foreach ($locations as $location)
@@ -202,7 +202,7 @@
                             <span class="min-w-0 flex-1 font-medium text-gray-900 dark:text-white" title="{{ $location->name }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $location->name) }}</span>
                             @if ($ready->isNotEmpty())<span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $tone('proposal') }}">{{ $ready->count() }} hazır bilgi</span>@endif
                             @if ($canWrite && $snap && $infoEditing !== (int) $location->id)
-                                <button type="button" wire:click="startInfo({{ $location->id }})" class="text-xs font-medium text-brand-600 hover:underline">Düzenle</button>
+                                <button type="button" wire:click="startInfo({{ $location->id }})" class="text-xs font-medium link-neutral">Düzenle</button>
                             @endif
                         </div>
                         @if ($snap === null)
@@ -216,18 +216,18 @@
                             </dl>
                         @endif
                         @foreach ($ready as $s)
-                            <div wire:key="prep-{{ $s->id }}" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-sky-50 px-3 py-2 text-xs dark:bg-sky-500/10">
-                                <span class="font-medium text-sky-800 dark:text-sky-200">{{ \App\Services\Gbp\Desk\ProfileInfo::FIELD_LABELS[data_get($s->action, 'field')] ?? 'Bilgi' }}:</span>
+                            <div wire:key="prep-{{ $s->id }}" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-gray-50 px-3 py-2 text-xs ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800">
+                                <span class="font-medium text-gray-800 dark:text-gray-200">{{ \App\Services\Gbp\Desk\ProfileInfo::FIELD_LABELS[data_get($s->action, 'field')] ?? 'Bilgi' }}:</span>
                                 <span class="min-w-0 flex-1 break-words text-gray-700 dark:text-gray-300">{{ data_get($s->action, 'proposed') }}</span>
                                 <span class="w-full text-gray-500">{{ $s->reason }}</span>
                                 @if ($canWrite)
-                                    <button type="button" wire:click="sendPrepared({{ $s->id }})" wire:confirm="Bu bilgi Google’daki profile yazılsın mı? (Geri alınabilir.)" class="font-semibold text-brand-600 hover:underline">Google’a gönder</button>
+                                    <button type="button" wire:click="sendPrepared({{ $s->id }})" wire:confirm="Bu bilgi Google’daki profile yazılsın mı? (Geri alınabilir.)" class="font-semibold link-neutral">Google’a gönder</button>
                                     <button type="button" wire:click="dismissPrepared({{ $s->id }})" class="text-gray-500 hover:underline">Kaldır</button>
                                 @endif
                             </div>
                         @endforeach
                         @if ($write)
-                            <p class="mt-1 text-xs {{ $write->status === 'failed' ? 'text-rose-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
+                            <p class="mt-1 text-xs {{ $write->status === 'failed' ? 'text-error-600' : 'text-gray-500' }}" @if (in_array($write->status, ['queued', 'running', 'undoing'], true)) wire:poll.5s @endif>
                                 {{ data_get($write->request_payload, 'label', 'Profil bilgisi') }}: {{ $writeLine($write) }}@if ($write->status === 'failed' && $write->error) · {{ \Illuminate\Support\Str::limit($write->error, 160) }}@endif
                                 @if ($canWrite && $write->isUndoable()) · <button type="button" wire:click="undo({{ $write->id }})" wire:confirm="Önceki değerler geri yüklensin mi?" class="font-medium text-gray-600 hover:underline dark:text-gray-300">Geri al</button>@endif
                             </p>
@@ -256,13 +256,13 @@
                                         <input type="text" wire:model="info.phone" class="mt-1 w-full rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900"></label>
                                     <div>
                                         <span class="text-[11px] font-semibold uppercase text-gray-400">Birincil kategori</span>
-                                        <p class="text-xs text-gray-600 dark:text-gray-300">{{ $info['category']['name'] ?: '—' }}@if ($info['category']['id'] !== '') <span class="font-semibold text-sky-700">· yeni seçildi</span>@endif</p>
+                                        <p class="text-xs text-gray-600 dark:text-gray-300">{{ $info['category']['name'] ?: '—' }}@if ($info['category']['id'] !== '') <span class="font-semibold text-gray-700 dark:text-gray-300">· yeni seçildi</span>@endif</p>
                                         <div class="mt-1 flex gap-2">
                                             <input type="text" wire:model="categoryTerm" wire:keydown.enter="searchCategory" placeholder="Google kategorisi ara (ör. diş kliniği)" class="min-w-0 flex-1 rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900">
                                             <button type="button" wire:click="searchCategory" class="rounded-lg bg-white px-3 text-xs font-semibold ring-1 ring-inset ring-gray-300 dark:bg-gray-800 dark:ring-gray-600">Ara</button>
                                         </div>
                                         @foreach ($categoryResults as $c)
-                                            <button type="button" wire:key="cat-{{ $c['id'] }}" wire:click="pickCategory('{{ $c['id'] }}', @js($c['name']))" class="mr-2 mt-1 rounded-full bg-white px-2.5 py-0.5 text-xs ring-1 ring-inset ring-gray-300 hover:bg-brand-50 dark:bg-gray-800 dark:ring-gray-600">{{ $c['name'] }}</button>
+                                            <button type="button" wire:key="cat-{{ $c['id'] }}" wire:click="pickCategory('{{ $c['id'] }}', @js($c['name']))" class="mr-2 mt-1 rounded-full bg-white px-2.5 py-0.5 text-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-600">{{ $c['name'] }}</button>
                                         @endforeach
                                         <p class="mt-1 text-[11px] text-gray-400">Eski birincil kategori ek kategori olarak kalır; hizmetler silinmez.</p>
                                     </div>

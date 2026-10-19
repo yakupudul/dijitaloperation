@@ -6,6 +6,7 @@ use App\Models\DiscoveryCandidate;
 use App\Services\Integrations\OperatorIntegrationsHubQuery;
 use App\Services\Operations\SystemHealthReader;
 use App\Support\Demo\DemoState;
+use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -18,6 +19,14 @@ use Livewire\WithPagination;
 class IntegrationsIndex extends Component
 {
     use WithPagination;
+
+    /**
+     * Providers MoxDOP does not use, hidden from the hub (2026-10-19, owner decision): all AI runs on the Claude MCP
+     * queue and DataForSEO is never added. Their routes and code stay.
+     *
+     * @var list<string>
+     */
+    public const array HIDDEN_PROVIDERS = [ProviderRegistry::DATAFORSEO, ProviderRegistry::OPENAI, ProviderRegistry::GEMINI, ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER];
 
     #[Url]
     public ?int $discoveryBrand = null;
@@ -42,7 +51,7 @@ class IntegrationsIndex extends Component
     public function render(OperatorIntegrationsHubQuery $hub): View
     {
         return view('livewire.demo.integrations.integrations-index', [
-            'groups' => $hub->groups(),
+            'groups' => $this->visibleGroups($hub->groups()),
             'problems' => $this->problems(),
             'discoveredProfiles' => DiscoveryCandidate::query()->with(['brand', 'digitalAsset'])
                 ->where('status', 'accepted')->where('target_field', 'social_links')
@@ -55,6 +64,28 @@ class IntegrationsIndex extends Component
                 ->latest('reviewed_at')->paginate(10, pageName: 'profilesPage'),
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    /**
+     * The hub's groups without the hidden providers; a group left empty is dropped.
+     *
+     * @param  list<array<string, mixed>>  $groups
+     * @return list<array<string, mixed>>
+     */
+    private function visibleGroups(array $groups): array
+    {
+        $visible = [];
+        foreach ($groups as $group) {
+            $group['providers'] = array_values(array_filter(
+                $group['providers'] ?? [],
+                fn (array $provider): bool => ! in_array(strtolower((string) ($provider['id'] ?? '')), self::HIDDEN_PROVIDERS, true),
+            ));
+            if ($group['providers'] !== []) {
+                $visible[] = $group;
+            }
+        }
+
+        return $visible;
     }
 
     /**

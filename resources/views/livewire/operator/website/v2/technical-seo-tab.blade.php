@@ -1,22 +1,22 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $pill = fn (bool $on) => $on ? 'h-8 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-gray-900' : 'h-8 rounded-lg px-3 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
-    $sevTone = ['critical' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300', 'warning' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'info' => 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300'];
-    $fixTone = ['wordpress' => 'text-blue-700 dark:text-blue-300', 'developer' => 'text-violet-700 dark:text-violet-300', 'google' => 'text-gray-500'];
+    $sevTone = ['critical' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300', 'warning' => 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300', 'info' => 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300'];
+    $fixTone = ['wordpress' => 'text-gray-700 dark:text-gray-300', 'developer' => 'text-live-700 dark:text-live-300', 'google' => 'text-gray-500'];
     $num = fn ($v) => number_format((int) $v, 0, ',', '.');
     $index = $data['index'];
     $tiles = [
-        ['critical', 'Kritik', $data['tiles']['critical'], 'text-rose-700 dark:text-rose-400', 'sayfa · önce bunlar'],
-        ['warning', 'Uyarı', $data['tiles']['warning'], 'text-amber-700 dark:text-amber-400', 'sayfa · sıralamayı etkiler'],
+        ['critical', 'Kritik', $data['tiles']['critical'], 'text-error-700 dark:text-error-400', 'sayfa · önce bunlar'],
+        ['warning', 'Uyarı', $data['tiles']['warning'], 'text-warning-700 dark:text-warning-400', 'sayfa · sıralamayı etkiler'],
         ['info', 'Bilgi', $data['tiles']['info'], 'text-gray-700 dark:text-gray-300', 'sayfa · iyileştirme'],
-        ['', 'Google doğruluyor', $data['tiles']['validating'], 'text-blue-700 dark:text-blue-400', 'son 28 günde uygulanan düzeltme'],
+        ['', 'Google doğruluyor', $data['tiles']['validating'], 'text-gray-700 dark:text-gray-400', 'son 28 günde uygulanan düzeltme'],
     ];
     $empty = ['google' => $data['has_gsc'] ? 'Google bu filtrede sorun bildirmiyor.' : 'Search Console URL denetimi henüz gelmedi: her gün hizmet sayfalarından başlayarak 25 sayfa denetlenir; hemen başlatmak için «Şimdi denetle».',
         'html' => $data['has_crawl'] ? 'Bu filtrede HTML sorunu yok.' : 'Site henüz taranmadı.'];
 @endphp
 <div class="space-y-5 text-sm" data-technical-seo-tab>
     @if ($message !== '')
-        <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200"><span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button></p>
+        <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-xs text-gray-800 dark:bg-gray-950 dark:text-gray-200"><span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button></p>
     @endif
     <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-tech-tiles>
         @foreach ($tiles as [$key, $label, $value, $tone, $note])
@@ -33,7 +33,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span class="font-semibold text-gray-900 dark:text-white">Google dizini</span>
             @if ($index['inspected'] > 0)
-                <span class="text-gray-500">Denetlenen {{ $num($index['inspected']) }} sayfanın <span class="font-semibold text-emerald-700 dark:text-emerald-400">{{ $num($index['indexed']) }}</span> dizinde, <span class="font-semibold text-rose-700 dark:text-rose-400">{{ $num($index['not_indexed']) }}</span> dizinde değil</span>
+                <span class="text-gray-500">Denetlenen {{ $num($index['inspected']) }} sayfanın <span class="font-semibold text-success-700 dark:text-success-400">{{ $num($index['indexed']) }}</span> dizinde, <span class="font-semibold text-error-700 dark:text-error-400">{{ $num($index['not_indexed']) }}</span> dizinde değil</span>
             @else
                 <span class="text-gray-500">Henüz Google URL denetimi yok · her gün 25 sayfa otomatik denetlenir</span>
             @endif
@@ -41,8 +41,8 @@
         </div>
         <div class="mt-2 flex h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
             @if ($index['inspected'] > 0)
-                <div class="bg-emerald-500" style="width: {{ $index['indexed'] / $index['inspected'] * 100 }}%"></div>
-                <div class="bg-rose-400" style="width: {{ $index['not_indexed'] / $index['inspected'] * 100 }}%"></div>
+                <div class="bg-success-500" style="width: {{ $index['indexed'] / $index['inspected'] * 100 }}%"></div>
+                <div class="bg-error-400" style="width: {{ $index['not_indexed'] / $index['inspected'] * 100 }}%"></div>
             @endif
         </div>
         @if ($data['sitemaps'] > 0)<p class="mt-1.5 text-[11px] text-gray-500">{{ $data['sitemaps'] }} site haritası Search Console’da kayıtlı.</p>@endif

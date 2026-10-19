@@ -18,18 +18,18 @@
                 <h2 class="font-semibold text-gray-900 dark:text-white">API anahtarı</h2>
                 <p class="text-xs text-gray-500">Bing Webmaster Tools › Ayarlar › API erişimi › API anahtarı. Ajansın tüm doğrulanmış sitelerini görür.</p>
             </div>
-            <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $configured, 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => ! $configured])>{{ $configured ? 'Bağlı' : 'Bağlı değil' }}</span>
+            <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $configured, 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => ! $configured])>{{ $configured ? 'Bağlı' : 'Bağlı değil' }}</span>
         </div>
         @if ($isAdmin)
             <form wire:submit="save" class="mt-3 flex flex-wrap items-start gap-2">
                 <div class="min-w-0 flex-1">
                     <input type="password" wire:model="apiKey" autocomplete="off" placeholder="{{ $configured ? 'Yeni anahtar (değiştirmek için)' : 'API anahtarı' }}" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-                    @error('apiKey')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    @error('apiKey')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                 </div>
                 <button type="submit" wire:loading.attr="disabled" class="h-9 rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600">Kaydet ve eşleştir</button>
                 @if ($configured)
                     <button type="button" wire:click="collectNow" wire:loading.attr="disabled" class="h-9 rounded-lg px-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Şimdi çek</button>
-                    <button type="button" wire:click="forget" wire:confirm="Bing anahtarı silinsin mi? Okunmuş veriler kalır." class="h-9 px-2 text-xs text-gray-500 hover:text-red-600">Anahtarı sil</button>
+                    <button type="button" wire:click="forget" wire:confirm="Bing anahtarı silinsin mi? Okunmuş veriler kalır." class="h-9 px-2 text-xs text-gray-500 hover:text-error-600">Anahtarı sil</button>
                 @endif
             </form>
         @endif
@@ -47,7 +47,7 @@
                         <p class="truncate font-medium text-gray-900 dark:text-white">{{ $site['asset']?->brand?->name ?? '—' }} · {{ $site['site_url'] }}</p>
                         <p class="text-xs text-gray-500">
                             @if (! $site['verified']) Bing'de doğrulanmamış · @endif
-                            @if ($site['error'])<span class="text-red-600">{{ $site['error'] }}</span>@elseif ($site['collected_at']) Okundu {{ \Illuminate\Support\Carbon::parse($site['collected_at'])->diffForHumans() }} @else Henüz okunmadı @endif
+                            @if ($site['error'])<span class="text-error-600">{{ $site['error'] }}</span>@elseif ($site['collected_at']) Okundu {{ \Illuminate\Support\Carbon::parse($site['collected_at'])->diffForHumans() }} @else Henüz okunmadı @endif
                         </p>
                     </div>
                     @if ($site['summary'])

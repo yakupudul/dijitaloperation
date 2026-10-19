@@ -69,12 +69,12 @@
         <form wire:submit="saveScope" class="{{ $card }} space-y-3" data-testid="strategy-scope-form">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Kapsamı düzenle</h2>
             <div class="grid gap-3 md:grid-cols-3">
-                <label class="text-xs text-gray-500 md:col-span-2">Başlık<input type="text" wire:model="scope.title" class="{{ $select }}">@error('scope.title')<span class="text-rose-600">{{ $message }}</span>@enderror</label>
+                <label class="text-xs text-gray-500 md:col-span-2">Başlık<input type="text" wire:model="scope.title" class="{{ $select }}">@error('scope.title')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                 <label class="text-xs text-gray-500">Marka<select wire:model="scope.brand_id" class="{{ $select }}"><option value="">Sistem geneli</option>@foreach ($allBrands as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
                 <label class="text-xs text-gray-500">Kanal<select wire:model="scope.channel" class="{{ $select }}">@foreach ($channels as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
                 <label class="text-xs text-gray-500">Hizmet<input type="text" wire:model="scope.service" class="{{ $select }}"></label>
                 <div class="flex gap-2">
-                    <label class="flex-1 text-xs text-gray-500">Bütçe<input type="text" inputmode="decimal" wire:model="scope.budget_amount" class="{{ $select }}">@error('scope.budget_amount')<span class="text-rose-600">{{ $message }}</span>@enderror</label>
+                    <label class="flex-1 text-xs text-gray-500">Bütçe<input type="text" inputmode="decimal" wire:model="scope.budget_amount" class="{{ $select }}">@error('scope.budget_amount')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                     <label class="w-16 text-xs text-gray-500">Para<input type="text" wire:model="scope.budget_currency" class="{{ $select }}"></label>
                     <label class="text-xs text-gray-500">Dönem<select wire:model="scope.budget_period" class="{{ $select }}"><option value="">—</option>@foreach ($periods as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
                 </div>
@@ -96,7 +96,7 @@
                 <span class="text-xs text-gray-500">Kaydedince v{{ $versions->max('version') + 1 }} olur; eski sürümler kalır.</span>
             </div>
             <textarea wire:model="draftBody" rows="28" class="{{ $select }} font-mono text-[13px] leading-6"></textarea>
-            @error('draftBody')<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+            @error('draftBody')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
             <label class="block text-xs text-gray-500">Ne değişti<input type="text" wire:model="changeNote" class="{{ $select }}" placeholder="Örn. Almanca kampanya bütçesi güncellendi"></label>
             <div class="flex gap-2">
                 <button type="submit" class="{{ $primary }}">Yeni sürüm olarak kaydet</button>
@@ -105,7 +105,7 @@
         </form>
     @else
         @if ($isOld)
-            <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">Eski sürüm görüntüleniyor: <strong>v{{ $shown->version }}</strong> ({{ $shown->created_at?->format('d.m.Y H:i') }}@if ($shown->change_note) · {{ $shown->change_note }}@endif). <button type="button" wire:click="$set('version', null)" class="font-semibold underline">Geçerli sürüme dön</button></p>
+            <p class="rounded-lg bg-warning-50 px-3 py-2 text-sm text-warning-800 dark:bg-warning-500/10 dark:text-warning-200">Eski sürüm görüntüleniyor: <strong>v{{ $shown->version }}</strong> ({{ $shown->created_at?->format('d.m.Y H:i') }}@if ($shown->change_note) · {{ $shown->change_note }}@endif). <button type="button" wire:click="$set('version', null)" class="font-semibold underline">Geçerli sürüme dön</button></p>
         @endif
 
         <div class="grid gap-5 lg:grid-cols-[14rem_minmax(0,1fr)] 2xl:grid-cols-[14rem_minmax(0,1fr)_18rem]">

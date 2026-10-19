@@ -13,6 +13,8 @@
     $questions = ! $extra && $brand !== null ? \App\Services\Site\ClusterAudit::aiQuestions($cluster, $brand) : [];
     $rowStatuses = collect($statuses)->filter(fn ($line, $k) => str_starts_with($k, $key.':'));
     $rowOverlaps = ! $extra && $model !== null ? ($overlaps[(int) $model->id] ?? collect()) : collect();
+    // Per-row actions stay neutral; orange is the tab's one main action ("Eşleştir").
+    $rowBtn = 'rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700';
     $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
 @endphp
 <tbody wire:key="body-{{ $key }}" x-data="{ detail: false }" class="border-t border-gray-100 dark:border-gray-800">
@@ -30,7 +32,7 @@
     <td>{{ $types[$type] ?? \App\Models\Cluster::PAGE_TYPE_LABELS[$type] ?? $type }}</td>
     <td class="text-right tabular-nums">{{ $demand !== null ? $num($demand) : '' }}</td>
     <td class="max-w-[14rem] truncate">
-        @if ($page)<a href="{{ $page->url }}" target="_blank" rel="noopener" class="text-brand-600 hover:underline">{{ $page->path ?: '/' }}</a>@else<span class="text-gray-400">—</span>@endif
+        @if ($page)<a href="{{ $page->url }}" target="_blank" rel="noopener" class="link-neutral" title="{{ $page->path ?: '/' }}">{{ $page->path ?: '/' }}</a>@else<span class="text-gray-400">—</span>@endif
     </td>
     <td class="text-right tabular-nums">
         @if ($score?->score !== null){{ $score->score }}@if ($score->previous_score !== null && $score->previous_score != $score->score) <span class="text-gray-400">{{ $score->score > $score->previous_score ? '↑' : '↓' }}</span>@endif
@@ -44,7 +46,7 @@
         </button>
         <p class="mt-0.5 line-clamp-2 text-gray-500">{{ $r['reason'] }}</p>
         @foreach ($rowStatuses as $k => $line)
-            <p class="text-brand-600">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
+            <p class="text-live-700 dark:text-live-300">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
         @endforeach
     </td>
     <td class="text-right">
@@ -55,15 +57,15 @@
             @endif
             @if ($recipe !== [])<button type="button" wire:click="toggle('{{ $key }}:recipe')" class="{{ $ghost }}">Reçete</button>@endif
             @if ($r['state'] === 'improve' && $page?->wp_post_id !== null)
-                <button type="button" wire:click="improve('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-improve title="AI mevcut sayfanın eksiklerini tamamlayan yeni sürümü hazırlar; «Önizle ve güncelle» ile eski ↔ yeni karşılaştırıp onaylarsan WordPress'te güncellenir.">AI ile geliştir</button>
+                <button type="button" wire:click="improve('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $rowBtn }}" data-improve title="AI mevcut sayfanın eksiklerini tamamlayan yeni sürümü hazırlar; «Önizle ve güncelle» ile eski ↔ yeni karşılaştırıp onaylarsan WordPress'te güncellenir.">AI ile geliştir</button>
             @endif
             @if ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal') && $improveSuggestion->applied_at === null)
-                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $btn }}" data-preview>Önizle ve güncelle</a>
+                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'yapilacaklar', 'oneri' => $improveSuggestion->id]) }}" wire:navigate class="{{ $rowBtn }}" data-preview>Önizle ve güncelle</a>
             @elseif ($improveSuggestion !== null && data_get($improveSuggestion->action, 'proposal_blocked'))
-                <span class="text-rose-600">{{ \Illuminate\Support\Str::limit((string) data_get($improveSuggestion->action, 'proposal_blocked'), 140) }}</span>
+                <span class="text-error-600">{{ \Illuminate\Support\Str::limit((string) data_get($improveSuggestion->action, 'proposal_blocked'), 140) }}</span>
             @endif
             @if ($r['state'] === 'no_page' && $audited)
-                <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $btn }}" data-produce title="AI bu fikir için makaleyi yazar ve İçerik planı'na koyar. WordPress'e kendiliğinden gitmez: orada inceleyip «WordPress taslağı gönder» dersen yazı WordPress'te taslak olarak açılır.">AI ile taslak yaz</button>
+                <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $rowBtn }}" data-produce title="AI bu fikir için makaleyi yazar ve İçerik planı'na koyar. WordPress'e kendiliğinden gitmez: orada inceleyip «WordPress taslağı gönder» dersen yazı WordPress'te taslak olarak açılır.">AI ile taslak yaz</button>
             @endif
             @if ($contentSuggestion !== null)
                 <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'icerik', 'taslak' => $contentSuggestion->id]) }}" wire:navigate class="{{ $ghost }}" data-content-link>{{ is_array(data_get($contentSuggestion->action, 'article')) ? 'Taslağı oku' : (data_get($contentSuggestion->action, 'article_blocked') ? 'Taslak takıldı · gör' : 'İçerik planında') }}</a>
@@ -78,19 +80,19 @@
         <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold">Neden bu durum:</span> {{ $r['reason'] }}</p>
         @if (! $extra && $r['state'] === 'no_page')
             {{-- Eşleşmeyen küme: the content idea comes from the cluster itself (need, page type, sections) — nothing invented. --}}
-            <div class="mt-1 rounded-lg bg-blue-50 p-2 text-blue-900 dark:bg-blue-950 dark:text-blue-100" data-content-idea>
+            <div class="mt-1 rounded-lg bg-gray-50 p-2 text-gray-900 dark:bg-gray-950 dark:text-gray-100" data-content-idea>
                 <p><span class="font-semibold">İçerik önerisi:</span> yeni {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$cluster->page_type] ?? 'içerik' }} sayfası · «{{ $cluster->name }}»@if ($cluster->user_need) — {{ $cluster->user_need }}@endif</p>
                 @if ((array) $cluster->subtopics !== [])<p class="mt-0.5">Bölümler: {{ implode(' · ', (array) $cluster->subtopics) }}</p>@endif
-                @if ($cluster->mainQuery)<p class="mt-0.5 text-blue-700 dark:text-blue-300">Hedef sorgu: «{{ $cluster->mainQuery->text }}»</p>@endif
+                @if ($cluster->mainQuery)<p class="mt-0.5 text-gray-700 dark:text-gray-300">Hedef sorgu: «{{ $cluster->mainQuery->text }}»</p>@endif
             </div>
         @endif
         @if ($rowOverlaps->isNotEmpty())
-            <div class="mt-1 rounded-lg bg-amber-50 p-2 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100" data-overlaps>
+            <div class="mt-1 rounded-lg bg-warning-50 p-2 text-warning-900 dark:bg-warning-500/10 dark:text-warning-100" data-overlaps>
                 <p class="font-semibold">Bu kümeyle eşleşen diğer sayfalar ({{ $rowOverlaps->count() }})</p>
                 @foreach ($rowOverlaps as $overlap)
                     <div class="mt-1 flex flex-wrap items-center gap-2" wire:key="overlap-{{ $overlap->id }}" data-overlap="{{ $overlap->id }}">
                         <a href="{{ data_get($overlap->action, 'overlap_url') }}" target="_blank" rel="noopener" class="font-medium underline">{{ parse_url((string) data_get($overlap->action, 'overlap_url'), PHP_URL_PATH) ?: '/' }}</a>
-                        <span class="text-amber-800 dark:text-amber-200">{{ $overlap->reason }}</span>
+                        <span class="text-warning-800 dark:text-warning-200">{{ $overlap->reason }}</span>
                         @if (in_array($overlap->status, ['open', 'recheck'], true))
                             @if (data_get($overlap->action, 'recommendation') === \App\Services\Site\ClusterOverlaps::REDIRECT)
                                 <button type="button" wire:click="mergeOverlap({{ $overlap->id }})" wire:confirm="Sayfa ana sayfaya 301 ile yönlendirilsin ve taslağa alınsın mı? (MoxDOP eklentisine yazılır, geri alınabilir)" class="{{ $btn }}" data-merge-overlap>301 ile birleştir</button>

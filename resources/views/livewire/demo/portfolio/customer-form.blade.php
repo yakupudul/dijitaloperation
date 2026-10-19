@@ -5,7 +5,7 @@
         </a>
         <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $pageTitle }}</h1>
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $pageSubtitle }}</p>
             </div>
         </div>

@@ -10,7 +10,7 @@
                 <select wire:model="ai_model" class="{{ $field }}">
                     @foreach($modelOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
                 </select>
-                @error('ai_model')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                @error('ai_model')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
             </label>
             <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="automatic_suggestions" class="mt-0.5" />
                 <span>Yeni mesaj gelince öneriyi kendiliğinden hazırla<span class="block text-xs text-gray-500">Kapalıyken görüşmedeki "Öneri hazırla" düğmesiyle istersiniz.</span></span>
@@ -18,7 +18,7 @@
             <p class="text-xs text-gray-500">Fiyatlar, hizmetler ve üslup için talimatlar ana ekrandaki "Beyin" bölümünde.</p>
             <label class="block text-sm">Mesaj metinlerini sakla (gün, KVKK)
                 <input type="number" min="30" max="3650" wire:model="retention_days" placeholder="Boş: süresiz" class="{{ $field }} max-w-40" />
-                @error('retention_days')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                @error('retention_days')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
             </label>
             <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Kaydet</button>
         </form>
@@ -59,7 +59,7 @@
                 <h2 class="font-semibold text-gray-900 dark:text-white">Bağlantıyı sıfırla</h2>
                 <p class="mt-1 text-sm text-gray-500">Meta uygulama bilgileri, numara, erişim anahtarı, App Secret, Verify Token ve bağlantı denemeleri silinir{{ $conversationCount ? '; '.$conversationCount.' görüşme ve mesajları da silinir' : '' }}. Kurulum 1. adımdan başlar. Yanıt önerisi ayarları kalır; Meta tarafında hiçbir şey değişmez.</p>
             </div>
-            <button type="button" wire:click="resetConnection" wire:confirm="WhatsApp bağlantısı sıfırlansın mı? {{ $conversationCount ? $conversationCount.' görüşme ve mesajları da silinir. ' : '' }}Bu geri alınamaz." wire:loading.attr="disabled" wire:target="resetConnection" class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-rose-700 ring-1 ring-inset ring-rose-300 hover:bg-rose-50 disabled:opacity-60 dark:text-rose-300 dark:ring-rose-500/40 dark:hover:bg-rose-500/10">Bağlantıyı sıfırla</button>
+            <button type="button" wire:click="resetConnection" wire:confirm="WhatsApp bağlantısı sıfırlansın mı? {{ $conversationCount ? $conversationCount.' görüşme ve mesajları da silinir. ' : '' }}Bu geri alınamaz." wire:loading.attr="disabled" wire:target="resetConnection" class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-error-700 ring-1 ring-inset ring-error-300 hover:bg-error-50 disabled:opacity-60 dark:text-error-300 dark:ring-error-500/40 dark:hover:bg-error-500/10">Bağlantıyı sıfırla</button>
         </div>
     @endif
 </section>

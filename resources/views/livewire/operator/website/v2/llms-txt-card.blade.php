@@ -13,13 +13,13 @@
             @if ($isAdmin)
                 <button type="button" wire:click="send" wire:confirm="llms.txt siteye gönderilsin mi?" wire:loading.attr="disabled" class="h-8 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600" data-llms-send>Siteye gönder</button>
                 @if ($last?->isUndoable())
-                    <button type="button" wire:click="undo({{ $last->id }})" wire:confirm="Önceki llms.txt'ye dönülsün mü?" class="h-8 px-2 text-xs text-gray-500 hover:text-red-600">Geri al</button>
+                    <button type="button" wire:click="undo({{ $last->id }})" wire:confirm="Önceki llms.txt'ye dönülsün mü?" class="h-8 px-2 text-xs text-gray-500 hover:text-error-600">Geri al</button>
                 @endif
             @endif
         </div>
     </div>
-    @error('write')<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
-    @if ($message !== '')<p role="status" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{{ $message }}</p>@endif
+    @error('write')<p class="mt-2 text-xs text-error-600">{{ $message }}</p>@enderror
+    @if ($message !== '')<p role="status" class="mt-2 text-xs text-success-700 dark:text-success-300">{{ $message }}</p>@endif
     @if ($preview)
         <pre class="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-mono text-xs text-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-llms-preview>{{ $text }}</pre>
     @endif

@@ -1,12 +1,12 @@
 {{-- Google Ads menu: title, brand filter, tabs and the one-line result message. --}}
 <header class="flex flex-wrap items-start justify-between gap-3">
-    <div>
+    <div class="min-w-0 flex-1">
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Google Ads</h1>
-        @if (filled($intro ?? null))<p class="mt-1 max-w-3xl text-xs text-gray-500">{{ $intro }}</p>@endif
+        @if (filled($intro ?? null))<p class="mt-1 max-w-3xl text-sm text-gray-500">{{ $intro }}</p>@endif
     </div>
-    <label class="flex items-center gap-2 text-sm">
+    <label class="flex min-w-0 max-w-full items-center gap-2 text-sm">
         <span class="text-gray-500">Marka</span>
-        <select wire:model.live="brand" class="rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900">
+        <select wire:model.live="brand" class="min-w-0 rounded-lg border-gray-300 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900">
             <option value="">Tüm markalar</option>
             @foreach ($brandOptions as $id => $name)
                 <option value="{{ $id }}">{{ $name }}</option>
@@ -21,5 +21,5 @@
     @endforeach
 </nav>
 @if ($message !== '')
-    <p @class(['rounded-lg px-3 py-2 text-sm', 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300' => $messageTone === 'success', 'bg-rose-50 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300' => $messageTone === 'error', 'bg-gray-50 text-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => ! in_array($messageTone, ['success', 'error'], true)]) data-testid="google-ads-desk-message">{{ $message }}</p>
+    <p @class(['rounded-lg px-3 py-2 text-sm', 'bg-success-50 text-success-800 dark:bg-success-500/10 dark:text-success-300' => $messageTone === 'success', 'bg-error-50 text-error-800 dark:bg-error-500/10 dark:text-error-300' => $messageTone === 'error', 'bg-gray-50 text-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => ! in_array($messageTone, ['success', 'error'], true)]) data-testid="google-ads-desk-message">{{ $message }}</p>
 @endif

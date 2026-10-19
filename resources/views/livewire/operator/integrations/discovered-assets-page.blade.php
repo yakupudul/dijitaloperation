@@ -9,7 +9,7 @@
             <span class="rounded-lg bg-gray-100 px-3 py-1.5 dark:bg-gray-800">{{ $unbound }} markasız</span>
         </div>
     </header>
-    @if($message !== '')<p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
+    @if($message !== '')<p role="status" class="rounded-lg bg-gray-50 p-3 text-sm text-gray-800 dark:bg-gray-950 dark:text-gray-200">{{ $message }}</p>@endif
 
     <section class="space-y-2" data-brand-candidates>
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -22,9 +22,9 @@
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span class="font-medium">{{ $candidate->name }}</span>
                     <span class="text-gray-500">{{ $candidate->members->count() }} varlık</span>
-                    <span @class(['rounded-full px-2 py-0.5 text-xs', 'bg-gray-100 dark:bg-gray-800' => $candidate->sector, 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' => ! $candidate->sector]) title="{{ $candidate->sector_reason }}">{{ $candidate->sector?->name ?? 'Sektör belirlenmedi' }}@if($candidate->sector_signal) · {{ \App\Models\BrandCandidate::SIGNAL_LABELS[$candidate->sector_signal] ?? $candidate->sector_signal }}@endif</span>
+                    <span @class(['rounded-full px-2 py-0.5 text-xs', 'bg-gray-100 dark:bg-gray-800' => $candidate->sector, 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300' => ! $candidate->sector]) title="{{ $candidate->sector_reason }}">{{ $candidate->sector?->name ?? 'Sektör belirlenmedi' }}@if($candidate->sector_signal) · {{ \App\Models\BrandCandidate::SIGNAL_LABELS[$candidate->sector_signal] ?? $candidate->sector_signal }}@endif</span>
                     @php($confidence = (int) round($candidate->confidence * 100))
-                    <span @class(['rounded-full px-2 py-0.5 text-xs', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $confidence >= 80, 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' => $confidence < 80]) title="Varlıkların aynı markaya ait olma güveni">Güven %{{ $confidence }}</span>
+                    <span @class(['rounded-full px-2 py-0.5 text-xs', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $confidence >= 80, 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300' => $confidence < 80]) title="Varlıkların aynı markaya ait olma güveni">Güven %{{ $confidence }}</span>
                     @if(data_get($candidate->signals, 'existing_brand_id'))<span class="text-xs text-brand-600">mevcut markaya</span>@endif
                 </div>
                 @if($types !== '')<p class="mt-1 truncate text-xs text-gray-500">{{ $types }}</p>@endif
@@ -73,11 +73,11 @@
     </section>
 
     @if($problems !== [])
-        <section class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/40">
+        <section class="rounded-xl border border-warning-200 bg-warning-50 p-3 text-sm dark:border-warning-900 dark:bg-warning-950/40">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="font-semibold">{{ count($problems) }} sahiplik sorunu</h2>
                 @if($isAdmin && collect($problems)->where('fixable', true)->isNotEmpty())
-                    <button type="button" wire:click="fixIntegrity" wire:confirm="Fazla / öksüz bağlantılar kapatılsın mı?" class="rounded-lg border border-amber-400 px-3 py-1 text-xs font-semibold">Güvenli düzelt</button>
+                    <button type="button" wire:click="fixIntegrity" wire:confirm="Fazla / öksüz bağlantılar kapatılsın mı?" class="rounded-lg border border-warning-400 px-3 py-1 text-xs font-semibold">Güvenli düzelt</button>
                 @endif
             </div>
             <ul class="mt-2 space-y-1 text-xs">
@@ -91,7 +91,7 @@
 
     <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <div class="flex flex-wrap gap-2 border-b border-gray-200 p-3 dark:border-gray-800">
-            <input type="search" wire:model.live.debounce.300ms="search" placeholder="Ara…" aria-label="Ara" class="min-w-40 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
+            <input type="search" wire:model.live.debounce.300ms="search" placeholder="Ara…" aria-label="Ara" class="w-full min-w-0 flex-1 rounded-lg border-gray-300 text-sm sm:min-w-40 dark:border-gray-700 dark:bg-gray-950">
             <select wire:model.live="kind" aria-label="Tür" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm türler</option>@foreach($kinds as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
             <select wire:model.live="bound" aria-label="Bağlı" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Hepsi</option><option value="yes">Markaya bağlı</option><option value="no">Markasız</option></select>
         </div>

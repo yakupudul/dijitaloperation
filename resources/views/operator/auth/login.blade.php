@@ -43,7 +43,7 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.auth.login_subtitle') }}</p>
 
             @if (session('status'))
-                <p class="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200" role="status">{{ session('status') }}</p>
+                <p class="mt-4 rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-950/40 dark:text-success-200" role="status">{{ session('status') }}</p>
             @endif
 
             <form method="POST" action="{{ route('app.login.store') }}" class="mt-6 space-y-4">
@@ -54,7 +54,7 @@
                     <input type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username"
                         class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
                     @error('email')
-                        <span class="mt-1 block text-sm text-red-600 dark:text-red-400">{{ $message }}</span>
+                        <span class="mt-1 block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
                     @enderror
                 </label>
 
@@ -63,7 +63,7 @@
                     <input type="password" name="password" required autocomplete="current-password"
                         class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
                     @error('password')
-                        <span class="mt-1 block text-sm text-red-600 dark:text-red-400">{{ $message }}</span>
+                        <span class="mt-1 block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
                     @enderror
                 </label>
 

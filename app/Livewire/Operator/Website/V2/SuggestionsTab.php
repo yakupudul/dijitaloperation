@@ -22,7 +22,8 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 /**
- * SEO Yapılacaklar › Öneriler: URL analysis suggestions of this site with filters (URL, tür, durum). Actions: Onayla,
+ * SEO Yapılacaklar › Öneriler: URL analysis suggestions of this site with filters (URL, tür, durum), grouped by issue type
+ * (collapsible groups with counts, the first one open; pages walk the groups in order). Actions: Onayla,
  * Reddet (reason), "AI ile yap" (new version next to the current one, compliance-checked; Onayla → WordPress with
  * undo), "Bu karardan standart öner" (edit + approve → scoped, versioned standard).
  */
@@ -157,6 +158,12 @@ final class SuggestionsTab extends Component
             ->when($this->pageFilter !== '' && ctype_digit($this->pageFilter), fn (Builder $q) => $q->where('page_id', (int) $this->pageFilter))
             ->when($this->type !== '', fn (Builder $q) => $q->where('action_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status));
+        $groups = $this->groups(clone $query);
+        $types = array_keys($groups);
+        if ($types !== []) {
+            // Pages walk the groups in order, so a group's rows stay together under its heading.
+            $query->orderByRaw('case action_type '.implode(' ', array_fill(0, count($types), 'when ? then ?')).' else ? end', [...array_merge(...array_map(fn (string $type, int $i): array => [$type, $i], $types, array_keys($types))), count($types)]);
+        }
         $suggestions = $query->orderBy('priority')->orderByDesc('id')->paginate(30);
         $opened = $this->openId !== null ? $suggestions->getCollection()->firstWhere('id', $this->openId) : null;
         if ($opened !== null && $this->standard === [] && is_array(data_get($opened->action, 'standard_draft'))) {
@@ -166,6 +173,7 @@ final class SuggestionsTab extends Component
 
         return view('livewire.operator.website.v2.suggestions-tab', [
             'suggestions' => $suggestions,
+            'groups' => $groups,
             'opened' => $opened,
             'proposal' => $proposal,
             'diff' => isset($proposal['new']['html']) ? SiteDiff::html((string) ($proposal['current']['html'] ?? ''), (string) $proposal['new']['html']) : null,
@@ -175,6 +183,20 @@ final class SuggestionsTab extends Component
             'altStatus' => SiteOperations::line(SiteOperations::status($site->id, SiteOperations::IMAGE_ALTS)),
             'standardStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::STANDARD, ['suggestion_id' => $opened->id])) : null,
         ]);
+    }
+
+    /**
+     * Issue-type groups of the filtered list (Yapılacaklar is grouped by type): the most urgent type first, then the largest.
+     *
+     * @param  Builder<Suggestion>  $query
+     * @return array<string, array{label: string, count: int}>
+     */
+    private function groups(Builder $query): array
+    {
+        return $query->toBase()->reorder()->selectRaw('action_type, count(*) as aggregate, min(priority) as top')->groupBy('action_type')
+            ->orderBy('top')->orderByDesc('aggregate')->get()
+            ->mapWithKeys(fn (object $row): array => [(string) $row->action_type => ['label' => SiteSuggestionTypes::label((string) $row->action_type), 'count' => (int) $row->aggregate]])
+            ->all();
     }
 
     private function brandId(): int

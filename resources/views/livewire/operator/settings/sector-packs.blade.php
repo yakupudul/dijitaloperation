@@ -10,7 +10,7 @@
     </div>
 
     @if ($message !== '')
-        <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
+        <p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>
     @endif
 
     @foreach ($packs as $pack)
@@ -18,11 +18,11 @@
             <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <h2 class="font-semibold text-gray-800 dark:text-white/90">{{ $pack['label'] }} paketi</h2>
-                    <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">{{ $pack['description'] }}</p>
+                    <p class="mt-1 text-sm text-warning-700 dark:text-warning-300">{{ $pack['description'] }}</p>
                     <p class="mt-1 text-xs text-gray-500">Sektörler: {{ implode(', ', $pack['sectors']) }}</p>
                 </div>
                 @if ($isAdmin)
-                    <button type="button" wire:click="togglePack('{{ $pack['id'] }}')" class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset {{ $pack['enabled'] ? 'text-emerald-700 ring-emerald-300' : 'text-gray-500 ring-gray-300' }}">{{ $pack['enabled'] ? 'Açık' : 'Kapalı' }}</button>
+                    <button type="button" wire:click="togglePack('{{ $pack['id'] }}')" class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset {{ $pack['enabled'] ? 'text-success-700 ring-success-300' : 'text-gray-500 ring-gray-300' }}">{{ $pack['enabled'] ? 'Açık' : 'Kapalı' }}</button>
                 @else
                     <span class="text-sm">{{ $pack['enabled'] ? 'Açık' : 'Kapalı' }}</span>
                 @endif
@@ -54,7 +54,7 @@
                                     <button type="button" wire:click="save" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white">Kaydet</button>
                                     <button type="button" wire:click="$set('editingId', null)" class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset ring-gray-300">Vazgeç</button>
                                 </div>
-                                @error('editPatterns')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                                @error('editPatterns')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                             </div>
                         @endif
                     </div>
@@ -72,7 +72,7 @@
                 <textarea wire:model="newPatterns" rows="3" placeholder="İfadeler (satır başına bir)" class="{{ $input }}"></textarea>
                 <textarea wire:model="newMessage" rows="3" placeholder="Operatöre öneri" class="{{ $input }}"></textarea>
             </div>
-            @error('newPack')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+            @error('newPack')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
             <button type="button" wire:click="addRule" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white">Ekle</button>
         </section>
     @endif

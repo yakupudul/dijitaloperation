@@ -42,7 +42,7 @@
                         @if (array_key_exists('mapped_actions', $row) && $row['mapped_actions'] !== null)
                             {{ number_format($row['mapped_actions']) }}
                         @else
-                            <span class="text-slate-400">Unavailable</span>
+                            <span class="text-gray-400">Unavailable</span>
                         @endif
                     </td>
                     <td class="px-4 py-2.5">
@@ -77,10 +77,10 @@
                         @if (array_key_exists('mapped_actions', $row) && $row['mapped_actions'] !== null)
                             {{ number_format($row['mapped_actions']) }}
                         @else
-                            <span class="text-slate-400">Unavailable</span>
+                            <span class="text-gray-400">Unavailable</span>
                         @endif
                     </td>
-                    <td class="px-4 py-2.5 text-xs text-amber-700 dark:text-amber-400">{{ $row['attention'] ?? '—' }}</td>
+                    <td class="px-4 py-2.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] ?? '—' }}</td>
                 </tr>
             @endforeach
         </x-ta.table>
@@ -101,7 +101,7 @@
                     <td class="px-4 py-2.5">
                         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['campaign'] }}</p>
                         @if (! empty($row['attention']))
-                            <p class="text-[11px] text-amber-700 dark:text-amber-400">{{ $row['attention'] }}</p>
+                            <p class="text-[11px] text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
                         @endif
                     </td>
                     <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['source'] ?? '—' }}</td>
@@ -110,7 +110,7 @@
                         @if (array_key_exists('mapped_actions', $row) && $row['mapped_actions'] !== null)
                             {{ number_format($row['mapped_actions']) }}
                         @else
-                            <span class="text-slate-400">Unavailable</span>
+                            <span class="text-gray-400">Unavailable</span>
                         @endif
                     </td>
                     <td class="px-4 py-2.5">

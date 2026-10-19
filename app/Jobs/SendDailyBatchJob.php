@@ -34,6 +34,7 @@ final class SendDailyBatchJob implements ShouldBeUnique, ShouldQueue
         $user = User::query()->find($this->userId);
         if ($user === null) {
             Cache::forget(DailySend::RUNNING_KEY);
+            DailySend::clearProgress();
 
             return;
         }
@@ -43,6 +44,7 @@ final class SendDailyBatchJob implements ShouldBeUnique, ShouldQueue
     public function failed(?Throwable $exception): void
     {
         Cache::forget(DailySend::RUNNING_KEY);
+        DailySend::clearProgress();
         Cache::put(DailySend::LAST_KEY, ['error' => mb_substr((string) $exception?->getMessage(), 0, 200), 'at' => now()->toIso8601String()], now()->addDays(7));
     }
 }

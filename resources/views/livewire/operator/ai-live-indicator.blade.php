@@ -2,9 +2,9 @@
     @if ($visible)
         <details class="group" wire:key="ai-live-details">
             <summary class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full bg-gray-100 px-3 text-xs text-gray-700 hover:bg-gray-200/70 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
-                <span @class(['h-2 w-2 shrink-0 rounded-full', 'live-dot' => $running->isNotEmpty(), 'bg-amber-500' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-emerald-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'done', 'bg-rose-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'failed', 'bg-gray-400' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'cancelled'])></span>
+                <span @class(['h-2 w-2 shrink-0 rounded-full', 'live-dot' => $running->isNotEmpty(), 'bg-warning-500' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-success-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'done', 'bg-error-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'failed', 'bg-gray-400' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'cancelled'])></span>
                 <span class="font-semibold">AI · {{ $running->count() }}</span>
-                @if ($queued->isNotEmpty())<span class="text-amber-700 dark:text-amber-300">+{{ $queued->count() }} sırada</span>@endif
+                @if ($queued->isNotEmpty())<span class="text-warning-700 dark:text-warning-300">+{{ $queued->count() }} sırada</span>@endif
                 @if ($running->count() === 1)<span class="hidden max-w-52 truncate sm:inline">{{ $running->first()->label }}</span>@endif
                 <span aria-hidden="true">▾</span>
             </summary>
@@ -14,7 +14,7 @@
                     @forelse ($running as $row)
                         <a href="{{ route('operator.ai-jobs', ['is' => $row->id]) }}" wire:navigate wire:key="ai-live-run-{{ $row->id }}" class="block border-b border-gray-100 pb-2 text-xs hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800" data-ai-live-running data-ai-live-item="{{ $row->id }}">
                             <p class="font-semibold text-gray-900 dark:text-white">{{ $row->label }}</p>
-                            <p class="mt-0.5 text-violet-700 dark:text-violet-300">{{ $row->statusLabel() }} · {{ $row->durationLabel() }}@if ($row->user_id && isset($users[$row->user_id])) · {{ $users[$row->user_id] }}@endif</p>
+                            <p class="mt-0.5 text-live-700 dark:text-live-300">{{ $row->statusLabel() }} · {{ $row->durationLabel() }}@if ($row->user_id && isset($users[$row->user_id])) · {{ $users[$row->user_id] }}@endif</p>
                             @if ($row->subject)<p class="mt-0.5 truncate text-gray-500">{{ $row->subject }}</p>@endif
                         </a>
                     @empty
@@ -27,7 +27,7 @@
                         @foreach ($queued as $row)
                             <a href="{{ route('operator.ai-jobs', ['is' => $row->id]) }}" wire:navigate wire:key="ai-live-queued-{{ $row->id }}" class="flex items-baseline justify-between gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-800" data-ai-live-item="{{ $row->id }}">
                                 <span class="truncate text-gray-800 dark:text-gray-200">{{ $row->label }}</span>
-                                <span class="shrink-0 text-amber-700 dark:text-amber-300">Sırada</span>
+                                <span class="shrink-0 text-warning-700 dark:text-warning-300">Sırada</span>
                             </a>
                         @endforeach
                     </div>
@@ -39,9 +39,9 @@
                             <a href="{{ route('operator.ai-jobs', ['is' => $row->id]) }}" wire:navigate wire:key="ai-live-done-{{ $row->id }}" class="block text-xs hover:bg-gray-50 dark:hover:bg-gray-800" data-ai-live-item="{{ $row->id }}">
                                 <p class="flex items-baseline justify-between gap-2">
                                     <span class="truncate text-gray-800 dark:text-gray-200">{{ $row->label }}</span>
-                                    <span @class(['shrink-0 tabular-nums', 'text-emerald-700 dark:text-emerald-400' => $row->status === 'done', 'text-gray-500' => $row->status === 'cancelled', 'text-rose-600' => ! in_array($row->status, ['done', 'cancelled'], true)])>{{ $row->statusLabel() }} · {{ $row->durationLabel() }}</span>
+                                    <span @class(['shrink-0 tabular-nums', 'text-success-700 dark:text-success-400' => $row->status === 'done', 'text-gray-500' => $row->status === 'cancelled', 'text-error-600' => ! in_array($row->status, ['done', 'cancelled'], true)])>{{ $row->statusLabel() }} · {{ $row->durationLabel() }}</span>
                                 </p>
-                                @if ($row->status === 'failed' && $row->error)<p class="truncate text-rose-600" title="{{ $row->error }}">{{ $row->error }}</p>@endif
+                                @if ($row->status === 'failed' && $row->error)<p class="truncate text-error-600" title="{{ $row->error }}">{{ $row->error }}</p>@endif
                             </a>
                         @endforeach
                     </div>

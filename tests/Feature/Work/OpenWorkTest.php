@@ -49,6 +49,9 @@ final class OpenWorkTest extends SiteTestCase
         $this->assertCount(4, $packages);
         $this->assertSame('SEO başlık / açıklama: 5 sayfa', OpenWork::line($packages->firstWhere('channel', 'search')));
         $this->assertContains('Bütçe kullanımı', $packages->pluck('label')->all());
+        $this->assertContains('Saat', $packages->pluck('label')->all(), 'a profile standard is named by its title, never "Gbp_standard"');
+        $this->assertSame('Google Ads ayarı', OpenWork::label(['channel' => 'google_ads', 'action_type' => 'ads_change', 'title' => 'Bütçeyi artır']));
+        $this->assertSame('Harita işi', OpenWork::label(['channel' => 'maps', 'action_type' => 'some_new_check', 'title' => 'Yeni kontrol']), 'an unknown code is never shown');
 
         $brandPage = app(BrandOverviewReader::class)->openWork($this->brand, null, 10);
         $this->assertSame(4, $brandPage['total']);

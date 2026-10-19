@@ -13,14 +13,14 @@
     @forelse ($candidates as $candidate)
         <div wire:key="candidate-{{ $candidate['resource_id'] }}" data-candidate="{{ $candidate['resource_id'] }}" class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
             <div class="min-w-0">
-                <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $candidate['name'] }} <span class="font-normal text-gray-500">· {{ $candidate['type_label'] }} · {{ $candidate['external_id'] }}</span></p>
+                <p class="break-words text-sm font-medium text-gray-800 dark:text-white/90">{{ $candidate['name'] }} <span class="break-all font-normal text-gray-500">· {{ $candidate['type_label'] }} · {{ $candidate['external_id'] }}</span></p>
                 <p class="text-xs text-gray-500">
                     @if ($candidate['strong'])<span class="font-medium text-success-700">Önerilen</span> · @endif
                     {{ $candidate['reason'] === 'same_business' ? 'Aynı işletmede' : 'Adı markaya benziyor' }}@if ($candidate['container_label']) · {{ $candidate['container_label'] }}@endif @if ($candidate['currency']) · {{ $candidate['currency'] }}@endif
                 </p>
             </div>
             @if ($isAdmin)
-                <button type="button" wire:click="addAccount({{ $candidate['resource_id'] }})" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:ring-brand-500/30">Bağla</button>
+                <button type="button" wire:click="addAccount({{ $candidate['resource_id'] }})" wire:loading.attr="disabled" class="w-full rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:w-auto dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5">Bağla</button>
             @endif
         </div>
     @empty

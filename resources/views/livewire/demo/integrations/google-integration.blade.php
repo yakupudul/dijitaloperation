@@ -123,8 +123,8 @@
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Google ilk veri çekimi</h2>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    {{ $preflight['summary']['eligible_resources'] ?? 0 }} bound production resources ready
-                    · Historical coverage varies by dataset
+                    {{ $preflight['summary']['eligible_resources'] ?? 0 }} bağlı kaynak veri çekimine hazır
+                    · Geçmiş veri kapsamı veri setine göre değişir
                 </p>
                 @if (! empty($preflight['summary']['by_connector']))
                     <ul class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">

@@ -54,9 +54,9 @@ class OperatorAiProviderIntegrationConfigurationTest extends TestCase
     {
         Livewire::test(IntegrationsIndex::class)
             ->assertOk()
-            ->assertSee('OpenAI')
+            ->assertDontSee('OpenAI') // hidden from the hub 2026-10-19: all AI runs on the Claude MCP queue, DataForSEO is never added
             ->assertSee('Anthropic')
-            ->assertSee('Gemini')
+            ->assertDontSee('Gemini')
             ->assertSee('Configure')
             ->assertDontSee('AI settings');
 

@@ -8,7 +8,7 @@
 @endphp
 <div class="space-y-4" data-clusters-pages @if (in_array('çalışıyor…', $statuses, true)) wire:poll.5s @endif>
     @if ($message !== '')
-        <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+        <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
         </p>
     @endif
@@ -38,7 +38,7 @@
             <button type="button" wire:click="analyzeSelected" @disabled($selected === []) class="{{ $btn }} ml-auto">Seçilenleri analiz et</button>
             <x-operator.ai-prompt-info operation="site.url_analysis" />
         </div>
-        @error('selected')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+        @error('selected')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
         <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
                 <thead class="text-gray-500"><tr><th class="w-6 py-1"></th><th>URL</th><th>Kategori</th><th>Hizmet</th><th class="text-right">Tık 28g</th><th></th></tr></thead>

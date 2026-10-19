@@ -15,20 +15,20 @@
         <label class="text-sm">Meta App ID
             <input wire:model="app_id" inputmode="numeric" required class="{{ $input }}" />
             <span class="mt-1 block text-xs text-gray-500">Uygulama ayarları → Temel bölümünde.</span>
-            @error('app_id')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+            @error('app_id')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
         <label class="text-sm">Embedded Signup yapılandırma ID'si
             <input wire:model="signup_config_id" inputmode="numeric" required class="{{ $input }}" />
             <span class="mt-1 block text-xs text-gray-500">Facebook Login for Business → Yapılandırmalar; "WhatsApp Embedded Signup" şablonuyla oluşturulmuş güncel yapılandırma.</span>
-            @error('signup_config_id')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+            @error('signup_config_id')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
         <label class="text-sm">Meta App Secret
             <span wire:ignore class="block"><input x-ref="signupSecret" type="password" autocomplete="new-password" placeholder="{{ $credentialStatus['app_secret'] ? 'Kayıtlı · değiştirmek için yazın' : 'Gerekli' }}" class="{{ $input }}" /></span>
-            @error('app_secret')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+            @error('app_secret')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
         <label class="text-sm">Webhook Verify Token
             <span wire:ignore class="block"><input x-ref="signupVerify" type="password" autocomplete="new-password" minlength="16" placeholder="{{ $credentialStatus['verify_token'] ? 'Kayıtlı · değiştirmek için yazın' : 'En az 16 karakter; Meta webhook ekranına da aynısı' }}" class="{{ $input }}" /></span>
-            @error('verify_token')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+            @error('verify_token')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
         <label class="text-sm md:col-span-2">Bağlantı türü
             <select wire:model="signup_mode" class="{{ $input }}">

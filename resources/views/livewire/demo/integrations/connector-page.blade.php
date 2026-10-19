@@ -44,13 +44,13 @@
                     <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $connectorTitle }}</h1>
                     <div class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         @if ($data['integration_active'] ?? false)
-                            <span class="inline-flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
-                                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                            <span class="inline-flex items-center gap-1.5 font-medium text-success-700 dark:text-success-400">
+                                <span class="h-2 w-2 rounded-full bg-success-500"></span>
                                 Bağlı
                             </span>
                         @else
-                            <span class="inline-flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400">
-                                <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                            <span class="inline-flex items-center gap-1.5 font-medium text-warning-700 dark:text-warning-400">
+                                <span class="h-2 w-2 rounded-full bg-warning-500"></span>
                                 Bağlantı kapalı
                             </span>
                         @endif
@@ -83,7 +83,7 @@
                     <p class="text-xs uppercase tracking-wide text-gray-400">Connector · {{ $data['integration_label'] }} Integration</p>
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $data['name'] }}</h1>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                        <span class="font-medium text-emerald-700 dark:text-emerald-400">Connection · {{ $data['connection'] }}</span>
+                        <span class="font-medium text-success-700 dark:text-success-400">Connection · {{ $data['connection'] }}</span>
                         <span>·</span><span>Data freshness · {{ $data['freshness'] }}</span><span>·</span><span>Latest collection · {{ $data['latest_collection'] }}</span>
                     </div>
                     <p class="mt-2 text-xs text-gray-400">{{ $data['ontology_note'] }}</p>
@@ -111,7 +111,7 @@
 
     @if ($displayTab === 'overview')
         <div class="grid grid-cols-2 gap-3 xl:grid-cols-5">
-            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Connection</p><p class="mt-1 text-lg font-semibold text-emerald-700 dark:text-emerald-400">{{ $data['connection'] }}</p></div>
+            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Connection</p><p class="mt-1 text-lg font-semibold text-success-700 dark:text-success-400">{{ $data['connection'] }}</p></div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Resources</p><p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $data['resources_count'] }}</p></div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Bound</p><p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $data['bound'] }}</p></div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800"><p class="text-xs text-gray-400">Available</p><p class="mt-1 text-2xl font-bold tabular-nums text-warning-600 dark:text-warning-400">{{ $data['available'] }}</p></div>
@@ -167,7 +167,7 @@
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                         <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
-                                        @if (($resource['state'] ?? '') === 'bound')<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Bağlı</span>@endif
+                                        @if (($resource['state'] ?? '') === 'bound')<span class="rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700 dark:bg-success-500/10 dark:text-success-300">Bağlı</span>@endif
                                     </div>
                                     @if ($isGsc)
                                         <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{{ $resource['external_id'] }}</p>
@@ -179,16 +179,16 @@
                             </div>
 
                             <div class="flex shrink-0 items-center gap-3 pl-7 sm:pl-0">
-                                <div class="min-w-[190px] text-left sm:text-right">
+                                <div class="min-w-0 text-left sm:min-w-[190px] sm:text-right">
                                     @switch($resource['data_state'] ?? 'not_collected')
                                         @case('collecting')
-                                            <p class="text-sm font-medium text-blue-700 dark:text-blue-300">Çekiliyor</p><p class="mt-0.5 text-xs text-gray-400">Aktarım arka planda devam ediyor</p>@break
+                                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Çekiliyor</p><p class="mt-0.5 text-xs text-gray-400">Aktarım arka planda devam ediyor</p>@break
                                         @case('needs_repair')
-                                            <p class="text-sm font-medium text-amber-700 dark:text-amber-300">Eksik veri var</p><p class="mt-0.5 text-xs text-gray-400">{{ $resource['failed_datasets'] }} veri grubu · {{ $resource['collection_action'] }}</p>@break
+                                            <p class="text-sm font-medium text-warning-700 dark:text-warning-300">Eksik veri var</p><p class="mt-0.5 text-xs text-gray-400">{{ $resource['failed_datasets'] }} veri grubu · {{ $resource['collection_action'] }}</p>@break
                                         @case('resume')
                                             <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Aktarım durduruldu</p><p class="mt-0.5 text-xs text-gray-400">{{ $resource['collection_action'] }}</p>@break
                                         @case('collected')
-                                            <p class="text-sm font-medium text-emerald-700 dark:text-emerald-400">Veri mevcut</p>
+                                            <p class="text-sm font-medium text-success-700 dark:text-success-400">Veri mevcut</p>
                                             @if (! empty($resource['coverage_start']) && ! empty($resource['coverage_end']))<p class="mt-0.5 text-xs text-gray-400">{{ $resource['coverage_start'] }} → {{ $resource['coverage_end'] }}</p>@endif
                                             <p class="mt-0.5 text-xs text-gray-400">Son başarılı aktarım {{ $resource['last_success'] }}</p>@break
                                         @default
@@ -252,7 +252,7 @@
                 <div class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse ($data['activity'] as $event)
                         @php $eventText = (string) ($event['event'] ?? ''); $isSuccess = str_contains($eventText, 'Completed'); $isProblem = str_contains($eventText, 'Failed') || str_contains($eventText, 'Partial'); $isStopped = str_contains($eventText, 'Cancelled'); @endphp
-                        <div class="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span @class(['h-2 w-2 rounded-full','bg-emerald-500' => $isSuccess,'bg-amber-500' => $isProblem,'bg-gray-400' => $isStopped,'bg-blue-500' => ! $isSuccess && ! $isProblem && ! $isStopped])></span><p class="text-sm font-medium text-gray-900 dark:text-white">{{ $event['event'] }}</p></div><p class="mt-1 pl-4 text-xs text-gray-500">{{ $event['detail'] }}</p></div><p class="shrink-0 pl-4 text-xs text-gray-400 sm:pl-0">{{ $event['when'] }}</p></div>
+                        <div class="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span @class(['h-2 w-2 rounded-full','bg-success-500' => $isSuccess,'bg-warning-500' => $isProblem,'bg-gray-400' => $isStopped,'bg-gray-500' => ! $isSuccess && ! $isProblem && ! $isStopped])></span><p class="text-sm font-medium text-gray-900 dark:text-white">{{ $event['event'] }}</p></div><p class="mt-1 pl-4 text-xs text-gray-500">{{ $event['detail'] }}</p></div><p class="shrink-0 pl-4 text-xs text-gray-400 sm:pl-0">{{ $event['when'] }}</p></div>
                     @empty
                         <div class="px-5 py-10 text-center text-sm text-gray-500">Henüz {{ $isGsc ? 'Search Console' : 'GA4' }} aktarım geçmişi yok.</div>
                     @endforelse

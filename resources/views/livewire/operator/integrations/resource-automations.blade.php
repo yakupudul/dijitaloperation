@@ -4,10 +4,10 @@
     </button>
     @if($expanded)
         <div wire:poll.20s class="space-y-4 border-t border-gray-200 p-4 dark:border-gray-800">
-            @if($message)<p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
-            @if($errors->any())<p role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $errors->first() }}</p>@endif
+            @if($message)<p role="status" class="rounded-lg bg-gray-50 p-3 text-sm text-gray-800 dark:bg-gray-950 dark:text-gray-200">{{ $message }}</p>@endif
+            @if($errors->any())<p role="alert" class="rounded-lg bg-error-50 p-3 text-sm text-error-800">{{ $errors->first() }}</p>@endif
             <div class="flex flex-wrap gap-3">
-                <input type="search" wire:model.live.debounce.400ms="search" placeholder="{{ __('resource-auto.search') }}" aria-label="{{ __('resource-auto.search') }}" class="min-w-48 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
+                <input type="search" wire:model.live.debounce.400ms="search" placeholder="{{ __('resource-auto.search') }}" aria-label="{{ __('resource-auto.search') }}" class="w-full min-w-0 flex-1 rounded-lg border-gray-300 text-sm sm:min-w-48 dark:border-gray-700 dark:bg-gray-950">
                 @if($resourceType === '')<select wire:model.live="type" aria-label="{{ __('resource-auto.source') }}" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
                     <option value="">{{ __('resource-auto.all') }}</option>
                     @foreach(\App\Services\Integrations\ResourceAutomationService::TYPES as $kind)<option value="{{ $kind }}">{{ __('resource-auto.'.$kind) }}</option>@endforeach
@@ -33,15 +33,15 @@
                         @endphp
                         <tr wire:key="auto-account-{{ $a->id }}" class="align-top">
                             <td class="p-3"><p class="font-medium">{{ $a->resource->display_name ?: $a->resource->external_id }}</p><p class="mt-1 text-xs text-gray-500">{{ __('resource-auto.'.$a->resource->resource_type) }} · {{ $a->resource->external_id }}</p></td>
-                            <td class="p-3"><p class="{{ $problem ? 'text-amber-700' : 'text-emerald-700' }}">{{ __('resource-auto.'.($problem ? 'state_attention' : 'connected')) }}</p>@if($problem)<p class="mt-1 max-w-xs text-xs text-gray-500">{{ __('resource-auto.'.$problem) }}</p>@endif</td>
+                            <td class="p-3"><p class="{{ $problem ? 'text-warning-700' : 'text-success-700' }}">{{ __('resource-auto.'.($problem ? 'state_attention' : 'connected')) }}</p>@if($problem)<p class="mt-1 max-w-xs text-xs text-gray-500">{{ __('resource-auto.'.$problem) }}</p>@endif</td>
                             <td class="p-3 text-xs"><p>{{ $a->gbpRun ? __('gbp-connector.progress', ['count' => count(data_get($a->gbpRun->metadata, 'datasets', []))]) : ($range ? $range->first_date.' → '.$range->last_date : __('resource-auto.no_data')) }}</p>@if($range)<p class="mt-1 max-w-xs text-gray-500">{{ __('resource-auto.coverage_note') }}</p>@endif</td>
                             <td class="p-3">
-                                <p class="{{ $overdue || $state === 'delayed' || $a->collection_error ? 'text-amber-700 dark:text-amber-400' : '' }}">{{ $active ? __('resource-auto.state_'.$state) : (! $a->collection_enabled ? __('resource-auto.paused') : ($overdue ? __('resource-auto.overdue') : __('resource-auto.state_'.$state))) }}</p>
+                                <p class="{{ $overdue || $state === 'delayed' || $a->collection_error ? 'text-warning-700 dark:text-warning-400' : '' }}">{{ $active ? __('resource-auto.state_'.$state) : (! $a->collection_enabled ? __('resource-auto.paused') : ($overdue ? __('resource-auto.overdue') : __('resource-auto.state_'.$state))) }}</p>
                                 <p class="mt-1 text-xs text-gray-500">{{ __('resource-auto.frequency') }}: {{ __('resource-auto.'.($a->interval_days === 3 ? 'three_days' : 'daily')) }}</p>
                                 <p class="mt-1 text-xs text-gray-500">{{ __('resource-auto.last') }}: {{ $a->last_collection_success_at?->copy()->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? '—' }}</p>
                                 <p class="mt-1 text-xs text-gray-500">{{ __('resource-auto.'.($overdue ? 'due_since' : 'next')) }}: {{ $a->collection_enabled ? ($a->next_collection_at?->copy()->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? '—') : '—' }}</p>
                                 @if($active)<p class="mt-1 text-xs text-gray-500">#{{ $latest->collection_run_id }} · {{ $latest->last_activity_at?->diffForHumans() }}</p>@endif
-                                @if($a->collection_error)<p class="mt-2 max-w-xs text-xs text-amber-700 dark:text-amber-400">{{ __('resource-auto.'.$a->collection_error) }}</p>@endif
+                                @if($a->collection_error)<p class="mt-2 max-w-xs text-xs text-warning-700 dark:text-warning-400">{{ __('resource-auto.'.$a->collection_error) }}</p>@endif
                             </td>
                             <td class="space-y-2 p-3 text-right text-xs">@if($isAdmin)<button type="button" wire:click="edit({{ $a->id }})" class="block w-full text-brand-600">{{ __('resource-auto.settings') }}</button><button type="button" wire:click="runNow({{ $a->id }})" wire:loading.attr="disabled" @disabled($problem || $active || in_array($a->collection_status, ['planning','collecting'])) class="block w-full disabled:opacity-40">{{ __('resource-auto.run_now') }}</button>@endif<button type="button" wire:click="inspectCollection({{ $a->id }})" class="block w-full text-brand-600">{{ __('resource-auto.inspect_collection') }}</button></td>
                         </tr>
@@ -58,7 +58,7 @@
             <form wire:submit="save" class="flex h-full w-full max-w-lg flex-col bg-white shadow-xl dark:bg-gray-900">
                 <div class="flex items-center justify-between border-b p-5 dark:border-gray-800"><h3 class="font-semibold">{{ $editor->resource->display_name }}</h3><button type="button" wire:click="closeEditor" aria-label="{{ __('resource-auto.close') }}">✕</button></div>
                 <div class="flex-1 space-y-5 overflow-y-auto p-5">
-                    @if($errors->any())<p role="alert" class="text-sm text-red-600">{{ $errors->first() }}</p>@endif
+                    @if($errors->any())<p role="alert" class="text-sm text-error-600">{{ $errors->first() }}</p>@endif
                     <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="collectionEnabled" class="rounded border-gray-300 text-brand-500">{{ __('resource-auto.collection_enabled') }}</label>
                     <label class="block text-sm">{{ __('resource-auto.frequency') }}<select wire:model="intervalDays" class="mt-2 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="1">{{ __('resource-auto.daily') }}</option><option value="3">{{ __('resource-auto.three_days') }}</option></select></label>
                     <label class="block text-sm">Çekim saati (İstanbul)<select wire:model="preferredHour" class="mt-2 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Otomatik (son çekimden itibaren)</option>@for ($h = 0; $h < 24; $h++)<option value="{{ $h }}">{{ str_pad((string) $h, 2, '0', STR_PAD_LEFT) }}:00</option>@endfor</select></label>
@@ -82,8 +82,8 @@
                                     <p class="font-medium">{{ __('gbp-connector.'.$key) }} · {{ __('gbp-connector.'.$result['status']) }}</p>
                                     <p>{{ __('gbp-connector.rows', ['count' => $result['rows'] ?? 0]) }}</p>
                                     @if(isset($result['from']))<p>{{ $result['from'] }} → {{ $result['to'] ?? '—' }}</p>@endif
-                                    @if(!empty($result['reason']))<p class="mt-2 text-amber-700">{{ $result['reason'] }}</p>@endif
-                                    @foreach(($result['metric_errors'] ?? $result['month_errors'] ?? []) as $error)<p class="mt-2 text-amber-700">{{ $error }}</p>@endforeach
+                                    @if(!empty($result['reason']))<p class="mt-2 text-warning-700">{{ $result['reason'] }}</p>@endif
+                                    @foreach(($result['metric_errors'] ?? $result['month_errors'] ?? []) as $error)<p class="mt-2 text-warning-700">{{ $error }}</p>@endforeach
                                 </div>
                             @endforeach
                         </details>
@@ -97,7 +97,7 @@
                                         <p class="font-medium">{{ data_get($dataset->metadata, 'dataset_label') ?: $dataset->dataset_contract_id }} · {{ __('resource-auto.state_'.$dataset->status->value) }}</p>
                                         <p class="mt-1 text-gray-500">{{ data_get($dataset->metadata, 'date_range.start', '—') }} → {{ data_get($dataset->metadata, 'date_range.end', '—') }} · {{ __('resource-auto.written_rows', ['count' => number_format($dataset->rows_written)]) }}</p>
                                         @if($dataset->retry_at)<p class="mt-1">{{ __('resource-auto.retry_at') }}: {{ $dataset->retry_at->copy()->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</p>@endif
-                                        @if($dataset->error_message)<details class="mt-2 text-amber-700"><summary class="cursor-pointer">{{ __('resource-auto.technical_details') }}</summary><p class="mt-2 break-words">{{ $dataset->error_code }} · {{ $dataset->error_message }}</p></details>@endif
+                                        @if($dataset->error_message)<details class="mt-2 text-warning-700"><summary class="cursor-pointer">{{ __('resource-auto.technical_details') }}</summary><p class="mt-2 break-words">{{ $dataset->error_code }} · {{ $dataset->error_message }}</p></details>@endif
                                     </div>
                                 @endforeach
                             </div>

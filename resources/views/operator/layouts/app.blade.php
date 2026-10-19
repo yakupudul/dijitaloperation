@@ -138,7 +138,7 @@
             :class="notice?.tone === 'error' ? 'bg-error-600 ring-error-700' : 'bg-gray-900 ring-gray-800 dark:bg-gray-800'"
             class="pointer-events-auto flex max-w-md cursor-pointer items-start gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-theme-lg ring-1">
             <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                :class="notice?.tone === 'error' ? 'bg-white/20' : 'bg-emerald-500'" x-text="notice?.tone === 'error' ? '!' : '✓'"></span>
+                :class="notice?.tone === 'error' ? 'bg-white/20' : 'bg-success-500'" x-text="notice?.tone === 'error' ? '!' : '✓'"></span>
             <span class="min-w-0" x-text="notice?.message"></span>
         </div>
     </div>

@@ -9,19 +9,19 @@
     $th = 'cursor-pointer select-none whitespace-nowrap px-2 py-2 text-right hover:text-gray-800 dark:hover:text-white';
     $health = function (array $row): array {
         if ($row['status_code'] !== null && $row['status_code'] >= 400) {
-            return ['HTTP '.$row['status_code'], 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'];
+            return ['HTTP '.$row['status_code'], 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'];
         }
         if ($row['indexable'] === false) {
-            return ['noindex', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'];
+            return ['noindex', 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'];
         }
         if ($row['serious'] > 0) {
-            return [$row['serious'].' ciddi sorun', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'];
+            return [$row['serious'].' ciddi sorun', 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'];
         }
         if ($row['issues'] > 0) {
-            return [$row['issues'].' uyarı', 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300'];
+            return [$row['issues'].' uyarı', 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300'];
         }
         if ($row['status_code'] !== null) {
-            return [(string) $row['status_code'], 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'];
+            return [(string) $row['status_code'], 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300'];
         }
 
         return ['—', 'text-gray-400'];
@@ -74,6 +74,7 @@
                         <button type="button" wire:click="setType('{{ $key }}')" class="text-xs font-medium text-brand-600 hover:underline">{{ $bucket['label'] }} tümü ({{ $num($bucket['count']) }}) →</button>
                     @endif
                 </header>
+                <div class="min-w-0 overflow-x-auto">
                 <table class="w-full text-left text-xs">
                     <thead class="text-gray-500"><tr><th class="px-4 py-1.5">Sayfa</th><th class="px-2 text-right">Tıklama</th><th class="px-2 text-right">Gösterim</th><th class="px-2 text-right">Sıra</th><th class="px-2 text-right">Oturum</th><th class="px-2 text-right">Dönüşüm</th><th class="px-2 text-right">Sağlık</th></tr></thead>
                     <tbody>
@@ -91,6 +92,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             </section>
         @empty
             <p class="{{ $card }} text-gray-500">Henüz sayfa yok. Site taraması ya da Search Console verisi gelince burada türlerine göre listelenir.</p>
@@ -130,7 +132,7 @@
                             @endif
                         </td>
                         <td class="px-2 text-right tabular-nums">{{ $num($row['clicks']) }}</td>
-                        <td @class(['px-2 text-right tabular-nums', 'text-rose-600' => ($row['delta'] ?? 0) < 0, 'text-emerald-600' => ($row['delta'] ?? 0) > 0, 'text-gray-400' => $row['delta'] === null])>{{ $row['delta'] === null ? ($row['clicks'] > 0 ? 'yeni' : '—') : ($row['delta'] > 0 ? '+' : '').$row['delta'].'%' }}</td>
+                        <td @class(['px-2 text-right tabular-nums', 'text-error-600' => ($row['delta'] ?? 0) < 0, 'text-success-600' => ($row['delta'] ?? 0) > 0, 'text-gray-400' => $row['delta'] === null])>{{ $row['delta'] === null ? ($row['clicks'] > 0 ? 'yeni' : '—') : ($row['delta'] > 0 ? '+' : '').$row['delta'].'%' }}</td>
                         <td class="px-2 text-right tabular-nums">{{ $num($row['impressions']) }}</td>
                         <td class="px-2 text-right tabular-nums">{{ $dec($row['position']) }}</td>
                         <td class="px-2 text-right tabular-nums">{{ $num($row['sessions']) }}</td>
@@ -183,6 +185,7 @@
 
                 <section data-detail-queries>
                     <h3 class="mb-1 text-sm font-semibold">Sorgular <span class="font-normal text-gray-500">({{ $periodDays }} gün)</span></h3>
+                    <div class="min-w-0 overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead class="text-gray-500"><tr><th class="py-1">Sorgu</th><th class="text-right">Tıklama</th><th class="text-right">Önceki</th><th class="text-right">Gösterim</th><th class="text-right">Sıra</th></tr></thead>
                         <tbody>
@@ -193,10 +196,12 @@
                             @endforelse
                         </tbody>
                     </table>
+                    </div>
                 </section>
 
                 <section data-detail-channels>
                     <h3 class="mb-1 text-sm font-semibold">Kanallar ve dönüşümler</h3>
+                    <div class="min-w-0 overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead class="text-gray-500"><tr><th class="py-1">Kaynak / ortam</th><th class="text-right">Oturum</th><th class="text-right">Anahtar etkinlik</th></tr></thead>
                         <tbody>
@@ -207,6 +212,7 @@
                             @endforelse
                         </tbody>
                     </table>
+                    </div>
                 </section>
 
                 <section data-detail-health>
@@ -217,7 +223,7 @@
                     </p>
                     <ul class="mt-1 space-y-1 text-xs">
                         @forelse ($page['issues'] as $issue)
-                            <li><span @class(['rounded px-1.5 py-0.5 font-medium', 'bg-rose-50 text-rose-700' => in_array($issue['severity'], ['critical', 'high'], true), 'bg-amber-50 text-amber-800' => ! in_array($issue['severity'], ['critical', 'high'], true)])>{{ $issue['severity'] }}</span> {{ $issue['message'] }}</li>
+                            <li><span @class(['rounded px-1.5 py-0.5 font-medium', 'bg-error-50 text-error-700' => in_array($issue['severity'], ['critical', 'high'], true), 'bg-warning-50 text-warning-800' => ! in_array($issue['severity'], ['critical', 'high'], true)])>{{ $issue['severity'] }}</span> {{ $issue['message'] }}</li>
                         @empty
                             <li class="text-gray-500">Son taramada sorun yok.</li>
                         @endforelse

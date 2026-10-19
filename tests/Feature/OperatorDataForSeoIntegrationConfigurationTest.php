@@ -56,7 +56,7 @@ class OperatorDataForSeoIntegrationConfigurationTest extends TestCase
 
         Livewire::test(IntegrationsIndex::class)
             ->assertOk()
-            ->assertSee('DataForSEO')
+            ->assertDontSee('DataForSEO') // hidden from the hub 2026-10-19: all AI runs on the Claude MCP queue, DataForSEO is never added; the configure route below still works
             ->assertDontSeeHtml('>Review<');
 
         $this->get(route('operator.integrations.dataforseo'))

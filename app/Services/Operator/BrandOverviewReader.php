@@ -17,6 +17,7 @@ use App\Services\Work\OpenWork;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -40,7 +41,7 @@ final class BrandOverviewReader
     public const string KPI_TIMEZONE = 'Europe/Istanbul';
 
     /** Changes whenever rawKpis() changes shape, so a value cached by an older release is never read. */
-    private const string CACHE_VERSION = 'v2';
+    private const string CACHE_VERSION = 'v3';
 
     /** Asset types shown on the brand page (infrastructure types are left out). */
     public const array TYPE_LABELS = [
@@ -152,13 +153,15 @@ final class BrandOverviewReader
         $ads = $raw['ads'];
         $gbp = $raw['gbp'];
 
+        $daily = $web['daily'] ?? [];
+
         return [
             $this->card('organic_clicks', 'Organik tıklama', 'Search Console', $web['gsc'], $hasData['search_console'] ?? false, $web['clicks'], $num, $days,
-                'Search Console bağlı değil', $bindWeb),
+                'Search Console bağlı değil', $bindWeb) + ['spark' => self::spark($daily['clicks'] ?? [])],
             $this->card('sessions', 'Web oturumu', 'Google Analytics', $web['ga4'], $hasData['ga4'] ?? false, $web['sessions'], $num, $days,
-                'Google Analytics bağlı değil', $bindWeb),
+                'Google Analytics bağlı değil', $bindWeb) + ['spark' => self::spark($daily['sessions'] ?? [])],
             $this->card('web_conversions', 'Web dönüşümü', 'Google Analytics', $web['ga4'], $hasData['ga4'] ?? false, $web['key_events'], $num, $days,
-                'Google Analytics bağlı değil', $bindWeb),
+                'Google Analytics bağlı değil', $bindWeb) + ['spark' => self::spark($daily['key_events'] ?? [])],
             $this->spendCard($ads, $days, $bindAccount),
             $this->card('ad_conversions', 'Reklam dönüşümü', $ads['sources'] !== [] ? implode(' + ', $ads['sources']) : 'Google Ads · Meta', $ads['bound'], $ads['data'],
                 $ads['conversions'], $num, $days, 'Reklam hesabı bağlı değil', $bindAccount),
@@ -265,19 +268,15 @@ final class BrandOverviewReader
      */
     private function rawKpis(Collection $models, int $days): array
     {
-        $web = ['gsc' => false, 'ga4' => false, 'clicks' => [0, 0], 'sessions' => [0, 0], 'key_events' => [0.0, 0.0]];
+        $web = ['gsc' => false, 'ga4' => false, 'clicks' => [0, 0], 'sessions' => [0, 0], 'key_events' => [0.0, 0.0], 'daily' => ['clicks' => [], 'sessions' => [], 'key_events' => []]];
         foreach ($models->where('type', 'website') as $site) {
             $window = $this->site->window($site, $days);
             if ($window['gsc'] === [] && $window['ga4'] === []) {
                 continue;
             }
-            $totals = $this->site->freshTotals($site, $days);
             $web['gsc'] = $web['gsc'] || $window['gsc'] !== [];
             $web['ga4'] = $web['ga4'] || $window['ga4'] !== [];
-            foreach (['clicks', 'sessions', 'key_events'] as $metric) {
-                $web[$metric][0] += $totals['current'][$metric];
-                $web[$metric][1] += $totals['previous'][$metric];
-            }
+            $this->addWindow($web, $window);
         }
 
         $ads = ['bound' => false, 'data' => false, 'sources' => [], 'spend' => [], 'conversions' => [0.0, 0.0]];
@@ -320,6 +319,79 @@ final class BrandOverviewReader
         $ads['sources'] = array_values($ads['sources']);
 
         return ['web' => $web, 'ads' => $ads, 'gbp' => $this->gbpKpis($models, $days), 'until' => $until];
+    }
+
+    /**
+     * One website's numbers for both periods and per day of the current one (the sparklines), read from the same facts
+     * as SiteAnalysisReader::freshTotals() (Search Console web clicks, GA4 landing sessions / key events), one query
+     * per source grouped by day over both windows instead of one per source and period.
+     *
+     * @param  array<string, mixed>  $web
+     * @param  array{start: string, end: string, prev_start: string, prev_end: string, gsc: list<int>, ga4: list<int>}  $window
+     */
+    private function addWindow(array &$web, array $window): void
+    {
+        $period = static fn (string $day): ?int => $day >= $window['start'] && $day <= $window['end'] ? 0 : ($day >= $window['prev_start'] && $day <= $window['prev_end'] ? 1 : null);
+        $from = min($window['start'], $window['prev_start']);
+        $to = max($window['end'], $window['prev_end']);
+        if ($window['gsc'] !== []) {
+            $rows = DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $window['gsc'])->where('search_type', 'web')
+                ->whereBetween('reporting_date', [$from, $to])->groupBy('reporting_date')
+                ->selectRaw('reporting_date as day, sum(clicks) as clicks')->get();
+            foreach ($rows as $row) {
+                $day = substr((string) $row->day, 0, 10);
+                if (($index = $period($day)) === null) {
+                    continue;
+                }
+                $web['clicks'][$index] += (int) $row->clicks;
+                if ($index === 0) {
+                    $web['daily']['clicks'][$day] = ($web['daily']['clicks'][$day] ?? 0) + (int) $row->clicks;
+                }
+            }
+        }
+        if ($window['ga4'] !== []) {
+            $rows = DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $window['ga4'])
+                ->whereBetween('reporting_date', [$from, $to])->groupBy('reporting_date')
+                ->selectRaw('reporting_date as day, sum(sessions) as sessions, sum("keyEvents") as key_events')->get();
+            foreach ($rows as $row) {
+                $day = substr((string) $row->day, 0, 10);
+                if (($index = $period($day)) === null) {
+                    continue;
+                }
+                $web['sessions'][$index] += (int) $row->sessions;
+                $web['key_events'][$index] += (float) $row->key_events;
+                if ($index === 0) {
+                    $web['daily']['sessions'][$day] = ($web['daily']['sessions'][$day] ?? 0) + (int) $row->sessions;
+                    $web['daily']['key_events'][$day] = ($web['daily']['key_events'][$day] ?? 0.0) + (float) $row->key_events;
+                }
+            }
+        }
+    }
+
+    /**
+     * Day => value as sparkline points in date order; a long window (90 days) is summed per week so the line stays
+     * readable. Null below two points.
+     *
+     * @param  array<string, int|float>  $byDay
+     * @return list<float>|null
+     */
+    public static function spark(array $byDay): ?array
+    {
+        if (count($byDay) < 2) {
+            return null;
+        }
+        ksort($byDay);
+        $first = CarbonImmutable::parse((string) array_key_first($byDay));
+        $last = CarbonImmutable::parse((string) array_key_last($byDay));
+        $points = [];
+        for ($day = $first; $day->lte($last); $day = $day->addDay()) {
+            $points[] = (float) ($byDay[$day->toDateString()] ?? 0);
+        }
+        if (count($points) > 35) {
+            $points = array_map(fn (array $week): float => array_sum($week), array_chunk($points, 7));
+        }
+
+        return count($points) >= 2 ? $points : null;
     }
 
     /**

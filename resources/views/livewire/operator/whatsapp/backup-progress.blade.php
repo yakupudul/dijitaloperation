@@ -19,5 +19,5 @@
     @if(\App\Services\WhatsApp\Backup\WhatsAppBackupImporter::canRestart($backupImport))
         <p class="text-xs">{{ $progressMinutes }} dakikadır ilerleme yok. Takılan çıkarma kendiliğinden yeniden başlatılır; beklemek istemezseniz <button type="button" wire:click="restartBackup" class="font-semibold underline">Yeniden başlat</button>.</p>
     @endif
-    @error('backup')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+    @error('backup')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
 </div>

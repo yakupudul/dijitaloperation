@@ -2,28 +2,29 @@
 @php
     $overlap = $row['overlap'] ?? null;
     $chip = 'rounded px-1.5 py-0.5 text-[10px] font-semibold';
-    $primary = 'h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600';
+    // Per-row actions are outline (orange is the screen's one main action); the row's first action reads a little stronger.
+    $primary = 'h-8 shrink-0 rounded-lg bg-white px-3 text-xs font-semibold text-gray-900 ring-1 ring-inset ring-gray-400 hover:bg-gray-50 dark:bg-transparent dark:text-white dark:ring-gray-500 dark:hover:bg-white/5';
     $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5';
     $hasOwnButtons = $row['can_approve'] || $row['actions'] !== [] || $row['can_done'] || $row['can_reopen'];
 @endphp
 <li class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4" wire:key="{{ $row['kind'] }}-{{ $row['id'] }}" data-work-row="{{ $row['kind'] }}-{{ $row['id'] }}">
     <div class="min-w-0 sm:flex-1">
         <div class="flex flex-wrap items-center gap-1.5">
-            @if($row['rank'] <= 1)<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">Acil</span>@endif
+            @if($row['rank'] <= 1)<span class="{{ $chip }} bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300">Acil</span>@endif
             @if($overlap !== null)
                 @if($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REDIRECT)
-                    <span class="{{ $chip }} bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300" data-recommendation="redirect">301 öneriliyor</span>
+                    <span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300" data-recommendation="redirect">301 öneriliyor</span>
                 @elseif($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REVIEW)
-                    <span class="{{ $chip }} bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" data-recommendation="review">Ana sayfayı gözden geçir</span>
+                    <span class="{{ $chip }} bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300" data-recommendation="review">Ana sayfayı gözden geçir</span>
                 @else
-                    <span class="{{ $chip }} bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" data-recommendation="differentiate">Ayrıştır</span>
+                    <span class="{{ $chip }} bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300" data-recommendation="differentiate">Ayrıştır</span>
                 @endif
             @endif
-            @if($row['stage'])<span class="{{ $chip }} bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{{ $row['stage'] }}</span>@endif
-            @if($row['verification'] === 'pending')<span class="{{ $chip }} bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300" data-verification="pending">Sistem kontrol edecek</span>
-            @elseif($row['verification'] === 'confirmed')<span class="{{ $chip }} bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" data-verification="confirmed">Sistem doğruladı</span>
-            @elseif($row['verification'] === 'still_seen')<span class="{{ $chip }} bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" data-verification="still_seen">Sistem hâlâ görüyor</span>
-            @elseif($row['verification'] === 'auto')<span class="{{ $chip }} bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" data-verification="auto">Sistem kendisi fark etti</span>
+            @if($row['stage'])<span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">{{ $row['stage'] }}</span>@endif
+            @if($row['verification'] === 'pending')<span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300" data-verification="pending">Sistem kontrol edecek</span>
+            @elseif($row['verification'] === 'confirmed')<span class="{{ $chip }} bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300" data-verification="confirmed">Sistem doğruladı</span>
+            @elseif($row['verification'] === 'still_seen')<span class="{{ $chip }} bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300" data-verification="still_seen">Sistem hâlâ görüyor</span>
+            @elseif($row['verification'] === 'auto')<span class="{{ $chip }} bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300" data-verification="auto">Sistem kendisi fark etti</span>
             @endif
         </div>
         @if($overlap !== null && $overlap['cluster'] !== null)
@@ -49,7 +50,7 @@
             <button type="button" wire:click="run({{ $row['id'] }}, '{{ $do }}')" @if(in_array($do, ['merge', 'make_main', 'send_draft', 'audit_fix'], true)) wire:confirm="{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}: emin misiniz?" @endif class="{{ $loop->first && ! $row['can_approve'] ? $primary : $ghost }}" data-work-action="{{ $do }}">{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}</button>
         @endforeach
         @if($row['can_done'])
-            <button type="button" wire:click="done({{ $row['id'] }})" class="h-8 shrink-0 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700">Yaptım</button>
+            <button type="button" wire:click="done({{ $row['id'] }})" class="h-8 shrink-0 rounded-lg bg-success-600 px-3 text-xs font-semibold text-white hover:bg-success-700">Yaptım</button>
         @endif
         @if($row['can_reopen'])
             <button type="button" wire:click="reopen({{ $row['id'] }})" wire:confirm="İş yeniden açılsın mı?" class="{{ $ghost }}">Geri al</button>
@@ -66,7 +67,7 @@
                     @endif
                     <button type="button" wire:click="snooze('{{ $row['kind'] }}', {{ $row['id'] }})" x-on:click="more = false" class="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5">7 gün ertele</button>
                     @if($row['kind'] === 'suggestion')
-                        <button type="button" wire:click="dismiss({{ $row['id'] }})" x-on:click="more = false" class="block w-full rounded-lg px-2 py-1.5 text-left text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10">Reddet</button>
+                        <button type="button" wire:click="dismiss({{ $row['id'] }})" x-on:click="more = false" class="block w-full rounded-lg px-2 py-1.5 text-left text-error-700 hover:bg-error-50 dark:text-error-300 dark:hover:bg-error-500/10">Reddet</button>
                     @endif
                 </div>
             </div>

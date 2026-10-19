@@ -149,7 +149,7 @@ final class OperatorIntegrationsHubQuery
             'route_params' => [],
             'manage_label' => app()->getLocale() === 'tr' ? 'Web Sitelerini Yönet' : 'Manage websites',
             'note' => app()->getLocale() === 'tr'
-                ? 'Public crawl, HTTP/HTML teknik analiz, SSL/TLS ve yapılandırıldığında PageSpeed verilerini production Collection Engine ile toplar.'
+                ? 'Sitelerin herkese açık sayfalarını tarar; teknik kontrol, SSL sertifikası ve açıksa PageSpeed hız verisini toplar.'
                 : 'Collects public crawl, HTTP/HTML technical analysis, SSL/TLS and, when configured, PageSpeed data through the production Collection Engine.',
         ];
     }

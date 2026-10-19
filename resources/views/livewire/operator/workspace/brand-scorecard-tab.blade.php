@@ -4,13 +4,13 @@
     $money = fn ($v) => $v === null ? '—' : number_format((float) $v, 0, ',', '.').' '.$currency;
     $pct = fn ($v) => $v === null ? '' : (($v > 0 ? '+' : '').number_format((float) $v, 0, ',', '.').'%');
     $cellTone = [
-        'better' => 'bg-emerald-50 ring-emerald-200 dark:bg-emerald-500/10 dark:ring-emerald-500/30',
+        'better' => 'bg-success-50 ring-success-200 dark:bg-success-500/10 dark:ring-success-500/30',
         'around' => 'bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-700',
-        'worse' => 'bg-rose-50 ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/30',
+        'worse' => 'bg-error-50 ring-error-200 dark:bg-error-500/10 dark:ring-error-500/30',
         'none' => 'bg-white ring-gray-300 dark:bg-transparent dark:ring-gray-600',
         'na' => 'bg-white ring-gray-100 dark:bg-transparent dark:ring-gray-800',
     ];
-    $noteTone = ['Maliyet yüksek' => 'text-rose-700 dark:text-rose-300', 'Fırsat' => 'text-emerald-700 dark:text-emerald-300', 'Sayfa yok' => 'text-amber-700 dark:text-amber-300'];
+    $noteTone = ['Maliyet yüksek' => 'text-error-700 dark:text-error-300', 'Fırsat' => 'text-success-700 dark:text-success-300', 'Sayfa yok' => 'text-warning-700 dark:text-warning-300'];
     $adCell = function (?array $c) use ($money, $num, $pct, $typeLabels): array {
         if ($c === null) {
             return ['none', 'Reklam yok', 'fırsat'];

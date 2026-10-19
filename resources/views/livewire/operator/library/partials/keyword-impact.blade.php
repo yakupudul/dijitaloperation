@@ -6,15 +6,15 @@
 @endphp
 <div class="mt-2 w-full space-y-1 rounded-lg bg-gray-50 p-2 text-xs dark:bg-gray-800/50" data-keyword-impact>
     @if ($impact['error'])
-        <p class="text-rose-600" data-impact-error>{{ $impact['error'] }}</p>
+        <p class="text-error-600" data-impact-error>{{ $impact['error'] }}</p>
     @else
         <p class="font-medium text-gray-800 dark:text-gray-100" data-impact-summary>{{ sprintf("Bu kelime %s sorgu yakalayacak · %s'si şu an bu hizmette · %s'si başka hizmetten gelecek%s · %s'si atanmamış",
             $fmt($impact['total']), $fmt($impact['here']), $fmt($impact['fromTotal']),
             $impact['from'] !== [] ? ' ('.collect($impact['from'])->map(fn ($count, $name) => $name.': '.$fmt($count))->implode(', ').')' : '', $fmt($impact['unassigned'])) }}</p>
         @if ($impact['kept'] > 0)<p class="text-gray-600 dark:text-gray-400" data-impact-kept>{{ $fmt($impact['kept']) }} sorgu elle / AI ile atanmış veya kilitli · bu kelime onları değiştirmez.</p>@endif
         @if ($impact['elsewhere'] > 0)<p class="text-gray-600 dark:text-gray-400" data-impact-elsewhere>{{ $fmt($impact['elsewhere']) }} sorgu daha uzun bir kelimeyle başka hizmette kalır.</p>@endif
-        @if ($impact['conflict'] > 0)<p class="text-amber-700 dark:text-amber-300" data-impact-conflict>{{ $fmt($impact['conflict']) }} sorgu çakışmaya düşer (iki hizmetin kelimesi, biri diğerini içermiyor) · atanmaz, Çakışmalar'da listelenir.</p>@endif
-        @if ($impact['warning'])<p class="text-amber-700 dark:text-amber-300">{{ $impact['warning'] }}</p>@endif
+        @if ($impact['conflict'] > 0)<p class="text-warning-700 dark:text-warning-300" data-impact-conflict>{{ $fmt($impact['conflict']) }} sorgu çakışmaya düşer (iki hizmetin kelimesi, biri diğerini içermiyor) · atanmaz, Çakışmalar'da listelenir.</p>@endif
+        @if ($impact['warning'])<p class="text-warning-700 dark:text-warning-300">{{ $impact['warning'] }}</p>@endif
         @if ($impact['examples'] !== [])
             <ul class="divide-y divide-gray-100 dark:divide-gray-800" data-impact-examples>
                 @foreach ($impact['examples'] as $example)

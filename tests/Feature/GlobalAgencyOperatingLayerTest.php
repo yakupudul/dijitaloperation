@@ -44,7 +44,8 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->all();
 
         $this->assertContains('Today', $labels);
-        $this->assertContains('Customers', $labels);
+        $this->assertNotContains('Customers', $labels, 'Müşteriler merged into Markalar 2026-10-19');
+        $this->assertContains('Brands', $labels);
         $this->assertContains('Queries', $labels, 'v2: Sorgular in the sidebar');
         $this->assertNotContains('Digital Assets', $labels, 'Step 3: assets are reached from Entegrasyonlar / brand Ayarlar');
         $this->assertNotContains('Findings', $labels, 'Faz 10e sade menü');

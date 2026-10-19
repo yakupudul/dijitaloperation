@@ -13,15 +13,15 @@
         <div class="rounded-lg border p-3"><p class="text-xs text-gray-500">{{ $tr ? 'Filtrelenen işlem sayısı' : 'Filtered events' }}</p><p class="mt-1">{{ $counts->sum() }}</p></div>
     </div>
     @if(!$delivery)
-        <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ $tr ? 'Henüz bildirim alınmadı. Connector 1.1.0 veya üzerini kurun. Mevcut eşleştirme korunur.' : 'No activity received. Install Connector 1.1.0 or later; existing pairing is preserved.' }}</p>
+        <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-800">{{ $tr ? 'Henüz bildirim alınmadı. Connector 1.1.0 veya üzerini kurun. Mevcut eşleştirme korunur.' : 'No activity received. Install Connector 1.1.0 or later; existing pairing is preserved.' }}</p>
     @elseif(\Carbon\CarbonImmutable::parse($delivery->last_received_at)->lt(now()->subMinutes(30)))
-        <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ $tr ? '30 dakikadır bağlantı bildirimi yok. Bu, sitede işlem yapılmadığı anlamına gelmez; bağlantıyı ve WordPress zamanlayıcısını kontrol edin.' : 'No contact for 30 minutes. This does not mean no work occurred; check connectivity and WordPress scheduling.' }}</p>
+        <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-800">{{ $tr ? '30 dakikadır bağlantı bildirimi yok. Bu, sitede işlem yapılmadığı anlamına gelmez; bağlantıyı ve WordPress zamanlayıcısını kontrol edin.' : 'No contact for 30 minutes. This does not mean no work occurred; check connectivity and WordPress scheduling.' }}</p>
     @endif
     @if($delivery?->gap_at)
-        <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ $tr ? 'Kayıt boşluğu bildirildi: ' : 'Activity coverage gap reported: ' }}{{ $delivery->gap_at }}. {{ $tr ? 'Envanter yenilenebilir; kaybolan geçmiş işlemler yeniden oluşturulamaz.' : 'Inventory can be refreshed; missing historical events cannot be reconstructed.' }}</p>
+        <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-800">{{ $tr ? 'Kayıt boşluğu bildirildi: ' : 'Activity coverage gap reported: ' }}{{ $delivery->gap_at }}. {{ $tr ? 'Envanter yenilenebilir; kaybolan geçmiş işlemler yeniden oluşturulamaz.' : 'Inventory can be refreshed; missing historical events cannot be reconstructed.' }}</p>
     @endif
     @if($delivery?->last_error)
-        <p class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $delivery->last_error }}</p>
+        <p class="rounded-lg bg-error-50 p-3 text-sm text-error-800">{{ $delivery->last_error }}</p>
     @endif
     <div class="flex flex-wrap gap-3">
         <label class="text-sm">{{ $tr ? 'Başlangıç' : 'From' }}<input type="date" wire:model.live="from" class="ml-2 rounded-lg border-gray-300 dark:bg-gray-900"></label>

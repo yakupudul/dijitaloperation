@@ -1,46 +1,39 @@
-<div class="space-y-6">
+@php
+    // A deployment placeholder sender (Laravel's example.com default) is not a real setting: shown as "—" (2026-10-19).
+    $isPlaceholder = fn (?string $value): bool => is_string($value) && preg_match('/@example\.(com|org|net)$/i', trim($value)) === 1;
+    $current = collect($sections)->firstWhere('id', $section);
+@endphp
+<div class="space-y-5">
     @include('livewire.demo.partials.flash')
 
     <div>
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.nav.settings') }}</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ __('operator.nav.settings') }}</h1>
         <p class="mt-1 text-sm text-gray-500">{{ __('operator.settings.subtitle') }}</p>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav class="space-y-1" aria-label="{{ __('operator.settings.sections') }}">
-            <label class="mb-2 block text-xs font-medium text-gray-500 lg:hidden" for="settings-section-mobile">{{ __('operator.settings.section') }}</label>
-            <select id="settings-section-mobile" wire:model.live="section" class="mb-3 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 lg:hidden">
-                @foreach ($sections as $item)
-                    <option value="{{ $item['id'] }}">{{ $item['label'] }}</option>
-                @endforeach
-            </select>
-            <ul class="hidden space-y-1 lg:block">
-                @foreach ($sections as $item)
-                    <li>
-                        <button type="button" wire:click="setSection('{{ $item['id'] }}')"
-                            @class([
-                                'w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition',
-                                'bg-brand-500 text-white' => $section === $item['id'],
-                                'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]' => $section !== $item['id'],
-                            ])>
-                            {{ $item['label'] }}
-                        </button>
-                    </li>
-                @endforeach
-            </ul>
-        </nav>
+    {{-- One navigation level (2026-10-19): the layout's section tabs are the top navigation; this page's own parts are
+         compact in-page links (was a second, left-hand menu). --}}
+    <nav class="flex flex-wrap items-center gap-1.5" aria-label="{{ __('operator.settings.sections') }}" data-settings-sections>
+        @foreach ($sections as $item)
+            <button type="button" wire:click="setSection('{{ $item['id'] }}')" @if ($section === $item['id']) aria-current="true" @endif
+                @class([
+                    'h-8 rounded-lg px-3 text-sm font-medium transition',
+                    'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $section === $item['id'],
+                    'text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]' => $section !== $item['id'],
+                ])>
+                {{ $item['label'] }}
+            </button>
+        @endforeach
+    </nav>
 
-        <div class="space-y-4">
-            @php
-                $current = collect($sections)->firstWhere('id', $section);
-            @endphp
+    <div class="min-w-0 space-y-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $current['label'] ?? __('operator.nav.settings') }}</h2>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $current['label'] ?? __('operator.nav.settings') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ $current['description'] ?? '' }}</p>
             </div>
 
             @if ($section === 'general')
-                <form wire:submit="saveGeneral" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <form wire:submit="saveGeneral" class="space-y-4 surface p-5">
                     <div class="grid gap-4 sm:grid-cols-2 text-sm">
                         <x-ta.form.field :label="__('operator.settings.agency_name')" :required="true" :error="$errors->first('agency_name')">
                             <input wire:model="agency_name" type="text" @disabled(! $isAdmin) class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
@@ -72,9 +65,9 @@
                                 <img src="{{ $branding['logo_url'] }}" alt="" class="mt-2 h-12 max-w-[180px] object-contain" />
                             @endif
                             <input type="file" wire:model="logo" accept="image/jpeg,image/png,image/webp" @disabled(! $isAdmin)
-                                class="mt-2 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white" />
+                                class="mt-2 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 dark:file:bg-white/10 dark:file:text-gray-200" />
                             <p class="mt-1 text-xs text-gray-500">{{ __('operator.settings.logo_hint') }}</p>
-                            @error('logo') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
+                            @error('logo') <p class="text-sm text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <p class="text-gray-400">{{ __('operator.settings.favicon') }}</p>
@@ -82,9 +75,9 @@
                                 <img src="{{ $branding['favicon_url'] }}" alt="" class="mt-2 h-8 w-8 object-contain" />
                             @endif
                             <input type="file" wire:model="favicon" accept="image/jpeg,image/png,image/webp" @disabled(! $isAdmin)
-                                class="mt-2 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white" />
+                                class="mt-2 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 dark:file:bg-white/10 dark:file:text-gray-200" />
                             <p class="mt-1 text-xs text-gray-500">{{ __('operator.settings.favicon_hint') }}</p>
-                            @error('favicon') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
+                            @error('favicon') <p class="text-sm text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                         </div>
                     </div>
 
@@ -95,7 +88,7 @@
                     @endif
                 </form>
 
-                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="surface p-5">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.mail.title') }}</h3>
                     <p class="mt-1 text-xs text-gray-500">{{ __('operator.mail.use_cases') }}</p>
                     <dl class="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
@@ -107,8 +100,10 @@
                             <dt class="text-gray-400">{{ __('operator.mail.sender') }}</dt>
                             <dd class="mt-1 font-medium text-gray-800 dark:text-white/90">
                                 {{ $mail['from_name'] ?? __('operator.mail.not_set') }}
-                                @if ($mail['from_address'])
-                                    <span class="block text-xs font-normal text-gray-500">{{ $mail['from_address'] }}</span>
+                                @if ($mail['from_address'] && ! $isPlaceholder($mail['from_address']))
+                                    <span class="block break-all text-xs font-normal text-gray-500">{{ $mail['from_address'] }}</span>
+                                @else
+                                    <span class="block text-xs font-normal text-gray-400">—</span>
                                 @endif
                             </dd>
                         </div>
@@ -126,7 +121,7 @@
                                     <input wire:model="mail_from_name" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
                                 </x-ta.form.field>
                                 <x-ta.form.field :label="__('operator.mail.from_address')" :error="$errors->first('mail_from_address')">
-                                    <input wire:model="mail_from_address" type="email" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                    <input wire:model="mail_from_address" type="email" autocomplete="off" placeholder="ornek@alanadi.com" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
                                 </x-ta.form.field>
                                 <x-ta.form.field :label="__('operator.mail.host')" :error="$errors->first('mail_host')">
                                     <input wire:model="mail_host" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
@@ -159,7 +154,7 @@
                     @endif
                 </div>
             @elseif ($section === 'team')
-                <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="surface overflow-x-auto">
                     <table class="min-w-full text-sm">
                         <caption class="sr-only">{{ __('operator.team.caption') }}</caption>
                         <thead>
@@ -204,11 +199,11 @@
                                     @if ($isAdmin)
                                         <td class="px-4 py-3">
                                             @if ($member['is_active'])
-                                                <button type="button" wire:click="deactivateUser({{ (int) $member['id'] }})" class="text-xs font-medium text-red-600 hover:underline dark:text-red-400">
+                                                <button type="button" wire:click="deactivateUser({{ (int) $member['id'] }})" class="text-xs font-medium text-error-600 hover:underline dark:text-error-400">
                                                     {{ __('operator.team.deactivate') }}
                                                 </button>
                                             @else
-                                                <button type="button" wire:click="reactivateUser({{ (int) $member['id'] }})" class="text-xs font-medium text-brand-600 hover:underline">
+                                                <button type="button" wire:click="reactivateUser({{ (int) $member['id'] }})" class="link-neutral text-xs">
                                                     {{ __('operator.team.reactivate') }}
                                                 </button>
                                             @endif
@@ -222,14 +217,14 @@
                         {{ __('operator.team.owner_note') }} {{ __('operator.team.deactivate_note') }}
                     </p>
                     @if ($errors->has('user') || $errors->has('role'))
-                        <p class="border-t border-gray-100 px-4 py-3 text-sm text-red-600 dark:border-gray-800 dark:text-red-400" role="alert">
+                        <p class="border-t border-gray-100 px-4 py-3 text-sm text-error-600 dark:border-gray-800 dark:text-error-400" role="alert">
                             {{ $errors->first('user') ?: $errors->first('role') }}
                         </p>
                     @endif
                 </div>
 
                 @if ($isAdmin)
-                    <form wire:submit="addTeamMember" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <form wire:submit="addTeamMember" class="space-y-4 surface p-5">
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.team.add_title') }}</h3>
                         <div class="grid gap-4 sm:grid-cols-2 text-sm">
                             <x-ta.form.field :label="__('operator.team.fields.name')" :required="true" :error="$errors->first('new_name')">
@@ -258,7 +253,7 @@
                     </form>
                 @endif
             @elseif ($section === 'notifications')
-                <div class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="surface">
                     <ul class="divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($settings['notifications'] as $index => $row)
                             <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -269,8 +264,8 @@
                                 <button type="button" wire:click="toggleNotification({{ $index }})" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-200 dark:ring-gray-700">
                                     <span @class([
                                         'h-2.5 w-2.5 rounded-full',
-                                        'bg-emerald-500' => $notificationEnabled[$index] ?? $row['enabled'],
-                                        'bg-slate-400' => ! ($notificationEnabled[$index] ?? $row['enabled']),
+                                        'bg-success-500' => $notificationEnabled[$index] ?? $row['enabled'],
+                                        'bg-gray-400' => ! ($notificationEnabled[$index] ?? $row['enabled']),
                                     ]) aria-hidden="true"></span>
                                     {{ ($notificationEnabled[$index] ?? $row['enabled']) ? __('operator.notifications.on') : __('operator.notifications.off') }}
                                 </button>
@@ -286,11 +281,11 @@
                     <button type="button" wire:click="setOpsSub('defaults')"
                         @class(['rounded-md px-3 py-1.5 text-sm font-medium', 'bg-white shadow-sm dark:bg-gray-800' => ($ops_sub ?? 'defaults') === 'defaults'])>{{ __('operator.playbooks.settings_defaults') }}</button>
                 </div>
-                <div class="space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="space-y-3 surface p-5">
                     <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('operator.settings.operations.dashboard_mode_note') }}</p>
                     <x-ta.button :href="route('operator.dashboard')" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
                 </div>
-                <div class="mt-4 space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="mt-4 space-y-3 surface p-5">
                     <p class="text-sm text-gray-600 dark:text-gray-300">Zamanlayıcı ve işçiler, sistem uyarıları, bağlantı yetkileri ve hesap bazında veri tazeliği.</p>
                     <div class="flex flex-wrap gap-2">
                         <x-ta.button :href="route('operator.settings.system-health')" size="sm" variant="outline">Sistem Sağlığı</x-ta.button>
@@ -299,22 +294,16 @@
                 </div>
             @elseif ($section === 'ai')
                 <div class="space-y-4">
-                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <div class="surface p-5">
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.overview') }}</h3>
+                        {{-- Only Claude is used (2026-10-19, owner decision): every AI step runs on the Claude MCP queue; the
+                             other providers are hidden here and on Entegrasyonlar (their pages and code stay). --}}
                         <dl class="mt-3 grid gap-4 sm:grid-cols-3 text-sm">
-                            <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
-                            <div><dt class="text-gray-400">Anthropic</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
-                            <div><dt class="text-gray-400">Gemini</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['gemini'] }}</dd></div>
-                            <div><dt class="text-gray-400">Groq</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['groq'] ?? '—' }}</dd></div>
-                            <div><dt class="text-gray-400">OpenRouter</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openrouter'] ?? '—' }}</dd></div>
+                            <div><dt class="text-gray-400">Anthropic (Claude)</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
-                            <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'openai']) }}" size="sm">OpenAI</x-ta.button>
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'anthropic']) }}" size="sm" variant="outline">Anthropic</x-ta.button>
-                            <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'gemini']) }}" size="sm" variant="outline">Gemini</x-ta.button>
-                            <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'groq']) }}" size="sm" variant="outline">Groq</x-ta.button>
-                            <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'openrouter']) }}" size="sm" variant="outline">OpenRouter</x-ta.button>
                             <x-ta.button href="{{ route('operator.settings.ai-operations') }}" size="sm" variant="outline">AI işlemleri ve promptlar</x-ta.button>
                             <x-ta.button href="{{ route('operator.ai-jobs') }}" size="sm" variant="outline">AI işleri</x-ta.button>
                         </div>
@@ -323,7 +312,7 @@
             @elseif ($section === 'advanced')
                 <div class="space-y-4">
                     @if ($advanced_sub === null || $advanced_sub === 'diagnostics')
-                        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <div class="surface p-5">
                             <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_diagnostics') }}</h3>
                             <dl class="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
                                 <div><dt class="text-gray-400">{{ __('operator.settings.advanced.environment') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['environment'] }}</dd></div>
@@ -337,7 +326,7 @@
                     @endif
 
                     @if ($advanced_sub === null || $advanced_sub === 'files')
-                        <div id="files" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
+                        <div id="files" class="surface p-5 space-y-3 text-sm">
                             <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_files') }}</h3>
                             <dl class="grid gap-4 sm:grid-cols-2">
                                 <div><dt class="text-gray-400">{{ __('operator.settings.files.private_disk_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['disk'] }}</dd></div>
@@ -347,12 +336,12 @@
                                 <div><dt class="text-gray-400">{{ __('operator.settings.files.blocked_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['blocked'] }}</dd></div>
                             </dl>
                             <p class="text-xs text-gray-500">{{ $settings['files']['note'] }}</p>
-                            <x-ta.button :href="route('operator.files')" size="sm">{{ __('operator.nav.files') }}</x-ta.button>
+                            <x-ta.button :href="route('operator.files')" size="sm" variant="outline">{{ __('operator.nav.files') }}</x-ta.button>
                         </div>
                     @endif
 
                     @if ($advanced_sub === null || $advanced_sub === 'privacy')
-                        <div id="privacy" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
+                        <div id="privacy" class="surface p-5 space-y-3 text-sm">
                             <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_privacy') }}</h3>
                             <p><span class="text-gray-400">{{ __('operator.settings.privacy.retention_label') }} · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['retention'] }}</span></p>
                             <p><span class="text-gray-400">{{ __('operator.settings.privacy.export_label') }} · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['export'] }}</span></p>
@@ -367,10 +356,9 @@
                             <button type="button" wire:click="setAdvancedSub('diagnostics')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_diagnostics') }}</button>
                         </div>
                     @elseif ($advanced_sub !== null)
-                        <button type="button" wire:click="setAdvancedSub(null)" class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.settings.advanced.back') }}</button>
+                        <button type="button" wire:click="setAdvancedSub(null)" class="link-neutral text-sm">{{ __('operator.settings.advanced.back') }}</button>
                     @endif
                 </div>
             @endif
-        </div>
     </div>
 </div>

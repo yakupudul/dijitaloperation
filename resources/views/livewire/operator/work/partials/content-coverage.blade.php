@@ -18,25 +18,25 @@
                             <button type="button" wire:click="showBrand({{ $row['brand_id'] }})" class="font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</button>
                             <span class="block text-xs text-gray-500">{{ \Illuminate\Support\Str::limit((string) $row['site']->name, 40) }}</span>
                             @php $stage = \App\Services\Work\ContentCoverage::stage($row); @endphp
-                            <span @class(['mt-0.5 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => $stage['tone'] === 'amber', 'bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300' => $stage['tone'] === 'sky', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => $stage['tone'] === 'rose', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $stage['tone'] === 'emerald']) data-stage>{{ $stage['label'] }}</span>
-                            @if ($row['reason'])<span class="block text-xs text-amber-700 dark:text-amber-300">{{ $row['reason'] }}</span>@endif
+                            <span @class(['mt-0.5 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold', 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300' => $stage['tone'] === 'amber', 'bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300' => $stage['tone'] === 'sky', 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' => $stage['tone'] === 'rose', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $stage['tone'] === 'emerald']) data-stage>{{ $stage['label'] }}</span>
+                            @if ($row['reason'])<span class="block text-xs text-warning-700 dark:text-warning-300">{{ $row['reason'] }}</span>@endif
                             @if ($line = \App\Services\Work\ContentCoverage::runLine($row['last_run'] ?? null))<span class="block text-[11px] text-gray-500" data-last-run>{{ $line }}</span>@endif
                         </td>
                         @php $filled = $row['clusters'] > 0 ? (int) round(100 * $row['ok'] / $row['clusters']) : 0; @endphp
                         <td class="min-w-[11rem] px-3 py-2 text-xs" data-map>
                             <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $row['ok'] }}/{{ $row['clusters'] }} yeterli</span>
-                            <span class="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-emerald-500" style="width: {{ $filled }}%"></span></span>
-                            <span class="mt-1 block text-gray-500"><span @class(['font-semibold text-rose-700 dark:text-rose-300' => $row['missing'] > 0])>{{ $row['missing'] }} eksik</span> · {{ $row['weak'] }} zayıf</span>
+                            <span class="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-success-500" style="width: {{ $filled }}%"></span></span>
+                            <span class="mt-1 block text-gray-500"><span @class(['font-semibold text-error-700 dark:text-error-300' => $row['missing'] > 0])>{{ $row['missing'] }} eksik</span> · {{ $row['weak'] }} zayıf</span>
                         </td>
                         <td class="px-3 py-2 text-xs" data-week>
                             <span class="font-semibold tabular-nums">{{ $row['rhythm']['new'] }} yeni + {{ $row['rhythm']['update'] }} güncelleme</span>
                             <span class="block text-gray-500">{{ $row['rhythm']['label'] }}</span>
                             @if ($row['map'] !== [])<span class="block text-gray-500" data-active-service>Yazılan: {{ implode(', ', $row['map']) }}</span>@endif
-                            @if (($row['backfill'] ?? null) === \App\Models\ContentSiteState::BACKFILL_ELIGIBLE)<span class="mt-0.5 inline-block rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" data-backfill>Geriye dönük doldurma · havuz {{ $row['waiting'] }}/{{ \App\Services\Work\ContentCoverage::POOL }}</span>@endif
+                            @if (($row['backfill'] ?? null) === \App\Models\ContentSiteState::BACKFILL_ELIGIBLE)<span class="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[11px] font-semibold text-warning-700 dark:bg-warning-500/10 dark:text-warning-300" data-backfill>Geriye dönük doldurma · havuz {{ $row['waiting'] }}/{{ \App\Services\Work\ContentCoverage::POOL }}</span>@endif
                             @if ($row['translated'] !== [])<span class="block text-[11px] text-gray-400" data-translated>{{ implode(', ', array_map('strtoupper', $row['translated'])) }}: talep varsa yazılınca çevrilir</span>@endif
                         </td>
                         <td class="px-3 py-2 text-xs tabular-nums" data-flow>
-                            @if ($row['reading'] > 0)<span class="block font-semibold text-amber-700 dark:text-amber-300">{{ $row['reading'] }} okunacak</span>@endif
+                            @if ($row['reading'] > 0)<span class="block font-semibold text-warning-700 dark:text-warning-300">{{ $row['reading'] }} okunacak</span>@endif
                             <span class="block text-gray-500">{{ $row['writing'] }} yazılıyor · {{ $row['sent'] }} gönderildi</span>
                         </td>
                         @php $outcome = $outcomes[$row['site']->id] ?? ['sent' => 0, 'live' => 0, 'clicks' => 0]; @endphp

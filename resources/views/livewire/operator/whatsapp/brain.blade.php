@@ -23,7 +23,7 @@
     @if($brainStatus === 'failed')
         <p role="alert" class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['bad'] }}">{{ \App\Services\WhatsApp\WhatsAppBrain::ERROR_LABELS[$config['brain_error'] ?? ''] ?? 'Öğrenme tamamlanamadı.' }}</p>
     @endif
-    @error('brain')<p role="alert" class="text-sm text-rose-600">{{ $message }}</p>@enderror
+    @error('brain')<p role="alert" class="text-sm text-error-600">{{ $message }}</p>@enderror
 
     @if($brain)
         @if($list($brain['open_questions'] ?? []) !== [])
@@ -35,11 +35,11 @@
                         @if(is_string($question) && trim($question) !== '')
                             <label class="block" wire:key="wa-question-{{ $index }}-{{ md5($question) }}">
                                 <span class="block">{{ $question }}</span>
-                                <textarea wire:model="answers.{{ $index }}" rows="2" maxlength="2000" placeholder="Cevabın" class="mt-1 w-full rounded-lg border border-amber-300 bg-white p-2 text-sm text-gray-900 dark:border-amber-500/30 dark:bg-gray-900 dark:text-gray-100"></textarea>
+                                <textarea wire:model="answers.{{ $index }}" rows="2" maxlength="2000" placeholder="Cevabın" class="mt-1 w-full rounded-lg border border-warning-300 bg-white p-2 text-sm text-gray-900 dark:border-warning-500/30 dark:bg-gray-900 dark:text-gray-100"></textarea>
                             </label>
                         @endif
                     @endforeach
-                    @error('answers')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                    @error('answers')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                     <button type="submit" wire:loading.attr="disabled" wire:target="saveAnswers" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Cevapları kaydet</button>
                 </form>
             </div>
@@ -75,7 +75,7 @@
             <textarea wire:model="business_context" rows="5" maxlength="12000" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 text-sm font-normal dark:border-gray-700"></textarea>
         </label>
         <p class="text-xs text-gray-500">Güncel fiyatlar, hizmetler, nasıl yazmasını istediğin, söylememesi gerekenler. Burada yazan, beynin öğrendiğinin önüne geçer; burada olmayan fiyatı uydurmaz.</p>
-        @error('business_context')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+        @error('business_context')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
         <button type="submit" wire:loading.attr="disabled" wire:target="saveInstructions" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Kaydet</button>
     </form>
 </section>

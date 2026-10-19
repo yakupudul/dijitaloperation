@@ -8,6 +8,7 @@
     'spark' => null,
     'href' => null,
     'sparkTone' => null,
+    'muted' => false,
 ])
 
 @php
@@ -39,7 +40,7 @@
 
     <div class="flex items-end justify-between gap-3">
         <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span class="text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $value }}</span>
+            <span @class(['tabular-nums tracking-tight', 'text-2xl font-semibold text-gray-900 dark:text-white' => ! $muted, 'text-lg font-medium text-gray-400 dark:text-gray-500' => $muted])>{{ $value }}</span>
             @if ($delta !== null && $delta !== '')
                 <span class="rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums {{ $toneClass }}">{{ $delta }}</span>
             @endif

@@ -7,7 +7,7 @@
     <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">AI işlemleri</h1>
 
     @if (session('status'))
-        <p class="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{{ session('status') }}</p>
+        <p class="rounded-lg bg-success-50 px-4 py-2 text-sm text-success-700 dark:bg-success-500/10 dark:text-success-300">{{ session('status') }}</p>
     @endif
 
     @if ($detail === null)
@@ -23,7 +23,7 @@
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-ai-summary>
                 <div class="{{ $card }} px-4 py-3">
                     <p class="text-xs text-gray-500">Şu an çalışan</p>
-                    <p @class(['text-2xl font-bold tabular-nums', 'text-violet-700 dark:text-violet-300' => $live['running']->isNotEmpty(), 'text-gray-800 dark:text-white/90' => $live['running']->isEmpty()])>{{ $live['running']->count() }}</p>
+                    <p @class(['text-2xl font-bold tabular-nums', 'text-live-700 dark:text-live-300' => $live['running']->isNotEmpty(), 'text-gray-800 dark:text-white/90' => $live['running']->isEmpty()])>{{ $live['running']->count() }}</p>
                 </div>
                 <div class="{{ $card }} px-4 py-3">
                     <p class="text-xs text-gray-500">Sırada bekleyen</p>
@@ -31,22 +31,22 @@
                 </div>
                 <div class="{{ $card }} px-4 py-3">
                     <p class="text-xs text-gray-500">Bugün biten</p>
-                    <p class="text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{{ $live['today']['done'] }}@if ($live['today']['failed'] > 0) <span class="text-sm font-semibold text-rose-600">· {{ $live['today']['failed'] }} hata</span>@endif</p>
+                    <p class="text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{{ $live['today']['done'] }}@if ($live['today']['failed'] > 0) <span class="text-sm font-semibold text-error-600">· {{ $live['today']['failed'] }} hata</span>@endif</p>
                 </div>
                 <div class="{{ $card }} px-4 py-3" data-ai-remaining>
                     <p class="text-xs text-gray-500">Maliyet · bugün / bu ay</p>
                     <p class="text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{{ $usd($live['today']['cost']) }} <span class="text-sm font-normal text-gray-500">/ {{ $usd($monthSpend) }}</span></p>
-                    <p @class(['text-xs', 'text-rose-600' => $remaining <= 0, 'text-gray-500' => $remaining > 0])>Kalan bakiye: {{ $usd($remaining) }} (bütçe {{ $usd($monthlyBudget) }})</p>
-                    <p @class(['text-xs', 'font-semibold text-rose-600' => $autoBudget > 0 && $autoSpend >= $autoBudget, 'text-gray-500' => ! ($autoBudget > 0 && $autoSpend >= $autoBudget)]) data-ai-auto-budget>
+                    <p @class(['text-xs', 'text-error-600' => $remaining <= 0, 'text-gray-500' => $remaining > 0])>Kalan bakiye: {{ $usd($remaining) }} (bütçe {{ $usd($monthlyBudget) }})</p>
+                    <p @class(['text-xs', 'font-semibold text-error-600' => $autoBudget > 0 && $autoSpend >= $autoBudget, 'text-gray-500' => ! ($autoBudget > 0 && $autoSpend >= $autoBudget)]) data-ai-auto-budget>
                         Bugün tüm AI: {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($autoBudget > 0 && $autoSpend >= $autoBudget) · tavan doldu, ücretli AI yarına kadar durdu (Claude işleri sürer) @endif · otomatik çalışan: Sorgular ve Claude'a devredilen işler
                     </p>
                     @if ($quota['enabled'])
-                        <p class="text-xs text-emerald-700 dark:text-emerald-400" data-openai-quota>
+                        <p class="text-xs text-success-700 dark:text-success-400" data-openai-quota>
                             OpenAI ücretsiz kota (UTC günü): {{ collect($quota['tiers'])->map(fn (array $tier): string => $tier['label'].' '.number_format($tier['used'] / 1000, 0, ',', '.').'k / '.number_format($tier['limit'] / 1000, 0, ',', '.').'k')->implode(' · ') }} · bugün kazanılan {{ $usd($quota['saved']) }}
                         </p>
                     @endif
                     @if (($audit['status'] ?? null) === 'mismatch')
-                        <p class="text-xs font-semibold text-rose-600" data-openai-audit-alert>{{ $audit['message'] }}</p>
+                        <p class="text-xs font-semibold text-error-600" data-openai-audit-alert>{{ $audit['message'] }}</p>
                     @endif
                 </div>
             </div>
@@ -59,12 +59,12 @@
                 </div>
                 @forelse ($live['running'] as $item)
                     @php($step = $live['steps'][$item->id] ?? null)
-                    <div class="mt-3 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-500/30 dark:bg-violet-500/10" wire:key="run-{{ $item->id }}" data-ai-live-running>
+                    <div class="mt-3 rounded-lg border border-live-200 bg-live-50/60 p-3 dark:border-live-500/30 dark:bg-live-500/10" wire:key="run-{{ $item->id }}" data-ai-live-running>
                         <div class="flex flex-wrap items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <p class="font-semibold text-gray-900 dark:text-white">
-                                    <span class="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-violet-500 align-middle"></span>{{ $item->label }}
-                                    @if ($item->cancelRequested())<span class="ml-1 text-xs font-medium text-amber-700">durduruluyor…</span>@endif
+                                    <span class="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-live-500 align-middle"></span>{{ $item->label }}
+                                    @if ($item->cancelRequested())<span class="ml-1 text-xs font-medium text-warning-700">durduruluyor…</span>@endif
                                 </p>
                                 <p class="mt-0.5 text-sm text-gray-700 dark:text-gray-300">
                                     <span class="text-gray-500">Nerede:</span>
@@ -80,11 +80,11 @@
                                 <p class="text-xs text-gray-500">Başlatan: {{ $who($item) }} · başladı {{ $item->started_at?->timezone('Europe/Istanbul')->format('H:i:s') }}</p>
                             </div>
                             <div class="flex shrink-0 flex-col items-end gap-1 text-right">
-                                <span class="text-lg font-semibold tabular-nums text-violet-700 dark:text-violet-300">{{ $item->durationLabel() }}</span>
+                                <span class="text-lg font-semibold tabular-nums text-live-700 dark:text-live-300">{{ $item->durationLabel() }}</span>
                                 <span class="text-xs tabular-nums text-gray-500">{{ $usd($step['cost'] ?? $item->cost_usd) }}</span>
                                 <div class="flex gap-1">
                                     <a href="{{ route('operator.ai-jobs', ['is' => $item->id]) }}" wire:navigate class="rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-white dark:text-gray-300 dark:ring-gray-700">Ayrıntı</a>
-                                    @if (! $item->cancelRequested())<button type="button" wire:click="stop({{ $item->id }})" wire:confirm="Bu AI işi durdurulsun mu?" class="rounded-lg px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-300 hover:bg-white" data-ai-stop>Durdur</button>@endif
+                                    @if (! $item->cancelRequested())<button type="button" wire:click="stop({{ $item->id }})" wire:confirm="Bu AI işi durdurulsun mu?" class="rounded-lg px-2 py-1 text-xs font-medium text-error-700 ring-1 ring-inset ring-error-300 hover:bg-white" data-ai-stop>Durdur</button>@endif
                                 </div>
                             </div>
                         </div>
@@ -101,7 +101,7 @@
                                 <span class="min-w-0"><span class="font-medium text-gray-800 dark:text-white/90">{{ $item->label }}</span>
                                     @if ($where($item) !== [])<span class="text-gray-500"> · {{ implode(' › ', $where($item)) }}</span>@endif
                                     <span class="text-xs text-gray-400"> · {{ $who($item) }} · {{ $item->queued_at?->timezone('Europe/Istanbul')->format('H:i') }}'dan beri bekliyor</span></span>
-                                <button type="button" wire:click="stop({{ $item->id }})" class="text-xs font-medium text-rose-700">Kaldır</button>
+                                <button type="button" wire:click="stop({{ $item->id }})" class="text-xs font-medium text-error-700">Kaldır</button>
                             </li>
                         @endforeach
                     </ul>
@@ -119,7 +119,7 @@
                             @foreach ($mcpTasks['recent'] as $task)
                                 <li class="flex flex-wrap justify-between gap-2 py-1.5">
                                     <span class="text-gray-700 dark:text-gray-300">{{ \App\Support\Ai\AiOperationLabels::for($task->operation) }} · {{ $task->subject ?? $task->brand?->name ?? '—' }}</span>
-                                    <span class="{{ $task->status === \App\Models\AiTask::FAILED ? 'text-rose-600' : 'text-gray-500' }}" title="{{ $task->error }}">{{ \App\Models\AiTask::STATUS_LABELS[$task->status] ?? $task->status }} · {{ $task->created_at?->diffForHumans() }}</span>
+                                    <span class="{{ $task->status === \App\Models\AiTask::FAILED ? 'text-error-600' : 'text-gray-500' }}" title="{{ $task->error }}">{{ \App\Models\AiTask::STATUS_LABELS[$task->status] ?? $task->status }} · {{ $task->created_at?->diffForHumans() }}</span>
                                 </li>
                             @endforeach
                         </ul>
@@ -165,12 +165,12 @@
                             @forelse ($live['finished'] as $item)
                                 <tr wire:key="done-{{ $item->id }}">
                                     <td class="py-1.5 pr-2 align-top">
-                                        <span @class(['inline-block h-2 w-2 rounded-full', 'bg-emerald-500' => $item->status === 'done', 'bg-rose-500' => $item->status === 'failed', 'bg-gray-400' => ! in_array($item->status, ['done', 'failed'], true)])></span>
+                                        <span @class(['inline-block h-2 w-2 rounded-full', 'bg-success-500' => $item->status === 'done', 'bg-error-500' => $item->status === 'failed', 'bg-gray-400' => ! in_array($item->status, ['done', 'failed'], true)])></span>
                                     </td>
                                     <td class="py-1.5 pr-3">
                                         <a href="{{ route('operator.ai-jobs', ['is' => $item->id]) }}" wire:navigate class="font-medium text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $item->label }}</a>
                                         @if ($where($item) !== [])<span class="text-xs text-gray-500"> · {{ implode(' › ', $where($item)) }}</span>@endif
-                                        @if ($item->status !== 'done' && $item->error)<p class="text-xs text-rose-600">{{ $item->error }}</p>@endif
+                                        @if ($item->status !== 'done' && $item->error)<p class="text-xs text-error-600">{{ $item->error }}</p>@endif
                                     </td>
                                     <td class="whitespace-nowrap py-1.5 pr-3 text-xs text-gray-500">{{ $item->finished_at?->timezone('Europe/Istanbul')->format('H:i') }} · {{ $who($item) }}</td>
                                     <td class="whitespace-nowrap py-1.5 pr-3 text-right text-xs tabular-nums text-gray-500">{{ $item->statusLabel() }} · {{ $item->durationLabel() }}</td>
@@ -208,15 +208,15 @@
             </div>
             <div class="grid gap-3 sm:grid-cols-2">
                 @foreach ($credits as $credit)
-                    <div wire:key="credit-{{ $credit['provider'] }}" @class(['rounded-xl border p-3', 'border-red-300 bg-red-50 dark:bg-red-500/10' => $credit['tracked'] && $credit['exhausted'], 'border-amber-300 bg-amber-50 dark:bg-amber-500/10' => $credit['low'], 'border-gray-200 dark:border-gray-700' => ! $credit['low'] && ! ($credit['tracked'] && $credit['exhausted'])]) data-credit="{{ $credit['provider'] }}">
+                    <div wire:key="credit-{{ $credit['provider'] }}" @class(['rounded-xl border p-3', 'border-error-300 bg-error-50 dark:bg-error-500/10' => $credit['tracked'] && $credit['exhausted'], 'border-warning-300 bg-warning-50 dark:bg-warning-500/10' => $credit['low'], 'border-gray-200 dark:border-gray-700' => ! $credit['low'] && ! ($credit['tracked'] && $credit['exhausted'])]) data-credit="{{ $credit['provider'] }}">
                         <p class="text-xs text-gray-500">{{ $credit['label'] }} kredisi</p>
                         @if ($credit['tracked'])
                             <p class="text-lg font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $usd($credit['remaining']) }} <span class="text-xs font-normal text-gray-500">kaldı</span></p>
                             <p class="text-xs text-gray-500">Yüklenen {{ $usd($credit['loaded']) }} · harcanan {{ $usd($credit['spent']) }}</p>
                             @if ($credit['exhausted'])
-                                <p class="text-xs font-medium text-red-600">Kredi bitti; bu sağlayıcıya ücretli çağrı başlamaz.</p>
+                                <p class="text-xs font-medium text-error-600">Kredi bitti; bu sağlayıcıya ücretli çağrı başlamaz.</p>
                             @elseif ($credit['low'])
-                                <p class="text-xs font-medium text-amber-700">Kredi azaldı.</p>
+                                <p class="text-xs font-medium text-warning-700">Kredi azaldı.</p>
                             @endif
                         @else
                             <p class="text-sm text-gray-500">Kredi girilmedi; yalnız aylık bütçe ve günlük tavan uygulanır.</p>
@@ -242,7 +242,7 @@
                     <input type="text" maxlength="190" wire:model="creditNote" class="w-56 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900">
                 </label>
                 <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kredi ekle</button>
-                @error('creditAmount')<span class="w-full text-xs text-red-600">{{ $message }}</span>@enderror
+                @error('creditAmount')<span class="w-full text-xs text-error-600">{{ $message }}</span>@enderror
                 <span class="w-full text-xs text-gray-500">Kalan = yüklenen − ilk yüklemeden beri kaydedilen maliyet. Sağlayıcı panelindeki bakiyeyle arada küçük fark olabilir.</span>
             </form>
             <div class="space-y-2 text-sm" data-ai-plans>
@@ -272,7 +272,7 @@
                 </label>
                 <label class="flex flex-col gap-1">
                     <span class="text-xs text-gray-500">OpenAI Admin anahtarı (kota denetimi için){{ $adminKeySet ? ' · kayıtlı' : '' }}</span>
-                    <input type="password" autocomplete="off" wire:model="openAiAdminKey" placeholder="{{ $adminKeySet ? '•••••••• (değiştirmek için yaz)' : 'sk-admin-…' }}" class="w-72 rounded-lg border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-900" data-openai-admin-key>
+                    <input type="password" autocomplete="off" wire:model="openAiAdminKey" placeholder="{{ $adminKeySet ? '•••••••• (değiştirmek için yaz)' : 'sk-admin-…' }}" class="w-full min-w-0 rounded-lg border border-gray-300 px-2 py-1 sm:w-72 dark:border-gray-700 dark:bg-gray-900" data-openai-admin-key>
                 </label>
                 <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1.5 text-white">Kaydet</button>
                 <button type="button" wire:click="auditOpenAi" class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 dark:border-gray-700 dark:text-gray-300" data-openai-audit-now>Şimdi denetle</button>
@@ -286,8 +286,8 @@
                     @endif
                 </div>
                 <span class="w-full text-xs text-gray-500">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan Sorgular alanındaki AI (sorgu pilotu, kümeleme) Claude aboneliğine devredilen işler ve Claude API'ye atanmış işler çalışır; abonelik işleri tavana ve bütçeye sayılmaz, Claude API işleri krediden, tavandan ve bütçeden düşer. GPT'de kalan analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır. 0 = tavan yok.</span>
-                @error('dailyAutoBudget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
-                @error('budget')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
+                @error('dailyAutoBudget')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
+                @error('budget')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
             </form>
         </details>
 
@@ -336,7 +336,7 @@
             <div>
                 <label for="prompt-template" class="text-xs font-semibold text-gray-600 dark:text-gray-300">Şablon</label>
                 <textarea id="prompt-template" wire:model="template" rows="18" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 font-mono text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"></textarea>
-                @error('template')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('template')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                 <p class="mt-1 text-xs text-gray-500">Sabit cümle her sürüme kodla eklenir: “{{ \App\Services\Prompts\PromptRegistry::GUARD }}”</p>
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
@@ -385,7 +385,7 @@
                 </div>
             </div>
             <textarea wire:model="trialInput" rows="5" placeholder="Son çalıştırmalardan birini seçin ya da örnek girdi yapıştırın." class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 font-mono text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"></textarea>
-            @error('trial')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+            @error('trial')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
             <div class="flex items-center gap-3">
                 <button type="button" wire:click="runTrial" wire:loading.attr="disabled" @disabled(($detail['trial']['status'] ?? null) === 'running') class="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 dark:bg-white dark:text-gray-900">Taslağı dene</button>
                 <span class="text-xs text-gray-500">Yayınlanmamış şablon · öneri kaydedilmez</span>
@@ -394,7 +394,7 @@
                 @if ($detail['trial']['status'] === 'running')
                     <p class="text-sm text-gray-500">Çalışıyor…</p>
                 @elseif ($detail['trial']['status'] === 'failed')
-                    <p class="text-sm text-rose-600">{{ $detail['trial']['message'] }}</p>
+                    <p class="text-sm text-error-600">{{ $detail['trial']['message'] }}</p>
                 @else
                     <p class="text-xs text-gray-500">{{ $detail['trial']['model'] }} · {{ $sec($detail['trial']['duration_ms']) }} · {{ $usd($detail['trial']['cost']) }}</p>
                     <pre class="max-h-96 overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ $detail['trial']['output'] }}</pre>
@@ -413,7 +413,7 @@
                                 @if ($version->model)<span class="text-xs text-gray-500">· {{ $version->model }}</span>@endif
                             </span>
                             @if ($version->is_current)
-                                <span class="text-xs font-medium text-emerald-600">Kullanımda</span>
+                                <span class="text-xs font-medium text-success-600">Kullanımda</span>
                             @else
                                 <button type="button" wire:click="revertTo({{ $version->version }})" wire:confirm="v{{ $version->version }} yeni sürüm olarak yayınlansın mı?" class="text-xs font-medium text-brand-600 hover:underline">Bu sürüme dön</button>
                             @endif
@@ -431,7 +431,7 @@
                                 <td class="py-2 text-xs text-gray-500">{{ $run['version'] !== null ? 'v'.$run['version'] : '—' }}</td>
                                 <td class="py-2 text-right tabular-nums">{{ $sec($run['duration_ms']) }}</td>
                                 <td class="py-2 text-right tabular-nums">{{ $usd($run['cost']) }}</td>
-                                <td @class(['py-2 text-right text-xs', 'text-emerald-600' => $run['status'] === 'ok', 'text-rose-600' => $run['status'] !== 'ok'])>{{ $run['status'] === 'ok' ? 'Başarılı' : 'Hata' }}</td>
+                                <td @class(['py-2 text-right text-xs', 'text-success-600' => $run['status'] === 'ok', 'text-error-600' => $run['status'] !== 'ok'])>{{ $run['status'] === 'ok' ? 'Başarılı' : 'Hata' }}</td>
                             </tr>
                         @empty
                             <tr><td class="py-2 text-gray-500">Çalıştırma yok.</td></tr>

@@ -16,9 +16,9 @@
                 <div class="mt-3 flex flex-wrap gap-2 text-xs">
                     <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-gray-800 dark:text-gray-200">Sürüm v{{ $info['current']->version }}</span>
                     @if ($info['isDefault'])
-                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" data-prompt-default>Varsayılan (kod)</span>
+                        <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700 dark:bg-success-500/10 dark:text-success-300" data-prompt-default>Varsayılan (kod)</span>
                     @else
-                        <span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" data-prompt-custom>Düzenlenmiş{{ $info['author'] ? ' · '.$info['author'] : '' }}</span>
+                        <span class="rounded-full bg-warning-50 px-2 py-0.5 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300" data-prompt-custom>Düzenlenmiş{{ $info['author'] ? ' · '.$info['author'] : '' }}</span>
                     @endif
                     <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-gray-800 dark:text-gray-200">Model: {{ $info['model'] !== '' ? $info['model'] : 'Rota modeli (varsayılan)' }}</span>
                 </div>
@@ -27,7 +27,7 @@
                     <form wire:submit="save" class="mt-4 space-y-2">
                         <label for="ai-prompt-info-template" class="text-xs font-semibold text-gray-600 dark:text-gray-300">Şablon</label>
                         <textarea id="ai-prompt-info-template" wire:model="template" rows="16" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 font-mono text-xs text-gray-800 dark:border-gray-700 dark:text-white/90"></textarea>
-                        @error('template')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                        @error('template')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                         @if ($info['variables'] !== [])
                             <p class="text-xs text-gray-500">Değişkenler: @foreach ($info['variables'] as $variable)<span class="font-mono">&#123;&#123;{{ $variable }}&#125;&#125;</span>@if (! $loop->last), @endif @endforeach</p>
                         @endif
@@ -39,7 +39,7 @@
                     </form>
                 @else
                     <pre class="mt-4 max-h-[50vh] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-mono text-xs text-gray-800 dark:bg-gray-800 dark:text-gray-200" data-prompt-template>{{ $info['current']->template }}</pre>
-                    @error('template')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                    @error('template')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                     <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
                         @if ($canEdit)
                             <a href="{{ route('operator.settings.ai-operations', ['islem' => $operation]) }}" wire:navigate class="mr-auto text-xs font-semibold text-brand-600">Ayarlarda aç (geçmiş, örnekte dene)</a>

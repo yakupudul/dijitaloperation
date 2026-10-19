@@ -59,7 +59,7 @@
                 </details>
 
                 @error('code')
-                    <span class="block text-sm text-red-600 dark:text-red-400">{{ $message }}</span>
+                    <span class="block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
                 @enderror
 
                 <button type="submit"

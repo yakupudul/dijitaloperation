@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-19 — Panel yeni tasarım (3. ve 4. aşama)
+
+- Ekran kodunda ham renk (amber, emerald, rose, red, violet, sky, slate, blue) yazılmaz; `warning` / `success` / `error` / `live` / `gray` token'ları kullanılır. Turuncu sayfa başına tek ana eylem; satır düğmeleri çerçeveli.
+- Her ekran 390 px telefonda yana taşmadan çalışmalı (yakup 2026-10-19). Tablolar `overflow-x-auto` kutuda; uzun ad / URL kırılır.
+- Varlık sayfalarının başlığı tek bileşen: `x-operator.asset-context` (`title` + `actions` / `tabs` yuvaları).
+- Müşteriler ayrı menü değil, Markalar'ın içinde (müşteri kartı adresleri duruyor). Kullanılmayan sağlayıcılar (DataForSEO, OpenAI, Gemini, Groq, OpenRouter) Entegrasyonlar'da gizli.
+- Müşteri görünümü (5. aşama) ayrı karar; MASTER_SPEC'te müşteri girişi yok.
+
 ## 2026-10-19 — Panel yeni tasarım (1. ve 2. aşama)
 
 - Panel tasarımı tek yerden yönetilir: `resources/css/operator.css` token'ları (sıcak nötr gri, Geist, 10 px kart köşesi, `live-*` mor). Ekran kodunda `rounded-xl` + `ring-1 ring-gray-200` ya da `surface` utility'si kullanılır; yeni ekran sıfırdan renk seçmez.

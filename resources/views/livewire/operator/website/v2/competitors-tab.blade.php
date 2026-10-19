@@ -3,7 +3,7 @@
     $btn = 'rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:ring-gray-700';
     $labels = \App\Services\Site\Competitors\CompetitorClassifier::LABELS;
-    $tone = ['kendi' => 'bg-emerald-50 text-emerald-700', 'ticari' => 'bg-rose-50 text-rose-700', 'bilgi' => 'bg-blue-50 text-blue-700', 'dizin' => 'bg-gray-100 text-gray-600', 'haber' => 'bg-amber-50 text-amber-700'];
+    $tone = ['kendi' => 'bg-success-50 text-success-700', 'ticari' => 'bg-error-50 text-error-700', 'bilgi' => 'bg-gray-50 text-gray-700', 'dizin' => 'bg-gray-100 text-gray-600', 'haber' => 'bg-warning-50 text-warning-700'];
     $decisions = ['improve' => 'mevcut sayfayı geliştir', 'new_page' => 'yeni sayfa'];
     $analyzeErrors = ['few_competitors' => 'en az 2 rakip sayfası gerekli', 'no_provider' => 'AI bağlı değil', 'not_operational' => 'marka hizmet dışı', 'error' => 'hata'];
 @endphp
@@ -13,16 +13,16 @@
         <div class="flex items-center gap-2">
             @if (($refresh['status'] ?? null) === 'running')<span class="text-xs text-gray-500">güncelleniyor…</span>
             @elseif (($refresh['status'] ?? null) === 'ready')<span class="text-xs text-gray-500">{{ $refresh['serps'] }} sorgu · {{ $refresh['pages'] }} sayfa{{ ($refresh['errors'] ?? 0) > 0 ? ' · '.$refresh['errors'].' hata' : '' }}</span>
-            @elseif ($refresh !== null)<span class="text-xs text-rose-600">{{ ['not_operational' => 'marka hizmet dışı', 'no_clusters' => 'onaylı küme yok', 'error' => 'hata'][$refresh['status']] ?? $refresh['status'] }}</span>@endif
+            @elseif ($refresh !== null)<span class="text-xs text-error-600">{{ ['not_operational' => 'marka hizmet dışı', 'no_clusters' => 'onaylı küme yok', 'error' => 'hata'][$refresh['status']] ?? $refresh['status'] }}</span>@endif
             <button type="button" wire:click="refreshCompetitors" @disabled(! $operational) class="{{ $btn }}" data-action="refresh" @if (! $operational) title="Müşteri pasif veya marka yok" @endif>Rakipleri güncelle</button>
             <x-operator.ai-prompt-info operation="competitors.classify" />
         </div>
     </header>
 
     @if ($message !== '')
-        <p role="status" class="rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>
+        <p role="status" class="rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">{{ $message }}</p>
     @endif
-    @if ($errors->any())<p class="text-xs text-rose-600">{{ $errors->first() }}</p>@endif
+    @if ($errors->any())<p class="text-xs text-error-600">{{ $errors->first() }}</p>@endif
 
     @forelse ($rows as $row)
         @php($serp = $row['serp'])
@@ -36,7 +36,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     @if (($row['analyze']['status'] ?? null) === 'running')<span class="text-xs text-gray-500">analiz ediliyor…</span>
-                    @elseif (isset($analyzeErrors[$row['analyze']['status'] ?? '']))<span class="text-xs text-rose-600">{{ $analyzeErrors[$row['analyze']['status']] }}</span>@endif
+                    @elseif (isset($analyzeErrors[$row['analyze']['status'] ?? '']))<span class="text-xs text-error-600">{{ $analyzeErrors[$row['analyze']['status']] }}</span>@endif
                     @if ($serp && $serp->results)
                         <button type="button" wire:click="analyze({{ $serp->id }})" @disabled(! $operational) class="{{ $ghost }}" data-action="analyze">Analiz et</button>
                         <x-operator.ai-prompt-info operation="competitors.analyze" />
@@ -45,10 +45,11 @@
             </div>
 
             @if ($serp?->status === 'error')
-                <p class="mt-2 text-xs text-rose-600">SERP alınamadı: {{ \Illuminate\Support\Str::limit((string) $serp->error, 120) }}</p>
+                <p class="mt-2 text-xs text-error-600">SERP alınamadı: {{ \Illuminate\Support\Str::limit((string) $serp->error, 120) }}</p>
             @endif
 
             @if ($serp && $serp->results)
+                <div class="min-w-0 overflow-x-auto">
                 <table class="mt-3 w-full text-left text-xs">
                     <thead class="text-gray-500"><tr><th class="w-10 py-1">Sıra</th><th>Domain</th><th class="w-28">Tür</th></tr></thead>
                     <tbody>
@@ -62,6 +63,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             @elseif (! $serp)
                 <p class="mt-2 text-xs text-gray-500">Henüz SERP yok.</p>
             @endif

@@ -168,7 +168,8 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString("href='/system", $html);
-        $this->assertStringContainsString('/integrations/openai', $html);
+        $this->assertStringContainsString('/integrations/anthropic', $html);
+        $this->assertStringNotContainsString('/integrations/openai', $html, 'OpenAI hidden 2026-10-19: all AI runs on the Claude MCP queue');
         $this->assertStringNotContainsString('/settings/ai/control-plane', $html);
 
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();

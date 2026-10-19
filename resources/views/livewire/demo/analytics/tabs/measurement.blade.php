@@ -16,7 +16,7 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Measurement</h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $m['subtitle'] ?? 'Configured mappings, streams, and data quality' }}</p>
         </div>
-        <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">{{ $m['missing_note'] ?? 'Missing ≠ zero' }}</span>
+        <span class="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-500/15 dark:text-gray-300">{{ $m['missing_note'] ?? 'Missing ≠ zero' }}</span>
     </div>
 
     <div class="inline-flex flex-wrap rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="tablist" aria-label="Measurement">
@@ -59,7 +59,7 @@
                             @if (array_key_exists('event_count', $row) && $row['event_count'] !== null)
                                 {{ number_format($row['event_count']) }}
                             @else
-                                <span class="text-slate-400">Unavailable</span>
+                                <span class="text-gray-400">Unavailable</span>
                             @endif
                         </td>
                         <td class="px-4 py-2.5">
@@ -78,10 +78,10 @@
                 @foreach ($m['trust_chips'] as $chip)
                     <span @class([
                         'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium',
-                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' => ($chip['state'] ?? '') === 'Healthy',
-                        'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400' => in_array($chip['state'] ?? '', ['Not mapped', 'Review', 'Needs review'], true),
-                        'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400' => ($chip['state'] ?? '') === 'Unavailable',
-                        'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-gray-300' => ! in_array($chip['state'] ?? '', ['Healthy', 'Not mapped', 'Review', 'Needs review', 'Unavailable'], true),
+                        'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400' => ($chip['state'] ?? '') === 'Healthy',
+                        'bg-warning-50 text-warning-800 dark:bg-warning-500/15 dark:text-warning-400' => in_array($chip['state'] ?? '', ['Not mapped', 'Review', 'Needs review'], true),
+                        'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400' => ($chip['state'] ?? '') === 'Unavailable',
+                        'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300' => ! in_array($chip['state'] ?? '', ['Healthy', 'Not mapped', 'Review', 'Needs review', 'Unavailable'], true),
                     ])>{{ $chip['label'] }} · {{ $chip['state'] }}</span>
                 @endforeach
             </div>
@@ -109,7 +109,7 @@
                             @if (array_key_exists('count', $row) && $row['count'] !== null)
                                 {{ number_format($row['count']) }}
                             @else
-                                <span class="text-slate-400">Unavailable</span>
+                                <span class="text-gray-400">Unavailable</span>
                             @endif
                         </td>
                         <td class="px-4 py-2.5">
@@ -173,7 +173,7 @@
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Duplicate candidates</h3>
                 <ul class="mt-3 space-y-2">
                     @foreach ($m['duplicates'] ?? [] as $row)
-                        <li class="rounded-lg bg-amber-50/80 px-3 py-2 text-sm dark:bg-amber-500/10">
+                        <li class="rounded-lg bg-warning-50/80 px-3 py-2 text-sm dark:bg-warning-500/10">
                             <p class="font-medium text-gray-900 dark:text-white">{{ $row['title'] }}</p>
                             <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">{{ $row['detail'] ?? '' }}</p>
                             <div class="mt-2">
@@ -189,7 +189,7 @@
                 <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <div>
                         <dt class="text-xs text-gray-400">Unavailable now</dt>
-                        <dd class="font-semibold tabular-nums text-amber-700 dark:text-amber-400">{{ $utm['unavailable_pct'] ?? '—' }}%</dd>
+                        <dd class="font-semibold tabular-nums text-warning-700 dark:text-warning-400">{{ $utm['unavailable_pct'] ?? '—' }}%</dd>
                     </div>
                     <div>
                         <dt class="text-xs text-gray-400">Prior window</dt>
@@ -225,7 +225,7 @@
                         <tr>
                             <td class="px-4 py-2.5 text-sm text-gray-900 dark:text-white">{{ $row['source'] }} / {{ $row['medium'] }}</td>
                             <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
-                            <td class="px-4 py-2.5 text-xs text-amber-700 dark:text-amber-400">{{ $row['state'] }}</td>
+                            <td class="px-4 py-2.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['state'] }}</td>
                             <td class="px-4 py-2.5">
                                 @if (! empty($row['finding_id']))
                                     <button type="button" wire:click="openFinding('{{ $row['finding_id'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Finding</button>

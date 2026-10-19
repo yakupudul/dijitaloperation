@@ -5,16 +5,16 @@
     $running = $insight['state'] === 'running';
     $failed = is_string($insight['state']) && str_starts_with($insight['state'], 'failed');
 @endphp
-<div {{ $attributes->class(['rounded-xl bg-violet-50/60 p-4 ring-1 ring-inset ring-violet-200 dark:bg-violet-500/5 dark:ring-violet-500/20']) }} @if ($running) wire:poll.5s @endif>
+<div {{ $attributes->class(['rounded-xl bg-live-50/60 p-4 ring-1 ring-inset ring-live-200 dark:bg-live-500/5 dark:ring-live-500/20']) }} @if ($running) wire:poll.5s @endif>
     <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm font-semibold text-violet-900 dark:text-violet-200">✨ {{ $insight['label'] }}</p>
+        <p class="text-sm font-semibold text-live-900 dark:text-live-200">✨ {{ $insight['label'] }}</p>
         <button type="button" wire:click="runInsight('{{ $insight['kind'] }}', {{ $insight['subject_id'] }})" wire:loading.attr="disabled" @disabled($running)
-            class="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+            class="rounded-lg bg-live-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-live-700 disabled:opacity-50">
             {{ $running ? 'AI çalışıyor…' : ($production ? 'Yeniden hazırla' : 'AI ile hazırla') }}@if ($insight['estimate'] && ! $running) <span class="font-normal opacity-80">({{ $insight['estimate'] }})</span>@endif
         </button>
     </div>
     @if ($failed)
-        <p class="mt-2 text-xs text-rose-700 dark:text-rose-300">{{ \Illuminate\Support\Str::after($insight['state'], 'failed: ') }}</p>
+        <p class="mt-2 text-xs text-error-700 dark:text-error-300">{{ \Illuminate\Support\Str::after($insight['state'], 'failed: ') }}</p>
     @endif
     @if ($production)
         @if (filled($content['summary'] ?? null))

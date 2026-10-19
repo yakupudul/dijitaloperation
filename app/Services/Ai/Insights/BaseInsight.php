@@ -22,8 +22,8 @@ abstract class BaseInsight implements InsightDefinition
     public function tagStyles(): array
     {
         return [
-            'high' => ['Öncelikli', 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300'],
-            'medium' => ['Orta', 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
+            'high' => ['Öncelikli', 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300'],
+            'medium' => ['Orta', 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300'],
             'low' => ['Düşük', 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300'],
         ];
     }

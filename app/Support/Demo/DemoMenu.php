@@ -8,7 +8,7 @@ use App\Support\Roles;
  * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
  * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Onarım masası · İşletme profilleri · Google Ads · Meta reklamları ·
- * Kazananlar · Stratejiler · Müşteriler · Markalar · Dijital varlıklar · Web siteleri · Sorgular · WhatsApp (admins) ·
+ * Kazananlar · Stratejiler · Markalar (Müşteriler merged in, 2026-10-19) · Dijital varlıklar · Web siteleri · Sorgular · WhatsApp (admins) ·
  * Entegrasyonlar · Ayarlar, shown in six small groups (Çalışma, Kanallar, Büyüme, Portföy, Araçlar, Sistem) since the
  * panel redesign of 2026-10-19.
  * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
@@ -47,8 +47,9 @@ final class DemoMenu
                 $item($tr ? 'Stratejiler' : 'Strategies', 'operator.strategies', 'strategy', [], ['operator.strategy']),
             ]),
             $group($tr ? 'Portföy' : 'Portfolio', [
-                $item(__('operator.nav.customers'), 'operator.customers', 'customers'),
-                $item(__('operator.nav.brands'), 'operator.brands', 'brands'),
+                // Müşteriler merged into Markalar (2026-10-19): every customer has one brand; the customer screens stay
+                // reachable from the brand list and keep Markalar lit.
+                $item(__('operator.nav.brands'), 'operator.brands', 'brands', [], ['operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit']),
                 $item($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', 'assets', [], ['operator.asset.create', 'operator.asset.edit']),
                 $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
             ]),

@@ -11,7 +11,7 @@
             <p class="mt-1 text-sm text-gray-500">{{ $coexistence ? 'Telefonunuzdaki WhatsApp Business uygulaması çalışmaya devam eder; MoxDOP yalnız mesajları okur.' : 'WhatsApp Cloud API hesabınızı Meta penceresinden seçin.' }}</p>
         </div>
         @if($attempt['expires_at']->isPast())
-            <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Bu bağlantı oturumunun süresi doldu. WhatsApp ekranına dönüp yeniden başlatın.</p>
+            <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-900 dark:bg-warning-500/10 dark:text-warning-200">Bu bağlantı oturumunun süresi doldu. WhatsApp ekranına dönüp yeniden başlatın.</p>
         @elseif($attempt['status'] === 'choose_phone')
             <p class="text-sm">{{ $attempt['details']['message'] ?? 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz işletme numarasını seçin.' }}</p>
             <label for="wa-selected-phone" class="block text-sm font-medium">İşletme numarası</label>
@@ -24,13 +24,13 @@
             <button id="wa-select-phone" type="button" class="rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Bu numarayı bağla</button>
         @elseif(in_array($attempt['status'], ['prepared', 'cancelled'], true))
             @if($lastReason)
-                <div role="alert" class="rounded-lg bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20">
+                <div role="alert" class="rounded-lg bg-error-50 p-3 text-sm text-error-800 ring-1 ring-inset ring-error-200 dark:bg-error-500/10 dark:text-error-200 dark:ring-error-500/20">
                     <p class="font-semibold">Önceki deneme tamamlanmadı</p>
                     <p class="mt-1">{{ $lastReason }}</p>
                 </div>
             @endif
             @if($attempt['status'] === 'prepared' && $attempt['launched_at'])
-                <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" data-wa-previous-popup>Bu bağlantı için Meta penceresi daha önce açılmıştı (saat {{ $attempt['launched_at']->timezone('Europe/Istanbul')->format('H:i') }}). O pencere hâlâ açıksa kapatın ve aşağıdan yeniden başlatın; sayfa yenilendiği için eski pencerenin sonucu buraya ulaşamaz.</p>
+                <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-900 dark:bg-warning-500/10 dark:text-warning-200" data-wa-previous-popup>Bu bağlantı için Meta penceresi daha önce açılmıştı (saat {{ $attempt['launched_at']->timezone('Europe/Istanbul')->format('H:i') }}). O pencere hâlâ açıksa kapatın ve aşağıdan yeniden başlatın; sayfa yenilendiği için eski pencerenin sonucu buraya ulaşamaz.</p>
             @endif
             @php
                 $steps = $coexistence ? [

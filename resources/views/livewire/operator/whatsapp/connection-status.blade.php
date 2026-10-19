@@ -44,7 +44,7 @@
         @foreach($rowsStatus as [$label, [$rowTone, $value]])
             <div class="flex items-center justify-between gap-3 py-2">
                 <dt class="text-gray-500">{{ $label }}</dt>
-                <dd class="flex items-center gap-2 text-right font-medium"><span class="h-2 w-2 shrink-0 rounded-full {{ ['ok' => 'bg-emerald-500', 'warn' => 'bg-amber-500', 'bad' => 'bg-rose-500', 'muted' => 'bg-gray-300 dark:bg-gray-600'][$rowTone] }}"></span>{{ $value }}</dd>
+                <dd class="flex items-center gap-2 text-right font-medium"><span class="h-2 w-2 shrink-0 rounded-full {{ ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500', 'muted' => 'bg-gray-300 dark:bg-gray-600'][$rowTone] }}"></span>{{ $value }}</dd>
             </div>
         @endforeach
     </dl>

@@ -12,7 +12,7 @@
     </header>
 
     @if ($message !== '')
-        <div role="status" aria-live="polite" class="flex items-center justify-between gap-3 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200">
+        <div role="status" aria-live="polite" class="flex items-center justify-between gap-3 rounded-lg bg-success-50 px-4 py-3 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-200">
             <span>{{ $message }}</span>
             <button type="button" wire:click="$set('message', '')" aria-label="Bildirimi kapat" class="px-2 py-1">×</button>
         </div>
@@ -74,7 +74,7 @@
                                     <button type="button" wire:click="restoreService({{ $service->id }})" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50">Geri al</button>
                                 @else
                                     <button type="button" wire:click="editService({{ $service->id }})" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10">Düzenle</button>
-                                    <button type="button" wire:click="deleteService({{ $service->id }})" wire:confirm="Bu hizmet {{ $service->brand_offerings_count }} marka dahil tüm güncel listelerden kaldırılacak. Silinenler filtresinden geri alınabilir. Silinsin mi?" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-xs text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50">Sil</button>
+                                    <button type="button" wire:click="deleteService({{ $service->id }})" wire:confirm="Bu hizmet {{ $service->brand_offerings_count }} marka dahil tüm güncel listelerden kaldırılacak. Silinenler filtresinden geri alınabilir. Silinsin mi?" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-xs text-gray-500 hover:bg-error-50 hover:text-error-700 disabled:opacity-50">Sil</button>
                                 @endif
                             </td>
                         </tr>
@@ -106,7 +106,7 @@
                         <div>
                             <label for="service-name" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Hizmet adı <span aria-hidden="true">*</span></label>
                             <input x-ref="serviceName" id="service-name" wire:model="service_name" type="text" maxlength="255" required class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" placeholder="Örn. İmplant tedavisi" />
-                            @error('service_name')<p role="alert" class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('service_name')<p role="alert" class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="service-sector" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Sektör</label>
@@ -114,18 +114,18 @@
                                 <option value="">Kategorisiz</option>
                                 @foreach ($sectorOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
                             </select>
-                            @error('service_sector')<p role="alert" class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('service_sector')<p role="alert" class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="service-description" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Açıklama</label>
                             <textarea id="service-description" wire:model="service_description" rows="4" maxlength="2000" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" placeholder="Hizmetin kapsamını kısaca açıklayın."></textarea>
-                            @error('service_description')<p role="alert" class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('service_description')<p role="alert" class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="matching-words" class="mb-2 block text-sm font-medium dark:text-gray-200">Sorgu eşleştirme kelimeleri</label>
                             <textarea id="matching-words" wire:model="matching_words" rows="5" placeholder="implant, tek diş, vidalı diş" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white"></textarea>
                             <p class="mt-1 text-xs text-gray-500">Virgülle veya satır satır yazın. Bu ifadeleri içeren sorgular, içe aktarırken bu hizmet seçilmişse eşleştirilir.</p>
-                            @error('matching_words')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('matching_words')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                         </div>
                     </form>
                     @if ($editing)
@@ -136,7 +136,7 @@
                                 @foreach ($editing->names->where('is_primary', false) as $name)
                                     <li wire:key="alias-{{ $name->id }}" class="flex items-center justify-between gap-2 py-1 text-sm text-gray-600 dark:text-gray-300">
                                         <span>{{ $name->raw_label }}</span>
-                                        <button type="button" wire:click="removeAlias({{ $name->id }})" class="px-2 py-1 text-xs text-gray-500 hover:text-red-600" aria-label="{{ $name->raw_label }} eş adını kaldır">Kaldır</button>
+                                        <button type="button" wire:click="removeAlias({{ $name->id }})" class="px-2 py-1 text-xs text-gray-500 hover:text-error-600" aria-label="{{ $name->raw_label }} eş adını kaldır">Kaldır</button>
                                     </li>
                                 @endforeach
                             </ul>
@@ -144,7 +144,7 @@
                                 <input wire:model="alias" type="text" aria-label="Yeni eş ad" placeholder="Alternatif ad" maxlength="255" class="min-w-0 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
                                 <button type="submit" wire:loading.attr="disabled" class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:text-gray-200">Ekle</button>
                             </form>
-                            @error('alias')<p role="alert" class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('alias')<p role="alert" class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                         </div>
                     @endif
                 </div>
@@ -175,7 +175,7 @@
                             <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{{ $categoryId ? 'Kaydet' : 'Ekle' }}</button>
                             @if ($categoryId)<button type="button" wire:click="cancelCategoryEdit" class="px-2 text-xs text-gray-500">Vazgeç</button>@endif
                         </div>
-                        @error('categoryName')<p role="alert" class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                        @error('categoryName')<p role="alert" class="mt-2 text-xs text-error-600">{{ $message }}</p>@enderror
                     </form>
                 </div>
                 <ul class="flex-1 divide-y divide-gray-100 overflow-y-auto px-5 dark:divide-gray-800">
@@ -184,7 +184,7 @@
                             <span class="text-sm text-gray-800 dark:text-gray-200">{{ $category->name }}</span>
                             <div class="flex gap-2">
                                 <button type="button" wire:click="editCategory({{ $category->id }})" class="rounded-lg px-2 py-1.5 text-xs text-brand-600">Düzenle</button>
-                                <button type="button" wire:click="deleteCategory({{ $category->id }})" wire:confirm="Bu sektör silinecek. İçindeki hizmetler korunarak Kategorisiz alanına taşınacak. Devam edilsin mi?" wire:loading.attr="disabled" class="rounded-lg px-2 py-1.5 text-xs text-gray-500 hover:text-red-600">Sil</button>
+                                <button type="button" wire:click="deleteCategory({{ $category->id }})" wire:confirm="Bu sektör silinecek. İçindeki hizmetler korunarak Kategorisiz alanına taşınacak. Devam edilsin mi?" wire:loading.attr="disabled" class="rounded-lg px-2 py-1.5 text-xs text-gray-500 hover:text-error-600">Sil</button>
                             </div>
                         </li>
                     @empty

@@ -7,10 +7,10 @@
 
 <div class="space-y-4">
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <x-ta.metric-card label="Clicks" :value="$glance['clicks']['value'] ?? '—'" :delta="$glance['clicks']['secondary'] ?? null" :tone="$glance['clicks']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Impressions" :value="$glance['impressions']['value'] ?? '—'" :delta="$glance['impressions']['secondary'] ?? null" :tone="$glance['impressions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="CTR" :value="$glance['ctr']['value'] ?? '—'" :delta="$glance['ctr']['secondary'] ?? null" :tone="$glance['ctr']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Search attention" :value="$glance['search_attention']['value'] ?? '—'" :delta="$glance['search_attention']['secondary'] ?? null" :tone="$glance['search_attention']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Tıklama" :value="$glance['clicks']['value'] ?? '—'" :delta="$glance['clicks']['secondary'] ?? null" :tone="$glance['clicks']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Gösterim" :value="$glance['impressions']['value'] ?? '—'" :delta="$glance['impressions']['secondary'] ?? null" :tone="$glance['impressions']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="TO (CTR)" :value="$glance['ctr']['value'] ?? '—'" :delta="$glance['ctr']['secondary'] ?? null" :tone="$glance['ctr']['tone'] ?? 'neutral'" />
+        <x-ta.metric-card label="Dikkat isteyen" :value="$glance['search_attention']['value'] ?? '—'" :delta="$glance['search_attention']['secondary'] ?? null" :tone="$glance['search_attention']['tone'] ?? 'neutral'" />
     </div>
 
     <div class="grid gap-3 lg:grid-cols-12">
@@ -84,7 +84,7 @@
         </div>
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             @foreach (['growing' => 'Growing', 'new' => 'New', 'declining' => 'Declining', 'lost' => 'Lost', 'ctr_review' => 'CTR review', 'striking_distance' => 'Striking distance'] as $key => $label)
-                <div class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                <div class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
                     <p class="text-[11px] text-gray-500">{{ $label }}</p>
                     <p class="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $momentum[$key] ?? 0 }}</p>
                 </div>
@@ -107,13 +107,13 @@
                         <span class="font-medium text-gray-800 dark:text-white/90">{{ $stage['stage'] }}</span>
                         <span class="tabular-nums text-gray-500">{{ number_format($stage['count']) }} · {{ $stage['provenance'] }}</span>
                     </div>
-                    <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                        <div class="h-full rounded-full bg-blue-500" style="width: {{ min(100, round(($stage['count'] / $maxStage) * 100)) }}%"></div>
+                    <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                        <div class="h-full rounded-full bg-gray-500" style="width: {{ min(100, round(($stage['count'] / $maxStage) * 100)) }}%"></div>
                     </div>
                 </li>
             @endforeach
         </ul>
-        <p class="mt-2 text-[11px] text-blue-700 dark:text-blue-300">{{ $discoverability['note'] ?? '' }}</p>
+        <p class="mt-2 text-[11px] text-gray-700 dark:text-gray-300">{{ $discoverability['note'] ?? '' }}</p>
     </section>
 
     <section>
@@ -199,13 +199,13 @@
             </div>
             <ul class="space-y-2">
                 @foreach ($data['recent_outcomes'] ?? [] as $o)
-                    <li class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
+                    <li class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
                         <div class="flex items-start justify-between gap-2">
                             <span class="text-sm text-gray-800 dark:text-white/90">{{ $o['title'] }}</span>
                             <span @class([
                                 'shrink-0 text-xs font-semibold',
-                                'text-emerald-700 dark:text-emerald-400' => ($o['state'] ?? '') === 'Improvement observed',
-                                'text-amber-700 dark:text-amber-400' => ($o['state'] ?? '') !== 'Improvement observed',
+                                'text-success-700 dark:text-success-400' => ($o['state'] ?? '') === 'Improvement observed',
+                                'text-warning-700 dark:text-warning-400' => ($o['state'] ?? '') !== 'Improvement observed',
                             ])>{{ $o['state'] }}</span>
                         </div>
                         @if (! empty($o['note']))

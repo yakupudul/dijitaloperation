@@ -27,7 +27,7 @@
                 @foreach(['open' => 'Açık', 'waiting' => 'Cevap bekleyen', 'ready' => 'Öneri hazır', 'done' => 'Tamamlanan', 'all' => 'Tümü'] as $key => $label)
                     <button type="button" wire:click="$set('filter', '{{ $key }}')" @class([
                         'shrink-0 rounded-full px-2.5 py-1 ring-1 ring-inset',
-                        'bg-brand-500 text-white ring-brand-500' => $filter === $key,
+                        'bg-gray-900 text-white ring-gray-900 dark:bg-white dark:text-gray-900 dark:ring-white' => $filter === $key,
                         'text-gray-600 ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]' => $filter !== $key,
                     ]) @if($key === 'waiting') title="Son mesajı müşteriden gelen açık görüşmeler (son 30 gün)" @endif>{{ $label }} <span class="opacity-75">{{ $filterCounts[$key] ?? 0 }}</span></button>
                 @endforeach
@@ -36,8 +36,12 @@
         <div class="min-h-0 flex-1 overflow-y-auto">
             @forelse($rows as $row)
                 @php [$rowTone, $rowText] = $suggestionLabels[$row->suggestion_status] ?? ['muted', $row->suggestion_status]; @endphp
-                <button type="button" wire:key="chat-{{ $row->id }}" wire:click="selectConversation({{ $row->id }})" class="flex w-full items-start gap-3 border-b border-gray-100 px-3 py-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03] {{ $selected?->id === $row->id ? 'bg-brand-50 dark:bg-white/[0.05]' : '' }}">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">{{ mb_strtoupper(mb_substr($row->contact_name ?: $row->contact_id, 0, 1)) }}</span>
+                <button type="button" wire:key="chat-{{ $row->id }}" wire:click="selectConversation({{ $row->id }})" class="flex w-full items-start gap-3 border-b border-gray-100 px-3 py-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03] {{ $selected?->id === $row->id ? 'bg-gray-50 dark:bg-white/[0.05]' : '' }}">
+                    {{-- Avatar: the name's first letter; a phone icon when there is no name (it showed the number's first digit). --}}
+                    @php $initial = preg_match('/\p{L}/u', (string) $row->contact_name, $letter) ? mb_strtoupper($letter[0]) : null; @endphp
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200" data-wa-avatar>
+                        @if ($initial !== null){{ $initial }}@else<svg class="h-4.5 w-4.5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/></svg><span class="sr-only">Telefon</span>@endif
+                    </span>
                     <span class="min-w-0 flex-1">
                         <span class="flex items-baseline justify-between gap-2">
                             <span class="truncate font-medium text-gray-900 dark:text-white">{{ $row->contact_name ?: $phoneLabel($row->contact_id) }}</span>
@@ -126,7 +130,7 @@
                         <div wire:key="day-{{ $previousDay }}" class="flex justify-center py-1"><span class="rounded-full bg-white px-3 py-0.5 text-[11px] text-gray-500 shadow-sm dark:bg-gray-800">{{ $day->isToday() ? 'Bugün' : ($day->isYesterday() ? 'Dün' : $day->translatedFormat('j F Y')) }}</span></div>
                     @endif
                     <div wire:key="message-{{ $message->id }}" class="flex {{ $message->direction === 'outgoing' ? 'justify-end' : 'justify-start' }}">
-                        <div class="max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm {{ $message->direction === 'outgoing' ? 'rounded-br-sm bg-emerald-100 text-gray-900 dark:bg-emerald-500/20 dark:text-gray-100' : 'rounded-bl-sm bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100' }}">
+                        <div class="max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm {{ $message->direction === 'outgoing' ? 'rounded-br-sm bg-success-100 text-gray-900 dark:bg-success-500/20 dark:text-gray-100' : 'rounded-bl-sm bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100' }}">
                             @if($message->reply_to_message_id)<p class="mb-1 text-[11px] text-gray-500">Önceki bir mesaja yanıt</p>@endif
                             <p class="whitespace-pre-wrap break-words">{{ $message->body }}</p>
                             <p class="mt-1 text-right text-[11px] text-gray-500">{{ $message->sent_at->timezone('Europe/Istanbul')->format('H:i') }}</p>
@@ -154,7 +158,7 @@
                             </div>
                             <div class="flex flex-wrap items-center gap-3">
                                 @if(ctype_digit((string) $selected->contact_id) && ! $selected->opted_out_at)
-                                    <a href="https://wa.me/{{ $selected->contact_id }}" target="_blank" rel="noopener" @click.prevent="window.open('https://wa.me/{{ $selected->contact_id }}?text=' + encodeURIComponent($refs.reply.value), '_blank', 'noopener')" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" title="WhatsApp'ı bu kişiyle ve cevap yazılı olarak açar; göndermek için WhatsApp'ta Gönder'e basarsınız.">WhatsApp'ta aç</a>
+                                    <a href="https://wa.me/{{ $selected->contact_id }}" target="_blank" rel="noopener" @click.prevent="window.open('https://wa.me/{{ $selected->contact_id }}?text=' + encodeURIComponent($refs.reply.value), '_blank', 'noopener')" class="rounded-lg bg-success-600 px-4 py-2 text-sm font-semibold text-white hover:bg-success-700" title="WhatsApp'ı bu kişiyle ve cevap yazılı olarak açar; göndermek için WhatsApp'ta Gönder'e basarsınız.">WhatsApp'ta aç</a>
                                 @endif
                                 <button type="button" class="rounded-lg px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]" @click="navigator.clipboard.writeText($refs.reply.value).then(() => copyStatus = 'Kopyalandı; telefondan gönderebilirsiniz.').catch(() => { $refs.reply.select(); copyStatus = 'Metni seçtim; Ctrl+C ile kopyalayın.' })">Cevabı kopyala</button>
                                 @unless($selected->done_at)
@@ -187,7 +191,7 @@
             </div>
         @else
             <div class="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
-                <span class="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                <span class="flex h-12 w-12 items-center justify-center rounded-full bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300">
                     <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></svg>
                 </span>
                 <p class="text-sm text-gray-500">Mesajları ve AI cevap önerisini görmek için soldan bir görüşme seçin.</p>

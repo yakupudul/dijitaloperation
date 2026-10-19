@@ -28,7 +28,7 @@
     </header>
 
     @if ($message !== '')
-        <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+        <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
         </p>
     @endif
@@ -49,7 +49,7 @@
         <section class="{{ $card }} space-y-3" data-section="sectors">
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">{{ $brands->count() }} marka · {{ $brands->sum(fn ($b) => $b->digitalAssets->count()) }} varlık</span>
-                @if ($statusText)<span @class(['text-xs', 'text-gray-500' => in_array($status, ['running', 'nothing'], true), 'text-rose-600' => ! in_array($status, ['running', 'nothing'], true)])>{{ $statusText }}</span>@endif
+                @if ($statusText)<span @class(['text-xs', 'text-gray-500' => in_array($status, ['running', 'nothing'], true), 'text-error-600' => ! in_array($status, ['running', 'nothing'], true)])>{{ $statusText }}</span>@endif
                 <button type="button" wire:click="runAi" @disabled($running) class="{{ $btn }} ml-auto">AI ile sektör ata</button>
                 <x-operator.ai-prompt-info operation="queries.plan_sectors" />
             </div>
@@ -111,7 +111,7 @@
                                 <input type="text" wire:model.live.debounce.500ms="newKeyword.{{ $item->id }}" wire:keydown.enter="addKeyword({{ $item->id }})" placeholder="Kelime" aria-label="Yeni kelime" class="{{ $input }} w-36 py-1 text-xs">
                                 <button type="button" wire:click="addKeyword({{ $item->id }})" class="{{ $ghost }}">Ekle</button>
                                 <button type="button" wire:click="removeService({{ $item->id }})" wire:confirm="Hizmet silinsin mi?" class="{{ $ghost }} ml-auto">Hizmeti sil</button>
-                                @error('newKeyword.'.$item->id)<p class="w-full text-xs text-rose-600">{{ $message }}</p>@enderror
+                                @error('newKeyword.'.$item->id)<p class="w-full text-xs text-error-600">{{ $message }}</p>@enderror
                                 @if (($impact['service'] ?? null) === $item->id && trim((string) ($newKeyword[$item->id] ?? '')) !== '')
                                     @include('livewire.operator.library.partials.keyword-impact', ['impact' => $impact, 'rescanNote' => false])
                                 @endif
@@ -121,7 +121,7 @@
                     <div class="flex items-center gap-2">
                         <input type="text" wire:model="newService.{{ $sector->id }}" wire:keydown.enter="addService({{ $sector->id }})" placeholder="Yeni hizmet" aria-label="Yeni hizmet" class="{{ $input }} w-48 py-1 text-xs">
                         <button type="button" wire:click="addService({{ $sector->id }})" class="{{ $ghost }}">Hizmet ekle</button>
-                        @error('newService.'.$sector->id)<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                        @error('newService.'.$sector->id)<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                     </div>
                     <details class="text-xs" data-bulk-services="{{ $sector->id }}">
                         <summary class="cursor-pointer text-gray-600 dark:text-gray-300">Toplu hizmet ekle</summary>
@@ -129,7 +129,7 @@
                             <textarea wire:model="bulkServices.{{ $sector->id }}" rows="4" placeholder="Her satıra bir hizmet · isteğe bağlı eşleme kelimeleri: Diş Beyazlatma: beyazlatma, bleaching" aria-label="Toplu hizmet" class="{{ $input }} min-w-0 flex-1 text-xs"></textarea>
                             <button type="button" wire:click="addServicesBulk({{ $sector->id }})" class="{{ $btn }}">Hizmetleri ekle</button>
                         </div>
-                        @error('bulkServices.'.$sector->id)<p class="text-rose-600">{{ $message }}</p>@enderror
+                        @error('bulkServices.'.$sector->id)<p class="text-error-600">{{ $message }}</p>@enderror
                     </details>
                 </div>
             @empty
@@ -146,7 +146,7 @@
                             <button type="button" wire:click="applyPicked" @disabled($pickedCount === 0) data-apply-picked class="{{ $btn }} ml-auto">Seçilenleri ekle ({{ $pickedCount }})</button>
                         @endif
                     </div>
-                    @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
+                    @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-error-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
                     <ul class="mt-1 space-y-1">
                         @forelse ($proposal['items'] as $i => $row)
                             <li class="flex items-start gap-2 text-xs"><input type="checkbox" wire:model.live="pick.{{ $i }}" aria-label="Seç">
@@ -191,7 +191,7 @@
                         @endforeach
                         <input type="text" wire:model="newTerm.{{ $sector->id }}" wire:keydown.enter="addTerm({{ $sector->id }})" placeholder="Terim" aria-label="Yeni terim" class="{{ $input }} w-36 py-1 text-xs">
                         <button type="button" wire:click="addTerm({{ $sector->id }})" class="{{ $ghost }}">Ekle</button>
-                        @error('newTerm.'.$sector->id)<span class="text-xs text-rose-600">{{ $message }}</span>@enderror
+                        @error('newTerm.'.$sector->id)<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                     </div>
                 </div>
             @endforeach
@@ -205,7 +205,7 @@
                             <button type="button" wire:click="pickAll(false)" class="{{ $ghost }}">Hiçbirini</button>
                         @endif
                     </div>
-                    @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-rose-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
+                    @if (($proposal['failed'] ?? []) !== [])<p class="text-xs text-error-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} · tekrar çalıştırın.</p>@endif
                     <ul class="mt-1 space-y-1">
                         @forelse ($proposal['items'] as $i => $row)
                             <li class="flex items-start gap-2 text-xs"><input type="checkbox" wire:model="pick.{{ $i }}" aria-label="Seç">

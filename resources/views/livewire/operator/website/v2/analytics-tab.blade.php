@@ -87,7 +87,7 @@
                 <span class="mt-1 block text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $fmt($item['value'], $item['format']) }}</span>
                 <span class="mt-0.5 flex items-center gap-1 text-xs">
                     @if ($item['delta'] !== null)
-                        <span @class(['font-semibold tabular-nums', 'text-emerald-600' => $item['better'] === true, 'text-rose-600' => $item['better'] === false, 'text-gray-500' => $item['better'] === null])>{{ $item['delta'] > 0 ? '▲' : ($item['delta'] < 0 ? '▼' : '') }} %{{ number_format(abs($item['delta']), 1, ',', '.') }}</span>
+                        <span @class(['font-semibold tabular-nums', 'text-success-600' => $item['better'] === true, 'text-error-600' => $item['better'] === false, 'text-gray-500' => $item['better'] === null])>{{ $item['delta'] > 0 ? '▲' : ($item['delta'] < 0 ? '▼' : '') }} %{{ number_format(abs($item['delta']), 1, ',', '.') }}</span>
                     @endif
                     <span class="truncate text-gray-400">önceki {{ $fmt($item['previous'], $item['format']) }}</span>
                 </span>
@@ -162,7 +162,7 @@
             <article class="{{ $card }} flex flex-col p-4" data-insight="{{ $insight['key'] }}">
                 <div class="flex items-start justify-between gap-2">
                     <h4 class="text-xs font-medium text-gray-600 dark:text-gray-300">{{ $insight['title'] }}</h4>
-                    <span @class(['mt-0.5 h-2 w-2 shrink-0 rounded-full', 'bg-amber-500' => $insight['tone'] === 'warn', 'bg-emerald-500' => $insight['tone'] !== 'warn'])></span>
+                    <span @class(['mt-0.5 h-2 w-2 shrink-0 rounded-full', 'bg-warning-500' => $insight['tone'] === 'warn', 'bg-success-500' => $insight['tone'] !== 'warn'])></span>
                 </div>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $insight['value'] }}</p>
                 <p class="mt-1 text-xs text-gray-500">{{ $insight['text'] }}</p>
@@ -187,6 +187,7 @@
                 <button type="button" wire:click="csv" class="h-8 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-csv>CSV indir</button>
             </span>
         </header>
+        <div class="min-w-0 overflow-x-auto">
         <table class="w-full text-left text-xs">
             <thead class="text-gray-500">
                 <tr>
@@ -209,12 +210,13 @@
                         <td class="px-2 text-right tabular-nums">{{ $fmt($row['position'], 'dec') }}</td>
                         <td class="px-2 text-right tabular-nums">{{ $fmt($row['sessions'], 'int') }}</td>
                         <td class="px-2 text-right tabular-nums">{{ $fmt($row['key_events'], 'dec') }}</td>
-                        <td class="px-4"><span @class(['whitespace-nowrap rounded-full px-2 py-0.5', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $row['diagnosis'] === 'İyi', 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300' => $row['diagnosis'] !== 'İyi'])>{{ $row['diagnosis'] }}</span></td>
+                        <td class="px-4"><span @class(['whitespace-nowrap rounded-full px-2 py-0.5', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $row['diagnosis'] === 'İyi', 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300' => $row['diagnosis'] !== 'İyi'])>{{ $row['diagnosis'] }}</span></td>
                     </tr>
                 @empty
                     <tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">Bu dönemde Search Console / GA4 sayfa verisi yok.</td></tr>
                 @endforelse
             </tbody>
         </table>
+        </div>
     </section>
 </div>

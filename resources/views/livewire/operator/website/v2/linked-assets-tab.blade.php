@@ -1,9 +1,10 @@
 @php
     $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $tone = ['ok' => 'bg-emerald-50 text-emerald-700', 'warn' => 'bg-amber-50 text-amber-700', 'bad' => 'bg-rose-50 text-rose-700', 'muted' => 'bg-gray-100 text-gray-600'];
+    $tone = ['ok' => 'bg-success-50 text-success-700', 'warn' => 'bg-warning-50 text-warning-700', 'bad' => 'bg-error-50 text-error-700', 'muted' => 'bg-gray-100 text-gray-600'];
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-linked-assets-tab>
     <section class="{{ $card }}">
+        <div class="min-w-0 overflow-x-auto">
         <table class="w-full text-left text-xs">
             <thead class="text-gray-500"><tr><th class="py-1">Tür</th><th>Hesap</th><th class="w-36">Durum</th><th class="w-24">Son veri</th><th class="w-10"></th></tr></thead>
             <tbody>
@@ -20,5 +21,6 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </section>
 </div>

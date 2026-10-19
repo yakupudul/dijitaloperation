@@ -9,27 +9,30 @@
     @include('livewire.demo.partials.flash')
 
     <header class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex min-w-0 flex-1 items-start gap-3">
+                <a href="{{ route('operator.brands') }}" wire:navigate class="mt-2 shrink-0 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white" aria-label="Markalar">←</a>
+                <x-ta.brand-avatar :name="$brandModel->name" :logo="$brandModel->logo_url" size="lg" class="mt-0.5" />
             <div class="min-w-0 space-y-1">
-                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <a href="{{ route('operator.brands') }}" wire:navigate class="text-xs text-gray-500 hover:text-brand-600" aria-label="Markalar">←</a>
-                    <h1 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $brandModel->name }}</h1>
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h1 class="min-w-0 break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $brandModel->name }}</h1>
                     @if ($operational)
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" data-brand-state="active"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Aktif</span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/10 dark:text-success-300" data-brand-state="active"><span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>Aktif</span>
                     @else
                         <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300" data-brand-state="passive" title="{{ \App\Support\ServiceScope::NOT_SERVED }}"><span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Pasif</span>
                     @endif
                 </div>
-                <p class="text-xs text-gray-500">
+                <p class="break-words text-sm text-gray-500">
                     @if ($customer)<a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="hover:underline">{{ $customer->name }}</a>@endif
                     @if ($sectors !== []) · {{ implode(', ', $sectors) }}@endif
                     @if ($areas !== []) · {{ implode(' · ', array_slice($areas, 0, 3)) }}@if (count($areas) > 3) +{{ count($areas) - 3 }}@endif @endif
                     @foreach ($websites as $website)
-                        · <a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="Siteyi aç" class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $website->domain ?: $website->name }}</a>
+                        · <a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="Siteyi aç" class="link-neutral break-all font-medium">{{ $website->domain ?: $website->name }}</a>
                     @endforeach
                 </p>
             </div>
-            <div class="flex shrink-0 flex-wrap items-center gap-2">
+            </div>
+            <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                 @if ($tab === 'ozet')
                     <div class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800" role="group" aria-label="Dönem" data-period-selector>
                         @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)
@@ -43,7 +46,8 @@
                 @if ($tab === 'ayarlar')
                     <a href="{{ route('operator.brand.edit', ['brandId' => $brandModel->id]) }}" wire:navigate class="{{ $ghost }}">Düzenle</a>
                 @endif
-                <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate data-auto-setup @class(['inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold', 'bg-brand-500 text-white hover:bg-brand-600' => ! $checklist['complete'], $ghost => $checklist['complete']])>Otomatik kur</a>
+                {{-- The page's one orange action while the brand is not set up; elsewhere (and once set up) an outline button. --}}
+                <x-ta.button :variant="! $checklist['complete'] && $tab === 'ozet' ? 'primary' : 'outline'" :href="route('operator.brand.setup', ['brand' => $brandModel->id])" wire:navigate data-auto-setup>Otomatik kur</x-ta.button>
             </div>
         </div>
 

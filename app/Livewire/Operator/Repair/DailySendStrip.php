@@ -11,7 +11,8 @@ use Livewire\Component;
 /**
  * Günlük gönderim (yakup, 2026-10-14, "Günde 1 tık"): the top strip of the Onarım masası. Shows what the night prepared
  * and AI checked (articles, Business Profile posts, desk fixes) and what the check held back with its reason; one Admin
- * button sends everything that passed (SendDailyBatchJob, off the web request).
+ * button sends everything that passed (SendDailyBatchJob, off the web request). While it runs the strip polls and shows
+ * how far it got ("X / Y gönderildi", DailySend::currentProgress).
  */
 final class DailySendStrip extends Component
 {
@@ -27,7 +28,8 @@ final class DailySendStrip extends Component
 
             return;
         }
-        $daily->queue(auth()->user());
+        $summary = $daily->summary();
+        $daily->queue(auth()->user(), ['content' => $summary['content'], 'posts' => $summary['posts'], 'repair' => $summary['repair']]);
         $this->message = 'Gönderim başladı; birkaç dakika içinde biter. Bu haftanın yazıları gününe zamanlanmış olarak, geriye dönük yazılar tarihli taslak olarak, gönderiler gününde, onarımlar "Yapılanlar"a gider.';
     }
 
@@ -38,9 +40,12 @@ final class DailySendStrip extends Component
 
     public function render(DailySend $daily): View
     {
+        $running = Cache::has(DailySend::RUNNING_KEY);
+
         return view('livewire.operator.repair.daily-send-strip', [
             'summary' => $daily->summary(),
-            'running' => Cache::has(DailySend::RUNNING_KEY),
+            'running' => $running,
+            'progress' => $running ? DailySend::currentProgress() : null,
             'last' => Cache::get(DailySend::LAST_KEY),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);

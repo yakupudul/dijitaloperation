@@ -8,11 +8,11 @@
     $dec = fn ($v) => $v === null ? '—' : number_format((float) $v, 1, ',', '.');
     $typeLabels = \App\Livewire\Operator\Website\V2\ClustersBoardTab::TYPE_LABELS;
     $runningRows = collect($statuses)->filter(fn ($line) => $line === 'çalışıyor…')->keys()->map(fn ($k) => \Illuminate\Support\Str::before($k, ':'))->flip()->all();
-    $typeTone = ['service' => 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300', 'guide' => 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300'];
+    $typeTone = ['service' => 'bg-gray-50 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300', 'guide' => 'bg-live-50 text-live-700 dark:bg-live-500/10 dark:text-live-300'];
 @endphp
 <div class="space-y-6 text-sm" data-clusters-board @if ($polling) wire:poll.5s @endif>
     @if ($message !== '')
-        <p role="status" class="flex items-center justify-between rounded-lg bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+        <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-xs text-gray-800 dark:bg-gray-950 dark:text-gray-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
         </p>
     @endif
@@ -24,8 +24,8 @@
         </div>
         <dl class="flex gap-6" data-cluster-totals>
             <div><dt class="text-xs text-gray-500">Küme</dt><dd class="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $num($totals['all']) }}</dd></div>
-            <div><dt class="text-xs text-gray-500">Eşlendi</dt><dd class="text-xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{{ $num($totals['matched']) }}</dd></div>
-            <div><dt class="text-xs text-gray-500">Eşlenmedi</dt><dd class="text-xl font-semibold tabular-nums text-rose-700 dark:text-rose-400">{{ $num($totals['unmatched']) }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Eşlendi</dt><dd class="text-xl font-semibold tabular-nums text-success-700 dark:text-success-400">{{ $num($totals['matched']) }}</dd></div>
+            <div><dt class="text-xs text-gray-500">Eşlenmedi</dt><dd class="text-xl font-semibold tabular-nums text-error-700 dark:text-error-400">{{ $num($totals['unmatched']) }}</dd></div>
         </dl>
     </section>
 
@@ -54,19 +54,19 @@
             <span>Kümeleri sitenin sayfalarıyla eşleştirir (sisteme çekilmiş sayfa metinleri; AI yalnız tıklayınca).</span>
             @if ($auditStatus)<span class="font-medium text-gray-700 dark:text-gray-300">Eşleştir: {{ $auditStatus }}</span>@endif
             @if ($overlapCount > 0)
-                <button type="button" wire:click="$parent.setTab('fikirler')" class="font-medium text-amber-700 hover:underline dark:text-amber-300" data-overlap-link>{{ $overlapCount }} çakışan sayfa · ayrıntılı listede →</button>
+                <button type="button" wire:click="$parent.setTab('fikirler')" class="font-medium text-warning-700 hover:underline dark:text-warning-300" data-overlap-link>{{ $overlapCount }} çakışan sayfa · ayrıntılı listede →</button>
             @endif
         </div>
     </section>
 
     @if ($pendingClusters->isNotEmpty())
-        <details class="rounded-xl bg-amber-50 p-4 text-xs ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30" data-pending-clusters>
-            <summary class="cursor-pointer font-semibold text-amber-900 dark:text-amber-200">Onay bekleyen {{ $pendingClusters->count() }} küme · markanın hizmetlerinde</summary>
+        <details class="rounded-xl bg-warning-50 p-4 text-xs ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30" data-pending-clusters>
+            <summary class="cursor-pointer font-semibold text-warning-900 dark:text-warning-200">Onay bekleyen {{ $pendingClusters->count() }} küme · markanın hizmetlerinde</summary>
             <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="text-amber-900/80 dark:text-amber-100/80">Onaylanan küme bu panoya iner (kümeler ortak: aynı hizmetteki diğer markalara da iner).</p>
+                <p class="text-warning-900/80 dark:text-warning-100/80">Onaylanan küme bu panoya iner (kümeler ortak: aynı hizmetteki diğer markalara da iner).</p>
                 <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="{{ $btn }}" data-approve-all-clusters>Tümünü onayla</button>
             </div>
-            <ul class="mt-2 divide-y divide-amber-200/60 dark:divide-amber-500/20">
+            <ul class="mt-2 divide-y divide-warning-200/60 dark:divide-warning-500/20">
                 @foreach ($pendingClusters as $pending)
                     <li class="flex flex-wrap items-center gap-2 py-1.5" wire:key="pending-cluster-{{ $pending->id }}">
                         <span class="font-medium text-gray-900 dark:text-white">{{ $pending->name }}</span>
@@ -121,7 +121,7 @@
                                 <span @class(['text-[11px] font-semibold uppercase tracking-wide', 'text-orange-700 dark:text-orange-300' => $level === 'Ana küme', 'text-gray-500' => $level !== 'Ana küme'])>{{ $level }}</span>
                                 <h4 class="mt-0.5 text-[15px] font-semibold leading-snug text-gray-900 dark:text-white">{{ $cluster->name }}</h4>
                             </div>
-                            <span @class(['shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $card['matched'], 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300' => ! $card['matched']]) data-match-badge>{{ $card['matched'] ? 'Eşlendi' : 'Eşlenmedi' }}</span>
+                            <span @class(['shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $card['matched'], 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300' => ! $card['matched']]) data-match-badge>{{ $card['matched'] ? 'Eşlendi' : 'Eşlenmedi' }}</span>
                         </div>
 
                         <dl class="grid grid-cols-3 gap-2 px-4 pb-3">
@@ -131,7 +131,7 @@
                         </dl>
 
                         @if ($card['warning'])
-                            <p class="mx-4 mb-3 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{{ \Illuminate\Support\Str::limit($card['warning'], 160) }}</p>
+                            <p class="mx-4 mb-3 rounded-lg bg-warning-50 px-2.5 py-2 text-xs text-warning-900 dark:bg-warning-500/10 dark:text-warning-200">{{ \Illuminate\Support\Str::limit($card['warning'], 160) }}</p>
                         @endif
 
                         <div role="tablist" class="flex gap-5 border-b border-gray-200 px-4 dark:border-gray-800">
@@ -162,7 +162,7 @@
                                             @if ($page)
                                                 <span class="min-w-0 truncate text-gray-600 dark:text-gray-400">Sitede: <a href="{{ $page->url }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ $page->title ?: ($page->path ?: '/') }}</a></span>
                                             @elseif ($idea['state'] === 'no_page')
-                                                <span class="text-rose-700 dark:text-rose-400">Sitede yok</span>
+                                                <span class="text-error-700 dark:text-error-400">Sitede yok</span>
                                             @else
                                                 <span class="text-gray-500">Henüz aranmadı</span>
                                             @endif
@@ -180,7 +180,7 @@
                                             @elseif ($idea['state'] === 'technical')
                                                 <button type="button" wire:click="$parent.setTab('teknik')" class="{{ $ghost }}">Teknik sorun</button>
                                             @elseif ($idea['state'] === 'sufficient')
-                                                <span class="shrink-0 text-emerald-700 dark:text-emerald-400">Karşılıyor</span>
+                                                <span class="shrink-0 text-success-700 dark:text-success-400">Karşılıyor</span>
                                             @elseif ($idea['state'] !== 'excluded')
                                                 <button type="button" wire:click="rediscover('{{ $actKind }}', {{ $actId }})" class="{{ $ghost }}" data-rediscover>Sitede ara</button>
                                             @endif
@@ -215,7 +215,7 @@
                             @endif
                             <span class="text-gray-500">
                                 @if (($ideaStatus['status'] ?? null) === 'done'){{ $ideaStatus['added'] }} fikir eklendi ·
-                                @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))<span class="text-rose-600">Fikir üretilemedi</span> ·
+                                @elseif (in_array($ideaStatus['status'] ?? null, ['error', 'no_provider'], true))<span class="text-error-600">Fikir üretilemedi</span> ·
                                 @endif
                                 {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$cluster->page_type] ?? $cluster->page_type }} sayfası
                             </span>
@@ -237,7 +237,7 @@
                             <li class="flex flex-wrap items-center gap-2 py-1.5" wire:key="small-cluster-{{ $card['cluster']->id }}" data-small-cluster="{{ $card['cluster']->id }}">
                                 <span class="min-w-0 flex-1 truncate text-gray-800 dark:text-gray-200">{{ $card['cluster']->name }}</span>
                                 <span class="tabular-nums text-gray-500">Sektör talebi {{ $num($card['demand']) }} · Bizim gösterim 0</span>
-                                <span @class(['rounded-full px-2 py-0.5 text-[11px]', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $card['matched'], 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400' => ! $card['matched']])>{{ $card['matched'] ? 'Eşlendi' : 'Eşlenmedi' }}</span>
+                                <span @class(['rounded-full px-2 py-0.5 text-[11px]', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $card['matched'], 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400' => ! $card['matched']])>{{ $card['matched'] ? 'Eşlendi' : 'Eşlenmedi' }}</span>
                             </li>
                         @endforeach
                     </ul>

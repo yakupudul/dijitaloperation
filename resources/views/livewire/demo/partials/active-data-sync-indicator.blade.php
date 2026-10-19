@@ -2,7 +2,7 @@
     @if($activeCount > 0)
         <details class="group" wire:key="data-sync-details">
             <summary class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full bg-gray-100 px-3 text-xs text-gray-700 hover:bg-gray-200/70 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
-                <span class="h-2 w-2 shrink-0 rounded-full {{ $items->contains('stalled', true) ? 'bg-warning-500' : 'animate-pulse bg-sky-500' }}"></span>
+                <span class="h-2 w-2 shrink-0 rounded-full {{ $items->contains('stalled', true) ? 'bg-warning-500' : 'animate-pulse bg-live-500' }}"></span>
                 <span class="font-semibold">{{ $tr ? 'Veri işleri' : 'Data jobs' }} · {{ $activeCount }}</span>
                 @if($activeCount === 1 && $items->isNotEmpty())<span class="hidden max-w-52 truncate sm:inline">{{ $items->first()['name'] }} · {{ $items->first()['state'] }}</span>@endif
                 <span aria-hidden="true">▾</span>
@@ -13,7 +13,7 @@
                     @foreach($items as $item)
                         <div wire:key="sync-job-{{ $item['id'] }}" class="border-b border-gray-100 pb-3 text-xs dark:border-gray-800">
                             <p class="font-semibold text-gray-900 dark:text-white">#{{ $item['id'] }} · {{ $item['name'] }}</p>
-                            <p class="mt-1 {{ $item['stalled'] ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-300' }}">{{ $item['state'] }}</p>
+                            <p class="mt-1 {{ $item['stalled'] ? 'text-warning-700 dark:text-warning-300' : 'text-gray-700 dark:text-gray-300' }}">{{ $item['state'] }}</p>
                             <p class="mt-1 text-gray-500">{{ $item['automatic'] ? ($tr ? 'Otomatik' : 'Automatic') : ($tr ? 'Elle başlatıldı' : 'Manual') }} · {{ $item['completed'] }}/{{ $item['total'] }} {{ $tr ? 'veri grubu başarılı' : 'datasets successful' }}</p>
                             <p class="mt-1 text-gray-500">{{ $tr ? 'Son ilerleme:' : 'Last progress:' }} {{ $item['last'] ?: '—' }}</p>
                         </div>

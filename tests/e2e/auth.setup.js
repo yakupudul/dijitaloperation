@@ -20,7 +20,7 @@ setup('authenticate through /login', async ({ page }) => {
     const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
     if (await localeEn.count()) {
         await localeEn.click();
-        await page.getByRole('link', { name: 'Customers' }).waitFor({ timeout: 15_000 });
+        await page.getByRole('link', { name: 'Brands' }).waitFor({ timeout: 15_000 });
     }
 
     await page.context().storageState({ path: AUTH_STATE });

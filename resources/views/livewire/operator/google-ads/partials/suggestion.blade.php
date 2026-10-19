@@ -9,7 +9,7 @@
             <input type="checkbox" wire:model.live="selectedNegatives" value="{{ $s->id }}" aria-label="Seç" class="mt-1 rounded border-gray-300">
         @endif
         <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $s->title }}@if ($a['locked'] ?? false) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">Düzenlendi</span>@endif</p>
+            <p class="break-words text-sm font-semibold text-gray-900 dark:text-white">{{ $s->title }}@if ($a['locked'] ?? false) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">Düzenlendi</span>@endif</p>
             <p class="text-sm text-gray-600 dark:text-gray-300">{{ $s->reason }}</p>
             @if (in_array($s->action_type, ['ads_check', 'ads_advice'], true) && filled($a['todo'] ?? null))
                 <p class="mt-0.5 text-xs text-gray-500">@if (filled($a['impact'] ?? null)){{ $a['impact'] }} · @endif Yapılacak (Google Ads'te elle): {{ $a['todo'] }}</p>
@@ -18,11 +18,11 @@
                     · Engelleyebileceği faydalı sorgu: {{ ($a['blocks'] ?? []) === [] ? 'yok' : implode(', ', array_slice($a['blocks'], 0, 5)) }}</p>
             @endif
         </div>
-        <div class="flex shrink-0 gap-1.5">
+        <div class="flex shrink-0 flex-wrap gap-1.5">
             @if ($sharedNegative && $canWrite)
-                <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.approveSuggestion({{ $s->id }})" class="rounded bg-success-500 px-2 py-1 text-xs font-semibold text-white hover:bg-success-600">Gönder</button>
+                <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.approveSuggestion({{ $s->id }})" class="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-100 dark:ring-gray-600 dark:hover:bg-white/[0.04]">Gönder</button>
             @else
-                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded bg-success-500 px-2 py-1 text-xs font-semibold text-white hover:bg-success-600">Onayla</button>
+                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-100 dark:ring-gray-600 dark:hover:bg-white/[0.04]">Onayla</button>
             @endif
             @if ($editable)
                 <button type="button" wire:click="startEdit({{ $s->id }})" class="{{ $small }}">Düzenle</button>
@@ -33,22 +33,22 @@
     </div>
 
     @if (is_array($a['proposal'] ?? null))
-        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">AI değişiklik önerisi var · <button type="button" wire:click="acceptProposal({{ $s->id }})" class="font-semibold hover:underline">AI önerisini uygula</button></p>
+        <p class="mt-1 text-xs text-warning-700 dark:text-warning-300">AI değişiklik önerisi var · <button type="button" wire:click="acceptProposal({{ $s->id }})" class="font-semibold hover:underline">AI önerisini uygula</button></p>
     @endif
 
     @if ($editingId === $s->id)
         <div class="mt-2 space-y-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">
             @if ($s->action_type === 'ads_rsa')
                 <label class="block text-xs text-gray-500">Başlıklar (satır başına bir, en çok 30 karakter)<textarea wire:model="edit.headlines" rows="6" class="{{ $input }} mt-1 w-full"></textarea></label>
-                @error('edit.headlines')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('edit.headlines')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                 <label class="block text-xs text-gray-500">Açıklamalar (satır başına bir, en çok 90 karakter)<textarea wire:model="edit.descriptions" rows="4" class="{{ $input }} mt-1 w-full"></textarea></label>
-                @error('edit.descriptions')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('edit.descriptions')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                 <div class="flex flex-wrap gap-2">
                     <input type="url" wire:model="edit.final_url" aria-label="Son URL" placeholder="Son URL" class="{{ $input }} min-w-0 flex-1">
                     <input type="text" wire:model="edit.path1" aria-label="Yol 1" placeholder="yol 1" class="{{ $input }} w-28">
                     <input type="text" wire:model="edit.path2" aria-label="Yol 2" placeholder="yol 2" class="{{ $input }} w-28">
                 </div>
-                @error('edit.final_url')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('edit.final_url')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
             @elseif ($s->action_type === 'ads_negative')
                 <div class="flex flex-wrap gap-2">
                     <input type="text" wire:model="edit.text" aria-label="Negatif" class="{{ $input }} min-w-0 flex-1">
@@ -62,7 +62,7 @@
                     </div>
                 @endif
                 @foreach (['edit.text', 'edit.campaign', 'edit.ad_group'] as $field)
-                    @error($field)<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                    @error($field)<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                 @endforeach
             @else
                 <div class="flex flex-wrap gap-2">
@@ -70,7 +70,7 @@
                     <input type="number" step="0.01" wire:model="edit.daily_budget" aria-label="Günlük bütçe" class="{{ $input }} w-32">
                 </div>
                 @foreach (['edit.name', 'edit.daily_budget'] as $field)
-                    @error($field)<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                    @error($field)<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                 @endforeach
             @endif
             <div class="flex gap-2">
@@ -99,7 +99,7 @@
                 @foreach ((array) $a['descriptions'] as $description)
                     <p class="text-gray-800 dark:text-gray-200">{{ $description }} <span class="text-gray-400">{{ mb_strlen($description) }}/90</span></p>
                 @endforeach
-                <p class="mt-1 text-gray-500">URL: {{ $a['final_url'] }}@if (filled($a['path1'] ?? null)) · /{{ $a['path1'] }}@endif @if (filled($a['path2'] ?? null))/{{ $a['path2'] }}@endif</p>
+                <p class="mt-1 break-all text-gray-500">URL: {{ $a['final_url'] }}@if (filled($a['path1'] ?? null)) · /{{ $a['path1'] }}@endif @if (filled($a['path2'] ?? null))/{{ $a['path2'] }}@endif</p>
             </div>
         </div>
     @endif

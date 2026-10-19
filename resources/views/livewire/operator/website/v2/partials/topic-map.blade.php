@@ -1,28 +1,28 @@
 {{-- Konu haritası ve yazı karnesi (yakup, 2026-10-16): per service how much of its map is done, what is live and in the top 10, what waits; the sent articles' index state and numbers. --}}
-<section class="{{ $card }} space-y-3" data-section="topic-map">
+<section class="surface min-w-0 space-y-3 p-4" data-section="topic-map">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Konu haritası</h3>
         <x-operator.ai-prompt-info operation="content.topic_map" />
     </div>
     @if ($topicMap === [])
-        <p class="text-xs text-gray-500">Bu sitenin konu haritası henüz çizilmedi. Çarşamba sabahki fikir turunda, işe en çok değer katan hizmetten başlayarak çizilir; "Haftalık içerik öner" ile hemen başlatılabilir.</p>
+        <x-ta.empty-state size="sm" title="Konu haritası henüz çizilmedi" message="Çarşamba sabahki fikir turunda, işe en çok değer katan hizmetten başlayarak çizilir; «Haftalık içerik öner» ile hemen başlatılabilir." />
     @else
         <ul class="divide-y divide-gray-100 text-xs dark:divide-gray-800">
             @foreach ($topicMap as $service)
                 <li class="py-2" wire:key="tm-{{ $service['service_id'] }}" data-topic-service="{{ $service['service_id'] }}">
                     <button type="button" wire:click="$set('openService', {{ $openService === $service['service_id'] ? 'null' : $service['service_id'] }})" class="flex w-full flex-wrap items-center gap-2 text-left">
-                        <span class="font-medium text-gray-900 dark:text-white">{{ $service['service'] }}</span>
-                        @if ($service['active'])<span class="{{ $chip }} bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">şu an yazılıyor</span>@endif
-                        <span class="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full bg-emerald-500" style="width: {{ $service['percent'] }}%"></span></span>
-                        <span class="text-gray-600 dark:text-gray-300">%{{ $service['percent'] }} bitti · {{ $service['live'] }} yazı yayında, {{ $service['top10'] }} sayfası ilk 10'da · sırada {{ $service['waiting'] }} konu</span>
+                        <span class="min-w-0 break-words font-medium text-gray-900 dark:text-white">{{ $service['service'] }}</span>
+                        @if ($service['active'])<x-ta.pill tone="live">şu an yazılıyor</x-ta.pill>@endif
+                        <span class="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full bg-success-500" style="width: {{ $service['percent'] }}%"></span></span>
+                        <span class="min-w-0 tabular-nums text-gray-600 dark:text-gray-300">%{{ $service['percent'] }} bitti · {{ $service['live'] }} yazı yayında, {{ $service['top10'] }} sayfası ilk 10'da · sırada {{ $service['waiting'] }} konu</span>
                     </button>
                     @if ($openService === $service['service_id'])
                         <ol class="mt-2 space-y-1 pl-4">
                             @foreach ($service['topics'] as $topic)
                                 <li class="flex flex-wrap items-baseline gap-2" data-topic="{{ $topic->id }}">
                                     <span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ \App\Models\ContentTopic::TYPE_LABELS[$topic->type] ?? $topic->type }}</span>
-                                    <span @class(['text-gray-900 dark:text-white', 'line-through text-gray-400' => $topic->status === 'dropped'])>{{ $topic->title }}</span>
-                                    <span class="text-gray-500">{{ match (true) {
+                                    <span @class(['min-w-0 break-words text-gray-900 dark:text-white', 'line-through text-gray-400' => $topic->status === 'dropped'])>{{ $topic->title }}</span>
+                                    <span class="min-w-0 wrap-anywhere text-gray-500">{{ match (true) {
                                         $topic->status === 'live' => 'yayında',
                                         $topic->status === 'sent' => 'siteye gönderildi',
                                         $topic->status === 'idea' => 'fikir hazır',
@@ -62,7 +62,7 @@
                                             @endif
                                         </td>
                                     @endforeach
-                                    <td @class(['py-1', 'text-amber-700 dark:text-amber-300' => $row['flag'] !== null])>{{ $row['flag'] ?? '' }}</td>
+                                    <td @class(['py-1', 'text-warning-700 dark:text-warning-300' => $row['flag'] !== null])>{{ $row['flag'] ?? '' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

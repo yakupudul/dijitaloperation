@@ -24,15 +24,15 @@
                 </div>
                 <button type="button" wire:click="closeReading" aria-label="Kapat" class="h-8 w-8 rounded-lg text-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">×</button>
             </header>
-            @if ($article['blocked'])<p class="mx-5 mt-4 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-800 dark:bg-rose-500/10 dark:text-rose-200">Uyum kuralına takıldı; gönderilemez. «Yeniden yaz» ile yeniden yazdırabilirsin: {{ $article['blocked'] }}</p>@endif
-            @if ($article['warnings'])<p class="mx-5 mt-4 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{{ $article['warnings'] }}</p>@endif
+            @if ($article['blocked'])<p class="mx-5 mt-4 rounded-lg bg-error-50 p-2.5 text-xs text-error-800 dark:bg-error-500/10 dark:text-error-200">Uyum kuralına takıldı; gönderilemez. «Yeniden yaz» ile yeniden yazdırabilirsin: {{ $article['blocked'] }}</p>@endif
+            @if ($article['warnings'])<p class="mx-5 mt-4 rounded-lg bg-warning-50 p-2.5 text-xs text-warning-900 dark:bg-warning-500/10 dark:text-warning-200">{{ $article['warnings'] }}</p>@endif
             @if (! empty($article['seo']))
-                <div class="mx-5 mt-4 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" data-article-seo>
+                <div class="mx-5 mt-4 rounded-lg bg-warning-50 p-2.5 text-xs text-warning-900 dark:bg-warning-500/10 dark:text-warning-200" data-article-seo>
                     <p class="font-semibold">SEO kontrolü</p>
                     <ul class="mt-1 list-disc pl-4">@foreach ($article['seo'] as $issue)<li>{{ $issue }}</li>@endforeach</ul>
                 </div>
             @elseif (($article['seo'] ?? null) === [] && $article['article'] !== null)
-                <p class="mx-5 mt-4 text-xs text-emerald-700 dark:text-emerald-400" data-article-seo-ok>SEO kontrolü: ana sorgu, iç bağlantı ve bölge tamam.</p>
+                <p class="mx-5 mt-4 text-xs text-success-700 dark:text-success-400" data-article-seo-ok>SEO kontrolü: ana sorgu, iç bağlantı ve bölge tamam.</p>
             @endif
             @if (! empty($article['current']))
                 @php
@@ -40,18 +40,18 @@
                     $new = $article['article'] ?? $article['blocked_draft'] ?? [];
                     $row = 'grid gap-1 sm:grid-cols-[9rem_1fr]';
                 @endphp
-                <section class="mx-5 mt-4 rounded-xl ring-1 ring-inset ring-violet-200 dark:ring-violet-500/30" data-current-page="{{ $article['id'] }}">
+                <section class="mx-5 mt-4 rounded-xl ring-1 ring-inset ring-live-200 dark:ring-live-500/30" data-current-page="{{ $article['id'] }}">
                     <div class="space-y-2 p-3 text-xs">
                         <p class="text-sm font-semibold text-gray-800 dark:text-white/90">Ne değişecek <span class="font-normal text-gray-500">· canlı sayfanın yerine bu yeni sürüm geçer, adres aynı kalır</span></p>
                         <div class="{{ $row }}"><span class="text-gray-500">Sayfa</span><a href="{{ $article['target_url'] }}" target="_blank" rel="noopener" class="truncate font-medium text-brand-600 hover:underline">{{ $article['target_url'] }} ↗</a></div>
-                        <div class="{{ $row }}"><span class="text-gray-500">Başlık</span><span><span class="text-gray-500 line-through decoration-rose-400">{{ $cur['h1'] ?: $cur['title'] }}</span> → <span class="font-medium text-gray-900 dark:text-white">{{ $new['title'] ?? '' }}</span></span></div>
-                        <div class="{{ $row }}"><span class="text-gray-500">SEO açıklaması</span><span><span class="text-gray-500 line-through decoration-rose-400">{{ $cur['meta_description'] ?: '(yok)' }}</span> → <span class="text-gray-900 dark:text-white">{{ $new['meta_description'] ?? '' }}</span></span></div>
+                        <div class="{{ $row }}"><span class="text-gray-500">Başlık</span><span><span class="text-gray-500 line-through decoration-error-400">{{ $cur['h1'] ?: $cur['title'] }}</span> → <span class="font-medium text-gray-900 dark:text-white">{{ $new['title'] ?? '' }}</span></span></div>
+                        <div class="{{ $row }}"><span class="text-gray-500">SEO açıklaması</span><span><span class="text-gray-500 line-through decoration-error-400">{{ $cur['meta_description'] ?: '(yok)' }}</span> → <span class="text-gray-900 dark:text-white">{{ $new['meta_description'] ?? '' }}</span></span></div>
                         <div class="{{ $row }}"><span class="text-gray-500">Uzunluk</span><span class="tabular-nums">{{ number_format($cur['words'], 0, ',', '.') }} → {{ number_format($cur['new_words'], 0, ',', '.') }} kelime</span></div>
-                        @if ($cur['added'] !== [])<div class="{{ $row }}"><span class="text-gray-500">Eklenen bölümler</span><ul class="text-emerald-700 dark:text-emerald-400">@foreach ($cur['added'] as $h)<li>+ {{ $h }}</li>@endforeach</ul></div>@endif
-                        @if ($cur['dropped'] !== [])<div class="{{ $row }}"><span class="text-gray-500">Çıkan bölümler</span><ul class="text-rose-600">@foreach ($cur['dropped'] as $h)<li>− {{ $h }}</li>@endforeach</ul></div>@endif
+                        @if ($cur['added'] !== [])<div class="{{ $row }}"><span class="text-gray-500">Eklenen bölümler</span><ul class="text-success-700 dark:text-success-400">@foreach ($cur['added'] as $h)<li>+ {{ $h }}</li>@endforeach</ul></div>@endif
+                        @if ($cur['dropped'] !== [])<div class="{{ $row }}"><span class="text-gray-500">Çıkan bölümler</span><ul class="text-error-600">@foreach ($cur['dropped'] as $h)<li>− {{ $h }}</li>@endforeach</ul></div>@endif
                     </div>
-                    <details class="border-t border-violet-100 dark:border-violet-500/20" data-current-text>
-                        <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-violet-700 dark:text-violet-300">Şimdiki sayfanın metni{{ $cur['collected'] ? ' · son okuma '.$cur['collected']->format('d.m.Y') : '' }}</summary>
+                    <details class="border-t border-live-100 dark:border-live-500/20" data-current-text>
+                        <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-live-700 dark:text-live-300">Şimdiki sayfanın metni{{ $cur['collected'] ? ' · son okuma '.$cur['collected']->format('d.m.Y') : '' }}</summary>
                         <div class="max-h-96 space-y-2 overflow-y-auto px-3 pb-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                             <p class="text-base font-semibold text-gray-800 dark:text-white/90">{{ $cur['h1'] ?: $cur['title'] }}</p>
                             @forelse ($cur['blocks'] as $block)
@@ -92,7 +92,7 @@
                             <div class="min-w-0 text-xs text-gray-600 dark:text-gray-300">
                                 <p>{{ $article['image']['why'] ?? '' }}</p>
                                 @if (filled($article['image']['alt'] ?? null))<p class="mt-0.5 text-gray-500">Alt metin: {{ $article['image']['alt'] }}</p>@endif
-                                @if ($article['sent'] === [])<button type="button" wire:click="pickImage({{ $article['id'] }})" class="mt-1 font-medium text-rose-600 hover:underline" data-no-image>Görselsiz gönder</button>@endif
+                                @if ($article['sent'] === [])<button type="button" wire:click="pickImage({{ $article['id'] }})" class="mt-1 font-medium text-error-600 hover:underline" data-no-image>Görselsiz gönder</button>@endif
                             </div>
                         </div>
                     @else
@@ -115,7 +115,7 @@
                 $sentAll = $article['sent'] !== [] && array_diff(array_keys($versions), $article['sent']) === [];
             @endphp
             <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-800">
-                @foreach ($article['translations_blocked'] as $code => $why)<span class="mr-auto text-xs text-rose-600">{{ strtoupper($code) }} çevirisi kurala takıldı.</span>@endforeach
+                @foreach ($article['translations_blocked'] as $code => $why)<span class="mr-auto text-xs text-error-600">{{ strtoupper($code) }} çevirisi kurala takıldı.</span>@endforeach
                 @if ($article['writing'])
                     <span class="text-xs text-brand-600">Çeviri yazılıyor…</span>
                 @else
@@ -127,7 +127,7 @@
                 @if ($article['article'] !== null && ! $sentAll)
                     <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="{{ implode(', ', array_map('strtoupper', array_keys($versions))) }} WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}" data-send="{{ $article['id'] }}">{{ ($article['kind'] ?? null) === 'Güncelleme' ? 'Sayfanın yeni sürümü: ' : '' }}WordPress'e taslak gönder{{ count($versions) > 1 ? ' ('.implode(' + ', array_map('strtoupper', array_keys($versions))).')' : '' }}</button>
                 @elseif ($sentAll)
-                    <span class="text-xs text-emerald-700 dark:text-emerald-400">WordPress'e taslak olarak gönderildi.</span>
+                    <span class="text-xs text-success-700 dark:text-success-400">WordPress'e taslak olarak gönderildi.</span>
                 @endif
             </footer>
         </div>

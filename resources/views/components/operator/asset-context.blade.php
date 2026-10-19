@@ -1,97 +1,135 @@
+{{--
+    The one compact page head of every digital asset page (App\View\Components\Operator\AssetContext):
+    breadcrumb line (small, gray) → title row (when `title` is given: avatar / `mark` slot, h1, `status` slot, `actions` slot)
+    → one-line "Veri durumu" → alerts as one collapsible line → default slot → `tabs` slot (always under the head).
+--}}
 @php
     $a = 'operator_asset.';
     $brand = $asset->brand;
     $customer = $brand?->customer;
     $dot = fn (string $tone): string => match ($tone) {
-        'ok' => 'bg-emerald-500',
-        'warn' => 'bg-amber-500',
-        'bad' => 'bg-rose-500',
+        'ok' => 'bg-success-500',
+        'warn' => 'bg-warning-500',
+        'bad' => 'bg-error-500',
         default => 'bg-gray-300',
     };
     // Analysis lives on the brand workspace: the brand name in the breadcrumb opens the matching brand tab.
     $workspaceTab = ['website' => 'arama', 'google_business_profile' => 'harita', 'gbp' => 'harita', 'google_ads' => 'google_ads', 'meta_ads' => 'meta'][$asset->type] ?? 'assets';
+    $hasTitle = filled($title);
+    $headLink = 'rounded-md px-1.5 py-0.5 text-xs';
 @endphp
-<div class="flex flex-col gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800 lg:flex-row lg:items-center lg:justify-between" data-asset-context>
-    <nav class="flex min-w-0 flex-wrap items-center gap-1.5 text-gray-500 dark:text-gray-400" aria-label="{{ __($a.'breadcrumb') }}">
-        @if ($showCustomer)
-            <a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="hover:text-gray-900 hover:underline dark:hover:text-white">{{ $customer->name }}</a>
-            <span class="text-gray-300">›</span>
-        @endif
-        @if ($brand)
-            <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => $workspaceTab]) }}" wire:navigate class="font-medium text-gray-700 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white" data-brand-link title="Analiz marka ekranında">{{ $brand->name }}</a>
-            <span class="text-gray-300">›</span>
-        @endif
-        <details class="relative">
-            <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium text-gray-800 hover:bg-white dark:text-gray-100 dark:hover:bg-white/[0.06]">
-                <span>{{ $assetLabel }}</span>
-                <span class="text-xs text-gray-400">▾</span>
-            </summary>
-            <div class="absolute left-0 z-40 mt-1 w-72 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-                <p class="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ __($a.'brand_assets') }}</p>
-                @foreach ($siblings as $sibling)
-                    <a href="{{ $sibling['url'] }}" wire:navigate @class([
-                        'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
-                        'bg-gray-100 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white' => $sibling['current'],
-                        'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]' => ! $sibling['current'],
-                    ])>
-                        <span class="h-2 w-2 shrink-0 rounded-full {{ $dot($sibling['tone']) }}"></span>
-                        <span class="min-w-0 flex-1 truncate">{{ $sibling['name'] }}</span>
-                        <span class="shrink-0 text-[11px] text-gray-400">{{ $sibling['type_label'] }}</span>
-                    </a>
-                @endforeach
-                @if ($brand)
-                    <a href="{{ route('operator.asset.create', ['brandId' => $brand->id]) }}" wire:navigate class="mt-1 block rounded-lg border-t border-gray-100 px-2.5 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">+ {{ __($a.'add_asset') }}</a>
-                @endif
-            </div>
-        </details>
-    </nav>
-
-    <div class="flex flex-wrap items-center gap-2">
-        @if ($hasSources)
-            <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate @class([
-                'rounded-lg px-2.5 py-1 text-xs font-semibold',
-                'bg-gray-800 text-white dark:bg-white dark:text-gray-900' => $current === 'sources',
-                'text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-white dark:text-gray-300 dark:ring-gray-700' => $current !== 'sources',
-            ])>{{ __($a.'sources') }}</a>
-        @endif
-        <a href="{{ route('operator.asset.edit', ['assetId' => $asset->id]) }}" wire:navigate @class([
-            'rounded-lg px-2.5 py-1 text-xs font-medium',
-            'bg-gray-800 text-white dark:bg-white dark:text-gray-900' => $current === 'edit',
-            'text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-white dark:text-gray-300 dark:ring-gray-700' => $current !== 'edit',
-        ])>{{ __($a.'edit') }}</a>
-    </div>
-</div>
-<livewire:operator.assets.data-status-strip :asset-id="$asset->id" :key="'data-status-'.$asset->id" />
-@if ($websiteHome)
-    <p class="-mt-2 rounded-b-xl bg-blue-50 px-4 py-2 text-xs text-blue-800 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20">
-        {{ __('operator_asset.website_home') }} <a href="{{ $websiteHome }}" wire:navigate class="font-semibold underline">{{ __('operator_asset.website_home_link') }} →</a>
-    </p>
-@endif
-@if ($alerts->isNotEmpty())
-    @php
-        // Red only when an alert costs money or traffic (site down, spend stopped, visits dropping): then the strip opens.
-        $isBlocking = fn ($alert): bool => $alert->kind === 'site_down' || in_array($alert->severity, ['critical', 'high'], true);
-        $blocking = $alerts->contains($isBlocking);
-    @endphp
-    <details class="group rounded-lg bg-white text-sm ring-1 ring-inset ring-gray-200 dark:bg-white/[0.02] dark:ring-gray-800" data-asset-alerts data-blocking="{{ $blocking ? '1' : '0' }}"@if ($blocking) open @endif>
-        <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-1.5 text-gray-700 dark:text-gray-200">
-            <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-rose-500' => $blocking, 'bg-amber-400' => ! $blocking])></span>
-            <span class="font-medium">{{ $alerts->count() }} uyarı</span>
-            <span class="min-w-0 flex-1 truncate text-xs text-gray-500">{{ $alerts->pluck('title')->unique()->implode(' · ') }}</span>
-            <span class="text-xs text-gray-400 group-open:rotate-180">▾</span>
-        </summary>
-        <div class="space-y-1.5 border-t border-gray-100 p-2 dark:border-gray-800">
-            @foreach ($alerts as $alert)
-                <div @class([
-                    'flex flex-wrap items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-inset',
-                    'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20' => $isBlocking($alert),
-                    'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20' => ! $isBlocking($alert),
-                ])>
-                    <span class="font-semibold">{{ $alert->title }}</span>
-                    <span class="min-w-0 flex-1">{{ $alert->message }}</span>
-                    <span class="text-xs opacity-70">{{ $alert->first_detected_at?->diffForHumans() }}</span>
+<div class="min-w-0 space-y-2.5" data-asset-head>
+    <div class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs" data-asset-context>
+        <nav class="flex min-w-0 flex-wrap items-center gap-1 text-gray-500 dark:text-gray-400" aria-label="{{ __($a.'breadcrumb') }}">
+            @if ($showCustomer)
+                <a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="break-words hover:text-gray-900 hover:underline dark:hover:text-white">{{ $customer->name }}</a>
+                <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">›</span>
+            @endif
+            @if ($brand)
+                <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => $workspaceTab]) }}" wire:navigate class="break-words hover:text-gray-900 hover:underline dark:hover:text-white" data-brand-link title="Analiz marka ekranında">{{ $brand->name }}</a>
+                <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">›</span>
+            @endif
+            <details class="relative min-w-0">
+                <summary class="flex min-w-0 cursor-pointer list-none items-center gap-1 rounded-md px-1 py-0.5 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
+                    <span class="min-w-0 break-words">{{ $assetLabel }}</span>
+                    <span class="text-[10px] text-gray-400" aria-hidden="true">▾</span>
+                </summary>
+                <div class="absolute left-0 z-40 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+                    <p class="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ __($a.'brand_assets') }}</p>
+                    @foreach ($siblings as $sibling)
+                        <a href="{{ $sibling['url'] }}" wire:navigate @class([
+                            'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
+                            'bg-gray-100 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white' => $sibling['current'],
+                            'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]' => ! $sibling['current'],
+                        ])>
+                            <span class="h-2 w-2 shrink-0 rounded-full {{ $dot($sibling['tone']) }}"></span>
+                            <span class="min-w-0 flex-1 truncate" title="{{ $sibling['name'] }}">{{ $sibling['name'] }}</span>
+                            <span class="shrink-0 text-[11px] text-gray-400">{{ $sibling['type_label'] }}</span>
+                        </a>
+                    @endforeach
+                    @if ($brand)
+                        <a href="{{ route('operator.asset.create', ['brandId' => $brand->id]) }}" wire:navigate class="mt-1 block rounded-lg border-t border-gray-100 px-2.5 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">+ {{ __($a.'add_asset') }}</a>
+                    @endif
                 </div>
-            @endforeach
+            </details>
+        </nav>
+
+        <div class="flex shrink-0 items-center gap-1">
+            @if ($hasSources)
+                <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate @class([
+                    $headLink,
+                    'bg-gray-100 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white' => $current === 'sources',
+                    'link-neutral' => $current !== 'sources',
+                ])>{{ __($a.'sources') }}</a>
+            @endif
+            <a href="{{ route('operator.asset.edit', ['assetId' => $asset->id]) }}" wire:navigate @class([
+                $headLink,
+                'bg-gray-100 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white' => $current === 'edit',
+                'link-neutral' => $current !== 'edit',
+            ])>{{ __($a.'edit') }}</a>
         </div>
-    </details>
-@endif
+    </div>
+
+    @if ($hasTitle)
+        <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between" data-asset-title-row>
+            <div class="flex min-w-0 items-start gap-3">
+                @isset($mark)
+                    {{ $mark }}
+                @else
+                    <x-ta.brand-avatar :name="$brand?->name ?? $title" :logo="$brandLogo" size="lg" class="mt-0.5" />
+                @endisset
+                <div class="min-w-0">
+                    <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <h1 title="{{ $title }}" class="min-w-0 break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $title }}</h1>
+                        @isset($status){{ $status }}@endisset
+                    </div>
+                    @isset($meta)
+                        <div class="mt-0.5 min-w-0 break-words text-sm text-gray-500 dark:text-gray-400">{{ $meta }}</div>
+                    @elseif (filled($subtitle))
+                        <p class="mt-0.5 min-w-0 break-words text-sm text-gray-500 dark:text-gray-400">{{ $subtitle }}</p>
+                    @endisset
+                </div>
+            </div>
+            @isset($actions)
+                <div class="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end" data-asset-actions>{{ $actions }}</div>
+            @endisset
+        </div>
+    @endif
+
+    <livewire:operator.assets.data-status-strip :asset-id="$asset->id" :key="'data-status-'.$asset->id" />
+
+    @if ($websiteHome)
+        <p class="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400" data-website-home>
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" aria-hidden="true"></span>
+            <span class="min-w-0">{{ __('operator_asset.website_home') }}</span>
+            <a href="{{ $websiteHome }}" wire:navigate class="link-primary font-medium">{{ __('operator_asset.website_home_link') }} →</a>
+        </p>
+    @endif
+
+    @if ($alerts->isNotEmpty())
+        @php
+            // Red only when an alert costs money or traffic (site down, spend stopped, visits dropping): then the line opens.
+            $isBlocking = fn ($alert): bool => $alert->kind === 'site_down' || in_array($alert->severity, ['critical', 'high'], true);
+            $blocking = $alerts->contains($isBlocking);
+        @endphp
+        <details class="group min-w-0 text-xs" data-asset-alerts data-blocking="{{ $blocking ? '1' : '0' }}"@if ($blocking) open @endif>
+            <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.04]">
+                <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-error-500' => $blocking, 'bg-warning-500' => ! $blocking]) aria-hidden="true"></span>
+                <span @class(['shrink-0 font-semibold', 'text-error-700 dark:text-error-300' => $blocking, 'text-warning-700 dark:text-warning-300' => ! $blocking])>{{ $alerts->count() }} uyarı</span>
+                <span class="min-w-0 flex-1 truncate text-gray-500" title="{{ $alerts->pluck('title')->unique()->implode(' · ') }}">{{ $alerts->pluck('title')->unique()->implode(' · ') }}</span>
+                <span class="shrink-0 text-gray-400 group-open:rotate-180" aria-hidden="true">▾</span>
+            </summary>
+            <ul class="surface mt-1 divide-y divide-gray-100 px-3 dark:divide-gray-800">
+                @foreach ($alerts as $alert)
+                    <x-ta.alarm-row :tone="$isBlocking($alert) ? 'critical' : 'look'" :title="$alert->title" :brand="$brand?->name ?? ''" :meta="$alert->first_detected_at?->diffForHumans()" :message="$alert->message" />
+                @endforeach
+            </ul>
+        </details>
+    @endif
+
+    {{ $slot }}
+
+    @isset($tabs)
+        <div class="min-w-0 pt-1">{{ $tabs }}</div>
+    @endisset
+</div>

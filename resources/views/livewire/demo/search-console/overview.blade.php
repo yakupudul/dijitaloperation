@@ -9,45 +9,29 @@
     ];
 @endphp
 
-<div class="space-y-4">
+<div class="min-w-0 space-y-4">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" />
-
-    <div class="flex flex-col gap-3 border-b border-gray-200 pb-4 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex min-w-0 items-start gap-3">
-            <x-demo.digital-asset-mark type="gsc" size="lg" class="mt-0.5" />
-            <div class="min-w-0">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $identity['eyebrow'] ?? 'Google Search Console' }}</p>
-                <div class="mt-1 flex flex-wrap items-center gap-2">
-                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $identity['title'] }}</h1>
-                </div>
-                <a href="{{ route('operator.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    {{ $identity['relationship_line'] ?? 'Observes · Website' }}
-                    @if (filled($identity['website_asset_id'] ?? null))
-                    ·
-                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website') }}</a>
-                    @endif
-                </p>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ $identity['property_label'] ?? '—' }}</span>
-                    · {{ $identity['property_type'] ?? 'Domain property' }}
-                </p>
-                @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'gsc'])
-            </div>
-        </div>
-        <div class="shrink-0">
+    <x-operator.asset-context :asset-id="$assetId" :title="$identity['title']">
+        <x-slot:mark><x-demo.digital-asset-mark type="gsc" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
+        <x-slot:meta>
+                {{ $identity['relationship_line'] ?? 'Observes · Website' }}
+                @if (filled($identity['property_label'] ?? null))
+                    · <span class="break-all text-gray-700 dark:text-gray-300">{{ $identity['property_label'] }}</span> · {{ $identity['property_type'] ?? 'Domain property' }}
+                @endif
+                @if (filled($identity['website_asset_id'] ?? null))
+                    · <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
+                @endif
+        </x-slot:meta>
+        <x-slot:actions>
+            @if ($showPeriodBar)
+                <x-operator.date-range-picker :range="$this->pickerRange()" :last-day="$this->periodPickerMaxDate()" note="Search Console verisi 2–3 gün gecikmeli." class="w-full sm:w-auto" />
+            @endif
             @include('livewire.demo.partials._search-console-header-actions')
-        </div>
-    </div>
-
-    @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])
-
-    @if ($showPeriodBar)
-        <div class="flex justify-end">
-            <x-operator.date-range-picker :range="$this->pickerRange()" :last-day="$this->periodPickerMaxDate()" note="Search Console verisi 2–3 gün gecikmeli." />
-        </div>
-    @endif
+        </x-slot:actions>
+        <x-slot:tabs>
+            @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])
+        </x-slot:tabs>
+    </x-operator.asset-context>
 
     <p class="text-xs text-gray-400">{{ $data['demo_boundary'] }}</p>
 
@@ -161,7 +145,7 @@
         @if (! empty($selectedPage['website_attention']))
             <div>
                 <p class="text-xs text-gray-400">Site uyarıları</p>
-                <p class="text-amber-700 dark:text-amber-400">{{ $selectedPage['website_attention'] }}</p>
+                <p class="text-warning-700 dark:text-warning-400">{{ $selectedPage['website_attention'] }}</p>
             </div>
         @endif
         @if (! empty($selectedPage['ga4_context']))
@@ -172,7 +156,7 @@
                     · {{ $selectedPage['ga4_context']['engagement_rate'] ?? '—' }}% engaged
                     · {{ number_format($selectedPage['ga4_context']['mapped_actions'] ?? 0) }} mapped actions
                 </p>
-                <p class="mt-1 text-[11px] text-blue-700 dark:text-blue-300">{{ $selectedPage['ga4_context']['note'] ?? $data['pages']['attribution_note'] ?? '' }}</p>
+                <p class="mt-1 text-[11px] text-gray-700 dark:text-gray-300">{{ $selectedPage['ga4_context']['note'] ?? $data['pages']['attribution_note'] ?? '' }}</p>
             </div>
         @endif
         @if (filled($identity['website_asset_id'] ?? null))
@@ -213,7 +197,7 @@
         @if (($selectedUrl['canonical'] ?? '') === 'Mismatch')
             <div>
                 <p class="text-xs text-gray-400">Kanonik ayrıntı</p>
-                <p class="text-sm text-amber-700 dark:text-amber-400">
+                <p class="text-sm text-warning-700 dark:text-warning-400">
                     User: {{ $selectedUrl['user_canonical'] ?? '—' }}
                     · Google: {{ $selectedUrl['google_canonical'] ?? '—' }}
                 </p>
@@ -222,7 +206,7 @@
         @if (! empty($selectedUrl['attention']))
             <div>
                 <p class="text-xs text-gray-400">Dikkat</p>
-                <p class="text-amber-700 dark:text-amber-400">{{ $selectedUrl['attention'] }}</p>
+                <p class="text-warning-700 dark:text-warning-400">{{ $selectedUrl['attention'] }}</p>
             </div>
         @endif
         <p class="text-[11px] text-gray-400">{{ $data['indexing']['inspection_note'] ?? 'Google index state · read-only observation.' }}</p>

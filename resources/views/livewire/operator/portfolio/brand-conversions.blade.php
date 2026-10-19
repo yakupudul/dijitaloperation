@@ -22,7 +22,7 @@
     @endif
 
     @if ($message !== '')
-        <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
+        <p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>
     @endif
 
     @if ($rows->isEmpty())
@@ -35,7 +35,7 @@
                 <p class="text-xs text-gray-500">
                     Önceki 30 gün: {{ number_format($summary['previous']['total'], 0, ',', '.') }}
                     @if ($summary['change_pct'] !== null)
-                        <span class="{{ $summary['change_pct'] >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">({{ $summary['change_pct'] >= 0 ? '+' : '' }}{{ $summary['change_pct'] }}%)</span>
+                        <span class="{{ $summary['change_pct'] >= 0 ? 'text-success-600' : 'text-error-600' }}">({{ $summary['change_pct'] >= 0 ? '+' : '' }}{{ $summary['change_pct'] }}%)</span>
                     @endif
                 </p>
             </div>
@@ -61,13 +61,13 @@
                                 @if ($row->origin === 'operator' || isset($row->metadata['type_by_operator'])) <span class="text-xs text-gray-400">· elle ayarlandı</span> @endif
                                 @php $isEngagement = in_array($row->id, $engagement, true); @endphp
                                 @if ($row->counts && $isEngagement && in_array($row->id, $counted, true))
-                                    <span class="block text-xs font-medium text-amber-600" data-engagement-counted>Etkileşim sinyali müşteri sayılıyor: kaydırma, sayfa ya da profil ziyareti, form başlatma müşteri değildir. Bilerek açık tuttuysan kalsın; değilse kapat.</span>
+                                    <span class="block text-xs font-medium text-warning-600" data-engagement-counted>Etkileşim sinyali müşteri sayılıyor: kaydırma, sayfa ya da profil ziyareti, form başlatma müşteri değildir. Bilerek açık tuttuysan kalsın; değilse kapat.</span>
                                 @elseif ($row->counts && $isEngagement)
                                     <span class="block text-xs text-gray-400">İlgi ölçüsü; açık görünse de toplama girmiyor. Gerçekten müşteri sayılsın istiyorsan kapatıp yeniden aç.</span>
                                 @elseif (! $row->counts && $isEngagement)
                                     <span class="block text-xs text-gray-400">İlgi ölçüsü (kaydırma, sayfa ya da profil ziyareti, form başlatma); müşteri sayılmaz.</span>
                                 @elseif ($row->counts && ($summary['current']['by_row'][$row->id] ?? 0) == 0)
-                                    <span class="block text-xs text-amber-600">Son 30 günde hiç tetiklenmedi; kurulumu kontrol et.</span>
+                                    <span class="block text-xs text-warning-600">Son 30 günde hiç tetiklenmedi; kurulumu kontrol et.</span>
                                 @endif
                             </td>
                             <td class="py-2 pr-3">

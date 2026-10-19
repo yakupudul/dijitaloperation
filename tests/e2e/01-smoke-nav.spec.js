@@ -5,7 +5,7 @@ import { recordFinding } from './helpers/findings.js';
 
 const SURFACES = [
     { name: 'Dashboard', path: '/' },
-    { name: 'Customers', path: '/customers' },
+    // Müşteriler merged into Markalar 2026-10-19: /customers has no sidebar entry (reached from the brand list).
     { name: 'Brands', path: '/brands' },
     { name: 'Digital Assets', path: '/assets' },
     { name: 'Files', path: '/files' },

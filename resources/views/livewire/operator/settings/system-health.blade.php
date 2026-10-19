@@ -29,7 +29,7 @@
     </div>
 
     @if ($message !== '')
-        <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">{{ $message }}</p>
+        <p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>
     @endif
 
     @php
@@ -85,13 +85,13 @@
     <section class="space-y-3" data-error-center>
         @php
             $tones = [
-                'you' => ['bg-rose-50 ring-rose-200 dark:bg-rose-500/10 dark:ring-rose-500/20', 'text-rose-800 dark:text-rose-200'],
-                'code' => ['bg-amber-50 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/20', 'text-amber-900 dark:text-amber-200'],
+                'you' => ['bg-error-50 ring-error-200 dark:bg-error-500/10 dark:ring-error-500/20', 'text-error-800 dark:text-error-200'],
+                'code' => ['bg-warning-50 ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/20', 'text-warning-900 dark:text-warning-200'],
                 'auto' => ['bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800', 'text-gray-700 dark:text-gray-300'],
             ];
         @endphp
         @if (collect($triage)->flatten(1)->isEmpty())
-            <p class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300" data-error-center-clear>✓ Açık sorun yok. Markalara bağlı tüm hesaplar ve sistem çalışıyor.</p>
+            <p class="rounded-xl bg-success-50 p-4 text-sm font-medium text-success-800 ring-1 ring-inset ring-success-200 dark:bg-success-500/10 dark:text-success-300" data-error-center-clear>✓ Açık sorun yok. Markalara bağlı tüm hesaplar ve sistem çalışıyor.</p>
         @endif
         @foreach (\App\Services\Observability\ErrorTriage::LABELS as $bucket => $label)
             @continue(($triage[$bucket] ?? []) === [])
@@ -107,7 +107,7 @@
                             <ul class="mt-2 space-y-2">
                                 @foreach (array_slice($group['items'], 0, 8) as $item)
                                     <li class="text-xs text-gray-700 dark:text-gray-300">
-                                        <p><span class="font-medium">{{ $item['title'] }}</span>@if ($item['escalated']) <span class="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">2 günde düzelmedi</span>@endif</p>
+                                        <p><span class="font-medium">{{ $item['title'] }}</span>@if ($item['escalated']) <span class="rounded bg-error-100 px-1.5 py-0.5 text-[10px] font-semibold text-error-700">2 günde düzelmedi</span>@endif</p>
                                         <p class="text-gray-500">{{ $item['what'] }}</p>
                                         @if ($bucket !== 'auto')<p class="mt-0.5"><span class="font-medium">Ne yapmalı:</span> {{ $item['action'] }}</p>@endif
                                         <div class="mt-1 flex flex-wrap gap-2">
@@ -136,18 +136,18 @@
     @if ($health['backup'] !== null)
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Sistem yedeği</h2>
-            <p class="mt-2 text-sm {{ $health['backup']['ok'] ? 'text-emerald-600' : 'text-rose-600' }}">
+            <p class="mt-2 text-sm {{ $health['backup']['ok'] ? 'text-success-600' : 'text-error-600' }}">
                 {{ $health['backup']['last_success_at'] === null ? 'Hiç yedek alınmamış' : ($health['backup']['ok'] ? 'Güncel' : 'Son yedek eski') }}
             </p>
             <p class="text-xs text-gray-500">Son başarılı: {{ $when($health['backup']['last_success_at']) }}@if ($health['backup']['bytes']) · {{ number_format($health['backup']['bytes'] / 1048576, 1, ',', '.') }} MB @endif · {{ $health['backup']['remote'] ? 'uzak kopya var' : 'yalnız sunucuda (MOXDOP_BACKUP_REMOTE_DISK ile uzak kopya)' }}</p>
             @if ($health['backup']['last_success_at'])<p class="text-xs text-gray-500">Her yedek alındıktan sonra baştan sona okunup doğrulanır.</p>@endif
-            @if ($health['backup']['last_error'])<p class="mt-1 text-xs text-rose-700">Son hata: {{ \Illuminate\Support\Str::limit($health['backup']['last_error'], 200) }}</p>@endif
+            @if ($health['backup']['last_error'])<p class="mt-1 text-xs text-error-700">Son hata: {{ \Illuminate\Support\Str::limit($health['backup']['last_error'], 200) }}</p>@endif
         </section>
     @endif
     @if (isset($health['two_factor']))
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">İki adımlı doğrulama</h2>
-            <p class="mt-2 text-sm {{ $health['two_factor']['admins_without'] === [] ? 'text-emerald-600' : 'text-rose-600' }}">
+            <p class="mt-2 text-sm {{ $health['two_factor']['admins_without'] === [] ? 'text-success-600' : 'text-error-600' }}">
                 {{ $health['two_factor']['admins_without'] === [] ? 'Tüm yöneticilerde açık' : count($health['two_factor']['admins_without']).' yöneticide kapalı' }}
             </p>
             @if ($health['two_factor']['admins_without'] !== [])<p class="text-xs text-gray-500">{{ implode(', ', $health['two_factor']['admins_without']) }}</p>@endif
@@ -156,12 +156,12 @@
     @endif
         <section class="{{ $card }}">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Zamanlayıcı</h2>
-            <p class="mt-2 text-sm {{ $health['scheduler']['ok'] ? 'text-emerald-600' : 'text-rose-600' }}">
+            <p class="mt-2 text-sm {{ $health['scheduler']['ok'] ? 'text-success-600' : 'text-error-600' }}">
                 {{ $health['scheduler']['minutes'] === null ? 'Hiç çalışmamış' : ($health['scheduler']['ok'] ? 'Çalışıyor' : 'Durmuş olabilir') }}
             </p>
             <p class="text-xs text-gray-500">Son: {{ $when($health['scheduler']['last_seen_at']) }}</p>
             @if (isset($health['watchdog']))
-                <p class="mt-2 text-xs {{ $health['watchdog']['installed'] ? 'text-gray-500' : 'text-amber-700' }}">
+                <p class="mt-2 text-xs {{ $health['watchdog']['installed'] ? 'text-gray-500' : 'text-warning-700' }}">
                     {{ $health['watchdog']['installed'] ? 'Dış izleme çalışıyor (son: '.$when($health['watchdog']['last_run_at']).')' : 'Dış izleme kurulu değil: zamanlayıcı durursa haber gelmez. deploy/staging/cron.example içindeki moxdop:ops:watchdog satırını ekleyin.' }}
                 </p>
             @endif
@@ -169,7 +169,7 @@
         <section class="{{ $card }} lg:col-span-2">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">İşçiler</h2>
             @forelse ($health['workers'] as $worker)
-                <p class="mt-1 text-sm"><span class="{{ $worker['ok'] ? 'text-emerald-600' : 'text-rose-600' }}">●</span> {{ $worker['name'] }} <span class="text-xs text-gray-500">— {{ $worker['minutes'] }} dk önce</span></p>
+                <p class="mt-1 text-sm"><span class="{{ $worker['ok'] ? 'text-success-600' : 'text-error-600' }}">●</span> {{ $worker['name'] }} <span class="text-xs text-gray-500">— {{ $worker['minutes'] }} dk önce</span></p>
             @empty
                 <p class="mt-2 text-sm text-gray-500">Henüz işçi sinyali yok (kuyruk yoklaması 5 dakikada bir çalışır).</p>
             @endforelse
@@ -180,10 +180,10 @@
         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Açık sistem uyarıları ({{ count($health['alerts']) }})</h2>
         @forelse ($health['alerts'] as $alert)
             <div class="mt-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
-                <span @class(['rounded px-1.5 py-0.5 text-xs font-semibold', 'bg-rose-50 text-rose-700' => $alert['severity'] === 'critical', 'bg-amber-50 text-amber-700' => $alert['severity'] !== 'critical'])>{{ $alert['severity'] === 'critical' ? 'Kritik' : 'Uyarı' }}</span>
+                <span @class(['rounded px-1.5 py-0.5 text-xs font-semibold', 'bg-error-50 text-error-700' => $alert['severity'] === 'critical', 'bg-warning-50 text-warning-700' => $alert['severity'] !== 'critical'])>{{ $alert['severity'] === 'critical' ? 'Kritik' : 'Uyarı' }}</span>
                 <span class="font-medium text-gray-800 dark:text-gray-200">{{ $alert['title'] }}</span>
                 <span class="text-xs text-gray-500">· {{ $when($alert['since']) }} · {{ $alert['count'] }} kez gözlendi</span>
-                @if (($alert['repeat_label'] ?? '') !== '')<span class="text-xs font-medium text-amber-600">· {{ $alert['repeat_label'] }}</span>@endif
+                @if (($alert['repeat_label'] ?? '') !== '')<span class="text-xs font-medium text-warning-600">· {{ $alert['repeat_label'] }}</span>@endif
                 @if ($alert['summary'])<p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold">Ne oldu:</span> {{ $alert['summary'] }}</p>@endif
                 @if ($alert['why'] ?? null)<p class="text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold">Neden önemli:</span> {{ $alert['why'] }}</p>@endif
                 @if ($alert['action'] ?? null)<p class="text-xs text-gray-600 dark:text-gray-400"><span class="font-semibold">Ne yapmalısın:</span> {{ $alert['action'] }}</p>@endif
@@ -194,14 +194,14 @@
                 </p>
             </div>
         @empty
-            <p class="mt-2 text-sm text-emerald-600">Açık uyarı yok.</p>
+            <p class="mt-2 text-sm text-success-600">Açık uyarı yok.</p>
         @endforelse
     </section>
 
     @php
         $live = $health['live_checks'] ?? [];
         $liveFailed = count(array_filter($live, fn (array $c): bool => $c['status'] === 'fail'));
-        $liveStatus = ['ok' => ['Çalışıyor', 'text-emerald-600'], 'fail' => ['Başarısız', 'text-rose-600'], 'skipped' => ['Denenmedi', 'text-gray-400']];
+        $liveStatus = ['ok' => ['Çalışıyor', 'text-success-600'], 'fail' => ['Başarısız', 'text-error-600'], 'skipped' => ['Denenmedi', 'text-gray-400']];
     @endphp
     <section class="{{ $card }}" id="canli-dogrulama">
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -209,7 +209,7 @@
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Canlı doğrulama</h2>
                 <p class="mt-1 text-xs text-gray-500">Her sabah her bağlantı ve bağlı hesap için en ucuz salt okunur çağrı yapılır (Google anahtar yenileme, GA4 1 günlük rapor, Search Console site okuma, Google Ads müşteri sorgusu, İşletme Profili konum okuma, Meta hesap durumu, DataForSEO ücretsiz hesap bilgisi, WordPress imzalı durum). Hiçbir şey yazılmaz.</p>
                 <p class="mt-1 text-xs text-gray-500">
-                    {{ count($live) }} kontrol · <span @class(['font-semibold text-rose-600' => $liveFailed > 0])>{{ $liveFailed }} başarısız</span>
+                    {{ count($live) }} kontrol · <span @class(['font-semibold text-error-600' => $liveFailed > 0])>{{ $liveFailed }} başarısız</span>
                     · {{ $health['suspicious_data'] ?? 0 }} veri şüphesi
                 </p>
             </div>
@@ -246,7 +246,7 @@
             @else
                 @forelse ($health['queue_waits'] as $wait)
                     <p class="mt-1 text-sm">
-                        <span class="{{ $wait['over'] ? 'text-rose-600' : 'text-emerald-600' }}">●</span>
+                        <span class="{{ $wait['over'] ? 'text-error-600' : 'text-success-600' }}">●</span>
                         {{ $wait['queue'] }} — {{ $duration($wait['wait_seconds']) }}
                         @if ($wait['threshold_seconds'] !== null)<span class="text-xs text-gray-500">(eşik {{ $duration($wait['threshold_seconds']) }})</span>@endif
                     </p>
@@ -259,14 +259,14 @@
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Uygulama hataları (son 7 gün, en sık)</h2>
             @forelse ($health['error_groups'] ?? [] as $group)
                 <div class="mt-2 border-t border-gray-100 pt-2 text-sm dark:border-gray-800">
-                    <span class="rounded bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700">{{ number_format($group['occurrences'], 0, ',', '.') }} kez</span>
+                    <span class="rounded bg-error-50 px-1.5 py-0.5 text-xs font-semibold text-error-700">{{ number_format($group['occurrences'], 0, ',', '.') }} kez</span>
                     <span class="font-medium text-gray-800 dark:text-gray-200">{{ class_basename($group['class']) }}</span>
                     <span class="font-mono text-xs text-gray-500">{{ $group['location'] }}</span>
                     <p class="text-xs text-gray-500">{{ $group['message'] }}</p>
                     <p class="text-xs text-gray-400">İlk {{ $when($group['first_seen_at']) }} · son {{ $when($group['last_seen_at']) }}@if ($group['last_release']) · sürüm <span class="font-mono">{{ $group['last_release'] }}</span>@endif</p>
                 </div>
             @empty
-                <p class="mt-2 text-sm text-emerald-600">Son 7 günde kaydedilmiş uygulama hatası yok.</p>
+                <p class="mt-2 text-sm text-success-600">Son 7 günde kaydedilmiş uygulama hatası yok.</p>
             @endforelse
         </section>
     </div>
@@ -281,7 +281,7 @@
                         <tr>
                             <td class="py-2 pr-3 font-medium text-gray-800 dark:text-gray-200">{{ $integration['name'] }} <span class="text-xs text-gray-400">{{ $integration['provider'] }}</span></td>
                             <td class="py-2 pr-3">{{ $authLabels[$integration['status']] ?? $integration['status'] }}{{ $integration['auth_status'] !== '' ? ' · '.($authLabels[strtoupper($integration['auth_status'])] ?? $integration['auth_status']) : '' }}</td>
-                            <td @class(['py-2 pr-3', 'font-semibold text-rose-600' => $integration['expires_in_days'] !== null && $integration['expires_in_days'] <= 7])>
+                            <td @class(['py-2 pr-3', 'font-semibold text-error-600' => $integration['expires_in_days'] !== null && $integration['expires_in_days'] <= 7])>
                                 {{ $integration['expires_at'] ?? '—' }}@if ($integration['expires_in_days'] !== null) ({{ $integration['expires_in_days'] }} gün)@endif
                             </td>
                             <td class="py-2 text-xs text-gray-500">{{ $integration['last_error'] ?? '—' }}</td>
@@ -299,7 +299,7 @@
         </div>
         <p class="mt-1 text-xs text-gray-500">{{ $health['account_counts']['total'] }} hesap · {{ $health['account_counts']['attention'] }} durmuş · {{ $health['account_counts']['stale'] }} verisi eski</p>
         @if ($health['accounts'] === [])
-            <p class="mt-2 text-sm text-emerald-600">Sorunlu hesap yok.</p>
+            <p class="mt-2 text-sm text-success-600">Sorunlu hesap yok.</p>
         @else
             <div class="mt-2 overflow-x-auto">
                 <table class="w-full text-sm">
@@ -312,12 +312,12 @@
                                     @if (! $account['enabled'])
                                         <span class="text-gray-400">Kapalı</span>
                                     @elseif ($account['state'] === 'attention')
-                                        <span class="text-rose-600" title="{{ $account['error'] ? __('resource-auto.'.$account['error']) : '' }}">{{ $errorLabels[$account['error']] ?? ($account['error'] ?: 'Dikkat') }}</span>
+                                        <span class="text-error-600" title="{{ $account['error'] ? __('resource-auto.'.$account['error']) : '' }}">{{ $errorLabels[$account['error']] ?? ($account['error'] ?: 'Dikkat') }}</span>
                                         @if ($account['error'] && \Illuminate\Support\Facades\Lang::has('resource-auto.'.$account['error']))<p class="text-gray-500">{{ __('resource-auto.'.$account['error']) }}</p>@endif
                                     @else
                                         {{ $stateLabels[$account['state']] ?? $account['state'] }}
                                     @endif
-                                    @if ($account['stale']) <span class="text-amber-600">· veri eski</span> @endif
+                                    @if ($account['stale']) <span class="text-warning-600">· veri eski</span> @endif
                                 </td>
                                 <td class="py-2 pr-3 text-xs">{{ $account['data_through'] ?? '—' }}</td>
                                 <td class="py-2 pr-3 text-xs">{{ $when($account['last_success']) }}</td>
@@ -358,8 +358,8 @@
         @forelse ($health['plugins'] as $plugin)
             <p class="mt-1 text-sm">
                 {{ $plugin['site'] }} — {{ $plugin['version'] ?? 'sürüm bilinmiyor' }}
-                @if ($plugin['outdated']) <span class="text-amber-600">· güncelleme gerekli</span> @endif
-                @if ($plugin['silent']) <span class="text-rose-600">· 1 günden uzun süredir sinyal yok</span> @endif
+                @if ($plugin['outdated']) <span class="text-warning-600">· güncelleme gerekli</span> @endif
+                @if ($plugin['silent']) <span class="text-error-600">· 1 günden uzun süredir sinyal yok</span> @endif
             </p>
         @empty
             <p class="mt-2 text-sm text-gray-500">Eşleşmiş WordPress sitesi yok.</p>

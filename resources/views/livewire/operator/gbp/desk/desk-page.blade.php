@@ -3,28 +3,27 @@
     $delta = function (?int $now, ?int $before): ?int {
         return $now !== null && $before !== null && $before > 0 ? (int) round(($now / $before - 1) * 100) : null;
     };
-    $deltaClass = fn (?int $d): string => $d === null ? 'text-gray-400' : ($d >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400');
+    $deltaClass = fn (?int $d): string => $d === null ? 'text-gray-400' : ($d >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400');
     $deltaText = fn (?int $d): string => $d === null ? '' : ($d >= 0 ? '▲ %'.$d : '▼ %'.abs($d));
+    // Google sends a month's data a few days late: the desk shows the last full month, so the head says which month that is.
+    $lagging = $month !== now()->format('Y-m');
 @endphp
 <div class="space-y-5 dark:text-gray-200" data-gbp-desk>
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">İşletme profilleri</h1>
-            <p class="mt-1 text-xs text-gray-500">Her İşletme Profili için geçen ayın sonuçları ve yerel aramada güçlü olmanın altı koşulu. Eksik olana tıklayınca düzeltileceği yere gidersin.</p>
+            <p class="mt-1 text-sm text-gray-500">@if ($lagging)<span class="font-medium text-gray-700 dark:text-gray-300" data-gbp-data-month>Son tam veri: {{ $monthLabel }}</span> · @endif Her İşletme Profili için son tam ayın sonuçları ve yerel aramada güçlü olmanın altı koşulu. Eksik olana tıklayınca düzeltileceği yere gidersin.</p>
         </div>
         @include('livewire.operator.gbp.partials.brand-filter')
     </header>
     @include('livewire.operator.gbp.partials.desk-tabs', ['active' => 'operator.gbp-desk', 'brandFilter' => $brand])
 
     <section>
-        <h2 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $monthLabel }} · {{ $count }} işletme</h2>
+        <h2 class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $lagging ? $monthLabel.' (son tam ay)' : $monthLabel }} · {{ $count }} işletme</h2>
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
             @foreach ($columns as $key => $label)
                 @php $d = $delta($totals[$key], $previous[$key] ?: null); @endphp
-                <div class="rounded-xl bg-white p-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <span class="block text-2xl font-semibold text-gray-900 dark:text-white">{{ $num($totals[$key]) }}</span>
-                    <span class="block text-xs text-gray-500">{{ $label }} <span class="{{ $deltaClass($d) }}">{{ $deltaText($d) }}</span></span>
-                </div>
+                <x-ta.metric-card :label="$label" :value="$num($totals[$key])" :delta="$d === null ? null : $deltaText($d)" :tone="$d === null ? 'neutral' : ($d >= 0 ? 'positive' : 'negative')" class="min-w-0" />
             @endforeach
         </div>
         <p class="mt-1 text-[11px] text-gray-500">Değişim bir önceki aya göre. Google verisi birkaç gün gecikmeli gelir.</p>
@@ -32,8 +31,8 @@
 
     <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         @foreach ($readiness as $key => $item)
-            <a href="{{ route($item['route'], array_filter(['marka' => $brand])) }}" wire:navigate class="rounded-xl bg-white p-3 ring-1 ring-inset ring-gray-200 hover:ring-brand-400 dark:bg-gray-800 dark:ring-gray-700">
-                <span @class(['block text-lg font-semibold', 'text-emerald-600 dark:text-emerald-400' => $item['ok'] === $count && $count > 0, 'text-amber-600 dark:text-amber-400' => $item['ok'] !== $count || $count === 0])>{{ $item['ok'] }}/{{ $count }}</span>
+            <a href="{{ route($item['route'], array_filter(['marka' => $brand])) }}" wire:navigate class="surface min-w-0 p-3 transition hover:ring-gray-300 dark:hover:ring-gray-700">
+                <span @class(['block text-lg font-semibold tabular-nums', 'text-success-600 dark:text-success-400' => $item['ok'] === $count && $count > 0, 'text-warning-600 dark:text-warning-400' => $item['ok'] !== $count || $count === 0])>{{ $item['ok'] }}/{{ $count }}</span>
                 <span class="block text-xs text-gray-500">{{ $item['label'] }} tamam</span>
                 @if ($item['unknown'] > 0)<span class="block text-[11px] text-gray-400" title="Google bu veriyi vermiyor ya da henüz toplanmadı; işletmenin satırında nedeni yazar">{{ $item['unknown'] }} işletmede veri yok</span>@endif
             </a>
@@ -41,22 +40,22 @@
     </section>
 
     @if ($shared !== [])
-        <section class="rounded-xl bg-amber-50/60 p-3 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/5 dark:ring-amber-500/30" data-testid="gbp-shared-gaps">
-            <h2 class="text-sm font-semibold text-amber-800 dark:text-amber-300">Şubelerin çoğunda ortak eksik</h2>
+        <section class="surface p-4" data-testid="gbp-shared-gaps">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Şubelerin çoğunda ortak eksik</h2>
             <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">Bunlar satırlarda tekrar gösterilmiyor; hepsini tek yerden düzenleyebilirsin.</p>
-            <ul class="mt-2 divide-y divide-amber-100 dark:divide-amber-500/20">
+            <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach ($shared as $key => $gap)
                     <li class="flex flex-wrap items-center justify-between gap-2 py-1.5">
-                        <span class="text-sm text-gray-800 dark:text-gray-200">{{ $gap['label'] }} <span class="text-xs text-gray-500">· {{ $gap['missing'] }}/{{ $count }} işletmede eksik</span></span>
+                        <span class="min-w-0 text-sm text-gray-800 dark:text-gray-200">{{ $gap['label'] }} <span class="text-xs text-gray-500">· {{ $gap['missing'] }}/{{ $count }} işletmede eksik</span></span>
                         <a href="{{ route($gap['route'], array_filter(['marka' => $brand] + $gap['query'])) }}" wire:navigate data-testid="gbp-shared-{{ $key }}"
-                            class="rounded-lg px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-300 hover:bg-amber-100 dark:text-amber-300 dark:ring-amber-500/40 dark:hover:bg-amber-500/10">Hepsini düzenle →</a>
+                            class="rounded-lg px-2.5 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Hepsini düzenle →</a>
                     </li>
                 @endforeach
             </ul>
         </section>
     @endif
 
-    <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+    <section class="surface overflow-x-auto">
         <table class="w-full min-w-[760px] text-sm">
             <thead class="text-left text-xs text-gray-500">
                 <tr class="border-b border-gray-100 dark:border-gray-700">
@@ -74,16 +73,16 @@
                         $withOwn = $brandRows->filter(fn (array $row): bool => collect($ownGaps($row))->contains(fn (array $c): bool => ! $c['unknown']))->count();
                         $expanded = ! $foldable || $withOwn > 0 || $brandRows->contains(fn (array $row): bool => $open === (int) $row['location']->id);
                     @endphp
-                    <tbody wire:key="group-{{ md5((string) $brandName) }}" x-data="{ show: @js($expanded) }" class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-700 dark:border-gray-700" data-testid="gbp-brand-group">
+                    <tbody wire:key="group-{{ md5((string) $brandName) }}" x-data="{ show: @js($expanded) }" class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800" data-testid="gbp-brand-group">
                     <tr class="bg-gray-50 dark:bg-white/[0.03]">
-                        <td colspan="{{ count($columns) + 2 }}" class="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <td colspan="{{ count($columns) + 2 }}" class="px-4 py-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200">
                             @if ($foldable)
-                                <button type="button" x-on:click="show = ! show" class="inline-flex items-center gap-1.5 uppercase hover:text-gray-700 dark:hover:text-gray-300" x-bind:aria-expanded="show">
-                                    <span x-text="show ? '▾' : '▸'">{{ $expanded ? '▾' : '▸' }}</span> {{ $brandName }} · {{ $brandRows->count() }}
-                                    <span class="font-normal normal-case tracking-normal {{ $withOwn > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">{{ $withOwn > 0 ? '· '.$withOwn.' şubede özel eksik' : '· şubeye özel eksik yok' }}</span>
+                                <button type="button" x-on:click="show = ! show" class="inline-flex flex-wrap items-center gap-1.5 hover:text-gray-900 dark:hover:text-white" x-bind:aria-expanded="show">
+                                    <span x-text="show ? '▾' : '▸'" class="text-gray-400">{{ $expanded ? '▾' : '▸' }}</span> <x-ta.brand-avatar :name="(string) $brandName" size="xs" /> {{ $brandName }} <span class="font-normal tabular-nums text-gray-500">· {{ $brandRows->count() }}</span>
+                                    <span class="text-xs font-normal {{ $withOwn > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400' }}">{{ $withOwn > 0 ? '· '.$withOwn.' şubede özel eksik' : '· şubeye özel eksik yok' }}</span>
                                 </button>
                             @else
-                                {{ $brandName }} · {{ $brandRows->count() }}
+                                <span class="inline-flex items-center gap-1.5"><x-ta.brand-avatar :name="(string) $brandName" size="xs" /> {{ $brandName }} <span class="font-normal tabular-nums text-gray-500">· {{ $brandRows->count() }}</span></span>
                             @endif
                         </td>
                     </tr>
@@ -93,7 +92,7 @@
                             <td class="px-4 py-2">
                                 <span class="block font-medium text-gray-900 dark:text-white" title="{{ $location->name }}">{{ \App\Services\Gbp\Desk\GbpDesk::shortName((string) $location->name) }}</span>
                                 <span class="block text-xs text-gray-500">{{ $row['snapshot']['area'] ?? 'Profil verisi yok' }}@if (($row['snapshot']['rating'] ?? null) !== null) · ★ {{ $row['snapshot']['rating'] }} ({{ $row['snapshot']['reviews'] }})@endif</span>
-                                @if ($r === null)<span class="block text-[11px] text-amber-600">{{ $row['performance']['state'] === 'unavailable' ? 'Ölçüm verisi gelmiyor: '.$row['performance']['reason'] : ($row['performance']['state'] === 'never' ? 'Ölçüm verisi henüz toplanmadı' : 'Geçen ayın ölçümü yok') }}</span>@endif
+                                @if ($r === null)<span class="block text-[11px] text-gray-500">{{ $row['performance']['state'] === 'unavailable' ? 'Ölçüm verisi gelmiyor: '.$row['performance']['reason'] : ($row['performance']['state'] === 'never' ? 'Ölçüm verisi henüz toplanmadı' : 'Geçen ayın ölçümü yok') }}</span>@endif
                             </td>
                             @foreach (array_keys($columns) as $key)
                                 <td class="px-2 py-2 text-right tabular-nums">
@@ -105,9 +104,9 @@
                                 <span class="flex flex-wrap gap-1">
                                     @forelse ($ownGaps($row) as $check)
                                         <a href="{{ route($check['route'], array_filter(['marka' => $location->brand_id])) }}" wire:navigate x-on:click.stop title="{{ $check['label'] }}: {{ $check['hint'] }}"
-                                            @class(['rounded-full px-2 py-0.5 text-[11px] font-medium', 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' => $check['unknown'], 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' => ! $check['unknown']])>{{ $check['unknown'] ? '?' : '!' }} {{ $check['label'] }}</a>
+                                            @class(['rounded-full px-2 py-0.5 text-[11px] font-medium', 'bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200 dark:bg-transparent dark:text-gray-500 dark:ring-gray-700' => $check['unknown'], 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10' => ! $check['unknown']])>{{ $check['unknown'] ? '? ' : '' }}{{ $check['label'] }}</a>
                                     @empty
-                                        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" title="{{ collect($row['checks'])->filter(fn (array $c): bool => $c['ok'])->pluck('label')->join(', ') }}">✓ {{ $shared !== [] ? 'Özel eksik yok' : 'Tamam' }}</span>
+                                        <x-ta.pill tone="ok" title="{{ collect($row['checks'])->filter(fn (array $c): bool => $c['ok'])->pluck('label')->join(', ') }}">{{ $shared !== [] ? 'Özel eksik yok' : 'Tamam' }}</x-ta.pill>
                                     @endforelse
                                 </span>
                             </td>
@@ -134,10 +133,10 @@
                                             </div>
                                             <div>
                                                 <h3 class="mb-1 text-xs font-semibold uppercase text-gray-500">Google’da bulunduğu aramalar · {{ $detail['keywords']['month'] ? \Illuminate\Support\Carbon::parse($detail['keywords']['month'].'-01')->locale('tr')->translatedFormat('F Y') : $monthLabel }}</h3>
-                                                @if ($detail['keywords']['month'] !== null && $detail['keywords']['month'] !== $month)<p class="mb-1 text-[11px] text-amber-600">{{ $monthLabel }} kelimeleri Google’dan henüz gelmedi; son gelen ay gösteriliyor.</p>@endif
+                                                @if ($detail['keywords']['month'] !== null && $detail['keywords']['month'] !== $month)<p class="mb-1 text-[11px] text-gray-500">{{ $monthLabel }} kelimeleri Google’dan henüz gelmedi; son gelen ay gösteriliyor.</p>@endif
                                                 @forelse ($detail['keywords']['rows'] as $k)
                                                     <div class="flex justify-between gap-2 text-xs">
-                                                        <span class="truncate">{{ $k['keyword'] }} @if ($k['new'])<span class="rounded bg-emerald-50 px-1 text-[10px] text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">yeni</span>@endif</span>
+                                                        <span class="truncate" title="{{ $k['keyword'] }}">{{ $k['keyword'] }} @if ($k['new'])<span class="rounded bg-success-50 px-1 text-[10px] text-success-700 dark:bg-success-500/10 dark:text-success-300">yeni</span>@endif</span>
                                                         <span class="tabular-nums text-gray-600 dark:text-gray-300">{{ $k['current'] !== null ? $num($k['current']) : '<'.$k['threshold'] }} @if ($k['previous'] !== null && $k['current'] !== null)<span class="{{ $deltaClass($delta($k['current'], $k['previous'])) }}">{{ $deltaText($delta($k['current'], $k['previous'])) }}</span>@endif</span>
                                                     </div>
                                                 @empty
@@ -147,11 +146,11 @@
                                             <div>
                                                 <h3 class="mb-1 text-xs font-semibold uppercase text-gray-500">MoxDOP’un son yaptıkları</h3>
                                                 @forelse ($detail['work'] as $item)
-                                                    <p class="text-xs"><span class="tabular-nums text-gray-500">{{ $item['at'] }}</span> · {{ $item['label'] }} · <span @class(['text-emerald-600' => in_array($item['status'], ['succeeded', 'partial'], true), 'text-rose-600' => $item['status'] === 'failed', 'text-gray-500' => ! in_array($item['status'], ['succeeded', 'partial', 'failed'], true)])>{{ $item['status_label'] }}</span></p>
+                                                    <p class="text-xs"><span class="tabular-nums text-gray-500">{{ $item['at'] }}</span> · {{ $item['label'] }} · <span @class(['text-success-600' => in_array($item['status'], ['succeeded', 'partial'], true), 'text-error-600' => $item['status'] === 'failed', 'text-gray-500' => ! in_array($item['status'], ['succeeded', 'partial', 'failed'], true)])>{{ $item['status_label'] }}</span></p>
                                                 @empty
                                                     <p class="text-xs text-gray-500">Bu profile MoxDOP’tan henüz bir şey gönderilmedi.</p>
                                                 @endforelse
-                                                <a href="{{ route('operator.gbp', ['assetId' => $location->id, 'tab' => 'analysis']) }}" wire:navigate class="mt-2 inline-block text-xs text-brand-600 hover:underline">Günlük analiz →</a>
+                                                <a href="{{ route('operator.gbp', ['assetId' => $location->id, 'tab' => 'analysis']) }}" wire:navigate class="link-neutral mt-2 inline-block text-xs">Günlük analiz →</a>
                                             </div>
                                         </div>
                                     @endif

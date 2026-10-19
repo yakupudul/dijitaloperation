@@ -11,7 +11,7 @@
         'DATAFORSEO' => 'DataForSEO',
     ];
     $statusClasses = [
-        'blue' => 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20',
+        'blue' => 'bg-gray-50 text-gray-700 ring-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20',
         'emerald' => 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/20',
         'amber' => 'bg-warning-50 text-warning-700 ring-warning-200 dark:bg-warning-500/10 dark:text-warning-300 dark:ring-warning-500/20',
         'rose' => 'bg-error-50 text-error-700 ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/20',
@@ -40,10 +40,10 @@
                             {{ $isTr ? 'Veri Toplama Merkezi' : 'Data Collection Center' }}
                         </h2>
                         @if ($activeRuns !== [])
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20">
                                 <span class="relative flex h-2 w-2">
-                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-60"></span>
-                                    <span class="relative inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
+                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-gray-400 opacity-60"></span>
+                                    <span class="relative inline-flex h-2 w-2 rounded-full bg-gray-500"></span>
                                 </span>
                                 {{ $isTr ? count($activeRuns).' aktif işlem' : count($activeRuns).' active run'.(count($activeRuns) === 1 ? '' : 's') }}
                             </span>

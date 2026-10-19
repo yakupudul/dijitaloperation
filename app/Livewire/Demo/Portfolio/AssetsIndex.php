@@ -296,7 +296,7 @@ class AssetsIndex extends Component
                         || ($column === 'google_business_profile' && $a['type'] === 'gbp'))->values());
             }
 
-            return ['brand_id' => (string) $brand->id, 'brand' => $brand->name, 'customer' => $brand->customer?->name ?? '—', 'cells' => $cells];
+            return ['brand_id' => (string) $brand->id, 'brand' => $brand->name, 'customer' => $brand->customer?->name ?? '—', 'logo_url' => $brand->logo_url, 'cells' => $cells];
         })->values()->all();
 
         return ['columns' => self::MATRIX_COLUMNS, 'rows' => $rows];

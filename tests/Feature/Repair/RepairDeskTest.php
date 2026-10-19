@@ -426,6 +426,41 @@ final class RepairDeskTest extends SiteTestCase
     }
 
     /**
+     * The desk used to render every package at once (1.8 MB). The first 20 are rendered, "N paket daha göster" adds
+     * the next ones; counts and order stay those of every package and a package past the first page is still approved
+     * and rejected.
+     */
+    public function test_packages_are_rendered_twenty_at_a_time_and_later_ones_still_work(): void
+    {
+        $keys = [];
+        foreach (range(1, 22) as $i) {
+            $brand = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => sprintf('Paket Marka %02d', $i)]);
+            $row = $this->suggestion('Başlık '.$i, 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık '.$i]]], ['brand_id' => $brand->id]);
+            $keys[$row->id] = $brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY;
+        }
+        $order = app(RepairDesk::class)->packages(app(RepairDesk::class)->rows())->pluck('key')->all();
+        $this->assertCount(22, $order);
+
+        $page = Livewire::test(RepairDeskPage::class)->assertSee('Onay bekleyen 22 paket · 22 iş');
+        $html = $page->html();
+        $this->assertSame(20, substr_count($html, 'data-package="'), 'only the first 20 packages are rendered');
+        $this->assertStringContainsString('data-package="'.$order[19].'"', $html);
+        $this->assertStringNotContainsString('data-package="'.$order[20].'"', $html);
+        $page->assertSeeHtml('data-packages-more')->assertSee('2 paket daha göster');
+
+        $page->call('showMorePackages')->assertSeeHtml('data-package="'.$order[21].'"')->assertDontSeeHtml('data-packages-more');
+        preg_match_all('/data-package="([^"]+)"/', $page->html(), $found);
+        $this->assertSame($order, $found[1], 'every package, in the same order');
+
+        Livewire::withQueryParams(['paket' => $order[21]])->test(RepairDeskPage::class)->assertSeeHtml('data-package="'.$order[21].'"');
+
+        $page->call('approvePackage', $order[21])->assertSee('1 iş uygulamaya gönderildi');
+        $this->assertSame(Suggestion::APPLIED, Suggestion::query()->find(array_search($order[21], $keys, true))->status);
+        $page->call('rejectPackage', $order[20])->assertSee('1 öneri reddedildi');
+        $this->assertSame(Suggestion::DISMISSED, Suggestion::query()->find(array_search($order[20], $keys, true))->status);
+    }
+
+    /**
      * @param  array<string, mixed>  $action
      * @param  array<string, mixed>  $extra
      */

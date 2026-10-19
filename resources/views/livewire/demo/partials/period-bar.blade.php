@@ -122,7 +122,7 @@
                     <button type="button" wire:click="applyCustomPeriod" class="rounded-md bg-brand-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-brand-600" wire:loading.attr="disabled">{{ __('operator.period.apply') }}</button>
                 </div>
                 @if ($customPeriodError)
-                    <p class="w-full text-xs text-rose-600 dark:text-rose-400" role="alert">{{ $customPeriodError }}</p>
+                    <p class="w-full text-xs text-error-600 dark:text-error-400" role="alert">{{ $customPeriodError }}</p>
                 @endif
             </div>
         @endif

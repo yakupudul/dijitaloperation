@@ -5,7 +5,7 @@
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-800';
 @endphp
 <div class="space-y-4 text-sm dark:text-gray-200" data-brand-settings="{{ $part }}">
-    @if ($message !== '')<p role="status" class="rounded-lg bg-blue-50 p-2 text-blue-800 dark:bg-blue-950 dark:text-blue-200">{{ $message }}</p>@endif
+    @if ($message !== '')<p role="status" class="rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">{{ $message }}</p>@endif
 
     @if ($part === 'info')
         <div class="grid gap-4 lg:grid-cols-2">
@@ -20,7 +20,7 @@
                     </select>
                     <button type="button" wire:click="saveSector" class="{{ $btn }}">Kaydet</button>
                 </div>
-                @error('sectorId')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('sectorId')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
             </section>
 
             {{-- Bölgeler --}}
@@ -31,7 +31,7 @@
                     @foreach ($areas as $area)
                         <li wire:key="area-{{ $area->id }}" class="flex flex-wrap items-center gap-2 py-1.5">
                             <span class="min-w-0 flex-1 font-medium text-gray-900 dark:text-white">{{ $area->displayName() }}@if ($area->name)<span class="ml-1 text-xs font-normal text-gray-500">{{ $area->label() }}</span>@endif</span>
-                            <button type="button" wire:click="togglePhysical({{ $area->id }})" @class(['rounded-full px-2 py-0.5 text-xs', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' => $area->physical_branch, 'bg-gray-100 text-gray-500 dark:bg-gray-800' => ! $area->physical_branch])>{{ $area->physical_branch ? 'Fiziksel şube var' : 'Şube yok' }}</button>
+                            <button type="button" wire:click="togglePhysical({{ $area->id }})" @class(['rounded-full px-2 py-0.5 text-xs', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $area->physical_branch, 'bg-gray-100 text-gray-500 dark:bg-gray-800' => ! $area->physical_branch])>{{ $area->physical_branch ? 'Fiziksel şube var' : 'Şube yok' }}</button>
                             <button type="button" wire:click="removeArea({{ $area->id }})" wire:confirm="Bölge silinsin mi?" class="{{ $ghost }}">Sil</button>
                         </li>
                     @endforeach
@@ -43,7 +43,7 @@
                     <label class="flex items-center gap-1 text-xs"><input type="checkbox" wire:model="areaPhysical"> Fiziksel şube</label>
                     <button type="button" wire:click="addArea" class="{{ $btn }}">Ekle</button>
                 </div>
-                @error('areaCity')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                @error('areaCity')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
             </section>
         </div>
 
@@ -66,16 +66,16 @@
                         $keywords = $offering->catalogItem?->matchingKeywords ?? collect();
                     @endphp
                     <li wire:key="off-{{ $offering->id }}" class="flex items-start gap-2 py-2" data-offering="{{ $offering->id }}">
-                        <button type="button" wire:click="togglePriority({{ $offering->id }})" title="{{ $offering->isMain() ? 'Ana hizmet · ikincil yap' : 'İkincil · ana hizmet yap' }}" aria-pressed="{{ $offering->isMain() ? 'true' : 'false' }}" data-priority="{{ $offering->isMain() ? 'main' : 'secondary' }}" @class(['text-lg leading-none', 'text-amber-500' => $offering->isMain(), 'text-gray-300 hover:text-amber-400 dark:text-gray-600' => ! $offering->isMain()])>★</button>
+                        <button type="button" wire:click="togglePriority({{ $offering->id }})" title="{{ $offering->isMain() ? 'Ana hizmet · ikincil yap' : 'İkincil · ana hizmet yap' }}" aria-pressed="{{ $offering->isMain() ? 'true' : 'false' }}" data-priority="{{ $offering->isMain() ? 'main' : 'secondary' }}" @class(['text-lg leading-none', 'text-warning-500' => $offering->isMain(), 'text-gray-300 hover:text-warning-400 dark:text-gray-600' => ! $offering->isMain()])>★</button>
                         <div class="min-w-0 flex-1">
                             <p class="font-medium text-gray-900 dark:text-white">{{ $offering->displayName() }}@if ($offering->locked)<span class="ml-1 text-xs font-normal text-gray-500">onaylı</span>@endif</p>
                             <p class="text-xs text-gray-500">
                                 @if ($pages !== [])
                                     Ana sayfa: <a href="{{ route('operator.website', ['assetId' => $pages[0]['website_asset_id'], 'tab' => 'eslestirme']) }}" wire:navigate class="text-brand-600 hover:underline dark:text-brand-400" title="{{ $pages[0]['url'] }} · eşleşmeyi değiştir" data-hub>{{ $pages[0]['path'] }}</a>@if (count($pages) > 1) <span>+{{ count($pages) - 1 }} sayfa</span>@endif
                                 @else
-                                    <span class="text-amber-700 dark:text-amber-400">Sayfa eşlenmedi</span>
+                                    <span class="text-warning-700 dark:text-warning-400">Sayfa eşlenmedi</span>
                                 @endif
-                                · @if ($keywords->isNotEmpty()){{ $keywords->count() }} eşleştirme ifadesi @else<span class="text-amber-700 dark:text-amber-400">eşleştirme ifadesi yok</span>@endif
+                                · @if ($keywords->isNotEmpty()){{ $keywords->count() }} eşleştirme ifadesi @else<span class="text-warning-700 dark:text-warning-400">eşleştirme ifadesi yok</span>@endif
                                 @if ($offering->service_catalog_item_id)
                                     · <a href="{{ route('operator.library.services', ['q' => $offering->displayName()]) }}" wire:navigate class="text-brand-600 hover:underline dark:text-brand-400">ifadeleri düzenle</a>
                                 @endif
@@ -91,7 +91,7 @@
                 <input type="text" wire:model="newService" placeholder="Hizmet adı (ör. Zirkonyum Kaplama)" aria-label="Yeni hizmet" maxlength="255" class="{{ $input }} min-w-0 flex-1 sm:max-w-sm">
                 <button type="submit" class="{{ $btn }}">Hizmet ekle</button>
             </form>
-            @error('newService')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+            @error('newService')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
 
             @if ($proposals->isNotEmpty())
                 <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800" data-service-proposals>
