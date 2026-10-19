@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.17.0
+Stable tag: 1.18.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.18.0 =
+* A site whose host refuses MoxDOP's requests no longer waits for visitors to send its approved work: while MoxDOP says work is still on its way, the site starts its next ask itself right away (a request to its own admin-ajax that it does not wait for, carrying a token only the site knows), so one visit, one open MoxDOP screen or one WP-Cron run sends everything waiting. At most 240 such asks an hour; visits and WP-Cron stay the fallback.
 
 = 1.17.0 =
 * Changes reach MoxDOP right away instead of waiting for WP-Cron: after the request that saved something has answered, the site starts a separate request to its own admin-ajax without waiting for it, which sends the change log (at most every 10 seconds). Where the host blocks that, the next admin or visitor page carries a tiny beacon doing the same; WP-Cron stays the fallback.

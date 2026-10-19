@@ -36,15 +36,13 @@ final class ExecuteExternalWriteJob implements ShouldQueue
     /** A pull site that has not asked for work within this many minutes is not handed new writes yet. */
     private const int PULL_SEEN_MINUTES = 15;
 
-    /** Commands waiting for a pull site above which new writes wait (the site takes 3 per ask). */
-    private const int PULL_MAX_WAITING = 6;
-
     public int $tries = 1;
 
     /** A site that fetches its work itself is waited for up to ~90 s per call; an article and its translation are 2-3 calls. */
     public int $timeout = 420;
 
-    public function __construct(public int $actionId, public bool $undo = false) {}
+    /** @param  ?string  $waitId  a try of a write waiting for its site; only the latest try runs (ExternalWriteService::wakeForSite) */
+    public function __construct(public int $actionId, public bool $undo = false, public ?string $waitId = null) {}
 
     public function handle(ExternalWriteService $service): void
     {
@@ -59,7 +57,7 @@ final class ExecuteExternalWriteJob implements ShouldQueue
 
             return;
         }
-        if ($action->status !== 'queued') {
+        if ($action->status !== 'queued' || ($this->waitId !== null && data_get($action->result, 'wait_id') !== $this->waitId)) {
             return;
         }
         if (($waiting = $this->siteNotAsking($action)) !== null) {
@@ -106,7 +104,7 @@ final class ExecuteExternalWriteJob implements ShouldQueue
         }
         $waiting = DB::table('website_connector_commands')->where('connection_id', $connection->id)->whereIn('status', ['pending', 'sent'])->count();
 
-        return $waiting >= self::PULL_MAX_WAITING ? 'sitede alınmayı bekleyen '.$waiting.' iş var' : null;
+        return $waiting >= WordPressConnectorCommands::MAX_WAITING ? 'sitede alınmayı bekleyen '.$waiting.' iş var' : null;
     }
 
     /**

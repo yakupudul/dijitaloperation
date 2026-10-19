@@ -101,7 +101,8 @@ final class WordPressConnectorCommandsController
             $handed = $commands->exchange($connection, $client, $secret, [], true, null);
         }
 
-        $data = ['commands' => $handed, 'pull' => data_get($connection->fresh()?->config, 'rest_transport') === 'pull'];
+        // 1.18.0: work still on its way, so the site asks again at once instead of waiting for a visit (older plugins ignore it).
+        $data = ['commands' => $handed, 'pull' => data_get($connection->fresh()?->config, 'rest_transport') === 'pull', 'waiting' => WordPressConnectorCommands::waiting($connection)];
         $time = time();
 
         return response()->json(['data' => $data, 'meta' => [

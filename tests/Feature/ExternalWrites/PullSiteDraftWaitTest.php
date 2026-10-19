@@ -6,6 +6,7 @@ use App\Jobs\ExecuteExternalWriteJob;
 use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
+use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Site\ContentPlanner;
 use App\Services\Work\ContentAutopilot;
 use Illuminate\Support\Facades\DB;
@@ -128,5 +129,26 @@ final class PullSiteDraftWaitTest extends SiteTestCase
         $this->assertArrayNotHasKey('article_write_id', $idea->fresh()->action);
         $this->assertStringContainsString('yanıt vermedi', $idea->fresh()->action['send_failed']['error']);
         $this->assertSame($ok->id, $sent->fresh()->action['article_write_id'], 'an article that reached WordPress stays sent');
+    }
+
+    public function test_a_site_that_asks_gets_its_waiting_writes_at_once_and_learns_more_is_on_its_way(): void
+    {
+        $write = $this->write($this->idea());
+        app()->call([new ExecuteExternalWriteJob($write->id), 'handle']); // not asking: waits with a delayed try
+        $firstTry = (string) $write->refresh()->result['wait_id'];
+        $connection = CoreConnection::query()->sole();
+
+        app(WordPressConnectorCommands::class)->exchange($connection, 'client', 'secret', [], true, []);
+
+        $woken = (string) $write->refresh()->result['wait_id'];
+        $this->assertNotSame($firstTry, $woken);
+        Queue::assertPushed(ExecuteExternalWriteJob::class, fn (ExecuteExternalWriteJob $job): bool => $job->waitId === $woken && $job->delay === null);
+        $this->assertSame(1, WordPressConnectorCommands::waiting($connection), 'the plugin keeps asking while this is above zero');
+        $this->assertSame(['https://panorama.com.tr/wp-admin/admin-ajax.php?action=moxdop_tick'], WordPressConnectorCommands::wakeUrls(),
+            'MoxDOP screens ping the site while its work waits');
+
+        app()->call([new ExecuteExternalWriteJob($write->id, false, $firstTry), 'handle']);
+        $this->assertSame('queued', $write->refresh()->status, 'the earlier delayed try does nothing');
+        $this->assertSame($woken, (string) $write->result['wait_id']);
     }
 }

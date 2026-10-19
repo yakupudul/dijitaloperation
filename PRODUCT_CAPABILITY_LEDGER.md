@@ -4235,6 +4235,13 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   gönderilebilir"); dated autopilot articles come back on the Günlük gönderim strip. A sent article with no WordPress
   post yet shows "Siteye gidiyor" instead of "Taslak gönderildi". Migration `2026_12_19_090000` runs
   `moxdop:content:release-failed-drafts` once for the earlier failures. Test: `PullSiteDraftWaitTest`.
+- Connector 1.18.0 (2026-10-19, coded + PHPUnit; real UAT on Avrupadent pending the plugin update): Avrupadent has
+  WP-Cron disabled, so only visits asked (3 jobs each). Now each ask answer carries `waiting` (unanswered commands +
+  writes waiting for the site); while it is above zero the plugin starts its next ask itself through a non-blocking
+  token-signed loopback to its own admin-ajax (`moxdop_pull_loop`, ≤240 an hour). Each ask wakes up to 6 writes that
+  wait for the site (`ExternalWriteService::wakeForSite`; a wait id makes the earlier delayed try a no-op). Every
+  MoxDOP screen pings the 1.16.0+ beacon of pull sites with work on its way from the operator's browser
+  (`operator.partials.site-wake`), so work goes out while the operator is in MoxDOP even without site visitors.
 - Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
   `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 

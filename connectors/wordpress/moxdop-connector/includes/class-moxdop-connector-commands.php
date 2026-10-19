@@ -15,6 +15,13 @@ defined('ABSPATH') || exit;
  * not run the ask for 30 minutes) every page carries a tiny beacon: the visitor's browser posts to admin-ajax at most
  * once a minute (POST is never page-cached), the site answers at once and asks MoxDOP after the answer, at most once
  * a minute for the whole site. Each ask tells MoxDOP how it was started and the last failure the site saw.
+ *
+ * 1.18.0 (yakup 2026-10-19: "bu eklentiyi öyle bir yap ki sorun ortadan kalksın"; Avrupadent has WP-Cron disabled,
+ * so only visits asked, three jobs at a time, and approved work waited for visitors): while MoxDOP says work is still
+ * on its way (`waiting`), the site starts its next ask itself right after this one, through a request to its own
+ * admin-ajax that it does not wait for (the way WordPress starts its cron), signed with a token only this site knows.
+ * One visit, one MoxDOP screen open or one WP-Cron run is enough to send everything waiting. At most CHAIN_MAX asks
+ * an hour this way; visits and WP-Cron stay the fallback where the host blocks the site's requests to itself.
  */
 final class MoxDOP_Connector_Commands
 {
@@ -43,8 +50,23 @@ final class MoxDOP_Connector_Commands
     /** Without pull mode, visits ask only when WP-Cron has not asked for this long. */
     const IDLE_GAP = 1800;
 
-    /** How the current ask started: cron or visit. */
+    /** 1.18.0: admin-ajax action of the site's own follow-up ask. */
+    const LOOP_ACTION = 'moxdop_pull_loop';
+
+    /** 1.18.0: the token the follow-up ask carries (only this site knows it). */
+    const LOOP_TOKEN_OPTION = 'moxdop_connector_pull_loop_token';
+
+    /** 1.18.0: follow-up asks this hour: [count, hour start]. */
+    const CHAIN_OPTION = 'moxdop_connector_pull_chain';
+
+    /** Follow-up asks per hour at most (one every ~15 s on average). */
+    const CHAIN_MAX = 240;
+
+    /** How the current ask started: cron, visit or loop. */
     private $trigger = 'cron';
+
+    /** Work MoxDOP said was still on its way after the last exchange (1.18.0). */
+    private $waiting = 0;
 
     const PATH = '/api/connectors/wordpress/commands';
 
@@ -56,6 +78,8 @@ final class MoxDOP_Connector_Commands
         add_action('init', [$this, 'schedule'], 20);
         add_action('wp_ajax_nopriv_'.self::TICK_ACTION, [$this, 'tick']);
         add_action('wp_ajax_'.self::TICK_ACTION, [$this, 'tick']);
+        add_action('wp_ajax_nopriv_'.self::LOOP_ACTION, [$this, 'loop']);
+        add_action('wp_ajax_'.self::LOOP_ACTION, [$this, 'loop']);
         add_action('wp_footer', [$this, 'beacon'], 99);
         add_action('admin_footer', [$this, 'beacon'], 99);
     }
@@ -101,6 +125,47 @@ final class MoxDOP_Connector_Commands
         exit;
     }
 
+    /** 1.18.0: the site's own follow-up ask (see chain()); answered at once, the ask runs after the answer. */
+    public function loop()
+    {
+        $token = (string) get_option(self::LOOP_TOKEN_OPTION, '');
+        $given = isset($_POST['token']) ? (string) wp_unslash($_POST['token']) : '';
+        nocache_headers();
+        status_header(204);
+        if ($token === '' || ! hash_equals($token, $given)) {
+            exit;
+        }
+        ignore_user_abort(true);
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request();
+        }
+        $this->trigger = 'loop';
+        $this->run();
+        exit;
+    }
+
+    /** 1.18.0: starts the next ask in a separate request without waiting for it, while work is on its way. */
+    private function chain()
+    {
+        $chain = get_option(self::CHAIN_OPTION);
+        $chain = is_array($chain) && (int) ($chain[1] ?? 0) > time() - HOUR_IN_SECONDS ? $chain : [0, time()];
+        if ((int) $chain[0] >= self::CHAIN_MAX) {
+            return;
+        }
+        update_option(self::CHAIN_OPTION, [(int) $chain[0] + 1, (int) $chain[1]], false);
+        $token = (string) get_option(self::LOOP_TOKEN_OPTION, '');
+        if ($token === '') {
+            $token = wp_generate_password(40, false, false);
+            update_option(self::LOOP_TOKEN_OPTION, $token, false);
+        }
+        wp_remote_post(admin_url('admin-ajax.php?action='.self::LOOP_ACTION), [
+            'timeout' => 0.01, 'blocking' => false, 'redirection' => 0, 'body' => ['token' => $token],
+            'sslverify' => apply_filters('https_local_ssl_verify', false),
+        ]);
+    }
+
     public function schedules($schedules)
     {
         $schedules[self::SCHEDULE] = ['interval' => 60, 'display' => 'MoxDOP / 1 minute'];
@@ -130,6 +195,7 @@ final class MoxDOP_Connector_Commands
         if (! MoxDOP_Connector_Lock::acquire($lock, 90)) {
             return;
         }
+        $this->waiting = 0;
         update_option(self::ATTEMPT_OPTION, time(), true);
         try {
             if (function_exists('set_time_limit')) {
@@ -152,6 +218,9 @@ final class MoxDOP_Connector_Commands
             }
         } finally {
             MoxDOP_Connector_Lock::release($lock);
+        }
+        if ($this->waiting > 0) {
+            $this->chain();
         }
     }
 
@@ -250,6 +319,8 @@ final class MoxDOP_Connector_Commands
             $this->schedule();
         }
         update_option(self::SEEN_OPTION, gmdate('c'), false);
+        // 1.18.0: work still on its way after this exchange (older MoxDOP versions do not say).
+        $this->waiting = (int) ($data['waiting'] ?? 0);
 
         return array_values(array_filter($data['commands'], 'is_array'));
     }

@@ -146,6 +146,7 @@
     @auth
         <livewire:operator.notification-toast />
         <livewire:operator.ai-prompt-info />
+        @include('operator.partials.site-wake')
     @endauth
 
     @stack('scripts')

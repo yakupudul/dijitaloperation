@@ -3,9 +3,12 @@
 namespace App\Services\Integrations\WordPress;
 
 use App\Models\CoreConnection;
+use App\Models\ExternalWriteAction;
+use App\Services\ExternalWrites\ExternalWriteService;
 use Carbon\CarbonImmutable;
 use Closure;
 use GuzzleHttp\Psr7\Response as PsrResponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +26,9 @@ final class WordPressConnectorCommands
 {
     /** Commands handed to the site per exchange. */
     public const int PER_EXCHANGE = 3;
+
+    /** Commands waiting for the site above which new writes wait for it instead of adding more (it takes 3 per ask). */
+    public const int MAX_WAITING = 6;
 
     /** A command the site took but did not answer within this many seconds is failed. */
     public const int ANSWER_SECONDS = 600;
@@ -163,6 +169,61 @@ final class WordPressConnectorCommands
     }
 
     /**
+     * Work still on its way to the site: commands not answered yet and writes waiting for it (ExternalWriteService::
+     * waitForSite). 1.18.0 keeps asking while this is above zero instead of waiting for the next visit.
+     */
+    public static function waiting(CoreConnection $connection): int
+    {
+        $commands = DB::table('website_connector_commands')->where('connection_id', $connection->id)->whereIn('status', ['pending', 'sent'])->count();
+
+        return $commands + self::waitingWritesQuery($connection)->count();
+    }
+
+    /**
+     * 1.16.0+ beacon addresses of the sites that fetch their work themselves and have work on its way: every MoxDOP
+     * screen pings them from the operator's browser (which the site's host lets through), so approved work goes out
+     * while the operator is in MoxDOP even when the site has no visitors. Cached for 30 seconds.
+     *
+     * @return list<string>
+     */
+    public static function wakeUrls(): array
+    {
+        return Cache::remember('wordpress-connector:wake-urls', 30, fn (): array => CoreConnection::query()->where('type', 'wordpress_connector')
+            ->where('enabled', true)->where('config->rest_transport', 'pull')->get()
+            ->filter(fn (CoreConnection $connection): bool => self::waiting($connection) > 0)
+            ->map(function (CoreConnection $connection): ?string {
+                $snapshot = (string) data_get($connection->config, 'snapshot_url', '');
+                $base = str_contains($snapshot, '/wp-json/') ? strstr($snapshot, '/wp-json/', true) : (string) strtok($snapshot, '?');
+
+                return str_starts_with($base, 'https://') ? rtrim($base, '/').'/wp-admin/admin-ajax.php?action=moxdop_tick' : null;
+            })->filter()->values()->all());
+    }
+
+    /** @return Builder<ExternalWriteAction> */
+    private static function waitingWritesQuery(CoreConnection $connection): Builder
+    {
+        return ExternalWriteAction::query()->where('channel', ExternalWriteAction::CHANNEL_WORDPRESS)->where('digital_asset_id', $connection->digital_asset_id)
+            ->where('status', 'queued')->where('error', 'like', ExternalWriteService::SITE_WAIT_ERROR.'%');
+    }
+
+    /**
+     * The site is asking: the writes that wait for it are tried now, oldest first, as many as fit next to the work it
+     * already has (MAX_WAITING), instead of at their next ten-minute turn. Once a minute per site at most.
+     */
+    private static function wakeWaitingWrites(CoreConnection $connection): void
+    {
+        if ($connection->digital_asset_id === null || ! Cache::add('wordpress-connector:wake:'.$connection->id, 1, 20)) {
+            return;
+        }
+        $room = self::MAX_WAITING - DB::table('website_connector_commands')->where('connection_id', $connection->id)->whereIn('status', ['pending', 'sent'])->count();
+        if ($room < 1) {
+            return;
+        }
+        $service = app(ExternalWriteService::class);
+        self::waitingWritesQuery($connection)->orderBy('id')->limit($room)->get()->each(fn (ExternalWriteAction $write) => $service->wakeForSite($write));
+    }
+
+    /**
      * One exchange with the site: stores the answers it brought and hands out the next commands, freshly signed.
      *
      * @param  list<array{id: int, status: int, body: string}>  $results
@@ -192,6 +253,9 @@ final class WordPressConnectorCommands
         DB::table('website_connector_commands')->where('finished_at', '<', now()->subDays(2))->delete();
         if (! $take) {
             return [];
+        }
+        if ($report !== null) {
+            self::wakeWaitingWrites($connection);
         }
         $commands = [];
         foreach (DB::table('website_connector_commands')->where('connection_id', $connection->id)->where('status', 'pending')

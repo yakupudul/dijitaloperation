@@ -28,6 +28,7 @@ use App\Services\Site\ContentPlanner;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -45,6 +46,9 @@ final class ExternalWriteService
 
     /** Minutes between two tries of a write that waits for such a site. */
     public const int SITE_WAIT_MINUTES = 10;
+
+    /** Start of the error line of a write that waits for its site (ExternalWriteService::waitForSite). */
+    public const string SITE_WAIT_ERROR = 'Site işi almayı bekliyor';
 
     public function __construct(
         private readonly GoogleAdsNegativeListWriter $negatives,
@@ -824,9 +828,25 @@ final class ExternalWriteService
 
             return;
         }
-        $action->forceFill(['status' => 'queued', 'started_at' => null, 'error' => mb_substr('Site işi almayı bekliyor: '.$reason, 0, 500),
-            'result' => ['waiting_since' => $since->toIso8601String(), 'waits' => (int) data_get($action->result, 'waits', 0) + 1]])->save();
-        $this->dispatch($action, undo: false, delayMinutes: self::SITE_WAIT_MINUTES);
+        $waitId = (string) Str::uuid();
+        $action->forceFill(['status' => 'queued', 'started_at' => null, 'error' => mb_substr(self::SITE_WAIT_ERROR.': '.$reason, 0, 500),
+            'result' => ['waiting_since' => $since->toIso8601String(), 'waits' => (int) data_get($action->result, 'waits', 0) + 1, 'wait_id' => $waitId]])->save();
+        $this->dispatch($action, undo: false, delayMinutes: self::SITE_WAIT_MINUTES, waitId: $waitId);
+    }
+
+    /**
+     * The site asked for its work (WordPressConnectorCommands::exchange): a write waiting for it is tried now instead of
+     * at its next turn. A new wait id makes the earlier delayed try a no-op, so one write never runs twice.
+     */
+    public function wakeForSite(ExternalWriteAction $action): void
+    {
+        $waitId = (string) Str::uuid();
+        $woken = ExternalWriteAction::query()->whereKey($action->id)->where('status', 'queued')
+            ->where('result->wait_id', (string) data_get($action->result, 'wait_id'))
+            ->update(['result' => json_encode([...(array) $action->result, 'wait_id' => $waitId]), 'updated_at' => now()]);
+        if ($woken === 1) {
+            $this->dispatch($action, undo: false, waitId: $waitId);
+        }
     }
 
     private function finished(ExternalWriteAction $action): void
@@ -937,11 +957,11 @@ final class ExternalWriteService
         return $action;
     }
 
-    private function dispatch(ExternalWriteAction $action, bool $undo, int $delayMinutes = 0): void
+    private function dispatch(ExternalWriteAction $action, bool $undo, int $delayMinutes = 0, ?string $waitId = null): void
     {
         // An article's WordPress draft goes on the content queue: content never waits behind other work (2026-10-12).
         $content = in_array($action->action, [ExternalWriteAction::ACTION_ARTICLE_DRAFTS, ExternalWriteAction::ACTION_POST_DATE], true);
-        dispatch(new ExecuteExternalWriteJob($action->id, $undo))
+        dispatch(new ExecuteExternalWriteJob($action->id, $undo, $waitId))
             ->onConnection((string) config('moxdop-external-writes.queue_connection', config('queue.default')))
             ->onQueue($content ? (string) config('queue.content_queue', 'default') : (string) config('moxdop-external-writes.queue', 'default'))
             ->delay($delayMinutes > 0 ? now()->addMinutes($delayMinutes) : null);
