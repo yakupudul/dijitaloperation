@@ -4263,6 +4263,8 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   Publish / Schedule (the person's click; nothing from outside). Not yet published Polylang translations get the same
   date and status on that publish (`_moxdop_smart_date` marker). Year / price / campaign words warn before a past date.
   IndexNow already pings on publish. Limit: MoxDOP dates not yet sent to the site are not visible to the box.
+  Connector 1.20.0 (same day): Posts bulk action "MoxDOP · Akıllı tarihle yayınla" (≤20 drafts) → confirmation screen,
+  each language group a different free day (changeable per row, warnings shown), one Yayınla click publishes / schedules.
 - Connector 1.18.0 (2026-10-19, coded + PHPUnit; real UAT on Avrupadent pending the plugin update): Avrupadent has
   WP-Cron disabled, so only visits asked (3 jobs each). Now each ask answer carries `waiting` (unanswered commands +
   writes waiting for the site); while it is above zero the plugin starts its next ask itself through a non-blocking
