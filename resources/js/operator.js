@@ -426,3 +426,51 @@ document.addEventListener('livewire:init', () => {
         });
     });
 });
+
+// Phone notifications (public/sw.js): a tap must open the notification's own page. Phones often reopen the app on its
+// home page and ignore the address, so the service worker leaves the target behind and the app goes there itself.
+const openPushTarget = (url) => {
+    if (!url) {
+        return;
+    }
+    const target = new URL(url, window.location.origin);
+    if (target.origin === window.location.origin && target.pathname + target.search !== window.location.pathname + window.location.search) {
+        window.location.assign(target.href);
+    }
+};
+
+const followPushTarget = async () => {
+    if (!('caches' in window)) {
+        return;
+    }
+    try {
+        const cache = await caches.open('moxdop-push');
+        const stored = await cache.match('/__push-target');
+        if (!stored) {
+            return;
+        }
+        const { url, at } = await stored.json();
+        await cache.delete('/__push-target');
+        if (Date.now() - at < 2 * 60 * 1000) {
+            openPushTarget(url);
+        }
+    } catch (error) {
+        // Cache storage blocked (private mode): nothing to follow.
+    }
+};
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'moxdop-push-open') {
+            window.caches?.open('moxdop-push').then((cache) => cache.delete('/__push-target')).catch(() => {});
+            openPushTarget(event.data.url);
+        }
+    });
+}
+
+followPushTarget();
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        followPushTarget();
+    }
+});

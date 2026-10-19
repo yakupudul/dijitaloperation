@@ -102,6 +102,7 @@ use App\Support\Roles;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
@@ -601,6 +602,18 @@ Schedule::command('moxdop:alerts:scan')
     ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '09:30'))
     ->withoutOverlapping(60)
     ->name('asset-alerts-daily');
+
+// Marka logosu sitenin kendisinden (yakup 2026-10-19); elle girilen logo korunur. Haftalık; ilk tur dağıtımdan sonraki saatte.
+Schedule::command('moxdop:brands:site-logos')
+    ->weeklyOn(1, '05:40')
+    ->withoutOverlapping(60)
+    ->name('brand-site-logos-weekly');
+Schedule::command('moxdop:brands:site-logos')
+    ->hourlyAt(25)
+    ->when(fn (): bool => ! Cache::has('brand-site-logos:first-run'))
+    ->after(fn () => Cache::forever('brand-site-logos:first-run', now()->toIso8601String()))
+    ->withoutOverlapping(60)
+    ->name('brand-site-logos-first-run');
 
 // Kanıt: her aktif bağlantı ve bağlı hesap için en ucuz salt okunur çağrı (heavy kuyruk); başarısız olan Komuta merkezinde.
 Schedule::command('moxdop:verify:live')

@@ -8,7 +8,7 @@
 
 {{-- Operator sidebar (panel redesign 2026-10-19): 236 px, grouped entries with counters, brand switcher on top. --}}
 <aside id="operator-sidebar"
-    class="fixed left-0 top-0 z-99999 flex h-screen flex-col border-r border-gray-200 bg-gray-50 px-3 text-gray-900 transition-all duration-200 ease-in-out dark:border-gray-800 dark:bg-gray-950"
+    class="fixed left-0 top-0 z-99999 flex h-dvh flex-col border-r border-gray-200 bg-gray-50 px-3 text-gray-900 transition-all duration-200 ease-in-out dark:border-gray-800 dark:bg-gray-950"
     :class="{
         'w-[236px]': {{ $sidebarOpen }},
         'w-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
@@ -55,7 +55,7 @@
     </div>
 
     <!-- Navigation -->
-    <div class="no-scrollbar flex flex-1 flex-col overflow-y-auto pb-4 pt-1">
+    <div class="no-scrollbar flex flex-1 flex-col overflow-y-auto overscroll-contain pb-4 pt-1">
         <nav class="flex flex-col gap-4">
             @foreach ($menuGroups as $menuGroup)
                 <div>

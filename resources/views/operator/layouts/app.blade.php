@@ -88,7 +88,11 @@
     class="overflow-x-hidden"
     x-data="{}"
     x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
+        // Phones fire resize when the address bar hides on scroll; only a real width change may close the menu.
+        let lastWidth = window.innerWidth;
         const checkMobile = () => {
+            if (window.innerWidth === lastWidth) return;
+            lastWidth = window.innerWidth;
             if (window.innerWidth < 1280) {
                 $store.sidebar.setMobileOpen(false);
                 $store.sidebar.isExpanded = false;

@@ -103,8 +103,8 @@
                             <td class="min-w-0 px-3 py-2">
                                 <span class="break-words font-medium text-gray-800 dark:text-white/90" @if ($codeOf($row) !== '') title="{{ $codeOf($row) }}" @endif>{{ $labelOf($row) }}</span>
                                 @if ($row->isJob())<span class="ml-1 rounded bg-gray-100 px-1 text-[10px] text-gray-500 dark:bg-gray-700">iş</span>@endif
-                                @if ($row->subject)<p class="max-w-md truncate text-xs text-gray-500" title="{{ $row->subject }}">{{ $row->subject }}</p>@endif
-                                @if ($row->error && ! $row->isOpen())<p class="max-w-md truncate text-xs text-error-600" title="{{ $row->error }}">{{ $row->error }}</p>@endif
+                                @if ($row->subject)<p class="max-w-[38vw] truncate text-xs text-gray-500 sm:max-w-md" title="{{ $row->subject }}">{{ $row->subject }}</p>@endif
+                                @if ($row->error && ! $row->isOpen())<p class="max-w-[38vw] truncate text-xs text-error-600 sm:max-w-md" title="{{ $row->error }}">{{ $row->error }}</p>@endif
                             </td>
                             <td @class(['hidden px-3 py-2 text-xs text-gray-500', 'md:table-cell' => ! $narrow, '2xl:table-cell' => $narrow])>{{ $row->user_id && isset($users[$row->user_id]) ? $users[$row->user_id] : 'Sistem' }}</td>
                             <td @class(['hidden whitespace-nowrap px-3 py-2 text-xs text-gray-500', 'sm:table-cell' => ! $narrow, '2xl:table-cell' => $narrow])>{{ $time($row->isQueued() ? $row->queued_at : $row->started_at) }}</td>
@@ -140,7 +140,7 @@
 
         @if ($detailData !== null)
             @php($item = $detailData['row'])
-            <aside class="{{ $card }} space-y-4 p-5 text-sm" data-ai-job-detail="{{ $item->id }}">
+            <aside wire:key="ai-job-detail-{{ $item->id }}" x-data x-init="if (window.innerWidth < 1280) $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'start' }))" class="{{ $card }} scroll-mt-16 space-y-4 p-5 text-sm" data-ai-job-detail="{{ $item->id }}">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h2 class="break-words text-base font-semibold text-gray-800 dark:text-white/90" @if ($codeOf($item) !== '') title="{{ $codeOf($item) }}" @endif>{{ $labelOf($item) }}</h2>

@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-19 — Telefon düzeltmeleri ve siteden marka logosu
+
+- **Karar (yakup 2026-10-19):** "Mobilde ai işlerine tıklıyorum taşıyor. Menüyü açınca scroll yaparken kapanıyor. Bildirime tıkladığımda panelin ana sayfasına atıyor. Web sitesinden çekebildiğimiz markanın logosu olsun."
+- **AI işleri:** telefonda konu / hata satırı ekran genişliğine göre kısalır, tablo taşmaz; satıra dokununca ayrıntı kartına kayar.
+- **Menü:** telefon adres çubuğu kaydırırken `resize` atar; menü yalnız genişlik gerçekten değişince kapanır. Menü `h-dvh`, kendi içinde kayar (`overscroll-contain`).
+- **Bildirim:** `public/sw.js` dokunulan bildirimin adresini önbelleğe bırakır ve açık pencereye mesaj yollar; uygulama (`resources/js/operator.js`) açılışta / öne gelince o sayfaya gider (iOS uygulamayı ana sayfada açsa da).
+- **Marka logosu:** `BrandSiteLogo` + `moxdop:brands:site-logos` (haftalık Pzt 05:40, dağıtımdan sonra bir kez): marka sitesinin ana sayfasından kare site simgesi (apple-touch-icon, büyük icon), yoksa tema logosu, yoksa `/apple-touch-icon.png` / `/favicon.ico`; `public` diske kopyalanır (`brand-logos/{id}`), SVG alınmaz. Elle girilen logo korunur. Logo yüklenmezse avatar baş harfe döner.
+- **Durum:** CODED; PHPUnit `BrandSiteLogoTest`; telefon kontrolü yerel; gerçek siteler canlıda ilk turda.
+
 ## 2026-10-19 — Panel yeni tasarım, 3. ve 4. aşama (tüm ekranlar, telefon, Müşteriler → Markalar)
 
 - **Karar (yakup 2026-10-19 "Sırasıyla hepsini yap", "Mobil arayüzü de kötü yaparken göz önünde bulundur"):** kalan tüm ekranlar aynı tasarım diline geçti; her ekran telefon genişliğinde de çalışır.

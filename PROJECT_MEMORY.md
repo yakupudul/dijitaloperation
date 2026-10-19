@@ -7,6 +7,7 @@
 - Varlık sayfalarının başlığı tek bileşen: `x-operator.asset-context` (`title` + `actions` / `tabs` yuvaları).
 - Müşteriler ayrı menü değil, Markalar'ın içinde (müşteri kartı adresleri duruyor). Kullanılmayan sağlayıcılar (DataForSEO, OpenAI, Gemini, Groq, OpenRouter) Entegrasyonlar'da gizli.
 - Müşteri görünümü (5. aşama) ayrı karar; MASTER_SPEC'te müşteri girişi yok.
+- Marka avatarı markanın kendi sitesinden alınan logoyu gösterir (`BrandSiteLogo`, haftalık); elle girilen logo her zaman kazanır.
 
 ## 2026-10-19 — Panel yeni tasarım (1. ve 2. aşama)
 
