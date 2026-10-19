@@ -4267,6 +4267,14 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   gönderilebilir"); dated autopilot articles come back on the Günlük gönderim strip. A sent article with no WordPress
   post yet shows "Siteye gidiyor" instead of "Taslak gönderildi". Migration `2026_12_19_090000` runs
   `moxdop:content:release-failed-drafts` once for the earlier failures. Test: `PullSiteDraftWaitTest`.
+- Bozuk çeviri onarımı (2026-10-19; coded + PHPUnit `BrokenTranslationsTest`, real UAT pending OPC's 23 rows): OPC
+  Klinik's 23 Italian treatment pages (published 17 Feb 2026, not MoxDOP's, no hack signals) were written in game slang.
+  `moxdop:site:broken-translations` (weekly Tue 04:20, first run by migration `2026_12_19_100000`) flags language
+  versions with ≥5 game words whose Polylang source version has under a third of them (classic pages only); AI op
+  `site.translation_fix` (Claude MCP queue) translates the source faithfully; rules keep it only with no slang, no new
+  numbers, similar length, site / source links only; sector gate. Onarım masası row, medium risk (bulk approvable): one
+  approval sends SEO fields + draft copy, and the draft copy goes live once WordPress confirmed it (undoable); a failed
+  copy returns the row with the reason.
 - Connector 1.19.0 "Akıllı tarih" (yakup, 2026-10-19; coded + PHPUnit, real UAT pending the plugin update on sites): post
   editor side box (block + classic) lists the free Mon/Wed/Fri of the last 60 days, nearest to today first, else the next
   free ones ahead (60 days), time 09:00-11:30 stable per post+day. Taken = published / scheduled / private post or dated

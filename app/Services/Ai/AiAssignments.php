@@ -58,7 +58,7 @@ final class AiAssignments
     /** Writing and judgement work: Sonnet 5.5. Everything else (classify, match, extract) is bulk work for Haiku 5.5. */
     public const array WRITING = [
         AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::SITE_CONTENT_DISCOVERY,
-        AiRouteKeys::SITE_APPLY_CHANGE, AiRouteKeys::SITE_STANDARD_FROM_DECISION, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_LOCALIZE, AiRouteKeys::CONTENT_TOPIC_MAP, AiRouteKeys::CONTENT_BRIEF,
+        AiRouteKeys::SITE_APPLY_CHANGE, AiRouteKeys::SITE_TRANSLATION_FIX, AiRouteKeys::SITE_STANDARD_FROM_DECISION, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_LOCALIZE, AiRouteKeys::CONTENT_TOPIC_MAP, AiRouteKeys::CONTENT_BRIEF,
         AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::SITE_FIX_PAGE, AiRouteKeys::GBP_BRANCH_PAGE, AiRouteKeys::GBP_POST_QUEUE, AiRouteKeys::GBP_POST_FROM_PAGE,
         AiRouteKeys::GBP_DESCRIPTION, AiRouteKeys::GBP_REVIEW_REPLY, AiRouteKeys::GBP_PROFILE_PLAN, AiRouteKeys::GBP_BRANCH_SERVICES, AiRouteKeys::META_STRATEGY_PLAN, AiRouteKeys::META_CREATIVES,
         AiRouteKeys::META_STRUCTURE, AiRouteKeys::META_LANDING, AiRouteKeys::GOOGLE_ADS_AD_TEXTS, AiRouteKeys::GOOGLE_ADS_STRUCTURE, AiRouteKeys::BRAND_SETUP,
