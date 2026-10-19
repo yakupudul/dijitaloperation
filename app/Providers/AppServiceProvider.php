@@ -26,6 +26,7 @@ use App\Jobs\BuildBrandSetupProposalJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Jobs\EraseSourceDataJob;
+use App\Jobs\ExecuteExternalWriteJob;
 use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Jobs\Gbp\PrepareBranchPageJob;
 use App\Jobs\Gbp\RunGbpAssistantJob;
@@ -456,6 +457,8 @@ class AppServiceProvider extends ServiceProvider
             PrepareBranchPageJob::class => 'content',
             PrepareOverlapRewriteJob::class => 'content',
             ApproveRepairRowsJob::class => 'writes',
+            // Dispatched on its own lane (writes, or content for an article); this keeps a bare dispatch off "default" too.
+            ExecuteExternalWriteJob::class => 'writes',
         ];
     }
 }
