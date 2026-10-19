@@ -2175,3 +2175,6 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Akıllı tarih (yakup, 2026-10-19):** müşteri blogunda boş hafta görünmesin diye connector 1.19.0 yazı editöründe son 60
   günün boş Pazartesi / Çarşamba / Cuma gününü (bugüne en yakından geriye; boş yoksa ileriye zamanlama) 09:00-11:30 arası
   saatle önerir. Yayın düğmesine kişi basar; çeviriler aynı tarihi alır. 1.20.0: Yazılar listesinde toplu işlem (en fazla 20 taslak, onay ekranı, her yazıya ayrı boş gün). Aylık iş raporu kararı tutuldu, şimdilik yapılmıyor.
+- **Bozuk çeviri onarımı (2026-10-19):** dil sürümü oyun / yazılım argosuyla yazılmış, kaynağı düzgün sayfalar haftalık
+  bulunur; kaynağından sadık çevirisi Onarım masasına gelir, tek onayla sayfaya gider (geri alınabilir). İlk vaka OPC
+  Klinik'in 23 İtalyanca sayfası (17 Şubat 2026'da yayınlanmış, MoxDOP'un değil, saldırı izi yok).

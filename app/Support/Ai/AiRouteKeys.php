@@ -224,6 +224,9 @@ final class AiRouteKeys
     /** Faz 4a "AI ile yap": the new version of the fields / HTML a suggestion changes. */
     public const string SITE_APPLY_CHANGE = 'site.apply_change';
 
+    /** Bozuk çeviri onarımı: a faithful translation of a page's source-language version that replaces its broken text. */
+    public const string SITE_TRANSLATION_FIX = 'site.translation_fix';
+
     /** Onarım masası toplu hazırlık: SEO titles / meta descriptions of up to 15 pages of one site per call. */
     public const string SITE_SEO_FIELDS_BATCH = 'site.seo_fields_batch';
 

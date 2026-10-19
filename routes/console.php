@@ -19,6 +19,7 @@ use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Jobs\ReviewRepairRowsJob;
+use App\Jobs\Site\PrepareTranslationFixJob;
 use App\Jobs\Site\PullClarityJob;
 use App\Jobs\Site\SyncContentPostsJob;
 use App\Models\AiLiveOperation;
@@ -77,6 +78,7 @@ use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\Backlinks\SerpMentionSources;
+use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ClusterLinks;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
@@ -736,6 +738,32 @@ Schedule::command('moxdop:repair:prepare --batch-only')
     ->withoutOverlapping(50)
     ->when(fn (): bool => AiBudget::automaticAllowed('site.seo_fields_batch'))
     ->name('repair-desk-prepare-batch');
+
+// Bozuk çeviri onarımı (2026-10-19, OPC Klinik's Italian pages in game slang): language versions full of game words
+// while their source version has none get a faithful translation on the Onarım masası.
+Artisan::command('moxdop:site:broken-translations {--site= : One website asset id}', function (): void {
+    $found = 0;
+    $queued = 0;
+    foreach (ContentAutopilot::sites() as $site) {
+        if ($this->option('site') !== null && (int) $this->option('site') !== (int) $site->id) {
+            continue;
+        }
+        $found += count(app(BrokenTranslations::class)->scan($site));
+    }
+    foreach (BrokenTranslations::unprepared() as $suggestion) {
+        if ($this->option('site') === null || (int) data_get($suggestion->action, 'site_id') === (int) $this->option('site')) {
+            PrepareTranslationFixJob::dispatch((int) $suggestion->id);
+            $queued++;
+        }
+    }
+    $this->info($found.' bozuk çeviri sayfası bulundu; '.$queued.' sayfanın çevirisi hazırlanıyor.');
+})->purpose('Find language versions written in game slang and prepare their faithful translation for the repair desk');
+
+Schedule::command('moxdop:site:broken-translations')
+    ->weeklyOn(2, '04:20')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('site-broken-translations');
 
 Schedule::command('moxdop:repair:verify')
     ->hourlyAt(35)
