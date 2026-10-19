@@ -2,7 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\Brand;
+use App\Services\Repair\RepairDesk;
 use App\Support\Demo\DemoMenu;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 /**
  * Sidebar menu for the canonical TailAdmin operator shell.
@@ -11,10 +15,11 @@ use App\Support\Demo\DemoMenu;
 final class OperatorMenu
 {
     /**
-     * @return list<array{title: string, items: list<array{name: string, path: string, icon: string, routes: list<string>, active: bool, external?: bool}>}>
+     * @return list<array{title: string, items: list<array{name: string, path: string, icon: string, routes: list<string>, active: bool, count: ?int, external?: bool}>}>
      */
     public static function groups(?string $currentPath = null, ?string $routeName = null): array
     {
+        $counts = self::counters();
         $groups = [];
         foreach (DemoMenu::groups() as $group) {
             $items = [];
@@ -24,6 +29,7 @@ final class OperatorMenu
                     'path' => route($item['route'], absolute: false),
                     'icon' => $item['icon'],
                     'routes' => [$item['route'], ...array_column($item['children'] ?? [], 'route'), ...($item['active'] ?? [])],
+                    'count' => $counts[$item['route']] ?? null,
                 ];
             }
             $groups[] = [
@@ -42,6 +48,51 @@ final class OperatorMenu
         }
 
         return $groups;
+    }
+
+    /**
+     * Counters shown at the end of a menu entry: fixes waiting for approval on Onarım masası. Cached briefly and
+     * failure-safe, so a broken desk never breaks the shell.
+     *
+     * @return array<string, int> route name => count (only entries with something to show)
+     */
+    public static function counters(): array
+    {
+        if (! auth()->check()) {
+            return [];
+        }
+        try {
+            $repair = (int) Cache::remember('operator-menu.repair-count', 120, function (): int {
+                return app(RepairDesk::class)->rows()->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->count();
+            });
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
+
+        return $repair > 0 ? ['operator.repair' => $repair] : [];
+    }
+
+    /**
+     * Brands of the sidebar switcher (every operational brand, by name). Cached briefly; empty when the table is missing.
+     *
+     * @return list<array{id: int, name: string, url: string, logo: ?string}>
+     */
+    public static function brandSwitcher(): array
+    {
+        if (! auth()->check()) {
+            return [];
+        }
+        try {
+            return Cache::remember('operator-menu.brands', 300, fn (): array => Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url'])
+                ->map(fn (Brand $brand): array => ['id' => (int) $brand->id, 'name' => (string) $brand->name, 'url' => route('operator.brand', ['brand' => $brand->id], absolute: false), 'logo' => $brand->logo_url ?: null])
+                ->values()->all());
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
     }
 
     /**

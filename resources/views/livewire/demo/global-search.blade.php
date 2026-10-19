@@ -10,15 +10,16 @@
         wire:model.live.debounce.200ms="q"
         placeholder="{{ __('operator.search.placeholder') }}"
         aria-keyshortcuts="Control+K Meta+K"
-        class="h-11 w-64 rounded-lg border border-gray-200 bg-white py-0 pl-4 pr-14 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+        class="h-9 w-64 rounded-lg border-0 bg-gray-100 py-0 pl-9 pr-12 text-sm text-gray-800 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-300 dark:bg-white/5 dark:text-gray-200 dark:focus:bg-gray-900 dark:focus:ring-gray-700"
         autocomplete="off"
         @focus="open = $wire.q.trim() !== ''"
     />
-    <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-400">{{ __('operator.search.shortcut') }}</kbd>
+    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+    <kbd class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200 dark:bg-white/[0.06] dark:text-gray-400 dark:ring-gray-700">{{ __('operator.search.shortcut') }}</kbd>
     <div
         x-show="open"
         x-cloak
-        class="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
+        class="absolute left-0 z-50 mt-1.5 w-80 overflow-hidden rounded-xl bg-white shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
         role="listbox"
     >
         @forelse ($results as $row)

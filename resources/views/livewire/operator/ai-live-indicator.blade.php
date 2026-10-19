@@ -1,14 +1,14 @@
 <div @if ($running->isNotEmpty()) wire:poll.5s="refreshNow" @else wire:poll.30s="refreshNow" @endif class="relative" data-ai-live-indicator>
     @if ($visible)
         <details class="group" wire:key="ai-live-details">
-            <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">
-                <span @class(['h-2 w-2 shrink-0 rounded-full', 'animate-pulse bg-violet-500' => $running->isNotEmpty(), 'bg-amber-500' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-emerald-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'done', 'bg-rose-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'failed', 'bg-gray-400' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'cancelled'])></span>
+            <summary class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full bg-gray-100 px-3 text-xs text-gray-700 hover:bg-gray-200/70 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
+                <span @class(['h-2 w-2 shrink-0 rounded-full', 'live-dot' => $running->isNotEmpty(), 'bg-amber-500' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-emerald-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'done', 'bg-rose-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'failed', 'bg-gray-400' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'cancelled'])></span>
                 <span class="font-semibold">AI · {{ $running->count() }}</span>
                 @if ($queued->isNotEmpty())<span class="text-amber-700 dark:text-amber-300">+{{ $queued->count() }} sırada</span>@endif
                 @if ($running->count() === 1)<span class="hidden max-w-52 truncate sm:inline">{{ $running->first()->label }}</span>@endif
                 <span aria-hidden="true">▾</span>
             </summary>
-            <div class="absolute right-0 z-50 mt-2 w-96 max-w-[90vw] rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div class="absolute right-0 z-50 mt-1.5 w-96 max-w-[90vw] rounded-xl bg-white p-4 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <p class="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">Çalışan AI işlemleri</p>
                 <div class="max-h-80 space-y-2 overflow-y-auto">
                     @forelse ($running as $row)
@@ -47,7 +47,7 @@
                     </div>
                 @endif
                 <div class="mt-3 flex items-center justify-between gap-2 border-t border-gray-100 pt-2 text-xs dark:border-gray-800">
-                    <a href="{{ route('operator.ai-jobs') }}" wire:navigate class="font-semibold text-brand-600" data-ai-live-all>Tümünü gör</a>
+                    <a href="{{ route('operator.ai-jobs') }}" wire:navigate class="link-neutral" data-ai-live-all>Tümünü gör</a>
                     @if ($canOpenSettings)
                         <a href="{{ route('operator.settings.ai-operations') }}" wire:navigate class="text-gray-500">Ayarlar › AI işlemleri</a>
                     @endif

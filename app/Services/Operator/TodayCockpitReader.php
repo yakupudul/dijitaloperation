@@ -76,7 +76,9 @@ final class TodayCockpitReader
     }
 
     /**
-     * @return array{from: string, to: string, clicks: array{current: int, previous: int}, conversions: array{current: int, previous: int}, spend: list<array{currency: string, current: float, previous: float}>}
+     * `series` carries the day-by-day numbers of the 14 days (previous and current week) for the sparklines on Bugün.
+     *
+     * @return array{from: string, to: string, clicks: array{current: int, previous: int}, conversions: array{current: int, previous: int}, spend: list<array{currency: string, current: float, previous: float}>, series: array{clicks: list<int>, conversions: list<int>}}
      */
     public function week(?CarbonImmutable $today = null): array
     {
@@ -84,7 +86,7 @@ final class TodayCockpitReader
         $to = $today->subDay()->startOfDay();
         $from = $to->subDays(6);
         $empty = ['from' => $from->format('d.m'), 'to' => $to->format('d.m'), 'clicks' => ['current' => 0, 'previous' => 0],
-            'conversions' => ['current' => 0, 'previous' => 0], 'spend' => []];
+            'conversions' => ['current' => 0, 'previous' => 0], 'spend' => [], 'series' => ['clicks' => [], 'conversions' => []]];
 
         try {
             return Cache::remember('today-cockpit.week.'.$to->toDateString(), self::WEEK_TTL_SECONDS, function () use ($from, $to, $empty): array {
@@ -111,7 +113,11 @@ final class TodayCockpitReader
                     'clicks' => ['current' => (int) ($clicks['current'] ?? 0), 'previous' => (int) ($clicks['previous'] ?? 0)],
                     'conversions' => ['current' => (int) $ads->sum('current'), 'previous' => (int) $ads->sum('previous')],
                     'spend' => collect($spend)->map(fn (array $s): array => ['currency' => $s['currency'], 'current' => round($s['current'], 2), 'previous' => round($s['previous'], 2)])
-                        ->sortByDesc('current')->values()->all()];
+                        ->sortByDesc('current')->values()->all(),
+                    'series' => [
+                        'clicks' => $this->daily($scope, 'gsc_property_daily', 'clicks', $previousFrom, $to, fn ($q) => $q->where('search_type', 'web')),
+                        'conversions' => $this->daily($scope, 'google_ads_account_daily', 'conversions', $previousFrom, $to),
+                    ]];
             });
         } catch (Throwable $error) {
             report($error);
@@ -182,6 +188,29 @@ final class TodayCockpitReader
             ])->values()->all();
         } catch (Throwable $error) {
             report($error);
+        }
+
+        return $out;
+    }
+
+    /**
+     * One number per day from `$from` to `$to` (zero where the day has no row), for a sparkline.
+     *
+     * @return list<int>
+     */
+    private function daily(BrandMeasurementScope $scope, string $table, string $column, CarbonImmutable $from, CarbonImmutable $to, ?callable $filter = null): array
+    {
+        if (! Schema::hasTable($table)) {
+            return [];
+        }
+        $query = $scope->rows($table, $from, $to)->selectRaw('reporting_date, sum('.$column.') as day_sum')->groupBy('reporting_date');
+        if ($filter !== null) {
+            $filter($query);
+        }
+        $byDay = $query->get()->mapWithKeys(fn (object $row): array => [substr((string) $row->reporting_date, 0, 10) => (int) round((float) ($row->day_sum ?? 0))])->all();
+        $out = [];
+        for ($day = $from; $day->lte($to); $day = $day->addDay()) {
+            $out[] = $byDay[$day->toDateString()] ?? 0;
         }
 
         return $out;

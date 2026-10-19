@@ -10,78 +10,59 @@
     // Change against the previous 7 days: [text, tone]. Falling clicks / conversions are a loss (red); spend is information.
     $delta = function (float|int $current, float|int $previous, bool $lossWhenDown = true): ?array {
         if ($previous <= 0) {
-            return $current > 0 ? ['yeni', 'text-gray-500 dark:text-gray-400'] : null;
+            return $current > 0 ? ['yeni', 'neutral'] : null;
         }
         $change = (int) round(100 * ($current - $previous) / $previous);
         $tone = match (true) {
-            ! $lossWhenDown || $change === 0 => 'text-gray-500 dark:text-gray-400',
-            $change > 0 => 'text-success-700 dark:text-success-400',
-            default => 'text-error-700 dark:text-error-400',
+            ! $lossWhenDown || $change === 0 => 'neutral',
+            $change > 0 => 'positive',
+            default => 'negative',
         };
 
         return [($change > 0 ? '+' : '').$change.'%', $tone];
     };
-    $card = 'flex flex-col gap-1 rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $label = 'text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400';
+    $deltaText = ['neutral' => 'text-gray-500 dark:text-gray-400', 'positive' => 'text-success-700 dark:text-success-400', 'negative' => 'text-error-700 dark:text-error-400'];
+    $clicksDelta = $delta($week['clicks']['current'], $week['clicks']['previous']);
+    $leadsDelta = $delta($week['conversions']['current'], $week['conversions']['previous']);
+    $alarmTone = $alarms['loss'] > 0 ? 'negative' : ($alarms['accounts'] > 0 ? 'warning' : 'positive');
 @endphp
 
+{{-- Four counters: approvals, this week (with sparkline), alarms, AI work of the night. Same data-today-* hooks as before. --}}
 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-today-counters>
-    <a href="{{ route('operator.repair') }}" wire:navigate class="{{ $card }} hover:ring-gray-300 dark:hover:ring-gray-700" data-today-counter="approvals">
-        <span class="{{ $label }}">Onay bekleyen</span>
-        <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ $num($approvals['total']) }}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $approvals['total'] > 0 ? 'paket · '.$num($approvals['rows'] ?? 0).' iş · hepsini gör →' : 'Onarım masası boş' }}</span>
-    </a>
+    <x-ta.metric-card :href="route('operator.repair')" label="Onay bekleyen" :value="$num($approvals['total'])"
+        :hint="$approvals['total'] > 0 ? 'paket · '.$num($approvals['rows'] ?? 0).' iş · hepsini gör →' : 'Onarım masası boş'" data-today-counter="approvals" />
 
-    <div class="{{ $card }}" data-today-counter="week">
-        <span class="{{ $label }}">Bu hafta <span class="normal-case tracking-normal">· {{ $week['from'] }}–{{ $week['to'] }}</span></span>
-        <dl class="mt-0.5 space-y-0.5 text-sm">
-            @php($clicksDelta = $delta($week['clicks']['current'], $week['clicks']['previous']))
-            <div class="flex items-baseline justify-between gap-2">
-                <dt class="text-gray-500 dark:text-gray-400">Organik tık</dt>
-                <dd class="font-semibold text-gray-900 dark:text-white">{{ $num($week['clicks']['current']) }}
-                    @if ($clicksDelta)<span class="ml-1 text-xs font-medium {{ $clicksDelta[1] }}">{{ $clicksDelta[0] }}</span>@endif</dd>
-            </div>
-            @php($leadsDelta = $delta($week['conversions']['current'], $week['conversions']['previous']))
+    <x-ta.metric-card label="Organik tık · bu hafta" :value="$num($week['clicks']['current'])" :delta="$clicksDelta[0] ?? null" :tone="$clicksDelta[1] ?? 'neutral'"
+        :spark="$week['series']['clicks'] ?? []" :hint="$week['from'].'–'.$week['to'].' · önceki 7 güne göre'" data-today-counter="week">
+        <dl class="mt-1 space-y-0.5 border-t border-gray-100 pt-2 text-xs dark:border-gray-800">
             <div class="flex items-baseline justify-between gap-2">
                 <dt class="text-gray-500 dark:text-gray-400" title="Google Ads dönüşümleri">Müşteri (Ads)</dt>
-                <dd class="font-semibold text-gray-900 dark:text-white">{{ $num($week['conversions']['current']) }}
-                    @if ($leadsDelta)<span class="ml-1 text-xs font-medium {{ $leadsDelta[1] }}">{{ $leadsDelta[0] }}</span>@endif</dd>
+                <dd class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $num($week['conversions']['current']) }}
+                    @if ($leadsDelta)<span class="ml-1 font-medium {{ $deltaText[$leadsDelta[1]] }}">{{ $leadsDelta[0] }}</span>@endif</dd>
             </div>
             <div class="flex items-baseline justify-between gap-2">
                 <dt class="text-gray-500 dark:text-gray-400" title="Google Ads + Meta">Harcama</dt>
-                <dd class="text-right font-semibold text-gray-900 dark:text-white">
+                <dd class="text-right font-semibold tabular-nums text-gray-900 dark:text-white">
                     @forelse ($week['spend'] as $spend)
                         @php($spendDelta = $delta($spend['current'], $spend['previous'], false))
-                        <span class="block">{{ $money($spend['current'], $spend['currency']) }}@if ($spendDelta)<span class="ml-1 text-xs font-medium {{ $spendDelta[1] }}">{{ $spendDelta[0] }}</span>@endif</span>
+                        <span class="block">{{ $money($spend['current'], $spend['currency']) }}@if ($spendDelta)<span class="ml-1 font-medium {{ $deltaText[$spendDelta[1]] }}">{{ $spendDelta[0] }}</span>@endif</span>
                     @empty
                         <span class="text-gray-400">—</span>
                     @endforelse
                 </dd>
             </div>
         </dl>
-        <span class="text-[11px] text-gray-400">önceki 7 güne göre</span>
-    </div>
+    </x-ta.metric-card>
 
-    <a href="#alarm-verenler" class="{{ $card }} hover:ring-gray-300 dark:hover:ring-gray-700" data-today-counter="alarms">
-        <span class="{{ $label }}">Alarm veren hesaplar</span>
-        <span @class(['text-2xl font-bold', 'text-error-700 dark:text-error-400' => $alarms['loss'] > 0, 'text-warning-700 dark:text-warning-400' => $alarms['loss'] === 0 && $alarms['accounts'] > 0, 'text-success-700 dark:text-success-400' => $alarms['accounts'] === 0])>{{ $num($alarms['accounts']) }}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400">
-            @if ($alarms['accounts'] === 0) Sorun yok
-            @elseif ($alarms['loss'] > 0) {{ $alarms['loss'] }} hesap para / trafik kaybediyor
-            @else Bakılması gerekenler var
-            @endif
-        </span>
-    </a>
+    <x-ta.metric-card href="#alarm-verenler" label="Alarm veren hesaplar" :value="$num($alarms['accounts'])" :tone="$alarmTone"
+        :delta="$alarms['loss'] > 0 ? $alarms['loss'].' kayıp' : null"
+        :hint="$alarms['accounts'] === 0 ? 'Sorun yok' : ($alarms['loss'] > 0 ? $alarms['loss'].' hesap para / trafik kaybediyor' : 'Bakılması gerekenler var')" data-today-counter="alarms" />
 
-    <a href="{{ route('operator.ai-jobs', ['durum' => 'done']) }}" wire:navigate class="{{ $card }} hover:ring-gray-300 dark:hover:ring-gray-700" data-today-counter="ai">
-        <span class="{{ $label }}">Claude dün gece</span>
-        <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ $num($overnight['ai_done']) }}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400">AI işi bitti · son 24 saat</span>
-    </a>
+    <x-ta.metric-card :href="route('operator.ai-jobs', ['durum' => 'done'])" label="Claude dün gece" :value="$num($overnight['ai_done'])" hint="AI işi bitti · son 24 saat" data-today-counter="ai" />
 </div>
 
 <div class="grid gap-4 lg:grid-cols-2">
-    <section id="alarm-verenler" class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-today-alarms>
+    <section id="alarm-verenler" class="surface px-4 py-3" data-today-alarms>
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Alarm verenler</h2>
             @if ($alarms['items'] !== [])
@@ -89,18 +70,12 @@
             @endif
         </div>
         @if ($alarms['items'] === [])
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Harcaması duran hesap, erişilemeyen site ya da biten bütçe yok.</p>
+            <x-ta.empty-state size="sm" class="mt-2" title="Sorun yok" message="Harcaması duran hesap, erişilemeyen site ya da biten bütçe yok." />
         @else
-            <ul class="mt-2 space-y-1.5">
+            <ul class="mt-1 divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach ($alarms['items'] as $alarm)
-                    <li wire:key="today-alarm-{{ $alarm['id'] }}" data-today-alarm="{{ $alarm['tone'] }}" @class(['rounded-lg px-3 py-2 text-sm', 'tone-critical' => $alarm['tone'] === 'critical', 'tone-look' => $alarm['tone'] !== 'critical'])>
-                        <div class="flex flex-wrap items-baseline gap-x-2">
-                            <span class="font-semibold">{{ $alarm['title'] }}</span>
-                            <span class="text-xs opacity-80">{{ $alarm['brand'] }}@if ($alarm['asset'] !== '') · {{ $alarm['asset'] }}@endif</span>
-                            @if ($alarm['url'])<a href="{{ $alarm['url'] }}" wire:navigate class="ml-auto text-xs font-medium underline">Aç</a>@endif
-                        </div>
-                        @if ($alarm['message'] !== '')<p class="mt-0.5 text-xs opacity-80">{{ \Illuminate\Support\Str::limit($alarm['message'], 160) }}</p>@endif
-                    </li>
+                    <x-ta.alarm-row wire:key="today-alarm-{{ $alarm['id'] }}" :tone="$alarm['tone']" :title="$alarm['title']" :brand="$alarm['brand']" :meta="$alarm['asset'] !== '' ? $alarm['asset'] : null"
+                        :message="$alarm['message'] !== '' ? \Illuminate\Support\Str::limit($alarm['message'], 160) : null" :href="$alarm['url']" data-today-alarm="{{ $alarm['tone'] }}" />
                 @endforeach
             </ul>
             @if ($alarms['more'] > 0)
@@ -109,7 +84,7 @@
         @endif
     </section>
 
-    <section class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-today-approvals>
+    <section class="surface px-4 py-3" data-today-approvals>
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Onay bekleyenler</h2>
             @if ($approvals['total'] > 0)
@@ -117,28 +92,29 @@
             @endif
         </div>
         @if ($approvals['packages'] === [])
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Onay bekleyen iş yok.</p>
+            <x-ta.empty-state size="sm" class="mt-2" title="Onay bekleyen iş yok." message="Hazırlanan düzeltmeler burada toplanır; bir tıkla gönderilir." />
         @else
-            <ul class="mt-2 divide-y divide-gray-100 text-sm dark:divide-gray-800">
+            <ul class="mt-1 divide-y divide-gray-100 text-sm dark:divide-gray-800">
                 @foreach ($approvals['packages'] as $package)
-                    <li class="flex items-baseline gap-2 py-1.5" wire:key="today-package-{{ $package['key'] }}" data-today-package="{{ $package['key'] }}">
+                    <li class="flex items-center gap-3 py-2" wire:key="today-package-{{ $package['key'] }}" data-today-package="{{ $package['key'] }}">
+                        <x-ta.brand-avatar :name="$package['brand']" size="sm" />
                         <a href="{{ $package['url'] }}" wire:navigate class="min-w-0 flex-1 truncate text-gray-800 hover:underline dark:text-white/90">
                             <span class="font-medium">{{ $package['brand'] }}</span>
                             <span class="text-gray-500 dark:text-gray-400">· {{ $package['kind_label'] }}</span>
                         </a>
-                        <x-ta.badge size="sm" :color="$package['lane'] === 'ready' ? 'ok' : 'look'">{{ $package['lane_label'] }}</x-ta.badge>
-                        <span class="w-10 shrink-0 text-right font-semibold text-gray-900 dark:text-white">{{ $num($package['count']) }}</span>
+                        <x-ta.pill :tone="$package['lane'] === 'ready' ? 'ok' : 'look'">{{ $package['lane_label'] }}</x-ta.pill>
+                        <span class="w-8 shrink-0 text-right font-semibold tabular-nums text-gray-900 dark:text-white">{{ $num($package['count']) }}</span>
                     </li>
                 @endforeach
             </ul>
-            <div class="mt-2">
+            <div class="mt-3">
                 <x-ta.button :href="route('operator.repair')" size="sm" wire:navigate>Onay masasını aç</x-ta.button>
             </div>
         @endif
     </section>
 </div>
 
-<section class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-today-overnight>
+<section class="surface px-4 py-3" data-today-overnight>
     <div class="flex flex-wrap items-baseline justify-between gap-2">
         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Dün gece yapılanlar <span class="text-xs font-normal text-gray-500">· son 24 saat</span></h2>
         <a href="{{ route('operator.repair') }}" wire:navigate class="link-neutral text-xs">Onarım masasında yapılanlar →</a>
@@ -152,13 +128,13 @@
                 @if ($overnight['writes'] === [])
                     <p class="mt-1 text-sm text-gray-500">Yok.</p>
                 @else
-                    <ul class="mt-1 space-y-1 text-sm">
+                    <ul class="mt-1 divide-y divide-gray-100 text-sm dark:divide-gray-800">
                         @foreach ($overnight['writes'] as $write)
-                            <li class="flex flex-wrap items-baseline gap-x-2" data-today-write>
-                                <span class="text-xs text-gray-400">{{ $write['at'] }}</span>
+                            <li class="flex flex-wrap items-baseline gap-x-2 py-1.5" data-today-write>
+                                <span class="w-10 shrink-0 text-xs tabular-nums text-gray-400">{{ $write['at'] }}</span>
                                 <span class="font-medium text-gray-800 dark:text-white/90">{{ $write['asset'] !== '' ? $write['asset'] : $write['label'] }}</span>
                                 <span class="text-gray-600 dark:text-gray-300">{{ $write['label'] }} · {{ $write['sentence'] }}</span>
-                                @if ($write['failed'] > 0)<x-ta.badge size="sm" color="look">{{ $write['failed'] }} yazılamadı</x-ta.badge>@endif
+                                @if ($write['failed'] > 0)<x-ta.pill tone="look">{{ $write['failed'] }} yazılamadı</x-ta.pill>@endif
                             </li>
                         @endforeach
                     </ul>
@@ -169,11 +145,11 @@
                 @if ($overnight['ai'] === [])
                     <p class="mt-1 text-sm text-gray-500">Yok.</p>
                 @else
-                    <ul class="mt-1 space-y-1 text-sm">
+                    <ul class="mt-1 divide-y divide-gray-100 text-sm dark:divide-gray-800">
                         @foreach ($overnight['ai'] as $job)
-                            <li class="flex items-baseline justify-between gap-2" data-today-ai>
+                            <li class="flex items-baseline justify-between gap-2 py-1.5" data-today-ai>
                                 <span class="min-w-0 truncate text-gray-700 dark:text-gray-300">{{ $job['label'] }}</span>
-                                <span class="shrink-0 font-semibold text-gray-900 dark:text-white">{{ $num($job['count']) }}</span>
+                                <span class="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-white">{{ $num($job['count']) }}</span>
                             </li>
                         @endforeach
                     </ul>

@@ -2,9 +2,9 @@
     use App\Livewire\Operator\Repair\RepairDeskPage;
     use App\Services\Repair\RepairDesk;
     // Renk kuralı (2026-10-11): turuncu yalnız ana eylem, kırmızı yalnız para / trafik kaybı, amber "bak", gri bilgi, yeşil tamam.
-    $card = 'rounded-xl bg-white p-4 sm:p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $riskTone = ['low' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'medium' => 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300', 'high' => 'bg-amber-100 font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200', 'manual' => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'];
-    $laneDot = [RepairDesk::LANE_READY => 'bg-emerald-500', RepairDesk::LANE_REVIEW => 'bg-amber-500', RepairDesk::LANE_MANUAL => 'bg-gray-400'];
+    $card = 'surface p-4 sm:p-5';
+    $riskTone = ['low' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400', 'medium' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400', 'high' => 'bg-warning-100 font-semibold text-warning-800 dark:bg-warning-500/20 dark:text-warning-300', 'manual' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-gray-300'];
+    $laneDot = [RepairDesk::LANE_READY => 'bg-success-500', RepairDesk::LANE_REVIEW => 'bg-warning-500', RepairDesk::LANE_MANUAL => 'bg-gray-400'];
     $laneHint = [
         RepairDesk::LANE_READY => 'Düşük riskli, hazır işler. Paketin tamamını tek tıkla onaylayabilirsin.',
         RepairDesk::LANE_REVIEW => 'Birleştirme, sayfa metni, teknik düzeltme gibi işler. Eski ve yeni yan yana, değişen kelimeler renkli. Sayfa metni tek tek onaylanır.',
@@ -14,10 +14,10 @@
     $words = function (array $parts, string $tone): string {
         return collect($parts)->map(fn (array $p): string => $p[1] ? '<mark class="rounded px-0.5 '.$tone.'">'.e($p[0]).'</mark>' : e($p[0]))->implode('');
     };
-    $segment = 'flex items-center gap-2 rounded-lg px-3 py-1.5 whitespace-nowrap';
-    $segmentOn = 'bg-white font-semibold text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white';
+    $segment = 'flex h-8 items-center gap-2 rounded-md px-3 whitespace-nowrap';
+    $segmentOn = 'bg-white font-semibold text-gray-900 shadow-theme-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-white dark:ring-gray-700';
     $segmentOff = 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
-    $pill = 'rounded-full bg-gray-200/70 px-1.5 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+    $pill = 'rounded-full bg-gray-200/70 px-1.5 text-[11px] font-semibold tabular-nums text-gray-700 dark:bg-gray-700 dark:text-gray-300';
     /** Above this many rows a bulk approval opens the confirm window with samples. */
     $bulkLimit = 10;
     /** Satırda "Sayfa adı → yeni değer"; URL altta küçük gri. */
@@ -28,30 +28,30 @@
 <div class="space-y-5 pb-24" data-repair-desk x-data="{ ask: null, go() { const a = this.ask; this.ask = null; this.$wire.call(a.method, ...a.args) } }">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Onarım masası</h1>
+            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Onarım masası</h1>
             <p class="mt-1 text-sm text-gray-500">Hazırlanan düzeltmeler paket paket; onayladığın an uygulanır ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300" data-desk-total>@if ($brandId !== null){{ $brands[$brandId] ?? 'Marka' }}: onay bekleyen {{ number_format($counts['brand_packages'], 0, ',', '.') }} paket · {{ number_format($counts['brand_total'], 0, ',', '.') }} iş <span class="font-normal text-gray-500">(tüm markalarda {{ number_format($counts['total'], 0, ',', '.') }} iş)</span>@else Onay bekleyen {{ number_format($counts['packages'], 0, ',', '.') }} paket · {{ number_format($counts['total'], 0, ',', '.') }} iş @endif</span></p>
         </div>
         {{-- Rozet yazılamayanı da söyler (yakup 2026-10-19: 999 hata yeşil "1 iş yapıldı" altında kalıyordu) --}}
-        <a href="#yapilanlar" @click="$dispatch('show-done')" @class(['shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset',
-            'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' => $doneFailed === 0,
-            'bg-amber-50 text-amber-800 ring-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30' => $doneFailed > 0]) data-done-badge>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı@if ($doneFailed > 0) · {{ number_format($doneFailed, 0, ',', '.') }} yazılamadı@endif</a>
+        <a href="#yapilanlar" @click="$dispatch('show-done')" @class(['inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium',
+            'bg-success-50 text-success-700 hover:bg-success-100 dark:bg-success-500/15 dark:text-success-400' => $doneFailed === 0,
+            'bg-warning-50 text-warning-700 hover:bg-warning-100 dark:bg-warning-500/15 dark:text-warning-400' => $doneFailed > 0]) data-done-badge><span class="h-1.5 w-1.5 rounded-full {{ $doneFailed === 0 ? 'bg-success-500' : 'bg-warning-500' }}"></span>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı@if ($doneFailed > 0) · {{ number_format($doneFailed, 0, ',', '.') }} yazılamadı@endif</a>
     </div>
 
     <livewire:operator.repair.daily-send-strip lazy />
 
-    <p class="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-500" data-desk-layer="karar">Karar bekleyenler</p>
+    <p class="pt-1 text-[11px] font-medium uppercase tracking-wide text-gray-500" data-desk-layer="karar">Karar bekleyenler</p>
 
     @if ($message !== '')
-        <p class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">{{ $message }}</p>
+        <p class="tone-info rounded-lg px-4 py-2 text-sm">{{ $message }}</p>
     @endif
     @if ($queuedCount > 0)
-        <p wire:poll.10s class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300" data-desk-queued>Onaylanan {{ number_format($queuedCount, 0, ',', '.') }} iş arka planda uygulanıyor; bitince "Yapılanlar"da görünür.</p>
+        <p wire:poll.10s class="tone-info flex items-center gap-2 rounded-lg px-4 py-2 text-sm" data-desk-queued><span class="live-dot"></span>Onaylanan {{ number_format($queuedCount, 0, ',', '.') }} iş arka planda uygulanıyor; bitince "Yapılanlar"da görünür.</p>
     @endif
 
     {{-- Tek anahtar (2026-10-11): üç şerit ve diğer işler; eski ?serit= / ?bolum= bağlantıları aynı yere düşer --}}
     <div class="space-y-1">
         <p class="text-xs text-gray-500">Hazır düzeltmeler · ya da diğer işler</p>
-        <div class="inline-flex max-w-full flex-wrap gap-1 rounded-xl bg-gray-100 p-1 text-sm dark:bg-gray-800" role="tablist" aria-label="Bölümler" data-repair-lanes data-desk-sections>
+        <div class="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-gray-100 p-1 text-sm dark:bg-white/5" role="tablist" aria-label="Bölümler" data-repair-lanes data-desk-sections>
             @foreach (RepairDesk::LANES as $key => $label)
                 @php $active = $section === RepairDeskPage::SECTION_DESK && $lane === $key; @endphp
                 <button type="button" role="tab" wire:click="showLane('{{ $key }}')" aria-selected="{{ $active ? 'true' : 'false' }}" class="{{ $segment }} {{ $active ? $segmentOn : $segmentOff }}">
@@ -73,7 +73,7 @@
         <div class="flex flex-wrap items-end gap-x-3 gap-y-1" data-repair-health>
             <label class="block w-full sm:w-80" data-repair-brand-select>
                 <span class="text-xs text-gray-500">Marka</span>
-                <select x-on:change="$wire.set('brandId', $event.target.value === '' ? null : Number($event.target.value))" class="mt-1 block w-full rounded-lg border-gray-300 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                <select x-on:change="$wire.set('brandId', $event.target.value === '' ? null : Number($event.target.value))" class="mt-1 block h-9 w-full rounded-lg border-gray-200 bg-white py-0 text-sm focus:border-gray-300 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
                     <option value="" @selected($brandId === null)>Tüm markalar · {{ number_format($counts['total'], 0, ',', '.') }} iş</option>
                     @if ($brandId !== null && ! $health->contains('brand_id', $brandId))
                         <option value="{{ $brandId }}" selected>{{ $brands[$brandId] ?? 'Marka' }} · bekleyen iş yok</option>
@@ -94,11 +94,11 @@
             <livewire:operator.work.work-page :embedded="true" :brand-filter="$brandId" :key="'desk-other-'.($brandId ?? 'all')" />
         @else
             {{-- Onaydan sonra --}}
-            <section class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" data-repair-pipeline>
-                @foreach ([['queued', 'Onaylandı, sırada', 'text-gray-800 dark:text-white/90'], ['written', 'Siteye yazıldı', 'text-gray-800 dark:text-white/90'], ['verified', 'Doğrulandı', 'text-emerald-600 dark:text-emerald-400'], ['returned', 'Hata, masaya döndü', 'text-amber-600 dark:text-amber-400']] as [$stage, $label, $tone])
-                    <div class="rounded-xl bg-white px-4 py-2 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <section class="surface grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-sm sm:grid-cols-4" data-repair-pipeline>
+                @foreach ([['queued', 'Onaylandı, sırada', 'text-gray-800 dark:text-white/90'], ['written', 'Siteye yazıldı', 'text-gray-800 dark:text-white/90'], ['verified', 'Doğrulandı', 'text-success-700 dark:text-success-400'], ['returned', 'Hata, masaya döndü', 'text-warning-700 dark:text-warning-400']] as [$stage, $label, $tone])
+                    <div class="flex items-baseline gap-2 sm:block">
+                        <p class="text-xl font-semibold tabular-nums tracking-tight {{ $tone }}">{{ $pipeline[$stage] }}</p>
                         <p class="text-xs text-gray-500">{{ $label }}</p>
-                        <p class="text-lg font-semibold {{ $tone }}">{{ $pipeline[$stage] }}</p>
                     </div>
                 @endforeach
                 <p class="col-span-full text-xs text-gray-500">Son {{ RepairDesk::TRACK_DAYS }} günde onayladıkların. Yazılamayan ya da geri alınan iş hatasıyla birlikte masaya kendiliğinden döner.</p>
@@ -108,21 +108,21 @@
             <div class="flex flex-wrap items-center gap-1.5 text-xs" data-repair-kinds>
                 @if (count(array_filter($counts['kinds'])) > 1 || $kind !== '')
                     <span class="text-gray-500">Tür:</span>
-                    <button type="button" wire:click="$set('kind', '')" @class(['rounded-md px-2 py-0.5 ring-1 ring-inset', 'bg-gray-800 text-white ring-gray-800 dark:bg-white dark:text-gray-900' => $kind === '', 'text-gray-600 ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $kind !== ''])>Hepsi</button>
+                    <button type="button" wire:click="$set('kind', '')" @class(['rounded-full px-2.5 py-0.5 ring-1 ring-inset', 'bg-gray-900 text-white ring-gray-900 dark:bg-white dark:text-gray-900' => $kind === '', 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-300 dark:ring-gray-700' => $kind !== ''])>Hepsi</button>
                     @foreach (RepairDesk::KINDS as $key => $label)
                         @if (($counts['kinds'][$key] ?? 0) > 0)
-                            <button type="button" wire:click="$set('kind', '{{ $kind === $key ? '' : $key }}')" @class(['rounded-md px-2 py-0.5 ring-1 ring-inset', 'bg-gray-800 text-white ring-gray-800 dark:bg-white dark:text-gray-900' => $kind === $key, 'text-gray-600 ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $kind !== $key])>{{ $label }} {{ $counts['kinds'][$key] }}</button>
+                            <button type="button" wire:click="$set('kind', '{{ $kind === $key ? '' : $key }}')" @class(['rounded-full px-2.5 py-0.5 ring-1 ring-inset', 'bg-gray-900 text-white ring-gray-900 dark:bg-white dark:text-gray-900' => $kind === $key, 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-300 dark:ring-gray-700' => $kind !== $key])>{{ $label }} {{ $counts['kinds'][$key] }}</button>
                         @endif
                     @endforeach
                 @endif
                 @if ($isAdmin && $laneTotal > 0)
                     <span class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-                        <button type="button" wire:click="selectAllMatching" class="rounded-lg border border-gray-300 px-2.5 py-1 text-gray-700 dark:border-gray-700 dark:text-gray-300">Bu şeritteki tümünü seç ({{ $laneTotal }})</button>
+                        <button type="button" wire:click="selectAllMatching" class="h-7 rounded-lg bg-white px-2.5 text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-300 dark:ring-gray-700">Bu şeritteki tümünü seç ({{ $laneTotal }})</button>
                         @if ($lane === RepairDesk::LANE_READY && $lowTotal > 0)
                             @if ($lowTotal > $bulkLimit)
-                                <button type="button" @click="ask = {{ $ask('Görünen bütün düşük riskli işler uygulansın mı?', $lowSample, $lowTotal, 'approveAllLow') }}" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold text-white sm:w-auto sm:py-1" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
+                                <button type="button" @click="ask = {{ $ask('Görünen bütün düşük riskli işler uygulansın mı?', $lowSample, $lowTotal, 'approveAllLow') }}" class="h-8 w-full rounded-lg bg-brand-500 px-3 font-semibold text-white hover:bg-brand-600 sm:h-7 sm:w-auto" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
                             @else
-                                <button type="button" wire:click="approveAllLow" wire:confirm="Görünen bütün düşük riskli işler uygulansın mı?" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold text-white sm:w-auto sm:py-1" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
+                                <button type="button" wire:click="approveAllLow" wire:confirm="Görünen bütün düşük riskli işler uygulansın mı?" class="h-8 w-full rounded-lg bg-brand-500 px-3 font-semibold text-white hover:bg-brand-600 sm:h-7 sm:w-auto" data-approve-low>Düşük risklilerin hepsini onayla ({{ $lowTotal }})</button>
                             @endif
                         @endif
                     </span>
@@ -139,24 +139,25 @@
                     @endphp
                     <article class="{{ $card }}" wire:key="package-{{ $package['key'] }}" data-package="{{ $package['key'] }}">
                         <div class="flex flex-wrap items-start gap-3">
+                            <x-ta.brand-avatar :name="$package['brand']" class="mt-0.5" />
                             <div class="min-w-0 flex-1">
                                 <a href="{{ route('operator.brand', ['brand' => $package['brand_id']]) }}" wire:navigate class="text-xs text-gray-500 hover:text-gray-800 hover:underline">{{ $package['brand'] }}</a>
-                                <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ $package['count'] }} · {{ RepairDesk::KINDS[$package['kind']] }}</h3>
-                                @if ($package['high'] > 0)<p class="text-xs text-amber-700 dark:text-amber-300">{{ $package['high'] }} iş yüksek riskli: paketi açıp tek tek onaylanır.</p>@endif
+                                <h3 class="text-base font-semibold tabular-nums text-gray-900 dark:text-white">{{ $package['count'] }} · {{ RepairDesk::KINDS[$package['kind']] }}</h3>
+                                @if ($package['high'] > 0)<p class="text-xs text-warning-700 dark:text-warning-400">{{ $package['high'] }} iş yüksek riskli: paketi açıp tek tek onaylanır.</p>@endif
                                 @if (($package['track'] ?? '') !== '')<p class="text-xs text-gray-500" data-package-track>{{ $package['track'] }}</p>@endif
                             </div>
                             @if ($isAdmin)
                                 <div class="flex w-full flex-wrap items-center gap-2 text-xs sm:w-auto">
                                     @if ($approvable > 0)
                                         @if (! $isManual && $approvable > $bulkLimit)
-                                            <button type="button" @click="ask = {{ $ask($package['brand'].': '.$approvable.' iş uygulansın mı?', $package['sample'], $approvable, 'approvePackage', [$package['key']]) }}" class="w-full rounded-lg bg-brand-500 px-3 py-2.5 text-sm font-semibold text-white sm:w-auto sm:py-1.5 sm:text-xs" data-approve-package>Hepsini onayla ({{ $approvable }})</button>
+                                            <button type="button" @click="ask = {{ $ask($package['brand'].': '.$approvable.' iş uygulansın mı?', $package['sample'], $approvable, 'approvePackage', [$package['key']]) }}" class="h-9 w-full rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600 sm:h-8 sm:w-auto sm:text-xs" data-approve-package>Hepsini onayla ({{ $approvable }})</button>
                                         @else
-                                            <button type="button" wire:click="approvePackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $approvable }} iş {{ $isManual ? 'yapıldı olarak işaretlensin' : 'uygulansın' }} mı?" class="w-full rounded-lg bg-brand-500 px-3 py-2.5 text-sm font-semibold text-white sm:w-auto sm:py-1.5 sm:text-xs" data-approve-package>{{ $isManual ? 'Hepsini yaptım' : 'Hepsini onayla' }} ({{ $approvable }})</button>
+                                            <button type="button" wire:click="approvePackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $approvable }} iş {{ $isManual ? 'yapıldı olarak işaretlensin' : 'uygulansın' }} mı?" class="h-9 w-full rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600 sm:h-8 sm:w-auto sm:text-xs" data-approve-package>{{ $isManual ? 'Hepsini yaptım' : 'Hepsini onayla' }} ({{ $approvable }})</button>
                                         @endif
                                     @endif
-                                    <button type="button" wire:click="togglePackage('{{ $package['key'] }}')" class="rounded-lg px-2 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">{{ $isOpen ? 'Kapat ▲' : 'İçini aç ▼' }}</button>
+                                    <button type="button" wire:click="togglePackage('{{ $package['key'] }}')" class="h-8 rounded-lg px-2 font-semibold text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">{{ $isOpen ? 'Kapat ▲' : 'İçini aç ▼' }}</button>
                                     <button type="button" wire:click="selectPackage('{{ $package['key'] }}')" class="px-1.5 py-1 text-gray-500 hover:text-gray-800 hover:underline">Seç</button>
-                                    <button type="button" wire:click="rejectPackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $package['count'] }} iş reddedilsin mi? Kanıt değişmedikçe geri gelmezler." class="rounded-md border border-gray-200 px-2 py-0.5 text-[11px] text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400" data-reject-package>Hepsini reddet</button>
+                                    <button type="button" wire:click="rejectPackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $package['count'] }} iş reddedilsin mi? Kanıt değişmedikçe geri gelmezler." class="rounded-md px-2 py-0.5 text-[11px] text-gray-500 ring-1 ring-inset ring-gray-200 hover:text-gray-700 hover:ring-gray-300 dark:text-gray-400 dark:ring-gray-700" data-reject-package>Hepsini reddet</button>
                                 </div>
                             @endif
                         </div>
@@ -205,7 +206,7 @@
                                                 @if ($row['target'] !== '')<span class="block break-all text-xs text-gray-400" data-row-target>{{ $row['target'] }}</span>@endif
                                             </button>
                                             @if ($isAdmin)
-                                                <button type="button" wire:click="approve({{ $row['id'] }})" @class(['w-full shrink-0 rounded-lg px-3 py-2 text-sm font-semibold sm:w-auto sm:py-1 sm:text-xs', 'border border-brand-500 text-brand-600' => $row['risk'] === 'manual', 'bg-brand-500 text-white' => $row['risk'] !== 'manual']) @if ($row['risk'] === 'manual') data-repair-done @endif>{{ $row['risk'] === 'manual' ? 'Yaptım' : 'Onayla' }}</button>
+                                                <button type="button" wire:click="approve({{ $row['id'] }})" @class(['h-9 w-full shrink-0 rounded-lg px-3 text-sm font-semibold sm:h-7 sm:w-auto sm:text-xs', 'text-brand-600 ring-1 ring-inset ring-brand-500 hover:bg-brand-50' => $row['risk'] === 'manual', 'bg-brand-500 text-white hover:bg-brand-600' => $row['risk'] !== 'manual']) @if ($row['risk'] === 'manual') data-repair-done @endif>{{ $row['risk'] === 'manual' ? 'Yaptım' : 'Onayla' }}</button>
                                             @endif
                                         </div>
                                         <div x-show="more" x-cloak class="mt-2 space-y-2 pl-7 text-xs">
@@ -223,7 +224,7 @@
                                                     <p class="font-semibold uppercase text-gray-400">{{ $row['risk'] === 'manual' ? 'Yapılacak' : 'Onaylanınca' }}</p>
                                                     @foreach ($row['after'] as $n => $line)
                                                         @php $pair = $row['before'][$n] ?? null; $same = $pair !== null && \Illuminate\Support\Str::before($line, ':') === \Illuminate\Support\Str::before($pair, ':'); @endphp
-                                                        <p class="break-words">{!! $same ? $words(RepairDesk::diff($pair, $line)['after'], 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200') : e($line) !!}</p>
+                                                        <p class="break-words">{!! $same ? $words(RepairDesk::diff($pair, $line)['after'], 'bg-success-100 text-success-800 dark:bg-success-500/20 dark:text-success-200') : e($line) !!}</p>
                                                     @endforeach
                                                 </div>
                                             </div>
@@ -238,8 +239,8 @@
                                         </div>
                                         @if ($editing === $row['id'])
                                             <form wire:submit="saveEdit" class="mt-2 flex flex-wrap gap-2 pl-7">
-                                                <textarea wire:model="editValue" rows="2" class="min-w-0 flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900"></textarea>
-                                                <button type="submit" class="rounded-lg bg-brand-500 px-3 py-1 text-xs text-white">Kaydet</button>
+                                                <textarea wire:model="editValue" rows="2" class="min-w-0 flex-1 rounded-lg border-gray-200 px-2 py-1 text-xs focus:border-gray-300 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900"></textarea>
+                                                <button type="submit" class="h-7 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600">Kaydet</button>
                                                 <button type="button" wire:click="$set('editing', null)" class="text-xs text-gray-500">Vazgeç</button>
                                             </form>
                                         @endif
@@ -259,14 +260,14 @@
             {{-- Seçim çubuğu --}}
             @if ($isAdmin && $selected !== [])
                 @php $selectedCount = count($selected); @endphp
-                <div class="sticky bottom-3 z-30 flex flex-wrap items-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-gray-800" data-repair-selection>
+                <div class="sticky bottom-3 z-30 flex flex-wrap items-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-theme-lg ring-1 ring-white/10 dark:bg-gray-800" data-repair-selection>
                     <span class="font-semibold">{{ $selectedCount }} iş seçili</span>
                     @if ($selectedCount > $bulkLimit)
-                        <button type="button" @click="ask = {{ $ask($selectedCount.' seçili iş uygulansın mı?', $selectedSample, $selectedCount, 'approveSelected') }}" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold sm:w-auto sm:py-1.5">Seçilenleri onayla ({{ $selectedCount }})</button>
+                        <button type="button" @click="ask = {{ $ask($selectedCount.' seçili iş uygulansın mı?', $selectedSample, $selectedCount, 'approveSelected') }}" class="h-9 w-full rounded-lg bg-brand-500 px-3 font-semibold hover:bg-brand-600 sm:h-8 sm:w-auto">Seçilenleri onayla ({{ $selectedCount }})</button>
                     @else
-                        <button type="button" wire:click="approveSelected" class="w-full rounded-lg bg-brand-500 px-3 py-2 font-semibold sm:w-auto sm:py-1.5">Seçilenleri onayla ({{ $selectedCount }})</button>
+                        <button type="button" wire:click="approveSelected" class="h-9 w-full rounded-lg bg-brand-500 px-3 font-semibold hover:bg-brand-600 sm:h-8 sm:w-auto">Seçilenleri onayla ({{ $selectedCount }})</button>
                     @endif
-                    <input type="text" wire:model="rejectReason" placeholder="Red sebebi (isteğe bağlı)" class="w-full rounded-lg border-0 bg-white/10 sm:w-56 px-2 py-1 text-white placeholder:text-gray-400">
+                    <input type="text" wire:model="rejectReason" placeholder="Red sebebi (isteğe bağlı)" class="h-8 w-full rounded-lg border-0 bg-white/10 px-2 text-sm text-white placeholder:text-gray-400 focus:ring-2 focus:ring-white/20 sm:w-56">
                     <button type="button" wire:click="rejectSelected" class="rounded-md border border-white/20 px-2 py-1 text-xs text-gray-300 hover:text-white">Seçilenleri reddet ({{ $selectedCount }})</button>
                     <button type="button" wire:click="clearSelection" class="ml-auto text-gray-300 hover:underline">Seçimi temizle</button>
                 </div>
@@ -275,7 +276,7 @@
         </div>
     </div>
 
-    <p class="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-500" data-desk-layer="gecmis">Geçmiş</p>
+    <p class="pt-1 text-[11px] font-medium uppercase tracking-wide text-gray-500" data-desk-layer="gecmis">Geçmiş</p>
 
     {{-- Yapılanlar: üstteki "Son 7 gün" rozeti buraya getirir ve listeyi açar. Bir grubun tek tek işleri yalnız açılınca
          sunucudan gelir (yakup 2026-10-19: 989 satırlık gizli liste sayfayı 1,8 MB yapıyordu). --}}
@@ -287,21 +288,21 @@
             @endif
         </div>
         @if ($doneReturned > 0)
-            <p class="mt-2 rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300" data-done-returned>Yazılamayan {{ number_format($doneReturned, 0, ',', '.') }} iş kaybolmadı: hatasıyla birlikte masaya geri döndü ve bir sonraki gönderimde yeniden gider.</p>
+            <p class="tone-info mt-2 rounded-lg px-3 py-2 text-xs" data-done-returned>Yazılamayan {{ number_format($doneReturned, 0, ',', '.') }} iş kaybolmadı: hatasıyla birlikte masaya geri döndü ve bir sonraki gönderimde yeniden gider.</p>
         @endif
         <ul class="mt-3 space-y-2">
             @forelse ($done as $n => $group)
                 @php $isDoneOpen = $doneOpen === $group['key']; @endphp
-                <li class="rounded-lg px-3 py-2 ring-1 ring-inset ring-gray-200 dark:ring-gray-800" wire:key="done-{{ $group['key'] }}" @if ($n >= 6 && ! $isDoneOpen) x-show="all" x-cloak @endif>
+                <li class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]" wire:key="done-{{ $group['key'] }}" @if ($n >= 6 && ! $isDoneOpen) x-show="all" x-cloak @endif>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="min-w-0 flex-1">
                             <p class="text-xs text-gray-500">{{ $group['at'] }} · {{ $group['asset'] }} · {{ $group['label'] }}</p>
                             <p class="font-medium text-gray-800 dark:text-white/90">
-                                @if ($group['failed'] > 0 && $group['ok'] + $group['partial'] === 0)<span class="text-amber-600">✕</span>@elseif ($group['partial'] > 0 || $group['failed'] > 0)<span class="text-amber-600">◐</span>@else<span class="text-emerald-600">✓</span>@endif
+                                @if ($group['failed'] > 0 && $group['ok'] + $group['partial'] === 0)<span class="text-warning-600">✕</span>@elseif ($group['partial'] > 0 || $group['failed'] > 0)<span class="text-warning-600">◐</span>@else<span class="text-success-600">✓</span>@endif
                                 {{ $group['sentence'] }}@if ($group['failed'] > 0 && $group['ok'] + $group['partial'] > 0); {{ number_format($group['failed'], 0, ',', '.') }} iş yazılamadı@elseif ($group['failed'] > 1) ({{ number_format($group['failed'], 0, ',', '.') }} iş)@endif.
                             </p>
                             @foreach ($group['problems'] as $problem)
-                                <p class="text-xs text-amber-700 dark:text-amber-300">Yapılamayan: {{ $problem }}</p>
+                                <p class="text-xs text-warning-700 dark:text-warning-400">Yapılamayan: {{ $problem }}</p>
                             @endforeach
                             @if (($group['returned'] ?? 0) > 0)
                                 <p class="text-xs text-gray-500" data-done-group-returned>{{ number_format($group['returned'], 0, ',', '.') }} iş masaya geri döndü; sonraki gönderimde gider.</p>
@@ -319,9 +320,9 @@
                             @foreach (array_slice($group['items'], 0, $donePerPage) as $item)
                                 <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="write-{{ $item['id'] }}">
                                     <span class="min-w-0 flex-1">
-                                        <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</span> · <span class="text-gray-500">{{ $item['status'] }}</span>@if ($item['error'] !== '') <span class="text-amber-700 dark:text-amber-300">· {{ \Illuminate\Support\Str::limit($item['error'], 160) }}</span>@endif
+                                        <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</span> · <span class="text-gray-500">{{ $item['status'] }}</span>@if ($item['error'] !== '') <span class="text-warning-700 dark:text-warning-400">· {{ \Illuminate\Support\Str::limit($item['error'], 160) }}</span>@endif
                                         @if ($item['page'] !== '')<span class="block break-all text-gray-400">{{ $item['page'] }}</span>@endif
-                                        @foreach ($item['lines'] as $line)<span @class(['block break-words', 'text-gray-700 dark:text-gray-300' => $line['ok'], 'text-amber-700 dark:text-amber-300' => ! $line['ok']])>{{ $line['ok'] ? '✓' : '✕' }} {{ $line['text'] }}</span>@endforeach
+                                        @foreach ($item['lines'] as $line)<span @class(['block break-words', 'text-gray-700 dark:text-gray-300' => $line['ok'], 'text-warning-700 dark:text-warning-400' => ! $line['ok']])>{{ $line['ok'] ? '✓' : '✕' }} {{ $line['text'] }}</span>@endforeach
                                     </span>
                                     @if ($isAdmin && $item['undoable'])
                                         <button type="button" wire:click="undo({{ $item['id'] }})" wire:confirm="Bu değişiklik geri alınsın mı?" class="font-semibold text-gray-700 hover:underline dark:text-gray-300">Geri al</button>
@@ -349,9 +350,9 @@
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Sonuçlar <span class="text-sm font-normal text-gray-500">· uygulanan işlerin 30. ve 90. günü</span></h2>
             @if ($results['items'] !== [])
             <p class="text-xs text-gray-500">
-                <span class="text-emerald-700 dark:text-emerald-400">{{ $results['counts']['worked'] }} işe yaradı</span> ·
+                <span class="text-success-700 dark:text-success-400">{{ $results['counts']['worked'] }} işe yaradı</span> ·
                 {{ $results['counts']['neutral'] }} değişmedi ·
-                <span class="text-rose-700 dark:text-rose-300">{{ $results['counts']['not_worked'] }} kötüleşti</span> ·
+                <span class="text-error-700 dark:text-error-400">{{ $results['counts']['not_worked'] }} kötüleşti</span> ·
                 {{ $results['counts']['unclear'] }} ölçülemedi
             </p>
             @endif
@@ -362,7 +363,7 @@
                     <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['brand'] }}</span>
                     <span class="text-gray-500">{{ $item['type'] }}</span>
                     <span class="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300" title="{{ $item['page'] }}">{{ $item['title'] }}</span>
-                    <span @class(['font-semibold', 'text-emerald-700 dark:text-emerald-400' => $item['verdict'] === 'worked', 'text-rose-700 dark:text-rose-300' => $item['verdict'] === 'not_worked', 'text-gray-500' => ! in_array($item['verdict'], ['worked', 'not_worked'], true)]) title="{{ $item['label'] }}">{{ $item['line'] }}</span>
+                    <span @class(['font-semibold', 'text-success-700 dark:text-success-400' => $item['verdict'] === 'worked', 'text-error-700 dark:text-error-400' => $item['verdict'] === 'not_worked', 'text-gray-500' => ! in_array($item['verdict'], ['worked', 'not_worked'], true)]) title="{{ $item['label'] }}">{{ $item['line'] }}</span>
                 </li>
             @empty
                 <li class="py-1.5 text-gray-500" data-results-next>Henüz ölçülen iş yok: onaylanan işler 30. ve 90. günde, önceki aynı uzunluktaki dönemle karşılaştırılır.@if (($results['next'] ?? null) !== null) İlk sonuç {{ $results['next'] }} civarında gelir.@endif</li>
@@ -382,7 +383,7 @@
     {{-- Toplu onay penceresi: 10'dan fazla iş tek tıkla gitmez; 3 örnek ve "Geri alınabilir" notu --}}
     <div x-show="ask" x-cloak @keydown.escape.window="ask = null" class="fixed inset-0 z-[99999] flex items-center justify-center p-4" role="dialog" aria-modal="true" data-bulk-confirm>
         <div class="fixed inset-0 bg-gray-900/50" @click="ask = null"></div>
-        <div class="relative w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900">
+        <div class="relative w-full max-w-lg rounded-2xl bg-white p-5 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
             <h3 class="text-base font-semibold text-gray-900 dark:text-white" x-text="ask?.title"></h3>
             <p class="mt-1 text-xs text-gray-500">Örnek olarak ilk üç iş:</p>
             <ul class="mt-2 space-y-1.5 text-sm">
@@ -391,10 +392,10 @@
                 </template>
                 <li class="text-xs text-gray-500" x-show="(ask?.more ?? 0) > 0" x-text="(ask?.more ?? 0) > 0 ? 've ' + ask.more + ' iş daha' : ''"></li>
             </ul>
-            <p class="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">Geri alınabilir: her uygulanan iş kayda geçer, "Yapılanlar"dan tek tek ya da topluca geri alınır.</p>
+            <p class="tone-ok mt-3 rounded-lg px-3 py-2 text-xs">Geri alınabilir: her uygulanan iş kayda geçer, "Yapılanlar"dan tek tek ya da topluca geri alınır.</p>
             <div class="mt-4 flex justify-end gap-2 text-sm">
-                <button type="button" @click="ask = null" class="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 dark:border-gray-700 dark:text-gray-300">Vazgeç</button>
-                <button type="button" @click="go()" class="rounded-lg bg-brand-500 px-4 py-1.5 font-semibold text-white">Evet, onayla</button>
+                <button type="button" @click="ask = null" class="h-9 rounded-lg px-3 text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Vazgeç</button>
+                <button type="button" @click="go()" class="h-9 rounded-lg bg-brand-500 px-4 font-semibold text-white hover:bg-brand-600">Evet, onayla</button>
             </div>
         </div>
     </div>

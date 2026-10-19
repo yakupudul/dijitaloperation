@@ -1,13 +1,13 @@
 <div wire:poll.15s class="relative">
     @if($activeCount > 0)
         <details class="group" wire:key="data-sync-details">
-            <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
-                <span class="h-2 w-2 shrink-0 rounded-full {{ $items->contains('stalled', true) ? 'bg-amber-500' : 'bg-blue-500' }}"></span>
+            <summary class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full bg-gray-100 px-3 text-xs text-gray-700 hover:bg-gray-200/70 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
+                <span class="h-2 w-2 shrink-0 rounded-full {{ $items->contains('stalled', true) ? 'bg-warning-500' : 'animate-pulse bg-sky-500' }}"></span>
                 <span class="font-semibold">{{ $tr ? 'Veri işleri' : 'Data jobs' }} · {{ $activeCount }}</span>
                 @if($activeCount === 1 && $items->isNotEmpty())<span class="hidden max-w-52 truncate sm:inline">{{ $items->first()['name'] }} · {{ $items->first()['state'] }}</span>@endif
                 <span aria-hidden="true">▾</span>
             </summary>
-            <div class="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <div class="absolute right-0 z-50 mt-1.5 w-80 max-w-[90vw] rounded-xl bg-white p-4 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <p class="mb-3 text-xs text-gray-500">{{ $tr ? 'Tüm kaynaklardaki işler. Bu sayfanın taranma yüzdesi değildir.' : 'Jobs across all sources, not this page’s crawl percentage.' }}</p>
                 <div class="max-h-80 space-y-3 overflow-y-auto">
                     @foreach($items as $item)
@@ -19,7 +19,7 @@
                         </div>
                     @endforeach
                 </div>
-                <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="mt-3 block text-xs font-semibold text-brand-600">{{ $tr ? 'Sistem sağlığını aç' : 'Open system health' }}</a>
+                <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="link-neutral mt-3 block text-xs">{{ $tr ? 'Sistem sağlığını aç' : 'Open system health' }}</a>
             </div>
         </details>
     @endif

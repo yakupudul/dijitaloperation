@@ -60,7 +60,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotContains('Run Registry', $labels);
 
         $groupTitles = array_column(OperatorMenu::groups(), 'title');
-        $this->assertCount(1, $groupTitles, 'v2: one sidebar group');
+        $this->assertSame(['Work', 'Channels', 'Growth', 'Portfolio', 'Tools', 'System'], $groupTitles, 'panel redesign 2026-10-19: six small groups (was one group in v2)');
         $this->assertNotContains('Data', $groupTitles);
     }
 

@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Genel işler: installable on the phone home screen (iPhone needs it for notifications). --}}
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="#465fff">
+    <meta name="theme-color" content="#f7f6f4">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/images/app/icon-192.png">
 
@@ -105,19 +105,19 @@
 
         <div class="flex-1 min-w-0 overflow-x-clip transition-all duration-300 ease-in-out"
             :class="{
-                'xl:ml-[290px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
-                'xl:ml-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
+                'xl:ml-[236px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
+                'xl:ml-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
                 'ml-0': $store.sidebar.isMobileOpen
             }">
             @include('operator.layouts.header')
 
-            <div class="min-w-0 p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+            <div class="mx-auto min-w-0 max-w-(--breakpoint-2xl) p-4 md:p-6">
                 @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
                 @if ($sectionTabs)
-                    <nav class="mb-5 -mt-1 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
+                    <nav class="no-scrollbar -mt-1 mb-5 flex gap-0.5 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
                         @foreach ($sectionTabs as $tab)
                             <a href="{{ $tab['url'] }}" wire:navigate @if ($tab['active']) aria-current="page" @endif
-                                @class(['whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium', 'border-gray-900 text-gray-900 dark:border-white dark:text-white' => $tab['active'], 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => ! $tab['active']])>{{ $tab['label'] }}</a>
+                                @class(['-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium', 'border-gray-900 text-gray-900 dark:border-white dark:text-white' => $tab['active'], 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => ! $tab['active']])>{{ $tab['label'] }}</a>
                         @endforeach
                     </nav>
                 @endif
@@ -135,8 +135,8 @@
         <div x-show="notice" role="status" x-on:click="notice = null"
             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-y-3 opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-            :class="notice?.tone === 'error' ? 'bg-red-600 ring-red-700' : 'bg-gray-900 ring-gray-800 dark:bg-gray-800'"
-            class="pointer-events-auto flex max-w-md cursor-pointer items-start gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-xl ring-1">
+            :class="notice?.tone === 'error' ? 'bg-error-600 ring-error-700' : 'bg-gray-900 ring-gray-800 dark:bg-gray-800'"
+            class="pointer-events-auto flex max-w-md cursor-pointer items-start gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-theme-lg ring-1">
             <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold"
                 :class="notice?.tone === 'error' ? 'bg-white/20' : 'bg-emerald-500'" x-text="notice?.tone === 'error' ? '!' : '✓'"></span>
             <span class="min-w-0" x-text="notice?.message"></span>

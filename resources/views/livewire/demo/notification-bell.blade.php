@@ -1,7 +1,7 @@
 <div class="relative" x-data="{ open: false }" @click.outside="open = false">
     <button
         type="button"
-        class="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+        class="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white"
         @click="open = !open"
         aria-label="{{ __('operator.notifications.title') }}"
         :aria-expanded="open.toString()"
@@ -10,7 +10,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
         </svg>
         @if ($unreadCount > 0)
-            <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-5 text-white" data-unread-count>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+            <span class="absolute -right-0.5 -top-0.5 inline-flex min-w-4.5 items-center justify-center rounded-full bg-error-500 px-1 text-[10px] font-semibold leading-[18px] text-white ring-2 ring-white dark:ring-gray-900" data-unread-count>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
             <span class="sr-only">{{ __('operator.notifications.unread') }}</span>
         @endif
     </button>
@@ -18,7 +18,7 @@
     <div
         x-show="open"
         x-cloak
-        class="absolute right-0 z-50 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
+        class="absolute right-0 z-50 mt-1.5 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-white shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700"
     >
         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
             <p class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.notifications.title') }}</p>

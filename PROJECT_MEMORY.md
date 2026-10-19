@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-10-19 — Panel yeni tasarım (1. ve 2. aşama)
+
+- Panel tasarımı tek yerden yönetilir: `resources/css/operator.css` token'ları (sıcak nötr gri, Geist, 10 px kart köşesi, `live-*` mor). Ekran kodunda `rounded-xl` + `ring-1 ring-gray-200` ya da `surface` utility'si kullanılır; yeni ekran sıfırdan renk seçmez.
+- Ortak bileşenler `x-ta.metric-card`, `x-ta.sparkline`, `x-ta.pill`, `x-ta.alarm-row`, `x-ta.brand-avatar`, `x-ta.empty-state`: sayı kartı, durum rozeti, alarm satırı ve marka kimliği her ekranda aynı görünür. Marka her listede avatarıyla gösterilir.
+- Sol menü gruplu (Çalışma, Kanallar, Büyüme, Portföy, Araçlar, Sistem) ve sayaçlı; üstte marka seçici. Menü sırası `PanelDesignFreezeTest` ile kilitli; grup eklemek sırayı bozmaz.
+- Yöntem (yakup): önce HTML prototip, onay, sonra kod. Sıradaki aşamalar: kalan ekranlar, Müşteriler → Markalar birleşmesi, müşteri görünümü ayrı karar.
+
 ## 2026-10-19 — Google Ads menüsü
 
 - Google Ads, İşletme profilleri gibi kendi menüsünde: Durum, Arama terimleri, Ayarlar ve bütçe, Reklamlar ve kampanyalar, Ölçüm, Hizmet karşılaştırma. Tüm markalar tek listede; hesabın kendi ekranı alt sayfa.
