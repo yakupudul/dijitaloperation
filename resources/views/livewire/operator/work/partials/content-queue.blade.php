@@ -9,7 +9,7 @@
 <section class="space-y-4" data-content-queue>
     <div>
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">İçerik fikirleri</h2>
-        <p class="mt-0.5 text-xs text-gray-500">Onayla: Claude yazar ve havuza yeni fikir gelir. Oku: yazıyı ve görselini görürsün. Gönder: WordPress'e taslak gider (geri alınabilir). Taslakta ve Yayında sitenin kendisinden okunur. Bir siteye tek bakmak için sitenin İçerik sekmesi.</p>
+        <p class="mt-0.5 text-xs text-gray-500">Onayla, Claude yazsın; Oku, yazıyı ve görselini gör; Gönder, WordPress'e taslak gitsin (geri alınabilir).</p>
     </div>
 
     @include('livewire.operator.work.partials.content-coverage')
@@ -26,7 +26,13 @@
     </div>
 
     @forelse ($queue['groups'][$step] as $group)
-        @php $site = $group['site']; @endphp
+        @php
+            $site = $group['site'];
+            /** The same failure on several articles of one site is said once in the site header (yakup 2026-10-19). */
+            $shared = in_array($step, ['yazilacak', 'okunacak'], true)
+                ? collect($group['items'])->filter(fn (array $i): bool => $i['line'] && ! $i['writing'])->countBy('line')->filter(fn (int $n): bool => $n > 1)->sortDesc()
+                : collect();
+        @endphp
         <article wire:key="queue-{{ $step }}-{{ $site->id }}" class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-queue-site="{{ $site->id }}">
             <header class="flex flex-wrap items-center gap-2 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
                 <div class="min-w-0">
@@ -45,6 +51,13 @@
                     <a href="{{ $group['url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">Site →</a>
                 </div>
             </header>
+            @if ($shared->isNotEmpty())
+                <div class="space-y-0.5 border-b border-gray-100 bg-rose-50/60 px-4 py-2 text-xs text-rose-700 dark:border-gray-800 dark:bg-rose-500/10 dark:text-rose-300" data-queue-shared-error>
+                    @foreach ($shared as $line => $count)
+                        <p>{{ $count }} yazı için son deneme: {{ $line }}</p>
+                    @endforeach
+                </div>
+            @endif
             <ul class="divide-y divide-gray-100 dark:divide-gray-800">
                 @foreach ($group['items'] as $item)
                     <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5" wire:key="queue-item-{{ $item['id'] }}" data-content-item="{{ $item['id'] }}">
@@ -63,7 +76,7 @@
                             @if ($step === 'yazilacak' && ($item['cluster'] || $item['reason']))
                                 <p class="mt-0.5 text-xs text-gray-500" data-why>@if ($item['cluster'])<span class="font-medium text-gray-700 dark:text-gray-300">Küme: {{ $item['cluster'] }}</span>@if ($item['reason']) · @endif @endif{{ $item['reason'] }}</p>
                             @endif
-                            @if ($item['line'] && ! $item['writing'] && in_array($step, ['yazilacak', 'okunacak'], true))<p class="mt-0.5 text-xs text-rose-600">Son deneme: {{ $item['line'] }}</p>@endif
+                            @if ($item['line'] && ! $item['writing'] && in_array($step, ['yazilacak', 'okunacak'], true) && ! $shared->has($item['line']))<p class="mt-0.5 text-xs text-rose-600">Son deneme: {{ $item['line'] }}</p>@endif
                             @if (in_array($step, ['taslakta', 'yayinda'], true))
                                 @include('livewire.operator.work.partials.content-post', ['item' => $item, 'step' => $step])
                             @endif

@@ -3,6 +3,7 @@
 namespace App\Services\Work;
 
 use App\Jobs\SendDailyBatchJob;
+use App\Models\DigitalAsset;
 use App\Models\GbpQueuedPost;
 use App\Models\Suggestion;
 use App\Models\User;
@@ -26,18 +27,27 @@ final class DailySend
     public function __construct(private readonly ContentAutopilot $content, private readonly GbpPostReview $posts, private readonly RepairAutopilot $repair) {}
 
     /**
-     * @return array{content: int, content_preparing: int, posts: int, repair: int, held: list<array{area: string, title: string, reason: string}>, held_total: int}
+     * `no_connector`: checked articles of sites without a paired WordPress Connector, one line per site; they are not
+     * counted as ready and the click does not try them (yakup 2026-10-19: one note instead of a failure per article).
+     *
+     * @return array{content: int, content_preparing: int, posts: int, repair: int, held: list<array{area: string, title: string, reason: string}>, held_total: int, no_connector: list<array{site: string, count: int}>}
      */
     public function summary(): array
     {
+        $paired = ContentAutopilot::pairedSiteIds();
+        [$content, $waiting] = $this->content->ready()->partition(fn (Suggestion $s): bool => in_array((int) data_get($s->action, 'site_id'), $paired, true));
+        $sites = DigitalAsset::query()->whereIn('id', $waiting->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))->unique())->pluck('name', 'id');
+        $noConnector = $waiting->countBy(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))
+            ->map(fn (int $count, int $siteId): array => ['site' => (string) ($sites[$siteId] ?? 'Site'), 'count' => $count])->values()->all();
+
         $held = [
             ...$this->content->held()->map(fn (Suggestion $s): array => ['area' => 'İçerik', 'title' => (string) $s->title, 'reason' => (string) data_get($s->action, 'autopilot.review.reason', '')]),
             ...$this->posts->held()->map(fn (GbpQueuedPost $p): array => ['area' => 'Profil gönderisi', 'title' => ($p->digitalAsset?->name ?? '').' · '.$p->publish_on, 'reason' => (string) ($p->review['reason'] ?? '')]),
             ...$this->repair->checked('held')->map(fn (array $r): array => ['area' => RepairDesk::KINDS[$r['kind']] ?? 'Onarım', 'title' => $r['brand'].' · '.$r['title'], 'reason' => (string) ($r['review']['reason'] ?? '')]),
         ];
 
-        return ['content' => $this->content->ready()->count(), 'content_preparing' => $this->content->preparing(), 'posts' => $this->posts->ready()->count(), 'repair' => $this->repair->checked('ok')->count(),
-            'held' => array_slice($held, 0, 30), 'held_total' => count($held)];
+        return ['content' => $content->count(), 'content_preparing' => $this->content->preparing(), 'posts' => $this->posts->ready()->count(), 'repair' => $this->repair->checked('ok')->count(),
+            'held' => array_slice($held, 0, 30), 'held_total' => count($held), 'no_connector' => $noConnector];
     }
 
     /** The Admin's click: everything that passed goes off the web request. */

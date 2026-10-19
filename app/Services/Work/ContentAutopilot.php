@@ -6,6 +6,7 @@ use App\Ai\Agents\Site\ContentReviewAgent;
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Models\Brand;
 use App\Models\ContentSiteState;
+use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
@@ -455,6 +456,19 @@ final class ContentAutopilot
             ->sortBy(fn (Suggestion $s): string => (string) data_get($s->action, 'autopilot.date'))->values();
     }
 
+    /**
+     * Websites with a paired WordPress Connector. A checked article for any other site is not tried by the daily send:
+     * it waits, and the strip says once per site that the connector is missing (yakup 2026-10-19, Onarım masası).
+     *
+     * @return list<int>
+     */
+    public static function pairedSiteIds(): array
+    {
+        return CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)->get(['digital_asset_id', 'config'])
+            ->filter(fn (CoreConnection $c): bool => data_get($c->config, 'pairing_state') === 'paired')
+            ->map(fn (CoreConnection $c): int => (int) $c->digital_asset_id)->unique()->values()->all();
+    }
+
     /** This week's articles still being written, translated or checked (shown next to the send button). */
     public function preparing(): int
     {
@@ -498,7 +512,11 @@ final class ContentAutopilot
         $planner = app(ContentPlanner::class);
         $sent = 0;
         $failed = [];
+        $paired = self::pairedSiteIds();
         foreach ($this->ready($brandId) as $suggestion) {
+            if (! in_array((int) data_get($suggestion->action, 'site_id'), $paired, true)) {
+                continue;
+            }
             try {
                 $planner->sendDraft($suggestion, $user, self::postDate($suggestion));
                 $sent++;

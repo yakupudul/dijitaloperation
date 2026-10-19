@@ -29,12 +29,17 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Onarım masası</h1>
-            <p class="mt-1 text-sm text-gray-500">Sistemin hazırladığı düzeltmeler paket paket: aynı markanın aynı türdeki işleri tek kararda. Onayladığın an uygulanır, kayda geçer ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300" data-desk-total>@if ($brandId !== null){{ $brands[$brandId] ?? 'Marka' }}: onay bekleyen {{ number_format($counts['brand_packages'], 0, ',', '.') }} paket · {{ number_format($counts['brand_total'], 0, ',', '.') }} iş <span class="font-normal text-gray-500">(tüm markalarda {{ number_format($counts['total'], 0, ',', '.') }} iş)</span>@else Onay bekleyen {{ number_format($counts['packages'], 0, ',', '.') }} paket · {{ number_format($counts['total'], 0, ',', '.') }} iş @endif</span></p>
+            <p class="mt-1 text-sm text-gray-500">Hazırlanan düzeltmeler paket paket; onayladığın an uygulanır ve geri alınabilir. <span class="whitespace-nowrap font-medium text-gray-700 dark:text-gray-300" data-desk-total>@if ($brandId !== null){{ $brands[$brandId] ?? 'Marka' }}: onay bekleyen {{ number_format($counts['brand_packages'], 0, ',', '.') }} paket · {{ number_format($counts['brand_total'], 0, ',', '.') }} iş <span class="font-normal text-gray-500">(tüm markalarda {{ number_format($counts['total'], 0, ',', '.') }} iş)</span>@else Onay bekleyen {{ number_format($counts['packages'], 0, ',', '.') }} paket · {{ number_format($counts['total'], 0, ',', '.') }} iş @endif</span></p>
         </div>
-        <a href="#yapilanlar" @click="$dispatch('show-done')" class="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30" data-done-badge>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı</a>
+        {{-- Rozet yazılamayanı da söyler (yakup 2026-10-19: 999 hata yeşil "1 iş yapıldı" altında kalıyordu) --}}
+        <a href="#yapilanlar" @click="$dispatch('show-done')" @class(['shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset',
+            'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' => $doneFailed === 0,
+            'bg-amber-50 text-amber-800 ring-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30' => $doneFailed > 0]) data-done-badge>Son 7 gün: {{ number_format($doneCount, 0, ',', '.') }} iş yapıldı@if ($doneFailed > 0) · {{ number_format($doneFailed, 0, ',', '.') }} yazılamadı@endif</a>
     </div>
 
     <livewire:operator.repair.daily-send-strip lazy />
+
+    <p class="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-500" data-desk-layer="karar">Karar bekleyenler</p>
 
     @if ($message !== '')
         <p class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">{{ $message }}</p>
@@ -63,47 +68,26 @@
         @endif
     </div>
 
-    <div class="grid items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
-        {{-- Telefonda (<640px) marka listesi yerine seçim kutusu --}}
-        <label class="block sm:hidden" data-repair-brand-select>
-            <span class="text-xs text-gray-500">Marka · kazandıracak işe göre sıralı</span>
-            <select x-on:change="$wire.set('brandId', $event.target.value === '' ? null : Number($event.target.value))" class="mt-1 block w-full rounded-lg border-gray-300 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                <option value="" @selected($brandId === null)>Tümü ({{ number_format($counts['total'], 0, ',', '.') }})</option>
-                @if ($brandId !== null && ! $health->contains('brand_id', $brandId))
-                    <option value="{{ $brandId }}" selected>{{ $brands[$brandId] ?? 'Marka' }} · bekleyen iş yok</option>
-                @endif
-                @foreach ($health as $h)
-                    <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id'])>{{ $h['brand'] }} · %{{ $h['percent'] }} · {{ $h['open'] }} paket</option>
-                @endforeach
-            </select>
-        </label>
-        {{-- Solda markalar: kazandıracak işe göre sıralı --}}
-        <aside class="hidden rounded-xl bg-white p-3 sm:block ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-repair-health>
-            <h2 class="px-2 text-sm font-semibold text-gray-800 dark:text-white/90">Marka sağlığı</h2>
-            <p class="cursor-help px-2 text-xs text-gray-500" title="Kusursuz yüzdesi = son {{ RepairDesk::TRACK_DAYS }} günde biten işler ÷ (biten + kalan). Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan; sayfa işinde puan sayfanın 90 günlük Search Console gösterim ve tıklamasıyla büyür, hiç görünmeyen sayfa 0), eşitse kritik iş sayısı. Kalan işler paket olarak sayılır: aynı markanın aynı türdeki işleri tek paket. Paketler yalnız hazır düzeltmelerdir; küme çakışması, içerik gibi Diğer işler ayrı sayılır." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
-            <ul class="mt-2 max-h-[70vh] space-y-0.5 overflow-y-auto text-sm">
-                <li>
-                    <button type="button" wire:click="$set('brandId', null)" @class(['flex w-full items-baseline justify-between gap-2 rounded-lg px-2 py-1.5 text-left', 'bg-gray-100 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white' => $brandId === null, 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5' => $brandId !== null])>
-                        <span>Tümü</span><span class="text-xs text-gray-500">{{ number_format($counts['total'], 0, ',', '.') }}</span>
-                    </button>
-                </li>
-                @if ($brandId !== null && ! $health->contains('brand_id', $brandId))
-                    <li class="rounded-lg bg-gray-100 px-2 py-1.5 font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">{{ $brands[$brandId] ?? 'Marka' }} <span class="block text-xs font-normal text-gray-500">Bekleyen iş yok</span></li>
-                @endif
-                @foreach ($health as $h)
-                    @php $on = $brandId === $h['brand_id']; @endphp
-                    <li wire:key="health-{{ $h['brand_id'] }}">
-                        <button type="button" wire:click="$set('brandId', {{ $on ? 'null' : $h['brand_id'] }})" title="{{ $h['brand'] }}: son {{ RepairDesk::TRACK_DAYS }} günde {{ $h['done'] }} iş bitti, {{ $h['open'] }} paket ({{ $h['rows'] }} iş) kaldı{{ $h['critical'] > 0 ? ', '.$h['critical'].' kritik' : '' }}" @class(['block w-full rounded-lg px-2 py-1.5 text-left', 'bg-gray-100 dark:bg-gray-800' => $on, 'hover:bg-gray-50 dark:hover:bg-white/5' => ! $on]) data-health-brand="{{ $h['brand_id'] }}">
-                            <span @class(['block break-words text-gray-800 dark:text-white/90', 'font-semibold' => $on, 'font-medium' => ! $on])>{{ $h['brand'] }}</span>
-                            <span class="block text-xs"><span @class(['font-semibold', 'text-emerald-700 dark:text-emerald-400' => $h['percent'] >= 80, 'text-gray-700 dark:text-gray-300' => $h['percent'] < 80])>%{{ $h['percent'] }} kusursuz</span> <span class="text-gray-500">· {{ $h['open'] }} paket kaldı</span></span>
-                        </button>
-                    </li>
-                @endforeach
-            </ul>
+    <div class="space-y-4">
+        {{-- Marka: tek açılır menü (yakup 2026-10-19; 13 markalık sol liste yerine), kazandıracak işe göre sıralı --}}
+        <div class="flex flex-wrap items-end gap-x-3 gap-y-1" data-repair-health>
+            <label class="block w-full sm:w-80" data-repair-brand-select>
+                <span class="text-xs text-gray-500">Marka</span>
+                <select x-on:change="$wire.set('brandId', $event.target.value === '' ? null : Number($event.target.value))" class="mt-1 block w-full rounded-lg border-gray-300 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                    <option value="" @selected($brandId === null)>Tüm markalar · {{ number_format($counts['total'], 0, ',', '.') }} iş</option>
+                    @if ($brandId !== null && ! $health->contains('brand_id', $brandId))
+                        <option value="{{ $brandId }}" selected>{{ $brands[$brandId] ?? 'Marka' }} · bekleyen iş yok</option>
+                    @endif
+                    @foreach ($health as $h)
+                        <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id']) data-health-brand="{{ $h['brand_id'] }}">{{ $h['brand'] }} · {{ number_format($h['rows'], 0, ',', '.') }} iş bekliyor{{ $h['critical'] > 0 ? ' · '.$h['critical'].' kritik' : '' }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <p class="cursor-help pb-2 text-xs text-gray-500" title="Sıra: açık işlerin beklenen kazancı (kritik iş 3, önemli 2, diğerleri 1 puan; sayfa işinde puan sayfanın 90 günlük Search Console gösterim ve tıklamasıyla büyür), eşitse kritik iş sayısı. Paketler yalnız hazır düzeltmelerdir; küme çakışması, içerik gibi Diğer işler ayrı sayılır." data-health-help>Kazandıracak işe göre sıralı ⓘ</p>
             @if ($brandId !== null)
-                <a href="{{ route('operator.brand', ['brand' => $brandId]) }}" wire:navigate class="mt-2 block px-2 text-xs font-semibold text-gray-700 hover:underline dark:text-gray-300" data-brand-link>Marka sayfasına git →</a>
+                <a href="{{ route('operator.brand', ['brand' => $brandId]) }}" wire:navigate class="pb-2 text-xs font-semibold text-gray-700 hover:underline dark:text-gray-300" data-brand-link>Marka sayfasına git →</a>
             @endif
-        </aside>
+        </div>
 
         <div class="min-w-0 space-y-4">
         @if ($section === RepairDeskPage::SECTION_OTHER)
@@ -291,49 +275,64 @@
         </div>
     </div>
 
-    {{-- Yapılanlar: üstteki "Son 7 gün" rozeti buraya getirir ve listeyi açar --}}
+    <p class="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-500" data-desk-layer="gecmis">Geçmiş</p>
+
+    {{-- Yapılanlar: üstteki "Son 7 gün" rozeti buraya getirir ve listeyi açar. Bir grubun tek tek işleri yalnız açılınca
+         sunucudan gelir (yakup 2026-10-19: 989 satırlık gizli liste sayfayı 1,8 MB yapıyordu). --}}
     <section id="yapilanlar" class="{{ $card }} scroll-mt-20 text-sm" data-repair-writes x-data="{ all: false }" x-on:show-done.window="all = true">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Yapılanlar <span class="text-sm font-normal text-gray-500">· son 7 gün</span></h2>
             @if ($done->isNotEmpty())
-                <p class="text-xs text-gray-500">{{ $done->sum('ok') }} iş tam, {{ $done->sum('partial') }} kısmen, {{ $done->sum('failed') }} yazılamadı @if ($done->sum('pending') > 0)· {{ $done->sum('pending') }} sırada @endif</p>
+                <p class="text-xs text-gray-500">{{ number_format($done->sum('ok'), 0, ',', '.') }} iş tam, {{ number_format($done->sum('partial'), 0, ',', '.') }} kısmen, {{ number_format($doneFailed, 0, ',', '.') }} yazılamadı @if ($done->sum('pending') > 0)· {{ $done->sum('pending') }} sırada @endif</p>
             @endif
         </div>
+        @if ($doneReturned > 0)
+            <p class="mt-2 rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300" data-done-returned>Yazılamayan {{ number_format($doneReturned, 0, ',', '.') }} iş kaybolmadı: hatasıyla birlikte masaya geri döndü ve bir sonraki gönderimde yeniden gider.</p>
+        @endif
         <ul class="mt-3 space-y-2">
             @forelse ($done as $n => $group)
-                <li class="rounded-lg px-3 py-2 ring-1 ring-inset ring-gray-200 dark:ring-gray-800" wire:key="done-{{ $group['key'] }}" x-data="{ more: false }" @if ($n >= 6) x-show="all" x-cloak @endif>
+                @php $isDoneOpen = $doneOpen === $group['key']; @endphp
+                <li class="rounded-lg px-3 py-2 ring-1 ring-inset ring-gray-200 dark:ring-gray-800" wire:key="done-{{ $group['key'] }}" @if ($n >= 6 && ! $isDoneOpen) x-show="all" x-cloak @endif>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="min-w-0 flex-1">
                             <p class="text-xs text-gray-500">{{ $group['at'] }} · {{ $group['asset'] }} · {{ $group['label'] }}</p>
                             <p class="font-medium text-gray-800 dark:text-white/90">
                                 @if ($group['failed'] > 0 && $group['ok'] + $group['partial'] === 0)<span class="text-amber-600">✕</span>@elseif ($group['partial'] > 0 || $group['failed'] > 0)<span class="text-amber-600">◐</span>@else<span class="text-emerald-600">✓</span>@endif
-                                {{ $group['sentence'] }}.
+                                {{ $group['sentence'] }}@if ($group['failed'] > 0 && $group['ok'] + $group['partial'] > 0); {{ number_format($group['failed'], 0, ',', '.') }} iş yazılamadı@elseif ($group['failed'] > 1) ({{ number_format($group['failed'], 0, ',', '.') }} iş)@endif.
                             </p>
                             @foreach ($group['problems'] as $problem)
                                 <p class="text-xs text-amber-700 dark:text-amber-300">Yapılamayan: {{ $problem }}</p>
                             @endforeach
+                            @if (($group['returned'] ?? 0) > 0)
+                                <p class="text-xs text-gray-500" data-done-group-returned>{{ number_format($group['returned'], 0, ',', '.') }} iş masaya geri döndü; sonraki gönderimde gider.</p>
+                            @endif
                         </div>
                         <div class="flex shrink-0 items-center gap-3 text-xs">
-                            <button type="button" @click="more = ! more" class="font-semibold text-gray-700 hover:underline dark:text-gray-300" x-text="more ? 'Kapat' : 'Ayrıntı ({{ count($group['items']) }})'"></button>
+                            <button type="button" wire:click="toggleDone('{{ $group['key'] }}')" class="font-semibold text-gray-700 hover:underline dark:text-gray-300" data-done-toggle>{{ $isDoneOpen ? 'Kapat' : 'Ayrıntı ('.count($group['items']).')' }}</button>
                             @if ($isAdmin && collect($group['items'])->contains('undoable', true))
                                 <button type="button" wire:click="undoGroup('{{ $group['key'] }}')" wire:confirm="{{ $group['asset'] }}: bu gruptaki işler geri alınsın mı?" class="text-gray-500 hover:underline">Hepsini geri al</button>
                             @endif
                         </div>
                     </div>
-                    <ul x-show="more" x-cloak class="mt-2 divide-y divide-gray-100 text-xs dark:divide-gray-800">
-                        @foreach ($group['items'] as $item)
-                            <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="write-{{ $item['id'] }}">
-                                <span class="min-w-0 flex-1">
-                                    <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</span> · <span class="text-gray-500">{{ $item['status'] }}</span>@if ($item['error'] !== '') <span class="text-amber-700 dark:text-amber-300">· {{ \Illuminate\Support\Str::limit($item['error'], 300) }}</span>@endif
-                                    @if ($item['page'] !== '')<span class="block break-all text-gray-400">{{ $item['page'] }}</span>@endif
-                                    @foreach ($item['lines'] as $line)<span @class(['block break-words', 'text-gray-700 dark:text-gray-300' => $line['ok'], 'text-amber-700 dark:text-amber-300' => ! $line['ok']])>{{ $line['ok'] ? '✓' : '✕' }} {{ $line['text'] }}</span>@endforeach
-                                </span>
-                                @if ($isAdmin && $item['undoable'])
-                                    <button type="button" wire:click="undo({{ $item['id'] }})" wire:confirm="Bu değişiklik geri alınsın mı?" class="font-semibold text-gray-700 hover:underline dark:text-gray-300">Geri al</button>
-                                @endif
-                            </li>
-                        @endforeach
-                    </ul>
+                    @if ($isDoneOpen)
+                        <ul class="mt-2 divide-y divide-gray-100 text-xs dark:divide-gray-800" data-done-items>
+                            @foreach (array_slice($group['items'], 0, $donePerPage) as $item)
+                                <li class="flex flex-wrap items-center justify-between gap-2 py-1.5" wire:key="write-{{ $item['id'] }}">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</span> · <span class="text-gray-500">{{ $item['status'] }}</span>@if ($item['error'] !== '') <span class="text-amber-700 dark:text-amber-300">· {{ \Illuminate\Support\Str::limit($item['error'], 160) }}</span>@endif
+                                        @if ($item['page'] !== '')<span class="block break-all text-gray-400">{{ $item['page'] }}</span>@endif
+                                        @foreach ($item['lines'] as $line)<span @class(['block break-words', 'text-gray-700 dark:text-gray-300' => $line['ok'], 'text-amber-700 dark:text-amber-300' => ! $line['ok']])>{{ $line['ok'] ? '✓' : '✕' }} {{ $line['text'] }}</span>@endforeach
+                                    </span>
+                                    @if ($isAdmin && $item['undoable'])
+                                        <button type="button" wire:click="undo({{ $item['id'] }})" wire:confirm="Bu değişiklik geri alınsın mı?" class="font-semibold text-gray-700 hover:underline dark:text-gray-300">Geri al</button>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if (count($group['items']) > $donePerPage)
+                            <button type="button" wire:click="showMoreDone" class="mt-1 w-full py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">{{ number_format(count($group['items']) - $donePerPage, 0, ',', '.') }} iş daha göster</button>
+                        @endif
+                    @endif
                 </li>
             @empty
                 <li class="text-gray-500">Henüz yok.</li>
@@ -348,12 +347,14 @@
     <section class="{{ $card }} text-sm" data-repair-results x-data="{ all: false }">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="font-semibold text-gray-800 dark:text-white/90">Sonuçlar <span class="text-sm font-normal text-gray-500">· uygulanan işlerin 30. ve 90. günü</span></h2>
+            @if ($results['items'] !== [])
             <p class="text-xs text-gray-500">
                 <span class="text-emerald-700 dark:text-emerald-400">{{ $results['counts']['worked'] }} işe yaradı</span> ·
                 {{ $results['counts']['neutral'] }} değişmedi ·
                 <span class="text-rose-700 dark:text-rose-300">{{ $results['counts']['not_worked'] }} kötüleşti</span> ·
                 {{ $results['counts']['unclear'] }} ölçülemedi
             </p>
+            @endif
         </div>
         <ul class="mt-3 divide-y divide-gray-100 text-xs dark:divide-gray-800">
             @forelse ($results['items'] as $n => $item)
@@ -364,7 +365,7 @@
                     <span @class(['font-semibold', 'text-emerald-700 dark:text-emerald-400' => $item['verdict'] === 'worked', 'text-rose-700 dark:text-rose-300' => $item['verdict'] === 'not_worked', 'text-gray-500' => ! in_array($item['verdict'], ['worked', 'not_worked'], true)]) title="{{ $item['label'] }}">{{ $item['line'] }}</span>
                 </li>
             @empty
-                <li class="py-1.5 text-gray-500">Henüz ölçülen iş yok: onaylanan işler 30. ve 90. günde, önceki aynı uzunluktaki dönemle karşılaştırılır.</li>
+                <li class="py-1.5 text-gray-500" data-results-next>Henüz ölçülen iş yok: onaylanan işler 30. ve 90. günde, önceki aynı uzunluktaki dönemle karşılaştırılır.@if (($results['next'] ?? null) !== null) İlk sonuç {{ $results['next'] }} civarında gelir.@endif</li>
             @endforelse
         </ul>
         @if (count($results['items']) > 8)

@@ -107,7 +107,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(1, $packages[$this->brand->id.'.'.RepairDesk::SITE_CONTENT.'.'.RepairDesk::LANE_REVIEW]['high']);
 
         $page = Livewire::test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_READY)->assertSee('2 · Başlık, açıklama')->assertDontSee('Yeni bölüm')
-            ->assertSee('Onayla, bitsin')->assertSee('Marka sağlığı')
+            ->assertSee('Onayla, bitsin')->assertSee('Karar bekleyenler')
             ->call('togglePackage', $fields)->assertSee('Ankara implant başlığı')->assertSee('Klavye: J / K')
             ->call('selectPackage', $fields)->assertSet('selected', [$first->id, $second->id])->assertSee('2 iş seçili')
             ->set('lane', RepairDesk::LANE_REVIEW)->assertSet('selected', [])->assertSet('open', '')->assertSee('paketi açıp tek tek onaylanır');
@@ -125,8 +125,8 @@ final class RepairDeskTest extends SiteTestCase
     }
 
     /**
-     * yakup 2026-10-11 (panel tasarım önerileri §2): one switch on top, brands on the left sorted by expected gain with a
-     * clear "kusursuz" percent, rows as "page name → new value" with the URL below, and old ?serit= / ?bolum= links still land.
+     * yakup 2026-10-11 (panel tasarım önerileri §2): one switch on top, brands sorted by expected gain (one drop-down
+     * since 2026-10-19, with the waiting work instead of a percent), rows as "page name → new value" with the URL below, and old ?serit= / ?bolum= links still land.
      */
     public function test_one_switch_brand_list_by_gain_and_readable_rows(): void
     {
@@ -142,7 +142,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame([[6.0, 0], [3.0, 1]], [[$health[0]['gain'], $health[0]['critical']], [$health[1]['gain'], $health[1]['critical']]]);
 
         $page = Livewire::test(RepairDeskPage::class)
-            ->assertSee('%0 kusursuz')->assertSee('1 paket kaldı')->assertSee('1 paket (3 iş) kaldı')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tümü')
+            ->assertSee('Arka Marka · 3 iş bekliyor')->assertSee('· 1 kritik')->assertDontSee('kusursuz')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tüm markalar')
             ->set('brandId', $this->brand->id)->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)
             ->assertSee('İmplant Tedavisi Ankara')->assertSee('Başlık: Ankara implant | Panorama')->assertSee('https://panorama.com.tr/implant/')
             ->assertSeeHtml('data-row-target');
@@ -198,6 +198,43 @@ final class RepairDeskTest extends SiteTestCase
         Livewire::test(RepairDeskPage::class)->assertSee('1 başlık, 1 iç link yazıldı')->assertSee('Hepsini geri al')->assertSee('Son 7 gün: 1 iş yapıldı')
             ->call('undoGroup', $group['key'])->assertSee('1 iş için geri alma sıraya alındı');
         $this->assertSame('undoing', $write->fresh()->status);
+    }
+
+    /**
+     * yakup 2026-10-19 (Onarım masası sadeleştirme): a failed write whose suggestion is back on the desk says so, the badge
+     * shows the failures, a group's single writes are rendered only when opened, and an empty Sonuçlar says when the
+     * first result comes.
+     */
+    public function test_failed_writes_say_they_went_back_to_the_desk_and_details_load_on_open(): void
+    {
+        $fields = $this->suggestion('Başlık ve açıklamayı düzelt: /implant/', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
+        $desk = app(RepairDesk::class);
+        $desk->approve([$fields->id], $this->admin);
+        ExternalWriteAction::query()->sole()->forceFill(['status' => 'failed', 'error' => 'Gönderilmedi: site son 30 dakikada 3 yazmaya yanıt vermedi.'])->save();
+        // RepairVerifier puts a suggestion whose writes all failed back on the desk.
+        Suggestion::query()->whereKey($fields->id)->update(['status' => Suggestion::OPEN]);
+
+        $this->assertSame(Suggestion::OPEN, $fields->fresh()->status);
+        $group = $desk->done()->sole();
+        $this->assertSame([1, 1], [$group['failed'], $group['returned']]);
+
+        Livewire::test(RepairDeskPage::class)->assertSee('Son 7 gün: 0 iş yapıldı')->assertSee('· 1 yazılamadı')
+            ->assertSee('Yazılamayan 1 iş kaybolmadı')->assertSee('1 iş masaya geri döndü; sonraki gönderimde gider.')
+            ->assertDontSeeHtml('data-done-items')->assertSee('Ayrıntı (1)')
+            ->call('toggleDone', $group['key'])->assertSeeHtml('data-done-items')->assertSee('Kapat')
+            ->call('toggleDone', $group['key'])->assertDontSeeHtml('data-done-items');
+    }
+
+    public function test_empty_results_say_when_the_first_measurement_comes(): void
+    {
+        $this->suggestion('Başlık', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni']]],
+            ['status' => Suggestion::APPLIED, 'applied_at' => now()->subDays(5)]);
+
+        $results = app(RepairDesk::class)->results();
+
+        $this->assertSame([], $results['items']);
+        $this->assertSame(now()->subDays(5)->addDays(30)->timezone('Europe/Istanbul')->format('d.m.Y'), $results['next']);
+        Livewire::test(RepairDeskPage::class)->assertSee('İlk sonuç '.$results['next'].' civarında gelir.')->assertDontSee('0 işe yaradı');
     }
 
     public function test_word_difference_marks_only_the_changed_words(): void

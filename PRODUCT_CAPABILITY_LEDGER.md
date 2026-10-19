@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-19 — Onarım masası sadeleştirme: Bugün / Karar bekleyenler / Geçmiş
+
+- **Karar (yakup 2026-10-19 "tamamdır yap", thread "Onarım masası arayüz önerileri"):** sayfa üç katman: üstte **Bugün** kartı (kaç iş gönderilmeye hazır, tek "Hepsini gönder" düğmesi; son gönderim 2+ gün önceyse sarı uyarı), ortada **Karar bekleyenler** (şeritler, paketler), altta **Geçmiş** (Yapılanlar, Sonuçlar).
+- **Connector'sız site:** eşleştirilmiş WordPress Connector'ı olmayan sitenin AI kontrolünden geçmiş yazıları hazır sayılmaz, günlük gönderim onları denemez (`ContentAutopilot::pairedSiteIds`); kartta site başına tek satır ("Bornova Hurda 3 yazı") ve Web siteleri bağlantısı. Son gönderimde gidemeyenler nedenine göre sayılır ("3 yazı: …").
+- **Yapılanlar:** yazılamayan işin önerisi masaya geri döndüyse (RepairVerifier) grup "N iş masaya geri döndü; sonraki gönderimde gider" der, üstte toplam not; rozet yazılamayanı da sayar ve sarı olur. Bir grubun tek tek işleri yalnız "Ayrıntı" ile açılınca sunucudan gelir (50'şer); 989 satırlık gizli liste sayfayı 1,8 MB yapıyordu.
+- **Marka seçimi:** sol 13 satırlık liste ve "%kusursuz" yerine tek açılır menü: "Marka · N iş bekliyor · K kritik", kazanca göre sıralı.
+- **Sonuçlar:** ölçülen iş yokken 0/0/0 sayıları gizli; ilk sonucun tarihi (en eski uygulanan işin 30. günü) yazar.
+- **İçerik fikirleri (Diğer işler):** marka tablosu 10 sütundan 5'e (Konu haritası çubuğu "yeterli / küme, eksik · zayıf", Bu hafta, Yazılar, Sonuç); haftalık döngü paragrafı "Nasıl çalışır?" altında. Bir sitenin birden çok yazısında aynı "Son deneme" hatası site başlığında bir kez yazılır.
+- Test: `RepairDeskTest` (masaya dönüş, ayrıntı açılınca yüklenir, ilk sonuç tarihi, marka menüsü), `ContentAutopilotTest` (connector'sız site denenmez, kartta bir satır, eski gönderim uyarısı, nedene göre gruplama).
+
 ## 2026-10-18 — Marka epikrizi: her AI işinin okuduğu doğrulanmış marka kaydı
 
 - **Karar (yakup 2026-10-16 "AI yazıp doğrudan kullansın. Bu şekilde yap.", kurgu: Claude Doc "Marka epikrizi: kurgu önerisi"):** her marka için tek kayıt, beş katman; sentez AI'ın yazdığıyla doğrudan kullanılır, operatör onayı beklemez.

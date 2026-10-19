@@ -58,6 +58,12 @@ final class RepairDeskPage extends Component
 
     public string $message = '';
 
+    /** The "Yapılanlar" group whose single writes are shown; only that one is rendered (a 989-row group made the page 1.8 MB). */
+    public string $doneOpen = '';
+
+    /** Rows shown in the opened "Yapılanlar" group. */
+    public int $donePerPage = 50;
+
     public ?int $editing = null;
 
     public string $editField = '';
@@ -125,6 +131,17 @@ final class RepairDeskPage extends Component
     {
         $this->open = $this->open === $key ? '' : $key;
         $this->perPage = 100;
+    }
+
+    public function toggleDone(string $key): void
+    {
+        $this->doneOpen = $this->doneOpen === $key ? '' : $key;
+        $this->donePerPage = 50;
+    }
+
+    public function showMoreDone(): void
+    {
+        $this->donePerPage += 100;
     }
 
     public function showMore(): void
@@ -245,6 +262,8 @@ final class RepairDeskPage extends Component
             'lowTotal' => $inLane->where('risk', RepairDesk::LOW)->count(),
             'selectedSample' => $selectedIds === [] ? collect() : $all->whereIn('id', $selectedIds)->take(3)->values(),
             'doneCount' => (int) $done->sum(fn (array $g): int => (int) $g['ok'] + (int) $g['partial']),
+            'doneFailed' => (int) $done->sum('failed'),
+            'doneReturned' => (int) $done->sum('returned'),
             'otherCount' => array_sum(app(WorkDesk::class)->counts($this->brandId)),
             'packages' => $desk->packages($inLane),
             'openRows' => $openRows->take($this->perPage),

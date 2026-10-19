@@ -141,9 +141,15 @@ final class ContentAutopilotTest extends SiteTestCase
         $this->assertSame('ok', $future->fresh()->action['autopilot']['review']['verdict']);
 
         Queue::fake();
-        $this->assertSame(['sent' => 0, 'failed' => ['İmplant sonrası beslenme: Bu sitede eşleştirilmiş WordPress Connector yok.']], $autopilot->sendReady($this->admin), 'no connector: it says why');
+        $this->assertSame(['sent' => 0, 'failed' => []], $autopilot->sendReady($this->admin), 'no connector: the article is not tried');
+        $summary = app(DailySend::class)->summary();
+        $this->assertSame([0, [['site' => (string) $this->site->name, 'count' => 1]]], [$summary['content'], $summary['no_connector']], 'the strip says it once per site');
+        Livewire::actingAs($this->admin)->test(DailySendStrip::class)->assertSeeHtml('data-daily-no-connector')->assertSee($this->site->name.' 1 yazı');
         CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
             'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.5.0']]);
+        Cache::put(DailySend::LAST_KEY, ['at' => now()->subDays(5)->toIso8601String(), 'content' => ['sent' => 0, 'failed' => ['A: Site yanıt vermedi.', 'B: Site yanıt vermedi.']], 'posts' => 0, 'repair' => ['applied' => 0, 'failed' => []]]);
+        Livewire::actingAs($this->admin)->test(DailySendStrip::class)->assertSee('1 iş gönderilmeye hazır')->assertSee('Son gönderim 5 gün önce')
+            ->assertSee('2 yazı: Site yanıt vermedi')->assertDontSeeHtml('data-daily-no-connector');
         $this->assertSame(['sent' => 1, 'failed' => []], $autopilot->sendReady($this->admin));
         $write = ExternalWriteAction::query()->sole();
         $this->assertSame(ExternalWriteAction::ACTION_ARTICLE_DRAFTS, $write->action);
@@ -246,6 +252,6 @@ final class ContentAutopilotTest extends SiteTestCase
         $operator->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($operator);
         Cache::forget(DailySend::RUNNING_KEY);
-        Livewire::test(DailySendStrip::class)->assertDontSee('AI kontrolünden geçenlerin hepsini gönder')->call('send')->assertForbidden();
+        Livewire::test(DailySendStrip::class)->assertDontSeeHtml('data-daily-send-button')->call('send')->assertForbidden();
     }
 }

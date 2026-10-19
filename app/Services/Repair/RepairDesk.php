@@ -271,7 +271,7 @@ final class RepairDesk
      * OutcomeTracker — one short line per item (its latest point, "+38 tıklama (30 gün)"), newest measurement first,
      * the verdict counts, and the record per work type that orders the packages.
      *
-     * @return array{counts: array<string, int>, items: list<array{id: int, brand: string, title: string, type: string, page: string, line: string, verdict: string, label: string}>, types: list<array{type: string, label: string, won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>}
+     * @return array{counts: array<string, int>, items: list<array{id: int, brand: string, title: string, type: string, page: string, line: string, verdict: string, label: string}>, types: list<array{type: string, label: string, won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>, next: string|null}
      */
     public function results(?int $brandId = null, int $days = 120, int $limit = 30): array
     {
@@ -297,7 +297,12 @@ final class RepairDesk
             ->map(fn (array $t, string $type): array => ['type' => $type, 'label' => self::workTypeLabel($type)] + $t)
             ->sortByDesc('weight')->values()->all();
 
-        return ['counts' => $counts, 'items' => $items, 'types' => $types];
+        // Nothing measured yet: the first applied work still waiting for its 30th day says when the first result comes.
+        $next = $items !== [] ? null : Suggestion::query()->where('status', Suggestion::APPLIED)->whereNull('measured_at')->whereNotNull('applied_at')
+            ->whereIn('action_type', self::workActionTypes())->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))->min('applied_at');
+
+        return ['counts' => $counts, 'items' => $items, 'types' => $types,
+            'next' => $next !== null ? CarbonImmutable::parse($next)->addDays(OutcomeTracker::POINTS['d30'])->timezone('Europe/Istanbul')->format('d.m.Y') : null];
     }
 
     /** "ads_change.budget" → "Google Ads ayarı · budget", "title_description" → "başlık / açıklama". */
@@ -396,16 +401,16 @@ final class RepairDesk
 
     /**
      * Yapılanlar: the approved writes of the last days, grouped per day, asset and kind, each with one sentence saying
-     * what changed (counts per change type), what could not be done and why, and the single writes for undo.
+     * what changed (counts per change type), what could not be done and why (and how many of those are back on the desk), and the single writes for undo.
      *
-     * @return Collection<int, array{key: string, at: string, asset: string, label: string, sentence: string, problems: list<string>, ok: int, partial: int, failed: int, pending: int, items: list<array{id: int, title: string, status: string, error: string, undoable: bool}>}>
+     * @return Collection<int, array{key: string, at: string, asset: string, label: string, sentence: string, problems: list<string>, ok: int, partial: int, failed: int, pending: int, returned: int, items: list<array{id: int, title: string, status: string, error: string, undoable: bool}>}>
      */
     public function done(?int $brandId = null, int $days = 7): Collection
     {
         $writes = ExternalWriteAction::query()->with('digitalAsset:id,name')->whereNotNull('suggestion_id')
             ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
             ->where('created_at', '>=', now()->subDays($days))->latest('id')->limit(1000)->get();
-        $suggestions = Suggestion::query()->with('page:id,url')->whereIn('id', $writes->pluck('suggestion_id')->unique())->get(['id', 'title', 'page_id'])->keyBy('id');
+        $suggestions = Suggestion::query()->with('page:id,url')->whereIn('id', $writes->pluck('suggestion_id')->unique())->get(['id', 'title', 'page_id', 'status'])->keyBy('id');
 
         return $writes->groupBy(fn (ExternalWriteAction $w): string => $w->created_at?->timezone('Europe/Istanbul')->format('Y-m-d').'|'.$w->digital_asset_id.'|'.$w->action)
             ->map(function (Collection $group, string $key) use ($suggestions): array {
@@ -431,6 +436,9 @@ final class RepairDesk
                 $statuses = $group->countBy(fn (ExternalWriteAction $w): string => match ($w->status) {
                     'succeeded', 'undo_failed' => 'ok', 'partial' => 'partial', 'failed', 'rejected', 'cancelled' => 'failed', 'undone', 'undoing' => 'undone', default => 'pending',
                 });
+                // A failed write whose suggestion is open again went back to the desk (RepairVerifier) and leaves with the next send.
+                $returned = $group->filter(fn (ExternalWriteAction $w): bool => in_array($w->status, ['failed', 'rejected', 'cancelled'], true)
+                    && ($suggestions[$w->suggestion_id] ?? null)?->status === Suggestion::OPEN)->pluck('suggestion_id')->unique()->count();
                 $label = self::WRITE_LABELS[$first->action] ?? $first->action;
                 $sentence = $done !== []
                     ? collect($done)->map(fn (int $n, string $type): string => $n.' '.$type)->implode(', ').' yazıldı'
@@ -450,7 +458,7 @@ final class RepairDesk
 
                 return ['key' => $key, 'at' => (string) $first->created_at?->timezone('Europe/Istanbul')->format('d.m H:i'), 'asset' => (string) ($first->digitalAsset?->name ?? ''),
                     'label' => $label, 'sentence' => $sentence !== '' ? $sentence : 'Yazılamadı', 'problems' => array_values(array_unique($problems)),
-                    'ok' => (int) ($statuses['ok'] ?? 0), 'partial' => (int) ($statuses['partial'] ?? 0), 'failed' => (int) ($statuses['failed'] ?? 0), 'pending' => (int) ($statuses['pending'] ?? 0),
+                    'ok' => (int) ($statuses['ok'] ?? 0), 'partial' => (int) ($statuses['partial'] ?? 0), 'failed' => (int) ($statuses['failed'] ?? 0), 'pending' => (int) ($statuses['pending'] ?? 0), 'returned' => $returned,
                     'items' => $group->map(fn (ExternalWriteAction $w): array => ['id' => (int) $w->id, 'title' => (string) ($suggestions[$w->suggestion_id]?->title ?? $w->action),
                         'page' => (string) ($suggestions[$w->suggestion_id]?->page?->url ?? ''), 'lines' => self::writeLines($w),
                         'status' => $w->statusLabel(), 'error' => filled($w->error) && (array) data_get($w->request_payload, 'changes', []) === [] ? self::plainError((string) $w->error) : '',
