@@ -11,6 +11,8 @@ use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -97,6 +99,27 @@ final class WordPressConnectorPullTest extends TestCase
         $headers = $this->headers((string) $body);
         $this->call('POST', '/api/connectors/wordpress/commands', [], [], [], $this->server($headers), $body)->assertOk();
         $this->call('POST', '/api/connectors/wordpress/commands', [], [], [], $this->server($headers), $body)->assertStatus(409);
+    }
+
+    public function test_a_site_whose_host_lets_moxdop_in_again_goes_back_to_direct_requests_by_itself(): void
+    {
+        WordPressConnectorCommands::setTransport($this->connection, 'pull');
+        // Avrupadent 2026-10-19: the TR-only GeoIP rule was removed from its .htaccess; the site answers again.
+        Http::swap(new Factory);
+        Http::fake(function (Request $request) {
+            $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
+            $data = ['ok' => true];
+            $time = now()->timestamp;
+
+            return Http::response(['data' => $data, 'meta' => ['server_time' => $time, 'request_nonce' => $nonce,
+                'signature' => hash_hmac('sha256', implode("\n", [(string) $time, $nonce, hash('sha256', (new WordPressConnectorCanonicalJson)->encode($data))]), self::SECRET)]]);
+        });
+
+        $this->assertSame(['ok' => true], app(WordPressConnectorClient::class)->health($this->connection->fresh()));
+
+        $this->assertSame('path', $this->connection->fresh()->config['rest_transport']);
+        $this->assertSame([], $this->ran, 'nothing went the pull way');
+        $this->assertSame(0, DB::table('website_connector_commands')->count());
     }
 
     public function test_a_caller_that_stops_waiting_withdraws_the_request(): void

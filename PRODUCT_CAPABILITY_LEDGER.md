@@ -4242,6 +4242,9 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   wait for the site (`ExternalWriteService::wakeForSite`; a wait id makes the earlier delayed try a no-op). Every
   MoxDOP screen pings the 1.16.0+ beacon of pull sites with work on its way from the operator's browser
   (`operator.partials.site-wake`), so work goes out while the operator is in MoxDOP even without site visitors.
+- Back to direct by itself (2026-10-19): Avrupadent's 403 was a TR-only GeoIP block in its own `.htaccess` (removed by
+  yakup; robots.txt answers 200 from MoxDOP). A pull connection now tries a signed direct health read at most every
+  15 minutes; when the site answers, `rest_transport` returns to `path` and every request goes direct again.
 - Tests: `RepairDeskTest::test_site_audit_…`, `WebHealthAuditTest`,
   `WordPressConnectorSiteResponseTest::a_hosting_firewall_that_refuses_the_wp_json_address_…`.
 

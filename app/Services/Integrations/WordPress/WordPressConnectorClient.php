@@ -7,6 +7,7 @@ use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -322,9 +323,10 @@ final class WordPressConnectorClient
     private function signed(CoreConnection $connection, string $method, string $url, string $route, array $query, string $payload, string $clientId, string $secret, int $timeout): array
     {
         $known = (string) data_get($connection->config, 'rest_transport', 'path');
-        if ($known === 'pull') {
+        if ($known === 'pull' && ! $this->directAgain($connection, $url, $clientId, $secret)) {
             return $this->pulled($connection, $method, $url, $route, $query, $payload, $secret, $timeout);
         }
+        $known = (string) data_get($connection->config, 'rest_transport', 'path');
         $known = in_array($known, self::TRANSPORTS, true) ? $known : 'path';
         $order = str_contains($url, '/wp-json/') ? array_values(array_unique([$known, ...self::TRANSPORTS]))
             : array_values(array_unique([str_ends_with($known, '_v4') ? 'path_v4' : 'path', 'path', 'path_v4']));
@@ -360,6 +362,32 @@ final class WordPressConnectorClient
             $this->markUnhealthy($connection, $e);
             throw $e;
         }
+    }
+
+    /**
+     * A site that fetches its work itself because its host refused MoxDOP is tried directly again at most every 15
+     * minutes, with a signed health read only (nothing that changes the site, so nothing can run twice). When the site
+     * answers (Avrupadent 2026-10-19: the refusal was a TR-only GeoIP rule in its .htaccess, removed by yakup), the
+     * connection goes back to direct requests by itself, like every other site.
+     */
+    private function directAgain(CoreConnection $connection, string $url, string $clientId, string $secret): bool
+    {
+        if (! Cache::add('wordpress-connector:direct-probe:'.$connection->id, 1, 900)) {
+            return false;
+        }
+        $healthUrl = (string) preg_replace('#/moxdop/v1/.*$#', '/moxdop/v1/health', $url);
+        try {
+            $response = $this->send('GET', $healthUrl, '/moxdop/v1/health', [], '', $clientId, $secret, 15);
+            if (self::serverRefusal($response['response'])) {
+                return false;
+            }
+            $this->verifiedData($response['response'], $secret, $response['nonce'], (string) parse_url($url, PHP_URL_HOST));
+        } catch (Throwable) {
+            return false;
+        }
+        WordPressConnectorCommands::setTransport($connection, 'path');
+
+        return true;
     }
 
     /**
