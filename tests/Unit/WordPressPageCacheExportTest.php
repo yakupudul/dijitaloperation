@@ -89,6 +89,21 @@ final class WordPressPageCacheExportTest extends TestCase
     }
 
     #[Test]
+    public function the_smart_date_box_is_registered_and_only_fills_the_editors_own_publish(): void
+    {
+        $root = dirname(__DIR__, 2).'/connectors/wordpress/moxdop-connector';
+        $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
+        $this->assertStringContainsString('class-moxdop-connector-smart-date.php', $plugin);
+        $this->assertStringContainsString('(new MoxDOP_Connector_Smart_Date)->register();', $plugin);
+        $box = (string) file_get_contents($root.'/includes/class-moxdop-connector-smart-date.php');
+        $this->assertStringContainsString("check_ajax_referer('moxdop_smart_date'", $box);
+        $this->assertStringContainsString("dispatch('core/editor').editPost", $box);
+        $this->assertStringContainsString("getElementById('publish')", $box);
+        $this->assertStringNotContainsString('hidden_', $box);
+        $this->assertStringNotContainsString('wp_remote_', $box);
+    }
+
+    #[Test]
     public function the_plugin_files_are_valid_php_and_the_route_keeps_the_one_at_a_time_lock(): void
     {
         $root = dirname(__DIR__, 2).'/connectors/wordpress/moxdop-connector';
@@ -97,9 +112,9 @@ final class WordPressPageCacheExportTest extends TestCase
             $this->assertSame(0, $code, $file.': '.implode("\n", $output));
         }
         $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.18.0')", $plugin);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.19.0')", $plugin);
         $this->assertStringContainsString('class-moxdop-connector-page-cache.php', $plugin);
-        $this->assertStringContainsString('Stable tag: 1.18.0', (string) file_get_contents($root.'/readme.txt'));
+        $this->assertStringContainsString('Stable tag: 1.19.0', (string) file_get_contents($root.'/readme.txt'));
 
         $controller = (string) file_get_contents($root.'/includes/class-moxdop-connector-rest-controller.php');
         $this->assertStringContainsString("'/page-cache'", $controller);

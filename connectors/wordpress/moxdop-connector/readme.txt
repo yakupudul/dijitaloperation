@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.18.0
+Stable tag: 1.19.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.19.0 =
+* Post editor box "MoxDOP · Akıllı tarih" (block and classic editor): lists the free Monday, Wednesday and Friday publishing days of the last 60 days, nearest to today first, or the next free ones ahead when none is left, each with a time between 09:00 and 11:30 that differs per post. A day is taken by a published or scheduled post or a dated draft in the same language. The button only fills the editor's own date and presses its own Publish / Schedule; not yet published Polylang translations get the same date. A text mentioning this year, a price or a campaign is flagged before a past date. Off with the `moxdop_connector_smart_date` filter.
 
 = 1.18.0 =
 * A site whose host refuses MoxDOP's requests no longer waits for visitors to send its approved work: while MoxDOP says work is still on its way, the site starts its next ask itself right away (a request to its own admin-ajax that it does not wait for, carrying a token only the site knows), so one visit, one open MoxDOP screen or one WP-Cron run sends everything waiting. At most 240 such asks an hour; visits and WP-Cron stay the fallback.

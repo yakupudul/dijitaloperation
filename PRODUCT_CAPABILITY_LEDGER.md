@@ -4245,6 +4245,13 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT).
   gönderilebilir"); dated autopilot articles come back on the Günlük gönderim strip. A sent article with no WordPress
   post yet shows "Siteye gidiyor" instead of "Taslak gönderildi". Migration `2026_12_19_090000` runs
   `moxdop:content:release-failed-drafts` once for the earlier failures. Test: `PullSiteDraftWaitTest`.
+- Connector 1.19.0 "Akıllı tarih" (yakup, 2026-10-19; coded + PHPUnit, real UAT pending the plugin update on sites): post
+  editor side box (block + classic) lists the free Mon/Wed/Fri of the last 60 days, nearest to today first, else the next
+  free ones ahead (60 days), time 09:00-11:30 stable per post+day. Taken = published / scheduled / private post or dated
+  draft (`post_date_gmt` set) in the same Polylang language. The button fills the editor's own date and presses its own
+  Publish / Schedule (the person's click; nothing from outside). Not yet published Polylang translations get the same
+  date and status on that publish (`_moxdop_smart_date` marker). Year / price / campaign words warn before a past date.
+  IndexNow already pings on publish. Limit: MoxDOP dates not yet sent to the site are not visible to the box.
 - Connector 1.18.0 (2026-10-19, coded + PHPUnit; real UAT on Avrupadent pending the plugin update): Avrupadent has
   WP-Cron disabled, so only visits asked (3 jobs each). Now each ask answer carries `waiting` (unanswered commands +
   writes waiting for the site); while it is above zero the plugin starts its next ask itself through a non-blocking

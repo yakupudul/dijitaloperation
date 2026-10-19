@@ -2,8 +2,8 @@
 
 /**
  * Plugin Name: MoxDOP Website Connector
- * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes (301 merges are kept by the connector, listed under Tools › MoxDOP yönlendirmeleri, and the old page becomes a draft) and approved content updates only when a site admin enables them; tells MoxDOP (with the state of the posts MoxDOP made) and IndexNow about changes right after a save, without waiting for WP-Cron; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only); builds a site (ACF, pages, Elementor templates, media, menus) only when a site admin enables site building; when the host refuses MoxDOP's requests, the site fetches its work from MoxDOP itself.
- * Version: 1.18.0
+ * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes (301 merges are kept by the connector, listed under Tools › MoxDOP yönlendirmeleri, and the old page becomes a draft) and approved content updates only when a site admin enables them; tells MoxDOP (with the state of the posts MoxDOP made) and IndexNow about changes right after a save, without waiting for WP-Cron; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only); builds a site (ACF, pages, Elementor templates, media, menus) only when a site admin enables site building; when the host refuses MoxDOP's requests, the site fetches its work from MoxDOP itself; the post editor offers "Akıllı tarih": the nearest free Monday, Wednesday or Friday of the last 60 days (or the next one ahead) as the publishing date.
+ * Version: 1.19.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.18.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.19.0');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 
@@ -34,11 +34,13 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-builder.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-indexnow.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-updater.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-translation-pairing.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-smart-date.php';
 
 (new MoxDOP_Connector_Management)->register();
 (new MoxDOP_Connector_Fixes)->register();
 (new MoxDOP_Connector_Builder)->register();
 (new MoxDOP_Connector_IndexNow)->register();
+(new MoxDOP_Connector_Smart_Date)->register();
 
 (new MoxDOP_Connector_Events)->register();
 register_deactivation_hook(__FILE__, ['MoxDOP_Connector_Events', 'deactivate']);
