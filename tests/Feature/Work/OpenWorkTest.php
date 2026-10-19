@@ -47,7 +47,7 @@ final class OpenWorkTest extends SiteTestCase
 
         $packages = app(OpenWork::class)->packages((int) $this->brand->id);
         $this->assertCount(4, $packages);
-        $this->assertSame('SEO başlık / açıklama: 5 sayfa', OpenWork::line($packages->firstWhere('channel', 'search')));
+        $this->assertSame('Google\'da görünen başlık ve açıklama: 5 sayfa', OpenWork::line($packages->firstWhere('channel', 'search')));
         $this->assertContains('Bütçe kullanımı', $packages->pluck('label')->all());
         $this->assertContains('Saat', $packages->pluck('label')->all(), 'a profile standard is named by its title, never "Gbp_standard"');
         $this->assertSame('Google Ads ayarı', OpenWork::label(['channel' => 'google_ads', 'action_type' => 'ads_change', 'title' => 'Bütçeyi artır']));
@@ -63,7 +63,7 @@ final class OpenWorkTest extends SiteTestCase
 
         $file = app(BrandDossier::class)->build($this->brand)['sections']['open']['markdown'];
         $this->assertStringContainsString('Toplam 4 iş paketi (8 açık satır)', $file);
-        $this->assertStringContainsString('[Arama] SEO başlık / açıklama: 5 sayfa', $file);
+        $this->assertStringContainsString('[Arama] Google\'da görünen başlık ve açıklama: 5 sayfa', $file);
         $this->assertStringNotContainsString('Toplam 8', $file);
     }
 
