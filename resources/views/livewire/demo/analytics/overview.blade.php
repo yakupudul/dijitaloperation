@@ -106,7 +106,7 @@
 
 <div class="min-w-0 space-y-8">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" :title="$title">
+    <x-operator.asset-context :asset-id="$assetId" :title="$title" :refresh="false">
         <x-slot:mark><x-demo.digital-asset-mark type="ga4" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>
             @if ($connected)

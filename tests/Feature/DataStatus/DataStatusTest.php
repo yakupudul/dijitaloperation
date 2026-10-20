@@ -275,13 +275,38 @@ final class DataStatusTest extends TestCase
         Queue::fake();
 
         $strip = Livewire::test(DataStatusStrip::class, ['assetId' => $site->id])
-            ->assertSee('Verileri yenile')
+            ->assertSeeHtml('data-data-status-refresh')->assertSee('Yenile')->assertDontSee('Verileri yenile')
             ->call('refreshSource', 'ga4');
         $this->assertStringStartsWith('Google Analytics', $strip->get('feedback'));
         $this->assertStringNotContainsString('başlatılamadı', $strip->get('feedback'), 'the canonical GA4 collection accepted the request');
         $strip
             ->call('refreshSource', 'search_console')
             ->assertSee('Search Console bağlantısı kontrol edilmeli.');
+    }
+
+    public function test_head_shows_one_dot_with_details_on_hover_and_one_yenile_for_every_bound_source(): void
+    {
+        $site = $this->website();
+        [$gsc, $ga4] = $this->bindWebsite($site);
+        $this->collected($gsc);
+        $this->collected($ga4);
+        $this->gscFacts($gsc, '2026-09-01', '2026-09-26');
+        $this->ga4Facts($ga4, '2026-09-01', '2026-09-26');
+        Bus::fake();
+        Queue::fake();
+
+        $html = $this->get(route('operator.website', ['assetId' => $site->id]))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'data-data-status-refresh'), 'one Yenile in the head, not one per source');
+        $this->assertSame(1, substr_count($html, 'data-data-status-menu'));
+        $this->assertStringNotContainsString('Verileri yenile', $html);
+        $this->assertMatchesRegularExpression('/data-data-status-menu[^>]*>\s*<summary[^>]*title="Veri durumu&#10;Search Console: Güncel, son veri 26 Eyl/u', $html, 'details on hover');
+
+        $strip = Livewire::test(DataStatusStrip::class, ['assetId' => $site->id])->call('refreshAll');
+        $this->assertStringContainsString('Search Console', $strip->get('feedback'));
+        $this->assertStringContainsString('Google Analytics', $strip->get('feedback'));
+
+        Livewire::test(DataStatusStrip::class, ['assetId' => $site->id, 'refresh' => false])
+            ->assertDontSeeHtml('data-data-status-refresh')->assertSeeHtml('data-data-status-source="ga4"');
     }
 
     public function test_connection_health_lists_what_the_system_repairs_and_what_needs_the_operator(): void

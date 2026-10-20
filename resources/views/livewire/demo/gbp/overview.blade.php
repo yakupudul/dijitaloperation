@@ -19,14 +19,14 @@
 
 <div class="space-y-8">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" :title="\App\Services\Gbp\Desk\GbpDesk::shortName((string) $identity['title'])">
+    <x-operator.asset-context :asset-id="$assetId" :title="$pageTitle" :refresh="false">
         <x-slot:mark><x-demo.digital-asset-mark type="gbp" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>{{ $identity['location_line'] ?: '—' }} · Son veri: {{ $identity['last_refresh'] ?? '—' }}</x-slot:meta>
         <x-slot:actions>
             @if ($ranged)
                 <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="İşletme Profili verisi birkaç gün gecikmeli." class="w-full sm:w-auto" />
             @endif
-            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="btn">Verileri yenile</button>
+            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="btn">Yenile</button>
         </x-slot:actions>
         <x-slot:tabs>
             <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="İşletme Profili">

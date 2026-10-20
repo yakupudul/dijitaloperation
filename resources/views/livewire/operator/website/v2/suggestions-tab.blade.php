@@ -35,7 +35,7 @@
             <span class="soft-icon {{ $healthIcon }}" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons['pulse'] !!}</svg></span>
             @if (preg_match('/(\d+) sayfada (.+)$/u', $health['title'], $healthParts) === 1)
                 <p class="soft-number">{{ $healthParts[1] }} sayfa</p>
-                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" title="{{ $health['title'] }}"><span class="sr-only">{{ $health['title'] }}</span><span aria-hidden="true">{{ \Illuminate\Support\Str::ucfirst($healthParts[2]) }}</span></p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" title="{{ $health['title'] }}">{{ \Illuminate\Support\Str::ucfirst($healthParts[2]) }}</p>
             @else
                 <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $health['title'] }}</p>
             @endif
@@ -46,7 +46,7 @@
             <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons['tool'] !!}</svg></span>
             @if ($fixing['approved'] > 0)
                 <p class="soft-number">{{ $num($fixing['approved']) }} düzeltme</p>
-                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white"><span class="sr-only">{{ $num($fixing['approved']) }} düzeltme </span>Sürüyor</p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Sürüyor</p>
             @else
                 <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Şu an süren düzeltme yok</p>
             @endif
@@ -58,8 +58,8 @@
         <div @class(['soft-card sm:col-span-2 lg:col-span-1', 'soft-accent' => $waiting['open'] > 0]) data-summary="waiting">
             <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons['hand'] !!}</svg></span>
             @if ($waiting['open'] > 0)
-                <p class="soft-number">{{ $num($waiting['open']) }} iş</p>
-                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white"><span class="sr-only">{{ $num($waiting['open']) }} iş </span>Senden karar bekliyor</p>
+                <p class="soft-number" data-waiting-count>{{ $num($waiting['open']) }} iş</p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Senden karar bekliyor</p>
             @else
                 <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Senden beklenen iş yok</p>
             @endif
@@ -83,10 +83,14 @@
         </div>
 
         <div class="mb-3 flex flex-wrap items-center gap-2" data-filters>
-            <select wire:model.live="pageFilter" aria-label="URL" class="{{ $select }} w-full min-w-0 sm:w-56">
-                <option value="">Tüm URL’ler</option>
-                @foreach ($pageOptions as $id => $path)<option value="{{ $id }}">{{ $path }}</option>@endforeach
-            </select>
+            {{-- URL search: filters as you type; the site's addresses are never listed into the page. --}}
+            <input type="search" wire:model.live.debounce.400ms="urlSearch" placeholder="URL ara" aria-label="URL ara" autocomplete="off" class="{{ $select }} w-full min-w-0 pr-2.5! sm:w-56" data-url-search>
+            @if ($pagePath !== null)
+                <span class="inline-flex h-8 min-w-0 max-w-full items-center gap-1 rounded-lg border border-gray-200 bg-white pl-2.5 pr-1 text-[13px] text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200" data-page-filter>
+                    <span class="min-w-0 truncate" title="{{ $pagePath }}">{{ $pagePath }}</span>
+                    <button type="button" wire:click="$set('pageFilter', '')" class="btn-quiet h-6! w-6! px-0!" aria-label="Sayfa filtresini kaldır">×</button>
+                </span>
+            @endif
             <select wire:model.live="type" aria-label="Tür" class="{{ $select }} min-w-0 flex-1 sm:w-64 sm:flex-none">
                 <option value="">Tüm işler</option>
                 @foreach ($types as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach

@@ -43,7 +43,7 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
         foreach (['overview', 'todo', 'reviews', 'posts', 'analysis', 'settings', 'performance', 'profile', 'advisor', 'visibility', 'competitors', 'operations'] as $tab) {
             $this->get(route('operator.gbp', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
-                ->assertSee('Google Business Profile')
+                ->assertSee('İşletme Profili')->assertDontSee('Google Business Profile ·')
                 ->assertDontSee('Atlas Dental Ankara')
                 ->assertDontSee('Demo local rank tracking')
                 ->assertDontSee('Demo AI analysis');

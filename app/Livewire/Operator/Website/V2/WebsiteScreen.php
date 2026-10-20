@@ -7,6 +7,7 @@ use App\Services\DataStatus\DataStatusReader;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\Analysis\SiteRange;
 use App\Support\Reality\OperatorCanonicalAsset;
+use App\View\Components\Operator\AssetContext;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -176,6 +177,7 @@ final class WebsiteScreen extends Component
             'ranged' => in_array($this->tab, self::RANGED, true),
             'banners' => collect(app(DataStatusReader::class)->forAsset($site))->filter(fn ($status): bool => in_array($status->state, ['not_bound', 'first_load'], true))->groupBy('state'),
             'rangeKey' => md5(json_encode([$range->days, $range->start, $range->end, $range->compare])),
-        ]);
+            'pageTitle' => AssetContext::assetTitle($site),
+        ])->title(AssetContext::assetTitle($site));
     }
 }

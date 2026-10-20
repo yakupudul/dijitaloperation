@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Services\Alerts\AlarmCauses;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Operator\ExternalLinks;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\DigitalAssetTypes;
@@ -17,12 +18,12 @@ use Illuminate\Support\Collection;
 use Illuminate\View\Component;
 
 /**
- * The one compact page head of every digital asset page: a small gray Customer › Brand › Asset breadcrumb (the brand opens
- * its analysis tab) with a switcher to the brand's other assets and the "Veri Kaynakları" / "Düzenle" links, then — when the
- * page passes a `title` — the title row (brand avatar or `mark` slot, h1, `status` slot, `actions` slot on the right, `subtitle`
- * or `meta` slot under it), then the one-line "Veri durumu" (DataStatusReader; the only place an asset page says whether its
- * sources are connected and current), the open alerts as one collapsible line, the default slot and finally the `tabs` slot.
- * Without a title the head is breadcrumb + status line + alerts and the page renders its own title below (older callers).
+ * The one compact page head of every digital asset page, one line before the tabs (yakup 2026-10-20: "too noisy"):
+ * brand › asset (the page's h1 when it passes a `title`, with a switcher to the brand's other assets), the `status` slot,
+ * then on the right the page's `actions`, the data-status dot (DataStatusReader; details on hover and in its small panel),
+ * the open alerts as one chip, a single "Yenile" (only when the page has no refresh button of its own: `refresh`), "Hızlı
+ * giriş" and a "⋯" menu holding "Veri kaynakları", "Düzenle" and the brand-website link. The `meta` / `subtitle` line sits
+ * under the title, the default slot (banners) under the line, the `tabs` slot last.
  */
 class AssetContext extends Component
 {
@@ -53,11 +54,18 @@ class AssetContext extends Component
     /** Logo of the brand for the title row avatar. */
     public ?string $brandLogo = null;
 
+    /** Turkish asset type names for the head and the switcher ("Website" → "Web sitesi"). */
+    public const array TYPE_LABELS = [
+        'website' => 'Web sitesi', 'google_business_profile' => 'İşletme Profili', 'gbp' => 'İşletme Profili', 'google_ads' => 'Google Ads',
+        'meta_ads' => 'Meta Ads', 'instagram' => 'Instagram', 'ga4' => 'Google Analytics', 'gsc' => 'Google Search Console',
+    ];
+
     /**
      * @param  string|null  $title  h1 of the page; when given the head renders the title row (breadcrumb → title → status → tabs)
      * @param  string|null  $subtitle  one gray line under the title (or pass a `meta` slot)
+     * @param  bool  $refresh  show the head's single "Yenile"; false when the page has its own refresh button
      */
-    public function __construct(int|string|null $assetId, public string $current = 'page', public ?string $title = null, public ?string $subtitle = null)
+    public function __construct(int|string|null $assetId, public string $current = 'page', public ?string $title = null, public ?string $subtitle = null, public bool $refresh = true)
     {
         $this->alerts = collect();
         $this->asset = ctype_digit((string) $assetId)
@@ -68,8 +76,8 @@ class AssetContext extends Component
         }
 
         $asset = $this->asset;
-        $this->typeLabel = DigitalAssetTypes::options()[(string) $asset->type] ?? (string) $asset->type;
-        $this->assetLabel = self::labelFor($this->typeLabel, (string) $asset->name);
+        $this->typeLabel = self::typeLabel((string) $asset->type);
+        $this->assetLabel = self::assetTitle($asset);
         $customer = $asset->brand?->customer;
         $this->brandLogo = filled($asset->brand?->logo_url) ? (string) $asset->brand->logo_url : null;
         $this->showCustomer = $customer !== null && $asset->brand === null;
@@ -85,7 +93,7 @@ class AssetContext extends Component
         $statuses = app(DataStatusReader::class)->forAssets($brandAssets);
         $this->siblings = $brandAssets->map(fn (DigitalAsset $sibling): array => [
             'name' => (string) $sibling->name,
-            'type_label' => DigitalAssetTypes::options()[(string) $sibling->type] ?? (string) $sibling->type,
+            'type_label' => self::typeLabel((string) $sibling->type),
             'url' => OperatorPortfolioPresenter::specialistUrl($sibling),
             'current' => $sibling->is($asset),
             'tone' => self::worstTone($statuses[(int) $sibling->id] ?? []),
@@ -101,6 +109,33 @@ class AssetContext extends Component
         $this->alerts = AlarmCauses::ordered(AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
             ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
             ->get(), fn (AssetAlert $alert): string => (string) $alert->kind, fn (AssetAlert $alert): string => (string) $alert->severity);
+    }
+
+    /** "website" → "Web sitesi"; an unknown type keeps the catalog's name. */
+    public static function typeLabel(string $type): string
+    {
+        return self::TYPE_LABELS[$type] ?? DigitalAssetTypes::options()[$type] ?? $type;
+    }
+
+    /**
+     * Turkish head name of an asset: "Web sitesi · moximu.com", "İşletme Profili · Avrupadent Çiğli" (the Google name's
+     * "İşletme Profili ·" prefix and "| …" tail dropped), an English type prefix in a stored name replaced.
+     */
+    public static function assetTitle(DigitalAsset $asset): string
+    {
+        $type = (string) $asset->type;
+        $name = (string) $asset->name;
+        $english = DigitalAssetTypes::options()[$type] ?? null;
+        if ($english !== null) {
+            $name = (string) preg_replace('/^\s*'.preg_quote($english, '/').'\s*[·:\-]\s*/iu', '', $name);
+        }
+
+        return self::labelFor(self::typeLabel($type), self::isProfile($type) ? GbpDesk::shortName($name) : $name);
+    }
+
+    private static function isProfile(string $type): bool
+    {
+        return in_array($type, ['google_business_profile', 'gbp'], true);
     }
 
     /** "Meta Ads" + "Meta Ads · Obezite" → "Meta Ads · Obezite"; "Web sitesi" + "Örnek Site" → "Web sitesi · Örnek Site". */

@@ -13,5 +13,5 @@
         </div>
     </section>
 @elseif (($reviewAccess['state'] ?? null) === 'never')
-    <p class="text-[13px] text-gray-500">Yorumlar henüz hiç toplanmadı; profil her gün otomatik toplanır. Hemen denemek için “Verileri yenile”.</p>
+    <p class="text-[13px] text-gray-500">Yorumlar henüz hiç toplanmadı; profil her gün otomatik toplanır. Hemen denemek için “Yenile”.</p>
 @endif

@@ -52,8 +52,13 @@ final class SuggestionsTab extends Component
     #[Locked]
     public int $assetId = 0;
 
+    /** One page (Sayfalar "Önerileri aç" links with its id). */
     #[Url(as: 'url')]
     public string $pageFilter = '';
+
+    /** "URL ara": part of a page address, filters as you type. */
+    #[Url(as: 'ara')]
+    public string $urlSearch = '';
 
     #[Url(as: 'tur')]
     public string $type = '';
@@ -94,7 +99,7 @@ final class SuggestionsTab extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['pageFilter', 'type', 'status'], true)) {
+        if (in_array($property, ['pageFilter', 'urlSearch', 'type', 'status'], true)) {
             $this->resetPage();
         }
     }
@@ -261,7 +266,9 @@ final class SuggestionsTab extends Component
             'proposal' => $proposal,
             'diff' => isset($proposal['new']['html']) ? SiteDiff::html((string) ($proposal['current']['html'] ?? ''), (string) $proposal['new']['html']) : null,
             'writes' => $opened !== null ? ExternalWriteAction::query()->where('suggestion_id', $opened->id)->orderBy('id')->get() : collect(),
-            'pageOptions' => Page::query()->where('website_asset_id', $site->id)->whereIn('id', Suggestion::query()->where('brand_id', (int) $site->brand_id)->whereNotNull('page_id')->select('page_id'))->orderBy('path')->pluck('path', 'id')->all(),
+            'pagePath' => $this->pageFilter !== '' && ctype_digit($this->pageFilter)
+                ? Page::query()->where('website_asset_id', $site->id)->whereKey((int) $this->pageFilter)->value('path')
+                : null,
             'applyStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::APPLY_CHANGE, ['suggestion_id' => $opened->id])) : null,
             'altStatus' => SiteOperations::line(SiteOperations::status($site->id, SiteOperations::IMAGE_ALTS)),
             'standardStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::STANDARD, ['suggestion_id' => $opened->id])) : null,
@@ -326,7 +333,7 @@ final class SuggestionsTab extends Component
         $rows = Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('channel', 'search')
             ->where('action_type', '!=', SiteSuggestionTypes::CONTENT)
             ->where(fn (Builder $q) => $this->ofSite($q))
-            ->when($this->pageFilter !== '' && ctype_digit($this->pageFilter), fn (Builder $q) => $q->where('page_id', (int) $this->pageFilter))
+            ->where(fn (Builder $q) => $this->ofPages($q, (int) $site->id))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
             ->get(['id', 'action_type', 'priority', 'page_id', 'action']);
         $mainIds = $rows->where('action_type', ClusterOverlaps::TYPE)->map(fn (Suggestion $s): int => (int) data_get($s->action, 'main_page_id'));
@@ -374,7 +381,7 @@ final class SuggestionsTab extends Component
         return Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('action_type', $type)
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->whereNull('applied_at')
             ->where(fn (Builder $q) => $this->ofSite($q))
-            ->when($this->pageFilter !== '' && ctype_digit($this->pageFilter), fn (Builder $q) => $q->where('page_id', (int) $this->pageFilter))
+            ->where(fn (Builder $q) => $this->ofPages($q, (int) $site->id))
             ->get()->filter(fn (Suggestion $s): bool => match (true) {
                 $type === ClusterOverlaps::TYPE => ClusterOverlaps::mergeable($s) && data_get($s->action, 'check.verdict') !== 'different',
                 $type === ImageAlts::TYPE => (array) data_get($s->action, 'images', []) !== [],
@@ -472,6 +479,17 @@ final class SuggestionsTab extends Component
      * @param  Builder<Suggestion>  $query
      * @return Builder<Suggestion>
      */
+    /** URL filters: the one page of a link, and the typed part of an address ("URL ara"). */
+    private function ofPages(Builder $query, int $siteId): Builder
+    {
+        $search = trim($this->urlSearch);
+
+        return $query
+            ->when($this->pageFilter !== '' && ctype_digit($this->pageFilter), fn (Builder $q) => $q->where('page_id', (int) $this->pageFilter))
+            ->when($search !== '', fn (Builder $q) => $q->whereIn('page_id', Page::query()->where('website_asset_id', $siteId)
+                ->where(fn (Builder $p) => $p->where('path', 'like', '%'.$search.'%')->orWhere('url', 'like', '%'.$search.'%'))->select('id')));
+    }
+
     private function ofSite(Builder $query): Builder
     {
         return $query->whereIn('page_id', Page::query()->where('website_asset_id', $this->assetId)->select('id'))

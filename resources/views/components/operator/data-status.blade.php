@@ -1,10 +1,12 @@
 @props([
     /** list<\App\Services\DataStatus\DataStatus> from DataStatusReader */
     'statuses' => [],
-    /** Show the per-source action (Verileri yenile / Yeniden bağla / Kaynağı bağla). */
+    /** Show the per-source action (Verileri yenile / Yeniden bağla / Kaynağı bağla; in the panel only the links). */
     'actions' => true,
-    /** One quiet line (asset page head) instead of the white card. */
+    /** One quiet line instead of the white card. */
     'compact' => false,
+    /** One source per row (the asset page head's data-status panel): reconnect / bind links only, the head has the one "Yenile". */
+    'panel' => false,
 ])
 
 @php
@@ -17,13 +19,20 @@
 @endphp
 
 @if (count($statuses) > 0)
+    @php
+        if ($panel) {
+            $compact = true;
+        }
+    @endphp
     <section {{ $attributes->class([
-        'flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs' => $compact,
+        'flex min-w-0 flex-col gap-2 text-xs' => $panel,
+        'flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs' => $compact && ! $panel,
         'flex flex-col gap-2 border-b border-gray-200 py-2.5 text-sm dark:border-gray-800 lg:flex-row lg:items-center lg:gap-4' => ! $compact,
     ]) }} data-data-status aria-label="{{ __('data_status.title', [], 'tr') }}">
         <p @class(['shrink-0 text-gray-500', 'text-xs' => ! $compact])>{{ __('data_status.title', [], 'tr') }}</p>
         <div @class([
-            'contents' => $compact,
+            'flex min-w-0 flex-col gap-2' => $panel,
+            'contents' => $compact && ! $panel,
             'flex min-w-0 flex-1 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-5' => ! $compact,
         ])>
             @foreach ($statuses as $status)
@@ -36,7 +45,7 @@
                     @endif
                     <span class="font-medium {{ $tone['text'] }}">{{ $status->label() }}</span>
                     @if ($status->detail() !== '')
-                        <span @class(['text-xs tabular-nums text-gray-500 dark:text-gray-400', 'hidden sm:inline' => $compact])>{{ $status->detail() }}</span>
+                        <span @class(['text-xs tabular-nums text-gray-500 dark:text-gray-400', 'hidden sm:inline' => $compact && ! $panel, 'basis-full pl-3' => $panel])>{{ $status->detail() }}</span>
                     @endif
                     @if ($status->collecting)
                         <span class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
@@ -45,7 +54,8 @@
                         </span>
                     @endif
                     @if ($actions)
-                        @if ($status->action === \App\Services\DataStatus\DataStatus::ACTION_REFRESH)
+                        @if ($status->action === \App\Services\DataStatus\DataStatus::ACTION_REFRESH && $panel)
+                        @elseif ($status->action === \App\Services\DataStatus\DataStatus::ACTION_REFRESH)
                             <button type="button" wire:click="refreshSource('{{ $status->capability }}')" wire:loading.attr="disabled" @class([
                                 'text-xs disabled:opacity-60' => true,
                                 'link-neutral' => $compact,

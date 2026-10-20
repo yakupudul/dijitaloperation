@@ -7,7 +7,7 @@
     $moreLabel = $moreOpen && $tab !== 'ayarlar' ? $menu[$tab] : 'Ayarlar';
 @endphp
 <div class="min-w-0 space-y-8" data-website-screen>
-    <x-operator.asset-context :asset-id="$site->id" :title="$site->name">
+    <x-operator.asset-context :asset-id="$site->id" :title="$pageTitle">
         <x-slot:meta>
             @if ($siteUrl)
                 <a href="{{ $siteUrl }}" target="_blank" rel="noopener noreferrer" class="hover:text-gray-900 hover:underline dark:hover:text-white">{{ $site->domain ?: $siteUrl }} ↗</a>
