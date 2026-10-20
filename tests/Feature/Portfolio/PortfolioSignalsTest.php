@@ -214,7 +214,8 @@ final class PortfolioSignalsTest extends TestCase
 
     public function test_assets_menu_url_filters_active_filter_and_inherited_owner(): void
     {
-        $this->assertContains('operator.assets', collect(DemoMenu::groups())->flatMap(fn (array $g): array => $g['items'])->pluck('route')->all());
+        // Dijital varlıklar left the sidebar for an Entegrasyonlar tab (2026-10-20).
+        $this->assertContains('operator.assets', collect(DemoMenu::groups())->flatMap(fn (array $g): array => $g['items'])->flatMap(fn (array $i): array => array_column($i['children'], 'route'))->all());
         $owner = User::factory()->create(['is_active' => true, 'name' => 'Deniz Sorumlu']);
         $this->late->responsibleUsers()->attach($owner->id);
         $this->asset($this->late, 'meta_ads', 'Pasif Meta', ['status' => DigitalAssetStatus::Inactive]);
