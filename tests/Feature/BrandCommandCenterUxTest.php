@@ -81,7 +81,7 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Otomatik kur')
             ->assertSee('Varlık ekle')
             ->assertSee('Düzenle')
-            ->assertSee(route('operator.customer', ['customerId' => $this->workCustomer->id], absolute: false))
+            ->assertDontSee(route('operator.customer', ['customerId' => $this->workCustomer->id], absolute: false))
             ->assertDontSee('Brand Health')
             ->assertDontSee('Media spend')
             ->assertDontSee('Meta CPL deteriorated');
