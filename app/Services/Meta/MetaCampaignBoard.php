@@ -543,16 +543,24 @@ final class MetaCampaignBoard
         $platforms = (array) ($t['publisher_platforms'] ?? []);
         $min = $t['age_min'] ?? null;
         $max = $t['age_max'] ?? null;
+        $advantage = (int) ($t['targeting_automation']['advantage_audience'] ?? 0) === 1;
+        $span = fn ($from, $to): string => ($from ?? 18).'–'.(($to ?? 65) >= 65 ? '65+' : $to);
+        $age = $min === null && $max === null ? '18–65+' : $span($min, $max);
+        // Advantage+ kitle: Meta age_max'ı 65'e sabitler; Ads Manager'da görülen yaş aralığı age_range'deki öneridir.
+        $suggested = (array) ($t['age_range'] ?? []);
+        if ($advantage && count($suggested) === 2) {
+            $age = $span($suggested[0], $suggested[1]).' öneri (Meta '.$age.' arasında gösterebilir)';
+        }
 
         return [
             'locations' => array_values(array_filter($locations)),
-            'age' => $min === null && $max === null ? '18–65+' : ($min ?? 18).'–'.(($max ?? 65) >= 65 ? '65+' : $max),
+            'age' => $age,
             'genders' => $genders === [1] ? 'Erkek' : ($genders === [2] ? 'Kadın' : 'Tümü'),
             'interests' => array_values(array_unique(array_filter($interests))),
             'audiences' => array_values(array_filter(array_map(fn ($a): string => (string) ($a['name'] ?? ''), (array) ($t['custom_audiences'] ?? [])))),
             'excluded' => array_values(array_filter(array_map(fn ($a): string => (string) ($a['name'] ?? ''), (array) ($t['excluded_custom_audiences'] ?? [])))),
             'placements' => $platforms === [] ? 'Advantage+ yerleşim' : implode(', ', array_map('ucfirst', $platforms)).($positions !== [] ? ' · '.count($positions).' yerleşim' : ''),
-            'advantage' => (int) ($t['targeting_automation']['advantage_audience'] ?? 0) === 1,
+            'advantage' => $advantage,
         ];
     }
 
