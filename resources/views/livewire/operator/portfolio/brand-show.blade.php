@@ -5,7 +5,6 @@
     $segment = fn (bool $active): string => $active ? 'seg seg-active h-8! px-3!' : 'seg h-8! px-3!';
     $segmentGroup = 'inline-flex flex-wrap items-center gap-1.5';
     $headLine = collect([
-        $customer ? '<a href="'.e(route('operator.customer', ['customerId' => $customer->id])).'" wire:navigate class="hover:text-gray-900 hover:underline dark:hover:text-white">'.e($customer->name).'</a>' : null,
         $sectors !== [] ? e(implode(', ', $sectors)) : null,
         $areas !== [] ? e(implode(', ', array_slice($areas, 0, 3))).(count($areas) > 3 ? ' +'.(count($areas) - 3) : '') : null,
     ])->filter()->implode(', ');

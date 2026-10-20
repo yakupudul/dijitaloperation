@@ -54,11 +54,11 @@
     }
     if (($lanes['manual'] ?? 0) > 0) {
         $actions[] = ['key' => 'manual', 'icon' => 'hand', 'tone' => null, 'title' => $num($lanes['manual']).' iş senin elinle yapılacak',
-            'line' => 'Sitede ya da hesapta.', 'label' => 'Gör', 'href' => route('operator.repair', ['serit' => 'manual']), 'primary' => false, 'hook' => null];
+            'line' => '', 'label' => 'Gör', 'href' => route('operator.repair', ['serit' => 'manual']), 'primary' => false, 'hook' => null];
     }
     if (($systemAlerts['critical'] ?? 0) > 0) {
         $actions[] = ['key' => 'system', 'icon' => 'alert', 'tone' => 'look', 'title' => 'Hata merkezi: '.$systemAlerts['critical'].' iş seni bekliyor',
-            'line' => (string) ($systemAlerts['top'] ?? ''), 'label' => 'Aç', 'href' => route('operator.settings.system-health'), 'primary' => false, 'hook' => null];
+            'line' => trim((string) (preg_split('/(?<=[.!?])\s+/u', (string) ($systemAlerts['top'] ?? ''), 2)[0] ?? '')), 'label' => 'Aç', 'href' => route('operator.settings.system-health'), 'primary' => false, 'hook' => null];
     }
     $icons = [
         'send' => '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
@@ -386,10 +386,11 @@
                             <div class="min-w-0 flex-1 text-sm">
                                 @if ($line['brand_id'] > 0)
                                     <a href="{{ route('operator.brand', ['brand' => $line['brand_id'], 'tab' => 'dosya']) }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $line['brand'] }}</a>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ $line['task'] }}</span>
                                 @else
-                                    <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $line['brand'] }}</a>
+                                    {{-- A system line names its place in the task already ("Hata merkezinde …"); the task is the link. --}}
+                                    <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="text-gray-700 hover:underline dark:text-gray-300" title="{{ $line['brand'] }}">{{ $line['task'] }}</a>
                                 @endif
-                                <span class="text-gray-700 dark:text-gray-300">{{ $line['task'] }}</span>
                                 @if ($line['why'] !== '')<span class="mt-0.5 block text-[13px] text-gray-500">{{ $line['why'] }}</span>@endif
                             </div>
                         </li>

@@ -66,7 +66,7 @@ final class BrandOverviewTest extends TestCase
         $this->get(route('operator.brand', ['brand' => $this->brand->id]))->assertOk()
             ->assertSee('data-brand-overview', false)
             ->assertSee('data-period-selector', false)
-            ->assertSee('Panorama Sağlık A.Ş.')
+            ->assertDontSee('Panorama Sağlık A.Ş.')
             ->assertSee('data-brand-state="active"', false)
             ->assertSee('data-open-website="'.$this->site->id.'"', false)
             ->assertDontSee('Bu hafta yapılacaklar');

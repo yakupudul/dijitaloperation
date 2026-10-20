@@ -571,7 +571,10 @@ class BrandShow extends Component
             'brandModel' => $brand,
             'customer' => $brand->customer,
             'sectors' => collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all(),
-            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()->map->label()->values()->all(),
+            // Head line names each city once ("Manisa, İzmir +2"), not every district with its country (yakup 2026-10-20).
+            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()
+                ->map(fn ($area): string => (string) ($area->city_name ?: ($area->district_name ?: ($area->country_name ?: $area->country_code))))
+                ->filter()->unique()->values()->all(),
             'operational' => app(ServiceScope::class)->isBrandOperational($brand->id),
         ];
     }

@@ -174,7 +174,7 @@ final class BrandWorkspaceTest extends TestCase
         $page = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSet('tab', 'varliklar')
             ->assertSee('Adadent')
-            ->assertSee('Klinik A.Ş.')
+            ->assertDontSee('Klinik A.Ş.')->assertSee('İstanbul')->assertDontSee('İstanbul, Türkiye')
             ->assertSee('Kurulum durumu')
             ->assertSee('Google Analytics 4')
             ->assertSee('data-accounts-missing', false)
