@@ -104,6 +104,33 @@ final class AssetAlertScannerTest extends TestCase
         $this->assertNotContains('ga4_conversions_drop', $kinds, '28 → 21 key events is a 25% dip, below the threshold');
     }
 
+    public function test_a_search_console_property_without_a_single_impression_is_flagged_as_the_wrong_property(): void
+    {
+        $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => DigitalAssetStatus::Active, 'name' => 'Site']);
+        $insert = function (int $days, int $impressions) use ($site): void {
+            for ($day = 1; $day <= $days; $day++) {
+                DB::table('gsc_property_daily')->insert([
+                    'digital_asset_id' => $site->id, 'external_resource_id' => null, 'site_url' => 'https://www.ornek.test/',
+                    'reporting_date' => now()->subDays($day)->toDateString(), 'clicks' => 0, 'impressions' => $impressions,
+                    'search_type' => 'web', 'metadata' => '{}', 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                    'record_fingerprint' => hash('sha256', 'e'.$day.$impressions), 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        };
+        $insert(10, 0);
+        app(AssetAlertScanner::class)->scan($site);
+        $this->assertNull(AssetAlert::query()->open()->where('digital_asset_id', $site->id)->value('kind'), 'too few days to judge');
+
+        DB::table('gsc_property_daily')->delete();
+        $insert(28, 0);
+        app(AssetAlertScanner::class)->scan($site);
+        $this->assertSame('gsc_empty_property', AssetAlert::query()->open()->where('digital_asset_id', $site->id)->value('kind'));
+
+        DB::table('gsc_property_daily')->where('reporting_date', now()->subDay()->toDateString())->update(['impressions' => 3]);
+        app(AssetAlertScanner::class)->scan($site);
+        $this->assertFalse(AssetAlert::query()->open()->where('digital_asset_id', $site->id)->where('kind', 'gsc_empty_property')->exists(), 'one impression: the property is right');
+    }
+
     public function test_search_drop_bad_review_and_stale_data(): void
     {
         $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => DigitalAssetStatus::Active, 'name' => 'Site']);

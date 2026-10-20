@@ -1,5 +1,12 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — Kullanılmayan reklam hesapları sessizde, boş Search Console mülkü alarmı
+
+- **Karar (yakup 2026-10-20 "yap, sırayla"; yönetici turu `notes/toplu-icerik-gonderimi-ve-yonetici-turu-2026-10-20.md`):** aylardır harcamasız 9 reklam hesabı iş üretmeye devam ediyordu (ör. Buşra'nın 25.07'den beri harcamasız hesabında 2 kritik negatif işi); Bornova Hurda'nın Search Console mülkü bir yılda tek gösterim almadı.
+- **Sessize alma (`DormantAdWork`, `moxdop:ads:quiet-dormant` her gece 05:40):** 60 gün harcamasız (ya da müşteri kararıyla duraklatılmış) Google Ads / Meta hesabının açık işleri işaretli olarak ertelenir; masa, marka dosyası ve rozetler onları saymaz. Hesap yeniden harcayınca işler eski durumuyla kendiliğinden açılır. Bağlantı kopmaz, veri haftalık toplanmaya devam eder; operatörün kendi ertelediği işlere dokunulmaz.
+- **Alarm (`AssetAlertScanner`, `gsc_empty_property`, yüksek):** son 28 günün en az 14 gününde Search Console verisi gelip hiç gösterim yoksa "Search Console mülkünde hiç gösterim yok" (yanlış mülk: www / http / alan adı mülkü). Bugün'de "bak" alarmı olarak çıkar.
+- **Durum:** CODED, TESTED (`DormantAdWorkTest`, `AssetAlertScannerTest`); UAT yok.
+
 ## 2026-10-20 — İçerik tek tıkla toplu gönderim, okuma isteğe bağlı
 
 - **Karar (yakup 2026-10-20 "yap, sırayla"):** yazılan içerikler tek tek okunmadan tek tıkla siteye gidebilmeli; yakup yazıyı sitede yayınlarken okuyor.

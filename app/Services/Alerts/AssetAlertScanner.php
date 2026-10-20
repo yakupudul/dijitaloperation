@@ -393,6 +393,10 @@ final class AssetAlertScanner
             return [];
         }
         $end = CarbonImmutable::parse((string) $latest);
+        $empty = $this->emptySearchConsole($asset, $end);
+        if ($empty !== null) {
+            return [$empty];
+        }
         $sum = fn (CarbonImmutable $from, CarbonImmutable $to): int => (int) $this->seoInputs
             ->scopeGsc(DB::table('gsc_property_daily'), $asset, 'gsc_property_daily')
             ->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])
@@ -411,6 +415,28 @@ final class AssetAlertScanner
         return [$this->alert('search_traffic_drop', $drop >= 60 ? 'high' : 'medium', 'Google arama tıklamaları düştü',
             sprintf('Son 7 günde %s tık, önceki 7 günde %s (−%%%d). Search Console sekmesinde düşen sayfaları kontrol edin.', number_format($current, 0, ',', '.'), number_format($previous, 0, ',', '.'), $drop),
             ['current' => $current, 'previous' => $previous, 'drop_pct' => $drop, 'end' => $end->toDateString()])];
+    }
+
+    /**
+     * Search Console collects every day but the property never shows the site in Google (yakup 2026-10-20, Bornova
+     * Hurda: a year of zero impressions while the site has sessions): the bound property is almost always the wrong one
+     * (www / without www, http / https, or the domain property).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function emptySearchConsole(DigitalAsset $asset, CarbonImmutable $end): ?array
+    {
+        $days = 28;
+        $rows = $this->seoInputs->scopeGsc(DB::table('gsc_property_daily'), $asset, 'gsc_property_daily')
+            ->whereBetween('reporting_date', [$end->subDays($days - 1)->toDateString(), $end->toDateString()])
+            ->selectRaw('COUNT(DISTINCT reporting_date) as days, COALESCE(SUM(impressions), 0) as impressions')->first();
+        if ($rows === null || (int) $rows->days < 14 || (int) $rows->impressions > 0) {
+            return null;
+        }
+
+        return $this->alert('gsc_empty_property', 'high', 'Search Console mülkünde hiç gösterim yok',
+            sprintf('Son %d günün %d gününde veri geldi ama Google\'da tek bir gösterim yok. Bağlı mülk büyük ihtimalle yanlış (www / www\'suz, http / https ya da alan adı mülkü); Entegrasyonlar\'dan sitenin gerçek mülkünü bağlayın.', $days, (int) $rows->days),
+            ['days' => (int) $rows->days, 'end' => $end->toDateString()]);
     }
 
     /**

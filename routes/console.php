@@ -36,6 +36,7 @@ use App\Models\ScreenCheck;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Ads\AdsCatchUp;
+use App\Services\Ads\DormantAdWork;
 use App\Services\Ads\Winners;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\ClaudeApiWindow;
@@ -1239,6 +1240,19 @@ Schedule::command('moxdop:repair:autopilot')
     ->withoutOverlapping(30)
     ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::REPAIR_REVIEW))
     ->name('repair-autopilot');
+
+// Kullanılmayan reklam hesapları (yakup 2026-10-20): 60 days without spend (or paused as the customer's decision) and
+// the account's open work goes quiet; it opens again by itself once the account spends.
+Artisan::command('moxdop:ads:quiet-dormant', function (DormantAdWork $work): void {
+    $result = $work->sync();
+    $this->info($result['quiet'].' iş sessizde, '.$result['reopened'].' iş yeniden açıldı.');
+})->purpose('Snooze the open work of ad accounts that have not spent for 60 days; reopen it when they spend again');
+
+Schedule::command('moxdop:ads:quiet-dormant')
+    ->dailyAt('05:40')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('ads-quiet-dormant');
 
 // Yanlış çakışmaları ayıklama (yakup, 2026-10-19): at night Claude reads each open overlap once; a wrong pairing closes,
 // a 301 between different questions becomes "Metni ayır". Nothing is written to a site.
