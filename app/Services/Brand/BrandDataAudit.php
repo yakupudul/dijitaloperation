@@ -311,7 +311,7 @@ final class BrandDataAudit
                     + ($source === self::SOURCE_RULES ? [] : ['source' => $source])];
             $row = $existing->get($fingerprint);
             if ($row === null) {
-                Suggestion::query()->create($values + ['brand_id' => $brand->id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN, 'first_seen_at' => now()]);
+                Suggestion::openOnce($values + ['brand_id' => $brand->id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN, 'first_seen_at' => now()]);
                 $opened++;
             } elseif (in_array($row->status, [Suggestion::OPEN, Suggestion::RECHECK], true)) {
                 $row->forceFill($values)->save();

@@ -4517,3 +4517,10 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: publi
 
 - Pool #44: `GbpPostQueue::slots()` loaded pages without `content_outline` / `content_text`, so every `gbp.post_queue` task reached Claude with an empty page text and was closed as not doable (posts must be written only from the page). Slots now load the text of the leading candidates in one query and skip pages with no stored text. Tested: `GbpPostQueueTest::test_slots_carry_the_page_text_and_skip_pages_with_no_stored_text`.
 - Pool #45 (part 2): when Claude closes a `brand.data_review` or `brand.care` task as not doable, the brand stores the failure (no hash, so the next run asks again) and returns `failed` without throwing; it no longer opens an application error group. Tested: `BrandDataReviewTest::test_a_review_claude_declines_is_stored_as_failed_without_a_software_error`.
+
+## 2026-10-20 — Haftalık hata turu: uzun gerekçeler, aynı bulgu iki kez, site toplama kilidi
+
+- Pool #49: `suggestions.reason` was a 240-character column while cluster overlap and other checks write up to 600 characters; since the plain-language wording of 19 Oct those rows failed to save (9 error groups in 24 h). The column is now text (migration `2026_12_20_090000_widen_suggestion_reason`).
+- Pool #47: brand data audit, web health audit, site audit and cluster links open findings through `Suggestion::openOnce()` (`createOrFirst` on brand + fingerprint), so two checks of one brand running together keep one row instead of failing on `suggestions_brand_fingerprint_uq`.
+- Pool #48: a website collection started while another trigger is admitting one waits up to 15 s for that trigger and returns its run instead of throwing.
+- Tested: `SuggestionOpenOnceTest` (sqlite and PostgreSQL).

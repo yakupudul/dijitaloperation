@@ -114,7 +114,7 @@ final class ClusterLinks
         if (Suggestion::query()->where('brand_id', $site->brand_id)->where('fingerprint', $fingerprint)->exists()) {
             return false;
         }
-        Suggestion::query()->create([
+        Suggestion::openOnce([
             'brand_id' => $site->brand_id, 'channel' => 'search', 'decision_key' => 'site.cluster-link', 'action_type' => 'internal_links', 'priority' => 3,
             'fingerprint' => $fingerprint, 'material_hash' => hash('sha256', 'cluster-link|'.$page->url), 'status' => Suggestion::OPEN,
             'title' => mb_substr('İç link ekle: '.SeoText::urlPath((string) $main->url).' → '.SeoText::urlPath((string) $page->url), 0, 160),
@@ -142,7 +142,7 @@ final class ClusterLinks
             ->orWhere(fn ($open) => $open->where('action_type', SiteSuggestionTypes::CONTENT)->where('page_id', $page->id)->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED])))->exists()) {
             return false;
         }
-        Suggestion::query()->create([
+        Suggestion::openOnce([
             'brand_id' => $idea->brand_id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => $fingerprint, 'material_hash' => hash('sha256', $key),
             'title' => mb_substr((string) ($page->title ?: $idea->title), 0, 160), 'priority' => 4, 'status' => Suggestion::OPEN,
             'reason' => mb_substr('Yazı '.self::WEAK_AFTER_DAYS.' günde Google\'da hiç gösterim almadı; güçlendirilmeli ya da kümenin ana sayfasıyla birleştirilmeli.', 0, 240),
@@ -177,7 +177,7 @@ final class ClusterLinks
             return false;
         }
         $line = number_format($impressions, 0, ',', '.').' gösterim, ortalama '.number_format($position, 1, ',', '.').'. sıra';
-        Suggestion::query()->create([
+        Suggestion::openOnce([
             'brand_id' => $idea->brand_id, 'channel' => 'search', 'decision_key' => 'site.content', 'fingerprint' => $fingerprint, 'material_hash' => hash('sha256', $key.'|striking'),
             'title' => mb_substr((string) ($page->title ?: $idea->title), 0, 160), 'priority' => 3, 'status' => Suggestion::OPEN,
             'reason' => mb_substr('Yazı 28 günde '.$line.' aldı; ilk sayfanın üstüne çıkması için güçlendirilmeli.', 0, 240),
