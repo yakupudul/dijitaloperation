@@ -9,7 +9,7 @@
     $error = 'mt-1 block text-xs text-error-600 dark:text-error-400';
     $footer = 'flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]';
 @endphp
-<div class="space-y-10">
+<div class="max-w-[1120px] space-y-10">
     @include('livewire.demo.partials.flash')
 
     <header class="flex flex-wrap items-center justify-between gap-3">

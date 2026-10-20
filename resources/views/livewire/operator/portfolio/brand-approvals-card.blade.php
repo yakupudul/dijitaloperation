@@ -15,7 +15,7 @@
             @if ($approvals['packages'] === [])
                 <div class="card" data-approvals-empty><x-ta.empty-state size="sm" title="Onay bekleyen iş yok" message="Bu markada onay bekleyen düzeltme yok." /></div>
             @else
-                <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4">
                     @foreach ($approvals['packages'] as $package)
                         <li wire:key="approval-{{ $package['key'] }}" class="flex">
                             <a href="{{ $package['url'] }}" wire:navigate @class(['soft-card w-full', 'soft-accent' => $loop->first]) data-approval-package="{{ $package['key'] }}">

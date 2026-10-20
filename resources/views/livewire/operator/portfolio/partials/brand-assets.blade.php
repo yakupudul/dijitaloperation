@@ -9,7 +9,7 @@
                 <h2 class="section-title">Eksik ya da verisi gelmeyen hesaplar</h2>
             </div>
             {{-- Canlı panel (2026-10-20): each missing account as a tinted card; the button goes to "Hesap ekle" below. --}}
-            <ul class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <ul class="grid grid-cols-2 gap-3 lg:grid-cols-3 wide:grid-cols-4">
                 @foreach ($missing as $item)
                     @if ($item['required'] || str_contains($item['detail'], 'veri henüz gelmedi'))
                         <li class="flex">

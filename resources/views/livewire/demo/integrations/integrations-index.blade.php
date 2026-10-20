@@ -71,7 +71,7 @@
                 </li>
             </ul>
         @else
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4 wider:grid-cols-5">
                 @foreach ($problems as $problem)
                     @php
                         $isError = $problem['tone'] === 'error';
@@ -124,7 +124,7 @@
         <div class="section-head">
             <h2 id="hub-connections" class="section-title">Bağlantılar <span class="section-count">{{ $connectionCount }}</span></h2>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4 wider:grid-cols-5">
             @foreach ($groups as $group)
                 @php $groupSlug = \Illuminate\Support\Str::slug($group['group']); @endphp
                 <div class="contents" role="group" aria-labelledby="group-{{ $groupSlug }}">

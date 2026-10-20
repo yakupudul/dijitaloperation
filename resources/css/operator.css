@@ -40,6 +40,9 @@
   --breakpoint-2xsm: 375px;
   --breakpoint-xsm: 425px;
   --breakpoint-3xl: 2000px;
+  /* Wide monitors (yakup 2026-10-20: content fills the screen); rem so they sort after lg/xl/2xl. */
+  --breakpoint-wide: 106.25rem;
+  --breakpoint-wider: 134rem;
 
   --text-title-2xl: 72px;
   --text-title-2xl--line-height: 90px;
@@ -248,7 +251,7 @@
   @apply inline-flex h-[30px] max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-[13px] text-gray-600 shadow-card dark:border-gray-800 dark:bg-white/[0.04] dark:text-gray-300;
 }
 @utility page-sub {
-  @apply mt-0.5 text-sm text-gray-500 dark:text-gray-400;
+  @apply mt-0.5 max-w-[80ch] text-sm text-gray-500 dark:text-gray-400;
 }
 
 /* Section head: 15 px semibold title, a quiet count next to it, an optional quiet link on the right. */

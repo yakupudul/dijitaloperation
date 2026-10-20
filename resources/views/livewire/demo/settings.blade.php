@@ -15,7 +15,8 @@
     $footer = 'flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]';
     $mailTone = ($mail['production_delivery'] ?? false) ? 'ok' : 'look';
 @endphp
-<div class="space-y-10">
+{{-- Form screen: keeps a readable width while list screens fill wide monitors (yakup 2026-10-20). --}}
+<div class="max-w-[1120px] space-y-10">
     @include('livewire.demo.partials.flash')
 
     <header>

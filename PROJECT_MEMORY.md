@@ -4,6 +4,7 @@
 
 - Onaylı konsept canlıda yakup'a "çok donuk" geldi; ikas / e-adam örnekleriyle ikinci prototip (claude.ai/artifact/GAW4785G9CancdGzVCcB2E) onaylandı. Renk vurgusu, büyük başlık, koyu rakam paneli, renkli eylem kartları, değişim rozetleri.
 - Panel renkleri Ayarlar › Genel › Görünüm'den değişir; varsayılan Moximu logosu (sarı `#fdcf3c`, yeşil `#1e7a78`). Ekran kodu renk değeri yazmaz, yalnız `accent` / `second` / `hero` token'larını kullanır; yoksa ayar o ekrana ulaşmaz.
+- İçerik genişliği dinamik (profesyonel araçlar gibi): ekranı doldurur, kart sütunları `wide:` / `wider:` ile artar; yalnız form ekranları (Ayarlar, Profil) okunur genişlikte sınırlı.
 - Vurgu rengi ekranda tek ana eylem içindir; satır onayları siyah (`btn-dark`). Fosforlu başlık kelimesi ve koyu rakam paneli yalnız menü ana ekranlarında, ekranda en çok bir koyu panel.
 
 ## 2026-10-20 — Onaylı panel konsepti (gri sayfa, beyaz panel, kartlar)

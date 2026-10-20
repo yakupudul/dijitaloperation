@@ -61,7 +61,7 @@
                 <h2 class="section-title">{{ $attentionBrands->count() }} marka dikkat istiyor</h2>
             </div>
             {{-- Canlı panel (2026-10-20): each brand that needs a look as a tinted card (red: an account to reconnect). --}}
-            <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4">
                 @foreach ($attentionBrands as $brand)
                     <li class="flex">
                         <div @class(['soft-card w-full', 'soft-red' => $brand['reconnect'] > 0, 'soft-amber' => $brand['reconnect'] === 0])>
