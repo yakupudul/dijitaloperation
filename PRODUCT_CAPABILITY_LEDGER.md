@@ -4575,3 +4575,19 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: publi
   refuses SEO / content writes and fails queued ones (site build, connector / plugin updates and undo still run).
   Waiting writes, back-dated fills and site-operation AI tasks stop once on deploy (`moxdop:sites:stop-brandless`).
   The commands answer says `serviced`; connector 1.21.0 keeps IndexNow off while it is false.
+
+## 2026-10-20 — Hızlı giriş ve "Aç ↗": varlıkların kendi hesaplarına tek tık
+
+- Coded + PHPUnit (`ExternalLinksTest`, `WordPressManagementTest`); real UAT pending deploy and the connector 1.22.0 update
+  on the sites (older connectors still sign in, onto the dashboard). `App\Services\Operator\ExternalLinks` builds every
+  link to a provider's own screen from the stored ids (asset bindings' external ids, site address, `pages.wp_post_id`,
+  campaign / ad group ids): Google Ads account / campaign / ad group (`__e` customer id), Meta Ads Manager account, Business
+  Profile on Maps + the profile manager, Search Console property / page / query, GA4 property, the site and WordPress.
+- WordPress links sign in with the connector's one-click login (ADR-068): the panel POSTs `to` (a relative wp-admin path,
+  checked on both sides) and connector 1.22.0 lands on that screen, e.g. one post's editor; when the site cannot sign in
+  the button opens the screen at /wp-admin. Non-admins get the plain /wp-admin link. The audit row records the target.
+- Places: "Hızlı giriş" menu in the brand page head (grouped; many profiles fold into one "İşletme profilleri (N)") and in
+  every asset head (`x-operator.asset-context`); one "Aç ↗" (`x-operator.open-link`) per Onarım masası row (post editor,
+  campaign, profile or page), "Sitede gör" on written items, WordPress + Search Console on the Sayfalar detail, Google Ads
+  Analiz campaign / ad group rows, şube sayfası "WordPress’te aç ve yayınla". Sorgular / Kazananlar are cross-brand
+  libraries, so they get no single external target.

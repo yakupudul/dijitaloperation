@@ -250,6 +250,7 @@
                                                     @endif
                                                 </div>
                                                 <button type="button" @click="more = ! more" class="text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" x-text="more ? 'Gizle' : 'Neden?'">Neden?</button>
+                                                <x-operator.open-link :link="$row['open'] ?? null" class="ml-3 text-gray-400!" />
                                             </div>
                                         </div>
                                         @if ($isAdmin)
@@ -352,7 +353,7 @@
                                         <li class="flex flex-wrap items-start justify-between gap-2 px-3 py-2" wire:key="write-{{ $item['id'] }}">
                                             <span class="min-w-0 flex-1">
                                                 <span class="font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</span> <span class="ml-1 text-gray-500">{{ $item['status'] }}</span>@if ($item['error'] !== '') <span class="block text-warning-700 dark:text-warning-400">{{ \Illuminate\Support\Str::limit($item['error'], 160) }}</span>@endif
-                                                @if ($item['page'] !== '')<span class="block break-all text-gray-500">{{ $item['page'] }}</span>@endif
+                                                @if ($item['page'] !== '')<span class="block break-all text-gray-500">{{ $item['page'] }}@if (str_starts_with($item['page'], 'http')) <a href="{{ $item['page'] }}" target="_blank" rel="noopener noreferrer" class="link-neutral ml-1 whitespace-nowrap text-xs" title="Değişikliği sitede kontrol et" data-open-link="written-page">Sitede gör ↗</a>@endif</span>@endif
                                                 @foreach ($item['lines'] as $line)<span @class(['block break-words', 'text-gray-700 dark:text-gray-300' => $line['ok'], 'text-warning-700 dark:text-warning-400' => ! $line['ok']])>{{ $line['ok'] ? '' : 'Yazılamadı: ' }}{{ $line['text'] }}</span>@endforeach
                                             </span>
                                             @if ($isAdmin && $item['undoable'])

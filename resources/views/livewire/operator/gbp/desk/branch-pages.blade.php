@@ -142,7 +142,7 @@
                                                 <button type="button" wire:click="prepare({{ $location->id }})" @disabled($jobRunning) class="btn-quiet">Yeniden yaz</button>
                                                 @break
                                             @case('sent')
-                                                @if ($row?->edit_url)<a href="{{ $row->edit_url }}" target="_blank" rel="noopener" class="btn max-sm:flex-1">WordPress’te aç ve yayınla</a>@else<span class="text-[13px] text-gray-500">Taslak oluşturuluyor…</span>@endif
+                                                @if ($row?->wp_post_id && $row->website_asset_id && ($branchSite = \App\Models\DigitalAsset::query()->find($row->website_asset_id)))<x-operator.open-link :link="app(\App\Services\Operator\ExternalLinks::class)->wordPressPost($branchSite, (int) $row->wp_post_id)" variant="button" label="WordPress’te aç ve yayınla" class="max-sm:flex-1" />@elseif ($row?->edit_url)<a href="{{ $row->edit_url }}" target="_blank" rel="noopener" class="btn max-sm:flex-1">WordPress’te aç ve yayınla</a>@else<span class="text-[13px] text-gray-500">Taslak oluşturuluyor…</span>@endif
                                                 @break
                                             @case('unlinked')
                                                 <button type="button" wire:click="link({{ $location->id }}, {{ $page->id }})" wire:confirm="Profilin web sitesi bağlantısı bu sayfaya çevrilsin mi? (Geri alınabilir.)" class="btn max-sm:flex-1">Profili bu sayfaya bağla</button>

@@ -13,6 +13,7 @@ use App\Services\Ads\AdServiceStats;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
+use App\Services\Operator\ExternalLinks;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryServiceMatcher;
 use App\Services\Site\Analysis\SiteRange;
@@ -370,7 +371,9 @@ final class GoogleAdsScreen
     /**
      * Performance of one level for the window and the previous window of the same length.
      *
-     * @return list<array{label: string, sub: ?string, cost: float, clicks: int, conversions: float, cpa: ?float, prev_cost: float, prev_conversions: float}>
+     * Campaign and ad group rows carry `open`: the same campaign / ad group in Google Ads (App\Services\Operator\ExternalLinks).
+     *
+     * @return list<array{label: string, sub: ?string, cost: float, clicks: int, conversions: float, cpa: ?float, prev_cost: float, prev_conversions: float, open: array<string, mixed>|null}>
      */
     public function analysis(DigitalAsset $asset, string $level, int|SiteRange $days = 28): array
     {
@@ -383,7 +386,7 @@ final class GoogleAdsScreen
         $rows = [];
         foreach (['cur' => $current, 'prev' => $previous] as $period => $window) {
             foreach ($this->levelRows($ctx['scope'], $asset, $level, $window) as $key => $row) {
-                $rows[$key] ??= ['label' => $row['label'], 'sub' => $row['sub'], 'cur' => ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0], 'prev' => ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0]];
+                $rows[$key] ??= ['label' => $row['label'], 'sub' => $row['sub'], 'ref' => $row['ref'] ?? null, 'cur' => ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0], 'prev' => ['cost' => 0.0, 'clicks' => 0, 'conversions' => 0.0]];
                 $rows[$key][$period] = ['cost' => $row['cost'], 'clicks' => $row['clicks'], 'conversions' => $row['conversions']];
             }
         }
@@ -391,10 +394,27 @@ final class GoogleAdsScreen
             'label' => $r['label'], 'sub' => $r['sub'], 'cost' => round($r['cur']['cost'], 2), 'clicks' => $r['cur']['clicks'], 'conversions' => round($r['cur']['conversions'], 2),
             'cpa' => $r['cur']['conversions'] > 0 ? round($r['cur']['cost'] / $r['cur']['conversions'], 2) : null,
             'prev_cost' => round($r['prev']['cost'], 2), 'prev_conversions' => round($r['prev']['conversions'], 2),
+            'open' => $this->openLink($ctx['customer_id'], $r['ref']),
         ], array_values($rows));
         usort($out, fn (array $a, array $b): int => [$b['cost'], $b['prev_cost']] <=> [$a['cost'], $a['prev_cost']]);
 
         return array_slice($out, 0, 100);
+    }
+
+    /**
+     * @param  array{campaign: string, ad_group?: string}|null  $ref
+     * @return array<string, mixed>|null
+     */
+    private function openLink(string $customerId, ?array $ref): ?array
+    {
+        if ($ref === null) {
+            return null;
+        }
+        $links = app(ExternalLinks::class);
+
+        return isset($ref['ad_group'])
+            ? $links->googleAdsAdGroup($customerId, $ref['campaign'], $ref['ad_group'])
+            : $links->googleAdsCampaign($customerId, $ref['campaign'], 'Google Ads');
     }
 
     /**
@@ -409,13 +429,14 @@ final class GoogleAdsScreen
         $out = [];
         if ($level === 'campaign') {
             foreach ($scope->daily('google_ads_campaign_daily', $window[0], $window[1])->groupBy('campaign_id')->selectRaw('campaign_id, '.$sum)->get() as $r) {
-                $out[(string) $r->campaign_id] = $row($names['campaigns'][(string) $r->campaign_id]['name'] ?? (string) $r->campaign_id, null, $r);
+                $out[(string) $r->campaign_id] = $row($names['campaigns'][(string) $r->campaign_id]['name'] ?? (string) $r->campaign_id, null, $r) + ['ref' => ['campaign' => (string) $r->campaign_id]];
             }
         } elseif ($level === 'ad_group') {
             if (Schema::hasTable('google_ads_ad_group_daily')) {
                 foreach ($scope->professional('google_ads_ad_group_daily')->whereBetween('reporting_date', $window)->groupBy('ad_group_id')->selectRaw('ad_group_id, MAX(campaign_id) as campaign_id, '.$sum)->get() as $r) {
                     $group = $names['ad_groups'][(string) $r->ad_group_id] ?? null;
-                    $out[(string) $r->ad_group_id] = $row($group['name'] ?? (string) $r->ad_group_id, $names['campaigns'][(string) $r->campaign_id]['name'] ?? null, $r);
+                    $out[(string) $r->ad_group_id] = $row($group['name'] ?? (string) $r->ad_group_id, $names['campaigns'][(string) $r->campaign_id]['name'] ?? null, $r)
+                        + ['ref' => ['campaign' => (string) $r->campaign_id, 'ad_group' => (string) $r->ad_group_id]];
                 }
             }
         } elseif (in_array($level, ['keyword', 'service'], true)) {

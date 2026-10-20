@@ -36,6 +36,7 @@
                 </div>
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+                <x-operator.quick-access :groups="$quickAccess" />
                 @if ($tab === 'ozet')
                     <div class="{{ $segmentGroup }}" role="group" aria-label="Dönem" data-period-selector>
                         @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)

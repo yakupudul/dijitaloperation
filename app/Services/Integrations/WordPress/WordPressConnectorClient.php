@@ -187,10 +187,16 @@ final class WordPressConnectorClient
         return $this->write($connection, 'GET', '/moxdop/v1/health', null);
     }
 
-    /** Connector v2: a single-use, 60-second login URL for the user the site admin allowed (403 when off). */
-    public function loginLink(CoreConnection $connection): array
+    /**
+     * Connector v2: a single-use, 60-second login URL for the user the site admin allowed (403 when off).
+     * From 1.22.0 the login opens `$target` (a relative wp-admin path); older plugins ignore it and open the dashboard.
+     */
+    public function loginLink(CoreConnection $connection, ?string $target = null): array
     {
-        return $this->write($connection, 'POST', '/moxdop/v1/login-link', ['requested_at' => now()->toIso8601String()]);
+        return $this->write($connection, 'POST', '/moxdop/v1/login-link', array_filter([
+            'requested_at' => now()->toIso8601String(),
+            'target' => $target,
+        ], fn (?string $value): bool => $value !== null && $value !== ''));
     }
 
     /**

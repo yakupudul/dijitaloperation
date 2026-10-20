@@ -257,9 +257,18 @@
                             <li class="px-4 py-3 text-[13px] text-gray-500">Açık öneri yok.</li>
                         @endforelse
                     </ul>
-                    @if ($row['wp_post_id'] !== null && ($site->primary_url || $site->domain))
-                        <a href="{{ rtrim($site->primary_url ?: 'https://'.$site->domain, '/') }}/wp-admin/post.php?post={{ $row['wp_post_id'] }}&action=edit" target="_blank" rel="noopener noreferrer" class="link-neutral mt-2 inline-block text-xs">WordPress’te aç ↗</a>
-                    @endif
+                    @php
+                        $externalLinks = app(\App\Services\Operator\ExternalLinks::class);
+                        $gscProperty = $externalLinks->searchConsolePropertyFor((int) $site->id);
+                    @endphp
+                    <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1" data-page-open-links>
+                        @if ($row['wp_post_id'] !== null && ($site->primary_url || $site->domain))
+                            <x-operator.open-link :link="$externalLinks->wordPressPost($site, (int) $row['wp_post_id'])" />
+                        @endif
+                        @if ($gscProperty !== null && str_contains($row['url'], '://'))
+                            <x-operator.open-link :link="$externalLinks->searchConsolePage($gscProperty, $row['url'])" />
+                        @endif
+                    </p>
                 </section>
             </aside>
         </div>

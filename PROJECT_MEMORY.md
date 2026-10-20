@@ -2239,3 +2239,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   atanmamış web sitesi yalnız kurulum (build-site) için bağlanır; MoxDOP orada hiçbir otomatik iş yapmaz (site işlemleri,
   içerik fikri / yazı / geriye dönük doldurma, onarım ve SEO yazmaları, IndexNow). Hizmet site markaya atanınca başlar.
   Merkezi kontrol `BrandlessSites::serviced()`; connector 1.21.0 markasız sitede IndexNow'u kapatır.
+- **Hızlı giriş (yakup, 2026-10-20):** panelden varlığın kendi hesabına tek tıkla geçilir. Dış bağlantıların hepsi tek yerden
+  üretilir (`ExternalLinks`) ve kayıtlı kimliklerle en derin ekrana gider (kampanya, reklam grubu, sayfa, yazı düzenleme).
+  WordPress bağlantıları eklentinin tek tık girişini kullanır; 1.22.0'dan itibaren giriş doğrudan hedef ekranı açar.
+  Panel şifre tutmaz.

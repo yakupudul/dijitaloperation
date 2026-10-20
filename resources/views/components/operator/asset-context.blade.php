@@ -1,6 +1,6 @@
 {{--
     The one compact page head of every digital asset page (App\View\Components\Operator\AssetContext):
-    breadcrumb line (small, gray), title row (when `title` is given: avatar / `mark` slot, h1, `status` slot, `actions` slot),
+    breadcrumb line (small, gray) with "Hızlı giriş" to the asset's own accounts, title row (when `title` is given: avatar / `mark` slot, h1, `status` slot, `actions` slot),
     one-line "Veri durumu", alerts as one collapsible line, default slot, `tabs` slot (always under the head).
 --}}
 @php
@@ -59,6 +59,7 @@
         </nav>
 
         <div class="flex shrink-0 items-center gap-0.5">
+            <x-operator.quick-access :links="$externalLinks" size="small" />
             @if ($hasSources)
                 <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate @class([
                     $headLink,

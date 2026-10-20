@@ -30,6 +30,7 @@ use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandWorkspaceReadService;
+use App\Services\Operator\ExternalLinks;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Support\Demo\DemoState;
@@ -480,6 +481,7 @@ class BrandShow extends Component
             'channelComponent' => isset(self::CHANNEL_TABS[$this->tab]) ? self::CHANNEL_TABS[$this->tab][1] : null,
             'checklist' => $checklist,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'quickAccess' => app(ExternalLinks::class)->forBrand($brand),
             'flash' => DemoState::pullFlash(),
             ...$data,
         ]);

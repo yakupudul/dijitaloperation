@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\Operator\ExternalLinks;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\DigitalAssetTypes;
 use App\Support\Integrations\AssetBindingCompatibility;
@@ -45,6 +46,9 @@ class AssetContext extends Component
     /** @var Collection<int, AssetAlert> */
     public Collection $alerts;
 
+    /** @var list<array<string, mixed>> "Hızlı giriş": this asset's own accounts (App\Services\Operator\ExternalLinks) */
+    public array $externalLinks = [];
+
     /** Logo of the brand for the title row avatar. */
     public ?string $brandLogo = null;
 
@@ -69,6 +73,7 @@ class AssetContext extends Component
         $this->brandLogo = filled($asset->brand?->logo_url) ? (string) $asset->brand->logo_url : null;
         $this->showCustomer = $customer !== null && ($asset->brand === null || ! self::namesMatch((string) $customer->name, (string) $asset->brand->name));
         $this->hasSources = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type) !== [];
+        $this->externalLinks = app(ExternalLinks::class)->forAsset($asset);
 
         $brandAssets = DigitalAsset::query()
             ->where('brand_id', $asset->brand_id)

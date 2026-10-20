@@ -15,6 +15,7 @@ use App\Services\Gbp\Desk\ProfileFields;
 use App\Services\Gbp\Desk\ProfileInfo;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
+use App\Services\Operator\ExternalLinks;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ChangeApplier;
@@ -114,8 +115,14 @@ final class RepairDesk
     /** @var array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>|null */
     private ?array $learned = null;
 
+    /** @var array<int, DigitalAsset|null> assets the rows' "Aç ↗" links point into (one query per asset) */
+    private array $linkAssets = [];
+
+    /** @var array<int, list<array<string, mixed>>> */
+    private array $linkSets = [];
+
     /**
-     * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, priority: int, page_id: ?int, impressions?: ?int, clicks?: ?int, page_title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int}>
+     * @return Collection<int, array{id: int, brand_id: int, brand: string, channel: string, kind: string, risk: string, title: string, priority: int, page_id: ?int, impressions?: ?int, clicks?: ?int, page_title: string, reason: string, target: string, before: list<string>, after: list<string>, editable: list<string>, asset_id: ?int, open: array<string, mixed>|null}>
      */
     public function rows(?int $brandId = null, ?string $kind = null, ?string $risk = null, bool $withQueued = false): Collection
     {
@@ -740,9 +747,9 @@ final class RepairDesk
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED, Suggestion::SNOOZED]);
 
         return collect([
-            $base()->with('page:id,url,website_asset_id,title,h1')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ImageAlts::TYPE),
-            $base()->with('page:id,url,website_asset_id,title,h1')->where('action_type', BrokenTranslations::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('action_type', BrokenTranslations::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
             // A fill-the-gap row the nightly pass no longer proposes (recheck) is stale: the profile may have the value now.
@@ -797,7 +804,51 @@ final class RepairDesk
             default => $this->siteRow($s, $base, $action),
         };
 
-        return $row === null ? null : $row + ['editable' => [], 'asset_id' => $s->target_id !== null ? (int) $s->target_id : null];
+        if ($row === null) {
+            return null;
+        }
+        $row += ['editable' => [], 'asset_id' => $s->target_id !== null ? (int) $s->target_id : null];
+
+        return $row + ['open' => $this->openLink($s, $row, $action)];
+    }
+
+    /**
+     * The row's "Aç ↗" (App\Services\Operator\ExternalLinks): the post's editor in WordPress (signed in), the campaign in
+     * Google Ads, the profile on Maps; else the page itself or the asset's own account.
+     *
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $action
+     * @return array<string, mixed>|null
+     */
+    private function openLink(Suggestion $s, array $row, array $action): ?array
+    {
+        $links = app(ExternalLinks::class);
+        if (preg_match('~customers/(\d+)/campaigns/(\d+)~', (string) ($action['resource'] ?? ''), $m) === 1) {
+            return $links->googleAdsCampaign($m[1], $m[2], 'Google Ads');
+        }
+        $asset = $row['asset_id'] !== null ? ($this->linkAssets[$row['asset_id']] ??= DigitalAsset::query()->find($row['asset_id'])) : null;
+        if ($asset === null) {
+            return null;
+        }
+        $page = $s->relationLoaded('page') ? $s->page : null;
+        if ($asset->type === 'website' && $page?->wp_post_id !== null && $links->isWordPress($asset)) {
+            return $links->wordPressPost($asset, (int) $page->wp_post_id);
+        }
+        $own = $this->linkSets[$asset->id] ??= $links->forAsset($asset);
+        $target = (string) $row['target'];
+        if ($asset->type === 'website' && str_starts_with($target, 'http')) {
+            return ['key' => 'page:'.$target, 'label' => 'Sayfayı aç', 'hint' => 'Sayfayı sitede aç', 'url' => $target, 'login' => null];
+        }
+        $prefer = ['website' => 'wordpress', 'google_ads' => 'google_ads', 'meta_ads' => 'meta_ads', 'google_business_profile' => 'gbp:'][$asset->type] ?? '';
+        $link = collect($own)->first(fn (array $l): bool => $prefer !== '' && str_starts_with($l['key'], $prefer)) ?? ($own[0] ?? null);
+
+        return $link === null ? null : array_merge($link, ['label' => match (true) {
+            str_starts_with($link['key'], 'wordpress') => 'WordPress',
+            str_starts_with($link['key'], 'google_ads') => 'Google Ads',
+            str_starts_with($link['key'], 'gbp:manager') => 'Profiller',
+            str_starts_with($link['key'], 'gbp') => 'Haritada aç',
+            default => 'Aç',
+        }]);
     }
 
     /**

@@ -116,6 +116,26 @@ final class WordPressManagementTest extends TestCase
         Livewire::test(WordPressSitesPage::class)->assertSee('Atlas Site')->assertSee('WP paneline gir')->assertSee('2 bekleyen güncelleme');
     }
 
+    public function test_login_opens_the_requested_admin_screen_and_falls_back_to_wp_admin(): void
+    {
+        $this->actingAs($this->admin);
+        $this->post(route('operator.integrations.wordpress-login', ['site' => $this->site->id]), ['to' => 'post.php?post=12&action=edit'])
+            ->assertRedirect('https://example.com/?moxdop_login=abc');
+        $this->assertSame('post.php?post=12&action=edit', end($this->sent)[2]['target'] ?? null, 'connector 1.22.0 lands on this screen');
+        $this->assertStringContainsString('post.php?post=12', (string) DB::table('security_audit_events')->where('kind', 'WORDPRESS_ADMIN_LOGIN')->value('metadata'));
+
+        $this->post(route('operator.integrations.wordpress-login', ['site' => $this->site->id]), ['to' => 'https://evil.example/x'])->assertRedirect('https://example.com/?moxdop_login=abc');
+        $this->assertArrayNotHasKey('target', end($this->sent)[2], 'only a relative wp-admin path is passed on');
+
+        $this->loginEnabled = false;
+        $this->post(route('operator.integrations.wordpress-login', ['site' => $this->site->id]), ['to' => 'post.php?post=12&action=edit'])
+            ->assertRedirect('https://example.com/wp-admin/post.php?post=12&action=edit');
+
+        $plugin = (string) file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-management.php'));
+        $this->assertStringContainsString("'target' => self::login_target(\$request)", $plugin);
+        $this->assertStringContainsString("admin_url((string) (\$data['target'] ?? ''))", $plugin);
+    }
+
     public function test_approved_update_is_admin_only_queued_recorded_and_not_undoable(): void
     {
         app(WordPressManagementService::class)->refreshHealth($this->site);
@@ -192,6 +212,6 @@ final class WordPressManagementTest extends TestCase
         $this->assertStringContainsString("get_option('moxdop_connector_login_user', 0)", $management);
         $this->assertStringContainsString('const LOGIN_TTL = 60;', $management);
         $this->assertStringContainsString('delete_transient($key);', $management, 'login links are single-use');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.21.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.22.0')", file_get_contents(base_path('connectors/wordpress/moxdop-connector/moxdop-connector.php')));
     }
 }

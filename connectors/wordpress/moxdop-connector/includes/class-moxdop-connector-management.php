@@ -99,7 +99,7 @@ final class MoxDOP_Connector_Management
             return new WP_Error('moxdop_login_disabled', 'One-click login is not enabled on this site.', ['status' => 403]);
         }
         $token = wp_generate_password(48, false, false);
-        set_transient('moxdop_login_'.hash('sha256', $token), ['user_id' => $user_id, 'created' => time()], self::LOGIN_TTL);
+        set_transient('moxdop_login_'.hash('sha256', $token), ['user_id' => $user_id, 'created' => time(), 'target' => self::login_target($request)], self::LOGIN_TTL);
         $this->log('login_link', ['user_id' => $user_id]);
 
         return new WP_REST_Response(['url' => add_query_arg('moxdop_login', $token, home_url('/')), 'expires_in' => self::LOGIN_TTL, 'user' => $user->user_login], 201);
@@ -121,8 +121,20 @@ final class MoxDOP_Connector_Management
         wp_set_current_user($user_id);
         wp_set_auth_cookie($user_id, false, is_ssl());
         $this->log('login_used', ['user_id' => $user_id]);
-        wp_safe_redirect(admin_url());
+        wp_safe_redirect(admin_url((string) ($data['target'] ?? '')));
         exit;
+    }
+
+    /**
+     * 1.22.0: the admin screen the login opens (e.g. one post's editor). Only a relative wp-admin path such as
+     * "post.php?post=12&action=edit" is accepted; anything else opens the dashboard as before.
+     */
+    public static function login_target(WP_REST_Request $request)
+    {
+        $body = json_decode((string) $request->get_body(), true);
+        $target = is_array($body) && is_string($body['target'] ?? null) ? trim($body['target']) : '';
+
+        return strlen($target) <= 200 && preg_match('~^[a-z0-9_-]+\.php(\?[A-Za-z0-9_=&%.,-]*)?$~', $target) === 1 ? $target : '';
     }
 
     /** Install the one update WordPress offers for a plugin, a theme or core. */

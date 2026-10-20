@@ -77,12 +77,19 @@ final class WordPressManagementService
         return $stats;
     }
 
-    /** One-click login: admin only, audited, the plugin returns a single-use 60-second URL. */
-    public function loginUrl(DigitalAsset $site, User $user): string
+    /** A relative wp-admin path the login may open (e.g. "post.php?post=12&action=edit"); the connector checks it again. */
+    public const string LOGIN_TARGET_PATTERN = '~^[a-z0-9_-]+\\.php(\\?[A-Za-z0-9_=&%.,-]*)?$~';
+
+    /**
+     * One-click login: admin only, audited, the plugin returns a single-use 60-second URL. `$target` (connector
+     * 1.22.0+) is the admin screen it opens, e.g. one post's editor; an invalid target opens the dashboard.
+     */
+    public function loginUrl(DigitalAsset $site, User $user, ?string $target = null): string
     {
+        $target = $target !== null && strlen($target) <= 200 && preg_match(self::LOGIN_TARGET_PATTERN, $target) === 1 ? $target : null;
         abort_unless($user->is_active && $user->hasRole(Roles::ADMIN), 403, 'WordPress paneline girişi yalnız Admin açabilir.');
         try {
-            $data = $this->client->loginLink($this->connection((int) $site->id));
+            $data = $this->client->loginLink($this->connection((int) $site->id), $target);
         } catch (Throwable $exception) {
             // A site answer quotes the site's own output: a "403" in it is not the plugin's refusal.
             throw ValidationException::withMessages(['login' => ! $exception instanceof WordPressConnectorSiteException
@@ -98,7 +105,7 @@ final class WordPressManagementService
         }
         $site->loadMissing('brand');
         app(SecurityAuditRecorder::class)->record(SecurityAuditEventKind::WordPressAdminLogin, $user, $site->brand?->customer_id, $site->brand_id, null, 'wordpress',
-            'Tek tık WordPress girişi', ['digital_asset_id' => $site->id, 'wp_user' => $data['user'] ?? null]);
+            'Tek tık WordPress girişi', ['digital_asset_id' => $site->id, 'wp_user' => $data['user'] ?? null, 'target' => $target]);
 
         return $url;
     }

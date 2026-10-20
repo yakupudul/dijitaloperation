@@ -369,7 +369,7 @@
                         <tbody class="tabular-nums">
                             @foreach ($analysis as $row)
                                 <tr>
-                                    <td class="text-gray-900 dark:text-white">{{ $row['label'] }}@if ($row['sub']) <span class="block text-xs text-gray-500">{{ $row['sub'] }}</span>@endif</td>
+                                    <td class="text-gray-900 dark:text-white">{{ $row['label'] }}@if ($row['sub']) <span class="block text-xs text-gray-500">{{ $row['sub'] }}</span>@endif @if ($row['open'] ?? null)<x-operator.open-link :link="$row['open']" class="mt-0.5 flex! w-fit" />@endif</td>
                                     <td class="whitespace-nowrap text-right">{{ $money($row['cost']) }}</td>
                                     <td class="whitespace-nowrap text-right text-gray-500">{{ $money($row['prev_cost']) }}</td>
                                     <td class="text-right">{{ $num($row['clicks']) }}</td>

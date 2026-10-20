@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.21.0
+Stable tag: 1.22.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.22.0 =
+* One-click login can open a given admin screen (for example one post's editor) instead of the dashboard: MoxDOP sends a relative wp-admin path with the login request; anything that is not a plain wp-admin path opens the dashboard as before.
 
 = 1.21.0 =
 * IndexNow stays off while MoxDOP says the site has no brand (a site only connected to be built gets no SEO service). MoxDOP says it with every answer to the site's ask; waiting IndexNow notices are dropped. Once the site is given a brand, IndexNow works as before.
