@@ -82,6 +82,12 @@ final class QueriesPage extends Component
 
     public const array TABS = ['queries' => 'Sorgular', 'pending' => 'Bekleyenler', 'deletions' => 'Silinecekler', 'clusters' => 'Kümeler', 'filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri', 'forbidden' => 'Yasaklı ifadeler'];
 
+    /** Sorgular shows two tabs (yakup 2026-10-20); Bekleyenler opens from the Bekleyen tile. */
+    public const array MAIN_TABS = ['clusters' => 'Kümeler', 'queries' => 'Sorgular'];
+
+    /** Ayarlar › Sorgu kuralları: the rule lists, the same page under its own address. */
+    public const array RULE_TABS = ['filters' => 'Filtre sepeti', 'keywords' => 'Eşleme kelimeleri', 'forbidden' => 'Yasaklı ifadeler', 'deletions' => 'Silinecekler'];
+
     private const int NEGATIVE_LINES = 30;
 
     /** Eşleme kelimeleri sub-views. */
@@ -261,6 +267,12 @@ final class QueriesPage extends Component
     public function mount(PendingQueries $pending): void
     {
         $this->message = (string) session('queries-message', '');
+        if (request()->routeIs('operator.settings.query-rules') && ! array_key_exists($this->tab, self::RULE_TABS)) {
+            $this->tab = 'filters';
+        }
+        if (request()->routeIs('operator.library.queries') && array_key_exists($this->tab, self::RULE_TABS)) {
+            $this->redirectRoute('operator.settings.query-rules', ['tab' => $this->tab]);
+        }
         $this->reviewKind = in_array($this->reviewKind, [QueryReviewItem::DELETE, QueryReviewItem::SERVICE], true) ? $this->reviewKind : QueryReviewItem::DELETE;
         // Bekleyenler must never list a text a current filter term catches or that is already in the library.
         $pending->pruneIfChanged();
@@ -269,7 +281,7 @@ final class QueriesPage extends Component
     /** The Silinecekler tab (notifications link here). */
     public static function deletionsUrl(): string
     {
-        return route('operator.library.queries', ['tab' => 'deletions'], false);
+        return route('operator.settings.query-rules', ['tab' => 'deletions'], false);
     }
 
     public function updated(string $property): void

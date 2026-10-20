@@ -107,7 +107,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
         $this->get('/settings')
             ->assertOk()
             ->assertSee('Ayarlar')
-            ->assertSee('Ekip ve Yetkiler')
+            ->assertSee('Kullanıcılar')
             ->assertSee('Yapılandırılmadı', false);
 
         $this->get('/integrations')
@@ -133,7 +133,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
 
         $this->get('/customers')->assertOk(); // Müşteriler merged into Markalar 2026-10-19: "Customers" was the sidebar entry
         $this->get('/brands')->assertOk()->assertSee('Brands');
-        $this->get('/settings')->assertOk()->assertSee('Team & Access');
+        $this->get('/settings')->assertOk()->assertSee('Settings');
         $this->get('/integrations')->assertOk()->assertSee('Integrations');
     }
 

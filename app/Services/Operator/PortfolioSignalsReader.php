@@ -163,7 +163,9 @@ final class PortfolioSignalsReader
             'data_label' => $worst === null ? 'Veri kaynağı yok' : ($problems->isEmpty() && $worst['tone'] === 'ok' ? 'Güncel' : $worst['label'].': '.$worst['state_label']),
             'data_issues' => $problems->count(),
             'reconnect' => $reconnect,
-            'needs_attention' => $active && ($problems->isNotEmpty() || $work['critical'] > 0),
+            // Dikkat only for a real exception (yakup 2026-10-20: 13/13 red meant nothing): a stopped or blocked source or a
+            // critical suggestion. A late source stays an amber dot.
+            'needs_attention' => $active && ($problems->contains('tone', 'bad') || $work['critical'] > 0),
             'reason' => $active ? $this->reason($problems, $work['critical']) : null,
         ];
     }
@@ -208,7 +210,7 @@ final class PortfolioSignalsReader
             'reconnect' => $problems->where('reconnect', true)->count(),
             'worst_tone' => $worst,
             'channels' => $channels,
-            'needs_attention' => $problems->isNotEmpty() || $work['critical'] > 0,
+            'needs_attention' => $problems->contains('tone', 'bad') || $work['critical'] > 0,
             'reason' => $this->reason($problems, $work['critical']),
         ];
     }

@@ -32,7 +32,7 @@ class AssetContext extends Component
 
     public string $typeLabel = '';
 
-    /** Breadcrumb: the customer is left out when it is named like its brand ("Avrupadent › Avrupadent"). */
+    /** Breadcrumb: the customer only for an asset without a brand; Müşteriler is merged into Markalar (yakup 2026-10-20). */
     public bool $showCustomer = false;
 
     /** Breadcrumb: "Meta Ads · Obezite", without repeating the type when the asset name already starts with it. */
@@ -71,7 +71,7 @@ class AssetContext extends Component
         $this->assetLabel = self::labelFor($this->typeLabel, (string) $asset->name);
         $customer = $asset->brand?->customer;
         $this->brandLogo = filled($asset->brand?->logo_url) ? (string) $asset->brand->logo_url : null;
-        $this->showCustomer = $customer !== null && ($asset->brand === null || ! self::namesMatch((string) $customer->name, (string) $asset->brand->name));
+        $this->showCustomer = $customer !== null && $asset->brand === null;
         $this->hasSources = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type) !== [];
         $this->externalLinks = app(ExternalLinks::class)->forAsset($asset);
 
@@ -111,12 +111,6 @@ class AssetContext extends Component
         }
 
         return str_starts_with(mb_strtolower($name), mb_strtolower($typeLabel)) ? $name : $typeLabel.' · '.$name;
-    }
-
-    /** Same name, ignoring case and surrounding spaces. */
-    public static function namesMatch(string $a, string $b): bool
-    {
-        return mb_strtolower(trim($a)) === mb_strtolower(trim($b));
     }
 
     /**

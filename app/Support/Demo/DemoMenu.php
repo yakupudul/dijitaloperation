@@ -69,6 +69,7 @@ final class DemoMenu
                     $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations'),
                     $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards'),
                     $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services'),
+                    $child($tr ? 'Sorgu kuralları' : 'Query rules', 'operator.settings.query-rules'),
                     $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users'),
                     $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
                     $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements'),

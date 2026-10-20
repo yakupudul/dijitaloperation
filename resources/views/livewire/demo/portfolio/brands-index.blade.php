@@ -9,13 +9,10 @@
 
     <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div class="min-w-0">
-            <h1 class="page-title" title="Tüm markalar ve müşterileri. Noktalar kanalların veri durumunu, açık iş markanın bekleyen önerilerini gösterir."><span class="highlight">Markalar</span></h1>
+            <h1 class="page-title" title="Tüm markalar. Noktalar kanalların veri durumunu, açık iş markanın bekleyen önerilerini gösterir."><span class="highlight">Markalar</span></h1>
             @if ($allCount > 0)<p class="page-sub mt-1.5!" data-brands-summary>{{ $summaryLine }}</p>@endif
         </div>
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            {{-- Müşteriler merged into Markalar (2026-10-19): the customer list and its actions stay one click away. --}}
-            <a href="{{ route('operator.customers') }}" wire:navigate class="btn-quiet" data-customers-link>Müşteri listesi</a>
-            <x-ta.button variant="outline" size="sm" :href="route('operator.customer.create')" wire:navigate data-add-customer>Müşteri ekle</x-ta.button>
             <x-ta.button size="sm" :href="route('operator.brand.create')" wire:navigate>Marka ekle</x-ta.button>
         </div>
     </header>
@@ -82,13 +79,9 @@
         </nav>
         <label class="relative w-full min-w-0 sm:w-64">
             <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input wire:model.live.debounce.300ms="search" type="search" placeholder="Marka, müşteri veya alan adı ara" aria-label="Ara"
+            <input wire:model.live.debounce.300ms="search" type="search" placeholder="Marka veya alan adı ara" aria-label="Ara"
                 class="h-9 w-full min-w-0 rounded-lg border border-gray-200 bg-white pr-3 pl-9 text-sm shadow-card placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white" />
         </label>
-        <select wire:model.live="customer" class="{{ $select }} min-w-0 flex-1 sm:max-w-56 sm:flex-none" aria-label="Müşteri">
-            <option value="">Müşteri: hepsi</option>
-            @foreach ($customerOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
         <button type="button" @click="more = ! more" :aria-expanded="more.toString()" class="btn h-9! text-sm! font-normal! text-gray-700! dark:text-gray-200!" data-more-filters>
             Filtreler
             @if ($moreFilters > 0)<span class="text-xs font-medium text-gray-900 tabular-nums dark:text-white">{{ $moreFilters }}</span>@endif
@@ -164,12 +157,11 @@
                     <tr>
                         @if ($isAdmin)<th class="w-8 pr-0!"><input type="checkbox" aria-label="Tümünü seç" wire:click="toggleAll({{ json_encode($visibleIds) }})" @checked(count($selected) > 0 && count(array_intersect($selected, $visibleIds)) === count($visibleIds)) class="rounded border-gray-300"></th>@endif
                         <th>{!! $sortHead('name', 'Marka') !!}</th>
-                        <th class="hidden md:table-cell">{!! $sortHead('customer', 'Müşteri') !!}</th>
+                        <th class="hidden md:table-cell">{!! $sortHead('sector', 'Sektör') !!}</th>
                         <th class="hidden sm:table-cell">Kanallar</th>
                         <th class="text-right!">{!! $sortHead('work', 'Karar bekleyen') !!}</th>
                         <th class="hidden sm:table-cell">{!! $sortHead('attention', 'Dikkat') !!}</th>
                         @if ($showOptionalColumns)
-                            <th class="hidden lg:table-cell">{!! $sortHead('sector', 'Sektör') !!}</th>
                             <th class="hidden lg:table-cell">Ana pazar</th>
                             <th class="hidden text-right! lg:table-cell">{!! $sortHead('assets', 'Varlık') !!}</th>
                             <th class="hidden text-right! lg:table-cell">İş bağlamı</th>
@@ -181,8 +173,6 @@
                     @foreach ($brands as $brand)
                         @php
                             $href = route('operator.brand', ['brand' => $brand['id']]);
-                            $customerHref = route('operator.customer', ['customerId' => $brand['customer_id']]);
-                            $sameName = mb_strtolower(trim((string) $brand['customer_name'])) === mb_strtolower(trim((string) $brand['name']));
                             // Only real exceptions get a badge: an account to reconnect, a critical suggestion or a source that
                             // stopped. A late source alone is a quiet line (it was on every row before 2026-10-19).
                             $hasBadSource = collect($brand['channels'] ?? [])->contains(fn (array $c): bool => $c['tone'] === 'bad');
@@ -197,24 +187,12 @@
                                     <div class="min-w-0">
                                         <a href="{{ $href }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
                                         <p class="break-all text-[13px] text-gray-500">{{ $brand['website'] ?? 'Web sitesi yok' }}</p>
-                                        <p class="text-[13px] text-gray-500 md:hidden">
-                                            <a href="{{ $customerHref }}" wire:navigate class="link-neutral font-normal">{{ $sameName ? 'Müşteri kartı' : $brand['customer_name'] }}</a>
-                                            @if (! $brand['customer_active'])<x-ta.pill tone="info" class="ml-1">Pasif</x-ta.pill>@endif
-                                        </p>
                                         <div class="mt-1 sm:hidden">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</div>
                                         <div class="mt-1 sm:hidden" data-attention-mobile>@include('livewire.demo.portfolio.partials.attention', $attentionVars)</div>
                                     </div>
                                 </div>
                             </td>
-                            <td class="hidden md:table-cell">
-                                @if ($sameName)
-                                    <a href="{{ $customerHref }}" wire:navigate class="link-neutral text-[13px] font-normal" title="{{ $brand['customer_name'] }}">Müşteri kartı</a>
-                                @else
-                                    <a href="{{ $customerHref }}" wire:navigate class="break-words text-gray-700 hover:underline dark:text-gray-300">{{ $brand['customer_name'] }}</a>
-                                @endif
-                                @if (! $brand['customer_active'])<x-ta.pill tone="info" class="ml-1">Pasif</x-ta.pill>@endif
-                                @if ($brand['sector_label'] !== '—')<p class="text-[13px] text-gray-500">{{ $brand['sector_label'] }}</p>@endif
-                            </td>
+                            <td class="hidden text-[13px] text-gray-700 md:table-cell dark:text-gray-300">{{ $brand['sector_label'] }}</td>
                             <td class="hidden sm:table-cell">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</td>
                             <td class="text-right tabular-nums" data-open-work>
                                 @if ($brand['open_work'] > 0)
@@ -225,7 +203,6 @@
                             </td>
                             <td class="hidden sm:table-cell" data-attention>@include('livewire.demo.portfolio.partials.attention', $attentionVars)</td>
                             @if ($showOptionalColumns)
-                                <td class="hidden text-gray-700 lg:table-cell dark:text-gray-300">{{ $brand['sector_label'] }}</td>
                                 <td class="hidden text-gray-700 lg:table-cell dark:text-gray-300">
                                     {{ $brand['primary_market_label'] !== '' ? $brand['primary_market_label'] : '—' }}
                                     @if (($brand['extra_markets'] ?? 0) > 0)<span class="text-xs text-gray-500">+{{ $brand['extra_markets'] }}</span>@endif

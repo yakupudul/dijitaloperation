@@ -91,7 +91,12 @@ final class QueriesScreenTest extends TestCase
         $this->get(route('operator.library.queries'))->assertOk()->assertSee('implant fiyatları')->assertSee('atanmamış')
             ->assertSee('AI ile planla')->assertSee('Bekleyenler')->assertSee('Filtreye ekle')
             ->assertSeeHtml('data-unassigned-dot')->assertSeeHtml('data-sources')->assertSeeHtml('data-autopilot-counters')
-            ->assertSee('AI sırasında')->assertSee('Önce bir hizmet seçin')->assertSee('Sorgu seçince açılır')->assertDontSee('>Durum<', false);
+            ->assertSee('Hizmetsiz')->assertSee('Önce bir hizmet seçin')->assertSee('Sorgu seçince açılır')->assertDontSee('>Durum<', false)
+            ->assertSeeHtml('data-tab="clusters"')->assertDontSeeHtml('data-tab="filters"');
+        // The rule lists live under Ayarlar › Sorgu kuralları; old links move there (yakup 2026-10-20).
+        $this->get(route('operator.settings.query-rules'))->assertOk()->assertSee('Sorgu kuralları')->assertSeeHtml('data-tab="filters"')
+            ->assertSeeHtml('data-tab="deletions"')->assertDontSeeHtml('data-tab="clusters"')->assertDontSeeHtml('data-autopilot-counters');
+        $this->get(route('operator.library.queries', ['tab' => 'keywords']))->assertRedirect(route('operator.settings.query-rules', ['tab' => 'keywords']));
 
         Livewire::test(QueriesPage::class)
             ->set('service', '__none')->assertSee('diş taşı temizliği')->assertDontSee('implant fiyatları')

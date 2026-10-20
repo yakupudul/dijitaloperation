@@ -16,13 +16,23 @@
     $how = 'inline-flex cursor-pointer list-none items-center gap-1 text-[13px] text-gray-500 hover:text-gray-900 dark:hover:text-white [&::-webkit-details-marker]:hidden';
     $countPill = 'font-normal tabular-nums text-gray-500';
     $deletionsTotal = array_sum($reviewCounts);
+    // Ayarlar › Sorgu kuralları is this page with the rule tabs (yakup 2026-10-20); Sorgular keeps Kümeler and Sorgular.
+    $rulesView = array_key_exists($tab, \App\Livewire\Operator\Library\QueriesPage::RULE_TABS);
+    $navTabs = $rulesView ? \App\Livewire\Operator\Library\QueriesPage::RULE_TABS
+        : \App\Livewire\Operator\Library\QueriesPage::MAIN_TABS + ($tab === 'pending' ? ['pending' => 'Bekleyenler'] : []);
 @endphp
 <div class="space-y-10 text-sm dark:text-gray-200" data-queries-page @if ($polling) wire:poll.3s="{{ $negAwaiting ? 'pollNegatives' : '$refresh' }}" @endif>
+    @if ($rulesView)
+    <header>
+        <h1 class="page-title" title="Sorgulardan neyin silineceği, hangi kelimenin hangi hizmete eşleneceği ve hangi ifadelerin yazılmayacağı.">Sorgu kuralları</h1>
+        @if ($deletionsTotal > 0)<p class="page-sub">{{ $num($deletionsTotal) }} değişiklik onayını bekliyor.</p>@endif
+    </header>
+    @else
     <header>
         <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
             <div class="min-w-0">
-                <h1 class="page-title" title="Arama sorgularının ortak kütüphanesi: hizmete atama, kümeler, filtre ve eşleme kelimeleri."><span class="highlight">Sorgular</span></h1>
-                <p class="page-sub">{{ $num($pendingCount) }} bekleyen sorgu, {{ $num($deletionsTotal) }} onay bekleyen değişiklik.</p>
+                <h1 class="page-title" title="Arama sorgularının ortak kütüphanesi: hizmete atama ve kümeler. Kurallar Ayarlar › Sorgu kuralları'nda."><span class="highlight">Sorgular</span></h1>
+                <p class="page-sub">{{ $num($pendingCount) }} sorgu içe alınmayı bekliyor.</p>
             </div>
             <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="btn-primary w-full sm:w-auto">AI ile planla</a>
         </div>
@@ -71,13 +81,13 @@
             </div>
             <button type="button" wire:click="setTab('pending')" @class(['hero-tile text-left transition', 'hero-tile-accent hover:brightness-95' => $pendingCount > 0, 'hover:bg-white/[0.08]' => $pendingCount === 0]) title="Kütüphanede olmayan, filtreye takılmayan bekleyen sorgu">
                 <span class="hero-label">Bekleyen</span>
-                <p class="hero-value">{{ $num($pendingCount) }}</p>
+                <p class="hero-value"{!! $pendingCount > 0 ? ' data-pending-count' : '' !!}>{{ $num($pendingCount) }}</p>
                 <p @class(['mt-2 text-xs', 'opacity-70' => $pendingCount > 0, 'text-white/60' => $pendingCount === 0])>içe alınmayı bekliyor</p>
             </button>
             <div class="hero-tile" title="AI'ın bakacağı hizmetsiz sorgu">
-                <span class="hero-label">AI sırasında</span>
+                <span class="hero-label">Hizmetsiz</span>
                 <p class="hero-value">{{ $num($autopilotQueue) }}</p>
-                <p class="mt-2 text-xs text-white/60">hizmetsiz sorgu</p>
+                <p class="mt-2 text-xs text-white/60">AI'ın bakacağı sorgu</p>
             </div>
             <div class="hero-tile" @if ($finishCheck !== null) title="{{ $finishCheck }}" data-finish-check @endif>
                 <span class="hero-label">Son kontrol</span>
@@ -85,13 +95,14 @@
                 @if ($finishCheck !== null)<p class="mt-2 line-clamp-2 text-xs text-white/60">{{ $finishCheck }}</p>@endif
             </div>
         </div>
-        @if ($finishStage !== null && $finishStage !== 'done')<p class="mt-2 text-[13px] text-gray-500" data-finish-stage>Bitirme zinciri sürüyor: {{ ['queued' => 'kuyrukta', 'clean' => 'katalog temizliği', 'triage' => 'sorgular yeniden soruluyor', 'cluster' => 'kümeleme', 'wait' => 'kümeleme sürüyor', 'content' => 'içerik başlıkları', 'check' => 'kontrol'][$finishStage] ?? $finishStage }}</p>@endif
+        @if ($finishStage !== null && $finishStage !== 'done')<p class="mt-2 text-[13px] text-gray-500" data-finish-stage>Son kontrol sürüyor: {{ ['queued' => 'sırada', 'clean' => 'hizmet listesi temizleniyor', 'triage' => 'sorgular yeniden soruluyor', 'cluster' => 'kümeleme', 'wait' => 'kümeleme', 'content' => 'içerik başlıkları', 'check' => 'kontrol'][$finishStage] ?? $finishStage }}</p>@endif
     </section>
+    @endif
 
     <div class="space-y-5">
     <nav class="no-scrollbar flex min-w-0 gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Sekmeler">
-        @foreach (\App\Livewire\Operator\Library\QueriesPage::TABS as $key => $label)
-            <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @if ($tab === $key) aria-current="page" @endif class="{{ $tabClass($tab === $key) }}">{{ $label }}@if ($key === 'pending' && $pendingCount > 0)<span class="{{ $countPill }}" data-pending-count>{{ $pendingCount }}</span>@endif @if ($key === 'deletions' && $deletionsTotal > 0)<span class="font-normal tabular-nums text-warning-700 dark:text-warning-300" data-deletions-count>{{ $deletionsTotal }}</span>@endif</button>
+        @foreach ($navTabs as $key => $label)
+            <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @if ($tab === $key) aria-current="page" @endif class="{{ $tabClass($tab === $key) }}">{{ $label }}@if ($key === 'pending' && $pendingCount > 0)<span class="{{ $countPill }}">{{ $pendingCount }}</span>@endif @if ($key === 'deletions' && $deletionsTotal > 0)<span class="font-normal tabular-nums text-warning-700 dark:text-warning-300" data-deletions-count>{{ $deletionsTotal }}</span>@endif</button>
         @endforeach
     </nav>
 

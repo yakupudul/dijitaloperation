@@ -51,7 +51,7 @@ final class AssetContextTest extends TestCase
             $this->get(OperatorPortfolioPresenter::specialistUrl($asset))
                 ->assertOk()
                 ->assertSee('data-asset-context', false)
-                ->assertSee('Örnek Holding')
+                ->assertDontSee('Örnek Holding')
                 ->assertSee(route('operator.asset.edit', ['assetId' => $asset->id]), false)
                 ->assertSee('Örnek meta_ads');
         }

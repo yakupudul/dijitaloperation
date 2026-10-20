@@ -281,7 +281,7 @@ class WinnersTest extends TestCase
         Livewire::actingAs($this->admin)->test(LibrariesPage::class)
             ->set('tab', 'mevsim')->assertSee('Hizmet talebi, aylara göre')->assertSee('Kas ayında tepe')
             ->set('tab', 'harita')->assertSee('Hangi marka hangi hizmette kaç kanalda')->assertSee('Gama')
-            ->set('tab', 'metin')->call('remove', (int) DB::table('ad_library_items')->value('id'))->assertSee('Kütüphane boş')->assertSee('Strateji öner’e git');
+            ->set('tab', 'metin')->call('remove', (int) DB::table('ad_library_items')->value('id'))->assertSee('Henüz kayıt yok')->assertSee('Strateji öner’e git');
         $this->assertSame(0, DB::table('ad_library_items')->count());
     }
 }

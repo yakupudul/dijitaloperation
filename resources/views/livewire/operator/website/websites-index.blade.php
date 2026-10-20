@@ -37,8 +37,6 @@
                         $norm = fn (?string $v): string => mb_strtolower(rtrim(preg_replace('#^(https?://)?(www\.)?#i', '', trim((string) $v)), '/'));
                         $showAddress = filled($address) && $norm($address) !== $norm($site->name);
                         $brandName = $site->brand?->name;
-                        $customerName = $site->brand?->customer?->name;
-                        $showCustomer = filled($customerName) && mb_strtolower(trim($customerName)) !== mb_strtolower(trim((string) $brandName));
                         $openCount = (int) ($open[$site->id] ?? 0);
                     @endphp
                     <tr wire:key="site-{{ $site->id }}" data-website-row="{{ $site->id }}">
@@ -49,14 +47,13 @@
                                     <a href="{{ $siteUrl }}" wire:navigate class="font-medium text-gray-900 [overflow-wrap:anywhere] hover:underline dark:text-white">{{ $site->name }}</a>
                                     @if ($showAddress)<p class="text-[13px] text-gray-500 [overflow-wrap:anywhere]">{{ $address }}</p>@endif
                                     @if ($brandName)
-                                        <p class="break-words text-[13px] text-gray-500 md:hidden"><a href="{{ route('operator.brand', ['brand' => $site->brand_id]) }}" wire:navigate class="hover:underline">{{ $brandName }}</a>@if ($showCustomer), {{ $customerName }}@endif</p>
+                                        <p class="break-words text-[13px] text-gray-500 md:hidden"><a href="{{ route('operator.brand', ['brand' => $site->brand_id]) }}" wire:navigate class="hover:underline">{{ $brandName }}</a></p>
                                     @endif
                                 </div>
                             </div>
                         </td>
                         <td class="hidden align-top text-gray-700 md:table-cell dark:text-gray-300">
                             <a href="{{ route('operator.brand', ['brand' => $site->brand_id]) }}" wire:navigate class="break-words hover:underline">{{ $brandName }}</a>
-                            @if ($showCustomer)<p class="text-[13px] text-gray-500">{{ $customerName }}</p>@endif
                         </td>
                         <td class="hidden text-right align-top tabular-nums sm:table-cell">{{ array_key_exists($site->id, $clicks) ? $num($clicks[$site->id]) : '—' }}</td>
                         <td class="text-right align-top tabular-nums" data-open-work>

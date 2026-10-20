@@ -124,8 +124,8 @@ class MetaStrategyTest extends TestCase
 
         $atlas = (int) DB::table('ad_campaign_stats')->where('campaign_id', 'x0')->value('id');
         $page = Livewire::actingAs($this->admin)->test(StrategyPage::class, ['brand' => (string) $this->brand->id])
-            ->call('save', $atlas, 'text')->assertSee('Reklam metni kütüphaneye kaydedildi.')->assertSee('Metin kütüphanede')
-            ->call('save', $atlas, 'text')->assertSee('Zaten kütüphanede.')
+            ->call('save', $atlas, 'text')->assertSee('Reklam metni Metinler ve takvim’e kaydedildi.')->assertSee('Metin kaydedildi')
+            ->call('save', $atlas, 'text')->assertSee('Zaten kayıtlı.')
             ->call('save', $atlas, 'targeting');
         $items = DB::table('ad_library_items')->orderBy('id')->get();
         $this->assertSame(['text', 'targeting'], $items->pluck('kind')->all());

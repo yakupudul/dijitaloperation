@@ -158,7 +158,7 @@ final class QueryReviewFlowTest extends TestCase
         $this->assertSame([QueryReview::READY, 3, 0], [$review->status, $review->deletions, $review->changes]);
         $notice = UserNotification::query()->where('recipient_user_id', $this->admin->id)->where('notification_kind', NotificationKind::QueriesNotice->value)->sole();
         $url = QueriesPage::deletionsUrl();
-        $this->assertSame('/library/queries?tab=deletions', $url);
+        $this->assertSame('/settings/query-rules?tab=deletions', $url);
         $this->assertSame('Filtre taraması hazır: 3 silinecek, 0 hizmet değişikliği', $notice->presentation['title']);
         $this->assertSame($url, $notice->presentation['url']);
 

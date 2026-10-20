@@ -107,14 +107,12 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_settings_sections_exclude_integrations_and_modules_dump(): void
     {
+        // One level (yakup 2026-10-20): Genel only; the other parts live in Ayarlar' own tabs.
         Livewire::test(SettingsPage::class)
-            ->assertSee('General')
-            ->call('setSection', 'team')
+            ->assertDontSeeHtml('data-settings-sections')
+            ->call('setSection', 'team')->assertSet('section', 'general')
             ->assertDontSee('Ayşe Demir')
             ->assertDontSee('Selin Kaya')
-            ->call('setSection', 'ai')
-            ->assertSee('Provider API keys are configured under Integrations')
-            ->call('setSection', 'advanced')
             ->assertDontSee('Reset Demo Mode')
             ->assertDontSee('Modules menu');
     }

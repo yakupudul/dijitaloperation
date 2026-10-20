@@ -116,7 +116,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/queries/plan', QueryPlanWizard::class)->name('operator.library.queries.plan');
         Route::get('/library/queries/export', QueriesExportController::class)->name('operator.library.queries.export');
         // Old per-rescan review links (notifications): every proposal now lives in the Sorgular › Silinecekler tab.
-        Route::redirect('/library/queries/review/{review}', '/library/queries?tab=deletions')->where('review', '[0-9]{1,18}')->name('operator.library.queries.review');
+        Route::redirect('/library/queries/review/{review}', '/settings/query-rules?tab=deletions')->where('review', '[0-9]{1,18}')->name('operator.library.queries.review');
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');
@@ -191,6 +191,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
+        Route::livewire('/settings/query-rules', QueriesPage::class)->name('operator.settings.query-rules');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');
         Route::livewire('/icerik', WorkPage::class)->name('operator.content');

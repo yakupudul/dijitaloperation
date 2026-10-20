@@ -60,8 +60,8 @@ final class StrategyPage extends Component
     public function save(int $statId, string $kind, MetaStrategy $strategy): void
     {
         $this->flash = $strategy->save($statId, $kind, auth()->user())
-            ? ($kind === 'text' ? 'Reklam metni kütüphaneye kaydedildi.' : 'Hedefleme kütüphaneye kaydedildi.')
-            : 'Zaten kütüphanede.';
+            ? ($kind === 'text' ? 'Reklam metni Metinler ve takvim’e kaydedildi.' : 'Hedefleme Metinler ve takvim’e kaydedildi.')
+            : 'Zaten kayıtlı.';
     }
 
     public function render(MetaStrategy $strategy): View

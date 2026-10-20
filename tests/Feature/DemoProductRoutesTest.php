@@ -107,9 +107,8 @@ class DemoProductRoutesTest extends TestCase
             ->assertDontSee('Meta data import');
         $this->get(route('operator.settings'))
             ->assertOk()
-            ->assertSee('General')
-            ->assertSee('Team & Access')
-            ->assertSee('AI & Intelligence');
+            ->assertDontSee('Team & Access')
+            ->assertDontSee('AI & Intelligence');
         $this->get(route('operator.settings', ['section' => 'advanced']))
             ->assertOk()
             ->assertDontSee('Reset Demo Mode')

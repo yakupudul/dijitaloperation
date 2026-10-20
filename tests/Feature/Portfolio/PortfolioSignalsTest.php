@@ -107,7 +107,7 @@ final class PortfolioSignalsTest extends TestCase
         $signals = app(PortfolioSignalsReader::class)->forBrands(Brand::query()->get());
 
         $late = $signals['brands'][$this->late->id];
-        $this->assertTrue($late['needs_attention']);
+        $this->assertFalse($late['needs_attention'], 'a late source alone is an amber dot, not Dikkat (yakup 2026-10-20)');
         $this->assertSame(1, $late['data_issues']);
         $this->assertStringContainsString('Google Analytics: Gecikmiş · 20 gün', (string) $late['reason']);
         $this->assertSame('warn', $late['channels']['ga4']['tone']);
@@ -144,7 +144,7 @@ final class PortfolioSignalsTest extends TestCase
 
     public function test_customers_list_shows_open_work_and_attention_and_filters_on_it(): void
     {
-        $this->suggestion($this->late, 'search', 's1');
+        $this->suggestion($this->late, 'search', 's1', ['priority' => 1]);
         $this->suggestion($this->late, 'maps', 's2');
 
         Livewire::test(CustomersIndex::class)
@@ -194,13 +194,13 @@ final class PortfolioSignalsTest extends TestCase
 
     public function test_brands_list_shows_domain_channel_dots_open_work_and_reason(): void
     {
-        $this->suggestion($this->late, 'search', 's1');
+        $this->suggestion($this->late, 'search', 's1', ['priority' => 1]);
 
         Livewire::test(BrandsIndex::class)
             ->assertSee('geciken.test')
             ->assertSeeHtml('data-channel="ga4" data-tone="warn"')
             ->assertSee('Google Analytics: Gecikmiş · 20 gün')
-            ->assertSee(route('operator.customer', ['customerId' => $this->alfa->id]), false)
+            ->assertDontSee(route('operator.customer', ['customerId' => $this->alfa->id]), false)->assertDontSee('Müşteri ekle')
             ->set('search', 'geciken.test')
             ->assertSee('Geciken Klinik')
             ->assertDontSee('Sakin Klinik')
@@ -240,7 +240,7 @@ final class PortfolioSignalsTest extends TestCase
 
     public function test_customer_detail_rows_carry_channel_health_and_no_single_tab_strip(): void
     {
-        $this->suggestion($this->late, 'google_ads', 'g1');
+        $this->suggestion($this->late, 'google_ads', 'g1', ['priority' => 1]);
         $this->alfa->responsibleUsers()->attach($this->admin->id);
 
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->alfa->id])

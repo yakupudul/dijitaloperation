@@ -856,13 +856,10 @@ final class GlobalOperatingFixtures
      */
     public static function settingsSections(): array
     {
+        // One level (yakup 2026-10-20): Ayarlar' top tabs are the only menu. Ekip is Kullanıcılar, AI is AI işlemleri,
+        // Operasyon is Sistem; Bildirimler and Gelişmiş were sample rows with nothing to set. Old ?section= links open Genel.
         return [
             ['id' => 'general', 'label' => __('operator.settings_ia.general'), 'description' => __('operator.settings_ia.general_help')],
-            ['id' => 'team', 'label' => __('operator.settings_ia.team'), 'description' => __('operator.settings_ia.team_help')],
-            ['id' => 'notifications', 'label' => __('operator.settings_ia.notifications'), 'description' => __('operator.settings_ia.notifications_help')],
-            ['id' => 'operations', 'label' => __('operator.settings_ia.operations'), 'description' => __('operator.settings_ia.operations_help')],
-            ['id' => 'ai', 'label' => __('operator.settings_ia.ai'), 'description' => __('operator.settings_ia.ai_help')],
-            ['id' => 'advanced', 'label' => __('operator.settings_ia.advanced'), 'description' => __('operator.settings_ia.advanced_help')],
         ];
     }
 

@@ -12,7 +12,7 @@
 
     <div class="space-y-10">
         <header>
-            <h1 class="page-title">Kütüphaneler</h1>
+            <h1 class="page-title">Metinler ve takvim</h1>
             <p class="page-sub">Kazanan kampanyalardan biriken metinler ve hedeflemeler, hizmetlerin mevsimi ve hangi markanın hangi hizmette olduğu.</p>
         </header>
 
@@ -51,12 +51,12 @@
                                 <span class="flex-1 sm:hidden"></span>
                                 <span class="flex gap-1.5">
                                     <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="btn">Kopyala</button>
-                                    <button type="button" wire:click="remove({{ $x['id'] }})" wire:confirm="Kütüphaneden çıkarılsın mı?" class="btn-quiet hover:text-error-700">Çıkar</button>
+                                    <button type="button" wire:click="remove({{ $x['id'] }})" wire:confirm="Listeden çıkarılsın mı?" class="btn-quiet hover:text-error-700">Çıkar</button>
                                 </span>
                             </div>
                         </li>
                     @empty
-                        <li><x-ta.empty-state icon="none" title="Kütüphane boş." message="Strateji öner’deki kazanan kampanyalardan “Metni kütüphaneye kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state></li>
+                        <li><x-ta.empty-state icon="none" title="Henüz kayıt yok." message="Strateji öner’deki kazanan kampanyalardan “Metni kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state></li>
                     @endforelse
                 </ul>
             </section>
@@ -65,7 +65,7 @@
                 <div class="section-head"><h2 class="section-title">Kazanan hedeflemeler <span class="section-count">{{ count($items) }}</span></h2></div>
                 @if ($items === [])
                     <div class="card">
-                        <x-ta.empty-state icon="none" title="Kütüphane boş." message="Strateji öner’deki kazananlardan “Hedeflemeyi kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
+                        <x-ta.empty-state icon="none" title="Henüz kayıt yok." message="Strateji öner’deki kazananlardan “Hedeflemeyi kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
                     </div>
                 @else
                     <div class="card overflow-x-auto">
@@ -82,7 +82,7 @@
                                         <td class="text-[13px] text-gray-700 dark:text-gray-300">{{ $t['placements'] ?? '—' }}</td>
                                         <td class="text-[13px] text-gray-500">{{ $x['brand'] }}, {{ $x['campaign'] }}</td>
                                         <td class="whitespace-nowrap text-right font-medium tabular-nums text-gray-900 dark:text-white">{{ $money($x['cpr'], $x['currency']) }} <span class="block text-xs font-normal text-gray-500">/ {{ $typeLabels[$x['type']] ?? $x['type'] }}</span></td>
-                                        <td class="text-right"><button type="button" wire:click="remove({{ $x['id'] }})" wire:confirm="Kütüphaneden çıkarılsın mı?" class="btn-quiet hover:text-error-700">Çıkar</button></td>
+                                        <td class="text-right"><button type="button" wire:click="remove({{ $x['id'] }})" wire:confirm="Listeden çıkarılsın mı?" class="btn-quiet hover:text-error-700">Çıkar</button></td>
                                     </tr>
                                 @endforeach
                             </tbody>

@@ -173,8 +173,8 @@
                             </div>
                         </div>
                         <div class="mt-3 flex flex-wrap items-center gap-1.5 sm:pl-8">
-                            <button type="button" wire:click="save({{ $w['id'] }}, 'text')" @disabled(! $ad || $w['saved']['text']) class="btn h-7! px-2.5! text-xs!">{{ $w['saved']['text'] ? 'Metin kütüphanede' : 'Metni kütüphaneye kaydet' }}</button>
-                            <button type="button" wire:click="save({{ $w['id'] }}, 'targeting')" @disabled(! $t || $w['saved']['targeting']) class="btn h-7! px-2.5! text-xs!">{{ $w['saved']['targeting'] ? 'Hedefleme kütüphanede' : 'Hedeflemeyi kaydet' }}</button>
+                            <button type="button" wire:click="save({{ $w['id'] }}, 'text')" @disabled(! $ad || $w['saved']['text']) class="btn h-7! px-2.5! text-xs!">{{ $w['saved']['text'] ? 'Metin kaydedildi' : 'Metni kaydet' }}</button>
+                            <button type="button" wire:click="save({{ $w['id'] }}, 'targeting')" @disabled(! $t || $w['saved']['targeting']) class="btn h-7! px-2.5! text-xs!">{{ $w['saved']['targeting'] ? 'Hedefleme kaydedildi' : 'Hedeflemeyi kaydet' }}</button>
                             <a href="{{ route('operator.meta.campaign', ['assetId' => $w['asset_id'], 'campaignId' => $w['campaign_id']]) }}" wire:navigate class="btn-quiet h-7! px-2! text-xs! sm:ml-auto">Kampanyayı aç</a>
                         </div>
                     </li>

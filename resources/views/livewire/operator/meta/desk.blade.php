@@ -27,7 +27,7 @@
 
     <div class="space-y-10">
         <header class="min-w-0">
-            <h1 class="page-title">Meta <span class="highlight">masası</span></h1>
+            <h1 class="page-title">Meta <span class="highlight">reklamları</span></h1>
             @if ($sub)<p class="page-sub">{{ $sub }}</p>@endif
             @if ($openWork > 0)<a href="{{ route('operator.repair', ['bolum' => 'diger', 'sekme' => 'meta']) }}" class="link-neutral text-sm" data-channel-open-work>Açık öneriler ({{ $openWork }})</a>@endif
         </header>

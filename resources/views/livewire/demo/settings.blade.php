@@ -24,17 +24,16 @@
         @if (($current['description'] ?? '') !== '')<p class="page-sub">{{ $current['description'] }}</p>@endif
     </header>
 
-    {{-- One navigation level (2026-10-19): the layout's section tabs are the top navigation; this page's own parts are
-         in-page tabs (was a second, left-hand menu). --}}
-    {{-- Canlı panel (2026-10-20): the layout's underline tabs are the page level; this page's parts are pill tabs (seg). --}}
-    <nav class="-mt-4 flex gap-1.5 overflow-x-auto no-scrollbar" aria-label="{{ __('operator.settings.sections') }}" data-settings-sections>
-        @foreach ($sections as $item)
-            <button type="button" wire:click="setSection('{{ $item['id'] }}')" @if ($section === $item['id']) aria-current="true" @endif
-                @class(['seg', 'seg-active' => $section === $item['id']])>
-                {{ $item['label'] }}
-            </button>
-        @endforeach
-    </nav>
+    @if (count($sections) > 1)
+        <nav class="-mt-4 flex gap-1.5 overflow-x-auto no-scrollbar" aria-label="{{ __('operator.settings.sections') }}" data-settings-sections>
+            @foreach ($sections as $item)
+                <button type="button" wire:click="setSection('{{ $item['id'] }}')" @if ($section === $item['id']) aria-current="true" @endif
+                    @class(['seg', 'seg-active' => $section === $item['id']])>
+                    {{ $item['label'] }}
+                </button>
+            @endforeach
+        </nav>
+    @endif
 
     @if ($section === 'general')
         <section aria-label="{{ $current['label'] ?? __('operator.settings_ia.general') }}">
@@ -83,17 +82,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="{{ $row }}">
-                    <label for="set-locale" class="{{ $rowLabel }}"><span class="{{ $labelText }}">{{ __('operator.settings.default_locale') }} <span class="text-error-500">*</span></span></label>
-                    <div class="{{ $control }}">
-                        <select id="set-locale" wire:model="default_locale" @disabled(! $isAdmin) class="{{ $input }}">
-                            @foreach ($localeOptions as $value => $label)
-                                <option value="{{ $value }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        @error('default_locale')<p class="{{ $error }}">{{ $message }}</p>@enderror
-                    </div>
-                </div>
+                {{-- Dil seçeneği kalktı (yakup 2026-10-20): panel tek dilli; kayıtlı değer olduğu gibi kalır. --}}
                 <div class="{{ $row }}">
                     <div class="{{ $rowLabel }}">
                         <span class="{{ $labelText }}">{{ __('operator.settings.default_timezone') }} <span class="text-error-500">*</span></span>

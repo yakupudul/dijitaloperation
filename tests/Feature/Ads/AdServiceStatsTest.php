@@ -103,7 +103,7 @@ class AdServiceStatsTest extends TestCase
         $this->otherBrands();
         app(AdServiceStats::class)->refresh($this->asset);
 
-        $this->actingAs($this->admin)->get(route('operator.meta-desk'))->assertOk()->assertSee('Meta masası')->assertSee('Meta reklamları')
+        $this->actingAs($this->admin)->get(route('operator.meta-desk'))->assertOk()->assertDontSee('Meta masası')->assertSee('Meta reklamları')
             ->assertSee('Diş İmplantı Lead Ankara')->assertSee('Hizmet ortalamaları')->assertSee('tüm markalar, ortanca')->assertSee('Atlas');
         Livewire::actingAs($this->admin)->test(DeskPage::class)
             ->assertSeeHtml('desk-'.$this->asset->id.'-c1"')

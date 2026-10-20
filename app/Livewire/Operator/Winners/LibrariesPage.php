@@ -14,7 +14,7 @@ use Livewire\Component;
  * hizmet × marka map. Nothing is sent anywhere.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Kütüphaneler')]
+#[Title('Metinler ve takvim')]
 final class LibrariesPage extends Component
 {
     #[Url(as: 'sekme')]

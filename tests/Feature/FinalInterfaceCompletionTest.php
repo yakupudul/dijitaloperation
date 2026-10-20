@@ -168,14 +168,13 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString("href='/system", $html);
-        $this->assertStringContainsString('/integrations/anthropic', $html);
         $this->assertStringNotContainsString('/integrations/openai', $html, 'OpenAI hidden 2026-10-19: all AI runs on the Claude MCP queue');
         $this->assertStringNotContainsString('/settings/ai/control-plane', $html);
 
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
         $this->assertStringNotContainsString('Open system panel', $advanced);
         $this->assertStringNotContainsString('href="/system', $advanced);
-        $this->assertStringContainsString(__('operator.nav.dashboard'), $advanced);
+        $this->assertStringNotContainsString('data-settings-sections', $advanced, 'old ?section= links open Genel');
     }
 
     public function test_profile_and_site_connectors_routes_are_reachable(): void
