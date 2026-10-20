@@ -113,10 +113,10 @@ final class ContentCoverageTest extends SiteTestCase
         $coverage = app(ContentCoverage::class);
         $row = $coverage->rows()[0];
         $this->assertSame([1, 1, 1], [$row['writing'], $row['reading'], $row['sent']]);
-        $this->assertSame('1 yazı yazıldı, okunmayı bekliyor', ContentCoverage::stage($row)['label']);
+        $this->assertSame('1 yazı yazıldı, Claude kontrol ediyor', ContentCoverage::stage($row)['label']);
         $this->assertSame([$this->site->id => ['sent' => 1, 'live' => 1, 'clicks' => 12, 'clicks90' => 12]], $coverage->outcomes([$this->site->id]));
 
-        Livewire::test(WorkPage::class)->assertSee('1 yazı yazıldı, okunmayı bekliyor')->assertSee('1/1 yayında')->assertSee('12 tık, 90 gün')
+        Livewire::test(WorkPage::class)->assertSee('1 yazı yazıldı, Claude kontrol ediyor')->assertSee('1/1 yayında')->assertSee('12 tık, 90 gün')
             ->assertDontSee('Onayını bekleyen')->assertDontSee('Sistemin bu hafta yaptığı');
     }
 
