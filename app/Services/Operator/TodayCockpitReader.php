@@ -7,6 +7,7 @@ use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Services\Alerts\AlarmCauses;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Measurement\BrandMeasurementScope;
 use App\Services\Repair\RepairDesk;
@@ -138,9 +139,11 @@ final class TodayCockpitReader
     }
 
     /**
-     * `by_brand` is each brand's worst alarm (loss first), for the status column of the brand table.
+     * One item per account (AlarmCauses): its most basic cause leads and the account's other alarm titles are in
+     * `others`; `accounts` and `loss` count those accounts, so the card and the list agree. `by_brand` is each brand's
+     * worst alarm (loss first), for the status column of the brand table.
      *
-     * @return array{accounts: int, loss: int, items: list<array{id: int, tone: string, title: string, message: string, brand: string, brand_id: int, logo: ?string, asset: string, url: ?string, since: ?string}>, more: int, by_brand: array<int, array{tone: string, title: string}>}
+     * @return array{accounts: int, loss: int, items: list<array{id: int, tone: string, title: string, message: string, brand: string, brand_id: int, logo: ?string, asset: string, url: ?string, since: ?string, others?: list<string>}>, more: int, by_brand: array<int, array{tone: string, title: string}>}
      */
     public function alarms(): array
     {
@@ -153,27 +156,36 @@ final class TodayCockpitReader
                 ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 else 2 end")
                 ->orderByDesc('last_detected_at')->limit(200)->get();
 
-            $loss = $alerts->filter(fn (AssetAlert $alert): bool => in_array($alert->kind, self::LOSS_KINDS, true));
+            // One row per account: the most basic cause leads, the account's other alarms ride along as `others`.
+            $groups = AlarmCauses::perAccount($alerts, fn (AssetAlert $alert): int => (int) $alert->digital_asset_id,
+                fn (AssetAlert $alert): string => (string) $alert->kind, fn (AssetAlert $alert): string => (string) $alert->severity);
+            $isLoss = fn (array $group): bool => $group['all']->contains(fn (AssetAlert $alert): bool => in_array($alert->kind, self::LOSS_KINDS, true));
 
             return [
-                'accounts' => $alerts->pluck('digital_asset_id')->unique()->count(),
-                'loss' => $loss->pluck('digital_asset_id')->unique()->count(),
-                'items' => $alerts->take(self::ALARM_LIMIT)->map(fn (AssetAlert $alert): array => [
-                    'id' => (int) $alert->id,
-                    'tone' => in_array($alert->kind, self::LOSS_KINDS, true) ? 'critical' : 'look',
-                    'title' => (string) $alert->title,
-                    'message' => (string) $alert->message,
-                    'brand' => (string) ($alert->brand?->name ?? ''),
-                    'brand_id' => (int) $alert->brand_id,
-                    'logo' => $alert->brand?->logo_url ?: null,
-                    'asset' => (string) ($alert->digitalAsset?->name ?? ''),
-                    'url' => $alert->digitalAsset !== null ? OperatorPortfolioPresenter::specialistUrl($alert->digitalAsset) : null,
-                    'since' => $alert->first_detected_at?->diffForHumans(),
-                ])->values()->all(),
-                'more' => max(0, $alerts->count() - self::ALARM_LIMIT),
-                'by_brand' => $alerts->groupBy('brand_id')->map(fn (Collection $group): array => [
-                    'tone' => in_array($group->first()->kind, self::LOSS_KINDS, true) ? 'critical' : 'look',
-                    'title' => (string) $group->first()->title,
+                'accounts' => $groups->count(),
+                'loss' => $groups->filter($isLoss)->count(),
+                'items' => $groups->take(self::ALARM_LIMIT)->map(function (array $group) use ($isLoss): array {
+                    /** @var AssetAlert $alert */
+                    $alert = $group['lead'];
+
+                    return [
+                        'id' => (int) $alert->id,
+                        'tone' => $isLoss($group) ? 'critical' : 'look',
+                        'title' => (string) $alert->title,
+                        'message' => (string) $alert->message,
+                        'brand' => (string) ($alert->brand?->name ?? ''),
+                        'brand_id' => (int) $alert->brand_id,
+                        'logo' => $alert->brand?->logo_url ?: null,
+                        'asset' => (string) ($alert->digitalAsset?->name ?? ''),
+                        'url' => $alert->digitalAsset !== null ? OperatorPortfolioPresenter::specialistUrl($alert->digitalAsset) : null,
+                        'since' => $alert->first_detected_at?->diffForHumans(),
+                        'others' => $group['others']->map(fn (AssetAlert $other): string => (string) $other->title)->unique()->values()->all(),
+                    ];
+                })->values()->all(),
+                'more' => max(0, $groups->count() - self::ALARM_LIMIT),
+                'by_brand' => $groups->groupBy(fn (array $group): int => (int) $group['lead']->brand_id)->map(fn (Collection $brandGroups): array => [
+                    'tone' => $isLoss($brandGroups->first()) ? 'critical' : 'look',
+                    'title' => (string) $brandGroups->first()['lead']->title,
                 ])->all(),
             ];
         } catch (Throwable $error) {

@@ -69,6 +69,10 @@ final class GoogleAdsDeskTest extends TestCase
         [$fresh, $freshResource] = $this->account('Bornova Hurda', '1112223333');
         [$stopped, $stoppedResource] = $this->account('Panorama Ankara', '4445556666');
         [$unbound] = $this->account('Dentocare', null);
+        // Kurulum durumu says "Kullanılmıyor" for Dentocare (nothing bound, no candidate); Atlas Klinik has its account waiting unbound.
+        [$waiting] = $this->account('Atlas Klinik', null);
+        CoreExternalResource::factory()->create(['integration_id' => $this->integration->id, 'provider' => 'google', 'resource_type' => GoogleResourceType::GOOGLE_ADS_CUSTOMER,
+            'external_id' => '9990001111', 'display_name' => 'Atlas Klinik', 'status' => CoreExternalResource::STATUS_AVAILABLE, 'metadata' => ['currency' => 'TRY']]);
         for ($day = 1; $day <= 20; $day++) {
             $this->campaignRow($freshResource, '1112223333', $day, 100, 2);
         }
@@ -80,17 +84,40 @@ final class GoogleAdsDeskTest extends TestCase
         $this->assertSame('ok', $rows[$fresh->id]['state']);
         $this->assertSame('late', $rows[$stopped->id]['state']);
         $this->assertSame('unbound', $rows[$unbound->id]['state']);
+        $this->assertTrue($rows[$unbound->id]['unused']);
+        $this->assertFalse($rows[$waiting->id]['unused']);
         $this->assertEqualsWithDelta(2000.0, $rows[$fresh->id]['current']['cost'], 0.01);
 
         $problems = GoogleAdsDesk::problems($rows->values()->all());
-        $this->assertSame(['Panorama Ankara', 'Dentocare'], array_column($problems, 'brand'));
+        $this->assertSame(['Panorama Ankara', 'Atlas Klinik'], array_column($problems, 'brand'), 'no "Hesap bağlı değil" for a channel marked Kullanılmıyor');
         $this->assertSame('Veri / harcama gelmiyor', $problems[0]['title']);
+        $this->assertSame('Hesap bağlı değil', $problems[1]['title']);
 
         Livewire::actingAs($this->admin)->test(DeskPage::class)
-            ->assertOk()->assertSee('Şimdi bakılacaklar')->assertSee('Bornova Hurda')->assertSee('Hesap bağlı değil')
+            ->assertOk()->assertSee('Şimdi bakılacaklar')->assertSee('Bornova Hurda')->assertSee('Hesap bağlı değil')->assertSee('Kullanılmıyor')
             ->call('toggle', $fresh->id)->assertSee('Son 6 ay')->assertSee('MoxDOP’un hesapta yaptıkları');
         Livewire::actingAs($this->admin)->test(DeskPage::class, ['brand' => $fresh->brand_id])->assertDontSee('Panorama Ankara Ads');
         $this->actingAs($this->admin)->get(route('operator.google-ads-desk'))->assertOk()->assertSee('Google Ads');
+    }
+
+    public function test_an_account_with_several_alarms_is_one_strip_row_led_by_the_most_basic_cause(): void
+    {
+        [$asset, $resource] = $this->account('Panorama Ankara', '4445556666');
+        for ($day = 6; $day <= 20; $day++) {
+            $this->campaignRow($resource, '4445556666', $day, 300, 1);
+        }
+        foreach ([['ads_data_gap', 'Google Ads verisi / harcaması gelmiyor'], ['budget_no_spend_today', 'Google Ads bugün hiç harcama yapmadı'], ['budget_exhausted', 'Google Ads bütçesi bitti']] as [$kind, $title]) {
+            AssetAlert::query()->create(['digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'alert_key' => hash('sha256', $kind), 'kind' => $kind,
+                'severity' => 'critical', 'title' => $title, 'message' => $title.'.', 'data' => [], 'first_detected_at' => now(), 'last_detected_at' => now()]);
+        }
+
+        $problems = GoogleAdsDesk::problems(app(GoogleAdsDesk::class)->status(app(GoogleAdsDesk::class)->accounts()));
+
+        $this->assertCount(1, $problems, 'one account, one row');
+        $this->assertSame('Google Ads bütçesi bitti', $problems[0]['title']);
+        $this->assertSame(['Google Ads bugün hiç harcama yapmadı', 'Google Ads verisi / harcaması gelmiyor'], $problems[0]['others']);
+        Livewire::actingAs($this->admin)->test(DeskPage::class)
+            ->assertSee('Diğer uyarılar (2)')->assertSeeHtml('data-alarm-others')->assertSee('+2 uyarı');
     }
 
     public function test_an_account_that_was_spending_and_stopped_raises_a_critical_alarm(): void

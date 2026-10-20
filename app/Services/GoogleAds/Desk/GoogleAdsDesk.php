@@ -8,6 +8,8 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Services\Ads\AdServiceStats;
+use App\Services\Alerts\AlarmCauses;
+use App\Services\BrandSetup\BrandSetupStatus;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsLeadQuality;
 use App\Services\GoogleAds\GoogleAdsScreen;
@@ -95,6 +97,7 @@ final class GoogleAdsDesk
         $fresh = now()->subDays(self::FRESH_DAYS)->toDateString();
 
         $rows = [];
+        $unused = [];
         foreach ($accounts as $asset) {
             $id = (int) $asset->id;
             $overview = $overviews[$id] ?? null;
@@ -109,8 +112,13 @@ final class GoogleAdsDesk
             };
             $counts = $open->get($id, collect())->pluck('n', 'action_type')->map(fn ($n): int => (int) $n)->all();
             $checks = $this->suggestions->checkStates($asset);
+            // An unbound account of a brand whose Google Ads channel is "Kullanılmıyor" raises no "Hesap bağlı değil".
+            if ($state === 'unbound' && $asset->brand !== null) {
+                $unused[(int) $asset->brand_id] ??= app(BrandSetupStatus::class)->channelUnused($asset->brand, 'google_ads');
+            }
             $rows[] = [
                 'asset' => $asset, 'brand' => (string) $asset->brand?->name, 'state' => $state, 'last_date' => $lastDate,
+                'unused' => $state === 'unbound' && ($unused[(int) $asset->brand_id] ?? false),
                 'currency' => $overview['currency'] ?? null, 'current' => $current, 'previous' => $overview['previous'] ?? null,
                 'change' => ['cost' => self::change($current['cost'] ?? null, $overview['previous']['cost'] ?? null),
                     'conversions' => self::change($current['conversions'] ?? null, $overview['previous']['conversions'] ?? null),
@@ -131,10 +139,12 @@ final class GoogleAdsDesk
     }
 
     /**
-     * The red strip: only what loses money or leaves an account blind now.
+     * The red strip: only what loses money or leaves an account blind now, one row per account (AlarmCauses): the
+     * most basic cause leads, the account's other alarm titles are in `others`. An unbound account of a brand whose
+     * Google Ads channel is "Kullanılmıyor" (status() `unused`) raises nothing.
      *
      * @param  list<array<string, mixed>>  $rows  status()
-     * @return list<array{asset_id: int, brand: string, title: string, message: string, severity: string}>
+     * @return list<array{asset_id: int, brand: string, title: string, message: string, severity: string, others: list<string>}>
      */
     public static function problems(array $rows): array
     {
@@ -142,18 +152,28 @@ final class GoogleAdsDesk
         foreach ($rows as $row) {
             $assetId = (int) $row['asset']->id;
             $kinds = array_column($row['alerts'], 'kind');
-            if ($row['state'] === 'unbound') {
-                $out[] = ['asset_id' => $assetId, 'brand' => $row['brand'], 'severity' => 'high', 'title' => 'Hesap bağlı değil',
+            $found = [];
+            if ($row['state'] === 'unbound' && ! ($row['unused'] ?? false)) {
+                $found[] = ['kind' => AlarmCauses::UNBOUND, 'severity' => 'high', 'title' => 'Hesap bağlı değil',
                     'message' => 'Bu Google Ads varlığına bağlı hesap yok ya da erişim kopmuş; veri toplanamıyor.'];
             } elseif ($row['state'] === 'late' && ! in_array('ads_data_gap', $kinds, true)) {
-                $out[] = ['asset_id' => $assetId, 'brand' => $row['brand'], 'severity' => 'critical', 'title' => 'Veri / harcama gelmiyor',
+                $found[] = ['kind' => AlarmCauses::LATE, 'severity' => 'critical', 'title' => 'Veri / harcama gelmiyor',
                     'message' => 'Son veri '.CarbonImmutable::parse((string) $row['last_date'])->format('d.m.Y').' günü. Hesap erişimi, ödeme ya da kampanya durumu kontrol edilmeli.'];
             }
             foreach ($row['alerts'] as $alert) {
                 if (in_array($alert['kind'], self::STRIP_KINDS, true) || $alert['severity'] === 'critical') {
-                    $out[] = ['asset_id' => $assetId, 'brand' => $row['brand'], 'severity' => $alert['severity'], 'title' => $alert['title'], 'message' => $alert['message']];
+                    $found[] = $alert;
                 }
             }
+            if ($found === []) {
+                continue;
+            }
+            $ordered = AlarmCauses::ordered($found, fn (array $a): string => (string) $a['kind'], fn (array $a): string => (string) $a['severity']);
+            $lead = $ordered->first();
+            $out[] = ['asset_id' => $assetId, 'brand' => $row['brand'],
+                'severity' => $ordered->contains(fn (array $a): bool => $a['severity'] === 'critical') ? 'critical' : (string) $lead['severity'],
+                'title' => (string) $lead['title'], 'message' => (string) $lead['message'],
+                'others' => $ordered->slice(1)->pluck('title')->map(fn ($title): string => (string) $title)->unique()->values()->all()];
         }
         usort($out, fn (array $a, array $b): int => [self::rank($a['severity']), $a['brand']] <=> [self::rank($b['severity']), $b['brand']]);
 

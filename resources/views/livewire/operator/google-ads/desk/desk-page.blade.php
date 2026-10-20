@@ -121,13 +121,22 @@
                         $worst = $items->contains(fn (array $p): bool => $p['severity'] === 'critical') ? 'critical' : 'look';
                         $single = $items->count() === 1;
                     @endphp
+                    {{-- One row per account: its most basic cause; the account's other alarms are behind "Diğer uyarılar". --}}
                     <x-ta.alarm-row :tone="$worst" :title="$items->pluck('title')->unique()->implode(', ')" :brand="(string) $brandName" :logo="$logos[$assetIds->first()] ?? null"
                         :message="$single ? $items->first()['message'] : null"
-                        :href="$assetIds->count() === 1 ? route('operator.google-ads.overview', ['assetId' => $assetIds->first()]) : null" action="Hesabı aç">
+                        :href="$assetIds->count() === 1 && ($items->first()['others'] ?? []) === [] ? route('operator.google-ads.overview', ['assetId' => $assetIds->first()]) : null" action="Hesabı aç">
+                        @if ($single && ($items->first()['others'] ?? []) !== [])
+                            <details class="text-gray-500 dark:text-gray-400" data-alarm-others>
+                                <summary class="cursor-pointer select-none">Diğer uyarılar ({{ count($items->first()['others']) }})</summary>
+                                <p class="mt-0.5 break-words">{{ implode(', ', $items->first()['others']) }}. Önce yukarıdaki sorun çözülmeli; bunlar çoğu zaman onun sonucudur.</p>
+                            </details>
+                            <a href="{{ route('operator.google-ads.overview', ['assetId' => $assetIds->first()]) }}" wire:navigate class="link-neutral whitespace-nowrap">Hesabı aç</a>
+                        @endif
                         @unless ($single)
                             <ul class="space-y-0.5 text-gray-500 dark:text-gray-400">
                                 @foreach ($items as $p)
                                     <li class="break-words"><span class="font-medium text-gray-700 dark:text-gray-300">{{ $p['title'] }}:</span> {{ $p['message'] }}
+                                        @if (($p['others'] ?? []) !== [])<span class="text-gray-400" title="Diğer uyarılar: {{ implode(', ', $p['others']) }}" data-alarm-others>(+{{ count($p['others']) }} uyarı)</span>@endif
                                         @if ($assetIds->count() > 1)<a href="{{ route('operator.google-ads.overview', ['assetId' => $p['asset_id']]) }}" wire:navigate class="link-neutral whitespace-nowrap">Hesabı aç</a>@endif
                                     </li>
                                 @endforeach
@@ -175,7 +184,20 @@
                 </thead>
                 <tbody>
                     @forelse ($rows as $row)
-                        @php $asset = $row['asset']; $c = $row['current']; $label = $stateLabel[$row['state']]; @endphp
+                        @php
+                            $asset = $row['asset']; $c = $row['current'];
+                            // One alarm pill per account: the most basic cause first ("Hesap bağlı değil" / "Veri gelmiyor" count as
+                            // causes), the rest in "+N". Plain states (no data yet, idle, Kullanılmıyor) stay a gray pill.
+                            $causeKind = ($row['unused'] ?? false) ? null : ['unbound' => \App\Services\Alerts\AlarmCauses::UNBOUND, 'late' => \App\Services\Alerts\AlarmCauses::LATE][$row['state']] ?? null;
+                            $lateAlarmed = $row['state'] === 'late' && in_array('ads_data_gap', array_column($row['alerts'], 'kind'), true); // the alarm already says it
+                            $causeKind = $lateAlarmed ? null : $causeKind;
+                            $label = ($row['unused'] ?? false) ? 'Kullanılmıyor' : ($causeKind === null && ! $lateAlarmed ? $stateLabel[$row['state']] : null);
+                            $rowAlerts = \App\Services\Alerts\AlarmCauses::ordered(
+                                array_merge($causeKind !== null ? [['kind' => $causeKind, 'severity' => 'critical', 'title' => $stateLabel[$row['state']], 'message' => '']] : [], $row['alerts']),
+                                fn (array $a): string => $a['kind'], fn (array $a): string => $a['severity']);
+                            $leadAlert = $rowAlerts->first();
+                            $restAlerts = $rowAlerts->slice(1);
+                        @endphp
                         <tr wire:key="acc-{{ $asset->id }}" @class(['cursor-pointer align-top', '[&>td]:bg-gray-50 dark:[&>td]:bg-white/[0.03]' => $open === (int) $asset->id]) wire:click="toggle({{ $asset->id }})">
                             <td class="w-[34%] max-w-0">
                                 <span class="flex min-w-0 items-start gap-2.5">
@@ -183,12 +205,11 @@
                                     <span class="min-w-0 flex-1">
                                         <span class="block break-words font-medium text-gray-900 dark:text-white">{{ $row['brand'] }}</span>
                                         <span class="block truncate text-xs text-gray-500" title="{{ $asset->name }}">@if ($row['last_date'])Son veri {{ \Carbon\CarbonImmutable::parse($row['last_date'])->format('d.m') }}, @endif{{ $asset->name }}</span>
-                                        @if ($label || $row['alerts'] !== [])
+                                        @if ($label || $leadAlert)
                                             <span class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                                                @if ($label)<x-ta.pill :tone="in_array($row['state'], ['late', 'unbound'], true) ? 'critical' : 'info'">{{ $label }}</x-ta.pill>@endif
-                                                @foreach ($row['alerts'] as $alert)
-                                                    <x-ta.pill :tone="in_array($alert['severity'], ['critical', 'high'], true) ? 'critical' : 'look'" title="{{ $alert['message'] }}">{{ $alert['title'] }}</x-ta.pill>
-                                                @endforeach
+                                                @if ($label)<x-ta.pill tone="info">{{ $label }}</x-ta.pill>@endif
+                                                @if ($leadAlert)<x-ta.pill :tone="in_array($leadAlert['severity'], ['critical', 'high'], true) ? 'critical' : 'look'" :title="$leadAlert['message'] !== '' ? $leadAlert['message'] : null">{{ $leadAlert['title'] }}</x-ta.pill>@endif
+                                                @if ($restAlerts->isNotEmpty())<x-ta.pill tone="info" title="Diğer uyarılar: {{ $restAlerts->pluck('title')->implode(', ') }}" data-alarm-others>+{{ $restAlerts->count() }} uyarı</x-ta.pill>@endif
                                             </span>
                                         @endif
                                     </span>

@@ -5,6 +5,7 @@ namespace App\View\Components\Operator;
 use App\Models\AssetAlert;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
+use App\Services\Alerts\AlarmCauses;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Operator\ExternalLinks;
@@ -96,9 +97,10 @@ class AssetContext extends Component
             $this->websiteHome = route('operator.website', ['assetId' => $website->id, 'tab' => $asset->type === 'ga4' ? 'ga4_analysis' : 'search_console']);
         }
 
-        $this->alerts = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
+        // The most basic cause first (budget / billing before "no spend today" before "no data"; AlarmCauses).
+        $this->alerts = AlarmCauses::ordered(AssetAlert::query()->open()->where('digital_asset_id', $asset->id)->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
             ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
-            ->get();
+            ->get(), fn (AssetAlert $alert): string => (string) $alert->kind, fn (AssetAlert $alert): string => (string) $alert->severity);
     }
 
     /** "Meta Ads" + "Meta Ads · Obezite" → "Meta Ads · Obezite"; "Web sitesi" + "Örnek Site" → "Web sitesi · Örnek Site". */

@@ -641,11 +641,14 @@ final class GbpDeskTest extends TestCase
         foreach (range(1, 3) as $i) {
             $this->secondBranch();
         }
-        $this->actingAs($this->admin)->get(route('operator.gbp-desk'))->assertOk()
+        $desk = $this->actingAs($this->admin)->get(route('operator.gbp-desk'))->assertOk()
             ->assertSeeHtml('data-testid="gbp-shared-gaps"')
             ->assertSee('Hepsini düzenle')
             ->assertSee('Bu şubeye özel eksikler')
             ->assertSeeHtml('data-testid="gbp-brand-group"');
+        // A gap card reads "N işletmede eksik", never "N/N" (which read as if every profile were done).
+        $this->assertMatchesRegularExpression('/data-gbp-condition-missing>\d+ <span[^>]*>işletmede eksik<\/span>/u', $desk->getContent());
+        $this->assertDoesNotMatchRegularExpression('/data-gbp-condition-missing>[^<]*\/\d/u', $desk->getContent());
     }
 
     public function test_every_tab_renders_for_an_admin(): void

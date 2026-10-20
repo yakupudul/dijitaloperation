@@ -67,6 +67,19 @@ final class BrandSetupStatus
     }
 
     /**
+     * True when the brand's ad channel ($type: google_ads / meta_ads) shows "Kullanılmıyor" in Kurulum durumu: no
+     * active account of that type is bound and no unbound account is waiting as a candidate (same rule as ads()).
+     */
+    public function channelUnused(Brand $brand, string $type): bool
+    {
+        $bound = $brand->digitalAssets()->where('status', 'active')->where('type', $type)
+            ->whereHas('assetBindings', fn ($q) => $q->where('status', CoreAssetBinding::STATUS_ACTIVE)->where('capability', $type))
+            ->exists();
+
+        return ! $bound && ! collect($this->candidates->forBrand($brand))->contains('type', $type);
+    }
+
+    /**
      * @param  Collection<int, DigitalAsset>  $assets
      * @param  array<int, list<DataStatus>>  $statuses
      * @return array<string, mixed>

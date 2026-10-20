@@ -73,6 +73,26 @@ final class TodayCockpitTest extends SiteTestCase
             ->assertSeeHtml('data-chief-plan-empty')->assertSee('Şimdi hazırla');
     }
 
+    public function test_an_account_with_several_alarms_is_one_row_led_by_the_most_basic_cause(): void
+    {
+        $ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads', 'name' => 'Google Ads · Implant']);
+        $this->alert($ads, 'ads_data_gap', 'critical', 'Google Ads verisi / harcaması gelmiyor');
+        $this->alert($ads, 'budget_no_spend_today', 'critical', 'Google Ads bugün hiç harcama yapmadı');
+        $this->alert($ads, 'budget_exhausted', 'critical', 'Google Ads bütçesi bitti');
+        $this->alert($this->site, 'bad_review_unanswered', 'high', 'Yanıtsız düşük puanlı yorum');
+
+        $alarms = app(TodayCockpitReader::class)->alarms();
+
+        $this->assertSame([2, 1], [$alarms['accounts'], $alarms['loss']], 'accounts, not alarms: the card and the list agree');
+        $this->assertCount(2, $alarms['items']);
+        $this->assertSame(0, $alarms['more']);
+        $this->assertSame('Google Ads bütçesi bitti', $alarms['items'][0]['title'], 'budget before no spend today before no data');
+        $this->assertSame(['Google Ads bugün hiç harcama yapmadı', 'Google Ads verisi / harcaması gelmiyor'], $alarms['items'][0]['others']);
+        $this->assertSame('critical', $alarms['items'][0]['tone']);
+        $this->assertSame([], $alarms['items'][1]['others']);
+        $this->assertSame(['tone' => 'critical', 'title' => 'Google Ads bütçesi bitti'], $alarms['by_brand'][$this->brand->id]);
+    }
+
     public function test_alarm_rows_show_one_sentence_and_a_falling_brand_says_so(): void
     {
         $meta = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'name' => 'Meta Ads · Obezite']);

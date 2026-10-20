@@ -48,7 +48,6 @@
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('operator.integrations.discovered') }}" wire:navigate class="btn">Keşfedilen varlıklar</a>
             <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="btn-quiet">Sistem sağlığı</a>
         </div>
     </header>
@@ -73,17 +72,13 @@
         @else
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($problems as $problem)
-                    @php
-                        $isError = $problem['tone'] === 'error';
-                        [$big, $line] = preg_match('/^([\d.]+) (.*)$/u', $problem['text'], $m) === 1 ? [$m[1], \Illuminate\Support\Str::ucfirst($m[2])] : [null, $problem['text']];
-                    @endphp
+                    @php $isError = $problem['tone'] === 'error'; @endphp
                     <div @class(['soft-card', 'soft-red' => $isError, 'soft-amber' => ! $isError])>
                         <span @class(['soft-icon', 'text-error-600 dark:text-error-400' => $isError, 'text-warning-600 dark:text-warning-400' => ! $isError]) aria-hidden="true">
                             <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $isError ? $icons['alert'] : $icons['clock'] !!}</svg>
                         </span>
-                        <p class="sr-only">{{ $problem['text'] }}</p>
-                        @if ($big !== null)<p class="soft-number" aria-hidden="true">{{ $big }}</p>@endif
-                        <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" aria-hidden="true">{{ $line }}</p>
+                        {{-- The sentence once (owner 2026-10-20: the number and the sentence were shown twice). --}}
+                        <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $problem['text'] }}</p>
                         <div class="mt-auto pt-1">
                             <a href="{{ $problem['url'] }}" wire:navigate class="{{ $loop->first ? 'btn-primary' : 'btn' }}">{{ $problem['action'] }}</a>
                         </div>
