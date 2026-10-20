@@ -153,7 +153,7 @@
             {{-- Open work --}}
             <section aria-labelledby="work-heading" data-brand-work>
                 <div class="section-head">
-                    <h2 id="work-heading" class="section-title">{{ $channelFilter !== null ? $channelFilter['label'].' açık öneriler' : 'Açık işler' }} <span class="section-count">{{ $work['total'] }}</span></h2>
+                    <h2 id="work-heading" class="section-title">{{ $channelFilter !== null ? $channelFilter['label'].' açık öneriler' : 'Açık işler' }}</h2>
                 </div>
                 <ul class="card">
                     @forelse ($work['items'] as $item)
@@ -169,7 +169,7 @@
                         <li class="card-row text-sm text-gray-500" data-work-empty>{{ $channelFilter !== null ? 'Bu kanalda açık öneri yok.' : 'Açık öneri yok.' }}@if ($channelFilter !== null && $assetCards === []) Önce {{ $channelFilter['asset_label'] }} bağlanmalı.@endif</li>
                     @endforelse
                     @if ($work['total'] > count($work['items']))
-                        <li class="border-t border-gray-200 dark:border-gray-800"><button type="button" wire:click="showAllWork" class="w-full px-4 py-2.5 text-left text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.02] dark:hover:text-white" data-work-more>+{{ $work['total'] - count($work['items']) }} iş paketi daha</button></li>
+                        <li class="border-t border-gray-200 dark:border-gray-800"><button type="button" wire:click="showAllWork" class="w-full px-4 py-2.5 text-left text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.02] dark:hover:text-white" data-work-more>Hepsini göster</button></li>
                     @elseif ($allWork && $work['total'] > \App\Livewire\Operator\Portfolio\BrandShow::WORK_LIMIT)
                         <li class="border-t border-gray-200 dark:border-gray-800"><button type="button" wire:click="showAllWork(false)" class="w-full px-4 py-2.5 text-left text-[13px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-white/[0.02] dark:hover:text-white">Daha az göster</button></li>
                     @endif

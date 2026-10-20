@@ -6,6 +6,8 @@ use App\Ai\Agents\Site\SeoFieldsBatchAgent;
 use App\Jobs\ApproveRepairRowsJob;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Jobs\Site\RunSiteOperationJob;
+use App\Livewire\Demo\Dashboard;
+use App\Livewire\Demo\Portfolio\BrandsIndex;
 use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\Brand;
@@ -20,6 +22,7 @@ use App\Services\Repair\RepairVerifier;
 use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\SiteAudit;
 use App\Services\Site\SiteOperations;
+use App\Support\OperatorMenu;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
@@ -79,14 +82,30 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(0, $desk->counts()['total']);
     }
 
+    public function test_menu_today_desk_and_brands_show_one_waiting_count(): void
+    {
+        $one = $this->suggestion('Başlık 1', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Bir']]]);
+        $this->suggestion('Başlık 2', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'İki']]]);
+        $this->suggestion('Eksik konu', 'missing_topic', ['proposal' => ['kind' => 'content', 'current' => [], 'new' => ['html' => '<p>Yeni</p>']]]);
+
+        $this->assertSame(3, OperatorMenu::counters()['operator.repair']);
+        Livewire::test(Dashboard::class)->assertSee('3 iş karar bekliyor')->assertSee('Onayla, bitsin: 2 · Bir göz at: 1');
+        Livewire::test(RepairDeskPage::class)->assertSee('3 iş karar bekliyor')->assertSee('Tüm markalar · 3 iş');
+        Livewire::test(BrandsIndex::class)->assertSee('Karar bekliyor')
+            ->assertSeeHtml('href="'.route('operator.repair', ['marka' => $this->brand->id]).'"');
+
+        app(RepairDesk::class)->reject([$one->id], $this->admin);
+        $this->assertSame(2, OperatorMenu::counters()['operator.repair'], 'a decision drops the cached count at once');
+    }
+
     public function test_page_filters_approves_and_lists_undoable_writes(): void
     {
         $fields = $this->suggestion('Başlığı güçlendir', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
         $this->suggestion('Alt metin', 'image_alt', ['site_id' => $this->site->id, 'images' => [['image_id' => 7, 'file' => 'a.jpg', 'alt' => 'Alt']]]);
 
-        Livewire::test(RepairDeskPage::class)->assertSeeText('Onarım masası')->assertSee('Onay bekleyen 2')
+        Livewire::test(RepairDeskPage::class)->assertSeeText('Onarım masası')->assertSee('iş karar bekliyor')
             ->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)->assertSee('Yeni başlık')
-            ->set('brandId', $this->brand->id)->assertSee($this->brand->name.': onay bekleyen 2 paket · 2 iş')->assertSee('tüm markalarda 2 iş')
+            ->set('brandId', $this->brand->id)->assertSee($this->brand->name.': 2 iş karar bekliyor')
             ->set('brandId', null)
             ->set('kind', RepairDesk::SITE_FIELDS)->assertDontSee('a.jpg')
             ->call('approve', $fields->id)->assertSee('1 iş uygulamaya gönderildi')
@@ -143,7 +162,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame([[6.0, 0], [3.0, 1]], [[$health[0]['gain'], $health[0]['critical']], [$health[1]['gain'], $health[1]['critical']]]);
 
         $page = Livewire::test(RepairDeskPage::class)
-            ->assertSee('Arka Marka · 3 iş bekliyor')->assertSee('· 1 kritik')->assertDontSee('kusursuz')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tüm markalar')
+            ->assertSee('Arka Marka · 3 iş')->assertSee('· 1 kritik')->assertDontSee('kusursuz')->assertSeeHtml('data-health-help')->assertSeeHtml('data-repair-brand-select')->assertSee('Tüm markalar')
             ->set('brandId', $this->brand->id)->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)
             ->assertSee('İmplant Tedavisi Ankara')->assertSee('Başlık: Ankara implant | Panorama')->assertSee('https://panorama.com.tr/implant/')
             ->assertSeeHtml('data-row-target');
@@ -442,7 +461,7 @@ final class RepairDeskTest extends SiteTestCase
         $order = app(RepairDesk::class)->packages(app(RepairDesk::class)->rows())->pluck('key')->all();
         $this->assertCount(22, $order);
 
-        $page = Livewire::test(RepairDeskPage::class)->assertSee('Onay bekleyen 22 paket · 22 iş');
+        $page = Livewire::test(RepairDeskPage::class)->assertSee('22 iş karar bekliyor');
         $html = $page->html();
         $this->assertSame(20, substr_count($html, 'data-package="'), 'only the first 20 packages are rendered');
         $this->assertStringContainsString('data-package="'.$order[19].'"', $html);

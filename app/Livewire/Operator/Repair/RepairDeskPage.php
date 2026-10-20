@@ -6,7 +6,6 @@ use App\Models\Brand;
 use App\Models\ExternalWriteAction;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Repair\RepairDesk;
-use App\Services\Work\WorkDesk;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -270,6 +269,7 @@ final class RepairDeskPage extends Component
     public function render(RepairDesk $desk): View
     {
         $all = $desk->rows();
+        $summary = RepairDesk::rememberSummary($all);
         $filtered = $this->filter($all);
         $lanes = $filtered->countBy(fn (array $r): string => RepairDesk::lane($r))->all();
         if (! array_key_exists($this->lane, RepairDesk::LANES) || (! $this->laneChosen && ($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {
@@ -301,15 +301,15 @@ final class RepairDeskPage extends Component
             'doneCount' => (int) $done->sum(fn (array $g): int => (int) $g['ok'] + (int) $g['partial']),
             'doneFailed' => (int) $done->sum('failed'),
             'doneReturned' => (int) $done->sum('returned'),
-            'otherCount' => array_sum(app(WorkDesk::class)->counts($this->brandId)),
             'packages' => $packages->take(max(self::PACKAGES_PAGE, $this->packagesShown))->values(),
             'packagesTotal' => $packages->count(),
             'openRows' => $openRows->take($this->perPage),
             'openTotal' => $openRows->count(),
             'laneCounts' => $lanes,
             'laneTotal' => $inLane->count(),
-            'counts' => ['total' => $all->count(), 'packages' => $desk->packages($all)->count(),
-                'brand_total' => ($brandRows = $this->filter($all, kind: false))->count(), 'brand_packages' => $desk->packages($brandRows)->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
+            'summary' => $summary,
+            'scope' => $this->brandId !== null ? ($summary['brands'][$this->brandId] ?? ['decide' => 0, 'manual' => 0]) : $summary,
+            'counts' => ['kinds' => $this->filter($all, kind: false)->countBy('kind')->all()],
             'health' => $desk->health($all),
             'pipeline' => $desk->pipeline($this->brandId),
             'brands' => ($brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url']))->pluck('name', 'id'),

@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — Panel sadeleştirme (yakup: "sırayla yap")
+
+Turun bulguları `/mnt/project-files/notes/panel-sadelestirme-turu-2026-10-20.md`. Kural: bir kavram tek sayı. Bekleyen iş her ekranda `RepairDesk::summary()`'den okunur (karar bekleyen + senin elinle); yeni bir ekran kendi sayımını yapmaz. Claude'un iş sayısı yalnız menüdeki Claude kartında. Sıradaki adımlar: İçerik ekranı ve Bugün kısalır, müşteri kalıntıları ve tekrar eden sekme / adlar gider, yazı kuralları (başlık altında tek cümle, açıklamalar "Neden?" içinde, ekranda tek ana düğme) ekran ekran uygulanır.
+
 ## 2026-10-20 — Yönetici turu kararları uygulandı
 
 İçerik sol menüde (Çalışma › İçerik). Genel işler yalnız site işlerine bakar; kanal önerileri kendi masasından açılır. Dijital varlıklar Entegrasyonlar altında. 60 gün harcamasız reklam hesaplarının önerileri kendiliğinden sessize alınır, harcama dönünce geri açılır. Search Console mülkü 14+ gün veri getirip sıfır gösterim veriyorsa alarm (yanlış mülk). Başlık/açıklama işi 90 günde 10 gösterim altındaki sayfalarda açılmaz (hizmet / lokasyon hariç). OpenAI ve DataForSEO ekranları kalktı.

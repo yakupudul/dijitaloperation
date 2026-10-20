@@ -1,5 +1,10 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — Tek iş sayacı (panel sadeleştirme 1)
+
+- **Kodlandı + test:** Bekleyen iş her ekranda tek sayı: `RepairDesk::summary()` (önbellek 120 sn; onay, ret, kuyruğa alma ve masa açılışı yeniler) `decide` = Onayla, bitsin + Bir göz at (menü rozeti), `manual` = Senin elinle, marka başına aynısı. Menü, Bugün ("N iş karar bekliyor" tek kart), Onarım masası başlığı ve marka seçici, marka sayfası "Karar bekleyen", Markalar kartı ve sütunu buradan okur. Paket / düzeltme / "Diğer işler" sayıları ve İçerik'teki 1997 / "Sistemin bu hafta yaptığı" şeridi kalktı. Masa site satırlarını yalnız hazırlanmış olanlardan okur ve sınır 1500'den 5000'e çıktı (Decco tüm markalar listesinde 874, kendi sayfasında 1483 görünüyordu). Claude'un iş sayısı yalnız menü kartında: Bugün'deki rozet, "Claude'un bitirdiği iş" ve "Bekleyen iş" kutuları ve "Şu an sistemde" akışı kalktı; "Dün gece" yalnız onaylı yazmaları gösterir. Testler: `RepairDeskTest::test_menu_today_desk_and_brands_show_one_waiting_count`, `TodayCockpitTest`, `PortfolioSignalsTest`, `ContentCoverageTest`, `BrandOverviewTest`.
+- **Durum:** CODED, TESTED (PHPUnit); canlı kontrol yayından sonra.
+
 ## 2026-10-20 — İçerik menüde, Genel işler sadeleşti, fazlalıklar kalktı
 
 - **Kodlandı + test:** Sol menü Çalışma grubunda **İçerik** (`/icerik`, `operator.content`): `WorkPage` yalnız içerik sekmesiyle (`contentOnly`); "Hepsini siteye gönder" burada. Genel işler sekme çubuğundan Google Ads / Meta Ads / Google İşletme kalktı (`WorkDesk::CHANNEL_TABS`); eski bağlantılar açılır, Meta ve İşletme masaları "Açık öneriler (N)" bağlantısıyla o listeye götürür (Google Ads masası kendi listesini gösterir). "Dijital varlıklar" menüden Entegrasyonlar sekmelerine taşındı. Ayarlar › AI işlemlerinden OpenAI ücretsiz kota, Admin anahtarı ve kota denetimi alanları kalktı. DataForSEO ayar sayfası silindi, adres 410. Testler: `PanelDesignFreezeTest`, `WorkDeskTest`, `OpenAiFreeQuotaTest`, `OperatorDataForSeoIntegrationConfigurationTest`.

@@ -26,6 +26,7 @@ use App\Services\Work\PageTraffic;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -100,8 +101,15 @@ final class RepairDesk
     /** Days the "after approval" strip and the brand health bar look back. */
     public const int TRACK_DAYS = 14;
 
-    /** Rows read per kind (the list is a work queue, not an archive). */
-    public const int LIMIT = 1500;
+    /**
+     * Rows read per kind (the list is a work queue, not an archive). Website rows are read only when prepared, so the
+     * limit is never spent on suggestions still waiting for "AI ile yap" (a 1500 cap cut Decco's 1483 rows to 874 in the
+     * all-brands list while its own page showed all of them, yakup 2026-10-20).
+     */
+    public const int LIMIT = 5000;
+
+    /** Cache key of summary(): the one waiting-work count of the menu, Bugün, Onarım masası and the brand pages. */
+    public const string SUMMARY_KEY = 'repair-desk.summary';
 
     /** Set on a row the operator approved while ApproveRepairRowsJob has not run yet: the row leaves the list meanwhile. */
     public const string QUEUED_AT = 'desk_queued_at';
@@ -133,6 +141,52 @@ final class RepairDesk
 
         return $rows->filter(fn (array $r): bool => ($kind === null || $r['kind'] === $kind) && ($risk === null || $r['risk'] === $risk))
             ->sortBy([['risk', 'asc'], ['brand', 'asc'], ['id', 'asc']])->values();
+    }
+
+    /**
+     * Bekleyen iş, one number everywhere (yakup 2026-10-20, "aynı şey her ekranda başka sayı"): `decide` is what waits for
+     * the operator's approval (lanes ready + review, the menu badge), `manual` what only the operator can do on the site.
+     * Every screen reads it from here; approving, rejecting and editing drop it so the next screen counts again.
+     *
+     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
+     */
+    public function summary(): array
+    {
+        return Cache::remember(self::SUMMARY_KEY, 120, fn (): array => self::summarize($this->rows()));
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
+     */
+    public static function summarize(Collection $rows): array
+    {
+        $lanes = array_merge(array_fill_keys(array_keys(self::LANES), 0), $rows->countBy(fn (array $row): string => self::lane($row))->all());
+        $brands = $rows->groupBy('brand_id')->map(fn (Collection $group): array => [
+            'decide' => $group->reject(fn (array $row): bool => self::lane($row) === self::LANE_MANUAL)->count(),
+            'manual' => $group->filter(fn (array $row): bool => self::lane($row) === self::LANE_MANUAL)->count(),
+        ])->all();
+
+        return ['decide' => $lanes[self::LANE_READY] + $lanes[self::LANE_REVIEW], 'manual' => $lanes[self::LANE_MANUAL], 'lanes' => $lanes, 'brands' => $brands];
+    }
+
+    /**
+     * The desk read every row anyway: its count becomes the menu's and Bugün's, so the desk never disagrees with them.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows  rows() of all brands
+     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
+     */
+    public static function rememberSummary(Collection $rows): array
+    {
+        $summary = self::summarize($rows);
+        Cache::put(self::SUMMARY_KEY, $summary, 120);
+
+        return $summary;
+    }
+
+    public static function forgetSummary(): void
+    {
+        Cache::forget(self::SUMMARY_KEY);
     }
 
     /** @return array{total: int, kinds: array<string, int>, brands: array<int, int>} */
@@ -614,6 +668,7 @@ final class RepairDesk
         }
 
         $result['failed_ids'] = array_values(array_unique($result['failed_ids']));
+        self::forgetSummary();
 
         return $result;
     }
@@ -646,6 +701,7 @@ final class RepairDesk
             dispatch(new ApproveRepairRowsJob($chunk, (int) $user->id))->onQueue((string) config('queue.writes_queue', 'default'));
         }
         $result['applied'] = count($queue);
+        self::forgetSummary();
 
         return $result;
     }
@@ -677,6 +733,7 @@ final class RepairDesk
             }
             $suggestion->forceFill(['action' => $action])->save();
         }
+        self::forgetSummary();
     }
 
     public static function isQueued(Suggestion $suggestion): bool
@@ -708,6 +765,7 @@ final class RepairDesk
     public function reject(array $ids, User $user, ?string $reason = null): int
     {
         $ids = $this->rows()->whereIn('id', array_map('intval', $ids))->pluck('id')->all();
+        self::forgetSummary();
 
         return Suggestion::query()->whereIn('id', $ids)->update([
             'status' => Suggestion::DISMISSED, 'resolved_by' => $user->id, 'resolved_at' => now(),
@@ -747,9 +805,9 @@ final class RepairDesk
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED, Suggestion::SNOOZED]);
 
         return collect([
-            $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED)->whereNotNull('action->proposal'),
             $base()->where('action_type', ImageAlts::TYPE),
-            $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('action_type', BrokenTranslations::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('action_type', BrokenTranslations::TYPE)->where('status', '!=', Suggestion::APPROVED)->whereNotNull('action->proposal'),
             $base()->where('action_type', ClusterOverlaps::TYPE),
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', 'ads_negative'),
             // A fill-the-gap row the nightly pass no longer proposes (recheck) is stale: the profile may have the value now.

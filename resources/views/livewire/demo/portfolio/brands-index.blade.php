@@ -52,15 +52,8 @@
             <div class="soft-card" data-brands-work-card>
                 {!! $cardIcon('<path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 .5.5L5.5 5M4 12l.5.5 1-1.5M4 18l.5.5 1-1.5"/>') !!}
                 <p class="soft-number">{{ number_format($overview['open_work'], 0, ',', '.') }} iş</p>
-                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Açık iş</p>
-                <p class="hidden text-[13px] text-gray-600 sm:block dark:text-gray-300">{{ $overview['work_brands'] }} markada bekleyen öneri.</p>
-                <div class="mt-auto pt-1">
-                    @if ($sort === 'work' && $dir === 'desc')
-                        <a href="{{ route('operator.repair') }}" wire:navigate class="btn">Onarım masası</a>
-                    @else
-                        <button type="button" wire:click="sortBy('work')" class="btn h-auto! min-h-8 py-1.5! whitespace-normal! text-left">En çok işi olan önde</button>
-                    @endif
-                </div>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Karar bekliyor</p>
+                <div class="mt-auto pt-1"><a href="{{ route('operator.repair') }}" wire:navigate class="btn">Onarım masası</a></div>
             </div>
             <div class="soft-card" data-brands-assets-card>
                 {!! $cardIcon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>') !!}
@@ -173,7 +166,7 @@
                         <th>{!! $sortHead('name', 'Marka') !!}</th>
                         <th class="hidden md:table-cell">{!! $sortHead('customer', 'Müşteri') !!}</th>
                         <th class="hidden sm:table-cell">Kanallar</th>
-                        <th class="text-right!">{!! $sortHead('work', 'Açık iş') !!}</th>
+                        <th class="text-right!">{!! $sortHead('work', 'Karar bekleyen') !!}</th>
                         <th class="hidden sm:table-cell">{!! $sortHead('attention', 'Dikkat') !!}</th>
                         @if ($showOptionalColumns)
                             <th class="hidden lg:table-cell">{!! $sortHead('sector', 'Sektör') !!}</th>
@@ -194,7 +187,6 @@
                             // stopped. A late source alone is a quiet line (it was on every row before 2026-10-19).
                             $hasBadSource = collect($brand['channels'] ?? [])->contains(fn (array $c): bool => $c['tone'] === 'bad');
                             $isException = $brand['needs_attention'] && ($brand['reconnect'] > 0 || $brand['critical'] > 0 || $hasBadSource);
-                            $byChannel = collect($brand['open_by_channel'])->map(fn ($n, $label) => $label.' '.$n);
                             $attentionVars = ['needsAttention' => $brand['needs_attention'], 'isException' => $isException, 'critical' => $brand['reconnect'] > 0, 'reason' => $brand['attention_reason']];
                         @endphp
                         <tr wire:key="brand-{{ $brand['id'] }}" class="max-sm:[&>td]:align-top" data-brand-row="{{ $brand['id'] }}">
@@ -224,12 +216,11 @@
                                 @if ($brand['sector_label'] !== '—')<p class="text-[13px] text-gray-500">{{ $brand['sector_label'] }}</p>@endif
                             </td>
                             <td class="hidden sm:table-cell">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</td>
-                            <td class="text-right tabular-nums" data-open-work @if ($byChannel->isNotEmpty()) title="{{ $byChannel->implode(', ') }}" @endif>
-                                <span class="font-medium text-gray-900 dark:text-white">{{ $brand['open_work'] }}</span>
-                                @if ($byChannel->isNotEmpty())
-                                    <p class="mt-0.5 hidden flex-wrap justify-end gap-x-1.5 text-xs leading-4 text-gray-500 md:flex">
-                                        @foreach ($byChannel as $part)<span class="whitespace-nowrap">{{ $part }}</span>@endforeach
-                                    </p>
+                            <td class="text-right tabular-nums" data-open-work>
+                                @if ($brand['open_work'] > 0)
+                                    <a href="{{ route('operator.repair', ['marka' => $brand['id']]) }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ number_format($brand['open_work'], 0, ',', '.') }}</a>
+                                @else
+                                    <span class="text-gray-400">—</span>
                                 @endif
                             </td>
                             <td class="hidden sm:table-cell" data-attention>@include('livewire.demo.portfolio.partials.attention', $attentionVars)</td>

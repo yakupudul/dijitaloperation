@@ -4,10 +4,8 @@
     @if ($approvals !== null)
         <section aria-labelledby="approvals-heading" data-brand-approvals="{{ $approvals['total'] }}">
             <div class="section-head">
-                <h2 id="approvals-heading" class="section-title">Bekleyen onaylar <span class="section-count">{{ $approvals['total'] }}</span></h2>
-                @if ($approvals['total'] > count($approvals['packages']))
-                    <span class="text-sm text-gray-500">+{{ $approvals['total'] - count($approvals['packages']) }} paket daha ({{ $approvals['rows'] }} düzeltme)</span>
-                @endif
+                {{-- The same count as the menu and Onarım masası: fixes, not packages (yakup 2026-10-20). --}}
+                <h2 id="approvals-heading" class="section-title">Karar bekleyen <span class="section-count">{{ number_format($approvals['rows'], 0, ',', '.') }} iş</span></h2>
                 @if ($approvals['total'] > 0)
                     <a href="{{ $approvals['url'] }}" wire:navigate class="ml-auto text-[13px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" data-approvals-open>Onarım masasında aç</a>
                 @endif

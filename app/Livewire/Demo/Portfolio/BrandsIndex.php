@@ -8,6 +8,7 @@ use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Portfolio\PortfolioDeletionService;
+use App\Services\Repair\RepairDesk;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\Options\CountryOptions;
@@ -21,6 +22,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Throwable;
 
 #[Layout('operator.layouts.app')]
 #[Title('Markalar')]
@@ -171,9 +173,23 @@ class BrandsIndex extends Component
         ];
     }
 
+    /** @return array<int, array{decide: int, manual: int}> */
+    private function deskWaiting(): array
+    {
+        try {
+            return app(RepairDesk::class)->summary()['brands'];
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
+    }
+
     public function render(): View
     {
-        $all = collect($this->enrichedBrands());
+        // "Açık iş" is the Onarım masası count of the brand, the same number as the menu and Bugün (yakup 2026-10-20).
+        $waiting = $this->deskWaiting();
+        $all = collect($this->enrichedBrands())->map(fn (array $b): array => ['open_work' => (int) ($waiting[(int) ($b['id'] ?? 0)]['decide'] ?? 0)] + $b);
         $rows = $all;
 
         if ($this->search !== '') {

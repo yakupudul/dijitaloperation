@@ -45,18 +45,16 @@
         $actions[] = ['key' => 'look', 'icon' => 'alert', 'tone' => 'look', 'title' => $alarms['accounts'].' hesap bir göz atmanı bekliyor',
             'line' => collect($alarms['items'])->pluck('brand')->filter()->unique()->take(3)->implode(', ').'.', 'label' => 'Hesaplara bak', 'href' => '#alarm-verenler', 'primary' => false, 'hook' => 'alarms'];
     }
-    $kindsOf = fn (string $lane): string => collect($approvals['packages'])->where('lane', $lane)->pluck('kind_label')->unique()->take(3)->implode(', ');
-    if (($lanes['review'] ?? 0) > 0) {
-        $actions[] = ['key' => 'review', 'icon' => 'clock', 'tone' => 'look', 'title' => $num($lanes['review']).' iş bir göz atmanı bekliyor',
-            'line' => ($kindsOf('review') !== '' ? $kindsOf('review').'. ' : '').'Her biri açıklamalı, onaylayınca gider.', 'label' => 'Bak', 'href' => route('operator.repair', ['serit' => 'review']), 'primary' => false, 'hook' => 'approvals'];
-    }
-    if (($lanes['ready'] ?? 0) > 0) {
-        $actions[] = ['key' => 'ready', 'icon' => 'check', 'tone' => null, 'title' => $num($lanes['ready']).' düşük riskli iş onay bekliyor',
-            'line' => ($kindsOf('ready') !== '' ? $kindsOf('ready').'. ' : '').'Bir paketi tek tıkla onaylarsın.', 'label' => 'Onayla', 'href' => route('operator.repair', ['serit' => 'ready']), 'primary' => false, 'hook' => ($lanes['review'] ?? 0) > 0 ? null : 'approvals'];
+    // One count everywhere (yakup 2026-10-20): "karar bekliyor" is the menu badge of Onarım masası, its two lanes by name.
+    $decide = (int) ($lanes['ready'] ?? 0) + (int) ($lanes['review'] ?? 0);
+    if ($decide > 0) {
+        $actions[] = ['key' => 'decide', 'icon' => 'check', 'tone' => null, 'title' => $num($decide).' iş karar bekliyor',
+            'line' => collect([($lanes['ready'] ?? 0) > 0 ? \App\Services\Repair\RepairDesk::LANES['ready'].': '.$num($lanes['ready']) : null, ($lanes['review'] ?? 0) > 0 ? \App\Services\Repair\RepairDesk::LANES['review'].': '.$num($lanes['review']) : null])->filter()->implode(' · '),
+            'label' => 'Onarım masası', 'href' => route('operator.repair'), 'primary' => false, 'hook' => 'approvals'];
     }
     if (($lanes['manual'] ?? 0) > 0) {
-        $actions[] = ['key' => 'manual', 'icon' => 'hand', 'tone' => null, 'title' => $num($lanes['manual']).' iş senin elini bekliyor',
-            'line' => 'Sitede ya da hesapta elle yapılacaklar.', 'label' => 'Gör', 'href' => route('operator.repair', ['serit' => 'manual']), 'primary' => false, 'hook' => null];
+        $actions[] = ['key' => 'manual', 'icon' => 'hand', 'tone' => null, 'title' => $num($lanes['manual']).' iş senin elinle yapılacak',
+            'line' => 'Sitede ya da hesapta.', 'label' => 'Gör', 'href' => route('operator.repair', ['serit' => 'manual']), 'primary' => false, 'hook' => null];
     }
     if (($systemAlerts['critical'] ?? 0) > 0) {
         $actions[] = ['key' => 'system', 'icon' => 'alert', 'tone' => 'look', 'title' => 'Hata merkezi: '.$systemAlerts['critical'].' iş seni bekliyor',
@@ -148,13 +146,7 @@
     @include('livewire.demo.partials.flash')
 
     <header>
-        @if ($overnight['ai_done'] > 0)
-            <a href="{{ route('operator.ai-jobs', ['durum' => 'done']) }}" wire:navigate class="eyebrow hover:text-gray-900 dark:hover:text-white" data-today-eyebrow>
-                <span class="live-dot" aria-hidden="true"></span>
-                <span>Claude son 24 saatte <b class="font-semibold text-gray-900 tabular-nums dark:text-white">{{ $num($overnight['ai_done']) }} iş</b> bitirdi</span>
-            </a>
-        @endif
-        <h1 class="page-title mt-3.5 text-balance">
+        <h1 class="page-title text-balance">
             {{ $greeting }}{{ $firstName !== '' ? ' '.$firstName : '' }}@if ($actions !== []), bugün <span class="highlight">{{ count($actions) }} şey</span> seni bekliyor @endif
         </h1>
         <p class="page-sub mt-1.5! text-[15px]!">{{ __('operator.dashboard_exec.today') }}, {{ $now->isoFormat('D MMMM dddd') }}. {{ $actions === [] ? 'Bugün senden beklenen bir şey yok.' : 'Senden '.count($actions).' şey bekleniyor, en çok getirecek olan en üstte.' }}</p>
@@ -216,7 +208,7 @@
                             <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $action['line'] }}</p>
                         @endif
                         <div class="mt-auto flex items-center gap-2 pt-1">
-                            <a href="{{ $action['href'] }}" @if (! str_starts_with($action['href'], '#')) wire:navigate @endif @class(['btn-primary h-10! px-4! text-sm!' => $action['primary'], 'btn-dark' => ! $action['primary'] && $action['key'] === 'ready', 'btn' => ! $action['primary'] && $action['key'] !== 'ready'])>{{ $action['label'] }}</a>
+                            <a href="{{ $action['href'] }}" @if (! str_starts_with($action['href'], '#')) wire:navigate @endif @class(['btn-primary h-10! px-4! text-sm!' => $action['primary'], 'btn-dark' => ! $action['primary'] && $action['key'] === 'decide', 'btn' => ! $action['primary'] && $action['key'] !== 'decide'])>{{ $action['label'] }}</a>
                         </div>
                     </div>
                 @endforeach
@@ -233,7 +225,7 @@
             <span class="text-sm text-gray-500">{{ $week['from'] }}–{{ $week['to'] }}, önceki 7 güne göre</span>
         </div>
         <div class="hero-panel grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
-            <div class="hero-tile col-span-2 lg:col-span-1 lg:row-span-2" data-today-counter="week">
+            <div class="hero-tile col-span-2 lg:col-span-1" data-today-counter="week">
                 <span class="hero-label"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/></svg>Organik tık</span>
                 <p class="hero-value text-[40px]! sm:text-[44px]!">{{ $num($week['clicks']['current']) }}</p>
                 <p class="mt-2 flex items-center gap-2 text-xs text-white/60">@if ($clicksDelta)<span class="chip {{ $chip($clicksDelta) }}">{{ $arrow($clicksDelta) }}</span>@endif Geçen hafta {{ $num($week['clicks']['previous']) }}</p>
@@ -256,16 +248,6 @@
                 <p class="hero-value">{{ $spend !== null ? $money($spend['current'], $spend['currency']) : '—' }}</p>
                 <p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">@if ($spendDelta)<span class="chip chip-flat bg-white/10! text-white/80!">{{ $spendDelta[0] }}</span>@endif {{ $spend !== null ? 'Geçen hafta '.$money($spend['previous'], $spend['currency']).($otherSpend !== '' ? ', ayrıca '.$otherSpend : '') : 'Harcama yok' }}</p>
             </div>
-            <a href="{{ route('operator.ai-jobs', ['durum' => 'done']) }}" wire:navigate class="hero-tile hero-tile-accent transition hover:brightness-95" data-today-counter="ai">
-                <span class="hero-label">Claude'un bitirdiği iş</span>
-                <p class="hero-value">{{ $num($overnight['ai_done']) }}</p>
-                <p class="mt-2 text-xs opacity-70">Son 24 saat</p>
-            </a>
-            <a href="{{ route('operator.repair', ['bolum' => 'gecmis']) }}" wire:navigate class="hero-tile transition hover:bg-white/[0.08]">
-                <span class="hero-label">Bekleyen iş</span>
-                <p class="hero-value">{{ $num(array_sum($lanes)) }}</p>
-                <p class="mt-2 text-xs text-white/60">Onarım masasında</p>
-            </a>
         </div>
     </section>
 
@@ -336,10 +318,10 @@
     <section data-today-overnight>
         <div class="section-head"><h2 class="section-title">Dün gece</h2></div>
         <div class="card">
-            @if ($overnight['writes'] === [] && $overnight['ai'] === [])
+            @if ($overnight['writes'] === [])
                 <div class="card-row">
                     <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons['moon'] !!}</svg></span>
-                    <p class="text-sm text-gray-500">Son 24 saatte onaylı yazma ya da biten AI işi yok.</p>
+                    <p class="text-sm text-gray-500">Son 24 saatte siteye ya da hesaplara yazılan bir şey yok.</p>
                 </div>
             @else
                 @php
@@ -350,41 +332,20 @@
                     <summary class="card-row cursor-pointer list-none hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                         <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons['moon'] !!}</svg></span>
                         <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Claude {{ $num($overnight['ai_done']) }} iş bitirdi</span>
-                            <span class="mt-0.5 block text-[13px] text-gray-500">{{ $written->count() > 0 ? $written->count().' onaylı yazma yapıldı' : 'Onaylı yazma yok' }}{{ $failed > 0 ? ', '.$failed.' iş yazılamadı' : '' }}.</span>
+                            <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ $written->count() }} onaylı yazma yapıldı{{ $failed > 0 ? ', '.$failed.' iş yazılamadı' : '' }}</span>
                         </span>
                         <span class="btn-quiet"><span class="group-open:hidden">Ayrıntı</span><span class="hidden group-open:inline">Kapat</span></span>
                     </summary>
-                    <div class="grid gap-px border-t border-gray-200 bg-gray-200 md:grid-cols-2 dark:border-gray-800 dark:bg-gray-800">
-                        <div class="bg-white px-4 py-3 dark:bg-gray-900">
-                            <h3 class="text-[13px] text-gray-500">Onaylanıp yazılanlar</h3>
-                            <ul class="mt-1 text-sm">
-                                @forelse ($overnight['writes'] as $write)
-                                    <li class="flex flex-wrap items-baseline gap-x-2 border-b border-gray-100 py-2 last:border-b-0 dark:border-gray-800" data-today-write>
-                                        <span class="w-10 shrink-0 text-xs tabular-nums text-gray-400">{{ $write['at'] }}</span>
-                                        <span class="font-medium text-gray-900 dark:text-white">{{ $write['asset'] !== '' ? $write['asset'] : $write['label'] }}</span>
-                                        <span class="text-gray-600 dark:text-gray-300">{{ $write['label'] }}, {{ $write['sentence'] }}</span>
-                                        @if ($write['failed'] > 0)<x-ta.pill tone="look">{{ $write['failed'] }} yazılamadı</x-ta.pill>@endif
-                                    </li>
-                                @empty
-                                    <li class="py-2 text-gray-500">Yok.</li>
-                                @endforelse
-                            </ul>
-                        </div>
-                        <div class="bg-white px-4 py-3 dark:bg-gray-900">
-                            <h3 class="text-[13px] text-gray-500">Claude'un bitirdiği AI işleri</h3>
-                            <ul class="mt-1 text-sm">
-                                @forelse ($overnight['ai'] as $job)
-                                    <li class="flex items-baseline justify-between gap-2 border-b border-gray-100 py-2 last:border-b-0 dark:border-gray-800" data-today-ai>
-                                        <span class="min-w-0 truncate text-gray-700 dark:text-gray-300">{{ $job['label'] }}</span>
-                                        <span class="shrink-0 font-medium tabular-nums text-gray-900 dark:text-white">{{ $num($job['count']) }}</span>
-                                    </li>
-                                @empty
-                                    <li class="py-2 text-gray-500">Yok.</li>
-                                @endforelse
-                            </ul>
-                        </div>
-                    </div>
+                    <ul class="border-t border-gray-200 px-4 py-1 text-sm dark:border-gray-800">
+                        @foreach ($overnight['writes'] as $write)
+                            <li class="flex flex-wrap items-baseline gap-x-2 border-b border-gray-100 py-2 last:border-b-0 dark:border-gray-800" data-today-write>
+                                <span class="w-10 shrink-0 text-xs tabular-nums text-gray-400">{{ $write['at'] }}</span>
+                                <span class="font-medium text-gray-900 dark:text-white">{{ $write['asset'] !== '' ? $write['asset'] : $write['label'] }}</span>
+                                <span class="text-gray-600 dark:text-gray-300">{{ $write['label'] }}, {{ $write['sentence'] }}</span>
+                                @if ($write['failed'] > 0)<x-ta.pill tone="look">{{ $write['failed'] }} yazılamadı</x-ta.pill>@endif
+                            </li>
+                        @endforeach
+                    </ul>
                 </details>
             @endif
         </div>
@@ -459,5 +420,4 @@
         @endif
     </section>
 
-    <livewire:operator.live-feed />
 </div>

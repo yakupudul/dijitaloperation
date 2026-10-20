@@ -66,7 +66,7 @@ final class TodayCockpitReader
     {
         try {
             $everything = $this->desk->rows();
-            $lanes = $everything->countBy(fn (array $row): string => RepairDesk::lane($row))->all();
+            $summary = $this->desk->summary(); // the menu badge's numbers, so Bugün never shows another count
             $rows = $everything->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->values();
             $all = $this->desk->packages($rows);
             $packages = $all->take(self::PACKAGE_LIMIT)->map(fn (array $package): array => [
@@ -77,8 +77,8 @@ final class TodayCockpitReader
                 'url' => route('operator.repair', ['marka' => $package['brand_id'], 'tur' => $package['kind'], 'paket' => $package['key']]),
             ])->values()->all();
 
-            return ['total' => $all->count(), 'rows' => $rows->count(), 'packages' => $packages, 'lanes' => $lanes,
-                'by_brand' => $rows->countBy(fn (array $row): int => (int) $row['brand_id'])->all()];
+            return ['total' => $all->count(), 'rows' => $rows->count(), 'packages' => $packages, 'lanes' => $summary['lanes'],
+                'by_brand' => array_map(fn (array $brand): int => $brand['decide'], $summary['brands'])];
         } catch (Throwable $error) {
             report($error);
 

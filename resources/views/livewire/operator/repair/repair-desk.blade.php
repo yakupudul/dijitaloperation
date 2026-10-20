@@ -32,7 +32,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
             <h1 class="page-title">Onarım <span class="highlight">masası</span></h1>
-            <p class="page-sub"><span data-desk-total>@if ($brandId !== null){{ $brands[$brandId] ?? 'Marka' }}: onay bekleyen {{ $n($counts['brand_packages']) }} paket · {{ $n($counts['brand_total']) }} iş <span class="text-gray-400">(tüm markalarda {{ $n($counts['total']) }} iş)</span>@else{{ 'Onay bekleyen '.$n($counts['packages']).' paket · '.$n($counts['total']).' iş' }}@endif</span>. Onayladığın her şey geri alınabilir.</p>
+            <p class="page-sub"><span data-desk-total>{{ $brandId !== null ? ($brands[$brandId] ?? 'Marka').': ' : '' }}{{ $n($scope['decide']) }} iş karar bekliyor{{ $scope['manual'] > 0 ? ' · '.$n($scope['manual']).' iş senin elinle' : '' }}</span>. Onayladığın her şey geri alınabilir.</p>
         </div>
         @if ($brandId !== null)
             <a href="{{ route('operator.brand', ['brand' => $brandId]) }}" wire:navigate class="btn" data-brand-link>Marka sayfası</a>
@@ -52,7 +52,7 @@
             </button>
         @endforeach
         <button type="button" role="tab" wire:click="showOther" aria-selected="{{ $section === RepairDeskPage::SECTION_OTHER ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $section === RepairDeskPage::SECTION_OTHER])>
-            Diğer işler <span @class(['tabular-nums text-xs', 'text-accent' => $section === RepairDeskPage::SECTION_OTHER, 'text-gray-400 dark:text-gray-500' => $section !== RepairDeskPage::SECTION_OTHER])>{{ $n($otherCount) }}</span>
+            Diğer işler
         </button>
         <button type="button" role="tab" wire:click="showHistory" aria-selected="{{ $section === RepairDeskPage::SECTION_HISTORY ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $section === RepairDeskPage::SECTION_HISTORY]) data-desk-layer="gecmis">
             Geçmiş
@@ -72,12 +72,12 @@
             <label class="block w-full sm:w-auto" data-repair-brand-select>
                 <span class="sr-only">Marka</span>
                 <select x-on:change="$wire.set('brandId', $event.target.value === '' ? null : Number($event.target.value))" class="{{ $select }} w-full sm:w-64">
-                    <option value="" @selected($brandId === null)>Tüm markalar · {{ $n($counts['total']) }} iş</option>
+                    <option value="" @selected($brandId === null)>Tüm markalar · {{ $n($summary['decide']) }} iş</option>
                     @if ($brandId !== null && ! $health->contains('brand_id', $brandId))
                         <option value="{{ $brandId }}" selected>{{ $brands[$brandId] ?? 'Marka' }} · bekleyen iş yok</option>
                     @endif
                     @foreach ($health as $h)
-                        <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id']) data-health-brand="{{ $h['brand_id'] }}">{{ $h['brand'] }} · {{ $n($h['rows']) }} iş bekliyor{{ $h['critical'] > 0 ? ' · '.$h['critical'].' kritik' : '' }}</option>
+                        <option value="{{ $h['brand_id'] }}" @selected($brandId === $h['brand_id']) data-health-brand="{{ $h['brand_id'] }}">{{ $h['brand'] }} · {{ $n($summary['brands'][$h['brand_id']]['decide'] ?? 0) }} iş{{ $h['critical'] > 0 ? ' · '.$h['critical'].' kritik' : '' }}</option>
                     @endforeach
                 </select>
             </label>

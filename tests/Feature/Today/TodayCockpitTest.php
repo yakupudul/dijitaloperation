@@ -65,11 +65,11 @@ final class TodayCockpitTest extends SiteTestCase
 
         Livewire::test(Dashboard::class)
             ->assertSeeHtml('data-today-counter="approvals"')->assertSeeHtml('data-today-counter="week"')
-            ->assertSeeHtml('data-today-counter="alarms"')->assertSeeHtml('data-today-counter="ai"')
-            ->assertSee('düşük riskli iş onay bekliyor')->assertSee('Google Ads negatif kelime')->assertSee('▲ 50%')
+            ->assertSeeHtml('data-today-counter="alarms"')->assertDontSeeHtml('data-today-counter="ai"')
+            ->assertSee('2 iş karar bekliyor')->assertSee('Onayla, bitsin: 2')->assertSee('▲ 50%')
             ->assertSee('Meta reklamları harcama yapmadı')->assertSeeHtml('data-today-alarm="critical"')->assertSeeHtml('data-today-alarm="look"')
             ->assertDontSee('Veri güncel değil')
-            ->assertSee('Marka bakım ajanı')
+            ->assertDontSee('Claude son 24 saatte')
             ->assertSeeHtml('data-chief-plan-empty')->assertSee('Şimdi hazırla');
     }
 
@@ -78,7 +78,7 @@ final class TodayCockpitTest extends SiteTestCase
         Livewire::test(Dashboard::class)
             ->assertSee('Onarım masası boş')->assertSee('Sorun yok')
             ->assertSee('Harcaması duran hesap, erişilemeyen site ya da biten bütçe yok.')
-            ->assertSee('Son 24 saatte onaylı yazma ya da biten AI işi yok.');
+            ->assertSee('Son 24 saatte siteye ya da hesaplara yazılan bir şey yok.');
     }
 
     public function test_bugun_query_count_has_a_fixed_ceiling_as_brands_grow(): void

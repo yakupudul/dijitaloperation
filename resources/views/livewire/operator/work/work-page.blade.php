@@ -29,14 +29,6 @@
         </div>
     @endif
 
-    <div class="metric-strip grid-cols-1 sm:grid-cols-3" data-work-summary>
-        <x-ta.metric-card :href="route('operator.repair', array_filter(['marka' => $brand]))" label="Onayını bekleyen" :value="$summary['approve']"
-            :hint="'Onarım masası '.$onDesk['brand'].', başlık ve yazı '.($summary['approve'] - $onDesk['brand'])" />
-        <x-ta.metric-card label="Sistemin bu hafta yaptığı" :value="$summary['done']" title="Yazılan düzeltmeler ve kendiliğinden kapanan sorunlar" />
-        <x-ta.metric-card :href="route('operator.repair', array_filter(['marka' => $brand, 'serit' => 'manual']))" label="Senin elin gerekiyor" :value="$summary['hands']"
-            :delta="$summary['hands'] > 0 ? 'bak' : null" :tone="$summary['hands'] > 0 ? 'look' : 'neutral'" title="Sistemin yapamadığı işler" />
-    </div>
-
     @endunless
 
     @if($message !== '')<p role="status" class="tone-info rounded-lg px-3 py-2 text-sm">{{ $message }}</p>@endif
@@ -66,7 +58,7 @@
         </div>
     </div>
 
-    @if(! $embedded && $view === 'acik' && ($onDesk['brand'] > 0 || ($onDesk['preparing'] ?? 0) > 0))
+    @if(! $embedded && ! $contentOnly && $view === 'acik' && ($onDesk['brand'] > 0 || ($onDesk['preparing'] ?? 0) > 0))
         <a href="{{ route('operator.repair', array_filter(['marka' => $brand])) }}" class="card flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]" data-on-desk>
             @php
                 $deskLine = 'Hazırlanmış '.$onDesk['brand'].' düzeltme Onarım masasında onayını bekliyor';

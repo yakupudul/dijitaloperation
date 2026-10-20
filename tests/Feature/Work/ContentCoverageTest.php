@@ -117,7 +117,7 @@ final class ContentCoverageTest extends SiteTestCase
         $this->assertSame([$this->site->id => ['sent' => 1, 'live' => 1, 'clicks' => 12, 'clicks90' => 12]], $coverage->outcomes([$this->site->id]));
 
         Livewire::test(WorkPage::class)->assertSee('1 yazı okumanı bekliyor')->assertSee('1/1 yayında')->assertSee('12 tıklama, 90 günde 12')
-            ->assertSee('Onayını bekleyen')->assertSee('Sistemin bu hafta yaptığı')->assertSee('Senin elin gerekiyor');
+            ->assertDontSee('Onayını bekleyen')->assertDontSee('Sistemin bu hafta yaptığı');
     }
 
     public function test_the_morning_runs_fill_only_back_dated_pools_and_wednesday_asks_for_the_week(): void

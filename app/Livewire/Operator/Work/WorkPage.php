@@ -4,10 +4,8 @@ namespace App\Livewire\Operator\Work;
 
 use App\Livewire\Operator\Work\Concerns\ActsOnContentIdeas;
 use App\Models\Brand;
-use App\Models\ExternalWriteAction;
 use App\Models\PushSubscription;
 use App\Models\Suggestion;
-use App\Services\Repair\RepairDesk;
 use App\Services\Site\SiteOperations;
 use App\Services\Work\ContentBoard;
 use App\Services\Work\ContentCoverage;
@@ -235,26 +233,6 @@ final class WorkPage extends Component
         }
     }
 
-    /**
-     * The three numbers on top: what waits for the operator's yes, what the system did this week, what needs the
-     * operator's own hands.
-     *
-     * @param  array{counts: array<string, int>}|null  $queue
-     * @return array{approve: int, done: int, hands: int}
-     */
-    private function summary(int $onDesk, ContentBoard $board, ?array $queue): array
-    {
-        $content = ($queue ?? $board->queue($this->brand))['counts'];
-        $since = now()->subDays(7);
-        $writes = ExternalWriteAction::query()->whereIn('status', ['succeeded', 'partial'])->where('created_at', '>=', $since)
-            ->when($this->brand !== null, fn ($q) => $q->where('brand_id', $this->brand))->count();
-        $closed = Suggestion::query()->where('status', Suggestion::APPLIED)->where('verification', Suggestion::VERIFY_AUTO)->where('verified_at', '>=', $since)
-            ->when($this->brand !== null, fn ($q) => $q->where('brand_id', $this->brand))->count();
-        $manual = app(RepairDesk::class)->rows($this->brand, null, RepairDesk::MANUAL)->count();
-
-        return ['approve' => $onDesk + $content['yazilacak'] + $content['okunacak'], 'done' => $writes + $closed, 'hands' => $manual];
-    }
-
     public function render(WorkDesk $desk, ContentBoard $board): View
     {
         $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url']);
@@ -276,8 +254,7 @@ final class WorkPage extends Component
             'readyBySite' => $queue !== null ? $board->readyBySite($this->brand) : [],
             'coverage' => $coverage = ($queue !== null ? app(ContentCoverage::class)->rows($this->brand) : []),
             'outcomes' => $coverage !== [] ? app(ContentCoverage::class)->outcomes(array_map(fn (array $r): int => (int) $r['site']->id, $coverage)) : [],
-            'onDesk' => $onDesk = $desk->onDesk($this->brand),
-            'summary' => $this->summary($onDesk['brand'], $board, $queue),
+            'onDesk' => $desk->onDesk($this->brand),
             'setup' => $this->tab !== 'kurulum' ? $desk->brandCounts('kurulum') : [],
             'article' => $this->reading !== null ? $board->article($this->reading) : null,
             'total' => $rows->count(),

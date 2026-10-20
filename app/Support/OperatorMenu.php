@@ -75,9 +75,7 @@ final class OperatorMenu
             return [];
         }
         try {
-            $repair = (int) Cache::remember('operator-menu.repair-count', 120, function (): int {
-                return app(RepairDesk::class)->rows()->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->count();
-            });
+            $repair = app(RepairDesk::class)->summary()['decide'];
         } catch (Throwable $error) {
             report($error);
 

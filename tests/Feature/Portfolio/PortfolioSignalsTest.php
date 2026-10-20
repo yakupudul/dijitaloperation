@@ -199,7 +199,6 @@ final class PortfolioSignalsTest extends TestCase
         Livewire::test(BrandsIndex::class)
             ->assertSee('geciken.test')
             ->assertSeeHtml('data-channel="ga4" data-tone="warn"')
-            ->assertSee('Arama 1')
             ->assertSee('Google Analytics: Gecikmiş · 20 gün')
             ->assertSee(route('operator.customer', ['customerId' => $this->alfa->id]), false)
             ->set('search', 'geciken.test')

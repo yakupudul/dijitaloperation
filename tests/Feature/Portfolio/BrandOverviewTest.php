@@ -352,7 +352,7 @@ final class BrandOverviewTest extends TestCase
 
         $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSee('Harita işi 1')->assertDontSee('Harita işi 7')
-            ->assertSee('data-work-more', false)->assertSee('+2 iş paketi daha');
+            ->assertSee('data-work-more', false)->assertSee('Hepsini göster');
         $this->assertCount(BrandShow::WORK_LIMIT, $page->viewData('work')['items']);
         $this->assertSame(7, $page->viewData('channelCounts')['harita']['count']);
 
