@@ -130,11 +130,11 @@
                                 </td>
                                 <td class="hidden text-right align-top tabular-nums md:table-cell">
                                     <p class="text-gray-900 dark:text-white">{{ $row['required_completed'] }}/{{ $row['required_total'] }}</p>
-                                    <p class="mt-0.5 text-xs text-gray-400">{{ $tr ? 'zorunlu kaynak' : 'required sources' }}</p>
+                                    <p class="mt-0.5 whitespace-nowrap text-xs text-gray-400">{{ $tr ? 'zorunlu kaynak' : 'required sources' }}</p>
                                 </td>
                                 <td class="hidden text-right align-top tabular-nums md:table-cell">
                                     <p class="text-gray-900 dark:text-white">{{ number_format((int) $row['latest_rows_written'], 0, ',', '.') }}</p>
-                                    <p class="mt-0.5 text-xs text-gray-400">{{ $tr ? 'yazılan kayıt' : 'rows written' }}</p>
+                                    <p class="mt-0.5 whitespace-nowrap text-xs text-gray-400">{{ $tr ? 'yazılan kayıt' : 'rows written' }}</p>
                                 </td>
                                 <td class="whitespace-nowrap text-right align-top">
                                     <div class="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">

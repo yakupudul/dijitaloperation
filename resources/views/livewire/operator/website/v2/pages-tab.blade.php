@@ -103,7 +103,7 @@
                 </div>
             </section>
         @empty
-            <div class="card"><x-ta.empty-state size="sm" title="Henüz sayfa yok" message="Site taraması ya da Search Console verisi gelince burada türlerine göre listelenir." /></div>
+            <div class="card"><x-ta.empty-state size="sm" icon="none" title="Henüz sayfa yok" message="Site taraması ya da Search Console verisi gelince burada türlerine göre listelenir." /></div>
         @endforelse
     @else
     <section class="{{ $card }}" data-page-rows>

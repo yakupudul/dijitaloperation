@@ -16,7 +16,7 @@
                 @foreach ($coverage as $row)
                     <tr class="[&>td]:align-top" wire:key="coverage-{{ $row['site']->id }}" data-coverage-site="{{ $row['site']->id }}">
                         <td class="min-w-60">
-                            <button type="button" wire:click="showBrand({{ $row['brand_id'] }})" class="font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</button>
+                            <button type="button" wire:click="showBrand({{ $row['brand_id'] }})" class="text-left font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</button>
                             <span class="block text-xs text-gray-500">{{ \Illuminate\Support\Str::limit((string) $row['site']->name, 40) }}</span>
                             @php $stage = \App\Services\Work\ContentCoverage::stage($row); @endphp
                             <x-ta.pill class="mt-0.5" :tone="match ($stage['tone']) { 'amber' => 'look', 'rose' => 'critical', 'emerald' => 'ok', default => 'info' }" data-stage>{{ $stage['label'] }}</x-ta.pill>

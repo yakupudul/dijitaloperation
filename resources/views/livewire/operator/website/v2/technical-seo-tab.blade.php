@@ -12,8 +12,8 @@
         ['info', 'Bilgi', $data['tiles']['info'], 'text-gray-900 dark:text-white', 'sayfa, iyileştirme'],
         ['', 'Google doğruluyor', $data['tiles']['validating'], 'text-gray-900 dark:text-white', 'son 28 günde uygulanan düzeltme'],
     ];
-    $empty = ['google' => $data['has_gsc'] ? ['Google bu filtrede sorun bildirmiyor.', null] : ['Search Console URL denetimi henüz gelmedi', 'Her gün hizmet sayfalarından başlayarak 25 sayfa denetlenir; hemen başlatmak için «Şimdi denetle».'],
-        'html' => $data['has_crawl'] ? ['Bu filtrede HTML sorunu yok.', null] : ['Site henüz taranmadı.', null]];
+    $empty = ['google' => $data['has_gsc'] ? ['Google bu filtrede sorun bildirmiyor.', null, 'check'] : ['Search Console URL denetimi henüz gelmedi', 'Her gün hizmet sayfalarından başlayarak 25 sayfa denetlenir; hemen başlatmak için «Şimdi denetle».', 'none'],
+        'html' => $data['has_crawl'] ? ['Bu filtrede HTML sorunu yok.', null, 'check'] : ['Site henüz taranmadı.', null, 'none']];
 @endphp
 <div class="min-w-0 space-y-8 text-sm" data-technical-seo-tab>
     @if ($message !== '')
@@ -91,7 +91,7 @@
                         </button>
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" :title="$empty[$sourceKey][0]" :message="$empty[$sourceKey][1]" /></li>
+                    <li><x-ta.empty-state size="sm" :title="$empty[$sourceKey][0]" :message="$empty[$sourceKey][1]" :icon="$empty[$sourceKey][2]" /></li>
                 @endforelse
             </ul>
         </section>

@@ -134,7 +134,7 @@
                     @endif
                 </li>
             @empty
-                <li><x-ta.empty-state size="sm" title="İçerik önerisi yok" message="«Haftalık içerik öner» ile bu haftanın yazılarını hazırlat." /></li>
+                <li><x-ta.empty-state size="sm" icon="none" title="İçerik önerisi yok" message="«Haftalık içerik öner» ile bu haftanın yazılarını hazırlat." /></li>
             @endforelse
         </ul>
         @if ($items->hasPages())<div class="mt-3">{{ $items->links() }}</div>@endif

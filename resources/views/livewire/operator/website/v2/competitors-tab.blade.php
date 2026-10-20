@@ -9,9 +9,9 @@
     $decisions = ['improve' => 'mevcut sayfayı geliştir', 'new_page' => 'yeni sayfa'];
     $analyzeErrors = ['few_competitors' => 'en az 2 rakip sayfası gerekli', 'no_provider' => 'AI bağlı değil', 'not_operational' => 'marka hizmet dışı', 'error' => 'hata'];
 @endphp
-<div class="min-w-0 space-y-8 text-sm dark:text-gray-200" data-competitors-tab @if ($polling) wire:poll.4s @endif>
+<div class="min-w-0 text-sm dark:text-gray-200" data-competitors-tab @if ($polling) wire:poll.4s @endif>
     {{-- Who ranks above the site for each cluster, and what they have that the site lacks. --}}
-    <div class="section-head mb-0! justify-between">
+    <div class="section-head justify-between">
         <div class="flex min-w-0 flex-wrap items-baseline gap-x-3">
             <h2 class="section-title">Rakipler</h2>
             <span class="section-count">{{ count($rows) }}</span>
@@ -29,18 +29,18 @@
     </div>
 
     @if ($message !== '')
-        <p role="status" class="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-card dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200">{{ $message }}</p>
+        <p role="status" class="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-card dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200">{{ $message }}</p>
     @endif
-    @if ($errors->any())<p class="text-xs text-error-600">{{ $errors->first() }}</p>@endif
+    @if ($errors->any())<p class="mb-3 text-xs text-error-600">{{ $errors->first() }}</p>@endif
 
+    <div class="space-y-4">
     @forelse ($rows as $row)
         @php($serp = $row['serp'])
         <section class="card" data-cluster="{{ $row['cluster']->id }}" wire:key="cluster-{{ $row['cluster']->id }}">
             <div class="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 py-3.5">
                 <div class="min-w-0 flex-1">
                     <h3 class="section-title">{{ $row['cluster']->name }}</h3>
-                    <p class="mt-0.5 text-[13px] text-gray-500">„{{ $serp?->query ?? $row['query'] }}"
-                        @if ($serp), {{ $serp->language_code }}, {{ $serp->device }}, {{ $serp->fetched_at?->format('d.m.Y') ?? '—' }}@endif
+                    <p class="mt-0.5 text-[13px] text-gray-500">„{{ $serp?->query ?? $row['query'] }}"@if ($serp), {{ $serp->language_code }}, {{ $serp->device }}, {{ $serp->fetched_at?->format('d.m.Y') ?? '—' }}@endif
                         <span class="ml-2">bizim sıra</span> <span class="font-medium text-gray-900 dark:text-white" data-own-rank>{{ $serp?->own_rank ?? 'yok' }}</span></p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -119,4 +119,5 @@
     @empty
         <div class="card"><x-operator.cluster-readiness :asset-id="$this->websiteId" what="Rakipler" class="px-4 py-3.5" /></div>
     @endforelse
+    </div>
 </div>

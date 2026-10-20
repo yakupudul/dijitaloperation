@@ -130,7 +130,7 @@
                         </td></tr></tbody>
                     @endif
                 @empty
-                    <tbody><tr><td colspan="7" class="p-0!"><x-operator.cluster-readiness :asset-id="$this->assetId" what="İçerik fikirleri" class="border-b border-gray-200 px-4 py-3.5 dark:border-gray-800" /><x-ta.empty-state size="sm" title="Filtreye uyan satır yok." /></td></tr></tbody>
+                    <tbody><tr><td colspan="7" class="p-0!"><x-operator.cluster-readiness :asset-id="$this->assetId" what="İçerik fikirleri" class="border-b border-gray-200 px-4 py-3.5 dark:border-gray-800" /><x-ta.empty-state size="sm" icon="none" title="Filtreye uyan satır yok." /></td></tr></tbody>
                 @endforelse
             </table>
         </div>

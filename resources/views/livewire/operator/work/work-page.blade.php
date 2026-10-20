@@ -87,7 +87,7 @@
 
     @if($queue !== null)
         @include('livewire.operator.work.partials.content-queue')
-        @if($sections !== [])<h2 class="section-title -mb-4 pt-2">Diğer SEO işleri</h2>@endif
+        @if($sections !== [])<h2 class="section-title">Diğer SEO işleri</h2>@endif
     @endif
 
     @include('livewire.operator.work.partials.work-groups')

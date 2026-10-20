@@ -106,7 +106,7 @@
                     <button type="button" wire:click="unlockCategory({{ $page->id }})" class="btn h-7! px-2.5! text-xs!">Kilidi kaldır</button>
                 </li>
             @empty
-                <li><x-ta.empty-state size="sm" title="Elle düzeltilmiş kategori yok." /></li>
+                <li><x-ta.empty-state size="sm" icon="none" title="Elle düzeltilmiş kategori yok." /></li>
             @endforelse
         </ul>
     </section>

@@ -246,7 +246,7 @@
                 </details>
             @empty
                 <x-operator.cluster-readiness :asset-id="$this->assetId" what="Öneriler" class="border-b border-gray-200 px-4 py-3.5 dark:border-gray-800" />
-                <x-ta.empty-state title="Öneri yok" message="Öneriler İçerik fikirleri'nde «Eşleştir» ve «SEO analizi» ile oluşur." />
+                <x-ta.empty-state icon="none" title="Öneri yok" message="Öneriler İçerik fikirleri'nde «Eşleştir» ve «SEO analizi» ile oluşur." />
             @endforelse
             @if ($later !== [] && $type === '')
                 <div class="border-t border-gray-200 dark:border-gray-800" data-suggestion-groups-later>

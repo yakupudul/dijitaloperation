@@ -268,7 +268,7 @@
     @empty
         <div class="card">
             <x-operator.cluster-readiness :asset-id="$this->assetId" what="Kümeler" class="border-b border-gray-200 px-4 py-3.5 dark:border-gray-800" />
-            <x-ta.empty-state size="sm" title="Bu filtrede küme yok.">
+            <x-ta.empty-state size="sm" icon="none" title="Bu filtrede küme yok.">
                 @if ($service !== '' || $match !== '' || $type !== '' || trim($search) !== '')
                     <button type="button" wire:click="clearFilters" class="btn" data-empty-action>Filtreleri temizle</button>
                 @endif

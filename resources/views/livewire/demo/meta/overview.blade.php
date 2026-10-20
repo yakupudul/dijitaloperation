@@ -172,9 +172,9 @@
                 <section class="min-w-0" data-testid="meta-pixel">
                     <div class="section-head"><h2 class="section-title">Pixel / CAPI</h2></div>
                     <ul class="card">
-                        <li class="card-row text-sm text-gray-700 dark:text-gray-300">Pixel: <span class="font-medium text-gray-900 dark:text-white">{{ $m['pixel']['label'] }}</span>, CAPI: veri yok</li>
+                        <li class="card-row text-sm text-gray-700 dark:text-gray-300"><span class="min-w-0">Pixel: <span class="font-medium text-gray-900 dark:text-white">{{ $m['pixel']['label'] }}</span>, CAPI: veri yok</span></li>
                         @foreach ($m['pixel']['pixels'] as $pixel)
-                            <li class="card-row text-[13px] text-gray-500">{{ $pixel['name'] }}, son olay {{ $pixel['last_fired'] ?? 'yok' }}</li>
+                            <li class="card-row text-[13px] text-gray-500"><span class="min-w-0">{{ $pixel['name'] }}, son olay {{ $pixel['last_fired'] ? \Carbon\CarbonImmutable::parse($pixel['last_fired'])->format('d.m.Y') : 'yok' }}</span></li>
                         @endforeach
                     </ul>
                 </section>

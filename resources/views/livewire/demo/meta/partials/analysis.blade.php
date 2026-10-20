@@ -95,7 +95,7 @@
                     @forelse ($a['types'] as $t)
                         <li class="card-row justify-between">
                             <span class="min-w-0 text-sm text-gray-900 dark:text-gray-200">{{ ucfirst($types[$t['key']][1]) }} <span class="ml-1 text-xs text-gray-500">{{ $count($t['count']) }} {{ $t['label'] }}</span></span>
-                            <span class="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{{ $money($t['cost']) }}</span>
+                            <span class="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-gray-900 dark:text-white">{{ $money($t['cost']) }}</span>
                         </li>
                     @empty
                         <li class="card-row text-sm text-gray-500">Bu dönemde sonuç yok.</li>

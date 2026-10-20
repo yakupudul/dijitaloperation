@@ -11,7 +11,7 @@
         </div>
     </div>
     @if ($topicMap === [])
-        <div class="card"><x-ta.empty-state size="sm" title="Konu haritası henüz çizilmedi" message="Çarşamba sabahki fikir turunda, işe en çok değer katan hizmetten başlayarak çizilir; «Haftalık içerik öner» ile hemen başlatılabilir." /></div>
+        <div class="card"><x-ta.empty-state size="sm" icon="none" title="Konu haritası henüz çizilmedi" message="Çarşamba sabahki fikir turunda, işe en çok değer katan hizmetten başlayarak çizilir; «Haftalık içerik öner» ile hemen başlatılabilir." /></div>
     @else
         <ul class="card">
             @foreach ($topicMap as $service)

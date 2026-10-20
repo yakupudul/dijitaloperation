@@ -140,7 +140,7 @@
                         @unless ($isOld)<button type="button" wire:click="startRevision" class="btn">Metni düzenle</button>@endunless
                         <button type="button" wire:click="download" class="btn-quiet">İndir (.md)</button>
                     </div>
-                    <div class="strategy-doc px-5 py-6 sm:px-8 [&>h1:first-child+h2]:mt-0 [&>h1:first-child+h2]:border-t-0 [&>h1:first-child+h2]:pt-0 [&>h2:first-child]:mt-0 [&>h2:first-child]:border-t-0 [&>h2:first-child]:pt-0">{!! $html !!}</div>
+                    <div class="strategy-doc px-5 py-6 sm:px-8">{!! $html !!}</div>
                 </article>
 
                 @if ($planCounts !== null)
