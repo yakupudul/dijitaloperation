@@ -346,4 +346,13 @@ class MetaCampaignServicesTest extends TestCase
         Queue::assertPushed(MatchMetaCampaignServicesJob::class);
         $this->assertSame('running', Cache::get(MetaCampaignServices::stateKey($this->asset->id))['status']);
     }
+
+    public function test_advantage_audience_age_shows_the_suggested_range_set_in_ads_manager(): void
+    {
+        $advantage = ['targeting_automation' => ['advantage_audience' => 1]];
+
+        $this->assertSame('18–45 öneri (Meta 20–65+ arasında gösterebilir)', MetaCampaignBoard::targeting($advantage + ['age_min' => 20, 'age_max' => 65, 'age_range' => [18, 45]])['age']);
+        $this->assertSame('20–65+', MetaCampaignBoard::targeting($advantage + ['age_min' => 20, 'age_max' => 65])['age']);
+        $this->assertSame('25–45', MetaCampaignBoard::targeting(['age_min' => 25, 'age_max' => 45, 'age_range' => [30, 40]])['age']);
+    }
 }

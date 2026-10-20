@@ -12,11 +12,11 @@
             @if($row['rank'] <= 1)<x-ta.pill tone="critical">Acil</x-ta.pill>@endif
             @if($overlap !== null)
                 @if($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REDIRECT)
-                    <x-ta.pill tone="look" data-recommendation="redirect">301 öneriliyor</x-ta.pill>
+                    <x-ta.pill tone="look" data-recommendation="redirect">Birleştirilecek</x-ta.pill>
                 @elseif($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REVIEW)
-                    <x-ta.pill tone="info" data-recommendation="review">Ana sayfayı gözden geçir</x-ta.pill>
+                    <x-ta.pill tone="info" data-recommendation="review">Ana sayfa yanlış seçilmiş</x-ta.pill>
                 @else
-                    <x-ta.pill tone="info" data-recommendation="differentiate">Ayrıştır</x-ta.pill>
+                    <x-ta.pill tone="info" data-recommendation="differentiate">Metni ayrılacak</x-ta.pill>
                 @endif
             @endif
             @if($row['stage'])<x-ta.pill tone="look">{{ $row['stage'] }}</x-ta.pill>@endif
@@ -29,7 +29,7 @@
         @if($overlap !== null && $overlap['cluster'] !== null)
             <p class="mt-1 break-all font-medium leading-snug text-gray-900 dark:text-white">
                 @if($view === 'acik' && in_array('merge', $row['actions'], true))
-                    <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mr-1 rounded border-gray-300 align-middle text-brand-600 dark:border-gray-700" aria-label="301 için seç" data-merge-pick="{{ $row['id'] }}">
+                    <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mr-1 rounded border-gray-300 align-middle text-brand-600 dark:border-gray-700" aria-label="Birleştirmek için seç" data-merge-pick="{{ $row['id'] }}">
                 @endif
                 @if($overlap['url'])<a href="{{ $overlap['url'] }}" target="_blank" rel="noopener" class="hover:underline">{{ $overlap['path'] }}</a>@else{{ $overlap['path'] }}@endif
             </p>

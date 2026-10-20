@@ -8,6 +8,19 @@
 - **Ekranlar:** tüm operatör ekranlarında bölüm kutuları, açıklama cümleleri, "→" okları, büyük harfli etiketler ve renkli rozetler kaldırıldı; Bugün'de aynı markanın aynı alarmı tek satır.
 - **Durum:** CODED, TESTED (PHPUnit), telefon 390 px taşma taraması yapıldı; görsel kabul yakup'ta.
 
+## 2026-10-19 — Öneriler sade dilde, Onayla tuzağı kapandı, Claude çakışma kontrolü
+
+- **Karar (yakup 2026-10-19):** "Küme çakışması, 301, ayrıştır… ne olduğunu anlamadım. Onayla'ya basınca sistemin sitede yaptığını düşünüyordum." Önerilen altı ek maddeyle birlikte "şimdi yap".
+- **Öneriler (Web sitesi › Yapılacaklar):** gruplar sade adla (`SiteSuggestionTypes::PLAIN`, her ekran `label()` ile okur): "Aynı konuyu anlatan sayfalar", "Google'da görünen başlık ve açıklama", "Resimlerin açıklaması yok"… Durumlar Bekliyor / Sürüyor / Sitede / Gerek yok dendi. Her satır ne olduğunu ve sistemin ne yapacağını cümleyle söyler; tek düğme sonucu adlandırır: Birleştir, Metni ayır → Yeni metni siteye gönder → Canlıya al, Bunu ana sayfa yap, Düzeltmeyi hazırla / Siteye gönder, Alt metinleri yaz, Yaptım. Reddet → "Gerek yok" (hazır nedenler), Aç → "Neden?". Siteye yazan her düğme onay penceresiyle sorar, hepsi geri alınabilir.
+- **Onayla tuzağı:** Öneriler / Rakipler / İşler'de Onayla, sistemin yazdığı bir işi "onaylı" yapıp Onarım masasından düşürüyordu; artık açık kalır, sürümü yoksa hazırlanır ve masada bekler (`SiteSuggestions::approve`). Daha önce böyle düşen ve siteye hiç gitmeyen satırlar migration ile masaya döner (`returnUnsentApprovals`).
+- **Getiri sırası:** gruplar ve satırlar sayfanın Search Console trafiğine göre (`RepairDesk::gain`; çakışmada ana sayfanınki de); Google'da hiç görünmeyen sayfaların işleri sonda "düşük etkili" grubunda.
+- **Grup tuşu:** "Hepsini birleştir" / "Hepsini gönder": hazır 301'ler (Claude'un farklı soru dediği hariç), yalnız başlık / açıklama / bağlantı sürümleri, resim açıklamaları.
+- **Claude kontrolü (`overlap.check`, `moxdop:overlaps:check` gece 01–06 :20):** her açık çakışma bir kez okunur; alakasız eşleşme nedeniyle kapanır, 301 önerisi farklı soruysa "Metni ayır" olur, yalnız adres kuralıyla ayrılmış "Ayrıştır" aynı soruysa 301 olur. Sayfa değişmedikçe yeniden okunmaz. Siteye bir şey yazmaz.
+- **Çeviriler:** 301 gönderilirken sayfanın Polylang çevirisi, ana sayfanın aynı dildeki çevirisine aynı yazımla yönlendirilir.
+- **Sonuç cümlesi:** uygulanan işte "30 gün sonra: tıklama 14'ten 31'e çıktı." (`OutcomeTracker::sentence`).
+- **Ortak dil:** İşler (Birleştirilecek / Metni ayrılacak / Ana sayfa yanlış seçilmiş) ve Onarım masası ("Aynı konudaki sayfayı birleştirme") aynı kelimeler; çakışma başlığı kayıtta da sade. `PlainWordsTest` ekranlarda iç kod ya da İngilizce durum çıkarsa kırılır.
+- **Durum:** CODED; PHPUnit `ClusterOverlapsTest`, `SiteSuggestionsTest`, `WorkDeskTest`, `PlainWordsTest`, `ImageAltsTest`. Claude kontrolünün gerçek kararları ilk gece; ekran canlıda yakup'un gözüyle.
+
 ## 2026-10-19 — Telefon düzeltmeleri ve siteden marka logosu
 
 - **Karar (yakup 2026-10-19):** "Mobilde ai işlerine tıklıyorum taşıyor. Menüyü açınca scroll yaparken kapanıyor. Bildirime tıkladığımda panelin ana sayfasına atıyor. Web sitesinden çekebildiğimiz markanın logosu olsun."

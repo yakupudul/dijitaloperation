@@ -65,8 +65,8 @@ final class RepairDesk
     public const array KINDS = [
         self::SITE_FIELDS => 'Başlık, açıklama, iç link, schema',
         self::SITE_CONTENT => 'Sayfa metni',
-        self::IMAGE_ALT => 'Görsel alt metni',
-        self::REDIRECT => '301 birleştirme',
+        self::IMAGE_ALT => 'Resim açıklamaları',
+        self::REDIRECT => 'Aynı konudaki sayfayı birleştirme',
         self::ADS_NEGATIVE => 'Google Ads negatif kelime',
         self::ADS_CHANGE => 'Google Ads ayarı',
         self::GBP_DESCRIPTION => 'İşletme Profili açıklaması',
@@ -379,7 +379,7 @@ final class RepairDesk
 
     public const array CHANGE_LABELS = [
         'seo_title' => 'başlık', 'seo_description' => 'açıklama', 'canonical' => 'asıl adres (canonical)', 'noindex' => 'dizin ayarı',
-        'alt_text' => 'görsel alt metni', 'schema' => 'yapılandırılmış veri', 'redirect' => '301 yönlendirme', 'merge_redirect' => '301 birleştirme',
+        'alt_text' => 'görsel alt metni', 'schema' => 'yapılandırılmış veri', 'redirect' => 'yönlendirme', 'merge_redirect' => 'sayfayı birleştirme (yönlendirme)',
         'internal_link' => 'iç link', 'llms_txt' => 'llms.txt', 'content' => 'sayfa metni',
     ];
 
@@ -773,7 +773,7 @@ final class RepairDesk
             ImageAlts::TYPE => $this->altRow($base, $action),
             ClusterOverlaps::TYPE => ClusterOverlaps::mergeable($s) ? $base + ['kind' => self::REDIRECT, 'risk' => self::MEDIUM,
                 'target' => (string) ($action['overlap_url'] ?? ''), 'before' => [(string) ($action['overlap_url'] ?? '')],
-                'after' => ['301 → '.($action['main_url'] ?? ''), 'Eski sayfa taslağa alınır'], 'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null] : null,
+                'after' => ['Ziyaretçiler şu sayfaya gider: '.($action['main_url'] ?? ''), 'Eski sayfa silinmez, taslağa alınır'], 'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null] : null,
             'ads_negative' => ($action['scope'] ?? '') === 'shared' && ! isset($action['sending_write_id']) && filled($action['text'] ?? null)
                 ? $base + ['kind' => self::ADS_NEGATIVE, 'risk' => ($action['blocks'] ?? []) === [] ? self::LOW : self::HIGH, 'target' => 'Paylaşılan negatif listesi', 'before' => [],
                     'after' => [GoogleAdsSuggestions::line((string) $action['text'], (string) ($action['match_type'] ?? 'PHRASE')).(isset($action['cost']) ? ' · boşa giden '.$action['cost'] : '')

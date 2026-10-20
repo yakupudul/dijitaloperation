@@ -64,7 +64,7 @@ final class DeskOutcomesTest extends SiteTestCase
 
         $results = app(RepairDesk::class)->results();
         $this->assertSame(1, $results['counts'][OutcomeTracker::WORKED]);
-        $this->assertSame(['Başlığı güçlendir', 'Başlık / açıklama', '+30 tıklama (30 gün)'], [$results['items'][0]['title'], $results['items'][0]['type'], $results['items'][0]['line']]);
+        $this->assertSame(['Başlığı güçlendir', 'Google\'da görünen başlık ve açıklama', '+30 tıklama (30 gün)'], [$results['items'][0]['title'], $results['items'][0]['type'], $results['items'][0]['line']]);
         Livewire::test(RepairDeskPage::class)->assertSee('Sonuçlar')->assertSee('+30 tıklama (30 gün)')->assertSee('1 işe yaradı');
 
         $decisions = app(BrandDossier::class)->build($this->brand)['sections']['decisions']['markdown'];

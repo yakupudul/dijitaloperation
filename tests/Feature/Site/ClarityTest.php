@@ -86,7 +86,7 @@ class ClarityTest extends TestCase
         $this->assertSame(['Öfkeli tıklama: /implant/', Suggestion::OPEN, $this->page->id], [$work->title, $work->status, (int) $work->page_id]);
         $this->assertStringContainsString('100 oturum', $work->reason);
 
-        Livewire::test(WorkPage::class, ['tab' => 'saglik'])->assertSee('Öfkeli tıklama: /implant/')->assertSee('ziyaretçi davranışı')
+        Livewire::test(WorkPage::class, ['tab' => 'saglik'])->assertSee('Öfkeli tıklama: /implant/')->assertSee('Ziyaretçilerin takıldığı yerler')
             ->assertSee('Clarity\'de aç')->assertSee('Yaptım')->assertDontSee('wire:click="approve('.$work->id.')"', false);
         Livewire::test(WorkPage::class)->assertDontSee('Öfkeli tıklama: /implant/');
 

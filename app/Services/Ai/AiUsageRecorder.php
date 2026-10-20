@@ -76,6 +76,7 @@ final class AiUsageRecorder
         'EpicrisisFactsAgent' => AiRouteKeys::BRAND_EPICRISIS_FACTS,
         'EpicrisisSynthesisAgent' => AiRouteKeys::BRAND_EPICRISIS_SYNTHESIS,
         'RepairReviewAgent' => AiRouteKeys::REPAIR_REVIEW,
+        'OverlapCheckAgent' => AiRouteKeys::OVERLAP_CHECK,
         'TranslationFixAgent' => AiRouteKeys::SITE_TRANSLATION_FIX,
         'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,

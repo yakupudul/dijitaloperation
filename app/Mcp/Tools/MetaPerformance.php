@@ -259,6 +259,7 @@ class MetaPerformance extends Tool
                     'excluded' => array_merge(array_values((array) ($excluded['countries'] ?? [])), $names((array) ($excluded['regions'] ?? [])), $names((array) ($excluded['cities'] ?? []))),
                     'age_min' => $t['age_min'] ?? null,
                     'age_max' => $t['age_max'] ?? null,
+                    'age_suggestion' => $t['age_range'] ?? null,
                     'genders' => array_values((array) ($t['genders'] ?? [])),
                     'locales' => array_values((array) ($t['locales'] ?? [])),
                     'custom_audiences' => $names((array) ($t['custom_audiences'] ?? [])),

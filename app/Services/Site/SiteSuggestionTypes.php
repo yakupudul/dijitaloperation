@@ -21,6 +21,31 @@ final class SiteSuggestionTypes
         'technical_seo' => 'teknik SEO / yapılandırılmış veri',
     ];
 
+    /**
+     * Plain names the operator reads (yakup, 2026-10-19: "küme çakışması, 301, ayrıştır… ne olduğunu anlamadım"): every
+     * screen names a type with these words; ANALYSIS stays the AI's own definition of each type.
+     */
+    public const array PLAIN = [
+        'wrong_intent' => 'Sayfa aranan şeye cevap vermiyor',
+        'missing_topic' => 'Sayfada cevapsız kalan sorular',
+        'title_description' => 'Google\'da görünen başlık ve açıklama',
+        'internal_links' => 'Sayfalar birbirine bağlanmamış',
+        'duplicate_content' => 'Tekrar eden metin',
+        'service_location' => 'Yanlış şehir ya da hizmet',
+        'conversion' => 'Arama ve randevu tuşu zayıf',
+        'technical_seo' => 'Google\'a verilen işletme bilgisi eksik',
+        'content' => 'Yeni yazı',
+        'rakip' => 'Rakiplerde olup sizde olmayanlar',
+        'cluster_overlap' => 'Aynı konuyu anlatan sayfalar',
+        'image_alt' => 'Resimlerin açıklaması yok',
+        'translation_fix' => 'Bozuk çeviri',
+        'seo_fields' => 'Google\'da görünen başlık ve açıklama',
+        'clarity' => 'Ziyaretçilerin takıldığı yerler',
+    ];
+
+    /** Types the system cannot write: the operator fixes them on the site and says "Yaptım". */
+    public const array MANUAL = ['duplicate_content', 'service_location', 'clarity'];
+
     /** İçerik plan item (new page / post or update). */
     public const string CONTENT = 'content';
 
@@ -32,16 +57,7 @@ final class SiteSuggestionTypes
 
     public static function label(string $type): string
     {
-        return match ($type) {
-            self::CONTENT => 'içerik',
-            self::COMPETITOR => 'rakip',
-            ClusterOverlaps::TYPE => 'küme çakışması',
-            ImageAlts::TYPE => 'görsel alt metni',
-            BrokenTranslations::TYPE => 'bozuk çeviri',
-            SiteAudit::TYPE => 'SEO başlık / açıklama',
-            Clarity\ClarityRules::TYPE => 'ziyaretçi davranışı',
-            default => self::ANALYSIS[$type] ?? $type,
-        };
+        return self::PLAIN[$type] ?? self::ANALYSIS[$type] ?? $type;
     }
 
     public static function applicable(string $type): bool
