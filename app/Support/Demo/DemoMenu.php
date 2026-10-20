@@ -7,8 +7,8 @@ use App\Support\Roles;
 /**
  * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
- * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Onarım masası · İşletme profilleri · Google Ads · Meta reklamları ·
- * Kazananlar · Stratejiler · Sorgular · Markalar (Müşteriler merged in, 2026-10-19) · Dijital varlıklar · Web siteleri · WhatsApp (admins) ·
+ * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Onarım masası · İçerik · İşletme profilleri · Google Ads · Meta reklamları ·
+ * Kazananlar · Stratejiler · Sorgular · Markalar (Müşteriler merged in, 2026-10-19) · Web siteleri (Dijital varlıklar left the menu 2026-10-20: every asset is on its brand page, under Entegrasyonlar too) · WhatsApp (admins) ·
  * Entegrasyonlar · Ayarlar: Çalışma (no heading), Kanallar, Büyüme, Portföy, and Sistem pinned at the bottom (menu
  * prototype approved 2026-10-20).
  * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
@@ -37,6 +37,8 @@ final class DemoMenu
                 $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
                 // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.
                 $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
+                // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
+                $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
             ]),
             $group($tr ? 'Kanallar' : 'Channels', [
                 $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
@@ -52,7 +54,6 @@ final class DemoMenu
                 // Müşteriler merged into Markalar (2026-10-19): every customer has one brand; the customer screens stay
                 // reachable from the brand list and keep Markalar lit.
                 $item(__('operator.nav.brands'), 'operator.brands', 'brands', [], ['operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit']),
-                $item($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', 'assets', [], ['operator.asset.create', 'operator.asset.edit']),
                 $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
                 ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item('WhatsApp', 'operator.whatsapp', 'chat')] : []),
             ]),
@@ -62,6 +63,7 @@ final class DemoMenu
                     $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
                     $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
                     $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),
+                    $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets'),
                 ]),
                 $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
                     $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations'),

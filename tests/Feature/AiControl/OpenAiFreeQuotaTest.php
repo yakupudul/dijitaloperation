@@ -113,7 +113,8 @@ final class OpenAiFreeQuotaTest extends TestCase
         $this->assertTrue(app(OpenAiFreeQuota::class)->enabled());
     }
 
-    public function test_the_admin_turns_the_quota_on_with_a_key_and_sees_todays_quota(): void
+    /** All AI runs on Claude (yakup 2026-10-14): since 2026-10-20 the screen no longer shows the OpenAI quota and key. */
+    public function test_the_settings_screen_no_longer_shows_the_openai_quota_or_key(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
         $admin = User::factory()->create(['is_active' => true]);
@@ -123,7 +124,7 @@ final class OpenAiFreeQuotaTest extends TestCase
 
         Livewire::actingAs($admin)->test(AiOperationsPage::class)
             ->set('openAiFreeQuota', true)->set('openAiAdminKey', 'sk-admin-new')->call('saveBudget')
-            ->assertSeeHtml('data-openai-quota')->assertSee('Küçük modeller 1.000k / 2.250k')->assertSee('kayıtlı');
+            ->assertDontSeeHtml('data-openai-quota')->assertDontSeeHtml('data-openai-admin-key')->assertDontSee('OpenAI ücretsiz');
 
         $this->setting->refresh();
         $this->assertSame([true, 'sk-admin-new'], [$this->setting->ai_openai_free_quota, $this->setting->ai_openai_admin_key]);

@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — Yönetici turu kararları uygulandı
+
+İçerik sol menüde (Çalışma › İçerik). Genel işler yalnız site işlerine bakar; kanal önerileri kendi masasından açılır. Dijital varlıklar Entegrasyonlar altında. 60 gün harcamasız reklam hesaplarının önerileri kendiliğinden sessize alınır, harcama dönünce geri açılır. Search Console mülkü 14+ gün veri getirip sıfır gösterim veriyorsa alarm (yanlış mülk). Başlık/açıklama işi 90 günde 10 gösterim altındaki sayfalarda açılmaz (hizmet / lokasyon hariç). OpenAI ve DataForSEO ekranları kalktı.
+
 ## 2026-10-20 — İçerik toplu gönderim
 
 - Yazılan her yeni yazı (otopilot ya da elle "Yaz") Claude kontrolünden geçer; kontrolden geçenler tek tıkla WordPress'e taslak gider. Okumak isteğe bağlı; yakup yazıyı sitede yayınlarken okur ve tarihi connector'ın "Akıllı tarihle yayınla" toplu işlemiyle verir. Sayfa güncellemeleri toplu gitmez.

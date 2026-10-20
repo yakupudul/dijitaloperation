@@ -15,7 +15,6 @@ use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\Integrations\AiProviderIntegrationPage;
 use App\Livewire\Demo\Integrations\ConnectorPage;
-use App\Livewire\Demo\Integrations\DataForSeoIntegrationPage;
 use App\Livewire\Demo\Integrations\GoogleAdsConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
@@ -81,6 +80,7 @@ use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Livewire\Operator\Winners\LibrariesPage;
 use App\Livewire\Operator\Winners\ServicePage as WinnerServicePage;
 use App\Livewire\Operator\Winners\WinnersPage;
+use App\Livewire\Operator\Work\WorkPage;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -128,7 +128,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
         Route::livewire('/integrations/connection-health', ConnectionHealthPage::class)->name('operator.integrations.connection-health');
         Route::livewire('/onarim', RepairDeskPage::class)->name('operator.repair');
-        Route::livewire('/integrations/dataforseo', DataForSeoIntegrationPage::class)->name('operator.integrations.dataforseo');
+        // DataForSEO is never used (yakup 2026-10-11); its settings page was removed 2026-10-20, the name stays for old links.
+        Route::get('/integrations/dataforseo', fn () => abort(410))->name('operator.integrations.dataforseo');
         Route::livewire('/integrations/bing', BingIntegrationPage::class)->name('operator.integrations.bing');
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('operator.integrations.site-connector');
         Route::get('/integrations/site-connectors/{connector}/download', WordPressConnectorDownloadController::class)
@@ -192,6 +193,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');
+        Route::livewire('/icerik', WorkPage::class)->name('operator.content');
         // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.
         Route::get('/work', fn (Request $request) => redirect()->route('operator.repair', array_filter([
             'bolum' => 'diger', 'marka' => $request->query('marka'), 'sekme' => $request->query('sekme'), 'durum' => $request->query('durum'), 'adim' => $request->query('adim'),

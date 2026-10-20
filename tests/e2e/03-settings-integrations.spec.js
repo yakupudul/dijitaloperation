@@ -9,7 +9,6 @@ import { setVerdict } from './helpers/verdicts.js';
 const PROVIDERS = [
     { name: 'Google', path: '/integrations/google' },
     { name: 'Meta', path: '/integrations/meta' },
-    { name: 'DataForSEO', path: '/integrations/dataforseo' },
     { name: 'OpenAI', path: '/integrations/openai' },
     { name: 'Anthropic', path: '/integrations/anthropic' },
     { name: 'Gemini', path: '/integrations/gemini' },

@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Gbp\Desk;
 
 use App\Services\Gbp\Desk\DeskChecks;
 use App\Services\Gbp\Desk\GbpPerformance;
+use App\Services\Work\WorkDesk;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -95,6 +96,7 @@ final class DeskPage extends Component
 
         return view('livewire.operator.gbp.desk.desk-page', [
             'rows' => $rows,
+            'openWork' => app(WorkDesk::class)->count('isletme'),
             'groups' => collect($rows)->groupBy(fn (array $r): string => (string) $r['location']->brand?->name),
             'totals' => $totals,
             'previous' => $previous,

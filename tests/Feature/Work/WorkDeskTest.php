@@ -67,6 +67,24 @@ class WorkDeskTest extends TestCase
             ->call('setTab', 'ads')->assertSee('Dönüşüm izleme yok')->assertSee('Yaptım');
     }
 
+    public function test_content_has_its_own_menu_page_and_channel_work_is_reached_from_the_channel_desk(): void
+    {
+        $this->suggestion('search', 'site', $this->site->id, 'content', 'İmplant fiyatları rehberi', ['site_id' => $this->site->id], 20);
+        $this->suggestion('meta', 'meta_ads', $this->ads->id, 'meta_check', 'Reklam yorgunluğu', [], 3);
+
+        // yakup 2026-10-20: İçerik is a menu entry; the page shows only the content tab.
+        $this->get(route('operator.content'))->assertOk()->assertSee('İçerik')->assertSee('İmplant fiyatları rehberi')
+            ->assertDontSee('Teknik SEO')->assertDontSee('Genel işler');
+        Livewire::withQueryParams([])->test(WorkPage::class, ['contentOnly' => true])->call('setTab', 'teknik')->assertSet('tab', 'icerik');
+
+        // Google Ads, Meta Ads and Google İşletme left the Genel işler tab bar (each channel has its own desk); old links still open them.
+        Livewire::test(WorkPage::class)->assertDontSee('Meta Ads')->assertDontSee('Google İşletme')
+            ->call('setTab', 'meta')->assertSee('Reklam yorgunluğu');
+        $this->assertSame(1, app(WorkDesk::class)->count('meta'));
+        $this->get(route('operator.meta-desk'))->assertOk()->assertSee('Açık öneriler (1)')
+            ->assertSee(e(route('operator.repair', ['bolum' => 'diger', 'sekme' => 'meta'])), false);
+    }
+
     public function test_the_desk_holds_the_other_work_filtered_by_its_brand(): void
     {
         $this->suggestion('google_ads', 'google_ads', $this->ads->id, 'ads_check', 'Dönüşüm izleme yok', ['check' => 'conversion_tracking'], 1);

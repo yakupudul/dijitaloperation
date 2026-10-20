@@ -49,6 +49,12 @@ final class WorkDesk
         'isletme' => 'Google İşletme',
     ];
 
+    /**
+     * Channel tabs (yakup, 2026-10-20 — the same work showed in two places): not in the Genel işler tab bar; the Meta and
+     * İşletme desks link to their list ("Açık öneriler"), the Google Ads desk lists its own. Old links keep working.
+     */
+    public const array CHANNEL_TABS = ['ads', 'meta', 'isletme'];
+
     public const string VIEW_OPEN = 'acik';
 
     public const string VIEW_DONE = 'yapildi';
@@ -140,6 +146,15 @@ final class WorkDesk
         }
 
         return $counts;
+    }
+
+    /** Open items of one tab (all brands, or one brand). */
+    public function count(string $tab, ?int $brandId = null): int
+    {
+        $tab = isset(self::TABS[$tab]) ? $tab : 'icerik';
+        $count = isset(self::TAB_CHANNEL[$tab]) ? $this->suggestionQuery($tab, self::VIEW_OPEN, $brandId)->count() : 0;
+
+        return $count + (isset(self::TAB_ALERT_TYPES[$tab]) ? $this->alertQuery($tab, $brandId)->count() : 0);
     }
 
     /** @return array<int, int> open items of one tab per brand id (the brand filter shows them) */

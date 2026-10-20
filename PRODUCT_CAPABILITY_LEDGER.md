@@ -1,5 +1,10 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — İçerik menüde, Genel işler sadeleşti, fazlalıklar kalktı
+
+- **Kodlandı + test:** Sol menü Çalışma grubunda **İçerik** (`/icerik`, `operator.content`): `WorkPage` yalnız içerik sekmesiyle (`contentOnly`); "Hepsini siteye gönder" burada. Genel işler sekme çubuğundan Google Ads / Meta Ads / Google İşletme kalktı (`WorkDesk::CHANNEL_TABS`); eski bağlantılar açılır, Meta ve İşletme masaları "Açık öneriler (N)" bağlantısıyla o listeye götürür (Google Ads masası kendi listesini gösterir). "Dijital varlıklar" menüden Entegrasyonlar sekmelerine taşındı. Ayarlar › AI işlemlerinden OpenAI ücretsiz kota, Admin anahtarı ve kota denetimi alanları kalktı. DataForSEO ayar sayfası silindi, adres 410. Testler: `PanelDesignFreezeTest`, `WorkDeskTest`, `OpenAiFreeQuotaTest`, `OperatorDataForSeoIntegrationConfigurationTest`.
+- **Not:** Web sitesi ekranında Analiz alt sekmeleri canlıda zaten görünmüyordu (`AnalysisTab` hep `fixed` ile açılıyor); WhatsApp beyni ve yanıt taslakları Claude kuyruğundaydı (`AiTaskQueue::ALWAYS_CLAUDE`). İkisinde değişiklik yok.
+
 ## 2026-10-20 — Az görünen sayfalar başlık / açıklama işi açmaz
 
 - **Kodlandı + test:** `SiteAudit::worthFixing` eşiği 0'dan 10 gösterime (90 gün) çıktı. Arısoy / Decco gibi binlerce anahtar kelime sayfası olan sitelerde açık işlerin çoğu çeyrekte 1-9 kez görünen sayfalardı. Hizmet / lokasyon sayfaları ve Search Console verisi olmayan siteler eskisi gibi her zaman denetlenir. Bekleyen satırlar bir sonraki denetimde `no_gain` ile kapanır, sayfa 10 gösterimi geçince aynı satır geri açılır. Test: `SeoFieldsGainTest`.

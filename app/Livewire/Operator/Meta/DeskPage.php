@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Meta;
 
 use App\Services\Ads\AdServiceStats;
 use App\Services\Meta\MetaDesk;
+use App\Services\Work\WorkDesk;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -48,6 +49,7 @@ final class DeskPage extends Component
             'alerts' => MetaDesk::ALERTS,
             'sorts' => MetaDesk::SORTS,
             'typeLabels' => AdServiceStats::TYPE_LABELS,
+            'openWork' => app(WorkDesk::class)->count('meta'),
         ]);
     }
 }

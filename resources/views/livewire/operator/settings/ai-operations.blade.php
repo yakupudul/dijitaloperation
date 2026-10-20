@@ -35,14 +35,6 @@
                     <p @class(['mt-0.5', 'font-medium text-error-600 dark:text-error-400' => $capHit, 'text-gray-500' => ! $capHit]) data-ai-auto-budget>
                         Bugün tüm AI: {{ $usd($autoSpend) }} / {{ $autoBudget > 0 ? $usd($autoBudget) : 'sınırsız' }}@if ($capHit), tavan doldu, ücretli AI yarına kadar durdu (Claude işleri sürer) @endif
                     </p>
-                    @if ($quota['enabled'])
-                        <p class="mt-0.5 text-gray-500" data-openai-quota>
-                            OpenAI ücretsiz kota (UTC günü): {{ collect($quota['tiers'])->map(fn (array $tier): string => $tier['label'].' '.number_format($tier['used'] / 1000, 0, ',', '.').'k / '.number_format($tier['limit'] / 1000, 0, ',', '.').'k')->implode(', ') }}, bugün kazanılan {{ $usd($quota['saved']) }}
-                        </p>
-                    @endif
-                    @if (($audit['status'] ?? null) === 'mismatch')
-                        <p class="mt-0.5 font-medium text-error-600 dark:text-error-400" data-openai-audit-alert>{{ $audit['message'] }}</p>
-                    @endif
                 </x-ta.metric-card>
             </div>
 
@@ -277,30 +269,7 @@
                     <label for="ai-daily" class="min-w-0 flex-1 {{ $title }}">Günlük AI tavanı, tüm işler (USD)<span class="block {{ $line }} font-normal">0 = tavan yok.</span></label>
                     <input id="ai-daily" type="number" step="0.5" min="0" wire:model="dailyAutoBudget" class="{{ $input }} w-full sm:w-40" data-daily-auto-budget>
                 </div>
-                <label class="card-row cursor-pointer items-start">
-                    <span class="min-w-0 flex-1">
-                        <span class="block {{ $title }}">OpenAI ücretsiz paylaşım kotası açık.</span>
-                        <span class="block {{ $line }}">OpenAI › Veri kontrolleri › «Giriş ve çıkışları OpenAI ile paylaşın» açıkken günde küçük modellerde 2,5 milyon, büyüklerde 250 bin token ücretsizdir. Bunun %90'ı kadar token harcama sayılmaz; aşan kısım liste fiyatından sayılır.</span>
-                    </span>
-                    <input type="checkbox" wire:model="openAiFreeQuota" class="mt-1 h-4 w-4 rounded border-gray-300" data-openai-free-quota>
-                </label>
-                <div class="card-row flex-wrap sm:flex-nowrap">
-                    <label for="ai-admin-key" class="min-w-0 flex-1 {{ $title }}">OpenAI Admin anahtarı (kota denetimi için)@if ($adminKeySet)<span class="ml-1 font-normal text-gray-500">, kayıtlı</span>@endif</label>
-                    <input id="ai-admin-key" type="password" autocomplete="off" wire:model="openAiAdminKey" placeholder="{{ $adminKeySet ? '•••••••• (değiştirmek için yaz)' : 'sk-admin-…' }}" class="{{ $input }} w-full min-w-0 sm:w-72" data-openai-admin-key>
-                </div>
-                <div class="card-row flex-wrap items-start sm:flex-nowrap">
-                    <div class="min-w-0 flex-1 text-[13px] text-gray-500" data-openai-audit>
-                        <p class="{{ $title }}">Kota denetimi</p>
-                        <p class="mt-0.5">Kota denetimi saatte bir OpenAI'ın gerçek faturasını (Admin anahtarıyla) bizim tahminimizle karşılaştırır. Dün OpenAI belirgin şekilde fazla faturaladıysa kota hesabını kendisi kapatır. Bugünkü gerçek fatura, günlük tavan için alt sınır sayılır.</p>
-                        @if ($audit !== null)
-                            <p class="mt-1 text-gray-700 dark:text-gray-300">Son denetim {{ \Carbon\CarbonImmutable::parse($audit['checked_at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}: {{ $audit['message'] ?? $audit['status'] }}</p>
-                            @foreach (($audit['days'] ?? []) as $day)
-                                <p class="tabular-nums">{{ $day['date'] }}: OpenAI {{ $usd($day['actual']) }}, tahmin {{ $usd($day['estimated']) }}, liste fiyatı {{ $usd($day['list']) }}</p>
-                            @endforeach
-                        @endif
-                    </div>
-                    <button type="button" wire:click="auditOpenAi" class="btn w-full sm:w-auto" data-openai-audit-now>Şimdi denetle</button>
-                </div>
+                {{-- OpenAI kota / Admin anahtarı alanları kalktı (2026-10-20): tüm AI Claude ile çalışır. --}}
                 <div class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
                     <p class="min-w-0 flex-1 basis-full text-xs text-gray-500 sm:basis-0">Aylık bakiye bitince ay sonuna kadar yalnız ücretsiz modeller çalışır. Günün (İstanbul saati) tüm AI harcaması tavana ulaşınca, tıkladığın işler dahil hiçbir ücretli AI çağrısı başlamaz; yarın yeniden çalışır. Kimse tıklamadan Sorgular alanındaki AI (sorgu pilotu, kümeleme) Claude aboneliğine devredilen işler ve Claude API'ye atanmış işler çalışır; abonelik işleri tavana ve bütçeye sayılmaz, Claude API işleri krediden, tavandan ve bütçeden düşer. GPT'de kalan analistler, bakım ajanı ve Şef yalnız tıklayınca çalışır.</p>
                     @error('dailyAutoBudget')<span class="w-full text-xs text-error-600">{{ $message }}</span>@enderror

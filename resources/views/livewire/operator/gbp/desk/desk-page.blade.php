@@ -36,6 +36,7 @@
             <div class="min-w-0 flex-1">
                 <h1 class="page-title" title="Her İşletme Profili için son tam ayın sonuçları ve yerel aramada güçlü olmanın altı koşulu. Eksik olana tıklayınca düzeltileceği yere gidersin.">İşletme <span class="highlight">profilleri</span></h1>
                 <p class="page-sub mt-1.5! text-[15px]!">@if ($lagging)<span data-gbp-data-month>Son tam veri: {{ $monthLabel }}</span>@else{{ $monthLabel }}@endif, {{ $count }} işletme. {{ $count === 0 ? '' : ($gapCount === 0 ? 'Altı koşulun hepsi tamam.' : 'Altı koşulun '.$gapCount.' tanesinde eksik var.') }}</p>
+                @if ($openWork > 0)<a href="{{ route('operator.repair', ['bolum' => 'diger', 'sekme' => 'isletme']) }}" class="link-neutral text-sm" data-channel-open-work>Açık öneriler ({{ $openWork }})</a>@endif
             </div>
             @include('livewire.operator.gbp.partials.brand-filter')
         </header>

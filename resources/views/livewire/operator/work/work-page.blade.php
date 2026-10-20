@@ -5,8 +5,13 @@
     @unless($embedded)
     <header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div class="min-w-0">
-            <h1 class="page-title">Genel işler</h1>
-            <p class="page-sub" title="Aynı türden işler bir arada, en acil olan üstte.">{{ $brandName !== null ? $brandName.' markasının açık işleri' : 'Bütün markaların açık işleri' }}</p>
+            @if($contentOnly)
+                <h1 class="page-title"><span class="highlight">İçerik</span></h1>
+                <p class="page-sub">{{ $brandName !== null ? $brandName.' markasının yazıları' : 'Bütün markaların yazıları' }}: yazılacak, gönderime hazır, taslakta, yayında.</p>
+            @else
+                <h1 class="page-title">Genel işler</h1>
+                <p class="page-sub" title="Aynı türden işler bir arada, en acil olan üstte.">{{ $brandName !== null ? $brandName.' markasının açık işleri' : 'Bütün markaların açık işleri' }}</p>
+            @endif
         </div>
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <select wire:model.live="brand" aria-label="Marka" autocomplete="off" class="h-8 w-full min-w-0 rounded-lg border border-gray-200 bg-white pl-3 text-[13px] text-gray-900 sm:w-auto sm:max-w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white" data-brand-filter>
@@ -39,7 +44,8 @@
     <div class="space-y-4">
         <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Sekmeler" role="tablist">
             @foreach($tabs as $code => $label)
-                @continue($code === 'kurulum' && $tab !== 'kurulum')
+                @continue(($code === 'kurulum' || in_array($code, \App\Services\Work\WorkDesk::CHANNEL_TABS, true)) && $tab !== $code)
+                @continue($contentOnly && $code !== 'icerik')
                 <button type="button" role="tab" wire:click="setTab('{{ $code }}')" @class(['tab', 'tab-active' => $tab === $code]) aria-selected="{{ $tab === $code ? 'true' : 'false' }}">
                     {{ $label }}
                     @if($counts[$code] > 0)<span class="font-normal tabular-nums text-gray-500" title="Açık iş">{{ $counts[$code] }}</span>@endif

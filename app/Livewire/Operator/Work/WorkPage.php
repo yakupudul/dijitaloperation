@@ -64,9 +64,16 @@ final class WorkPage extends Component
 
     public ?int $brandFilter = null;
 
+    /** İçerik (`/icerik`, menu entry since 2026-10-20): the same page with only the content tab. */
+    public bool $contentOnly = false;
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->is_active, 403);
+        if (request()->routeIs('operator.content')) {
+            $this->contentOnly = true;
+            $this->tab = 'icerik';
+        }
         if ($this->embedded) {
             $this->brand = $this->brandFilter;
         }
@@ -76,7 +83,7 @@ final class WorkPage extends Component
 
     public function setTab(string $tab): void
     {
-        $this->tab = isset(WorkDesk::TABS[$tab]) ? $tab : 'icerik';
+        $this->tab = isset(WorkDesk::TABS[$tab]) && ! $this->contentOnly ? $tab : 'icerik';
         $this->resetList();
         $this->message = '';
     }
@@ -280,6 +287,6 @@ final class WorkPage extends Component
             'brandCounts' => $desk->brandCounts($this->tab),
             'brandName' => $this->brand !== null ? $brands->firstWhere('id', $this->brand)?->name : null,
             'pushDevices' => PushSubscription::query()->where('user_id', auth()->id())->count(),
-        ]);
+        ])->title($this->contentOnly ? 'İçerik' : 'Genel işler');
     }
 }
