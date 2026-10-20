@@ -38,7 +38,7 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Markalar')
             ->assertSee('Noktalar kanalların veri durumunu')
             ->assertSee('Atlas Dental Ankara')
-            ->assertSee('Atlas Health Group')
+            ->assertDontSee('Atlas Health Group') // customers are not shown on Markalar (yakup 2026-10-20)
             ->assertSee('dijital varlık')
             ->assertSee('Marka ekle')
             ->assertSee(route('operator.brand.create', absolute: false))
