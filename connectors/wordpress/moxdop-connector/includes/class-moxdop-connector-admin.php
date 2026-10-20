@@ -191,7 +191,7 @@ final class MoxDOP_Connector_Admin
                     </tr>
                     <tr>
                         <th scope="row">IndexNow</th>
-                        <td><label><input type="checkbox" name="moxdop_indexnow" value="1" <?php checked(get_option('moxdop_connector_indexnow', '1') === '1'); ?>> Tell Bing and Yandex (IndexNow) about published or changed pages right after a save. Off while "Discourage search engines" is on.</label></td>
+                        <td><label><input type="checkbox" name="moxdop_indexnow" value="1" <?php checked(get_option('moxdop_connector_indexnow', '1') === '1'); ?>> Tell Bing and Yandex (IndexNow) about published or changed pages right after a save. Off while "Discourage search engines" is on, and while the site has no brand in MoxDOP.</label></td>
                     </tr>
                 </table>
                 <?php submit_button('Save'); ?>

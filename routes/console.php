@@ -79,6 +79,7 @@ use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Site\Backlinks\SerpMentionSources;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ClusterLinks;
 use App\Services\Site\ContentPlanner;
@@ -1142,6 +1143,13 @@ Artisan::command('moxdop:content:backfill-scope', function (ContentAutopilot $au
     $out = $autopilot->scopeBackfill();
     $this->info($out['eligible'].' sitede geriye dönük doldurma sürüyor, '.$out['off'].' sitede kapandı; '.$out['freed'].' yazının tarihi bırakıldı (haftalık döngüye geçer).');
 })->purpose('Keep the back-dated content fill only on sites without an own post in the last 60 days (one-off)');
+
+// Markasız site (yakup, 2026-10-20): what was already waiting for websites without a brand stops (SEO / content writes,
+// the back-dated fill, the AI tasks of their site operations). Run on deploy; safe to run again.
+Artisan::command('moxdop:sites:stop-brandless', function (): void {
+    $out = BrandlessSites::stopPending();
+    $this->info(sprintf('Markasız sitelerde %d bekleyen yazma iptal edildi, %d geriye dönük doldurma kapandı, %d AI işi kapandı.', $out['writes'], $out['backfills'], $out['tasks']));
+})->purpose('Stop the automatic work still waiting for websites without a brand (they are only built, never serviced)');
 
 // İçerik işleri hiç beklemez (yakup, 2026-10-12): titles, articles and translations that wait behind other jobs or in
 // the Claude queue start again on the content queue; the pool of every site is filled back. Run once on deploy.

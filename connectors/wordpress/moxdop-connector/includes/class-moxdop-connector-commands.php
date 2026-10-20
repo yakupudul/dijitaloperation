@@ -318,6 +318,16 @@ final class MoxDOP_Connector_Commands
             update_option(self::MODE_OPTION, $mode, true);
             $this->schedule();
         }
+        // 1.21.0: a site MoxDOP has not given a brand is only being built: IndexNow stays off (older MoxDOP versions do not say).
+        if (array_key_exists('serviced', $data)) {
+            $serviced = ! empty($data['serviced']) ? '1' : '0';
+            if (get_option(MoxDOP_Connector_IndexNow::SERVICED_OPTION, '1') !== $serviced) {
+                update_option(MoxDOP_Connector_IndexNow::SERVICED_OPTION, $serviced, true);
+                if ($serviced === '0') {
+                    delete_option(MoxDOP_Connector_IndexNow::QUEUE);
+                }
+            }
+        }
         update_option(self::SEEN_OPTION, gmdate('c'), false);
         // 1.18.0: work still on its way after this exchange (older MoxDOP versions do not say).
         $this->waiting = (int) ($data['waiting'] ?? 0);

@@ -2227,3 +2227,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - **Bozuk çeviri onarımı (2026-10-19):** dil sürümü oyun / yazılım argosuyla yazılmış, kaynağı düzgün sayfalar haftalık
   bulunur; kaynağından sadık çevirisi Onarım masasına gelir, tek onayla sayfaya gider (geri alınabilir). İlk vaka OPC
   Klinik'in 23 İtalyanca sayfası (17 Şubat 2026'da yayınlanmış, MoxDOP'un değil, saldırı izi yok).
+- **Markasız site (yakup, 2026-10-20):** "Markaya bağlı olmayan hiçbir şey için herhangi bir şey yapılmasın." Bir markaya
+  atanmamış web sitesi yalnız kurulum (build-site) için bağlanır; MoxDOP orada hiçbir otomatik iş yapmaz (site işlemleri,
+  içerik fikri / yazı / geriye dönük doldurma, onarım ve SEO yazmaları, IndexNow). Hizmet site markaya atanınca başlar.
+  Merkezi kontrol `BrandlessSites::serviced()`; connector 1.21.0 markasız sitede IndexNow'u kapatır.

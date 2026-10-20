@@ -81,6 +81,15 @@ final class WordPressConnectorPullTest extends TestCase
         $this->assertTrue($this->ask([], true)['pull']);
     }
 
+    public function test_the_site_learns_from_its_ask_whether_it_has_a_brand(): void
+    {
+        $this->assertTrue($this->ask([], false)['serviced']);
+
+        DigitalAsset::query()->whereKey($this->connection->digital_asset_id)->update(['brand_id' => null]);
+
+        $this->assertFalse($this->ask([], false)['serviced'], 'a site only being built tells no search engine (IndexNow off)');
+    }
+
     public function test_a_job_saving_its_old_copy_of_the_connection_does_not_lose_the_sites_last_ask(): void
     {
         $old = $this->connection->fresh();
