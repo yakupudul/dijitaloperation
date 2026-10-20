@@ -260,7 +260,7 @@ final class WebHealthAudit
             ];
             $row = $existing->get($fingerprint);
             if ($row === null) {
-                Suggestion::query()->create($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
+                Suggestion::openOnce($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
                     'first_seen_at' => now(), 'action' => $action]);
                 $opened++;
 
@@ -1018,7 +1018,7 @@ final class WebHealthAudit
                     'target_type' => 'page', 'target_id' => $source->id, 'page_id' => $source->id, 'last_seen_at' => now(), 'material_hash' => hash('sha256', 'inlink|'.$target->url),
                     'evidence' => [['kind' => 'quote', 'value' => 'Search Console: '.$entry['state'], 'source' => (string) $target->url]]];
                 if ($row === null) {
-                    Suggestion::query()->create($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
+                    Suggestion::openOnce($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
                         'first_seen_at' => now(), 'action' => ['site_id' => (int) $site->id, 'link_to' => (string) $target->url]]);
                 } else {
                     $row->forceFill($values)->save();
@@ -1061,7 +1061,7 @@ final class WebHealthAudit
                 'target_type' => 'page', 'target_id' => $page->id, 'page_id' => $page->id, 'last_seen_at' => now(), 'material_hash' => hash('sha256', 'conversion|'.$page->url),
                 'evidence' => [['kind' => 'quote', 'value' => $entry['sessions'].' oturum · 0 dönüşüm (GA4, 28 gün)', 'source' => (string) $page->url]]];
             if ($row === null) {
-                Suggestion::query()->create($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
+                Suggestion::openOnce($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
                     'first_seen_at' => now(), 'action' => ['site_id' => (int) $site->id]]);
             } else {
                 $row->forceFill($values)->save();

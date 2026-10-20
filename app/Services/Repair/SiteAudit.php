@@ -270,7 +270,7 @@ final class SiteAudit
             'evidence' => [['kind' => 'quote', 'value' => mb_substr((string) $page->title, 0, 200) ?: 'başlık yok', 'source' => (string) $page->url]],
         ];
         if ($existing === null) {
-            Suggestion::query()->create($values + [
+            Suggestion::openOnce($values + [
                 'brand_id' => $site->brand_id, 'fingerprint' => hash('sha256', $site->brand_id.'|repair|'.$page->id.'|'.self::TYPE),
                 'status' => Suggestion::OPEN, 'first_seen_at' => now(), 'action' => ['site_id' => (int) $site->id, 'problems' => $codes],
             ]);

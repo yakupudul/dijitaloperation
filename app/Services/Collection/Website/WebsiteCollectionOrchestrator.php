@@ -12,6 +12,7 @@ use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 use RuntimeException;
@@ -86,12 +87,16 @@ final class WebsiteCollectionOrchestrator
 
         $lock = Cache::lock('website-collection-admission:'.$asset->id, 60);
         if (! $lock->get()) {
-            // A concurrent trigger (sitemap watch, WordPress event, operator) is admitting a run right now: that run
-            // does the work.
-            if (($active = $this->activeRun($asset)) instanceof CollectionRun) {
-                return $active;
+            // A concurrent trigger (sitemap watch, WordPress event, operator) is admitting a run right now: wait for it
+            // briefly, then its run does the work (found below once the lock is ours).
+            try {
+                $lock->block(15);
+            } catch (LockTimeoutException) {
+                if (($active = $this->activeRun($asset)) instanceof CollectionRun) {
+                    return $active;
+                }
+                throw new RuntimeException('Website collection admission is already in progress.');
             }
-            throw new RuntimeException('Website collection admission is already in progress.');
         }
 
         try {

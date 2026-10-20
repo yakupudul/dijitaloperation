@@ -45,6 +45,19 @@ class Suggestion extends Model
 
     protected $guarded = ['id'];
 
+    /**
+     * Opens a suggestion once per (brand, fingerprint): when another check of the same brand saved it a moment earlier,
+     * that row is returned instead of failing on the unique key.
+     *
+     * @param  array<string, mixed>  $values  must hold brand_id and fingerprint
+     */
+    public static function openOnce(array $values): self
+    {
+        $key = ['brand_id' => $values['brand_id'], 'fingerprint' => $values['fingerprint']];
+
+        return static::query()->createOrFirst($key, array_diff_key($values, $key));
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
