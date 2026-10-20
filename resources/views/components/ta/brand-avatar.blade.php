@@ -5,11 +5,10 @@
 ])
 
 @php
-    // One deterministic hue per brand name, so a brand looks the same on every screen (Bugün, Onarım masası, Markalar).
-    $hues = ['bg-amber-100 text-amber-800', 'bg-live-100 text-live-800', 'bg-emerald-100 text-emerald-800', 'bg-rose-100 text-rose-800', 'bg-violet-100 text-violet-800', 'bg-teal-100 text-teal-800', 'bg-indigo-100 text-indigo-800', 'bg-lime-100 text-lime-800'];
-    $hue = $hues[crc32((string) $name) % count($hues)];
+    // The brand's own logo (taken from its website); without one a quiet gray initial, never a pastel colour.
+    $hue = 'bg-gray-100 text-gray-600';
     $initial = mb_strtoupper(mb_substr(trim((string) $name), 0, 1)) ?: '·';
-    $dim = match ($size) { 'xs' => 'h-5 w-5 text-[10px]', 'sm' => 'h-6 w-6 text-[11px]', 'lg' => 'h-10 w-10 text-sm', default => 'h-7 w-7 text-xs' };
+    $dim = match ($size) { 'xs' => 'h-5 w-5 text-xs', 'sm' => 'h-6 w-6 text-xs', 'lg' => 'h-10 w-10 text-sm', default => 'h-7 w-7 text-xs' };
 @endphp
 
 @if ($logo)

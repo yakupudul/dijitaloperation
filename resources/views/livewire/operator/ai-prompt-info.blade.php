@@ -5,22 +5,22 @@
             <div role="dialog" aria-modal="true" aria-labelledby="ai-prompt-info-title" class="relative w-full max-w-3xl rounded-xl bg-white p-5 shadow-xl dark:bg-gray-900">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <h2 id="ai-prompt-info-title" class="text-base font-semibold text-gray-900 dark:text-white">{{ $info['label'] }}</h2>
-                        <p class="mt-0.5 font-mono text-xs text-gray-400">{{ $operation }}</p>
+                        <h2 id="ai-prompt-info-title" class="section-title">{{ $info['label'] }}</h2>
+                        <p class="mt-0.5 font-mono text-xs text-gray-500">{{ $operation }}</p>
                     </div>
                     <button type="button" wire:click="close" class="rounded-lg px-2 py-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5" aria-label="Kapat">✕</button>
                 </div>
 
                 <p class="mt-3 text-sm text-gray-700 dark:text-gray-300">{{ $info['purpose'] }}</p>
 
-                <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-gray-800 dark:text-gray-200">Sürüm v{{ $info['current']->version }}</span>
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <span>Sürüm v{{ $info['current']->version }}</span>
                     @if ($info['isDefault'])
-                        <span class="rounded-full bg-success-50 px-2 py-0.5 text-success-700 dark:bg-success-500/10 dark:text-success-300" data-prompt-default>Varsayılan (kod)</span>
+                        <x-ta.pill tone="ok" data-prompt-default>Varsayılan (kod)</x-ta.pill>
                     @else
-                        <span class="rounded-full bg-warning-50 px-2 py-0.5 text-warning-700 dark:bg-warning-500/10 dark:text-warning-300" data-prompt-custom>Düzenlenmiş{{ $info['author'] ? ' · '.$info['author'] : '' }}</span>
+                        <x-ta.pill tone="look" data-prompt-custom>Düzenlenmiş{{ $info['author'] ? ' · '.$info['author'] : '' }}</x-ta.pill>
                     @endif
-                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-gray-800 dark:text-gray-200">Model: {{ $info['model'] !== '' ? $info['model'] : 'Rota modeli (varsayılan)' }}</span>
+                    <span>Model: {{ $info['model'] !== '' ? $info['model'] : 'Rota modeli (varsayılan)' }}</span>
                 </div>
 
                 @if ($editing)
@@ -42,7 +42,7 @@
                     @error('template')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                     <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
                         @if ($canEdit)
-                            <a href="{{ route('operator.settings.ai-operations', ['islem' => $operation]) }}" wire:navigate class="mr-auto text-xs font-semibold text-brand-600">Ayarlarda aç (geçmiş, örnekte dene)</a>
+                            <a href="{{ route('operator.settings.ai-operations', ['islem' => $operation]) }}" wire:navigate class="link-neutral mr-auto text-xs">Ayarlarda aç (geçmiş, örnekte dene)</a>
                             @if (! $info['isDefault'])
                                 <button type="button" wire:click="resetDefault" wire:confirm="Kodun varsayılan promptu yeni sürüm olarak yayınlansın mı?" class="rounded-lg px-3 py-1.5 text-sm text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Varsayılana dön</button>
                             @endif

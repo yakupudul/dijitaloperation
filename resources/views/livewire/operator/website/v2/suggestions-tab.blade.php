@@ -5,7 +5,7 @@
     $types = \App\Services\Site\SiteSuggestionTypes::ANALYSIS;
     $fieldLabels = ['seo_title' => 'SEO başlığı', 'meta_description' => 'Meta açıklama'];
 @endphp
-<div class="space-y-4" data-suggestions @if ($applyStatus === 'çalışıyor…' || $standardStatus === 'çalışıyor…') wire:poll.5s @endif>
+<div class="space-y-10" data-suggestions @if ($applyStatus === 'çalışıyor…' || $standardStatus === 'çalışıyor…') wire:poll.5s @endif>
     @if ($message !== '')
         <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
@@ -13,7 +13,7 @@
     @endif
     @if ($errors->any())<p class="text-xs text-error-600">{{ $errors->first() }}</p>@endif
 
-    <section class="surface flex flex-wrap items-center gap-2 p-3" data-filters>
+    <section class="flex flex-wrap items-center gap-2" data-filters>
         <select wire:model.live="pageFilter" aria-label="URL" class="{{ $input }} w-full min-w-0 sm:w-auto sm:max-w-xs">
             <option value="">Tüm URL’ler</option>
             @foreach ($pageOptions as $id => $path)<option value="{{ $id }}">{{ $path }}</option>@endforeach
@@ -34,19 +34,19 @@
         </span>
     </section>
 
-    <section class="space-y-3" data-section="suggestions">
+    <section class="border-t border-gray-200 dark:border-gray-800" data-section="suggestions">
         @php $pageGroups = $suggestions->getCollection()->groupBy(fn ($row) => (string) $row->action_type); $firstGroup = $pageGroups->keys()->first(); @endphp
         @forelse ($pageGroups as $groupType => $rows)
-            <details class="surface group/sg" data-suggestion-group="{{ $groupType }}" @if ($groupType === $firstGroup || $openId !== null && $rows->contains('id', $openId)) open @endif>
-                <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm">
-                    <span class="text-xs text-gray-400 transition group-open/sg:rotate-90" aria-hidden="true">▸</span>
+            <details class="group/sg border-b border-gray-200 dark:border-gray-800" data-suggestion-group="{{ $groupType }}" @if ($groupType === $firstGroup || $openId !== null && $rows->contains('id', $openId)) open @endif>
+                <summary class="flex cursor-pointer list-none items-center gap-2 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                    <svg class="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-open/sg:rotate-90" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="m7.5 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     <span class="min-w-0 flex-1 break-words font-medium text-gray-900 dark:text-white">{{ $groups[$groupType]['label'] ?? \App\Services\Site\SiteSuggestionTypes::label($groupType) }}</span>
                     <span class="shrink-0 text-xs tabular-nums text-gray-500" data-group-count>{{ number_format($groups[$groupType]['count'] ?? $rows->count(), 0, ',', '.') }}</span>
                 </summary>
-        <ul class="divide-y divide-gray-100 border-t border-gray-100 px-4 text-xs dark:divide-gray-800 dark:border-gray-800">
+        <ul class="divide-y divide-gray-200 border-t border-gray-200 pl-5 text-sm dark:divide-gray-800 dark:border-gray-800">
             @foreach ($rows as $s)
                 @php $outcome = $s->status === 'applied' ? \App\Services\Outcomes\OutcomeTracker::latest($s) : null; $actionable = in_array($s->status, ['open', 'recheck'], true); @endphp
-                <li class="py-2" wire:key="sg-{{ $s->id }}" data-suggestion="{{ $s->id }}" x-data="{ rejecting: false }">
+                <li class="py-2.5" wire:key="sg-{{ $s->id }}" data-suggestion="{{ $s->id }}" x-data="{ rejecting: false }">
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5" title="{{ $s->reason }}">
                             <span class="font-medium text-gray-900 dark:text-white">{{ $s->title }}</span>
@@ -85,11 +85,11 @@
                     @endif
 
                     @if ($opened?->id === $s->id)
-                        <div class="mt-2 min-w-0 space-y-3 break-words rounded-lg bg-gray-50 p-3 dark:bg-gray-950" data-detail>
+                        <div class="surface mt-2 min-w-0 space-y-3 break-words p-3 text-xs" data-detail>
                             @if ($s->reason)<p class="text-gray-700 dark:text-gray-300">{{ $s->reason }}</p>@endif
                             @if ((array) $s->evidence !== [])
                                 <p class="text-gray-500">
-                                    @foreach ((array) $s->evidence as $item){{ ($item['source'] ?? '') !== '' ? $item['source'].': ' : '' }}{{ \Illuminate\Support\Str::limit((string) ($item['value'] ?? ''), 90) }}@if (! $loop->last) · @endif @endforeach
+                                    @foreach ((array) $s->evidence as $item){{ ($item['source'] ?? '') !== '' ? $item['source'].': ' : '' }}{{ \Illuminate\Support\Str::limit((string) ($item['value'] ?? ''), 90) }}@if (! $loop->last); @endif @endforeach
                                 </p>
                             @endif
                             @if (in_array($s->status, ['approved', 'applied'], true))
@@ -112,8 +112,8 @@
                                     @foreach ($fieldLabels as $field => $label)
                                         @if (isset($proposal['new'][$field]))
                                             <div class="grid gap-2 sm:grid-cols-2">
-                                                <div><p class="font-semibold text-gray-500">{{ $label }} · mevcut</p><p class="rounded bg-error-50 p-1 dark:bg-error-500/10">{{ $proposal['current'][$field] ?? '—' }}</p></div>
-                                                <div><p class="font-semibold text-gray-500">{{ $label }} · yeni</p><p class="rounded bg-success-50 p-1 dark:bg-success-500/10">{{ $proposal['new'][$field] }}</p></div>
+                                                <div><p class="font-semibold text-gray-500">{{ $label }} (mevcut)</p><p class="rounded bg-error-50 p-1 dark:bg-error-500/10">{{ $proposal['current'][$field] ?? '—' }}</p></div>
+                                                <div><p class="font-semibold text-gray-500">{{ $label }} (yeni)</p><p class="rounded bg-success-50 p-1 dark:bg-success-500/10">{{ $proposal['new'][$field] }}</p></div>
                                             </div>
                                         @endif
                                     @endforeach
@@ -123,7 +123,7 @@
                                     @endif
                                     @if (! empty($proposal['new']['schema_json']))
                                         <p class="mt-2 font-semibold text-gray-500">Yapılandırılmış veri</p>
-                                        <pre class="overflow-x-auto rounded bg-white p-2 text-[11px] dark:bg-gray-900">{{ $proposal['new']['schema_json'] }}</pre>
+                                        <pre class="overflow-x-auto rounded bg-white p-2 text-xs dark:bg-gray-900">{{ $proposal['new']['schema_json'] }}</pre>
                                     @endif
                                     @if ($diff !== null)
                                         <div class="mt-2 grid gap-2 sm:grid-cols-2" data-diff>
@@ -142,7 +142,7 @@
                                 <ul data-writes>
                                     @foreach ($writes as $write)
                                         <li class="flex items-center gap-2">
-                                            <span>{{ $write->action }} · {{ $write->status }}</span>
+                                            <span>{{ $write->action }}, {{ $write->status }}</span>
                                             @if ($write->action === \App\Models\ExternalWriteAction::ACTION_CONTENT_DRAFT && $write->status === 'succeeded' && $s->status !== 'applied')
                                                 <button type="button" wire:click="publishDraft({{ $s->id }})" class="{{ $btn }}">Canlıya al</button>
                                             @endif
@@ -152,7 +152,7 @@
                                 </ul>
                             @endif
                             @if ($s->baseline)
-                                <p class="text-gray-500">Başlangıç (28g): {{ data_get($s->baseline, 'clicks_28d') ?? '—' }} tık · {{ data_get($s->baseline, 'impressions_28d') ?? '—' }} gösterim · poz. {{ data_get($s->baseline, 'position_28d') ?? '—' }}</p>
+                                <p class="text-gray-500">Başlangıç (28g): {{ data_get($s->baseline, 'clicks_28d') ?? '—' }} tık, {{ data_get($s->baseline, 'impressions_28d') ?? '—' }} gösterim, poz. {{ data_get($s->baseline, 'position_28d') ?? '—' }}</p>
                             @endif
 
                             @if ($standardStatus)<p class="text-gray-500">Standart önerisi: {{ $standardStatus }}</p>@endif
@@ -184,16 +184,16 @@
         @endforelse
         @php $later = array_diff_key($groups, $pageGroups->all()); @endphp
         @if ($later !== [] && $type === '')
-            <div class="surface divide-y divide-gray-100 dark:divide-gray-800" data-suggestion-groups-later>
+            <div class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800" data-suggestion-groups-later>
                 @foreach ($later as $groupType => $group)
-                    <button type="button" wire:click="$set('type', '{{ $groupType }}')" class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03]" data-suggestion-group="{{ $groupType }}">
-                        <span class="text-xs text-gray-400" aria-hidden="true">▸</span>
+                    <button type="button" wire:click="$set('type', '{{ $groupType }}')" class="flex w-full items-center gap-2 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03]" data-suggestion-group="{{ $groupType }}">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-gray-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="m7.5 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <span class="min-w-0 flex-1 break-words font-medium text-gray-700 dark:text-gray-200">{{ $group['label'] }}</span>
                         <span class="shrink-0 text-xs tabular-nums text-gray-500">{{ number_format($group['count'], 0, ',', '.') }}</span>
                     </button>
                 @endforeach
             </div>
         @endif
-        <div>{{ $suggestions->links() }}</div>
+        <div class="pt-3">{{ $suggestions->links() }}</div>
     </section>
 </div>

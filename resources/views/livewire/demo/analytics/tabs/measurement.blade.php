@@ -10,13 +10,13 @@
     $utm = $m['utm_hygiene'] ?? [];
 @endphp
 
-<div class="space-y-4">
+<div class="space-y-10">
     <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Measurement</h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $m['subtitle'] ?? 'Configured mappings, streams, and data quality' }}</p>
+            <h2 class="section-title">Measurement</h2>
+            <p class="mt-0.5 text-xs text-gray-500">{{ $m['subtitle'] ?? 'Configured mappings, streams, and data quality' }}</p>
         </div>
-        <span class="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-500/15 dark:text-gray-300">{{ $m['missing_note'] ?? 'Missing ≠ zero' }}</span>
+        <span class="text-xs text-gray-500">{{ $m['missing_note'] ?? 'Missing ≠ zero' }}</span>
     </div>
 
     <div class="inline-flex flex-wrap rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="tablist" aria-label="Measurement">
@@ -31,25 +31,29 @@
 
     @if (! empty($m['interruptions']))
         @foreach ($m['interruptions'] as $interrupt)
-            <x-ta.alert variant="warning" title="{{ $interrupt['title'] }}" :message="($interrupt['detail'] ?? '').(! empty($interrupt['window']) ? ' · '.$interrupt['window'] : '')" />
+            <x-ta.alert variant="warning" title="{{ $interrupt['title'] }}" :message="($interrupt['detail'] ?? '').(! empty($interrupt['window']) ? ', '.$interrupt['window'] : '')" />
         @endforeach
     @endif
 
     @if ($activeSub === 'business_actions')
-        <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Business action → GA4 event</h3>
-                <p class="text-xs text-gray-400">Operator-configured · not inferred</p>
+        <section class="min-w-0">
+            <div class="mb-1">
+                <h3 class="section-title">Business actions and GA4 events</h3>
+                <p class="text-xs text-gray-500">Operator-configured, not inferred</p>
             </div>
-            <x-ta.table class="border-0 rounded-none">
-                <x-slot:head>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Business action</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">GA4 event</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Role</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Count</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">State</th>
+            <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Business action</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">GA4 event</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Role</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Count</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">State</th>
                     <th class="px-4 py-2.5"></th>
-                </x-slot:head>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($m['business_actions'] ?? [] as $row)
                     <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                         <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['action'] }}</td>
@@ -63,44 +67,44 @@
                             @endif
                         </td>
                         <td class="px-4 py-2.5">
-                            <x-ta.badge :color="match($row['state'] ?? '') { 'Healthy' => 'success', 'Review', 'Not mapped', 'Observed' => 'warning', 'Unavailable', 'Broken' => 'error', default => 'light' }" size="sm">{{ $row['state'] }}</x-ta.badge>
+                            <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['state'] ?? '') { 'Healthy' => 'success', 'Review', 'Not mapped', 'Observed' => 'warning', 'Unavailable', 'Broken' => 'error', default => 'light' }] ?? 'info'">{{ $row['state'] }}</x-ta.pill>
                         </td>
                         <td class="px-4 py-2.5">
-                            <button type="button" wire:click="openAction('{{ $row['action'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Inspect</button>
+                            <button type="button" wire:click="openAction('{{ $row['action'] }}')" class="link-neutral text-xs">Inspect</button>
                         </td>
                     </tr>
                 @endforeach
-            </x-ta.table>
+            </tbody>
+            </table>
+        </div>
         </section>
 
         @if (! empty($m['trust_chips']))
             <div class="flex flex-wrap gap-1.5">
                 @foreach ($m['trust_chips'] as $chip)
-                    <span @class([
-                        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium',
-                        'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400' => ($chip['state'] ?? '') === 'Healthy',
-                        'bg-warning-50 text-warning-800 dark:bg-warning-500/15 dark:text-warning-400' => in_array($chip['state'] ?? '', ['Not mapped', 'Review', 'Needs review'], true),
-                        'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400' => ($chip['state'] ?? '') === 'Unavailable',
-                        'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300' => ! in_array($chip['state'] ?? '', ['Healthy', 'Not mapped', 'Review', 'Needs review', 'Unavailable'], true),
-                    ])>{{ $chip['label'] }} · {{ $chip['state'] }}</span>
+                    <x-ta.pill :tone="match ($chip['state'] ?? '') { 'Healthy' => 'ok', 'Not mapped', 'Review', 'Needs review' => 'look', 'Unavailable' => 'critical', default => 'info' }">{{ $chip['label'] }}, {{ $chip['state'] }}</x-ta.pill>
                 @endforeach
             </div>
         @endif
     @endif
 
     @if ($activeSub === 'events')
-        <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Events</h3>
+        <section class="min-w-0">
+            <div class="mb-1">
+                <h3 class="section-title">Events</h3>
             </div>
-            <x-ta.table class="border-0 rounded-none">
-                <x-slot:head>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Event</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Mapped action</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Count</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">State</th>
+            <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Event</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped action</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Count</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">State</th>
                     <th class="px-4 py-2.5"></th>
-                </x-slot:head>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($m['events'] ?? [] as $row)
                     <tr>
                         <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['event'] }}</td>
@@ -113,114 +117,126 @@
                             @endif
                         </td>
                         <td class="px-4 py-2.5">
-                            <x-ta.badge :color="match($row['state'] ?? '') { 'Healthy' => 'success', 'Review', 'Observed', 'Not mapped', 'Funnel only' => 'warning', 'Unavailable' => 'error', default => 'light' }" size="sm">{{ $row['state'] }}</x-ta.badge>
+                            <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['state'] ?? '') { 'Healthy' => 'success', 'Review', 'Observed', 'Not mapped', 'Funnel only' => 'warning', 'Unavailable' => 'error', default => 'light' }] ?? 'info'">{{ $row['state'] }}</x-ta.pill>
                         </td>
                         <td class="px-4 py-2.5">
-                            <button type="button" wire:click="openEvent('{{ $row['event'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Inspect</button>
+                            <button type="button" wire:click="openEvent('{{ $row['event'] }}')" class="link-neutral text-xs">Inspect</button>
                         </td>
                     </tr>
                 @endforeach
-            </x-ta.table>
+            </tbody>
+            </table>
+        </div>
         </section>
     @endif
 
     @if ($activeSub === 'streams')
-        <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Data streams</h3>
+        <section class="min-w-0">
+            <div class="mb-1">
+                <h3 class="section-title">Data streams</h3>
             </div>
-            <x-ta.table class="border-0 rounded-none">
-                <x-slot:head>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Stream</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Type</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Measurement ID</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Status</th>
-                    <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Last hit</th>
-                </x-slot:head>
+            <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Stream</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Type</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Measurement ID</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Status</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Last hit</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($m['streams'] ?? [] as $row)
                     <tr>
                         <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</td>
                         <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['type'] ?? 'Web' }}</td>
                         <td class="px-4 py-2.5 text-xs tabular-nums text-gray-500">{{ $row['measurement_id'] ?? '—' }}</td>
                         <td class="px-4 py-2.5">
-                            <x-ta.badge :color="match($row['status'] ?? '') { 'Receiving', 'Healthy' => 'success', 'Interrupted', 'Stale' => 'warning', default => 'light' }" size="sm">{{ $row['status'] ?? '—' }}</x-ta.badge>
+                            <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['status'] ?? '') { 'Receiving', 'Healthy' => 'success', 'Interrupted', 'Stale' => 'warning', default => 'light' }] ?? 'info'">{{ $row['status'] ?? '—' }}</x-ta.pill>
                         </td>
                         <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['last_hit'] ?? 'No data' }}</td>
                     </tr>
                 @endforeach
-            </x-ta.table>
+            </tbody>
+            </table>
+        </div>
         </section>
     @endif
 
     @if ($activeSub === 'quality')
-        <div class="grid gap-3 lg:grid-cols-2">
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Data quality</h3>
+        <div class="grid gap-10 lg:grid-cols-2">
+            <section class="min-w-0">
+                <h3 class="section-title">Data quality</h3>
                 <ul class="mt-3 space-y-2">
                     @foreach ($m['data_quality'] ?? [] as $row)
-                        <li class="flex items-start justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
+                        <li class="flex items-start justify-between gap-2 border-b border-gray-200 py-2.5 text-sm dark:border-gray-800">
                             <div class="min-w-0">
                                 <p class="font-medium text-gray-800 dark:text-white/90">{{ $row['check'] }}</p>
-                                <p class="text-[11px] text-gray-500">{{ $row['detail'] ?? '' }}</p>
+                                <p class="text-xs text-gray-500">{{ $row['detail'] ?? '' }}</p>
                             </div>
-                            <x-ta.badge :color="match($row['state'] ?? '') { 'Healthy', 'Pass' => 'success', 'Not mapped', 'Review', 'Needs review', 'Review candidate' => 'warning', 'Unavailable', 'Fail' => 'error', default => 'light' }" size="sm">{{ $row['state'] }}</x-ta.badge>
+                            <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['state'] ?? '') { 'Healthy', 'Pass' => 'success', 'Not mapped', 'Review', 'Needs review', 'Review candidate' => 'warning', 'Unavailable', 'Fail' => 'error', default => 'light' }] ?? 'info'">{{ $row['state'] }}</x-ta.pill>
                         </li>
                     @endforeach
                 </ul>
             </section>
 
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Duplicate candidates</h3>
+            <section class="min-w-0">
+                <h3 class="section-title">Duplicate candidates</h3>
                 <ul class="mt-3 space-y-2">
                     @foreach ($m['duplicates'] ?? [] as $row)
-                        <li class="rounded-lg bg-warning-50/80 px-3 py-2 text-sm dark:bg-warning-500/10">
+                        <li class="border-b border-gray-200 py-2.5 text-sm dark:border-gray-800">
                             <p class="font-medium text-gray-900 dark:text-white">{{ $row['title'] }}</p>
                             <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">{{ $row['detail'] ?? '' }}</p>
                             <div class="mt-2">
-                                <x-ta.badge :color="match($row['state'] ?? '') { 'Review' => 'warning', default => 'light' }" size="sm">{{ $row['state'] ?? 'Review' }}</x-ta.badge>
+                                <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['state'] ?? '') { 'Review' => 'warning', default => 'light' }] ?? 'info'">{{ $row['state'] ?? 'Review' }}</x-ta.pill>
                             </div>
                         </li>
                     @endforeach
                 </ul>
             </section>
 
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">UTM hygiene</h3>
+            <section class="min-w-0">
+                <h3 class="section-title">UTM hygiene</h3>
                 <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                        <dt class="text-xs text-gray-400">Unavailable now</dt>
+                        <dt class="text-xs text-gray-500">Unavailable now</dt>
                         <dd class="font-semibold tabular-nums text-warning-700 dark:text-warning-400">{{ $utm['unavailable_pct'] ?? '—' }}%</dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-gray-400">Prior window</dt>
+                        <dt class="text-xs text-gray-500">Prior window</dt>
                         <dd class="font-semibold tabular-nums">{{ $utm['prior_unavailable_pct'] ?? '—' }}%</dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-gray-400">Sessions affected</dt>
+                        <dt class="text-xs text-gray-500">Sessions affected</dt>
                         <dd class="font-semibold tabular-nums">{{ isset($utm['unavailable_sessions']) ? number_format($utm['unavailable_sessions']) : '—' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-xs text-gray-400">Trend</dt>
+                        <dt class="text-xs text-gray-500">Trend</dt>
                         <dd class="font-semibold">{{ $utm['trend'] ?? '—' }}</dd>
                     </div>
                 </dl>
                 <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">{{ $utm['note'] ?? '' }}</p>
                 @if (! empty($utm['finding_id']))
-                    <button type="button" wire:click="openFinding('{{ $utm['finding_id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open Finding →</button>
+                    <button type="button" wire:click="openFinding('{{ $utm['finding_id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open Finding</button>
                 @endif
             </section>
 
-            <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Referral review</h3>
+            <section class="min-w-0">
+                <div class="mb-1">
+                    <h3 class="section-title">Referral review</h3>
                 </div>
-                <x-ta.table class="border-0 rounded-none">
-                    <x-slot:head>
-                        <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Source / medium</th>
-                        <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Sessions</th>
-                        <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Flag</th>
+                <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Source / medium</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Flag</th>
                         <th class="px-4 py-2.5"></th>
-                    </x-slot:head>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @foreach ($m['referrals'] ?? [] as $row)
                         <tr>
                             <td class="px-4 py-2.5 text-sm text-gray-900 dark:text-white">{{ $row['source'] }} / {{ $row['medium'] }}</td>
@@ -228,12 +244,14 @@
                             <td class="px-4 py-2.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['state'] }}</td>
                             <td class="px-4 py-2.5">
                                 @if (! empty($row['finding_id']))
-                                    <button type="button" wire:click="openFinding('{{ $row['finding_id'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Finding</button>
+                                    <button type="button" wire:click="openFinding('{{ $row['finding_id'] }}')" class="link-neutral text-xs">Finding</button>
                                 @endif
                             </td>
                         </tr>
                     @endforeach
-                </x-ta.table>
+                </tbody>
+            </table>
+        </div>
             </section>
         </div>
     @endif

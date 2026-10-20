@@ -1,14 +1,14 @@
 <div wire:poll.15s.visible class="space-y-3">
     @if ($actionMessage)
-        <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-100 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20">
+        <div class="rounded-lg px-4 py-3 text-sm tone-info">
             {{ $actionMessage }}
         </div>
     @endif
 
     @if (! empty($runs))<p class="text-xs text-gray-500">Yüzde, başarıyla tamamlanan veri gruplarını gösterir; hata veya atlanan gruplar başarı sayılmaz.</p>@endif
     @foreach ($runs as $run)
-        <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" wire:key="gsc-live-run-{{ $run['id'] }}">
-            <div class="px-5 py-5">
+        <section wire:key="gsc-live-run-{{ $run['id'] }}">
+            <div class="py-4">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
@@ -17,14 +17,14 @@
                                 'bg-gray-500 animate-pulse' => in_array($run['status'], ['queued', 'running', 'retrying']),
                                 'bg-warning-500' => $run['status'] === 'cancellation_requested',
                             ])></span>
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+                            <h2 class="section-title">
                                 Search Console · {{ $run['status_label'] }}
                             </h2>
-                            <span class="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-500/10 dark:text-gray-300">{{ $run['status_label'] }}</span>
+                            <x-ta.pill tone="info">{{ $run['status_label'] }}</x-ta.pill>
                         </div>
                         <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }}</p>
                         @if (! empty($run['coverage_start']) && ! empty($run['coverage_end']))
-                            <p class="mt-1 pl-[18px] text-xs text-gray-400">Veri kapsamı · {{ $run['coverage_start'] }} → {{ $run['coverage_end'] }}</p>
+                            <p class="mt-1 pl-[18px] text-xs text-gray-500">Veri kapsamı · {{ $run['coverage_start'] }} – {{ $run['coverage_end'] }}</p>
                         @endif
                     </div>
 
@@ -39,7 +39,7 @@
                     <div class="mb-2 flex items-end justify-between gap-4">
                         <div>
                             <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Toplam aktarım</p>
-                            <p class="mt-0.5 text-xs text-gray-400">{{ $run['datasets_finished'] }} / {{ $run['datasets_total'] }} veri grubu tamamlandı</p>
+                            <p class="mt-0.5 text-xs text-gray-500">{{ $run['datasets_finished'] }} / {{ $run['datasets_total'] }} veri grubu tamamlandı</p>
                         </div>
                         <p class="text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ number_format($run['progress_percent'], 1) }}%</p>
                     </div>
@@ -49,46 +49,46 @@
                 </div>
 
                 <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <div class="rounded-lg bg-gray-50 px-3.5 py-3 dark:bg-white/[0.03]">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">Kaydedilen veri</p>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Kaydedilen veri</p>
                         <p class="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($run['rows_written'], 0, ',', '.') }}</p>
-                        <p class="text-xs text-gray-400">satır</p>
+                        <p class="text-xs text-gray-500">satır</p>
                     </div>
-                    <div class="rounded-lg bg-gray-50 px-3.5 py-3 dark:bg-white/[0.03]">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">Google API</p>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Google API</p>
                         <p class="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($run['pages_completed'], 0, ',', '.') }}</p>
-                        <p class="text-xs text-gray-400">sayfa işlendi</p>
+                        <p class="text-xs text-gray-500">sayfa işlendi</p>
                     </div>
-                    <div class="rounded-lg bg-gray-50 px-3.5 py-3 dark:bg-white/[0.03]">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">Siteler</p>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Siteler</p>
                         <p class="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ $run['sites_finished'] }} / {{ $run['sites_total'] }}</p>
-                        <p class="text-xs text-gray-400">tamamlandı</p>
+                        <p class="text-xs text-gray-500">tamamlandı</p>
                     </div>
-                    <div class="rounded-lg bg-gray-50 px-3.5 py-3 dark:bg-white/[0.03]">
-                        <p class="text-[11px] font-medium uppercase tracking-wide text-gray-400">Son hareket</p>
+                    <div>
+                        <p class="text-xs font-medium text-gray-400">Son hareket</p>
                         <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $run['last_activity'] }}</p>
-                        <p class="text-xs text-gray-400">arka planda çalışıyor</p>
+                        <p class="text-xs text-gray-500">arka planda çalışıyor</p>
                     </div>
                 </div>
 
                 @if ($run['datasets_failed'] > 0)
-                    <div class="mt-4 rounded-lg bg-warning-50 px-3.5 py-3 text-sm text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">
+                    <div class="mt-4 rounded-lg px-3.5 py-3 text-sm tone-look">
                         <p class="font-medium">{{ $run['datasets_failed'] }} veri grubunda sorun var.</p>
                         <p class="mt-0.5 text-xs opacity-80">Diğer Search Console verileri çekilmeye devam ediyor. Hatalı gruplar daha sonra ayrı olarak tamamlanabilir.</p>
                     </div>
                 @endif
             </div>
 
-            <div class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+            <div class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($run['resources'] as $resource)
-                    <article class="px-5 py-5" wire:key="gsc-live-resource-{{ $resource['id'] }}">
+                    <article class="py-4" wire:key="gsc-live-resource-{{ $resource['id'] }}">
                         <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
                                     <span class="text-xs text-gray-500">{{ $resource['status_label'] }}</span>
                                 </div>
-                                <p class="mt-1 truncate text-xs text-gray-400">{{ $resource['site_url'] }}</p>
+                                <p class="mt-1 truncate text-xs text-gray-500">{{ $resource['site_url'] }}</p>
 
                                 <div class="mt-4 max-w-4xl">
                                     <div class="mb-1.5 flex items-center justify-between gap-3 text-xs">
@@ -104,19 +104,19 @@
                                     <div class="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                                         <span class="inline-flex h-1.5 w-1.5 rounded-full bg-gray-500 animate-pulse"></span>
                                         <span class="font-medium text-gray-700 dark:text-gray-300">Şu anda: {{ $resource['current_dataset'] }}</span>
-                                        @if (! empty($resource['current_search_type']))<span class="text-gray-300 dark:text-gray-700">·</span><span class="text-gray-500">{{ $resource['current_search_type'] }}</span>@endif
-                                        @if (! empty($resource['current_range']))<span class="text-gray-300 dark:text-gray-700">·</span><span class="text-gray-500">{{ $resource['current_range'] }}</span>@endif
+                                        @if (! empty($resource['current_search_type']))<span class="text-gray-500">{{ $resource['current_search_type'] }}</span>@endif
+                                        @if (! empty($resource['current_range']))<span class="text-gray-500">{{ $resource['current_range'] }}</span>@endif
                                     </div>
                                 @endif
 
                                 @if (! empty($resource['surfaces']))
                                     <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                                         @foreach ($resource['surfaces'] as $surface)
-                                            <div class="rounded-lg bg-gray-50 px-3 py-3 ring-1 ring-inset ring-gray-100 dark:bg-white/[0.03] dark:ring-white/5">
+                                            <div class="border-b border-gray-200 py-2.5 dark:border-gray-800">
                                                 <div class="flex items-center justify-between gap-2">
                                                     <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $surface['label'] }}</p>
                                                     <span @class([
-                                                        'text-[11px] font-medium tabular-nums',
+                                                        'text-xs font-medium tabular-nums',
                                                         'text-warning-600 dark:text-warning-300' => $surface['failed'] > 0,
                                                         'text-gray-500' => $surface['failed'] === 0,
                                                     ])>{{ number_format($surface['progress_percent'], 0) }}%</span>
@@ -124,7 +124,7 @@
                                                 <div class="mt-2 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
                                                     <div @class(['h-full rounded-full transition-all duration-500','bg-warning-500' => $surface['failed'] > 0,'bg-brand-500' => $surface['failed'] === 0]) style="width: {{ max(0, min(100, $surface['progress_percent'])) }}%"></div>
                                                 </div>
-                                                <div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-gray-400">
+                                                <div class="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500">
                                                     <span>{{ $surface['finished'] }} / {{ $surface['total'] }} tamamlandı</span>
                                                     @if ($surface['failed'] > 0)<span class="font-medium text-warning-600 dark:text-warning-300">{{ $surface['failed'] }} hata</span>@elseif (! empty($surface['current']))<span class="truncate">{{ $surface['current'] }}</span>@endif
                                                 </div>
@@ -142,7 +142,7 @@
                                                     <p class="font-semibold">{{ $error['label'] }}@if (! empty($error['search_type'])) · {{ $error['search_type'] }}@endif</p>
                                                     <p class="mt-1 break-words">{{ $error['message'] }}</p>
                                                     @if (! empty($error['code']) || ! empty($error['category']))
-                                                        <p class="mt-1 text-[11px] opacity-70">@if (! empty($error['code'])){{ $error['code'] }}@endif @if (! empty($error['code']) && ! empty($error['category']))·@endif @if (! empty($error['category'])){{ $error['category'] }}@endif</p>
+                                                        <p class="mt-1 text-xs opacity-70">@if (! empty($error['code'])){{ $error['code'] }}@endif @if (! empty($error['code']) && ! empty($error['category']))·@endif @if (! empty($error['category'])){{ $error['category'] }}@endif</p>
                                                     @endif
                                                 </div>
                                             @endforeach
@@ -152,7 +152,7 @@
                             </div>
 
                             <div class="flex shrink-0 items-center gap-3">
-                                <span class="text-xs text-gray-400">{{ number_format($resource['rows_written'], 0, ',', '.') }} satır</span>
+                                <span class="text-xs text-gray-500">{{ number_format($resource['rows_written'], 0, ',', '.') }} satır</span>
                                 @if ($resource['can_stop'])
                                     <button type="button" wire:click="stopResource({{ $resource['id'] }})" wire:loading.attr="disabled" wire:target="stopResource({{ $resource['id'] }})" class="text-xs font-medium text-error-600 hover:underline disabled:opacity-50 dark:text-error-300">Bu siteyi durdur</button>
                                 @endif
@@ -162,7 +162,7 @@
                 @endforeach
             </div>
 
-            <details class="border-t border-gray-100 px-5 py-3 dark:border-gray-800">
+            <details class="border-t border-gray-200 py-3 dark:border-gray-800">
                 <summary class="cursor-pointer select-none text-xs font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-300">Teknik ayrıntılar</summary>
                 <dl class="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
                     <div><dt class="text-gray-400">Run ID</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">#{{ $run['id'] }}</dd></div>
@@ -175,25 +175,25 @@
     @endforeach
 
     @if (! empty($issues))
-        <details class="rounded-xl border border-warning-200 p-4 dark:border-warning-900">
+        <details class="border-t border-gray-200 pt-4 dark:border-gray-800">
             <summary class="cursor-pointer text-sm font-medium text-warning-800 dark:text-warning-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
-        <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-warning-200 dark:bg-gray-900 dark:ring-warning-800/60">
-            <div class="border-b border-warning-100 px-5 py-4 dark:border-warning-900/40">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Tamamlanamayan Search Console verileri</h2>
+        <section class="border-t border-gray-200 pt-4 dark:border-gray-800">
+            <div class="pb-3">
+                <h2 class="section-title">Tamamlanamayan Search Console verileri</h2>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Yalnızca sorun kalan veri gruplarını yeniden çalıştırabilirsiniz.</p>
             </div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            <div class="divide-y divide-gray-200 dark:divide-gray-800">
                 @foreach ($issues as $issue)
-                    <article class="px-5 py-4" wire:key="gsc-issue-{{ $issue['resource_run_id'] }}">
+                    <article class="py-4" wire:key="gsc-issue-{{ $issue['resource_run_id'] }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3><span class="rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-medium text-warning-700 dark:bg-warning-500/10 dark:text-warning-300">{{ $issue['failed_count'] }} hata</span></div>
-                                <p class="mt-1 text-xs text-gray-400">{{ $issue['site_url'] }} · {{ $issue['last_activity'] }}</p>
+                                <div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3><x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill></div>
+                                <p class="mt-1 text-xs text-gray-500">{{ $issue['site_url'] }} · {{ $issue['last_activity'] }}</p>
                                 <details class="mt-3">
                                     <summary class="cursor-pointer select-none text-xs font-semibold text-gray-700 dark:text-gray-300">Hata ayrıntıları</summary>
                                     <div class="mt-2 space-y-2">
                                         @foreach ($issue['errors'] as $error)
-                                            <div class="rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/[0.03]"><p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $error['label'] }}@if (! empty($error['search_type'])) · {{ $error['search_type'] }}@endif</p><p class="mt-1 break-words text-xs text-gray-600 dark:text-gray-400">{{ $error['message'] }}</p></div>
+                                            <div class="border-b border-gray-200 py-2 dark:border-gray-800"><p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $error['label'] }}@if (! empty($error['search_type'])) · {{ $error['search_type'] }}@endif</p><p class="mt-1 break-words text-xs text-gray-600 dark:text-gray-400">{{ $error['message'] }}</p></div>
                                         @endforeach
                                     </div>
                                 </details>

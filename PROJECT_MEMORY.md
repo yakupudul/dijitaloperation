@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — Sade panel (Inter, kutusuz)
+
+- yakup: "çok AI drop kokuyor, Notion / ElevenLabs gibi değil"; onaylı prototip sonrası "fontu da inter yap. söylediklerini de yap." Bu, 1-2. aşamadaki "kart + ring" kuralının yerini alır.
+- Yazı tipi Inter; zemin beyaz; gövde 14 px, en küçük yazı `text-xs` = 13 px; başlık 28 px. Ana düğme siyah (`brand-*` ölçeği artık siyaha yakın), turuncu yalnız logoda.
+- Sayfa bölümleri kutuya alınmaz: `section-title` başlık + içerik, aralık boşlukla; liste ve tablo satırları `border-b`. `surface` yalnız açılır menü, pencere, satır içi form için.
+- Başlık altına açıklama cümlesi yazılmaz; görünür metinde "→" yok, satırda en çok bir "·", büyük harfli küçük etiket yok. Durum renkli nokta + düz yazı (`x-ta.pill`); dolu renkli rozet ve renkli şerit yok.
+- Bugün'de aynı markanın aynı sorunu tek satır ("N hesap: …").
+
 ## 2026-10-19 — Panel yeni tasarım (3. ve 4. aşama)
 
 - Ekran kodunda ham renk (amber, emerald, rose, red, violet, sky, slate, blue) yazılmaz; `warning` / `success` / `error` / `live` / `gray` token'ları kullanılır. Turuncu sayfa başına tek ana eylem; satır düğmeleri çerçeveli.

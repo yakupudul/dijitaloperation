@@ -1,28 +1,27 @@
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $select = 'h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white';
     $chip = ['ok' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300', 'warn' => 'bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300', 'bad' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300', 'muted' => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'];
     // Page-local badge colours: red only for lost money / traffic, amber "look at it", grey information, green current.
     $badge = ['loss' => $chip['bad'], 'warn' => $chip['warn'], 'ok' => $chip['ok'], 'muted' => $chip['muted']];
+    $pillTone = ['loss' => 'critical', 'warn' => 'look', 'ok' => 'ok', 'muted' => 'info'];
     $dot = ['loss' => 'bg-error-500', 'warn' => 'bg-warning-500', 'ok' => 'bg-success-500', 'muted' => 'bg-gray-400'];
     $quickViews = ['all' => 'Tümü', 'needs_attention' => 'Dikkat istiyor', 'data_issues' => 'Veri sorunu', 'active_work' => 'Açık işi olan', 'recent' => 'Son güncellenen'];
     $views = ['matrix' => 'Marka × kanal', 'table' => 'Liste', 'cards' => 'Kart'];
 @endphp
-<div class="space-y-4" data-assets-index>
+<div class="space-y-6" data-assets-index>
     @include('livewire.demo.partials.flash')
 
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Dijital varlıklar</h1>
-            <p class="mt-1 text-sm text-gray-500">Markalara bağlı siteler ve hesaplar. Veri durumu her kaynağın en kötü durumunu gösterir.</p>
-            <p class="mt-1 text-xs text-gray-500" data-assets-summary>
-                <span class="tabular-nums">{{ $glance['managed'] }}</span> varlık ·
-                <button type="button" wire:click="setQuickView('needs_attention')" class="hover:underline"><span class="tabular-nums">{{ $glance['needs_attention'] }}</span> dikkat istiyor</button> ·
-                <button type="button" wire:click="setQuickView('data_issues')" class="hover:underline"><span class="tabular-nums">{{ $glance['data_issues'] }}</span> veri sorunu</button> ·
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white" title="Markalara bağlı siteler ve hesaplar. Veri durumu her kaynağın en kötü durumunu gösterir.">Dijital varlıklar</h1>
+            <p class="mt-1 flex flex-wrap gap-x-4 text-sm text-gray-500" data-assets-summary>
+                <span><span class="tabular-nums">{{ $glance['managed'] }}</span> varlık</span>
+                <button type="button" wire:click="setQuickView('needs_attention')" class="hover:underline"><span class="tabular-nums">{{ $glance['needs_attention'] }}</span> dikkat istiyor</button>
+                <button type="button" wire:click="setQuickView('data_issues')" class="hover:underline"><span class="tabular-nums">{{ $glance['data_issues'] }}</span> veri sorunu</button>
                 <button type="button" wire:click="setQuickView('active_work')" class="hover:underline"><span class="tabular-nums">{{ $glance['active_work'] }}</span> açık işi olan</button>
             </p>
         </div>
-        <a href="{{ route('operator.asset.create', $filterBrand !== '' ? ['brandId' => $filterBrand] : []) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Varlık ekle</a>
+        <a href="{{ route('operator.asset.create', $filterBrand !== '' ? ['brandId' => $filterBrand] : []) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Varlık ekle</a>
     </div>
 
     <nav class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-gray-200 dark:border-gray-800" aria-label="Görünüm">
@@ -73,16 +72,16 @@
     </div>
 
     @if ($view === 'matrix')
-        <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-estate-matrix>
+        <section class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" data-estate-matrix>
             <table class="w-full text-left text-sm">
                 <caption class="sr-only">Marka ve kanal matrisi</caption>
-                <thead class="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
+                <thead class="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-800">
                     <tr>
-                        <th scope="col" class="px-4 py-3 font-medium">Marka</th>
-                        @foreach ($matrix['columns'] as $column => $label)<th scope="col" class="whitespace-nowrap px-4 py-3 font-medium">{{ $label }}</th>@endforeach
+                        <th scope="col" class="px-4 py-2.5 font-normal">Marka</th>
+                        @foreach ($matrix['columns'] as $column => $label)<th scope="col" class="whitespace-nowrap px-4 py-2.5 font-normal">{{ $label }}</th>@endforeach
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @forelse ($matrix['rows'] as $row)
                         <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:key="matrix-{{ $row['brand_id'] }}" data-matrix-row="{{ $row['brand_id'] }}">
                             <th scope="row" class="px-4 py-2.5 font-normal">
@@ -102,7 +101,7 @@
                                         <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">—</span><span class="sr-only">Tanımlı değil</span>
                                     @else
                                         <a href="{{ $cell['url'] }}" wire:navigate title="{{ $cell['title'] }}" class="inline-flex items-center gap-2 whitespace-nowrap rounded-md px-1.5 py-0.5 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
-                                            <span class="h-2.5 w-2.5 shrink-0 rounded-full {{ $dot[$cell['tone']] ?? $dot['muted'] }}" aria-hidden="true"></span>
+                                            <span class="h-2 w-2 shrink-0 rounded-full {{ $dot[$cell['tone']] ?? $dot['muted'] }}" aria-hidden="true"></span>
                                             <span class="tabular-nums">{{ $cell['count'] }}</span>
                                             <span class="sr-only">{{ $cell['label'] }}</span>
                                         </a>
@@ -115,34 +114,34 @@
                     @endforelse
                 </tbody>
             </table>
-            <p class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
-                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['ok'] }}"></span>Güncel</span>
-                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['warn'] }}"></span>Bakılmalı</span>
-                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['loss'] }}"></span>Yayın durdu / engelli</span>
-                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['muted'] }}"></span>Pasif / bağlı değil</span>
+            <p class="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-xs text-gray-500">
+                <span class="inline-flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full {{ $dot['ok'] }}"></span>Güncel</span>
+                <span class="inline-flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full {{ $dot['warn'] }}"></span>Bakılmalı</span>
+                <span class="inline-flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full {{ $dot['loss'] }}"></span>Yayın durdu / engelli</span>
+                <span class="inline-flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full {{ $dot['muted'] }}"></span>Pasif / bağlı değil</span>
                 <span>Sayı: hesap adedi; GA4 / GSC sütunu web sitelerine bağlı kaynakları sayar. Üzerine gelince ayrıntı görünür.</span>
             </p>
         </section>
     @elseif (count($assets) === 0)
-        <section class="{{ $card }} text-center">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Filtreye uyan varlık yok</h2>
+        <section class="py-10 text-center">
+            <h2 class="section-title">Filtreye uyan varlık yok</h2>
             <button type="button" wire:click="clearFilters" class="mt-2 text-sm font-medium text-gray-700 hover:underline dark:text-gray-300">Filtreleri temizle</button>
         </section>
     @elseif ($view === 'cards')
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-x-8 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($assets as $asset)
-                <section class="{{ $card }}" wire:key="asset-card-{{ $asset['id'] }}">
+                <section class="border-t border-gray-200 py-4 dark:border-gray-800" wire:key="asset-card-{{ $asset['id'] }}">
                     <div class="flex items-start gap-3">
                         <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="md" />
                         <div class="min-w-0">
                             <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $asset['display_name'] }}</a>
-                            <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']) · {{ $asset['stored_name'] }}@endif</p>
-                            <p class="text-xs text-gray-500"><a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="hover:underline">{{ $asset['brand_name'] }}</a>@if (mb_strtolower(trim((string) $asset['customer_name'])) !== mb_strtolower(trim((string) $asset['brand_name']))) · {{ $asset['customer_name'] }}@endif</p>
+                            <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']), {{ $asset['stored_name'] }}@endif</p>
+                            <p class="text-xs text-gray-500"><a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="hover:underline">{{ $asset['brand_name'] }}</a>@if (mb_strtolower(trim((string) $asset['customer_name'])) !== mb_strtolower(trim((string) $asset['brand_name']))), {{ $asset['customer_name'] }}@endif</p>
                         </div>
                     </div>
-                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                        <span class="whitespace-nowrap rounded-full px-2 py-0.5 font-medium {{ $badge[$asset['badge']['tone']] ?? $chip['muted'] }}" title="{{ $asset['badge']['title'] }}">{{ $asset['badge']['label'] }}</span>
-                        @if ($asset['operational_status'] !== 'active')<span class="rounded-full px-2 py-0.5 {{ $chip['muted'] }}">{{ $asset['operational_status_label'] }}</span>@endif
+                    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <x-ta.pill :tone="$pillTone[$asset['badge']['tone']] ?? 'info'" title="{{ $asset['badge']['title'] }}">{{ $asset['badge']['label'] }}</x-ta.pill>
+                        @if ($asset['operational_status'] !== 'active')<span class="text-gray-500">{{ $asset['operational_status_label'] }}</span>@endif
                         <span class="text-gray-500"><span class="tabular-nums">{{ $asset['open_work'] }}</span> açık iş @if ($asset['critical'] > 0)· <span class="font-medium text-warning-700 dark:text-warning-300">{{ $asset['critical'] }} kritik</span>@endif</span>
                     </div>
                     <p class="mt-3 flex gap-3 text-xs">
@@ -153,21 +152,21 @@
             @endforeach
         </div>
     @else
-        <section class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <section class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <table class="w-full text-left text-sm">
                 <caption class="sr-only">Dijital varlıklar</caption>
-                <thead class="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
+                <thead class="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-800">
                     <tr>
-                        <th scope="col" class="px-4 py-3 font-medium">Varlık</th>
-                        <th scope="col" class="hidden px-4 py-3 font-medium md:table-cell">Marka</th>
-                        <th scope="col" class="px-4 py-3 font-medium">Veri</th>
+                        <th scope="col" class="px-4 py-2.5 font-normal">Varlık</th>
+                        <th scope="col" class="hidden px-4 py-2.5 font-normal md:table-cell">Marka</th>
+                        <th scope="col" class="px-4 py-2.5 font-normal">Veri</th>
                         <th scope="col" class="px-4 py-3 text-right font-medium">Açık iş</th>
-                        <th scope="col" class="hidden px-4 py-3 font-medium sm:table-cell">Durum</th>
-                        <th scope="col" class="hidden px-4 py-3 font-medium xl:table-cell">Sorumlu</th>
-                        <th scope="col" class="hidden px-4 py-3 font-medium lg:table-cell">Son çekim</th>
+                        <th scope="col" class="hidden px-4 py-2.5 font-normal sm:table-cell">Durum</th>
+                        <th scope="col" class="hidden px-4 py-2.5 font-normal xl:table-cell">Sorumlu</th>
+                        <th scope="col" class="hidden px-4 py-2.5 font-normal lg:table-cell">Son çekim</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @foreach ($assets as $asset)
                         {{-- The whole row opens the asset; links and buttons inside keep their own target. --}}
                         <tr class="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:key="asset-{{ $asset['id'] }}" data-asset-row="{{ $asset['id'] }}"
@@ -177,37 +176,37 @@
                                     <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="sm" />
                                     <div class="min-w-0">
                                         <a href="{{ $asset['url'] }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $asset['display_name'] }}</a>
-                                        <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']) · {{ $asset['stored_name'] }}@endif<span class="md:hidden"> · {{ $asset['brand_name'] }}</span></p>
+                                        <p class="text-xs text-gray-500">{{ $asset['type_label'] }}@if ($asset['stored_name']), {{ $asset['stored_name'] }}@endif<span class="md:hidden">, {{ $asset['brand_name'] }}</span></p>
                                     </div>
                                 </div>
                             </td>
                             <td class="hidden px-4 py-3 md:table-cell">
                                 <a href="{{ route('operator.brand', ['brand' => $asset['brand_id']]) }}" wire:navigate class="text-gray-700 hover:underline dark:text-gray-300">{{ $asset['brand_name'] }}</a>
-                                @if (mb_strtolower(trim((string) $asset['customer_name'])) !== mb_strtolower(trim((string) $asset['brand_name'])))<p class="text-xs text-gray-400">{{ $asset['customer_name'] }}</p>@endif
+                                @if (mb_strtolower(trim((string) $asset['customer_name'])) !== mb_strtolower(trim((string) $asset['brand_name'])))<p class="text-xs text-gray-500">{{ $asset['customer_name'] }}</p>@endif
                             </td>
                             <td class="px-4 py-3" data-asset-data="{{ $asset['tone'] }}">
                                 <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $badge[$asset['badge']['tone']] ?? $chip['muted'] }}" title="{{ $asset['badge']['title'] }}" data-asset-badge="{{ $asset['badge']['tone'] }}">{{ $asset['badge']['label'] }}</span>
-                                    <a href="{{ $asset['sources_url'] }}" wire:navigate class="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200" title="Veri kaynakları" aria-label="Veri kaynakları: {{ $asset['display_name'] }}">
+                                    <x-ta.pill :tone="$pillTone[$asset['badge']['tone']] ?? 'info'" title="{{ $asset['badge']['title'] }}" data-asset-badge="{{ $asset['badge']['tone'] }}">{{ $asset['badge']['label'] }}</x-ta.pill>
+                                    <a href="{{ $asset['sources_url'] }}" wire:navigate class="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200" title="Veri kaynakları" aria-label="Veri kaynakları: {{ $asset['display_name'] }}">
                                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><ellipse cx="10" cy="4.5" rx="6" ry="2.5"/><path d="M4 4.5v11c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-11M4 10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5"/></svg>
                                     </a>
                                 </span>
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 text-right tabular-nums" data-asset-work>
-                                {{ $asset['open_work'] }}@if ($asset['critical'] > 0)<span class="text-gray-400"> · </span><span class="font-medium text-warning-700 dark:text-warning-300">{{ $asset['critical'] }} kritik</span>@endif
+                                {{ $asset['open_work'] }}@if ($asset['critical'] > 0)<span class="text-gray-500">, </span><span class="font-medium text-warning-700 dark:text-warning-300">{{ $asset['critical'] }} kritik</span>@endif
                             </td>
                             <td class="hidden px-4 py-3 sm:table-cell">
-                                <span @class(['whitespace-nowrap rounded-full px-2 py-0.5 text-xs', $chip['ok'] => $asset['operational_status'] === 'active', $chip['muted'] => $asset['operational_status'] !== 'active'])>{{ $asset['operational_status_label'] }}</span>
+                                <x-ta.pill :tone="$asset['operational_status'] === 'active' ? 'ok' : 'info'">{{ $asset['operational_status_label'] }}</x-ta.pill>
                             </td>
                             <td class="hidden px-4 py-3 xl:table-cell">
                                 @php($owner = $asset['responsible_users'][0] ?? null)
                                 @if ($owner)
                                     <span class="inline-flex items-center gap-2" title="{{ collect($asset['responsible_users'])->pluck('name')->implode(', ') }}">
-                                        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-700 dark:bg-white/10 dark:text-white/90" aria-hidden="true">{{ $owner['initials'] }}</span>
+                                        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700 dark:bg-white/10 dark:text-white/90" aria-hidden="true">{{ $owner['initials'] }}</span>
                                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ $owner['name'] }}</span>
                                     </span>
                                 @else
-                                    <span class="text-gray-400">—</span>
+                                    <span class="text-gray-500">—</span>
                                 @endif
                             </td>
                             <td class="hidden whitespace-nowrap px-4 py-3 text-xs text-gray-500 lg:table-cell">{{ ($asset['last_update'] ?? '') !== '' ? $asset['last_update'] : '—' }}</td>

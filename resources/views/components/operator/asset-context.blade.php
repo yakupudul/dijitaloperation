@@ -1,7 +1,7 @@
 {{--
     The one compact page head of every digital asset page (App\View\Components\Operator\AssetContext):
-    breadcrumb line (small, gray) → title row (when `title` is given: avatar / `mark` slot, h1, `status` slot, `actions` slot)
-    → one-line "Veri durumu" → alerts as one collapsible line → default slot → `tabs` slot (always under the head).
+    breadcrumb line (small, gray), title row (when `title` is given: avatar / `mark` slot, h1, `status` slot, `actions` slot),
+    one-line "Veri durumu", alerts as one collapsible line, default slot, `tabs` slot (always under the head).
 --}}
 @php
     $a = 'operator_asset.';
@@ -32,19 +32,19 @@
             <details class="relative min-w-0">
                 <summary class="flex min-w-0 cursor-pointer list-none items-center gap-1 rounded-md px-1 py-0.5 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
                     <span class="min-w-0 break-words">{{ $assetLabel }}</span>
-                    <span class="text-[10px] text-gray-400" aria-hidden="true">▾</span>
+                    <svg class="h-3 w-3 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
                 </summary>
                 <div class="absolute left-0 z-40 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-                    <p class="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ __($a.'brand_assets') }}</p>
+                    <p class="px-2.5 py-1.5 text-xs text-gray-500">{{ __($a.'brand_assets') }}</p>
                     @foreach ($siblings as $sibling)
                         <a href="{{ $sibling['url'] }}" wire:navigate @class([
                             'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
                             'bg-gray-100 font-semibold text-gray-900 dark:bg-white/[0.08] dark:text-white' => $sibling['current'],
                             'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]' => ! $sibling['current'],
                         ])>
-                            <span class="h-2 w-2 shrink-0 rounded-full {{ $dot($sibling['tone']) }}"></span>
+                            <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $dot($sibling['tone']) }}"></span>
                             <span class="min-w-0 flex-1 truncate" title="{{ $sibling['name'] }}">{{ $sibling['name'] }}</span>
-                            <span class="shrink-0 text-[11px] text-gray-400">{{ $sibling['type_label'] }}</span>
+                            <span class="shrink-0 text-xs text-gray-500">{{ $sibling['type_label'] }}</span>
                         </a>
                     @endforeach
                     @if ($brand)
@@ -80,7 +80,7 @@
                 @endisset
                 <div class="min-w-0">
                     <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <h1 title="{{ $title }}" class="min-w-0 break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $title }}</h1>
+                        <h1 title="{{ $title }}" class="min-w-0 break-words text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $title }}</h1>
                         @isset($status){{ $status }}@endisset
                     </div>
                     @isset($meta)
@@ -102,7 +102,7 @@
         <p class="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400" data-website-home>
             <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" aria-hidden="true"></span>
             <span class="min-w-0">{{ __('operator_asset.website_home') }}</span>
-            <a href="{{ $websiteHome }}" wire:navigate class="link-primary font-medium">{{ __('operator_asset.website_home_link') }} →</a>
+            <a href="{{ $websiteHome }}" wire:navigate class="link-primary font-medium">{{ __('operator_asset.website_home_link') }}</a>
         </p>
     @endif
 
@@ -114,12 +114,12 @@
         @endphp
         <details class="group min-w-0 text-xs" data-asset-alerts data-blocking="{{ $blocking ? '1' : '0' }}"@if ($blocking) open @endif>
             <summary class="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.04]">
-                <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-error-500' => $blocking, 'bg-warning-500' => ! $blocking]) aria-hidden="true"></span>
-                <span @class(['shrink-0 font-semibold', 'text-error-700 dark:text-error-300' => $blocking, 'text-warning-700 dark:text-warning-300' => ! $blocking])>{{ $alerts->count() }} uyarı</span>
-                <span class="min-w-0 flex-1 truncate text-gray-500" title="{{ $alerts->pluck('title')->unique()->implode(' · ') }}">{{ $alerts->pluck('title')->unique()->implode(' · ') }}</span>
-                <span class="shrink-0 text-gray-400 group-open:rotate-180" aria-hidden="true">▾</span>
+                <span @class(['h-1.5 w-1.5 shrink-0 rounded-full', 'bg-error-500' => $blocking, 'bg-warning-500' => ! $blocking]) aria-hidden="true"></span>
+                <span @class(['shrink-0 font-medium', 'text-error-700 dark:text-error-400' => $blocking, 'text-warning-800 dark:text-warning-400' => ! $blocking])>{{ $alerts->count() }} uyarı</span>
+                <span class="min-w-0 flex-1 truncate text-gray-500" title="{{ $alerts->pluck('title')->unique()->implode(', ') }}">{{ $alerts->pluck('title')->unique()->implode(', ') }}</span>
+                <svg class="h-3 w-3 shrink-0 text-gray-400 group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
             </summary>
-            <ul class="surface mt-1 divide-y divide-gray-100 px-3 dark:divide-gray-800">
+            <ul class="mt-1 divide-y divide-gray-200 border-y border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($alerts as $alert)
                     <x-ta.alarm-row :tone="$isBlocking($alert) ? 'critical' : 'look'" :title="$alert->title" :brand="$brand?->name ?? ''" :meta="$alert->first_detected_at?->diffForHumans()" :message="$alert->message" />
                 @endforeach

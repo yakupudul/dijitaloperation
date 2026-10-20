@@ -1,14 +1,14 @@
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
+    $card = 'min-w-0';
     $input = 'rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $btn = 'rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
-    $tone = ['ok' => 'bg-success-50 text-success-700', 'warn' => 'bg-warning-50 text-warning-700', 'critical' => 'bg-error-50 text-error-700', 'unknown' => 'bg-gray-100 text-gray-600'];
+    $tone = ['ok' => 'ok', 'warn' => 'look', 'critical' => 'critical', 'unknown' => 'info'];
     $label = ['ok' => 'iyi', 'warn' => 'uyarı', 'critical' => 'kritik', 'unknown' => '—'];
 @endphp
-<div class="space-y-4 text-sm dark:text-gray-200" data-health-tab>
+<div class="space-y-10 text-sm dark:text-gray-200" data-health-tab>
     <header class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Site Sağlığı</h2>
+        <h2 class="section-title">Site Sağlığı</h2>
         <div class="flex items-center gap-2">
             <button type="button" wire:click="checkNow" class="{{ $ghost }}">SSL / alan adı kontrol et</button>
             @if ($wordpress && $isAdmin)
@@ -26,21 +26,21 @@
 
     <section class="{{ $card }}">
         <div class="min-w-0 overflow-x-auto">
-        <table class="w-full text-left text-xs">
-            <thead class="text-gray-500"><tr><th class="py-1">Kontrol</th><th class="w-20">Durum</th><th class="w-32">Tarih</th><th></th></tr></thead>
+        <table class="w-full text-left text-sm">
+            <thead class="border-b border-gray-200 text-gray-500 dark:border-gray-800"><tr><th class="font-normal py-1">Kontrol</th><th class="font-normal w-20">Durum</th><th class="font-normal w-32">Tarih</th><th class="font-normal"></th></tr></thead>
             <tbody>
                 @foreach ($rows as $row)
-                    <tr class="border-t border-gray-100 dark:border-gray-800" data-row="{{ $row['key'] }}" wire:key="h-{{ $row['key'] }}">
-                        <td class="py-1.5 font-medium">{{ $row['label'] }}</td>
-                        <td><span class="rounded-full px-2 py-0.5 {{ $tone[$row['state']] }}" data-state="{{ $row['state'] }}">{{ $label[$row['state']] }}</span></td>
+                    <tr class="border-b border-gray-200 dark:border-gray-800" data-row="{{ $row['key'] }}" wire:key="h-{{ $row['key'] }}">
+                        <td class="py-2.5 font-medium">{{ $row['label'] }}</td>
+                        <td><x-ta.pill :tone="$tone[$row['state']]" data-state="{{ $row['state'] }}">{{ $label[$row['state']] }}</x-ta.pill></td>
                         <td>{{ $row['date'] ?? '—' }}</td>
-                        <td class="text-gray-600 dark:text-gray-400">{{ $row['line'] }}</td>
+                        <td class="text-xs text-gray-500">{{ $row['line'] }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
         </div>
-        <form wire:submit="saveHosting" class="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+        <form wire:submit="saveHosting" class="mt-4 flex flex-wrap items-center gap-2">
             <label for="hosting-date" class="text-xs text-gray-500">Hosting bitiş</label>
             <input id="hosting-date" type="date" wire:model="hostingDate" class="{{ $input }} py-1">
             <button type="submit" class="{{ $ghost }}">Kaydet</button>

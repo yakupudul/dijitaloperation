@@ -17,14 +17,14 @@
     $rowBtn = 'rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700';
     $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
 @endphp
-<tbody wire:key="body-{{ $key }}" x-data="{ detail: false }" class="border-t border-gray-100 dark:border-gray-800">
+<tbody wire:key="body-{{ $key }}" x-data="{ detail: false }" class="border-t border-gray-200 dark:border-gray-800">
 <tr data-idea-row="{{ $key }}" data-state="{{ $r['state'] }}" @class(['align-top', 'text-gray-700 dark:text-gray-300' => $extra])>
-    <td @class(['py-1.5', 'pl-6' => $extra])>
+    <td @class(['py-2.5', 'pl-6' => $extra])>
         <span @class(['font-semibold' => ! $extra])>{{ $extra ? '↳ ' : '' }}{{ $title }}</span>
-        @if (! $extra && $model->language)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">{{ $model->language }}</span>@endif
-        @if ($model?->locked)<span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600">elle</span>@endif
+        @if (! $extra && $model->language)<span class="ml-1 text-xs font-normal text-gray-500">{{ $model->language }}</span>@endif
+        @if ($model?->locked)<span class="ml-1 text-xs font-normal text-gray-500">elle</span>@endif
         @if ($extra)
-            <p class="text-gray-500">{{ $r['idea']->angle }} · üreten: {{ $r['idea']->originBrand?->name ?? 'Sorgular (genel)' }}</p>
+            <p class="text-gray-500">{{ $r['idea']->angle }}, üreten: {{ $r['idea']->originBrand?->name ?? 'Sorgular (genel)' }}</p>
         @else
             <p class="text-gray-500">{{ $cluster->service?->primaryName?->raw_label }}</p>
         @endif
@@ -35,18 +35,18 @@
         @if ($page)<a href="{{ $page->url }}" target="_blank" rel="noopener" class="link-neutral" title="{{ $page->path ?: '/' }}">{{ $page->path ?: '/' }}</a>@else<span class="text-gray-400">—</span>@endif
     </td>
     <td class="text-right tabular-nums">
-        @if ($score?->score !== null){{ $score->score }}@if ($score->previous_score !== null && $score->previous_score != $score->score) <span class="text-gray-400">{{ $score->score > $score->previous_score ? '↑' : '↓' }}</span>@endif
+        @if ($score?->score !== null){{ $score->score }}@if ($score->previous_score !== null && $score->previous_score != $score->score) <span @class(['text-xs', 'text-success-700' => $score->score > $score->previous_score, 'text-error-700' => $score->score < $score->previous_score])>{{ $score->score > $score->previous_score ? '+' : '−' }}{{ abs($score->score - $score->previous_score) }}</span>@endif
         @elseif ($score)<span class="text-gray-400">{{ ['low_data' => 'veri az', 'no_gsc' => 'GSC yok', 'no_gsc_data' => 'veri yok', 'no_page' => '—'][$score->state] ?? '—' }}</span>
         @else<span class="text-gray-400">—</span>@endif
     </td>
     <td class="max-w-[16rem]">
-        <button type="button" @click="detail = !detail" :aria-expanded="detail.toString()" class="{{ $chip }} {{ $tone[$r['state']] ?? '' }} inline-flex items-center gap-1 hover:ring-1 hover:ring-current" data-idea-state title="Ayrıntı için tıkla">
-            {{ \App\Services\Site\ContentIdeaState::LABELS[$r['state']] ?? $r['state'] }}
+        <button type="button" @click="detail = !detail" :aria-expanded="detail.toString()" class="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white" data-idea-state title="Ayrıntı için tıkla">
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $tone[$r['state']] ?? 'bg-gray-400' }}" aria-hidden="true"></span>{{ \App\Services\Site\ContentIdeaState::LABELS[$r['state']] ?? $r['state'] }}
             <svg class="h-3 w-3 transition" :class="detail && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <p class="mt-0.5 line-clamp-2 text-gray-500">{{ $r['reason'] }}</p>
         @foreach ($rowStatuses as $k => $line)
-            <p class="text-live-700 dark:text-live-300">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
+            <p class="text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
         @endforeach
     </td>
     <td class="text-right">
@@ -80,26 +80,26 @@
         <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold">Neden bu durum:</span> {{ $r['reason'] }}</p>
         @if (! $extra && $r['state'] === 'no_page')
             {{-- Eşleşmeyen küme: the content idea comes from the cluster itself (need, page type, sections) — nothing invented. --}}
-            <div class="mt-1 rounded-lg bg-gray-50 p-2 text-gray-900 dark:bg-gray-950 dark:text-gray-100" data-content-idea>
+            <div class="mt-2 border-l-2 border-gray-200 pl-3 text-gray-900 dark:border-gray-700 dark:text-gray-100" data-content-idea>
                 <p><span class="font-semibold">İçerik önerisi:</span> yeni {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$cluster->page_type] ?? 'içerik' }} sayfası · «{{ $cluster->name }}»@if ($cluster->user_need) — {{ $cluster->user_need }}@endif</p>
                 @if ((array) $cluster->subtopics !== [])<p class="mt-0.5">Bölümler: {{ implode(' · ', (array) $cluster->subtopics) }}</p>@endif
                 @if ($cluster->mainQuery)<p class="mt-0.5 text-gray-700 dark:text-gray-300">Hedef sorgu: «{{ $cluster->mainQuery->text }}»</p>@endif
             </div>
         @endif
         @if ($rowOverlaps->isNotEmpty())
-            <div class="mt-1 rounded-lg bg-warning-50 p-2 text-warning-900 dark:bg-warning-500/10 dark:text-warning-100" data-overlaps>
+            <div class="mt-2 text-gray-800 dark:text-gray-200" data-overlaps>
                 <p class="font-semibold">Bu kümeyle eşleşen diğer sayfalar ({{ $rowOverlaps->count() }})</p>
                 @foreach ($rowOverlaps as $overlap)
                     <div class="mt-1 flex flex-wrap items-center gap-2" wire:key="overlap-{{ $overlap->id }}" data-overlap="{{ $overlap->id }}">
-                        <a href="{{ data_get($overlap->action, 'overlap_url') }}" target="_blank" rel="noopener" class="font-medium underline">{{ parse_url((string) data_get($overlap->action, 'overlap_url'), PHP_URL_PATH) ?: '/' }}</a>
-                        <span class="text-warning-800 dark:text-warning-200">{{ $overlap->reason }}</span>
+                        <a href="{{ data_get($overlap->action, 'overlap_url') }}" target="_blank" rel="noopener" class="link-neutral font-medium">{{ parse_url((string) data_get($overlap->action, 'overlap_url'), PHP_URL_PATH) ?: '/' }}</a>
+                        <span class="text-gray-500">{{ $overlap->reason }}</span>
                         @if (in_array($overlap->status, ['open', 'recheck'], true))
                             @if (data_get($overlap->action, 'recommendation') === \App\Services\Site\ClusterOverlaps::REDIRECT)
-                                <button type="button" wire:click="mergeOverlap({{ $overlap->id }})" wire:confirm="Sayfa ana sayfaya 301 ile yönlendirilsin ve taslağa alınsın mı? (MoxDOP eklentisine yazılır, geri alınabilir)" class="{{ $btn }}" data-merge-overlap>301 ile birleştir</button>
+                                <button type="button" wire:click="mergeOverlap({{ $overlap->id }})" wire:confirm="Sayfa ana sayfaya 301 ile yönlendirilsin ve taslağa alınsın mı? (MoxDOP eklentisine yazılır, geri alınabilir)" class="{{ $ghost }}" data-merge-overlap>301 ile birleştir</button>
                             @endif
                             <button type="button" wire:click="keepOverlap({{ $overlap->id }})" class="{{ $ghost }}" data-keep-overlap>Ayrı kalsın</button>
                         @else
-                            <span class="{{ $chip }} bg-gray-100 text-gray-600">{{ match (true) { $overlap->status === 'dismissed' => 'ayrı kalıyor', $overlap->status === 'approved' => 'siteye yazılıyor', $overlap->status === 'applied' && data_get($overlap->action, 'recommendation') === \App\Services\Site\ClusterOverlaps::REDIRECT => 'yönlendirildi', default => 'kapandı' } }}</span>
+                            <span class="text-xs text-gray-500">{{ match (true) { $overlap->status === 'dismissed' => 'ayrı kalıyor', $overlap->status === 'approved' => 'siteye yazılıyor', $overlap->status === 'applied' && data_get($overlap->action, 'recommendation') === \App\Services\Site\ClusterOverlaps::REDIRECT => 'yönlendirildi', default => 'kapandı' } }}</span>
                         @endif
                     </div>
                 @endforeach
@@ -108,7 +108,7 @@
         @if ($gaps !== [] || $questions !== [])
             <div class="mt-2" data-gaps>
                 <p class="font-semibold text-gray-800 dark:text-gray-100">Eksikler ({{ count($gaps) }})</p>
-                <ul class="mt-1 list-disc space-y-0.5 pl-4">@foreach ($gaps as $gap)<li>{{ $gap['text'] ?? '' }} <span class="text-gray-400">· {{ $kinds[$gap['kind'] ?? ''] ?? '' }}</span></li>@endforeach</ul>
+                <ul class="mt-1 list-disc space-y-0.5 pl-4">@foreach ($gaps as $gap)<li>{{ $gap['text'] ?? '' }} <span class="text-gray-500">({{ $kinds[$gap['kind'] ?? ''] ?? '' }})</span></li>@endforeach</ul>
                 @if ($questions !== [])<p class="mt-1 font-medium text-gray-600">AI asistanına sorulanlar</p><ul class="list-disc pl-4 text-gray-500">@foreach ($questions as $question)<li>{{ $question }}</li>@endforeach</ul>@endif
             </div>
         @endif
@@ -125,7 +125,7 @@
         </ol>
         @if (! empty($recipe['seo_title']))<p class="mt-1">SEO başlığı: {{ $recipe['seo_title'] }}</p>@endif
         @if (! empty($recipe['meta_description']))<p>Meta açıklama: {{ $recipe['meta_description'] }}</p>@endif
-        @if (! empty($recipe['expected_effect']))<p class="mt-1 text-gray-500">Beklenen etki: {{ $recipe['expected_effect'] }} · ölçüm {{ $recipe['measure_after_days'] ?? 56 }} gün sonra</p>@endif
+        @if (! empty($recipe['expected_effect']))<p class="mt-1 text-gray-500">Beklenen etki: {{ $recipe['expected_effect'] }}, ölçüm {{ $recipe['measure_after_days'] ?? 56 }} gün sonra</p>@endif
         <x-operator.ai-prompt-info operation="site.content_recipe" />
     </td></tr>
 @endif

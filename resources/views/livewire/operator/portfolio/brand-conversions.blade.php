@@ -1,71 +1,62 @@
-<section class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+<section class="space-y-4">
     <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
-            <h2 class="font-semibold text-gray-800 dark:text-white/90">Dönüşümler (son 30 gün)</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <h2 class="section-title">Dönüşümler (son 30 gün)</h2>
+            <p class="sr-only">
                 Hesapların bildirdiği her dönüşüm sinyali burada; hangisinin ne anlama geldiğini ve toplama girip girmediğini sen belirlersin.
                 Varsayılan: web sitesini GA4 sayar; Google Ads web/GA4 aktarımları ve Meta piksel olayları çift sayılmasın diye toplama girmez.
             </p>
         </div>
-        <button type="button" wire:click="refresh" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Sinyalleri yenile</button>
+        <button type="button" wire:click="refresh" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Sinyalleri yenile</button>
     </div>
 
     @if ($tags !== null)
         <p class="text-xs text-gray-500">
             Ana sayfadaki ölçüm etiketleri:
-            Tag Manager {{ $tags['gtm'] !== [] ? implode(', ', $tags['gtm']) : 'yok' }} ·
-            GA4 {{ $tags['ga4'] !== [] ? implode(', ', $tags['ga4']) : ($tags['gtm'] !== [] ? 'Tag Manager içinde olabilir' : 'yok') }} ·
-            Google Ads {{ $tags['google_ads'] !== [] ? implode(', ', $tags['google_ads']) : '—' }} ·
+            Tag Manager {{ $tags['gtm'] !== [] ? implode(', ', $tags['gtm']) : 'yok' }};
+            GA4 {{ $tags['ga4'] !== [] ? implode(', ', $tags['ga4']) : ($tags['gtm'] !== [] ? 'Tag Manager içinde olabilir' : 'yok') }};
+            Google Ads {{ $tags['google_ads'] !== [] ? implode(', ', $tags['google_ads']) : '—' }};
             Meta piksel {{ $tags['meta_pixel'] !== [] ? 'var' : '—' }}
-            <span class="text-gray-400">({{ \Illuminate\Support\Carbon::parse($tags['observed_at'])->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihli sayfa)</span>
+            <span>({{ \Illuminate\Support\Carbon::parse($tags['observed_at'])->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihli sayfa)</span>
         </p>
     @endif
 
     @if ($message !== '')
-        <p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>
+        <p class="tone-ok rounded-lg px-3 py-2 text-sm" role="status">{{ $message }}</p>
     @endif
 
     @if ($rows->isEmpty())
         <p class="text-sm text-gray-500">Henüz dönüşüm sinyali yok. GA4, Google Ads, Meta veya İşletme Profili bağlanıp veri geldikten sonra dolar.</p>
     @else
-        <div class="flex flex-wrap items-end gap-6">
-            <div>
-                <p class="text-xs text-gray-500">Toplam dönüşüm</p>
-                <p class="text-2xl font-semibold text-gray-800 dark:text-white/90">{{ number_format($summary['current']['total'], 0, ',', '.') }}</p>
-                <p class="text-xs text-gray-500">
-                    Önceki 30 gün: {{ number_format($summary['previous']['total'], 0, ',', '.') }}
-                    @if ($summary['change_pct'] !== null)
-                        <span class="{{ $summary['change_pct'] >= 0 ? 'text-success-600' : 'text-error-600' }}">({{ $summary['change_pct'] >= 0 ? '+' : '' }}{{ $summary['change_pct'] }}%)</span>
-                    @endif
-                </p>
-            </div>
+        <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
+            <x-ta.metric-card label="Toplam dönüşüm" :value="number_format($summary['current']['total'], 0, ',', '.')"
+                :delta="$summary['change_pct'] !== null ? ($summary['change_pct'] >= 0 ? '+' : '−').abs($summary['change_pct']).'%' : null"
+                :tone="$summary['change_pct'] === null || $summary['change_pct'] == 0 ? 'neutral' : ($summary['change_pct'] > 0 ? 'positive' : 'negative')"
+                :hint="'Önceki 30 gün: '.number_format($summary['previous']['total'], 0, ',', '.')" />
             @foreach ($summary['current']['by_type'] as $type => $value)
-                <div>
-                    <p class="text-xs text-gray-500">{{ $types[$type] ?? $type }}</p>
-                    <p class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ number_format($value, 0, ',', '.') }}</p>
-                </div>
+                <x-ta.metric-card :label="$types[$type] ?? $type" :value="number_format($value, 0, ',', '.')" />
             @endforeach
         </div>
 
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
-                <thead class="text-left text-xs uppercase text-gray-400">
-                    <tr><th class="py-2 pr-3">Kaynak</th><th class="py-2 pr-3">Sinyal</th><th class="py-2 pr-3">Ne anlama geliyor</th><th class="py-2 pr-3 text-right">30 gün</th><th class="py-2">Toplama girer</th></tr>
+                <thead class="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-800">
+                    <tr><th class="py-2 pr-3 font-normal">Kaynak</th><th class="py-2 pr-3 font-normal">Sinyal</th><th class="py-2 pr-3 font-normal">Ne anlama geliyor</th><th class="py-2 pr-3 text-right font-normal">30 gün</th><th class="py-2 font-normal">Toplama girer</th></tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @foreach ($rows as $row)
                         <tr wire:key="conversion-{{ $row->id }}" @class(['opacity-60' => ! in_array($row->id, $counted, true)])>
                             <td class="py-2 pr-3 text-xs text-gray-500">{{ $sources[$row->source] ?? $row->source }}</td>
                             <td class="py-2 pr-3 text-gray-800 dark:text-gray-200">
                                 {{ $row->label }}
-                                @if ($row->origin === 'operator' || isset($row->metadata['type_by_operator'])) <span class="text-xs text-gray-400">· elle ayarlandı</span> @endif
+                                @if ($row->origin === 'operator' || isset($row->metadata['type_by_operator'])) <span class="text-xs text-gray-500">elle ayarlandı</span> @endif
                                 @php $isEngagement = in_array($row->id, $engagement, true); @endphp
                                 @if ($row->counts && $isEngagement && in_array($row->id, $counted, true))
                                     <span class="block text-xs font-medium text-warning-600" data-engagement-counted>Etkileşim sinyali müşteri sayılıyor: kaydırma, sayfa ya da profil ziyareti, form başlatma müşteri değildir. Bilerek açık tuttuysan kalsın; değilse kapat.</span>
                                 @elseif ($row->counts && $isEngagement)
-                                    <span class="block text-xs text-gray-400">İlgi ölçüsü; açık görünse de toplama girmiyor. Gerçekten müşteri sayılsın istiyorsan kapatıp yeniden aç.</span>
+                                    <span class="block text-xs text-gray-500">İlgi ölçüsü; açık görünse de toplama girmiyor. Gerçekten müşteri sayılsın istiyorsan kapatıp yeniden aç.</span>
                                 @elseif (! $row->counts && $isEngagement)
-                                    <span class="block text-xs text-gray-400">İlgi ölçüsü (kaydırma, sayfa ya da profil ziyareti, form başlatma); müşteri sayılmaz.</span>
+                                    <span class="block text-xs text-gray-500">İlgi ölçüsü (kaydırma, sayfa ya da profil ziyareti, form başlatma); müşteri sayılmaz.</span>
                                 @elseif ($row->counts && ($summary['current']['by_row'][$row->id] ?? 0) == 0)
                                     <span class="block text-xs text-warning-600">Son 30 günde hiç tetiklenmedi; kurulumu kontrol et.</span>
                                 @endif

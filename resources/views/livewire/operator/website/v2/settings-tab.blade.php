@@ -1,14 +1,14 @@
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
+    $card = 'min-w-0';
     $input = 'rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
 @endphp
-<div class="space-y-4 text-xs" data-settings>
+<div class="space-y-10 text-xs" data-settings>
     @if ($message !== '')
         <p role="status" class="rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">{{ $message }}</p>
     @endif
-    <section class="{{ $card }} flex flex-wrap items-center justify-between gap-2" data-collection-status>
-        <span><span class="font-semibold">Veri toplama</span> · {{ $collection === null ? 'henüz toplanmadı' : 'son toplama '.$collection['at']?->format('d.m.Y H:i').' ('.$collection['status'].')' }}</span>
+    <section class="{{ $card }} flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-4 dark:border-gray-800" data-collection-status>
+        <span><span class="font-semibold">Veri toplama</span> <span class="text-gray-500">{{ $collection === null ? 'henüz toplanmadı' : 'son toplama '.$collection['at']?->format('d.m.Y H:i').' ('.$collection['status'].')' }}</span></span>
         <a href="{{ route('operator.integrations.website', ['assetId' => $assetId]) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600">Şimdi güncelle</a>
     </section>
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
@@ -23,7 +23,7 @@
                     @foreach ($gscSitemaps as $map)
                         <li class="flex flex-wrap gap-2">
                             <a href="{{ $map['path'] }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ $map['path'] }}</a>
-                            <span @class(['text-error-600' => $map['errors'] > 0, 'text-warning-700' => $map['errors'] === 0 && $map['warnings'] > 0, 'text-gray-500' => $map['errors'] === 0 && $map['warnings'] === 0])>{{ $map['errors'] > 0 ? $map['errors'].' hata' : ($map['warnings'] > 0 ? $map['warnings'].' uyarı' : 'sorun yok') }}{{ $map['is_pending'] ? ' · Google işliyor' : '' }}{{ $map['last_downloaded'] ? ' · Google son okuma '.\Carbon\CarbonImmutable::parse($map['last_downloaded'])->format('d.m.Y') : '' }}</span>
+                            <span @class(['text-error-600' => $map['errors'] > 0, 'text-warning-700' => $map['errors'] === 0 && $map['warnings'] > 0, 'text-gray-500' => $map['errors'] === 0 && $map['warnings'] === 0])>{{ $map['errors'] > 0 ? $map['errors'].' hata' : ($map['warnings'] > 0 ? $map['warnings'].' uyarı' : 'sorun yok') }}{{ $map['is_pending'] ? ', Google işliyor' : '' }}{{ $map['last_downloaded'] ? ', Google son okuma '.\Carbon\CarbonImmutable::parse($map['last_downloaded'])->format('d.m.Y') : '' }}</span>
                         </li>
                     @endforeach
                 </ul>
@@ -33,22 +33,22 @@
         </div>
     </section>
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
-        <label for="capacity" class="font-semibold">Haftalık yeni yazı üst sınırı</label>
+        <label for="capacity" class="font-semibold" title="Sistem haftalık yeni yazı sayısını sitenin aşamasına göre seçer (1–3); bu sayı yalnız üst sınırdır. Çeviriler sayıya girmez.">Haftalık yeni yazı üst sınırı</label>
         <input id="capacity" type="number" min="1" max="20" wire:model="capacity" class="{{ $input }} w-20">
         <button type="button" wire:click="saveCapacity" class="{{ $ghost }}">Kaydet</button>
         @error('capacity')<span class="text-error-600">{{ $message }}</span>@enderror
-        <span class="w-full text-xs text-gray-500">Sistem haftalık yeni yazı sayısını sitenin aşamasına göre kendisi seçer (1–3); bu sayı yalnız üst sınırdır. Çeviriler sayıya girmez.</span>
+        <span class="sr-only">Sistem haftalık yeni yazı sayısını sitenin aşamasına göre kendisi seçer (1–3); bu sayı yalnız üst sınırdır. Çeviriler sayıya girmez.</span>
     </section>
     <section class="{{ $card }} space-y-2" data-clarity>
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold">Microsoft Clarity</h2>
+            <h2 class="section-title">Microsoft Clarity</h2>
             @if ($clarity !== null)
-                <span @class(['rounded-full px-2 py-0.5', 'bg-success-50 text-success-700' => $clarity->enabled && $clarity->last_status === 'ok', 'bg-error-50 text-error-700' => $clarity->last_status === 'error', 'bg-warning-50 text-warning-800' => $clarity->last_status === 'empty', 'bg-gray-100 text-gray-600' => ! $clarity->enabled || $clarity->last_status === null])>
+                <x-ta.pill :tone="! $clarity->enabled ? 'info' : match ($clarity->last_status) { 'ok' => 'ok', 'error' => 'critical', 'empty' => 'look', default => 'info' }">
                     {{ ! $clarity->enabled ? 'durduruldu' : match ($clarity->last_status) { 'ok' => 'son çekim '.$clarity->last_pulled_at?->timezone('Europe/Istanbul')->format('d.m H:i'), 'error' => 'hata', 'empty' => 'veri yok', default => 'henüz çekilmedi' } }}
-                </span>
+                </x-ta.pill>
             @endif
         </div>
-        <p class="text-gray-600 dark:text-gray-400">Ziyaretçinin sitede ne yaşadığı: öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları, kaydırma. Kötü sayfalar Onarım masası › Diğer işler › Teknik sağlık'a iş olarak düşer. Clarity etiketi sitede yüklü olmalı; token: Clarity › Settings › Data Export › Generate new API token.</p>
+        <p class="max-w-3xl text-gray-500">Ziyaretçinin sitede ne yaşadığı: öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları, kaydırma. Kötü sayfalar Onarım masası › Diğer işler › Teknik sağlık'a iş olarak düşer. Clarity etiketi sitede yüklü olmalı; token: Clarity › Settings › Data Export › Generate new API token.</p>
         @if ($clarity?->last_error)<p class="text-error-600" data-clarity-error>{{ $clarity->last_error }}</p>@endif
         <div class="flex flex-wrap items-center gap-2">
             <input type="text" wire:model="clarityProjectId" aria-label="Clarity proje kimliği" placeholder="Proje kimliği (ör. abcd1234ef)" class="{{ $input }} w-48">
@@ -64,11 +64,11 @@
         @error('clarityToken')<p class="text-error-600">{{ $message }}</p>@enderror
     </section>
     <section class="{{ $card }}" data-corrections>
-        <h2 class="mb-2 text-sm font-semibold">Kategori düzeltmeleri</h2>
-        <ul class="divide-y divide-gray-100 dark:divide-gray-800">
+        <h2 class="mb-2 section-title">Kategori düzeltmeleri</h2>
+        <ul class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
             @forelse ($corrections as $page)
-                <li class="flex items-center justify-between py-1" wire:key="corr-{{ $page->id }}">
-                    <span>{{ $page->path }} · {{ $page->categoryLabel() }}</span>
+                <li class="flex items-center justify-between py-2.5" wire:key="corr-{{ $page->id }}">
+                    <span>{{ $page->path }} <span class="text-gray-500">{{ $page->categoryLabel() }}</span></span>
                     <button type="button" wire:click="unlockCategory({{ $page->id }})" class="{{ $ghost }}">Kilidi kaldır</button>
                 </li>
             @empty

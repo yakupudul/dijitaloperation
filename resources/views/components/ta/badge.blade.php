@@ -5,7 +5,8 @@
 ])
 
 @php
-    $base = 'inline-flex items-center px-2.5 py-0.5 justify-center gap-1 rounded-full font-medium';
+    // Sade panel 2026-10-20: a light badge is plain coloured text, never a filled chip; solid stays for counters.
+    $base = $variant === 'solid' ? 'inline-flex items-center px-2 py-0.5 justify-center gap-1 rounded-md font-medium' : 'inline-flex items-center gap-1 font-medium';
 
     $sizeStyles = [
         'sm' => 'text-xs',
@@ -16,11 +17,11 @@
     // (critical), amber = "bak" (look), gray = info, green = ok. The old names stay as aliases.
     $tones = [
         'light' => [
-            'critical' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
-            'look' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400',
-            'info' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80',
-            'ok' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500',
-            'dark' => 'bg-gray-500 text-white dark:bg-white/5 dark:text-white',
+            'critical' => 'text-error-700 dark:text-error-400',
+            'look' => 'text-warning-700 dark:text-warning-400',
+            'info' => 'text-gray-500 dark:text-gray-400',
+            'ok' => 'text-success-700 dark:text-success-500',
+            'dark' => 'text-gray-900 dark:text-white',
         ],
         'solid' => [
             'critical' => 'bg-error-500 text-white',

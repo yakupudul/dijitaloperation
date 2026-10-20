@@ -4,10 +4,10 @@
     $brainBusy = in_array($brainStatus, ['queued', 'running'], true);
     $list = fn ($items): array => array_values(array_filter((array) $items, fn ($item) => is_string($item) && trim($item) !== ''));
 @endphp
-<section class="{{ $card }} space-y-4 p-5" data-wa-brain>
+<section class="space-y-6" data-wa-brain>
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-            <h2 class="font-semibold text-gray-900 dark:text-white">Beyin</h2>
+            <h2 class="section-title">Beyin</h2>
             <p class="mt-1 text-sm text-gray-500">
                 @if($brainBusy)
                     Görüşmeleri okuyor; birkaç dakika içinde burada görünür.
@@ -21,13 +21,13 @@
         <button type="button" wire:click="learnBrain" wire:loading.attr="disabled" wire:target="learnBrain" @disabled($brainBusy) class="shrink-0 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]">{{ $brain ? 'Yeniden öğren' : 'Öğren' }}</button>
     </div>
     @if($brainStatus === 'failed')
-        <p role="alert" class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['bad'] }}">{{ \App\Services\WhatsApp\WhatsAppBrain::ERROR_LABELS[$config['brain_error'] ?? ''] ?? 'Öğrenme tamamlanamadı.' }}</p>
+        <p role="alert" class="rounded-lg p-3 text-sm {{ $tone['bad'] }}">{{ \App\Services\WhatsApp\WhatsAppBrain::ERROR_LABELS[$config['brain_error'] ?? ''] ?? 'Öğrenme tamamlanamadı.' }}</p>
     @endif
     @error('brain')<p role="alert" class="text-sm text-error-600">{{ $message }}</p>@enderror
 
     @if($brain)
         @if($list($brain['open_questions'] ?? []) !== [])
-            <div class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-brain-questions>
+            <div class="rounded-lg p-3 text-sm {{ $tone['warn'] }}" data-wa-brain-questions>
                 <p class="font-medium">Senden istediklerim</p>
                 <p class="mt-0.5 text-xs">Her sorunun altına cevabını yaz ve kaydet. Cevaplar talimatlarına eklenir, soru listeden kalkar; boş bıraktığın soru kalır.</p>
                 <form wire:submit="saveAnswers" class="mt-2 space-y-3">

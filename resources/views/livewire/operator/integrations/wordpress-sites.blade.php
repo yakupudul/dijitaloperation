@@ -1,40 +1,40 @@
 @php
-    $card = 'rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
+    $card = 'min-w-0';
 @endphp
-<div class="space-y-5">
+<div class="space-y-10">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">WordPress siteleri</h1>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500">MoxDOP Connector bağlı siteler: eklenti ve WordPress sürümü, bekleyen güncellemeler, WordPress Site Sağlığı sonucu. Eklenti {{ $minimum }} ve üstünde, site yöneticisi eklenti ayarlarından açtıysa: tek tık panel girişi (tek kullanımlık, 60 saniye) ve onaylı güncelleme. Her ikisi yalnız Admin içindir ve kayda geçer. Güncellemeler geri alınamaz; önemli sitelerde önce yedek alın.</p>
+        <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">WordPress siteleri</h1>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500" title="Eklenti {{ $minimum }} ve üstünde, site yöneticisi açtıysa: tek tık panel girişi (tek kullanımlık, 60 saniye) ve onaylı güncelleme. Yalnız Admin, kayda geçer.">Güncellemeler geri alınamaz; önemli sitelerde önce yedek alın.</p>
     </div>
     @php
         $updatable = $rows->filter(fn ($r) => $r['connector_update']['available'])->count();
     @endphp
     @if ($isAdmin && $updatable > 0)
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-inset ring-brand-200 dark:bg-brand-500/10 dark:text-brand-200">
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm tone-info">
             <span>MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} siteye gönderilebilir. Otomatik dağıtılmaz; siz onaylayıp gönderirsiniz.</span>
             <x-ta.button type="button" wire:click="updateAllConnectors" wire:confirm="MoxDOP Connector {{ $latestConnector }} {{ $updatable }} web sitesine gönderilsin mi?" size="sm">Tüm sitelere gönder</x-ta.button>
         </div>
     @endif
-    @if ($message !== '')<p class="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300">{{ $message }}</p>@endif
-    @if ($error !== '' || $flashError)<p class="rounded-lg bg-error-50 px-3 py-2 text-sm text-error-800">{{ $error !== '' ? $error : $flashError }}</p>@endif
+    @if ($message !== '')<p class="rounded-lg px-3 py-2 text-sm tone-ok">{{ $message }}</p>@endif
+    @if ($error !== '' || $flashError)<p class="rounded-lg px-3 py-2 text-sm tone-critical">{{ $error !== '' ? $error : $flashError }}</p>@endif
 
     @forelse ($rows as $row)
         @php
             $site = $row['site'];
             $h = $row['health'];
         @endphp
-        <section class="{{ $card }}" wire:key="wp-{{ $site->id }}">
+        <section class="border-b border-gray-200 pb-6 dark:border-gray-800" wire:key="wp-{{ $site->id }}">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ $site->name }} <span class="font-normal text-gray-500">· {{ $site->domain }} · {{ $site->brand?->name }}</span></p>
+                    <h2 class="section-title">{{ $site->name }} <span class="text-sm font-normal text-gray-500">{{ $site->domain }}, {{ $site->brand?->name }}</span></h2>
                     <p class="text-xs text-gray-500">
-                        Eklenti {{ $row['plugin_version'] ?: '—' }}@if ($row['connector_update']['available']) <span class="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">yeni: {{ $latestConnector }}</span>@elseif ($row['plugin_version'] !== '' && version_compare($row['plugin_version'], $latestConnector, '<')) <span class="text-warning-700" title="{{ $row['connector_update']['reason'] }}">(yeni: {{ $latestConnector }}, bir kez elle yükle)</span>@endif @unless ($row['managed']) <span class="text-warning-700">(yönetim için {{ $minimum }} gerekli)</span>@endunless
-                        @if ($h) · WordPress {{ $h['wordpress_version'] ?? '—' }} · PHP {{ $h['php_version'] ?? '—' }}@endif
+                        Eklenti {{ $row['plugin_version'] ?: '—' }}@if ($row['connector_update']['available']) <span class="font-medium text-gray-900 dark:text-white">yeni: {{ $latestConnector }}</span>@elseif ($row['plugin_version'] !== '' && version_compare($row['plugin_version'], $latestConnector, '<')) <span class="text-warning-700" title="{{ $row['connector_update']['reason'] }}">(yeni: {{ $latestConnector }}, bir kez elle yükle)</span>@endif @unless ($row['managed']) <span class="text-warning-700">(yönetim için {{ $minimum }} gerekli)</span>@endunless
+                        @if ($h), WordPress {{ $h['wordpress_version'] ?? '—' }}, PHP {{ $h['php_version'] ?? '—' }}@endif
                         @if ($row['checked_at']) · {{ \Illuminate\Support\Carbon::parse($row['checked_at'])->format('d.m.Y H:i') }}@endif
                     </p>
-                    <p class="mt-1 text-xs">
-                        <span @class(['rounded-full px-2 py-0.5', 'bg-warning-50 text-warning-800' => $row['pending'] > 0, 'bg-success-50 text-success-700' => $row['pending'] === 0 && $h])>{{ $h ? $row['pending'].' bekleyen güncelleme' : 'sağlık okunmadı' }}</span>
-                        @if (($h['site_health'] ?? null) !== null)<span @class(['ml-1 rounded-full px-2 py-0.5', 'bg-error-50 text-error-700' => $row['critical'] > 0, 'bg-gray-100 text-gray-600' => $row['critical'] === 0])>Site Sağlığı: {{ $row['critical'] }} kritik, {{ $h['site_health']['recommended'] }} öneri</span>@endif
+                    <p class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                        <x-ta.pill :tone="$row['pending'] > 0 ? 'look' : ($h ? 'ok' : 'info')">{{ $h ? $row['pending'].' bekleyen güncelleme' : 'sağlık okunmadı' }}</x-ta.pill>
+                        @if (($h['site_health'] ?? null) !== null)<x-ta.pill :tone="$row['critical'] > 0 ? 'critical' : 'info'">Site Sağlığı: {{ $row['critical'] }} kritik, {{ $h['site_health']['recommended'] }} öneri</x-ta.pill>@endif
                         @if ($row['error'])<span class="ml-1 text-error-700">{{ \Illuminate\Support\Str::limit($row['error'], 120) }}</span>@endif
                     </p>
                 </div>
@@ -69,16 +69,16 @@
                         }
                     }
                 @endphp
-                <div class="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+                <div class="mt-4">
                     @if ($pendingItems->isEmpty())
                         <p class="text-sm text-gray-500">Bekleyen güncelleme yok.</p>
                     @else
-                        <ul class="divide-y divide-gray-100 text-sm dark:divide-gray-800">
+                        <ul class="divide-y divide-gray-200 text-sm dark:divide-gray-800">
                             @foreach ($pendingItems as $u)
-                                <li class="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                                <li class="flex flex-wrap items-center justify-between gap-2 py-2.5">
                                     <span>{{ $u['label'] }} <span class="text-xs text-gray-500">{{ $u['from'] }} → {{ $u['to'] }}</span></span>
                                     @if ($isAdmin && ($h['updates_enabled'] ?? false))
-                                        <button type="button" wire:click="applyUpdate({{ $site->id }}, @js($u['type']), @js($u['item']), @js($u['label']))" wire:confirm="{{ $u['label'] }} {{ $u['to'] }} sürümüne güncellensin mi? Geri alınamaz." class="rounded px-2 py-0.5 text-xs text-brand-700 ring-1 ring-inset ring-brand-300">Güncelle</button>
+                                        <button type="button" wire:click="applyUpdate({{ $site->id }}, @js($u['type']), @js($u['item']), @js($u['label']))" wire:confirm="{{ $u['label'] }} {{ $u['to'] }} sürümüne güncellensin mi? Geri alınamaz." class="rounded-md px-2 py-0.5 text-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700">Güncelle</button>
                                     @endif
                                 </li>
                             @endforeach
@@ -88,13 +88,13 @@
                     @if ($actions->isNotEmpty())
                         <p class="mt-3 text-xs font-semibold text-gray-600">Son güncellemeler</p>
                         @foreach ($actions as $action)
-                            <p class="text-xs text-gray-600">{{ $action->created_at?->format('d.m.Y H:i') }} · {{ $action->request_payload['label'] ?? $action->request_payload['item'] ?? '' }} · {{ $action->status }}@if (isset($action->result['to_version'])) → {{ $action->result['to_version'] }}@endif @if ($action->error)<span class="text-error-700">{{ \Illuminate\Support\Str::limit($action->error, 120) }}</span>@endif</p>
+                            <p class="text-xs text-gray-600">{{ $action->created_at?->format('d.m.Y H:i') }} · {{ $action->request_payload['label'] ?? $action->request_payload['item'] ?? '' }}, {{ $action->status }}@if (isset($action->result['to_version'])) → {{ $action->result['to_version'] }}@endif @if ($action->error)<span class="text-error-700">{{ \Illuminate\Support\Str::limit($action->error, 120) }}</span>@endif</p>
                         @endforeach
                     @endif
                 </div>
             @endif
         </section>
     @empty
-        <section class="{{ $card }} text-sm text-gray-500">Bağlı WordPress sitesi yok (Entegrasyonlar › Site bağlayıcıları).</section>
+        <section class="text-sm text-gray-500">Bağlı WordPress sitesi yok (Entegrasyonlar › Site bağlayıcıları).</section>
     @endforelse
 </div>

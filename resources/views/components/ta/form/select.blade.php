@@ -124,7 +124,7 @@
                         role="option"
                     >
                         <span x-text="opt.label"></span>
-                        <span class="ml-2 shrink-0 text-[10px] uppercase text-gray-400" x-text="opt.value !== opt.label ? opt.value : ''"></span>
+                        <span class="ml-2 shrink-0 text-xs uppercase text-gray-400" x-text="opt.value !== opt.label ? opt.value : ''"></span>
                     </button>
                 </li>
             </template>

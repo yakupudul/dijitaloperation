@@ -4,14 +4,14 @@
         <x-operator.asset-context :asset-id="$assetId" current="edit" />
     @endif
     <div>
-        <a href="{{ $backUrl }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">{{ __($f.'back') }}</a>
+        <a href="{{ $backUrl }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">{{ __($f.'back') }}</a>
         <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
+                <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
                 <p class="mt-1 text-sm text-gray-500">{{ $pageSubtitle }}</p>
             </div>
             @if ($sourcesUrl)
-                <a href="{{ $sourcesUrl }}" wire:navigate class="inline-flex rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">{{ __($f.'open_sources') }} →</a>
+                <a href="{{ $sourcesUrl }}" wire:navigate class="inline-flex rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">{{ __($f.'open_sources') }}</a>
             @endif
         </div>
     </div>
@@ -41,15 +41,15 @@
             @endif
 
             @if (($existingSite ?? null) !== null && ! $ownershipConflict)
-                <div class="rounded-xl border border-warning-300 bg-warning-50 p-4 text-sm text-warning-900 dark:border-warning-500/40 dark:bg-warning-500/10 dark:text-warning-100" data-existing-site>
+                <div class="tone-look rounded-lg p-4 text-sm" data-existing-site>
                     <p class="font-semibold">Bu alan adı zaten kayıtlı</p>
                     <p class="mt-1">{{ $existingSite['message'] }}</p>
                     <p class="mt-1">İkinci bir web sitesi oluşturulmaz; mevcut siteyi (bağlantıları ve verisiyle) bu markaya taşıyabilirsiniz.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         @if ($existingSite['movable'])
-                            <button type="button" wire:click="moveExistingSite" class="rounded-lg bg-warning-600 px-3 py-2 text-sm font-semibold text-white hover:bg-warning-700">Mevcut siteyi bu markaya taşı</button>
+                            <button type="button" wire:click="moveExistingSite" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-white dark:ring-gray-600">Mevcut siteyi bu markaya taşı</button>
                         @endif
-                        <button type="button" wire:click="dismissExistingSite" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-warning-300">Vazgeç</button>
+                        <button type="button" wire:click="dismissExistingSite" class="rounded-lg px-3 py-2 text-sm font-medium hover:underline">Vazgeç</button>
                     </div>
                 </div>
             @endif

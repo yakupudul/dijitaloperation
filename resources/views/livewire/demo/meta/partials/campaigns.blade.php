@@ -7,10 +7,9 @@
     $rowAlerts = fn (array $row): array => array_values(array_filter($row['alerts'], fn (array $a): bool => $a['key'] !== 'no_service'));
     $alertCount = $board ? count(array_filter($board['rows'], fn (array $r): bool => $rowAlerts($r) !== [])) : 0;
     $statusLabels = ['live' => 'Yayında', 'paused' => 'Durmuş', 'ended' => 'Bitti'];
-    // A row action, not a loss: neutral outline (red stays for money / traffic loss, orange for the page's main action).
-    $assignChip = 'bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:ring-gray-400 hover:text-gray-900 dark:bg-transparent dark:text-gray-300 dark:ring-gray-600';
-    // Confirmed service: a quiet solid gray chip (orange is only the page's main action).
-    $serviceChip = 'bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-200 dark:bg-white/[0.06] dark:text-gray-200 dark:ring-gray-700';
+    // Sade panel: a confirmed service is plain text; a system suggestion is a dashed outline you click to confirm.
+    $select = 'mt-1 block rounded-lg border-gray-200 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
+    $statTile = 'group -mx-2 flex min-w-0 flex-col gap-1 rounded-md px-2 py-1 text-left transition';
 @endphp
 
 @if (! ($board['bound'] ?? false))
@@ -21,28 +20,28 @@
             <p class="mb-1 text-xs text-gray-500">Durum</p>
             <div class="flex max-w-full flex-wrap gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.04]">
                 @foreach (['live' => 'Yayında', 'paused' => 'Durmuş', 'all' => 'Tümü'] as $key => $label)
-                    <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['rounded-md px-3 py-1 text-sm font-medium', 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white' => $status === $key, 'text-gray-600 dark:text-gray-400' => $status !== $key])>{{ $label }} <span class="text-xs text-gray-400">{{ $board['counts'][$key] ?? 0 }}</span></button>
+                    <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['rounded-md px-3 py-1 text-sm font-medium', 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white' => $status === $key, 'text-gray-600 dark:text-gray-400' => $status !== $key])>{{ $label }} <span class="text-xs text-gray-500">{{ $board['counts'][$key] ?? 0 }}</span></button>
                 @endforeach
             </div>
         </div>
         <label class="text-xs text-gray-500">Hizmet
-            <select wire:model.live="service" class="mt-1 block rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+            <select wire:model.live="service" class="{{ $select }}">
                 <option value="">Tüm hizmetler</option>
                 @foreach ($board['offerings'] as $offering)<option value="{{ $offering['id'] }}">{{ $offering['name'] }}</option>@endforeach
                 <option value="none">Hizmet atanmamış</option>
             </select>
         </label>
         <label class="text-xs text-gray-500">Sonuç türü
-            <select wire:model.live="resultType" class="mt-1 block rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+            <select wire:model.live="resultType" class="{{ $select }}">
                 <option value="">Tümü</option>
                 @foreach ($types as $key => [$label])<option value="{{ $key }}">{{ ucfirst($label) }}</option>@endforeach
             </select>
         </label>
         <label class="w-full min-w-0 flex-1 text-xs text-gray-500 sm:w-auto sm:min-w-[12rem]">Ara
-            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Kampanya adı" class="mt-1 block w-full rounded-lg border-gray-300 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Kampanya adı" class="mt-1 block w-full rounded-lg border-gray-200 py-1.5 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
         </label>
         @if ($brand)
-            <a href="{{ route('operator.meta-strategy', ['marka' => $brand->id]) }}" wire:navigate class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Strateji öner</a>
+            <a href="{{ route('operator.meta-strategy', ['marka' => $brand->id]) }}" wire:navigate class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Strateji öner</a>
         @endif
     </div>
 
@@ -64,38 +63,40 @@
     @if ($nothingSpent)
         <x-ta.empty-state size="sm" title="Bu dönemde harcama yok" message="{{ $range->label() }} içinde yayında harcama yapan kampanya yok; sayılar kampanya harcadıkça burada görünür." data-testid="meta-campaign-kpis" data-meta-nothing-spent />
     @else
-    <div class="grid grid-cols-2 gap-3 xl:grid-cols-5" data-testid="meta-campaign-kpis">
+    <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 xl:grid-cols-5" data-testid="meta-campaign-kpis">
         <x-ta.metric-card label="Harcama" :value="$money($k['spend']['value'])" :delta="$k['spend']['change'] === null ? null : $pct($k['spend']['change'])" tone="neutral"
             :hint="$k['spend']['change'] === null ? 'önceki dönem yok' : 'karşılaştırma dönemine göre'" class="col-span-2 min-w-0 sm:col-span-1" />
         @foreach ($typeTiles as $typeKey => [$label, $value, $sub, $change, $campaignsOfType])
             <button type="button" wire:click="$set('resultType', '{{ $resultType === $typeKey ? '' : $typeKey }}')" wire:key="kpi-{{ $typeKey }}" data-kpi-type="{{ $typeKey }}"
-                @class(['min-w-0 rounded-xl p-4 text-left ring-1 ring-inset transition', 'bg-gray-50 ring-gray-400 dark:bg-white/[0.06] dark:ring-gray-500' => $resultType === $typeKey, 'bg-white ring-gray-200 hover:ring-gray-300 dark:bg-gray-900 dark:ring-gray-800' => $resultType !== $typeKey])
-                title="Tabloyu {{ mb_strtolower($label) }} kampanyalarına süz">
-                <p class="text-xs font-medium text-gray-500">{{ $label }} <span class="text-gray-400">· {{ $campaignsOfType }} kampanya</span></p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $value }}</p>
-                <p class="text-xs tabular-nums text-gray-500">{{ $sub }}@if ($change !== null) <span @class(['font-semibold', 'text-success-600' => $change < 0, 'text-error-600' => $change > 0])>{{ $pct($change) }}</span>@endif</p>
+                @class([$statTile, 'bg-gray-100 dark:bg-white/[0.06]' => $resultType === $typeKey, 'hover:bg-gray-50 dark:hover:bg-white/[0.03]' => $resultType !== $typeKey])
+                @if ($resultType === $typeKey) aria-pressed="true" @endif title="Tabloyu {{ mb_strtolower($label) }} kampanyalarına süz">
+                <span class="text-[26px] leading-8 font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $value }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ $label }}, {{ $campaignsOfType }} kampanya</span>
+                <span class="text-xs tabular-nums text-gray-500">{{ $sub }}@if ($change !== null) <span @class(['text-success-700' => $change < 0, 'text-error-700' => $change > 0])>{{ $pct($change) }}</span>@endif</span>
             </button>
         @endforeach
     </div>
     @endif
 
     @if (! $nothingSpent && ($board['by_service'] ?? []) !== [])
-        <section class="space-y-2" data-testid="meta-campaigns-by-service">
+        <section data-testid="meta-campaigns-by-service">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmetlere göre</h2>
-                <p class="text-xs text-gray-500">{{ $range->label() }} · iki hizmetli kampanya ikisinde de sayılır · tıklayınca tablo o hizmete süzülür</p>
+                <h2 class="section-title" title="İki hizmetli kampanya ikisinde de sayılır; tıklayınca tablo o hizmete süzülür.">Hizmetlere göre <span class="text-sm font-normal text-gray-500">{{ $range->label() }}</span></h2>
             </div>
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="mt-2 divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach (collect($board['by_service'])->sortByDesc(fn (array $svc): float => (float) $svc['spend']) as $svc)
                     @php [$svcUnit, $svcCost] = $types[$svc['type']] ?? ['sonuç', 'sonuç başı']; @endphp
                     <button type="button" wire:click="$set('service', '{{ $service === (string) $svc['id'] ? '' : $svc['id'] }}')" wire:key="by-service-{{ $svc['id'] }}"
-                        @class(['min-w-0 rounded-xl p-4 text-left ring-1 ring-inset transition', 'bg-gray-50 ring-gray-400 dark:bg-white/[0.06] dark:ring-gray-500' => $service === (string) $svc['id'], 'bg-white ring-gray-200 hover:ring-gray-300 dark:bg-gray-900 dark:ring-gray-800' => $service !== (string) $svc['id']])>
-                        <p class="truncate font-semibold text-gray-900 dark:text-white" title="{{ $svc['name'] }}">{{ $svc['name'] }}</p>
-                        <p class="mt-0.5 text-xs text-gray-500">{{ $svc['campaigns'] }} kampanya · {{ $svc['live'] }} yayında</p>
+                        @class(['flex w-full min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2.5 text-left text-sm transition', 'bg-gray-100 dark:bg-white/[0.06]' => $service === (string) $svc['id'], 'hover:bg-gray-50 dark:hover:bg-white/[0.03]' => $service !== (string) $svc['id']])
+                        @if ($service === (string) $svc['id']) aria-pressed="true" @endif>
+                        <span class="min-w-0">
+                            <span class="font-medium text-gray-900 dark:text-white" title="{{ $svc['name'] }}">{{ $svc['name'] }}</span>
+                            <span class="ml-2 text-xs text-gray-500">{{ $svc['campaigns'] }} kampanya, {{ $svc['live'] }} yayında</span>
+                        </span>
                         @if ((float) $svc['spend'] == 0.0 && (float) $svc['results'] == 0.0)
-                            <p class="mt-2 text-sm text-gray-400">Bu dönemde harcama yok</p>
+                            <span class="text-xs text-gray-500">Bu dönemde harcama yok</span>
                         @else
-                            <p class="mt-2 text-sm tabular-nums text-gray-700 dark:text-gray-300"><span class="whitespace-nowrap font-semibold text-gray-900 dark:text-white">{{ $money($svc['spend']) }}</span> · <span class="whitespace-nowrap">{{ $count($svc['results']) }} {{ $svcUnit }}</span> · <span class="whitespace-nowrap">{{ $money($svc['cpr']) }} {{ $svcCost }}</span></p>
+                            <span class="tabular-nums text-gray-700 dark:text-gray-300"><span class="whitespace-nowrap font-medium text-gray-900 dark:text-white">{{ $money($svc['spend']) }}</span>, <span class="whitespace-nowrap">{{ $count($svc['results']) }} {{ $svcUnit }}</span>, <span class="whitespace-nowrap">{{ $money($svc['cpr']) }} {{ $svcCost }}</span></span>
                         @endif
                     </button>
                 @endforeach
@@ -107,21 +108,21 @@
         <p class="text-xs text-gray-500" data-testid="meta-campaign-alert-count">Bu listede {{ $alertCount }} kampanyada uyarı var; etiketler Uyarı sütununda.</p>
     @endif
 
-    <section class="{{ $panel }} overflow-hidden" data-testid="meta-campaigns">
+    <section data-testid="meta-campaigns">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[72rem] text-sm">
-                <thead class="bg-gray-50 dark:bg-white/[0.02]">
-                    <tr class="text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                        <th class="px-4 py-2.5">Kampanya</th><th class="px-3 py-2.5">Hizmetler</th><th class="px-3 py-2.5 text-right">Günlük bütçe</th><th class="px-3 py-2.5 text-right">Harcama</th>
-                        <th class="px-3 py-2.5 text-right">Sonuç</th><th class="px-3 py-2.5 text-right">Sonuç başı</th><th class="px-3 py-2.5 text-right">Hizmet ort.</th><th class="px-3 py-2.5">Uyarı</th>
+                <thead>
+                    <tr class="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-800">
+                        <th class="py-2 pr-4 font-normal">Kampanya</th><th class="px-3 py-2 font-normal">Hizmetler</th><th class="px-3 py-2 text-right font-normal">Günlük bütçe</th><th class="px-3 py-2 text-right font-normal">Harcama</th>
+                        <th class="px-3 py-2 text-right font-normal">Sonuç</th><th class="px-3 py-2 text-right font-normal" title="Karşılaştırma dönemine göre; her kampanya kendi sonuç türüyle.">Sonuç başı</th><th class="px-3 py-2 text-right font-normal" title="Aynı hizmet ve sonuç türünde diğer markaların son 30 gün ortancası.">Hizmet ort.</th><th class="px-3 py-2 font-normal">Uyarı</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 tabular-nums dark:divide-gray-800">
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 tabular-nums dark:divide-gray-800 dark:border-gray-800">
                     @forelse ($board['rows'] as $row)
-                        <tr class="align-top text-gray-700 dark:text-gray-300" wire:key="campaign-{{ $row['id'] }}">
-                            <td class="px-4 py-3">
+                        <tr class="align-top text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]" wire:key="campaign-{{ $row['id'] }}">
+                            <td class="py-3 pr-4">
                                 <div class="flex gap-2.5">
-                                    <span @class(['mt-1.5 h-2 w-2 shrink-0 rounded-full', 'bg-success-500' => $row['status'] === 'live', 'bg-gray-400' => $row['status'] !== 'live']) title="{{ $statusLabels[$row['status']] ?? '' }}"></span>
+                                    <span @class(['mt-2 h-1.5 w-1.5 shrink-0 rounded-full', 'bg-success-500' => $row['status'] === 'live', 'bg-gray-400' => $row['status'] !== 'live']) title="{{ $statusLabels[$row['status']] ?? '' }}"></span>
                                     @php
                                         // Readable line: the confirmed service(s) and target countries; the raw Meta name goes small and grey below.
                                         $confirmed = array_column(array_filter($row['services'], fn (array $s): bool => $s['status'] === 'confirmed'), 'name');
@@ -131,54 +132,54 @@
                                         $campaignUrl = route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $row['id'], 'gun' => $days, 'bas' => $start ?: null, 'bit' => $end ?: null, 'karsilastir' => $compare !== 'prev' ? $compare : null]);
                                     @endphp
                                     <div class="min-w-0 max-w-[24rem]" title="{{ $row['name'] }}{{ $row['objective'] !== '' ? ' · '.$row['objective'] : '' }}">
-                                        <a href="{{ $campaignUrl }}" wire:navigate class="block truncate font-semibold text-gray-900 hover:underline dark:text-white" data-campaign-title>{{ $readable ?? $row['name'] }}</a>
-                                        @if ($readable !== null)<p class="truncate text-xs text-gray-400" data-campaign-raw-name>{{ $row['name'] }}</p>@endif
+                                        <a href="{{ $campaignUrl }}" wire:navigate class="block truncate font-medium text-gray-900 hover:underline dark:text-white" data-campaign-title>{{ $readable ?? $row['name'] }}</a>
+                                        @if ($readable !== null)<p class="truncate text-xs text-gray-500" data-campaign-raw-name>{{ $row['name'] }}</p>@endif
                                     </div>
                                 </div>
                             </td>
                             <td class="px-3 py-3">
-                                <div class="flex max-w-[20rem] flex-wrap gap-1.5">
+                                <div class="flex max-w-[20rem] flex-wrap items-center gap-x-2 gap-y-1.5">
                                     @foreach ($row['services'] as $s)
                                         @if ($s['status'] === 'confirmed')
-                                            <span class="{{ $chip }} {{ $serviceChip }}">{{ $s['name'] }}</span>
+                                            <span class="text-gray-900 dark:text-gray-100">{{ $s['name'] }}</span>
                                         @else
-                                            <button type="button" wire:click="confirmService('{{ $row['id'] }}', {{ $s['id'] }})" title="Öneri ({{ \App\Models\AdCampaignService::SOURCES[$s['source']] ?? $s['source'] }}): {{ $s['reason'] }} · Onaylamak için tıklayın" class="{{ $chip }} border border-dashed border-gray-400 bg-white text-gray-700 hover:border-gray-600 hover:text-gray-900 dark:bg-transparent dark:text-gray-300 dark:hover:text-white">{{ $s['name'] }}</button>
+                                            <button type="button" wire:click="confirmService('{{ $row['id'] }}', {{ $s['id'] }})" title="Öneri ({{ \App\Models\AdCampaignService::SOURCES[$s['source']] ?? $s['source'] }}): {{ $s['reason'] }} · Onaylamak için tıklayın" class="{{ $chip }} border border-dashed border-gray-300 text-gray-700 hover:border-gray-500 hover:text-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:text-white">{{ $s['name'] }}</button>
                                         @endif
                                     @endforeach
                                     @if ($row['service_state'] === 'excluded')
-                                        <span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">Hizmet dışı</span>
+                                        <x-ta.pill tone="info">Hizmet dışı</x-ta.pill>
                                     @elseif ($row['services'] === [])
-                                        <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="{{ $chip }} {{ $assignChip }}" data-assign-service>+ Hizmet ata</a>
+                                        <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="link-neutral whitespace-nowrap text-xs" data-assign-service>+ Hizmet ata</a>
                                     @endif
                                 </div>
                             </td>
-                            <td class="whitespace-nowrap px-3 py-3 text-right">{{ $row['budget']['amount'] === null ? '—' : $money($row['budget']['amount']) }}@if ($row['budget']['level'] === 'adset' && $row['budget']['amount'] !== null)<span class="block text-[11px] text-gray-400">set bütçeleri</span>@endif</td>
+                            <td class="whitespace-nowrap px-3 py-3 text-right">{{ $row['budget']['amount'] === null ? '—' : $money($row['budget']['amount']) }}@if ($row['budget']['level'] === 'adset' && $row['budget']['amount'] !== null)<span class="block text-xs text-gray-500">set bütçeleri</span>@endif</td>
                             <td class="whitespace-nowrap px-3 py-3 text-right">{{ $money($row['spend']) }}</td>
-                            <td class="whitespace-nowrap px-3 py-3 text-right" data-result-type="{{ $row['type'] }}"><span class="font-medium text-gray-900 dark:text-white">{{ $count($row['results']) }}</span> <span class="ml-1 inline-block min-w-[4.5rem] rounded bg-gray-100 px-1.5 py-0.5 text-center text-[11px] font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $types[$row['type']][0] }}</span></td>
+                            <td class="whitespace-nowrap px-3 py-3 text-right" data-result-type="{{ $row['type'] }}"><span class="font-medium text-gray-900 dark:text-white">{{ $count($row['results']) }}</span> <span class="ml-1 inline-block min-w-[4.5rem] text-left text-xs text-gray-500">{{ $types[$row['type']][0] }}</span></td>
                             <td class="whitespace-nowrap px-3 py-3 text-right">
                                 <span class="font-medium text-gray-900 dark:text-white">{{ $cost($row) }}</span>
                                 @if ($row['cpr_change'] !== null)
-                                    <span @class(['block text-xs font-semibold', 'text-success-600' => $row['cpr_change'] < 0, 'text-error-600' => $row['cpr_change'] > 0, 'text-gray-500' => $row['cpr_change'] == 0])>{{ $row['cpr_change'] > 0 ? '↑' : ($row['cpr_change'] < 0 ? '↓' : '→') }} {{ $pct($row['cpr_change']) }}</span>
+                                    <span @class(['block text-xs', 'text-success-700' => $row['cpr_change'] < 0, 'text-error-700' => $row['cpr_change'] > 0, 'text-gray-500' => $row['cpr_change'] == 0])>{{ $pct($row['cpr_change']) }}</span>
                                 @endif
                             </td>
                             <td class="whitespace-nowrap px-3 py-3 text-right">
                                 @if ($row['average'])
-                                    <span class="text-gray-700 dark:text-gray-300" title="{{ $row['average']['brands'] }} markanın ortancası · {{ $row['average']['scope'] }}">{{ $money($row['average']['median']) }}</span>
+                                    <span class="text-gray-700 dark:text-gray-300" title="{{ $row['average']['brands'] }} markanın ortancası, {{ $row['average']['scope'] }}">{{ $money($row['average']['median']) }}</span>
                                     @if ($row['average']['diff'] !== null)
-                                        <span @class(['block text-xs font-semibold', 'text-success-600' => $row['average']['verdict'] === 'better', 'text-error-600' => $row['average']['verdict'] === 'worse', 'text-gray-500' => $row['average']['verdict'] === 'around'])>{{ $pct($row['average']['diff']) }}</span>
+                                        <span @class(['block text-xs', 'text-success-700' => $row['average']['verdict'] === 'better', 'text-error-700' => $row['average']['verdict'] === 'worse', 'text-gray-500' => $row['average']['verdict'] === 'around'])>{{ $pct($row['average']['diff']) }}</span>
                                     @endif
                                 @else
-                                    <span class="text-xs text-gray-400">—</span>
+                                    <span class="text-xs text-gray-500">—</span>
                                 @endif
                             </td>
                             <td class="px-3 py-3">
-                                <div class="flex flex-wrap gap-1">
+                                <div class="flex flex-wrap gap-x-3 gap-y-1">
                                     @foreach ($rowAlerts($row) as $alert)<x-ta.pill :tone="$alert['tone'] === 'bad' ? 'critical' : 'look'">{{ $alert['label'] }}</x-ta.pill>@endforeach
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">
+                        <tr><td colspan="8" class="py-6 text-center text-sm text-gray-500">
                             @if ($status === 'live' && ($board['counts']['all'] ?? 0) > 0)
                                 Yayında kampanya yok. <button type="button" wire:click="$set('status', 'all')" class="font-medium text-gray-700 underline dark:text-gray-300">Tümünü göster ({{ $board['counts']['all'] }})</button>
                             @else
@@ -189,11 +190,6 @@
                 </tbody>
             </table>
         </div>
-        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-700">
-            <span class="flex items-center gap-1.5"><span class="{{ $chip }} {{ $serviceChip }}">Hizmet</span> onaylı</span>
-            <span class="flex items-center gap-1.5"><span class="{{ $chip }} border border-dashed border-gray-400 text-gray-700">Hizmet</span> sistem önerisi, tıklayınca onaylanır</span>
-            <span class="flex items-center gap-1.5"><span class="{{ $chip }} {{ $assignChip }}">+ Hizmet ata</span> eşleşme yok, eşleştirme ekranını açar</span>
-            <span>Sonuç başı maliyet karşılaştırma dönemine göre; her kampanya kendi sonuç türüyle. Hizmet ort.: aynı hizmet ve sonuç türünde diğer markaların son 30 gün ortancası.</span>
-        </div>
+        <p class="mt-3 flex items-center gap-1.5 text-xs text-gray-500"><span class="{{ $chip }} border border-dashed border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300">Hizmet</span> sistem önerisi, tıklayınca onaylanır</p>
     </section>
 @endif

@@ -1,6 +1,6 @@
 @php($field = 'mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 text-sm dark:border-gray-700')
 <div class="space-y-4 text-sm">
-    <p class="text-gray-500">Meta uygulamasının sahibi olan portföydeki numara Facebook penceresinde seçilemez. O numarayı Meta'daki WhatsApp Yöneticisi'nden alınan bilgilerle burada bağlayın: WABA ID ve Phone Number ID WhatsApp → API Kurulumu ekranında; kalıcı erişim anahtarı İşletme Ayarları → Sistem kullanıcıları → Belirteç oluştur (whatsapp_business_management ve whatsapp_business_messaging izinleriyle).</p>
+    <p class="text-gray-500">Meta uygulamasının sahibi olan portföydeki numara Facebook penceresinde seçilemez. O numarayı Meta'daki WhatsApp Yöneticisi'nden alınan bilgilerle burada bağlayın: WABA ID ve Phone Number ID WhatsApp › API Kurulumu ekranında; kalıcı erişim anahtarı İşletme Ayarları › Sistem kullanıcıları › Belirteç oluştur (whatsapp_business_management ve whatsapp_business_messaging izinleriyle).</p>
     <form class="space-y-4" autocomplete="off" x-data="{ saving: false, saveError: '', saveSuccess: '', dirty: false, entered: {} }" @input="dirty = true; saveSuccess = ''" @change="dirty = true; saveSuccess = ''"
         @submit.prevent="
             if (saving) return;

@@ -1,7 +1,7 @@
 {{-- Keyword impact preview (KeywordInsights::impact): what the typed keyword would do before it is saved. --}}
 @php
     $fmt = fn ($value) => number_format((float) $value, 0, ',', '.');
-    $outcomes = ['comes' => 'bu hizmete gelir', 'stays' => 'zaten bu hizmette', 'kept' => 'değişmez (elle / AI / kilitli)', 'conflict' => 'çakışma · atanmaz', 'elsewhere' => 'daha uzun kelimeyle başka hizmette kalır'];
+    $outcomes = ['comes' => 'bu hizmete gelir', 'stays' => 'zaten bu hizmette', 'kept' => 'değişmez (elle / AI / kilitli)', 'conflict' => 'çakışma, atanmaz', 'elsewhere' => 'daha uzun kelimeyle başka hizmette kalır'];
     $ghostButton = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
 @endphp
 <div class="mt-2 w-full space-y-1 rounded-lg bg-gray-50 p-2 text-xs dark:bg-gray-800/50" data-keyword-impact>
@@ -11,7 +11,7 @@
         <p class="font-medium text-gray-800 dark:text-gray-100" data-impact-summary>{{ sprintf("Bu kelime %s sorgu yakalayacak · %s'si şu an bu hizmette · %s'si başka hizmetten gelecek%s · %s'si atanmamış",
             $fmt($impact['total']), $fmt($impact['here']), $fmt($impact['fromTotal']),
             $impact['from'] !== [] ? ' ('.collect($impact['from'])->map(fn ($count, $name) => $name.': '.$fmt($count))->implode(', ').')' : '', $fmt($impact['unassigned'])) }}</p>
-        @if ($impact['kept'] > 0)<p class="text-gray-600 dark:text-gray-400" data-impact-kept>{{ $fmt($impact['kept']) }} sorgu elle / AI ile atanmış veya kilitli · bu kelime onları değiştirmez.</p>@endif
+        @if ($impact['kept'] > 0)<p class="text-gray-600 dark:text-gray-400" data-impact-kept>{{ $fmt($impact['kept']) }} sorgu elle / AI ile atanmış veya kilitli; bu kelime onları değiştirmez.</p>@endif
         @if ($impact['elsewhere'] > 0)<p class="text-gray-600 dark:text-gray-400" data-impact-elsewhere>{{ $fmt($impact['elsewhere']) }} sorgu daha uzun bir kelimeyle başka hizmette kalır.</p>@endif
         @if ($impact['conflict'] > 0)<p class="text-warning-700 dark:text-warning-300" data-impact-conflict>{{ $fmt($impact['conflict']) }} sorgu çakışmaya düşer (iki hizmetin kelimesi, biri diğerini içermiyor) · atanmaz, Çakışmalar'da listelenir.</p>@endif
         @if ($impact['warning'])<p class="text-warning-700 dark:text-warning-300">{{ $impact['warning'] }}</p>@endif

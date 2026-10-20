@@ -11,7 +11,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">{{ $eyebrow }}</p>
         @endif
         <div class="mt-0.5 flex flex-wrap items-center gap-2">
-            <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $title }}</h1>
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $title }}</h1>
             @isset($badges)
                 @if (is_array($badges))
                     @foreach ($badges as $badgeLabel)

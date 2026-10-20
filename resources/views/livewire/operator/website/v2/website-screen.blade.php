@@ -7,7 +7,7 @@
         ? 'border-gray-900 font-semibold text-gray-900 dark:border-white dark:text-white'
         : 'border-transparent font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white');
 @endphp
-<div class="min-w-0 space-y-5 text-sm dark:text-gray-200" data-website-screen>
+<div class="min-w-0 space-y-8 text-sm dark:text-gray-200" data-website-screen>
     <x-operator.asset-context :asset-id="$site->id" :title="$site->name">
         <x-slot:meta>
             @if ($siteUrl)
@@ -26,7 +26,7 @@
                 <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
                 <span class="min-w-0">{{ __('data_status.banner.'.$bannerState.'_title', ['sources' => $group->map(fn ($status) => $status->sourceLabel())->implode(' / ')], 'tr') }}</span>
                 @if ($bannerState === 'not_bound')
-                    <a href="{{ route('operator.asset.sources', ['assetId' => $site->id]) }}" wire:navigate class="link-primary font-medium">{{ __('data_status.actions.bind', [], 'tr') }} →</a>
+                    <a href="{{ route('operator.asset.sources', ['assetId' => $site->id]) }}" wire:navigate class="link-primary font-medium">{{ __('data_status.actions.bind', [], 'tr') }}</a>
                 @endif
             </p>
         @endforeach
@@ -44,7 +44,7 @@
                     <div x-show="more" x-cloak class="absolute right-0 z-30 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-1 shadow-lg sm:left-0 sm:right-auto dark:border-gray-700 dark:bg-gray-900">
                         @foreach ($menu as $key => $label)
                             @if ($loop->index === count($screen::SETTINGS))
-                                <p class="mt-1 border-t border-gray-100 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:border-gray-800">Diğer görünümler</p>
+                                <p class="mt-1 border-t border-gray-100 px-3 pb-1 pt-2 text-xs text-gray-500 dark:border-gray-800">Diğer görünümler</p>
                             @endif
                             <button type="button" wire:click="setTab('{{ $key }}')" @click="more = false" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}"
                                     @class(['block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800', 'font-semibold text-gray-900 dark:text-white' => $tab === $key, 'text-gray-700 dark:text-gray-300' => $tab !== $key])>{{ $label }}</button>
@@ -58,6 +58,6 @@
     @forelse ($views as [$component, $params])
         @livewire($component, ['assetId' => $site->id, ...$params], key($component.'-'.$tab.'-'.$site->id.'-'.$rangeKey))
     @empty
-        <p class="surface p-4 text-gray-500" data-placeholder>Hazırlanıyor</p>
+        <p class="py-4 text-gray-500" data-placeholder>Hazırlanıyor</p>
     @endforelse
 </div>

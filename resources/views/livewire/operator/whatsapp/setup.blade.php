@@ -4,11 +4,11 @@
     $webhookVerified = ! empty($config['webhook_verified_at']);
     $subscribed = ($config['subscription_state'] ?? '') === 'verified';
     $firstMessage = ! empty($config['last_message_received_at']);
-    $stepBadge = fn (bool $done, string $doneText = 'Tamam', string $todoText = 'Yapılacak'): string => '<span class="rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset '.($done ? $tone['ok'] : $tone['muted']).'">'.e($done ? $doneText : $todoText).'</span>';
+    $stepBadge = fn (bool $done, string $doneText = 'Tamam', string $todoText = 'Yapılacak'): string => '<span class="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><span class="h-1.5 w-1.5 rounded-full '.($done ? 'bg-success-500' : 'bg-gray-400').'"></span>'.e($done ? $doneText : $todoText).'</span>';
 @endphp
-<section class="{{ $card }} p-5" data-wa-setup>
+<section class="{{ $card }}" data-wa-setup>
     @if($state === 'attention')
-        <div role="alert" class="mb-5 rounded-lg p-4 ring-1 ring-inset {{ $tone['bad'] }}">
+        <div role="alert" class="mb-5 rounded-lg p-4 {{ $tone['bad'] }}">
             <p class="font-semibold">Kayıtlı WhatsApp numarası şu an çalışmıyor</p>
             @if($connectionProblem)
                 <div class="mt-1">@include('livewire.operator.whatsapp.error-detail', ['error' => $connectionProblem, 'label' => null])</div>
@@ -18,20 +18,20 @@
             <p class="mt-2 text-sm">{{ $tokenExpired ? 'Çözüm: aşağıdaki 2. adımdan numarayı Meta ile yeniden bağlayın; erişim anahtarı yenilenir, mesajlar kaybolmaz.' : 'Aşağıdaki adımları kontrol edin.' }}</p>
         </div>
     @elseif($state === 'disabled')
-        <div class="mb-5 rounded-lg p-4 text-sm ring-1 ring-inset {{ $tone['muted'] }}">Mesaj alımı kapalı. Ayarlar → Elle bağla bölümünden "Mesaj alımı açık" kutusunu işaretleyip kaydedin.</div>
+        <div class="mb-5 rounded-lg p-4 text-sm {{ $tone['muted'] }}">Mesaj alımı kapalı. Ayarlar › Elle bağla bölümünden "Mesaj alımı açık" kutusunu işaretleyip kaydedin.</div>
     @endif
 
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $state === 'attention' ? 'Numarayı yeniden bağlayın' : 'WhatsApp numaranızı bağlayın' }}</h2>
+    <h2 class="section-title">{{ $state === 'attention' ? 'Numarayı yeniden bağlayın' : 'WhatsApp numaranızı bağlayın' }}</h2>
     <p class="mt-1 text-sm text-gray-500">Üç adım. Telefonunuzdaki WhatsApp Business uygulaması çalışmaya devam eder.</p>
 
     <ol class="mt-5 space-y-5">
         <li class="flex gap-4">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $metaReady ? 'bg-success-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $metaReady ? '✓' : '1' }}</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $metaReady ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' }}">{{ $metaReady ? '✓' : '1' }}</span>
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2"><h3 class="font-medium text-gray-900 dark:text-white">Meta uygulama bilgileri</h3>{!! $stepBadge($metaReady, 'Kayıtlı', 'Eksik') !!}</div>
                 @if($metaReady)
                     <p class="mt-1 text-sm text-gray-500">App ID {{ $config['app_id'] }} · Yapılandırma {{ $config['signup_config_id'] }} · {{ ($config['signup_mode'] ?? 'coexistence') === 'coexistence' ? 'WhatsApp Business uygulamasıyla birlikte' : 'Cloud API' }}
-                        · <button type="button" wire:click="$set('showSettings', true)" class="text-brand-600 hover:underline">Değiştir</button></p>
+                        · <button type="button" wire:click="$set('showSettings', true)" class="link-neutral">Değiştir</button></p>
                 @else
                     <p class="mt-1 text-sm text-gray-500">Meta for Developers'taki WhatsApp uygulamanızın bilgileri. Bir kez girilir.</p>
                     <div class="mt-3">@include('livewire.operator.whatsapp.signup-settings')</div>
@@ -60,10 +60,10 @@
         </li>
 
         <li class="flex gap-4">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $webhookVerified && $subscribed ? 'bg-success-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">{{ $webhookVerified && $subscribed ? '✓' : '3' }}</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ $webhookVerified && $subscribed ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700' }}">{{ $webhookVerified && $subscribed ? '✓' : '3' }}</span>
             <div class="min-w-0 flex-1 space-y-2">
                 <h3 class="font-medium text-gray-900 dark:text-white">Mesajların MoxDOP'a gelmesi</h3>
-                <p class="text-sm text-gray-500">Meta uygulamasında WhatsApp → Yapılandırma → Webhook bölümüne bu adresi ve kayıtlı Verify Token'ı girin; <code class="text-xs">messages</code>, <code class="text-xs">history</code> ve <code class="text-xs">smb_message_echoes</code> alanlarına abone olun.</p>
+                <p class="text-sm text-gray-500">Meta uygulamasında WhatsApp › Yapılandırma › Webhook bölümüne bu adresi ve kayıtlı Verify Token'ı girin; <code class="text-xs">messages</code>, <code class="text-xs">history</code> ve <code class="text-xs">smb_message_echoes</code> alanlarına abone olun.</p>
                 <div class="flex gap-2" x-data="{ copied: false }">
                     <input aria-label="Webhook adresi" readonly value="{{ route('api.whatsapp.webhook') }}" onclick="this.select()" class="min-w-0 flex-1 rounded-lg border border-gray-300 bg-gray-50 p-2 font-mono text-xs dark:border-gray-700 dark:bg-white/[0.03]" />
                     <button type="button" @click="navigator.clipboard.writeText('{{ route('api.whatsapp.webhook') }}').then(() => { copied = true; setTimeout(() => copied = false, 1500) })" class="rounded-lg px-3 py-2 text-xs ring-1 ring-inset ring-gray-300 dark:ring-gray-700" x-text="copied ? 'Kopyalandı' : 'Kopyala'">Kopyala</button>

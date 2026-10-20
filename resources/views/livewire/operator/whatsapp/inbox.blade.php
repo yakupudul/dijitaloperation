@@ -1,11 +1,14 @@
 @php
-    $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800';
+    // Sade panel (2026-10-20): page sections are flat; only the two chat panes keep an edge ($pane).
+    $card = 'min-w-0';
+    $pane = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800';
     $tone = [
-        'ok' => 'bg-success-50 text-success-700 ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/20',
-        'warn' => 'bg-warning-50 text-warning-800 ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200 dark:ring-warning-500/20',
-        'bad' => 'bg-error-50 text-error-700 ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/20',
-        'muted' => 'bg-gray-100 text-gray-600 ring-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:ring-gray-700',
+        'ok' => 'tone-ok',
+        'warn' => 'tone-look',
+        'bad' => 'tone-critical',
+        'muted' => 'tone-info',
     ];
+    $toneDot = ['ok' => 'ok', 'warn' => 'look', 'bad' => 'critical', 'muted' => 'info'];
     // Backup chats can come with a hidden number (lid…) instead of a phone number.
     $phoneLabel = fn (?string $number): string => match (true) {
         filled($number) && ctype_digit($number) => '+'.$number,
@@ -48,7 +51,7 @@
     $suggestionBusy = $selected && in_array($selected->suggestion_status, ['requested', 'running'], true);
     $backgroundBusy = in_array($backupImport?->status, ['queued', 'running'], true) || in_array($config['brain_status'] ?? null, ['queued', 'running'], true);
 @endphp
-<div class="space-y-5">
+<div class="space-y-8">
     {{-- Separate keyed pollers: changing one element's poll interval would leave the old timer running. --}}
     @if($attemptBusy || $suggestionBusy || ($config['connection_check'] ?? '') === 'queued')
         <div wire:key="wa-poll-fast" wire:poll.3s hidden></div>
@@ -57,13 +60,11 @@
     @endif
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">WhatsApp</h1>
-            <p class="mt-1 text-sm text-gray-500">Gelen mesajları okuyun; AI'nin hazırladığı cevabı kopyalayıp telefondan gönderin. MoxDOP mesaj göndermez.</p>
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">WhatsApp</h1>
+            <p class="mt-1 text-sm text-gray-500">MoxDOP mesaj göndermez; cevabı kopyalayıp telefondan gönderin.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <span data-wa-state="{{ $state }}" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset {{ $tone[$statePill[0]] }}">
-                <span class="h-2 w-2 rounded-full bg-current"></span>{{ $statePill[1] }}
-            </span>
+            <x-ta.pill :tone="$toneDot[$statePill[0]]" data-wa-state="{{ $state }}" class="text-sm">{{ $statePill[1] }}</x-ta.pill>
             <button type="button" wire:click="$toggle('showSettings')" class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]">{{ $showSettings ? 'Ayarları kapat' : 'Ayarlar' }}</button>
         </div>
     </div>
@@ -78,7 +79,7 @@
     @endif
 
     @if($historyDeadline)
-        <section class="rounded-xl p-5 ring-1 ring-inset {{ $tone['warn'] }}" data-wa-history>
+        <section class="rounded-lg p-4 {{ $tone['warn'] }}" data-wa-history>
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0 flex-1">
                     <h2 class="font-semibold">Telefondaki geçmiş mesajları alın</h2>
@@ -93,9 +94,9 @@
     @endif
 
     @if($showReconnect)
-        <section class="{{ $card }} space-y-3 p-5" data-wa-reconnect>
+        <section class="space-y-3" data-wa-reconnect>
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 class="font-semibold text-gray-900 dark:text-white">{{ $signupAttempt->mode === 'subscription' ? 'Mesaj aboneliği' : 'Numarayı yeniden bağlama' }}</h2>
+                <h2 class="section-title">{{ $signupAttempt->mode === 'subscription' ? 'Mesaj aboneliği' : 'Numarayı yeniden bağlama' }}</h2>
                 @if($canContinue)
                     <a href="{{ route('operator.whatsapp.connect', ['attempt' => $signupAttempt->id]) }}" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">{{ $signupAttempt->status === 'choose_phone' ? 'Numarayı seç' : 'Bağlantı sayfasını aç' }}</a>
                 @endif
@@ -120,7 +121,7 @@
         @foreach($tabs as $key => $label)
             <button type="button" wire:click="$set('tab', '{{ $key }}')" @class([
                 '-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium',
-                'border-brand-500 text-brand-600 dark:text-brand-400' => $activeTab === $key,
+                'border-gray-900 text-gray-900 dark:border-white dark:text-white' => $activeTab === $key,
                 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300' => $activeTab !== $key,
             ]) @if($activeTab === $key) aria-current="page" @endif>{{ $label }}</button>
         @endforeach
@@ -134,15 +135,15 @@
         @if($backupImport?->isBusy())
             @include('livewire.operator.whatsapp.backup-progress')
         @elseif($backupImport?->status === 'failed' && $backupImport->updated_at?->greaterThan(now()->subDays(3)))
-            <div role="alert" class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['bad'] }}" data-wa-backup-status="failed">
+            <div role="alert" class="rounded-lg px-3 py-2 text-sm {{ $tone['bad'] }}" data-wa-backup-status="failed">
                 <p class="font-medium">Son yedek çıkarılamadı</p>
                 <p class="mt-1">{{ $backupImport->error }} <button type="button" wire:click="$set('tab', 'setup')" class="font-semibold underline">Yedek yükle</button></p>
             </div>
         @elseif($backupImport?->status === 'uploaded')
-            <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-backup-status="uploaded">{{ $backupImport->file_name }} yüklendi ama çıkarılmadı{{ $backupImport->error ? ': '.$backupImport->error : '.' }} <button type="button" wire:click="$set('tab', 'setup')" class="font-semibold underline">Çıkar</button></p>
+            <p class="rounded-lg px-3 py-2 text-sm {{ $tone['warn'] }}" data-wa-backup-status="uploaded">{{ $backupImport->file_name }} yüklendi ama çıkarılmadı{{ $backupImport->error ? ': '.$backupImport->error : '.' }} <button type="button" wire:click="$set('tab', 'setup')" class="font-semibold underline">Çıkar</button></p>
         @endif
         @if($openQuestions > 0)
-            <p class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-questions-hint>Beyin senden {{ $openQuestions }} konuda bilgi istiyor; cevaplarsan cevaplar daha isabetli olur. <button type="button" wire:click="$set('tab', 'brain')" class="font-semibold underline">Cevapla</button></p>
+            <p class="rounded-lg px-3 py-2 text-sm {{ $tone['warn'] }}" data-wa-questions-hint>Beyin senden {{ $openQuestions }} konuda bilgi istiyor; cevaplarsan cevaplar daha isabetli olur. <button type="button" wire:click="$set('tab', 'brain')" class="font-semibold underline">Cevapla</button></p>
         @endif
         @include('livewire.operator.whatsapp.conversations')
     @elseif($activeTab === 'brain')
@@ -151,8 +152,8 @@
         @if($state !== 'connected')
             @include('livewire.operator.whatsapp.backup')
             {{-- The live Meta connection waits (yakup, 2026-10-05); kept one click away. --}}
-            <details class="{{ $card }} p-5" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
-                <summary class="cursor-pointer font-semibold text-gray-900 dark:text-white">Canlı bağlantı (Meta) <span class="font-normal text-gray-500">— askıda; mesajlar anında gelir ama Meta onayı gerekir</span></summary>
+            <details class="border-t border-gray-200 pt-6 dark:border-gray-800" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
+                <summary class="section-title cursor-pointer">Canlı bağlantı (Meta) <span class="text-sm font-normal text-gray-500">askıda, Meta onayı gerekir</span></summary>
                 <div class="mt-4">@include('livewire.operator.whatsapp.setup', ['card' => ''])</div>
             </details>
         @else

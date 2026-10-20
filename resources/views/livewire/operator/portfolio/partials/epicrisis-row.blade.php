@@ -19,7 +19,7 @@
             <textarea wire:model="editText" rows="2" aria-label="Düzelt" class="min-w-64 flex-1 rounded-md border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"></textarea>
             <div class="flex items-start gap-2">
                 <button type="button" wire:click="saveEdit" class="rounded-md bg-brand-500 px-2.5 py-1 font-semibold text-white hover:bg-brand-600">Kaydet ve kilitle</button>
-                <button type="button" wire:click="cancelEdit" class="rounded-md px-2.5 py-1 font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Vazgeç</button>
+                <button type="button" wire:click="cancelEdit" class="rounded-md px-2.5 py-1 font-medium text-gray-600 ring-1 ring-inset ring-gray-200 dark:text-gray-300 dark:ring-gray-700">Vazgeç</button>
             </div>
         </div>
         @error('editText') <p class="mt-1 text-error-600">{{ $message }}</p> @enderror
@@ -29,20 +29,20 @@
                 <span class="font-semibold text-gray-900 dark:text-white">{{ $item->fieldLabel() }}:</span>
             @endif
             @if ($item->scope)
-                <span class="text-gray-500">{{ $item->scope }} ·</span>
+                <span class="text-gray-500">{{ $item->scope }}:</span>
             @endif
             {{ $item->value }}
             @if (data_get($item->detail, 'answer'))
                 <span class="block text-gray-600 dark:text-gray-400">Cevap: {{ data_get($item->detail, 'answer') }}</span>
             @endif
         </p>
-        <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-gray-400">
-            <span class="inline-flex items-center rounded-full px-1.5 py-px text-[11px] font-medium ring-1 ring-inset {{ $badge($tone) }}">{{ $state }}</span>
+        <p class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-gray-500">
+            <span class="inline-flex items-center gap-1.5 {{ $badge($tone) }}"><span class="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true"></span>{{ $state }}</span>
             <span>
                 @if ($link)
                     <a href="{{ $link }}" target="_blank" rel="noopener" class="hover:underline">{{ $item->sourceLabel() }}</a>
                 @else
-                    {{ $item->sourceLabel() }}{{ $item->source_ref && ! str_starts_with((string) $item->source_ref, 'http') ? ' · '.$item->source_ref : '' }}
+                    {{ $item->sourceLabel() }}{{ $item->source_ref && ! str_starts_with((string) $item->source_ref, 'http') ? ', '.$item->source_ref : '' }}
                 @endif
             </span>
             @if ($item->seen_at)

@@ -2,16 +2,15 @@
     $select = 'h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white';
     $attentionLabels = ['needs_attention' => 'Dikkat istiyor', 'clear' => 'Sorun yok'];
     $contextLabels = ['complete' => 'İş bağlamı yeterli', 'incomplete' => 'İş bağlamı eksik', 'not_started' => 'İş bağlamı boş'];
-    $sortHead = fn (string $key, string $label) => '<button type="button" wire:click="sortBy(\''.$key.'\')" class="font-medium hover:text-gray-900 dark:hover:text-white">'.e($label).($sort === $key ? ($dir === 'asc' ? ' ↑' : ' ↓') : '').'</button>';
+    $sortHead = fn (string $key, string $label) => '<button type="button" wire:click="sortBy(\''.$key.'\')" class="font-normal hover:text-gray-900 dark:hover:text-white">'.e($label).($sort === $key ? ($dir === 'asc' ? ' ↑' : ' ↓') : '').'</button>';
 @endphp
-<div class="space-y-4" data-brands-index>
+<div class="space-y-6" data-brands-index>
     @include('livewire.demo.partials.flash')
 
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div class="min-w-0">
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Markalar</h1>
-            <p class="mt-1 text-sm text-gray-500">Tüm markalar ve müşterileri. Noktalar kanalların veri durumunu, açık iş markanın bekleyen önerilerini gösterir.</p>
-            @if ($allCount > 0)<p class="mt-1 text-xs text-gray-500" data-brands-summary>{{ $summaryLine }}</p>@endif
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white" title="Tüm markalar ve müşterileri. Noktalar kanalların veri durumunu, açık iş markanın bekleyen önerilerini gösterir.">Markalar</h1>
+            @if ($allCount > 0)<p class="mt-1 text-sm text-gray-500" data-brands-summary>{{ $summaryLine }}</p>@endif
         </div>
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             {{-- Müşteriler merged into Markalar (2026-10-19): the customer list and its actions stay one click away. --}}
@@ -35,9 +34,9 @@
             <option value="">Müşteri: hepsi</option>
             @foreach ($customerOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
         </select>
-        <button type="button" @click="more = ! more" :aria-expanded="more.toString()" class="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]" data-more-filters>
+        <button type="button" @click="more = ! more" :aria-expanded="more.toString()" class="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]" data-more-filters>
             Filtreler
-            @if ($moreFilters > 0)<span class="rounded-full bg-gray-900 px-1.5 text-[11px] font-semibold text-white tabular-nums dark:bg-white dark:text-gray-900">{{ $moreFilters }}</span>@endif
+            @if ($moreFilters > 0)<span class="text-xs font-medium text-gray-900 tabular-nums dark:text-white">{{ $moreFilters }}</span>@endif
             <svg class="h-3.5 w-3.5 transition" :class="more && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
         </button>
         <div x-show="more" x-cloak class="surface grid w-full grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3" data-more-filters-panel>
@@ -81,7 +80,7 @@
                 $primary_market !== '' ? ($countryOptions[$primary_market] ?? $primary_market) : null,
                 $context !== '' ? ($contextLabels[$context] ?? $context) : null,
             ]) as $label)
-                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 dark:bg-white/10 dark:text-gray-200">{{ $label }}</span>
+                <span class="text-gray-700 dark:text-gray-200">{{ $label }}</span>
             @endforeach
             <button type="button" wire:click="clearFilters" class="link-neutral font-medium">Temizle</button>
         </div>
@@ -96,26 +95,26 @@
             <button type="button" wire:click="clearFilters" class="link-neutral text-sm">Filtreleri temizle</button>
         </x-ta.empty-state>
     @else
-        <section class="surface overflow-x-auto">
+        <section class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
+                <thead class="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-800">
                     <tr>
-                        @if ($isAdmin)<th class="w-8 px-3 py-3"><input type="checkbox" aria-label="Tümünü seç" wire:click="toggleAll({{ json_encode($visibleIds) }})" @checked(count($selected) > 0 && count(array_intersect($selected, $visibleIds)) === count($visibleIds)) class="rounded border-gray-300"></th>@endif
-                        <th class="px-4 py-3">{!! $sortHead('name', 'Marka') !!}</th>
-                        <th class="hidden px-4 py-3 md:table-cell">{!! $sortHead('customer', 'Müşteri') !!}</th>
-                        <th class="hidden px-4 py-3 sm:table-cell">Kanallar</th>
-                        <th class="px-4 py-3 text-right">{!! $sortHead('work', 'Açık iş') !!}</th>
-                        <th class="hidden px-4 py-3 sm:table-cell">{!! $sortHead('attention', 'Dikkat') !!}</th>
+                        @if ($isAdmin)<th class="w-8 px-3 py-2.5"><input type="checkbox" aria-label="Tümünü seç" wire:click="toggleAll({{ json_encode($visibleIds) }})" @checked(count($selected) > 0 && count(array_intersect($selected, $visibleIds)) === count($visibleIds)) class="rounded border-gray-300"></th>@endif
+                        <th class="px-4 py-2.5 font-normal">{!! $sortHead('name', 'Marka') !!}</th>
+                        <th class="hidden px-4 py-2.5 font-normal md:table-cell">{!! $sortHead('customer', 'Müşteri') !!}</th>
+                        <th class="hidden px-4 py-2.5 font-normal sm:table-cell">Kanallar</th>
+                        <th class="px-4 py-2.5 font-normal text-right">{!! $sortHead('work', 'Açık iş') !!}</th>
+                        <th class="hidden px-4 py-2.5 font-normal sm:table-cell">{!! $sortHead('attention', 'Dikkat') !!}</th>
                         @if ($showOptionalColumns)
-                            <th class="hidden px-4 py-3 lg:table-cell">{!! $sortHead('sector', 'Sektör') !!}</th>
-                            <th class="hidden px-4 py-3 lg:table-cell">Ana pazar</th>
-                            <th class="hidden px-4 py-3 text-right lg:table-cell">{!! $sortHead('assets', 'Varlık') !!}</th>
-                            <th class="hidden px-4 py-3 text-right lg:table-cell">İş bağlamı</th>
+                            <th class="hidden px-4 py-2.5 font-normal lg:table-cell">{!! $sortHead('sector', 'Sektör') !!}</th>
+                            <th class="hidden px-4 py-2.5 font-normal lg:table-cell">Ana pazar</th>
+                            <th class="hidden px-4 py-2.5 font-normal text-right lg:table-cell">{!! $sortHead('assets', 'Varlık') !!}</th>
+                            <th class="hidden px-4 py-2.5 font-normal text-right lg:table-cell">İş bağlamı</th>
                         @endif
-                        <th class="hidden px-4 py-3 xl:table-cell">Ekip</th>
+                        <th class="hidden px-4 py-2.5 font-normal xl:table-cell">Ekip</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @foreach ($brands as $brand)
                         @php
                             $href = route('operator.brand', ['brand' => $brand['id']]);
@@ -134,7 +133,7 @@
                                 <div class="flex min-w-0 items-start gap-2.5">
                                     <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" size="sm" class="mt-0.5" />
                                     <div class="min-w-0">
-                                        <a href="{{ $href }}" wire:navigate class="break-words font-medium text-gray-900 hover:text-brand-600 dark:text-white">{{ $brand['name'] }}</a>
+                                        <a href="{{ $href }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
                                         <p class="break-all text-xs text-gray-500">{{ $brand['website'] ?? 'Web sitesi yok' }}</p>
                                         <p class="text-xs text-gray-500 md:hidden">
                                             <a href="{{ $customerHref }}" wire:navigate class="link-neutral font-normal">{{ $sameName ? 'Müşteri kartı' : $brand['customer_name'] }}</a>
@@ -152,13 +151,13 @@
                                     <a href="{{ $customerHref }}" wire:navigate class="break-words text-gray-700 hover:underline dark:text-gray-300">{{ $brand['customer_name'] }}</a>
                                 @endif
                                 @if (! $brand['customer_active'])<x-ta.pill tone="info" class="ml-1">Pasif</x-ta.pill>@endif
-                                @if ($brand['sector_label'] !== '—')<p class="text-xs text-gray-400">{{ $brand['sector_label'] }}</p>@endif
+                                @if ($brand['sector_label'] !== '—')<p class="text-xs text-gray-500">{{ $brand['sector_label'] }}</p>@endif
                             </td>
                             <td class="hidden px-4 py-3 align-top sm:table-cell">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</td>
-                            <td class="px-4 py-3 text-right align-top tabular-nums" data-open-work @if ($byChannel->isNotEmpty()) title="{{ $byChannel->implode(' · ') }}" @endif>
+                            <td class="px-4 py-3 text-right align-top tabular-nums" data-open-work @if ($byChannel->isNotEmpty()) title="{{ $byChannel->implode(', ') }}" @endif>
                                 <span class="font-medium text-gray-900 dark:text-white">{{ $brand['open_work'] }}</span>
                                 @if ($byChannel->isNotEmpty())
-                                    <p class="mt-0.5 hidden flex-wrap justify-end gap-x-1.5 text-[11px] leading-4 text-gray-500 md:flex">
+                                    <p class="mt-0.5 hidden flex-wrap justify-end gap-x-1.5 text-xs leading-4 text-gray-500 md:flex">
                                         @foreach ($byChannel as $part)<span class="whitespace-nowrap">{{ $part }}</span>@endforeach
                                     </p>
                                 @endif
@@ -168,7 +167,7 @@
                                 <td class="hidden px-4 py-3 text-gray-700 lg:table-cell dark:text-gray-300">{{ $brand['sector_label'] }}</td>
                                 <td class="hidden px-4 py-3 text-gray-700 lg:table-cell dark:text-gray-300">
                                     {{ $brand['primary_market_label'] !== '' ? $brand['primary_market_label'] : '—' }}
-                                    @if (($brand['extra_markets'] ?? 0) > 0)<span class="text-xs text-gray-400">+{{ $brand['extra_markets'] }}</span>@endif
+                                    @if (($brand['extra_markets'] ?? 0) > 0)<span class="text-xs text-gray-500">+{{ $brand['extra_markets'] }}</span>@endif
                                 </td>
                                 <td class="hidden px-4 py-3 text-right tabular-nums lg:table-cell">{{ $brand['assets_count'] }}<p class="text-xs text-gray-500">{{ $brand['connected_assets'] }} bağlı</p></td>
                                 <td class="hidden px-4 py-3 text-right tabular-nums lg:table-cell">{{ $brand['context_completed'] }}/{{ $brand['context_total'] }}</td>
@@ -176,7 +175,7 @@
                             <td class="hidden px-4 py-3 align-top xl:table-cell">
                                 <div class="flex -space-x-1.5" title="{{ collect($brand['responsible'] ?? [])->pluck('name')->implode(', ') }}">
                                     @foreach (collect($brand['responsible'] ?? [])->take(3) as $user)
-                                        <span class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[10px] font-semibold text-gray-700 dark:border-gray-900 dark:bg-gray-800 dark:text-gray-200">{{ $user['initials'] }}</span>
+                                        <span class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-semibold text-gray-700 dark:border-gray-900 dark:bg-gray-800 dark:text-gray-200">{{ $user['initials'] }}</span>
                                     @endforeach
                                 </div>
                             </td>

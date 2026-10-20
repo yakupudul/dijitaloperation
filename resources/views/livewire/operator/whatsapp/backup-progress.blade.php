@@ -10,7 +10,7 @@
         default => 'Yedek açılıyor (şifre çözülüyor), '.$progressMinutes.' dk',
     };
 @endphp
-<div class="space-y-1 rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['warn'] }}" data-wa-backup-status="{{ $backupImport->status }}">
+<div class="space-y-1 rounded-lg p-3 text-sm {{ $tone['warn'] }}" data-wa-backup-status="{{ $backupImport->status }}">
     <p class="font-medium">{{ $progressTitle }}</p>
     <p class="text-xs">{{ $backupImport->file_name }} · {{ number_format(($backupImport->size ?? 0) / 1048576, 1, ',', '.') }} MB · {{ $backupImport->status === 'running' ? 'başladı' : 'sıraya alındı' }} {{ $progressSince?->timezone('Europe/Istanbul')->format('H:i') ?? '—' }}@if($backupImport->attempt > 1) · {{ $backupImport->attempt }}. deneme @endif. Bitince yeni mesajlar listeye eklenir; sayfayı açık tutmanız gerekmez.</p>
     @if($backupImport->error)

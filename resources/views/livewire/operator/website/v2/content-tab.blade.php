@@ -1,5 +1,5 @@
 @php
-    $card = 'surface min-w-0 p-4';
+    $card = 'min-w-0';
     $input = 'rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-white';
     $btn = 'rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50';
     $ghost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
@@ -8,7 +8,7 @@
     $rowGhost = 'rounded-lg px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5';
     $chip = 'rounded-full px-2 py-0.5 text-xs';
 @endphp
-<div class="space-y-4" data-content @if (in_array('çalışıyor…', $statuses, true) || $draftStatus === 'çalışıyor…') wire:poll.5s @endif>
+<div class="space-y-10" data-content @if (in_array('çalışıyor…', $statuses, true) || $draftStatus === 'çalışıyor…') wire:poll.5s @endif>
     @if ($message !== '')
         <p role="status" class="flex items-center justify-between rounded-lg bg-gray-50 p-2 text-gray-800 dark:bg-gray-950 dark:text-gray-200">
             <span>{{ $message }}</span><button type="button" wire:click="$set('message', '')" aria-label="Kapat" class="px-2">×</button>
@@ -21,7 +21,7 @@
     <section class="{{ $card }} flex flex-wrap items-center gap-2">
         <button type="button" wire:click="run('weekly_content')" class="{{ $btn }}">Haftalık içerik öner</button>
         <x-operator.ai-prompt-info operation="site.weekly_content" />
-        <span class="min-w-0 text-xs text-gray-500" data-rhythm>Bu hafta {{ $rhythm['new'] }} yeni yazı + {{ $rhythm['update'] }} güncelleme ({{ $rhythm['label'] }}, kümelerin %{{ $rhythm['filled'] }}'i yeterli)@if ($contentState?->inBackfill()) · geriye dönük doldurma sürüyor @endif</span>
+        <span class="min-w-0 text-xs text-gray-500" data-rhythm>Bu hafta {{ $rhythm['new'] }} yeni yazı + {{ $rhythm['update'] }} güncelleme ({{ $rhythm['label'] }}, kümelerin %{{ $rhythm['filled'] }}'i yeterli)@if ($contentState?->inBackfill()), geriye dönük doldurma sürüyor @endif</span>
         <button type="button" wire:click="run('content_discovery')" class="{{ $ghost }}">Kümeler dışında fırsat keşfet</button>
         <x-operator.ai-prompt-info operation="site.content_discovery" />
         @foreach ($statuses as $op => $line)<span class="text-xs text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[$op] }}: {{ $line }}</span>@endforeach
@@ -34,20 +34,20 @@
     @include('livewire.operator.website.v2.partials.topic-map')
 
     <section class="{{ $card }}" data-section="content">
-        <ul class="divide-y divide-gray-100 text-xs dark:divide-gray-800">
+        <ul class="divide-y divide-gray-200 border-y border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
             @forelse ($items as $item)
                 @php $a = (array) $item->action; @endphp
-                <li class="py-2" wire:key="ct-{{ $item->id }}" data-content-item="{{ $item->id }}" x-data="{ rejecting: false }">
+                <li class="py-2.5" wire:key="ct-{{ $item->id }}" data-content-item="{{ $item->id }}" x-data="{ rejecting: false }">
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div class="min-w-0 flex-1">
                             <p class="break-words font-medium">{{ $item->title }}
-                                <span class="{{ $chip }} ml-1 bg-gray-100 text-gray-600 dark:bg-gray-800">{{ ($a['kind'] ?? 'new') === 'update' ? 'güncelle' : 'yeni' }} · {{ $a['page_type'] ?? '—' }}</span>
-                                @if ($a['out_of_cluster'] ?? false)<span class="{{ $chip }} ml-1 bg-live-50 text-live-700">küme dışı</span>@endif
-                                @if (isset($a['article_write_id']))<span class="{{ $chip }} ml-1 bg-success-50 text-success-700" data-draft-state="sent">WordPress'e taslak gönderildi</span>
-                                @elseif (is_array($a['article'] ?? null))<span class="{{ $chip }} ml-1 bg-gray-50 text-gray-700" data-draft-state="ready">Taslak hazır · okumak için «Aç»</span>
-                                @elseif (! empty($a['article_blocked']))<span class="{{ $chip }} ml-1 bg-error-50 text-error-700" data-draft-state="blocked">Uyum kuralına takıldı</span>@endif
+                                <span class="ml-1 text-xs font-normal text-gray-500">{{ ($a['kind'] ?? 'new') === 'update' ? 'güncelle' : 'yeni' }}, {{ $a['page_type'] ?? '—' }}</span>
+                                @if ($a['out_of_cluster'] ?? false)<span class="ml-1 text-xs font-normal text-gray-500">küme dışı</span>@endif
+                                @if (isset($a['article_write_id']))<x-ta.pill tone="ok" class="ml-1 font-normal" data-draft-state="sent">WordPress'e taslak gönderildi</x-ta.pill>
+                                @elseif (is_array($a['article'] ?? null))<x-ta.pill tone="info" class="ml-1 font-normal" data-draft-state="ready" title="Okumak için «Aç»">Taslak hazır</x-ta.pill>
+                                @elseif (! empty($a['article_blocked']))<x-ta.pill tone="critical" class="ml-1 font-normal" data-draft-state="blocked">Uyum kuralına takıldı</x-ta.pill>@endif
                             </p>
-                            <p class="wrap-anywhere text-gray-500" title="{{ $item->reason }}">{{ $item->cluster_id !== null ? ($clusterNames[$item->cluster_id] ?? '—').' · ' : '' }}{{ $a['target_url'] ?? '—' }}</p>
+                            <p class="wrap-anywhere text-xs text-gray-500" title="{{ $item->reason }}">{{ $item->cluster_id !== null ? ($clusterNames[$item->cluster_id] ?? '—').', ' : '' }}{{ $a['target_url'] ?? '—' }}</p>
                         </div>
                         <div class="flex shrink-0 flex-wrap items-center gap-1">
                             @if (($a['out_of_cluster'] ?? false) && ! isset($a['library_cluster_id']) && isset($a['service_id']))
@@ -70,7 +70,7 @@
                     @endif
                     @if ($item->reason && $opened?->id === $item->id)<p class="mt-1 text-gray-600 dark:text-gray-300">{{ $item->reason }}</p>@endif
                     @if ($opened?->id === $item->id)
-                        <div class="mt-2 grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-2 dark:bg-gray-950" data-detail>
+                        <div class="surface mt-2 grid gap-3 p-3 text-xs sm:grid-cols-2" data-detail>
                             <div><p class="font-semibold text-gray-500">Taslak başlıklar</p><ul class="list-disc pl-4">@foreach ((array) ($a['outline'] ?? []) as $line)<li>{{ $line }}</li>@endforeach</ul></div>
                             <div><p class="font-semibold text-gray-500">AI asistanlarına sorulanlar</p><ul class="list-disc pl-4">@foreach ((array) ($a['questions'] ?? []) as $line)<li>{{ $line }}</li>@endforeach</ul></div>
                             @if ($draftStatus)<p class="text-gray-500 sm:col-span-2">Taslak: {{ $draftStatus }}</p>@endif
@@ -93,7 +93,7 @@
                             @if (! empty($a['article_warnings']))<p class="text-warning-700 sm:col-span-2" data-article-warnings>{{ $a['article_warnings'] }}</p>@endif
                             @if (is_array($a['article'] ?? null))
                                 <div class="sm:col-span-2" data-article>
-                                    <p class="font-semibold">{{ $a['article']['title'] }} <span class="text-gray-500">· /{{ $a['article']['slug'] }}/ · {{ $a['article']['meta_description'] }}</span></p>
+                                    <p class="font-semibold">{{ $a['article']['title'] }} <span class="block font-normal text-gray-500">/{{ $a['article']['slug'] }}/</span><span class="block font-normal text-gray-500">{{ $a['article']['meta_description'] }}</span></p>
                                     <div class="mt-1 max-h-72 overflow-y-auto rounded bg-white p-2 dark:bg-gray-900">
                                         @foreach (\App\Services\Site\SiteDiff::blocks((string) $a['article']['html']) as $block)
                                             <p @class(['my-1', 'font-semibold' => str_starts_with($block['tag'], 'h'), 'pl-3' => $block['tag'] === 'li'])>{{ $block['tag'] === 'li' ? '• ' : '' }}{{ $block['text'] }}</p>

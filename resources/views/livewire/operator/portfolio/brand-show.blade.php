@@ -1,33 +1,32 @@
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $ghost = 'inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-800';
     $tabClass = fn (bool $active): string => $active
         ? '-mb-px h-11 shrink-0 border-b-2 border-gray-900 text-sm font-semibold text-gray-900 dark:border-white dark:text-white'
         : '-mb-px h-11 shrink-0 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
 @endphp
-<div class="space-y-5 text-sm dark:text-gray-200" data-brand-screen>
+<div class="space-y-8 text-sm dark:text-gray-200" data-brand-screen>
     @include('livewire.demo.partials.flash')
 
-    <header class="space-y-3">
+    <header class="space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="flex min-w-0 flex-1 items-start gap-3">
-                <a href="{{ route('operator.brands') }}" wire:navigate class="mt-2 shrink-0 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white" aria-label="Markalar">←</a>
+                <a href="{{ route('operator.brands') }}" wire:navigate class="mt-2 shrink-0 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white" aria-label="Markalar"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12.5 15 7.5 10l5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
                 <x-ta.brand-avatar :name="$brandModel->name" :logo="$brandModel->logo_url" size="lg" class="mt-0.5" />
             <div class="min-w-0 space-y-1">
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <h1 class="min-w-0 break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $brandModel->name }}</h1>
+                    <h1 class="min-w-0 break-words text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $brandModel->name }}</h1>
                     @if ($operational)
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/10 dark:text-success-300" data-brand-state="active"><span class="h-1.5 w-1.5 rounded-full bg-success-500"></span>Aktif</span>
+                        <x-ta.pill tone="ok" data-brand-state="active">Aktif</x-ta.pill>
                     @else
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300" data-brand-state="passive" title="{{ \App\Support\ServiceScope::NOT_SERVED }}"><span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Pasif</span>
+                        <x-ta.pill tone="info" data-brand-state="passive" title="{{ \App\Support\ServiceScope::NOT_SERVED }}">Pasif</x-ta.pill>
                     @endif
                 </div>
                 <p class="break-words text-sm text-gray-500">
                     @if ($customer)<a href="{{ route('operator.customer', ['customerId' => $customer->id]) }}" wire:navigate class="hover:underline">{{ $customer->name }}</a>@endif
-                    @if ($sectors !== []) · {{ implode(', ', $sectors) }}@endif
-                    @if ($areas !== []) · {{ implode(' · ', array_slice($areas, 0, 3)) }}@if (count($areas) > 3) +{{ count($areas) - 3 }}@endif @endif
+                    @if ($sectors !== [])@if ($customer), @endif{{ implode(', ', $sectors) }}@endif
+                    @if ($areas !== []), {{ implode(', ', array_slice($areas, 0, 3)) }}@if (count($areas) > 3) +{{ count($areas) - 3 }}@endif @endif
                     @foreach ($websites as $website)
-                        · <a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="Siteyi aç" class="link-neutral break-all font-medium">{{ $website->domain ?: $website->name }}</a>
+                        <span class="ml-2"></span><a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="Siteyi aç" class="link-neutral break-all font-medium">{{ $website->domain ?: $website->name }}</a>
                     @endforeach
                 </p>
             </div>
@@ -68,7 +67,7 @@
         <livewire:operator.workspace.brand-scorecard-tab :brand-id="(int) $brandModel->id" :key="'brand-scorecard-'.$brandModel->id" />
     @elseif ($tab === 'dosya')
         {{-- Epikriz: the record every AI step reads (layers, questions), then what the AI knows (Marka bilgi kartı), whether the brand looks the same everywhere (Kimlik tutarlılığı), then the file itself. --}}
-        <div class="space-y-4" data-brand-file-tab>
+        <div class="space-y-10" data-brand-file-tab>
             <livewire:operator.portfolio.brand-epicrisis-tab lazy :brand-id="(int) $brandModel->id" :key="'brand-epicrisis-'.$brandModel->id" />
             <livewire:operator.portfolio.brand-facts-card lazy :brand-id="(int) $brandModel->id" :key="'brand-facts-'.$brandModel->id" />
             <livewire:operator.portfolio.brand-identity-card lazy :brand-id="(int) $brandModel->id" :key="'brand-identity-'.$brandModel->id" />
@@ -87,22 +86,19 @@
         @if ($sub === 'marka')
             @include('livewire.operator.portfolio.partials.brand-info')
         @else
-            <section class="{{ $card }}" data-brand-files>
+            <section data-brand-files>
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Dosyalar</h2>
-                        <p class="text-xs text-gray-500">Sözleşme, teklif, logo, marka kılavuzu gibi bu markaya ait dosyalar.</p>
-                    </div>
+                    <h2 class="section-title" title="Sözleşme, teklif, logo, marka kılavuzu gibi bu markaya ait dosyalar.">Dosyalar <span class="text-sm font-normal text-gray-500">{{ count($brandFiles) }}</span></h2>
                     <a href="{{ route('operator.files', ['scope' => 'brand', 'brand' => $brandModel->id]) }}" wire:navigate class="inline-flex h-9 items-center rounded-lg bg-brand-500 px-3 text-sm font-semibold text-white hover:bg-brand-600">Dosya yükle</a>
                 </div>
-                <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                <ul class="mt-3 divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @forelse ($brandFiles as $file)
-                        <li wire:key="brand-file-{{ $file->id }}" class="flex flex-wrap items-center justify-between gap-2 py-2">
+                        <li wire:key="brand-file-{{ $file->id }}" class="flex flex-wrap items-center justify-between gap-2 py-2.5">
                             <div class="min-w-0">
                                 <p class="truncate font-medium text-gray-800 dark:text-white/90">{{ $file->original_name }}</p>
-                                <p class="text-xs text-gray-500">{{ $file->created_at?->format('d.m.Y') }} · {{ number_format(((int) $file->size) / 1024, 0, ',', '.') }} KB @if ($file->description) · {{ $file->description }}@endif</p>
+                                <p class="text-xs text-gray-500">{{ $file->created_at?->format('d.m.Y') }}, {{ number_format(((int) $file->size) / 1024, 0, ',', '.') }} KB @if ($file->description) · {{ $file->description }}@endif</p>
                             </div>
-                            <a href="{{ route('operator.files.download', $file) }}" class="text-xs font-medium text-brand-600 hover:underline">İndir</a>
+                            <a href="{{ route('operator.files.download', $file) }}" class="link-neutral text-xs">İndir</a>
                         </li>
                     @empty
                         <li class="py-6 text-center text-gray-500">Bu markaya bağlı dosya yok.</li>

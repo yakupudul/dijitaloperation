@@ -1,25 +1,24 @@
-<div class="space-y-5">
+<div class="space-y-6">
     <header class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Kütüphane</p>
-            <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Hizmetler</h1>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Tüm markaların ortak hizmet listesi. Buradaki düzenlemeler bağlı markalara yansır.</p>
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white" title="Tüm markaların ortak hizmet listesi. Buradaki düzenlemeler bağlı markalara yansır.">Hizmetler</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $services->total() }} hizmet</p>
         </div>
         <div class="flex gap-2">
-            <button type="button" wire:click="manageCategories" class="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Sektörleri yönet</button>
-            <button type="button" wire:click="createService" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">+ Hizmet ekle</button>
+            <button type="button" wire:click="manageCategories" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700">Sektörleri yönet</button>
+            <button type="button" wire:click="createService" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">Hizmet ekle</button>
         </div>
     </header>
 
     @if ($message !== '')
-        <div role="status" aria-live="polite" class="flex items-center justify-between gap-3 rounded-lg bg-success-50 px-4 py-3 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-200">
+        <div role="status" aria-live="polite" class="tone-ok flex items-center justify-between gap-3 rounded-lg px-4 py-2.5 text-sm">
             <span>{{ $message }}</span>
             <button type="button" wire:click="$set('message', '')" aria-label="Bildirimi kapat" class="px-2 py-1">×</button>
         </div>
     @endif
 
-    <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-        <div class="flex flex-wrap items-end gap-3 border-b border-gray-200 p-4 dark:border-gray-800">
+    <section>
+        <div class="flex flex-wrap items-end gap-3 pb-4">
             <div class="min-w-48 flex-1">
                 <label for="service-search" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-300">Hizmet ara</label>
                 <input id="service-search" wire:model.live.debounce.350ms="search" type="search" placeholder="Hizmet adı veya eş ad" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
@@ -39,41 +38,40 @@
                 </select>
             </div>
         </div>
-        <div class="flex items-center justify-between px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-            <span>{{ $services->total() }} hizmet</span>
+        <div class="flex items-center justify-end text-xs text-gray-500 dark:text-gray-400">
             <span wire:loading wire:target="search,sector,status,gotoPage,nextPage,previousPage">Liste güncelleniyor…</span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
                 <caption class="sr-only">Global hizmetler ve kullanıldıkları marka ve sorgu sayıları</caption>
-                <thead class="border-y border-gray-100 bg-gray-50 text-xs font-medium text-gray-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-400">
+                <thead class="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
                     <tr>
-                        <th scope="col" class="px-5 py-3 font-medium">Hizmet</th>
-                        <th scope="col" class="px-5 py-3 font-medium">Sektör</th>
-                        <th scope="col" class="px-5 py-3 text-right font-medium">Marka</th>
-                        <th scope="col" class="px-5 py-3 text-right font-medium">İşlemler</th>
+                        <th scope="col" class="py-2 pr-4 font-normal">Hizmet</th>
+                        <th scope="col" class="px-4 py-2 font-normal">Sektör</th>
+                        <th scope="col" class="px-4 py-2 text-right font-normal">Marka</th>
+                        <th scope="col" class="py-2 pl-4 text-right font-normal">İşlemler</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                     @forelse ($services as $service)
                         <tr wire:key="service-{{ $service->id }}" class="align-top hover:bg-gray-50 dark:hover:bg-gray-800/40">
-                            <td class="px-5 py-4">
+                            <td class="py-2.5 pr-4">
                                 @if (! $service->trashed())
-                                    <button type="button" wire:click="editService({{ $service->id }})" class="text-left font-semibold text-gray-900 hover:text-brand-600 dark:text-white">{{ $service->primaryName?->raw_label ?? 'İsimsiz hizmet' }}</button>
+                                    <button type="button" wire:click="editService({{ $service->id }})" class="text-left font-medium text-gray-900 hover:underline dark:text-white">{{ $service->primaryName?->raw_label ?? 'İsimsiz hizmet' }}</button>
                                 @else
                                     <span class="font-semibold text-gray-700 dark:text-gray-300">{{ $service->primaryName?->raw_label ?? 'İsimsiz hizmet' }}</span>
                                 @endif
-                                @if ($service->status === 'archived')<span class="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-gray-800">Arşiv</span>@endif
+                                @if ($service->status === 'archived')<x-ta.pill tone="info" class="ml-2">Arşiv</x-ta.pill>@endif
                                 @if ($service->description)<p class="mt-1 max-w-md text-xs leading-5 text-gray-500 dark:text-gray-400">{{ \Illuminate\Support\Str::limit($service->description, 110) }}</p>@endif
                                 <p class="mt-1 text-xs text-gray-500">{{ $service->matching_keywords_count }} eşleştirme ifadesi</p>
                             </td>
-                            <td class="px-5 py-4 text-gray-600 dark:text-gray-300">{{ $sectorOptions[$service->sector] ?? ($service->sector ?: 'Kategorisiz') }}</td>
-                            <td class="px-5 py-4 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $service->brand_offerings_count }}</td>
-                            <td class="whitespace-nowrap px-5 py-3 text-right">
+                            <td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">{{ $sectorOptions[$service->sector] ?? ($service->sector ?: 'Kategorisiz') }}</td>
+                            <td class="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $service->brand_offerings_count }}</td>
+                            <td class="whitespace-nowrap py-2.5 pl-4 text-right">
                                 @if ($service->trashed())
-                                    <button type="button" wire:click="restoreService({{ $service->id }})" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50">Geri al</button>
+                                    <button type="button" wire:click="restoreService({{ $service->id }})" wire:loading.attr="disabled" class="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:ring-gray-700">Geri al</button>
                                 @else
-                                    <button type="button" wire:click="editService({{ $service->id }})" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-500/10">Düzenle</button>
+                                    <button type="button" wire:click="editService({{ $service->id }})" class="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Düzenle</button>
                                     <button type="button" wire:click="deleteService({{ $service->id }})" wire:confirm="Bu hizmet {{ $service->brand_offerings_count }} marka dahil tüm güncel listelerden kaldırılacak. Silinenler filtresinden geri alınabilir. Silinsin mi?" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-xs text-gray-500 hover:bg-error-50 hover:text-error-700 disabled:opacity-50">Sil</button>
                                 @endif
                             </td>
@@ -81,13 +79,12 @@
                     @empty
                         <tr><td colspan="5" class="px-5 py-14 text-center">
                             <p class="font-medium text-gray-700 dark:text-gray-200">{{ $search !== '' || $sector !== '' ? 'Aramanızla eşleşen hizmet bulunamadı.' : 'Bu görünümde hizmet bulunmuyor.' }}</p>
-                            <p class="mt-2 text-sm text-gray-500">Filtreleri değiştirebilir veya yeni bir hizmet ekleyebilirsiniz.</p>
-                        </td></tr>
+                                                    </td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-        <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">{{ $services->links() }}</div>
+        <div class="pt-3">{{ $services->links() }}</div>
     </section>
 
     @if ($editorOpen)

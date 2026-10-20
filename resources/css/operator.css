@@ -4,11 +4,11 @@
  * spacing, dark-mode variants, menu-item utilities and ApexCharts styling are kept from TailAdmin.
  * See THIRD_PARTY_NOTICES.md for attribution.
  *
- * Panel redesign (2026-10-19, "yaşayan panel"): one warm neutral scale instead of TailAdmin's cool gray, Geist as the
- * UI face (still exposed as `font-outfit` so no view changes), one radius for every card (10 px), orange only on the
- * main action, status colours only where a status is shown. Every screen inherits these from the tokens below.
+ * Sade panel (yakup 2026-10-20, Notion / ElevenLabs): white page, Inter (still exposed as `font-outfit` so no view
+ * changes), 13 px smallest text (`text-xs`), neutral near-black main button (the `brand` scale is no longer orange;
+ * orange stays only in the logo), no boxes around sections, status shown with a dot. Every screen inherits these.
  */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300..800&display=swap') layer(base);
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap') layer(base);
 @import 'tailwindcss';
 
 @source '../views/operator/**/*.blade.php';
@@ -20,9 +20,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  /* Geist is the UI face; the legacy `font-outfit` utility name stays so existing views need no change. */
-  --font-sans: Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-outfit: Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Inter is the UI face (yakup 2026-10-20); the legacy `font-outfit` utility name stays so views need no change. */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-outfit: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Smallest running text is 13 px (Notion / ElevenLabs read at 14); 10-11 px text is gone from the panel. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
 
   /* One radius family for the whole panel: 10 px cards, 8 px controls, 12 px dialogs. */
   --radius-md: 6px;
@@ -52,34 +56,35 @@
   --text-theme-xs: 12px;
   --text-theme-xs--line-height: 18px;
 
-  /* MoxDOP brand — orange scale (brand-600 = #ea580c) */
-  --color-brand-25: #fffaf5;
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-300: #fdba74;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
-  --color-brand-800: #9a3412;
-  --color-brand-900: #7c2d12;
-  --color-brand-950: #431407;
+  /* Main action colour: near-black, like ElevenLabs (yakup 2026-10-20). The scale keeps the `brand` name so every
+     `bg-brand-500` button and `text-brand-600` link follows; orange stays only in the agency logo. */
+  --color-brand-25: #fbfbfa;
+  --color-brand-50: #f7f7f5;
+  --color-brand-100: #efefed;
+  --color-brand-200: #e3e3e0;
+  --color-brand-300: #b9b8b4;
+  --color-brand-400: #6f6e69;
+  --color-brand-500: #2a2a28;
+  --color-brand-600: #191918;
+  --color-brand-700: #0f0f0e;
+  --color-brand-800: #0a0a0a;
+  --color-brand-900: #050505;
+  --color-brand-950: #000000;
 
-  /* Warm neutrals (paper, not steel): page #f7f6f4, cards white, hairlines #e6e3de, text #1c1917. */
-  --color-gray-25: #fcfcfb;
-  --color-gray-50: #f7f6f4;
-  --color-gray-100: #f0eeea;
-  --color-gray-200: #e6e3de;
-  --color-gray-300: #d4d0c9;
-  --color-gray-400: #a39e96;
-  --color-gray-500: #716c64;
-  --color-gray-600: #57524b;
-  --color-gray-700: #403c36;
-  --color-gray-800: #292621;
-  --color-gray-900: #1c1917;
-  --color-gray-950: #121110;
-  --color-gray-dark: #211e1a;
+  /* Neutrals (Notion-like): page white, sidebar #f7f7f5, hairlines #ebebe9, text #191918. */
+  --color-gray-25: #fbfbfa;
+  --color-gray-50: #f7f7f5;
+  --color-gray-100: #f1f1ef;
+  --color-gray-200: #ebebe9;
+  --color-gray-300: #d9d9d6;
+  --color-gray-400: #a6a5a1;
+  --color-gray-500: #787774;
+  --color-gray-600: #5f5e5b;
+  --color-gray-700: #454441;
+  --color-gray-800: #2f2f2d;
+  --color-gray-900: #191918;
+  --color-gray-950: #111110;
+  --color-gray-dark: #202020;
 
   /* "Canlı" (AI / live work) is violet everywhere: header indicator, live feed, Claude rows. */
   --color-live-50: #f5f3ff;
@@ -137,12 +142,20 @@
   --shadow-theme-lg: 0px 12px 24px -6px rgba(28, 25, 23, 0.1), 0px 4px 6px -2px rgba(28, 25, 23, 0.03);
   --shadow-theme-sm: 0px 1px 3px 0px rgba(28, 25, 23, 0.06), 0px 1px 2px 0px rgba(28, 25, 23, 0.04);
   --shadow-theme-xs: 0px 1px 2px 0px rgba(28, 25, 23, 0.04);
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(234, 88, 12, 0.12);
+  --shadow-focus-ring: 0px 0px 0px 3px rgba(25, 25, 24, 0.12);
 
   --z-index-99: 99;
   --z-index-999: 999;
   --z-index-9999: 9999;
   --z-index-99999: 99999;
+}
+
+/* Dark mode: the near-black main button would vanish on the dark page, so it turns a lighter graphite there. */
+.dark {
+  --color-brand-400: #b9b8b4;
+  --color-brand-500: #4a4a46;
+  --color-brand-600: #5a5a55;
+  --color-brand-700: #6b6b65;
 }
 
 @layer base {
@@ -158,12 +171,12 @@
     cursor: pointer;
   }
   body {
-    @apply relative font-normal font-outfit bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-300;
-    font-feature-settings: 'cv11', 'ss01';
+    @apply relative font-normal font-outfit bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-200;
+    font-feature-settings: 'cv11';
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4 {
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
   /* Phones: long names, ids and URLs wrap instead of pushing cards past the screen edge (yakup 2026-10-19). */
   body {
@@ -180,17 +193,23 @@
 }
 
 @utility menu-item {
-  @apply relative flex items-center w-full gap-2.5 px-2.5 py-1.5 font-medium rounded-lg text-[13px] leading-5;
+  @apply relative flex items-center w-full gap-2.5 px-2 py-1 rounded-md text-sm leading-6;
 }
 
 /* Counter at the end of a menu entry (Onarım masası · 12). */
 @utility menu-count {
-  @apply ml-auto rounded-full bg-gray-100 px-1.5 text-[11px] font-semibold tabular-nums text-gray-600 dark:bg-white/10 dark:text-gray-300;
+  @apply ml-auto text-xs tabular-nums text-gray-500 dark:text-gray-400;
 }
 
-/* One card surface for the whole panel: white on paper, hairline ring, 10 px radius. */
+/* A real separate object (dialog, popover, a list that needs an edge): hairline ring, no shadow. Page sections are
+   not surfaces: they are a heading over content (`section-head`). */
 @utility surface {
   @apply rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800;
+}
+
+/* Section heading of a flat page: 16 px semibold title, quiet count, optional link on the right. */
+@utility section-title {
+  @apply text-base font-semibold text-gray-900 dark:text-white;
 }
 
 /* Pulsing dot of the live indicator (header, live feed). */
@@ -211,11 +230,11 @@
 
 /* Colour rules: orange (brand) is only the main action, so the active menu entry is neutral. */
 @utility menu-item-active {
-  @apply bg-white text-gray-900 shadow-theme-xs ring-1 ring-inset ring-gray-200 dark:bg-white/[0.08] dark:text-white dark:ring-white/10;
+  @apply bg-gray-200/60 font-medium text-gray-900 dark:bg-white/[0.08] dark:text-white;
 }
 
 @utility menu-item-inactive {
-  @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900 group-hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200;
+  @apply text-gray-700 hover:bg-gray-200/50 hover:text-gray-900 group-hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200;
 }
 
 @utility menu-item-icon-active {
@@ -235,7 +254,7 @@
  *  - green (tone-ok): fine.
  */
 @utility link-primary {
-  @apply font-semibold text-brand-600 hover:underline dark:text-brand-400;
+  @apply font-medium text-gray-900 underline decoration-gray-300 underline-offset-2 hover:decoration-gray-900 dark:text-white dark:decoration-gray-600;
 }
 
 @utility link-neutral {
@@ -243,19 +262,19 @@
 }
 
 @utility tone-critical {
-  @apply bg-error-50 text-error-800 ring-1 ring-inset ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/30;
+  @apply bg-error-50/70 text-error-800 dark:bg-error-500/10 dark:text-error-300;
 }
 
 @utility tone-look {
-  @apply bg-warning-50 text-warning-800 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-300 dark:ring-warning-500/30;
+  @apply bg-warning-50/70 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300;
 }
 
 @utility tone-info {
-  @apply bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:text-gray-300 dark:ring-gray-800;
+  @apply bg-gray-50 text-gray-700 dark:bg-white/[0.03] dark:text-gray-300;
 }
 
 @utility tone-ok {
-  @apply bg-success-50 text-success-800 ring-1 ring-inset ring-success-200 dark:bg-success-500/10 dark:text-success-300 dark:ring-success-500/30;
+  @apply bg-success-50/70 text-success-800 dark:bg-success-500/10 dark:text-success-300;
 }
 
 @utility no-scrollbar {

@@ -1,12 +1,10 @@
 <div @if ($running->isNotEmpty()) wire:poll.5s="refreshNow" @else wire:poll.30s="refreshNow" @endif class="relative" data-ai-live-indicator>
     @if ($visible)
         <details class="group" wire:key="ai-live-details">
-            <summary class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full bg-gray-100 px-3 text-xs text-gray-700 hover:bg-gray-200/70 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
+            <summary class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-md px-2 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white">
                 <span @class(['h-2 w-2 shrink-0 rounded-full', 'live-dot' => $running->isNotEmpty(), 'bg-warning-500' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-success-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'done', 'bg-error-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'failed', 'bg-gray-400' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'cancelled'])></span>
-                <span class="font-semibold">AI · {{ $running->count() }}</span>
-                @if ($queued->isNotEmpty())<span class="text-warning-700 dark:text-warning-300">+{{ $queued->count() }} sırada</span>@endif
-                @if ($running->count() === 1)<span class="hidden max-w-52 truncate sm:inline">{{ $running->first()->label }}</span>@endif
-                <span aria-hidden="true">▾</span>
+                <span class="sr-only sm:not-sr-only">AI · {{ $running->count() }}</span>
+                @if ($queued->isNotEmpty())<span class="sr-only sm:not-sr-only">+{{ $queued->count() }} sırada</span>@endif
             </summary>
             <div class="absolute right-0 z-50 mt-1.5 w-96 max-w-[90vw] rounded-xl bg-white p-4 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <p class="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">Çalışan AI işlemleri</p>

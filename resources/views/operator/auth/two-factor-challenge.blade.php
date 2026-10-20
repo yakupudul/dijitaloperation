@@ -22,7 +22,7 @@
     </script>
 </head>
 
-<body class="min-h-full bg-gray-50 text-gray-800 antialiased dark:bg-gray-950 dark:text-gray-100">
+<body class="min-h-full bg-white text-gray-800 antialiased dark:bg-gray-950 dark:text-gray-100">
     <div class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <div class="mb-8 text-center">
             @if (! empty($operatorBranding['logo_url']))
@@ -30,15 +30,15 @@
             @endif
             <p class="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</p>
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</p>
-            <div class="mt-4 flex justify-center gap-1 rounded-lg border border-gray-200 p-1 dark:border-gray-800" role="group" aria-label="{{ __('operator.profile.locale') }}">
+            <div class="mt-4 flex justify-center gap-3" role="group" aria-label="{{ __('operator.profile.locale') }}">
                 <a href="{{ route('app.login', ['locale' => 'en']) }}"
-                    @class(['rounded-md px-2.5 py-1.5 text-xs font-semibold transition', 'bg-brand-500 text-white' => app()->getLocale() === 'en', 'text-gray-600 hover:bg-gray-50 dark:text-gray-300' => app()->getLocale() !== 'en'])>EN</a>
+                    @class(['text-xs transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'en', 'text-gray-500 hover:text-gray-900 dark:text-gray-400' => app()->getLocale() !== 'en'])>EN</a>
                 <a href="{{ route('app.login', ['locale' => 'tr']) }}"
-                    @class(['rounded-md px-2.5 py-1.5 text-xs font-semibold transition', 'bg-brand-500 text-white' => app()->getLocale() === 'tr', 'text-gray-600 hover:bg-gray-50 dark:text-gray-300' => app()->getLocale() !== 'tr'])>TR</a>
+                    @class(['text-xs transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'tr', 'text-gray-500 hover:text-gray-900 dark:text-gray-400' => app()->getLocale() !== 'tr'])>TR</a>
             </div>
         </div>
 
-        <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <div class="w-full max-w-md rounded-2xl bg-white p-8 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ __('two_factor.challenge_title') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('two_factor.challenge_hint') }}</p>
 

@@ -14,9 +14,10 @@
         .koyu { --ink: #f5f1e8; --muted: #a8a49b; --line: rgba(245, 241, 232, .16); --paper: #12151c; --gold: #d8b45e; --tile: #ffffff; }
         body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: #e9e7e2; color: #14171f; }
         .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; padding: 14px 16px; font-size: 13px; color: #374151; }
-        .bar a, .bar button { padding: 7px 14px; border-radius: 999px; font: 600 13px Inter, sans-serif; text-decoration: none; cursor: pointer; border: 1px solid #d1d5db; background: #fff; color: #111827; }
-        .bar .on { background: #111827; color: #fff; border-color: #111827; }
-        .bar button { background: #465fff; border-color: #465fff; color: #fff; }
+        .bar a, .bar button { padding: 6px 12px; border-radius: 8px; font: 600 13px Inter, sans-serif; text-decoration: none; cursor: pointer; border: 1px solid #d1d5db; background: #fff; color: #111827; }
+        .bar a { border-color: #e5e7eb; }
+        .bar .on { background: #f3f4f6; color: #111827; border-color: #e5e7eb; }
+        .bar button { background: #111827; border-color: #111827; color: #fff; }
         .sheet { display: flex; flex-wrap: wrap; gap: 14mm; justify-content: center; padding: 6mm 16px 16mm; }
         .card { position: relative; width: 105mm; height: 148mm; padding: 11mm 10mm 9mm; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(0,0,0,.10); overflow: hidden; }
         .koyu .card { background: radial-gradient(120% 70% at 50% 0%, #1f2532 0%, #12151c 60%); }

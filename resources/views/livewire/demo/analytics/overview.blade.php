@@ -14,9 +14,9 @@
     <x-operator.asset-context :asset-id="$assetId" :title="$identity['title']">
         <x-slot:mark><x-demo.digital-asset-mark type="ga4" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>
-                {{ $identity['relationship_line'] ?? $identity['measures_line'] ?? 'Measures · Website' }}
+                {{ $identity['relationship_line'] ?? $identity['measures_line'] ?? 'Measures, Website' }}
                 @if (filled($identity['website_asset_id'] ?? null))
-                    · <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
+                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="ml-3 link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
                 @endif
         </x-slot:meta>
         <x-slot:actions>
@@ -30,7 +30,7 @@
         </x-slot:tabs>
     </x-operator.asset-context>
 
-    <p class="text-xs text-gray-400">{{ $data['demo_boundary'] }}</p>
+    <p class="text-xs text-gray-500">{{ $data['demo_boundary'] }}</p>
 
     @if ($tab === 'overview')
         @include('livewire.demo.analytics.tabs.overview')
@@ -50,15 +50,15 @@
 @if ($selectedAttention)
     <x-demo.gads-drawer :title="$selectedAttention['title']" :subtitle="$selectedAttention['scope'] ?? null" :severity="$selectedAttention['severity'] ?? null">
         <div>
-            <p class="text-xs text-gray-400">Ne oldu</p>
+            <p class="text-xs text-gray-500">Ne oldu</p>
             <p class="font-medium text-gray-900 dark:text-white">{{ $selectedAttention['metric'] }}</p>
         </div>
         <div>
-            <p class="text-xs text-gray-400">Neden önemli</p>
+            <p class="text-xs text-gray-500">Neden önemli</p>
             <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['why'] ?? 'Measurement signal requiring agency review.' }}</p>
         </div>
         <div>
-            <p class="text-xs text-gray-400">Önerilen adım</p>
+            <p class="text-xs text-gray-500">Önerilen adım</p>
             <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['action'] }}@if (! empty($selectedAttention['tab'])) in {{ str_replace('_', ' ', $selectedAttention['tab']) }}@endif.</p>
         </div>
         @if (! empty($selectedAttention['finding_id']))
@@ -74,15 +74,15 @@
     <x-demo.gads-drawer :title="$selectedLanding['path'] ?? 'Landing page'" :subtitle="$selectedLanding['title'] ?? $selectedLanding['content_role'] ?? null" :severity="$selectedLanding['attention'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <p class="text-xs text-gray-400">Oturum</p>
+                <p class="text-xs text-gray-500">Oturum</p>
                 <p class="font-semibold tabular-nums">{{ number_format($selectedLanding['sessions'] ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Etkileşim oranı</p>
+                <p class="text-xs text-gray-500">Etkileşim oranı</p>
                 <p class="font-semibold tabular-nums">{{ isset($selectedLanding['engaged_rate']) ? $selectedLanding['engaged_rate'].'%' : ($selectedLanding['engagement'] ?? '—') }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Eşlenen eylemler</p>
+                <p class="text-xs text-gray-500">Eşlenen eylemler</p>
                 <p class="font-semibold tabular-nums">
                     @if (array_key_exists('mapped_actions', $selectedLanding) && $selectedLanding['mapped_actions'] !== null)
                         {{ number_format($selectedLanding['mapped_actions']) }}
@@ -92,20 +92,20 @@
                 </p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">İçerik rolü</p>
+                <p class="text-xs text-gray-500">İçerik rolü</p>
                 <p class="font-semibold">{{ $selectedLanding['content_role'] ?? '—' }}</p>
             </div>
         </div>
         @if (! empty($selectedLanding['attention']))
             <div>
-                <p class="text-xs text-gray-400">Site uyarıları</p>
+                <p class="text-xs text-gray-500">Site uyarıları</p>
                 <p class="text-warning-700 dark:text-warning-400">{{ $selectedLanding['attention'] }}</p>
             </div>
         @endif
         @if (filled($selectedLanding['website_asset_id'] ?? $identity['website_asset_id'] ?? null))
         <a href="{{ route('operator.website', ['assetId' => $selectedLanding['website_asset_id'] ?? $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">{{ __('operator.chrome.open_website') }}</a>
         @endif
-        <p class="text-[11px] text-gray-400">GA4 · measured Website behavior</p>
+        <p class="text-xs text-gray-500">GA4, measured Website behavior</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -114,12 +114,12 @@
         @foreach (['what' => 'Ne oldu', 'why' => 'Neden önemli', 'scope' => 'Kapsam', 'evidence' => 'Kanıt', 'next' => 'Önerilen adım', 'outcome' => 'Sonuç'] as $key => $label)
             @if (! empty($selectedFinding[$key]))
                 <div>
-                    <p class="text-xs text-gray-400">{{ $label }}</p>
+                    <p class="text-xs text-gray-500">{{ $label }}</p>
                     <p class="text-gray-800 dark:text-white/90">{{ $selectedFinding[$key] }}</p>
                 </div>
             @endif
         @endforeach
-        <p class="text-[11px] text-gray-400">Tasks are not auto-created. No GA4 write actions.</p>
+        <p class="text-xs text-gray-500">Tasks are not auto-created. No GA4 write actions.</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -127,7 +127,7 @@
     <x-demo.gads-drawer :title="$selectedEvent['event'] ?? $selectedEvent['name'] ?? 'Event'" :subtitle="$selectedEvent['mapped_action'] ?? null" :severity="$selectedEvent['state'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <p class="text-xs text-gray-400">Adet</p>
+                <p class="text-xs text-gray-500">Adet</p>
                 <p class="font-semibold tabular-nums">
                     @if (array_key_exists('count', $selectedEvent) && $selectedEvent['count'] !== null)
                         {{ number_format($selectedEvent['count']) }}
@@ -137,11 +137,11 @@
                 </p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Eşlenen eylem</p>
+                <p class="text-xs text-gray-500">Eşlenen eylem</p>
                 <p class="font-semibold">{{ $selectedEvent['mapped_action'] ?? 'Not mapped' }}</p>
             </div>
         </div>
-        <p class="text-[11px] text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — absent event signal is not performance.' }}</p>
+        <p class="text-xs text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — absent event signal is not performance.' }}</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -149,11 +149,11 @@
     <x-demo.gads-drawer :title="$selectedAction['action'] ?? 'Business action'" :subtitle="$selectedAction['role'] ?? null" :severity="$selectedAction['state'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <p class="text-xs text-gray-400">GA4 event</p>
+                <p class="text-xs text-gray-500">GA4 event</p>
                 <p class="font-semibold">{{ $selectedAction['ga4_event'] ?? 'Unavailable' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Olay sayısı</p>
+                <p class="text-xs text-gray-500">Olay sayısı</p>
                 <p class="font-semibold tabular-nums">
                     @if (array_key_exists('event_count', $selectedAction) && $selectedAction['event_count'] !== null)
                         {{ number_format($selectedAction['event_count']) }}
@@ -163,21 +163,21 @@
                 </p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Eşleme</p>
+                <p class="text-xs text-gray-500">Eşleme</p>
                 <p class="font-semibold">{{ $selectedAction['mapping'] ?? $selectedAction['state'] ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Rol</p>
+                <p class="text-xs text-gray-500">Rol</p>
                 <p class="font-semibold">{{ $selectedAction['role'] ?? '—' }}</p>
             </div>
         </div>
         @if (! empty($selectedAction['note']))
             <div>
-                <p class="text-xs text-gray-400">Not</p>
+                <p class="text-xs text-gray-500">Not</p>
                 <p class="text-gray-700 dark:text-gray-300">{{ $selectedAction['note'] }}</p>
             </div>
         @endif
         <button type="button" wire:click="setMeasSub('business_actions')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Ölçüm eşlemesini aç</button>
-        <p class="text-[11px] text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Not mapped / Unavailable ≠ measured zero.' }}</p>
+        <p class="text-xs text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Not mapped / Unavailable ≠ measured zero.' }}</p>
     </x-demo.gads-drawer>
 @endif

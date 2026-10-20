@@ -52,8 +52,8 @@
             <button type="button" wire:click="setPeriod('{{ $key }}')"
                 @class([
                     'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-                    'bg-brand-500 text-white' => $period === $key,
-                    'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $period !== $key,
+                    'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $period === $key,
+                    'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white' => $period !== $key,
                 ])>
                 {{ $label }}
             </button>
@@ -62,8 +62,8 @@
         <button type="button" wire:click="openCustomPicker"
             @class([
                 'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-                'bg-brand-500 text-white' => $period === 'custom',
-                'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $period !== 'custom',
+                'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $period === 'custom',
+                'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white' => $period !== 'custom',
             ])
             aria-expanded="{{ $showCustomPicker ? 'true' : 'false' }}">
             {{ __('operator.period.custom') }}
@@ -72,8 +72,8 @@
         <button type="button" wire:click="toggleCompare"
             @class([
                 'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-                'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200 dark:bg-brand-500/15 dark:text-brand-400 dark:ring-brand-500/30' => $compareOn,
-                'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => ! $compareOn,
+                'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $compareOn,
+                'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white' => ! $compareOn,
             ])
             title="{{ __('operator.period.compare') }}">
             {{ $compareOn ? __('operator.period.compare_on') : __('operator.period.compare') }}
@@ -83,16 +83,16 @@
             <button type="button" wire:click="setCompareMode('previous')"
                 @class([
                     'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-                    'bg-brand-500 text-white' => $effectiveCompareMode !== 'yoy',
-                    'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $effectiveCompareMode === 'yoy',
+                    'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $effectiveCompareMode !== 'yoy',
+                    'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white' => $effectiveCompareMode === 'yoy',
                 ])>
                 {{ __('operator.period.compare_previous') }}
             </button>
             <button type="button" wire:click="setCompareMode('yoy')"
                 @class([
                     'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
-                    'bg-brand-500 text-white' => $effectiveCompareMode === 'yoy',
-                    'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $effectiveCompareMode !== 'yoy',
+                    'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $effectiveCompareMode === 'yoy',
+                    'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white' => $effectiveCompareMode !== 'yoy',
                 ])>
                 {{ __('operator.period.compare_yoy') }}
             </button>
@@ -101,7 +101,7 @@
         <span class="ml-1 text-xs text-gray-500 dark:text-gray-400" data-applied-range>
             {{ $appliedLabel }}
             @if ($compareOn && $compareLabel)
-                <span class="text-gray-400">{{ __('operator.period.vs') }}</span> {{ $compareLabel }}
+                <span>{{ __('operator.period.vs') }}</span> {{ $compareLabel }}
             @endif
         </span>
 
@@ -109,11 +109,11 @@
             <div class="flex w-full flex-wrap items-end gap-2 rounded-lg bg-white p-2 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700 sm:w-auto"
                 role="group"
                 aria-label="{{ __('operator.period.custom_range') }}">
-                <label class="flex flex-col gap-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                <label class="flex flex-col gap-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ __('operator.period.start') }}
                     <input type="date" wire:model="draftPeriodStart" min="{{ $minDate }}" max="{{ $maxDate }}" class="rounded-md border-0 bg-gray-50 px-2 py-1.5 text-xs text-gray-800 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600" />
                 </label>
-                <label class="flex flex-col gap-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                <label class="flex flex-col gap-0.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ __('operator.period.end') }}
                     <input type="date" wire:model="draftPeriodEnd" min="{{ $minDate }}" max="{{ $maxDate }}" class="rounded-md border-0 bg-gray-50 px-2 py-1.5 text-xs text-gray-800 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600" />
                 </label>

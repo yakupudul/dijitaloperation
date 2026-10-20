@@ -9,7 +9,7 @@
         'chunk' => route('operator.whatsapp.backup.chunk', ['import' => '00000000-0000-0000-0000-000000000000']),
     ];
 @endphp
-<section class="{{ $card }} space-y-4 p-5" data-wa-backup
+<section class="space-y-4" data-wa-backup
     x-data="{
         urls: @js($uploadUrls), progress: 0, uploading: false, message: '', extracting: false,
         async send(url, body, type) {
@@ -81,7 +81,7 @@
     }">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-            <h2 class="font-semibold text-gray-900 dark:text-white">Telefondaki yedekten yükle</h2>
+            <h2 class="section-title">Telefondaki yedekten yükle</h2>
             <p class="mt-1 text-sm text-gray-500">
                 @if($hasBackup)
                     {{ $backupConversations }} görüşme yedekten geldi{{ filled($config['backup_snapshot_at'] ?? null) ? ' · yedekteki son mesaj '.$when($config['backup_snapshot_at']) : '' }}. Yeni mesajları almak için güncel bir yedek yükleyin; yalnız eksik mesajlar eklenir.
@@ -110,11 +110,11 @@
         @include('livewire.operator.whatsapp.backup-progress', ['backupImport' => $import])
     @else
         @if($import?->status === 'completed')
-            <p class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['ok'] }}" data-wa-backup-status="completed">
+            <p class="rounded-lg p-3 text-sm {{ $tone['ok'] }}" data-wa-backup-status="completed">
                 Son yedek {{ $when($import->finished_at) }} çıkarıldı: {{ $importStats['chats'] ?? 0 }} görüşme ({{ $importStats['new_chats'] ?? 0 }} yeni), {{ $importStats['new_messages'] ?? 0 }} yeni mesaj.@if(($importStats['skipped_groups'] ?? 0) > 0) {{ $importStats['skipped_groups'] }} grup sohbeti alınmadı.@endif
             </p>
         @elseif($import?->status === 'failed')
-            <div role="alert" class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['bad'] }}" data-wa-backup-status="failed">
+            <div role="alert" class="rounded-lg p-3 text-sm {{ $tone['bad'] }}" data-wa-backup-status="failed">
                 <p class="font-medium">Yedek çıkarılamadı</p>
                 <p class="mt-1">{{ $import->error }}</p>
             </div>
@@ -124,7 +124,7 @@
             <form class="space-y-2" data-wa-backup-status="uploaded" @submit.prevent="extract()">
                 <p class="text-sm"><strong>{{ $import->file_name }}</strong> yüklendi ({{ $megabytes($import->size) }}). <button type="button" wire:click="discardBackup" class="text-xs text-gray-500 hover:text-error-600">Sil</button></p>
                 @if($import->error)
-                    <p role="alert" class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone['bad'] }}">{{ $import->error }}</p>
+                    <p role="alert" class="rounded-lg p-3 text-sm {{ $tone['bad'] }}">{{ $import->error }}</p>
                 @endif
                 <div class="flex flex-wrap gap-2">
                     <span wire:ignore class="min-w-0 flex-1"><input x-ref="key" type="password" autocomplete="off" spellcheck="false" aria-label="64 haneli şifreleme anahtarı" placeholder="{{ $backupKeySaved ? 'Boş bırakın: kayıtlı anahtar kullanılır' : '64 haneli şifreleme anahtarı' }}" class="w-full rounded-lg border border-gray-300 bg-transparent p-2 font-mono text-sm dark:border-gray-700" /></span>
@@ -146,7 +146,7 @@
         @endif
     @endif
     @if($hasBackup)
-        <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-800" data-wa-contacts>
+        <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-4 text-sm dark:border-gray-800" data-wa-contacts>
             <label class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]">
                 Rehberden isimleri al (.vcf)
                 <input type="file" class="sr-only" accept=".vcf,text/vcard,text/x-vcard" @change="contacts($event)" />

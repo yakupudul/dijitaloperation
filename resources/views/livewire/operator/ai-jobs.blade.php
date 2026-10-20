@@ -26,11 +26,11 @@
     };
     $codeOf = fn (\App\Models\AiLiveOperation $row): string => collect([$row->operation, $isTechnical((string) $row->label) ? $row->label : null, $row->job_class ? class_basename((string) $row->job_class) : null])->filter()->unique()->implode(' · ');
 @endphp
-<div class="space-y-5" data-ai-jobs @if ($polling) wire:poll.5s @endif>
+<div class="space-y-8" data-ai-jobs @if ($polling) wire:poll.5s @endif>
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">AI işleri</h1>
-            <p class="mt-1 text-sm text-gray-500">Çalışan, sıradaki ve geçmiş AI işleri ({{ $retentionDays }} gün saklanır). Satıra tıklayınca ayrıntı açılır.</p>
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">AI işleri</h1>
+            <p class="mt-1 text-sm text-gray-500">{{ $retentionDays }} gün saklanır</p>
         </div>
         @if ($isAdmin)
             <a href="{{ route('operator.settings.ai-operations') }}" wire:navigate class="link-neutral text-sm">Ayarlar › AI işlemleri ve promptlar</a>
@@ -41,11 +41,11 @@
         <p class="tone-ok rounded-lg px-4 py-2 text-sm" data-ai-jobs-status>{{ session('ai-jobs-status') }}</p>
     @endif
 
-    <div class="{{ $card }} flex flex-wrap items-end gap-3 px-4 py-3 text-sm" data-ai-jobs-filters>
+    <div class="flex flex-wrap items-end gap-3 text-sm" data-ai-jobs-filters>
         <div class="flex flex-wrap gap-1">
-            <button type="button" wire:click="$set('status', '')" @class(['rounded-full px-3 py-1', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $status === '', 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' => $status !== ''])>Tümü</button>
+            <button type="button" wire:click="$set('status', '')" @class(['rounded-full px-3 py-1', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $status === '', 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5' => $status !== ''])>Tümü</button>
             @foreach ($statuses as $key => $label)
-                <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['rounded-full px-3 py-1', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $status === $key, 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200' => $status !== $key])>{{ $label }}</button>
+                <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['rounded-full px-3 py-1', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $status === $key, 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5' => $status !== $key])>{{ $label }}</button>
             @endforeach
         </div>
         <label class="flex min-w-0 flex-col gap-1">
@@ -78,31 +78,31 @@
     </div>
 
     <div @class(['grid gap-5', 'xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' => $detailData !== null])>
-        <section class="{{ $card }} overflow-x-auto" data-ai-jobs-list>
+        <section class="min-w-0 overflow-x-auto" data-ai-jobs-list>
             @php($narrow = $detailData !== null)
             <table class="w-full text-sm">
-                <thead class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-700">
+                <thead class="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-700">
                     <tr class="whitespace-nowrap">
-                        @if ($isAdmin)<th class="w-8 py-2 pl-4"><span class="sr-only">Seç</span></th>@endif
-                        <th class="px-3 py-2 font-medium">İşlem</th>
-                        <th @class(['hidden px-3 py-2 font-medium', 'md:table-cell' => ! $narrow, '2xl:table-cell' => $narrow])>Kullanıcı</th>
-                        <th @class(['hidden px-3 py-2 font-medium', 'sm:table-cell' => ! $narrow, '2xl:table-cell' => $narrow])>Başladı</th>
-                        <th class="px-3 py-2 text-right font-medium">Süre</th>
-                        <th class="hidden px-3 py-2 text-right font-medium sm:table-cell">Maliyet</th>
-                        <th class="px-4 py-2 text-right font-medium">Durum</th>
+                        @if ($isAdmin)<th class="w-8 py-2"><span class="sr-only">Seç</span></th>@endif
+                        <th class="px-3 py-2 font-normal">İşlem</th>
+                        <th @class(['hidden px-3 py-2 font-normal', 'md:table-cell' => ! $narrow, '2xl:table-cell' => $narrow])>Kullanıcı</th>
+                        <th @class(['hidden px-3 py-2 font-normal', 'sm:table-cell' => ! $narrow, '2xl:table-cell' => $narrow])>Başladı</th>
+                        <th class="px-3 py-2 text-right font-normal">Süre</th>
+                        <th class="hidden px-3 py-2 text-right font-normal sm:table-cell">Maliyet</th>
+                        <th class="px-4 py-2 text-right font-normal">Durum</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     @forelse ($rows as $row)
                         <tr wire:key="ai-job-{{ $row->id }}" @class(['cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40', 'bg-gray-50 dark:bg-white/[0.04]' => $detail === $row->id]) wire:click="show({{ $row->id }})" data-ai-job-row="{{ $row->id }}">
                             @if ($isAdmin)
-                                <td class="py-2 pl-4" wire:click.stop>
+                                <td class="py-2.5" wire:click.stop>
                                     @unless ($row->isOpen())<input type="checkbox" value="{{ $row->id }}" wire:model.live="selected" aria-label="Seç">@endunless
                                 </td>
                             @endif
                             <td class="min-w-0 px-3 py-2">
                                 <span class="break-words font-medium text-gray-800 dark:text-white/90" @if ($codeOf($row) !== '') title="{{ $codeOf($row) }}" @endif>{{ $labelOf($row) }}</span>
-                                @if ($row->isJob())<span class="ml-1 rounded bg-gray-100 px-1 text-[10px] text-gray-500 dark:bg-gray-700">iş</span>@endif
+                                @if ($row->isJob())<span class="ml-1 text-xs text-gray-500">iş</span>@endif
                                 @if ($row->subject)<p class="max-w-[38vw] truncate text-xs text-gray-500 sm:max-w-md" title="{{ $row->subject }}">{{ $row->subject }}</p>@endif
                                 @if ($row->error && ! $row->isOpen())<p class="max-w-[38vw] truncate text-xs text-error-600 sm:max-w-md" title="{{ $row->error }}">{{ $row->error }}</p>@endif
                             </td>
@@ -117,16 +117,16 @@
                     @endforelse
                 </tbody>
             </table>
-            <div class="px-4 py-2">{{ $rows->links() }}</div>
+            <div class="py-2">{{ $rows->links() }}</div>
             @if ($isAdmin)
                 {{-- Record cleanup: a quiet footer; deleting the selected rows lives in the selection bar below. --}}
-                <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-2 text-xs text-gray-500 dark:border-gray-700" data-ai-jobs-cleanup>
+                <div class="flex flex-wrap items-center gap-2 py-2 text-xs text-gray-500" data-ai-jobs-cleanup>
                     <span class="inline-flex items-center gap-1">
                         <input type="number" min="1" wire:model="olderThanDays" aria-label="Gün" class="w-16 {{ $input }}">
                         <button type="button" wire:click="deleteOlder" wire:confirm="Bu günden eski bitmiş kayıtlar silinsin mi?" class="rounded-md px-2 py-1 font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5">günden eski kayıtları sil</button>
                     </span>
                     @error('olderThanDays')<span class="text-error-600">{{ $message }}</span>@enderror
-                    <span class="text-gray-400">Çalışan ve sıradaki işler silinmez.</span>
+                    <span class="text-gray-500">Çalışan ve sıradaki işler silinmez.</span>
                 </div>
                 @if (count($selected) > 0)
                     <div class="sticky bottom-3 z-30 m-3 flex flex-wrap items-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white shadow-theme-lg ring-1 ring-white/10 dark:bg-gray-800" data-ai-jobs-selection>
@@ -143,7 +143,7 @@
             <aside wire:key="ai-job-detail-{{ $item->id }}" x-data x-init="if (window.innerWidth < 1280) $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'start' }))" class="{{ $card }} scroll-mt-16 space-y-4 p-5 text-sm" data-ai-job-detail="{{ $item->id }}">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <h2 class="break-words text-base font-semibold text-gray-800 dark:text-white/90" @if ($codeOf($item) !== '') title="{{ $codeOf($item) }}" @endif>{{ $labelOf($item) }}</h2>
+                        <h2 class="section-title break-words" @if ($codeOf($item) !== '') title="{{ $codeOf($item) }}" @endif>{{ $labelOf($item) }}</h2>
                         @if ($detailData['purpose'])<p class="mt-1 text-gray-600 dark:text-gray-300">{{ $detailData['purpose'] }}</p>@endif
                     </div>
                     <button type="button" wire:click="closeDetail" class="text-xs font-semibold text-gray-500">Kapat ✕</button>
@@ -152,35 +152,35 @@
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="font-semibold {{ $statusClass($item) }}">{{ $item->statusLabel() }}</span>
                     @if ($item->cancelRequested() && $item->isOpen())
-                        <span class="rounded bg-warning-50 px-2 py-0.5 text-xs text-warning-700 dark:bg-warning-500/10 dark:text-warning-300" data-ai-job-stop-requested>Durdurma isteği gönderildi</span>
+                        <span class="text-xs text-warning-700 dark:text-warning-300" data-ai-job-stop-requested>Durdurma isteği gönderildi</span>
                     @endif
                     @if ($isAdmin && $detailData['stoppable'])
-                        <button type="button" wire:click="stop({{ $item->id }})" wire:confirm="{{ $item->isQueued() ? 'İş kuyruktan kaldırılsın mı?' : 'İş durdurulsun mu? Sürmekte olan AI çağrısı biter, sonucu kullanılmaz.' }}" class="rounded-lg px-3 py-1 text-xs font-semibold text-error-700 ring-1 ring-inset ring-error-200 hover:bg-error-50 dark:text-error-300 dark:ring-error-500/30" data-ai-job-stop>{{ $item->isQueued() ? 'Kuyruktan kaldır' : 'Durdur' }}</button>
+                        <button type="button" wire:click="stop({{ $item->id }})" wire:confirm="{{ $item->isQueued() ? 'İş kuyruktan kaldırılsın mı?' : 'İş durdurulsun mu? Sürmekte olan AI çağrısı biter, sonucu kullanılmaz.' }}" class="rounded-lg px-3 py-1 text-xs font-semibold text-error-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-error-300 dark:ring-gray-700" data-ai-job-stop>{{ $item->isQueued() ? 'Kuyruktan kaldır' : 'Durdur' }}</button>
                     @endif
                     @if ($detailData['link'])
-                        <a href="{{ $detailData['link'] }}" wire:navigate class="link-neutral text-xs" data-ai-job-link>Sonucun kullanıldığı yer →</a>
+                        <a href="{{ $detailData['link'] }}" wire:navigate class="link-neutral text-xs" data-ai-job-link>Sonucun kullanıldığı yer</a>
                     @endif
                 </div>
 
                 <dl class="grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
-                    <div><dt class="text-gray-400">Kullanıcı</dt><dd class="text-gray-800 dark:text-gray-200">{{ $item->user_id && isset($detailData['users'][$item->user_id]) ? $detailData['users'][$item->user_id] : 'Sistem' }}</dd></div>
-                    <div><dt class="text-gray-400">Konu</dt><dd class="text-gray-800 dark:text-gray-200">{{ $item->subject ?? '—' }}</dd></div>
-                    @if ($item->queued_at)<div><dt class="text-gray-400">Sıraya alındı</dt><dd>{{ $time($item->queued_at) }}</dd></div>@endif
-                    <div><dt class="text-gray-400">Başladı</dt><dd>{{ $item->isQueued() ? '—' : $time($item->started_at) }}</dd></div>
-                    <div><dt class="text-gray-400">Bitti</dt><dd>{{ $time($item->finished_at) }}</dd></div>
-                    <div><dt class="text-gray-400">Süre</dt><dd>{{ $item->durationLabel() }}</dd></div>
-                    <div><dt class="text-gray-400">Maliyet</dt><dd>{{ $usd($item->cost_usd) }}</dd></div>
-                    <div><dt class="text-gray-400">Token (girdi / çıktı)</dt><dd>{{ $item->input_tokens !== null ? number_format($item->input_tokens, 0, ',', '.') : '—' }} / {{ $item->output_tokens !== null ? number_format($item->output_tokens, 0, ',', '.') : '—' }}</dd></div>
+                    <div><dt class="text-gray-500">Kullanıcı</dt><dd class="text-gray-800 dark:text-gray-200">{{ $item->user_id && isset($detailData['users'][$item->user_id]) ? $detailData['users'][$item->user_id] : 'Sistem' }}</dd></div>
+                    <div><dt class="text-gray-500">Konu</dt><dd class="text-gray-800 dark:text-gray-200">{{ $item->subject ?? '—' }}</dd></div>
+                    @if ($item->queued_at)<div><dt class="text-gray-500">Sıraya alındı</dt><dd>{{ $time($item->queued_at) }}</dd></div>@endif
+                    <div><dt class="text-gray-500">Başladı</dt><dd>{{ $item->isQueued() ? '—' : $time($item->started_at) }}</dd></div>
+                    <div><dt class="text-gray-500">Bitti</dt><dd>{{ $time($item->finished_at) }}</dd></div>
+                    <div><dt class="text-gray-500">Süre</dt><dd>{{ $item->durationLabel() }}</dd></div>
+                    <div><dt class="text-gray-500">Maliyet</dt><dd>{{ $usd($item->cost_usd) }}</dd></div>
+                    <div><dt class="text-gray-500">Token (girdi / çıktı)</dt><dd>{{ $item->input_tokens !== null ? number_format($item->input_tokens, 0, ',', '.') : '—' }} / {{ $item->output_tokens !== null ? number_format($item->output_tokens, 0, ',', '.') : '—' }}</dd></div>
                     @unless ($item->isJob())
-                        <div><dt class="text-gray-400">Sağlayıcı / model</dt><dd>{{ $item->provider ?? '—' }} · {{ $item->model ?? '—' }}</dd></div>
-                        <div><dt class="text-gray-400">Prompt sürümü</dt><dd>{{ $detailData['version'] !== null ? 'v'.$detailData['version'] : 'Kod varsayılanı / kayıtsız' }}</dd></div>
+                        <div><dt class="text-gray-500">Sağlayıcı / model</dt><dd>{{ $item->provider ?? '—' }} · {{ $item->model ?? '—' }}</dd></div>
+                        <div><dt class="text-gray-500">Prompt sürümü</dt><dd>{{ $detailData['version'] !== null ? 'v'.$detailData['version'] : 'Kod varsayılanı / kayıtsız' }}</dd></div>
                     @endunless
-                    <div><dt class="text-gray-400">Kayıt</dt><dd class="tabular-nums">#{{ $item->id }}</dd></div>
+                    <div><dt class="text-gray-500">Kayıt</dt><dd class="tabular-nums">#{{ $item->id }}</dd></div>
                     @if ($detailData['parent'])
-                        <div class="col-span-2"><dt class="text-gray-400">Bağlı olduğu iş</dt><dd><button type="button" wire:click="show({{ $detailData['parent']->id }})" class="link-neutral text-left">{{ $labelOf($detailData['parent']) }} (#{{ $detailData['parent']->id }}) · {{ $detailData['parent']->statusLabel() }}</button></dd></div>
+                        <div class="col-span-2"><dt class="text-gray-500">Bağlı olduğu iş</dt><dd><button type="button" wire:click="show({{ $detailData['parent']->id }})" class="link-neutral text-left">{{ $labelOf($detailData['parent']) }} (#{{ $detailData['parent']->id }}) · {{ $detailData['parent']->statusLabel() }}</button></dd></div>
                     @endif
                     @if ($item->cancel_requested_at)
-                        <div class="col-span-2"><dt class="text-gray-400">Durdurma isteği</dt><dd>{{ $time($item->cancel_requested_at) }}@if ($item->cancel_requested_by && isset($detailData['users'][$item->cancel_requested_by])) · {{ $detailData['users'][$item->cancel_requested_by] }}@endif</dd></div>
+                        <div class="col-span-2"><dt class="text-gray-500">Durdurma isteği</dt><dd>{{ $time($item->cancel_requested_at) }}@if ($item->cancel_requested_by && isset($detailData['users'][$item->cancel_requested_by])) · {{ $detailData['users'][$item->cancel_requested_by] }}@endif</dd></div>
                     @endif
                 </dl>
 
@@ -188,9 +188,9 @@
                     <details class="text-xs" data-ai-job-technical>
                         <summary class="cursor-pointer font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">Teknik ayrıntı</summary>
                         <dl class="mt-2 grid grid-cols-1 gap-y-1.5 rounded-lg bg-gray-50 p-3 font-mono text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-                            @if ($item->operation)<div><dt class="font-sans text-gray-400">İşlem kodu</dt><dd class="break-all">{{ $item->operation }}</dd></div>@endif
-                            @if ($item->agent)<div><dt class="font-sans text-gray-400">Ajan</dt><dd class="break-all">{{ $item->agent }}</dd></div>@endif
-                            @if ($item->job_uuid)<div><dt class="font-sans text-gray-400">Kuyruk işi</dt><dd class="break-all">{{ class_basename((string) $item->job_class) }} · {{ $item->job_uuid }}@if ($item->queue_name) · {{ $item->queue_name }}@endif</dd></div>@endif
+                            @if ($item->operation)<div><dt class="font-sans text-gray-500">İşlem kodu</dt><dd class="break-all">{{ $item->operation }}</dd></div>@endif
+                            @if ($item->agent)<div><dt class="font-sans text-gray-500">Ajan</dt><dd class="break-all">{{ $item->agent }}</dd></div>@endif
+                            @if ($item->job_uuid)<div><dt class="font-sans text-gray-500">Kuyruk işi</dt><dd class="break-all">{{ class_basename((string) $item->job_class) }} · {{ $item->job_uuid }}@if ($item->queue_name) · {{ $item->queue_name }}@endif</dd></div>@endif
                         </dl>
                     </details>
                 @endif
@@ -198,7 +198,7 @@
                 @if ($item->error)
                     <div>
                         <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $item->status === 'cancelled' ? 'Not' : 'Hata' }}</p>
-                        <p class="mt-1 rounded-lg bg-error-50 px-3 py-2 text-xs text-error-700 dark:bg-error-500/10 dark:text-error-300" data-ai-job-error>{{ $item->error }}</p>
+                        <p class="tone-critical mt-1 rounded-lg px-3 py-2 text-xs" data-ai-job-error>{{ $item->error }}</p>
                     </div>
                 @endif
 
@@ -206,10 +206,10 @@
                     <div>
                         <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">AI çağrıları ({{ $detailData['calls']->count() }})</p>
                         <table class="mt-1 w-full text-xs">
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                                 @forelse ($detailData['calls'] as $call)
                                     <tr wire:key="ai-job-call-{{ $call->id }}" class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40" wire:click="show({{ $call->id }})" data-ai-job-call="{{ $call->id }}">
-                                        <td class="py-1.5 pr-2">{{ $labelOf($call) }}@if ($call->model)<span class="ml-1 text-gray-400">{{ $call->model }}</span>@endif</td>
+                                        <td class="py-1.5 pr-2">{{ $labelOf($call) }}@if ($call->model)<span class="ml-1 text-gray-500">{{ $call->model }}</span>@endif</td>
                                         <td class="py-1.5 pr-2 text-right tabular-nums">{{ $call->durationLabel() }}</td>
                                         <td class="py-1.5 pr-2 text-right tabular-nums">{{ $usd($call->cost_usd) }}</td>
                                         <td class="py-1.5 text-right {{ $statusClass($call) }}">{{ $call->statusLabel() }}</td>

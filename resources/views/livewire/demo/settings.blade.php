@@ -3,12 +3,11 @@
     $isPlaceholder = fn (?string $value): bool => is_string($value) && preg_match('/@example\.(com|org|net)$/i', trim($value)) === 1;
     $current = collect($sections)->firstWhere('id', $section);
 @endphp
-<div class="space-y-5">
+<div class="space-y-8">
     @include('livewire.demo.partials.flash')
 
     <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ __('operator.nav.settings') }}</h1>
-        <p class="mt-1 text-sm text-gray-500">{{ __('operator.settings.subtitle') }}</p>
+        <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ __('operator.nav.settings') }}</h1>
     </div>
 
     {{-- One navigation level (2026-10-19): the layout's section tabs are the top navigation; this page's own parts are
@@ -18,22 +17,22 @@
             <button type="button" wire:click="setSection('{{ $item['id'] }}')" @if ($section === $item['id']) aria-current="true" @endif
                 @class([
                     'h-8 rounded-lg px-3 text-sm font-medium transition',
-                    'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $section === $item['id'],
-                    'text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]' => $section !== $item['id'],
+                    'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $section === $item['id'],
+                    'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-white' => $section !== $item['id'],
                 ])>
                 {{ $item['label'] }}
             </button>
         @endforeach
     </nav>
 
-    <div class="min-w-0 space-y-4">
+    <div class="min-w-0 space-y-10">
             <div>
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $current['label'] ?? __('operator.nav.settings') }}</h2>
-                <p class="mt-1 text-sm text-gray-500">{{ $current['description'] ?? '' }}</p>
+                <h2 class="section-title">{{ $current['label'] ?? __('operator.nav.settings') }}</h2>
+                @if (($current['description'] ?? '') !== '')<p class="mt-1 text-sm text-gray-500">{{ $current['description'] }}</p>@endif
             </div>
 
             @if ($section === 'general')
-                <form wire:submit="saveGeneral" class="space-y-4 surface p-5">
+                <form wire:submit="saveGeneral" class="space-y-4">
                     <div class="grid gap-4 sm:grid-cols-2 text-sm">
                         <x-ta.form.field :label="__('operator.settings.agency_name')" :required="true" :error="$errors->first('agency_name')">
                             <input wire:model="agency_name" type="text" @disabled(! $isAdmin) class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
@@ -60,7 +59,7 @@
 
                     <div class="grid gap-4 sm:grid-cols-2 text-sm">
                         <div>
-                            <p class="text-gray-400">{{ __('operator.settings.logo') }}</p>
+                            <p class="text-gray-500">{{ __('operator.settings.logo') }}</p>
                             @if ($branding['logo_url'])
                                 <img src="{{ $branding['logo_url'] }}" alt="" class="mt-2 h-12 max-w-[180px] object-contain" />
                             @endif
@@ -70,7 +69,7 @@
                             @error('logo') <p class="text-sm text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <p class="text-gray-400">{{ __('operator.settings.favicon') }}</p>
+                            <p class="text-gray-500">{{ __('operator.settings.favicon') }}</p>
                             @if ($branding['favicon_url'])
                                 <img src="{{ $branding['favicon_url'] }}" alt="" class="mt-2 h-8 w-8 object-contain" />
                             @endif
@@ -88,22 +87,22 @@
                     @endif
                 </form>
 
-                <div class="surface p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.mail.title') }}</h3>
+                <section class="border-t border-gray-200 pt-8 dark:border-gray-800">
+                    <h3 class="section-title">{{ __('operator.mail.title') }}</h3>
                     <p class="mt-1 text-xs text-gray-500">{{ __('operator.mail.use_cases') }}</p>
                     <dl class="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
                         <div>
-                            <dt class="text-gray-400">{{ __('operator.mail.delivery') }}</dt>
+                            <dt class="text-gray-500">{{ __('operator.mail.delivery') }}</dt>
                             <dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $mail['label'] }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-400">{{ __('operator.mail.sender') }}</dt>
+                            <dt class="text-gray-500">{{ __('operator.mail.sender') }}</dt>
                             <dd class="mt-1 font-medium text-gray-800 dark:text-white/90">
                                 {{ $mail['from_name'] ?? __('operator.mail.not_set') }}
                                 @if ($mail['from_address'] && ! $isPlaceholder($mail['from_address']))
                                     <span class="block break-all text-xs font-normal text-gray-500">{{ $mail['from_address'] }}</span>
                                 @else
-                                    <span class="block text-xs font-normal text-gray-400">—</span>
+                                    <span class="block text-xs font-normal text-gray-500">—</span>
                                 @endif
                             </dd>
                         </div>
@@ -111,7 +110,7 @@
                     <p class="mt-3 text-xs text-gray-500">{{ $mail['explanation'] }}</p>
 
                     @if ($isAdmin)
-                        <form wire:submit="saveMail" class="mt-4 space-y-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                        <form wire:submit="saveMail" class="mt-4 space-y-4 border-t border-gray-200 pt-4 dark:border-gray-800">
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                 <input type="checkbox" wire:model="mail_enabled" class="rounded border-gray-300 text-brand-600" />
                                 {{ __('operator.mail.enable_operator') }}
@@ -152,34 +151,34 @@
                             </div>
                         </form>
                     @endif
-                </div>
+                </section>
             @elseif ($section === 'team')
-                <div class="surface overflow-x-auto">
+                <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">
                         <caption class="sr-only">{{ __('operator.team.caption') }}</caption>
                         <thead>
-                            <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <th scope="col" class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.team.columns.name') }}</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.team.columns.email') }}</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.team.columns.role') }}</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.team.columns.status') }}</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.team.columns.last_login') }}</th>
+                            <tr class="border-b border-gray-200 dark:border-gray-800">
+                                <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.team.columns.name') }}</th>
+                                <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.team.columns.email') }}</th>
+                                <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.team.columns.role') }}</th>
+                                <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.team.columns.status') }}</th>
+                                <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.team.columns.last_login') }}</th>
                                 @if ($isAdmin)
-                                    <th scope="col" class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.team.columns.actions') }}</th>
+                                    <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.team.columns.actions') }}</th>
                                 @endif
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($settings['team'] as $member)
-                                <tr class="border-b border-gray-50 dark:border-gray-800/60">
-                                    <td class="px-4 py-3">
+                                <tr class="border-b border-gray-200 dark:border-gray-800">
+                                    <td class="py-2.5 pr-4">
                                         <span class="inline-flex items-center gap-2">
                                             <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold dark:bg-white/10" aria-hidden="true">{{ $member['initials'] }}</span>
                                             <span class="font-medium text-gray-800 dark:text-white/90">{{ $member['name'] }}</span>
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-500">{{ $member['email'] }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                    <td class="py-2.5 pr-4 text-gray-500">{{ $member['email'] }}</td>
+                                    <td class="py-2.5 pr-4 text-gray-600 dark:text-gray-300">
                                         @if ($isAdmin)
                                             <select wire:change="updateUserRole({{ (int) $member['id'] }}, $event.target.value)" class="rounded-lg border border-gray-200 bg-transparent px-2 py-1 text-sm dark:border-gray-700">
                                                 @foreach ($roleOptions as $value => $label)
@@ -190,14 +189,12 @@
                                             {{ $roleOptions[$member['role'] ?? ''] ?? ($member['role'] ?? '') }}
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <x-ta.badge :color="$member['is_active'] ? 'success' : 'light'" size="sm">
-                                            {{ $member['is_active'] ? __('operator.team.active') : __('operator.team.inactive') }}
-                                        </x-ta.badge>
+                                    <td class="py-2.5 pr-4">
+                                        <x-ta.pill :tone="$member['is_active'] ? 'ok' : 'info'">{{ $member['is_active'] ? __('operator.team.active') : __('operator.team.inactive') }}</x-ta.pill>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-500">{{ $member['last_login'] ?? '—' }}</td>
+                                    <td class="py-2.5 pr-4 text-gray-500">{{ $member['last_login'] ?? '—' }}</td>
                                     @if ($isAdmin)
-                                        <td class="px-4 py-3">
+                                        <td class="py-2.5 pr-4">
                                             @if ($member['is_active'])
                                                 <button type="button" wire:click="deactivateUser({{ (int) $member['id'] }})" class="text-xs font-medium text-error-600 hover:underline dark:text-error-400">
                                                     {{ __('operator.team.deactivate') }}
@@ -213,19 +210,19 @@
                             @endforeach
                         </tbody>
                     </table>
-                    <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
+                    <p class="py-3 text-xs text-gray-500">
                         {{ __('operator.team.owner_note') }} {{ __('operator.team.deactivate_note') }}
                     </p>
                     @if ($errors->has('user') || $errors->has('role'))
-                        <p class="border-t border-gray-100 px-4 py-3 text-sm text-error-600 dark:border-gray-800 dark:text-error-400" role="alert">
+                        <p class="py-3 text-sm text-error-600 dark:text-error-400" role="alert">
                             {{ $errors->first('user') ?: $errors->first('role') }}
                         </p>
                     @endif
                 </div>
 
                 @if ($isAdmin)
-                    <form wire:submit="addTeamMember" class="space-y-4 surface p-5">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.team.add_title') }}</h3>
+                    <form wire:submit="addTeamMember" class="space-y-4">
+                        <h3 class="section-title">{{ __('operator.team.add_title') }}</h3>
                         <div class="grid gap-4 sm:grid-cols-2 text-sm">
                             <x-ta.form.field :label="__('operator.team.fields.name')" :required="true" :error="$errors->first('new_name')">
                                 <input wire:model="new_name" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
@@ -253,39 +250,39 @@
                     </form>
                 @endif
             @elseif ($section === 'notifications')
-                <div class="surface">
-                    <ul class="divide-y divide-gray-100 dark:divide-gray-800">
+                <div>
+                    <ul class="divide-y divide-gray-200 border-y border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                         @foreach ($settings['notifications'] as $index => $row)
-                            <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                            <li class="flex items-center justify-between gap-3 py-2.5 text-sm">
                                 <div>
                                     <p class="font-medium text-gray-800 dark:text-white/90">{{ $row['event'] }}</p>
                                     <p class="text-xs text-gray-500">{{ $row['channel'] }}</p>
                                 </div>
                                 <button type="button" wire:click="toggleNotification({{ $index }})" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-200 dark:ring-gray-700">
                                     <span @class([
-                                        'h-2.5 w-2.5 rounded-full',
+                                        'h-1.5 w-1.5 rounded-full',
                                         'bg-success-500' => $notificationEnabled[$index] ?? $row['enabled'],
-                                        'bg-gray-400' => ! ($notificationEnabled[$index] ?? $row['enabled']),
+                                        'bg-gray-300' => ! ($notificationEnabled[$index] ?? $row['enabled']),
                                     ]) aria-hidden="true"></span>
                                     {{ ($notificationEnabled[$index] ?? $row['enabled']) ? __('operator.notifications.on') : __('operator.notifications.off') }}
                                 </button>
                             </li>
                         @endforeach
                     </ul>
-                    <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
+                    <p class="py-3 text-xs text-gray-500">
                         {{ __('operator.notifications.footnote') }}
                     </p>
                 </div>
             @elseif ($section === 'operations')
-                <div class="mb-4 inline-flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-white/[0.04]" role="tablist">
+                <div class="inline-flex gap-1" role="tablist">
                     <button type="button" wire:click="setOpsSub('defaults')"
-                        @class(['rounded-md px-3 py-1.5 text-sm font-medium', 'bg-white shadow-sm dark:bg-gray-800' => ($ops_sub ?? 'defaults') === 'defaults'])>{{ __('operator.playbooks.settings_defaults') }}</button>
+                        @class(['rounded-md px-3 py-1.5 text-sm font-medium', 'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => ($ops_sub ?? 'defaults') === 'defaults'])>{{ __('operator.playbooks.settings_defaults') }}</button>
                 </div>
-                <div class="space-y-3 surface p-5">
+                <div class="space-y-3">
                     <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('operator.settings.operations.dashboard_mode_note') }}</p>
                     <x-ta.button :href="route('operator.dashboard')" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
                 </div>
-                <div class="mt-4 space-y-3 surface p-5">
+                <div class="space-y-3 border-t border-gray-200 pt-6 dark:border-gray-800">
                     <p class="text-sm text-gray-600 dark:text-gray-300">Zamanlayıcı ve işçiler, sistem uyarıları, bağlantı yetkileri ve hesap bazında veri tazeliği.</p>
                     <div class="flex flex-wrap gap-2">
                         <x-ta.button :href="route('operator.settings.system-health')" size="sm" variant="outline">Sistem Sağlığı</x-ta.button>
@@ -294,12 +291,12 @@
                 </div>
             @elseif ($section === 'ai')
                 <div class="space-y-4">
-                    <div class="surface p-5">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.overview') }}</h3>
+                    <div>
+                        <h3 class="section-title">{{ __('operator.settings.ai.overview') }}</h3>
                         {{-- Only Claude is used (2026-10-19, owner decision): every AI step runs on the Claude MCP queue; the
                              other providers are hidden here and on Entegrasyonlar (their pages and code stay). --}}
                         <dl class="mt-3 grid gap-4 sm:grid-cols-3 text-sm">
-                            <div><dt class="text-gray-400">Anthropic (Claude)</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
+                            <div><dt class="text-gray-500">Anthropic (Claude)</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
@@ -310,13 +307,13 @@
                     </div>
                 </div>
             @elseif ($section === 'advanced')
-                <div class="space-y-4">
+                <div class="space-y-10">
                     @if ($advanced_sub === null || $advanced_sub === 'diagnostics')
-                        <div class="surface p-5">
-                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_diagnostics') }}</h3>
+                        <div>
+                            <h3 class="section-title">{{ __('operator.settings_ia.advanced_diagnostics') }}</h3>
                             <dl class="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
-                                <div><dt class="text-gray-400">{{ __('operator.settings.advanced.environment') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['environment'] }}</dd></div>
-                                <div><dt class="text-gray-400">{{ __('operator.settings.advanced.surface') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['canonical_surface'] }}</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.advanced.environment') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['environment'] }}</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.advanced.surface') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['canonical_surface'] }}</dd></div>
                             </dl>
                             <div class="mt-4">
                                 <x-ta.button href="{{ route('operator.dashboard') }}" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
@@ -326,14 +323,14 @@
                     @endif
 
                     @if ($advanced_sub === null || $advanced_sub === 'files')
-                        <div id="files" class="surface p-5 space-y-3 text-sm">
-                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_files') }}</h3>
+                        <div id="files" class="space-y-3 text-sm">
+                            <h3 class="section-title">{{ __('operator.settings_ia.advanced_files') }}</h3>
                             <dl class="grid gap-4 sm:grid-cols-2">
-                                <div><dt class="text-gray-400">{{ __('operator.settings.files.private_disk_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['disk'] }}</dd></div>
-                                <div><dt class="text-gray-400">{{ __('operator.settings.files.avatar_disk_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['avatar_disk'] }}</dd></div>
-                                <div><dt class="text-gray-400">{{ __('operator.settings.files.max_upload') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['max_upload_mb'] }} MB</dd></div>
-                                <div><dt class="text-gray-400">{{ __('operator.settings.files.allowed_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['allowed'] }}</dd></div>
-                                <div><dt class="text-gray-400">{{ __('operator.settings.files.blocked_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['blocked'] }}</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.files.private_disk_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['disk'] }}</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.files.avatar_disk_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['avatar_disk'] }}</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.files.max_upload') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['max_upload_mb'] }} MB</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.files.allowed_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['allowed'] }}</dd></div>
+                                <div><dt class="text-gray-500">{{ __('operator.settings.files.blocked_label') }}</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['blocked'] }}</dd></div>
                             </dl>
                             <p class="text-xs text-gray-500">{{ $settings['files']['note'] }}</p>
                             <x-ta.button :href="route('operator.files')" size="sm" variant="outline">{{ __('operator.nav.files') }}</x-ta.button>
@@ -341,19 +338,19 @@
                     @endif
 
                     @if ($advanced_sub === null || $advanced_sub === 'privacy')
-                        <div id="privacy" class="surface p-5 space-y-3 text-sm">
-                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_privacy') }}</h3>
-                            <p><span class="text-gray-400">{{ __('operator.settings.privacy.retention_label') }} · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['retention'] }}</span></p>
-                            <p><span class="text-gray-400">{{ __('operator.settings.privacy.export_label') }} · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['export'] }}</span></p>
-                            <p><span class="text-gray-400">{{ __('operator.settings.privacy.purge_label') }} · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['purge'] }}</span></p>
+                        <div id="privacy" class="space-y-3 text-sm">
+                            <h3 class="section-title">{{ __('operator.settings_ia.advanced_privacy') }}</h3>
+                            <p><span class="text-gray-500">{{ __('operator.settings.privacy.retention_label') }}: </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['retention'] }}</span></p>
+                            <p><span class="text-gray-500">{{ __('operator.settings.privacy.export_label') }}: </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['export'] }}</span></p>
+                            <p><span class="text-gray-500">{{ __('operator.settings.privacy.purge_label') }}: </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['purge'] }}</span></p>
                         </div>
                     @endif
 
                     @if ($advanced_sub === null)
                         <div class="flex flex-wrap gap-2 text-sm">
-                            <button type="button" wire:click="setAdvancedSub('files')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_files') }}</button>
-                            <button type="button" wire:click="setAdvancedSub('privacy')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_privacy') }}</button>
-                            <button type="button" wire:click="setAdvancedSub('diagnostics')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_diagnostics') }}</button>
+                            <button type="button" wire:click="setAdvancedSub('files')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_files') }}</button>
+                            <button type="button" wire:click="setAdvancedSub('privacy')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_privacy') }}</button>
+                            <button type="button" wire:click="setAdvancedSub('diagnostics')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_diagnostics') }}</button>
                         </div>
                     @elseif ($advanced_sub !== null)
                         <button type="button" wire:click="setAdvancedSub(null)" class="link-neutral text-sm">{{ __('operator.settings.advanced.back') }}</button>

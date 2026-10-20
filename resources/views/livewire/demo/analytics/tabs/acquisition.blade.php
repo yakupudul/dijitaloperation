@@ -17,22 +17,26 @@
     };
 @endphp
 
-<div class="space-y-4">
+<div class="space-y-10">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Acquisition</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $acq['utm_note'] ?? 'Channels, source/medium, and related paid assets' }}</p>
+        <h2 class="section-title">Acquisition</h2>
+        <p class="mt-0.5 text-xs text-gray-500">{{ $acq['utm_note'] ?? 'Channels, source/medium, and related paid assets' }}</p>
     </div>
 
     <section>
-        <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Channels</h3>
-        <x-ta.table>
-            <x-slot:head>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Channel</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Sessions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Share</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Mapped actions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Related asset</th>
-            </x-slot:head>
+        <h3 class="mb-2 section-title">Channels</h3>
+        <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Channel</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Share</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped actions</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Related asset</th>
+            </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
             @foreach ($channels as $row)
                 <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</td>
@@ -49,26 +53,32 @@
                         @if (! empty($row['related']))
                             <div class="flex items-center gap-2">
                                 <x-demo.digital-asset-mark :type="$relatedType($row['related'])" size="sm" />
-                                <a href="{{ route($row['related']['route'], ['assetId' => $row['related']['asset_id'] ?? null]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $row['related']['asset'] }}</a>
+                                <a href="{{ route($row['related']['route'], ['assetId' => $row['related']['asset_id'] ?? null]) }}" wire:navigate class="link-neutral text-xs">{{ $row['related']['asset'] }}</a>
                             </div>
                         @else
-                            <span class="text-xs text-gray-400">—</span>
+                            <span class="text-xs text-gray-500">—</span>
                         @endif
                     </td>
                 </tr>
             @endforeach
-        </x-ta.table>
+        </tbody>
+            </table>
+        </div>
     </section>
 
     <section>
-        <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Source / medium</h3>
-        <x-ta.table>
-            <x-slot:head>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Source / medium</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Sessions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Mapped actions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Attention</th>
-            </x-slot:head>
+        <h3 class="mb-2 section-title">Source / medium</h3>
+        <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Source / medium</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped actions</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Attention</th>
+            </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
             @foreach ($sourceMedium as $row)
                 <tr>
                     <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['source_medium'] }}</td>
@@ -83,25 +93,31 @@
                     <td class="px-4 py-2.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] ?? '—' }}</td>
                 </tr>
             @endforeach
-        </x-ta.table>
+        </tbody>
+            </table>
+        </div>
     </section>
 
     <section>
-        <h3 class="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Campaigns (measured)</h3>
-        <x-ta.table>
-            <x-slot:head>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Campaign</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Source</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Sessions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Mapped actions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Paid workspace</th>
-            </x-slot:head>
+        <h3 class="mb-2 section-title">Campaigns (measured)</h3>
+        <div class="max-w-full overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Campaign</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Source</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped actions</th>
+                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Paid workspace</th>
+            </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
             @foreach ($campaigns as $row)
                 <tr>
                     <td class="px-4 py-2.5">
                         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['campaign'] }}</p>
                         @if (! empty($row['attention']))
-                            <p class="text-[11px] text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
+                            <p class="text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
                         @endif
                     </td>
                     <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['source'] ?? '—' }}</td>
@@ -124,11 +140,13 @@
                                 {{ $cta }}
                             </a>
                         @else
-                            <span class="text-xs text-gray-400">{{ $row['state'] ?? '—' }}</span>
+                            <span class="text-xs text-gray-500">{{ $row['state'] ?? '—' }}</span>
                         @endif
                     </td>
                 </tr>
             @endforeach
-        </x-ta.table>
+        </tbody>
+            </table>
+        </div>
     </section>
 </div>

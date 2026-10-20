@@ -307,7 +307,8 @@ final class GbpPostQueueTest extends TestCase
             ->assertDontSee('Panorama Keçiören')
             ->call('openBrand', $this->brand->id)->assertSee('Panorama Çankaya Diş')->assertSee('Panorama Keçiören')->assertSee('Henüz hazırlanmadı')
             ->call('setFilter', 'draft')->assertDontSee('Decco Perde')->assertSee('Panorama Keçiören')
-            ->call('openDay', $this->location->id, '2026-10-08')->assertSee('Zirkonyum Kaplama')->assertDontSee('Diş İmplantı ↗')
+            // Sade panel (2026-10-20): the page link lost its "↗" text (now an icon), so the check reads the link's title attribute (decoration only).
+            ->call('openDay', $this->location->id, '2026-10-08')->assertSee('Zirkonyum Kaplama')->assertDontSee('title="Diş İmplantı"', false)
             ->call('startReading', $this->brand->id)->assertSee('onay bekleyen 3 gönderi')->assertSee('Panorama Keçiören')
             ->call('approveAll', null, $this->brand->id)->assertSee('3 gönderi onaylandı');
 

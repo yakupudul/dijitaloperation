@@ -1,11 +1,11 @@
 <div class="space-y-6">
     <div>
-        <a href="{{ $backUrl }}" wire:navigate class="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">
-            ← {{ $backLabel }}
+        <a href="{{ $backUrl }}" wire:navigate class="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
+            {{ $backLabel }}
         </a>
         <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
+                <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $pageSubtitle }}</p>
             </div>
         </div>

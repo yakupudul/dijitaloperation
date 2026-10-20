@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — Sade panel (Inter, kutusuz tasarım)
+
+- **Karar (yakup 2026-10-20):** "tasarım çok AI drop kokuyor … notion veya elevenlabs gibi değil"; prototip onayı sonrası "fontu da inter yap. söylediklerini de yap."
+- **Ortak temel (`resources/css/operator.css`):** Inter, beyaz zemin, Notion benzeri gri ölçek, `text-xs` 13 px, siyah ana düğme (`brand-*`), `section-title`, halkasız ton zeminleri, sade menü.
+- **Bileşenler:** `x-ta.pill` nokta + yazı, `x-ta.metric-card` kutusuz rakam, `x-ta.alarm-row` şeritsiz ve satırın tamamı bağlantı, `x-ta.brand-avatar` logo ya da gri baş harf, `x-ta.card` / `x-ta.empty-state` kutusuz. Üst çubukta AI / veri göstergeleri tek sessiz düğme.
+- **Ekranlar:** tüm operatör ekranlarında bölüm kutuları, açıklama cümleleri, "→" okları, büyük harfli etiketler ve renkli rozetler kaldırıldı; Bugün'de aynı markanın aynı alarmı tek satır.
+- **Durum:** CODED, TESTED (PHPUnit), telefon 390 px taşma taraması yapıldı; görsel kabul yakup'ta.
+
 ## 2026-10-19 — Telefon düzeltmeleri ve siteden marka logosu
 
 - **Karar (yakup 2026-10-19):** "Mobilde ai işlerine tıklıyorum taşıyor. Menüyü açınca scroll yaparken kapanıyor. Bildirime tıkladığımda panelin ana sayfasına atıyor. Web sitesinden çekebildiğimiz markanın logosu olsun."

@@ -115,7 +115,7 @@
             }">
             @include('operator.layouts.header')
 
-            <div class="mx-auto min-w-0 max-w-(--breakpoint-2xl) p-4 md:p-6">
+            <div class="mx-auto min-w-0 max-w-6xl px-4 py-6 md:px-10 md:py-8">
                 @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
                 @if ($sectionTabs)
                     <nav class="no-scrollbar -mt-1 mb-5 flex gap-0.5 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">

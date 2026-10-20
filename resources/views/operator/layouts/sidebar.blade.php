@@ -30,7 +30,7 @@
             @endif
             <span class="min-w-0 flex-1" x-show="{{ $sidebarOpen }}">
                 <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</span>
-                <span class="block truncate text-[11px] text-gray-500">{{ count($switcherBrands) }} {{ app()->getLocale() === 'tr' ? 'marka' : 'brands' }}</span>
+                <span class="block truncate text-xs text-gray-500">{{ count($switcherBrands) }} {{ app()->getLocale() === 'tr' ? 'marka' : 'brands' }}</span>
             </span>
             <svg x-show="{{ $sidebarOpen }}" class="h-4 w-4 shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a.75.75 0 0 1 .55.24l3.25 3.5a.75.75 0 1 1-1.1 1.02L10 4.852 7.3 7.76a.75.75 0 0 1-1.1-1.02l3.25-3.5A.75.75 0 0 1 10 3Zm-3.76 9.2a.75.75 0 0 1 1.06.04l2.7 2.908 2.7-2.908a.75.75 0 1 1 1.1 1.02l-3.25 3.5a.75.75 0 0 1-1.1 0l-3.25-3.5a.75.75 0 0 1 .04-1.06Z" clip-rule="evenodd"/></svg>
         </button>
@@ -59,7 +59,7 @@
         <nav class="flex flex-col gap-4">
             @foreach ($menuGroups as $menuGroup)
                 <div>
-                    <h2 class="mb-1 flex h-5 items-center px-2.5 text-[11px] font-medium uppercase tracking-wide text-gray-400"
+                    <h2 class="mb-0.5 flex h-6 items-center px-2 text-xs font-medium text-gray-500 dark:text-gray-500"
                         :class="({{ $sidebarOpen }}) ? 'justify-start' : 'justify-center'">
                         <span x-show="{{ $sidebarOpen }}">{{ $menuGroup['title'] }}</span>
                         <span x-show="!({{ $sidebarOpen }})" class="h-px w-4 bg-gray-200 dark:bg-gray-800" aria-hidden="true"></span>

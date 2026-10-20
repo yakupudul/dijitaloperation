@@ -22,7 +22,7 @@
     </script>
 </head>
 
-<body class="min-h-full bg-gray-50 text-gray-800 antialiased dark:bg-gray-950 dark:text-gray-100">
+<body class="min-h-full bg-white text-gray-800 antialiased dark:bg-gray-950 dark:text-gray-100">
     <div class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <div class="mb-8 text-center">
             @if (! empty($operatorBranding['logo_url']))
@@ -31,7 +31,7 @@
             <p class="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</p>
         </div>
 
-        <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <div class="w-full max-w-md rounded-2xl bg-white p-8 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ __('operator.auth.reset_heading') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.auth.reset_subtitle') }}</p>
 

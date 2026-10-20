@@ -1,24 +1,24 @@
 {{-- Entegrasyonlar › Bing Webmaster: the agency key, the matched sites and their last reading. Read only. --}}
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
+    $card = 'min-w-0';
     $num = fn (int $n): string => number_format($n, 0, ',', '.');
 @endphp
-<div class="space-y-5 text-sm dark:text-gray-200" data-bing-page>
+<div class="space-y-10 text-sm dark:text-gray-200" data-bing-page>
     @include('livewire.demo.partials.flash')
 
     <header class="space-y-1">
-        <a href="{{ route('operator.integrations') }}" wire:navigate class="text-xs text-gray-500 hover:text-brand-600">← Entegrasyonlar</a>
-        <h1 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Bing Webmaster</h1>
-        <p class="max-w-3xl text-xs text-gray-500">ChatGPT araması ve Copilot Bing dizinini kullanır. Sitelerin Bing'deki aramaları ve sıraları buradan okunur; Bing'e hiçbir şey gönderilmez.</p>
+        <a href="{{ route('operator.integrations') }}" wire:navigate class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white">Entegrasyonlar</a>
+        <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">Bing Webmaster</h1>
+        <p class="text-sm text-gray-500">Yalnız okunur; Bing'e hiçbir şey gönderilmez.</p>
     </header>
 
     <section class="{{ $card }}" data-bing-key>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 class="font-semibold text-gray-900 dark:text-white">API anahtarı</h2>
-                <p class="text-xs text-gray-500">Bing Webmaster Tools › Ayarlar › API erişimi › API anahtarı. Ajansın tüm doğrulanmış sitelerini görür.</p>
+                <h2 class="section-title">API anahtarı</h2>
+                <p class="mt-1 text-xs text-gray-500">Bing Webmaster Tools › Ayarlar › API erişimi › API anahtarı. Ajansın tüm doğrulanmış sitelerini görür.</p>
             </div>
-            <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-300' => $configured, 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => ! $configured])>{{ $configured ? 'Bağlı' : 'Bağlı değil' }}</span>
+            <x-ta.pill :tone="$configured ? 'ok' : 'info'">{{ $configured ? 'Bağlı' : 'Bağlı değil' }}</x-ta.pill>
         </div>
         @if ($isAdmin)
             <form wire:submit="save" class="mt-3 flex flex-wrap items-start gap-2">
@@ -37,24 +37,24 @@
 
     <section class="{{ $card }}" data-bing-sites>
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="font-semibold text-gray-900 dark:text-white">Eşleşen siteler</h2>
-            <span class="text-xs text-gray-500">son 4 hafta · her sabah okunur @if ($unmatched > 0) · {{ $unmatched }} MoxDOP sitesi Bing'de yok ya da doğrulanmamış @endif</span>
+            <h2 class="section-title">Eşleşen siteler</h2>
+            <span class="text-xs text-gray-500">son 4 hafta, her sabah okunur @if ($unmatched > 0)<span title="Bing'de yok ya da doğrulanmamış">· {{ $unmatched }} site eşleşmedi</span>@endif</span>
         </div>
-        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+        <ul class="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
             @forelse ($sites as $site)
-                <li class="flex flex-wrap items-center gap-x-4 gap-y-1 py-2" data-bing-site="{{ $site['site_url'] }}">
+                <li class="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5" data-bing-site="{{ $site['site_url'] }}">
                     <div class="min-w-0 flex-1">
-                        <p class="truncate font-medium text-gray-900 dark:text-white">{{ $site['asset']?->brand?->name ?? '—' }} · {{ $site['site_url'] }}</p>
+                        <p class="truncate font-medium text-gray-900 dark:text-white">{{ $site['asset']?->brand?->name ?? '—' }} <span class="font-normal text-gray-500">{{ $site['site_url'] }}</span></p>
                         <p class="text-xs text-gray-500">
-                            @if (! $site['verified']) Bing'de doğrulanmamış · @endif
+                            @if (! $site['verified']) Bing'de doğrulanmamış, @endif
                             @if ($site['error'])<span class="text-error-600">{{ $site['error'] }}</span>@elseif ($site['collected_at']) Okundu {{ \Illuminate\Support\Carbon::parse($site['collected_at'])->diffForHumans() }} @else Henüz okunmadı @endif
                         </p>
                     </div>
                     @if ($site['summary'])
-                        <span class="text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $num($site['summary']['impressions']) }} gösterim · {{ $num($site['summary']['clicks']) }} tıklama</span>
+                        <span class="text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $num($site['summary']['impressions']) }} gösterim, {{ $num($site['summary']['clicks']) }} tıklama</span>
                     @endif
                     @if ($site['asset'])
-                        <a href="{{ route('operator.website', ['assetId' => $site['asset']->id]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Siteyi aç</a>
+                        <a href="{{ route('operator.website', ['assetId' => $site['asset']->id]) }}" wire:navigate class="text-xs link-neutral">Siteyi aç</a>
                     @endif
                 </li>
             @empty

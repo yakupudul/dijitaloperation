@@ -4,11 +4,11 @@
         <span class="text-gray-500" x-text="hint"></span>
     </template>
     <template x-if="state === 'off' || state === 'denied'">
-        <button type="button" x-on:click="enable()" :disabled="state === 'denied' || busy" class="rounded-lg px-3 py-2 font-semibold ring-1 ring-inset ring-gray-300 disabled:opacity-50 dark:ring-gray-700">Telefona bildirim aç</button>
+        <button type="button" x-on:click="enable()" :disabled="state === 'denied' || busy" class="rounded-lg px-3 py-2 font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:ring-gray-700">Telefona bildirim aç</button>
     </template>
     <template x-if="state === 'on'">
         <span class="flex items-center gap-2">
-            <span class="rounded-full bg-success-50 px-2 py-1 text-success-700 dark:bg-success-500/10 dark:text-success-300">Bildirim açık</span>
+            <x-ta.pill tone="ok">Bildirim açık</x-ta.pill>
             <button type="button" x-on:click="sendTest()" :disabled="busy" class="text-gray-500 hover:underline">Dene</button>
             <button type="button" x-on:click="disable()" :disabled="busy" class="text-gray-500 hover:underline">Kapat</button>
         </span>

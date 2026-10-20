@@ -1,11 +1,9 @@
 <div wire:poll.15s class="relative">
     @if($activeCount > 0)
         <details class="group" wire:key="data-sync-details">
-            <summary class="flex h-9 cursor-pointer list-none items-center gap-2 rounded-full bg-gray-100 px-3 text-xs text-gray-700 hover:bg-gray-200/70 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
-                <span class="h-2 w-2 shrink-0 rounded-full {{ $items->contains('stalled', true) ? 'bg-warning-500' : 'animate-pulse bg-live-500' }}"></span>
-                <span class="font-semibold">{{ $tr ? 'Veri işleri' : 'Data jobs' }} · {{ $activeCount }}</span>
-                @if($activeCount === 1 && $items->isNotEmpty())<span class="hidden max-w-52 truncate sm:inline">{{ $items->first()['name'] }} · {{ $items->first()['state'] }}</span>@endif
-                <span aria-hidden="true">▾</span>
+            <summary class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-md px-2 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white">
+                <span class="h-2 w-2 shrink-0 rounded-full {{ $items->contains('stalled', true) ? 'bg-warning-500' : 'animate-pulse bg-success-500' }}"></span>
+                <span class="sr-only sm:not-sr-only">{{ $tr ? 'Veri işleri' : 'Data jobs' }} · {{ $activeCount }}</span>
             </summary>
             <div class="absolute right-0 z-50 mt-1.5 w-80 max-w-[90vw] rounded-xl bg-white p-4 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                 <p class="mb-3 text-xs text-gray-500">{{ $tr ? 'Tüm kaynaklardaki işler. Bu sayfanın taranma yüzdesi değildir.' : 'Jobs across all sources, not this page’s crawl percentage.' }}</p>

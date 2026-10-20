@@ -14,12 +14,12 @@
     <fieldset :disabled="saving" class="grid gap-4 md:grid-cols-2">
         <label class="text-sm">Meta App ID
             <input wire:model="app_id" inputmode="numeric" required class="{{ $input }}" />
-            <span class="mt-1 block text-xs text-gray-500">Uygulama ayarları → Temel bölümünde.</span>
+            <span class="mt-1 block text-xs text-gray-500">Uygulama ayarları › Temel bölümünde.</span>
             @error('app_id')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
         <label class="text-sm">Embedded Signup yapılandırma ID'si
             <input wire:model="signup_config_id" inputmode="numeric" required class="{{ $input }}" />
-            <span class="mt-1 block text-xs text-gray-500">Facebook Login for Business → Yapılandırmalar; "WhatsApp Embedded Signup" şablonuyla oluşturulmuş güncel yapılandırma.</span>
+            <span class="mt-1 block text-xs text-gray-500">Facebook Login for Business › Yapılandırmalar; "WhatsApp Embedded Signup" şablonuyla oluşturulmuş güncel yapılandırma.</span>
             @error('signup_config_id')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
         </label>
         <label class="text-sm">Meta App Secret

@@ -1,10 +1,10 @@
-<div class="overflow-x-auto rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+<div class="overflow-x-auto">
     <table class="w-full text-left text-sm">
-        <thead class="bg-gray-50 text-xs text-gray-500 dark:bg-gray-950"><tr><th class="px-3 py-2">Sorgu</th><th class="px-3 py-2">Hesap</th><th class="px-3 py-2 text-right">Gösterim / tık</th><th class="px-3 py-2 text-right">Ads maliyet</th></tr></thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+        <thead class="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-800"><tr><th class="py-2 pr-3 font-normal">Sorgu</th><th class="px-3 py-2 font-normal">Hesap</th><th class="px-3 py-2 text-right font-normal">Gösterim / tık</th><th class="py-2 pl-3 text-right font-normal">Ads maliyet</th></tr></thead>
+        <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
             @forelse($rows as $row)
-                <tr wire:key="v-{{ $row->id }}"><td class="px-3 py-2">{{ $row->raw_text }}</td>
-                    <td class="px-3 py-2 text-xs">{{ $sources[$row->source] ?? $row->source }} · {{ $row->resource?->display_name ?? $row->resource?->external_id ?? '—' }}</td>
+                <tr wire:key="v-{{ $row->id }}"><td class="py-2.5 pr-3">{{ $row->raw_text }}</td>
+                    <td class="px-3 py-2.5 text-xs text-gray-500">{{ $sources[$row->source] ?? $row->source }}, {{ $row->resource?->display_name ?? $row->resource?->external_id ?? '—' }}</td>
                     <td class="px-3 py-2 text-right tabular-nums">{{ number_format($row->impressions, 0, ',', '.') }} / {{ number_format($row->clicks, 0, ',', '.') }}</td>
                     <td class="px-3 py-2 text-right tabular-nums">{{ $row->cost > 0 ? number_format($row->cost, 2, ',', '.') : '—' }}</td></tr>
             @empty

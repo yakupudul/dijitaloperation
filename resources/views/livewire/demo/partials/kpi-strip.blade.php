@@ -3,14 +3,14 @@
     $primaryCount = (int) ($primaryCount ?? 3);
     $count = max(count($kpis), 1);
     $cols = match (true) {
-        $count <= 2 => 'sm:grid-cols-2',
-        $count === 3 => 'sm:grid-cols-2 xl:grid-cols-3',
-        $count === 4 => 'sm:grid-cols-2 xl:grid-cols-4',
-        default => 'sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5',
+        $count <= 2 => 'grid-cols-2',
+        $count === 3 => 'grid-cols-2 sm:grid-cols-3',
+        $count === 4 => 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+        default => 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
     };
 @endphp
 
-<div @class(['grid gap-4', $cols])>
+<div @class(['grid gap-x-8 gap-y-6', $cols])>
     @foreach ($kpis as $index => $kpi)
         @include('livewire.demo.partials.kpi', [
             'kpi' => $kpi,

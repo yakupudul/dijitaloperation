@@ -347,7 +347,8 @@ final class GbpWorkspaceTabsTest extends TestCase
         $this->assertNotNull($numbers['standards']);
         $this->assertLessThanOrEqual($numbers['standards']['total'], $numbers['standards']['passed']);
 
-        $this->page('overview')->assertSeeInOrder(['1.120', '0% karşılaştırma dönemine göre', '168', 'Arama 56 · Yol 28 · Web 84', '3,3', '3 yorum', 'Yanıtsız yorum', '2', 'Profil standartları',
+        // Sade panel (2026-10-20): at most one "·" per line, so the click split reads "Arama 56, Yol 28, Web 84" (decoration only).
+        $this->page('overview')->assertSeeInOrder(['1.120', '0% karşılaştırma dönemine göre', '168', 'Arama 56, Yol 28, Web 84', '3,3', '3 yorum', 'Yanıtsız yorum', '2', 'Profil standartları',
             $numbers['standards']['passed'].' / '.$numbers['standards']['total']]);
     }
 

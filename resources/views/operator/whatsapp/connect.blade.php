@@ -4,10 +4,10 @@
     $lastReason = in_array($attempt['status'], ['cancelled'], true) ? ($attempt['details']['message'] ?? null) : null;
 @endphp
 <div class="mx-auto max-w-2xl space-y-4">
-    <a href="{{ route('operator.whatsapp') }}" class="text-sm text-gray-500 hover:text-brand-600">← WhatsApp</a>
-    <section class="space-y-5 rounded-xl bg-white p-6 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800">
+    <a href="{{ route('operator.whatsapp') }}" class="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">WhatsApp</a>
+    <section class="space-y-5 dark:text-gray-200">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">WhatsApp numarasını bağla</h1>
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">WhatsApp numarasını bağla</h1>
             <p class="mt-1 text-sm text-gray-500">{{ $coexistence ? 'Telefonunuzdaki WhatsApp Business uygulaması çalışmaya devam eder; MoxDOP yalnız mesajları okur.' : 'WhatsApp Cloud API hesabınızı Meta penceresinden seçin.' }}</p>
         </div>
         @if($attempt['expires_at']->isPast())
@@ -24,7 +24,7 @@
             <button id="wa-select-phone" type="button" class="rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Bu numarayı bağla</button>
         @elseif(in_array($attempt['status'], ['prepared', 'cancelled'], true))
             @if($lastReason)
-                <div role="alert" class="rounded-lg bg-error-50 p-3 text-sm text-error-800 ring-1 ring-inset ring-error-200 dark:bg-error-500/10 dark:text-error-200 dark:ring-error-500/20">
+                <div role="alert" class="rounded-lg p-3 text-sm tone-critical">
                     <p class="font-semibold">Önceki deneme tamamlanmadı</p>
                     <p class="mt-1">{{ $lastReason }}</p>
                 </div>

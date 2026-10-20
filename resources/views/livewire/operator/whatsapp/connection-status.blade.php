@@ -38,8 +38,8 @@
         ['Son gelen mesaj', ! empty($config['last_message_received_at']) ? ['ok', $when($config['last_message_received_at'])] : ['muted', 'Henüz yok']],
     ];
 @endphp
-<section class="{{ $card }} space-y-4 p-5" data-wa-connection>
-    <h2 class="font-semibold text-gray-900 dark:text-white">Bağlantı</h2>
+<section class="space-y-4" data-wa-connection>
+    <h2 class="section-title">Bağlantı</h2>
     <dl class="divide-y divide-gray-100 text-sm dark:divide-gray-800">
         @foreach($rowsStatus as [$label, [$rowTone, $value]])
             <div class="flex items-center justify-between gap-3 py-2">
@@ -50,7 +50,7 @@
     </dl>
     @foreach(['connection_error' => 'Hesap erişimi', 'subscription_error' => 'Mesaj aboneliği', 'history_sync_error' => 'Geçmiş mesaj aktarımı'] as $key => $label)
         @if(!empty($config[$key]))
-            <div class="rounded-lg p-3 ring-1 ring-inset {{ $tone['bad'] }}">@include('livewire.operator.whatsapp.error-detail', ['error' => $config[$key], 'label' => $label])</div>
+            <div class="rounded-lg p-3 {{ $tone['bad'] }}">@include('livewire.operator.whatsapp.error-detail', ['error' => $config[$key], 'label' => $label])</div>
         @endif
     @endforeach
     <div class="flex flex-wrap gap-2">

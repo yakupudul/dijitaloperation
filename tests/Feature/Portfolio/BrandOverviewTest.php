@@ -166,7 +166,8 @@ final class BrandOverviewTest extends TestCase
         $this->assertSame('önceki 28 gün: ₺360', $kpis['ad_spend']['note']);
         $this->assertSame(['28', 133], [$kpis['ad_conversions']['value'], $kpis['ad_conversions']['delta']]);
         $this->assertSame(['56', 100], [$kpis['gbp_actions']['value'], $kpis['gbp_actions']['delta']]);
-        $page->assertSee('▲ +%100')->assertSee('₺840');
+        // Sade panel (2026-10-20): the change is plain coloured text (+%100), the ▲ / ▼ glyph was decoration.
+        $page->assertSee('+%100')->assertSee('₺840');
 
         // 90 days: the compact selector reuses the shared period preset.
         $kpis90 = collect($page->call('setPeriod', 'last_90')->assertSet('period', 'last_90')->assertSee('Son 90 gün')->viewData('kpis'))->keyBy('key');

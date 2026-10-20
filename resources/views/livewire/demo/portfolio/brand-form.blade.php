@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-6xl space-y-6">
     <header>
-        <a href="{{ $backUrl }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">← {{ __('brand-form.back') }}</a>
-        <h1 class="mt-3 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
+        <a href="{{ $backUrl }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">{{ __('brand-form.back') }}</a>
+        <h1 class="mt-3 text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $pageTitle }}</h1>
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ __('brand-form.subtitle') }}</p>
     </header>
 
@@ -53,12 +53,12 @@
                 <div class="mt-6 border-t border-gray-100 pt-5 dark:border-gray-800" data-brand-form-services-readonly>
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmetler <span class="ml-1 text-xs font-normal text-gray-500">{{ count($currentServices) }}</span></h2>
-                        <a href="{{ route('operator.brand', ['brand' => $brandId, 'tab' => 'ayarlar']) }}" wire:navigate class="link-neutral text-sm">Düzenle →</a>
+                        <a href="{{ route('operator.brand', ['brand' => $brandId, 'tab' => 'ayarlar']) }}" wire:navigate class="link-neutral text-sm">Düzenle</a>
                     </div>
                     <p class="mt-1 text-xs text-gray-500">Hizmetler, ★ ana hizmet ve eşleşen sayfalar Marka › Ayarlar › Marka bilgileri'nde düzenlenir.</p>
                     <ul class="mt-3 flex flex-wrap gap-2">
                         @forelse ($currentServices as $service)
-                            <li class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">@if ($service['main'])<span class="text-warning-500">★</span> @endif{{ $service['name'] }}</li>
+                            <li class="rounded-full px-2.5 py-1 text-xs text-gray-700 ring-1 ring-inset ring-gray-200 dark:text-gray-300 dark:ring-gray-700">@if ($service['main'])<span aria-label="Ana hizmet">★</span> @endif{{ $service['name'] }}</li>
                         @empty
                             <li class="text-sm text-gray-500">Hizmet yok.</li>
                         @endforelse
@@ -66,7 +66,7 @@
                 </div>
             @else
             <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5 dark:border-gray-800">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('brand-form.services') }} <span class="ml-2 rounded-full bg-brand-50 px-2 py-1 text-xs text-brand-600 dark:bg-brand-500/10">{{ count($selected_service_catalog_ids) }} {{ __('brand-form.selected') }}</span></h2>
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('brand-form.services') }} <span class="ml-1 text-sm font-normal text-gray-500">{{ count($selected_service_catalog_ids) }} {{ __('brand-form.selected') }}</span></h2>
                 <a href="{{ route('operator.library.services') }}" target="_blank" rel="noopener" class="link-neutral text-sm">{{ __('brand-form.manage_library') }} ↗</a>
             </div>
             <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -87,7 +87,7 @@
                     <div class="mt-3 space-y-2">
                         @foreach ($outOfScopeServices as $id => $service)
                             <div wire:key="out-service-{{ $id }}" class="flex items-center justify-between gap-3 text-sm">
-                                <span class="text-warning-900 dark:text-warning-200">{{ $service['label'] }} @if ($service['sector'])<span class="text-xs">· {{ $industryOptions[$service['sector']] ?? $service['sector'] }}</span>@endif</span>
+                                <span class="text-warning-900 dark:text-warning-200">{{ $service['label'] }} @if ($service['sector'])<span class="text-xs">, {{ $industryOptions[$service['sector']] ?? $service['sector'] }}</span>@endif</span>
                                 <button type="button" wire:click="removeSelectedService('{{ $id }}')" class="shrink-0 rounded-lg px-3 py-1.5 font-medium text-warning-900 ring-1 ring-warning-300 dark:text-warning-200">{{ __('brand-form.remove') }}</button>
                             </div>
                         @endforeach
@@ -111,7 +111,7 @@
                 @endforelse
             </div>
 
-            <details class="mt-4 rounded-xl bg-gray-50 p-4 dark:bg-white/5">
+            <details class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-800">
                 <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300">{{ __('brand-form.add_service') }}</summary>
                 <p class="mt-3 text-xs text-gray-500">{{ __('brand-form.new_service_help') }}</p>
                 <div class="mt-3 grid gap-3 md:grid-cols-2">
@@ -148,10 +148,10 @@
                     </div>
                 @endforeach
             </div>
-            <button type="button" wire:click="addServiceArea" class="mt-3 rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">+ {{ __('brand-form.add_area') }}</button>
+            <button type="button" wire:click="addServiceArea" class="mt-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">+ {{ __('brand-form.add_area') }}</button>
         </x-ta.form.section>
 
-        <details class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <details class="border-t border-gray-200 pt-5 dark:border-gray-800">
             <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">{{ __('brand-form.optional_details') }}</summary>
             <div class="mt-4 grid gap-4 md:grid-cols-2">
                 <x-ta.form.field :label="__('brand-form.languages')" :error="$errors->first('languages')"><x-ta.form.multi-select wire:model="languages" :options="$languageOptions" :placeholder="__('brand-form.choose_language')" /></x-ta.form.field>

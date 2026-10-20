@@ -4,8 +4,6 @@
     Bilgi dosyası. Colours: orange only the main action, red only lost traffic, amber "bak", gray info, green ok.
 --}}
 @php
-    $card = 'rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $panel = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
     $missingSetup = collect($checklist['items'])->where('required', true)->where('done', false)->values();
     $reviewSetup = collect($checklist['items'])->where('required', true)->where('done', true)->where('review', true)->values();
     $setupComplete = $missingSetup->isEmpty();
@@ -15,31 +13,30 @@
     $serviceChipLimit = \App\Livewire\Operator\Portfolio\BrandShow::SERVICE_CHIPS;
     $serviceRows = collect($serviceSummary['rows'])->sortBy(fn (array $s): int => $s['is_priority'] ? 0 : 1)->values();
 @endphp
-<div class="space-y-4" data-brand-overview>
+<div class="space-y-10" data-brand-overview>
     @unless ($operational)
-        <p class="rounded-xl bg-gray-50 p-3 text-gray-600 ring-1 ring-inset ring-gray-200 dark:bg-white/[0.03] dark:text-gray-400 dark:ring-gray-800" data-brand-not-served>{{ \App\Support\ServiceScope::NOT_SERVED }}</p>
+        <p class="text-gray-500" data-brand-not-served>{{ \App\Support\ServiceScope::NOT_SERVED }}</p>
     @endunless
 
     {{-- 1. Numbers: each against the previous period of the same length --}}
     <section aria-labelledby="kpi-heading" data-brand-kpis>
-        <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs text-gray-500">
-            <h2 id="kpi-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Son {{ $days }} gün</h2>
-            <span>önceki {{ $days }} günle karşılaştırma · her kaynak kendi son veri gününe kadar</span>
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="kpi-heading" class="section-title" title="Önceki {{ $days }} günle karşılaştırma; her kaynak kendi son veri gününe kadar.">Son {{ $days }} gün</h2>
         </div>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 xl:grid-cols-6">
             @foreach ($kpis as $kpi)
                 @php
                     $kpiOk = $kpi['state'] === 'ok';
-                    $kpiDelta = $kpiOk && $kpi['delta'] !== null ? ($kpi['delta'] > 0 ? '▲ +' : ($kpi['delta'] < 0 ? '▼ ' : '')).'%'.abs($kpi['delta']) : null;
+                    $kpiDelta = $kpiOk && $kpi['delta'] !== null ? ($kpi['delta'] > 0 ? '+' : ($kpi['delta'] < 0 ? '−' : '')).'%'.abs($kpi['delta']) : null;
                     // Spend going up is not good or bad by itself: only results are coloured.
                     $kpiTone = ! $kpiOk || $kpi['delta'] === null || $kpi['delta'] === 0 || $kpi['key'] === 'ad_spend' ? 'neutral' : ($kpi['delta'] > 0 ? 'positive' : 'negative');
                 @endphp
                 <x-ta.metric-card class="min-w-0" :label="$kpi['label']" :value="$kpiOk ? $kpi['value'] : 'veri yok'" :delta="$kpiDelta" :tone="$kpiTone" :muted="! $kpiOk"
                     :spark="$kpiOk ? ($kpi['spark'] ?? null) : null" :hint="$kpi['note']" data-kpi="{{ $kpi['key'] }}" data-state="{{ $kpi['state'] }}" title="{{ $kpiOk ? $kpi['value'] : '' }}">
-                    @if ($kpiOk && $kpi['delta'] === null)<p class="text-[11px] text-gray-400">karşılaştırma yok</p>@endif
-                    <p class="flex min-w-0 items-center justify-between gap-2 text-[11px]">
-                        <span class="truncate text-gray-400" title="{{ $kpi['source'] }}">{{ $kpi['source'] }}</span>
-                        @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="link-neutral shrink-0 font-medium">{{ $kpi['action']['label'] }} →</a>@endif
+                    @if ($kpiOk && $kpi['delta'] === null)<p class="text-xs text-gray-500">karşılaştırma yok</p>@endif
+                    <p class="flex min-w-0 items-center justify-between gap-2 text-xs">
+                        <span class="truncate text-gray-500" title="{{ $kpi['source'] }}">{{ $kpi['source'] }}</span>
+                        @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="link-neutral shrink-0 font-medium">{{ $kpi['action']['label'] }}</a>@endif
                     </p>
                 </x-ta.metric-card>
             @endforeach
@@ -51,11 +48,10 @@
 
     {{-- Marka eksikleri (yakup, 2026-10-07): amber = missing, gray = filled automatically and not checked yet. Nothing missing → one line. --}}
     @if (! $setupComplete)
-        <section class="{{ $card }}" data-setup-missing>
+        <section data-setup-missing>
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="min-w-0">
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-white" data-setup-title="missing">Marka eksikleri · {{ $checklist['done'] }}/{{ $checklist['total'] }}</h2>
-                    <p class="text-xs text-gray-500">Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır. Sistem eksikleri her gece kendisi doldurmayı dener.</p>
+                    <h2 class="section-title" data-setup-title="missing" title="Tamamlanınca içerik fikirleri, küme eşleşmesi, kampanya kararları ve raporlar tam veriyle çalışır. Sistem eksikleri her gece kendisi doldurmayı dener.">Marka eksikleri <span class="text-sm font-normal text-gray-500">{{ $checklist['done'] }}/{{ $checklist['total'] }}</span></h2>
                     @if ($autofillNote = \App\Services\BrandSetup\BrandAutofill::note((int) $brandModel->id))
                         <p class="mt-1 text-xs text-gray-500" data-autofill-note>Son tur ({{ \Carbon\Carbon::parse($autofillNote['at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}): {{ $autofillNote['text'] }}</p>
                     @endif
@@ -65,10 +61,10 @@
             @include('livewire.operator.portfolio.partials.brand-setup-items', ['items' => $missingSetup->concat($reviewSetup)])
         </section>
     @elseif ($reviewSetup->isNotEmpty())
-        <section x-data="{ open: false }" class="rounded-xl bg-white px-4 py-2.5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" data-setup-missing>
+        <section x-data="{ open: false }" class="border-b border-gray-200 pb-2.5 dark:border-gray-800" data-setup-missing>
             <button type="button" x-on:click="open = ! open" x-bind:aria-expanded="open.toString()" aria-expanded="false" aria-controls="setup-review-list" class="flex w-full items-center gap-2 text-left text-xs" data-setup-toggle>
                 <span class="h-2 w-2 shrink-0 rounded-full bg-success-500"></span>
-                <span class="font-semibold text-gray-900 dark:text-white" data-setup-title="review">Tamam · {{ $reviewSetup->count() }} alan kontrolünü bekliyor</span>
+                <span class="font-medium text-gray-900 dark:text-white" data-setup-title="review">Tamam · {{ $reviewSetup->count() }} alan kontrolünü bekliyor</span>
                 <span class="ml-auto text-gray-500" x-text="open ? 'Gizle' : 'Göster'">Göster</span>
             </button>
             <div id="setup-review-list" x-show="open" x-cloak>
@@ -81,27 +77,25 @@
     {{-- 3. Yolculuk (yakup, 2026-10-07): searches → services → clusters → site → idea pool → sent; the step losing the most is red. --}}
     @if ($journey)
         @php $worstKey = $journey['worst']['key'] ?? null; @endphp
-        <section class="{{ $card }}" data-brand-journey>
+        <section data-brand-journey>
             <div class="flex flex-wrap items-baseline justify-between gap-x-2">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Yolculuk</h2>
-                <span class="text-xs text-gray-500">aramadan yazılan içeriğe<span class="sm:hidden"> · kaydır →</span></span>
+                <h2 class="section-title" title="Aramadan yazılan içeriğe">Yolculuk</h2>
             </div>
-            {{-- Phone: the steps scroll sideways inside the card (the page itself never does); wider screens show them all. --}}
+            {{-- Phone: the steps scroll sideways in their own strip (the page itself never does); wider screens show them all. --}}
             <div class="-mx-4 mt-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0" data-journey-scroll>
-            <ol class="flex snap-x snap-mandatory gap-2 sm:grid sm:grid-cols-3 xl:grid-cols-6">
+            <ol class="flex snap-x snap-mandatory gap-6 sm:grid sm:grid-cols-3 sm:gap-x-8 sm:gap-y-6 xl:grid-cols-6">
                 @foreach ($journey['stages'] as $stage)
                     @php
                         $isWorst = $worstKey === $stage['key'];
-                        $box = $isWorst ? 'bg-error-50 ring-error-200 dark:bg-error-500/10 dark:ring-error-500/30' : 'bg-gray-50 ring-gray-200 dark:bg-white/[0.03] dark:ring-gray-800';
                     @endphp
                     <li class="w-36 shrink-0 snap-start sm:w-auto" data-journey-stage="{{ $stage['key'] }}" @if ($isWorst) data-journey-worst @endif @if (($journey['broken']['key'] ?? null) === $stage['key']) data-journey-broken @endif>
                         @if ($stage['url'] ?? null)
-                            <a href="{{ $stage['url'] }}" wire:navigate class="block h-full rounded-lg p-2.5 ring-1 ring-inset transition hover:ring-gray-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 dark:hover:ring-gray-600 dark:focus-visible:outline-white {{ $box }}" data-journey-link="{{ $stage['key'] }}">
+                            <a href="{{ $stage['url'] }}" wire:navigate class="-mx-2 block h-full rounded-md px-2 py-1 transition hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 dark:hover:bg-white/[0.03] dark:focus-visible:outline-white" data-journey-link="{{ $stage['key'] }}">
                         @else
-                            <div class="h-full rounded-lg p-2.5 ring-1 ring-inset {{ $box }}">
+                            <div class="h-full py-1">
                         @endif
                             <p class="truncate text-xs text-gray-500" title="{{ $stage['label'] }}">{{ $loop->iteration }}. {{ $stage['label'] }}</p>
-                            <p @class(['text-xl font-semibold tabular-nums', 'text-error-700 dark:text-error-300' => $isWorst, 'text-gray-900 dark:text-white' => ! $isWorst])>{{ number_format($stage['value'], 0, ',', '.') }}</p>
+                            <p @class(['text-[26px] leading-8 font-semibold tabular-nums tracking-tight', 'text-error-700 dark:text-error-300' => $isWorst, 'text-gray-900 dark:text-white' => ! $isWorst])>{{ number_format($stage['value'], 0, ',', '.') }}</p>
                             <p @class(['truncate text-xs', 'font-medium text-error-700 dark:text-error-300' => $isWorst, 'text-gray-500' => ! $isWorst]) title="{{ $stage['detail'] }}">{{ $stage['detail'] }}</p>
                         @if ($stage['url'] ?? null)
                             </a>
@@ -116,14 +110,14 @@
                 <p class="mt-2 flex flex-wrap items-baseline gap-x-2 text-xs text-error-700 dark:text-error-300" data-journey-reason>
                     <span>{{ $journey['broken']['reason'] }}</span>
                     @if ($journey['broken']['fix'] !== 'ozet')
-                        <button type="button" wire:click="setTab('{{ $journey['broken']['fix'] }}')" class="font-semibold text-gray-700 hover:underline dark:text-gray-200">Düzelt →</button>
+                        <button type="button" wire:click="setTab('{{ $journey['broken']['fix'] }}')" class="font-semibold text-gray-700 hover:underline dark:text-gray-200">Düzelt</button>
                     @endif
                 </p>
             @elseif ($journey['worst'])
                 <p class="mt-2 text-xs text-error-700 dark:text-error-300" data-journey-reason>En çok kayıp: {{ $journey['worst']['text'] }}.</p>
             @endif
             @if ($journey['foreign'] !== [])
-                <p class="mt-2 text-xs text-gray-500" data-journey-foreign>Markada olmayan hizmetlere ait aramalar: @foreach ($journey['foreign'] as $row){{ $row['service'] }} ({{ $row['queries'] }})@if (! $loop->last), @endif @endforeach · Bu hizmetler veriliyorsa markaya ekle.</p>
+                <p class="mt-2 text-xs text-gray-500" data-journey-foreign>Markada olmayan hizmetlere ait aramalar: @foreach ($journey['foreign'] as $row){{ $row['service'] }} ({{ $row['queries'] }})@if (! $loop->last), @endif @endforeach. Bu hizmetler veriliyorsa markaya ekle.</p>
             @endif
         </section>
     @endif
@@ -138,21 +132,21 @@
         </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-3">
+    <div class="grid gap-10 xl:grid-cols-3">
         {{-- Digital assets --}}
-        <section class="space-y-2 xl:col-span-2" aria-labelledby="assets-heading" data-brand-assets>
+        <section class="space-y-3 xl:col-span-2" aria-labelledby="assets-heading" data-brand-assets>
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="assets-heading" class="text-sm font-semibold text-gray-900 dark:text-white">{{ $channelFilter !== null ? $channelFilter['label'].' · veri kaynakları' : 'Dijital varlıklar' }} <span class="font-normal text-gray-400">{{ count($assetCards) }}</span></h2>
+                <h2 id="assets-heading" class="section-title">{{ $channelFilter !== null ? $channelFilter['label'].' veri kaynakları' : 'Dijital varlıklar' }} <span class="text-sm font-normal text-gray-500">{{ count($assetCards) }}</span></h2>
                 <span class="flex items-center gap-3 text-xs">
                     <button type="button" wire:click="setTab('varliklar')" class="font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Hesap bağla</button>
                     <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Varlık ekle</a>
                 </span>
             </div>
             @if ($assetCards === [] && $channelFilter !== null)
-                <div class="{{ $card }} flex flex-wrap items-center justify-between gap-3" data-channel-missing>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-3 dark:border-gray-800" data-channel-missing>
                     <div class="min-w-0">
                         <p class="font-medium text-gray-900 dark:text-white">Markaya bağlı {{ $channelFilter['asset_label'] }} yok.</p>
-                        <p class="text-xs text-gray-500">Bağlanmadan bu kanal için veri toplanmaz ve öneri üretilmez. Markada yoksa sorun değil.</p>
+                        <p class="text-xs text-gray-500">Bağlanmadan bu kanal için veri toplanmaz. Markada yoksa sorun değil.</p>
                     </div>
                     <span class="flex items-center gap-2">
                         <x-ta.button variant="outline" size="xs" :href="route('operator.brand', ['brand' => $brandModel->id, 'tab' => 'varliklar'])" wire:navigate>Hesap bağla</x-ta.button>
@@ -160,12 +154,12 @@
                     </span>
                 </div>
             @elseif ($assetCards === [])
-                <div class="{{ $card }} text-gray-500">
-                    Henüz dijital varlık yok. Web sitesini ekleyip Google / Meta hesaplarını bağlayınca rakamlar burada görünür.
-                    <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="link-neutral ml-1 font-medium">Otomatik kur →</a>
+                <div class="text-gray-500">
+                    Henüz dijital varlık yok.
+                    <a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="link-neutral ml-1 font-medium">Otomatik kur</a>
                 </div>
             @else
-                <div class="grid gap-3 sm:grid-cols-2">
+                <div class="grid gap-x-8 sm:grid-cols-2">
                     @foreach ($assetCards as $asset)
                         @include('livewire.operator.portfolio.partials.asset-card', ['asset' => $asset])
                     @endforeach
@@ -173,39 +167,39 @@
             @endif
         </section>
 
-        <div class="space-y-4">
+        <div class="space-y-10">
             {{-- Open work --}}
-            <section class="{{ $panel }}" aria-labelledby="work-heading" data-brand-work>
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                    <h2 id="work-heading" class="text-sm font-semibold text-gray-900 dark:text-white">{{ $channelFilter !== null ? $channelFilter['label'].' · açık öneriler' : 'Açık işler' }} <span class="font-normal text-gray-400">{{ $work['total'] }}</span></h2>
+            <section aria-labelledby="work-heading" data-brand-work>
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2 dark:border-gray-800">
+                    <h2 id="work-heading" class="section-title">{{ $channelFilter !== null ? $channelFilter['label'].' açık öneriler' : 'Açık işler' }} <span class="text-sm font-normal text-gray-500">{{ $work['total'] }}</span></h2>
                 </div>
                 @forelse ($work['items'] as $item)
-                    <div wire:key="work-{{ $item['id'] }}" class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800" data-work-item="{{ $item['id'] }}">
+                    <div wire:key="work-{{ $item['id'] }}" class="border-b border-gray-200 py-2.5 dark:border-gray-800" data-work-item="{{ $item['id'] }}">
                         <div class="flex items-start justify-between gap-3">
-                            <p class="min-w-0 break-words font-medium text-gray-900 dark:text-white">@if ($channelFilter === null)<span class="mr-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800">{{ $item['channel_label'] }}</span>@endif{{ $item['title'] }}</p>
-                            @if ($item['url'])<a href="{{ $item['url'] }}" wire:navigate class="shrink-0 text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Aç →</a>@endif
+                            <p class="min-w-0 break-words font-medium text-gray-900 dark:text-white">@if ($channelFilter === null)<span class="mr-1.5 text-xs font-normal text-gray-500">{{ $item['channel_label'] }}</span>@endif{{ $item['title'] }}</p>
+                            @if ($item['url'])<a href="{{ $item['url'] }}" wire:navigate class="shrink-0 text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Aç</a>@endif
                         </div>
                         @if ($item['reason'] !== '')<p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ $item['reason'] }}</p>@endif
                     </div>
                 @empty
-                    <p class="px-4 py-3 text-gray-500" data-work-empty>{{ $channelFilter !== null ? 'Bu kanalda açık öneri yok.' : 'Açık öneri yok. Kanal analizleri yeni iş bulduğunda burada görünür.' }}@if ($channelFilter !== null && $assetCards === []) Önce {{ $channelFilter['asset_label'] }} bağlanmalı.@endif</p>
+                    <p class="py-2.5 text-gray-500" data-work-empty>{{ $channelFilter !== null ? 'Bu kanalda açık öneri yok.' : 'Açık öneri yok.' }}@if ($channelFilter !== null && $assetCards === []) Önce {{ $channelFilter['asset_label'] }} bağlanmalı.@endif</p>
                 @endforelse
                 @if ($work['total'] > count($work['items']))
-                    <button type="button" wire:click="showAllWork" class="block w-full px-4 py-2 text-left text-xs font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]" data-work-more>+{{ $work['total'] - count($work['items']) }} iş paketi daha · tümünü göster</button>
+                    <button type="button" wire:click="showAllWork" class="block w-full py-2 text-left text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white" data-work-more>+{{ $work['total'] - count($work['items']) }} iş paketi daha</button>
                 @elseif ($allWork && $work['total'] > \App\Livewire\Operator\Portfolio\BrandShow::WORK_LIMIT)
-                    <button type="button" wire:click="showAllWork(false)" class="block w-full px-4 py-2 text-left text-xs font-medium text-gray-500 hover:bg-gray-50 dark:hover:bg-white/[0.03]">Daha az göster</button>
+                    <button type="button" wire:click="showAllWork(false)" class="block w-full py-2 text-left text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white">Daha az göster</button>
                 @endif
             </section>
 
             {{-- Services: chips, ★ (main) first and filled, at most 10 before "+N hizmet"; edited under Ayarlar --}}
-            <section class="{{ $panel }}" aria-labelledby="services-heading" data-brand-services x-data="{ allServices: false }">
-                <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                    <h2 id="services-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Hizmetler <span class="font-normal text-gray-400">{{ $serviceSummary['total'] }}</span></h2>
-                    <button type="button" wire:click="setTab('ayarlar')" class="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Düzenle →</button>
+            <section aria-labelledby="services-heading" data-brand-services x-data="{ allServices: false }">
+                <div class="flex items-center justify-between gap-2">
+                    <h2 id="services-heading" class="section-title">Hizmetler <span class="text-sm font-normal text-gray-500">{{ $serviceSummary['total'] }}</span></h2>
+                    <button type="button" wire:click="setTab('ayarlar')" class="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline dark:text-gray-300 dark:hover:text-white">Düzenle</button>
                 </div>
                 @if ($serviceSummary['total'] > 0)
-                    <p class="px-4 pt-3 text-xs text-gray-500">{{ $serviceSummary['priority'] }} ana (★) · {{ $serviceSummary['mapped'] }}/{{ $serviceSummary['total'] }} hizmetin sitede sayfası eşlendi</p>
-                    <ul class="flex flex-wrap gap-1.5 px-4 py-3" aria-label="Hizmetler">
+                    <p class="pt-2 text-xs text-gray-500">{{ $serviceSummary['priority'] }} ana (★) · {{ $serviceSummary['mapped'] }}/{{ $serviceSummary['total'] }} hizmetin sitede sayfası eşlendi</p>
+                    <ul class="flex flex-wrap gap-1.5 py-3" aria-label="Hizmetler">
                         @foreach ($serviceRows as $service)
                             @php
                                 $chipClass = $service['is_priority']
@@ -239,10 +233,10 @@
                         @endif
                     </ul>
                     @if ($serviceSummary['mapped'] < $serviceSummary['total'])
-                        <p class="flex items-center gap-1.5 px-4 pb-3 text-[11px] text-gray-500"><span class="h-1.5 w-1.5 rounded-full bg-warning-400" aria-hidden="true"></span>Sayfa eşlenmedi</p>
+                        <p class="flex items-center gap-1.5 text-xs text-gray-500"><span class="h-1.5 w-1.5 rounded-full bg-warning-400" aria-hidden="true"></span>Sayfa eşlenmedi</p>
                     @endif
                 @else
-                    <p class="px-4 py-3 text-gray-500">Markaya hizmet eklenmedi. "Otomatik kur" siteden önerir ya da Ayarlar → Marka bilgileri'nden eklenir.</p>
+                    <p class="py-2.5 text-gray-500">Markaya hizmet eklenmedi. "Otomatik kur" siteden önerir ya da Ayarlar, Marka bilgileri'nden eklenir.</p>
                 @endif
             </section>
         </div>

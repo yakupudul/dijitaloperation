@@ -150,10 +150,12 @@ final class TodayCockpitTest extends SiteTestCase
     {
         $primary = Blade::render('<x-ta.badge>Bilgi</x-ta.badge>');
         $this->assertStringNotContainsString('brand-', $primary);
-        $this->assertStringContainsString('bg-gray-100', $primary);
-        $this->assertStringContainsString('bg-error-50', Blade::render('<x-ta.badge color="critical">Kritik</x-ta.badge>'));
-        $this->assertStringContainsString('bg-warning-50', Blade::render('<x-ta.badge color="look">Bak</x-ta.badge>'));
-        $this->assertStringContainsString('bg-success-50', Blade::render('<x-ta.badge color="success">Tamam</x-ta.badge>'));
+        // Sade panel (2026-10-20): a light badge is coloured text, no filled chip; the tone still follows the status.
+        $this->assertStringContainsString('text-gray-500', $primary);
+        $this->assertStringNotContainsString('bg-', $primary);
+        $this->assertStringContainsString('text-error-700', Blade::render('<x-ta.badge color="critical">Kritik</x-ta.badge>'));
+        $this->assertStringContainsString('text-warning-700', Blade::render('<x-ta.badge color="look">Bak</x-ta.badge>'));
+        $this->assertStringContainsString('text-success-700', Blade::render('<x-ta.badge color="success">Tamam</x-ta.badge>'));
     }
 
     private function countQueries(): int

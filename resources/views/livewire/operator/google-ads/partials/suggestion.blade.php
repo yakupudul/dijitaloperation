@@ -3,26 +3,26 @@
     $sharedNegative = $s->action_type === 'ads_negative' && ($a['scope'] ?? '') === 'shared';
     $editable = in_array($s->action_type, ['ads_rsa', 'ads_negative', 'ads_campaign'], true);
 @endphp
-<div class="px-4 py-3" wire:key="sug-{{ $s->id }}">
+<div class="py-3" wire:key="sug-{{ $s->id }}">
     <div class="flex flex-wrap items-start gap-2">
         @if ($sharedNegative && $canWrite)
-            <input type="checkbox" wire:model.live="selectedNegatives" value="{{ $s->id }}" aria-label="Seç" class="mt-1 rounded border-gray-300">
+            <input type="checkbox" wire:model.live="selectedNegatives" value="{{ $s->id }}" aria-label="Seç" class="mt-1 rounded border-gray-300 dark:border-gray-700">
         @endif
         <div class="min-w-0 flex-1">
-            <p class="break-words text-sm font-semibold text-gray-900 dark:text-white">{{ $s->title }}@if ($a['locked'] ?? false) <span class="ml-1 rounded-full bg-gray-100 px-1.5 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">Düzenlendi</span>@endif</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300">{{ $s->reason }}</p>
+            <p class="break-words text-sm font-medium text-gray-900 dark:text-white">{{ $s->title }}@if ($a['locked'] ?? false) <span class="ml-1 text-xs font-normal text-gray-500">Düzenlendi</span>@endif</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $s->reason }}</p>
             @if (in_array($s->action_type, ['ads_check', 'ads_advice'], true) && filled($a['todo'] ?? null))
-                <p class="mt-0.5 text-xs text-gray-500">@if (filled($a['impact'] ?? null)){{ $a['impact'] }} · @endif Yapılacak (Google Ads'te elle): {{ $a['todo'] }}</p>
+                <p class="mt-0.5 text-xs text-gray-500">@if (filled($a['impact'] ?? null)){{ $a['impact'] }}. @endif Yapılacak (Google Ads'te elle): {{ $a['todo'] }}</p>
             @elseif ($s->action_type === 'ads_negative')
-                <p class="mt-0.5 text-xs text-gray-500">{{ $matchLabel((string) $a['match_type']) }} eşleme · {{ $scopeLabel($a) }} · {{ $money($a['cost'] ?? null) }} {{ $cur }}
-                    · Engelleyebileceği faydalı sorgu: {{ ($a['blocks'] ?? []) === [] ? 'yok' : implode(', ', array_slice($a['blocks'], 0, 5)) }}</p>
+                <p class="mt-0.5 text-xs text-gray-500">{{ $matchLabel((string) $a['match_type']) }} eşleme, {{ $scopeLabel($a) }}, {{ $money($a['cost'] ?? null) }} {{ $cur }}</p>
+                <p class="text-xs text-gray-500">Engelleyebileceği faydalı sorgu: {{ ($a['blocks'] ?? []) === [] ? 'yok' : implode(', ', array_slice($a['blocks'], 0, 5)) }}</p>
             @endif
         </div>
         <div class="flex shrink-0 flex-wrap gap-1.5">
             @if ($sharedNegative && $canWrite)
-                <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.approveSuggestion({{ $s->id }})" class="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-100 dark:ring-gray-600 dark:hover:bg-white/[0.04]">Gönder</button>
+                <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.approveSuggestion({{ $s->id }})" class="{{ $small }}">Gönder</button>
             @else
-                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="rounded bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-100 dark:ring-gray-600 dark:hover:bg-white/[0.04]">Onayla</button>
+                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="{{ $small }}">Onayla</button>
             @endif
             @if ($editable)
                 <button type="button" wire:click="startEdit({{ $s->id }})" class="{{ $small }}">Düzenle</button>
@@ -33,11 +33,11 @@
     </div>
 
     @if (is_array($a['proposal'] ?? null))
-        <p class="mt-1 text-xs text-warning-700 dark:text-warning-300">AI değişiklik önerisi var · <button type="button" wire:click="acceptProposal({{ $s->id }})" class="font-semibold hover:underline">AI önerisini uygula</button></p>
+        <p class="mt-1 text-xs text-warning-700 dark:text-warning-300">AI değişiklik önerisi var. <button type="button" wire:click="acceptProposal({{ $s->id }})" class="font-medium underline underline-offset-2">AI önerisini uygula</button></p>
     @endif
 
     @if ($editingId === $s->id)
-        <div class="mt-2 space-y-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">
+        <div class="surface mt-2 space-y-2 p-3 text-sm">
             @if ($s->action_type === 'ads_rsa')
                 <label class="block text-xs text-gray-500">Başlıklar (satır başına bir, en çok 30 karakter)<textarea wire:model="edit.headlines" rows="6" class="{{ $input }} mt-1 w-full"></textarea></label>
                 @error('edit.headlines')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
@@ -74,32 +74,32 @@
                 @endforeach
             @endif
             <div class="flex gap-2">
-                <button type="button" wire:click="saveEdit" class="rounded bg-brand-500 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-600">Kaydet</button>
+                <button type="button" wire:click="saveEdit" class="rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-500">Kaydet</button>
                 <button type="button" wire:click="cancelEdit" class="{{ $small }}">Vazgeç</button>
             </div>
         </div>
     @elseif ($s->action_type === 'ads_campaign')
         <div class="mt-2 space-y-1.5 text-xs text-gray-600 dark:text-gray-300">
-            <p>Hizmet: {{ $a['service'] ?? '—' }} · Günlük bütçe: {{ $money($a['daily_budget'] ?? null) }} {{ $cur }}</p>
+            <p>Hizmet: {{ $a['service'] ?? '—' }}, günlük bütçe: {{ $money($a['daily_budget'] ?? null) }} {{ $cur }}</p>
             @foreach ((array) ($a['ad_groups'] ?? []) as $group)
-                <p><span class="font-semibold text-gray-800 dark:text-gray-200">{{ $group['name'] }}</span> → {{ $group['landing_url'] ?: 'URL yok' }}<br>
+                <p><span class="font-medium text-gray-800 dark:text-gray-200">{{ $group['name'] }}</span>: {{ $group['landing_url'] ?: 'URL yok' }}<br>
                     {{ collect($group['keywords'])->map(fn ($k) => $k['text'].' ['.$matchLabel($k['match_type']).']')->implode(', ') }}</p>
             @endforeach
         </div>
     @elseif ($s->action_type === 'ads_rsa')
         <div class="mt-2 grid gap-2 text-xs md:grid-cols-2">
             <div>
-                <p class="font-semibold text-gray-500">Başlıklar</p>
+                <p class="text-gray-500">Başlıklar</p>
                 @foreach ((array) $a['headlines'] as $headline)
-                    <p class="text-gray-800 dark:text-gray-200">{{ $headline }} <span class="text-gray-400">{{ mb_strlen($headline) }}/30</span></p>
+                    <p class="text-gray-800 dark:text-gray-200">{{ $headline }} <span class="text-gray-500">{{ mb_strlen($headline) }}/30</span></p>
                 @endforeach
             </div>
             <div>
-                <p class="font-semibold text-gray-500">Açıklamalar</p>
+                <p class="text-gray-500">Açıklamalar</p>
                 @foreach ((array) $a['descriptions'] as $description)
-                    <p class="text-gray-800 dark:text-gray-200">{{ $description }} <span class="text-gray-400">{{ mb_strlen($description) }}/90</span></p>
+                    <p class="text-gray-800 dark:text-gray-200">{{ $description }} <span class="text-gray-500">{{ mb_strlen($description) }}/90</span></p>
                 @endforeach
-                <p class="mt-1 break-all text-gray-500">URL: {{ $a['final_url'] }}@if (filled($a['path1'] ?? null)) · /{{ $a['path1'] }}@endif @if (filled($a['path2'] ?? null))/{{ $a['path2'] }}@endif</p>
+                <p class="mt-1 break-all text-gray-500">URL: {{ $a['final_url'] }}@if (filled($a['path1'] ?? null)), /{{ $a['path1'] }}@endif @if (filled($a['path2'] ?? null))/{{ $a['path2'] }}@endif</p>
             </div>
         </div>
     @endif
@@ -108,7 +108,7 @@
         <details class="mt-1 text-xs text-gray-500">
             <summary class="cursor-pointer">Kanıt</summary>
             @foreach ($s->evidence as $row)
-                <p class="mt-0.5">@foreach ((array) $row as $k => $v){{ str_replace('_', ' ', (string) $k) }}: {{ is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE) }}@if (! $loop->last) · @endif @endforeach</p>
+                <p class="mt-0.5">@foreach ((array) $row as $k => $v){{ str_replace('_', ' ', (string) $k) }}: {{ is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE) }}@if (! $loop->last), @endif @endforeach</p>
             @endforeach
         </details>
     @endif

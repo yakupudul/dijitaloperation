@@ -11,7 +11,7 @@
 @endphp
 <figure class="space-y-1" data-sparkline="{{ $label }}">
     <figcaption class="flex items-baseline justify-between text-xs text-gray-500">
-        <span>{{ $label }} · günlük</span>
+        <span>{{ $label }}, günlük</span>
         <span>en yüksek {{ $format($max) }}</span>
     </figcaption>
     @if ($count > 1)
@@ -23,11 +23,11 @@
                 <rect x="{{ round($i * $slot, 2) }}" y="0" width="{{ round($slot, 2) }}" height="{{ $h }}" fill="transparent"><title>{{ \Carbon\CarbonImmutable::parse($p['date'])->format('d.m.Y') }}: {{ $format($p['value']) }}</title></rect>
             @endforeach
         </svg>
-        <div class="flex justify-between text-[10px] text-gray-400">
+        <div class="flex justify-between text-xs text-gray-500">
             <span>{{ \Carbon\CarbonImmutable::parse($points[0]['date'])->format('d.m') }}</span>
             <span>{{ \Carbon\CarbonImmutable::parse($points[$count - 1]['date'])->format('d.m') }}</span>
         </div>
     @else
-        <p class="text-xs text-gray-400">Veri yok.</p>
+        <p class="text-xs text-gray-500">Veri yok.</p>
     @endif
 </figure>

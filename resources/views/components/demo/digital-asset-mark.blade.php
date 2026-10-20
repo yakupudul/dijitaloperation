@@ -33,7 +33,7 @@
 
 <span
     {{ $attributes->class([
-        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-inset ring-gray-200 dark:ring-white/10',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md',
         $sizeClass,
         $visual['container'] ?? 'bg-white dark:bg-white/95',
     ]) }}
@@ -51,5 +51,5 @@
         decoding="async"
         onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');"
     />
-    <span class="hidden text-[10px] font-semibold text-gray-600 dark:text-gray-200">{{ $visual['fallback_initials'] }}</span>
+    <span class="hidden text-xs font-semibold text-gray-600 dark:text-gray-200">{{ $visual['fallback_initials'] }}</span>
 </span>

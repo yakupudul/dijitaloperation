@@ -14,12 +14,12 @@
     <x-operator.asset-context :asset-id="$assetId" :title="$identity['title']">
         <x-slot:mark><x-demo.digital-asset-mark type="gsc" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>
-                {{ $identity['relationship_line'] ?? 'Observes · Website' }}
+                {{ $identity['relationship_line'] ?? 'Observes, Website' }}
                 @if (filled($identity['property_label'] ?? null))
-                    · <span class="break-all text-gray-700 dark:text-gray-300">{{ $identity['property_label'] }}</span> · {{ $identity['property_type'] ?? 'Domain property' }}
+                    <span class="ml-3 break-all text-gray-700 dark:text-gray-300">{{ $identity['property_label'] }}</span>, {{ $identity['property_type'] ?? 'Domain property' }}
                 @endif
                 @if (filled($identity['website_asset_id'] ?? null))
-                    · <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
+                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="ml-3 link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
                 @endif
         </x-slot:meta>
         <x-slot:actions>
@@ -33,7 +33,7 @@
         </x-slot:tabs>
     </x-operator.asset-context>
 
-    <p class="text-xs text-gray-400">{{ $data['demo_boundary'] }}</p>
+    <p class="text-xs text-gray-500">{{ $data['demo_boundary'] }}</p>
 
     @if ($tab === 'overview')
         @include('livewire.demo.search-console.tabs.overview')
@@ -53,15 +53,15 @@
 @if ($selectedAttention)
     <x-demo.gads-drawer :title="$selectedAttention['title']" :subtitle="$selectedAttention['scope'] ?? null" :severity="$selectedAttention['severity'] ?? null">
         <div>
-            <p class="text-xs text-gray-400">Ne oldu</p>
+            <p class="text-xs text-gray-500">Ne oldu</p>
             <p class="font-medium text-gray-900 dark:text-white">{{ $selectedAttention['metric'] }}</p>
         </div>
         <div>
-            <p class="text-xs text-gray-400">Neden önemli</p>
+            <p class="text-xs text-gray-500">Neden önemli</p>
             <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['why'] ?? 'Organic demand signal requiring agency review.' }}</p>
         </div>
         <div>
-            <p class="text-xs text-gray-400">Önerilen adım</p>
+            <p class="text-xs text-gray-500">Önerilen adım</p>
             <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['action'] }}@if (! empty($selectedAttention['tab'])) in {{ str_replace('_', ' ', $selectedAttention['tab']) }}@endif.</p>
         </div>
         @if (! empty($selectedAttention['finding_id']))
@@ -77,33 +77,33 @@
     <x-demo.gads-drawer :title="$selectedCluster['name']" :subtitle="$selectedCluster['intent'] ?? null" :severity="match($selectedCluster['trend'] ?? '') { 'declining' => 'High', 'ctr_review' => 'Medium', default => null }">
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <p class="text-xs text-gray-400">Tıklama</p>
+                <p class="text-xs text-gray-500">Tıklama</p>
                 <p class="font-semibold tabular-nums">{{ number_format($selectedCluster['clicks'] ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Gösterim</p>
+                <p class="text-xs text-gray-500">Gösterim</p>
                 <p class="font-semibold tabular-nums">{{ number_format($selectedCluster['impressions'] ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">CTR</p>
+                <p class="text-xs text-gray-500">CTR</p>
                 <p class="font-semibold tabular-nums">{{ $selectedCluster['ctr'] ?? '—' }}%</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Ort. sıra</p>
+                <p class="text-xs text-gray-500">Ort. sıra</p>
                 <p class="font-semibold tabular-nums" title="Average position ≠ global rank">{{ $selectedCluster['position'] ?? '—' }}</p>
             </div>
         </div>
         <div>
-            <p class="text-xs text-gray-400">Ana sayfa (URL)</p>
+            <p class="text-xs text-gray-500">Ana sayfa (URL)</p>
             <p class="font-medium text-gray-900 dark:text-white">{{ $selectedCluster['primary_page'] ?? '—' }}</p>
         </div>
         <div>
-            <p class="text-xs text-gray-400">Sahiplik</p>
+            <p class="text-xs text-gray-500">Sahiplik</p>
             <p class="text-gray-700 dark:text-gray-300">{{ $selectedCluster['ownership_state'] ?? '—' }}</p>
         </div>
         @if (! empty($selectedCluster['queries']))
             <div>
-                <p class="text-xs text-gray-400">Örnek aramalar</p>
+                <p class="text-xs text-gray-500">Örnek aramalar</p>
                 <ul class="mt-1 space-y-0.5 text-sm text-gray-700 dark:text-gray-300">
                     @foreach ($selectedCluster['queries'] as $q)
                         <li>{{ $q }}</li>
@@ -112,7 +112,7 @@
             </div>
         @endif
         <button type="button" wire:click="setDemandSub('queries')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Arama gezginini aç</button>
-        <p class="text-[11px] text-gray-400">Search Console · cluster aggregates</p>
+        <p class="text-xs text-gray-500">Search Console, cluster aggregates</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -120,96 +120,93 @@
     <x-demo.gads-drawer :title="$selectedPage['path'] ?? 'Page'" :subtitle="$selectedPage['title'] ?? $selectedPage['content_role'] ?? null" :severity="$selectedPage['state'] ?? $selectedPage['website_attention'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <p class="text-xs text-gray-400">Tıklama</p>
+                <p class="text-xs text-gray-500">Tıklama</p>
                 <p class="font-semibold tabular-nums">{{ number_format($selectedPage['clicks'] ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Gösterim</p>
+                <p class="text-xs text-gray-500">Gösterim</p>
                 <p class="font-semibold tabular-nums">{{ number_format($selectedPage['impressions'] ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">İçerik rolü</p>
+                <p class="text-xs text-gray-500">İçerik rolü</p>
                 <p class="font-semibold">{{ $selectedPage['content_role'] ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Hizmet</p>
+                <p class="text-xs text-gray-500">Hizmet</p>
                 <p class="font-semibold">{{ $selectedPage['offering'] ?? '—' }}</p>
             </div>
         </div>
         @if (! empty($selectedPage['clusters']))
             <div>
-                <p class="text-xs text-gray-400">İlgili kümeler</p>
-                <p class="text-sm text-gray-700 dark:text-gray-300">{{ implode(' · ', $selectedPage['clusters']) }}</p>
+                <p class="text-xs text-gray-500">İlgili kümeler</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ implode(', ', $selectedPage['clusters']) }}</p>
             </div>
         @endif
         @if (! empty($selectedPage['website_attention']))
             <div>
-                <p class="text-xs text-gray-400">Site uyarıları</p>
+                <p class="text-xs text-gray-500">Site uyarıları</p>
                 <p class="text-warning-700 dark:text-warning-400">{{ $selectedPage['website_attention'] }}</p>
             </div>
         @endif
         @if (! empty($selectedPage['ga4_context']))
             <div>
-                <p class="text-xs text-gray-400">GA4 context (page-level)</p>
+                <p class="text-xs text-gray-500">GA4 context (page-level)</p>
                 <p class="text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                    {{ number_format($selectedPage['ga4_context']['sessions'] ?? 0) }} sessions
-                    · {{ $selectedPage['ga4_context']['engagement_rate'] ?? '—' }}% engaged
-                    · {{ number_format($selectedPage['ga4_context']['mapped_actions'] ?? 0) }} mapped actions
+                    {{ number_format($selectedPage['ga4_context']['sessions'] ?? 0) }} sessions, {{ $selectedPage['ga4_context']['engagement_rate'] ?? '—' }}% engaged, {{ number_format($selectedPage['ga4_context']['mapped_actions'] ?? 0) }} mapped actions
                 </p>
-                <p class="mt-1 text-[11px] text-gray-700 dark:text-gray-300">{{ $selectedPage['ga4_context']['note'] ?? $data['pages']['attribution_note'] ?? '' }}</p>
+                <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">{{ $selectedPage['ga4_context']['note'] ?? $data['pages']['attribution_note'] ?? '' }}</p>
             </div>
         @endif
         @if (filled($identity['website_asset_id'] ?? null))
         <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">{{ __('operator.chrome.open_website') }}</a>
         @endif
-        <p class="text-[11px] text-gray-400">Search Console · page aggregates</p>
+        <p class="text-xs text-gray-500">Search Console, page aggregates</p>
     </x-demo.gads-drawer>
 @endif
 
 @if ($selectedUrl)
     <x-demo.gads-drawer :title="$selectedUrl['path'] ?? 'URL'" :subtitle="$selectedUrl['role'] ?? null" :severity="$selectedUrl['attention'] ?? $selectedUrl['index_state'] ?? null">
         <div>
-            <p class="text-xs text-gray-400">URL</p>
+            <p class="text-xs text-gray-500">URL</p>
             <p class="break-all text-sm font-medium text-gray-900 dark:text-white">{{ $selectedUrl['url'] ?? '—' }}</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <p class="text-xs text-gray-400">Google dizin durumu</p>
+                <p class="text-xs text-gray-500">Google dizin durumu</p>
                 <p class="font-semibold">{{ $selectedUrl['index_state'] ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Site haritası</p>
+                <p class="text-xs text-gray-500">Site haritası</p>
                 <p class="font-semibold">{{ $selectedUrl['sitemap'] ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Kanonik</p>
+                <p class="text-xs text-gray-500">Kanonik</p>
                 <p class="font-semibold">{{ $selectedUrl['canonical'] ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Arama görünürlüğü</p>
+                <p class="text-xs text-gray-500">Arama görünürlüğü</p>
                 <p class="font-semibold">{{ $selectedUrl['search_visibility'] ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Son tarama</p>
+                <p class="text-xs text-gray-500">Son tarama</p>
                 <p class="font-semibold">{{ $selectedUrl['last_crawl'] ?? '—' }}</p>
             </div>
         </div>
         @if (($selectedUrl['canonical'] ?? '') === 'Mismatch')
             <div>
-                <p class="text-xs text-gray-400">Kanonik ayrıntı</p>
+                <p class="text-xs text-gray-500">Kanonik ayrıntı</p>
                 <p class="text-sm text-warning-700 dark:text-warning-400">
-                    User: {{ $selectedUrl['user_canonical'] ?? '—' }}
-                    · Google: {{ $selectedUrl['google_canonical'] ?? '—' }}
+                    User: {{ $selectedUrl['user_canonical'] ?? '—' }}, Google: {{ $selectedUrl['google_canonical'] ?? '—' }}
                 </p>
             </div>
         @endif
         @if (! empty($selectedUrl['attention']))
             <div>
-                <p class="text-xs text-gray-400">Dikkat</p>
+                <p class="text-xs text-gray-500">Dikkat</p>
                 <p class="text-warning-700 dark:text-warning-400">{{ $selectedUrl['attention'] }}</p>
             </div>
         @endif
-        <p class="text-[11px] text-gray-400">{{ $data['indexing']['inspection_note'] ?? 'Google index state · read-only observation.' }}</p>
+        <p class="text-xs text-gray-500">{{ $data['indexing']['inspection_note'] ?? 'Google index state, read-only observation.' }}</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -218,11 +215,11 @@
         @foreach (['what' => 'Ne oldu', 'why' => 'Neden önemli', 'scope' => 'Kapsam', 'evidence' => 'Kanıt', 'next' => 'Önerilen adım', 'outcome' => 'Sonuç'] as $key => $label)
             @if (! empty($selectedFinding[$key]))
                 <div>
-                    <p class="text-xs text-gray-400">{{ $label }}</p>
+                    <p class="text-xs text-gray-500">{{ $label }}</p>
                     <p class="text-gray-800 dark:text-white/90">{{ $selectedFinding[$key] }}</p>
                 </div>
             @endif
         @endforeach
-        <p class="text-[11px] text-gray-400">Tasks are not auto-created. No Search Console write actions.</p>
+        <p class="text-xs text-gray-500">Tasks are not auto-created. No Search Console write actions.</p>
     </x-demo.gads-drawer>
 @endif

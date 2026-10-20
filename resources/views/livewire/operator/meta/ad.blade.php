@@ -5,14 +5,14 @@
     $pct = fn ($value) => $value === null ? '—' : (($value > 0 ? '+' : '').number_format((float) $value, 1, ',', '.').'%');
     $count = fn (float $value) => $value >= 10000 ? $num($value / 1000, 1).' bin' : $num($value, $value == floor($value) ? 0 : 1);
     [$unit, $unitCost] = \App\Services\Meta\MetaCampaignBoard::TYPES[$ad['type']];
-    $card = 'surface';
     /** Meta enums in plain Turkish; unknown ones are humanised, never shown raw. */
     $enumText = fn (string $v): string => \Illuminate\Support\Str::of($v)->lower()->replace('_', ' ')->ucfirst()->toString();
     $optimizationText = fn (string $v): string => \App\Services\Meta\MetaStrategy::OPTIMIZATIONS[strtoupper($v)] ?? $enumText($v);
     $destinationText = fn (string $v): string => ['ON_AD' => 'Anında form', 'WEBSITE' => 'Web sitesi', 'MESSENGER' => 'Messenger', 'WHATSAPP' => 'WhatsApp', 'INSTAGRAM_DIRECT' => 'Instagram mesajı', 'MESSAGING_MESSENGER_WHATSAPP' => 'Messenger / WhatsApp', 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER' => 'Instagram / Messenger', 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP' => 'Instagram / Messenger / WhatsApp', 'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP' => 'Instagram / WhatsApp', 'PHONE_CALL' => 'Telefon araması', 'APP' => 'Uygulama', 'ON_PAGE' => 'Facebook sayfası', 'ON_POST' => 'Gönderi', 'ON_VIDEO' => 'Video', 'UNDEFINED' => ''][strtoupper($v)] ?? $enumText($v);
     $formStatus = fn (string $v): string => ['ARCHIVED' => 'Arşivlendi', 'DELETED' => 'Silindi', 'DRAFT' => 'Taslak', 'PAUSED' => 'Durduruldu'][strtoupper($v)] ?? $enumText($v);
-    $btn = 'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]';
-    $chip = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium';
+    $btn = 'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-200 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]';
+    /** Destination kind label: plain medium text, no filled chip. */
+    $chip = 'font-medium text-gray-900 dark:text-white';
     $statusLabel = ['live' => 'Yayında', 'paused' => 'Durmuş', 'ended' => 'Bitti'];
     $k = $ad['kpis'];
     $c = $ad['creative'];
@@ -36,7 +36,7 @@
     }
 @endphp
 
-<div class="space-y-5">
+<div class="space-y-10">
     <nav class="break-words text-sm text-gray-500" aria-label="Konum">
         @if ($brand)<a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">{{ $brand->name }}</a> <span class="text-gray-300">/</span>@endif
         <a href="{{ route('operator.meta.overview', ['assetId' => $assetId]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">{{ $asset['name'] ?? 'Meta' }}</a> <span class="text-gray-300">/</span>
@@ -44,19 +44,19 @@
         <span class="text-gray-700 dark:text-gray-300" title="{{ $ad['name'] }}">{{ \Illuminate\Support\Str::limit($ad['name'], 50) }}</span>
     </nav>
 
-    <section class="{{ $card }} flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between" data-testid="meta-ad-header">
+    <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between" data-testid="meta-ad-header">
         <div class="min-w-0 space-y-1.5">
-            <p @class(['flex flex-wrap items-center gap-2 text-xs font-semibold', 'text-success-700 dark:text-success-400' => $ad['status'] === 'live', 'text-gray-500' => $ad['status'] !== 'live'])>
-                <span @class(['h-2 w-2 rounded-full', 'bg-success-500' => $ad['status'] === 'live', 'bg-gray-400' => $ad['status'] !== 'live'])></span>{{ $statusLabel[$ad['status']] }}
-                @if (in_array(strtoupper($ad['raw_status']), ['DISAPPROVED', 'WITH_ISSUES'], true))<span class="{{ $chip }} bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-300">Reddedildi</span>@endif
-                @if ($ad['fatigue'])<span class="{{ $chip }} bg-warning-50 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">Yoruldu · CTR {{ $ad['fatigue']['first_ctr'] }}% → {{ $ad['fatigue']['last_ctr'] }}%</span>@endif
+            <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                <span class="inline-flex items-center gap-1.5"><span @class(['h-1.5 w-1.5 rounded-full', 'bg-success-500' => $ad['status'] === 'live', 'bg-gray-400' => $ad['status'] !== 'live'])></span>{{ $statusLabel[$ad['status']] }}</span>
+                @if (in_array(strtoupper($ad['raw_status']), ['DISAPPROVED', 'WITH_ISSUES'], true))<x-ta.pill tone="critical">Reddedildi</x-ta.pill>@endif
+                @if ($ad['fatigue'])<x-ta.pill tone="look">Yoruldu, CTR {{ $ad['fatigue']['first_ctr'] }}% iken {{ $ad['fatigue']['last_ctr'] }}%</x-ta.pill>@endif
             </p>
-            <h1 class="break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $ad['name'] }}</h1>
+            <h1 class="break-words text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $ad['name'] }}</h1>
             <p class="break-words text-sm text-gray-500">Reklam seti: {{ $ad['adset']['name'] ?: '—' }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            @if ($c['post_url'] !== '')<a href="{{ $c['post_url'] }}" target="_blank" rel="noopener" class="{{ $btn }}">Gönderiyi Facebook’ta aç ↗</a>@endif
-            <a href="{{ $ad['ads_manager_url'] }}" target="_blank" rel="noopener" class="{{ $btn }}">Reklam Yöneticisi’nde aç ↗</a>
+            @if ($c['post_url'] !== '')<a href="{{ $c['post_url'] }}" target="_blank" rel="noopener" class="{{ $btn }}">Gönderiyi Facebook’ta aç <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>@endif
+            <a href="{{ $ad['ads_manager_url'] }}" target="_blank" rel="noopener" class="{{ $btn }}">Reklam Yöneticisi’nde aç <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
         </div>
     </section>
 
@@ -70,20 +70,20 @@
             [ucfirst($unit), $count($k['results']), 'önceki dönem '.($k['prev_results'] === null ? '—' : $count($k['prev_results'])), null],
             [ucfirst($unitCost), $money($k['cpr']), 'önceki dönem '.$money($k['prev_cpr']), $change($k['cpr'], $k['prev_cpr'])],
             ['CTR', $k['ctr'] === null ? '—' : $num($k['ctr'], 2).'%', 'önceki dönem '.($k['prev_ctr'] === null ? '—' : $num($k['prev_ctr'], 2).'%'), null],
-            ['Gösterim · tıklama', $count((float) $k['impressions']), $num($k['clicks']).' tıklama', null],
+            ['Gösterim, tıklama', $count((float) $k['impressions']), $num($k['clicks']).' tıklama', null],
             ['CPM', $money($k['cpm']), $k['frequency'] === null ? '1000 gösterim' : 'sıklık '.$num($k['frequency'], 2), null],
         ];
     @endphp
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6" data-testid="meta-ad-kpis">
+    <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 xl:grid-cols-6" data-testid="meta-ad-kpis">
         @foreach ($tiles as [$label, $value, $sub, $delta])
             <x-ta.metric-card :label="$label" :value="$value" :hint="$sub" :delta="$delta === null ? null : $pct($delta)" :tone="$delta === null ? 'neutral' : ($delta < 0 ? 'positive' : ($delta > 0 ? 'negative' : 'neutral'))" class="min-w-0" />
         @endforeach
     </div>
 
-    <div class="grid gap-5 xl:grid-cols-[minmax(0,26rem)_1fr]">
+    <div class="grid gap-10 xl:grid-cols-[minmax(0,26rem)_1fr]">
         {{-- What people see --}}
-        <section class="{{ $card }} min-w-0 space-y-4 p-4 sm:p-5" data-testid="meta-ad-creative" x-data="{ copied: '' }">
-            <h2 class="font-semibold text-gray-900 dark:text-white">Reklam</h2>
+        <section class="min-w-0 space-y-4" data-testid="meta-ad-creative" x-data="{ copied: '' }">
+            <h2 class="section-title">Reklam</h2>
             <div class="overflow-hidden rounded-xl ring-1 ring-inset ring-gray-200 dark:ring-gray-700">
                 @if ($c['body'] !== '')
                     <p class="whitespace-pre-line p-3 text-sm leading-relaxed text-gray-800 dark:text-gray-200">{{ $c['body'] }}</p>
@@ -98,29 +98,28 @@
                 @if ($c['title'] !== '' || $c['description'] !== '' || $c['cta'] !== '')
                     <div class="flex items-center gap-3 bg-gray-50 p-3 dark:bg-white/[0.03]">
                         <div class="min-w-0 flex-1">
-                            @if ($d['kind'] === 'site')<p class="truncate text-[11px] uppercase text-gray-500">{{ $d['host'] }}</p>@endif
-                            @if ($c['title'] !== '')<p class="break-words font-semibold text-gray-900 dark:text-white">{{ $c['title'] }}</p>@endif
-                            @if ($c['description'] !== '')<p class="text-xs text-gray-600 dark:text-gray-400">{{ $c['description'] }}</p>@endif
+                            @if ($d['kind'] === 'site')<p class="truncate text-xs text-gray-500">{{ $d['host'] }}</p>@endif
+                            @if ($c['title'] !== '')<p class="break-words font-medium text-gray-900 dark:text-white">{{ $c['title'] }}</p>@endif
+                            @if ($c['description'] !== '')<p class="text-xs text-gray-500 dark:text-gray-400">{{ $c['description'] }}</p>@endif
                         </div>
                         @if ($c['cta'] !== '')<span class="shrink-0 rounded-md bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 dark:bg-white/10 dark:text-gray-100">{{ $c['cta'] }}</span>@endif
                     </div>
                 @endif
             </div>
             @if ($c['body'] !== '')
-                <button type="button" x-on:click="navigator.clipboard.writeText(@js($c['body'])); copied = 'body'" class="link-neutral text-xs font-medium"><span x-show="copied !== 'body'">Metni kopyala</span><span x-show="copied === 'body'" x-cloak>Kopyalandı</span></button>
+                <button type="button" x-on:click="navigator.clipboard.writeText(@js($c['body'])); copied = 'body'" class="link-neutral text-xs"><span x-show="copied !== 'body'">Metni kopyala</span><span x-show="copied === 'body'" x-cloak>Kopyalandı</span></button>
             @elseif ($c['title'] === '')
                 <p class="text-xs text-gray-500">Bu reklamın metni henüz okunmadı; bir sonraki günlük toplamada gelir.</p>
             @endif
 
             @php $variantGroups = array_filter(['Diğer ana metinler' => $c['variants']['bodies'], 'Diğer başlıklar' => $c['variants']['titles'], 'Diğer açıklamalar' => $c['variants']['descriptions']]); @endphp
             @if ($variantGroups !== [])
-                <div class="space-y-3 border-t border-gray-100 pt-3 dark:border-gray-700" data-testid="meta-ad-variants">
-                    <p class="text-xs text-gray-500">Meta bu varyasyonları kişiye göre değiştirerek gösterir.</p>
+                <div class="space-y-3 border-t border-gray-200 pt-3 dark:border-gray-800" data-testid="meta-ad-variants" title="Meta bu varyasyonları kişiye göre değiştirerek gösterir.">
                     @foreach ($variantGroups as $label => $texts)
                         <div>
-                            <p class="mb-1 text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $label }} · {{ count($texts) }}</p>
-                            <ul class="space-y-1.5">
-                                @foreach ($texts as $text)<li class="whitespace-pre-line rounded-lg bg-gray-50 p-2 text-sm text-gray-800 dark:bg-white/[0.03] dark:text-gray-200">{{ $text }}</li>@endforeach
+                            <p class="mb-1 text-xs text-gray-500">{{ $label }} <span class="tabular-nums">{{ count($texts) }}</span></p>
+                            <ul class="divide-y divide-gray-200 dark:divide-gray-800">
+                                @foreach ($texts as $text)<li class="whitespace-pre-line py-2 text-sm text-gray-800 dark:text-gray-200">{{ $text }}</li>@endforeach
                             </ul>
                         </div>
                     @endforeach
@@ -128,19 +127,19 @@
             @endif
         </section>
 
-        <div class="space-y-5">
+        <div class="min-w-0 space-y-10">
             {{-- Where it leads --}}
-            <section class="{{ $card }} space-y-3 p-4 sm:p-5" data-testid="meta-ad-destination">
-                <h2 class="font-semibold text-gray-900 dark:text-white">Nereye gidiyor</h2>
+            <section class="space-y-3" data-testid="meta-ad-destination">
+                <h2 class="section-title">Nereye gidiyor</h2>
                 @if ($d['kind'] === 'form')
                     @php $form = $d['form']; @endphp
-                    <p class="flex flex-wrap items-center gap-2 text-sm"><span class="{{ $chip }} bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">Anında form</span>
-                        @if ($form && $form['name'] !== '')<span class="font-semibold text-gray-900 dark:text-white">{{ $form['name'] }}</span>@endif
+                    <p class="flex flex-wrap items-center gap-2 text-sm"><span class="{{ $chip }}">Anında form</span>
+                        @if ($form && $form['name'] !== '')<span class="text-gray-700 dark:text-gray-300">{{ $form['name'] }}</span>@endif
                         @if ($form && $form['locale'] !== '')<span class="text-xs text-gray-500">{{ $form['locale'] }}</span>@endif
-                        @if ($form && $form['status'] !== '' && strtoupper($form['status']) !== 'ACTIVE')<span class="{{ $chip }} bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $formStatus((string) $form['status']) }}</span>@endif
+                        @if ($form && $form['status'] !== '' && strtoupper($form['status']) !== 'ACTIVE')<x-ta.pill tone="info">{{ $formStatus((string) $form['status']) }}</x-ta.pill>@endif
                     </p>
                     @if ($form === null || ($form['error'] !== '' && $form['questions'] === []))
-                        <p class="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
                             @if ($d['form_id'] === '')
                                 Reklam seti anında form açıyor ama Meta reklamda formun kimliğini vermedi; sorular burada gösterilemiyor.
                             @elseif ($form === null)
@@ -152,54 +151,54 @@
                         </p>
                     @else
                         @if (($form['intro']['title'] ?? '') !== '' || ($form['intro']['content'] ?? []) !== [])
-                            <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Giriş ekranı</p>
-                                @if (($form['intro']['title'] ?? '') !== '')<p class="font-semibold text-gray-900 dark:text-white">{{ $form['intro']['title'] }}</p>@endif
+                            <div class="text-sm">
+                                <p class="text-xs text-gray-500">Giriş ekranı</p>
+                                @if (($form['intro']['title'] ?? '') !== '')<p class="font-medium text-gray-900 dark:text-white">{{ $form['intro']['title'] }}</p>@endif
                                 @foreach ($form['intro']['content'] ?? [] as $line)<p class="text-gray-700 dark:text-gray-300">{{ $line }}</p>@endforeach
                             </div>
                         @endif
                         <div>
-                            <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Sorular · {{ count($form['questions']) }}</p>
-                            <ol class="space-y-1.5 text-sm" data-testid="meta-ad-form-questions">
+                            <p class="mb-1 text-xs text-gray-500">Sorular <span class="tabular-nums">{{ count($form['questions']) }}</span></p>
+                            <ol class="divide-y divide-gray-200 border-y border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800" data-testid="meta-ad-form-questions">
                                 @foreach ($form['questions'] as $i => $question)
-                                    <li class="rounded-lg border border-gray-200 p-2 dark:border-gray-700">
-                                        <span class="tabular-nums text-gray-400">{{ $i + 1 }}.</span>
+                                    <li class="py-2">
+                                        <span class="tabular-nums text-gray-500">{{ $i + 1 }}.</span>
                                         <span class="text-gray-900 dark:text-gray-100">{{ $question['label'] ?: ($questionTypes[strtoupper($question['type'])] ?? $question['type']) }}</span>
-                                        @if (isset($questionTypes[strtoupper($question['type'])]) && $question['label'])<span class="text-xs text-gray-500">· {{ $questionTypes[strtoupper($question['type'])] }}</span>@endif
+                                        @if (isset($questionTypes[strtoupper($question['type'])]) && $question['label'])<span class="ml-1 text-xs text-gray-500">{{ $questionTypes[strtoupper($question['type'])] }}</span>@endif
                                         @if ($question['options'] !== [])
-                                            <span class="mt-1 flex flex-wrap gap-1">@foreach ($question['options'] as $option)<span class="{{ $chip }} bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">{{ $option }}</span>@endforeach</span>
+                                            <span class="mt-0.5 block text-xs text-gray-500">@foreach ($question['options'] as $option)<span>{{ $option }}</span>@if (! $loop->last), @endif @endforeach</span>
                                         @endif
                                     </li>
                                 @endforeach
                             </ol>
                         </div>
                         @if ($form['thank_you'] !== [])
-                            <div class="rounded-lg bg-success-50/60 p-3 text-sm dark:bg-success-500/10">
-                                <p class="text-[11px] font-semibold uppercase tracking-wide text-success-700 dark:text-success-300">Teşekkür ekranı</p>
-                                @if (($form['thank_you']['title'] ?? '') !== '')<p class="font-semibold text-gray-900 dark:text-white">{{ $form['thank_you']['title'] }}</p>@endif
+                            <div class="text-sm">
+                                <p class="text-xs text-gray-500">Teşekkür ekranı</p>
+                                @if (($form['thank_you']['title'] ?? '') !== '')<p class="font-medium text-gray-900 dark:text-white">{{ $form['thank_you']['title'] }}</p>@endif
                                 @if (($form['thank_you']['body'] ?? '') !== '')<p class="text-gray-700 dark:text-gray-300">{{ $form['thank_you']['body'] }}</p>@endif
-                                @if (($form['thank_you']['button'] ?? '') !== '')<p class="mt-1 text-xs text-gray-500">Buton: {{ $form['thank_you']['button'] }}@if (($form['thank_you']['url'] ?? '') !== '') → {{ $form['thank_you']['url'] }}@endif</p>@endif
+                                @if (($form['thank_you']['button'] ?? '') !== '')<p class="mt-1 text-xs text-gray-500">Buton: {{ $form['thank_you']['button'] }}@if (($form['thank_you']['url'] ?? '') !== ''), {{ $form['thank_you']['url'] }}@endif</p>@endif
                             </div>
                         @endif
                         <p class="text-xs text-gray-500">Formu dolduranların bilgileri Moximu’ya alınmaz.@if ($form['privacy_policy_url'] !== '') Gizlilik: <a href="{{ $form['privacy_policy_url'] }}" target="_blank" rel="noopener" class="link-neutral break-all">{{ \Illuminate\Support\Str::limit($form['privacy_policy_url'], 60) }}</a>@endif</p>
                     @endif
                 @elseif ($d['kind'] === 'whatsapp')
-                    <p class="flex flex-wrap items-center gap-2 text-sm"><span class="{{ $chip }} bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">WhatsApp</span>
-                        @if ($d['number'] !== '')<span class="font-semibold tabular-nums text-gray-900 dark:text-white" data-testid="meta-ad-whatsapp">{{ $d['number'] }}</span>
-                            <a href="https://wa.me/{{ preg_replace('/\D+/', '', $d['number']) }}" target="_blank" rel="noopener" class="link-neutral text-xs font-medium">wa.me ↗</a>
-                        @else<span class="text-gray-600 dark:text-gray-300">Numara reklamda yok; sayfaya bağlı WhatsApp numarasına gider.</span>@endif
+                    <p class="flex flex-wrap items-center gap-2 text-sm"><span class="{{ $chip }}">WhatsApp</span>
+                        @if ($d['number'] !== '')<span class="tabular-nums text-gray-900 dark:text-white" data-testid="meta-ad-whatsapp">{{ $d['number'] }}</span>
+                            <a href="https://wa.me/{{ preg_replace('/\D+/', '', $d['number']) }}" target="_blank" rel="noopener" class="link-neutral text-xs">wa.me</a>
+                        @else<span class="text-gray-500 dark:text-gray-400">Numara reklamda yok; sayfaya bağlı WhatsApp numarasına gider.</span>@endif
                     </p>
                     @if ($d['welcome'] !== '')
-                        <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Karşılama mesajı</p><p class="whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $d['welcome'] }}</p></div>
+                        <div class="text-sm"><p class="text-xs text-gray-500">Karşılama mesajı</p><p class="whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $d['welcome'] }}</p></div>
                     @endif
                 @elseif ($d['kind'] === 'message')
-                    <p class="text-sm"><span class="{{ $chip }} bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">{{ $d['channel'] }}</span> Mesaj kutusuna gider.</p>
+                    <p class="text-sm"><span class="{{ $chip }}">{{ $d['channel'] }}</span> Mesaj kutusuna gider.</p>
                     @if ($d['welcome'] !== '')
-                        <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Karşılama mesajı</p><p class="whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $d['welcome'] }}</p></div>
+                        <div class="text-sm"><p class="text-xs text-gray-500">Karşılama mesajı</p><p class="whitespace-pre-line text-gray-800 dark:text-gray-200">{{ $d['welcome'] }}</p></div>
                     @endif
                 @elseif ($d['kind'] === 'site')
-                    <p class="text-sm"><span class="{{ $chip }} bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">Web sitesi</span>
-                        <a href="{{ $d['url'] }}" target="_blank" rel="noopener" class="link-neutral break-all font-medium">{{ $d['host'] }}{{ $d['path'] }} ↗</a></p>
+                    <p class="text-sm"><span class="{{ $chip }}">Web sitesi</span>
+                        <a href="{{ $d['url'] }}" target="_blank" rel="noopener" class="link-neutral break-all">{{ $d['host'] }}{{ $d['path'] }}</a></p>
                     @if ($d['utm'] !== [])
                         <dl class="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs sm:grid-cols-[8rem_minmax(0,1fr)]">@foreach ($d['utm'] as $key => $value)<dt class="text-gray-500">{{ $key }}</dt><dd class="break-all text-gray-800 dark:text-gray-200">{{ $value }}</dd>@endforeach</dl>
                     @else
@@ -212,28 +211,27 @@
 
             @if ($ad['marks'])
                 @php $m = $ad['marks']; @endphp
-                <section class="{{ $card }} space-y-2 p-4 sm:p-5" data-testid="meta-ad-marks">
-                    <h2 class="font-semibold text-gray-900 dark:text-white">Form kalitesi</h2>
-                    <p class="text-xs text-gray-500">İçe aktarılan lead listesinde bu reklamdan gelen {{ $m['total'] }} form ve senin işaretlerin (kişi bilgisi tutulmaz).</p>
-                    <div class="flex flex-wrap gap-2 text-sm">
+                <section class="space-y-2" data-testid="meta-ad-marks">
+                    <h2 class="section-title" title="İçe aktarılan lead listesinde bu reklamdan gelen formlar ve senin işaretlerin (kişi bilgisi tutulmaz).">Form kalitesi <span class="text-sm font-normal text-gray-500">{{ $m['total'] }} form</span></h2>
+                    <div class="grid grid-cols-3 gap-x-6 gap-y-3 sm:grid-cols-5">
                         @foreach (['uygun' => 'Uygun', 'randevu' => 'Randevu', 'satis' => 'Satış', 'uygunsuz' => 'Uygunsuz', 'unmarked' => 'İşaretsiz'] as $key => $label)
-                            <span class="{{ $chip }} bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">{{ $label }} <span class="font-semibold tabular-nums">{{ $m[$key] }}</span></span>
+                            <p class="text-xs text-gray-500"><span class="block text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ $m[$key] }}</span>{{ $label }}</p>
                         @endforeach
                     </div>
                 </section>
             @endif
 
-            <section class="{{ $card }} space-y-2 p-4 sm:p-5" data-testid="meta-ad-siblings">
-                <h2 class="font-semibold text-gray-900 dark:text-white">Aynı setteki reklamlar · {{ count($ad['siblings']) }}</h2>
-                <ul class="divide-y divide-gray-100 text-sm dark:divide-gray-700">
+            <section class="space-y-2" data-testid="meta-ad-siblings">
+                <h2 class="section-title">Aynı setteki reklamlar <span class="text-sm font-normal text-gray-500">{{ count($ad['siblings']) }}</span></h2>
+                <ul class="divide-y divide-gray-200 border-b border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
                     @foreach ($ad['siblings'] as $i => $other)
-                        <li @class(['flex items-center justify-between gap-3 py-2', 'font-semibold' => $other['self']])>
-                            <span class="min-w-0 truncate"><span class="tabular-nums text-gray-400">{{ $i + 1 }}.</span>
+                        <li @class(['flex items-center justify-between gap-3 py-2.5', 'font-medium' => $other['self']])>
+                            <span class="min-w-0 truncate"><span class="tabular-nums text-gray-500">{{ $i + 1 }}.</span>
                                 @if ($other['self'])<span class="text-gray-900 dark:text-white">{{ $other['name'] }}</span>
                                 @else<a href="{{ route('operator.meta.campaign-ad', array_filter(['assetId' => $assetId, 'campaignId' => $ad['campaign']['id'], 'adId' => $other['id'], 'gun' => $days ?? null])) }}" wire:navigate class="text-gray-700 hover:underline dark:text-gray-300" title="{{ $other['name'] }}">{{ $other['name'] }}</a>@endif
-                                @if ($other['status'] !== 'live')<span class="text-xs font-normal text-gray-400">· {{ $statusLabel[$other['status']] }}</span>@endif
+                                @if ($other['status'] !== 'live')<span class="ml-1 text-xs font-normal text-gray-500">{{ $statusLabel[$other['status']] }}</span>@endif
                             </span>
-                            <span class="shrink-0 text-xs tabular-nums text-gray-500">{{ $count($other['results']) }} {{ $unit }} · {{ $money($other['cpr']) }}</span>
+                            <span class="shrink-0 text-xs tabular-nums text-gray-500">{{ $count($other['results']) }} {{ $unit }}, {{ $money($other['cpr']) }}</span>
                         </li>
                     @endforeach
                 </ul>
@@ -241,9 +239,9 @@
         </div>
     </div>
 
-    <section class="{{ $card }} p-4 sm:p-5" data-testid="meta-ad-chart">
+    <section data-testid="meta-ad-chart">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="font-semibold text-gray-900 dark:text-white">Son 60 gün</h2>
+            <h2 class="section-title">Son 60 gün</h2>
             <div class="flex flex-wrap gap-4 text-xs text-gray-500">
                 <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm bg-brand-200"></span>Günlük harcama</span>
                 <span class="flex items-center gap-1.5"><span class="h-0.5 w-4 bg-brand-600"></span>Günlük {{ $unit }}</span>
@@ -256,20 +254,20 @@
             @endforeach
             <polyline points="{{ implode(' ', $points) }}" fill="none" stroke-width="2" stroke-linejoin="round" class="stroke-brand-600"/>
             @if ($dates !== [])
-                <text x="{{ $left }}" y="{{ $h + 14 }}" class="fill-gray-500 text-[11px]">{{ \Carbon\CarbonImmutable::parse($dates[0])->format('d.m') }}</text>
-                <text x="{{ $w }}" y="{{ $h + 14 }}" text-anchor="end" class="fill-gray-500 text-[11px]">{{ \Carbon\CarbonImmutable::parse(end($dates))->format('d.m') }}</text>
+                <text x="{{ $left }}" y="{{ $h + 14 }}" class="fill-gray-500 text-xs">{{ \Carbon\CarbonImmutable::parse($dates[0])->format('d.m') }}</text>
+                <text x="{{ $w }}" y="{{ $h + 14 }}" text-anchor="end" class="fill-gray-500 text-xs">{{ \Carbon\CarbonImmutable::parse(end($dates))->format('d.m') }}</text>
             @endif
         </svg>
     </section>
 
     @php $t = $ad['adset']['targeting']; @endphp
-    <section class="{{ $card }} p-4 sm:p-5" data-testid="meta-ad-targeting">
-        <h2 class="mb-3 font-semibold text-gray-900 dark:text-white">Kime gösteriliyor</h2>
+    <section data-testid="meta-ad-targeting">
+        <h2 class="section-title mb-3">Kime gösteriliyor</h2>
         <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 break-words text-sm sm:grid-cols-[8.5rem_minmax(0,1fr)]">
             <dt class="text-gray-500">Konum</dt><dd class="text-gray-900 dark:text-gray-100">{{ $t['locations'] === [] ? '—' : implode(', ', $t['locations']) }}</dd>
-            <dt class="text-gray-500">Yaş · cinsiyet</dt><dd class="text-gray-900 dark:text-gray-100">{{ $t['age'] }} · {{ $t['genders'] }}@if ($t['advantage']) · Advantage+ kitle @endif</dd>
+            <dt class="text-gray-500">Yaş, cinsiyet</dt><dd class="text-gray-900 dark:text-gray-100">{{ $t['age'] }}, {{ $t['genders'] }}@if ($t['advantage']), Advantage+ kitle @endif</dd>
             <dt class="text-gray-500">Yerleşim</dt><dd class="text-gray-900 dark:text-gray-100">{{ $t['placements'] }}</dd>
-            <dt class="text-gray-500">Optimizasyon</dt><dd class="text-gray-900 dark:text-gray-100">{{ $ad['adset']['optimization'] ? $optimizationText((string) $ad['adset']['optimization']) : '—' }}{{ $ad['adset']['destination'] !== '' && $destinationText((string) $ad['adset']['destination']) !== '' ? ' · '.$destinationText((string) $ad['adset']['destination']) : '' }}</dd>
+            <dt class="text-gray-500">Optimizasyon</dt><dd class="text-gray-900 dark:text-gray-100">{{ $ad['adset']['optimization'] ? $optimizationText((string) $ad['adset']['optimization']) : '—' }}{{ $ad['adset']['destination'] !== '' && $destinationText((string) $ad['adset']['destination']) !== '' ? ', '.$destinationText((string) $ad['adset']['destination']) : '' }}</dd>
             @if ($t['audiences'] !== [])<dt class="text-gray-500">Kitleler</dt><dd class="text-gray-900 dark:text-gray-100">{{ implode(', ', $t['audiences']) }}</dd>@endif
             @if ($t['excluded'] !== [])<dt class="text-gray-500">Dışlananlar</dt><dd class="text-gray-900 dark:text-gray-100">{{ implode(', ', $t['excluded']) }}</dd>@endif
             <dt class="text-gray-500">İlgi alanları</dt><dd class="text-gray-900 dark:text-gray-100">{{ $t['interests'] === [] ? 'Yok (geniş kitle)' : implode(', ', $t['interests']) }}</dd>

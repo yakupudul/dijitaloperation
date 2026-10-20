@@ -53,8 +53,10 @@ final class ClustersBoardTabTest extends SiteTestCase
         $this->actingAs($this->admin);
         // Only the first service renders its cards (three of them); the others open with "Göster", the rest of a service
         // with "Tüm alt kümeler" (a site can have hundreds of clusters).
+        // Sade panel (2026-10-20): the main-service mark is plain gray text "Ana hizmet"; the all-caps orange chip
+        // ("ANA HİZMET") was decoration.
         $board = Livewire::test(ClustersBoardTab::class, ['assetId' => $this->site->id, 'range' => ['days' => 28]])
-            ->assertSee('ANA HİZMET')->assertSee('Hizmete bağlı olmayan kümeler')
+            ->assertSee('Ana hizmet</span>', false)->assertSee('Hizmete bağlı olmayan kümeler')
             ->assertSeeInOrder(['Diş İmplantı', 'İmplant tedavisi', 'İmplant fiyatları', 'İmplant ağrısı', 'Zirkonyum Kaplama', 'Hizmete bağlı olmayan kümeler'])
             ->assertDontSee('Tek diş implant')->assertDontSee('Zirkonyum kaplama')->assertDontSee('Şeffaf plak')
             ->assertSeeHtml('data-open-section="'.$this->zirkonyum->id.'"')->assertSeeHtml('data-open-section="0"');

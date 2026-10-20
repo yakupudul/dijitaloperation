@@ -16,8 +16,8 @@
     };
 @endphp
 @if ($text !== null)
-    <div {{ $attributes->class(['flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warning-50 p-3 text-xs text-warning-900 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:text-warning-200 dark:ring-warning-500/20']) }} data-cluster-readiness="{{ $r['step'] ?? 'brand' }}">
-        <span><span class="font-semibold">{{ $what }} boş:</span> {{ $text }}</span>
-        @if ($link !== null)<a href="{{ $link }}" wire:navigate class="shrink-0 rounded-lg bg-warning-600 px-3 py-1.5 font-semibold text-white">{{ $label }} →</a>@endif
+    <div {{ $attributes->class(['flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 py-2.5 text-xs text-gray-700 dark:border-gray-800 dark:text-gray-300']) }} data-cluster-readiness="{{ $r['step'] ?? 'brand' }}">
+        <span class="flex items-baseline gap-2"><span class="h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full bg-warning-500" aria-hidden="true"></span><span><span class="font-medium text-warning-800 dark:text-warning-400">{{ $what }} boş:</span> {{ $text }}</span></span>
+        @if ($link !== null)<a href="{{ $link }}" wire:navigate class="shrink-0 rounded-lg px-3 py-1.5 font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-white dark:ring-gray-600 dark:hover:bg-white/5">{{ $label }}</a>@endif
     </div>
 @endif

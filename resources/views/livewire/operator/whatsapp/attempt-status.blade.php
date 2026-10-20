@@ -3,7 +3,7 @@
     $attemptTrace = collect($signupAttempt->trace ?? [])->filter(fn ($entry) => is_array($entry));
     $lastTraceEvent = $attemptTrace->last()['event'] ?? null;
 @endphp
-<div class="rounded-lg p-3 text-sm ring-1 ring-inset {{ $tone[$attemptTone] }}" data-wa-attempt="{{ $signupAttempt->status }}">
+<div class="rounded-lg p-3 text-sm {{ $tone[$attemptTone] }}" data-wa-attempt="{{ $signupAttempt->status }}">
     <p class="font-medium">Son deneme: {{ $attemptText }} <span class="font-normal opacity-75">· {{ $when($signupAttempt->updated_at) }}</span></p>
     @if($signupAttempt->status === 'running')
         <p class="mt-1">{{ $runningSteps[$signupAttempt->step] ?? 'Bağlantı hazırlanıyor' }}. Sayfayı açık tutmanız gerekmez.</p>

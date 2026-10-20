@@ -1,35 +1,35 @@
-<div class="space-y-6">
+<div class="space-y-10">
     @include('livewire.demo.partials.flash')
 
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <p class="text-xs uppercase tracking-wide text-gray-400">Entegrasyon</p>
-            <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $providerLabel }}</h1>
+            <p class="text-xs text-gray-500">Entegrasyon</p>
+            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $providerLabel }}</h1>
             <div class="mt-2 flex flex-wrap items-center gap-2">
-                <x-ta.badge :color="$configured ? 'info' : 'light'" size="sm">{{ $statusLabel }}</x-ta.badge>
+                <x-ta.pill :tone="$configured ? 'ok' : 'info'">{{ $statusLabel }}</x-ta.pill>
             </div>
             <p class="mt-1 text-sm text-gray-500">{{ $supportNote }}</p>
         </div>
         <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">Tüm entegrasyonlar</x-ta.button>
     </div>
 
-    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-        <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Ayarlar</h2>
+    <div>
+        <h2 class="section-title">Ayarlar</h2>
         <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-                <dt class="text-gray-400">API anahtarı</dt>
+                <dt class="text-xs text-gray-500">API anahtarı</dt>
                 <dd class="font-medium text-gray-800 dark:text-white/90">{{ $statusLabel }}</dd>
             </div>
             <div>
-                <dt class="text-gray-400">Son doğrulama</dt>
+                <dt class="text-xs text-gray-500">Son doğrulama</dt>
                 <dd class="font-medium text-gray-800 dark:text-white/90">{{ $lastTestedAt ?? 'Test edilmedi' }}</dd>
             </div>
         </dl>
     </div>
 
     @if ($canManageCredentials)
-        <form wire:submit.prevent="saveConfiguration" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">API anahtarı</h3>
+        <form wire:submit.prevent="saveConfiguration">
+            <h2 class="section-title">API anahtarı</h2>
             <div class="mt-4">
                 <x-ta.form.field label="API Key" :helper="$keyConfigured ? 'Configured — leave blank to keep the stored value.' : 'Write-only. Never shown after save.'" :error="$errors->first('api_key')">
                     <input wire:model="apiKey" type="password" autocomplete="new-password" placeholder="{{ $keyConfigured ? 'Bilgiyi değiştir' : '' }}"
@@ -51,7 +51,7 @@
             </div>
         </form>
         @if ($confirmRemove)
-            <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">
+            <div class="rounded-lg p-4 tone-look">
                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">Remove {{ $providerLabel }} API key?</p>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Kayıtlı anahtar silinir. Geçmiş yapay zekâ çalıştırmaları korunur.</p>
                 <div class="mt-3 flex gap-2">
