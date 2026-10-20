@@ -129,6 +129,61 @@ final class AgencySettingService
         return $this->current = $settings->fresh() ?? $settings;
     }
 
+    /** Moximu logo colors: the yellow tile and the teal mark. */
+    public const string THEME_ACCENT = '#fdcf3c';
+
+    public const string THEME_SECOND = '#1e7a78';
+
+    /**
+     * Panel colors from Ayarlar › Görünüm; empty means the Moximu logo colors. The ink is the text color that reads
+     * on the accent (dark on a light accent, white on a dark one).
+     *
+     * @return array{accent: string, accent_ink: string, second: string}
+     */
+    public function theme(): array
+    {
+        $settings = $this->current();
+        $accent = self::validHex((string) ($settings->theme_accent ?? '')) ?? self::THEME_ACCENT;
+        $second = self::validHex((string) ($settings->theme_second ?? '')) ?? self::THEME_SECOND;
+
+        return ['accent' => $accent, 'accent_ink' => self::inkOn($accent), 'second' => $second];
+    }
+
+    /** Saves the two panel colors; null resets one to the Moximu logo color. */
+    public function updateTheme(?string $accent, ?string $second): AgencySetting
+    {
+        if (! Schema::hasTable('agency_settings')) {
+            throw new InvalidArgumentException('Agency settings are not available.');
+        }
+
+        $settings = $this->current();
+        $settings->theme_accent = $accent === null ? null : self::validHex($accent);
+        $settings->theme_second = $second === null ? null : self::validHex($second);
+        $settings->save();
+
+        return $this->current = $settings;
+    }
+
+    public static function validHex(string $value): ?string
+    {
+        $value = strtolower(trim($value));
+
+        return preg_match('/^#[0-9a-f]{6}$/', $value) === 1 ? $value : null;
+    }
+
+    /** Dark text on a light color, white on a dark one (WCAG relative luminance). */
+    public static function inkOn(string $hex): string
+    {
+        $channel = function (string $pair): float {
+            $value = hexdec($pair) / 255;
+
+            return $value <= 0.03928 ? $value / 12.92 : (($value + 0.055) / 1.055) ** 2.4;
+        };
+        $luminance = 0.2126 * $channel(substr($hex, 1, 2)) + 0.7152 * $channel(substr($hex, 3, 2)) + 0.0722 * $channel(substr($hex, 5, 2));
+
+        return $luminance > 0.32 ? '#141416' : '#ffffff';
+    }
+
     public function defaultLocale(): string
     {
         $locale = (string) $this->current()->locale;

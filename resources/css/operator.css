@@ -74,7 +74,16 @@
   --color-brand-950: #000000;
 
   /* The gray page around the white panel (menu background). */
-  --color-page: #f4f4f2;
+  --color-page: #f3f3f0;
+  /* Panel colors (Ayarlar › Görünüm, Moximu logo by default; operator/partials/theme-colors sets --moxi-*). */
+  --color-accent: var(--moxi-accent, #fdcf3c);
+  --color-accent-ink: var(--moxi-accent-ink, #141416);
+  --color-accent-soft: color-mix(in srgb, var(--moxi-accent, #fdcf3c) 13%, #ffffff);
+  --color-accent-line: color-mix(in srgb, var(--moxi-accent, #fdcf3c) 45%, #ffffff);
+  --color-second: var(--moxi-second, #1e7a78);
+  --color-second-soft: color-mix(in srgb, var(--moxi-second, #1e7a78) 10%, #ffffff);
+  --color-hero: #0f1112;
+  --shadow-lift: 0 10px 30px -12px rgba(20, 20, 40, 0.18);
   --shadow-card: 0 1px 2px rgba(20, 20, 20, 0.04), 0 1px 1px rgba(20, 20, 20, 0.02);
 
   /* Neutrals (Notion-like): page white, sidebar #f7f7f5, hairlines #ebebe9, text #191918. */
@@ -158,6 +167,11 @@
 
 /* Dark mode: the near-black main button would vanish on the dark page, so it turns a lighter graphite there. */
 .dark {
+  --color-accent-soft: color-mix(in srgb, var(--moxi-accent, #fdcf3c) 12%, #17171a);
+  --color-accent-line: color-mix(in srgb, var(--moxi-accent, #fdcf3c) 30%, #17171a);
+  --color-second-soft: color-mix(in srgb, var(--moxi-second, #1e7a78) 18%, #17171a);
+  --color-hero: #0a0b0c;
+  --shadow-lift: none;
   --color-brand-400: #b9b8b4;
   --color-brand-500: #4a4a46;
   --color-brand-600: #5a5a55;
@@ -210,7 +224,7 @@
 /* White card with a hairline edge: holds related rows, a form or a dialog. `surface` is the older name.
    `relative` keeps screen-reader-only labels inside a scrolling table card (they widened the phone page). */
 @utility card {
-  @apply relative min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-white/[0.03];
+  @apply relative min-w-0 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-white/[0.03];
 }
 @utility surface {
   @apply rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-gray-900;
@@ -223,7 +237,15 @@
 
 /* Page head: 24 px title, at most one gray line under it. */
 @utility page-title {
-  @apply text-2xl leading-8 font-semibold tracking-[-0.02em] text-gray-900 dark:text-white;
+  @apply text-[26px] leading-[34px] font-semibold tracking-[-0.03em] text-gray-900 sm:text-[30px] sm:leading-[38px] dark:text-white;
+}
+/* One word of a title marked with the accent like a highlighter pen (e-adam style, yakup 2026-10-20). */
+@utility highlight {
+  @apply rounded-lg bg-accent px-2 text-accent-ink [box-decoration-break:clone];
+}
+/* Small rounded label above a title: a live fact such as "Claude bugün 618 iş bitirdi". */
+@utility eyebrow {
+  @apply inline-flex h-[30px] max-w-full items-center gap-2 rounded-full border border-gray-200 bg-white px-3 text-[13px] text-gray-600 shadow-card dark:border-gray-800 dark:bg-white/[0.04] dark:text-gray-300;
 }
 @utility page-sub {
   @apply mt-0.5 text-sm text-gray-500 dark:text-gray-400;
@@ -234,15 +256,15 @@
   @apply mb-3 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1;
 }
 @utility section-title {
-  @apply text-[15px] leading-6 font-semibold text-gray-900 dark:text-white;
+  @apply text-lg leading-7 font-semibold tracking-[-0.02em] text-gray-900 dark:text-white;
 }
 @utility section-count {
-  @apply text-[15px] font-normal text-gray-500 tabular-nums;
+  @apply text-lg font-normal text-gray-500 tabular-nums;
 }
 
 /* Numbers in one card, cells split by hairlines (works for any column count). Cells are x-ta.metric-card. */
 @utility metric-strip {
-  @apply grid gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 shadow-card dark:border-gray-800 dark:bg-gray-800;
+  @apply grid gap-px overflow-hidden rounded-3xl border border-gray-200 bg-gray-200 shadow-card dark:border-gray-800 dark:bg-gray-800;
 }
 
 /* Table inside a card: light header row, hairline rows, hover. Wrap in `card overflow-x-auto`. */
@@ -266,8 +288,13 @@
 @utility btn {
   @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300/80 bg-white px-3 text-[13px] font-medium text-gray-900 shadow-card transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08];
 }
+/* The main action of a screen: accent color (Ayarlar › Görünüm). */
 @utility btn-primary {
-  @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-900 bg-gray-900 px-3 text-[13px] font-medium text-white shadow-card transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200;
+  @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-transparent bg-accent px-3 text-[13px] font-semibold text-accent-ink shadow-card transition hover:brightness-95 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
+}
+/* A strong second action (Onayla on a row): near-black. */
+@utility btn-dark {
+  @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-900 bg-gray-900 px-3 text-[13px] font-medium text-white shadow-card transition hover:bg-gray-700 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200;
 }
 @utility btn-quiet {
   @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white;
@@ -284,6 +311,77 @@
 /* Small square icon in a row (send, warning, clock). */
 @utility row-icon {
   @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-white/[0.04] dark:text-gray-300;
+}
+
+
+/* ── Living panel language (yakup 2026-10-20, ikas + e-adam): tinted action cards, a dark number panel, delta chips. ── */
+
+/* Tinted card that asks for one action: big number, one line, a button at the bottom. Tones below. */
+@utility soft-card {
+  @apply relative flex min-w-0 flex-col gap-2.5 rounded-3xl border border-transparent bg-gray-100/80 p-[18px] transition duration-150 hover:-translate-y-0.5 hover:shadow-lift dark:bg-white/[0.04];
+}
+@utility soft-accent {
+  @apply border-accent-line bg-accent-soft;
+}
+@utility soft-red {
+  @apply border-error-100 bg-error-50 dark:border-error-500/20 dark:bg-error-500/[0.07];
+}
+@utility soft-amber {
+  @apply border-warning-100 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/[0.07];
+}
+@utility soft-icon {
+  @apply flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-white text-gray-700 shadow-card dark:bg-white/10 dark:text-gray-200;
+}
+@utility soft-number {
+  @apply text-[30px] leading-none font-semibold tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white;
+}
+
+/* Dark number panel (ikas Pazarlama): a glow of the second color, faint grid; tiles inside. */
+@utility hero-panel {
+  @apply relative grid gap-3 overflow-hidden rounded-[20px] bg-hero p-3.5 text-white sm:p-[22px];
+  background-image: radial-gradient(120% 90% at 30% 0%, color-mix(in srgb, var(--color-second) 45%, transparent) 0%, transparent 55%);
+}
+@utility hero-tile {
+  @apply relative flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.05] p-4;
+}
+@utility hero-tile-accent {
+  @apply border-transparent bg-accent text-accent-ink;
+}
+@utility hero-label {
+  @apply inline-flex h-6 w-max max-w-full items-center gap-1.5 self-start rounded-[7px] border border-current/15 px-2 text-xs opacity-70;
+}
+@utility hero-value {
+  @apply mt-3 text-[28px] leading-none font-semibold tracking-[-0.03em] tabular-nums sm:text-[30px];
+}
+
+/* Change chips: ▲ green, ▼ red, flat gray (ikas "%285 ▲"). */
+@utility chip {
+  @apply inline-flex h-[22px] shrink-0 items-center gap-0.5 rounded-[7px] px-2 text-xs font-semibold tabular-nums;
+}
+@utility chip-up {
+  @apply bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400;
+}
+@utility chip-down {
+  @apply bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400;
+}
+@utility chip-flat {
+  @apply bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400;
+}
+@utility chip-accent {
+  @apply bg-accent text-accent-ink;
+}
+
+/* Pill tabs (Onarım lanes): the active one near-black with an accent count. */
+@utility seg {
+  @apply inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-gray-600 transition hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:text-white;
+}
+@utility seg-active {
+  @apply border-transparent bg-gray-900 text-white hover:text-white dark:bg-white dark:text-gray-900 dark:hover:text-gray-900;
+}
+
+/* Card that lifts a little under the pointer (brand cards, packages). */
+@utility lift {
+  @apply transition duration-150 hover:-translate-y-0.5 hover:shadow-lift;
 }
 
 /* Sort arrows on table headers show only on hover or when that column is sorted (resources/js/sortable-tables.js). */

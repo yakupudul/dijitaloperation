@@ -31,7 +31,7 @@
 <div class="pb-24" data-repair-desk x-data="{ ask: null, go() { const a = this.ask; this.ask = null; this.$wire.call(a.method, ...a.args) } }">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-            <h1 class="page-title">Onarım masası</h1>
+            <h1 class="page-title">Onarım <span class="highlight">masası</span></h1>
             <p class="page-sub"><span data-desk-total>@if ($brandId !== null){{ $brands[$brandId] ?? 'Marka' }}: onay bekleyen {{ $n($counts['brand_packages']) }} paket · {{ $n($counts['brand_total']) }} iş <span class="text-gray-400">(tüm markalarda {{ $n($counts['total']) }} iş)</span>@else{{ 'Onay bekleyen '.$n($counts['packages']).' paket · '.$n($counts['total']).' iş' }}@endif</span>. Onayladığın her şey geri alınabilir.</p>
         </div>
         @if ($brandId !== null)
@@ -44,17 +44,17 @@
     </div>
 
     {{-- One tab row (2026-10-20 concept): the three lanes, the rest of the work and the history; old ?serit= / ?bolum= links land on the same place. --}}
-    <nav class="no-scrollbar mt-8 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist" aria-label="Karar bekleyenler: Hazır düzeltmeler, diğer işler ve geçmiş" data-repair-lanes data-desk-sections data-desk-layer="karar">
+    <nav class="no-scrollbar mt-8 flex gap-1.5 overflow-x-auto" role="tablist" aria-label="Karar bekleyenler: Hazır düzeltmeler, diğer işler ve geçmiş" data-repair-lanes data-desk-sections data-desk-layer="karar">
         @foreach (RepairDesk::LANES as $key => $label)
             @php $active = $inDesk && $lane === $key; @endphp
-            <button type="button" role="tab" wire:click="showLane('{{ $key }}')" aria-selected="{{ $active ? 'true' : 'false' }}" title="{{ $laneHint[$key] }}" @class(['tab', 'tab-active' => $active])>
-                {{ $label }} <span class="tabular-nums text-gray-400 dark:text-gray-500">{{ $n($laneCounts[$key] ?? 0) }}</span>
+            <button type="button" role="tab" wire:click="showLane('{{ $key }}')" aria-selected="{{ $active ? 'true' : 'false' }}" title="{{ $laneHint[$key] }}" @class(['seg', 'seg-active' => $active])>
+                {{ $label }} <span @class(['tabular-nums text-xs', 'text-accent' => $active, 'text-gray-400 dark:text-gray-500' => ! $active])>{{ $n($laneCounts[$key] ?? 0) }}</span>
             </button>
         @endforeach
-        <button type="button" role="tab" wire:click="showOther" aria-selected="{{ $section === RepairDeskPage::SECTION_OTHER ? 'true' : 'false' }}" @class(['tab', 'tab-active' => $section === RepairDeskPage::SECTION_OTHER])>
-            Diğer işler <span class="tabular-nums text-gray-400 dark:text-gray-500">{{ $n($otherCount) }}</span>
+        <button type="button" role="tab" wire:click="showOther" aria-selected="{{ $section === RepairDeskPage::SECTION_OTHER ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $section === RepairDeskPage::SECTION_OTHER])>
+            Diğer işler <span @class(['tabular-nums text-xs', 'text-accent' => $section === RepairDeskPage::SECTION_OTHER, 'text-gray-400 dark:text-gray-500' => $section !== RepairDeskPage::SECTION_OTHER])>{{ $n($otherCount) }}</span>
         </button>
-        <button type="button" role="tab" wire:click="showHistory" aria-selected="{{ $section === RepairDeskPage::SECTION_HISTORY ? 'true' : 'false' }}" @class(['tab', 'tab-active' => $section === RepairDeskPage::SECTION_HISTORY]) data-desk-layer="gecmis">
+        <button type="button" role="tab" wire:click="showHistory" aria-selected="{{ $section === RepairDeskPage::SECTION_HISTORY ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $section === RepairDeskPage::SECTION_HISTORY]) data-desk-layer="gecmis">
             Geçmiş
         </button>
     </nav>
@@ -148,15 +148,15 @@
                             </span>
                         </button>
                         @if ($monthly !== null)
-                            <span class="hidden shrink-0 text-[13px] tabular-nums text-gray-500 md:inline" title="Bu işlerin dokunduğu sayfalar son 90 günde ayda ortalama bu kadar tık aldı.">≈ {{ $n($monthly) }} tık/ay</span>
+                            <span class="chip chip-up hidden md:inline-flex" title="Bu işlerin dokunduğu sayfalar son 90 günde ayda ortalama bu kadar tık aldı.">≈ {{ $n($monthly) }} tık/ay</span>
                         @endif
                         @if ($isAdmin)
                             <div class="flex shrink-0 items-center gap-1">
                                 @if ($approvable > 0)
                                     @if (! $isManual && $approvable > $bulkLimit)
-                                        <button type="button" @click="ask = {{ $ask($package['brand'].': '.$approvable.' iş uygulansın mı?', $package['sample'], $approvable, 'approvePackage', [$package['key']]) }}" class="btn" data-approve-package>Onayla</button>
+                                        <button type="button" @click="ask = {{ $ask($package['brand'].': '.$approvable.' iş uygulansın mı?', $package['sample'], $approvable, 'approvePackage', [$package['key']]) }}" class="btn-dark" data-approve-package>Onayla</button>
                                     @else
-                                        <button type="button" wire:click="approvePackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $approvable }} iş {{ $isManual ? 'yapıldı olarak işaretlensin' : 'uygulansın' }} mı?" class="btn" data-approve-package>{{ $isManual ? 'Yaptım' : 'Onayla' }}</button>
+                                        <button type="button" wire:click="approvePackage('{{ $package['key'] }}')" wire:confirm="{{ $package['brand'] }}: {{ $approvable }} iş {{ $isManual ? 'yapıldı olarak işaretlensin' : 'uygulansın' }} mı?" class="btn-dark" data-approve-package>{{ $isManual ? 'Yaptım' : 'Onayla' }}</button>
                                     @endif
                                 @elseif (! $isOpen)
                                     <button type="button" wire:click="togglePackage('{{ $package['key'] }}')" class="btn">Tek tek bak</button>

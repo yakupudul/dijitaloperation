@@ -13,6 +13,7 @@
         'bad', 'negative', 'error', 'critical', 'down' => 'text-error-500',
         'look', 'warning' => 'text-warning-500',
         'live' => 'text-live-500',
+        'second' => 'text-second',
         default => 'text-gray-400 dark:text-gray-500',
     };
     $points = array_values(array_map('floatval', is_array($values) ? $values : []));

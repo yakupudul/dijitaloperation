@@ -66,7 +66,7 @@ final class TodayCockpitTest extends SiteTestCase
         Livewire::test(Dashboard::class)
             ->assertSeeHtml('data-today-counter="approvals"')->assertSeeHtml('data-today-counter="week"')
             ->assertSeeHtml('data-today-counter="alarms"')->assertSeeHtml('data-today-counter="ai"')
-            ->assertSee('düşük riskli iş onay bekliyor')->assertSee('Google Ads negatif kelime')->assertSee('+50%')
+            ->assertSee('düşük riskli iş onay bekliyor')->assertSee('Google Ads negatif kelime')->assertSee('▲ 50%')
             ->assertSee('Meta reklamları harcama yapmadı')->assertSeeHtml('data-today-alarm="critical"')->assertSeeHtml('data-today-alarm="look"')
             ->assertDontSee('Veri güncel değil')
             ->assertSee('Marka bakım ajanı')

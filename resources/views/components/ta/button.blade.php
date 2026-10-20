@@ -16,10 +16,11 @@
     ];
     $sizeClass = $sizeMap[$size] ?? $sizeMap['md'];
 
-    // Near-black (primary) is the one main action of a screen; row actions are white with a hairline edge.
+    // The accent (primary) is the one main action of a screen, near-black (dark) a strong row action; others white.
     $white = 'border border-gray-300/80 bg-white text-gray-900 shadow-card hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08]';
     $variantMap = [
-        'primary' => 'border border-gray-900 bg-gray-900 text-white shadow-card hover:bg-gray-700 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200',
+        'primary' => 'border border-transparent bg-accent font-semibold text-accent-ink shadow-card hover:brightness-95',
+        'dark' => 'border border-gray-900 bg-gray-900 text-white shadow-card hover:bg-gray-700 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200',
         'outline' => $white,
         'secondary' => $white,
         'danger' => 'border border-error-600 bg-error-600 text-white shadow-card hover:bg-error-700',

@@ -79,6 +79,10 @@ class SettingsPage extends Component
 
     public bool $clear_mail_password = false;
 
+    public string $theme_accent = AgencySettingService::THEME_ACCENT;
+
+    public string $theme_second = AgencySettingService::THEME_SECOND;
+
     public mixed $logo = null;
 
     public mixed $favicon = null;
@@ -187,6 +191,37 @@ class SettingsPage extends Component
         $preset = $validated['default_analytical_date_range'];
         $bounds = DemoPeriod::bounds($preset);
         DemoState::setPeriod($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
+    }
+
+    /** Saves the two panel colors (Ayarlar › Genel › Görünüm). */
+    public function saveTheme(): void
+    {
+        $this->assertAdministrator();
+
+        $this->theme_accent = strtolower(trim($this->theme_accent));
+        $this->theme_second = strtolower(trim($this->theme_second));
+        $this->validate([
+            'theme_accent' => ['required', 'regex:/^#[0-9a-f]{6}$/'],
+            'theme_second' => ['required', 'regex:/^#[0-9a-f]{6}$/'],
+        ], [
+            'theme_accent.regex' => 'Renk #RRGGBB biçiminde olmalı.',
+            'theme_second.regex' => 'Renk #RRGGBB biçiminde olmalı.',
+        ]);
+
+        app(AgencySettingService::class)->updateTheme($this->theme_accent, $this->theme_second);
+        $this->hydrateFromSettings();
+        DemoState::flash('Renkler kaydedildi.');
+    }
+
+    /** Back to the Moximu logo colors. */
+    public function resetTheme(): void
+    {
+        $this->assertAdministrator();
+
+        app(AgencySettingService::class)->updateTheme(null, null);
+        $this->hydrateFromSettings();
+        DemoState::flash('Moximu renklerine dönüldü.');
+        $this->js('location.reload()');
     }
 
     public function addTeamMember(): void
@@ -354,6 +389,12 @@ class SettingsPage extends Component
             ],
             'mail' => OperatorMailStatus::presentation(),
             'branding' => app(AgencySettingService::class)->branding(),
+            'themePresets' => [
+                ['id' => 'moximu', 'label' => 'Moximu', 'accent' => AgencySettingService::THEME_ACCENT, 'second' => AgencySettingService::THEME_SECOND],
+                ['id' => 'fosfor', 'label' => 'Fosfor', 'accent' => '#d4f24a', 'second' => '#5b4cf0'],
+                ['id' => 'mavi', 'label' => 'Mavi', 'accent' => '#2c35e5', 'second' => '#0e7490'],
+                ['id' => 'mercan', 'label' => 'Mercan', 'accent' => '#ff7a59', 'second' => '#1f2a44'],
+            ],
         ])->layoutData([
             'title' => __('operator.nav.settings'),
         ]);
@@ -440,6 +481,9 @@ class SettingsPage extends Component
         $this->week_starts_on = AgencySettingCatalog::isWeekStart((string) $agency->week_starts_on)
             ? (string) $agency->week_starts_on
             : AgencySettingCatalog::WEEK_MONDAY;
+        $theme = app(AgencySettingService::class)->theme();
+        $this->theme_accent = $theme['accent'];
+        $this->theme_second = $theme['second'];
         $this->mail_enabled = (bool) $agency->mail_enabled;
         $this->mail_from_name = (string) ($agency->mail_from_name ?? '');
         $this->mail_from_address = (string) ($agency->mail_from_address ?? '');

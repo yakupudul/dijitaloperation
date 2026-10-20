@@ -10,6 +10,7 @@
         <link rel="icon" href="{{ $operatorBranding['favicon_url'] }}" />
     @endif
     @vite(['resources/css/operator.css', 'resources/js/operator.js'])
+    @include('operator.partials.theme-colors')
     <script>
         (function() {
             const saved = localStorage.getItem('theme');

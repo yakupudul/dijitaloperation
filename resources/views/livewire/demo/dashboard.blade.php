@@ -101,105 +101,213 @@
     })->values();
 @endphp
 
-<div class="space-y-10">
+@php
+    // Living panel language (yakup 2026-10-20): the waiting things as tinted cards, the week in a dark number panel,
+    // brands as cards. The send card is the widest; a loss card is red, the error centre amber.
+    $actionTone = ['send' => 'soft-accent', 'loss' => 'soft-red', 'look' => 'soft-red', 'system' => 'soft-amber'];
+    $actionIconTone = ['loss' => 'text-error-600 dark:text-error-400', 'look' => 'text-error-600 dark:text-error-400', 'system' => 'text-warning-600 dark:text-warning-400'];
+    $lossLogos = $lossItems->isNotEmpty() ? $lossItems : collect($alarms['items']);
+    $lossLogos = $lossLogos->unique('brand')->values();
+    // Cards fill full rows on wide screens: the send card takes two thirds next to the first other card, the rest go
+    // three to a row and the last row stretches.
+    $actionSpans = [];
+    $others = array_values(array_filter($actions, fn (array $a): bool => $a['key'] !== 'send'));
+    $sendFirst = ($actions[0]['key'] ?? '') === 'send';
+    if ($sendFirst) {
+        $actionSpans[] = $others === [] ? 'lg:col-span-6' : 'lg:col-span-4';
+    }
+    $rest = $sendFirst ? array_slice($others, 1) : $others;
+    if ($sendFirst && $others !== []) {
+        $actionSpans[] = 'lg:col-span-2';
+    }
+    $restCount = count($rest);
+    foreach ($rest as $i => $unused) {
+        $inLastRow = $i >= $restCount - ($restCount % 3 ?: 3);
+        $actionSpans[] = $inLastRow ? match ($restCount % 3) { 1 => 'lg:col-span-6', 2 => 'lg:col-span-3', default => 'lg:col-span-2' } : 'lg:col-span-2';
+    }
+
+    // Week clicks as an area in the dark panel (8 points, last one marked).
+    $series = array_values(array_map('floatval', $week['series']['clicks'] ?? []));
+    $area = null;
+    if (count($series) >= 2) {
+        $max = max($series);
+        $min = min($series);
+        $range = ($max - $min) ?: 1.0;
+        $points = [];
+        foreach ($series as $i => $value) {
+            $points[] = [round($i * 400 / (count($series) - 1), 1), round(14 + (1 - ($value - $min) / $range) * 92, 1)];
+        }
+        $line = 'M'.implode(' L', array_map(fn (array $p): string => $p[0].','.$p[1], $points));
+        $area = ['line' => $line, 'fill' => $line.' L400,120 L0,120 Z', 'last' => end($points)];
+    }
+    $chip = fn (?array $d): string => match ($d[1] ?? 'neutral') { 'positive' => 'chip-up', 'negative' => 'chip-down', default => 'chip-flat' };
+    $arrow = fn (?array $d): string => str_starts_with((string) ($d[0] ?? ''), '+') ? '▲ '.ltrim($d[0], '+') : (str_starts_with((string) ($d[0] ?? ''), '−') ? '▼ '.ltrim($d[0], '−') : (string) ($d[0] ?? ''));
+@endphp
+
+<div class="space-y-11">
     @include('livewire.demo.partials.flash')
 
     <header>
-        <h1 class="page-title">{{ $greeting }}{{ $firstName !== '' ? ' '.$firstName : '' }}</h1>
-        <p class="page-sub">{{ __('operator.dashboard_exec.today') }}, {{ $now->isoFormat('D MMMM dddd') }}. {{ $actions === [] ? 'Bugün senden beklenen bir şey yok.' : 'Senden '.count($actions).' şey bekleniyor.' }}</p>
+        @if ($overnight['ai_done'] > 0)
+            <a href="{{ route('operator.ai-jobs', ['durum' => 'done']) }}" wire:navigate class="eyebrow hover:text-gray-900 dark:hover:text-white" data-today-eyebrow>
+                <span class="live-dot" aria-hidden="true"></span>
+                <span>Claude son 24 saatte <b class="font-semibold text-gray-900 tabular-nums dark:text-white">{{ $num($overnight['ai_done']) }} iş</b> bitirdi</span>
+            </a>
+        @endif
+        <h1 class="page-title mt-3.5 text-balance">
+            {{ $greeting }}{{ $firstName !== '' ? ' '.$firstName : '' }}@if ($actions !== []), bugün <span class="highlight">{{ count($actions) }} şey</span> seni bekliyor @endif
+        </h1>
+        <p class="page-sub mt-1.5! text-[15px]!">{{ __('operator.dashboard_exec.today') }}, {{ $now->isoFormat('D MMMM dddd') }}. {{ $actions === [] ? 'Bugün senden beklenen bir şey yok.' : 'Senden '.count($actions).' şey bekleniyor, en çok getirecek olan en üstte.' }}</p>
     </header>
 
-    {{-- 1. What waits on the operator: one row each, one button each. --}}
-    <section class="-mt-4" data-today-actions>
-        <div class="card">
-            @forelse ($actions as $action)
-                <div class="card-row flex-wrap sm:flex-nowrap" data-today-action="{{ $action['key'] }}" @if ($action['hook']) data-today-counter="{{ $action['hook'] }}" @endif @if ($action['key'] === 'system') data-system-alerts @endif>
-                    <span class="row-icon {{ $iconTone[$action['tone']] ?? '' }}" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons[$action['icon']] !!}</svg></span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $action['title'] }}</p>
-                        @if ($action['line'] !== '' && $action['line'] !== '.')<p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $action['line'] }}</p>@endif
-                    </div>
-                    <a href="{{ $action['href'] }}" @if (! str_starts_with($action['href'], '#')) wire:navigate @endif class="{{ $action['primary'] ? 'btn-primary' : 'btn' }} w-full sm:w-auto">{{ $action['label'] }}</a>
-                </div>
-            @empty
+    {{-- 1. What waits on the operator: one tinted card each, one button each. --}}
+    <section data-today-actions>
+        @if ($actions === [])
+            <div class="card">
                 <x-ta.empty-state title="Sorun yok" message="Harcaması duran hesap, erişilemeyen site ya da biten bütçe yok. Onarım masası boş." data-today-counter="approvals" />
-            @endforelse
-        </div>
+            </div>
+        @else
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                @foreach ($actions as $action)
+                    @php
+                        $isSend = $action['key'] === 'send';
+                        $title = preg_replace('/^Hata merkezi: /u', '', $action['title']);
+                        if ($isSend) {
+                            [$big, $rest] = [$num($daily['ready']).' iş', 'Gönderilmeye hazır, Claude kontrol etti'];
+                        } elseif (preg_match('/^([\d.]+) (.*)$/u', $title, $m) === 1) {
+                            $unit = str_contains($m[2], 'hesap') ? 'hesap' : 'iş';
+                            $big = $m[1].' '.$unit;
+                            $rest = $action['key'] === 'system' ? 'Hata merkezi' : \Illuminate\Support\Str::ucfirst(trim(preg_replace('/\b'.$unit.' /u', '', $m[2], 1)));
+                        } else {
+                            [$big, $rest] = [null, $action['title']];
+                        }
+                        $span = $actionSpans[$loop->index];
+                    @endphp
+                    <div @class(['soft-card', $actionTone[$action['key']] ?? '', 'sm:col-span-2' => $isSend, $span])
+                        data-today-action="{{ $action['key'] }}" @if ($action['hook']) data-today-counter="{{ $action['hook'] }}" @endif @if ($action['key'] === 'system') data-system-alerts @endif>
+                        <div class="flex items-center gap-2.5">
+                            <span class="soft-icon {{ $actionIconTone[$action['key']] ?? '' }}" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons[$action['icon']] !!}</svg></span>
+                            @if ($isSend)<span class="text-[13px] text-gray-600 dark:text-gray-300">{{ $rest }}</span>@endif
+                        </div>
+                        @if ($big !== null)
+                            <p @class(['soft-number', 'text-[42px]!' => $isSend])>{{ $big }}</p>
+                        @endif
+                        <p class="sr-only">{{ $action['title'] }}</p>
+                        @if (! $isSend)<p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" aria-hidden="true">{{ $rest }}</p>@endif
+                        @if ($isSend)
+                            <div class="flex flex-wrap items-center gap-1.5 rounded-2xl border border-gray-200 bg-white p-3 shadow-card dark:border-gray-800 dark:bg-white/[0.04]">
+                                @if ($daily['content'] > 0)<span class="inline-flex h-7 items-center rounded-lg border border-[#f3e4a1] bg-[#fff8d9] px-2.5 text-xs font-medium text-[#7a5b00] dark:border-transparent dark:bg-[#fff8d9]/10 dark:text-[#f3d77a]">{{ $num($daily['content']) }} yazı</span>@endif
+                                @if ($daily['posts'] > 0)<span class="inline-flex h-7 items-center rounded-lg border border-[#f6cfe3] bg-[#fdeef6] px-2.5 text-xs font-medium text-[#a8306e] dark:border-transparent dark:bg-[#fdeef6]/10 dark:text-[#f19ac5]">{{ $num($daily['posts']) }} profil gönderisi</span>@endif
+                                @if ($daily['repair'] > 0)<span class="inline-flex h-7 items-center rounded-lg border border-second/25 bg-second-soft px-2.5 text-xs font-medium text-second">{{ $num($daily['repair']) }} site onarımı</span>@endif
+                                <span class="text-gray-400" aria-hidden="true">→</span>
+                                <span class="inline-flex h-7 items-center rounded-lg border border-success-100 bg-success-50 px-2.5 text-xs font-medium text-success-700 dark:border-transparent dark:bg-success-500/15 dark:text-success-400">✓ Siteye yazılır, geri alınabilir</span>
+                            </div>
+                            @if ($lastSend !== null)<p class="text-[13px] text-gray-600 dark:text-gray-300">Son gönderim {{ $lastSend }}.</p>@endif
+                        @elseif (in_array($action['key'], ['loss', 'look'], true) && $lossLogos->isNotEmpty())
+                            <div class="flex items-center">
+                                @foreach ($lossLogos->take(5) as $item)
+                                    <span class="-ml-2 first:ml-0 inline-flex h-[30px] w-[30px] items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-card dark:border-gray-900" title="{{ $item['brand'] }}">
+                                        <x-ta.brand-avatar :name="$item['brand']" :logo="$item['logo'] ?? null" size="sm" class="border-0!" />
+                                    </span>
+                                @endforeach
+                                @if ($lossLogos->count() > 5)<span class="ml-2 text-xs text-gray-600 dark:text-gray-300">+{{ $lossLogos->count() - 5 }}</span>@endif
+                            </div>
+                        @elseif ($action['line'] !== '' && $action['line'] !== '.')
+                            <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $action['line'] }}</p>
+                        @endif
+                        <div class="mt-auto flex items-center gap-2 pt-1">
+                            <a href="{{ $action['href'] }}" @if (! str_starts_with($action['href'], '#')) wire:navigate @endif @class(['btn-primary h-10! px-4! text-sm!' => $action['primary'], 'btn-dark' => ! $action['primary'] && $action['key'] === 'ready', 'btn' => ! $action['primary'] && $action['key'] !== 'ready'])>{{ $action['label'] }}</a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </section>
 
     <livewire:operator.portfolio.epicrisis-questions lazy />
 
-    {{-- 2. This week in four numbers. --}}
+    {{-- 2. This week in a dark number panel. --}}
     <section data-today-counters>
         <div class="section-head">
             <h2 class="section-title">Bu hafta</h2>
             <span class="text-sm text-gray-500">{{ $week['from'] }}–{{ $week['to'] }}, önceki 7 güne göre</span>
         </div>
-        <div class="metric-strip grid-cols-2 lg:grid-cols-4">
-            <x-ta.metric-card label="Organik tık" :value="$num($week['clicks']['current'])" :delta="$clicksDelta[0] ?? null" :tone="$clicksDelta[1] ?? 'neutral'"
-                :hint="'Geçen hafta '.$num($week['clicks']['previous'])" :spark="$week['series']['clicks'] ?? []" data-today-counter="week" />
-            <x-ta.metric-card label="Reklamdan müşteri" :value="$num($week['conversions']['current'])" :delta="$leadsDelta[0] ?? null" :tone="$leadsDelta[1] ?? 'neutral'"
-                :hint="'Geçen hafta '.$num($week['conversions']['previous'])" :spark="$week['series']['conversions'] ?? []" title="Google Ads dönüşümleri" data-today-counter="leads" />
-            <x-ta.metric-card label="Reklam harcaması" :value="$spend !== null ? $money($spend['current'], $spend['currency']) : '—'" :delta="$spendDelta[0] ?? null"
-                :hint="$spend !== null ? 'Geçen hafta '.$money($spend['previous'], $spend['currency']).($otherSpend !== '' ? ', ayrıca '.$otherSpend : '') : 'Harcama yok'" title="Google Ads ve Meta" data-today-counter="spend" />
-            <x-ta.metric-card :href="route('operator.ai-jobs', ['durum' => 'done'])" label="Claude'un bitirdiği iş" :value="$num($overnight['ai_done'])" hint="Son 24 saat" data-today-counter="ai" />
+        <div class="hero-panel grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+            <div class="hero-tile col-span-2 lg:col-span-1 lg:row-span-2" data-today-counter="week">
+                <span class="hero-label"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/></svg>Organik tık</span>
+                <p class="hero-value text-[40px]! sm:text-[44px]!">{{ $num($week['clicks']['current']) }}</p>
+                <p class="mt-2 flex items-center gap-2 text-xs text-white/60">@if ($clicksDelta)<span class="chip {{ $chip($clicksDelta) }}">{{ $arrow($clicksDelta) }}</span>@endif Geçen hafta {{ $num($week['clicks']['previous']) }}</p>
+                @if ($area !== null)
+                    <svg class="mt-auto block h-[110px] w-full pt-4" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+                        <defs><linearGradient id="today-week-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--color-second)" stop-opacity=".7"/><stop offset="1" stop-color="var(--color-second)" stop-opacity="0"/></linearGradient></defs>
+                        <path d="{{ $area['fill'] }}" fill="url(#today-week-area)" />
+                        <path d="{{ $area['line'] }}" fill="none" stroke="color-mix(in srgb, var(--color-second) 45%, #ffffff)" stroke-width="2.5" vector-effect="non-scaling-stroke" />
+                        <circle cx="{{ $area['last'][0] }}" cy="{{ $area['last'][1] }}" r="4.5" fill="#fff" />
+                    </svg>
+                @endif
+            </div>
+            <div class="hero-tile" title="Google Ads dönüşümleri" data-today-counter="leads">
+                <span class="hero-label">Reklamdan müşteri</span>
+                <p class="hero-value">{{ $num($week['conversions']['current']) }}</p>
+                <p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">@if ($leadsDelta)<span class="chip {{ $chip($leadsDelta) }}">{{ $arrow($leadsDelta) }}</span>@endif Geçen hafta {{ $num($week['conversions']['previous']) }}</p>
+            </div>
+            <div class="hero-tile" title="Google Ads ve Meta" data-today-counter="spend">
+                <span class="hero-label">Reklam harcaması</span>
+                <p class="hero-value">{{ $spend !== null ? $money($spend['current'], $spend['currency']) : '—' }}</p>
+                <p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">@if ($spendDelta)<span class="chip chip-flat bg-white/10! text-white/80!">{{ $spendDelta[0] }}</span>@endif {{ $spend !== null ? 'Geçen hafta '.$money($spend['previous'], $spend['currency']).($otherSpend !== '' ? ', ayrıca '.$otherSpend : '') : 'Harcama yok' }}</p>
+            </div>
+            <a href="{{ route('operator.ai-jobs', ['durum' => 'done']) }}" wire:navigate class="hero-tile hero-tile-accent transition hover:brightness-95" data-today-counter="ai">
+                <span class="hero-label">Claude'un bitirdiği iş</span>
+                <p class="hero-value">{{ $num($overnight['ai_done']) }}</p>
+                <p class="mt-2 text-xs opacity-70">Son 24 saat</p>
+            </a>
+            <a href="{{ route('operator.repair', ['bolum' => 'gecmis']) }}" wire:navigate class="hero-tile transition hover:bg-white/[0.08]">
+                <span class="hero-label">Bekleyen iş</span>
+                <p class="hero-value">{{ $num(array_sum($lanes)) }}</p>
+                <p class="mt-2 text-xs text-white/60">Onarım masasında</p>
+            </a>
         </div>
     </section>
 
-    {{-- 3. One line per brand. --}}
+    {{-- 3. One card per brand: clicks, change, 8 weeks, status. --}}
     @if ($brandRows->isNotEmpty())
         <section data-today-brands>
             <div class="section-head">
                 <h2 class="section-title">Markalar <span class="section-count">{{ $brandRows->count() }}</span></h2>
+                <span class="text-sm text-gray-500">8 haftalık organik tık, sorunlu olan önde</span>
                 <a href="{{ route('operator.brands') }}" wire:navigate class="ml-auto text-[13px] text-gray-500 hover:text-gray-900 dark:hover:text-white">Tümü</a>
             </div>
-            <div class="card overflow-x-auto">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Marka</th>
-                            <th class="hidden md:table-cell">Organik tık, 8 hafta</th>
-                            <th class="hidden text-right! md:table-cell" title="Google Ads dönüşümü, son 7 gün">Reklamdan müşteri</th>
-                            <th class="hidden text-right! md:table-cell" title="Onarım masasında bekleyen iş">Bekleyen</th>
-                            <th class="hidden md:table-cell">Durum</th>
-                        </tr>
-                    </thead>
-                    <tbody data-portfolio-today>
-                        @foreach ($brandRows as $row)
-                            @php
-                                $status = $row['status'];
-                                $pill = $status === null ? ['ok', 'Yolunda'] : [$status['tone'], \Illuminate\Support\Str::limit($status['title'], 34)];
-                            @endphp
-                            <tr wire:key="today-{{ $row['id'] }}" data-today-brand="{{ $row['id'] }}">
-                                <td class="max-w-0 w-[38%]">
-                                    <a href="{{ route('operator.brand', ['brand' => $row['id']]) }}" wire:navigate class="flex min-w-0 items-center gap-2.5">
-                                        <x-ta.brand-avatar :name="$row['name']" :logo="$row['logo']" />
-                                        <span class="min-w-0">
-                                            <span class="block truncate font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</span>
-                                            <x-ta.pill :tone="$pill[0]" class="mt-0.5 md:hidden!">{{ $pill[1] }}</x-ta.pill>
-                                        </span>
-                                    </a>
-                                </td>
-                                <td class="hidden md:table-cell">
-                                    <span class="flex items-center gap-2.5">
-                                        <x-ta.sparkline :values="$row['clicks']" :tone="($row['last_delta'][1] ?? 'neutral') === 'negative' ? 'down' : (($row['last_delta'][1] ?? '') === 'positive' ? 'up' : 'neutral')" :width="72" :height="22" :fill="false" />
-                                        <span class="tabular-nums text-gray-900 dark:text-white">{{ $num($row['last']) }}</span>
-                                        @if ($row['last_delta'])<span class="text-[13px] font-medium tabular-nums {{ $deltaText[$row['last_delta'][1]] }}">{{ $row['last_delta'][0] }}</span>@endif
-                                    </span>
-                                </td>
-                                <td class="hidden text-right tabular-nums md:table-cell">{{ $row['leads'] > 0 || $row['leads_previous'] > 0 ? $num($row['leads']) : '—' }}</td>
-                                <td class="hidden text-right tabular-nums md:table-cell">
-                                    @if ($row['waiting'] > 0)
-                                        <a href="{{ route('operator.repair', ['marka' => $row['id']]) }}" wire:navigate class="hover:underline">{{ $num($row['waiting']) }}</a>
-                                    @else
-                                        <span class="text-gray-400">0</span>
-                                    @endif
-                                </td>
-                                <td class="hidden md:table-cell"><x-ta.pill :tone="$pill[0]" :title="$status['title'] ?? null">{{ $pill[1] }}</x-ta.pill></td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-portfolio-today>
+                @foreach ($brandRows as $row)
+                    @php
+                        $status = $row['status'];
+                        $pill = $status === null ? ['ok', 'Yolunda'] : [$status['tone'], \Illuminate\Support\Str::limit($status['title'], 40)];
+                        $down = ($row['last_delta'][1] ?? 'neutral') === 'negative';
+                    @endphp
+                    <div wire:key="today-{{ $row['id'] }}" data-today-brand="{{ $row['id'] }}" class="card lift flex flex-col gap-3 p-4">
+                        <a href="{{ route('operator.brand', ['brand' => $row['id']]) }}" wire:navigate class="flex min-w-0 items-center gap-2.5">
+                            <x-ta.brand-avatar :name="$row['name']" :logo="$row['logo']" size="lg" />
+                            <span class="min-w-0">
+                                <span class="block truncate font-semibold text-gray-900 dark:text-white">{{ $row['name'] }}</span>
+                                <span class="block text-xs text-gray-500">{{ ($row['waiting'] > 0 ? $num($row['waiting']).' iş bekliyor' : 'Bekleyen iş yok').($row['leads'] > 0 || $row['leads_previous'] > 0 ? ', '.$num($row['leads']).' reklam müşterisi' : '') }}</span>
+                            </span>
+                        </a>
+                        <div class="flex items-end gap-2.5">
+                            <div>
+                                <p class="text-2xl leading-none font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $num($row['last']) }}</p>
+                                <p class="mt-1 text-xs text-gray-500">tık, geçen hafta</p>
+                            </div>
+                            @if ($row['last_delta'])<span class="chip {{ $chip($row['last_delta']) }} mb-0.5">{{ $arrow($row['last_delta']) }}</span>@endif
+                            <x-ta.sparkline class="ml-auto" :values="$row['clicks']" :tone="$down ? 'down' : 'second'" :width="110" :height="36" />
+                        </div>
+                        <div class="flex min-w-0 items-center gap-2 border-t border-dashed border-gray-200 pt-2.5 dark:border-gray-800">
+                            <x-ta.pill :tone="$pill[0]" :title="$status['title'] ?? null" class="min-w-0 truncate">{{ $pill[1] }}</x-ta.pill>
+                            @if ($row['waiting'] > 0)
+                                <a href="{{ route('operator.repair', ['marka' => $row['id']]) }}" wire:navigate class="ml-auto shrink-0 text-[13px] font-medium text-gray-700 hover:underline dark:text-gray-300">Onarım masası →</a>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
             </div>
         </section>
     @endif

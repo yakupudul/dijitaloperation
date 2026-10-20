@@ -30,6 +30,8 @@ use Illuminate\Database\Eloquent\Model;
     'push_telegram_chat_id',
     'push_min_severity',
     'bing_webmaster_api_key',
+    'theme_accent',
+    'theme_second',
 ])]
 #[Hidden([
     'ai_openai_admin_key',

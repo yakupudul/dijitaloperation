@@ -17,6 +17,7 @@
     @endif
 
     @vite(['resources/css/operator.css', 'resources/js/operator.js'])
+    @include('operator.partials.theme-colors')
 
     {{-- Theme + sidebar Alpine stores, adapted from TailAdmin layouts/app.blade.php --}}
     <script>

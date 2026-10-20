@@ -148,6 +148,74 @@
             </form>
         </section>
 
+        {{-- Görünüm (yakup 2026-10-20): the two panel colors; picking one previews it on the whole panel at once. --}}
+        <section data-theme-settings
+            x-data="{ accent: $wire.entangle('theme_accent'), second: $wire.entangle('theme_second'),
+                apply() { const r = document.documentElement.style; if (/^#[0-9a-fA-F]{6}$/.test(this.accent)) r.setProperty('--moxi-accent', this.accent); if (/^#[0-9a-fA-F]{6}$/.test(this.second)) r.setProperty('--moxi-second', this.second); },
+                pick(a, s) { this.accent = a; this.second = s; this.apply(); } }"
+            x-init="$watch('accent', () => apply()); $watch('second', () => apply())">
+            <div class="section-head">
+                <h2 class="section-title">Görünüm</h2>
+                <p class="text-[13px] text-gray-500 dark:text-gray-400">Panelin renkleri. Seçtiğin renk hemen her ekranda denenir; kaydedince kalıcı olur.</p>
+            </div>
+            <form wire:submit="saveTheme" class="card">
+                <div class="{{ $row }}">
+                    <div class="{{ $rowLabel }}">
+                        <span class="{{ $labelText }}">Hazır renkler</span>
+                        <span class="{{ $hint }}">Varsayılan Moximu logosunun sarısı ve yeşili.</span>
+                    </div>
+                    <div class="{{ $control }} flex flex-wrap gap-2">
+                        @foreach ($themePresets as $preset)
+                            <button type="button" x-on:click="pick('{{ $preset['accent'] }}', '{{ $preset['second'] }}')" @disabled(! $isAdmin) data-theme-preset="{{ $preset['id'] }}"
+                                class="btn h-9! gap-2! pl-1.5!" :class="accent === '{{ $preset['accent'] }}' && second === '{{ $preset['second'] }}' ? 'ring-2 ring-gray-900 dark:ring-white' : ''">
+                                <span class="flex -space-x-1.5" aria-hidden="true"><span class="h-6 w-6 rounded-full border-2 border-white" style="background: {{ $preset['accent'] }}"></span><span class="h-6 w-6 rounded-full border-2 border-white" style="background: {{ $preset['second'] }}"></span></span>
+                                {{ $preset['label'] }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="{{ $row }}">
+                    <div class="{{ $rowLabel }}">
+                        <label for="set-accent" class="{{ $labelText }}">Vurgu rengi</label>
+                        <span class="{{ $hint }}">Ana butonlar, sayaçlar ve başlıktaki işaretli kelime.</span>
+                    </div>
+                    <div class="{{ $control }} flex items-center gap-2">
+                        <input type="color" x-model="accent" @disabled(! $isAdmin) aria-label="Vurgu rengi seç" class="h-9 w-12 shrink-0 cursor-pointer rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700" />
+                        <input id="set-accent" type="text" x-model.lazy="accent" @disabled(! $isAdmin) maxlength="7" class="{{ $input }} font-mono uppercase" />
+                        @error('theme_accent')<p class="{{ $error }}">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+                <div class="{{ $row }}">
+                    <div class="{{ $rowLabel }}">
+                        <label for="set-second" class="{{ $labelText }}">İkinci renk</label>
+                        <span class="{{ $hint }}">Grafikler ve koyu sayı panelinin parıltısı.</span>
+                    </div>
+                    <div class="{{ $control }} flex items-center gap-2">
+                        <input type="color" x-model="second" @disabled(! $isAdmin) aria-label="İkinci rengi seç" class="h-9 w-12 shrink-0 cursor-pointer rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700" />
+                        <input id="set-second" type="text" x-model.lazy="second" @disabled(! $isAdmin) maxlength="7" class="{{ $input }} font-mono uppercase" />
+                        @error('theme_second')<p class="{{ $error }}">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+                <div class="{{ $row }} items-center!">
+                    <div class="{{ $rowLabel }} sm:pt-0!"><span class="{{ $labelText }}">Önizleme</span></div>
+                    <div class="{{ $control }} flex flex-wrap items-center gap-2">
+                        <span class="btn-primary pointer-events-none">Hepsini gönder</span>
+                        <span class="text-base font-semibold text-gray-900 dark:text-white">Bugün <span class="highlight">6 şey</span></span>
+                        <span class="chip chip-accent">99</span>
+                        <span class="h-6 w-10 rounded-md bg-second" aria-hidden="true"></span>
+                    </div>
+                </div>
+                <div class="{{ $footer }} rounded-b-3xl">
+                    @if ($isAdmin)
+                        <button type="button" wire:click="resetTheme" class="btn-quiet mr-auto">Moximu renklerine dön</button>
+                        <button type="submit" class="btn-primary w-full sm:w-auto" data-theme-save>Renkleri kaydet</button>
+                    @else
+                        <p class="mr-auto text-xs text-gray-500">{{ __('operator.settings.admin_only') }}</p>
+                    @endif
+                </div>
+            </form>
+        </section>
+
         <section>
             <div class="section-head">
                 <h2 class="section-title">{{ __('operator.mail.title') }}</h2>

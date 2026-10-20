@@ -393,6 +393,7 @@ class AppServiceProvider extends ServiceProvider
             'operator.auth.reset-password',
         ], function ($view): void {
             $view->with('operatorBranding', app(AgencySettingService::class)->branding());
+            $view->with('operatorTheme', app(AgencySettingService::class)->theme());
         });
 
         $this->app->booted(function (): void {
