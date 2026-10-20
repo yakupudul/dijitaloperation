@@ -107,7 +107,8 @@
         @include('operator.layouts.backdrop')
         @include('operator.layouts.sidebar')
 
-        <div class="flex-1 min-w-0 overflow-x-clip transition-all duration-300 ease-in-out"
+        {{-- Server-rendered default (desktop opens expanded) so slow pages do not slide under the menu before Alpine starts. --}}
+        <div class="flex-1 min-w-0 overflow-x-clip transition-all duration-300 ease-in-out xl:ml-[236px]"
             :class="{
                 'xl:ml-[236px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
                 'xl:ml-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
