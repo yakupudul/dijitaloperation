@@ -13,7 +13,7 @@
     </div>
     <div class="card overflow-x-auto">
         @if ($directory === [])
-            <x-ta.empty-state title="Sayfa verisi yok" message="Search Console sayfa bazında tıklama gönderince burada görünür." />
+            <x-ta.empty-state icon="none" title="Sayfa verisi yok" message="Search Console sayfa bazında tıklama gönderince burada görünür." />
         @else
             <table class="data-table">
                 <thead>

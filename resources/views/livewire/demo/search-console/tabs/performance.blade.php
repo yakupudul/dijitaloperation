@@ -45,7 +45,7 @@
                     <p class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-800">Ortalama sıra gösterimlere göre ağırlıklıdır; tek bir genel sıra değildir.</p>
                 @endif
             @else
-                <x-ta.empty-state title="Bu dönem için veri yok" message="Search Console verisi gelince günlük çizgi burada görünür." />
+                <x-ta.empty-state icon="none" title="Bu dönem için veri yok" message="Search Console verisi gelince günlük çizgi burada görünür." />
             @endif
         </div>
     </section>
@@ -67,7 +67,7 @@
                         <p class="text-xs tabular-nums text-gray-500">{{ $num($row['impressions']) }} gösterim, %{{ $dec($row['ctr']) }} tıklama oranı, ort. sıra {{ $dec($row['position']) }}</p>
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" title="Cihaz verisi yok" /></li>
+                    <li><x-ta.empty-state icon="none" size="sm" title="Cihaz verisi yok" /></li>
                 @endforelse
             </ul>
         </section>
@@ -76,7 +76,7 @@
             <div class="section-head"><h2 class="section-title">Ülke</h2></div>
             <div class="card overflow-x-auto">
                 @if (($perf['countries'] ?? []) === [])
-                    <x-ta.empty-state size="sm" title="Ülke verisi yok" />
+                    <x-ta.empty-state icon="none" size="sm" title="Ülke verisi yok" />
                 @else
                     <table class="data-table">
                         <thead>

@@ -31,7 +31,7 @@
 
             @if ($activeSub === 'business_actions')
                 @if (($m['business_actions'] ?? []) === [])
-                    <x-ta.empty-state title="İş aksiyonu eşlenmedi" message="Form, telefon, WhatsApp gibi aksiyonlar bir Analytics etkinliğine eşlenince burada sayılır." />
+                    <x-ta.empty-state icon="none" title="İş aksiyonu eşlenmedi" message="Form, telefon, WhatsApp gibi aksiyonlar bir Analytics etkinliğine eşlenince burada sayılır." />
                 @else
                     <div class="overflow-x-auto">
                         <table class="data-table">
@@ -65,7 +65,7 @@
                 @endif
             @elseif ($activeSub === 'events')
                 @if (($m['events'] ?? []) === [])
-                    <x-ta.empty-state title="Etkinlik yok" message="Analytics'ten gelen etkinlikler burada listelenir." />
+                    <x-ta.empty-state icon="none" title="Etkinlik yok" message="Analytics'ten gelen etkinlikler burada listelenir." />
                 @else
                     <div class="overflow-x-auto">
                         <table class="data-table">
@@ -97,7 +97,7 @@
                 @endif
             @elseif ($activeSub === 'streams')
                 @if (($m['streams'] ?? []) === [])
-                    <x-ta.empty-state title="Veri akışı yok" message="Mülkün web veri akışları burada görünür." />
+                    <x-ta.empty-state icon="none" title="Veri akışı yok" message="Mülkün web veri akışları burada görünür." />
                 @else
                     <div class="overflow-x-auto">
                         <table class="data-table">
@@ -137,7 +137,7 @@
                             <x-ta.pill :tone="$toneOf($row['state'] ?? null)">{{ $say($row['state'] ?? null) }}</x-ta.pill>
                         </li>
                     @empty
-                        <li><x-ta.empty-state title="Veri kalitesi kontrolü yok" /></li>
+                        <li><x-ta.empty-state icon="none" title="Veri kalitesi kontrolü yok" /></li>
                     @endforelse
                 </ul>
             @endif

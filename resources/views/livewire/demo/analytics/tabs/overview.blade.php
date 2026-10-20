@@ -64,7 +64,7 @@
                     <div data-chart='@json($chart)' aria-label="Sessions and mapped business actions trend" class="min-h-[220px]"></div>
                 </div>
             @else
-                <x-ta.empty-state title="Bu dönem için veri yok" message="Analytics verisi gelince günlük çizgi burada görünür." />
+                <x-ta.empty-state icon="none" title="Bu dönem için veri yok" message="Analytics verisi gelince günlük çizgi burada görünür." />
             @endif
         </div>
     </section>
@@ -88,7 +88,7 @@
                         </div>
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" title="Kaynak verisi yok" /></li>
+                    <li><x-ta.empty-state icon="none" size="sm" title="Kaynak verisi yok" /></li>
                 @endforelse
             </ul>
         </section>
@@ -109,7 +109,7 @@
                         <x-ta.pill :tone="$toneOf($row['state'] ?? null)" class="w-24 justify-end">{{ $say($row['state'] ?? null) }}</x-ta.pill>
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" title="İş aksiyonu eşlenmedi" message="Form, telefon gibi aksiyonlar Analytics etkinliğine eşlenince burada sayılır." /></li>
+                    <li><x-ta.empty-state icon="none" size="sm" title="İş aksiyonu eşlenmedi" message="Form, telefon gibi aksiyonlar Analytics etkinliğine eşlenince burada sayılır." /></li>
                 @endforelse
             </ul>
         </section>
@@ -123,7 +123,7 @@
         </div>
         <div class="card overflow-x-auto">
             @if ($landingPulse === [])
-                <x-ta.empty-state title="Giriş sayfası verisi yok" message="Bu dönemde sayfa bazında oturum gelmedi." />
+                <x-ta.empty-state icon="none" title="Giriş sayfası verisi yok" message="Bu dönemde sayfa bazında oturum gelmedi." />
             @else
                 <table class="data-table">
                     <thead>
@@ -182,7 +182,7 @@
                             <span class="text-sm tabular-nums text-gray-900 dark:text-white" title="Oturum">{{ $count($journey, 'sessions') }}</span>
                         </li>
                     @empty
-                        <li><x-ta.empty-state size="sm" title="Yol verisi yok" /></li>
+                        <li><x-ta.empty-state icon="none" size="sm" title="Yol verisi yok" /></li>
                     @endforelse
                 </ul>
             </section>
@@ -204,7 +204,7 @@
                             <x-ta.pill :tone="$toneOf($o['state'] ?? null)">{{ $say($o['state'] ?? null) }}</x-ta.pill>
                         </li>
                     @empty
-                        <li><x-ta.empty-state size="sm" title="Henüz sonuç yok" /></li>
+                        <li><x-ta.empty-state icon="none" size="sm" title="Henüz sonuç yok" /></li>
                     @endforelse
                 </ul>
             </section>

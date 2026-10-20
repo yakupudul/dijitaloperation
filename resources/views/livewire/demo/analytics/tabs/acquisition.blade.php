@@ -25,7 +25,7 @@
         </div>
         <div class="card overflow-x-auto">
             @if ($channels === [])
-                <x-ta.empty-state title="Kanal verisi yok" message="Analytics oturumları kanallara göre gelince burada görünür." />
+                <x-ta.empty-state icon="none" title="Kanal verisi yok" message="Analytics oturumları kanallara göre gelince burada görünür." />
             @else
                 <table class="data-table">
                     <thead>
@@ -69,7 +69,7 @@
         </div>
         <div class="card overflow-x-auto">
             @if ($sourceMedium === [])
-                <x-ta.empty-state size="sm" title="Kaynak / ortam verisi yok" />
+                <x-ta.empty-state icon="none" size="sm" title="Kaynak / ortam verisi yok" />
             @else
                 <table class="data-table">
                     <thead>
@@ -109,7 +109,7 @@
         </div>
         <div class="card overflow-x-auto">
             @if ($campaigns === [])
-                <x-ta.empty-state size="sm" title="Kampanya verisi yok" />
+                <x-ta.empty-state icon="none" size="sm" title="Kampanya verisi yok" />
             @else
                 <table class="data-table">
                     <thead>

@@ -49,12 +49,12 @@
                         <button type="button" wire:click="openFinding('{{ $r['finding_id'] }}')" class="btn h-7! px-2.5! text-xs! w-full sm:w-auto">Bulguyu aç</button>
                     </li>
                 @empty
-                    <li><x-ta.empty-state title="Öneri yok" /></li>
+                    <li><x-ta.empty-state icon="none" title="Öneri yok" /></li>
                 @endforelse
             </ul>
         @elseif ($ops === 'tasks')
             @if (($opsData['tasks'] ?? []) === [])
-                <x-ta.empty-state title="Görev yok" message="Görevler kendiliğinden açılmaz." />
+                <x-ta.empty-state icon="none" title="Görev yok" message="Görevler kendiliğinden açılmaz." />
             @else
                 <div class="overflow-x-auto">
                     <table class="data-table">
@@ -90,7 +90,7 @@
                         <x-ta.pill :tone="$toneOf($o['state'] ?? null)">{{ $say($o['state'] ?? null) }}</x-ta.pill>
                     </li>
                 @empty
-                    <li><x-ta.empty-state title="Henüz sonuç yok" /></li>
+                    <li><x-ta.empty-state icon="none" title="Henüz sonuç yok" /></li>
                 @endforelse
             </ul>
         @endif

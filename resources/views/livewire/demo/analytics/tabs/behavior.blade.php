@@ -40,7 +40,7 @@
         </div>
         <div class="card overflow-x-auto">
             @if ($rows === [])
-                <x-ta.empty-state title="Giriş sayfası verisi yok" message="Analytics sayfa bazında oturum gönderince burada görünür." />
+                <x-ta.empty-state icon="none" title="Giriş sayfası verisi yok" message="Analytics sayfa bazında oturum gönderince burada görünür." />
             @else
                 <table class="data-table">
                     <thead>

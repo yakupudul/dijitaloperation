@@ -725,13 +725,7 @@
                     @foreach ($rows as $label => $value)
                         <div class="grid gap-1 border-t border-gray-200 px-4 py-3 text-sm first:border-t-0 sm:grid-cols-4 sm:gap-4 dark:border-gray-800">
                             <dt class="text-[13px] text-gray-500 sm:text-sm">{{ $label }}</dt>
-                            <dd class="min-w-0 whitespace-pre-line break-words text-gray-900 sm:col-span-3 dark:text-gray-100">
-                                @if ($label === 'Marka' && $brand)
-                                    <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="link-neutral font-medium">{{ $value }}</a>
-                                @else
-                                    {{ $value }}
-                                @endif
-                            </dd>
+                            <dd class="min-w-0 whitespace-pre-line break-words text-gray-900 sm:col-span-3 dark:text-gray-100">@if ($label === 'Marka' && $brand)<a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="link-neutral font-medium">{{ $value }}</a>@else{{ $value }}@endif</dd>
                         </div>
                     @endforeach
                 </dl>

@@ -18,7 +18,7 @@
 
         @if ($demand_sub === 'clusters')
             @if ($clusters === [])
-                <x-ta.empty-state title="Arama kümesi yok" message="Aramalar konu kümelerine ayrılınca burada görünür." />
+                <x-ta.empty-state icon="none" title="Arama kümesi yok" message="Aramalar konu kümelerine ayrılınca burada görünür." />
             @else
                 <div class="overflow-x-auto">
                     <table class="data-table">
@@ -56,7 +56,7 @@
             @endif
         @elseif ($demand_sub === 'queries')
             @if (($demand['queries'] ?? []) === [])
-                <x-ta.empty-state title="Arama verisi yok" message="Search Console arama sorgularını gönderince burada görünür." />
+                <x-ta.empty-state icon="none" title="Arama verisi yok" message="Search Console arama sorgularını gönderince burada görünür." />
             @else
                 <div class="overflow-x-auto">
                     <table class="data-table">
@@ -89,7 +89,7 @@
             @endif
         @elseif ($demand_sub === 'momentum')
             @if ($momentum === [])
-                <x-ta.empty-state title="Hareket hesaplanmadı" message="Aramaların önceki döneme göre hareketi burada görünür." />
+                <x-ta.empty-state icon="none" title="Hareket hesaplanmadı" message="Aramaların önceki döneme göre hareketi burada görünür." />
             @else
                 <div class="grid gap-px bg-gray-200 sm:grid-cols-2 lg:grid-cols-3 dark:bg-gray-800">
                     @foreach (['growing' => 'Büyüyen', 'declining' => 'Düşen', 'new' => 'Yeni', 'lost' => 'Kaybolan', 'ctr_review' => 'Tıklama oranı düşük', 'striking_distance' => 'İlk sayfaya yakın'] as $key => $label)

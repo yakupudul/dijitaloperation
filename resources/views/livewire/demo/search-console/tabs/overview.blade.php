@@ -77,7 +77,7 @@
                     <div data-chart='@json($chart)' aria-label="Search performance trend" class="min-h-[220px]"></div>
                 </div>
             @else
-                <x-ta.empty-state title="Bu dönem için veri yok" message="Search Console verisi gelince günlük çizgi burada görünür." />
+                <x-ta.empty-state icon="none" title="Bu dönem için veri yok" message="Search Console verisi gelince günlük çizgi burada görünür." />
             @endif
         </div>
     </section>
@@ -90,7 +90,7 @@
         </div>
         <div class="card overflow-x-auto">
             @if (($data['page_pulse'] ?? []) === [])
-                <x-ta.empty-state title="Sayfa verisi yok" message="Bu dönemde sayfa bazında tıklama gelmedi." />
+                <x-ta.empty-state icon="none" title="Sayfa verisi yok" message="Bu dönemde sayfa bazında tıklama gelmedi." />
             @else
                 <table class="data-table">
                     <thead>
@@ -164,7 +164,7 @@
                             </div>
                         </li>
                     @empty
-                        <li><x-ta.empty-state size="sm" title="Veri yok" message="Search Console sitenin tüm dizin sayılarını vermiyor." /></li>
+                        <li><x-ta.empty-state icon="none" size="sm" title="Veri yok" message="Search Console sitenin tüm dizin sayılarını vermiyor." /></li>
                     @endforelse
                 </ul>
             </section>
@@ -202,7 +202,7 @@
                             </li>
                         @endif
                     @empty
-                        <li><x-ta.empty-state size="sm" title="Şu an fırsat yok" /></li>
+                        <li><x-ta.empty-state icon="none" size="sm" title="Şu an fırsat yok" /></li>
                     @endforelse
                 </ul>
             </section>
@@ -224,7 +224,7 @@
                             <x-ta.pill :tone="$toneOf($o['state'] ?? null)">{{ $say($o['state'] ?? null) }}</x-ta.pill>
                         </li>
                     @empty
-                        <li><x-ta.empty-state size="sm" title="Henüz sonuç yok" /></li>
+                        <li><x-ta.empty-state icon="none" size="sm" title="Henüz sonuç yok" /></li>
                     @endforelse
                 </ul>
             </section>

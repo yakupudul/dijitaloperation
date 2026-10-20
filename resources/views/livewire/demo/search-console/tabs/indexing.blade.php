@@ -28,7 +28,7 @@
             </div>
             <div class="border-t border-gray-200 dark:border-gray-800">
                 @if ($byRole === [])
-                    <x-ta.empty-state size="sm" title="Sayfa türüne göre kırılım yok" message="Search Console sitenin tüm dizin sayılarını vermiyor." />
+                    <x-ta.empty-state icon="none" size="sm" title="Sayfa türüne göre kırılım yok" message="Search Console sitenin tüm dizin sayılarını vermiyor." />
                 @else
                     <div class="overflow-x-auto">
                         <table class="data-table">
@@ -54,7 +54,7 @@
             </div>
         @elseif ($index_sub === 'inspection')
             @if ($urls === [])
-                <x-ta.empty-state title="Denetlenen URL yok" message="Google'a sorulan sayfaların dizin durumu burada görünür." />
+                <x-ta.empty-state icon="none" title="Denetlenen URL yok" message="Google'a sorulan sayfaların dizin durumu burada görünür." />
             @else
                 <div class="overflow-x-auto">
                     <table class="data-table">
@@ -93,7 +93,7 @@
             @endif
         @elseif ($index_sub === 'sitemaps')
             @if ($sitemaps === [])
-                <x-ta.empty-state title="Site haritası yok" message="Search Console'a gönderilen site haritaları burada görünür." />
+                <x-ta.empty-state icon="none" title="Site haritası yok" message="Search Console'a gönderilen site haritaları burada görünür." />
             @else
                 <div class="overflow-x-auto">
                     <table class="data-table">

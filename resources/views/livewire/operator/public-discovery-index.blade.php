@@ -111,7 +111,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7"><x-ta.empty-state size="sm" title="Filtreye uyan Website yok." /></td></tr>
+                            <tr><td colspan="7"><x-ta.empty-state icon="none" size="sm" title="Filtreye uyan Website yok." /></td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -48,7 +48,7 @@
                     @endif
                 </li>
             @empty
-                <li><x-ta.empty-state title="Bu dönem için yol verisi yok" /></li>
+                <li><x-ta.empty-state icon="none" title="Bu dönem için yol verisi yok" /></li>
             @endforelse
         </ul>
     </section>

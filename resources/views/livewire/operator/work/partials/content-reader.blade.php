@@ -1,7 +1,7 @@
 {{-- The article reader: every language version, send as WordPress drafts, write another language. --}}
 @php
-    $btn = 'h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-medium text-white hover:bg-brand-600 disabled:opacity-50';
-    $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700';
+    $btn = 'btn-primary';
+    $ghost = 'btn';
     $langs = \App\Services\Work\ContentBoard::LANGUAGE_LABELS;
 @endphp
 @if ($article !== null)
