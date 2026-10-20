@@ -7,6 +7,7 @@
     'href' => null,
     'action' => 'Aç',
     'logo' => null,
+    'hint' => null,
 ])
 
 @php
@@ -27,7 +28,7 @@
             <span class="font-medium text-gray-900 dark:text-white">{{ $title }}</span>
             <span class="text-gray-500">{{ $brand }}@if ($meta), {{ $meta }}@endif</span>
         </p>
-        @if ($message)<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $message }}</p>@endif
+        @if ($message)<p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400" @if ($hint && $hint !== $message) title="{{ $hint }}" @endif>{{ $message }}</p>@endif
         @if (! $slot->isEmpty())<div class="relative z-10 mt-1 text-xs">{{ $slot }}</div>@endif
     </div>
     <span class="mt-3 h-1.5 w-1.5 shrink-0 rounded-full {{ $dot }}" aria-hidden="true"></span>

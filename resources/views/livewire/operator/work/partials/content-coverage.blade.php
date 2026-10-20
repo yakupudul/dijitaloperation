@@ -19,29 +19,27 @@
                             <button type="button" wire:click="showBrand({{ $row['brand_id'] }})" class="text-left font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</button>
                             <span class="block text-xs text-gray-500">{{ \Illuminate\Support\Str::limit((string) $row['site']->name, 40) }}</span>
                             @php $stage = \App\Services\Work\ContentCoverage::stage($row); @endphp
-                            <x-ta.pill class="mt-0.5" :tone="match ($stage['tone']) { 'amber' => 'look', 'rose' => 'look', 'emerald' => 'ok', default => 'info' }" data-stage>{{ $stage['label'] }}</x-ta.pill>
-                            @if ($row['reason'])<span class="mt-0.5 block max-w-md text-xs text-gray-500 dark:text-gray-400">{{ $row['reason'] }}</span>@endif
-                            @if ($line = \App\Services\Work\ContentCoverage::runLine($row['last_run'] ?? null))<span class="block text-xs text-gray-500" data-last-run>{{ $line }}</span>@endif
+                            {{-- The why and the last fill run stay on the pill's hover (yakup 2026-10-20: less text on the screen). --}}
+                            <x-ta.pill class="mt-0.5" :tone="match ($stage['tone']) { 'amber' => 'look', 'rose' => 'look', 'emerald' => 'ok', default => 'info' }" :title="trim(($row['reason'] ?? '').' '.(\App\Services\Work\ContentCoverage::runLine($row['last_run'] ?? null) ?? ''))" data-stage>{{ $stage['label'] }}</x-ta.pill>
                         </td>
                         @php $filled = $row['clusters'] > 0 ? (int) round(100 * $row['ok'] / $row['clusters']) : 0; @endphp
                         <td class="min-w-[11rem] text-xs" data-map>
-                            <span class="font-medium tabular-nums text-gray-900 dark:text-white">{{ $row['ok'] }}/{{ $row['clusters'] }} yeterli</span>
+                            <span class="font-medium tabular-nums text-gray-900 dark:text-white" title="{{ $row['ok'] }} / {{ $row['clusters'] }} konunun yeterli sayfası var, {{ $row['weak'] }} sayfa zayıf">%{{ $filled }} dolu</span>
                             <span class="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-second" style="width: {{ $filled }}%"></span></span>
-                            <span class="mt-1 block text-gray-500"><span @class(['text-warning-700 dark:text-warning-400' => $row['missing'] > 0])>{{ $row['missing'] }} eksik</span>, {{ $row['weak'] }} zayıf</span>
+                            @if ($row['missing'] > 0)<span class="mt-1 block text-gray-500">{{ $row['missing'] }} konunun sayfası yok</span>@endif
                         </td>
                         <td class="min-w-40 text-xs" data-week>
                             <span class="font-medium tabular-nums">{{ $row['rhythm']['new'] }} yeni + {{ $row['rhythm']['update'] }} güncelleme</span>
                             <span class="block text-gray-500">{{ $row['rhythm']['label'] }}</span>
                             @if ($row['map'] !== [])<span class="block text-gray-500" data-active-service>Yazılan: {{ implode(', ', $row['map']) }}</span>@endif
-                            @if (($row['backfill'] ?? null) === \App\Models\ContentSiteState::BACKFILL_ELIGIBLE)<span class="mt-0.5 block text-xs text-warning-700 dark:text-warning-400" data-backfill>Geriye dönük doldurma, havuz {{ $row['waiting'] }}/{{ \App\Services\Work\ContentCoverage::POOL }}</span>@endif
-                            @if ($row['translated'] !== [])<span class="block text-xs text-gray-500" data-translated>{{ implode(', ', array_map('strtoupper', $row['translated'])) }}: talep varsa yazılınca çevrilir</span>@endif
+                            @if (($row['backfill'] ?? null) === \App\Models\ContentSiteState::BACKFILL_ELIGIBLE)<span class="mt-0.5 block text-xs text-warning-700 dark:text-warning-400" data-backfill title="Bekleyen başlık {{ $row['waiting'] }}/{{ \App\Services\Work\ContentCoverage::POOL }}">Boş geçmiş tarihler dolduruluyor</span>@endif
                         </td>
                         <td class="min-w-32 text-xs tabular-nums" data-flow>
-                            @if ($row['reading'] > 0)<span class="block font-medium text-warning-700 dark:text-warning-400">{{ $row['reading'] }} okunacak</span>@endif
+                            @if ($row['reading'] > 0)<span class="block font-medium text-warning-700 dark:text-warning-400">{{ $row['reading'] }} gönderime hazır</span>@endif
                             <span class="block text-gray-500">{{ $row['writing'] }} yazılıyor, {{ $row['sent'] }} gönderildi</span>
                         </td>
                         @php $outcome = $outcomes[$row['site']->id] ?? ['sent' => 0, 'live' => 0, 'clicks' => 0]; @endphp
-                        <td class="whitespace-nowrap text-right text-xs tabular-nums" data-outcome>@if ($outcome['sent'] > 0){{ $outcome['live'] }}/{{ $outcome['sent'] }} yayında<span class="block text-gray-500">{{ $outcome['clicks'] }} tıklama, 90 günde {{ $outcome['clicks90'] ?? 0 }}</span>@else<span class="text-gray-500">—</span>@endif</td>
+                        <td class="whitespace-nowrap text-right text-xs tabular-nums" data-outcome>@if ($outcome['sent'] > 0){{ $outcome['live'] }}/{{ $outcome['sent'] }} yayında<span class="block text-gray-500" title="Son 28 günde {{ $outcome['clicks'] }} tık">{{ $outcome['clicks90'] ?? 0 }} tık, 90 gün</span>@else<span class="text-gray-500">—</span>@endif</td>
                     </tr>
                 @endforeach
             </tbody>

@@ -1,5 +1,10 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — İçerik ekranı ve Bugün kısaldı (panel sadeleştirme 2)
+
+- **Kodlandı + test:** İçerik (`/icerik`): sekme çubuğu, Açık/Yapıldı seçimi, kurulum şeridi, "Diğer SEO işleri" ve marka seçicideki sayılar kalktı. Site kutuları kapalı açılır (tek site varsa açık), başlıkta "N yazı"; satırda Puan, açı ve dil çipi yok (çeviri varsa dil çipi kalır), gerekçe "Neden?" içinde ("Konu: …"). Kapsam tablosu tek kısa satırlar: "%N dolu", "N konunun sayfası yok", "N yazı gönderime hazır", "N tık, 90 gün"; ayrıntılar ipucunda. Bugün: Sonuçlar ilk ölçüme kadar gizli, haftanın planında ilk 3 madde ve "N madde daha", Alarm verenler sayısı listedeki satır sayısı, alarm metni ilk cümle (tamamı ipucunda), alarmı olmayan ama geçen hafta tıkı %30+ düşen marka "Tık düşüyor". Testler: `ContentCoverageTest`, `ContentBoardTest`, `TodayCockpitTest::test_alarm_rows_show_one_sentence_and_a_falling_brand_says_so`, `OutcomeTrackingTest`, `BrandCareTest`.
+- **Durum:** CODED, TESTED (PHPUnit); canlı kontrol yayından sonra.
+
 ## 2026-10-20 — Tek iş sayacı (panel sadeleştirme 1)
 
 - **Kodlandı + test:** Bekleyen iş her ekranda tek sayı: `RepairDesk::summary()` (önbellek 120 sn; onay, ret, kuyruğa alma ve masa açılışı yeniler) `decide` = Onayla, bitsin + Bir göz at (menü rozeti), `manual` = Senin elinle, marka başına aynısı. Menü, Bugün ("N iş karar bekliyor" tek kart), Onarım masası başlığı ve marka seçici, marka sayfası "Karar bekleyen", Markalar kartı ve sütunu buradan okur. Paket / düzeltme / "Diğer işler" sayıları ve İçerik'teki 1997 / "Sistemin bu hafta yaptığı" şeridi kalktı. Masa site satırlarını yalnız hazırlanmış olanlardan okur ve sınır 1500'den 5000'e çıktı (Decco tüm markalar listesinde 874, kendi sayfasında 1483 görünüyordu). Claude'un iş sayısı yalnız menü kartında: Bugün'deki rozet, "Claude'un bitirdiği iş" ve "Bekleyen iş" kutuları ve "Şu an sistemde" akışı kalktı; "Dün gece" yalnız onaylı yazmaları gösterir. Testler: `RepairDeskTest::test_menu_today_desk_and_brands_show_one_waiting_count`, `TodayCockpitTest`, `PortfolioSignalsTest`, `ContentCoverageTest`, `BrandOverviewTest`.

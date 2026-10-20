@@ -73,6 +73,23 @@ final class TodayCockpitTest extends SiteTestCase
             ->assertSeeHtml('data-chief-plan-empty')->assertSee('Şimdi hazırla');
     }
 
+    public function test_alarm_rows_show_one_sentence_and_a_falling_brand_says_so(): void
+    {
+        $meta = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'name' => 'Meta Ads · Obezite']);
+        $this->alert($meta, 'delivery_stopped', 'critical', 'Meta reklamları harcama yapmadı');
+        AssetAlert::query()->update(['message' => 'Üç gündür harcama yok. Ödeme yöntemini kontrol et, sonra reklam setlerine bak.']);
+
+        Livewire::test(Dashboard::class)
+            ->assertSee('Alarm verenler')->assertSee('Üç gündür harcama yok.')
+            ->assertSeeHtml('title="Üç gündür harcama yok. Ödeme yöntemini kontrol et, sonra reklam setlerine bak."')
+            ->assertDontSeeHtml('data-today-results');
+
+        AssetAlert::query()->delete();
+        Cache::flush();
+        $this->gscClicks(['2026-10-07' => 100, '2026-10-14' => 30]);
+        Livewire::test(Dashboard::class)->assertSee('Tık düşüyor')->assertDontSee('Yolunda');
+    }
+
     public function test_empty_portfolio_renders_quiet_cockpit(): void
     {
         Livewire::test(Dashboard::class)

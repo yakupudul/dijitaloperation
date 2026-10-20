@@ -73,8 +73,8 @@ final class ContentCoverageTest extends SiteTestCase
         $row = $coverage->rows()[0];
         $this->assertSame([4, 2, 1, 1, ['tr' => 1], ['en'], 1, 1, null], [$row['clusters'], $row['missing'], $row['weak'], $row['ok'], $row['pool'], $row['translated'], $row['reading'], $row['sent'], $row['reason']]);
 
-        Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('2 yeni + 2 güncelleme')->assertDontSeeHtml('data-backfill')->assertSee('EN: talep varsa yazılınca çevrilir')
-            ->assertDontSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Küme: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
+        Livewire::test(WorkPage::class)->assertSeeHtml('data-coverage-site="'.$this->site->id.'"')->assertSee('2 yeni + 2 güncelleme')->assertDontSeeHtml('data-backfill')->assertDontSeeHtml('data-translated')
+            ->assertDontSee('Fikir üret')->assertSee('Karar desteği')->assertSee('Konu: İmplant fiyatları')->assertSee('Fiyat sorgusu çok, sayfa yok.');
     }
 
     public function test_the_brand_table_counts_each_cluster_once_in_the_main_language(): void
@@ -113,10 +113,10 @@ final class ContentCoverageTest extends SiteTestCase
         $coverage = app(ContentCoverage::class);
         $row = $coverage->rows()[0];
         $this->assertSame([1, 1, 1], [$row['writing'], $row['reading'], $row['sent']]);
-        $this->assertSame('1 yazı okumanı bekliyor', ContentCoverage::stage($row)['label']);
+        $this->assertSame('1 yazı gönderime hazır', ContentCoverage::stage($row)['label']);
         $this->assertSame([$this->site->id => ['sent' => 1, 'live' => 1, 'clicks' => 12, 'clicks90' => 12]], $coverage->outcomes([$this->site->id]));
 
-        Livewire::test(WorkPage::class)->assertSee('1 yazı okumanı bekliyor')->assertSee('1/1 yayında')->assertSee('12 tıklama, 90 günde 12')
+        Livewire::test(WorkPage::class)->assertSee('1 yazı gönderime hazır')->assertSee('1/1 yayında')->assertSee('12 tık, 90 gün')
             ->assertDontSee('Onayını bekleyen')->assertDontSee('Sistemin bu hafta yaptığı');
     }
 

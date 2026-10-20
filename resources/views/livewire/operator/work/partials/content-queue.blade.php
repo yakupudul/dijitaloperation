@@ -38,17 +38,16 @@
                 ? collect($group['items'])->filter(fn (array $i): bool => $i['line'] && ! $i['writing'])->countBy('line')->filter(fn (int $n): bool => $n > 1)->sortDesc()
                 : collect();
         @endphp
-        <article wire:key="queue-{{ $step }}-{{ $site->id }}" class="card text-sm" data-queue-site="{{ $site->id }}">
-            <header class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-200 px-4 py-3.5 dark:border-gray-800">
+        {{-- One line per site; its articles open on a click (yakup 2026-10-20: the page was 33 screens long). --}}
+        <article wire:key="queue-{{ $step }}-{{ $site->id }}" class="card text-sm" data-queue-site="{{ $site->id }}" x-data="{ open: {{ count($queue['groups'][$step]) === 1 ? 'true' : 'false' }} }">
+            <header class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5" :class="open && 'border-b border-gray-200 dark:border-gray-800'">
+                <button type="button" @click="open = ! open" :aria-expanded="open" class="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5" aria-label="Yazıları göster" data-queue-toggle="{{ $site->id }}">
+                    <svg class="h-4 w-4 transition" :class="open && 'rotate-90'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.2 14.8a.75.75 0 0 1 0-1.06L10.94 10 7.2 6.26a.75.75 0 1 1 1.06-1.06l4.27 4.27a.75.75 0 0 1 0 1.06L8.26 14.8a.75.75 0 0 1-1.06 0z" clip-rule="evenodd"/></svg>
+                </button>
                 <x-ta.brand-avatar :name="$group['brand'] ?? $site->name" :logo="$workLogos[(int) ($brands->firstWhere('name', $group['brand'])?->id)] ?? null" size="sm" />
                 <div class="min-w-0">
-                    <h3 class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $site->domain ?: $site->name }} <span class="ml-1 font-normal text-gray-500">{{ $group['total'] }}</span></h3>
+                    <h3 class="truncate text-sm font-medium text-gray-900 dark:text-white"><button type="button" @click="open = ! open" class="hover:underline">{{ $site->domain ?: $site->name }}</button> <span class="ml-1 font-normal text-gray-500">{{ $group['total'] }} yazı</span></h3>
                     <span class="block truncate text-xs text-gray-500">{{ $group['brand'] ?? '—' }}</span>
-                </div>
-                <div class="flex flex-wrap gap-x-2" data-site-languages>
-                    @foreach ($group['languages'] as $code => $pages)
-                        <span class="text-xs {{ $loop->first ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400' }}" title="{{ ($langs[$code] ?? $code).($pages > 0 ? ', '.$pages.' sayfa' : '') }}">{{ strtoupper($code) }}</span>
-                    @endforeach
                 </div>
                 <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                     @if ($step === 'okunacak' && ($readyBySite[$site->id] ?? 0) > 0 && $readySites > 1 && auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
@@ -60,6 +59,7 @@
                     <a href="{{ $group['url'] }}" wire:navigate class="link-neutral text-[13px]">Site</a>
                 </div>
             </header>
+            <div x-show="open" x-cloak>
             @if ($shared->isNotEmpty())
                 <div class="space-y-0.5 border-b border-gray-200 px-4 py-2.5 text-xs text-error-700 dark:border-gray-800 dark:text-error-400" data-queue-shared-error>
                     @foreach ($shared as $line => $count)
@@ -72,19 +72,20 @@
                     <li class="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-gray-200 px-4 py-3.5 first:border-t-0 sm:flex-nowrap dark:border-gray-800" wire:key="queue-item-{{ $item['id'] }}" data-content-item="{{ $item['id'] }}">
                         <div class="min-w-0 flex-1 basis-64">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                @if ($step === 'yazilacak' && $item['score'] > 0)<span class="text-xs tabular-nums {{ $item['score'] >= 70 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400' }}" title="Öncelik puanı: {{ $item['score_line'] }}" data-score="{{ $item['score'] }}">Puan {{ $item['score'] }}</span>@endif
                                 @if ($item['rank'] <= 1 && $step === 'yazilacak')<x-ta.pill tone="critical">Acil</x-ta.pill>@endif
-                                <span class="{{ $chip }}">{{ $item['kind'] }}</span>
-                                <span class="{{ $chip }}">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>
+                                <span class="{{ $chip }}" @if ($step === 'yazilacak' && $item['score'] > 0) title="Öncelik puanı {{ $item['score'] }}: {{ $item['score_line'] }}" data-score="{{ $item['score'] }}" @endif>{{ $item['kind'] }}</span>
+                                @if ($item['translations'] !== [])<span class="{{ $chip }}">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>@endif
                                 @if ($item['blocked'])<x-ta.pill tone="critical">Kurala takıldı</x-ta.pill>@endif
                                 @if ($step === 'okunacak' && $item['sendable'])@include('livewire.operator.work.partials.content-check', ['item' => $item])@endif
                                 @if ($item['writing'])<x-ta.pill tone="live" data-writing>{{ $step === 'yazilacak' ? 'yazılıyor…' : 'çeviri yazılıyor…' }}</x-ta.pill>@endif
-                                @if ($item['angle'])<span class="{{ $chip }}" data-angle>{{ $item['angle'] }}</span>@endif
                             </div>
                             <p class="mt-1 font-medium leading-snug text-gray-900 dark:text-white">{{ $item['title'] }}</p>
                             @include('livewire.operator.work.partials.content-target', ['item' => $item])
                             @if ($step === 'yazilacak' && ($item['cluster'] || $item['reason']))
-                                <p class="mt-0.5 text-xs text-gray-500" data-why>@if ($item['cluster'])<span class="font-medium text-gray-700 dark:text-gray-300">Küme: {{ $item['cluster'] }}</span>@if ($item['reason']). @endif @endif{{ $item['reason'] }}</p>
+                                <details class="mt-0.5 text-xs text-gray-500" data-why>
+                                    <summary class="cursor-pointer list-none text-gray-500 hover:text-gray-900 dark:hover:text-white">Neden?</summary>
+                                    <p class="mt-0.5">@if ($item['cluster'])<span class="font-medium text-gray-700 dark:text-gray-300">Konu: {{ $item['cluster'] }}</span>@if ($item['reason']). @endif @endif{{ $item['reason'] }}@if ($item['angle']) Açı: {{ $item['angle'] }}.@endif</p>
+                                </details>
                             @endif
                             @if ($item['line'] && ! $item['writing'] && in_array($step, ['yazilacak', 'okunacak'], true) && ! $shared->has($item['line']))<p class="mt-0.5 text-xs text-error-700 dark:text-error-400">Son deneme: {{ $item['line'] }}</p>@endif
                             @if (in_array($step, ['taslakta', 'yayinda'], true))
@@ -118,6 +119,7 @@
                     <li class="border-t border-gray-200 px-4 py-2.5 text-[13px] text-gray-500 dark:border-gray-800">+{{ $group['total'] - count($group['items']) }} daha, <a href="{{ $group['url'] }}" wire:navigate class="link-neutral">sitenin İçerik sekmesinde</a></li>
                 @endif
             </ul>
+            </div>
         </article>
     @empty
         <div class="card"><x-ta.empty-state size="sm" :icon="in_array($step, ['yazilacak', 'okunacak'], true) ? 'check' : 'none'" :title="['yazilacak' => 'Onay bekleyen başlık yok.', 'okunacak' => 'Gönderime hazır yazı yok.', 'taslakta' => 'Sitede taslakta bekleyen yazı yok.', 'yayinda' => 'Son 180 günde gönderilip yayınlanan yazı yok.'][$step] ?? ''" /></div>

@@ -36,7 +36,7 @@ final class ContentBoardTest extends SiteTestCase
         ]);
 
         Livewire::test(WorkPage::class)->assertSee('İçerik fikirleri')->assertSee('panorama.com.tr')->assertSee('İmplant sonrası ilk hafta')
-            ->assertSeeHtml('data-site-languages')->assertSee('EN')->assertSeeHtml('data-write="'.$idea->id.'"')
+            ->assertDontSeeHtml('data-site-languages')->assertSeeHtml('data-write="'.$idea->id.'"')
             ->call('writeContent', $idea->id)->assertSee('Okunacak\'a düşer');
         $this->assertSame(Suggestion::APPROVED, $idea->fresh()->status, 'Yaz approves the title');
         Queue::assertPushed(RunSiteOperationJob::class, fn (RunSiteOperationJob $job): bool => ($job->params['suggestion_id'] ?? null) === $idea->id);

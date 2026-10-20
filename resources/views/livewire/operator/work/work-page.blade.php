@@ -16,7 +16,7 @@
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <select wire:model.live="brand" aria-label="Marka" autocomplete="off" class="h-8 w-full min-w-0 rounded-lg border border-gray-200 bg-white pl-3 text-[13px] text-gray-900 sm:w-auto sm:max-w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white" data-brand-filter>
                 <option value="" @selected($brand === null)>Tüm markalar</option>
-                @foreach($brands as $b)<option value="{{ $b->id }}" @selected($brand === (int) $b->id)>{{ $b->name }}{{ ($brandCounts[$b->id] ?? 0) > 0 ? ' ('.$brandCounts[$b->id].')' : '' }}</option>@endforeach
+                @foreach($brands as $b)<option value="{{ $b->id }}" @selected($brand === (int) $b->id)>{{ $b->name }}{{ ! $contentOnly && ($brandCounts[$b->id] ?? 0) > 0 ? ' ('.$brandCounts[$b->id].')' : '' }}</option>@endforeach
             </select>
             @include('livewire.operator.work.partials.push-toggle', ['devices' => $pushDevices])
         </div>
@@ -33,6 +33,8 @@
 
     @if($message !== '')<p role="status" class="tone-info rounded-lg px-3 py-2 text-sm">{{ $message }}</p>@endif
 
+    {{-- İçerik (yakup 2026-10-20, "çok fazla yazı"): only the content line; site work stays on Onarım masası › Diğer işler. --}}
+    @unless($contentOnly)
     <div class="space-y-4">
         <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Sekmeler" role="tablist">
             @foreach($tabs as $code => $label)
@@ -57,6 +59,7 @@
             @endif
         </div>
     </div>
+    @endunless
 
     @if(! $embedded && ! $contentOnly && $view === 'acik' && ($onDesk['brand'] > 0 || ($onDesk['preparing'] ?? 0) > 0))
         <a href="{{ route('operator.repair', array_filter(['marka' => $brand])) }}" class="card flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]" data-on-desk>
@@ -71,7 +74,7 @@
         </a>
     @endif
 
-    @if($setup !== [] && array_sum($setup) > 0 && ($brand === null || ($setup[$brand] ?? 0) > 0))
+    @if(! $contentOnly && $setup !== [] && array_sum($setup) > 0 && ($brand === null || ($setup[$brand] ?? 0) > 0))
         <div class="card flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-[13px] text-gray-500 dark:text-gray-400" data-setup-strip>
             <span class="font-medium text-gray-900 dark:text-white">Marka kurulumu</span>
             @foreach($brands as $b)
@@ -85,8 +88,10 @@
 
     @if($queue !== null)
         @include('livewire.operator.work.partials.content-queue')
-        @if($sections !== [])<h2 class="section-title">Diğer SEO işleri</h2>@endif
+        @if(! $contentOnly && $sections !== [])<h2 class="section-title">Diğer SEO işleri</h2>@endif
     @endif
 
-    @include('livewire.operator.work.partials.work-groups')
+    @unless($contentOnly)
+        @include('livewire.operator.work.partials.work-groups')
+    @endunless
 </div>

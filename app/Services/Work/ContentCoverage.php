@@ -237,7 +237,7 @@ final class ContentCoverage
     public static function stage(array $row): array
     {
         return match (true) {
-            $row['reading'] > 0 => ['label' => $row['reading'].' yazı okumanı bekliyor', 'tone' => 'amber'],
+            $row['reading'] > 0 => ['label' => $row['reading'].' yazı gönderime hazır', 'tone' => 'amber'],
             $row['writing'] > 0 => ['label' => $row['writing'].' yazı yazılıyor', 'tone' => 'sky'],
             $row['waiting'] > 0 => ['label' => 'Başlıklar onayını bekliyor', 'tone' => 'amber'],
             $row['clusters'] === 0 => ['label' => 'Tıkalı: küme yok', 'tone' => 'rose'],

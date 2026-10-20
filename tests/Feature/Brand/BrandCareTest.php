@@ -165,7 +165,7 @@ final class BrandCareTest extends TestCase
         $this->assertSame('Şef: bu haftanın planı hazır (5 iş)', UserNotification::query()->sole()->presentation['title']);
 
         Queue::fake();
-        Livewire::test(Dashboard::class)->assertSeeHtml('data-chief-plan')->assertSee('Harita haftası.')->assertSee('Bdent görevi')
+        Livewire::test(Dashboard::class)->assertSeeHtml('data-chief-plan')->assertSee('Harita haftası.')->assertSee('Bdent görevi')->assertSee('2 madde daha')->assertSeeHtml('data-plan-extra')
             ->call('refreshPlan')->assertDispatched('operator-notice');
         Queue::assertPushed(RunBrandChiefJob::class, fn (RunBrandChiefJob $job): bool => ! $job->notify);
     }

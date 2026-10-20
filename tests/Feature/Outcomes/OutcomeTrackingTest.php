@@ -209,9 +209,9 @@ final class OutcomeTrackingTest extends TestCase
         $this->assertSame(['Harita', 'Çalışma saatlerini ekle'], [app(OutcomeTracker::class)->summary()['items'][2]['channel'], $worked->title]);
     }
 
-    public function test_bugun_without_results_says_so(): void
+    public function test_bugun_hides_results_until_the_first_measurement(): void
     {
-        Livewire::actingAs($this->admin)->test(Dashboard::class)->assertSee('Sonuçlar')->assertSee('Henüz ölçülen öneri yok');
+        Livewire::actingAs($this->admin)->test(Dashboard::class)->assertDontSeeHtml('data-today-results')->assertDontSee('Henüz ölçülen öneri yok');
     }
 
     public function test_closed_suggestions_older_than_12_months_are_deleted(): void

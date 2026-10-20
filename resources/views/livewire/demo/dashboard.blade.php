@@ -95,8 +95,13 @@
             $first['tone'] = $group->contains('tone', 'critical') ? 'critical' : $first['tone'];
         }
 
+        // First sentence only; the whole text stays in the row's tooltip.
+        $first['full'] = (string) $first['message'];
+        $first['message'] = trim((string) (preg_split('/(?<=[.!?])\s+/u', $first['full'], 2)[0] ?? ''));
+
         return $first;
     })->values();
+    $resultsEmpty = $results['items'] === [] && array_sum(array_map('intval', (array) ($results['counts'] ?? []))) === 0;
 @endphp
 
 @php
@@ -263,7 +268,9 @@
                 @foreach ($brandRows as $row)
                     @php
                         $status = $row['status'];
-                        $pill = $status === null ? ['ok', 'Yolunda'] : [$status['tone'], \Illuminate\Support\Str::limit($status['title'], 40)];
+                        $previousWeek = (int) ($row['clicks'][count($row['clicks']) - 2] ?? 0);
+                        $falling = $previousWeek >= 20 && ($row['last'] - $previousWeek) / $previousWeek <= -0.3;
+                        $pill = $status !== null ? [$status['tone'], \Illuminate\Support\Str::limit($status['title'], 40)] : ($falling ? ['look', 'Tık düşüyor'] : ['ok', 'Yolunda']);
                         $down = ($row['last_delta'][1] ?? 'neutral') === 'negative';
                     @endphp
                     <div wire:key="today-{{ $row['id'] }}" data-today-brand="{{ $row['id'] }}" class="card lift flex flex-col gap-3 p-4">
@@ -298,14 +305,14 @@
     @if ($alarmGroups->isNotEmpty())
         <section id="alarm-verenler" class="scroll-mt-20" data-today-alarms>
             <div class="section-head">
-                <h2 class="section-title">Alarm verenler <span class="section-count">{{ $alarms['accounts'] }}</span></h2>
+                <h2 class="section-title">Alarm verenler <span class="section-count">{{ $alarmGroups->count() }}</span></h2>
                 <a href="{{ route('operator.repair', ['bolum' => 'diger']) }}" wire:navigate class="ml-auto text-[13px] text-gray-500 hover:text-gray-900 dark:hover:text-white">Tümü</a>
             </div>
             <ul class="card">
                 @foreach ($alarmGroups as $alarm)
                     <x-ta.alarm-row wire:key="today-alarm-{{ $alarm['id'] }}" :tone="$alarm['tone']" :title="$alarm['title']" :brand="$alarm['brand']" :logo="$alarm['logo'] ?? null"
                         :meta="$alarm['asset'] !== '' && $alarm['asset'] !== $alarm['brand'] ? $alarm['asset'] : null"
-                        :message="$alarm['message'] !== '' ? \Illuminate\Support\Str::limit($alarm['message'], 140) : null" :href="$alarm['url']" data-today-alarm="{{ $alarm['tone'] }}" />
+                        :message="$alarm['message'] !== '' ? \Illuminate\Support\Str::limit($alarm['message'], 140) : null" :href="$alarm['url']" :hint="$alarm['full']" data-today-alarm="{{ $alarm['tone'] }}" />
                 @endforeach
             </ul>
             @if ($alarms['more'] > 0)
@@ -369,9 +376,11 @@
                 @if ($chiefPlan->headline)
                     <p class="border-b border-gray-200 bg-gray-50/60 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-300">{{ $chiefPlan->headline }}</p>
                 @endif
-                <ol>
-                    @foreach ((array) $chiefPlan->plan as $line)
-                        <li class="card-row items-start">
+                @php($planLines = array_values((array) $chiefPlan->plan))
+                {{-- Three lines first; the rest one click away. --}}
+                <ol x-data="{ more: false }">
+                    @foreach ($planLines as $line)
+                        <li class="card-row items-start" @if ($loop->index >= 3) x-show="more" x-cloak data-plan-extra @endif>
                             <span class="mt-1 w-4 shrink-0 text-right text-xs tabular-nums text-gray-400">{{ $loop->iteration }}</span>
                             <x-ta.brand-avatar :name="$line['brand']" />
                             <div class="min-w-0 flex-1 text-sm">
@@ -385,12 +394,18 @@
                             </div>
                         </li>
                     @endforeach
+                    @if (count($planLines) > 3)
+                        <li class="card-row" data-plan-more>
+                            <button type="button" x-on:click="more = ! more" class="text-[13px] text-gray-500 hover:text-gray-900 dark:hover:text-white" x-text="more ? 'Kapat' : '{{ count($planLines) - 3 }} madde daha'">{{ count($planLines) - 3 }} madde daha</button>
+                        </li>
+                    @endif
                 </ol>
             @endif
         </div>
     </section>
 
-    {{-- 7. Did the applied suggestions work? --}}
+    {{-- 7. Did the applied suggestions work? Hidden until the first measurement. --}}
+    @unless ($resultsEmpty)
     <section data-today-results>
         <div class="section-head">
             <h2 class="section-title">Sonuçlar</h2>
@@ -419,5 +434,6 @@
             </ul>
         @endif
     </section>
+    @endunless
 
 </div>
