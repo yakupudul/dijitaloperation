@@ -66,7 +66,7 @@ final class TodayCockpitTest extends SiteTestCase
         Livewire::test(Dashboard::class)
             ->assertSeeHtml('data-today-counter="approvals"')->assertSeeHtml('data-today-counter="week"')
             ->assertSeeHtml('data-today-counter="alarms"')->assertSeeHtml('data-today-counter="ai"')
-            ->assertSee('Onay bekleyen')->assertSee('Google Ads negatif kelime')->assertSee('+50%')
+            ->assertSee('düşük riskli iş onay bekliyor')->assertSee('Google Ads negatif kelime')->assertSee('+50%')
             ->assertSee('Meta reklamları harcama yapmadı')->assertSeeHtml('data-today-alarm="critical"')->assertSeeHtml('data-today-alarm="look"')
             ->assertDontSee('Veri güncel değil')
             ->assertSee('Marka bakım ajanı')
@@ -95,7 +95,8 @@ final class TodayCockpitTest extends SiteTestCase
         }
         $large = $this->countQueries();
 
-        $this->assertLessThanOrEqual(70, $large, 'Bugün stays under a fixed query ceiling');
+        // 100 (was 70): the daily send summary and the brand table (2026-10-20) add a fixed number of queries, not per brand.
+        $this->assertLessThanOrEqual(100, $large, 'Bugün stays under a fixed query ceiling');
         $this->assertLessThanOrEqual($small + 5, $large, 'six more brands with assets and alarms add only a few queries');
     }
 

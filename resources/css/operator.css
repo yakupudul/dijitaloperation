@@ -4,9 +4,11 @@
  * spacing, dark-mode variants, menu-item utilities and ApexCharts styling are kept from TailAdmin.
  * See THIRD_PARTY_NOTICES.md for attribution.
  *
- * Sade panel (yakup 2026-10-20, Notion / ElevenLabs): white page, Inter (still exposed as `font-outfit` so no view
- * changes), 13 px smallest text (`text-xs`), neutral near-black main button (the `brand` scale is no longer orange;
- * orange stays only in the logo), no boxes around sections, status shown with a dot. Every screen inherits these.
+ * Panel concept (yakup approved the prototype 2026-10-20, https://claude.ai/artifact/VS4NveBvXmD7yWdyF6hPgt):
+ * light gray page, the menu sits on it, every screen is one white panel; inside it, related rows live in white
+ * cards with a hairline edge (`card`, `card-row`), numbers in one strip (`metric-strip`), tables in a card with a
+ * light header (`data-table`). Inter, 24 px page title (`page-title`), 15 px section title, 14 px rows, 13 px
+ * secondary text, near-black main button (orange only in the logo), status as a dot with plain text.
  */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap') layer(base);
 @import 'tailwindcss';
@@ -70,6 +72,10 @@
   --color-brand-800: #0a0a0a;
   --color-brand-900: #050505;
   --color-brand-950: #000000;
+
+  /* The gray page around the white panel (menu background). */
+  --color-page: #f4f4f2;
+  --shadow-card: 0 1px 2px rgba(20, 20, 20, 0.04), 0 1px 1px rgba(20, 20, 20, 0.02);
 
   /* Neutrals (Notion-like): page white, sidebar #f7f7f5, hairlines #ebebe9, text #191918. */
   --color-gray-25: #fbfbfa;
@@ -171,7 +177,7 @@
     cursor: pointer;
   }
   body {
-    @apply relative font-normal font-outfit bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-200;
+    @apply relative font-normal font-outfit bg-page text-gray-900 dark:bg-gray-950 dark:text-gray-200;
     font-feature-settings: 'cv11';
     -webkit-font-smoothing: antialiased;
   }
@@ -201,15 +207,92 @@
   @apply ml-auto text-xs tabular-nums text-gray-500 dark:text-gray-400;
 }
 
-/* A real separate object (dialog, popover, a list that needs an edge): hairline ring, no shadow. Page sections are
-   not surfaces: they are a heading over content (`section-head`). */
+/* White card with a hairline edge: holds related rows, a form or a dialog. `surface` is the older name. */
+@utility card {
+  @apply min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-white/[0.03];
+}
 @utility surface {
-  @apply rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800;
+  @apply rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-gray-900;
 }
 
-/* Section heading of a flat page: 16 px semibold title, quiet count, optional link on the right. */
+/* One row inside a card: icon or logo, title + one gray line, actions on the right; hairline between rows. */
+@utility card-row {
+  @apply flex min-w-0 items-center gap-3.5 border-t border-gray-200 px-4 py-3.5 first:border-t-0 dark:border-gray-800;
+}
+
+/* Page head: 24 px title, at most one gray line under it. */
+@utility page-title {
+  @apply text-2xl leading-8 font-semibold tracking-[-0.02em] text-gray-900 dark:text-white;
+}
+@utility page-sub {
+  @apply mt-0.5 text-sm text-gray-500 dark:text-gray-400;
+}
+
+/* Section head: 15 px semibold title, a quiet count next to it, an optional quiet link on the right. */
+@utility section-head {
+  @apply mb-3 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1;
+}
 @utility section-title {
-  @apply text-base font-semibold text-gray-900 dark:text-white;
+  @apply text-[15px] leading-6 font-semibold text-gray-900 dark:text-white;
+}
+@utility section-count {
+  @apply text-[15px] font-normal text-gray-500 tabular-nums;
+}
+
+/* Numbers in one card, cells split by hairlines (works for any column count). Cells are x-ta.metric-card. */
+@utility metric-strip {
+  @apply grid gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 shadow-card dark:border-gray-800 dark:bg-gray-800;
+}
+
+/* Table inside a card: light header row, hairline rows, hover. Wrap in `card overflow-x-auto`. */
+@utility data-table {
+  @apply w-full border-collapse text-sm;
+  & th {
+    @apply whitespace-nowrap border-b border-gray-200 bg-gray-50 px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400;
+  }
+  & td {
+    @apply border-b border-gray-200 px-4 py-3 align-middle dark:border-gray-800;
+  }
+  & tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  & tbody tr:hover td {
+    @apply bg-gray-50/70 dark:bg-white/[0.02];
+  }
+}
+
+/* Buttons for plain HTML buttons and links (x-ta.button uses the same look). */
+@utility btn {
+  @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300/80 bg-white px-3 text-[13px] font-medium text-gray-900 shadow-card transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08];
+}
+@utility btn-primary {
+  @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-900 bg-gray-900 px-3 text-[13px] font-medium text-white shadow-card transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200;
+}
+@utility btn-quiet {
+  @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[13px] font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white;
+}
+
+/* Tabs: underline under the active one, the count in quiet gray. */
+@utility tab {
+  @apply -mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-2.5 py-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white;
+}
+@utility tab-active {
+  @apply border-gray-900 font-medium text-gray-900 dark:border-white dark:text-white;
+}
+
+/* Small square icon in a row (send, warning, clock). */
+@utility row-icon {
+  @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-white/[0.04] dark:text-gray-300;
+}
+
+/* Sort arrows on table headers show only on hover or when that column is sorted (resources/js/sortable-tables.js). */
+[data-sort-indicator] {
+  opacity: 0;
+  transition: opacity 120ms;
+}
+th:hover > [data-sort-indicator],
+th:focus-visible > [data-sort-indicator] {
+  opacity: 0.45;
 }
 
 /* Pulsing dot of the live indicator (header, live feed). */
@@ -230,11 +313,11 @@
 
 /* Colour rules: orange (brand) is only the main action, so the active menu entry is neutral. */
 @utility menu-item-active {
-  @apply bg-gray-200/60 font-medium text-gray-900 dark:bg-white/[0.08] dark:text-white;
+  @apply bg-white font-medium text-gray-900 shadow-card ring-1 ring-gray-200 dark:bg-white/[0.07] dark:text-white dark:ring-white/10;
 }
 
 @utility menu-item-inactive {
-  @apply text-gray-700 hover:bg-gray-200/50 hover:text-gray-900 group-hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200;
+  @apply text-gray-700 hover:bg-black/[0.04] hover:text-gray-900 group-hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200;
 }
 
 @utility menu-item-icon-active {

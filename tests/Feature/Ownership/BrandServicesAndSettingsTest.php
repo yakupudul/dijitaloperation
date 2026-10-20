@@ -237,15 +237,15 @@ final class BrandServicesAndSettingsTest extends TestCase
         Livewire::test(BrandSettings::class, ['brandId' => $this->brand->id])->call('moveAsset', $this->site->id)->assertForbidden();
     }
 
-    public function test_today_lists_operational_brands_with_sector_counts_asset_types_and_last_data(): void
+    public function test_today_lists_only_operational_brands(): void
     {
         BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $this->implant->id, 'status' => 'active']);
         BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'city_name' => 'Ankara', 'normalized_key' => 'tr|ankara|', 'status' => 'active']);
         $passive = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Inactive])->id, 'name' => 'Pasif Marka']);
 
+        // Bugün's brand table (2026-10-20) shows performance per brand; sector, service and area counts live on Markalar.
         Livewire::test(Dashboard::class)
-            ->assertSee('Panorama Ankara')->assertSee('Diş sağlığı')->assertSee('1 hizmet')->assertSee('1 bölge')
-            ->assertSee('Web sitesi · —')->assertDontSee($passive->name);
+            ->assertSee('Panorama Ankara')->assertSeeHtml('data-today-brand="'.$this->brand->id.'"')->assertDontSee($passive->name);
     }
 
     private function enableAi(): void

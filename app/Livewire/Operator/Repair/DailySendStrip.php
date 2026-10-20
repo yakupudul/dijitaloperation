@@ -35,7 +35,7 @@ final class DailySendStrip extends Component
 
     public function placeholder(): string
     {
-        return '<div class="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">Günlük gönderim hazırlanıyor…</div>';
+        return '<div class="card p-5 text-sm text-gray-500">Günlük gönderim hazırlanıyor…</div>';
     }
 
     public function render(DailySend $daily): View

@@ -20,7 +20,8 @@ use Livewire\Component;
  * Onarım masası: every prepared fix (eski → yeni) across brands; approve one or many (high risk one by one), edit a value
  * before approving, reject with a reason, and undo what was applied in the last 7 days. Since 2026-10-10 it is the one
  * work list: the "Diğer işler" section holds the rest of the work (content ideas, setup, overlaps, alerts, channel
- * checks) that used to live on Genel işler (`/work` now opens it).
+ * checks) that used to live on Genel işler (`/work` now opens it). Since the approved panel concept (2026-10-20) the
+ * history (Yapılanlar, Sonuçlar, the after-approval pipeline) is the "Geçmiş" tab instead of a section under the list.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Onarım masası')]
@@ -29,13 +30,15 @@ final class RepairDeskPage extends Component
     #[Url(as: 'marka')]
     public ?int $brandId = null;
 
-    /** Bölüm (yakup 2026-10-10, one work list): onay = prepared fixes, diger = the rest of the work (former Genel işler). */
+    /** Bölüm (yakup 2026-10-10, one work list): onay = prepared fixes, diger = the rest of the work (former Genel işler), gecmis = history. */
     #[Url(as: 'bolum')]
     public string $section = self::SECTION_DESK;
 
     public const string SECTION_DESK = 'onay';
 
     public const string SECTION_OTHER = 'diger';
+
+    public const string SECTION_HISTORY = 'gecmis';
 
     #[Url(as: 'tur')]
     public string $kind = '';
@@ -133,6 +136,14 @@ final class RepairDeskPage extends Component
         $this->selected = [];
         $this->open = '';
         $this->packagesShown = self::PACKAGES_PAGE;
+    }
+
+    /** Geçmiş: what was written in the last 7 days (undoable), the after-approval pipeline and the 30 / 90 day results. */
+    public function showHistory(): void
+    {
+        $this->section = self::SECTION_HISTORY;
+        $this->selected = [];
+        $this->open = '';
     }
 
     public function togglePackage(string $key): void
@@ -267,9 +278,15 @@ final class RepairDeskPage extends Component
         $inLane = $this->inLane($filtered);
         $openRows = $this->open !== '' ? $inLane->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $this->open)->values() : collect();
 
-        $this->section = $this->section === self::SECTION_OTHER ? self::SECTION_OTHER : self::SECTION_DESK;
+        $this->section = in_array($this->section, [self::SECTION_OTHER, self::SECTION_HISTORY], true) ? $this->section : self::SECTION_DESK;
         $done = $desk->done($this->brandId);
         $packages = $desk->packages($inLane)->values();
+        // One brand's packages sit together (panel concept 2026-10-20), brands in the order of their best package.
+        $firstOfBrand = [];
+        foreach ($packages as $i => $package) {
+            $firstOfBrand[$package['brand_id']] ??= $i;
+        }
+        $packages = $packages->sortBy(fn (array $package, int $i): array => [$firstOfBrand[$package['brand_id']], $i])->values();
         // A package opened from a link (?paket=…) past the first pages is shown with the packages before it.
         $openIndex = $this->open !== '' ? $packages->search(fn (array $p): bool => $p['key'] === $this->open) : false;
         if ($openIndex !== false && $openIndex >= $this->packagesShown) {
@@ -295,9 +312,10 @@ final class RepairDeskPage extends Component
                 'brand_total' => ($brandRows = $this->filter($all, kind: false))->count(), 'brand_packages' => $desk->packages($brandRows)->count(), 'kinds' => $this->filter($all, kind: false)->countBy('kind')->all(), 'brands' => $all->countBy('brand_id')->all()],
             'health' => $desk->health($all),
             'pipeline' => $desk->pipeline($this->brandId),
-            'brands' => Brand::query()->operational()->orderBy('name')->pluck('name', 'id'),
+            'brands' => ($brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url']))->pluck('name', 'id'),
+            'logos' => $brands->pluck('logo_url', 'id'),
             'done' => $done,
-            'results' => $desk->results($this->brandId),
+            'results' => $this->section === self::SECTION_HISTORY ? $desk->results($this->brandId) : null,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'queuedCount' => $desk->queuedCount($this->brandId),
         ]);

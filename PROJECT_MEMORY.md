@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — Onaylı panel konsepti (gri sayfa, beyaz panel, kartlar)
+
+- yakup "Sade panel" canlısını "çok kötü" buldu (her ekrana tek kural seti uygulanınca yapı kayboldu, her şey aynı boy ve gri). Ekran ekran içerik önce yeniden düşünüldü, önce HTML prototip (claude.ai/artifact/VS4NveBvXmD7yWdyF6hPgt); yakup: "Bu konsepti çok beğendim. Bu ekranları ve diğer tüm ekranları bu konsepte yap." Bu karar "Sade panel"deki "bölüm kutusuz" kuralının yerini alır.
+- Sayfa açık gri (`bg-page` #f4f4f2), menü sayfanın üstünde; ekran tek beyaz panel (masaüstünde yuvarlak köşe). İçerik beyaz `card` içinde ince çizgili satırlar (`card-row`); rakamlar `metric-strip`; tablolar `card` + `data-table`. Başlık 24 px (`page-title`), bölüm 15 px (`section-title` + `section-count`), satır 14 px, ikincil 13 px.
+- Her ekran tek soruyu cevaplar, ilk görünen yerde en çok ~5 şey; açıklama cümlesi `title` ipucuna ya da açılır satıra. Ana düğme siyaha yakın (`btn-primary`), ikincil beyaz çerçeveli (`btn`); durum nokta + düz yazı; marka logosu, yoksa yumuşak renkli baş harf.
+- Onarım masası: üstte gönderim kartı (hazır iş sayısı büyük, tek "Hepsini gönder"), tek sekme satırı (Onayla bitsin / Bir göz at / Senin elin gerekiyor / Diğer işler / Geçmiş), paketler markaya göre gruplu, ilk paketin ilk işleri açık; Yapılanlar + Sonuçlar artık Geçmiş sekmesinde.
+- Ders: tasarım değişikliği hiçbir zaman tüm ekranlara tek kural setiyle toplu uygulanmaz; önce prototip, sonra ekran ekran, her ekran masaüstü + telefon ekran görüntüsüyle kontrol edilir.
+
 ## 2026-10-20 — Sade panel (Inter, kutusuz)
 
 - yakup: "çok AI drop kokuyor, Notion / ElevenLabs gibi değil"; onaylı prototip sonrası "fontu da inter yap. söylediklerini de yap." Bu, 1-2. aşamadaki "kart + ring" kuralının yerini alır.

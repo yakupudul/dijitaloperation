@@ -6,23 +6,24 @@
 ])
 
 @php
-    $base = 'inline-flex items-center justify-center font-medium gap-2 rounded-lg transition';
+    $base = 'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition';
 
-    // Compact sizes (panel redesign 2026-10-19): 32 / 36 px tall, like the header controls.
+    // Sizes: 28 / 32 / 36 px tall (panel concept 2026-10-20: 32 px is the normal row button).
     $sizeMap = [
         'xs' => 'h-7 px-2.5 text-xs',
-        'sm' => 'h-8 px-3 text-sm',
+        'sm' => 'h-8 px-3 text-[13px]',
         'md' => 'h-9 px-4 text-sm',
     ];
     $sizeClass = $sizeMap[$size] ?? $sizeMap['md'];
 
-    // Near-black (primary) is the one main action of a screen; everything else is outline / secondary.
+    // Near-black (primary) is the one main action of a screen; row actions are white with a hairline edge.
+    $white = 'border border-gray-300/80 bg-white text-gray-900 shadow-card hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08]';
     $variantMap = [
-        'primary' => 'bg-brand-600 text-white hover:bg-brand-500 disabled:bg-brand-300',
-        'outline' => 'bg-white text-gray-800 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300',
-        'secondary' => 'bg-white text-gray-800 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300',
-        'danger' => 'bg-error-500 text-white shadow-theme-xs hover:bg-error-600 disabled:bg-error-300',
-        'ghost' => 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5',
+        'primary' => 'border border-gray-900 bg-gray-900 text-white shadow-card hover:bg-gray-700 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200',
+        'outline' => $white,
+        'secondary' => $white,
+        'danger' => 'border border-error-600 bg-error-600 text-white shadow-card hover:bg-error-700',
+        'ghost' => 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
     ];
     $variantClass = $variantMap[$variant] ?? $variantMap['primary'];
     $disabledClass = $disabled ? 'cursor-not-allowed opacity-50' : '';

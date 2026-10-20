@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Genel işler: installable on the phone home screen (iPhone needs it for notifications). --}}
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="#f7f6f4">
+    <meta name="theme-color" content="#f4f4f2">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="/images/app/icon-192.png">
 
@@ -39,10 +39,10 @@
                     const body = document.body;
                     if (this.theme === 'dark') {
                         html.classList.add('dark');
-                        body.classList.add('dark', 'bg-gray-900');
+                        body.classList.add('dark', 'bg-gray-950');
                     } else {
                         html.classList.remove('dark');
-                        body.classList.remove('dark', 'bg-gray-900');
+                        body.classList.remove('dark', 'bg-gray-950');
                     }
                 }
             });
@@ -78,7 +78,7 @@
             const theme = saved || system;
             if (theme === 'dark') {
                 document.documentElement.classList.add('dark');
-                document.body.classList.add('dark', 'bg-gray-900');
+                document.body.classList.add('dark', 'bg-gray-950');
             }
         })();
     </script>
@@ -114,20 +114,25 @@
                 'xl:ml-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
                 'ml-0': $store.sidebar.isMobileOpen
             }">
+            {{-- The screen is one white panel on the gray page (yakup's approved concept 2026-10-20); on a phone it fills the width. --}}
+            <div class="xl:py-2 xl:pr-2">
+            <div class="min-h-dvh bg-white dark:bg-gray-900 xl:min-h-[calc(100dvh-1rem)] xl:rounded-xl xl:border xl:border-gray-200 xl:shadow-card dark:xl:border-gray-800" data-operator-panel>
             @include('operator.layouts.header')
 
-            <div class="mx-auto min-w-0 max-w-6xl px-4 py-6 md:px-10 md:py-8">
+            <div class="mx-auto min-w-0 max-w-[1120px] px-4 pb-16 pt-6 md:px-10 md:pt-8">
                 @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
                 @if ($sectionTabs)
-                    <nav class="no-scrollbar -mt-1 mb-5 flex gap-0.5 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
+                    <nav class="no-scrollbar -mt-1 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
                         @foreach ($sectionTabs as $tab)
                             <a href="{{ $tab['url'] }}" wire:navigate @if ($tab['active']) aria-current="page" @endif
-                                @class(['-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium', 'border-gray-900 text-gray-900 dark:border-white dark:text-white' => $tab['active'], 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => ! $tab['active']])>{{ $tab['label'] }}</a>
+                                @class(['tab', 'tab-active' => $tab['active']])>{{ $tab['label'] }}</a>
                         @endforeach
                     </nav>
                 @endif
 
                 {{ $slot }}
+            </div>
+            </div>
             </div>
         </div>
     </div>

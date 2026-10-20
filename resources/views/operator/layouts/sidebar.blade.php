@@ -6,9 +6,9 @@
     $sidebarOpen = '$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen';
 @endphp
 
-{{-- Operator sidebar (panel redesign 2026-10-19): 236 px, grouped entries with counters, brand switcher on top. --}}
+{{-- Operator sidebar (panel redesign 2026-10-19): 236 px on the gray page, grouped entries with counters, brand switcher on top. --}}
 <aside id="operator-sidebar"
-    class="fixed left-0 top-0 z-99999 flex h-dvh flex-col border-r border-gray-200 bg-gray-50 px-3 text-gray-900 transition-all duration-200 ease-in-out dark:border-gray-800 dark:bg-gray-950"
+    class="fixed left-0 top-0 z-99999 flex h-dvh flex-col border-r border-gray-200 bg-page px-3 text-gray-900 transition-all duration-200 ease-in-out xl:border-r-0 dark:border-gray-800 dark:bg-gray-950"
     :class="{
         'w-[236px]': {{ $sidebarOpen }},
         'w-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
@@ -50,7 +50,7 @@
                     <p class="px-2 py-1.5 text-xs text-gray-500">{{ app()->getLocale() === 'tr' ? 'Henüz marka yok.' : 'No brands yet.' }}</p>
                 @endforelse
             </div>
-            <a href="{{ route('operator.brands') }}" wire:navigate role="menuitem" class="mt-1 block rounded-lg border-t border-gray-100 px-2 pb-1 pt-2 text-xs font-medium text-gray-600 hover:text-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white">{{ __('operator.nav.brands') }} →</a>
+            <a href="{{ route('operator.brands') }}" wire:navigate role="menuitem" class="mt-1 block rounded-lg border-t border-gray-100 px-2 pb-1 pt-2 text-xs font-medium text-gray-600 hover:text-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white">{{ __('operator.nav.brands') }}</a>
         </div>
     </div>
 

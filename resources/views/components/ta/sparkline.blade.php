@@ -9,8 +9,8 @@
 @php
     // Direction-aware colour: ok (green), bad (red), look (amber), live (violet), neutral (gray). Never orange: orange is the action colour.
     $stroke = match ($tone) {
-        'ok', 'positive', 'success' => 'text-success-500',
-        'bad', 'negative', 'error', 'critical' => 'text-error-500',
+        'ok', 'positive', 'success', 'up' => 'text-success-500',
+        'bad', 'negative', 'error', 'critical', 'down' => 'text-error-500',
         'look', 'warning' => 'text-warning-500',
         'live' => 'text-live-500',
         default => 'text-gray-400 dark:text-gray-500',
@@ -40,11 +40,11 @@
 @endphp
 
 @if ($path !== '')
-    <svg {{ $attributes->merge(['class' => "inline-block shrink-0 $stroke", 'width' => $width, 'height' => $height, 'viewBox' => "0 0 {$width} {$height}", 'aria-hidden' => 'true']) }} fill="none">
+    <svg {{ $attributes->merge(['class' => "inline-block shrink-0 $stroke", 'width' => $width, 'height' => $height, 'viewBox' => "0 0 {$width} {$height}", 'aria-hidden' => 'true']) }} fill="none" @unless ($fill) preserveAspectRatio="none" @endunless>
         @if ($fill)
             <path d="{{ $area }}" fill="currentColor" fill-opacity="0.12" />
         @endif
-        <path d="{{ $path }}" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
-        <circle cx="{{ explode(',', end($coords))[0] }}" cy="{{ explode(',', end($coords))[1] }}" r="2" fill="currentColor" />
+        <path d="{{ $path }}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+        @if ($fill)<circle cx="{{ explode(',', end($coords))[0] }}" cy="{{ explode(',', end($coords))[1] }}" r="2" fill="currentColor" />@endif
     </svg>
 @endif

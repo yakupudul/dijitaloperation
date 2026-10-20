@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — Onaylı panel konsepti tüm ekranlarda
+
+- **Karar (yakup 2026-10-20):** "Sade panel" canlısı "çok kötü"; içerik önce yeniden düşünülen prototipe "Bu konsepti çok beğendim. Bu ekranları ve diğer tüm ekranları bu konsepte yap."
+- **Ortak temel (`resources/css/operator.css`, `operator/layouts/*`):** gri sayfa + beyaz panel, `card`, `card-row`, `page-title`, `section-head` / `section-title` / `section-count`, `metric-strip`, `data-table`, `btn` / `btn-primary` / `btn-quiet`, `tab` / `tab-active`, `row-icon`; tablo sıralama okları yalnız üzerine gelince. Bileşenler: `x-ta.metric-card` şerit hücresi (çizgi grafik hücre boyunca), `x-ta.brand-avatar` logo ya da renkli baş harf, `x-ta.alarm-row` logolu kart satırı, `x-ta.table` kart içinde.
+- **Bugün:** selam + "Senden N şey bekleniyor", eylem kartı (gönder / kaybeden hesap / göz atılacak / onay bekleyen / elle iş), "Bu hafta" dört rakam (organik tık, reklamdan müşteri, harcama, Claude'un bitirdiği iş), Markalar tablosu (8 haftalık organik tık çizgisi, reklamdan müşteri, bekleyen iş, durum; `TodayCockpitReader::brands`), alarm verenler, dün gece, haftanın planı, sonuçlar, canlı akış.
+- **Onarım masası:** gönderim kartı, tek sekme satırı (üç şerit + Diğer işler + Geçmiş), marka / tür seçimi ve "Hepsini onayla" tek satırda, paketler markaya göre gruplu (`RepairDeskPage::render`), ilk paketin ilk işleri açık, eski değer üstü çizili / yeni değer altında, satır başına Onayla + Çıkar, diğer işlemler "⋯" menüsünde; Yapılanlar, Sonuçlar ve onay sonrası sayılar Geçmiş sekmesinde (`?bolum=gecmis`).
+- **Diğer ekranlar:** Kanallar, Portföy, Web siteleri, veri ekranları, Entegrasyonlar, Ayarlar ve giriş ekranları aynı yapı taşlarıyla ekran ekran yeniden düzenlendi.
+- **Durum:** CODED, TESTED (PHPUnit), masaüstü 1440 ve telefon 390 px ekran görüntüleriyle tek tek kontrol edildi; görsel kabul yakup'ta.
+
 ## 2026-10-20 — Sade panel (Inter, kutusuz tasarım)
 
 - **Karar (yakup 2026-10-20):** "tasarım çok AI drop kokuyor … notion veya elevenlabs gibi değil"; prototip onayı sonrası "fontu da inter yap. söylediklerini de yap."

@@ -2,31 +2,27 @@
 
 namespace App\Livewire\Demo;
 
-use App\Enums\OfferingStatus;
 use App\Jobs\Brand\RunBrandChiefJob;
-use App\Models\Brand;
-use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Brand\BrandChief;
-use App\Services\DataStatus\DataStatus;
-use App\Services\DataStatus\DataStatusReader;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Operator\TodayCockpitReader;
 use App\Services\Outcomes\OutcomeTracker;
-use App\Services\Portfolio\BrandCandidateBuilder;
+use App\Services\Work\DailySend;
 use App\Support\Demo\DemoState;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Throwable;
 
 /**
- * Bugün, the day's cockpit (TodayCockpitReader): four counters (onay bekleyen, bu hafta, alarm veren hesaplar, dün gece
- * yapılan AI işleri), then "Alarm verenler", "Onay bekleyenler" and "Dün gece yapılanlar"; below them Şef's weekly plan,
- * every operational brand in one list (sector, services, areas, asset types, last data date) and "Sonuçlar" — the
- * applied suggestions measured at 28 / 56 days (işe yaradı / yaramadı / belirsiz, Faz 9).
+ * Bugün answers one question, "what is waiting on me today?" (yakup approved the concept 2026-10-20): first the few
+ * things that wait on the operator (ready work to send, accounts losing money, fixes to look at, Hata merkezi), then
+ * this week's four numbers, one line per brand (8 weeks of organic clicks, Ads conversions, fixes waiting, worst
+ * alarm), the alarm list, last night's work, Şef's weekly plan and "Sonuçlar" (applied suggestions measured later).
  */
 #[Layout('operator.layouts.app')]
 #[Title('Bugün')]
@@ -51,7 +47,8 @@ class Dashboard extends Component
             'week' => $cockpit->week(),
             'alarms' => $cockpit->alarms(),
             'overnight' => $cockpit->overnight(),
-            'rows' => $this->rows(),
+            'brands' => $cockpit->brands(),
+            'daily' => $this->daily(),
             'systemAlerts' => $this->systemAlerts(),
             'results' => $this->results(),
             'chiefPlan' => BrandChief::current(),
@@ -60,67 +57,23 @@ class Dashboard extends Component
     }
 
     /**
-     * One row per operational brand: sector, service / area counts, bound asset types and the last data date of each
-     * asset (from the collected facts, "—" when none). Suggestion counts arrive with Faz 4+.
+     * The daily send (Onarım masası top card): what passed Claude's check and when the last send ran.
      *
-     * @return list<array{id: int, name: string, customer: ?string, sector: ?string, services: int, areas: int, assets: list<array{type: string, name: string, last: ?string}>, suggestions: ?int}>
+     * @return array{ready: int, content: int, posts: int, repair: int, last_at: ?CarbonImmutable}
      */
-    private function rows(): array
+    private function daily(): array
     {
         try {
-            $brands = Brand::query()->operational()->with(['customer', 'sectorCategory', 'digitalAssets' => fn ($q) => $q->orderBy('type')->orderBy('name'), 'digitalAssets.ownSector:id,name'])
-                ->withCount([
-                    'offerings as services_count' => fn ($q) => $q->where('status', OfferingStatus::Active->value),
-                    'serviceAreas as areas_count' => fn ($q) => $q->where('status', 'active'),
-                ])->orderBy('name')->get();
-            $assets = $brands->flatMap(fn (Brand $brand) => $brand->digitalAssets)->values();
-            $statuses = $this->lastDataDates($assets);
+            $summary = app(DailySend::class)->summary();
+            $last = Cache::get(DailySend::LAST_KEY);
+            $lastAt = is_array($last) && isset($last['at']) ? CarbonImmutable::parse($last['at'])->timezone('Europe/Istanbul') : null;
 
-            return $brands->map(fn (Brand $brand): array => [
-                'id' => (int) $brand->id,
-                'name' => (string) $brand->name,
-                'customer' => $brand->customer?->name,
-                'sector' => $brand->sectorCategory?->name,
-                'services' => (int) ($brand->services_count ?? 0),
-                'areas' => (int) ($brand->areas_count ?? 0),
-                'assets' => $brand->digitalAssets->map(fn (DigitalAsset $asset): array => [
-                    'type' => BrandCandidateBuilder::typeLabel((string) $asset->type),
-                    'name' => (string) $asset->name,
-                    'last' => $statuses[(int) $asset->id] ?? null,
-                    'sector' => $asset->sector_id !== null ? $asset->ownSector?->name : null,
-                ])->all(),
-                'suggestions' => null,
-            ])->all();
+            return ['ready' => $summary['content'] + $summary['posts'] + $summary['repair'], 'content' => $summary['content'],
+                'posts' => $summary['posts'], 'repair' => $summary['repair'], 'last_at' => $lastAt];
         } catch (Throwable $error) {
             report($error);
 
-            return [];
-        }
-    }
-
-    /**
-     * @param  Collection<int, DigitalAsset>  $assets
-     * @return array<int, string> asset id => newest data date (d.m.Y) over its sources
-     */
-    private function lastDataDates(Collection $assets): array
-    {
-        if ($assets->isEmpty()) {
-            return [];
-        }
-        try {
-            $out = [];
-            foreach (app(DataStatusReader::class)->forAssets($assets) as $assetId => $statuses) {
-                $last = collect($statuses)->map(fn (DataStatus $s) => $s->lastDataDate)->filter()->max();
-                if ($last !== null) {
-                    $out[(int) $assetId] = $last->format('d.m.Y');
-                }
-            }
-
-            return $out;
-        } catch (Throwable $error) {
-            report($error);
-
-            return [];
+            return ['ready' => 0, 'content' => 0, 'posts' => 0, 'repair' => 0, 'last_at' => null];
         }
     }
 

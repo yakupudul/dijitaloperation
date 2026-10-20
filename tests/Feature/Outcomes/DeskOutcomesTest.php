@@ -65,7 +65,7 @@ final class DeskOutcomesTest extends SiteTestCase
         $results = app(RepairDesk::class)->results();
         $this->assertSame(1, $results['counts'][OutcomeTracker::WORKED]);
         $this->assertSame(['Başlığı güçlendir', 'Google\'da görünen başlık ve açıklama', '+30 tıklama (30 gün)'], [$results['items'][0]['title'], $results['items'][0]['type'], $results['items'][0]['line']]);
-        Livewire::test(RepairDeskPage::class)->assertSee('Sonuçlar')->assertSee('+30 tıklama (30 gün)')->assertSee('1 işe yaradı');
+        Livewire::test(RepairDeskPage::class)->call('showHistory')->assertSee('Sonuçlar')->assertSee('+30 tıklama (30 gün)')->assertSee('1 işe yaradı');
 
         $decisions = app(BrandDossier::class)->build($this->brand)['sections']['decisions']['markdown'];
         $this->assertStringContainsString('Başlığı güçlendir — sonuç: +30 tıklama (30 gün)', $decisions);
@@ -188,7 +188,7 @@ final class DeskOutcomesTest extends SiteTestCase
         $this->assertSame('Bu tür işler: 6 ölçümün 5 tanesi işe yaradı', $packages[0]['track']);
         $health = (new RepairDesk)->health((new RepairDesk)->rows());
         $this->assertSame(7.87, $health[0]['gain'], 'two winning rows (2 × 2 × 1.167) + two losing rows (2 × 2 × 0.8)');
-        Livewire::test(RepairDeskPage::class)->assertSee('İş türü sicili')->assertSee('Bu tür işler: 6 ölçümün 5 tanesi işe yaradı');
+        Livewire::test(RepairDeskPage::class)->assertSee('Bu tür işler: 6 ölçümün 5 tanesi işe yaradı')->call('showHistory')->assertSee('İş türü sicili');
     }
 
     /** Daily Search Console clicks of a page from apply day + $from to + $to ($perDay may be fractional). */

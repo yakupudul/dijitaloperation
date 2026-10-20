@@ -132,7 +132,7 @@ final class ClusterOverlapsTest extends SiteTestCase
         // 2026-10-09: a ready 301 waits on the Onarım masası (one place for every yes / no); Genel işler points there.
         Livewire::withQueryParams(['sekme' => 'cakisma'])->test(WorkPage::class)->assertSeeHtml('data-on-desk')->assertSee('2 düzeltme Onarım masasında')
             ->assertDontSee('/implant-uygulamasi/');
-        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 · Aynı konudaki sayfayı birleştirme')->assertSee('/implant-uygulamasi/');
+        Livewire::test(RepairDeskPage::class)->set('lane', RepairDesk::LANE_REVIEW)->assertSee('2 iş: Aynı konudaki sayfayı birleştirme')->assertSee('/implant-uygulamasi/');
     }
 
     public function test_a_service_page_is_never_301d_into_a_blog_page_and_a_page_google_prefers_is_not_301d(): void

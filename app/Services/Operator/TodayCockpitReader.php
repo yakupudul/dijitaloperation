@@ -4,6 +4,8 @@ namespace App\Services\Operator;
 
 use App\Models\AiLiveOperation;
 use App\Models\AssetAlert;
+use App\Models\Brand;
+use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Measurement\BrandMeasurementScope;
@@ -46,18 +48,26 @@ final class TodayCockpitReader
     /** Week numbers are cached this long (the facts arrive once a day). */
     private const int WEEK_TTL_SECONDS = 600;
 
+    /** Weeks of organic clicks per brand on Bugün's brand table. */
+    public const int BRAND_WEEKS = 8;
+
     public function __construct(private readonly RepairDesk $desk) {}
 
     /**
      * Counted in packages (RepairDesk::packages — the same brand's fixes of one kind are one decision), the most expected
      * gain first; `rows` is the fixes behind them.
      *
-     * @return array{total: int, rows: int, packages: list<array{key: string, brand_id: int, brand: string, kind: string, kind_label: string, lane: string, lane_label: string, count: int, url: string}>}
+     * `lanes` counts every fix per lane (manual ones included) and `by_brand` the fixes waiting per brand, for the
+     * "Senden beklenenler" rows and the brand table.
+     *
+     * @return array{total: int, rows: int, packages: list<array{key: string, brand_id: int, brand: string, kind: string, kind_label: string, lane: string, lane_label: string, count: int, url: string}>, lanes: array<string, int>, by_brand: array<int, int>}
      */
     public function approvals(): array
     {
         try {
-            $rows = $this->desk->rows()->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->values();
+            $everything = $this->desk->rows();
+            $lanes = $everything->countBy(fn (array $row): string => RepairDesk::lane($row))->all();
+            $rows = $everything->reject(fn (array $row): bool => RepairDesk::lane($row) === RepairDesk::LANE_MANUAL)->values();
             $all = $this->desk->packages($rows);
             $packages = $all->take(self::PACKAGE_LIMIT)->map(fn (array $package): array => [
                 'key' => $package['key'], 'brand_id' => $package['brand_id'], 'brand' => $package['brand'], 'kind' => $package['kind'],
@@ -67,11 +77,12 @@ final class TodayCockpitReader
                 'url' => route('operator.repair', ['marka' => $package['brand_id'], 'tur' => $package['kind'], 'paket' => $package['key']]),
             ])->values()->all();
 
-            return ['total' => $all->count(), 'rows' => $rows->count(), 'packages' => $packages];
+            return ['total' => $all->count(), 'rows' => $rows->count(), 'packages' => $packages, 'lanes' => $lanes,
+                'by_brand' => $rows->countBy(fn (array $row): int => (int) $row['brand_id'])->all()];
         } catch (Throwable $error) {
             report($error);
 
-            return ['total' => 0, 'rows' => 0, 'packages' => []];
+            return ['total' => 0, 'rows' => 0, 'packages' => [], 'lanes' => [], 'by_brand' => []];
         }
     }
 
@@ -127,7 +138,9 @@ final class TodayCockpitReader
     }
 
     /**
-     * @return array{accounts: int, loss: int, items: list<array{id: int, tone: string, title: string, message: string, brand: string, asset: string, url: ?string, since: ?string}>, more: int}
+     * `by_brand` is each brand's worst alarm (loss first), for the status column of the brand table.
+     *
+     * @return array{accounts: int, loss: int, items: list<array{id: int, tone: string, title: string, message: string, brand: string, brand_id: int, logo: ?string, asset: string, url: ?string, since: ?string}>, more: int, by_brand: array<int, array{tone: string, title: string}>}
      */
     public function alarms(): array
     {
@@ -135,7 +148,7 @@ final class TodayCockpitReader
             $query = AssetAlert::query()->active()->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
                 ->where(fn (Builder $q): Builder => $q->whereIn('kind', self::LOSS_KINDS)->orWhereIn('severity', ['critical', 'high']))
                 ->whereHas('digitalAsset', fn (Builder $asset): Builder => $asset->operational());
-            $alerts = (clone $query)->with(['digitalAsset:id,name,type,brand_id', 'brand:id,name'])
+            $alerts = (clone $query)->with(['digitalAsset:id,name,type,brand_id', 'brand:id,name,logo_url'])
                 ->orderByRaw("case when kind in ('".implode("','", self::LOSS_KINDS)."') then 0 else 1 end")
                 ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 else 2 end")
                 ->orderByDesc('last_detected_at')->limit(200)->get();
@@ -151,16 +164,91 @@ final class TodayCockpitReader
                     'title' => (string) $alert->title,
                     'message' => (string) $alert->message,
                     'brand' => (string) ($alert->brand?->name ?? ''),
+                    'brand_id' => (int) $alert->brand_id,
+                    'logo' => $alert->brand?->logo_url ?: null,
                     'asset' => (string) ($alert->digitalAsset?->name ?? ''),
                     'url' => $alert->digitalAsset !== null ? OperatorPortfolioPresenter::specialistUrl($alert->digitalAsset) : null,
                     'since' => $alert->first_detected_at?->diffForHumans(),
                 ])->values()->all(),
                 'more' => max(0, $alerts->count() - self::ALARM_LIMIT),
+                'by_brand' => $alerts->groupBy('brand_id')->map(fn (Collection $group): array => [
+                    'tone' => in_array($group->first()->kind, self::LOSS_KINDS, true) ? 'critical' : 'look',
+                    'title' => (string) $group->first()->title,
+                ])->all(),
             ];
         } catch (Throwable $error) {
             report($error);
 
-            return ['accounts' => 0, 'loss' => 0, 'items' => [], 'more' => 0];
+            return ['accounts' => 0, 'loss' => 0, 'items' => [], 'more' => 0, 'by_brand' => []];
+        }
+    }
+
+    /**
+     * One line per operational brand for the table on Bugün: organic clicks of the last 8 weeks (one number per week,
+     * the last is the week that ended yesterday) and Google Ads conversions of the last 7 days against the 7 before.
+     * Every brand in a fixed number of queries: rows are read once for all assets and mapped back to their brand.
+     *
+     * @return list<array{id: int, name: string, logo: ?string, clicks: list<int>, leads: int, leads_previous: int}>
+     */
+    public function brands(?CarbonImmutable $today = null): array
+    {
+        $today ??= CarbonImmutable::now(self::TIMEZONE);
+        $to = $today->subDay()->startOfDay();
+        $from = $to->subDays(7 * self::BRAND_WEEKS - 1);
+
+        try {
+            return Cache::remember('today-cockpit.brands.'.$to->toDateString(), self::WEEK_TTL_SECONDS, function () use ($from, $to): array {
+                $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url']);
+                $assetBrand = DigitalAsset::query()->operational()->pluck('digital_assets.brand_id', 'digital_assets.id')
+                    ->mapWithKeys(fn ($brandId, $assetId): array => [(int) $assetId => (int) $brandId])->all();
+                $clicks = [];
+                $leads = [];
+                if ($assetBrand !== []) {
+                    $resourceAsset = CoreAssetBinding::query()->whereIn('digital_asset_id', array_keys($assetBrand))->where('status', CoreAssetBinding::STATUS_ACTIVE)
+                        ->pluck('digital_asset_id', 'external_resource_id')->mapWithKeys(fn ($assetId, $resourceId): array => [(int) $resourceId => (int) $assetId])->all();
+                    $brandOf = fn (object $row): ?int => $assetBrand[(int) ($row->digital_asset_id ?? 0)] ?? $assetBrand[$resourceAsset[(int) ($row->external_resource_id ?? 0)] ?? 0] ?? null;
+                    $scope = BrandMeasurementScope::forAssetIds(array_keys($assetBrand));
+
+                    if (Schema::hasTable('gsc_property_daily')) {
+                        $scope->rows('gsc_property_daily', $from, $to)->where('search_type', 'web')
+                            ->selectRaw('digital_asset_id, external_resource_id, reporting_date, sum(clicks) as day_sum')
+                            ->groupBy('digital_asset_id', 'external_resource_id', 'reporting_date')->get()
+                            ->each(function (object $row) use (&$clicks, $brandOf, $from): void {
+                                $brandId = $brandOf($row);
+                                $week = intdiv((int) $from->diffInDays(CarbonImmutable::parse(substr((string) $row->reporting_date, 0, 10)), true), 7);
+                                if ($brandId !== null && $week >= 0 && $week < self::BRAND_WEEKS) {
+                                    $clicks[$brandId][$week] = ($clicks[$brandId][$week] ?? 0) + (int) round((float) $row->day_sum);
+                                }
+                            });
+                    }
+                    if (Schema::hasTable('google_ads_account_daily')) {
+                        $split = $to->subDays(6)->toDateString();
+                        $scope->rows('google_ads_account_daily', $to->subDays(13), $to)
+                            ->selectRaw('digital_asset_id, external_resource_id, sum(case when reporting_date >= ? then conversions else 0 end) as current_sum, sum(case when reporting_date < ? then conversions else 0 end) as previous_sum', [$split, $split])
+                            ->groupBy('digital_asset_id', 'external_resource_id')->get()
+                            ->each(function (object $row) use (&$leads, $brandOf): void {
+                                $brandId = $brandOf($row);
+                                if ($brandId !== null) {
+                                    $leads[$brandId][0] = ($leads[$brandId][0] ?? 0) + (float) $row->current_sum;
+                                    $leads[$brandId][1] = ($leads[$brandId][1] ?? 0) + (float) $row->previous_sum;
+                                }
+                            });
+                    }
+                }
+
+                return $brands->map(fn (Brand $brand): array => [
+                    'id' => (int) $brand->id,
+                    'name' => (string) $brand->name,
+                    'logo' => $brand->logo_url ?: null,
+                    'clicks' => array_map(fn (int $week): int => $clicks[$brand->id][$week] ?? 0, range(0, self::BRAND_WEEKS - 1)),
+                    'leads' => (int) round($leads[$brand->id][0] ?? 0),
+                    'leads_previous' => (int) round($leads[$brand->id][1] ?? 0),
+                ])->values()->all();
+            });
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
         }
     }
 

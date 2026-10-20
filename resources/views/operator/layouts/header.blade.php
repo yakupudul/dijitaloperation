@@ -1,5 +1,5 @@
-{{-- Operator header (panel redesign 2026-10-19): one 56 px row — menu toggle, search, live indicator, theme, bell, profile. --}}
-<header class="sticky top-0 z-99990 flex h-14 w-full items-center border-b border-gray-200 bg-white/90 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90" data-operator-header>
+{{-- Operator header (panel redesign 2026-10-19): one 52 px row inside the white panel — menu toggle, search, live indicator, theme, bell, profile. --}}
+<header class="sticky top-0 z-99990 flex h-13 w-full items-center border-b border-gray-200 bg-white/90 backdrop-blur xl:rounded-t-xl dark:border-gray-800 dark:bg-gray-900/90" data-operator-header>
     <div class="flex min-w-0 grow items-center justify-between gap-3 px-3 xl:px-5">
         <div class="flex items-center gap-2">
             <button type="button"

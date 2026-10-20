@@ -5,8 +5,8 @@
 ])
 
 @php
-    // Quiet empty state (sade panel 2026-10-20): a gray check, the title and one gray line, no box around it.
-    $pad = $size === 'sm' ? 'py-3' : 'py-6';
+    // Quiet empty state: a gray check, the title and one gray line; sits inside a card like a row.
+    $pad = $size === 'sm' ? 'px-4 py-3.5' : 'px-4 py-6';
 @endphp
 
 <div {{ $attributes->merge(['class' => "flex items-start gap-2.5 text-left $pad"]) }}>

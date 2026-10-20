@@ -222,7 +222,7 @@ function updateHeaderState(table, activeColumn, direction) {
 
         if (indicator) {
             indicator.textContent = active ? (direction === 'asc' ? '↑' : '↓') : '↕';
-            indicator.style.opacity = active ? '1' : '0.42';
+            indicator.style.opacity = active ? '1' : '';
             indicator.style.color = active ? 'currentColor' : '';
         }
     });
@@ -304,7 +304,6 @@ function decorateHeader(table, th, columnIndex) {
     indicator.style.marginInlineStart = '0.38rem';
     indicator.style.fontSize = '0.78em';
     indicator.style.lineHeight = '1';
-    indicator.style.opacity = '0.42';
     indicator.style.verticalAlign = 'middle';
     th.appendChild(indicator);
 

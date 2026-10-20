@@ -10,7 +10,7 @@
         wire:model.live.debounce.200ms="q"
         placeholder="{{ __('operator.search.placeholder') }}"
         aria-keyshortcuts="Control+K Meta+K"
-        class="h-9 w-64 rounded-lg border-0 bg-gray-100 py-0 pl-9 pr-12 text-sm text-gray-800 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-300 dark:bg-white/5 dark:text-gray-200 dark:focus:bg-gray-900 dark:focus:ring-gray-700"
+        class="h-8 w-64 rounded-lg border border-gray-200 bg-white py-0 shadow-card pl-9 pr-12 text-sm text-gray-800 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-300 dark:bg-white/5 dark:text-gray-200 dark:focus:bg-gray-900 dark:focus:ring-gray-700"
         autocomplete="off"
         @focus="open = $wire.q.trim() !== ''"
     />

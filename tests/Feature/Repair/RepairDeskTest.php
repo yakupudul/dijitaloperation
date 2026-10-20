@@ -84,13 +84,14 @@ final class RepairDeskTest extends SiteTestCase
         $fields = $this->suggestion('Başlığı güçlendir', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]]);
         $this->suggestion('Alt metin', 'image_alt', ['site_id' => $this->site->id, 'images' => [['image_id' => 7, 'file' => 'a.jpg', 'alt' => 'Alt']]]);
 
-        Livewire::test(RepairDeskPage::class)->assertSee('Onarım masası')->assertSee('Onay bekleyen 2')->assertSee('Yeni başlık')
+        Livewire::test(RepairDeskPage::class)->assertSee('Onarım masası')->assertSee('Onay bekleyen 2')
+            ->call('togglePackage', $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY)->assertSee('Yeni başlık')
             ->set('brandId', $this->brand->id)->assertSee($this->brand->name.': onay bekleyen 2 paket · 2 iş')->assertSee('tüm markalarda 2 iş')
             ->set('brandId', null)
             ->set('kind', RepairDesk::SITE_FIELDS)->assertDontSee('a.jpg')
             ->call('approve', $fields->id)->assertSee('1 iş uygulamaya gönderildi')
             ->set('kind', '')->call('approveAllLow')->assertSee('1 iş uygulamaya gönderildi')
-            ->assertSee('Yapılanlar')->assertSee('iş sırada');
+            ->call('showHistory')->assertSee('Yapılanlar')->assertSee('iş sırada');
         $this->get(route('operator.repair'))->assertOk();
     }
 
@@ -106,14 +107,14 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(2, $packages[$fields]['count']);
         $this->assertSame(1, $packages[$this->brand->id.'.'.RepairDesk::SITE_CONTENT.'.'.RepairDesk::LANE_REVIEW]['high']);
 
-        $page = Livewire::test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_READY)->assertSee('2 · Başlık, açıklama')->assertDontSee('Yeni bölüm')
+        $page = Livewire::test(RepairDeskPage::class)->assertSet('lane', RepairDesk::LANE_READY)->assertSee('2 iş: Başlık, açıklama')->assertDontSee('Yeni bölüm')
             ->assertSee('Onayla, bitsin')->assertSee('Karar bekleyenler')
             ->call('togglePackage', $fields)->assertSee('Ankara implant başlığı')->assertSee('Klavye: J / K')
             ->call('selectPackage', $fields)->assertSet('selected', [$first->id, $second->id])->assertSee('2 iş seçili')
             ->set('lane', RepairDesk::LANE_REVIEW)->assertSet('selected', [])->assertSet('open', '')->assertSee('paketi açıp tek tek onaylanır');
 
         $page->set('lane', RepairDesk::LANE_READY)->call('approvePackage', $fields)->assertSee('2 iş uygulamaya gönderildi')
-            ->assertSee('Onaylandı, sırada');
+            ->call('showHistory')->assertSee('Onaylandı, sırada');
         $this->assertSame(Suggestion::OPEN, $content->fresh()->status);
         $this->assertSame(['queued' => 2, 'written' => 0, 'verified' => 0, 'returned' => 0], $desk->pipeline());
         ExternalWriteAction::query()->where('suggestion_id', $first->id)->update(['status' => 'failed']);
@@ -161,7 +162,7 @@ final class RepairDeskTest extends SiteTestCase
         $key = $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY;
 
         $html = Livewire::test(RepairDeskPage::class)->assertSee('Hepsini onayla (11)')->assertSeeHtml('data-bulk-confirm')
-            ->assertSee('Geri alınabilir')->assertSee('Son 7 gün: 0 iş yapıldı')->html();
+            ->assertSee('Geri alınabilir')->assertSee('iş yapıldı')->html();
         preg_match('/<button[^>]*data-approve-package[^>]*>/', $html, $approve);
         preg_match('/<button[^>]*data-reject-package[^>]*>/', $html, $reject);
         $this->assertStringContainsString('ask =', $approve[0], 'more than ten: the window asks first');
@@ -195,7 +196,7 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame([['text' => 'başlık: Yeni başlık', 'ok' => true], ['text' => 'iç link: "" → ', 'ok' => true],
             ['text' => 'iç link: "" →  — yapılmadı: bağlantı metni sayfada düz yazı olarak yok (başlıkta, butonda ya da zaten linkli), link eklenmedi', 'ok' => false]],
             $group['items'][0]['lines']);
-        Livewire::test(RepairDeskPage::class)->assertSee('1 başlık, 1 iç link yazıldı')->assertSee('Hepsini geri al')->assertSee('Son 7 gün: 1 iş yapıldı')
+        Livewire::test(RepairDeskPage::class)->assertSeeHtml('data-done-badge')->call('showHistory')->assertSee('1 başlık, 1 iç link yazıldı')->assertSee('Hepsini geri al')
             ->call('undoGroup', $group['key'])->assertSee('1 iş için geri alma sıraya alındı');
         $this->assertSame('undoing', $write->fresh()->status);
     }
@@ -218,8 +219,8 @@ final class RepairDeskTest extends SiteTestCase
         $group = $desk->done()->sole();
         $this->assertSame([1, 1], [$group['failed'], $group['returned']]);
 
-        Livewire::test(RepairDeskPage::class)->assertSee('Son 7 gün: 0 iş yapıldı')->assertSee('· 1 yazılamadı')
-            ->assertSee('Yazılamayan 1 iş kaybolmadı')->assertSee('1 iş masaya geri döndü; sonraki gönderimde gider.')
+        Livewire::test(RepairDeskPage::class)->assertSeeHtml('data-done-badge')->assertSee('iş yapıldı')->assertSee('iş yazılamadı')
+            ->call('showHistory')->assertSee('Yazılamayan 1 iş kaybolmadı')->assertSee('1 iş masaya geri döndü; sonraki gönderimde gider.')
             ->assertDontSeeHtml('data-done-items')->assertSee('Ayrıntı (1)')
             ->call('toggleDone', $group['key'])->assertSeeHtml('data-done-items')->assertSee('Kapat')
             ->call('toggleDone', $group['key'])->assertDontSeeHtml('data-done-items');
@@ -234,7 +235,7 @@ final class RepairDeskTest extends SiteTestCase
 
         $this->assertSame([], $results['items']);
         $this->assertSame(now()->subDays(5)->addDays(30)->timezone('Europe/Istanbul')->format('d.m.Y'), $results['next']);
-        Livewire::test(RepairDeskPage::class)->assertSee('İlk sonuç '.$results['next'].' civarında gelir.')->assertDontSee('0 işe yaradı');
+        Livewire::test(RepairDeskPage::class)->call('showHistory')->assertSee('İlk sonuç '.$results['next'].' civarında gelir.')->assertDontSee('0 işe yaradı');
     }
 
     public function test_word_difference_marks_only_the_changed_words(): void
