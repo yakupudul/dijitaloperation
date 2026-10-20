@@ -96,7 +96,7 @@
         }
 
         // First sentence only; the whole text stays in the row's tooltip.
-        $first['full'] = (string) $first['message'];
+        $first['full'] = trim((string) $first['message'].(($first['others'] ?? []) !== [] ? ' Ayrıca: '.implode(', ', $first['others']).'.' : ''));
         $first['message'] = trim((string) (preg_split('/(?<=[.!?])\s+/u', $first['full'], 2)[0] ?? ''));
 
         return $first;
