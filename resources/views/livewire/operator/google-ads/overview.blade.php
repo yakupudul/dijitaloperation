@@ -58,21 +58,34 @@
     @endif
 
     @if ($tab === 'overview')
-        {{-- 1. What waits on the operator. --}}
-        @if ($openCount > 0)
-            <div class="card">
-                <div class="card-row flex-wrap sm:flex-nowrap">
-                    <span class="row-icon border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $openCount }} açık öneri</p>
-                        <p class="mt-0.5 text-[13px] text-gray-500">Negatif kelimeler, ayar değişiklikleri ve elle yapılacak kontroller.</p>
+        {{-- 1. What waits on the operator (canlı panel 2026-10-20): open suggestions and failing checks as tinted cards. --}}
+        @php $failing = collect($checks['items'] ?? [])->where('state', 'fail')->count(); @endphp
+        @if ($openCount > 0 || $failing > 0)
+            <div @class(['grid gap-3', 'sm:grid-cols-2' => $openCount > 0 && $failing > 0])>
+                @if ($openCount > 0)
+                    <div class="soft-card soft-accent sm:flex-row sm:items-center sm:gap-4">
+                        <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[15px] font-semibold text-gray-900 dark:text-white"><span class="tabular-nums">{{ $openCount }}</span> açık öneri</p>
+                            <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">Negatif kelimeler, ayar değişiklikleri ve elle yapılacak kontroller.</p>
+                        </div>
+                        <button type="button" wire:click="setTab('todo')" class="{{ $primary }} h-9! w-full px-3.5! sm:w-auto">Yapılacaklar</button>
                     </div>
-                    <button type="button" wire:click="setTab('todo')" class="{{ $primary }} w-full sm:w-auto">Yapılacaklar</button>
-                </div>
+                @endif
+                @if ($failing > 0)
+                    <div class="soft-card soft-red sm:flex-row sm:items-center sm:gap-4">
+                        <span class="soft-icon text-error-600 dark:text-error-400" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[15px] font-semibold text-gray-900 dark:text-white"><span class="tabular-nums">{{ $failing }}</span> kontrol sorunlu</p>
+                            <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">{{ collect($checks['items'])->where('state', 'fail')->pluck('label')->take(3)->implode(', ') }}</p>
+                        </div>
+                        <a href="#kontroller" class="{{ $btn }} h-9! w-full sm:w-auto">Kontrollere bak</a>
+                    </div>
+                @endif
             </div>
         @endif
 
-        {{-- 2. The period in four numbers. --}}
+        {{-- 2. The period in four numbers: one dark panel, conversions marked. --}}
         @if ($numbers)
             @php $c = $numbers['current']; $p = $numbers['previous']; @endphp
             <section title="{{ $range->label() }}, değişim önceki döneme göre">
@@ -80,26 +93,35 @@
                     <h2 class="section-title">{{ $range->label() }}</h2>
                     <span class="text-[13px] text-gray-500">önceki döneme göre</span>
                 </div>
-                <div class="metric-strip grid-cols-2 lg:grid-cols-4" data-testid="ads-numbers">
+                <div class="hero-panel grid-cols-2 lg:grid-cols-4" data-testid="ads-numbers">
                     @foreach ([['Maliyet', 'cost', true, false], ['Tıklama', 'clicks', false, false], ['Dönüşüm', 'conversions', false, false], ['Dönüşüm başı maliyet', 'cpa', true, true]] as [$label, $key, $isMoney, $lowerBetter])
                         @php
                             $neutralDelta = $key === 'cost'; /* spend change is information, not good or bad */
                             $change = $pct($c[$key], $p[$key]);
                             /* Spend reads in whole units so the change fits beside it; cost per conversion keeps kuruş. */
                             $format = fn ($v) => $v === null ? '—' : ($isMoney ? ($key === 'cost' ? $num($v) : $money($v)).' '.$cur : $num($v, $key === 'conversions' ? 1 : 0));
+                            $accent = $key === 'conversions';
+                            $chip = $change === null ? null : ($neutralDelta || $change === 0 ? 'chip-flat'.($accent ? '' : ' bg-white/10! text-white/80!') : ((($change >= 0) xor $lowerBetter) ? 'chip-up' : 'chip-down'));
                         @endphp
-                        <x-ta.metric-card :label="$label"
-                            :value="$format($c[$key])"
-                            :delta="$c[$key] === null ? 'veri yok' : ($change === null ? null : ($change > 0 ? '+' : ($change < 0 ? '−' : '')).abs($change).'%')"
-                            :tone="$change === null || $neutralDelta ? 'neutral' : ((($change >= 0) xor $lowerBetter) ? 'positive' : 'negative')"
-                            :hint="'Önceki dönem '.$format($p[$key])" />
+                        <div @class(['hero-tile', 'hero-tile-accent' => $accent])>
+                            <span class="hero-label">{{ $label }}</span>
+                            <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $format($c[$key]) }}</p>
+                            <p @class(['mt-2 flex flex-wrap items-center gap-2 text-xs', 'text-white/60' => ! $accent, 'opacity-70' => $accent])>
+                                @if ($c[$key] === null)
+                                    veri yok
+                                @else
+                                    @if ($chip)<span class="chip {{ $chip }}">{{ $change > 0 ? '▲ ' : ($change < 0 ? '▼ ' : '') }}{{ abs($change) }}%</span>@endif
+                                    Önceki {{ $format($p[$key]) }}
+                                @endif
+                            </p>
+                        </div>
                     @endforeach
                 </div>
             </section>
         @endif
 
         {{-- 3. The system checks, failing ones first. --}}
-        <section data-testid="ads-checks">
+        <section id="kontroller" class="scroll-mt-20" data-testid="ads-checks">
             <div class="section-head">
                 <h2 class="section-title">Sistem kontrolleri @if (($checks['items'] ?? []) !== [])<span class="section-count">{{ collect($checks['items'])->where('state', 'fail')->count() }} sorun</span>@endif</h2>
                 <button type="button" wire:click="recheck" @disabled(! $bound) class="btn-quiet ml-auto">Yeniden kontrol et</button>
@@ -332,9 +354,9 @@
         <section>
             <div class="section-head">
                 <h2 class="section-title">{{ $levels[$level] }} <span class="section-count">{{ count($analysis) }}</span></h2>
-                <div class="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-0.5 sm:ml-auto dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="Kırılım">
+                <div class="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto sm:ml-auto" role="group" aria-label="Kırılım">
                     @foreach ($levels as $key => $label)
-                        <button type="button" wire:click="setLevel('{{ $key }}')" @if ($level === $key) aria-pressed="true" @endif @class(['rounded-md px-2.5 py-1 text-[13px] font-medium', 'bg-white text-gray-900 shadow-card dark:bg-gray-800 dark:text-white' => $level === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $level !== $key])>{{ $label }}</button>
+                        <button type="button" wire:click="setLevel('{{ $key }}')" @if ($level === $key) aria-pressed="true" @endif @class(['seg h-8! px-3!', 'seg-active' => $level === $key])>{{ $label }}</button>
                     @endforeach
                 </div>
             </div>

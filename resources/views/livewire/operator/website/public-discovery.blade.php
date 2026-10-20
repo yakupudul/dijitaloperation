@@ -76,7 +76,7 @@
                     <p class="text-xs text-gray-500">{{ __('public_discovery.keep') }}</p>
                 @endif
                 @if($errors->any())<ul role="alert" class="text-sm text-error-600">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
-                <button type="submit" wire:loading.attr="disabled" class="btn-primary w-full sm:w-auto">{{ __('public_discovery.save') }}</button>
+                <button type="submit" wire:loading.attr="disabled" class="btn-dark w-full sm:w-auto">{{ __('public_discovery.save') }}</button>
             </form>
         </section>
     @endif
@@ -84,10 +84,10 @@
     <section class="min-w-0">
         <div class="section-head justify-between gap-y-2">
             <h2 class="section-title">{{ __('public_discovery.candidates') }}</h2>
-            <div class="no-scrollbar inline-flex max-w-full overflow-x-auto rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-700 dark:bg-gray-900">
+            <div class="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto">
                 @foreach(['pending', 'accepted', 'ignored', 'unapplied', 'all'] as $state)
-                    <button type="button" wire:click="$set('filter', '{{ $state }}')" class="h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px] {{ $filter === $state ? 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' }}">
-                        {{ __('public_discovery.'.$state) }}@if(isset($candidateCounts[$state])) <span class="tabular-nums text-gray-400">{{ $candidateCounts[$state] }}</span>@endif
+                    <button type="button" wire:click="$set('filter', '{{ $state }}')" class="seg h-8! px-3! {{ $filter === $state ? 'seg-active' : '' }}">
+                        {{ __('public_discovery.'.$state) }}@if(isset($candidateCounts[$state])) <span class="text-xs tabular-nums opacity-60">{{ $candidateCounts[$state] }}</span>@endif
                     </button>
                 @endforeach
             </div>

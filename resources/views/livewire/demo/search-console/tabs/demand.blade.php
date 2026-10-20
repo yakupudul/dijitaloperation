@@ -9,12 +9,12 @@
 @endphp
 
 <div class="space-y-3">
+    <div class="flex gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="Sorgular ve arama talebi">
+        @foreach ($subTabs as $key => [$label, $count])
+            <button type="button" wire:click="setDemandSub('{{ $key }}')" @class(['seg', 'seg-active' => $demand_sub === $key])>{{ $label }}@if ($count !== null && $count > 0) <span @class(['tabular-nums text-xs', 'text-accent' => $demand_sub === $key, 'text-gray-400 dark:text-gray-500' => $demand_sub !== $key])>{{ $count }}</span>@endif</button>
+        @endforeach
+    </div>
     <div class="card">
-        <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Sorgular ve arama talebi">
-            @foreach ($subTabs as $key => [$label, $count])
-                <button type="button" wire:click="setDemandSub('{{ $key }}')" @class(['tab', 'tab-active' => $demand_sub === $key])>{{ $label }}@if ($count !== null && $count > 0) <span class="text-gray-500">{{ $count }}</span>@endif</button>
-            @endforeach
-        </div>
 
         @if ($demand_sub === 'clusters')
             @if ($clusters === [])
@@ -135,7 +135,7 @@
                                             <span class="tabular-nums text-gray-500">%{{ $obs['share_pct'] }}</span>
                                         </div>
                                         <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
-                                            <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, $obs['share_pct']) }}%"></div>
+                                            <div class="h-full rounded-full bg-second" style="width: {{ min(100, $obs['share_pct']) }}%"></div>
                                         </div>
                                     </li>
                                 @endforeach

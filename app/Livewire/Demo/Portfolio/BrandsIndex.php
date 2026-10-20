@@ -15,6 +15,7 @@ use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -148,6 +149,28 @@ class BrandsIndex extends Component
             ->all();
     }
 
+    /**
+     * The attention cards above the list: the brands that need a look (a reconnect, a critical suggestion or a stopped
+     * source makes it red), the open work and the connected assets, over every brand.
+     *
+     * @param  Collection<int, array<string, mixed>>  $all
+     * @return array{attention: list<array{id: int, name: string, logo: ?string}>, severe: bool, open_work: int, work_brands: int, assets: int, connected: int}
+     */
+    protected function overview(Collection $all): array
+    {
+        $attention = $all->filter(fn (array $b): bool => (bool) ($b['needs_attention'] ?? false))->values();
+
+        return [
+            'attention' => $attention->map(fn (array $b): array => ['id' => (int) $b['id'], 'name' => (string) $b['name'], 'logo' => $b['logo_url'] ?? null])->all(),
+            'severe' => $attention->contains(fn (array $b): bool => (int) ($b['reconnect'] ?? 0) > 0 || (int) ($b['critical'] ?? 0) > 0
+                || collect($b['channels'] ?? [])->contains(fn (array $c): bool => ($c['tone'] ?? '') === 'bad')),
+            'open_work' => (int) $all->sum(fn (array $b): int => (int) ($b['open_work'] ?? 0)),
+            'work_brands' => $all->filter(fn (array $b): bool => (int) ($b['open_work'] ?? 0) > 0)->count(),
+            'assets' => (int) $all->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0)),
+            'connected' => (int) $all->sum(fn (array $b): int => (int) ($b['connected_assets'] ?? 0)),
+        ];
+    }
+
     public function render(): View
     {
         $all = collect($this->enrichedBrands());
@@ -222,6 +245,7 @@ class BrandsIndex extends Component
                 $all->sum(fn (array $b): int => (int) ($b['connected_assets'] ?? 0)),
                 $all->filter(fn (array $b): bool => (bool) ($b['needs_attention'] ?? false))->count()
             ),
+            'overview' => $this->overview($all),
             'hasFilters' => $this->hasActiveFilters(),
             'customerOptions' => Customer::query()->orderBy('name')->pluck('name', 'id')->mapWithKeys(
                 fn ($name, $id): array => [(string) $id => (string) $name]

@@ -323,7 +323,7 @@ final class GbpWorkspaceTabsTest extends TestCase
         $this->assertSame('2026-09-20', app(GbpScreen::class)->lastDay($this->resource->id)->toDateString());
 
         $this->page('overview')->assertSeeHtml('data-date-picker')->assertSee('20 Eyl 2026')
-            ->call('setRange', 7)->assertSee('Son 7 gün')->assertSee('+100%')->assertSee('karşılaştırma dönemine göre')
+            ->call('setRange', 7)->assertSee('Son 7 gün')->assertSee('▲ 100%')->assertSee('karşılaştırma dönemine göre')
             ->call('setTab', 'analysis')->call('setRange', 28, '2026-09-01', '2026-09-10')->assertSet('days', 10)->assertSee('1 Eyl – 10 Eyl 2026')
             ->call('setTab', 'reviews')->assertDontSeeHtml('data-date-picker');
     }

@@ -299,7 +299,7 @@ class OperatorAssetDataSourcesGuardsTest extends TestCase
         }
 
         Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $website->id])
-            ->assertSee('3 yeni satır · 2 güncellendi · 5 değişmedi')
+            ->assertSee('3 yeni satır, 2 güncellendi, 5 değişmedi')
             ->assertSee('tekrar çekim kopya oluşturmaz');
     }
 

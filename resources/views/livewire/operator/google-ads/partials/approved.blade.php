@@ -34,7 +34,7 @@
                     @if (filled($s->action['sending_write_id'] ?? null))
                         <span class="flex shrink-0 items-center gap-1.5 text-xs text-gray-500"><span class="live-dot"></span>Gönderiliyor…</span>
                     @elseif ($canWrite)
-                        <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi?')) $wire.approveSuggestion({{ $s->id }})" class="{{ $small }}">Gönder</button>
+                        <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi?')) $wire.approveSuggestion({{ $s->id }})" class="btn-dark h-7! px-2.5! text-xs!">Gönder</button>
                     @else
                         <span class="shrink-0 text-xs text-gray-500">Göndermeyi Admin onaylar.</span>
                     @endif

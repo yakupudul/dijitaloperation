@@ -18,7 +18,7 @@
                     <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $s->reason }}</p>
                 </div>
                 <div class="flex w-full shrink-0 flex-wrap items-center gap-1 sm:w-auto sm:justify-end">
-                    <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="btn h-7! px-2.5! text-xs!">Onayla</button>
+                    <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="btn-dark h-7! px-2.5! text-xs!">Onayla</button>
                     <button type="button" wire:click="startEdit({{ $s->id }})" class="{{ $quiet }}">Düzenle</button>
                     <button type="button" wire:click="dismissSuggestion({{ $s->id }})" class="{{ $quiet }}">Reddet</button>
                     <button type="button" wire:click="snoozeSuggestion({{ $s->id }})" class="{{ $quiet }}">Ertele</button>

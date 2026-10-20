@@ -348,10 +348,10 @@
   @apply border-transparent bg-accent text-accent-ink;
 }
 @utility hero-label {
-  @apply inline-flex h-6 w-max max-w-full items-center gap-1.5 self-start rounded-[7px] border border-current/15 px-2 text-xs opacity-70;
+  @apply inline-flex min-h-6 w-max max-w-full items-center gap-1.5 self-start rounded-[7px] border border-current/15 px-2 py-0.5 text-xs leading-tight opacity-70;
 }
 @utility hero-value {
-  @apply mt-3 text-[28px] leading-none font-semibold tracking-[-0.03em] tabular-nums sm:text-[30px];
+  @apply mt-3 text-[24px] leading-none font-semibold tracking-[-0.03em] tabular-nums sm:text-[30px];
 }
 
 /* Change chips: ▲ green, ▼ red, flat gray (ikas "%285 ▲"). */

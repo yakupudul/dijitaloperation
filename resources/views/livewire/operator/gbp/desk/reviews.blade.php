@@ -32,14 +32,16 @@
 
         {{-- 1. What waits: bad reviews without a reply. --}}
         @if ($section === 'yanit' && $lowOpen > 0 && ! ($status === 'bekleyen' && $rating === 'low'))
-            <section class="card" data-testid="gbp-low-open">
-                <div class="card-row flex-wrap sm:flex-nowrap">
-                    <span class="row-icon border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M12 8v4M12 15.5v.5"/></svg></span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $lowOpen }} kötü yorum (1–2 ★) yanıt bekliyor.</p>
-                        <p class="mt-0.5 text-[13px] text-gray-500">Kötü yorumu yanıtsız bırakmak, onu okuyan herkese “ilgilenmiyorlar” der. Önce bunları yanıtla.</p>
+            <section class="soft-card soft-red hover:translate-y-0! hover:shadow-none!" data-testid="gbp-low-open">
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+                    <span class="soft-icon text-error-600 dark:text-error-400" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M12 8v4M12 15.5v.5"/></svg></span>
+                    <div class="min-w-0 flex-1 basis-60">
+                        <p class="sr-only">{{ $lowOpen }} kötü yorum (1–2 ★) yanıt bekliyor.</p>
+                        <p class="soft-number" aria-hidden="true">{{ $lowOpen }} <span class="text-lg font-medium text-gray-600 dark:text-gray-300">kötü yorum (1–2 ★)</span></p>
+                        <p class="mt-2 text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" aria-hidden="true">Yanıt bekliyor</p>
+                        <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">Kötü yorumu yanıtsız bırakmak, onu okuyan herkese “ilgilenmiyorlar” der. Önce bunları yanıtla.</p>
                     </div>
-                    <button type="button" wire:click="showLowOpen" class="btn-primary w-full sm:w-auto">Kötü yorumları göster</button>
+                    <button type="button" wire:click="showLowOpen" class="btn-dark h-10! w-full px-4! text-sm! sm:w-auto sm:self-center">Kötü yorumları göster</button>
                 </div>
             </section>
         @endif
@@ -92,9 +94,9 @@
         </section>
 
         <div class="space-y-4">
-            <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Yorum bölümleri">
-                <button type="button" wire:click="setSection('yanit')" @class(['tab', 'tab-active' => $section === 'yanit']) @if ($section === 'yanit') aria-current="page" @endif>Yorumlar <span class="tabular-nums text-gray-500">{{ $totals['unanswered'] }} yanıtsız</span></button>
-                <button type="button" wire:click="setSection('iste')" @class(['tab', 'tab-active' => $section === 'iste']) @if ($section === 'iste') aria-current="page" @endif>Yorum isteme</button>
+            <nav class="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1" aria-label="Yorum bölümleri">
+                <button type="button" wire:click="setSection('yanit')" @class(['seg', 'seg-active' => $section === 'yanit']) @if ($section === 'yanit') aria-current="page" @endif>Yorumlar <span @class(['tabular-nums', 'text-gray-500' => $section !== 'yanit', 'text-white/70 dark:text-gray-500' => $section === 'yanit'])>{{ $totals['unanswered'] }} yanıtsız</span></button>
+                <button type="button" wire:click="setSection('iste')" @class(['seg', 'seg-active' => $section === 'iste']) @if ($section === 'iste') aria-current="page" @endif>Yorum isteme</button>
             </nav>
 
             @if ($chips !== [])
@@ -274,7 +276,7 @@
                                         @if ($editing === $review['id'])
                                             <textarea wire:model="editText" rows="4" maxlength="4000" class="w-full {{ $input }}" data-testid="gbp-edit-reply"></textarea>
                                             <span class="mt-2 flex flex-wrap items-center gap-2">
-                                                <button type="button" wire:click="saveEdit" wire:confirm="Google’daki yanıt bu metinle değişsin mi? (Geri alınabilir.)" class="btn-primary">Güncelle</button>
+                                                <button type="button" wire:click="saveEdit" wire:confirm="Google’daki yanıt bu metinle değişsin mi? (Geri alınabilir.)" class="btn-dark">Güncelle</button>
                                                 <button type="button" wire:click="cancelEdit" class="btn-quiet">Vazgeç</button>
                                             </span>
                                         @else
@@ -295,7 +297,7 @@
                                         @if ($review['draft'] !== null || array_key_exists('r'.$review['id'], $replies))
                                             <textarea wire:model.blur="replies.r{{ $review['id'] }}" rows="3" maxlength="4000" class="w-full {{ $input }}" placeholder="Yanıt"></textarea>
                                             <span class="mt-2 flex flex-wrap items-center gap-2">
-                                                <button type="button" wire:click="send({{ $review['id'] }})" wire:confirm="Bu yanıt Google’da yayınlansın mı? (Geri alınabilir.)" class="btn">Yalnız bunu gönder</button>
+                                                <button type="button" wire:click="send({{ $review['id'] }})" wire:confirm="Bu yanıt Google’da yayınlansın mı? (Geri alınabilir.)" class="btn-dark">Yalnız bunu gönder</button>
                                                 <button type="button" wire:click="deleteDraft({{ $review['id'] }})" wire:confirm="Bu yorumun yanıt taslağı silinsin mi?" class="btn-quiet" data-testid="gbp-delete-draft">Taslağı sil</button>
                                             </span>
                                         @elseif ($review['draft_state'] === 'running')

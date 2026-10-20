@@ -28,7 +28,7 @@
                             <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">{{ $service['live'] }} yazı yayında, {{ $service['top10'] }} sayfası ilk 10'da, sırada {{ $service['waiting'] }} konu</span>
                         </span>
                         <span class="flex w-full items-center gap-2.5 pl-7 sm:w-48 sm:pl-0">
-                            <span class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-success-500" style="width: {{ $service['percent'] }}%"></span></span>
+                            <span class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-second" style="width: {{ $service['percent'] }}%"></span></span>
                             <span class="shrink-0 text-xs tabular-nums text-gray-600 dark:text-gray-300">%{{ $service['percent'] }} bitti</span>
                         </span>
                     </button>

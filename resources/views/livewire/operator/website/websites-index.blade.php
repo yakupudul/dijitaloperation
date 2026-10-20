@@ -1,14 +1,26 @@
 @php
     $num = fn ($value) => number_format((float) $value, 0, ',', '.');
 @endphp
-<div class="space-y-6" data-websites-index>
-    <div class="flex flex-wrap items-end justify-between gap-3">
+@php
+    // Living panel (2026-10-20): the head says where work waits, the list stays a table (up to ~100 sites).
+    $openTotal = array_sum($open);
+    $openSites = count(array_filter($open));
+    $clickTotal = array_sum($clicks);
+@endphp
+<div class="space-y-8" data-websites-index>
+    <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div class="min-w-0">
-            <h1 class="page-title" title="Markaya atanmış siteler">Web siteleri</h1>
-            <p class="page-sub">{{ count($sites) }} site</p>
+            @if ($openTotal > 0)
+                <span class="eyebrow mb-3.5" data-websites-eyebrow>
+                    <span class="live-dot" aria-hidden="true"></span>
+                    <span><b class="font-semibold text-gray-900 tabular-nums dark:text-white">{{ $num($openTotal) }} açık iş</b> {{ $openSites }} sitede bekliyor</span>
+                </span>
+            @endif
+            <h1 class="page-title" title="Markaya atanmış siteler">Web <span class="highlight">siteleri</span></h1>
+            <p class="page-sub">{{ count($sites) }} site{{ $clickTotal > 0 ? ', son 28 günde '.$num($clickTotal).' organik tıklama' : '' }}</p>
         </div>
         <input type="search" wire:model.live.debounce.300ms="search" placeholder="Site, alan adı veya marka ara" aria-label="Ara" class="h-9 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 shadow-card focus:border-gray-300 focus:ring-2 focus:ring-gray-200 sm:w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-    </div>
+    </header>
 
     <section class="card overflow-x-auto">
         <table class="data-table">
@@ -49,7 +61,7 @@
                         <td class="hidden text-right align-top tabular-nums sm:table-cell">{{ array_key_exists($site->id, $clicks) ? $num($clicks[$site->id]) : '—' }}</td>
                         <td class="text-right align-top tabular-nums" data-open-work>
                             @if ($openCount > 0)
-                                <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'yapilacaklar']) }}" wire:navigate class="link-neutral whitespace-nowrap font-normal" title="Sitenin Yapılacaklar listesini aç"><span class="font-medium text-gray-900 dark:text-white">{{ $num($openCount) }}</span><span class="hidden sm:inline"> açık iş</span></a>
+                                <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'yapilacaklar']) }}" wire:navigate class="chip chip-accent whitespace-nowrap hover:brightness-95" title="Sitenin Yapılacaklar listesini aç">{{ $num($openCount) }}<span class="hidden sm:inline">&nbsp;açık iş</span></a>
                             @else
                                 <span class="text-gray-500">0</span>
                             @endif

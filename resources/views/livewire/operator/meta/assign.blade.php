@@ -74,7 +74,7 @@
                                 <x-ta.pill :tone="$row['service_state'] === 'excluded' ? 'info' : 'ok'">{{ $row['done'] }}</x-ta.pill>
                                 <button type="button" wire:click="undo('{{ $row['id'] }}')" class="btn-quiet h-7! px-2! text-xs!">Geri al</button>
                             @else
-                                @if ($row['services'] !== [])<button type="button" wire:click="approve('{{ $row['id'] }}')" class="btn">Onayla</button>@endif
+                                @if ($row['services'] !== [])<button type="button" wire:click="approve('{{ $row['id'] }}')" class="btn-dark">Onayla</button>@endif
                                 <form wire:submit="choose('{{ $row['id'] }}')" class="flex min-w-0 items-center gap-1.5">
                                     <label class="sr-only" for="pick-{{ $row['id'] }}">Başka hizmet</label>
                                     <select id="pick-{{ $row['id'] }}" wire:model="pick.{{ $row['id'] }}" class="{{ $select }} w-40">

@@ -25,37 +25,48 @@
     @endif
     @if ($errors->any())<p class="text-[13px] text-error-600">{{ $errors->first() }}</p>@endif
 
-    {{-- 1. The page's answer: is the site healthy, what is being fixed, what waits on yakup. --}}
-    <section data-site-summary>
-        <div class="card">
-            <div class="card-row flex-wrap sm:flex-nowrap" data-summary="health" data-tone="{{ $health['tone'] }}">
-                <span class="row-icon {{ $iconTone[$health['tone']] ?? '' }}" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons['pulse'] !!}</svg></span>
-                <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $health['title'] }}</p>
-                    @if ($health['line'] !== '')<p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $health['line'] }}.</p>@endif
-                </div>
-                <button type="button" wire:click="$parent.setTab('teknik')" class="btn w-full sm:w-auto">Teknik SEO</button>
-            </div>
-            <div class="card-row flex-wrap sm:flex-nowrap" data-summary="fixing">
-                <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons['tool'] !!}</svg></span>
-                <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $fixing['approved'] > 0 ? $num($fixing['approved']).' düzeltme sürüyor' : 'Şu an süren düzeltme yok' }}</p>
-                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $fixing['written'] > 0 ? 'Son 28 günde '.$num($fixing['written']).' düzeltme siteye yazıldı, Google yeniden okuyor.' : 'Son 28 günde siteye yazılan düzeltme yok.' }}</p>
-                </div>
-                @if ($fixing['approved'] > 0 || $fixing['written'] > 0)
-                    <button type="button" wire:click="$set('status', '{{ $fixing['approved'] > 0 ? 'approved' : 'applied' }}')" class="btn w-full sm:w-auto">Gör</button>
-                @endif
-            </div>
-            <div class="card-row flex-wrap sm:flex-nowrap" data-summary="waiting">
-                <span class="row-icon {{ $waiting['open'] > 0 ? $iconTone['look'] : '' }}" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons['hand'] !!}</svg></span>
-                <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $waiting['open'] > 0 ? $num($waiting['open']).' iş senden karar bekliyor' : 'Senden beklenen iş yok' }}</p>
-                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $waiting['open'] === 0 ? 'Yeni öneriler haftalık analizde gelir.' : ($waiting['ready'] > 0 ? $num($waiting['ready']).' tanesi hazır, gönderince siteye yazılır. Hepsi geri alınabilir.' : 'Her biri için önce düzeltme hazırlanır, sonra sen gönderirsin.') }}</p>
-                </div>
-                @if ($waiting['open'] > 0 && $brandId > 0)
-                    <a href="{{ route('operator.repair', ['marka' => $brandId]) }}" wire:navigate class="btn w-full sm:w-auto">Onarım masası</a>
-                @endif
-            </div>
+    {{-- 1. The page's answer as three tinted cards: is the site healthy, what is being fixed, what waits on yakup. --}}
+    @php
+        $healthCard = ['critical' => 'soft-red', 'look' => 'soft-amber'][$health['tone']] ?? '';
+        $healthIcon = ['critical' => 'text-error-600 dark:text-error-400', 'look' => 'text-warning-600 dark:text-warning-400', 'ok' => 'text-success-600 dark:text-success-400'][$health['tone']] ?? '';
+    @endphp
+    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-site-summary>
+        <div @class(['soft-card', $healthCard]) data-summary="health" data-tone="{{ $health['tone'] }}">
+            <span class="soft-icon {{ $healthIcon }}" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons['pulse'] !!}</svg></span>
+            @if (preg_match('/(\d+) sayfada (.+)$/u', $health['title'], $healthParts) === 1)
+                <p class="soft-number">{{ $healthParts[1] }} sayfa</p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" title="{{ $health['title'] }}"><span class="sr-only">{{ $health['title'] }}</span><span aria-hidden="true">{{ \Illuminate\Support\Str::ucfirst($healthParts[2]) }}</span></p>
+            @else
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $health['title'] }}</p>
+            @endif
+            @if ($health['line'] !== '')<p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $health['line'] }}.</p>@endif
+            <div class="mt-auto pt-1"><button type="button" wire:click="$parent.setTab('teknik')" class="btn">Teknik SEO</button></div>
+        </div>
+        <div class="soft-card" data-summary="fixing">
+            <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons['tool'] !!}</svg></span>
+            @if ($fixing['approved'] > 0)
+                <p class="soft-number">{{ $num($fixing['approved']) }} düzeltme</p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white"><span class="sr-only">{{ $num($fixing['approved']) }} düzeltme </span>Sürüyor</p>
+            @else
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Şu an süren düzeltme yok</p>
+            @endif
+            <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $fixing['written'] > 0 ? 'Son 28 günde '.$num($fixing['written']).' düzeltme siteye yazıldı, Google yeniden okuyor.' : 'Son 28 günde siteye yazılan düzeltme yok.' }}</p>
+            @if ($fixing['approved'] > 0 || $fixing['written'] > 0)
+                <div class="mt-auto pt-1"><button type="button" wire:click="$set('status', '{{ $fixing['approved'] > 0 ? 'approved' : 'applied' }}')" class="btn">Gör</button></div>
+            @endif
+        </div>
+        <div @class(['soft-card sm:col-span-2 lg:col-span-1', 'soft-accent' => $waiting['open'] > 0]) data-summary="waiting">
+            <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons['hand'] !!}</svg></span>
+            @if ($waiting['open'] > 0)
+                <p class="soft-number">{{ $num($waiting['open']) }} iş</p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white"><span class="sr-only">{{ $num($waiting['open']) }} iş </span>Senden karar bekliyor</p>
+            @else
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Senden beklenen iş yok</p>
+            @endif
+            <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $waiting['open'] === 0 ? 'Yeni öneriler haftalık analizde gelir.' : ($waiting['ready'] > 0 ? $num($waiting['ready']).' tanesi hazır, gönderince siteye yazılır. Hepsi geri alınabilir.' : 'Her biri için önce düzeltme hazırlanır, sonra sen gönderirsin.') }}</p>
+            @if ($waiting['open'] > 0 && $brandId > 0)
+                <div class="mt-auto pt-1"><a href="{{ route('operator.repair', ['marka' => $brandId]) }}" wire:navigate class="btn-primary h-10! px-4! text-sm!">Onarım masası</a></div>
+            @endif
         </div>
     </section>
 
@@ -100,7 +111,7 @@
                         </span>
                         @if ($ready > 1)
                             <span class="w-full pl-7 sm:w-auto sm:pl-0" data-group-send="{{ $groupType }}">
-                                <x-ta.button variant="outline" size="sm" class="w-full sm:w-auto" wire:click.prevent="sendGroup('{{ $groupType }}')" wire:confirm="Bu gruptaki hazır {{ $ready }} iş siteye gönderilsin mi? Geri alınabilir." title="Hazır olanların hepsi tek seferde gider, geri alınabilir.">{{ $groupType === \App\Services\Site\ClusterOverlaps::TYPE ? 'Hepsini birleştir' : 'Hepsini gönder' }} ({{ $ready }})</x-ta.button>
+                                <x-ta.button variant="dark" size="sm" class="w-full sm:w-auto" wire:click.prevent="sendGroup('{{ $groupType }}')" wire:confirm="Bu gruptaki hazır {{ $ready }} iş siteye gönderilsin mi? Geri alınabilir." title="Hazır olanların hepsi tek seferde gider, geri alınabilir.">{{ $groupType === \App\Services\Site\ClusterOverlaps::TYPE ? 'Hepsini birleştir' : 'Hepsini gönder' }} ({{ $ready }})</x-ta.button>
                             </span>
                         @endif
                     </summary>
@@ -129,7 +140,7 @@
                                             @if ($card['button']['call'] === '')
                                                 <span class="px-2 text-[13px] text-gray-500">{{ $card['button']['label'] }}</span>
                                             @else
-                                                <x-ta.button variant="outline" size="sm" wire:click="{{ $card['button']['call'] }}" :wire:confirm="$card['button']['confirm']">{{ $card['button']['label'] }}</x-ta.button>
+                                                <x-ta.button :variant="$card['button']['confirm'] !== null ? 'dark' : 'outline'" size="sm" wire:click="{{ $card['button']['call'] }}" :wire:confirm="$card['button']['confirm']">{{ $card['button']['label'] }}</x-ta.button>
                                             @endif
                                         @endif
                                         @if ($actionable)
@@ -201,7 +212,7 @@
                                                 @endif
                                                 @if (! empty($proposal['note']))<p class="text-gray-500">{{ $proposal['note'] }}</p>@endif
                                                 @if ($s->applied_at === null)
-                                                    <button type="button" wire:click="applyChange({{ $s->id }})" wire:confirm="Hazırlanan düzeltme siteye gönderilsin mi? Geri alınabilir." class="btn-primary w-full sm:w-auto">Siteye gönder</button>
+                                                    <button type="button" wire:click="applyChange({{ $s->id }})" wire:confirm="Hazırlanan düzeltme siteye gönderilsin mi? Geri alınabilir." class="btn-dark w-full sm:w-auto">Siteye gönder</button>
                                                 @endif
                                             </div>
                                         @endif
@@ -212,7 +223,7 @@
                                                     <li class="flex flex-wrap items-center gap-2">
                                                         <span>{{ \App\Services\Repair\RepairDesk::WRITE_LABELS[$write->action] ?? 'Site değişikliği' }}, {{ \App\Livewire\Operator\Website\V2\SuggestionsTab::WRITE_STATUS_LABELS[$write->status] ?? $write->status }}</span>
                                                         @if ($write->action === \App\Models\ExternalWriteAction::ACTION_CONTENT_DRAFT && $write->status === 'succeeded' && $s->status !== 'applied')
-                                                            <button type="button" wire:click="publishDraft({{ $s->id }})" wire:confirm="Taslaktaki yeni metin canlıya alınsın mı? Geri alınabilir." class="btn-primary h-7! px-2.5! text-xs!">Canlıya al</button>
+                                                            <button type="button" wire:click="publishDraft({{ $s->id }})" wire:confirm="Taslaktaki yeni metin canlıya alınsın mı? Geri alınabilir." class="btn-dark h-7! px-2.5! text-xs!">Canlıya al</button>
                                                         @endif
                                                         @if ($write->isUndoable())<button type="button" wire:click="undo({{ $write->id }})" class="{{ $small }}">Geri al</button>@endif
                                                     </li>
@@ -235,7 +246,7 @@
                                                 <textarea wire:model="standard.rule" aria-label="Kural" placeholder="Kural" rows="2" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm sm:col-span-2 dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
                                                 <input type="text" wire:model="standard.condition" aria-label="Koşul" placeholder="Koşul" class="{{ $input }}">
                                                 <input type="text" wire:model="standard.exceptions" aria-label="İstisnalar" placeholder="İstisnalar" class="{{ $input }}">
-                                                <button type="button" wire:click="saveStandard({{ $s->id }})" class="btn-primary sm:col-span-2">Standardı onayla</button>
+                                                <button type="button" wire:click="saveStandard({{ $s->id }})" class="btn-dark sm:col-span-2">Standardı onayla</button>
                                             </div>
                                         @endif
                                     </div>

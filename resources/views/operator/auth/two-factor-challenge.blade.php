@@ -25,16 +25,16 @@
 
 <body class="min-h-full bg-page font-outfit text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
     <main class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        <div class="card w-full max-w-[400px] p-7 sm:p-9">
+        <div class="card w-full max-w-[400px] p-7 shadow-lift! sm:p-9">
             <div class="mb-8 flex items-center gap-2.5">
                 @if (! empty($operatorBranding['logo_url']))
                     <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="h-8 w-8 shrink-0 rounded-lg object-contain" />
                 @else
-                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-sm font-bold text-white dark:bg-white dark:text-gray-900" aria-hidden="true">{{ $operatorBranding['display_initial'] ?? 'M' }}</span>
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-accent text-sm font-bold text-accent-ink" aria-hidden="true">{{ $operatorBranding['display_initial'] ?? 'M' }}</span>
                 @endif
                 <span class="text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</span>
             </div>
-            <h1 class="text-2xl leading-8 font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{{ __('two_factor.challenge_title') }}</h1>
+            <h1 class="text-[26px] leading-[34px] font-semibold tracking-[-0.03em] text-gray-900 dark:text-white">{{ __('two_factor.challenge_title') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('two_factor.challenge_hint') }}</p>
 
             <form method="POST" action="{{ route('app.login.two-factor.store') }}" class="mt-7 space-y-4">

@@ -47,7 +47,7 @@
                                         @foreach($customers as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                                     </select>
                                 @endif
-                                <button type="button" wire:click="approve({{ $candidate->id }})" wire:loading.attr="disabled" class="btn">Onayla</button>
+                                <button type="button" wire:click="approve({{ $candidate->id }})" wire:loading.attr="disabled" class="btn-dark">Onayla</button>
                             </div>
                         @endif
                     </div>
@@ -120,30 +120,26 @@
         </div>
         <div class="card overflow-x-auto">
             <table class="data-table">
-                <thead><tr><th>Varlık</th><th class="hidden sm:table-cell">Tür</th><th>Marka</th><th class="hidden md:table-cell">Müşteri</th>@if($isAdmin)<th><span class="sr-only">İşlem</span></th>@endif</tr></thead>
+                <thead><tr><th>Varlık</th><th class="hidden sm:table-cell">Tür</th><th>Marka</th><th class="hidden md:table-cell">Müşteri</th></tr></thead>
                 <tbody>
                     @forelse($rows as $row)
                         <tr wire:key="asset-{{ $row['key'] }}">
-                            <td class="max-w-0 w-[55%] sm:w-[34%]"><span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $row['name'] }}">{{ str_replace(' · ', ', ', $row['name']) }}</span>@if($row['host'] && $row['host'] !== $row['name'])<span class="block truncate text-xs text-gray-500">{{ $row['host'] }}</span>@endif<span class="text-xs text-gray-500 sm:hidden">{{ $kinds[$row['kind']] ?? $row['kind'] }}</span></td>
+                            <td class="max-w-0 w-[50%] sm:w-[34%]"><span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $row['name'] }}">{{ str_replace(' · ', ', ', $row['name']) }}</span>@if($row['host'] && $row['host'] !== $row['name'])<span class="block truncate text-xs text-gray-500">{{ $row['host'] }}</span>@endif<span class="text-xs text-gray-500 sm:hidden">{{ $kinds[$row['kind']] ?? $row['kind'] }}</span></td>
                             <td class="hidden whitespace-nowrap text-[13px] text-gray-600 sm:table-cell dark:text-gray-300">{{ $kinds[$row['kind']] ?? $row['kind'] }}</td>
-                            <td class="max-w-0 text-[13px] sm:max-w-none">@if($row['brand'])<span class="block truncate sm:whitespace-normal" title="{{ $row['brand'] }}">{{ $row['brand'] }}</span>@else<x-ta.pill tone="look">Markasız</x-ta.pill>@endif</td>
-                            <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $row['customer'] ?? '—' }}</td>
-                            @if($isAdmin)
-                                <td class="text-right">
-                                    @unless($row['bound'])
-                                        <span class="inline-flex items-center gap-1.5">
-                                            <select wire:model="bindTo.{{ $row['key'] }}" aria-label="Marka seç" class="{{ $small }} max-w-40">
-                                                <option value="">Marka seç…</option>
-                                                @foreach($brands as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
-                                            </select>
-                                            <button type="button" wire:click="bindToBrand('{{ $row['key'] }}')" wire:loading.attr="disabled" class="btn">Markaya bağla</button>
-                                        </span>
-                                    @endunless
-                                </td>
-                            @endif
+                            <td @class(['text-[13px]', 'max-w-0 w-[30%] sm:w-[28%]' => $row['bound'], 'w-[30%] sm:w-[28%]' => ! $row['bound']])>@if($row['brand'])<span class="block truncate" title="{{ $row['brand'] }}">{{ $row['brand'] }}</span>@else<x-ta.pill tone="look">Markasız</x-ta.pill>@endif
+                                @if($isAdmin && ! $row['bound'])
+                                    <span class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                        <select wire:model="bindTo.{{ $row['key'] }}" aria-label="Marka seç" class="{{ $small }} w-full min-w-0 sm:w-auto sm:max-w-40 sm:flex-1">
+                                            <option value="">Marka seç…</option>
+                                            @foreach($brands as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                                        </select>
+                                        <button type="button" wire:click="bindToBrand('{{ $row['key'] }}')" wire:loading.attr="disabled" class="btn-dark w-full sm:w-auto">Markaya bağla</button>
+                                    </span>
+                                @endif</td>
+                            <td class="hidden max-w-0 w-[24%] text-[13px] text-gray-600 md:table-cell dark:text-gray-300"><span class="block truncate" title="{{ $row['customer'] ?? '' }}">{{ $row['customer'] ?? '—' }}</span></td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="py-8 text-center text-gray-500">Varlık yok.</td></tr>
+                        <tr><td colspan="4" class="py-8 text-center text-gray-500">Varlık yok.</td></tr>
                     @endforelse
                 </tbody>
             </table>

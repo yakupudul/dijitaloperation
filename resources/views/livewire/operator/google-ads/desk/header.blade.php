@@ -8,7 +8,7 @@
     </nav>
     <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div class="min-w-0 flex-1">
-            <h1 class="page-title" @if (filled($intro ?? null)) title="{{ $intro }}" @endif>Google Ads</h1>
+            <h1 class="page-title" @if (filled($intro ?? null)) title="{{ $intro }}" @endif>@if ($highlight ?? false)Google <span class="highlight">Ads</span>@else Google Ads @endif</h1>
             @if (filled($sub ?? null))<p class="page-sub">{{ $sub }}</p>@endif
         </div>
         <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">

@@ -1,10 +1,9 @@
 @php
     // Panel concept (2026-10-20): the brand page answers "how is this brand doing and what does it need from me".
     // Head = the brand's own logo, its name and one gray line; the tabs underline; each tab is sections of white cards.
-    $segment = fn (bool $active): string => $active
-        ? 'rounded-md bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-900 dark:bg-white/10 dark:text-white'
-        : 'rounded-md px-2.5 py-1 text-[13px] text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
-    $segmentGroup = 'inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-800 dark:bg-white/[0.03]';
+    // Canlı panel (2026-10-20): the period and the settings sections are pill tabs (seg), the active one near-black.
+    $segment = fn (bool $active): string => $active ? 'seg seg-active h-8! px-3!' : 'seg h-8! px-3!';
+    $segmentGroup = 'inline-flex flex-wrap items-center gap-1.5';
     $headLine = collect([
         $customer ? '<a href="'.e(route('operator.customer', ['customerId' => $customer->id])).'" wire:navigate class="hover:text-gray-900 hover:underline dark:hover:text-white">'.e($customer->name).'</a>' : null,
         $sectors !== [] ? e(implode(', ', $sectors)) : null,

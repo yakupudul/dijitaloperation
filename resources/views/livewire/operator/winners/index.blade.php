@@ -11,14 +11,14 @@
 
     <div class="space-y-10">
         <header data-testid="winners-hero">
-            <h1 class="page-title" title="Aynı şehirde aynı hizmeti veren markalar arasında web sitesi, Google Ads, Meta ve İşletme Profili’nde kim önde. Yalnız aynı şehirdeki markalar sıralanır, eşik altı markalar sıralanmaz, sayılar her sabah yenilenir.">Kazananlar</h1>
+            <h1 class="page-title" title="Aynı şehirde aynı hizmeti veren markalar arasında web sitesi, Google Ads, Meta ve İşletme Profili’nde kim önde. Yalnız aynı şehirdeki markalar sıralanır, eşik altı markalar sıralanmaz, sayılar her sabah yenilenir."><span class="highlight">Kazananlar</span></h1>
             <p class="page-sub">Son 30 gün. Aynı şehirde aynı hizmeti veren markalar arasında kim önde.</p>
         </header>
 
         <div class="-mt-4 space-y-4">
-            <div class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist">
+            <div class="no-scrollbar flex gap-1.5 overflow-x-auto" role="tablist">
                 @foreach ($tabs as $key => $label)
-                    <button type="button" role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" wire:click="$set('tab', '{{ $key }}')" @class(['tab', 'tab-active' => $tab === $key])>
+                    <button type="button" role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" wire:click="$set('tab', '{{ $key }}')" @class(['seg', 'seg-active' => $tab === $key])>
                         {{ $label }}
                     </button>
                 @endforeach
@@ -139,6 +139,39 @@
                 <x-ta.empty-state icon="none" title="Henüz yarışa giren pazar yok" message="Aynı şehirde aynı hizmette en az iki markanın verisi olunca burada görünür; sayılar her sabah hesaplanır."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
             </div>
         @elseif ($view)
+            @php
+                $changedCount = count(array_filter($view['markets'], fn (array $m): bool => (bool) $m['changed']));
+                $leaderBrands = collect($view['markets'])->flatMap(fn (array $m): array => array_column(array_filter($m['leaders']), 'brand'))->countBy()->sortDesc();
+                $topLeader = $leaderBrands->keys()->first();
+            @endphp
+            {{-- Canlı panel 2026-10-20: the race in this city at a glance. --}}
+            <section class="hero-panel grid-cols-2 lg:grid-cols-4" data-testid="winners-numbers">
+                <div class="hero-tile">
+                    <span class="hero-label">Yarışılan pazar</span>
+                    <p class="hero-value">{{ count($view['markets']) }}</p>
+                    <p class="mt-2 text-xs text-white/60">en az iki marka, eşiği geçen var</p>
+                </div>
+                <div @class(['hero-tile', 'hero-tile-accent' => $changedCount > 0])>
+                    <span class="hero-label">Lideri değişen</span>
+                    <p class="hero-value">{{ $changedCount }}</p>
+                    <p @class(['mt-2 text-xs', 'opacity-70' => $changedCount > 0, 'text-white/60' => $changedCount === 0])>son 7 günde</p>
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">En çok önde</span>
+                    @if ($topLeader !== null)
+                        <p class="mt-3 flex min-w-0 items-center gap-2" title="{{ $topLeader }}"><x-ta.brand-avatar :name="$topLeader" :logo="$logo($topLeader)" size="sm" /><span class="truncate text-[15px] font-semibold">{{ $topLeader }}</span></p>
+                        <p class="mt-2 text-xs text-white/60">{{ $leaderBrands->first() }} kanal liderliği</p>
+                    @else
+                        <p class="hero-value">—</p>
+                    @endif
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Rakipsiz pazar</span>
+                    <p class="hero-value">{{ count($view['alone']) }}</p>
+                    <p class="mt-2 text-xs text-white/60">{{ $view['waiting'] > 0 ? $view['waiting'].' pazarda veri birikiyor' : 'tek marka, kıyas başka şehirle' }}</p>
+                </div>
+            </section>
+
             <section data-testid="winners-markets">
                 <div class="section-head">
                     <h2 class="section-title" title="En az iki markanın yarıştığı ve en az bir kanalda eşiği geçenin olduğu şehir ve hizmet; her kanalın lideri.">Pazarlar <span class="section-count">{{ count($view['markets']) }}</span></h2>
@@ -151,7 +184,7 @@
                     </div>
                 @else
                     <div class="card overflow-x-auto">
-                        <table class="data-table md:table-fixed">
+                        <table class="data-table table-fixed">
                             <thead>
                                 <tr>
                                     <th class="md:w-[24%]">Pazar</th>
@@ -172,7 +205,8 @@
                                                     @if ($l)
                                                         <div class="min-w-0">
                                                             <dt class="text-xs text-gray-500">{{ $channels[$key] }}</dt>
-                                                            <dd class="flex min-w-0 items-center gap-1.5 text-[13px]"><x-ta.brand-avatar :name="$l['brand']" :logo="$logo($l['brand'])" size="xs" /><span class="truncate font-medium text-gray-900 dark:text-white">{{ $l['brand'] }}</span><span class="shrink-0 tabular-nums text-gray-500">{{ $l['value'] }}</span></dd>
+                                                            <dd class="flex min-w-0 items-center gap-1.5 text-[13px]"><x-ta.brand-avatar :name="$l['brand']" :logo="$logo($l['brand'])" size="xs" /><span class="truncate font-medium text-gray-900 dark:text-white">{{ $l['brand'] }}</span></dd>
+                                                            <dd class="text-xs tabular-nums text-gray-500">{{ $l['value'] }}</dd>
                                                         </div>
                                                     @endif
                                                 @endforeach

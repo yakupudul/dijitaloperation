@@ -53,9 +53,34 @@
                 </div>
             </div>
         @endif
+        @if (collect($triage)->flatten(1)->isNotEmpty())
+            {{-- Canlı panel (2026-10-20): one tinted card per open bucket, the count first; the lists follow below. --}}
+            @php
+                $softTone = ['you' => 'soft-red', 'code' => 'soft-amber', 'auto' => ''];
+                $softLine = ['you' => 'Bağlantı, izin ya da ayar senin elinde.', 'code' => 'Tekrar denemek işe yaramaz, düzeltme gerekir.', 'auto' => 'Sistem yeniden deniyor; bir şey yapmana gerek yok.'];
+            @endphp
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-error-summary>
+                @foreach (\App\Services\Observability\ErrorTriage::LABELS as $bucket => $label)
+                    @continue(($triage[$bucket] ?? []) === [])
+                    <div class="soft-card {{ $softTone[$bucket] }}">
+                        <span class="soft-icon" aria-hidden="true">
+                            @if ($bucket === 'you')<svg class="h-4 w-4 text-error-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                            @elseif ($bucket === 'code')<svg class="h-4 w-4 text-warning-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+                            @else<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>@endif
+                        </span>
+                        <p class="soft-number">{{ collect($triage[$bucket])->sum('count') }}</p>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $label }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-400">{{ $softLine[$bucket] }}</p>
+                        </div>
+                        <a href="#hata-{{ $bucket }}" x-on:click="document.getElementById('hata-{{ $bucket }}').open = true" class="btn mt-auto self-start">Listeye git</a>
+                    </div>
+                @endforeach
+            </div>
+        @endif
         @foreach (\App\Services\Observability\ErrorTriage::LABELS as $bucket => $label)
             @continue(($triage[$bucket] ?? []) === [])
-            <details @if ($bucket !== 'auto') open @endif class="group" data-error-bucket="{{ $bucket }}">
+            <details id="hata-{{ $bucket }}" @if ($bucket !== 'auto') open @endif class="group scroll-mt-6" data-error-bucket="{{ $bucket }}">
                 <summary class="section-head cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                     <h2 class="section-title inline-flex items-center gap-2"><span class="h-2 w-2 rounded-full {{ $dots[$bucket] }}" aria-hidden="true"></span>{{ $label }} <span class="section-count">{{ collect($triage[$bucket])->sum('count') }}</span></h2>
                     @if ($bucket === 'auto')<span class="text-[13px] text-gray-500">Bir şey yapmana gerek yok; sistem yeniden deniyor.</span>@endif

@@ -4,7 +4,7 @@
     $select = 'h-8 rounded-lg border border-gray-200 bg-white py-0 pl-2.5 pr-8 text-[13px] text-gray-700 shadow-card focus:border-gray-300 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
     $btn = 'btn h-7! px-2.5! text-xs!';
     $ghost = 'btn-quiet h-7! px-2! text-xs!';
-    $stateBtn = fn (bool $on) => $on ? 'h-7 shrink-0 whitespace-nowrap rounded-md bg-gray-100 px-2.5 text-[13px] font-medium text-gray-900 dark:bg-white/10 dark:text-white' : 'h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px] text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
+    $stateBtn = fn (bool $on) => $on ? 'seg seg-active h-8! px-3!' : 'seg h-8! px-3!';
     $chip = 'rounded-full px-2 py-0.5 text-xs';
     $tone = ['technical' => 'bg-error-500', 'no_page' => 'bg-error-500', 'improve' => 'bg-warning-500', 'sufficient' => 'bg-success-500', 'unchecked' => 'bg-gray-400', 'excluded' => 'bg-gray-300'];
     $kinds = ['soru' => 'soru', 'bolum' => 'bölüm', 'yon' => 'yön', 'lokasyon' => 'lokasyon', 'ai_sorusu' => 'AI sorusu'];
@@ -65,12 +65,12 @@
                 </select>
             </label>
         </div>
-        <div class="no-scrollbar mb-3 flex max-w-full gap-0.5 overflow-x-auto rounded-lg border border-gray-200 bg-white p-0.5 shadow-card sm:w-fit dark:border-gray-700 dark:bg-gray-900" role="group" aria-label="Durum" data-state-filters>
+        <div class="no-scrollbar mb-3 flex max-w-full gap-1.5 overflow-x-auto" role="group" aria-label="Durum" data-state-filters>
             @php $allCount = array_sum($counts); @endphp
-            <button type="button" wire:click="$set('state', '')" class="{{ $stateBtn($state === '') }}">Tümü <span class="text-xs font-normal text-gray-400">{{ $num($allCount) }}</span></button>
+            <button type="button" wire:click="$set('state', '')" class="{{ $stateBtn($state === '') }}">Tümü <span class="text-xs font-normal tabular-nums opacity-60">{{ $num($allCount) }}</span></button>
             @foreach (\App\Services\Site\ContentIdeaState::LABELS as $key => $label)
                 @if (($counts[$key] ?? 0) > 0 || $state === $key)
-                    <button type="button" wire:click="$set('state', '{{ $key }}')" data-state-filter="{{ $key }}" class="{{ $stateBtn($state === $key) }}">{{ $label }} <span class="text-xs font-normal text-gray-400">{{ $num($counts[$key] ?? 0) }}</span></button>
+                    <button type="button" wire:click="$set('state', '{{ $key }}')" data-state-filter="{{ $key }}" class="{{ $stateBtn($state === $key) }}">{{ $label }} <span class="text-xs font-normal tabular-nums opacity-60">{{ $num($counts[$key] ?? 0) }}</span></button>
                 @endif
             @endforeach
         </div>
@@ -95,7 +95,7 @@
                     <span class="min-w-0 text-[13px] text-gray-500">Onaylanan küme bu listeye iner; aynı hizmetteki diğer markalara da iner.</span>
                 </summary>
                 <div class="flex justify-end border-t border-gray-200 px-4 py-2.5 dark:border-gray-800">
-                    <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="btn w-full sm:w-auto" data-approve-all-clusters>Tümünü onayla</button>
+                    <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="btn-dark w-full sm:w-auto" data-approve-all-clusters>Tümünü onayla</button>
                 </div>
                 <ul>
                     @foreach ($pendingClusters as $pending)
@@ -104,7 +104,7 @@
                                 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $pending->name }}</p>
                                 <p class="mt-0.5 text-[13px] text-gray-500">{{ $pending->service?->primaryName?->raw_label ?? '—' }}, {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$pending->page_type] ?? $pending->page_type }}, {{ $pending->cluster_queries_count }} sorgu @if ($pending->mainQuery) «{{ $pending->mainQuery->text }}»@endif</p>
                             </div>
-                            <button type="button" wire:click="approveCluster({{ $pending->id }})" class="{{ $btn }}" data-approve-cluster="{{ $pending->id }}">Onayla</button>
+                            <button type="button" wire:click="approveCluster({{ $pending->id }})" class="btn-dark h-7! px-2.5! text-xs!" data-approve-cluster="{{ $pending->id }}">Onayla</button>
                         </li>
                     @endforeach
                 </ul>

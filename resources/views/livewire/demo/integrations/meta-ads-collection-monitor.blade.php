@@ -31,7 +31,7 @@
                         <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($run['progress_percent'], 1) }}%</span>
                     </div>
                     <div class="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
+                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
                     </div>
                     <div class="mt-3 grid gap-3 sm:grid-cols-4">
                         <div><p class="text-xs text-gray-500">Reklam hesabı</p><p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $run['accounts_finished'] }}/{{ $run['accounts_total'] }}</p></div>
@@ -44,7 +44,7 @@
                 @if ($run['datasets_failed'] > 0 || $run['datasets_retrying'] > 0)
                     <div class="mt-4 rounded-lg p-4 text-sm tone-look">
                         <span class="font-semibold">{{ $run['datasets_failed'] }} hata</span>
-                        @if ($run['datasets_retrying'] > 0) · {{ $run['datasets_retrying'] }} yeniden deneniyor @endif
+                        @if ($run['datasets_retrying'] > 0)<span>, {{ $run['datasets_retrying'] }} yeniden deneniyor</span>@endif
                         <span class="block mt-1 text-xs opacity-80">Diğer veri setleri çekilmeye devam eder.</span>
                     </div>
                 @endif
@@ -59,12 +59,12 @@
                                     <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
                                     <span class="text-xs text-gray-500">{{ $resource['status_label'] }}</span>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">ID {{ $resource['external_id'] }} @if($resource['business']) · {{ $resource['business'] }} @endif @if($resource['currency']) · {{ $resource['currency'] }} @endif @if($resource['timezone']) · {{ $resource['timezone'] }} @endif</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ implode(', ', array_filter(['ID '.$resource['external_id'], $resource['business'] ?? null, $resource['currency'] ?? null, $resource['timezone'] ?? null])) }}</p>
                                 <div class="mt-3 max-w-3xl">
                                     <div class="mb-1 flex items-center justify-between text-xs text-gray-500"><span>{{ $resource['datasets_finished'] }}/{{ $resource['datasets_total'] }} veri seti</span><span class="font-medium text-gray-700 dark:text-gray-300">{{ number_format($resource['progress_percent'], 1) }}%</span></div>
-                                    <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10"><div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div></div>
+                                    <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10"><div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div></div>
                                 </div>
-                                <p class="mt-3 text-xs text-gray-500"><span class="font-medium text-gray-700 dark:text-gray-300">{{ $resource['current_dataset'] ?? 'Bekliyor' }}</span>@if($resource['current_range']) · {{ $resource['current_range'] }} @endif · {{ number_format($resource['rows_written'], 0, ',', '.') }} satır</p>
+                                <p class="mt-3 text-xs text-gray-500"><span class="font-medium text-gray-700 dark:text-gray-300">{{ $resource['current_dataset'] ?? 'Bekliyor' }}</span>{{ $resource['current_range'] ? ', '.$resource['current_range'] : '' }}, {{ number_format($resource['rows_written'], 0, ',', '.') }} satır</p>
 
                                 @if (! empty($resource['errors']))
                                     <details class="mt-3">
@@ -81,7 +81,7 @@
                                                                 @endif
                                                             </div>
                                                             <p class="mt-1 break-words">{{ $error['message'] }}</p>
-                                                            <p class="mt-1 text-xs opacity-70">{{ $error['code'] ?? '' }} @if($error['category']) · {{ $error['category'] }} @endif · {{ $error['attempts'] }} deneme</p>
+                                                            <p class="mt-1 text-xs opacity-70">{{ implode(', ', array_filter([$error['code'] ?? null, $error['category'] ?? null, $error['attempts'].' deneme'])) }}</p>
                                                         </div>
                                                         <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="btn h-7! px-2.5! text-xs!">Yeniden dene</button>
                                                     </div>
@@ -115,7 +115,7 @@
                 @foreach ($issues as $issue)
                     <article class="px-4 py-4">
                         <div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3><x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill></div>
-                        <p class="mt-1 text-xs text-gray-500">{{ $issue['business'] ?? 'Meta Ads' }} · {{ $issue['last_activity'] }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ $issue['business'] ?? 'Meta Ads' }}, {{ $issue['last_activity'] }}</p>
                         <div class="mt-3 space-y-2">
                             @foreach ($issue['errors'] as $error)
                                 <div class="flex flex-col gap-2 border-b border-gray-200 py-2.5 dark:border-gray-800 sm:flex-row sm:items-start sm:justify-between">

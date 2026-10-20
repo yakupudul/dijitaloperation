@@ -160,7 +160,7 @@
                                 </div>
                                 @if ($strategy->isExportable())
                                     <div class="flex w-full shrink-0 gap-2 sm:w-auto">
-                                        <a href="{{ route('operator.strategy.ads-editor', ['strategyId' => $strategy->id, 'format' => 'csv']) }}" class="btn-primary flex-1 sm:flex-none">Ads Editor dosyası (.csv)</a>
+                                        <a href="{{ route('operator.strategy.ads-editor', ['strategyId' => $strategy->id, 'format' => 'csv']) }}" class="btn-dark flex-1 sm:flex-none">Ads Editor dosyası (.csv)</a>
                                         <a href="{{ route('operator.strategy.ads-editor', ['strategyId' => $strategy->id, 'format' => 'xlsx']) }}" class="btn flex-1 sm:flex-none">Excel (.xlsx)</a>
                                     </div>
                                 @endif

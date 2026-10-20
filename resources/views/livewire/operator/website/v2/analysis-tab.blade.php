@@ -11,6 +11,7 @@
 
         return ($pct > 0 ? '+' : '').$pct.'%';
     };
+    $chipClass = fn ($current, $previous): string => 'chip '.($current > $previous ? 'chip-up' : ($current < $previous ? 'chip-down' : 'chip-flat'));
     $c = $totals['current'];
     $p = $totals['previous'];
     // Change against the previous period; for the average position a smaller number is better.
@@ -39,9 +40,9 @@
             @if ($showNav || ! $screenRange)
                 <div class="flex min-w-0 flex-wrap items-center gap-2">
                     @if ($showNav)
-                        <nav class="no-scrollbar flex min-w-0 max-w-full gap-0.5 overflow-x-auto rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-700 dark:bg-gray-900" aria-label="Analiz sekmeleri">
+                        <nav class="no-scrollbar flex min-w-0 max-w-full gap-1.5 overflow-x-auto" aria-label="Analiz sekmeleri">
                             @foreach (\App\Livewire\Operator\Website\V2\AnalysisTab::SUBTABS as $key => $label)
-                                <button type="button" wire:click="setSub('{{ $key }}')" data-sub="{{ $key }}" @class(['h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px]', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $activeSub === $key, 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $activeSub !== $key])>{{ $label }}</button>
+                                <button type="button" wire:click="setSub('{{ $key }}')" data-sub="{{ $key }}" @class(['seg h-8! px-3!', 'seg-active' => $activeSub === $key])>{{ $label }}</button>
                             @endforeach
                         </nav>
                     @endif
@@ -62,7 +63,7 @@
                     @forelse ($rows as $row)
                         <tr data-cluster="{{ $row['cluster_id'] }}">
                             <td class="min-w-[12rem] font-medium text-gray-900 dark:text-white">{{ $row['name'] }}@if ($row['url'])<p class="text-xs font-normal text-gray-500">{{ \App\Services\Site\Analysis\SiteAnalysisReader::path($row['url']) }}</p>@endif</td>
-                            <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td><td @class(['text-right tabular-nums', 'text-success-600 dark:text-success-400' => $row['clicks'] > $row['prev_clicks'], 'text-error-600 dark:text-error-400' => $row['clicks'] < $row['prev_clicks']])>{{ $delta($row['clicks'], $row['prev_clicks']) }}</td>
+                            <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td><td class="text-right tabular-nums">@if (($d = $delta($row['clicks'], $row['prev_clicks'])) !== '')<span class="{{ $chipClass($row['clicks'], $row['prev_clicks']) }}">{{ $d }}</span>@endif</td>
                             <td class="text-right tabular-nums">{{ $num($row['impressions']) }}</td><td class="text-right tabular-nums">{{ $dec($row['position']) }}</td>
                             <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td><td class="text-right tabular-nums">{{ $dec($row['key_events']) }}</td>
                         </tr>
@@ -96,7 +97,7 @@
                     @forelse ($rows as $row)
                         <tr>
                             <td class="min-w-[12rem]"><a href="{{ str_contains($row['url'], '://') ? $row['url'] : '#' }}" target="_blank" rel="noopener noreferrer" class="text-gray-900 hover:underline dark:text-white">{{ \Illuminate\Support\Str::limit($row['path'], 80) }}</a></td>
-                            <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td><td @class(['text-right tabular-nums', 'text-success-600 dark:text-success-400' => $row['clicks'] > $row['prev_clicks'], 'text-error-600 dark:text-error-400' => $row['clicks'] < $row['prev_clicks']])>{{ $delta($row['clicks'], $row['prev_clicks']) }}</td>
+                            <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td><td class="text-right tabular-nums">@if (($d = $delta($row['clicks'], $row['prev_clicks'])) !== '')<span class="{{ $chipClass($row['clicks'], $row['prev_clicks']) }}">{{ $d }}</span>@endif</td>
                             <td class="text-right tabular-nums">{{ $num($row['impressions']) }}</td><td class="text-right tabular-nums">{{ $dec($row['position']) }}</td>
                             <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td><td class="text-right tabular-nums">{{ $dec($row['key_events']) }}</td>
                         </tr>
@@ -110,7 +111,7 @@
                     @forelse ($rows as $row)
                         <tr>
                             <td class="min-w-[12rem] text-gray-900 dark:text-white">{{ $row['query'] }}</td>
-                            <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td><td @class(['text-right tabular-nums', 'text-success-600 dark:text-success-400' => $row['clicks'] > $row['prev_clicks'], 'text-error-600 dark:text-error-400' => $row['clicks'] < $row['prev_clicks']])>{{ $delta($row['clicks'], $row['prev_clicks']) }}</td>
+                            <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td><td class="text-right tabular-nums">@if (($d = $delta($row['clicks'], $row['prev_clicks'])) !== '')<span class="{{ $chipClass($row['clicks'], $row['prev_clicks']) }}">{{ $d }}</span>@endif</td>
                             <td class="text-right tabular-nums">{{ $num($row['impressions']) }}</td><td class="text-right tabular-nums">{{ $dec($row['position']) }}</td>
                         </tr>
                     @empty

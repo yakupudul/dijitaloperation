@@ -294,7 +294,7 @@ final class CacheFriendlyCrawlTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole(Roles::ADMIN);
         Livewire::actingAs($admin)->test(WebsiteIntegrationIndex::class, ['assetId' => $this->asset->id])
-            ->assertSee('Önbellekten: 0 · Sayfa okuma: 0 · Değişmedi (304/aynı): 3')
+            ->assertSee('Önbellekten: 0, Sayfa okuma: 0, Değişmedi (304/aynı): 3')
             ->assertSee('WP Rocket')
             ->assertSee('eklenti önbellek dosyalarını okuyor');
     }

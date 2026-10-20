@@ -5,12 +5,18 @@
     $filter = 'h-8 w-full rounded-lg border border-gray-200 bg-white py-0 pl-3 text-[13px] text-gray-800 sm:w-auto dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
     $active = array_sum(array_diff_key($counts, ['archived' => 0]));
     $waiting = (int) ($counts['draft'] ?? 0);
+    // Canlı panel 2026-10-20: what waits on the operator as tinted cards, each one filters the list below.
+    $attention = array_values(array_filter([
+        $waiting > 0 ? ['status' => 'draft', 'tone' => 'soft-accent', 'number' => $waiting, 'title' => 'Kararını bekliyor', 'line' => 'Claude hazırladı; okuyup onayla ya da düzelt.', 'label' => 'Taslaklara bak', 'icon' => '<path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/>'] : null,
+        ($counts['approved'] ?? 0) > 0 ? ['status' => 'approved', 'tone' => '', 'number' => (int) $counts['approved'], 'title' => 'Onaylandı, başlanmadı', 'line' => 'Kampanya kurulunca “Uygulamaya başladım” de.', 'label' => 'Onaylananlar', 'icon' => '<path d="m5 12 4 4L19 6"/>'] : null,
+        ($counts['active'] ?? 0) > 0 ? ['status' => 'active', 'tone' => '', 'number' => (int) $counts['active'], 'title' => 'Uygulanıyor', 'line' => 'Sonuç geldikçe yeni sürüm açılır.', 'label' => 'Uygulananlar', 'icon' => '<path d="M3 17l6-6 4 4 8-8"/>'] : null,
+    ]));
 @endphp
 
 <div class="space-y-10">
     <header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div class="min-w-0">
-            <h1 class="page-title" title="Claude’un hazırladığı tüm stratejiler: kapsamı, bütçesi, dayandığı veri ve her sürümü. Claude yenisini yazarken markanın eski stratejilerini okur.">Stratejiler</h1>
+            <h1 class="page-title" title="Claude’un hazırladığı tüm stratejiler: kapsamı, bütçesi, dayandığı veri ve her sürümü. Claude yenisini yazarken markanın eski stratejilerini okur."><span class="highlight">Stratejiler</span></h1>
             <p class="page-sub">{{ $active }} güncel strateji{{ $waiting > 0 ? ', '.$waiting.' tanesi kararını bekliyor' : '' }}.</p>
         </div>
         <button type="button" wire:click="$toggle('creating')" class="{{ $creating ? 'btn' : 'btn-primary' }} w-full sm:w-auto" data-testid="strategy-new">{{ $creating ? 'Vazgeç' : 'Yeni strateji' }}</button>
@@ -40,12 +46,26 @@
         </form>
     @endif
 
+    @if (! $creating && $attention !== [])
+        <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="strategy-attention">
+            @foreach ($attention as $item)
+                <div class="soft-card {{ $item['tone'] }}" wire:key="attention-{{ $item['status'] }}">
+                    <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $item['icon'] !!}</svg></span>
+                    <p class="soft-number">{{ $item['number'] }}</p>
+                    <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $item['line'] }}</p>
+                    <div class="mt-auto pt-1"><button type="button" wire:click="$set('status', '{{ $item['status'] }}')" class="btn">{{ $item['label'] }}</button></div>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
     <section class="space-y-4">
         <div class="space-y-4" data-testid="strategy-filters">
-            <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Durum">
-                <button type="button" wire:click="$set('status', '')" @class(['tab', 'tab-active' => $status === ''])>Güncel <span class="font-normal text-gray-500">{{ $active }}</span></button>
+            <nav class="no-scrollbar flex gap-1.5 overflow-x-auto" aria-label="Durum">
+                <button type="button" wire:click="$set('status', '')" @class(['seg', 'seg-active' => $status === ''])>Güncel <span @class(['text-xs tabular-nums', 'text-accent' => $status === '', 'text-gray-400 dark:text-gray-500' => $status !== ''])>{{ $active }}</span></button>
                 @foreach ($statuses as $key => $statusLabel)
-                    <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['tab', 'tab-active' => $status === $key])>{{ $statusLabel }} <span class="font-normal text-gray-500">{{ $counts[$key] ?? 0 }}</span></button>
+                    <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['seg', 'seg-active' => $status === $key])>{{ $statusLabel }} <span @class(['text-xs tabular-nums', 'text-accent' => $status === $key, 'text-gray-400 dark:text-gray-500' => $status !== $key])>{{ $counts[$key] ?? 0 }}</span></button>
                 @endforeach
             </nav>
             <div class="flex flex-wrap items-center gap-2">

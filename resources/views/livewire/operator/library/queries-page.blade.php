@@ -3,13 +3,15 @@
     $field = 'rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] text-gray-900 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
     $input = $field.' h-8';
     $btn = 'btn-primary';
+    /** Approving a proposal or a selection is the dark row action (canlı panel 2026-10-20); forms keep the accent Kaydet / Ekle. */
+    $approve = 'btn-dark';
     $ghost = 'btn h-7! px-2.5! text-xs!';
     $secondary = 'btn';
     $hint = 'text-xs text-gray-500 dark:text-gray-500';
     $chip = 'text-xs';
     $num = fn ($value) => number_format((float) $value, 0, ',', '.');
     $tabClass = fn (bool $active): string => $active ? 'tab tab-active' : 'tab';
-    $subTab = fn (bool $active): string => 'inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium '.($active ? 'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white');
+    $subTab = fn (bool $active): string => $active ? 'seg seg-active h-8! px-3!' : 'seg h-8! px-3!';
     $tableWrap = 'card overflow-x-auto';
     $how = 'inline-flex cursor-pointer list-none items-center gap-1 text-[13px] text-gray-500 hover:text-gray-900 dark:hover:text-white [&::-webkit-details-marker]:hidden';
     $countPill = 'font-normal tabular-nums text-gray-500';
@@ -19,10 +21,10 @@
     <header>
         <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
             <div class="min-w-0">
-                <h1 class="page-title" title="Arama sorgularının ortak kütüphanesi: hizmete atama, kümeler, filtre ve eşleme kelimeleri.">Sorgular</h1>
+                <h1 class="page-title" title="Arama sorgularının ortak kütüphanesi: hizmete atama, kümeler, filtre ve eşleme kelimeleri."><span class="highlight">Sorgular</span></h1>
                 <p class="page-sub">{{ $num($pendingCount) }} bekleyen sorgu, {{ $num($deletionsTotal) }} onay bekleyen değişiklik.</p>
             </div>
-            <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="{{ $secondary }} w-full sm:w-auto">AI ile planla</a>
+            <a href="{{ route('operator.library.queries.plan') }}" wire:navigate class="btn-primary w-full sm:w-auto">AI ile planla</a>
         </div>
     </header>
 
@@ -60,11 +62,28 @@
                 <button type="button" wire:click="toggleAutopilot" class="btn ml-auto">{{ $autopilotPaused ? 'Başlat' : 'Durdur' }}</button>
             @endif
         </div>
-        <div class="metric-strip grid-cols-2 lg:grid-cols-4" data-autopilot-counters>
-            <x-ta.metric-card label="Atanan" :value="$num($apTotals['assigned'] ?? 0)" title="Otomatik pilotun başlangıçtan beri hizmete atadığı sorgu" />
-            <x-ta.metric-card label="Bekleyen" :value="$num($pendingCount)" title="Kütüphanede olmayan, filtreye takılmayan bekleyen sorgu" />
-            <x-ta.metric-card label="AI sırasında" :value="$num($autopilotQueue)" title="AI'ın bakacağı hizmetsiz sorgu" />
-            <x-ta.metric-card label="Son kontrol" :value="$finishCheckAt ?? '—'" :muted="$finishCheckAt === null" :title="$finishCheck" :data-finish-check="$finishCheck !== null" />
+        {{-- Canlı panel 2026-10-20: the autopilot's numbers in the dark panel; what waits for the operator is the accent tile. --}}
+        <div class="hero-panel grid-cols-2 lg:grid-cols-4" data-autopilot-counters>
+            <div class="hero-tile" title="Otomatik pilotun başlangıçtan beri hizmete atadığı sorgu">
+                <span class="hero-label">Atanan</span>
+                <p class="hero-value">{{ $num($apTotals['assigned'] ?? 0) }}</p>
+                <p class="mt-2 text-xs text-white/60">başlangıçtan beri</p>
+            </div>
+            <button type="button" wire:click="setTab('pending')" @class(['hero-tile text-left transition', 'hero-tile-accent hover:brightness-95' => $pendingCount > 0, 'hover:bg-white/[0.08]' => $pendingCount === 0]) title="Kütüphanede olmayan, filtreye takılmayan bekleyen sorgu">
+                <span class="hero-label">Bekleyen</span>
+                <p class="hero-value">{{ $num($pendingCount) }}</p>
+                <p @class(['mt-2 text-xs', 'opacity-70' => $pendingCount > 0, 'text-white/60' => $pendingCount === 0])>içe alınmayı bekliyor</p>
+            </button>
+            <div class="hero-tile" title="AI'ın bakacağı hizmetsiz sorgu">
+                <span class="hero-label">AI sırasında</span>
+                <p class="hero-value">{{ $num($autopilotQueue) }}</p>
+                <p class="mt-2 text-xs text-white/60">hizmetsiz sorgu</p>
+            </div>
+            <div class="hero-tile" @if ($finishCheck !== null) title="{{ $finishCheck }}" data-finish-check @endif>
+                <span class="hero-label">Son kontrol</span>
+                <p @class(['hero-value', 'text-white/40' => $finishCheckAt === null])>{{ $finishCheckAt ?? '—' }}</p>
+                @if ($finishCheck !== null)<p class="mt-2 line-clamp-2 text-xs text-white/60">{{ $finishCheck }}</p>@endif
+            </div>
         </div>
         @if ($finishStage !== null && $finishStage !== 'done')<p class="mt-2 text-[13px] text-gray-500" data-finish-stage>Bitirme zinciri sürüyor: {{ ['queued' => 'kuyrukta', 'clean' => 'katalog temizliği', 'triage' => 'sorgular yeniden soruluyor', 'cluster' => 'kümeleme', 'wait' => 'kümeleme sürüyor', 'content' => 'içerik başlıkları', 'check' => 'kontrol'][$finishStage] ?? $finishStage }}</p>@endif
     </section>
@@ -195,7 +214,7 @@
                         @endif
                         <div class="flex justify-end gap-2">
                             <button type="button" wire:click="closeAssignments" class="{{ $ghost }}">Vazgeç</button>
-                            <button type="button" wire:click="approveAssignments" class="{{ $btn }}">Onayla</button>
+                            <button type="button" wire:click="approveAssignments" class="{{ $approve }}">Onayla</button>
                         </div>
                     @endif
                 </div>
@@ -284,7 +303,7 @@
                 <h2 class="section-title" title="Kütüphanede olmayan, filtreye takılmayan sorgular">Bekleyen sorgular <span class="section-count">{{ $num($pending->total()) }}</span></h2>
                 <span class="flex w-full gap-2 sm:ml-auto sm:w-auto">
                     <button type="button" wire:click="dismissPending" wire:confirm="Seçilen sorgular yoksayılsın mı?" class="btn flex-1 sm:flex-none">Yoksay</button>
-                    <button type="button" wire:click="importPending" class="{{ $btn }} flex-1 sm:flex-none">Seçilenleri içe aktar</button>
+                    <button type="button" wire:click="importPending" class="{{ $approve }} flex-1 sm:flex-none">Seçilenleri içe aktar</button>
                 </span>
             </div>
             <div class="{{ $tableWrap }}">
@@ -343,7 +362,7 @@
                     <button type="button" wire:click="keepReview" @disabled(! $hasSelection) class="btn sm:ml-auto">Geri al</button>
                 @else
                     <button type="button" wire:click="keepReview" @disabled(! $hasSelection) class="btn sm:ml-auto">Tut</button>
-                    <button type="button" wire:click="approveReview" wire:confirm="{{ $isDelete ? 'Seçilen sorgular silinsin mi?' : 'Seçilen sorguların hizmeti değişsin mi?' }}" @disabled(! $hasSelection) class="{{ $btn }}">{{ $isDelete ? 'Onayla ve sil' : 'Onayla ve uygula' }}</button>
+                    <button type="button" wire:click="approveReview" wire:confirm="{{ $isDelete ? 'Seçilen sorgular silinsin mi?' : 'Seçilen sorguların hizmeti değişsin mi?' }}" @disabled(! $hasSelection) class="{{ $approve }}">{{ $isDelete ? 'Onayla ve sil' : 'Onayla ve uygula' }}</button>
                 @endif
             </div>
             @if ($selectAll)
@@ -742,7 +761,7 @@
                         @if ($scan['items'] === [])<p class="mt-1 text-xs text-gray-500">Filtrelenecek kelime bulunamadı.</p>@endif
                         <div class="mt-2 flex justify-end gap-2">
                             <button type="button" wire:click="closeScan" class="{{ $ghost }}">Vazgeç</button>
-                            <button type="button" wire:click="approveScan" @disabled($scan['items'] === []) class="{{ $btn }}" data-scan-approve>Seçilenleri sepete ekle</button>
+                            <button type="button" wire:click="approveScan" @disabled($scan['items'] === []) class="{{ $approve }}" data-scan-approve>Seçilenleri sepete ekle</button>
                         </div>
                     </div>
                 @elseif ($scanStatus !== null)
@@ -765,7 +784,7 @@
                         </ul>
                         <div class="mt-2 flex justify-end gap-2">
                             <button type="button" wire:click="closeFilterProposal" class="{{ $ghost }}">Vazgeç</button>
-                            <button type="button" wire:click="approveFilterProposal" class="{{ $btn }}">Seçilenleri kaydet</button>
+                            <button type="button" wire:click="approveFilterProposal" class="{{ $approve }}">Seçilenleri kaydet</button>
                         </div>
                     </div>
                 @elseif ($filterStatus !== null && $filterStatus !== 'ready')
@@ -1022,7 +1041,7 @@
                     </ul>
                     <div class="mt-4 flex justify-end gap-2">
                         <button type="button" wire:click="closeRules" class="{{ $ghost }}">Vazgeç</button>
-                        <button type="button" wire:click="approveRules" class="{{ $btn }}">Seçilenleri kaydet ve tara</button>
+                        <button type="button" wire:click="approveRules" class="{{ $approve }}">Seçilenleri kaydet ve tara</button>
                     </div>
                 @endif
             </div>

@@ -24,9 +24,8 @@
             <div class="flex flex-wrap gap-1.5" role="group" aria-label="Görüşme filtresi" data-wa-filters>
                 @foreach(['open' => 'Açık', 'waiting' => 'Cevap bekleyen', 'ready' => 'Öneri hazır', 'done' => 'Tamamlanan', 'all' => 'Tümü'] as $key => $label)
                     <button type="button" wire:click="$set('filter', '{{ $key }}')" @class([
-                        'h-7! px-2.5! text-xs!',
-                        'btn-primary' => $filter === $key,
-                        'btn' => $filter !== $key,
+                        'seg h-7! gap-1.5! px-2.5! text-xs!',
+                        'seg-active' => $filter === $key,
                     ]) @if($key === 'waiting') title="Son mesajı müşteriden gelen açık görüşmeler (son 30 gün)" @endif>{{ $label }} <span class="font-normal opacity-60 tabular-nums">{{ $filterCounts[$key] ?? 0 }}</span></button>
                 @endforeach
             </div>

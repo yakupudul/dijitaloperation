@@ -20,13 +20,26 @@
         'check' => '<path d="m5 12 4 4L19 6"/>',
     ];
 @endphp
-<div class="space-y-10">
+@php
+    // Living panel language (yakup 2026-10-20): fixes as tinted cards, the key numbers in the dark panel, every
+    // connection as a card with its logo, status and one button.
+    $providers = collect($groups)->flatMap(fn (array $g): array => array_map(fn (array $p): array => $p + ['group_label' => $g['group'], 'group_id' => $g['id'] ?? ''], $g['providers']))->values();
+    $workingCount = $providers->filter(fn (array $p): bool => $stateTone($p) === 'ok')->count();
+    $counted = $providers->filter(fn (array $p): bool => $p['resources_discovered'] !== null && ! ($p['discovery_not_run'] ?? false));
+    $foundTotal = (int) $counted->sum(fn (array $p): int => (int) $p['resources_discovered']);
+    $boundTotal = (int) $counted->sum(fn (array $p): int => (int) $p['bound']);
+    $availableTotal = (int) $counted->sum(fn (array $p): int => (int) $p['available']);
+    $dependentTotal = (int) $providers->sum(fn (array $p): int => (int) ($p['dependent_assets'] ?? 0));
+    $num = fn (int $v): string => number_format($v, 0, ',', '.');
+    $firstSiteConnector = $providers->search(fn (array $p): bool => $p['group_id'] === 'site_connectors');
+@endphp
+<div class="space-y-11">
     @include('livewire.demo.partials.flash')
 
     <header class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-            <h1 class="page-title">{{ __('operator.integrations_ui.title') }}</h1>
-            <p class="page-sub">
+            <h1 class="page-title"><span class="highlight">{{ __('operator.integrations_ui.title') }}</span></h1>
+            <p class="page-sub mt-1.5! text-[15px]!">
                 @if ($problems === [])
                     {{ $connectionCount }} bağlantı, düzeltilecek bir şey yok.
                 @else
@@ -40,21 +53,13 @@
         </div>
     </header>
 
-    {{-- 1. What needs a fix: one row each, one button each. --}}
+    {{-- 1. What needs a fix: one tinted card each, one button each. --}}
     <section aria-labelledby="hub-health">
         <div class="section-head">
             <h2 id="hub-health" class="section-title">Bağlantı sağlığı @if ($problems !== [])<span class="section-count">{{ count($problems) }}</span>@endif</h2>
         </div>
-        <ul class="card">
-            @forelse ($problems as $problem)
-                <li class="card-row flex-wrap sm:flex-nowrap">
-                    <span @class(['row-icon border-transparent', 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400' => $problem['tone'] === 'error', 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400' => $problem['tone'] !== 'error']) aria-hidden="true">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $problem['tone'] === 'error' ? $icons['alert'] : $icons['clock'] !!}</svg>
-                    </span>
-                    <p class="min-w-0 flex-1 text-sm font-medium text-gray-900 dark:text-white">{{ $problem['text'] }}</p>
-                    <a href="{{ $problem['url'] }}" wire:navigate class="{{ $loop->first ? 'btn-primary' : 'btn' }} w-full sm:w-auto">{{ $problem['action'] }}</a>
-                </li>
-            @empty
+        @if ($problems === [])
+            <ul class="card">
                 <li class="card-row" title="Yetkiler geçerli, hesaplar güncel, WordPress siteleri sinyal gönderiyor.">
                     <span class="row-icon border-transparent bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400" aria-hidden="true">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $icons['check'] !!}</svg>
@@ -64,26 +69,66 @@
                         <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">İşlem gerektiren bağlantı yok.</p>
                     </div>
                 </li>
-            @endforelse
-        </ul>
+            </ul>
+        @else
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($problems as $problem)
+                    @php
+                        $isError = $problem['tone'] === 'error';
+                        [$big, $line] = preg_match('/^([\d.]+) (.*)$/u', $problem['text'], $m) === 1 ? [$m[1], \Illuminate\Support\Str::ucfirst($m[2])] : [null, $problem['text']];
+                    @endphp
+                    <div @class(['soft-card', 'soft-red' => $isError, 'soft-amber' => ! $isError])>
+                        <span @class(['soft-icon', 'text-error-600 dark:text-error-400' => $isError, 'text-warning-600 dark:text-warning-400' => ! $isError]) aria-hidden="true">
+                            <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $isError ? $icons['alert'] : $icons['clock'] !!}</svg>
+                        </span>
+                        <p class="sr-only">{{ $problem['text'] }}</p>
+                        @if ($big !== null)<p class="soft-number" aria-hidden="true">{{ $big }}</p>@endif
+                        <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white" aria-hidden="true">{{ $line }}</p>
+                        <div class="mt-auto pt-1">
+                            <a href="{{ $problem['url'] }}" wire:navigate class="{{ $loop->first ? 'btn-primary' : 'btn' }}">{{ $problem['action'] }}</a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </section>
 
-    {{-- 2. Every connection: logo, name, status dot, one gray line, one button. Groups are thin label strips. --}}
+    {{-- 2. The key numbers: what discovery found and what is still without a brand. --}}
+    @if ($counted->isNotEmpty())
+        <section aria-label="Bağlantı özeti" data-integrations-hero>
+            <div class="hero-panel grid-cols-2 lg:grid-cols-4">
+                <div class="hero-tile">
+                    <span class="hero-label">Kurulu bağlantı</span>
+                    <p class="hero-value">{{ $workingCount }}<span class="ml-1 text-lg font-medium text-white/50">/ {{ $connectionCount }}</span></p>
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Bulunan hesap</span>
+                    <p class="hero-value">{{ $num($foundTotal) }}</p>
+                    @if ($dependentTotal > 0)<p class="mt-2 text-xs text-white/60">{{ $num($dependentTotal) }} dijital varlık bağlı</p>@endif
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Markaya bağlı</span>
+                    <p class="hero-value">{{ $num($boundTotal) }}</p>
+                </div>
+                <a href="{{ route('operator.integrations.discovered', ['bound' => 'no']) }}" wire:navigate @class(['hero-tile transition hover:brightness-95', 'hero-tile-accent' => $availableTotal > 0])>
+                    <span class="hero-label">Markasız hesap</span>
+                    <p class="hero-value">{{ $num($availableTotal) }}</p>
+                    <p @class(['mt-2 text-xs', 'text-white/60' => $availableTotal === 0])>{{ $availableTotal > 0 ? 'Markaya bağla' : 'Hepsi bir markada' }}</p>
+                </a>
+            </div>
+        </section>
+    @endif
+
+    {{-- 3. Every connection as a card: logo, name, status dot, one gray line, one button. --}}
     <section aria-labelledby="hub-connections">
         <div class="section-head">
             <h2 id="hub-connections" class="section-title">Bağlantılar <span class="section-count">{{ $connectionCount }}</span></h2>
         </div>
-        <div class="card">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($groups as $group)
                 @php $groupSlug = \Illuminate\Support\Str::slug($group['group']); @endphp
-                <div @if (($group['id'] ?? '') === 'site_connectors') id="site_connectors" @endif aria-labelledby="group-{{ $groupSlug }}" role="group"
-                    @class(['scroll-mt-20', 'border-t border-gray-200 dark:border-gray-800' => ! $loop->first])>
-                    <div class="flex items-center justify-between gap-3 bg-gray-50 px-4 py-2 dark:bg-white/[0.02]">
-                        <h3 id="group-{{ $groupSlug }}" class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $group['group'] }}</h3>
-                        @if (($group['id'] ?? '') === 'site_connectors')
-                            <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress']) }}" wire:navigate class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white">{{ __('operator.site_connectors.catalog') }}</a>
-                        @endif
-                    </div>
+                <div class="contents" role="group" aria-labelledby="group-{{ $groupSlug }}">
+                    <span id="group-{{ $groupSlug }}" class="sr-only">{{ $group['group'] }}</span>
                     @foreach ($group['providers'] as $provider)
                         @php
                             $lastCheck = (string) ($provider['last_check'] ?? '—');
@@ -93,32 +138,39 @@
                                 $dependent > 0 ? __('operator.integrations_ui.dependent_assets', ['count' => $dependent]) : null,
                             ])->filter()->implode(', ');
                             $isMain = $mainProviderId !== null && ($provider['id'] ?? null) === $mainProviderId;
+                            $isSiteConnector = ($group['id'] ?? '') === 'site_connectors';
                         @endphp
-                        <article class="card-row flex-wrap items-start sm:flex-nowrap sm:items-center" wire:key="hub-provider-{{ $provider['id'] ?? $loop->index }}">
-                            @include('livewire.demo.integrations.partials.provider-mark', ['provider' => ($provider['id'] ?? '') === 'website' ? 'website' : ($provider['id'] ?? $provider['logo_type'] ?? 'website')])
-                            <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                                    <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ $provider['name'] }}</h4>
-                                    <x-ta.pill :tone="$stateTone($provider)">{{ $stateText($provider) }}</x-ta.pill>
+                        <article @if ($isSiteConnector && $loop->first) id="site_connectors" @endif class="card lift flex scroll-mt-20 flex-col gap-3 p-4" wire:key="hub-provider-{{ $provider['id'] ?? $loop->index }}">
+                            <div class="flex items-start gap-3">
+                                @include('livewire.demo.integrations.partials.provider-mark', ['provider' => ($provider['id'] ?? '') === 'website' ? 'website' : ($provider['id'] ?? $provider['logo_type'] ?? 'website'), 'size' => 'lg'])
+                                <div class="min-w-0 flex-1">
+                                    <h4 class="truncate text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $provider['name'] }}</h4>
+                                    <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ $group['group'] }}</p>
                                 </div>
-                                <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">
-                                    @if ($provider['resources_discovered'] !== null && ! ($provider['discovery_not_run'] ?? false))
-                                        <span class="tabular-nums">{{ $provider['resources_discovered'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.discovered')) }},
-                                        <span class="tabular-nums">{{ $provider['bound'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.bound')) }},
-                                        <a href="{{ route('operator.integrations.discovered', array_filter(['bound' => 'no', 'kind' => ($provider['id'] ?? '') === 'meta' ? 'meta_ads' : null])) }}" wire:navigate class="text-gray-700 underline decoration-gray-300 underline-offset-2 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white" title="Markasız hesapları gör"><span class="tabular-nums">{{ $provider['available'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.available')) }}</a>@if ($meta !== '').@endif
-                                    @elseif ($provider['resources_discovered'] !== null && ($provider['discovery_not_run'] ?? false))
-                                        {{ __('operator.states.not_discovered') }}@if ($meta !== '').@endif
-                                    @elseif (($provider['note'] ?? '') === __('operator.integrations_ui.not_configured_note'))
-                                        <span title="{{ $provider['note'] }}">Canlı veri için önce kimlik bilgilerini kaydet.</span>
-                                    @elseif (! empty($provider['note']))
-                                        <span title="{{ $provider['note'] }}">{{ \Illuminate\Support\Str::limit($provider['note'], 110) }}</span>
-                                    @endif
-                                    @if ($meta !== '')<span class="text-gray-400 dark:text-gray-500">{{ $meta }}</span>@endif
-                                </p>
+                                <x-ta.pill :tone="$stateTone($provider)" class="shrink-0">{{ $stateText($provider) }}</x-ta.pill>
                             </div>
-                            <a href="{{ route($provider['route'], $provider['route_params'] ?? []) }}" wire:navigate class="{{ $isMain ? 'btn-primary' : 'btn' }} w-full sm:w-auto">
-                                {{ $provider['manage_label'] ?? __('operator.integrations_ui.manage') }}
-                            </a>
+                            @if ($provider['resources_discovered'] !== null && ! ($provider['discovery_not_run'] ?? false))
+                                <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                                    <p><span class="text-[22px] font-semibold tracking-[-0.02em] text-gray-900 tabular-nums dark:text-white">{{ $provider['resources_discovered'] }}</span> <span class="text-[13px] text-gray-500">{{ mb_strtolower(__('operator.integrations_ui.discovered')) }}</span></p>
+                                    <p class="text-[13px] text-gray-500 dark:text-gray-400"><span class="tabular-nums">{{ $provider['bound'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.bound')) }},
+                                        <a href="{{ route('operator.integrations.discovered', array_filter(['bound' => 'no', 'kind' => ($provider['id'] ?? '') === 'meta' ? 'meta_ads' : null])) }}" wire:navigate @class(['underline underline-offset-2 hover:text-gray-900 dark:hover:text-white', 'decoration-gray-300 text-gray-700 dark:text-gray-300' => (int) $provider['available'] === 0, 'font-medium text-gray-900 decoration-accent decoration-2 dark:text-white' => (int) $provider['available'] > 0]) title="Markasız hesapları gör"><span class="tabular-nums">{{ $provider['available'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.available')) }}</a></p>
+                                </div>
+                            @endif
+                            <p class="line-clamp-2 text-[13px] text-gray-500 dark:text-gray-400">
+                                @if ($provider['resources_discovered'] !== null && ($provider['discovery_not_run'] ?? false))
+                                    {{ __('operator.states.not_discovered') }}@if ($meta !== '').@endif
+                                @elseif ($provider['resources_discovered'] === null && ($provider['note'] ?? '') === __('operator.integrations_ui.not_configured_note'))
+                                    <span title="{{ $provider['note'] }}">Canlı veri için önce kimlik bilgilerini kaydet.</span>
+                                @elseif ($provider['resources_discovered'] === null && ! empty($provider['note']))
+                                    <span title="{{ $provider['note'] }}">{{ \Illuminate\Support\Str::limit($provider['note'], 110) }}</span>
+                                @endif
+                                @if ($meta !== '')<span class="text-gray-400 dark:text-gray-500">{{ $meta }}</span>@endif
+                            </p>
+                            <div class="mt-auto flex flex-wrap items-center gap-2 pt-1">
+                                <a href="{{ route($provider['route'], $provider['route_params'] ?? []) }}" wire:navigate class="{{ $isMain ? 'btn-primary' : 'btn' }}">
+                                    {{ $provider['manage_label'] ?? __('operator.integrations_ui.manage') }}
+                                </a>
+                            </div>
                         </article>
                     @endforeach
                 </div>

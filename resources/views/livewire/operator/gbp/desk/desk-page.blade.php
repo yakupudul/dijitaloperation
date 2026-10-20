@@ -8,6 +8,8 @@
     };
     $deltaClass = fn (?int $d): string => $d === null ? 'text-gray-400' : ($d >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400');
     $deltaText = fn (?int $d): string => $d === null ? '' : ($d >= 0 ? '+'.$d.'%' : '−'.abs($d).'%');
+    $chipText = fn (?int $d): string => $d === null ? '' : ($d > 0 ? '▲ '.$d.'%' : ($d < 0 ? '▼ '.abs($d).'%' : '0%'));
+    $chipClass = fn (?int $d): string => $d === null || $d === 0 ? 'chip-flat' : ($d > 0 ? 'chip-up' : 'chip-down');
     // Google sends a month's data a few days late: the desk shows the last full month, so the head says which month that is.
     $lagging = $month !== now()->format('Y-m');
     $previousLabel = \Illuminate\Support\Carbon::parse($month.'-01')->subMonth()->locale('tr')->translatedFormat('F');
@@ -32,8 +34,8 @@
     <div class="space-y-10">
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-                <h1 class="page-title" title="Her İşletme Profili için son tam ayın sonuçları ve yerel aramada güçlü olmanın altı koşulu. Eksik olana tıklayınca düzeltileceği yere gidersin.">İşletme profilleri</h1>
-                <p class="page-sub">@if ($lagging)<span data-gbp-data-month>Son tam veri: {{ $monthLabel }}</span>@else{{ $monthLabel }}@endif, {{ $count }} işletme. {{ $count === 0 ? '' : ($gapCount === 0 ? 'Altı koşulun hepsi tamam.' : 'Altı koşulun '.$gapCount.' tanesinde eksik var.') }}</p>
+                <h1 class="page-title" title="Her İşletme Profili için son tam ayın sonuçları ve yerel aramada güçlü olmanın altı koşulu. Eksik olana tıklayınca düzeltileceği yere gidersin.">İşletme <span class="highlight">profilleri</span></h1>
+                <p class="page-sub mt-1.5! text-[15px]!">@if ($lagging)<span data-gbp-data-month>Son tam veri: {{ $monthLabel }}</span>@else{{ $monthLabel }}@endif, {{ $count }} işletme. {{ $count === 0 ? '' : ($gapCount === 0 ? 'Altı koşulun hepsi tamam.' : 'Altı koşulun '.$gapCount.' tanesinde eksik var.') }}</p>
             </div>
             @include('livewire.operator.gbp.partials.brand-filter')
         </header>
@@ -43,19 +45,30 @@
             <div class="section-head">
                 <h2 class="section-title" title="Çoğu şubede olan eksik burada bir kez gösterilir, satırlarda tekrar edilmez; “Hepsini düzenle” ile tek yerden düzeltirsin.">Koşullar <span class="section-count">{{ $count > 0 ? (6 - $gapCount).'/6 tamam' : '' }}</span></h2>
             </div>
-            <ul class="metric-strip lg:grid-cols-2">
+            @php $firstGap = $conditions->search(fn (array $c): bool => ! $c['done']); @endphp
+            <ul class="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 @foreach ($conditions as $c)
-                    <li class="flex min-w-0 items-center gap-3.5 bg-white px-4 py-3.5 dark:bg-gray-900" wire:key="check-{{ $c['key'] }}">
-                        <span @class(['row-icon max-sm:hidden', 'border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400' => $c['shared'] !== null]) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $icons[$c['key']] ?? $icons['page'] !!}</svg></span>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $c['label'] }}</p>
-                            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">@if ($c['done'])<x-ta.pill tone="ok" class="text-[13px]!">{{ $c['ok'] }}/{{ $count }} tamam</x-ta.pill>@else{{ $c['shared'] !== null ? $c['shared']['missing'].'/'.$count.' işletmede eksik' : $c['ok'].'/'.$count.' tamam' }}@endif<span @class(['hidden' => $c['unknown'] === 0]) title="Google bu veriyi vermiyor ya da henüz toplanmadı; işletmenin satırında nedeni yazar">, {{ $c['unknown'] }} işletmede veri yok</span></p>
+                    @php
+                        $missing = $c['shared'] !== null ? $c['shared']['missing'] : max(0, $count - $c['ok'] - $c['unknown']);
+                        $isFirst = $loop->index === $firstGap;
+                    @endphp
+                    <li @class(['soft-card', 'soft-accent' => $isFirst]) wire:key="check-{{ $c['key'] }}">
+                        <div class="flex items-center gap-2.5">
+                            <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons[$c['key']] ?? $icons['page'] !!}</svg></span>
+                            @if ($c['done'])<x-ta.pill tone="ok" class="ml-auto text-[13px]!">Tamam</x-ta.pill>@endif
                         </div>
-                        @if ($c['shared'] !== null)
-                            <a href="{{ route($c['shared']['route'], array_filter(['marka' => $brand] + $c['shared']['query'])) }}" wire:navigate data-testid="gbp-shared-{{ $c['key'] }}" class="btn">Hepsini düzenle</a>
-                        @else
-                            <a href="{{ route($c['route'], array_filter(['marka' => $brand])) }}" wire:navigate class="btn-quiet" aria-label="Aç: {{ $c['label'] }}">Aç</a>
-                        @endif
+                        <p class="soft-number">{{ $c['done'] ? $c['ok'] : $missing }}<span class="text-lg font-medium text-gray-500">/{{ $count }}</span></p>
+                        <div>
+                            <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $c['label'] }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">{{ $c['done'] ? 'Hepsinde tamam' : ($c['shared'] !== null ? 'işletmede eksik' : 'işletmede eksik, '.$c['ok'].' tanesi tamam') }}<span @class(['hidden' => $c['unknown'] === 0]) title="Google bu veriyi vermiyor ya da henüz toplanmadı; işletmenin satırında nedeni yazar">, {{ $c['unknown'] }} işletmede veri yok</span></p>
+                        </div>
+                        <div class="mt-auto pt-1">
+                            @if ($c['shared'] !== null)
+                                <a href="{{ route($c['shared']['route'], array_filter(['marka' => $brand] + $c['shared']['query'])) }}" wire:navigate data-testid="gbp-shared-{{ $c['key'] }}" @class(['w-full sm:w-auto', 'btn-primary h-10! px-4! text-sm!' => $isFirst, 'btn' => ! $isFirst])>Hepsini düzenle</a>
+                            @else
+                                <a href="{{ route($c['route'], array_filter(['marka' => $brand])) }}" wire:navigate @class(['w-full sm:w-auto', 'btn-primary h-10! px-4! text-sm!' => $isFirst, 'btn' => ! $isFirst]) aria-label="Aç: {{ $c['label'] }}">Aç</a>
+                            @endif
+                        </div>
                     </li>
                 @endforeach
             </ul>
@@ -67,11 +80,14 @@
                 <h2 class="section-title" title="Değişim bir önceki aya göre. Google verisi birkaç gün gecikmeli gelir.">{{ $lagging ? $monthLabel.' (son tam ay)' : $monthLabel }}</h2>
                 <span class="text-sm text-gray-500">{{ $count }} işletme, {{ $previousLabel }} ayına göre</span>
             </div>
-            <div class="metric-strip grid-cols-2 lg:grid-cols-4">
+            <div class="hero-panel grid-cols-2 lg:grid-cols-4" data-gbp-month-numbers>
                 @foreach ($columns as $key => $label)
-                    @php $d = $delta($totals[$key], $previous[$key] ?: null); @endphp
-                    <x-ta.metric-card :label="$label" :value="$num($totals[$key])" :delta="$d === null ? null : $deltaText($d)" :tone="$d === null ? 'neutral' : ($d >= 0 ? 'positive' : 'negative')"
-                        :hint="$previous[$key] > 0 ? $previousLabel.' '.$num($previous[$key]) : null" />
+                    @php $d = $delta($totals[$key], $previous[$key] ?: null); $accent = $key === 'views'; @endphp
+                    <div @class(['hero-tile', 'hero-tile-accent' => $accent])>
+                        <span class="hero-label">{{ $label }}</span>
+                        <p class="hero-value">{{ $num($totals[$key]) }}</p>
+                        <p @class(['mt-2 flex flex-wrap items-center gap-2 text-xs', 'text-white/60' => ! $accent, 'opacity-70' => $accent])>@if ($d !== null)<span class="chip {{ $chipClass($d) }}">{{ $chipText($d) }}</span>@endif{{ $previous[$key] > 0 ? $previousLabel.' '.$num($previous[$key]) : 'Önceki ay verisi yok' }}</p>
+                    </div>
                 @endforeach
             </div>
         </section>
@@ -128,7 +144,7 @@
                                     @foreach (array_keys($columns) as $key)
                                         <td @class(['text-right tabular-nums', 'hidden md:table-cell' => $key !== 'views'])>
                                             <span class="text-gray-900 dark:text-white">{{ $num($r['current'][$key] ?? null) }}</span>
-                                            @if (($r['change'][$key] ?? null) !== null)<span class="block text-xs {{ $deltaClass($r['change'][$key]) }}">{{ $deltaText($r['change'][$key]) }}</span>@endif
+                                            @if (($r['change'][$key] ?? null) !== null)<span class="mt-1 flex justify-end"><span class="chip {{ $chipClass($r['change'][$key]) }} h-5! px-1.5!">{{ $chipText($r['change'][$key]) }}</span></span>@endif
                                         </td>
                                     @endforeach
                                     <td class="hidden md:table-cell">

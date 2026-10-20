@@ -1,8 +1,9 @@
 {{-- One work row inside its card: what, why, and the buttons; the card already says brand, site, type and rule. --}}
 @php
     $overlap = $row['overlap'] ?? null;
-    // Per-row actions are white bordered buttons (the screen's one main action is the primary button); the rest are quiet.
+    // Canlı panel 2026-10-20: Onayla is the dark row action, the other row actions white bordered, the rest quiet.
     $primary = 'btn';
+    $approveClass = 'btn-dark';
     $ghost = 'btn-quiet';
     $hasOwnButtons = $row['can_approve'] || $row['actions'] !== [] || $row['can_done'] || $row['can_reopen'];
 @endphp
@@ -43,7 +44,7 @@
     </div>
     <div class="flex shrink-0 flex-wrap items-center gap-2">
         @if($row['can_approve'])
-            <button type="button" wire:click="approve({{ $row['id'] }})" class="{{ $primary }}">Onayla</button>
+            <button type="button" wire:click="approve({{ $row['id'] }})" class="{{ $approveClass }}">Onayla</button>
         @endif
         @foreach($row['actions'] as $do)
             <button type="button" wire:click="run({{ $row['id'] }}, '{{ $do }}')" @if(in_array($do, ['merge', 'make_main', 'send_draft', 'audit_fix'], true)) wire:confirm="{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}: emin misiniz?" @endif class="{{ $loop->first && ! $row['can_approve'] ? $primary : $ghost }}" data-work-action="{{ $do }}">{{ \App\Services\Work\WorkDesk::ACTIONS[$do] }}</button>

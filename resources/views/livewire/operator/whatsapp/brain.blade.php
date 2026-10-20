@@ -57,7 +57,7 @@
         </label>
         @error('business_context')<p class="px-4 pt-1 text-xs text-error-600">{{ $message }}</p>@enderror
         <div class="mt-3.5 flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
-            <button type="submit" wire:loading.attr="disabled" wire:target="saveInstructions" class="btn-primary">Kaydet</button>
+            <button type="submit" wire:loading.attr="disabled" wire:target="saveInstructions" class="btn-dark">Kaydet</button>
         </div>
     </form>
 

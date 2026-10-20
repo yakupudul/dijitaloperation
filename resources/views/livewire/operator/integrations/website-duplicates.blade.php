@@ -42,9 +42,9 @@
                     <button type="button" wire:click="preview({{ $group['key'] }})" class="btn">{{ $previewGroup === $group['key'] ? 'Önizlemeyi kapat' : 'Önizle' }}</button>
                     @if ($isAdmin)
                         @if ($group['cross_customer'])
-                            <button type="button" wire:click="mergeGroup({{ $group['key'] }})" class="btn-primary">Birleştir</button>
+                            <button type="button" wire:click="mergeGroup({{ $group['key'] }})" class="btn-dark">Birleştir</button>
                         @else
-                            <button type="button" wire:click="mergeGroup({{ $group['key'] }})" wire:confirm="Kopya kayıtlar #{{ $keeperId }} ile birleştirilsin mi? Kopyalar arşivlenir." class="btn-primary">Birleştir</button>
+                            <button type="button" wire:click="mergeGroup({{ $group['key'] }})" wire:confirm="Kopya kayıtlar #{{ $keeperId }} ile birleştirilsin mi? Kopyalar arşivlenir." class="btn-dark">Birleştir</button>
                         @endif
                     @endif
                 </div>

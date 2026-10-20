@@ -23,9 +23,9 @@
     </header>
     @if($message)<p role="status" class="tone-ok -mt-4 rounded-lg px-3 py-2 text-sm">{{ $message }}</p>@endif
     @if($errors->any())<div role="alert" class="tone-critical -mt-4 rounded-lg px-3 py-2 text-sm">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
-    <nav class="no-scrollbar -mt-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="{{ $tr ? 'Dijital varlık türü' : 'Asset type' }}">
+    <nav class="no-scrollbar -mt-4 flex gap-1.5 overflow-x-auto" aria-label="{{ $tr ? 'Dijital varlık türü' : 'Asset type' }}">
         @foreach(['website' => $tr ? 'Web sitesi' : 'Website', 'google_business_profile' => $tr ? 'İşletme Profili' : 'Business Profile', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta Ads'] as $key => $label)
-            <button type="button" wire:click="$set('assetType', '{{ $key }}')" @class(['tab', 'tab-active' => $assetType === $key])>{{ $label }}</button>
+            <button type="button" wire:click="$set('assetType', '{{ $key }}')" @class(['seg', 'seg-active' => $assetType === $key])>{{ $label }}</button>
         @endforeach
     </nav>
     @if(! in_array($assetType, ['website', 'google_business_profile'], true))

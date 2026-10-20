@@ -17,7 +17,7 @@
         </header>
         @include('livewire.operator.gbp.partials.desk-message')
 
-        <label class="inline-flex items-center gap-2 text-[13px] text-gray-700 dark:text-gray-300"><input type="checkbox" wire:model.live="staleOnly" class="{{ $check }}"> Yalnız fotoğrafı eski olanlar</label>
+        <label @class(['seg relative cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gray-400', 'seg-active' => $staleOnly])><input type="checkbox" wire:model.live="staleOnly" class="sr-only"> Yalnız fotoğrafı eski olanlar @if ($staleCount > 0)<span @class(['tabular-nums', 'text-gray-500' => ! $staleOnly, 'text-white/70 dark:text-gray-500' => $staleOnly])>{{ $staleCount }}</span>@endif</label>
 
         @forelse ($groups as $brandName => $locations)
             @php $groupStale = $locations->filter(fn ($l) => $status[$l->id]['stale'] ?? true)->count(); @endphp

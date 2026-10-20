@@ -5,27 +5,44 @@
     $logos = \App\Models\Brand::query()->whereIn('id', $groups->map(fn ($rows): int => (int) $rows[0]['brand_id'])->values())->pluck('logo_url', 'id');
 @endphp
 <div class="space-y-10" data-connection-health>
-    <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h1 class="page-title">Bağlantı sağlığı</h1>
-            <p class="page-sub" title="Gecikmiş veriyi ve taranmamış siteleri sistem her gece kendisi onarır.">"Senin işin" satırları erişim ya da hesap seçimi ister; gerisini sistem onarır.</p>
-        </div>
-        <button type="button" wire:click="repairNow" wire:loading.attr="disabled" class="btn-primary w-full sm:w-auto" data-repair-now>Şimdi onar</button>
+    <header class="min-w-0">
+        <h1 class="page-title">Bağlantı sağlığı</h1>
+        <p class="page-sub" title="&quot;Senin işin&quot; satırları erişim ya da hesap seçimi ister; gerisini sistem onarır.">{{ $summary['brands'] > 0 ? $summary['brands'].' markada '.($summary['operator'] + $summary['system']).' eksik bağlantı.' : 'Her markanın bütün bağlantıları çalışıyor.' }}</p>
     </header>
 
     @if ($message !== '')
         <p class="card -mt-4 px-4 py-3 text-sm text-gray-700 dark:text-gray-300" role="status">{{ $message }}</p>
     @endif
 
-    <div class="metric-strip grid-cols-3">
-        <x-ta.metric-card label="Senin işin" :value="$summary['operator']" :tone="$summary['operator'] > 0 ? 'look' : 'neutral'" />
-        <x-ta.metric-card label="Sistem onarır" :value="$summary['system']" />
-        <x-ta.metric-card label="Sorunlu marka" :value="$summary['brands']" />
+    {{-- Living panel language: who fixes what, as two tinted cards; the repair button sits with the system's number. --}}
+    <div class="grid gap-3 sm:grid-cols-2">
+        <div @class(['soft-card', 'soft-amber' => $summary['operator'] > 0])>
+            <span @class(['soft-icon', 'text-warning-600 dark:text-warning-400' => $summary['operator'] > 0]) aria-hidden="true">
+                <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11.5v-2a1.5 1.5 0 0 1 3 0V12M14 10.5a1.5 1.5 0 0 1 3 0V12M17 11.5a1.5 1.5 0 0 1 3 0V16a6 6 0 0 1-6 6h-2c-2.2 0-3.6-1-4.8-2.6L4.4 15.5a1.5 1.5 0 0 1 2.4-1.8L8 15"/></svg>
+            </span>
+            <p class="soft-number">{{ $summary['operator'] }}</p>
+            <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Senin işin</p>
+            <p class="text-[13px] text-gray-600 dark:text-gray-300">Erişim ya da hesap seçimi ister.</p>
+            @if ($summary['operator'] > 0)
+                <div class="mt-auto pt-1"><a href="#senin-isin" class="btn">İlkine git</a></div>
+            @endif
+        </div>
+        <div class="soft-card">
+            <span class="soft-icon" aria-hidden="true">
+                <svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            </span>
+            <p class="soft-number">{{ $summary['system'] }}</p>
+            <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Sistem onarır</p>
+            <p class="text-[13px] text-gray-600 dark:text-gray-300">Gecikmiş veriyi ve taranmamış siteleri her gece kendisi onarır.</p>
+            <div class="mt-auto pt-1">
+                <button type="button" wire:click="repairNow" wire:loading.attr="disabled" class="btn-primary w-full sm:w-auto" data-repair-now>Şimdi onar</button>
+            </div>
+        </div>
     </div>
 
     @forelse ($groups as $brand => $rows)
         @php $rows = collect($rows)->sortBy(fn (array $r): int => $r['who'] === 'operator' ? 0 : 1); @endphp
-        <section wire:key="brand-{{ $rows->first()['brand_id'] }}">
+        <section wire:key="brand-{{ $rows->first()['brand_id'] }}" @if ($loop->first && $rows->first()['who'] === 'operator') id="senin-isin" class="scroll-mt-20" @endif>
             <div class="section-head items-center">
                 <h2 class="section-title flex min-w-0 items-center gap-2">
                     <x-ta.brand-avatar :name="$brand" :logo="$logos[$rows->first()['brand_id']] ?? null" size="sm" />

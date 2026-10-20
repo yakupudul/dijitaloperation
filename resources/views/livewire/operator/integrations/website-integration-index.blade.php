@@ -79,7 +79,7 @@
                         <tr>
                             <th>Website</th>
                             <th class="hidden lg:table-cell">{{ $tr ? 'Kaynaklar' : 'Sources' }}</th>
-                            <th>{{ $tr ? 'Son çekim' : 'Latest run' }}</th>
+                            <th class="hidden sm:table-cell">{{ $tr ? 'Son çekim' : 'Latest run' }}</th>
                             <th class="hidden text-right! md:table-cell">{{ $tr ? 'Temel kapsam' : 'Core coverage' }}</th>
                             <th class="hidden text-right! md:table-cell">{{ $tr ? 'Sonuç' : 'Result' }}</th>
                             <th class="text-right!"><span class="sr-only">{{ $tr ? 'Aç' : 'Open' }}</span></th>
@@ -88,9 +88,10 @@
                     <tbody>
                         @forelse ($rows as $row)
                             <tr>
-                                <td class="max-w-0 w-[40%] align-top sm:w-[30%]">
-                                    <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="block truncate font-medium text-gray-900 hover:underline dark:text-white" title="{{ $row['asset']->name }}">{{ $row['asset']->name }}</a>
-                                    <p class="mt-0.5 truncate text-xs text-gray-500">{{ $row['asset']->domain ?: $row['asset']->primary_url ?: '—' }}</p>
+                                <td class="max-w-0 w-[70%] align-top sm:w-[30%]">
+                                    <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="block truncate font-medium text-gray-900 hover:underline dark:text-white" title="{{ str_replace(' · ', ', ', (string) $row['asset']->name) }}">{{ str_replace(' · ', ', ', (string) $row['asset']->name) }}</a>
+                                    @if ($row['asset']->domain ?: $row['asset']->primary_url)<p class="mt-0.5 truncate text-xs text-gray-500">{{ $row['asset']->domain ?: $row['asset']->primary_url }}</p>@endif
+                                    <p class="mt-1 sm:hidden"><x-ta.pill :tone="$pillTone($stateTone($row['overall_state']))">{{ $row['run_status_label'] }}</x-ta.pill></p>
                                     @if ($row['asset']->brand_id === null)
                                         <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                                             <x-ta.pill tone="look">Markaya bağlı değil</x-ta.pill>
@@ -114,7 +115,7 @@
                                                 </select>
                                                 @error('assignBrandId')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
                                                 <div class="flex gap-1.5">
-                                                    <button type="button" wire:click="assignWebsite" class="btn-primary h-7! px-2.5! text-xs!">Ata</button>
+                                                    <button type="button" wire:click="assignWebsite" class="btn-dark h-7! px-2.5! text-xs!">Ata</button>
                                                     <button type="button" wire:click="cancelAssign" class="btn-quiet h-7! px-2.5! text-xs!">Vazgeç</button>
                                                 </div>
                                             </div>
@@ -124,7 +125,7 @@
                                     @endif
                                 </td>
                                 <td class="hidden align-top text-[13px] text-gray-600 lg:table-cell dark:text-gray-300">{{ $row['source_summary'] }}</td>
-                                <td class="align-top">
+                                <td class="hidden align-top sm:table-cell">
                                     <x-ta.pill :tone="$pillTone($stateTone($row['overall_state']))">{{ $row['run_status_label'] }}</x-ta.pill>
                                     <p class="mt-1 text-xs text-gray-400">{{ $row['last_run_at']?->diffForHumans() ?? '—' }}</p>
                                 </td>
@@ -138,7 +139,7 @@
                                 </td>
                                 <td class="whitespace-nowrap text-right align-top">
                                     <div class="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
-                                        <a href="{{ route('operator.website', ['assetId' => $row['asset']->id]) }}" wire:navigate data-open-site-screen="{{ $row['asset']->id }}" class="btn-quiet">{{ $tr ? 'Site ekranına git' : 'Open site screen' }}</a>
+                                        <a href="{{ route('operator.website', ['assetId' => $row['asset']->id]) }}" wire:navigate data-open-site-screen="{{ $row['asset']->id }}" class="btn-quiet hidden sm:inline-flex">{{ $tr ? 'Site ekranına git' : 'Open site screen' }}</a>
                                         <a href="{{ route('operator.integrations.website', ['assetId' => $row['asset']->id]) }}" wire:navigate class="btn">{{ $tr ? 'Aç' : 'Open' }}</a>
                                     </div>
                                     @if ($canAssign)
@@ -162,8 +163,8 @@
                 @include('livewire.demo.integrations.partials.provider-mark', ['provider' => $selectedRow['wordpress_detected'] ? 'wordpress' : 'website', 'size' => 'lg'])
                 <div class="min-w-0">
                     <h1 class="page-title flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span class="min-w-0 truncate">{{ $selectedRow['asset']->name }}</span>
-                        <x-ta.pill :tone="$pillTone($stateTone($selectedRow['overall_state']))">{{ $selectedRow['run_status_label'] }}</x-ta.pill>
+                        <span class="min-w-0 truncate">{{ str_replace(' · ', ', ', (string) $selectedRow['asset']->name) }}</span>
+                        <x-ta.pill class="tracking-normal" :tone="$pillTone($stateTone($selectedRow['overall_state']))">{{ $selectedRow['run_status_label'] }}</x-ta.pill>
                     </h1>
                     <p class="page-sub truncate"><a href="{{ $selectedRow['asset']->primary_url ?: ('https://'.$selectedRow['asset']->domain) }}" target="_blank" rel="noreferrer" class="hover:text-gray-900 dark:hover:text-white">{{ $selectedRow['asset']->primary_url ?: $selectedRow['asset']->domain }}</a></p>
                 </div>

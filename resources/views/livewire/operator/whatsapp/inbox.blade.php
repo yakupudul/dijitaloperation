@@ -83,7 +83,8 @@
     @endif
 
     @if($historyDeadline)
-        <section class="card" data-wa-history>
+        {{-- Canlı panel (2026-10-20): time-limited or failed steps are tinted cards (amber: do it soon, red: it failed). --}}
+        <section class="relative min-w-0 overflow-hidden rounded-3xl border soft-amber" data-wa-history>
             <div class="card-row flex-wrap items-start sm:flex-nowrap">
                 <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
                 <div class="min-w-0 flex-1">
@@ -144,7 +145,7 @@
                 @if($backupImport?->isBusy())
                     @include('livewire.operator.whatsapp.backup-progress')
                 @elseif($backupImport?->status === 'failed' && $backupImport->updated_at?->greaterThan(now()->subDays(3)))
-                    <div role="alert" class="card" data-wa-backup-status="failed">
+                    <div role="alert" class="relative min-w-0 overflow-hidden rounded-3xl border soft-red" data-wa-backup-status="failed">
                         <div class="card-row flex-wrap items-start sm:flex-nowrap">
                             <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-error-500" aria-hidden="true"></span>
                             <div class="min-w-0 flex-1">
@@ -155,7 +156,7 @@
                         </div>
                     </div>
                 @elseif($backupImport?->status === 'uploaded')
-                    <div class="card" data-wa-backup-status="uploaded">
+                    <div class="relative min-w-0 overflow-hidden rounded-3xl border soft-amber" data-wa-backup-status="uploaded">
                         <div class="card-row flex-wrap items-start sm:flex-nowrap">
                             <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
                             <p class="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-200">{{ $backupImport->file_name }} yüklendi ama çıkarılmadı{{ $backupImport->error ? ': '.$backupImport->error : '.' }}</p>
@@ -164,7 +165,7 @@
                     </div>
                 @endif
                 @if($openQuestions > 0)
-                    <div class="card" data-wa-questions-hint>
+                    <div class="relative min-w-0 overflow-hidden rounded-3xl border soft-amber" data-wa-questions-hint>
                         <div class="card-row flex-wrap items-start sm:flex-nowrap">
                             <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
                             <p class="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-200">Beyin senden {{ $openQuestions }} konuda bilgi istiyor; cevaplarsan cevaplar daha isabetli olur.</p>

@@ -39,26 +39,27 @@
         </header>
         @include('livewire.operator.gbp.partials.desk-message')
 
-        <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Açıklama ve saatler">
+        <nav class="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1" aria-label="Açıklama ve saatler">
             @foreach ($sections as $key => $label)
-                <button type="button" wire:click="setSection('{{ $key }}')" @class(['tab', 'tab-active' => $section === $key]) @if ($section === $key) aria-current="page" @endif>{{ $label }}</button>
+                <button type="button" wire:click="setSection('{{ $key }}')" @class(['seg', 'seg-active' => $section === $key]) @if ($section === $key) aria-current="page" @endif>{{ $label }}</button>
             @endforeach
         </nav>
 
         @if ($section === 'aciklama')
             {{-- 1. What waits: weak descriptions and ready proposals, with the two bulk buttons. --}}
             @if ($weak > 0 || $proposals > 0)
-                <section class="card">
-                    <div class="card-row flex-wrap sm:flex-nowrap">
-                        <span class="row-icon border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $weak > 0 ? 'Eksik ve kısa açıklamaları yapay zekâ yazsın' : 'Hazır önerileri oku ve gönder' }}</p>
-                            <p class="mt-0.5 text-[13px] text-gray-500">İyi bir açıklama en az {{ \App\Services\Gbp\Desk\ProfileFields::DESCRIPTION_GOOD }} karakterdir. Öneriyi satırında okursun; Google’a senin onayınla gider ve geri alınabilir.</p>
+                <section class="soft-card soft-accent hover:translate-y-0! hover:shadow-none!">
+                    <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+                        <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+                        <div class="min-w-0 flex-1 basis-60">
+                            <p class="soft-number">{{ $weak > 0 ? $weak : $proposals }} <span class="text-lg font-medium text-gray-600 dark:text-gray-300">{{ $weak > 0 ? 'açıklama eksik ya da kısa' : 'öneri hazır' }}</span></p>
+                            <p class="mt-2 text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $weak > 0 ? 'Eksik ve kısa açıklamaları yapay zekâ yazsın' : 'Hazır önerileri oku ve gönder' }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">İyi bir açıklama en az {{ \App\Services\Gbp\Desk\ProfileFields::DESCRIPTION_GOOD }} karakterdir. Öneriyi satırında okursun; Google’a senin onayınla gider ve geri alınabilir.</p>
                         </div>
                         @if ($canWrite)
-                            <span class="grid w-full gap-2 sm:flex sm:w-auto">
-                                @if ($weak > 0)<button type="button" wire:click="prepareWeak" class="btn">Eksik ve kısa olanları yaz ({{ $weak }})</button>@endif
-                                @if ($proposals > 0)<button type="button" wire:click="sendProposals" wire:confirm="{{ $proposals }} hazır açıklama olduğu gibi Google’a gönderilsin mi? Önce okumak istersen satırları aç." class="btn-primary">Hazır önerileri gönder ({{ $proposals }})</button>@endif
+                            <span class="grid w-full gap-2 sm:flex sm:w-auto sm:self-end">
+                                @if ($weak > 0)<button type="button" wire:click="prepareWeak" @class(['h-10! px-4! text-sm!', 'btn-primary' => $proposals === 0, 'btn' => $proposals > 0])>Eksik ve kısa olanları yaz ({{ $weak }})</button>@endif
+                                @if ($proposals > 0)<button type="button" wire:click="sendProposals" wire:confirm="{{ $proposals }} hazır açıklama olduğu gibi Google’a gönderilsin mi? Önce okumak istersen satırları aç." class="btn-primary h-10! px-4! text-sm!">Hazır önerileri gönder ({{ $proposals }})</button>@endif
                             </span>
                         @endif
                     </div>
@@ -108,7 +109,7 @@
                                             <textarea x-model="text" rows="8" maxlength="{{ $max }}" class="w-full {{ $input }}"></textarea>
                                             <p class="mt-1 text-[13px] text-gray-500"><span x-text="text.length"></span> / {{ $max }} karakter, iyi bir açıklama en az {{ \App\Services\Gbp\Desk\ProfileFields::DESCRIPTION_GOOD }} karakterdir</p>
                                             <div class="mt-2 grid gap-2 sm:flex">
-                                                <button type="button" wire:click="sendDescription" wire:confirm="Bu açıklama Google’daki profile yazılsın mı? (Geri alınabilir.)" class="btn-primary">Google’a gönder</button>
+                                                <button type="button" wire:click="sendDescription" wire:confirm="Bu açıklama Google’daki profile yazılsın mı? (Geri alınabilir.)" class="btn-dark">Google’a gönder</button>
                                                 <button type="button" wire:click="$set('editing', null)" class="btn-quiet">Vazgeç</button>
                                             </div>
                                         </div>
@@ -262,7 +263,7 @@
                                             <span class="block text-gray-500">{{ $s->reason }}</span></span>
                                         @if ($canWrite)
                                             <span class="flex gap-1">
-                                                <button type="button" wire:click="sendPrepared({{ $s->id }})" wire:confirm="Bu bilgi Google’daki profile yazılsın mı? (Geri alınabilir.)" class="btn h-7! px-2.5!">Google’a gönder</button>
+                                                <button type="button" wire:click="sendPrepared({{ $s->id }})" wire:confirm="Bu bilgi Google’daki profile yazılsın mı? (Geri alınabilir.)" class="btn-dark h-7! px-2.5!">Google’a gönder</button>
                                                 <button type="button" wire:click="dismissPrepared({{ $s->id }})" class="btn-quiet h-7! px-2!">Kaldır</button>
                                             </span>
                                         @endif
@@ -332,7 +333,7 @@
                                             </div>
                                         @endif
                                         <div class="grid gap-2 sm:flex lg:col-span-2">
-                                            <button type="button" wire:click="sendInfo" wire:confirm="Değiştirdiğin bilgiler Google’daki profile yazılsın mı? (Geri alınabilir.)" class="btn-primary">Değişenleri Google’a gönder</button>
+                                            <button type="button" wire:click="sendInfo" wire:confirm="Değiştirdiğin bilgiler Google’daki profile yazılsın mı? (Geri alınabilir.)" class="btn-dark">Değişenleri Google’a gönder</button>
                                             <button type="button" wire:click="$set('infoEditing', null)" class="btn-quiet">Vazgeç</button>
                                         </div>
                                     </div>

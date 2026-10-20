@@ -61,19 +61,29 @@
             <h2 id="kpi-heading" class="section-title">Son {{ $days }} gün</h2>
             <span class="text-sm text-gray-500" title="Her kaynak kendi son veri gününe kadar">önceki {{ $days }} günle</span>
         </div>
-        <div class="metric-strip grid-cols-2 md:grid-cols-3">
+        {{-- Canlı panel (2026-10-20): the brand's key numbers in the dark number panel; the change as a chip. --}}
+        <div class="hero-panel grid-cols-2 lg:grid-cols-3">
             @foreach ($kpis as $kpi)
                 @php
                     $kpiOk = $kpi['state'] === 'ok';
-                    $kpiDelta = $kpiOk && $kpi['delta'] !== null ? ($kpi['delta'] > 0 ? '+' : ($kpi['delta'] < 0 ? '−' : '')).'%'.abs($kpi['delta']) : null;
                     // Spend going up is not good or bad by itself: only results are coloured.
-                    $kpiTone = ! $kpiOk || $kpi['delta'] === null || $kpi['delta'] === 0 || $kpi['key'] === 'ad_spend' ? 'neutral' : ($kpi['delta'] > 0 ? 'positive' : 'negative');
+                    $kpiChip = ! $kpiOk || $kpi['delta'] === null ? null : ($kpi['delta'] === 0 || $kpi['key'] === 'ad_spend' ? 'chip-flat bg-white/10! text-white/80!' : ($kpi['delta'] > 0 ? 'chip-up' : 'chip-down'));
+                    $kpiDelta = $kpiOk && $kpi['delta'] !== null ? ($kpi['delta'] > 0 ? '▲ ' : ($kpi['delta'] < 0 ? '▼ ' : '')).'%'.abs($kpi['delta']) : null;
+                    $kpiDown = $kpiOk && $kpi['delta'] !== null && $kpi['delta'] < 0 && $kpi['key'] !== 'ad_spend';
                 @endphp
-                <x-ta.metric-card :label="$kpi['label']" :value="$kpiOk ? $kpi['value'] : 'veri yok'" :delta="$kpiDelta" :tone="$kpiTone" :muted="! $kpiOk"
-                    :spark="$kpiOk ? ($kpi['spark'] ?? null) : null" :hint="$kpi['note']" data-kpi="{{ $kpi['key'] }}" data-state="{{ $kpi['state'] }}" title="{{ $kpi['source'] }}{{ $kpiOk ? ': '.$kpi['value'] : '' }}">
-                    @if ($kpiOk && $kpi['delta'] === null)<span class="text-gray-500">karşılaştırma yok</span>@endif
-                    @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="link-primary" title="{{ $kpi['source'] }}">{{ $kpi['action']['label'] }}</a>@endif
-                </x-ta.metric-card>
+                <div class="hero-tile" data-kpi="{{ $kpi['key'] }}" data-state="{{ $kpi['state'] }}" title="{{ $kpi['source'] }}{{ $kpiOk ? ': '.$kpi['value'] : '' }}">
+                    <span class="hero-label"><span class="truncate">{{ $kpi['label'] }}</span></span>
+                    <p @class(['hero-value', 'text-white/35! text-xl! font-medium!' => ! $kpiOk])>{{ $kpiOk ? $kpi['value'] : 'veri yok' }}</p>
+                    <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/60">
+                        @if ($kpiDelta !== null)<span class="chip {{ $kpiChip }}">{{ $kpiDelta }}</span>@endif
+                        @if ($kpiOk && $kpi['delta'] === null)<span>karşılaştırma yok</span>@endif
+                        @if (filled($kpi['note']))<span class="min-w-0">{{ $kpi['note'] }}</span>@endif
+                    </p>
+                    @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="mt-2 w-max text-xs font-medium text-white underline decoration-white/30 underline-offset-2 hover:decoration-white" title="{{ $kpi['source'] }}">{{ $kpi['action']['label'] }}</a>@endif
+                    @if ($kpiOk && is_array($kpi['spark'] ?? null) && count($kpi['spark']) >= 2)
+                        <x-ta.sparkline :values="$kpi['spark']" :tone="$kpiDown ? 'down' : 'second'" :width="200" :height="28" :fill="false" class="mt-auto block h-7 w-full pt-2" />
+                    @endif
+                </div>
             @endforeach
         </div>
     </section>
@@ -130,10 +140,11 @@
     {{-- 4. Open work and the digital assets, filtered by channel (the channel tabs' content until each channel has its own tab) --}}
     <div class="space-y-6">
         <div class="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" data-channel-filter>
-            <div class="flex min-w-max items-center gap-x-2 border-b border-gray-200 dark:border-gray-800" role="group" aria-label="Kanal">
-                <button type="button" wire:click="setChannel('')" aria-pressed="{{ $channelFilter === null ? 'true' : 'false' }}" @class(['tab', 'tab-active' => $channelFilter === null])>Tüm kanallar <span class="tabular-nums text-gray-500">{{ $workTotal }}</span></button>
+            <div class="flex min-w-max items-center gap-1.5" role="group" aria-label="Kanal">
+                <button type="button" wire:click="setChannel('')" aria-pressed="{{ $channelFilter === null ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $channelFilter === null])>Tüm kanallar <span @class(['tabular-nums text-xs', 'text-accent' => $channelFilter === null, 'text-gray-400 dark:text-gray-500' => $channelFilter !== null])>{{ $workTotal }}</span></button>
                 @foreach ($channelCounts as $channelKey => $channelRow)
-                    <button type="button" wire:click="setChannel('{{ $channelKey }}')" data-channel="{{ $channelKey }}" aria-pressed="{{ ($channelFilter['key'] ?? null) === $channelKey ? 'true' : 'false' }}" @class(['tab', 'tab-active' => ($channelFilter['key'] ?? null) === $channelKey])>{{ $channelRow['label'] }} <span class="tabular-nums text-gray-500">{{ $channelRow['count'] }}</span></button>
+                    @php $channelActive = ($channelFilter['key'] ?? null) === $channelKey; @endphp
+                    <button type="button" wire:click="setChannel('{{ $channelKey }}')" data-channel="{{ $channelKey }}" aria-pressed="{{ $channelActive ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $channelActive])>{{ $channelRow['label'] }} <span @class(['tabular-nums text-xs', 'text-accent' => $channelActive, 'text-gray-400 dark:text-gray-500' => ! $channelActive])>{{ $channelRow['count'] }}</span></button>
                 @endforeach
             </div>
         </div>

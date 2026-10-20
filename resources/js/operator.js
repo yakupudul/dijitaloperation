@@ -227,6 +227,15 @@ function renderOperatorCharts(root = document) {
 
         destroyOperatorChart(el);
         options = prepareChartHost(el, options);
+        if (Array.isArray(options.colors)) {
+            // Theme tokens (Ayarlar › Görünüm) come as var(--…); ApexCharts needs the resolved color.
+            const rootStyle = getComputedStyle(document.documentElement);
+            options.colors = options.colors.map((color) => {
+                const match = typeof color === 'string' && color.match(/^var\((--[\w-]+)\)$/);
+
+                return match ? (rootStyle.getPropertyValue(match[1]).trim() || color) : color;
+            });
+        }
         bindChartResizeObserver(el);
 
         const chart = new ApexCharts(el, options);

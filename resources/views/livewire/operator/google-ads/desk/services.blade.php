@@ -31,7 +31,7 @@
                             <tr @class(['[&>td]:bg-gray-50 dark:[&>td]:bg-white/[0.03]' => $brand !== null && $b['brand_id'] === $brand])>
                                 <td class="w-[40%] max-w-0">
                                     <span class="flex min-w-0 items-center gap-2.5">
-                                        <x-ta.brand-avatar :name="$b['brand']" size="sm" />
+                                        <x-ta.brand-avatar :name="$b['brand']" :logo="$b['logo'] ?? null" size="sm" />
                                         <span class="min-w-0 truncate font-medium text-gray-900 dark:text-white" title="{{ $b['brand'] }}">{{ $b['brand'] }}</span>
                                         @if (filled($b['city']))<span class="shrink-0 text-xs text-gray-500">{{ $b['city'] }}</span>@endif
                                     </span>
@@ -39,7 +39,7 @@
                                 <td class="whitespace-nowrap text-right text-gray-600 dark:text-gray-400">{{ $money($b['spend']) }}</td>
                                 <td class="whitespace-nowrap text-right text-gray-600 dark:text-gray-400">{{ number_format($b['results'], 1, ',', '.') }}</td>
                                 <td class="whitespace-nowrap text-right font-medium text-gray-900 dark:text-white">{{ $money($b['cost']) }}</td>
-                                <td @class(['w-20 whitespace-nowrap text-right text-[13px]', 'text-error-700 dark:text-error-400' => ($b['diff'] ?? 0) >= 15, 'text-success-700 dark:text-success-400' => ($b['diff'] ?? 0) <= -15, 'text-gray-500' => $b['diff'] === null || abs($b['diff']) < 15])>{{ $b['diff'] === null ? '' : (($b['diff'] > 0 ? '+' : '').number_format($b['diff'], 0, ',', '.').'%') }}</td>
+                                <td class="w-24 whitespace-nowrap text-right">@if ($b['diff'] !== null)<span @class(['chip', 'chip-down' => $b['diff'] >= 15, 'chip-up' => $b['diff'] <= -15, 'chip-flat' => abs($b['diff']) < 15]) title="{{ $b['diff'] >= 15 ? 'Ortancadan pahalı' : ($b['diff'] <= -15 ? 'Ortancadan ucuz' : 'Ortancaya yakın') }}">{{ $b['diff'] > 0 ? '▲ ' : ($b['diff'] < 0 ? '▼ ' : '') }}{{ number_format(abs($b['diff']), 0, ',', '.') }}%</span>@endif</td>
                             </tr>
                         @endforeach
                     </tbody>

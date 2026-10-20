@@ -64,7 +64,7 @@ class DemoPortfolioUxTest extends TestCase
         ]);
 
         Livewire::test(AssetsIndex::class)
-            ->assertSee('Dijital varlıklar')
+            ->assertSeeHtml('Dijital <span class="highlight">varlıklar</span>')
             ->assertSee('Markalara bağlı siteler ve hesaplar.')
             ->assertSee('Nova Website')
             ->assertSee('Nova Meta')

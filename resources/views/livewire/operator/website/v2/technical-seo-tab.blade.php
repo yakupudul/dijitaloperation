@@ -1,7 +1,7 @@
 @php
     $card = 'min-w-0';
-    $pill = fn (bool $on) => $on ? 'h-7 shrink-0 whitespace-nowrap rounded-md bg-gray-100 px-2.5 text-[13px] font-medium text-gray-900 dark:bg-white/10 dark:text-white' : 'h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px] text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
-    $segment = 'inline-flex max-w-full shrink-0 rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-700 dark:bg-gray-900';
+    $pill = fn (bool $on) => $on ? 'seg seg-active h-8! px-3!' : 'seg h-8! px-3!';
+    $segment = 'flex max-w-full shrink-0 flex-wrap gap-1.5';
     $sevTone = ['critical' => 'critical', 'warning' => 'look', 'info' => 'info'];
     $fixTone = ['wordpress' => 'text-gray-500', 'developer' => 'text-gray-500', 'google' => 'text-gray-500'];
     $num = fn ($v) => number_format((int) $v, 0, ',', '.');
@@ -21,13 +21,20 @@
     @endif
 
     {{-- 1. The answer: how many pages have a problem Google or the HTML shows, worst first. A number filters the lists. --}}
-    <section class="metric-strip grid-cols-2 lg:grid-cols-4" data-tech-tiles>
+    <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" data-tech-tiles>
         @foreach ($tiles as [$key, $label, $value, $tone, $note])
-            <button type="button" @if ($key !== '') wire:click="$set('severity', '{{ $activeSeverity === $key ? '' : $key }}')" @endif data-tile="{{ $key ?: 'validating' }}" aria-pressed="{{ $key !== '' && $activeSeverity === $key ? 'true' : 'false' }}"
-                    @class(['flex min-w-0 flex-col px-[18px] py-4 text-left transition', 'bg-gray-50 shadow-[inset_0_-2px_0_0_var(--color-gray-900)] dark:bg-gray-800 dark:shadow-[inset_0_-2px_0_0_var(--color-white)]' => $key !== '' && $activeSeverity === $key, 'bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/60' => $key !== '' && $activeSeverity !== $key, 'cursor-default bg-white dark:bg-gray-900' => $key === ''])>
-                <span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $label }}</span>
-                <span class="mt-1.5 text-[26px] leading-8 font-semibold tracking-[-0.02em] tabular-nums {{ $tone }}">{{ $num($value) }}</span>
-                <span class="mt-1 text-xs text-gray-500">{{ $note }}</span>
+            @php
+                $on = $key !== '' && $activeSeverity === $key;
+                $tint = $value > 0 ? (['critical' => 'soft-red', 'warning' => 'soft-amber'][$key] ?? '') : '';
+            @endphp
+            <button type="button" @if ($key !== '') wire:click="$set('severity', '{{ $activeSeverity === $key ? '' : $key }}')" @endif data-tile="{{ $key ?: 'validating' }}" aria-pressed="{{ $on ? 'true' : 'false' }}"
+                    @class(['soft-card text-left', $tint, 'ring-2 ring-gray-900 dark:ring-white' => $on, 'cursor-default hover:translate-y-0! hover:shadow-none!' => $key === ''])>
+                <span class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ $label }}</span>
+                <span class="soft-number {{ $tone }}">{{ $num($value) }}</span>
+                <span class="text-xs text-gray-600 dark:text-gray-400">{{ $note }}</span>
+                @if ($key !== '' && $value > 0)
+                    <span class="mt-auto pt-1 text-xs font-medium text-gray-700 underline decoration-current/30 underline-offset-2 dark:text-gray-300">{{ $on ? 'Süzgeci kaldır' : 'Yalnız bunları göster' }}</span>
+                @endif
             </button>
         @endforeach
     </section>

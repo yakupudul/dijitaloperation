@@ -94,7 +94,7 @@
                             <span class="tabular-nums text-gray-900 dark:text-white">{{ $num($device['sessions']) }} <span class="text-[13px] text-gray-500">%{{ $device['share_pct'] }}</span></span>
                         </div>
                         <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, (int) $device['share_pct']) }}%"></div>
+                            <div class="h-full rounded-full bg-second" style="width: {{ min(100, (int) $device['share_pct']) }}%"></div>
                         </div>
                     </li>
                 @endforeach

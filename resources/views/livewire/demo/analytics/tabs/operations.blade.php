@@ -4,12 +4,12 @@
 @endphp
 
 <div class="space-y-3">
+    <div class="flex gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="Operasyon" title="{{ $opsData['subtitle'] ?? '' }}">
+        @foreach ($subTabs as $key => [$label, $n])
+            <button type="button" wire:click="setOps('{{ $key }}')" @class(['seg', 'seg-active' => $ops === $key])>{{ $label }}@if ($n > 0) <span @class(['tabular-nums text-xs', 'text-accent' => $ops === $key, 'text-gray-400 dark:text-gray-500' => $ops !== $key])>{{ $n }}</span>@endif</button>
+        @endforeach
+    </div>
     <div class="card">
-        <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Operasyon" title="{{ $opsData['subtitle'] ?? '' }}">
-            @foreach ($subTabs as $key => [$label, $n])
-                <button type="button" wire:click="setOps('{{ $key }}')" @class(['tab', 'tab-active' => $ops === $key])>{{ $label }}@if ($n > 0) <span class="text-gray-500">{{ $n }}</span>@endif</button>
-            @endforeach
-        </div>
 
         @if ($ops === 'findings')
             @if (($opsData['findings'] ?? []) === [])

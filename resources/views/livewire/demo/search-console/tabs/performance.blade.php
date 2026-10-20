@@ -32,9 +32,9 @@
             <h2 class="section-title" title="{{ $data['performance_trend']['note'] ?? '' }}">Günlük trend</h2>
         </div>
         <div class="card">
-            <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Ölçü">
+            <div class="flex gap-1.5 overflow-x-auto px-4 pt-4 no-scrollbar" role="group" aria-label="Ölçü">
                 @foreach ($metricTabs as $key => $label)
-                    <button type="button" wire:click="setMetric('{{ $key }}')" @class(['tab', 'tab-active' => $metric === $key])>{{ $label }}</button>
+                    <button type="button" wire:click="setMetric('{{ $key }}')" @class(['seg h-8! px-3!', 'seg-active' => $metric === $key])>{{ $label }}</button>
                 @endforeach
             </div>
             @if ($hasTrend)
@@ -62,7 +62,7 @@
                             <span class="tabular-nums text-gray-900 dark:text-white">{{ $num($row['clicks']) }} <span class="text-[13px] text-gray-500">tık</span></span>
                         </div>
                         <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, round(($row['clicks'] / $maxDeviceClicks) * 100)) }}%"></div>
+                            <div class="h-full rounded-full bg-second" style="width: {{ min(100, round(($row['clicks'] / $maxDeviceClicks) * 100)) }}%"></div>
                         </div>
                         <p class="text-xs tabular-nums text-gray-500">{{ $num($row['impressions']) }} gösterim, %{{ $dec($row['ctr']) }} tıklama oranı, ort. sıra {{ $dec($row['position']) }}</p>
                     </li>

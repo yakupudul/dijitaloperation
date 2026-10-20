@@ -60,19 +60,20 @@
                 <div class="grid gap-2 sm:flex sm:flex-wrap">
                     @if ($readTotal > $reading->count())<button type="button" wire:click="readMore" class="btn">Daha fazla göster ({{ $readTotal - $reading->count() }})</button>@endif
                     @if ($canWrite && $readTotal > 0)
-                        <button type="button" x-on:click="if (confirm('{{ $readBrand->name }} için onay bekleyen {{ $readTotal }} gönderi onaylansın mı?')) $wire.approveAll(null, {{ $readBrand->id }})" class="btn-primary">Bunları onayla ({{ $readTotal }})</button>
+                        <button type="button" x-on:click="if (confirm('{{ $readBrand->name }} için onay bekleyen {{ $readTotal }} gönderi onaylansın mı?')) $wire.approveAll(null, {{ $readBrand->id }})" class="btn-dark">Bunları onayla ({{ $readTotal }})</button>
                     @endif
                 </div>
             </section>
         @else
             {{-- 1. The work, as four numbers you can click to filter. --}}
             <section class="space-y-2.5">
-                <div class="metric-strip grid-cols-2 lg:grid-cols-4" aria-label="Süzgeç">
+                <div class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Süzgeç">
                     @foreach ($filters as $key => $label)
-                        <button type="button" wire:click="setFilter('{{ $key }}')" @class(['flex min-w-0 flex-col bg-white px-[18px] py-3.5 text-left transition dark:bg-gray-900', 'shadow-[inset_0_-2px_0_var(--color-gray-900)] dark:shadow-[inset_0_-2px_0_var(--color-white)]' => $filter === $key, 'hover:bg-gray-50 dark:hover:bg-white/[0.03]' => $filter !== $key]) @if ($filter === $key) aria-pressed="true" @endif>
-                            <span @class(['text-[13px]', 'font-medium text-gray-900 dark:text-white' => $filter === $key, 'text-gray-500' => $filter !== $key])>{{ $label }}{{ $key === 'low' ? ' işletme' : '' }}</span>
-                            <span @class(['mt-1 text-[22px] font-semibold leading-7 tabular-nums tracking-[-0.02em]', 'text-warning-700 dark:text-warning-400' => in_array($key, ['draft', 'failed'], true) && $totals[$key] > 0, 'text-gray-900 dark:text-white' => ! (in_array($key, ['draft', 'failed'], true) && $totals[$key] > 0)])>{{ $totals[$key] }}</span>
-                            <span class="mt-0.5 text-xs text-gray-500">{{ $hints[$key] }}</span>
+                        @php $hot = in_array($key, ['draft', 'failed'], true) && $totals[$key] > 0; @endphp
+                        <button type="button" wire:click="setFilter('{{ $key }}')" @class(['soft-card gap-1.5! text-left', 'soft-accent' => $hot && $key === 'draft', 'soft-red' => $hot && $key === 'failed', 'ring-2 ring-gray-900 dark:ring-white' => $filter === $key]) @if ($filter === $key) aria-pressed="true" @endif>
+                            <span class="soft-number text-[26px]!">{{ $totals[$key] }}</span>
+                            <span class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $label }}{{ $key === 'low' ? ' işletme' : '' }}</span>
+                            <span class="text-xs text-gray-600 dark:text-gray-300">{{ $hints[$key] }}</span>
                         </button>
                     @endforeach
                 </div>
@@ -113,7 +114,7 @@
                             @if ($sum('drafts') > 0)
                                 <span class="flex gap-1.5 max-sm:w-full max-sm:pl-7">
                                     <button type="button" wire:click="startReading({{ (int) $brandModel?->id }})" class="btn-quiet">Oku</button>
-                                    @if ($canWrite)<button type="button" x-on:click="if (confirm('{{ $brandModel?->name }} için {{ $sum('drafts') }} gönderi onaylansın mı?')) $wire.approveAll(null, {{ (int) $brandModel?->id }})" class="btn max-sm:flex-1">Markayı onayla ({{ $sum('drafts') }})</button>@endif
+                                    @if ($canWrite)<button type="button" x-on:click="if (confirm('{{ $brandModel?->name }} için {{ $sum('drafts') }} gönderi onaylansın mı?')) $wire.approveAll(null, {{ (int) $brandModel?->id }})" class="btn-dark max-sm:flex-1">Markayı onayla ({{ $sum('drafts') }})</button>@endif
                                 </span>
                             @endif
                         </div>
@@ -163,7 +164,7 @@
                                                 <p class="mt-1.5 whitespace-pre-line break-words leading-6 text-gray-800 dark:text-gray-200">{{ $shareCandidate->summary }}</p>
                                                 @if ($shareCandidate->page)<p class="mt-1 text-[13px] text-gray-500">Bağlantı: <a href="{{ $shareCandidate->url ?? $shareCandidate->page->url }}" target="_blank" rel="noopener" class="link-neutral break-words">{{ $shareCandidate->page->title }}</a></p>@endif
                                                 <div class="mt-2.5 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
-                                                    <button type="button" wire:click="confirmShare({{ $shareCandidate->id }})" wire:loading.attr="disabled" class="btn-primary">Şimdi paylaş</button>
+                                                    <button type="button" wire:click="confirmShare({{ $shareCandidate->id }})" wire:loading.attr="disabled" class="btn-dark">Şimdi paylaş</button>
                                                     @if ($shareTotal > 1)<button type="button" wire:click="nextShare" class="btn">Başka gönderi</button>@endif
                                                     <button type="button" wire:click="startShare({{ $location->id }})" class="btn-quiet">Vazgeç</button>
                                                 </div>
@@ -177,7 +178,7 @@
                                                 <a href="{{ route('operator.gbp', ['assetId' => $location->id, 'tab' => 'posts']) }}" wire:navigate class="btn-quiet -ml-2.5">Profil ekranı</a>
                                                 @if ($this->day !== null)<button type="button" wire:click="open({{ $location->id }})" class="btn-quiet">Tüm günler</button>@endif
                                                 @if ($canWrite && $i['drafts'] > 0)
-                                                    <button type="button" wire:click="approveAll({{ $location->id }})" class="btn ml-auto max-sm:w-full">Bu işletmenin taslaklarını onayla ({{ $i['drafts'] }})</button>
+                                                    <button type="button" wire:click="approveAll({{ $location->id }})" class="btn-dark ml-auto max-sm:w-full">Bu işletmenin taslaklarını onayla ({{ $i['drafts'] }})</button>
                                                 @endif
                                             </div>
                                             <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.02]">

@@ -25,10 +25,11 @@
 
     {{-- One navigation level (2026-10-19): the layout's section tabs are the top navigation; this page's own parts are
          in-page tabs (was a second, left-hand menu). --}}
-    <nav class="-mt-4 flex gap-1 overflow-x-auto border-b border-gray-200 no-scrollbar dark:border-gray-800" aria-label="{{ __('operator.settings.sections') }}" data-settings-sections>
+    {{-- Canlı panel (2026-10-20): the layout's underline tabs are the page level; this page's parts are pill tabs (seg). --}}
+    <nav class="-mt-4 flex gap-1.5 overflow-x-auto no-scrollbar" aria-label="{{ __('operator.settings.sections') }}" data-settings-sections>
         @foreach ($sections as $item)
             <button type="button" wire:click="setSection('{{ $item['id'] }}')" @if ($section === $item['id']) aria-current="true" @endif
-                @class(['tab', 'tab-active' => $section === $item['id']])>
+                @class(['seg', 'seg-active' => $section === $item['id']])>
                 {{ $item['label'] }}
             </button>
         @endforeach
@@ -140,7 +141,7 @@
                 </div>
                 <div class="{{ $footer }} rounded-b-xl">
                     @if ($isAdmin)
-                        <button type="submit" class="btn-primary w-full sm:w-auto">{{ __('operator.settings.save_general') }}</button>
+                        <button type="submit" class="btn-dark w-full sm:w-auto">{{ __('operator.settings.save_general') }}</button>
                     @else
                         <p class="mr-auto text-xs text-gray-500">{{ __('operator.settings.admin_only') }}</p>
                     @endif
@@ -199,10 +200,9 @@
                 <div class="{{ $row }} items-center!">
                     <div class="{{ $rowLabel }} sm:pt-0!"><span class="{{ $labelText }}">Önizleme</span></div>
                     <div class="{{ $control }} flex flex-wrap items-center gap-2">
-                        <span class="btn-primary pointer-events-none">Hepsini gönder</span>
+                        <span class="btn-primary pointer-events-none">Gönder</span>
                         <span class="text-base font-semibold text-gray-900 dark:text-white">Bugün <span class="highlight">6 şey</span></span>
-                        <span class="chip chip-accent">99</span>
-                        <span class="h-6 w-10 rounded-md bg-second" aria-hidden="true"></span>
+                        <span class="h-6 w-8 rounded-md bg-second" aria-hidden="true"></span>
                     </div>
                 </div>
                 <div class="{{ $footer }} rounded-b-3xl">
@@ -315,7 +315,7 @@
                     <div class="{{ $footer }}">
                         <button type="button" wire:click="clearOperatorMail" class="btn-quiet w-full sm:mr-auto sm:w-auto">{{ __('operator.mail.clear') }}</button>
                         <button type="button" wire:click="sendTestEmail" class="btn w-full sm:w-auto">{{ __('operator.mail.test') }}</button>
-                        <button type="submit" class="btn-primary w-full sm:w-auto">{{ __('operator.mail.save') }}</button>
+                        <button type="submit" class="btn-dark w-full sm:w-auto">{{ __('operator.mail.save') }}</button>
                     </div>
                 </form>
             @endif
@@ -540,15 +540,13 @@
             </div>
         </section>
     @elseif ($section === 'advanced')
-        @if ($advanced_sub === null)
-            <div class="-mt-4 flex flex-wrap gap-2">
-                <button type="button" wire:click="setAdvancedSub('files')" class="btn">{{ __('operator.settings_ia.advanced_files') }}</button>
-                <button type="button" wire:click="setAdvancedSub('privacy')" class="btn">{{ __('operator.settings_ia.advanced_privacy') }}</button>
-                <button type="button" wire:click="setAdvancedSub('diagnostics')" class="btn">{{ __('operator.settings_ia.advanced_diagnostics') }}</button>
-            </div>
-        @else
-            <div class="-mt-4"><button type="button" wire:click="setAdvancedSub(null)" class="btn-quiet -ml-2.5">{{ __('operator.settings.advanced.back') }}</button></div>
-        @endif
+        {{-- Gelişmiş parts as quiet pill filters; the first one shows all three. --}}
+        <div class="-mt-4 flex flex-wrap gap-1.5">
+            <button type="button" wire:click="setAdvancedSub(null)" @class(['chip h-7! px-2.5! font-medium! border', 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' => $advanced_sub === null, 'border-gray-200 bg-white text-gray-600 hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => $advanced_sub !== null])>{{ __('operator.settings.advanced.back') }}</button>
+            <button type="button" wire:click="setAdvancedSub('files')" @class(['chip h-7! px-2.5! font-medium! border', 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' => $advanced_sub === 'files', 'border-gray-200 bg-white text-gray-600 hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => $advanced_sub !== 'files'])>{{ __('operator.settings_ia.advanced_files') }}</button>
+            <button type="button" wire:click="setAdvancedSub('privacy')" @class(['chip h-7! px-2.5! font-medium! border', 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' => $advanced_sub === 'privacy', 'border-gray-200 bg-white text-gray-600 hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => $advanced_sub !== 'privacy'])>{{ __('operator.settings_ia.advanced_privacy') }}</button>
+            <button type="button" wire:click="setAdvancedSub('diagnostics')" @class(['chip h-7! px-2.5! font-medium! border', 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' => $advanced_sub === 'diagnostics', 'border-gray-200 bg-white text-gray-600 hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => $advanced_sub !== 'diagnostics'])>{{ __('operator.settings_ia.advanced_diagnostics') }}</button>
+        </div>
 
         @if ($advanced_sub === null || $advanced_sub === 'diagnostics')
             <section>

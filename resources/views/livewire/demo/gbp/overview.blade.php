@@ -64,33 +64,44 @@
         {{-- 1. Five numbers for the chosen period. --}}
         <section>
             <div class="section-head"><h2 class="section-title">{{ $range->label() }}</h2></div>
-            <div class="metric-strip grid-cols-2 lg:grid-cols-5" data-testid="gbp-numbers">
-                <x-ta.metric-card label="Görüntüleme (harita + arama)" :value="$num($views['current'] ?? null)"
-                    :delta="$pct === null ? null : ($pct > 0 ? '+' : '').$pct.'%'" :tone="$pct === null || $pct == 0 ? 'neutral' : ($pct > 0 ? 'ok' : 'critical')"
-                    :hint="$pct === null ? 'önceki dönem yok' : 'karşılaştırma dönemine göre'" />
-                @if ($n['actions'])
-                    <x-ta.metric-card label="Tıklama" :value="$num($n['actions']['calls'] + $n['actions']['directions'] + $n['actions']['website_clicks'])"
-                        :hint="'Arama '.$num($n['actions']['calls']).', Yol '.$num($n['actions']['directions']).', Web '.$num($n['actions']['website_clicks'])" />
-                @else
-                    <x-ta.metric-card label="Tıklama" value="—" hint="veri yok" />
-                @endif
-                <x-ta.metric-card label="Puan" :value="$n['rating'] !== null ? number_format($n['rating'], 1, ',', '.') : '—'" :hint="$num($n['review_count']).' yorum'" />
-                <x-ta.metric-card label="Yanıtsız yorum" :value="$num($n['unanswered'])">
-                    @if (($n['unanswered'] ?? 0) > 0)<button type="button" wire:click="showUnanswered" class="link-neutral text-[13px] font-medium">Yanıtla</button>@endif
-                </x-ta.metric-card>
-                <x-ta.metric-card label="Profil standartları" :value="$n['standards'] ? $n['standards']['passed'].' / '.$n['standards']['total'] : '—'" hint="geçen / toplam" class="col-span-2 lg:col-span-1" />
+            <div class="hero-panel grid-cols-2 lg:grid-cols-5" data-testid="gbp-numbers">
+                <div class="hero-tile hero-tile-accent col-span-2 lg:col-span-1">
+                    <span class="hero-label">Görüntüleme (harita + arama)</span>
+                    <p class="hero-value">{{ $num($views['current'] ?? null) }}</p>
+                    <p class="mt-2 flex flex-wrap items-center gap-2 text-xs opacity-70">@if ($pct !== null)<span @class(['chip', 'chip-up' => $pct > 0, 'chip-down' => $pct < 0, 'chip-flat' => $pct == 0])>{{ $pct > 0 ? '▲ '.$pct : ($pct < 0 ? '▼ '.abs($pct) : '0') }}%</span>@endif{{ $pct === null ? 'önceki dönem yok' : 'karşılaştırma dönemine göre' }}</p>
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Tıklama</span>
+                    <p class="hero-value">{{ $n['actions'] ? $num($n['actions']['calls'] + $n['actions']['directions'] + $n['actions']['website_clicks']) : '—' }}</p>
+                    <p class="mt-2 text-xs text-white/60">{{ $n['actions'] ? 'Arama '.$num($n['actions']['calls']).', Yol '.$num($n['actions']['directions']).', Web '.$num($n['actions']['website_clicks']) : 'veri yok' }}</p>
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Puan</span>
+                    <p class="hero-value">{{ $n['rating'] !== null ? number_format($n['rating'], 1, ',', '.') : '—' }}</p>
+                    <p class="mt-2 text-xs text-white/60">{{ $num($n['review_count']) }} yorum</p>
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Yanıtsız yorum</span>
+                    <p class="hero-value">{{ $num($n['unanswered']) }}</p>
+                    @if (($n['unanswered'] ?? 0) > 0)<p class="mt-2"><button type="button" wire:click="showUnanswered" class="inline-flex h-7 items-center rounded-lg bg-white px-2.5 text-xs font-semibold text-gray-900 transition hover:bg-gray-200">Yanıtla</button></p>@endif
+                </div>
+                <div class="hero-tile">
+                    <span class="hero-label">Profil standartları</span>
+                    <p class="hero-value">{{ $n['standards'] ? $n['standards']['passed'].' / '.$n['standards']['total'] : '—' }}</p>
+                    <p class="mt-2 text-xs text-white/60">geçen / toplam</p>
+                </div>
             </div>
         </section>
 
         @if ($openCount > 0)
-            <section class="card">
-                <div class="card-row flex-wrap sm:flex-nowrap">
-                    <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $openCount }} açık öneri</p>
-                        <p class="mt-0.5 text-[13px] text-gray-500">Profil standartları ve yapay zekâ önerileri; onayla, reddet ya da ertele.</p>
+            <section class="soft-card soft-accent hover:translate-y-0! hover:shadow-none!">
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
+                    <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+                    <div class="min-w-0 flex-1 basis-60">
+                        <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white"><span class="soft-number mr-1.5 align-[-3px] text-[26px]!">{{ $openCount }}</span> açık öneri</p>
+                        <p class="mt-1 text-[13px] text-gray-600 dark:text-gray-300">Profil standartları ve yapay zekâ önerileri; onayla, reddet ya da ertele.</p>
                     </div>
-                    <button type="button" wire:click="setTab('todo')" class="btn w-full sm:w-auto">Yapılacaklar</button>
+                    <button type="button" wire:click="setTab('todo')" class="btn-primary h-10! w-full px-4! text-sm! sm:w-auto sm:self-center">Yapılacaklar</button>
                 </div>
             </section>
         @endif
@@ -177,7 +188,7 @@
                                 @endif
                             </div>
                             <div class="flex shrink-0 gap-1">
-                                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="btn h-7! px-2.5!">Onayla</button>
+                                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="btn-dark h-7! px-2.5!">Onayla</button>
                                 <button type="button" wire:click="dismissSuggestion({{ $s->id }})" class="btn-quiet h-7! px-2!">Reddet</button>
                                 <button type="button" wire:click="snoozeSuggestion({{ $s->id }})" class="btn-quiet h-7! px-2!">Ertele</button>
                             </div>
@@ -279,7 +290,7 @@
                                         @if (in_array($item->status, [\App\Models\GbpQueuedPost::DRAFT, \App\Models\GbpQueuedPost::APPROVED], true))
                                             <div class="mt-2 flex flex-wrap items-center gap-1.5">
                                                 @if ($item->status === \App\Models\GbpQueuedPost::DRAFT && $canWrite)
-                                                    <button type="button" wire:click="approvePlanned({{ $item->id }})" class="btn h-7! px-2.5!" data-approve-planned="{{ $item->id }}">Onayla</button>
+                                                    <button type="button" wire:click="approvePlanned({{ $item->id }})" class="btn-dark h-7! px-2.5!" data-approve-planned="{{ $item->id }}">Onayla</button>
                                                 @endif
                                                 <a href="{{ route('operator.gbp-posts', ['isletme' => $assetId, 'gun' => $row['day']]) }}" wire:navigate class="btn-quiet h-7! px-2!">Metni düzenle</a>
                                                 <button type="button" wire:click="skipPlanned({{ $item->id }})" wire:confirm="Bu günün gönderisi atlansın mı?" class="btn-quiet h-7! px-2!">Atla</button>

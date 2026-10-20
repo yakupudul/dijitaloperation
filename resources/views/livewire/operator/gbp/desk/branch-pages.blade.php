@@ -27,12 +27,13 @@
 
         {{-- 1. The work, as numbers you can click to filter. --}}
         <section class="space-y-2.5">
-            <div class="flex flex-wrap gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 shadow-card dark:border-gray-800 dark:bg-gray-800" aria-label="Durum süzgeci">
+            @php $firstTodo = collect(['hazirla', 'oku', 'yayinla', 'bagla'])->first(fn (string $k): bool => ($counts[$k] ?? 0) > 0); @endphp
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Durum süzgeci">
                 @foreach ($filters as $key => $f)
                     @continue(($counts[$key] ?? 0) === 0 && $filter !== $key)
-                    <button type="button" wire:click="setFilter('{{ $key }}')" @class(['flex min-w-0 flex-1 basis-36 flex-col bg-white px-[18px] py-3.5 text-left transition dark:bg-gray-900', 'shadow-[inset_0_-2px_0_var(--color-gray-900)] dark:shadow-[inset_0_-2px_0_var(--color-white)]' => $filter === $key, 'hover:bg-gray-50 dark:hover:bg-white/[0.03]' => $filter !== $key]) @if ($filter === $key) aria-pressed="true" @endif>
-                        <span @class(['text-[13px]', 'font-medium text-gray-900 dark:text-white' => $filter === $key, 'text-gray-500' => $filter !== $key])>{{ $f['label'] }}</span>
-                        <span class="mt-1 text-[22px] font-semibold leading-7 tabular-nums tracking-[-0.02em] text-gray-900 dark:text-white">{{ $counts[$key] }}</span>
+                    <button type="button" wire:click="setFilter('{{ $key }}')" @class(['soft-card gap-1.5! text-left', 'soft-accent' => $key === $firstTodo, 'soft-amber' => in_array($key, ['veri', 'site'], true) && ($counts[$key] ?? 0) > 0, 'ring-2 ring-gray-900 dark:ring-white' => $filter === $key]) @if ($filter === $key) aria-pressed="true" @endif>
+                        <span class="soft-number text-[26px]!">{{ $counts[$key] ?? 0 }}</span>
+                        <span class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $f['label'] }}</span>
                     </button>
                 @endforeach
             </div>
@@ -194,7 +195,7 @@
                                             </div>
                                         @endif
                                         <div class="grid gap-2 pt-1 sm:flex sm:flex-wrap">
-                                            <button type="button" wire:click="send({{ $location->id }})" wire:confirm="Sayfa WordPress’e taslak olarak gönderilsin mi? Yayınlamayı WordPress’te sen yaparsın." class="btn-primary">WordPress’e taslak gönder</button>
+                                            <button type="button" wire:click="send({{ $location->id }})" wire:confirm="Sayfa WordPress’e taslak olarak gönderilsin mi? Yayınlamayı WordPress’te sen yaparsın." class="btn-dark">WordPress’e taslak gönder</button>
                                             <button type="button" wire:click="save" class="btn">Kaydet</button>
                                             <button type="button" wire:click="discard({{ $location->id }})" wire:confirm="Hazırlanan metin silinsin mi?" class="btn-quiet">Taslağı sil</button>
                                         </div>

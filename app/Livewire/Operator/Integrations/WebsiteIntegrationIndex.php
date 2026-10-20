@@ -327,8 +327,8 @@ final class WebsiteIntegrationIndex extends Component
     {
         $scope = (string) data_get($run->request_context, 'context.collection_scope', '');
         $label = match ($scope) {
-            'full' => $this->text('Genel çekim · HTML, TLS ve bağlı WordPress', 'General · HTML, TLS and connected WordPress'),
-            'full_reread' => $this->text('Tam yeniden okuma · tüm sayfalar', 'Full re-read · every page'),
+            'full' => $this->text('Genel çekim: HTML, TLS ve bağlı WordPress', 'General: HTML, TLS and connected WordPress'),
+            'full_reread' => $this->text('Tam yeniden okuma: tüm sayfalar', 'Full re-read: every page'),
             'public' => $this->text('Sayfa HTML ve TLS', 'Page HTML and TLS'),
             'wordpress' => $this->text('WordPress tam envanter', 'WordPress full inventory'),
             'changes' => $this->text('Değişen WordPress kayıtları', 'Changed WordPress records'),
@@ -693,7 +693,7 @@ final class WebsiteIntegrationIndex extends Component
             state: $pageSpeedState,
             connectionLabel: (bool) $row['page_speed_ready']
                 ? $this->text('Bağlı', 'Connected')
-                : $this->text('İsteğe bağlı · bağlı değil', 'Optional · not connected'),
+                : $this->text('İsteğe bağlı, bağlı değil', 'Optional, not connected'),
             datasets: $pageSpeedDatasets,
             optional: true,
         ));
@@ -1684,9 +1684,9 @@ final class WebsiteIntegrationIndex extends Component
             $stage['summary'] = $stage['family'] === WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL && $pages !== null
                 ? $this->text(
                     number_format($pages['done'], 0, ',', '.').' / '.number_format($pages['planned'], 0, ',', '.').' sayfa'
-                        .($pages['unread'] > 0 ? ' · yarım kaldı: '.number_format($pages['unread'], 0, ',', '.').' sayfa okunmadı (sonraki Genel çekim okur)' : ''),
+                        .($pages['unread'] > 0 ? ', yarım kaldı: '.number_format($pages['unread'], 0, ',', '.').' sayfa okunmadı (sonraki Genel çekim okur)' : ''),
                     number_format($pages['done']).' / '.number_format($pages['planned']).' pages'
-                        .($pages['unread'] > 0 ? ' · stopped early: '.number_format($pages['unread']).' pages not read (the next general collection reads them)' : ''),
+                        .($pages['unread'] > 0 ? ', stopped early: '.number_format($pages['unread']).' pages not read (the next general collection reads them)' : ''),
                 )
                 : null;
 
@@ -1785,13 +1785,13 @@ final class WebsiteIntegrationIndex extends Component
         $concurrency = (int) ($politeness['concurrency'] ?? config('moxdop-website-intelligence.crawl.concurrency', 2));
         $reason = is_string($politeness['reason'] ?? null) ? WebsiteDatasetExecutor::distressLabel($politeness['reason']) : null;
         $next = filled($politeness['next_attempt_at'] ?? null) ? Carbon::parse((string) $politeness['next_attempt_at']) : null;
-        $detail = is_string($politeness['detail'] ?? null) && $politeness['detail'] !== '' ? ' · '.$this->text('son hata', 'last error').': '.$politeness['detail'] : '';
+        $detail = is_string($politeness['detail'] ?? null) && $politeness['detail'] !== '' ? ', '.$this->text('son hata', 'last error').': '.$politeness['detail'] : '';
         if (($politeness['mode'] ?? null) === 'backoff' && $next !== null && $next->isFuture()) {
             $minutes = max(1, (int) ceil(now()->diffInSeconds($next, true) / 60));
 
             return $this->text(
-                'Site yavaş yanıt veriyor'.($reason ? ' ('.$reason.')' : '').'; çekim '.$minutes.' dk sonra ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') yavaşça sürecek · aynı anda 1 sayfa',
-                'The site is responding slowly'.($reason ? ' ('.$reason.')' : '').'; collection continues gently in '.$minutes.' min ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') · 1 page at a time',
+                'Site yavaş yanıt veriyor'.($reason ? ' ('.$reason.')' : '').'; çekim '.$minutes.' dk sonra ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').') yavaşça sürecek, aynı anda 1 sayfa',
+                'The site is responding slowly'.($reason ? ' ('.$reason.')' : '').'; collection continues gently in '.$minutes.' min ('.$next->copy()->setTimezone(config('app.timezone'))->format('H:i').'), 1 page at a time',
             ).$detail;
         }
         if (($politeness['mode'] ?? null) === 'slow') {
@@ -1799,12 +1799,12 @@ final class WebsiteIntegrationIndex extends Component
                 ? $this->text('robots.txt bekleme süresi '.(int) $politeness['crawl_delay'].' sn', 'robots.txt crawl delay '.(int) $politeness['crawl_delay'].' s')
                 : $this->text('site yakın zamanda zorlandı'.($reason ? ': '.$reason : ''), 'the site struggled recently'.($reason ? ': '.$reason : ''));
 
-            return $this->text('Nazik mod: aynı anda '.$concurrency.' sayfa · '.$why, 'Gentle mode: '.$concurrency.' page(s) at a time · '.$why).$detail;
+            return $this->text('Nazik mod: aynı anda '.$concurrency.' sayfa, '.$why, 'Gentle mode: '.$concurrency.' page(s) at a time, '.$why).$detail;
         }
 
         return $this->text(
-            'Nazik mod: aynı anda '.$concurrency.' sayfa · site yavaşlarsa otomatik yavaşlar',
-            'Gentle mode: '.$concurrency.' pages at a time · slows down automatically if the site slows down',
+            'Nazik mod: aynı anda '.$concurrency.' sayfa, site yavaşlarsa otomatik yavaşlar',
+            'Gentle mode: '.$concurrency.' pages at a time, slows down automatically if the site slows down',
         );
     }
 
@@ -1823,13 +1823,13 @@ final class WebsiteIntegrationIndex extends Component
         if (is_array($pages) && $pages['active']) {
             $pageLine = $this->text($number($pages['done']).' / '.$number($pages['planned']).' alındı', $number($pages['done']).' / '.$number($pages['planned']).' fetched');
             if ($pages['eta_label'] !== null) {
-                $pageLine .= $this->text(' · tahmini ', ' · about ').$pages['eta_label'];
+                $pageLine .= $this->text(', tahmini ', ', about ').$pages['eta_label'];
             }
         } else {
             $pageLine = $this->text($number((int) $row['headline_metrics']['html_pages']).' sayfa alındı', $number((int) $row['headline_metrics']['html_pages']).' pages collected');
         }
         if (is_array($pages) && $pages['skipped'] > 0) {
-            $pageLine .= $this->text(' · '.$number($pages['skipped']).' değişmediği için atlandı', ' · '.$number($pages['skipped']).' unchanged, skipped');
+            $pageLine .= $this->text(', '.$number($pages['skipped']).' değişmediği için atlandı', ', '.$number($pages['skipped']).' unchanged, skipped');
         }
 
         /** @var DigitalAsset $asset */
@@ -1841,12 +1841,12 @@ final class WebsiteIntegrationIndex extends Component
             $wordpressLine = $this->text($number($this->wordpressPageCount((int) $asset->id)).' sayfa', $number($this->wordpressPageCount((int) $asset->id)).' pages')
                 .$this->text(' (son envanter ', ' (last inventory ').($inventoryAt?->diffForHumans() ?? '—').')';
             if (! (bool) $row['wordpress_ready']) {
-                $wordpressLine .= $this->text(' · eşleştirme gerekli', ' · pairing required');
+                $wordpressLine .= $this->text(', eşleştirme gerekli', ', pairing required');
             }
         }
 
         $lastRun = $row['run'] instanceof CollectionRun
-            ? $row['run_status_label'].' · '.($row['last_run_at']?->diffForHumans() ?? '—')
+            ? $row['run_status_label'].', '.($row['last_run_at']?->diffForHumans() ?? '—')
             : $this->text('Henüz yok', 'None yet');
 
         $lines = [
@@ -1891,12 +1891,12 @@ final class WebsiteIntegrationIndex extends Component
             }
             $readable = $state['page_cache']['readable'] ?? null;
             if ($readable === true) {
-                $cache .= $this->text(' · eklenti önbellek dosyalarını okuyor', ' · connector reads the cache files');
+                $cache .= $this->text(', eklenti önbellek dosyalarını okuyor', ', connector reads the cache files');
             }
             $parts[] = $cache;
         }
 
-        return $parts === [] ? null : implode(' · ', $parts);
+        return $parts === [] ? null : implode(', ', $parts);
     }
 
     private function minutesLabel(int $minutes): string

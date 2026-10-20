@@ -9,7 +9,7 @@
         <div class="flex w-full shrink-0 items-center gap-1.5 sm:w-auto">
             <button type="button" wire:click="$toggle('preview')" class="btn-quiet">{{ $preview ? 'Gizle' : 'Önizle' }}</button>
             @if ($isAdmin)
-                <button type="button" wire:click="send" wire:confirm="llms.txt siteye gönderilsin mi?" wire:loading.attr="disabled" class="btn flex-1 sm:flex-none" data-llms-send>Siteye gönder</button>
+                <button type="button" wire:click="send" wire:confirm="llms.txt siteye gönderilsin mi?" wire:loading.attr="disabled" class="btn-dark flex-1 sm:flex-none" data-llms-send>Siteye gönder</button>
                 @if ($last?->isUndoable())
                     <button type="button" wire:click="undo({{ $last->id }})" wire:confirm="Önceki llms.txt'ye dönülsün mü?" class="btn-quiet hover:text-error-600!">Geri al</button>
                 @endif

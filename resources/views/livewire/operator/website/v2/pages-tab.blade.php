@@ -8,7 +8,6 @@
     $hasAds = $rows !== null && collect($rows->items())->contains(fn (array $row): bool => $row['ads_clicks'] !== null);
     $arrow = fn (string $column) => $sort === $column ? ($dir === 'asc' ? ' ↑' : ' ↓') : '';
     $th = 'cursor-pointer select-none text-right! hover:text-gray-800 dark:hover:text-white';
-    $typeCell = fn (bool $on) => 'flex min-w-0 flex-col px-4 py-3.5 text-left transition disabled:cursor-default disabled:opacity-50 '.($on ? 'bg-gray-50 shadow-[inset_0_-2px_0_0_var(--color-gray-900)] dark:bg-gray-800 dark:shadow-[inset_0_-2px_0_0_var(--color-white)]' : 'bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/60');
     $health = function (array $row): array {
         if ($row['status_code'] !== null && $row['status_code'] >= 400) {
             return ['HTTP '.$row['status_code'], 'critical'];
@@ -32,29 +31,26 @@
 <div class="min-w-0 space-y-8 text-sm dark:text-gray-200" data-pages-tab>
     @php $all = collect($types)->sum('count'); @endphp
     {{-- 1. The answer: how many pages of each kind the site has and how many of them get clicks. A cell opens its list. --}}
-    <section class="metric-strip grid-cols-2 sm:grid-cols-4 xl:grid-cols-8" data-page-types>
-        <button type="button" wire:click="setType('')" data-type="" class="{{ $typeCell($activeType === '') }}">
-            <span class="text-[13px] text-gray-500 dark:text-gray-400">Tümü</span>
-            <span class="mt-1 text-[22px] leading-7 font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $num($all) }}</span>
-            <span class="mt-0.5 text-xs text-gray-500">{{ $periodDays }} gün</span>
+    <nav class="no-scrollbar flex gap-1.5 overflow-x-auto" aria-label="Sayfa türleri" data-page-types>
+        <button type="button" wire:click="setType('')" data-type="" title="{{ $periodDays }} gün" @class(['seg', 'seg-active' => $activeType === ''])>
+            Tümü <span @class(['tabular-nums text-xs', 'text-accent' => $activeType === '', 'text-gray-400 dark:text-gray-500' => $activeType !== ''])>{{ $num($all) }}</span>
         </button>
         @foreach ($types as $key => $bucket)
-            <button type="button" wire:click="setType('{{ $key }}')" data-type="{{ $key }}" @disabled($bucket['count'] === 0) class="{{ $typeCell($activeType === $key) }}">
-                <span class="truncate text-[13px] text-gray-500 dark:text-gray-400">{{ $bucket['label'] }}</span>
-                <span class="mt-1 text-[22px] leading-7 font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $num($bucket['count']) }}</span>
-                <span class="mt-0.5 truncate text-xs text-gray-500">{{ $num($bucket['clicked']) }} tıklama alan</span>
+            @continue($bucket['count'] === 0 && $activeType !== $key)
+            <button type="button" wire:click="setType('{{ $key }}')" data-type="{{ $key }}" title="{{ $num($bucket['clicked']) }} tıklama alan" @class(['seg', 'seg-active' => $activeType === $key])>
+                {{ $bucket['label'] }} <span @class(['tabular-nums text-xs', 'text-accent' => $activeType === $key, 'text-gray-400 dark:text-gray-500' => $activeType !== $key])>{{ $num($bucket['count']) }}</span>
             </button>
         @endforeach
-    </section>
+    </nav>
 
     {{-- 2. Filters. --}}
     <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
         @if ($grouped)
             <span class="text-[13px] text-gray-500 dark:text-gray-400">Her türün en çok tıklanan sayfaları; tamamı için türe tıkla.</span>
         @else
-            <nav class="no-scrollbar flex min-w-0 max-w-full gap-0.5 overflow-x-auto rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-700 dark:bg-gray-900" aria-label="Sayfa filtreleri">
+            <nav class="no-scrollbar flex min-w-0 max-w-full gap-1.5 overflow-x-auto" aria-label="Sayfa filtreleri">
                 @foreach (\App\Services\Site\Analysis\SitePagesReader::FILTERS as $key => $label)
-                    <button type="button" wire:click="setFilter('{{ $key }}')" data-filter="{{ $key }}" @class(['h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px]', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $activeFilter === $key, 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $activeFilter !== $key])>{{ $label }}@if ($activeType === '') <span class="text-xs font-normal text-gray-400">{{ $num($counts[$key] ?? 0) }}</span>@endif</button>
+                    <button type="button" wire:click="setFilter('{{ $key }}')" data-filter="{{ $key }}" @class(['seg h-8! px-3!', 'seg-active' => $activeFilter === $key])>{{ $label }}@if ($activeType === '') <span class="text-xs font-normal tabular-nums opacity-60">{{ $num($counts[$key] ?? 0) }}</span>@endif</button>
                 @endforeach
             </nav>
         @endif
@@ -145,7 +141,7 @@
                                 @endif
                             </td>
                             <td class="text-right tabular-nums">{{ $num($row['clicks']) }}</td>
-                            <td @class(['text-right tabular-nums', 'text-error-600' => ($row['delta'] ?? 0) < 0, 'text-success-600' => ($row['delta'] ?? 0) > 0, 'text-gray-400' => $row['delta'] === null])>{{ $row['delta'] === null ? ($row['clicks'] > 0 ? 'yeni' : '—') : ($row['delta'] > 0 ? '+' : '').$row['delta'].'%' }}</td>
+                            <td class="text-right tabular-nums">@if ($row['delta'] === null)<span class="text-gray-400">{{ $row['clicks'] > 0 ? 'yeni' : '—' }}</span>@else<span @class(['chip', 'chip-down' => $row['delta'] < 0, 'chip-up' => $row['delta'] > 0, 'chip-flat' => $row['delta'] == 0])>{{ ($row['delta'] > 0 ? '+' : '').$row['delta'].'%' }}</span>@endif</td>
                             <td class="text-right tabular-nums">{{ $num($row['impressions']) }}</td>
                             <td class="text-right tabular-nums">{{ $dec($row['position']) }}</td>
                             <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td>
@@ -240,7 +236,7 @@
                     </p>
                     <ul class="mt-2 space-y-1.5 text-[13px]">
                         @forelse ($page['issues'] as $issue)
-                            <li class="flex items-baseline gap-2"><x-ta.pill :tone="in_array($issue['severity'], ['critical', 'high'], true) ? 'critical' : 'look'">{{ $issue['severity'] }}</x-ta.pill> <span class="min-w-0">{{ $issue['message'] }}</span></li>
+                            <li class="flex items-baseline gap-2"><x-ta.pill :tone="in_array($issue['severity'], ['critical', 'high'], true) ? 'critical' : 'look'">{{ ['critical' => 'Kritik', 'high' => 'Yüksek', 'medium' => 'Orta', 'low' => 'Düşük', 'warning' => 'Uyarı', 'info' => 'Bilgi'][$issue['severity']] ?? \Illuminate\Support\Str::ucfirst((string) $issue['severity']) }}</x-ta.pill> <span class="min-w-0">{{ $issue['message'] }}</span></li>
                         @empty
                             <li class="text-gray-500">Son taramada sorun yok.</li>
                         @endforelse

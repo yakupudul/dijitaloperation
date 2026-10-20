@@ -4,35 +4,94 @@
     $contextLabels = ['complete' => 'İş bağlamı yeterli', 'incomplete' => 'İş bağlamı eksik', 'not_started' => 'İş bağlamı boş'];
     $sortHead = fn (string $key, string $label) => '<button type="button" wire:click="sortBy(\''.$key.'\')" class="font-medium hover:text-gray-900 dark:hover:text-white">'.e($label).($sort === $key ? ($dir === 'asc' ? ' ↑' : ' ↓') : '').'</button>';
 @endphp
-<div class="space-y-6" data-brands-index>
+<div class="space-y-8" data-brands-index>
     @include('livewire.demo.partials.flash')
 
-    <div class="flex flex-wrap items-start justify-between gap-3">
+    <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div class="min-w-0">
-            <h1 class="page-title" title="Tüm markalar ve müşterileri. Noktalar kanalların veri durumunu, açık iş markanın bekleyen önerilerini gösterir.">Markalar</h1>
-            @if ($allCount > 0)<p class="page-sub" data-brands-summary>{{ $summaryLine }}</p>@endif
+            <h1 class="page-title" title="Tüm markalar ve müşterileri. Noktalar kanalların veri durumunu, açık iş markanın bekleyen önerilerini gösterir."><span class="highlight">Markalar</span></h1>
+            @if ($allCount > 0)<p class="page-sub mt-1.5!" data-brands-summary>{{ $summaryLine }}</p>@endif
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             {{-- Müşteriler merged into Markalar (2026-10-19): the customer list and its actions stay one click away. --}}
             <a href="{{ route('operator.customers') }}" wire:navigate class="btn-quiet" data-customers-link>Müşteri listesi</a>
             <x-ta.button variant="outline" size="sm" :href="route('operator.customer.create')" wire:navigate data-add-customer>Müşteri ekle</x-ta.button>
             <x-ta.button size="sm" :href="route('operator.brand.create')" wire:navigate>Marka ekle</x-ta.button>
         </div>
-    </div>
+    </header>
+
+    {{-- Canlı panel (2026-10-20): what the portfolio needs first, as tinted cards; shown on the unfiltered list only. --}}
+    @if ($allCount > 0 && ! $hasFilters)
+        @php
+            $attentionBrands = collect($overview['attention']);
+            $cardIcon = fn (string $path): string => '<span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'.$path.'</svg></span>';
+        @endphp
+        <section class="grid grid-cols-2 gap-3 lg:grid-cols-3" data-brands-overview>
+            @if ($attentionBrands->isNotEmpty())
+                <div @class(['soft-card col-span-2 lg:col-span-1', 'soft-red' => $overview['severe'], 'soft-amber' => ! $overview['severe']]) data-brands-attention-card>
+                    {!! $cardIcon('<path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>') !!}
+                    <p class="soft-number">{{ $attentionBrands->count() }} marka</p>
+                    <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Dikkat istiyor</p>
+                    <div class="flex items-center">
+                        @foreach ($attentionBrands->take(5) as $item)
+                            <span class="-ml-2 inline-flex h-[30px] w-[30px] items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-card first:ml-0 dark:border-gray-900" title="{{ $item['name'] }}">
+                                <x-ta.brand-avatar :name="$item['name']" :logo="$item['logo']" size="sm" class="border-0!" />
+                            </span>
+                        @endforeach
+                        @if ($attentionBrands->count() > 5)<span class="ml-2 text-xs text-gray-600 dark:text-gray-300">+{{ $attentionBrands->count() - 5 }}</span>@endif
+                    </div>
+                    <div class="mt-auto pt-1"><button type="button" wire:click="$set('attention', 'needs_attention')" class="btn">Sadece bunları göster</button></div>
+                </div>
+            @else
+                <div class="soft-card col-span-2 lg:col-span-1" data-brands-attention-card>
+                    {!! $cardIcon('<path d="m5 12 4 4L19 6"/>') !!}
+                    <p class="soft-number">Sorun yok</p>
+                    <p class="text-[13px] text-gray-600 dark:text-gray-300">Hiçbir marka dikkat istemiyor.</p>
+                </div>
+            @endif
+            <div class="soft-card" data-brands-work-card>
+                {!! $cardIcon('<path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 .5.5L5.5 5M4 12l.5.5 1-1.5M4 18l.5.5 1-1.5"/>') !!}
+                <p class="soft-number">{{ number_format($overview['open_work'], 0, ',', '.') }} iş</p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Açık iş</p>
+                <p class="hidden text-[13px] text-gray-600 sm:block dark:text-gray-300">{{ $overview['work_brands'] }} markada bekleyen öneri.</p>
+                <div class="mt-auto pt-1">
+                    @if ($sort === 'work' && $dir === 'desc')
+                        <a href="{{ route('operator.repair') }}" wire:navigate class="btn">Onarım masası</a>
+                    @else
+                        <button type="button" wire:click="sortBy('work')" class="btn h-auto! min-h-8 py-1.5! whitespace-normal! text-left">En çok işi olan önde</button>
+                    @endif
+                </div>
+            </div>
+            <div class="soft-card" data-brands-assets-card>
+                {!! $cardIcon('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>') !!}
+                <p class="soft-number">{{ $overview['connected'] }}<span class="text-gray-400 dark:text-gray-500">/{{ $overview['assets'] }}</span></p>
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Bağlı dijital varlık</p>
+                <p class="hidden text-[13px] text-gray-600 sm:block dark:text-gray-300">Bağlı olmayan hesaptan veri gelmez.</p>
+                <div class="mt-auto pt-1"><a href="{{ route('operator.assets') }}" wire:navigate class="btn">Dijital varlıklar</a></div>
+            </div>
+        </section>
+    @endif
 
     @php
         $moreFilters = collect([$sector, $asset_type, $responsible, $primary_market, $context])->filter(fn ($v) => $v !== '')->count();
     @endphp
+    @php
+        $attentionCount = count($overview['attention']);
+        $attentionSegs = ['' => ['Tümü', $allCount], 'needs_attention' => ['Dikkat istiyor', $attentionCount], 'clear' => ['Sorun yok', $allCount - $attentionCount]];
+    @endphp
     <div class="flex flex-wrap items-center gap-2" x-data="{ more: false }" data-filter-bar>
+        <nav class="no-scrollbar -mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 lg:mx-0 lg:mr-2 lg:w-auto lg:px-0" aria-label="Dikkat" data-attention-segs>
+            @foreach ($attentionSegs as $value => [$label, $count])
+                <button type="button" wire:click="$set('attention', '{{ $value }}')" aria-pressed="{{ $attention === $value ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $attention === $value])>
+                    {{ $label }} <span @class(['tabular-nums text-xs', 'text-accent' => $attention === $value, 'text-gray-400 dark:text-gray-500' => $attention !== $value])>{{ $count }}</span>
+                </button>
+            @endforeach
+        </nav>
         <label class="relative w-full min-w-0 sm:w-64">
             <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
             <input wire:model.live.debounce.300ms="search" type="search" placeholder="Marka, müşteri veya alan adı ara" aria-label="Ara"
                 class="h-9 w-full min-w-0 rounded-lg border border-gray-200 bg-white pr-3 pl-9 text-sm shadow-card placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white" />
         </label>
-        <select wire:model.live="attention" class="{{ $select }} min-w-0 flex-1 sm:flex-none" aria-label="Dikkat">
-            <option value="">Dikkat: hepsi</option>
-            @foreach ($attentionLabels as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-        </select>
         <select wire:model.live="customer" class="{{ $select }} min-w-0 flex-1 sm:max-w-56 sm:flex-none" aria-label="Müşteri">
             <option value="">Müşteri: hepsi</option>
             @foreach ($customerOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
@@ -43,6 +102,10 @@
             <svg class="h-3.5 w-3.5 transition" :class="more && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
         </button>
         <div x-show="more" x-cloak class="card grid w-full grid-cols-1 gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3" data-more-filters-panel>
+            <select wire:model.live="attention" class="{{ $select }} w-full min-w-0" aria-label="Dikkat">
+                <option value="">Dikkat: hepsi</option>
+                @foreach ($attentionLabels as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
             <select wire:model.live="sector" class="{{ $select }} w-full min-w-0" aria-label="Sektör">
                 <option value="">Sektör: hepsi</option>
                 @foreach ($sectorOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach

@@ -3,6 +3,8 @@
     $sharedNegative = $s->action_type === 'ads_negative' && ($a['scope'] ?? '') === 'shared';
     $editable = in_array($s->action_type, ['ads_rsa', 'ads_negative', 'ads_campaign'], true);
     $quiet = 'btn-quiet h-7! px-2! text-xs!';
+    /** Row approval: near-black (canlı panel), the page's accent stays on its one main action. */
+    $approveClass = 'btn-dark h-7! px-2.5! text-xs!';
 @endphp
 <div class="border-t border-gray-200 px-4 py-3.5 first:border-t-0 dark:border-gray-800" wire:key="sug-{{ $s->id }}">
     <div class="flex flex-wrap items-start gap-x-3.5 gap-y-2 sm:flex-nowrap">
@@ -21,9 +23,9 @@
         </div>
         <div class="flex w-full shrink-0 flex-wrap items-center gap-1 sm:w-auto sm:justify-end">
             @if ($sharedNegative && $canWrite)
-                <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.approveSuggestion({{ $s->id }})" class="{{ $small }}">Gönder</button>
+                <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.approveSuggestion({{ $s->id }})" class="{{ $approveClass }}">Gönder</button>
             @else
-                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="{{ $small }}">Onayla</button>
+                <button type="button" wire:click="approveSuggestion({{ $s->id }})" class="{{ $approveClass }}">Onayla</button>
             @endif
             @if ($editable)
                 <button type="button" wire:click="startEdit({{ $s->id }})" class="{{ $quiet }}">Düzenle</button>

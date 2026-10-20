@@ -13,13 +13,13 @@
 
     @include('livewire.operator.work.partials.content-coverage')
 
-    <div role="tablist" class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 pt-4 dark:border-gray-800">
+    <div role="tablist" class="no-scrollbar flex gap-1.5 overflow-x-auto pt-4">
         @foreach ($stepLabels as $code => $label)
             <button type="button" role="tab" wire:click="setStep('{{ $code }}')" aria-selected="{{ $step === $code ? 'true' : 'false' }}"
-                    @class(['tab', 'tab-active' => $step === $code])
+                    @class(['seg', 'seg-active' => $step === $code])
                     data-step="{{ $code }}">
                 <span>{{ $label }}</span>
-                <span @class(['font-normal tabular-nums', 'text-warning-700 dark:text-warning-400' => $code === 'okunacak' && $queue['counts'][$code] > 0, 'text-gray-500' => ! ($code === 'okunacak' && $queue['counts'][$code] > 0)])>{{ $queue['counts'][$code] }}</span>
+                <span @class(['text-xs font-normal tabular-nums', 'text-accent' => $step === $code, 'text-warning-700 dark:text-warning-400' => $step !== $code && $code === 'okunacak' && $queue['counts'][$code] > 0, 'text-gray-400 dark:text-gray-500' => $step !== $code && ! ($code === 'okunacak' && $queue['counts'][$code] > 0)])>{{ $queue['counts'][$code] }}</span>
             </button>
         @endforeach
     </div>
@@ -33,7 +33,7 @@
                 : collect();
         @endphp
         <article wire:key="queue-{{ $step }}-{{ $site->id }}" class="card text-sm" data-queue-site="{{ $site->id }}">
-            <header class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+            <header class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-200 px-4 py-3.5 dark:border-gray-800">
                 <x-ta.brand-avatar :name="$group['brand'] ?? $site->name" :logo="$workLogos[(int) ($brands->firstWhere('name', $group['brand'])?->id)] ?? null" size="sm" />
                 <div class="min-w-0">
                     <h3 class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $site->domain ?: $site->name }} <span class="ml-1 font-normal text-gray-500">{{ $group['total'] }}</span></h3>
@@ -46,7 +46,7 @@
                 </div>
                 <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                     @if ($step === 'yazilacak' && $group['waiting'] > 1)
-                        <button type="button" wire:click="writeAll({{ $site->id }})" wire:confirm="{{ min($group['waiting'], \App\Services\Work\ContentBoard::WRITE_ALL_MAX) }} başlık onaylanıp yazdırılsın mı?" class="{{ $btn }}" data-write-all="{{ $site->id }}">Hepsini onayla ve yazdır ({{ min($group['waiting'], \App\Services\Work\ContentBoard::WRITE_ALL_MAX) }})</button>
+                        <button type="button" wire:click="writeAll({{ $site->id }})" wire:confirm="{{ min($group['waiting'], \App\Services\Work\ContentBoard::WRITE_ALL_MAX) }} başlık onaylanıp yazdırılsın mı?" class="btn-dark" data-write-all="{{ $site->id }}">Hepsini onayla ve yazdır ({{ min($group['waiting'], \App\Services\Work\ContentBoard::WRITE_ALL_MAX) }})</button>
                     @endif
                     <a href="{{ $group['url'] }}" wire:navigate class="link-neutral text-[13px]">Site</a>
                 </div>
@@ -84,7 +84,7 @@
                         <div class="flex shrink-0 flex-wrap items-center gap-2">
                             @if ($step === 'yazilacak')
                                 @if (! $item['writing'])
-                                    <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $btn }}" data-write="{{ $item['id'] }}">{{ $item['approved'] ? 'Yeniden yaz' : 'Onayla ve yazdır' }}</button>
+                                    <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $item['approved'] ? $btn : 'btn-dark' }}" data-write="{{ $item['id'] }}">{{ $item['approved'] ? 'Yeniden yaz' : 'Onayla ve yazdır' }}</button>
                                     @if (! $item['approved'])<button type="button" wire:click="dismiss({{ $item['id'] }})" class="{{ $ghost }}">Reddet</button>@endif
                                 @endif
                             @elseif ($step === 'okunacak')

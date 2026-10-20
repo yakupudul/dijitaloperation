@@ -134,8 +134,8 @@
         <div class="section-head">
             <h2 class="section-title">Son 60 gün</h2>
             <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 sm:ml-auto">
-                <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-200 dark:bg-white/15"></span>Günlük harcama</span>
-                <span class="flex items-center gap-1.5"><span class="h-0.5 w-4 bg-gray-900 dark:bg-white"></span>Günlük {{ $unit }}</span>
+                <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-second/20"></span>Günlük harcama</span>
+                <span class="flex items-center gap-1.5"><span class="h-0.5 w-4 bg-second"></span>Günlük {{ $unit }}</span>
                 <span class="flex items-center gap-1.5"><span class="h-3 border-l-2 border-dashed border-warning-500"></span>Değişiklik</span>
             </div>
         </div>
@@ -143,14 +143,14 @@
             <svg viewBox="0 0 {{ $w }} {{ $h + 18 }}" class="block h-auto w-full" role="img" aria-label="Günlük harcama ve {{ $unit }} grafiği">
                 @foreach (array_values($series) as $i => $d)
                     @php $bh = ((float) $d['spend'] / $maxSpend) * ($h - 40); @endphp
-                    <rect x="{{ round($left + $i * $step + 1, 1) }}" y="{{ round($h - 12 - $bh, 1) }}" width="{{ max(1, round($step - 2, 1)) }}" height="{{ round($bh, 1) }}" rx="1.5" class="fill-gray-200 dark:fill-white/10"><title>{{ $dates[$i] }}: {{ $money($d['spend']) }}, {{ $num($d[$campaign['type']], 0) }} {{ $unit }}</title></rect>
+                    <rect x="{{ round($left + $i * $step + 1, 1) }}" y="{{ round($h - 12 - $bh, 1) }}" width="{{ max(1, round($step - 2, 1)) }}" height="{{ round($bh, 1) }}" rx="1.5" class="fill-second/20"><title>{{ $dates[$i] }}: {{ $money($d['spend']) }}, {{ $num($d[$campaign['type']], 0) }} {{ $unit }}</title></rect>
                 @endforeach
                 @foreach ($dates as $i => $date)
                     @if (isset($eventDays[$date]))
                         <line x1="{{ round($left + $i * $step + $step / 2, 1) }}" x2="{{ round($left + $i * $step + $step / 2, 1) }}" y1="4" y2="{{ $h - 12 }}" stroke-dasharray="4 4" class="stroke-warning-500" stroke-width="1.5"><title>{{ $date }}: {{ collect($eventDays[$date])->map(fn ($e) => $e['label'].($e['object'] !== '' ? ' ('.$e['object'].')' : ''))->implode(', ') }}</title></line>
                     @endif
                 @endforeach
-                <polyline points="{{ implode(' ', $points) }}" fill="none" stroke-width="2" stroke-linejoin="round" class="stroke-gray-900 dark:stroke-white"/>
+                <polyline points="{{ implode(' ', $points) }}" fill="none" stroke-width="2" stroke-linejoin="round" class="stroke-second"/>
                 <text x="{{ $left }}" y="{{ $h + 14 }}" class="fill-gray-500 text-xs">{{ \Carbon\CarbonImmutable::parse($dates[0])->format('d.m') }}</text>
                 <text x="{{ $w }}" y="{{ $h + 14 }}" text-anchor="end" class="fill-gray-500 text-xs">{{ \Carbon\CarbonImmutable::parse(end($dates))->format('d.m') }}</text>
             </svg>

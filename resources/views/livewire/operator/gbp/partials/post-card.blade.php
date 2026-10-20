@@ -18,7 +18,7 @@
             <div class="min-w-0 flex-1">
                 <textarea wire:model="editText" rows="6" maxlength="1500" class="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 focus:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:focus:ring-white/10"></textarea>
                 @error('editText')<p class="text-[13px] text-error-600 dark:text-error-400">{{ $message }}</p>@enderror
-                <div class="mt-2 flex gap-2"><button type="button" wire:click="saveEdit" class="btn-primary">Kaydet</button><button type="button" wire:click="$set('editing', null)" class="btn-quiet">Vazgeç</button></div>
+                <div class="mt-2 flex gap-2"><button type="button" wire:click="saveEdit" class="btn-dark">Kaydet</button><button type="button" wire:click="$set('editing', null)" class="btn-quiet">Vazgeç</button></div>
             </div>
         @else
             <p class="min-w-0 flex-1 whitespace-pre-line break-words text-sm leading-6 text-gray-800 dark:text-gray-200">{{ $post->summary }}</p>
@@ -28,7 +28,7 @@
     @if ($post->note || $writeNote || ($failed && $write?->error))<p class="mt-1 text-[13px] {{ $failed ? 'text-error-600 dark:text-error-400' : 'text-gray-500' }}">{{ $failed && $write?->error ? $write->error : ($post->note ?: $writeNote) }}</p>@endif
     @if ($canWrite && $editing !== $post->id && ($failed || in_array($post->status, ['draft', 'approved'], true)))
         <div class="mt-2.5 flex flex-wrap gap-1.5">
-            @if ($post->status === 'draft')<button type="button" wire:click="approve({{ $post->id }})" class="btn h-7! px-2.5!">Onayla</button>@endif
+            @if ($post->status === 'draft')<button type="button" wire:click="approve({{ $post->id }})" class="btn-dark h-7! px-2.5!">Onayla</button>@endif
             @if (in_array($post->status, ['draft', 'approved'], true))
                 <button type="button" wire:click="startEdit({{ $post->id }})" class="btn-quiet h-7! px-2!">Düzenle</button>
                 <button type="button" wire:click="skip({{ $post->id }})" class="btn-quiet h-7! px-2!">Atla</button>

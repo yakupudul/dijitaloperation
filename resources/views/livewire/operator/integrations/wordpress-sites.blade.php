@@ -13,15 +13,15 @@
     </header>
 
     @if ($isAdmin && $updatable > 0)
-        <div class="card -mt-4">
-            <div class="card-row flex-wrap sm:flex-nowrap">
-                <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
-                <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} siteye gönderilebilir.</p>
-                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Otomatik dağıtılmaz; siz onaylayıp gönderirsiniz.</p>
-                </div>
-                <button type="button" wire:click="updateAllConnectors" wire:confirm="MoxDOP Connector {{ $latestConnector }} {{ $updatable }} web sitesine gönderilsin mi?" class="btn-primary w-full sm:w-auto">Tüm sitelere gönder</button>
+        {{-- Living panel language: the connector update that waits on the operator as one tinted card. --}}
+        <div class="soft-card soft-accent -mt-4 sm:flex-row sm:items-center sm:gap-4">
+            <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
+            <p class="soft-number shrink-0">{{ $updatable }} site</p>
+            <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} siteye gönderilebilir.</p>
+                <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">Otomatik dağıtılmaz; siz onaylayıp gönderirsiniz.</p>
             </div>
+            <button type="button" wire:click="updateAllConnectors" wire:confirm="MoxDOP Connector {{ $latestConnector }} {{ $updatable }} web sitesine gönderilsin mi?" class="btn-primary h-10! w-full px-4! text-sm! sm:w-auto">Tüm sitelere gönder</button>
         </div>
     @endif
     @if ($message !== '')<p class="card px-4 py-3 text-sm text-success-700 dark:text-success-400" role="status">{{ $message }}</p>@endif
@@ -79,7 +79,7 @@
                                 @endif
                             @endif
                             @if ($isAdmin && $row['connector_update']['available'])
-                                <button type="button" wire:click="updateConnector({{ $site->id }})" wire:confirm="MoxDOP Connector {{ $row['plugin_version'] }} → {{ $latestConnector }} bu web sitesine gönderilsin mi?" class="btn">Web sitesine gönder</button>
+                                <button type="button" wire:click="updateConnector({{ $site->id }})" wire:confirm="MoxDOP Connector {{ $row['plugin_version'] }} → {{ $latestConnector }} bu web sitesine gönderilsin mi?" class="btn-dark">Web sitesine gönder</button>
                             @endif
                             <button type="button" wire:click="$set('open', {{ $open === $site->id ? 'null' : $site->id }})" class="btn">{{ $open === $site->id ? 'Kapat' : 'Ayrıntı' }}</button>
                         </div>
@@ -111,7 +111,7 @@
                                         <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-gray-200 px-4 py-2.5 text-sm first:border-t-0 sm:flex-nowrap sm:pl-14 dark:border-gray-800">
                                             <span class="min-w-0 flex-1 text-gray-900 dark:text-white">{{ $u['label'] }} <span class="text-[13px] text-gray-500">{{ $u['from'] }} sürümünden {{ $u['to'] }} sürümüne</span></span>
                                             @if ($isAdmin && ($h['updates_enabled'] ?? false))
-                                                <button type="button" wire:click="applyUpdate({{ $site->id }}, @js($u['type']), @js($u['item']), @js($u['label']))" wire:confirm="{{ $u['label'] }} {{ $u['to'] }} sürümüne güncellensin mi? Geri alınamaz." class="btn h-7! px-2.5! text-xs!">Güncelle</button>
+                                                <button type="button" wire:click="applyUpdate({{ $site->id }}, @js($u['type']), @js($u['item']), @js($u['label']))" wire:confirm="{{ $u['label'] }} {{ $u['to'] }} sürümüne güncellensin mi? Geri alınamaz." class="btn-dark h-7! px-2.5! text-xs!">Güncelle</button>
                                             @endif
                                         </li>
                                     @endforeach

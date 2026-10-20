@@ -22,12 +22,12 @@
     @endif
 
     <div class="space-y-3">
+        <div class="flex gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="Ölçüm" title="{{ $m['subtitle'] ?? '' }}">
+            @foreach ($subTabs as $key => [$label, $n])
+                <button type="button" wire:click="setMeasSub('{{ $key }}')" @class(['seg', 'seg-active' => $activeSub === $key])>{{ $label }}@if ($n !== null && $n > 0) <span @class(['tabular-nums text-xs', 'text-accent' => $activeSub === $key, 'text-gray-400 dark:text-gray-500' => $activeSub !== $key])>{{ $n }}</span>@endif</button>
+            @endforeach
+        </div>
         <div class="card">
-            <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Ölçüm" title="{{ $m['subtitle'] ?? '' }}">
-                @foreach ($subTabs as $key => [$label, $n])
-                    <button type="button" wire:click="setMeasSub('{{ $key }}')" @class(['tab', 'tab-active' => $activeSub === $key])>{{ $label }}@if ($n !== null && $n > 0) <span class="text-gray-500">{{ $n }}</span>@endif</button>
-                @endforeach
-            </div>
 
             @if ($activeSub === 'business_actions')
                 @if (($m['business_actions'] ?? []) === [])

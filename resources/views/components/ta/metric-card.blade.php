@@ -14,11 +14,10 @@
 @php
     // One cell of a `metric-strip` card (panel concept 2026-10-20): gray label, big number with the change next to it,
     // one gray line under it, the trend as a thin line across the cell. `tone` says what the change means.
-    $toneClass = match ($tone) {
-        'positive', 'success', 'ok' => 'text-success-600 dark:text-success-400',
-        'negative', 'error', 'critical', 'bad' => 'text-error-600 dark:text-error-400',
-        'warning', 'look' => 'text-warning-700 dark:text-warning-400',
-        default => 'text-gray-500 dark:text-gray-400',
+    $chipClass = match ($tone) {
+        'positive', 'success', 'ok' => 'chip-up',
+        'negative', 'error', 'critical', 'bad' => 'chip-down',
+        default => 'chip-flat',
     };
     $sparkTone ??= match ($tone) {
         'positive', 'success', 'ok' => 'up',
@@ -34,7 +33,7 @@
     <span class="mt-1.5 flex flex-wrap items-baseline gap-x-2">
         <span @class(['tabular-nums tracking-[-0.02em]', 'text-[26px] leading-8 font-semibold text-gray-900 dark:text-white' => ! $muted, 'text-lg leading-8 font-medium text-gray-400 dark:text-gray-500' => $muted])>{{ $value }}</span>
         @if ($delta !== null && $delta !== '')
-            <span class="whitespace-nowrap text-[13px] font-medium tabular-nums {{ $toneClass }}">{{ $delta }}</span>
+            <span class="chip {{ $chipClass }} self-center">{{ $delta }}</span>
         @endif
     </span>
     @if ($hint !== null && $hint !== '')

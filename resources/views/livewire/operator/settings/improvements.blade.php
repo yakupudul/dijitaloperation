@@ -31,9 +31,9 @@
     </header>
 
     @if($autoDeploy !== null)
-        <div class="card -mt-4" data-auto-deploy="{{ $autoDeploy['state'] }}">
+        <div @class(['-mt-4', 'card' => ! $autoDeploy['problem'], 'rounded-3xl border soft-red' => $autoDeploy['problem']]) data-auto-deploy="{{ $autoDeploy['state'] }}">
             <div class="card-row items-start">
-                <span @class(['row-icon', 'border-transparent bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400' => $autoDeploy['problem']]) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+                <span @class(['row-icon' => ! $autoDeploy['problem'], 'soft-icon text-error-600 dark:text-error-400' => $autoDeploy['problem']]) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
                 <div class="min-w-0 flex-1">
                     <p @class(['text-sm font-medium', 'text-error-700 dark:text-error-300' => $autoDeploy['problem'], 'text-gray-900 dark:text-white' => ! $autoDeploy['problem']])>Otomatik deploy: {{ $autoDeploy['label'] }}</p>
                     @if(($autoDeploy['message'] !== '' && $autoDeploy['state'] !== 'idle') || $autoDeploy['checked_at'])
@@ -65,10 +65,11 @@
         </section>
     @endif
 
-    <nav class="mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 no-scrollbar dark:border-gray-800" aria-label="Durum">
+    {{-- Canlı panel (2026-10-20): the status lanes are pill tabs (seg) like the Onarım masası lanes. --}}
+    <nav class="no-scrollbar flex gap-1.5 overflow-x-auto" aria-label="Durum">
         @foreach(\App\Livewire\Operator\Settings\ImprovementsPage::TABS as $code => [$label])
-            <button type="button" wire:click="setTab('{{ $code }}')" @class(['tab', 'tab-active' => $tab === $code])>
-                {{ $label }}@if($tabCounts[$code] > 0) <span @class(['text-xs font-normal tabular-nums', 'text-warning-700 dark:text-warning-300' => in_array($code, ['onay', 'deploy'], true), 'text-gray-500' => ! in_array($code, ['onay', 'deploy'], true)])>{{ $tabCounts[$code] }}</span>@endif
+            <button type="button" wire:click="setTab('{{ $code }}')" @class(['seg', 'seg-active' => $tab === $code])>
+                {{ $label }}@if($tabCounts[$code] > 0) <span @class(['text-xs font-normal tabular-nums', 'text-accent' => $tab === $code, 'text-warning-700 dark:text-warning-300' => $tab !== $code && in_array($code, ['onay', 'deploy'], true), 'text-gray-400 dark:text-gray-500' => $tab !== $code && ! in_array($code, ['onay', 'deploy'], true)])>{{ $tabCounts[$code] }}</span>@endif
             </button>
         @endforeach
     </nav>
@@ -82,7 +83,7 @@
                             <p class="text-sm font-medium text-gray-900 dark:text-white">Commit <span class="font-mono">{{ substr((string) $commit, 0, 8) }}</span></p>
                             <p class="mt-0.5 text-[13px] text-gray-500">{{ $items->first()->branch }}, {{ $items->count() }} değişiklik</p>
                         </div>
-                        <button type="button" wire:click="deployed('{{ $commit }}')" wire:confirm="Bu commit deploy edildi mi?" class="btn-primary w-full sm:w-auto">Deploy tamamlandı</button>
+                        <button type="button" wire:click="deployed('{{ $commit }}')" wire:confirm="Bu commit deploy edildi mi?" class="btn-dark w-full sm:w-auto">Deploy tamamlandı</button>
                     </div>
                     <ul class="space-y-1 border-t border-gray-200 px-4 py-3 text-sm dark:border-gray-800">
                         @foreach($items as $change)<li class="flex gap-2"><span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-gray-400" aria-hidden="true"></span><span>{{ $change->title }}@if($change->work_note)<span class="text-xs text-gray-500">, {{ $change->work_note }}</span>@endif</span></li>@endforeach
@@ -98,11 +99,11 @@
         </div>
     @else
         @if($kinds !== [])
-            <div class="flex flex-wrap items-center gap-1.5" data-kind-filter>
-                <button type="button" wire:click="setKind('')" @class(['h-7! px-2.5! text-xs!', 'btn-primary' => $kind === '', 'btn' => $kind !== ''])>Hepsi {{ array_sum($kinds) }}</button>
+            <div class="-mt-6 flex flex-wrap items-center gap-1.5" data-kind-filter>
+                <button type="button" wire:click="setKind('')" @class(['chip h-7! gap-1! px-2.5! font-medium! border', 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' => $kind === '', 'border-gray-200 bg-white text-gray-600 hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => $kind !== ''])>Hepsi <span class="font-normal opacity-70">{{ array_sum($kinds) }}</span></button>
                 @foreach(\App\Models\SystemChange::KIND_LABELS as $code => $label)
                     @if(($kinds[$code] ?? 0) > 0)
-                        <button type="button" wire:click="setKind('{{ $code }}')" @class(['h-7! px-2.5! text-xs!', 'btn-primary' => $kind === $code, 'btn' => $kind !== $code])>{{ $label }} <span class="font-normal opacity-70">{{ $kinds[$code] }}</span></button>
+                        <button type="button" wire:click="setKind('{{ $code }}')" @class(['chip h-7! gap-1! px-2.5! font-medium! border', 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' => $kind === $code, 'border-gray-200 bg-white text-gray-600 hover:text-gray-900 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-300' => $kind !== $code])>{{ $label }} <span class="font-normal opacity-70">{{ $kinds[$code] }}</span></button>
                     @endif
                 @endforeach
             </div>
@@ -168,7 +169,7 @@
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
                                     <input type="text" wire:model="notes.{{ $change->id }}" placeholder="Not (isteğe bağlı): nasıl yapılsın" aria-label="Not" class="h-8 min-w-0 flex-1 basis-full rounded-lg border border-gray-200 bg-white px-3 text-[13px] sm:min-w-48 sm:basis-auto dark:border-gray-700 dark:bg-transparent">
                                     <button type="button" wire:click="reject({{ $change->id }})" class="btn-quiet">Reddet</button>
-                                    <button type="button" wire:click="approve({{ $change->id }})" class="btn">{{ $change->status === 'failed' ? 'Tekrar dene' : 'Onayla' }}</button>
+                                    <button type="button" wire:click="approve({{ $change->id }})" class="btn-dark">{{ $change->status === 'failed' ? 'Tekrar dene' : 'Onayla' }}</button>
                                 </div>
                             @endif
                         </div>

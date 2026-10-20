@@ -19,15 +19,15 @@
                             <button type="button" wire:click="showBrand({{ $row['brand_id'] }})" class="text-left font-medium text-gray-900 hover:underline dark:text-white">{{ $row['brand'] }}</button>
                             <span class="block text-xs text-gray-500">{{ \Illuminate\Support\Str::limit((string) $row['site']->name, 40) }}</span>
                             @php $stage = \App\Services\Work\ContentCoverage::stage($row); @endphp
-                            <x-ta.pill class="mt-0.5" :tone="match ($stage['tone']) { 'amber' => 'look', 'rose' => 'critical', 'emerald' => 'ok', default => 'info' }" data-stage>{{ $stage['label'] }}</x-ta.pill>
-                            @if ($row['reason'])<span class="block text-xs text-warning-700 dark:text-warning-300">{{ $row['reason'] }}</span>@endif
+                            <x-ta.pill class="mt-0.5" :tone="match ($stage['tone']) { 'amber' => 'look', 'rose' => 'look', 'emerald' => 'ok', default => 'info' }" data-stage>{{ $stage['label'] }}</x-ta.pill>
+                            @if ($row['reason'])<span class="mt-0.5 block max-w-md text-xs text-gray-500 dark:text-gray-400">{{ $row['reason'] }}</span>@endif
                             @if ($line = \App\Services\Work\ContentCoverage::runLine($row['last_run'] ?? null))<span class="block text-xs text-gray-500" data-last-run>{{ $line }}</span>@endif
                         </td>
                         @php $filled = $row['clusters'] > 0 ? (int) round(100 * $row['ok'] / $row['clusters']) : 0; @endphp
                         <td class="min-w-[11rem] text-xs" data-map>
                             <span class="font-medium tabular-nums text-gray-900 dark:text-white">{{ $row['ok'] }}/{{ $row['clusters'] }} yeterli</span>
-                            <span class="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-success-500" style="width: {{ $filled }}%"></span></span>
-                            <span class="mt-1 block text-gray-500"><span @class(['text-error-700 dark:text-error-400' => $row['missing'] > 0])>{{ $row['missing'] }} eksik</span>, {{ $row['weak'] }} zayıf</span>
+                            <span class="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-full bg-second" style="width: {{ $filled }}%"></span></span>
+                            <span class="mt-1 block text-gray-500"><span @class(['text-warning-700 dark:text-warning-400' => $row['missing'] > 0])>{{ $row['missing'] }} eksik</span>, {{ $row['weak'] }} zayıf</span>
                         </td>
                         <td class="min-w-40 text-xs" data-week>
                             <span class="font-medium tabular-nums">{{ $row['rhythm']['new'] }} yeni + {{ $row['rhythm']['update'] }} güncelleme</span>

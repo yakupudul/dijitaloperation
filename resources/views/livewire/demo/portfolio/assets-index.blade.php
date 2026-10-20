@@ -8,30 +8,53 @@
     $quickViews = ['all' => 'Tümü', 'needs_attention' => 'Dikkat istiyor', 'data_issues' => 'Veri sorunu', 'active_work' => 'Açık işi olan', 'recent' => 'Son güncellenen'];
     $views = ['matrix' => 'Marka × kanal', 'table' => 'Liste', 'cards' => 'Kart'];
 @endphp
-<div class="space-y-6" data-assets-index>
+<div class="space-y-7" data-assets-index>
     @include('livewire.demo.partials.flash')
 
-    <div class="flex flex-wrap items-start justify-between gap-3">
+    <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div class="min-w-0">
-            <h1 class="page-title" title="Markalara bağlı siteler ve hesaplar. Veri durumu her kaynağın en kötü durumunu gösterir.">Dijital varlıklar</h1>
-            <p class="page-sub flex flex-wrap gap-x-4" data-assets-summary>
-                <span><span class="tabular-nums">{{ $glance['managed'] }}</span> varlık</span>
-                <button type="button" wire:click="setQuickView('needs_attention')" class="hover:text-gray-900 hover:underline dark:hover:text-white"><span class="tabular-nums">{{ $glance['needs_attention'] }}</span> dikkat istiyor</button>
-                <button type="button" wire:click="setQuickView('data_issues')" class="hover:text-gray-900 hover:underline dark:hover:text-white"><span class="tabular-nums">{{ $glance['data_issues'] }}</span> veri sorunu</button>
-                <button type="button" wire:click="setQuickView('active_work')" class="hover:text-gray-900 hover:underline dark:hover:text-white"><span class="tabular-nums">{{ $glance['active_work'] }}</span> açık işi olan</button>
-            </p>
+            <h1 class="page-title" title="Markalara bağlı siteler ve hesaplar. Veri durumu her kaynağın en kötü durumunu gösterir.">Dijital <span class="highlight">varlıklar</span></h1>
+            <p class="page-sub mt-1.5!" data-assets-summary><span class="tabular-nums">{{ $glance['managed'] }}</span> varlık, markalara bağlı siteler ve hesaplar</p>
         </div>
         <a href="{{ route('operator.asset.create', $filterBrand !== '' ? ['brandId' => $filterBrand] : []) }}" wire:navigate class="btn-primary">Varlık ekle</a>
-    </div>
+    </header>
 
-    <nav class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-gray-200 dark:border-gray-800" aria-label="Görünüm">
-        <div class="no-scrollbar -mb-px flex max-w-full items-center overflow-x-auto">
+    {{-- Canlı panel (2026-10-20): what needs a look first, as tinted cards; each opens its quick view. --}}
+    @if ($quickView === 'all' && ($glance['needs_attention'] + $glance['data_issues'] + $glance['active_work']) > 0)
+        @php
+            $glanceCards = [
+                ['key' => 'needs_attention', 'tone' => $glance['needs_attention'] > 0 ? 'soft-amber' : '', 'title' => 'Dikkat istiyor', 'line' => 'Bağlantısı, verisi ya da kritik önerisi bakılmalı.',
+                    'icon' => '<path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
+                ['key' => 'data_issues', 'tone' => '', 'title' => 'Veri sorunu', 'line' => 'Verisi gecikmiş ya da gelmeyen kaynaklar.',
+                    'icon' => '<ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/>'],
+                ['key' => 'active_work', 'tone' => '', 'title' => 'Açık işi olan', 'line' => 'Bekleyen önerisi olan varlıklar.',
+                    'icon' => '<path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 .5.5L5.5 5M4 12l.5.5 1-1.5M4 18l.5.5 1-1.5"/>'],
+            ];
+        @endphp
+        <section class="grid grid-cols-2 gap-3 lg:grid-cols-3" data-assets-glance>
+            @foreach ($glanceCards as $card)
+                <div @class(['soft-card', $card['tone'], 'col-span-2 lg:col-span-1' => $loop->first]) data-glance="{{ $card['key'] }}">
+                    <span class="soft-icon {{ $card['tone'] === 'soft-red' ? 'text-error-600 dark:text-error-400' : ($card['tone'] === 'soft-amber' ? 'text-warning-600 dark:text-warning-400' : '') }}" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $card['icon'] !!}</svg></span>
+                    <p class="soft-number">{{ $glance[$card['key']] }} varlık</p>
+                    <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $card['title'] }}</p>
+                    <p class="hidden text-[13px] text-gray-600 sm:block dark:text-gray-300">{{ $card['line'] }}</p>
+                    @if ($glance[$card['key']] > 0)
+                        <div class="mt-auto pt-1"><button type="button" wire:click="setQuickView('{{ $card['key'] }}')" class="btn">Göster</button></div>
+                    @endif
+                </div>
+            @endforeach
+        </section>
+    @endif
+
+    @php $quickCounts = ['needs_attention' => $glance['needs_attention'], 'data_issues' => $glance['data_issues'], 'active_work' => $glance['active_work']]; @endphp
+    <nav class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3" aria-label="Görünüm">
+        <div class="no-scrollbar -mx-4 flex w-[calc(100%+2rem)] items-center gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:w-auto sm:px-0">
             @foreach ($quickViews as $key => $label)
                 <button type="button" wire:click="setQuickView('{{ $key }}')" aria-pressed="{{ $quickView === $key ? 'true' : 'false' }}"
-                    @class(['tab mb-0!', 'tab-active' => $quickView === $key])>{{ $label }}</button>
+                    @class(['seg', 'seg-active' => $quickView === $key])>{{ $label }}@isset($quickCounts[$key]) <span @class(['tabular-nums text-xs', 'text-accent' => $quickView === $key, 'text-gray-400 dark:text-gray-500' => $quickView !== $key])>{{ $quickCounts[$key] }}</span>@endisset</button>
             @endforeach
         </div>
-        <div class="mb-1.5 inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="Görünüm türü">
+        <div class="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="Görünüm türü">
             @foreach ($views as $key => $label)
                 <button type="button" wire:click="setViewMode('{{ $key }}')" aria-pressed="{{ $view === $key ? 'true' : 'false' }}"
                     @class(['rounded-md px-2.5 py-1 text-[13px]', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $view === $key, 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $view !== $key])>{{ $label }}</button>
@@ -136,7 +159,7 @@
     @elseif ($view === 'cards')
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($assets as $asset)
-                <section class="card flex flex-col" wire:key="asset-card-{{ $asset['id'] }}">
+                <section class="card lift flex flex-col" wire:key="asset-card-{{ $asset['id'] }}">
                     <div class="flex items-start gap-3 px-4 pt-3.5">
                         <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="md" />
                         <div class="min-w-0">

@@ -4,6 +4,7 @@
     $band = ['good' => 'ok', 'watch' => 'warn', 'risk' => 'bad'];
     $money = static fn (?float $v): string => $v !== null ? '₺'.number_format($v, 0, ',', '.') : '—';
     $stateLabel = ['over' => ['Bütçeyi aşacak', $chip['bad']], 'under' => ['Bütçenin altında', $chip['warn']], 'on_track' => ['Hedefte', $chip['ok']], 'no_budget' => ['Bütçe girilmemiş', $chip['muted']], 'mixed_currency' => ['Farklı para birimleri', $chip['warn']]];
+    $stateChip = ['over' => 'chip-down', 'under' => 'chip-flat', 'on_track' => 'chip-up', 'mixed_currency' => 'chip-flat'];
     $attentionBrands = collect($brands)->where('needs_attention', true);
     // Empty fields are hidden (2026-10-19); one quiet "Eksik bilgi" line names what is missing instead of a card of "—".
     $missingTeam = array_values(array_filter([
@@ -59,18 +60,20 @@
             <div class="section-head">
                 <h2 class="section-title">{{ $attentionBrands->count() }} marka dikkat istiyor</h2>
             </div>
-            <ul class="card">
+            {{-- Canlı panel (2026-10-20): each brand that needs a look as a tinted card (red: an account to reconnect). --}}
+            <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($attentionBrands as $brand)
-                    <li class="card-row">
-                        <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" />
-                        <div class="min-w-0 flex-1">
-                            <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="break-words text-sm font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
-                            <p class="mt-0.5 flex items-center gap-1.5 text-[13px] text-gray-500"><span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $brand['reconnect'] > 0 ? 'bg-error-500' : 'bg-warning-500' }}" aria-hidden="true"></span>{{ $brand['attention_reason'] }}</p>
+                    <li class="flex">
+                        <div @class(['soft-card w-full', 'soft-red' => $brand['reconnect'] > 0, 'soft-amber' => $brand['reconnect'] === 0])>
+                            <div class="flex min-w-0 items-center gap-2.5">
+                                <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" size="lg" />
+                                <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="min-w-0 break-words text-[15px] font-semibold tracking-[-0.01em] text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
+                            </div>
+                            <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $brand['attention_reason'] }}</p>
+                            <div class="mt-auto pt-1"><a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="btn">Aç</a></div>
                         </div>
-                        <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="btn hidden sm:inline-flex">Aç</a>
                     </li>
                 @endforeach
-            </ul>
         </section>
     @endif
 
@@ -158,7 +161,7 @@
                 @endif
                 @foreach ($commercialSummary['channels'] as $channel)
                     <div class="flex min-w-0 flex-col bg-white px-[18px] py-4 dark:bg-gray-900">
-                        <div class="flex items-center justify-between gap-2"><span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $channel['label'] }}</span>@if ($channel['state'] !== 'no_budget')<span class="text-xs font-medium {{ $stateLabel[$channel['state']][1] }}">{{ $stateLabel[$channel['state']][0] }}</span>@endif</div>
+                        <div class="flex items-center justify-between gap-2"><span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $channel['label'] }}</span>@if ($channel['state'] !== 'no_budget')<span class="chip {{ $stateChip[$channel['state']] ?? 'chip-flat' }}">{{ $stateLabel[$channel['state']][0] }}</span>@endif</div>
                         <p class="mt-1.5 text-sm text-gray-700 dark:text-gray-300"><strong class="text-[22px] leading-8 font-semibold tabular-nums tracking-[-0.02em] text-gray-900 dark:text-white">{{ $money($channel['spent']) }}</strong> harcandı, ay sonu ~<span class="tabular-nums">{{ $money($channel['projected']) }}</span></p>
                         @if ($channel['budget'] !== null)<p class="mt-0.5 text-xs text-gray-500">Bütçe <span class="tabular-nums">{{ $money($channel['budget']) }}</span>@if ($channel['share'] !== null) · %{{ number_format($channel['share'] * 100, 0) }}@endif</p>@endif
                         @if (($channel['accounts'] ?? []) !== [])

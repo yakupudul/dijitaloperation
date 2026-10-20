@@ -165,7 +165,7 @@
                             @include('livewire.demo.integrations.partials.provider-mark', ['provider' => 'meta'])
                             <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $binding['resource'] }}</p>
-                                <p class="mt-0.5 truncate text-[13px] text-gray-500 dark:text-gray-400" title="{{ $binding['asset'] }}">{{ $accountLine($binding) }}. {{ $binding['asset'] }}@if (! empty($binding['brand'])), {{ $binding['brand'] }}@endif</p>
+                                <p class="mt-0.5 truncate text-[13px] text-gray-500 dark:text-gray-400" title="{{ str_replace(' · ', ', ', (string) $binding['asset']) }}">{{ $accountLine($binding) }}. {{ str_replace(' · ', ', ', (string) $binding['asset']) }}@if (! empty($binding['brand'])), {{ $binding['brand'] }}@endif</p>
                             </div>
                             @if (! empty($binding['route']) && ! empty($binding['asset_id']))
                                 <a href="{{ route($binding['route'], ['assetId' => $binding['asset_id']]) }}" wire:navigate class="btn w-full sm:w-auto">{{ $isTr ? 'Çalışma Alanını Aç' : 'Open Workspace' }}</a>
@@ -362,7 +362,7 @@
                         @include('livewire.demo.integrations.partials.provider-mark', ['provider' => 'meta'])
                         <div class="min-w-0 flex-1">
                             <p class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5"><span class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $binding['resource'] }}</span><x-ta.pill tone="ok">{{ $isTr ? 'Bağlı' : 'Bound' }}</x-ta.pill></p>
-                            <p class="mt-0.5 truncate text-[13px] text-gray-500 dark:text-gray-400" title="{{ $binding['asset'] }}">{{ $accountLine($binding) }}. {{ $binding['asset'] }}@if (! empty($binding['brand'])), {{ $binding['brand'] }}@endif</p>
+                            <p class="mt-0.5 truncate text-[13px] text-gray-500 dark:text-gray-400" title="{{ str_replace(' · ', ', ', (string) $binding['asset']) }}">{{ $accountLine($binding) }}. {{ str_replace(' · ', ', ', (string) $binding['asset']) }}@if (! empty($binding['brand'])), {{ $binding['brand'] }}@endif</p>
                         </div>
                         <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
                             @if ($integration['actions']['unbind'] ?? false)

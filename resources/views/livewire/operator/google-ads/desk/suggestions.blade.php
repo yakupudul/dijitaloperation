@@ -86,7 +86,7 @@
                         </div>
                         <div class="flex w-full shrink-0 flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end">
                             @if ($isAdmin && ! $manual($s) && ! \App\Services\Repair\RepairDesk::isQueued($s))
-                                <button type="button" wire:click="approve({{ $s->id }})" class="btn">Onayla</button>
+                                <button type="button" wire:click="approve({{ $s->id }})" class="btn-dark">Onayla</button>
                             @endif
                             @if ($isAdmin)
                                 <button type="button" wire:click="snooze({{ $s->id }})" class="btn-quiet px-2!">7 gün ertele</button>

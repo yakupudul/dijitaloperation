@@ -25,7 +25,7 @@
                 <p class="px-4 py-3.5 text-[13px] text-gray-500">Bu markanın epikrizi henüz hazırlanmadı; gece kendiliğinden hazırlanır.</p>
             @else
                 <div class="px-4 py-3.5">
-                    <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5" aria-hidden="true"><div class="h-full rounded-full bg-gray-900 dark:bg-white" style="width: {{ max(0, min(100, (int) ($head->fill_percent ?? 0))) }}%"></div></div>
+                    <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5" aria-hidden="true"><div class="h-full rounded-full bg-accent" style="width: {{ max(0, min(100, (int) ($head->fill_percent ?? 0))) }}%"></div></div>
                     <p class="mt-2.5 text-[13px] text-gray-500" data-epicrisis-counts>
                         {{ $counts['known'] ?? 0 }}/{{ $counts['required'] ?? 0 }} zorunlu bilgi, {{ $counts['facts'] ?? 0 }} bilgi ({{ $counts['verified'] ?? 0 }} doğrulandı), {{ $counts['synthesis'] ?? 0 }} sentez, {{ $counts['evidence'] ?? 0 }} kanıt, {{ $counts['lessons'] ?? 0 }} ders
                         @if ($head->built_at)

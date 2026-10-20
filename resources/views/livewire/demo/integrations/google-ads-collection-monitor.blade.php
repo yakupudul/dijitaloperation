@@ -22,7 +22,7 @@
                                 @elseif ($run['quota_waiting'])
                                     Google Ads kotası bekleniyor
                                 @else
-                                    Google Ads · {{ $run['status_label'] }}
+                                    Google Ads aktarımı
                                 @endif
                             </h2>
                             <span class="text-xs font-medium {{ $run['quota_waiting'] ? 'text-warning-700 dark:text-warning-300' : 'text-gray-500' }}">{{ $run['status_label'] }}</span>
@@ -54,7 +54,7 @@
                         <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($run['progress_percent'], 1) }}%</span>
                     </div>
                     <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
+                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
                     </div>
                     <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                         <span>{{ $run['datasets_finished'] }} / {{ $run['datasets_total'] }} veri grubu</span>
@@ -88,7 +88,7 @@
                                         <span class="font-medium tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($resource['progress_percent'], 1) }}%</span>
                                     </div>
                                     <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div>
+                                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div>
                                     </div>
                                 </div>
 
@@ -112,9 +112,7 @@
                                                     <p class="mt-1 break-words">{{ $error['message'] }}</p>
                                                     @if (! empty($error['code']) || ! empty($error['category']))
                                                         <p class="mt-1 opacity-70">
-                                                            @if (! empty($error['code']))Kod: {{ $error['code'] }}@endif
-                                                            @if (! empty($error['code']) && ! empty($error['category'])) · @endif
-                                                            @if (! empty($error['category']))Tür: {{ $error['category'] }}@endif
+                                                            {{ implode(', ', array_filter([! empty($error['code']) ? 'Kod: '.$error['code'] : null, ! empty($error['category']) ? 'Tür: '.$error['category'] : null])) }}
                                                         </p>
                                                     @endif
                                                 </div>
@@ -172,7 +170,7 @@
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3>
                                     <x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">Müşteri kimliği {{ $issue['customer_id'] }} · {{ $issue['last_activity'] }}</p>
+                                <p class="mt-1 text-xs text-gray-500">Müşteri kimliği {{ $issue['customer_id'] }}, {{ $issue['last_activity'] }}</p>
                                 @if (! empty($issue['errors']))
                                     <div class="mt-3 space-y-2">
                                         @foreach ($issue['errors'] as $error)

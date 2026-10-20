@@ -15,6 +15,8 @@
     $autoStopped = $boundAutomations->contains(fn ($automation): bool => $automation->collection_status === 'attention');
     $autoOn = $boundAutomations->contains(fn ($automation): bool => (bool) $automation->collection_enabled);
     $readySources = collect($websiteSources)->where('ready', true)->count();
+    // One accent button at a time: binding a missing account comes first; once everything is bound, pulling data is the main action.
+    $bindingMissing = $canDiscover && $activeBindings->count() < count($capabilities);
 @endphp
 
 <div class="min-w-0 space-y-8">
@@ -29,7 +31,7 @@
                     {{ __('operator_runtime.sources.discover', ['provider' => $providerName($provider)]) }}
                 </button>
             @endforeach
-            <button type="button" wire:click="collectNow" @disabled(! $hasCollectableSource) wire:loading.attr="disabled" class="btn-primary">
+            <button type="button" wire:click="collectNow" @disabled(! $hasCollectableSource) wire:loading.attr="disabled" @class(['btn-primary' => ! $bindingMissing, 'btn' => $bindingMissing])>
                 {{ __('operator_runtime.sources.collect_now') }}
             </button>
         </x-slot:actions>
@@ -124,7 +126,7 @@
                                 @if ($write !== null)
                                     @php $n = fn (int $v): string => number_format($v, 0, ',', '.'); @endphp
                                     <p class="text-[13px] text-gray-500 dark:text-gray-400" data-last-write>
-                                        <span class="text-gray-900 dark:text-white">Son çekim {{ $at($write['at']) }}: {{ $n($write['inserted']) }} yeni satır · {{ $n($write['updated']) }} güncellendi · {{ $n($write['unchanged']) }} değişmedi.</span>
+                                        <span class="text-gray-900 dark:text-white">Son çekim {{ $at($write['at']) }}: {{ $n($write['inserted']) }} yeni satır, {{ $n($write['updated']) }} güncellendi, {{ $n($write['unchanged']) }} değişmedi.</span>
                                         {{ ['search_console' => 'Son 7 gün her çekimde yeniden doğrulanır (Google rakamları geç kesinleştirir).', 'google_ads' => 'Geç gelen dönüşümler için son günler yeniden, haftada bir son 30 gün doğrulanır.'][$capability] ?? '' }}
                                         Aynı gün ve boyut tek satırdır; tekrar çekim kopya oluşturmaz, değişen satırı günceller.
                                     </p>
@@ -215,8 +217,8 @@
                             'url_required' => app()->getLocale() === 'tr' ? 'URL gerekli' : 'URL required',
                             'domain_required' => app()->getLocale() === 'tr' ? 'Domain gerekli' : 'Domain required',
                             'connection_required' => app()->getLocale() === 'tr' ? 'Bağlantı gerekli' : 'Connection required',
-                            'plugin_required' => app()->getLocale() === 'tr' ? 'WordPress · eklenti kurulmalı' : 'WordPress · plugin required',
-                            'not_wordpress' => app()->getLocale() === 'tr' ? 'WordPress değil · yalnız elle / herkese açık tarama' : 'Not WordPress · manual public crawl only',
+                            'plugin_required' => app()->getLocale() === 'tr' ? 'WordPress, eklenti kurulmalı' : 'WordPress · plugin required',
+                            'not_wordpress' => app()->getLocale() === 'tr' ? 'WordPress değil, yalnız elle ya da açık tarama' : 'Not WordPress · manual public crawl only',
                             default => $sourceStatus,
                         };
                     @endphp

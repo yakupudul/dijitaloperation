@@ -175,7 +175,7 @@ class WinnersTest extends TestCase
             ->assertSee('Ankara · 3 marka yarışıyor')
             ->assertSee('Genel sıralama')->assertSee('Atlas implant form')->assertSee('/implant-fiyatlari/')->assertSee('Beta implant arama')
             ->assertSee('Kazananın tarifi')->assertSee('Marka adıyla gelen aramalar sayılmadı')->assertSee('Adil yarış kuralları')
-            ->assertSee('↑ 2')->assertSee('↓ 2')->assertSee('Meta liderliği Panorama Ankara markasından Atlas markasına geçti');
+            ->assertSee('▲ 2')->assertSee('▼ 2')->assertSee('Meta liderliği Panorama Ankara markasından Atlas markasına geçti');
         Livewire::actingAs($this->admin)->test(ServicePage::class, ['serviceId' => $this->serviceId])
             ->set('measure', 'volume')->assertSee('64 form')->set('measure', 'bogus')->assertSet('measure', 'cost')
             ->set('city', 'İzmir')->assertSee('Bu şehirde hiçbir kanalda eşiği geçen marka yok.');

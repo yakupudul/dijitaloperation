@@ -10,7 +10,7 @@
             <header class="section-head mb-0! items-center!">
                 <x-ta.brand-avatar :name="$section['brand']" :logo="$section['brand_id'] !== null ? ($workLogos[$section['brand_id']] ?? null) : null" size="sm" />
                 <h2 class="section-title">{{ $section['brand'] }} <span class="section-count">{{ $section['count'] }} iş</span></h2>
-                @if($section['urgent'] > 0)<span class="text-[13px] text-error-700 dark:text-error-400">{{ $section['urgent'] }} acil</span>@endif
+                @if($section['urgent'] > 0)<span class="text-[13px] text-warning-700 dark:text-warning-400">{{ $section['urgent'] }} acil</span>@endif
                 @if($brand === null && $section['brand_id'] !== null && count($sections) > 1)
                     <button type="button" wire:click="showBrand({{ $section['brand_id'] }})" class="link-neutral ml-auto text-[13px]">Yalnız bu marka</button>
                 @endif
@@ -25,12 +25,12 @@
                     $sharedAsset = $group['asset'];
                 @endphp
                 <article wire:key="work-group-{{ $group['key'] }}" class="card overflow-visible! text-sm" data-work-group="{{ $group['key'] }}">
-                    <header class="flex flex-col gap-2 rounded-t-xl border-b border-gray-200 bg-gray-50/60 px-4 py-3 sm:flex-row sm:items-start sm:gap-3 dark:border-gray-800 dark:bg-white/[0.02]">
+                    <header class="flex flex-col gap-2 rounded-t-2xl border-b border-gray-200 px-4 py-3.5 sm:flex-row sm:items-start sm:gap-3 dark:border-gray-800">
                         <div class="min-w-0 sm:flex-1">
                             <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                 <h3 class="text-sm font-medium text-gray-900 first-letter:uppercase dark:text-white">{{ $group['type'] }}</h3>
                                 <span class="text-[13px] tabular-nums text-gray-500">{{ $group['count'] }}</span>
-                                @if($group['urgent'] > 0)<span class="text-[13px] text-error-700 dark:text-error-400">{{ $group['urgent'] }} acil</span>@endif
+                                @if($group['urgent'] > 0)<span class="text-[13px] text-warning-700 dark:text-warning-400">{{ $group['urgent'] }} acil</span>@endif
                                 @if($sharedAsset)<span class="min-w-0 truncate text-[13px] text-gray-500">{{ $sharedAsset }}</span>@endif
                             </div>
                             @if($group['about'])<p class="mt-0.5 max-w-3xl text-xs text-gray-500" data-work-rule>{{ $group['about'] }}</p>@endif
@@ -38,7 +38,7 @@
                         <div class="flex flex-wrap items-center gap-2">
                             @php $mergeable = $group['mergeable'] ?? []; $ticked = count(array_intersect(array_map('intval', $selected), $mergeable)); @endphp
                             @if($view === 'acik' && $ticked > 0)
-                                <button type="button" wire:click="mergeSelected" wire:confirm="Seçilen {{ $ticked }} sayfanın ziyaretçileri ana sayfalarına yönlendirilsin ve sayfalar taslağa alınsın mı? Silinmez, geri alınabilir." class="btn-primary" data-merge-selected>Seçilenleri birleştir ({{ $ticked }})</button>
+                                <button type="button" wire:click="mergeSelected" wire:confirm="Seçilen {{ $ticked }} sayfanın ziyaretçileri ana sayfalarına yönlendirilsin ve sayfalar taslağa alınsın mı? Silinmez, geri alınabilir." class="btn-dark" data-merge-selected>Seçilenleri birleştir ({{ $ticked }})</button>
                             @endif
                             @if($view === 'acik' && count($mergeable) > 1)
                                 <button type="button" wire:click="mergeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ count($mergeable) }} «Birleştirilecek» sayfanın ziyaretçileri ana sayfalarına yönlendirilsin ve sayfalar taslağa alınsın mı? Silinmez, geri alınabilir." class="{{ $ghost }}" data-merge-group>Hepsini birleştir ({{ count($mergeable) }})</button>
@@ -81,7 +81,7 @@
                     @endif
 
                     @if($hidden > 0)
-                        <button type="button" wire:click="expand('{{ $group['key'] }}')" class="w-full rounded-b-xl border-t border-gray-200 py-2.5 text-[13px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5" data-expand-group>
+                        <button type="button" wire:click="expand('{{ $group['key'] }}')" class="w-full rounded-b-2xl border-t border-gray-200 py-2.5 text-[13px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5" data-expand-group>
                             Tümünü göster (+{{ $hidden }} {{ $group['clusters'] !== null ? 'küme' : 'iş' }})
                         </button>
                     @endif

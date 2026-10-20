@@ -1,7 +1,7 @@
 @php
     $select = 'h-8 w-full rounded-lg border border-gray-200 bg-white py-0 pl-3 text-[13px] text-gray-800 sm:w-auto dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
-    // Neutral heat ramp (dark = busy); colour is kept for status only.
-    $ramp = ['bg-gray-100 dark:bg-white/5', 'bg-gray-200 dark:bg-white/15', 'bg-gray-300 dark:bg-white/25', 'bg-gray-500 dark:bg-white/45', 'bg-gray-800 dark:bg-white/70'];
+    // Heat ramp in the second (chart) colour, so Ayarlar › Görünüm reaches it: deeper = busier.
+    $ramp = ['bg-second/10', 'bg-second/25', 'bg-second/45', 'bg-second/70', 'bg-second'];
     $typeLabels = \App\Services\Ads\AdServiceStats::TYPE_LABELS;
     $money = fn ($v, $cur = 'TRY') => $v === null ? '—' : number_format((float) $v, 0, ',', '.').' '.($cur ?: 'TRY');
     $logo = fn (?string $name): ?string => $name !== null ? ($logos[$name] ?? null) : null;
@@ -17,9 +17,9 @@
         </header>
 
         <div class="-mt-4 space-y-4">
-            <div class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist" data-testid="library-tabs">
+            <div class="no-scrollbar flex gap-1.5 overflow-x-auto" role="tablist" data-testid="library-tabs">
                 @foreach ($tabs as $key => $label)
-                    <button type="button" role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" wire:click="$set('tab', '{{ $key }}')" @class(['tab', 'tab-active' => $tab === $key])>{{ $label }}</button>
+                    <button type="button" role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" wire:click="$set('tab', '{{ $key }}')" @class(['seg', 'seg-active' => $tab === $key])>{{ $label }}</button>
                 @endforeach
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -123,7 +123,7 @@
                                     <tr class="border-b border-gray-200 last:border-b-0 dark:border-gray-800">
                                         <td class="px-4 py-2 font-medium whitespace-nowrap text-gray-900 dark:text-white">{{ $row['service'] }}</td>
                                         @foreach ($row['levels'] as $i => $level)
-                                            <td class="px-0.5 py-2"><div title="{{ number_format($row['volumes'][$i], 0, ',', '.') }} arama" @class(['h-7 rounded', $ramp[$level], 'ring-2 ring-gray-900 dark:ring-white' => $i === $season['now']])></div></td>
+                                            <td class="px-0.5 py-2"><div title="{{ number_format($row['volumes'][$i], 0, ',', '.') }} arama" @class(['h-7 rounded', $ramp[$level], 'ring-2 ring-gray-900 ring-offset-1 dark:ring-white dark:ring-offset-gray-900' => $i === $season['now']])></div></td>
                                         @endforeach
                                         <td class="px-4 py-2 text-[13px] text-gray-500">{{ $row['peak'] }}</td>
                                     </tr>
@@ -161,9 +161,9 @@
                                                 @if ($v === null)
                                                     <div class="h-8 w-16"></div>
                                                 @elseif ($v === 0)
-                                                    <div class="flex h-8 w-16 items-center justify-center rounded border border-dashed border-warning-500 text-xs text-warning-800 dark:text-warning-300">fırsat</div>
+                                                    <div class="flex h-8 w-16 items-center justify-center rounded border border-dashed border-accent bg-accent-soft text-xs font-medium text-gray-900 dark:text-white">fırsat</div>
                                                 @else
-                                                    <div @class(['flex h-8 w-16 items-center justify-center rounded text-xs font-medium', $ramp[$v], 'text-white' => $v >= 3, 'text-gray-900' => $v < 3])>{{ $v }}</div>
+                                                    <div @class(['flex h-8 w-16 items-center justify-center rounded text-xs font-medium', $ramp[$v], 'text-white' => $v >= 3, 'text-gray-900 dark:text-white' => $v < 3])>{{ $v }}</div>
                                                 @endif
                                             </td>
                                         @endforeach

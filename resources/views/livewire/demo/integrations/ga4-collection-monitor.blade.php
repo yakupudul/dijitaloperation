@@ -18,7 +18,7 @@
                                 'bg-warning-500' => $run['status'] === 'cancellation_requested',
                             ])></span>
                             <h2 class="section-title">
-                                GA4 · {{ $run['status_label'] }}
+                                GA4 aktarımı
                             </h2>
                             <span class="text-xs font-medium text-gray-500">{{ $run['status_label'] }}</span>
                         </div>
@@ -44,10 +44,10 @@
                         <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($run['progress_percent'], 1) }}%</span>
                     </div>
                     <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
+                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
                     </div>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        {{ $run['datasets_finished'] }} / {{ $run['datasets_total'] }} veri grubu · {{ number_format($run['rows_written'], 0, ',', '.') }} satır kaydedildi
+                        {{ $run['datasets_finished'] }} / {{ $run['datasets_total'] }} veri grubu, {{ number_format($run['rows_written'], 0, ',', '.') }} satır kaydedildi
                     </p>
                 </div>
 
@@ -67,13 +67,11 @@
                                         <div class="mt-2 space-y-2">
                                             @foreach ($liveErrors as $error)
                                                 <div class="rounded-md bg-white/70 px-3 py-2 dark:bg-black/10">
-                                                    <p class="text-xs font-semibold">{{ $error['resource_name'] }} · {{ $error['label'] }}</p>
+                                                    <p class="text-xs font-semibold">{{ $error['resource_name'] }}, {{ $error['label'] }}</p>
                                                     <p class="mt-1 break-words text-xs opacity-90">{{ $error['message'] }}</p>
                                                     @if (! empty($error['code']) || ! empty($error['category']))
                                                         <p class="mt-1 text-xs opacity-70">
-                                                            @if (! empty($error['code'])){{ $error['code'] }}@endif
-                                                            @if (! empty($error['code']) && ! empty($error['category'])) · @endif
-                                                            @if (! empty($error['category'])){{ $error['category'] }}@endif
+                                                            {{ implode(', ', array_filter([$error['code'] ?? null, $error['category'] ?? null])) }}
                                                         </p>
                                                     @endif
                                                 </div>
@@ -96,7 +94,7 @@
                                     <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
                                     <span class="text-xs text-gray-500">{{ $resource['status_label'] }}</span>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">{{ $resource['account_name'] }} · Property {{ $resource['property_id'] }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $resource['account_name'] }}, Property {{ $resource['property_id'] }}</p>
 
                                 <div class="mt-3 max-w-3xl">
                                     <div class="mb-1 flex items-center justify-between gap-3 text-xs text-gray-500">
@@ -104,16 +102,13 @@
                                         <span class="font-medium tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($resource['progress_percent'], 1) }}%</span>
                                     </div>
                                     <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div>
+                                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div>
                                     </div>
                                 </div>
 
                                 <p class="mt-3 text-xs text-gray-500">
                                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ $resource['current_dataset'] ?? 'Bekliyor' }}</span>
-                                    @if (! empty($resource['current_range']))
-                                        , {{ $resource['current_range'] }}
-                                    @endif
-                                    , {{ number_format($resource['rows_written'], 0, ',', '.') }} satır
+                                    {{ ! empty($resource['current_range']) ? ', '.$resource['current_range'] : '' }}, {{ number_format($resource['rows_written'], 0, ',', '.') }} satır
                                 </p>
 
                                 @if (! empty($resource['errors']))
@@ -126,9 +121,7 @@
                                                     <p class="mt-1 break-words">{{ $error['message'] }}</p>
                                                     @if (! empty($error['code']) || ! empty($error['category']))
                                                         <p class="mt-1 text-xs opacity-70">
-                                                            @if (! empty($error['code'])){{ $error['code'] }}@endif
-                                                            @if (! empty($error['code']) && ! empty($error['category'])) · @endif
-                                                            @if (! empty($error['category'])){{ $error['category'] }}@endif
+                                                            {{ implode(', ', array_filter([$error['code'] ?? null, $error['category'] ?? null])) }}
                                                         </p>
                                                     @endif
                                                 </div>
@@ -193,7 +186,7 @@
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3>
                                     <x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">{{ $issue['account_name'] }} · Property {{ $issue['property_id'] }} · {{ $issue['last_activity'] }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $issue['account_name'] }}, Property {{ $issue['property_id'] }}, {{ $issue['last_activity'] }}</p>
 
                                 <details class="mt-3">
                                     <summary class="cursor-pointer select-none text-xs font-semibold text-gray-700 dark:text-gray-300">Hata ayrıntıları</summary>
@@ -207,9 +200,7 @@
                                                 <p class="mt-1 break-words text-xs text-gray-600 dark:text-gray-400">{{ $error['message'] }}</p>
                                                 @if (! empty($error['code']) || ! empty($error['category']))
                                                     <p class="mt-1.5 text-xs text-gray-500">
-                                                        @if (! empty($error['code']))Kod: {{ $error['code'] }}@endif
-                                                        @if (! empty($error['code']) && ! empty($error['category'])) · @endif
-                                                        @if (! empty($error['category']))Tür: {{ $error['category'] }}@endif
+                                                        {{ implode(', ', array_filter([! empty($error['code']) ? 'Kod: '.$error['code'] : null, ! empty($error['category']) ? 'Tür: '.$error['category'] : null])) }}
                                                     </p>
                                                 @endif
                                             </div>

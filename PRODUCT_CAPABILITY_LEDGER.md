@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — Canlı panel dili ve Ayarlar › Görünüm renkleri
+
+- **Karar (yakup 2026-10-20):** onaylı konsept canlıda "çok donuk"; ikas.com/tr ve e-adam.com ile karşılaştırılıp prototip yapıldı (`https://claude.ai/artifact/GAW4785G9CancdGzVCcB2E`), yakup: "Tasarım dili tam istediğim gibi oldu." Renkler sistem ayarından değişebilmeli, varsayılan Moximu logo renkleri.
+- **Görünüm ayarı:** Ayarlar › Genel › Görünüm (yalnız Admin): hazır renkler (Moximu, Fosfor, Mavi, Mercan), vurgu ve ikinci renk seçici + hex alanı, anlık önizleme (seçince tüm panel hemen dener), "Renkleri kaydet", "Moximu renklerine dön". `agency_settings.theme_accent` / `theme_second` (boş = Moximu `#fdcf3c` / `#1e7a78`); vurgunun üstündeki yazı rengi parlaklığa göre siyah ya da beyaz (`AgencySettingService::theme`). Renkler `operator/partials/theme-colors` ile panel ve giriş ekranlarına `--moxi-*` değişkeni olarak basılır; ekran kodu yalnız `accent` / `second` / `hero` token'larını kullanır.
+- **Dil (`operator.css`):** vurgulu ana düğme (`btn-primary`), satır onayı siyah (`btn-dark`), başlıkta fosforlu kelime (`highlight`, yalnız ana ekranlar), canlı bilgi etiketi (`eyebrow`), renkli eylem kartları (`soft-card`), koyu anahtar rakam paneli (`hero-panel`, ekranda en çok bir), değişim rozeti (`chip`), hap sekmeler (`seg`), kart 16 px köşe, başlık 26-30 px.
+- **Bugün:** başlık "bugün N şey seni bekliyor", eylemler renkli kartlar, "Bu hafta" koyu panelde alan grafiğiyle, markalar kartlarda (logo, tık, değişim, çizgi). **Onarım masası:** koyu gönderim kartı (büyük sayı, adımlar), hap sekmeler, siyah Onayla. Diğer ekranlar aynı dille ekran ekran.
+- **Durum:** CODED, TESTED (`ThemeColorsTest`, `TodayCockpitTest`, `RepairDeskTest`); masaüstü, telefon ve koyu tema yerel ekran görüntüleriyle kontrol; görsel kabul yakup'ta.
+
 ## 2026-10-20 — Onaylı panel konsepti tüm ekranlarda
 
 - **Karar (yakup 2026-10-20):** "Sade panel" canlısı "çok kötü"; içerik önce yeniden düşünülen prototipe "Bu konsepti çok beğendim. Bu ekranları ve diğer tüm ekranları bu konsepte yap."

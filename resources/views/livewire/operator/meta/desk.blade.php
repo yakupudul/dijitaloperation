@@ -27,7 +27,7 @@
 
     <div class="space-y-10">
         <header class="min-w-0">
-            <h1 class="page-title">Meta masası</h1>
+            <h1 class="page-title">Meta <span class="highlight">masası</span></h1>
             @if ($sub)<p class="page-sub">{{ $sub }}</p>@endif
         </header>
 
@@ -36,8 +36,70 @@
         @else
             @php $k = $desk['kpis']; @endphp
 
-            {{-- 1. What costs more than its service, stopped or got rejected. --}}
-            <section data-testid="meta-desk-today">
+            {{-- 1. What waits on the operator (canlı panel 2026-10-20): the losing campaigns and the ones without a service. --}}
+            @php $todayBrands = collect($desk['today'])->unique('brand_id')->values(); @endphp
+            @if ($k['today'] > 0 || $k['no_service'] > 0)
+                <div @class(['grid gap-3', 'sm:grid-cols-2' => $k['today'] > 0 && $k['no_service'] > 0])>
+                    @if ($k['today'] > 0)
+                        <div class="soft-card soft-red">
+                            <span class="soft-icon text-error-600 dark:text-error-400" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+                            <p class="soft-number">{{ $k['today'] }} kampanya</p>
+                            <p class="text-[15px] font-semibold text-gray-900 dark:text-white">Bugün bakılmalı</p>
+                            <p class="text-[13px] text-gray-600 dark:text-gray-300">Hizmet ortalamasından pahalı, durmuş ya da reklamı reddedilmiş</p>
+                            <div class="flex items-center">
+                                @foreach ($todayBrands->take(5) as $r)
+                                    <span class="-ml-2 inline-flex h-[30px] w-[30px] items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-card first:ml-0 dark:border-gray-900" title="{{ $r['brand'] }}">
+                                        <x-ta.brand-avatar :name="$r['brand']" size="sm" class="border-0!" />
+                                    </span>
+                                @endforeach
+                            </div>
+                            <div class="mt-auto pt-1"><a href="#bugun" class="btn">Listeye bak</a></div>
+                        </div>
+                    @endif
+                    @if ($k['no_service'] > 0)
+                        <div class="soft-card soft-amber">
+                            <span class="soft-icon text-warning-600 dark:text-warning-400" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span>
+                            <p class="soft-number">{{ $num($k['no_service']) }} kampanya</p>
+                            <p class="text-[15px] font-semibold text-gray-900 dark:text-white">Hizmetsiz kampanya</p>
+                            <p class="text-[13px] text-gray-600 dark:text-gray-300">Hizmet atanınca ortalamaya girer ve karşılaştırılır</p>
+                            <div class="mt-auto pt-1"><button type="button" wire:click="$set('service', 'none')" x-on:click="$nextTick(() => document.getElementById('kampanyalar')?.scrollIntoView())" class="btn">Kampanyaları göster</button></div>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
+            {{-- 2. The month in four numbers: one dark panel. --}}
+            <section>
+                <div class="section-head">
+                    <h2 class="section-title">Son 30 gün</h2>
+                    <span class="text-[13px] text-gray-500">tüm markalar</span>
+                </div>
+                <div class="hero-panel grid-cols-2 lg:grid-cols-4" data-testid="meta-desk-kpis">
+                    <div class="hero-tile">
+                        <span class="hero-label">Harcama</span>
+                        <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $currency !== '' ? $short($k['spend']).' '.$currency : $short($k['spend']) }}</p>
+                        <p class="mt-2 text-xs text-white/60">{{ $k['campaigns'] }} kampanya</p>
+                    </div>
+                    <div class="hero-tile hero-tile-accent">
+                        <span class="hero-label">Form</span>
+                        <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $num($k['leads']) }}</p>
+                        <p class="mt-2 text-xs opacity-70">Anında form sonuçları</p>
+                    </div>
+                    <div class="hero-tile">
+                        <span class="hero-label">Mesaj</span>
+                        <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $num($k['messages']) }}</p>
+                        <p class="mt-2 text-xs text-white/60">WhatsApp ve Messenger</p>
+                    </div>
+                    <div class="hero-tile">
+                        <span class="hero-label">Yayında</span>
+                        <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $k['live'] }} / {{ $k['campaigns'] }}</p>
+                        <p class="mt-2 text-xs text-white/60">{{ $k['brands'] }} markada kampanya</p>
+                    </div>
+                </div>
+            </section>
+
+            {{-- 3. What costs more than its service, stopped or got rejected. --}}
+            <section id="bugun" class="scroll-mt-20" data-testid="meta-desk-today">
                 <div class="section-head">
                     <h2 class="section-title">Bugün bakılacaklar <span class="section-count">{{ $k['today'] }}</span></h2>
                     @if ($k['today'] > count($desk['today']))<span class="text-[13px] text-gray-500">en çok harcayan {{ count($desk['today']) }}</span>@endif
@@ -54,22 +116,8 @@
                 @endif
             </section>
 
-            {{-- 2. The month in four numbers. --}}
-            <section>
-                <div class="section-head">
-                    <h2 class="section-title">Son 30 gün</h2>
-                    <span class="text-[13px] text-gray-500">tüm markalar</span>
-                </div>
-                <div class="metric-strip grid-cols-2 lg:grid-cols-4" data-testid="meta-desk-kpis">
-                    <x-ta.metric-card label="Harcama" :value="$currency !== '' ? $short($k['spend']).' '.$currency : $short($k['spend'])" :hint="$k['campaigns'].' kampanya'" />
-                    <x-ta.metric-card label="Form" :value="$num($k['leads'])" hint="Anında form sonuçları" />
-                    <x-ta.metric-card label="Mesaj" :value="$num($k['messages'])" hint="WhatsApp ve Messenger" />
-                    <x-ta.metric-card label="Hizmetsiz kampanya" :value="$num($k['no_service'])" hint="Hizmet atanınca ortalamaya girer" />
-                </div>
-            </section>
-
             {{-- 3. Every campaign against its service average. --}}
-            <section data-testid="meta-desk-campaigns">
+            <section id="kampanyalar" class="scroll-mt-20" data-testid="meta-desk-campaigns">
                 <div class="section-head">
                     <h2 class="section-title">Kampanyalar <span class="section-count">{{ $desk['total'] }}</span></h2>
                 </div>
@@ -125,7 +173,7 @@
                                     <td class="whitespace-nowrap text-right">{{ $num($r['results']) }} <span class="text-xs text-gray-500">{{ \App\Services\Meta\MetaCampaignBoard::TYPES[$r['type']][0] ?? '' }}</span></td>
                                     <td class="whitespace-nowrap text-right font-medium text-gray-900 dark:text-white">{{ $money($r['cpr'], $r['currency']) }}</td>
                                     <td class="whitespace-nowrap text-right text-gray-600 dark:text-gray-400">{{ $r['average'] ? $money($r['average']['median'], $r['currency']) : '—' }}</td>
-                                    <td @class(['whitespace-nowrap text-right text-[13px]', 'text-error-700 dark:text-error-400' => ($r['diff'] ?? 0) >= 15, 'text-success-700 dark:text-success-400' => ($r['diff'] ?? 0) <= -15, 'text-gray-500' => $r['diff'] === null || abs($r['diff']) < 15])>{{ $pct($r['diff']) }}</td>
+                                    <td class="whitespace-nowrap text-right">@if ($r['diff'] !== null)<span @class(['chip', 'chip-down' => $r['diff'] >= 15, 'chip-up' => $r['diff'] <= -15, 'chip-flat' => abs($r['diff']) < 15])>{{ $r['diff'] > 0 ? '▲ ' : ($r['diff'] < 0 ? '▼ ' : '') }}{{ number_format(abs((float) $r['diff']), 0, ',', '.') }}%</span>@else<span class="text-gray-400">—</span>@endif</td>
                                     <td>
                                         {{-- "Hizmet yok" is already the Hizmet column's pill; not repeated here. --}}
                                         <span class="flex flex-wrap gap-x-3 gap-y-1">@foreach (array_diff($r['alerts'], ['no_service']) as $key)<x-ta.pill :tone="($tones[$key] ?? 'warn') === 'bad' ? 'critical' : 'look'">{{ $alerts[$key] ?? '' }}</x-ta.pill>@endforeach</span>

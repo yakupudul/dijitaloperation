@@ -74,15 +74,15 @@
                         <svg viewBox="0 0 {{ $W }} {{ $H }}" class="h-48 w-full" role="img" aria-label="Haftalık harcama ve sonuç">
                             @foreach ($weeks as $i => $wk)
                                 @php $bh = ($wk['spend'] / $wMax) * ($H - 40); @endphp
-                                <rect x="{{ round($i * $step + ($step - $bar) / 2, 1) }}" y="{{ round($H - 20 - $bh, 1) }}" width="{{ round($bar, 1) }}" height="{{ round($bh, 1) }}" rx="3" class="fill-gray-200 dark:fill-white/10"><title>{{ $date($wk['week']) }} haftası, {{ $money($wk['spend']) }}, {{ $count($wk['results']) }} sonuç</title></rect>
+                                <rect x="{{ round($i * $step + ($step - $bar) / 2, 1) }}" y="{{ round($H - 20 - $bh, 1) }}" width="{{ round($bar, 1) }}" height="{{ round($bh, 1) }}" rx="3" class="fill-second/20"><title>{{ $date($wk['week']) }} haftası, {{ $money($wk['spend']) }}, {{ $count($wk['results']) }} sonuç</title></rect>
                                 @if ($n <= 14 || $i % 2 === 0)
                                     <text x="{{ round($i * $step + $step / 2, 1) }}" y="{{ $H - 4 }}" text-anchor="middle" class="fill-gray-500 text-xs">{{ $date($wk['week']) }}</text>
                                 @endif
                             @endforeach
-                            <polyline points="{{ implode(' ', $points) }}" fill="none" stroke-width="2" stroke-linejoin="round" class="stroke-gray-900 dark:stroke-white" />
+                            <polyline points="{{ implode(' ', $points) }}" fill="none" stroke-width="2" stroke-linejoin="round" class="stroke-second" />
                             @foreach ($points as $p)
                                 @php [$px, $py] = explode(',', $p); @endphp
-                                <circle cx="{{ $px }}" cy="{{ $py }}" r="3" class="fill-gray-900 dark:fill-white" />
+                                <circle cx="{{ $px }}" cy="{{ $py }}" r="3" class="fill-second" />
                             @endforeach
                         </svg>
                     @endif
@@ -140,9 +140,9 @@
                 <div class="section-head">
                     <h2 class="section-title">Yaş × cinsiyet</h2>
                     <span class="text-[13px] text-gray-500">{{ $types[$a['type']][1] }}</span>
-                    <div class="inline-flex gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-0.5 sm:ml-auto dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="Sonuç türü">
+                    <div class="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto sm:ml-auto" role="group" aria-label="Sonuç türü">
                         @foreach (['leads', 'messages', 'purchases'] as $key)
-                            <button type="button" wire:click="$set('analysisType', '{{ $key }}')" @if ($a['type'] === $key) aria-pressed="true" @endif @class(['rounded-md px-2.5 py-0.5 text-xs font-medium', 'bg-white text-gray-900 shadow-card dark:bg-gray-800 dark:text-white' => $a['type'] === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $a['type'] !== $key])>{{ ucfirst($types[$key][0]) }}</button>
+                            <button type="button" wire:click="$set('analysisType', '{{ $key }}')" @if ($a['type'] === $key) aria-pressed="true" @endif @class(['seg h-8! px-3!', 'seg-active' => $a['type'] === $key])>{{ ucfirst($types[$key][0]) }}</button>
                         @endforeach
                     </div>
                 </div>

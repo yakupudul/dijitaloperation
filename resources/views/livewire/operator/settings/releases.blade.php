@@ -11,10 +11,13 @@
 
     {{-- 1. Does what is pushed reach the live server by itself? --}}
     <section class="-mt-4">
-        <div class="card">
+        {{-- Canlı panel (2026-10-20): a missing or failing auto deploy is a tinted warning card, a working one a plain card. --}}
+        <div @class(['card' => $autoDeploy !== null && ! $autoDeploy['problem'],
+            'rounded-3xl border soft-red' => $autoDeploy !== null && $autoDeploy['problem'],
+            'rounded-3xl border soft-amber' => $autoDeploy === null])>
             @if ($autoDeploy !== null)
                 <div class="card-row flex-wrap items-start sm:flex-nowrap" data-auto-deploy="{{ $autoDeploy['state'] }}">
-                    <span @class(['row-icon', 'border-transparent bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400' => $autoDeploy['problem']]) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+                    <span @class(['row-icon' => ! $autoDeploy['problem'], 'soft-icon text-error-600 dark:text-error-400' => $autoDeploy['problem']]) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
                     <div class="min-w-0 flex-1">
                         <p @class([$title, 'text-error-700! dark:text-error-300!' => $autoDeploy['problem']])>Otomatik deploy: {{ $autoDeploy['label'] }}</p>
                         @if (($autoDeploy['message'] !== '' && $autoDeploy['state'] !== 'idle') || $autoDeploy['checked_at'])
@@ -30,10 +33,10 @@
                 </div>
             @else
                 <div class="card-row items-start">
-                    <span class="row-icon border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+                    <span class="soft-icon text-warning-700 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
                     <div class="min-w-0 flex-1">
                         <p class="{{ $title }}">Otomatik deploy sunucuda kurulu değil</p>
-                        <p class="{{ $line }}">Canlıya almak için sunucuda <code class="rounded bg-gray-100 px-1 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-200">bash deploy/staging/auto-deploy.sh --install</code> bir kez çalıştırılmalı.</p>
+                        <p class="{{ $line }}">Canlıya almak için sunucuda <code class="rounded bg-white/80 px-1 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-200">bash deploy/staging/auto-deploy.sh --install</code> bir kez çalıştırılmalı.</p>
                     </div>
                 </div>
             @endif

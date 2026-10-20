@@ -1,5 +1,5 @@
 @php
-    $viewTab = fn (bool $active): string => 'inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium '.($active ? 'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white');
+    $viewTab = fn (bool $active): string => $active ? 'seg seg-active h-8! px-3! text-[13px]!' : 'seg h-8! px-3! text-[13px]!';
 @endphp
 <div class="space-y-8 dark:text-gray-200" data-work-desk>
     @unless($embedded)
@@ -43,7 +43,7 @@
                 <button type="button" role="tab" wire:click="setTab('{{ $code }}')" @class(['tab', 'tab-active' => $tab === $code]) aria-selected="{{ $tab === $code ? 'true' : 'false' }}">
                     {{ $label }}
                     @if($counts[$code] > 0)<span class="font-normal tabular-nums text-gray-500" title="Açık iş">{{ $counts[$code] }}</span>@endif
-                    @if($urgent[$code] > 0)<span class="font-normal tabular-nums text-error-700 dark:text-error-400" title="Bunların acil olanları">{{ $urgent[$code] }} acil</span>@endif
+                    @if($urgent[$code] > 0)<span class="font-normal tabular-nums text-warning-700 dark:text-warning-400" title="Bunların acil olanları">{{ $urgent[$code] }} acil</span>@endif
                 </button>
             @endforeach
         </nav>

@@ -7,7 +7,7 @@
         @endphp
         <section data-brand-identity>
             <div class="section-head">
-                <h2 class="section-title" title="İşletme Profili ile site aynı adı, telefonu ve adresi verince arama motorları ve yapay zekâ işletmeye daha çok güvenir.">Kimlik tutarlılığı @if ($issues > 0)<span class="section-count text-warning-700! dark:text-warning-400!">{{ $issues }} fark</span>@endif</h2>
+                <h2 class="section-title" title="İşletme Profili ile site aynı adı, telefonu ve adresi verince arama motorları ve yapay zekâ işletmeye daha çok güvenir.">Kimlik tutarlılığı @if ($issues > 0)<span class="chip chip-flat ml-1 bg-warning-50! align-middle text-warning-700! dark:bg-warning-500/15! dark:text-warning-400!">{{ $issues }} fark</span>@endif</h2>
                 <button type="button" wire:click="recheck" wire:loading.attr="disabled" class="btn ml-auto">Yeniden kontrol et</button>
             </div>
             <ul class="card">

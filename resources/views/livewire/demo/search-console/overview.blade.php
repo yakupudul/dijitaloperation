@@ -84,11 +84,13 @@
     $connected = ! in_array($status, ['Not connected', 'Action required', 'Error'], true);
     $title = preg_replace('/ — (not connected|read error)$/', '', (string) $identity['title']);
 
-    // Trend chart: the component's series, drawn in the panel's quiet style (near-black line, hairline grid).
+    // Trend chart: the component's series in the panel's second color (Ayarlar › Görünüm), hairline grid.
     $metricNames = ['clicks' => 'Tıklama', 'impressions' => 'Gösterim', 'ctr' => 'Tıklama oranı (%)', 'position' => 'Ortalama sıra'];
     $chart = $performanceChartOptions;
     $chart['series'][0]['name'] = $metricNames[$metric] ?? 'Tıklama';
-    $chart['colors'] = ['#191918'];
+    $chart['colors'] = [(string) (app(\App\Services\Operator\AgencySettingService::class)->theme()['second'] ?? '#1e7a78')];
+    $chart['chart']['type'] = 'area';
+    $chart['fill'] = ['type' => 'gradient', 'gradient' => ['shadeIntensity' => 0, 'opacityFrom' => 0.28, 'opacityTo' => 0.02, 'stops' => [0, 100]]];
     $chart['chart']['fontFamily'] = 'Inter, ui-sans-serif, system-ui, sans-serif';
     $chart['grid'] = ['borderColor' => '#ebebe9', 'strokeDashArray' => 3, 'padding' => ['left' => 4, 'right' => 8]];
     $chart['xaxis']['categories'] = array_map(fn (mixed $label): string => $trDay((string) $label), $chart['xaxis']['categories'] ?? []);

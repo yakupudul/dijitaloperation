@@ -24,11 +24,9 @@
                             @foreach ($view['cities'] as $c)<option value="{{ $c['name'] }}" @selected($view['city'] === $c['name'])>{{ $c['name'] }}, {{ $c['brands'] }} marka</option>@endforeach
                         </select>
                     @endif
-                    <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="Ölçü">
+                    <div class="flex gap-1.5" role="group" aria-label="Ölçü">
                         @foreach ($measures as $key => $label)
-                            <button type="button" wire:click="$set('measure', '{{ $key }}')" aria-pressed="{{ $measure === $key ? 'true' : 'false' }}" @class(['h-7 rounded-md px-2.5 text-[13px] whitespace-nowrap',
-                                'bg-white font-medium text-gray-900 shadow-card dark:bg-gray-800 dark:text-white' => $measure === $key,
-                                'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $measure !== $key])>{{ $label }}</button>
+                            <button type="button" wire:click="$set('measure', '{{ $key }}')" aria-pressed="{{ $measure === $key ? 'true' : 'false' }}" @class(['seg h-8!', 'seg-active' => $measure === $key])>{{ $label }}</button>
                         @endforeach
                     </div>
                 </div>
@@ -114,8 +112,8 @@
                                         </td>
                                     @endforeach
                                     <td class="text-right text-[15px] font-semibold tabular-nums text-gray-900 dark:text-white">{{ $r['score'] }}</td>
-                                    <td @class(['whitespace-nowrap text-right text-[13px] tabular-nums', 'text-success-700 dark:text-success-400' => ($r['move'] ?? 0) > 0, 'text-error-700 dark:text-error-400' => ($r['move'] ?? 0) < 0, 'text-gray-500' => ($r['move'] ?? 0) === 0])>
-                                        {{ $r['move'] === null ? '—' : ($r['move'] > 0 ? '↑ '.$r['move'] : ($r['move'] < 0 ? '↓ '.abs($r['move']) : '0')) }}
+                                    <td class="whitespace-nowrap text-right text-[13px] tabular-nums">
+                                        @if ($r['move'] === null)<span class="text-gray-400">—</span>@else<span @class(['chip', 'chip-up' => $r['move'] > 0, 'chip-down' => $r['move'] < 0, 'chip-flat' => $r['move'] === 0])>{{ $r['move'] > 0 ? '▲ '.$r['move'] : ($r['move'] < 0 ? '▼ '.abs($r['move']) : '0') }}</span>@endif
                                     </td>
                                 </tr>
                             @empty
@@ -158,7 +156,7 @@
                                     <li class="card-row py-3!">
                                         <x-ta.brand-avatar :name="$x['brand']" :logo="$logo($x['brand'])" size="sm" />
                                         <span class="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-white" title="{{ $x['brand'] }}">{{ $x['brand'] }}</span>
-                                        <span @class(['text-[13px] font-medium tabular-nums', 'text-success-700 dark:text-success-400' => $x['move'] > 0, 'text-error-700 dark:text-error-400' => $x['move'] < 0])>{{ $x['move'] > 0 ? '↑ '.$x['move'] : '↓ '.abs($x['move']) }}</span>
+                                        <span @class(['chip', 'chip-up' => $x['move'] > 0, 'chip-down' => $x['move'] < 0])>{{ $x['move'] > 0 ? '▲ '.$x['move'] : '▼ '.abs($x['move']) }}</span>
                                     </li>
                                 @endforeach
                             @endif

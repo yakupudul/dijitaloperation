@@ -16,6 +16,7 @@
         $statusText = 'Claude bekleniyor (kuyruk iş saatlerinde 2 saatte bir çalışır)…';
     }
     $pickedCount = count(array_filter($pick));
+    $assetKinds = ['website' => 'web sitesi', 'search_console' => 'Search Console', 'gsc' => 'Search Console', 'ga4' => 'GA4', 'google_business_profile' => 'İşletme Profili', 'google_ads' => 'Google Ads', 'meta_ads' => 'Meta reklam hesabı'];
     $steps = [1 => 'Hesaplar ve sektörler', 2 => 'Hizmetler ve eşleme kelimeleri', 3 => 'Sektör filtre sepeti'];
 @endphp
 <div class="space-y-10 text-sm dark:text-gray-200" data-query-plan @if ($running) wire:poll.2s="syncProposal" @endif>
@@ -25,9 +26,9 @@
         <p class="page-sub">Üç adım: hesapları sektöre bağla, hizmetleri ve eşleme kelimelerini kur, sektörün filtre sepetini doldur.</p>
     </header>
 
-    <nav class="no-scrollbar -mt-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Adımlar">
+    <nav class="no-scrollbar -mt-4 flex gap-1.5 overflow-x-auto" aria-label="Adımlar">
         @foreach ($steps as $number => $label)
-            <button type="button" wire:click="goTo({{ $number }})" data-step="{{ $number }}" @class(['tab', 'tab-active' => $step === $number])><span class="tabular-nums text-gray-400">{{ $number }}</span> {{ $label }}</button>
+            <button type="button" wire:click="goTo({{ $number }})" data-step="{{ $number }}" @if ($step === $number) aria-current="step" @endif @class(['seg', 'seg-active' => $step === $number])><span @class(['flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums', 'bg-accent text-accent-ink' => $step === $number, 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400' => $step !== $number])>{{ $number }}</span> {{ $label }}</button>
         @endforeach
     </nav>
 
@@ -74,7 +75,7 @@
                             @foreach ($brand->digitalAssets as $asset)
                                 <tr wire:key="a-{{ $asset->id }}">
                                     @php $accountIds = \App\Services\Queries\QueryPlanner::accountIds($asset); @endphp
-                                    <td class="wrap-anywhere pl-8! md:pl-12!"><span class="text-[13px] text-gray-900 dark:text-white">{{ $asset->name }}</span> <span class="text-xs text-gray-500">{{ $asset->type }}</span>@if ($accountIds)<span class="mt-0.5 block text-xs text-gray-500 md:hidden">{{ $accountIds }}</span>@endif @if ($proposal['assets'][$asset->id]['reason'] ?? false)<span class="mt-0.5 block text-xs text-gray-500 md:hidden">{{ $proposal['assets'][$asset->id]['reason'] }}</span>@endif</td>
+                                    <td class="wrap-anywhere pl-8! md:pl-12!"><span class="text-[13px] text-gray-900 dark:text-white">{{ $asset->name }}</span> <span class="text-xs text-gray-500">{{ $assetKinds[$asset->type] ?? str_replace('_', ' ', (string) $asset->type) }}</span>@if ($accountIds)<span class="mt-0.5 block text-xs text-gray-500 md:hidden">{{ $accountIds }}</span>@endif @if ($proposal['assets'][$asset->id]['reason'] ?? false)<span class="mt-0.5 block text-xs text-gray-500 md:hidden">{{ $proposal['assets'][$asset->id]['reason'] }}</span>@endif</td>
                                     <td class="hidden wrap-anywhere text-xs text-gray-500 md:table-cell">{{ $accountIds ?: '—' }}</td>
                                     <td>@include('livewire.operator.library.partials.sector-select', ['model' => 'assetSectors.'.$asset->id, 'brandLabel' => $brandLabel])</td>
                                     <td class="hidden text-xs text-gray-500 md:table-cell">{{ $proposal['assets'][$asset->id]['reason'] ?? '' }}</td>

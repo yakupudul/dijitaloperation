@@ -43,18 +43,22 @@
         @if ($nothingSpent)
             <div class="card"><x-ta.empty-state icon="none" size="sm" title="Bu dönemde harcama yok" message="{{ $range->label() }} içinde yayında harcama yapan kampanya yok; sayılar kampanya harcadıkça burada görünür." data-testid="meta-campaign-kpis" data-meta-nothing-spent /></div>
         @else
-            <div class="metric-strip grid-cols-2 {{ $stripCols }}" data-testid="meta-campaign-kpis">
-                <x-ta.metric-card label="Harcama" :value="$money($k['spend']['value'])" :delta="$k['spend']['change'] === null ? null : $pct($k['spend']['change'])" tone="neutral"
-                    :hint="$k['spend']['change'] === null ? 'Önceki dönem yok' : 'Karşılaştırma dönemine göre'" @class(['col-span-2 lg:col-span-1' => $cells % 2 === 1]) />
+            {{-- Canlı panel (2026-10-20): the period in one dark panel; the first result type is marked, a result tile filters the table. --}}
+            @php $firstType = array_key_first($typeTiles); @endphp
+            <div class="hero-panel grid-cols-2 {{ $stripCols }}" data-testid="meta-campaign-kpis">
+                <div @class(['hero-tile', 'col-span-2 lg:col-span-1' => $cells % 2 === 1])>
+                    <span class="hero-label">Harcama</span>
+                    <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $money($k['spend']['value']) }}</p>
+                    <p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">@if ($k['spend']['change'] !== null)<span class="chip chip-flat bg-white/10! text-white/80!">{{ $pct($k['spend']['change']) }}</span>@endif {{ $k['spend']['change'] === null ? 'Önceki dönem yok' : 'Karşılaştırma dönemine göre' }}</p>
+                </div>
                 @foreach ($typeTiles as $typeKey => [$label, $value, $sub, $change, $campaignsOfType])
+                    @php $accent = $typeKey === $firstType; $active = $resultType === $typeKey; @endphp
                     <button type="button" wire:click="$set('resultType', '{{ $resultType === $typeKey ? '' : $typeKey }}')" wire:key="kpi-{{ $typeKey }}" data-kpi-type="{{ $typeKey }}"
-                        @class([$statTile, 'bg-gray-50! shadow-[inset_0_-2px_0_0_var(--color-gray-900)] dark:bg-white/[0.06]! dark:shadow-[inset_0_-2px_0_0_var(--color-white)]' => $resultType === $typeKey, 'hover:bg-gray-50 dark:hover:bg-white/[0.03]' => $resultType !== $typeKey])
-                        @if ($resultType === $typeKey) aria-pressed="true" @endif title="Tabloyu {{ mb_strtolower($label) }} kampanyalarına süz">
-                        <span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $label }}, {{ $campaignsOfType }} kampanya</span>
-                        <span class="mt-1.5 flex flex-wrap items-baseline gap-x-2">
-                            <span class="text-[26px] leading-8 font-semibold tabular-nums tracking-[-0.02em] text-gray-900 dark:text-white">{{ $value }}</span>
-                        </span>
-                        <span class="mt-0.5 text-xs tabular-nums text-gray-500">{{ $sub }}@if ($change !== null) <span @class(['font-medium', 'text-success-700 dark:text-success-400' => $change < 0, 'text-error-700 dark:text-error-400' => $change > 0])>{{ $pct($change) }}</span>@endif</span>
+                        @class(['hero-tile text-left transition', 'hero-tile-accent hover:brightness-95' => $accent, 'hover:bg-white/[0.08]' => ! $accent, 'ring-2 ring-white ring-offset-2 ring-offset-transparent' => $active])
+                        @if ($active) aria-pressed="true" @endif title="Tabloyu {{ mb_strtolower($label) }} kampanyalarına süz">
+                        <span class="hero-label">{{ $label }}, {{ $campaignsOfType }} kampanya</span>
+                        <span class="hero-value block text-[24px]! sm:text-[30px]!">{{ $value }}</span>
+                        <span @class(['mt-2 flex flex-wrap items-center gap-2 text-xs tabular-nums', 'opacity-70' => $accent, 'text-white/60' => ! $accent])>@if ($change !== null)<span @class(['chip', 'chip-down' => $change > 0, 'chip-up' => $change < 0, 'chip-flat' => $change == 0])>{{ $change > 0 ? '▲ ' : ($change < 0 ? '▼ ' : '') }}{{ number_format(abs((float) $change), 1, ',', '.') }}%</span>@endif {{ $sub }}</span>
                     </button>
                 @endforeach
             </div>
@@ -97,9 +101,9 @@
             @endif
         </div>
         <div class="mb-3 flex flex-wrap items-center gap-2" data-testid="meta-campaign-filters">
-            <div class="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="Durum">
+            <div class="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto" role="group" aria-label="Durum">
                 @foreach (['live' => 'Yayında', 'paused' => 'Durmuş', 'all' => 'Tümü'] as $key => $label)
-                    <button type="button" wire:click="$set('status', '{{ $key }}')" @if ($status === $key) aria-pressed="true" @endif @class(['h-7 rounded-md px-2.5 text-[13px] font-medium', 'bg-white text-gray-900 shadow-card dark:bg-gray-800 dark:text-white' => $status === $key, 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $status !== $key])>{{ $label }} <span class="font-normal tabular-nums text-gray-500">{{ $board['counts'][$key] ?? 0 }}</span></button>
+                    <button type="button" wire:click="$set('status', '{{ $key }}')" @if ($status === $key) aria-pressed="true" @endif @class(['seg', 'seg-active' => $status === $key])>{{ $label }} <span @class(['tabular-nums text-xs', 'text-accent' => $status === $key, 'text-gray-400 dark:text-gray-500' => $status !== $key])>{{ $board['counts'][$key] ?? 0 }}</span></button>
                 @endforeach
             </div>
             <label class="contents"><span class="sr-only">Hizmet</span>
@@ -172,14 +176,14 @@
                             <td class="whitespace-nowrap text-right">
                                 <span class="font-medium text-gray-900 dark:text-white">{{ $cost($row) }}</span>
                                 @if ($row['cpr_change'] !== null)
-                                    <span @class(['block text-xs', 'text-success-700 dark:text-success-400' => $row['cpr_change'] < 0, 'text-error-700 dark:text-error-400' => $row['cpr_change'] > 0, 'text-gray-500' => $row['cpr_change'] == 0])>{{ $pct($row['cpr_change']) }}</span>
+                                    <span class="block"><span @class(['chip mt-1', 'chip-up' => $row['cpr_change'] < 0, 'chip-down' => $row['cpr_change'] > 0, 'chip-flat' => $row['cpr_change'] == 0])>{{ $row['cpr_change'] > 0 ? '▲ ' : ($row['cpr_change'] < 0 ? '▼ ' : '') }}{{ number_format(abs((float) $row['cpr_change']), 1, ',', '.') }}%</span></span>
                                 @endif
                             </td>
                             <td class="whitespace-nowrap text-right">
                                 @if ($row['average'])
                                     <span class="text-gray-700 dark:text-gray-300" title="{{ $row['average']['brands'] }} markanın ortancası, {{ $row['average']['scope'] }}">{{ $money($row['average']['median']) }}</span>
                                     @if ($row['average']['diff'] !== null)
-                                        <span @class(['block text-xs', 'text-success-700 dark:text-success-400' => $row['average']['verdict'] === 'better', 'text-error-700 dark:text-error-400' => $row['average']['verdict'] === 'worse', 'text-gray-500' => $row['average']['verdict'] === 'around'])>{{ $pct($row['average']['diff']) }}</span>
+                                        <span class="block"><span @class(['chip mt-1', 'chip-up' => $row['average']['verdict'] === 'better', 'chip-down' => $row['average']['verdict'] === 'worse', 'chip-flat' => $row['average']['verdict'] === 'around'])>{{ $row['average']['diff'] > 0 ? '▲ ' : ($row['average']['diff'] < 0 ? '▼ ' : '') }}{{ number_format(abs((float) $row['average']['diff']), 1, ',', '.') }}%</span></span>
                                     @endif
                                 @else
                                     <span class="text-xs text-gray-500">—</span>

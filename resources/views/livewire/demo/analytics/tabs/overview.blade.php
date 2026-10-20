@@ -18,6 +18,39 @@
     }
     $cells[] = ['İş aksiyonu', $glanceCell($glance['business_actions'] ?? null), array_map('floatval', $trend['business_actions'] ?? [])];
     $cells[] = ['Ölçüm', $glanceCell($glance['measurement_state'] ?? null), []];
+
+    // Living panel (2026-10-20): the head numbers in the dark number panel; sessions large with their daily line,
+    // business actions marked (the answer to "is the site bringing business").
+    $fullNumber = fn (?array $source, string $fallback): string => is_numeric($source['raw'] ?? null) && (float) $source['raw'] >= 1000 ? number_format((float) $source['raw'], 0, ',', '.') : $fallback;
+    $heroChip = function (array $cell): ?array {
+        if ($cell['delta'] === null) {
+            return null;
+        }
+        $falling = str_starts_with($cell['delta'], '-') || str_starts_with($cell['delta'], '−');
+
+        return [match ($cell['tone']) { 'positive' => 'chip-up', 'negative' => 'chip-down', default => 'chip-flat bg-white/10! text-white/80!' }, ($falling ? '▼ ' : '▲ ').ltrim($cell['delta'], '+-−')];
+    };
+    $sessionsCell = $glanceCell($glance['sessions'] ?? null);
+    $sideTiles = [['Kullanıcı', $glanceCell($glance['users'] ?? null), $fullNumber($glance['users'] ?? null, $glanceCell($glance['users'] ?? null)['value']), false]];
+    $actionsCell = $glanceCell($glance['business_actions'] ?? null);
+    $sideTiles[] = ['İş aksiyonu', $actionsCell, $fullNumber($glance['business_actions'] ?? null, $actionsCell['value']), ! $actionsCell['muted']];
+    if (array_key_exists('conversions', $glance)) {
+        $conversionsCell = $glanceCell($glance['conversions']);
+        $sideTiles[] = ['Dönüşüm', $conversionsCell, $fullNumber($glance['conversions'], $conversionsCell['value']), false];
+    }
+    $sideTiles[] = ['Ölçüm', $glanceCell($glance['measurement_state'] ?? null), null, false];
+    $sessionSeries = array_values(array_map('floatval', $trend['sessions'] ?? $trend['values'] ?? []));
+    $area = null;
+    if (count($sessionSeries) >= 2 && max($sessionSeries) > 0) {
+        [$max, $min] = [max($sessionSeries), min($sessionSeries)];
+        $range = ($max - $min) ?: 1.0;
+        $points = [];
+        foreach ($sessionSeries as $i => $value) {
+            $points[] = [round($i * 400 / (count($sessionSeries) - 1), 1), round(14 + (1 - ($value - $min) / $range) * 92, 1)];
+        }
+        $line = 'M'.implode(' L', array_map(fn (array $p): string => $p[0].','.$p[1], $points));
+        $area = ['line' => $line, 'fill' => $line.' L400,120 L0,120 Z', 'last' => end($points)];
+    }
 @endphp
 
 <div class="space-y-10">
@@ -46,11 +79,38 @@
 
     {{-- 2. Is the site bringing business: the head numbers. --}}
     <section data-ga4-glance>
-        <div @class(['metric-strip grid-cols-2', 'lg:grid-cols-4' => count($cells) === 4, 'lg:grid-cols-5' => count($cells) === 5])>
-            @foreach ($cells as [$label, $cell, $points])
-                <x-ta.metric-card :label="$label" :value="$cell['value']" :delta="$cell['delta']" :tone="$cell['tone']" :hint="$cell['hint']" :muted="$cell['muted']" :spark="$points" :title="$cell['note']" :class="$loop->last && $loop->odd ? 'col-span-2 lg:col-span-1' : ''" />
-            @endforeach
-        </div>
+        @if ($connected)
+            <div class="hero-panel grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+                @php $chip = $heroChip($sessionsCell); @endphp
+                <div class="hero-tile col-span-2 lg:col-span-1 lg:row-span-2" title="{{ $sessionsCell['note'] }}">
+                    <span class="hero-label"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/></svg>Oturum</span>
+                    <p class="hero-value text-[40px]! sm:text-[44px]!">{{ $fullNumber($glance['sessions'] ?? null, $sessionsCell['value']) }}</p>
+                    <p class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">@if ($chip)<span class="chip {{ $chip[0] }}">{{ $chip[1] }}</span>@endif {{ $sessionsCell['hint'] }}</p>
+                    @if ($area !== null)
+                        <svg class="mt-auto block h-[110px] w-full pt-4" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+                            <defs><linearGradient id="ga4-sessions-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--color-second)" stop-opacity=".7"/><stop offset="1" stop-color="var(--color-second)" stop-opacity="0"/></linearGradient></defs>
+                            <path d="{{ $area['fill'] }}" fill="url(#ga4-sessions-area)" />
+                            <path d="{{ $area['line'] }}" fill="none" stroke="color-mix(in srgb, var(--color-second) 45%, #ffffff)" stroke-width="2.5" vector-effect="non-scaling-stroke" />
+                            <circle cx="{{ $area['last'][0] }}" cy="{{ $area['last'][1] }}" r="4.5" fill="#fff" />
+                        </svg>
+                    @endif
+                </div>
+                @foreach ($sideTiles as [$label, $cell, $value, $accent])
+                    @php $chip = $heroChip($cell); @endphp
+                    <div @class(['hero-tile', 'hero-tile-accent' => $accent, 'col-span-2' => $loop->last && count($sideTiles) === 3]) title="{{ $cell['note'] }}">
+                        <span class="hero-label">{{ $label }}</span>
+                        <p @class(['hero-value', 'text-[22px]! sm:text-[24px]!' => $value === null])>{{ $value ?? $cell['value'] }}</p>
+                        <p @class(['mt-2 flex flex-wrap items-center gap-2 text-xs', 'opacity-70' => $accent, 'text-white/60' => ! $accent])>@if ($chip)<span class="chip {{ $accent && $chip[0] !== 'chip-up' && $chip[0] !== 'chip-down' ? 'chip-flat' : $chip[0] }}">{{ $chip[1] }}</span>@endif {{ $cell['hint'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div @class(['metric-strip grid-cols-2', 'lg:grid-cols-4' => count($cells) === 4, 'lg:grid-cols-5' => count($cells) === 5])>
+                @foreach ($cells as [$label, $cell, $points])
+                    <x-ta.metric-card :label="$label" :value="$cell['value']" :delta="$cell['delta']" :tone="$cell['tone']" :hint="$cell['hint']" :muted="$cell['muted']" :spark="$points" :title="$cell['note']" :class="$loop->last && $loop->odd ? 'col-span-2 lg:col-span-1' : ''" />
+                @endforeach
+            </div>
+        @endif
     </section>
 
     {{-- 3. Day by day. --}}
@@ -84,7 +144,7 @@
                             <span class="tabular-nums text-gray-900 dark:text-white">{{ $num($row['sessions']) }} <span class="text-[13px] text-gray-500">%{{ $row['share_pct'] }}</span></span>
                         </div>
                         <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, $row['bar'] ?? round(($row['sessions'] / $maxAcq) * 100)) }}%"></div>
+                            <div class="h-full rounded-full bg-second" style="width: {{ min(100, $row['bar'] ?? round(($row['sessions'] / $maxAcq) * 100)) }}%"></div>
                         </div>
                     </li>
                 @empty

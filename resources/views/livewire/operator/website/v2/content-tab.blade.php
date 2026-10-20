@@ -124,7 +124,7 @@
                                     </div>
                                     @if (! empty($a['article_note']))<p class="mt-1 text-xs text-gray-500">{{ $a['article_note'] }}</p>@endif
                                     @if (! isset($a['article_write_id']))
-                                        <button type="button" wire:click="sendDraft({{ $item->id }})" wire:confirm="Makale WordPress’e taslak olarak gönderilsin mi?" class="btn-primary mt-3 w-full sm:w-auto">WordPress’e taslak gönder</button>
+                                        <button type="button" wire:click="sendDraft({{ $item->id }})" wire:confirm="Makale WordPress’e taslak olarak gönderilsin mi?" class="btn-dark mt-3 w-full sm:w-auto">WordPress’e taslak gönder</button>
                                     @else
                                         <p class="mt-2 text-success-700 dark:text-success-400">WordPress taslağı gönderildi.</p>
                                     @endif

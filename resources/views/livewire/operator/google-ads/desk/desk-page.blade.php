@@ -7,9 +7,9 @@
             return '';
         }
         $good = $lowerIsBetter ? $d <= 0 : $d >= 0;
-        $tone = $neutral ? 'text-gray-500 dark:text-gray-400' : ($good ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400');
+        $chipTone = $neutral ? 'chip-flat' : ($good ? 'chip-up' : 'chip-down');
 
-        return '<span class="whitespace-nowrap '.$tone.'">'.($d >= 0 ? '+' : '−').number_format(abs($d), 0, ',', '.').'%</span>';
+        return '<span class="chip mt-1 '.$chipTone.'">'.($d >= 0 ? '▲ ' : '▼ ').number_format(abs($d), 0, ',', '.').'%</span>';
     };
     /** Same rule for the metric cells: [text, metric-card tone]. */
     $kpiDelta = function (?float $d, bool $lowerIsBetter = false, bool $neutral = false): array {
@@ -27,13 +27,89 @@
     $sub = count($rows) === 0 ? null : count($rows).' hesap, son 30 gün. '.($problems === [] ? 'Para ya da veri kaybeden hesap yok.' : collect($problems)->pluck('brand')->unique()->count().' markada bakılacak bir şey var.');
 @endphp
 <div class="space-y-10 dark:text-gray-200" data-google-ads-desk>
-    @include('livewire.operator.google-ads.desk.header', ['active' => 'operator.google-ads-desk', 'sub' => $sub,
+    @include('livewire.operator.google-ads.desk.header', ['active' => 'operator.google-ads-desk', 'sub' => $sub, 'highlight' => true,
         'intro' => 'Her Google Ads hesabının son 30 günü, alarmları ve eksik ayarları. Bir satıra tıklayınca son 6 ay, en çok harcayan kampanyalar ve MoxDOP’un hesapta yaptıkları açılır.'])
 
-    {{-- 1. What loses money or leaves an account blind now. --}}
+    {{-- 1. What waits on the operator: the losing accounts, then the approvals per tab (canlı panel, 2026-10-20). --}}
+    @php
+        $problemGroups = collect($problems)->groupBy('brand');
+        $waitingTotals = ['terms' => 0, 'changes' => 0, 'ads' => 0];
+        foreach ($rows as $r) {
+            foreach ($waitingTotals as $k => $v) {
+                $waitingTotals[$k] += (int) ($r['waiting'][$k] ?? 0);
+            }
+        }
+        $todo = array_values(array_filter([
+            ['terms', 'negatif kelime', 'Onay bekliyor; para boşa giden aramaları keser', 'Arama terimleri', 'operator.google-ads-terms', '<path d="M4 6h16M7 12h10M10 18h4"/>'],
+            ['changes', 'ayar önerisi', 'Bütçe, ağ, konum ve ölçüm ayarları', 'Ayarlar ve bütçe', 'operator.google-ads-changes', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'],
+            ['ads', 'reklam taslağı', 'Onaylanan taslak hesabın Editor dosyasına girer', 'Reklamlar', 'operator.google-ads-ads', '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'],
+        ], fn (array $t): bool => $waitingTotals[$t[0]] > 0));
+        $lossBrands = $problemGroups->keys();
+        $firstAccent = $problems === [];
+    @endphp
+    @if ($problems !== [] || $todo !== [])
+        @php $cardCount = ($problems !== [] ? 1 : 0) + count($todo); @endphp
+        <section @class(['grid grid-cols-2 gap-3', 'lg:grid-cols-3' => $cardCount === 3, 'lg:grid-cols-4' => $cardCount === 4]) data-google-ads-todo>
+            @if ($problems !== [])
+                <div class="soft-card soft-red col-span-2 sm:col-span-1">
+                    <span class="soft-icon text-error-600 dark:text-error-400" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+                    <p class="soft-number">{{ $lossBrands->count() }} marka</p>
+                    <p class="text-[15px] font-semibold text-gray-900 dark:text-white">Para ya da veri kaybediyor</p>
+                    <div class="flex items-center">
+                        @foreach ($problemGroups->take(5) as $brandName => $items)
+                            <span class="-ml-2 inline-flex h-[30px] w-[30px] items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white shadow-card first:ml-0 dark:border-gray-900" title="{{ $brandName }}">
+                                <x-ta.brand-avatar :name="(string) $brandName" :logo="$logos[$items->first()['asset_id']] ?? null" size="sm" class="border-0!" />
+                            </span>
+                        @endforeach
+                        @if ($problemGroups->count() > 5)<span class="ml-2 text-xs text-gray-600 dark:text-gray-300">+{{ $problemGroups->count() - 5 }}</span>@endif
+                    </div>
+                    <div class="mt-auto pt-1"><a href="#bakilacaklar" class="btn">Hesaplara bak</a></div>
+                </div>
+            @endif
+            @foreach ($todo as [$key, $unit, $line, $label, $routeName, $icon])
+                <div @class(['soft-card', 'soft-accent' => $firstAccent && $loop->first, 'col-span-2 sm:col-span-1' => $loop->last && count($todo) % 2 === 1])>
+                    <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icon !!}</svg></span>
+                    <p class="soft-number">{{ $waitingTotals[$key] }}</p>
+                    <p class="text-[15px] font-semibold text-gray-900 dark:text-white">{{ \Illuminate\Support\Str::ucfirst($unit) }} bekliyor</p>
+                    <p class="hidden text-[13px] text-gray-600 sm:block dark:text-gray-300">{{ $line }}</p>
+                    <div class="mt-auto pt-1"><a href="{{ route($routeName, array_filter(['marka' => $brand])) }}" wire:navigate @class(['btn-primary h-9! px-3.5!' => $firstAccent && $loop->first, 'btn' => ! ($firstAccent && $loop->first)])>{{ $label }}</a></div>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
+    {{-- 2. The month in four numbers: one dark panel. --}}
+    @php
+        $cpa = $totals['conversions'] > 0 ? $totals['cost'] / $totals['conversions'] : null;
+        $prevCpa = $totals['prev_conversions'] > 0 ? $totals['prev_cost'] / $totals['prev_conversions'] : null;
+        $quiet = count($rows) - $live;
+        $chipOf = fn (array $d): string => match ($d[1]) { 'positive' => 'chip-up', 'negative' => 'chip-down', default => 'chip-flat bg-white/10! text-white/80!' };
+        $arrowOf = fn (?string $t): string => $t === null ? '' : (str_starts_with($t, '+') ? '▲ '.ltrim($t, '+') : (str_starts_with($t, '−') ? '▼ '.ltrim($t, '−') : $t));
+    @endphp
+    <section data-testid="google-ads-kpis" title="Değişim önceki 30 güne göre. Dönüşüm, Google Ads’in saydığı dönüşümdür (tıklama dahil); gerçek randevu ve satış Ölçüm sekmesinde.">
+        <div class="section-head">
+            <h2 class="section-title">Son 30 gün</h2>
+            <span class="text-[13px] text-gray-500">tüm hesaplar, önceki 30 güne göre</span>
+        </div>
+        <div class="hero-panel grid-cols-2 lg:grid-cols-4">
+            @foreach ([
+                ['Harcama', $money($totals['cost'], $currency), $kpiDelta($totalChange($totals['cost'], $totals['prev_cost']), false, true), 'Önceki '.$money($totals['prev_cost'], $currency), false],
+                ['Dönüşüm', $num($totals['conversions']), $kpiDelta($totalChange($totals['conversions'], $totals['prev_conversions'])), 'Önceki '.$num($totals['prev_conversions']), true],
+                ['Dönüşüm başı', $money($cpa, $currency), $kpiDelta(\App\Services\GoogleAds\Desk\GoogleAdsDesk::change($cpa, $prevCpa), true), 'Önceki '.$money($prevCpa, $currency), false],
+                ['Yayındaki hesap', $live.' / '.count($rows), [null, 'neutral'], $quiet > 0 ? $quiet.' hesaptan veri gelmiyor' : 'Hepsinden veri geliyor', false],
+            ] as [$label, $value, $delta, $hint, $accent])
+                <div @class(['hero-tile', 'hero-tile-accent' => $accent])>
+                    <span class="hero-label">{{ $label }}</span>
+                    <p class="hero-value text-[24px]! sm:text-[30px]!">{{ $value }}</p>
+                    <p @class(['mt-2 flex flex-wrap items-center gap-2 text-xs', 'text-white/60' => ! $accent, 'opacity-70' => $accent])>@if ($delta[0] !== null)<span class="chip {{ $chipOf($delta) }}">{{ $arrowOf($delta[0]) }}</span>@endif {{ $hint }}</p>
+                </div>
+            @endforeach
+        </div>
+    </section>
+
+    {{-- 3. What loses money or leaves an account blind now. --}}
     @if ($problems !== [])
-        @php $problemGroups = collect($problems)->groupBy('brand'); @endphp
-        <section data-testid="google-ads-problems">
+        <section id="bakilacaklar" class="scroll-mt-20" data-testid="google-ads-problems">
             <div class="section-head">
                 <h2 class="section-title">Şimdi bakılacaklar <span class="section-count">{{ count($problems) }}</span></h2>
                 @if ($problemGroups->count() !== count($problems))<span class="text-[13px] text-gray-500">{{ $problemGroups->count() }} marka</span>@endif
@@ -62,29 +138,6 @@
             </ul>
         </section>
     @endif
-
-    {{-- 2. The month in four numbers. --}}
-    @php
-        $cpa = $totals['conversions'] > 0 ? $totals['cost'] / $totals['conversions'] : null;
-        $prevCpa = $totals['prev_conversions'] > 0 ? $totals['prev_cost'] / $totals['prev_conversions'] : null;
-        $quiet = count($rows) - $live;
-    @endphp
-    <section data-testid="google-ads-kpis" title="Değişim önceki 30 güne göre. Dönüşüm, Google Ads’in saydığı dönüşümdür (tıklama dahil); gerçek randevu ve satış Ölçüm sekmesinde.">
-        <div class="section-head">
-            <h2 class="section-title">Son 30 gün</h2>
-            <span class="text-[13px] text-gray-500">tüm hesaplar, önceki 30 güne göre</span>
-        </div>
-        <div class="metric-strip grid-cols-2 lg:grid-cols-4">
-            @foreach ([
-                ['Harcama', $money($totals['cost'], $currency), $kpiDelta($totalChange($totals['cost'], $totals['prev_cost']), false, true), 'Önceki 30 gün '.$money($totals['prev_cost'], $currency)],
-                ['Dönüşüm', $num($totals['conversions']), $kpiDelta($totalChange($totals['conversions'], $totals['prev_conversions'])), 'Önceki 30 gün '.$num($totals['prev_conversions'])],
-                ['Dönüşüm başı', $money($cpa, $currency), $kpiDelta(\App\Services\GoogleAds\Desk\GoogleAdsDesk::change($cpa, $prevCpa), true), 'Önceki 30 gün '.$money($prevCpa, $currency)],
-                ['Yayındaki hesap', $live.' / '.count($rows), [null, 'neutral'], $quiet > 0 ? $quiet.' hesaptan veri gelmiyor' : 'Hepsinden veri geliyor'],
-            ] as [$label, $value, [$deltaText, $deltaTone], $hint])
-                <x-ta.metric-card :label="$label" :value="$value" :delta="$deltaText" :tone="$deltaTone" :hint="$hint" />
-            @endforeach
-        </div>
-    </section>
 
     @if ($shared !== [])
         <section data-testid="google-ads-shared-gaps">

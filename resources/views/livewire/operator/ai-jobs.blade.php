@@ -49,10 +49,11 @@
     @endif
 
     <div class="-mt-4 space-y-4" data-ai-jobs-filters>
-        <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 no-scrollbar dark:border-gray-800" aria-label="Durum">
-            <button type="button" wire:click="$set('status', '')" @class(['tab', 'tab-active' => $status === ''])>Tümü</button>
+        {{-- Canlı panel (2026-10-20): the status filter is a row of pill tabs (seg). --}}
+        <nav class="flex gap-1.5 overflow-x-auto no-scrollbar" aria-label="Durum">
+            <button type="button" wire:click="$set('status', '')" @class(['seg', 'seg-active' => $status === ''])>Tümü</button>
             @foreach ($statuses as $key => $label)
-                <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['tab', 'tab-active' => $status === $key])>{{ $label }}</button>
+                <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['seg', 'seg-active' => $status === $key])>{{ $label }}</button>
             @endforeach
         </nav>
         <div class="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap">

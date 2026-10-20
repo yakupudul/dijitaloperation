@@ -104,7 +104,8 @@
                             @foreach ($view['own'] as $o)
                                 <li class="card-row block" wire:key="own-{{ $o['id'] }}">
                                     <a href="{{ route('operator.meta.campaign', ['assetId' => $o['asset_id'], 'campaignId' => $o['campaign_id']]) }}" wire:navigate class="line-clamp-2 break-words text-sm font-medium text-gray-900 hover:underline dark:text-white" title="{{ $o['name'] }}">{{ $o['name'] }}</a>
-                                    <p class="mt-0.5 text-[13px] tabular-nums text-gray-500">{{ $money($o['spend'], $o['currency']) }}, {{ $num($o['results']) }} {{ $typeLabel }}, {{ $typeLabel }} başı {{ $money($o['cpr'], $o['currency']) }}@if ($o['diff'] !== null), <span @class(['text-error-700 dark:text-error-400' => $o['diff'] >= 15, 'text-success-700 dark:text-success-400' => $o['diff'] <= -15])>tarife göre {{ $pct($o['diff']) }}</span>@endif</p>
+                                    <p class="mt-0.5 text-[13px] tabular-nums text-gray-500">{{ $money($o['spend'], $o['currency']) }}, {{ $num($o['results']) }} {{ $typeLabel }}, {{ $typeLabel }} başı {{ $money($o['cpr'], $o['currency']) }}</p>
+                                    @if ($o['diff'] !== null)<p class="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500"><span @class(['chip', 'chip-down' => $o['diff'] >= 15, 'chip-up' => $o['diff'] <= -15, 'chip-flat' => abs($o['diff']) < 15])>{{ $o['diff'] > 0 ? '▲ ' : ($o['diff'] < 0 ? '▼ ' : '') }}{{ number_format(abs((float) $o['diff']), 0, ',', '.') }}%</span> tarife göre</p>@endif
                                 </li>
                             @endforeach
                         </ul>

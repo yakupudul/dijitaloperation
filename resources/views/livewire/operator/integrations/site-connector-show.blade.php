@@ -15,7 +15,7 @@
         </div>
         <div class="flex w-full flex-wrap gap-2 sm:w-auto">
             <a href="{{ route('operator.integrations') }}" wire:navigate class="btn-quiet">{{ __('operator.nav.integrations') }}</a>
-            <a href="{{ route('operator.integrations.site-connector.download', ['connector' => 'wordpress']) }}" class="btn-primary" title="Eklenti paketini indir">
+            <a href="{{ route('operator.integrations.site-connector.download', ['connector' => 'wordpress']) }}" class="btn" title="Eklenti paketini indir">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
                 {{ $packageFilename }}
             </a>
@@ -43,7 +43,7 @@
                             'bg-gray-50 shadow-[inset_2px_0_0_var(--color-gray-900)] dark:bg-white/[0.05] dark:shadow-[inset_2px_0_0_white]' => $selectedAssetId === $asset->id,
                         ]) @if ($selectedAssetId === $asset->id) aria-current="true" @endif>
                             <span class="min-w-0 flex-1">
-                                <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ $asset->name }}</span>
+                                <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ str_replace(' · ', ', ', (string) $asset->name) }}</span>
                                 <span class="block truncate text-[13px] text-gray-500">{{ $asset->domain ?: $asset->primary_url }}</span>
                             </span>
                             <x-ta.pill :tone="$assetPaired ? 'ok' : 'look'">{{ $assetPaired ? 'Eşleştirilmiş' : 'Eşleştirilmemiş' }}</x-ta.pill>
@@ -59,7 +59,7 @@
             @if ($selected)
                 @php($isPaired = $paired($connection))
                 <div class="section-head items-center">
-                    <h2 class="section-title min-w-0 truncate">{{ $selected->name }}</h2>
+                    <h2 class="section-title min-w-0 truncate">{{ str_replace(' · ', ', ', (string) $selected->name) }}</h2>
                     <x-ta.pill :tone="$isPaired ? 'ok' : 'look'">{{ $isPaired ? 'Bağlı' : 'Bağlı değil' }}</x-ta.pill>
                 </div>
                 <div class="card">
@@ -136,7 +136,7 @@
     @if ($connection?->credential)
         <section>
             <div class="section-head">
-                <h2 class="section-title">Site kurulum kaydı <span class="section-count">{{ $selected->name }}, son 20</span></h2>
+                <h2 class="section-title">Site kurulum kaydı <span class="section-count">{{ str_replace(' · ', ', ', (string) $selected->name) }}, son 20</span></h2>
             </div>
             <ul class="card">
                 @forelse ($buildLog as $entry)
@@ -152,7 +152,7 @@
                                     @if ($entry['status'] === 'awaiting_approval')
                                         <input type="text" wire:model="rejectReasons.{{ $entry['id'] }}" placeholder="Red nedeni (isteğe bağlı)" aria-label="Red nedeni" class="h-8 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] text-gray-900 sm:w-48 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                                         <button type="button" wire:click="rejectBuild({{ $entry['id'] }})" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">Reddet</button>
-                                        <button type="button" wire:click="approveBuild({{ $entry['id'] }})" class="btn-primary">Onayla</button>
+                                        <button type="button" wire:click="approveBuild({{ $entry['id'] }})" class="btn-dark">Onayla</button>
                                     @endif
                                     @if ($entry['undoable'])
                                         <button type="button" wire:click="undoBuild({{ $entry['id'] }})" wire:confirm="Bu kurulumla yapılanlar geri alınsın mı? Oluşturulanlar çöpe taşınır, değiştirilenler eski haline döner." class="btn">Geri al</button>

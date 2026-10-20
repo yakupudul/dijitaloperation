@@ -114,12 +114,13 @@
             <h2 class="section-title">{{ __('two_factor.section_title') }}</h2>
             <x-ta.pill :tone="$twoFactorEnabled ? 'ok' : 'look'" class="ml-auto">{{ $twoFactorEnabled ? __('two_factor.status_on') : __('two_factor.status_off') }}</x-ta.pill>
         </div>
-        <div class="card">
+        {{-- Canlı panel (2026-10-20): while 2FA is off the card is a tinted warning; the form's Kaydet stays the one accent button. --}}
+        <div @class(['card' => $twoFactorEnabled, 'relative min-w-0 overflow-hidden rounded-3xl border soft-amber' => ! $twoFactorEnabled])>
             <div class="card-row flex-wrap sm:flex-nowrap">
-                <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+                <span @class(['row-icon' => $twoFactorEnabled, 'soft-icon text-warning-700 dark:text-warning-400' => ! $twoFactorEnabled]) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
                 <p class="min-w-0 flex-1 text-[13px] text-gray-600 dark:text-gray-400">{{ __('two_factor.section_hint') }}</p>
                 @if ($twoFactorPendingSecret === null && ! $twoFactorEnabled)
-                    <button type="button" wire:click="startTwoFactorSetup" class="btn-primary w-full sm:w-auto">{{ __('two_factor.enable') }}</button>
+                    <button type="button" wire:click="startTwoFactorSetup" class="btn-dark w-full sm:w-auto">{{ __('two_factor.enable') }}</button>
                 @endif
             </div>
 

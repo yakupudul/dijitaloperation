@@ -1,8 +1,8 @@
 @php
     $select = 'h-8 rounded-lg border border-gray-200 bg-white py-0 pl-2.5 pr-8 text-[13px] text-gray-700 shadow-card focus:border-gray-300 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200';
     $input = 'h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] text-gray-700 shadow-card focus:border-gray-300 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
-    $pill = fn (bool $on) => $on ? 'h-7 rounded-md bg-gray-100 px-2.5 text-[13px] font-medium text-gray-900 dark:bg-white/10 dark:text-white' : 'h-7 rounded-md px-2.5 text-[13px] text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white';
-    $segment = 'inline-flex shrink-0 rounded-lg border border-gray-200 bg-white p-0.5 shadow-card dark:border-gray-700 dark:bg-gray-900';
+    $pill = fn (bool $on) => $on ? 'seg seg-active h-8! px-3!' : 'seg h-8! px-3!';
+    $segment = 'flex shrink-0 flex-wrap gap-1.5';
     $btn = 'btn';
     $link = 'link-neutral shrink-0 text-xs';
     $ghost = 'btn h-7! px-2.5! text-xs!';
@@ -77,7 +77,7 @@
                 <span class="min-w-0 text-[13px] text-gray-500">Onaylanan küme bu panoya iner; aynı hizmetteki diğer markalara da iner.</span>
             </summary>
             <div class="flex justify-end border-t border-gray-200 px-4 py-2.5 dark:border-gray-800">
-                <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="btn w-full sm:w-auto" data-approve-all-clusters>Tümünü onayla</button>
+                <button type="button" wire:click="approveAllClusters" wire:confirm="{{ $pendingClusters->count() }} küme onaylansın mı?" class="btn-dark w-full sm:w-auto" data-approve-all-clusters>Tümünü onayla</button>
             </div>
             <ul>
                 @foreach ($pendingClusters as $pending)
@@ -86,7 +86,7 @@
                             <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $pending->name }}</p>
                             <p class="mt-0.5 text-[13px] text-gray-500">{{ $pending->service?->primaryName?->raw_label ?? '—' }}, {{ $pending->cluster_queries_count }} sorgu</p>
                         </div>
-                        <button type="button" wire:click="approveCluster({{ $pending->id }})" class="{{ $ghost }}" data-approve-cluster="{{ $pending->id }}">Onayla</button>
+                        <button type="button" wire:click="approveCluster({{ $pending->id }})" class="btn-dark h-7! px-2.5! text-xs!" data-approve-cluster="{{ $pending->id }}">Onayla</button>
                     </li>
                 @endforeach
             </ul>
@@ -222,7 +222,7 @@
                         <footer class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-xs dark:border-gray-800">
                             @if ($producible !== [])
                                 <button type="button" wire:click="produceCard(@js($producible))" wire:confirm="{{ count($producible) }} fikir için sayfa yazılsın mı? Taslak olarak İçerik sekmesine düşer; siteye sen gönderirsin."
-                                        class="{{ $ghost }} w-full sm:w-auto" data-produce-card="{{ $cluster->id }}">Oluştur ({{ count($producible) }})</button>
+                                        class="btn-dark h-7! px-2.5! text-xs! w-full sm:w-auto" data-produce-card="{{ $cluster->id }}">Oluştur ({{ count($producible) }})</button>
                             @endif
                             @if (($ideaStatus['status'] ?? null) === 'running')
                                 <span class="text-gray-500">Fikirler üretiliyor…</span>

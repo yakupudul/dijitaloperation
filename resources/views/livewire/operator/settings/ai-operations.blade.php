@@ -133,9 +133,9 @@
             <section data-ai-costs>
                 <div class="section-head items-center">
                     <h2 class="section-title">Harcama nereye gitti</h2>
-                    <div class="ml-auto inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-[13px] dark:border-gray-800 dark:bg-white/[0.03]">
-                        <button type="button" wire:click="$set('costHours', 24)" @class(['h-7 rounded-md px-2.5', 'bg-white font-medium text-gray-900 shadow-card dark:bg-white/10 dark:text-white' => $costHours === 24, 'text-gray-500 hover:text-gray-900 dark:hover:text-white' => $costHours !== 24])>24 saat</button>
-                        <button type="button" wire:click="$set('costHours', 168)" @class(['h-7 rounded-md px-2.5', 'bg-white font-medium text-gray-900 shadow-card dark:bg-white/10 dark:text-white' => $costHours === 168, 'text-gray-500 hover:text-gray-900 dark:hover:text-white' => $costHours !== 168])>7 gün</button>
+                    <div class="ml-auto inline-flex gap-1.5">
+                        <button type="button" wire:click="$set('costHours', 24)" @class(['seg h-8! px-3!', 'seg-active' => $costHours === 24])>24 saat</button>
+                        <button type="button" wire:click="$set('costHours', 168)" @class(['seg h-8! px-3!', 'seg-active' => $costHours === 168])>7 gün</button>
                     </div>
                 </div>
                 @php($costTotal = array_sum(array_column($costs, 'cost')))

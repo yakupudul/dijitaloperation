@@ -87,12 +87,12 @@
     $connected = ! in_array($status, ['Not connected', 'Action required', 'Error'], true);
     $title = preg_replace('/ — (not connected|read error)$/', '', (string) $identity['title']);
 
-    // Trend chart: the component's series in the panel's quiet style (near-black sessions, green business actions).
+    // Trend chart: sessions in the panel's second color (Ayarlar › Görünüm), business actions near-black.
     $chart = $performanceChartOptions;
     foreach ($chart['series'] as $i => $serie) {
         $chart['series'][$i]['name'] = ['Sessions' => 'Oturum', 'Business actions' => 'İş aksiyonu'][$serie['name']] ?? $serie['name'];
     }
-    $chart['colors'] = ['#191918', '#039855'];
+    $chart['colors'] = [(string) (app(\App\Services\Operator\AgencySettingService::class)->theme()['second'] ?? '#1e7a78'), '#191918'];
     $chart['chart']['fontFamily'] = 'Inter, ui-sans-serif, system-ui, sans-serif';
     $chart['grid'] = ['borderColor' => '#ebebe9', 'strokeDashArray' => 3, 'padding' => ['left' => 4, 'right' => 8]];
     $chart['legend'] = ['show' => count($chart['series']) > 1, 'position' => 'top', 'horizontalAlign' => 'left', 'fontSize' => '13px', 'labels' => ['colors' => '#5f5e5b'], 'markers' => ['size' => 4]];

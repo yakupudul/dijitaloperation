@@ -66,7 +66,7 @@ final class WebsiteCollectionOverviewTest extends TestCase
             ->assertSee('tahmini')
             ->assertSee('2 sayfa (son envanter')
             ->assertSee('Son çekim')
-            ->assertSee('Nazik mod: aynı anda 2 sayfa · site yavaşlarsa otomatik yavaşlar')
+            ->assertSee('Nazik mod: aynı anda 2 sayfa, site yavaşlarsa otomatik yavaşlar')
             ->assertDontSee('35.758')
             ->assertDontSee('veri grubu başarılı')
             ->assertDontSee('Hatalı paket')
@@ -135,6 +135,6 @@ final class WebsiteCollectionOverviewTest extends TestCase
         ]);
 
         Livewire::actingAs($admin)->test(WebsiteIntegrationIndex::class, ['assetId' => $asset->id])
-            ->assertSee('826 / 4.381 sayfa · yarım kaldı: 3.555 sayfa okunmadı (sonraki Genel çekim okur)');
+            ->assertSee('826 / 4.381 sayfa, yarım kaldı: 3.555 sayfa okunmadı (sonraki Genel çekim okur)');
     }
 }

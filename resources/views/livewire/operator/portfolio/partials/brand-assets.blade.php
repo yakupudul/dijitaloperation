@@ -8,20 +8,22 @@
             <div class="section-head">
                 <h2 class="section-title">Eksik ya da verisi gelmeyen hesaplar</h2>
             </div>
-            <ul class="card">
+            {{-- Canlı panel (2026-10-20): each missing account as a tinted card; the button goes to "Hesap ekle" below. --}}
+            <ul class="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 @foreach ($missing as $item)
                     @if ($item['required'] || str_contains($item['detail'], 'veri henüz gelmedi'))
-                        <li class="card-row flex-wrap gap-y-1 sm:flex-nowrap">
-                            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
-                            <div class="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-4">
-                                <p class="text-sm font-medium text-gray-900 sm:w-44 sm:shrink-0 dark:text-white">{{ $item['label'] }}</p>
-                                <p class="mt-0.5 text-[13px] text-gray-500 sm:mt-0 dark:text-gray-400">{{ $item['detail'] }}</p>
+                        <li class="flex">
+                            <div class="soft-card soft-amber w-full" data-account-missing="{{ $item['key'] }}">
+                                <span class="soft-icon text-warning-600 max-sm:hidden dark:text-warning-400" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6"/><path d="M11 6l.5-.5a5 5 0 0 1 7 7l-.5.5M13 18l-.5.5a5 5 0 0 1-7-7l.5-.5"/></svg></span>
+                                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $item['label'] }}</p>
+                                <p class="text-[13px] text-gray-600 dark:text-gray-300">{{ $item['detail'] }}</p>
+                                @if ($setup !== null)<div class="mt-auto pt-1"><a href="#hesap-ekle" class="btn">Hesap ekle</a></div>@endif
                             </div>
                         </li>
                     @endif
                 @endforeach
-                <li class="border-t border-gray-200 bg-gray-50/60 px-4 py-2.5 text-[13px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.02]">"Otomatik kur" bulamadığını aşağıdaki "Hesap ekle" listesinden ya da "Varlık ekle" ile bağlayabilirsin.</li>
             </ul>
+            <p class="mt-2.5 text-[13px] text-gray-500">"Otomatik kur" bulamadığını aşağıdaki "Hesap ekle" listesinden ya da "Varlık ekle" ile bağlayabilirsin.</p>
         </section>
     @endif
 

@@ -18,13 +18,13 @@
                                 'bg-warning-500' => $run['status'] === 'cancellation_requested',
                             ])></span>
                             <h2 class="section-title">
-                                Search Console · {{ $run['status_label'] }}
+                                Search Console aktarımı
                             </h2>
                             <x-ta.pill tone="info">{{ $run['status_label'] }}</x-ta.pill>
                         </div>
                         <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }}</p>
                         @if (! empty($run['coverage_start']) && ! empty($run['coverage_end']))
-                            <p class="mt-1 pl-[18px] text-xs text-gray-500">Veri kapsamı · {{ $run['coverage_start'] }} – {{ $run['coverage_end'] }}</p>
+                            <p class="mt-1 pl-[18px] text-xs text-gray-500">Veri kapsamı: {{ $run['coverage_start'] }} – {{ $run['coverage_end'] }}</p>
                         @endif
                     </div>
 
@@ -44,7 +44,7 @@
                         <p class="text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ number_format($run['progress_percent'], 1) }}%</p>
                     </div>
                     <div class="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
+                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $run['progress_percent'])) }}%"></div>
                     </div>
                 </div>
 
@@ -92,11 +92,11 @@
 
                                 <div class="mt-4 max-w-4xl">
                                     <div class="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                                        <span class="text-gray-500">Site aktarımı · {{ $resource['datasets_finished'] }} / {{ $resource['datasets_total'] }} veri grubu</span>
+                                        <span class="text-gray-500">Site aktarımı, {{ $resource['datasets_finished'] }} / {{ $resource['datasets_total'] }} veri grubu</span>
                                         <span class="font-semibold tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($resource['progress_percent'], 1) }}%</span>
                                     </div>
                                     <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div>
+                                        <div class="h-full rounded-full bg-second transition-all duration-500" style="width: {{ max(0, min(100, $resource['progress_percent'])) }}%"></div>
                                     </div>
                                 </div>
 
@@ -122,7 +122,7 @@
                                                     ])>{{ number_format($surface['progress_percent'], 0) }}%</span>
                                                 </div>
                                                 <div class="mt-2 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
-                                                    <div @class(['h-full rounded-full transition-all duration-500','bg-warning-500' => $surface['failed'] > 0,'bg-brand-500' => $surface['failed'] === 0]) style="width: {{ max(0, min(100, $surface['progress_percent'])) }}%"></div>
+                                                    <div @class(['h-full rounded-full transition-all duration-500','bg-warning-500' => $surface['failed'] > 0,'bg-second' => $surface['failed'] === 0]) style="width: {{ max(0, min(100, $surface['progress_percent'])) }}%"></div>
                                                 </div>
                                                 <div class="mt-2 flex items-center justify-between gap-2 text-xs text-gray-500">
                                                     <span>{{ $surface['finished'] }} / {{ $surface['total'] }} tamamlandı</span>
@@ -139,7 +139,7 @@
                                         <div class="mt-2 space-y-2">
                                             @foreach ($resource['errors'] as $error)
                                                 <div class="rounded-lg bg-warning-50 px-3 py-2.5 text-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">
-                                                    <p class="font-semibold">{{ $error['label'] }}@if (! empty($error['search_type'])) · {{ $error['search_type'] }}@endif</p>
+                                                    <p class="font-semibold">{{ $error['label'] }}@if (! empty($error['search_type'])), {{ $error['search_type'] }}@endif</p>
                                                     <p class="mt-1 break-words">{{ $error['message'] }}</p>
                                                     @if (! empty($error['code']) || ! empty($error['category']))
                                                         <p class="mt-1 text-xs opacity-70">@if (! empty($error['code'])){{ $error['code'] }}@endif @if (! empty($error['code']) && ! empty($error['category']))·@endif @if (! empty($error['category'])){{ $error['category'] }}@endif</p>
@@ -188,12 +188,12 @@
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3><x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill></div>
-                                <p class="mt-1 text-xs text-gray-500">{{ $issue['site_url'] }} · {{ $issue['last_activity'] }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $issue['site_url'] }}, {{ $issue['last_activity'] }}</p>
                                 <details class="mt-3">
                                     <summary class="cursor-pointer select-none text-xs font-semibold text-gray-700 dark:text-gray-300">Hata ayrıntıları</summary>
                                     <div class="mt-2 space-y-2">
                                         @foreach ($issue['errors'] as $error)
-                                            <div class="border-b border-gray-200 py-2 dark:border-gray-800"><p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $error['label'] }}@if (! empty($error['search_type'])) · {{ $error['search_type'] }}@endif</p><p class="mt-1 break-words text-xs text-gray-600 dark:text-gray-400">{{ $error['message'] }}</p></div>
+                                            <div class="border-b border-gray-200 py-2 dark:border-gray-800"><p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $error['label'] }}@if (! empty($error['search_type'])), {{ $error['search_type'] }}@endif</p><p class="mt-1 break-words text-xs text-gray-600 dark:text-gray-400">{{ $error['message'] }}</p></div>
                                         @endforeach
                                     </div>
                                 </details>

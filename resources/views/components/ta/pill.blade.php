@@ -20,7 +20,7 @@
     };
 @endphp
 
-<span {{ $attributes->merge(['class' => "inline-flex items-center gap-1.5 text-xs whitespace-nowrap $text"]) }}>
+<span {{ $attributes->merge(['class' => "inline-flex items-center gap-1.5 text-xs tracking-normal whitespace-nowrap $text"]) }}>
     @if ($dot)<span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $dotClass }}" aria-hidden="true"></span>@endif
     {{ $slot }}
 </span>
