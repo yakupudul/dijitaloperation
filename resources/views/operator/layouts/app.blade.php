@@ -120,7 +120,7 @@
             <div class="min-h-dvh bg-white dark:bg-gray-900 xl:min-h-[calc(100dvh-1rem)] xl:rounded-xl xl:border xl:border-gray-200 xl:shadow-card dark:xl:border-gray-800" data-operator-panel>
             @include('operator.layouts.header')
 
-            <div class="mx-auto min-w-0 max-w-[2400px] px-4 pb-16 pt-6 md:px-10 md:pt-8">
+            <div class="mx-auto min-w-0 max-w-[1520px] px-4 pb-16 pt-6 md:px-10 md:pt-8">
                 @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
                 @if ($sectionTabs)
                     <nav class="no-scrollbar -mt-1 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">

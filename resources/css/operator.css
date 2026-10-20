@@ -40,9 +40,8 @@
   --breakpoint-2xsm: 375px;
   --breakpoint-xsm: 425px;
   --breakpoint-3xl: 2000px;
-  /* Wide monitors (yakup 2026-10-20: content fills the screen); rem so they sort after lg/xl/2xl. */
+  /* Wide monitors: content is capped at 1440 px like Notion (yakup 2026-10-20); rem so it sorts after lg/xl/2xl. */
   --breakpoint-wide: 106.25rem;
-  --breakpoint-wider: 134rem;
 
   --text-title-2xl: 72px;
   --text-title-2xl--line-height: 90px;

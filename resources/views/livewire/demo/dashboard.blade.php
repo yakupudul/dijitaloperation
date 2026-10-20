@@ -277,7 +277,7 @@
                 <span class="text-sm text-gray-500">8 haftalık organik tık, sorunlu olan önde</span>
                 <a href="{{ route('operator.brands') }}" wire:navigate class="ml-auto text-[13px] text-gray-500 hover:text-gray-900 dark:hover:text-white">Tümü</a>
             </div>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4 wider:grid-cols-5" data-portfolio-today>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 wide:grid-cols-4" data-portfolio-today>
                 @foreach ($brandRows as $row)
                     @php
                         $status = $row['status'];
