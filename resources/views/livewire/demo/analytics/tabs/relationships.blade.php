@@ -16,90 +16,57 @@
             default => 'ga4',
         };
     };
+    $propertyId = $connection['property_id'] ?? $identity['property_id'] ?? null;
+    $measurementId = $connection['measurement_id'] ?? $identity['measurement_id'] ?? null;
 @endphp
 
-<div class="space-y-10">
-    <div>
-        <h2 class="section-title">{{ __('operator.ga4.relationship_summary') }}</h2>
-        <p class="mt-0.5 text-xs text-gray-500">What this property measures and where evidence flows</p>
-        <p class="mt-1 text-xs text-gray-500">Sibling Digital Assets — not children of GA4.</p>
+{{-- Secondary: which site this property measures, who uses its numbers, and the property binding itself. --}}
+<section data-ga4-relationships>
+    <div class="section-head">
+        <h2 class="section-title" title="Analytics mülkünün ölçtüğü site ve verisini kullanan kardeş varlıklar">{{ __('operator.ga4.relationship_summary') }}</h2>
     </div>
-
-    <section>
-        <h3 class="mb-2 section-title">Measures</h3>
-        <div class="grid gap-3">
-            @foreach ($measures as $item)
-                <div class="min-w-0">
-                    <div class="flex items-start gap-3">
-                        <x-demo.digital-asset-mark :type="$assetType($item['asset'] ?? 'website')" size="lg" />
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $item['asset'] }}</p>
-                            <p class="mt-0.5 text-xs text-gray-500">{{ $item['detail'] ?? '' }}</p>
-                            <p class="mt-2 text-xs text-gray-500">{{ $item['relationship'] ?? 'Measures' }}, Website Digital Asset</p>
-                            @if (! empty($item['route']))
-                                <a href="{{ route($item['route'], ['assetId' => $item['asset_id'] ?? $identity['website_asset_id'] ?? null]) }}" wire:navigate class="mt-3 inline-flex text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-                                    {{ __('operator.chrome.open_website') }}
-                                </a>
-                            @endif
-                        </div>
-                        <x-ta.pill tone="ok">Linked</x-ta.pill>
-                    </div>
+    <ul class="card">
+        @foreach ($measures as $item)
+            <li class="card-row flex-wrap sm:flex-nowrap">
+                <x-demo.digital-asset-mark :type="$assetType($item['asset'] ?? 'website')" size="md" class="shrink-0" />
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $item['asset'] }}</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500">Ölçtüğü site{{ ! empty($item['detail']) ? ', '.$item['detail'] : '' }}</p>
                 </div>
-            @endforeach
-        </div>
-    </section>
+                <x-ta.pill tone="ok">Bağlı</x-ta.pill>
+                @if (! empty($item['route']))
+                    <a href="{{ route($item['route'], ['assetId' => $item['asset_id'] ?? $identity['website_asset_id'] ?? null]) }}" wire:navigate class="btn h-7! px-2.5! text-xs!">{{ __('operator.chrome.open_website') }}</a>
+                @endif
+            </li>
+        @endforeach
 
-    <section>
-        <h3 class="mb-2 section-title">Provides evidence to</h3>
-        <div class="grid gap-3 sm:grid-cols-2">
-            @foreach ($evidenceTo as $asset)
-                <div class="min-w-0">
-                    <div class="flex items-start gap-3">
-                        <x-demo.digital-asset-mark :type="$assetType($asset['asset'] ?? '')" size="lg" />
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $asset['asset'] }}</p>
-                            <p class="mt-0.5 text-xs text-gray-500">{{ $asset['detail'] ?? '' }}</p>
-                            <p class="mt-2 text-xs text-gray-500">Sibling Digital Asset, evidence consumer</p>
-                            @if (! empty($asset['route']))
-                                <a href="{{ route($asset['route'], ['assetId' => $asset['asset_id'] ?? null]) }}" wire:navigate class="mt-3 inline-flex text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-                                    Open {{ $asset['asset'] }}
-                                </a>
-                            @endif
-                        </div>
-                    </div>
+        @foreach ($evidenceTo as $asset)
+            <li class="card-row flex-wrap sm:flex-nowrap">
+                <x-demo.digital-asset-mark :type="$assetType($asset['asset'] ?? '')" size="md" class="shrink-0" />
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $asset['asset'] }}</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500">Bu veriyi kullanır{{ ! empty($asset['detail']) ? ', '.$asset['detail'] : '' }}</p>
                 </div>
-            @endforeach
-        </div>
-    </section>
+                @if (! empty($asset['route']))
+                    <a href="{{ route($asset['route'], ['assetId' => $asset['asset_id'] ?? null]) }}" wire:navigate class="btn h-7! px-2.5! text-xs!">Aç</a>
+                @endif
+            </li>
+        @endforeach
 
-    <section>
-        <h3 class="mb-2 section-title">Technical connection</h3>
-        <div class="min-w-0">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $connection['type'] ?? 'GA4 property binding' }}</p>
-                    <p class="mt-0.5 text-xs text-gray-500">Provider connection, not a Digital Asset child</p>
-                </div>
-                <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($connection['status'] ?? '') { 'Connected', 'Healthy' => 'success', 'Needs attention', 'Interrupted' => 'warning', default => 'light' }] ?? 'info'">{{ $connection['status'] ?? 'Connected' }}</x-ta.pill>
+        <li class="card-row flex-wrap sm:flex-nowrap" data-ga4-connection>
+            <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
+            <div class="min-w-0 flex-1" title="{{ $connection['note'] ?? '' }}">
+                <p class="text-sm font-medium text-gray-900 dark:text-white">Analytics mülkü</p>
+                <p class="mt-0.5 text-[13px] tabular-nums text-gray-500">
+                    @if ($propertyId || $measurementId)
+                        Mülk {{ $propertyId ?? '—' }}, ölçüm kimliği {{ $measurementId ?? '—' }}
+                    @else
+                        Mülk seçilmedi
+                    @endif
+                </p>
             </div>
-            <dl class="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
-                <div>
-                    <dt class="text-xs text-gray-500">Property ID</dt>
-                    <dd class="mt-0.5 font-medium tabular-nums text-gray-900 dark:text-white">{{ $connection['property_id'] ?? $identity['property_id'] ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-gray-500">Measurement ID</dt>
-                    <dd class="mt-0.5 font-medium tabular-nums text-gray-900 dark:text-white">{{ $connection['measurement_id'] ?? $identity['measurement_id'] ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-gray-500">Binding</dt>
-                    <dd class="mt-0.5 font-medium text-gray-900 dark:text-white">Website connection</dd>
-                </div>
-            </dl>
-            @if (! empty($connection['note']))
-                <p class="mt-3 text-xs text-gray-500">{{ $connection['note'] }}</p>
-            @endif
-            <button type="button" wire:click="setMeasSub('streams')" class="mt-3 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Review streams</button>
-        </div>
-    </section>
-</div>
+            <x-ta.pill :tone="$toneOf($connection['status'] ?? 'Connected')">{{ $say($connection['status'] ?? 'Connected') }}</x-ta.pill>
+            <button type="button" wire:click="setMeasSub('streams')" class="btn h-7! px-2.5! text-xs!">Veri akışları</button>
+        </li>
+    </ul>
+</section>

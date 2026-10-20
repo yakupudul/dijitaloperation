@@ -20,7 +20,7 @@ final class GbpDesk
     /** @return Collection<int, DigitalAsset> operational profiles with a brand, brand name then profile name */
     public function locations(?int $brandId = null): Collection
     {
-        return GbpPostQueue::locations()->with('brand:id,name,sector_id')
+        return GbpPostQueue::locations()->with('brand:id,name,sector_id,logo_url')
             ->when($brandId !== null, fn ($q) => $q->where('digital_assets.brand_id', $brandId))
             ->get(['digital_assets.id', 'digital_assets.name', 'digital_assets.brand_id', 'digital_assets.type'])
             ->sortBy(fn (DigitalAsset $l): string => mb_strtolower((string) $l->brand?->name).'|'.mb_strtolower(self::shortName((string) $l->name)))->values();

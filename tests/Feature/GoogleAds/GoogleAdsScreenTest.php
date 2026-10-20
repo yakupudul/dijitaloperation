@@ -628,12 +628,12 @@ final class GoogleAdsScreenTest extends TestCase
         $this->assertSame(['Responsive search ad', 'Ankara İmplant', 'Açıklama iki.'], [$rows[3]['Ad type'], $rows[3]['Headline 1'], $rows[3]['Description 2']]);
         $this->assertSame(['Genel', '', 'iş ilanı', 'Campaign Negative Phrase'], [$rows[4]['Campaign'], $rows[4]['Ad Group'], $rows[4]['Keyword'], $rows[4]['Criterion Type']]);
 
-        $page->call('setTab', 'strategy')->assertSee('Onaylı taslaklar · 3')->call('downloadEditor')->assertFileDownloaded();
+        $page->call('setTab', 'strategy')->assertSeeHtml('Onaylı taslaklar <span class="section-count">3</span>')->call('downloadEditor')->assertFileDownloaded();
         $drafts = Suggestion::query()->whereIn('action_type', ['ads_campaign', 'ads_rsa', 'ads_negative'])->get();
         $this->assertTrue($drafts->every(fn (Suggestion $s): bool => $s->status === Suggestion::APPROVED && $s->applied_at === null && filled($s->action['editor_batch'] ?? null)),
             'downloading the file changes nothing on Google: still approved');
         $batch = (string) $drafts->first()->action['editor_batch'];
-        $page->call('setTab', 'strategy')->assertSee('Onaylı taslaklar · 0')->assertSee('aktardım')
+        $page->call('setTab', 'strategy')->assertSeeHtml('Onaylı taslaklar <span class="section-count">0</span>')->assertSee('aktardım')
             ->call('downloadEditor', $batch)->assertFileDownloaded();
         $this->assertSame(3, Suggestion::query()->where('status', Suggestion::APPROVED)->count(), 'downloading a batch again applies nothing');
 

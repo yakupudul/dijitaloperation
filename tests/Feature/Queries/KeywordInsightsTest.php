@@ -88,7 +88,7 @@ final class KeywordInsightsTest extends TestCase
         Queue::fake();
         $page = Livewire::test(QueriesPage::class)->set('sector', (string) $this->dental->id)->call('setTab', 'keywords')
             ->set('newKeyword.'.$this->kaplama->id, 'Kaplama')
-            ->assertSee("Bu kelime 6 sorgu yakalayacak · 1'si şu an bu hizmette · 1'si başka hizmetten gelecek (Diş İmplantı: 1) · 1'si atanmamış")
+            ->assertSee("Bu kelime 6 sorgu yakalayacak, 1'si şu an bu hizmette, 1'si başka hizmetten gelecek (Diş İmplantı: 1), 1'si atanmamış")
             ->assertSee('1 sorgu elle / AI ile atanmış veya kilitli')->assertDontSee('çakışmaya düşer')->assertSee('zirkonyum kaplama fiyatları')
             ->call('impactPage', 1)->assertSee('kaplama renkleri')
             ->call('addKeyword', $this->kaplama->id)->assertHasNoErrors()->assertSet('impact', [])->assertDontSee('sorgu yakalayacak');

@@ -1,13 +1,13 @@
 <div wire:poll.15s.visible class="space-y-3">
     @if ($actionMessage)
-        <div class="rounded-lg px-4 py-3 text-sm tone-info">
+        <div class="card px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
             {{ $actionMessage }}
         </div>
     @endif
 
     @if (! empty($runs))<p class="text-xs text-gray-500">Yüzde, başarıyla tamamlanan veri gruplarını gösterir; hata veya atlanan gruplar başarı sayılmaz.</p>@endif
     @foreach ($runs as $run)
-        <section wire:key="gsc-live-run-{{ $run['id'] }}">
+        <section class="card" wire:key="gsc-live-run-{{ $run['id'] }}">
             <div class="py-4">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
@@ -29,7 +29,7 @@
                     </div>
 
                     @if ($run['can_stop'])
-                        <button type="button" wire:click="stopRun({{ $run['id'] }})" wire:loading.attr="disabled" wire:target="stopRun({{ $run['id'] }})" class="shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-error-600 ring-1 ring-inset ring-gray-200 hover:bg-error-50 disabled:opacity-50 dark:text-error-300 dark:ring-gray-700 dark:hover:bg-error-500/10">
+                        <button type="button" wire:click="stopRun({{ $run['id'] }})" wire:loading.attr="disabled" wire:target="stopRun({{ $run['id'] }})" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">
                             Aktarımı durdur
                         </button>
                     @endif
@@ -81,7 +81,7 @@
 
             <div class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($run['resources'] as $resource)
-                    <article class="py-4" wire:key="gsc-live-resource-{{ $resource['id'] }}">
+                    <article class="px-4 py-4" wire:key="gsc-live-resource-{{ $resource['id'] }}">
                         <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -162,10 +162,10 @@
                 @endforeach
             </div>
 
-            <details class="border-t border-gray-200 py-3 dark:border-gray-800">
+            <details class="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
                 <summary class="cursor-pointer select-none text-xs font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-300">Teknik ayrıntılar</summary>
                 <dl class="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                    <div><dt class="text-gray-400">Run ID</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">#{{ $run['id'] }}</dd></div>
+                    <div><dt class="text-gray-400">Çekim no</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">#{{ $run['id'] }}</dd></div>
                     <div><dt class="text-gray-400">Tamamlanan veri grubu</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ $run['datasets_completed'] }}</dd></div>
                     <div><dt class="text-gray-400">Hata</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ $run['datasets_failed'] }}</dd></div>
                     <div><dt class="text-gray-400">Durdurulan</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ $run['datasets_cancelled'] }}</dd></div>
@@ -175,16 +175,16 @@
     @endforeach
 
     @if (! empty($issues))
-        <details class="border-t border-gray-200 pt-4 dark:border-gray-800">
-            <summary class="cursor-pointer text-sm font-medium text-warning-800 dark:text-warning-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
-        <section class="border-t border-gray-200 pt-4 dark:border-gray-800">
-            <div class="pb-3">
+        <details class="card">
+            <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-warning-800 dark:text-warning-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
+        <section class="border-t border-gray-200 dark:border-gray-800">
+            <div class="px-4 pt-4 pb-3">
                 <h2 class="section-title">Tamamlanamayan Search Console verileri</h2>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Yalnızca sorun kalan veri gruplarını yeniden çalıştırabilirsiniz.</p>
             </div>
             <div class="divide-y divide-gray-200 dark:divide-gray-800">
                 @foreach ($issues as $issue)
-                    <article class="py-4" wire:key="gsc-issue-{{ $issue['resource_run_id'] }}">
+                    <article class="px-4 py-4" wire:key="gsc-issue-{{ $issue['resource_run_id'] }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3><x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill></div>

@@ -16,17 +16,17 @@
 <div class="group" data-epicrisis-item="{{ $item->id }}" data-epicrisis-state="{{ $item->status }}" data-epicrisis-confidence="{{ $item->confidence }}">
     @if ($editing === $item->id)
         <div class="flex flex-wrap gap-2">
-            <textarea wire:model="editText" rows="2" aria-label="Düzelt" class="min-w-64 flex-1 rounded-md border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-gray-200"></textarea>
+            <textarea wire:model="editText" rows="2" aria-label="Düzelt" class="min-w-64 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-gray-200"></textarea>
             <div class="flex items-start gap-2">
-                <button type="button" wire:click="saveEdit" class="rounded-md bg-brand-500 px-2.5 py-1 font-semibold text-white hover:bg-brand-600">Kaydet ve kilitle</button>
-                <button type="button" wire:click="cancelEdit" class="rounded-md px-2.5 py-1 font-medium text-gray-600 ring-1 ring-inset ring-gray-200 dark:text-gray-300 dark:ring-gray-700">Vazgeç</button>
+                <button type="button" wire:click="saveEdit" class="btn-primary h-7! px-2.5! text-xs!">Kaydet ve kilitle</button>
+                <button type="button" wire:click="cancelEdit" class="btn h-7! px-2.5! text-xs!">Vazgeç</button>
             </div>
         </div>
         @error('editText') <p class="mt-1 text-error-600">{{ $message }}</p> @enderror
     @else
-        <p class="text-gray-800 dark:text-gray-200">
+        <p class="text-[13px] text-gray-800 dark:text-gray-200">
             @if (! empty($label))
-                <span class="font-semibold text-gray-900 dark:text-white">{{ $item->fieldLabel() }}:</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ $item->fieldLabel() }}:</span>
             @endif
             @if ($item->scope)
                 <span class="text-gray-500">{{ $item->scope }}:</span>

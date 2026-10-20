@@ -4,172 +4,212 @@
     $landingPulse = $data['landing_pulse'] ?? [];
     $actionMatrix = $data['business_actions'] ?? [];
     $maxAcq = max(1, (float) collect($acqBars)->max('sessions'));
+    $attention = $data['needs_attention'] ?? [];
+    $journeys = array_is_list($data['journeys'] ?? []) ? ($data['journeys'] ?? []) : ($data['journeys']['paths'] ?? []);
+    $outcomes = $data['recent_outcomes'] ?? [];
+    $trend = $data['performance_trend'] ?? [];
+    // Users, sessions, conversions (when the property sends them), business actions and measurement health.
+    $cells = [
+        ['Kullanıcı', $glanceCell($glance['users'] ?? null), []],
+        ['Oturum', $glanceCell($glance['sessions'] ?? null), array_map('floatval', $trend['sessions'] ?? $trend['values'] ?? [])],
+    ];
+    if (array_key_exists('conversions', $glance)) {
+        $cells[] = ['Dönüşüm', $glanceCell($glance['conversions']), []];
+    }
+    $cells[] = ['İş aksiyonu', $glanceCell($glance['business_actions'] ?? null), array_map('floatval', $trend['business_actions'] ?? [])];
+    $cells[] = ['Ölçüm', $glanceCell($glance['measurement_state'] ?? null), []];
 @endphp
 
 <div class="space-y-10">
-    <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
-        <x-ta.metric-card label="Kullanıcı" :value="$glance['users']['value'] ?? '—'" :delta="$glance['users']['secondary'] ?? null" :tone="$glance['users']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Oturum" :value="$glance['sessions']['value'] ?? '—'" :delta="$glance['sessions']['secondary'] ?? null" :tone="$glance['sessions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="İş aksiyonu" :value="$glance['business_actions']['value'] ?? '—'" :delta="$glance['business_actions']['secondary'] ?? null" :tone="$glance['business_actions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Ölçüm" :value="$glance['measurement_state']['value'] ?? '—'" :delta="$glance['measurement_state']['secondary'] ?? null" :tone="$glance['measurement_state']['tone'] ?? 'warning'" />
-    </div>
-
-    <div class="grid gap-10 lg:grid-cols-12">
-        <section class="min-w-0 lg:col-span-7">
-            <div class="mb-2 flex items-center justify-between gap-2">
-                <h2 class="section-title">Needs attention</h2>
-                <span class="text-xs text-gray-500">{{ count($data['needs_attention'] ?? []) }} signals</span>
+    {{-- 1. What needs a look, when anything does. --}}
+    @if ($attention !== [])
+        <section data-ga4-attention>
+            <div class="section-head">
+                <h2 class="section-title">Dikkat isteyen <span class="section-count">{{ count($attention) }}</span></h2>
             </div>
-            <ul class="divide-y divide-gray-200 dark:divide-gray-800">
-                @foreach ($data['needs_attention'] ?? [] as $item)
-                    <li class="flex items-center justify-between gap-3 py-2">
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($item['severity'] ?? '') { 'Critical', 'critical', 'High', 'high' => 'error', 'Medium', 'medium' => 'warning', default => 'light' }] ?? 'info'">{{ $item['severity'] }}</x-ta.pill>
-                                <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $item['title'] }}</span>
-                            </div>
-                            <p class="mt-0.5 truncate text-xs text-gray-600 dark:text-gray-300">{{ $item['metric'] }}</p>
-                            <p class="truncate text-xs text-gray-500">{{ $item['scope'] ?? '' }}</p>
+            <ul class="card">
+                @foreach ($attention as $item)
+                    @php $tone = $toneOf($item['severity'] ?? null); @endphp
+                    <li class="card-row flex-wrap sm:flex-nowrap" wire:key="ga4-att-{{ $item['id'] }}">
+                        <span @class(['row-icon', 'border-transparent bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400' => $tone === 'critical', 'border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400' => $tone === 'look']) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400" title="{{ $item['scope'] ?? '' }}">{{ $item['metric'] }}</p>
                         </div>
-                        <button type="button" wire:click="openAttention('{{ $item['id'] }}')" class="link-neutral shrink-0 text-xs">{{ $item['action'] ?? 'Inspect' }}</button>
+                        <x-ta.pill :tone="$tone" class="hidden! sm:inline-flex!">{{ $say($item['severity'] ?? null) }}</x-ta.pill>
+                        <button type="button" wire:click="openAttention('{{ $item['id'] }}')" class="btn w-full sm:w-auto">{{ $sayAction($item['action'] ?? 'Inspect') }}</button>
                     </li>
                 @endforeach
             </ul>
         </section>
+    @endif
 
-        <section class="min-w-0 lg:col-span-5">
-            <div class="mb-2 flex items-center justify-between gap-2">
-                <h2 class="section-title">Acquisition mix</h2>
-                <button type="button" wire:click="setTab('acquisition')" class="link-neutral text-xs">Open</button>
-            </div>
-            <ul class="space-y-2">
-                @foreach ($acqBars as $row)
-                    <li>
-                        <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-                            <span class="font-medium text-gray-800 dark:text-white/90">{{ $row['channel'] }}</span>
-                            <span class="tabular-nums text-gray-500">{{ number_format($row['sessions']) }}, {{ $row['share_pct'] }}%</span>
-                        </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-gray-400" style="width: {{ min(100, $row['bar'] ?? round(($row['sessions'] / $maxAcq) * 100)) }}%"></div>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-    </div>
-
-    <section class="min-w-0">
-        <div class="mb-2 flex items-center justify-between gap-2">
-            <h2 class="section-title">Sessions trend</h2>
-            <span class="text-xs text-gray-500">{{ $data['period_label'] ?? '' }}, {{ $data['compare_label'] ?? $data['performance_trend']['note'] ?? '' }}</span>
-        </div>
-        <div data-chart='@json($performanceChartOptions)' aria-label="Sessions and mapped business actions trend" class="min-h-[220px]"></div>
-    </section>
-
-    <section>
-        <div class="mb-2 flex items-center justify-between">
-            <h2 class="section-title">Landing pulse</h2>
-            <button type="button" wire:click="setTab('behavior')" class="link-neutral text-xs">Open behavior</button>
-        </div>
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Landing</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Sessions</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Engaged</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Actions</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Attention</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500"></th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($landingPulse as $row)
-                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td class="px-3 py-2">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
-                        <p class="text-xs text-gray-500">{{ $row['content_role'] }}, {{ $row['title'] ?? '' }}</p>
-                    </td>
-                    <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
-                    <td class="px-3 py-2 text-sm tabular-nums">{{ $row['engaged_rate'] }}%</td>
-                    <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['mapped_actions']) }}</td>
-                    <td class="px-3 py-2 text-xs text-gray-500">{{ $row['attention'] ?? '—' }}</td>
-                    <td class="px-3 py-2"><button type="button" wire:click="openLanding('{{ $row['path'] }}')" class="link-neutral text-xs">Inspect</button></td>
-                </tr>
+    {{-- 2. Is the site bringing business: the head numbers. --}}
+    <section data-ga4-glance>
+        <div @class(['metric-strip grid-cols-2', 'lg:grid-cols-4' => count($cells) === 4, 'lg:grid-cols-5' => count($cells) === 5])>
+            @foreach ($cells as [$label, $cell, $points])
+                <x-ta.metric-card :label="$label" :value="$cell['value']" :delta="$cell['delta']" :tone="$cell['tone']" :hint="$cell['hint']" :muted="$cell['muted']" :spark="$points" :title="$cell['note']" />
             @endforeach
-        </tbody>
-            </table>
         </div>
     </section>
 
-    <div class="grid gap-10 lg:grid-cols-2">
+    {{-- 3. Day by day. --}}
+    <section>
+        <div class="section-head">
+            <h2 class="section-title" title="{{ $trend['note'] ?? '' }}">Oturum trendi</h2>
+        </div>
+        <div class="card">
+            @if ($hasTrend)
+                <div class="px-2 pt-3 pb-1 sm:px-3">
+                    <div data-chart='@json($chart)' aria-label="Sessions and mapped business actions trend" class="min-h-[220px]"></div>
+                </div>
+            @else
+                <x-ta.empty-state title="Bu dönem için veri yok" message="Analytics verisi gelince günlük çizgi burada görünür." />
+            @endif
+        </div>
+    </section>
+
+    {{-- 4. Where the visits come from, and which actions they lead to. --}}
+    <div class="grid gap-10 lg:grid-cols-2 lg:gap-6">
         <section class="min-w-0">
-            <div class="mb-2 flex items-center justify-between">
-                <h2 class="section-title">Business action matrix</h2>
-                <button type="button" wire:click="setMeasSub('business_actions')" class="link-neutral text-xs">Measurement</button>
+            <div class="section-head">
+                <h2 class="section-title">Trafik kaynakları</h2>
+                <button type="button" wire:click="setTab('acquisition')" class="ml-auto link-neutral text-[13px]">Ayrıntı</button>
             </div>
-            <ul class="space-y-2">
-                @foreach ($actionMatrix as $row)
-                    <li class="flex items-center justify-between gap-2">
-                        <button type="button" wire:click="openAction('{{ $row['action'] }}')" class="min-w-0 text-left">
+            <ul class="card">
+                @forelse ($acqBars as $row)
+                    <li class="card-row flex-col items-stretch gap-1.5 py-3">
+                        <div class="flex items-baseline justify-between gap-3 text-sm">
+                            <span class="text-gray-900 dark:text-white">{{ $say($row['channel']) }}</span>
+                            <span class="tabular-nums text-gray-900 dark:text-white">{{ $num($row['sessions']) }} <span class="text-[13px] text-gray-500">%{{ $row['share_pct'] }}</span></span>
+                        </div>
+                        <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                            <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, $row['bar'] ?? round(($row['sessions'] / $maxAcq) * 100)) }}%"></div>
+                        </div>
+                    </li>
+                @empty
+                    <li><x-ta.empty-state size="sm" title="Kaynak verisi yok" /></li>
+                @endforelse
+            </ul>
+        </section>
+
+        <section class="min-w-0">
+            <div class="section-head">
+                <h2 class="section-title" title="{{ $data['missing_note'] ?? '' }}">İş aksiyonları</h2>
+                <button type="button" wire:click="setMeasSub('business_actions')" class="ml-auto link-neutral text-[13px]">Ölçüm</button>
+            </div>
+            <ul class="card">
+                @forelse ($actionMatrix as $row)
+                    <li class="card-row py-3">
+                        <button type="button" wire:click="openAction('{{ $row['action'] }}')" class="min-w-0 flex-1 text-left">
                             <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ $row['action'] }}</span>
-                            <span class="block truncate text-xs text-gray-500">{{ $row['ga4_event'] ?? 'Unavailable' }}, {{ $row['role'] }}</span>
+                            <span class="mt-0.5 block truncate text-[13px] text-gray-500">{{ $row['ga4_event'] ?? 'Etkinlik yok' }}, {{ mb_strtolower($say($row['role'] ?? null)) }}</span>
                         </button>
-                        <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['state'] ?? '') { 'Healthy' => 'success', 'Review', 'Not mapped', 'Partial' => 'warning', 'Broken', 'Unavailable' => 'error', default => 'light' }] ?? 'info'">{{ $row['state'] }}</x-ta.pill>
+                        <span class="text-sm tabular-nums text-gray-900 dark:text-white">{{ $count($row, 'event_count') }}</span>
+                        <x-ta.pill :tone="$toneOf($row['state'] ?? null)" class="w-24 justify-end">{{ $say($row['state'] ?? null) }}</x-ta.pill>
                     </li>
-                @endforeach
-            </ul>
-            <p class="mt-3 text-xs font-medium text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero' }}</p>
-        </section>
-
-        <section class="min-w-0">
-            <div class="mb-2 flex items-center justify-between">
-                <h2 class="section-title">Journey snapshot</h2>
-                <button type="button" wire:click="setTab('journeys')" class="link-neutral text-xs">Open journeys</button>
-            </div>
-            <ul class="space-y-3">
-                @foreach (array_slice($data['journeys'] ?? [], 0, 4) as $journey)
-                    <li class="border-b border-gray-200 py-2.5 dark:border-gray-800">
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $journey['path'] }}</span>
-                            <span class="text-xs tabular-nums text-gray-500">{{ number_format($journey['sessions']) }}</span>
-                        </div>
-                        <div class="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-gray-500">
-                            @foreach ($journey['steps'] ?? [] as $i => $step)
-                                @if ($i > 0)<span class="text-gray-400" aria-hidden="true">›</span>@endif
-                                <span>{{ $step }}</span>
-                            @endforeach
-                        </div>
-                        @if (array_key_exists('mapped_actions', $journey) && $journey['mapped_actions'] === null)
-                            <p class="mt-1 text-xs text-warning-700 dark:text-warning-400">{{ $journey['note'] ?? 'Mapped actions unavailable' }}</p>
-                        @elseif (! empty($journey['note']))
-                            <p class="mt-1 text-xs text-warning-700 dark:text-warning-400">{{ $journey['note'] }}</p>
-                        @endif
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        <section class="min-w-0 lg:col-span-2">
-            <div class="mb-2 flex items-center justify-between">
-                <h2 class="section-title">Recent outcomes</h2>
-                <button type="button" wire:click="setOps('outcomes')" class="link-neutral text-xs">Operations</button>
-            </div>
-            <ul class="space-y-2">
-                @foreach ($data['recent_outcomes'] ?? [] as $o)
-                    <li class="flex items-center justify-between gap-2 text-sm">
-                        <span class="text-gray-800 dark:text-white/90">{{ $o['title'] }}</span>
-                        <span @class([
-                            'shrink-0 text-xs font-semibold',
-                            'text-success-700 dark:text-success-400' => ($o['state'] ?? '') === 'Improvement observed',
-                            'text-warning-700 dark:text-warning-400' => ($o['state'] ?? '') !== 'Improvement observed',
-                        ])>{{ $o['state'] }}</span>
-                    </li>
-                @endforeach
+                @empty
+                    <li><x-ta.empty-state size="sm" title="İş aksiyonu eşlenmedi" message="Form, telefon gibi aksiyonlar Analytics etkinliğine eşlenince burada sayılır." /></li>
+                @endforelse
             </ul>
         </section>
     </div>
+
+    {{-- 5. The pages visits land on. --}}
+    <section>
+        <div class="section-head">
+            <h2 class="section-title">Giriş sayfaları <span class="section-count">{{ count($landingPulse) }}</span></h2>
+            <button type="button" wire:click="setTab('behavior')" class="ml-auto link-neutral text-[13px]">Tümü</button>
+        </div>
+        <div class="card overflow-x-auto">
+            @if ($landingPulse === [])
+                <x-ta.empty-state title="Giriş sayfası verisi yok" message="Bu dönemde sayfa bazında oturum gelmedi." />
+            @else
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Sayfa</th>
+                            <th class="text-right!">Oturum</th>
+                            <th class="hidden text-right! sm:table-cell">Etkileşim</th>
+                            <th class="hidden text-right! sm:table-cell">Aksiyon</th>
+                            <th class="hidden lg:table-cell">Site uyarısı</th>
+                            <th><span class="sr-only">İncele</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($landingPulse as $row)
+                            <tr wire:key="ga4-pulse-{{ $row['path'] }}">
+                                <td class="min-w-[12rem]">
+                                    <p class="font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
+                                    <p class="text-[13px] text-gray-500">{{ $row['title'] ?? $say($row['content_role'] ?? null) }}</p>
+                                </td>
+                                <td class="text-right tabular-nums text-gray-900 dark:text-white">{{ $num($row['sessions']) }}</td>
+                                <td class="hidden text-right tabular-nums sm:table-cell">%{{ $row['engaged_rate'] }}</td>
+                                <td class="hidden text-right tabular-nums sm:table-cell">{{ $count($row, 'mapped_actions') }}</td>
+                                <td class="hidden text-[13px] lg:table-cell">
+                                    @if (! empty($row['attention']))
+                                        <span class="text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</span>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-right"><button type="button" wire:click="openLanding('{{ $row['path'] }}')" class="btn-quiet h-7! px-2!">İncele</button></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+    </section>
+
+    {{-- 6. The usual paths through the site, and what earlier work changed. --}}
+    @if ($journeys !== [] || $outcomes !== [])
+        <div class="grid gap-10 lg:grid-cols-2 lg:gap-6">
+            <section class="min-w-0">
+                <div class="section-head">
+                    <h2 class="section-title">Ziyaret yolları</h2>
+                    <button type="button" wire:click="setTab('journeys')" class="ml-auto link-neutral text-[13px]">Tümü</button>
+                </div>
+                <ul class="card">
+                    @forelse (array_slice($journeys, 0, 4) as $journey)
+                        <li class="card-row items-start py-3">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm text-gray-900 dark:text-white">{{ implode(' › ', array_map(fn ($step) => is_array($step) ? ($step['label'] ?? '') : $step, $journey['steps'] ?? [])) ?: ($journey['path'] ?? '') }}</p>
+                                @if (! empty($journey['note']) || (array_key_exists('mapped_actions', $journey) && $journey['mapped_actions'] === null))
+                                    <p class="mt-0.5 text-[13px] text-warning-700 dark:text-warning-400">{{ $journey['note'] ?? 'Aksiyon verisi yok' }}</p>
+                                @endif
+                            </div>
+                            <span class="text-sm tabular-nums text-gray-900 dark:text-white" title="Oturum">{{ $count($journey, 'sessions') }}</span>
+                        </li>
+                    @empty
+                        <li><x-ta.empty-state size="sm" title="Yol verisi yok" /></li>
+                    @endforelse
+                </ul>
+            </section>
+
+            <section class="min-w-0">
+                <div class="section-head">
+                    <h2 class="section-title">Son sonuçlar</h2>
+                    <button type="button" wire:click="setOps('outcomes')" class="ml-auto link-neutral text-[13px]">Operasyon</button>
+                </div>
+                <ul class="card">
+                    @forelse ($outcomes as $o)
+                        <li class="card-row flex-wrap sm:flex-nowrap">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $o['title'] }}</p>
+                                @if (! empty($o['note']))
+                                    <p class="mt-0.5 text-[13px] text-gray-500">{{ $o['note'] }}</p>
+                                @endif
+                            </div>
+                            <x-ta.pill :tone="$toneOf($o['state'] ?? null)">{{ $say($o['state'] ?? null) }}</x-ta.pill>
+                        </li>
+                    @empty
+                        <li><x-ta.empty-state size="sm" title="Henüz sonuç yok" /></li>
+                    @endforelse
+                </ul>
+            </section>
+        </div>
+    @endif
 
     @include('livewire.demo.analytics.tabs.relationships')
-
 </div>

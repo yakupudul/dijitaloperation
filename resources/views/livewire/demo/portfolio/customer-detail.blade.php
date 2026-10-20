@@ -21,31 +21,33 @@
 <div class="space-y-10 text-sm dark:text-gray-200" x-data="{ moreOpen: false }" data-customer-detail>
     @include('livewire.demo.partials.flash')
 
-    <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <a href="{{ route('operator.brands') }}" wire:navigate class="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white" aria-label="Markalar"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12.5 15 7.5 10l5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-                <h1 class="break-words text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $customer['name'] }}</h1>
-                @if (($customer['status'] ?? '') !== 'active')<x-ta.pill tone="info">{{ $statusLabel }}</x-ta.pill>@endif
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div class="flex min-w-0 items-start gap-2">
+            <a href="{{ route('operator.brands') }}" wire:navigate class="-ml-1 mt-1 hidden h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-900 sm:flex dark:hover:bg-white/5 dark:hover:text-white" aria-label="Markalar"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12.5 15 7.5 10l5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <h1 class="page-title break-words">{{ $customer['name'] }}</h1>
+                    @if (($customer['status'] ?? '') !== 'active')<x-ta.pill tone="info">{{ $statusLabel }}</x-ta.pill>@endif
+                </div>
+                <p class="page-sub flex flex-wrap gap-x-3 gap-y-0.5" data-customer-meta>
+                    @if (collect([$typeLabel, $industryLabel !== '—' ? $industryLabel : null, $hqDisplay !== '—' ? $hqDisplay : null])->filter()->isNotEmpty())<span>{{ collect([$typeLabel, $industryLabel !== '—' ? $industryLabel : null, $hqDisplay !== '—' ? $hqDisplay : null])->filter()->implode(', ') }}</span>@endif
+                    <span>{{ count($brands) }} marka, {{ $digitalAssetsCount }} varlık</span>
+                    <a href="{{ route('operator.assets', ['customer' => $customer['id']]) }}" wire:navigate class="link-neutral font-normal">varlıkları gör</a>
+                </p>
             </div>
-            <p class="mt-1 text-sm text-gray-500" data-customer-meta>
-                {{ collect([$typeLabel, $industryLabel !== '—' ? $industryLabel : null, $hqDisplay !== '—' ? $hqDisplay : null])->filter()->implode(', ') }}
-                <span class="ml-2">{{ count($brands) }} marka, {{ $digitalAssetsCount }} varlık</span>
-                <a href="{{ route('operator.assets', ['customer' => $customer['id']]) }}" wire:navigate class="link-neutral ml-2 font-normal">varlıkları gör</a>
-            </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <x-ta.button size="sm" :href="route('operator.brand.create', ['customerId' => $customer['id']])" wire:navigate>Marka ekle</x-ta.button>
-            <x-ta.button variant="outline" size="sm" wire:click="openContactForm">Kişi ekle</x-ta.button>
             <x-ta.button variant="outline" size="sm" :href="route('operator.customer.edit', ['customerId' => $customer['id']])" wire:navigate>Düzenle</x-ta.button>
+            <x-ta.button variant="outline" size="sm" wire:click="openContactForm">Kişi ekle</x-ta.button>
+            <x-ta.button size="sm" :href="route('operator.brand.create', ['customerId' => $customer['id']])" wire:navigate>Marka ekle</x-ta.button>
             <div class="relative">
-                <button type="button" @click="moreOpen = !moreOpen" class="inline-flex h-8 items-center rounded-lg px-2.5 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:ring-gray-700" aria-label="Diğer">⋯</button>
-                <div x-show="moreOpen" @click.outside="moreOpen = false" x-cloak class="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                    <a href="{{ route('operator.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="block px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5">Dosyalar</a>
+                <button type="button" @click="moreOpen = !moreOpen" class="btn w-8 px-0!" aria-label="Diğer"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M4 11.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg></button>
+                <div x-show="moreOpen" @click.outside="moreOpen = false" x-cloak class="card absolute right-0 z-20 mt-1 w-48 py-1 shadow-theme-lg">
+                    <a href="{{ route('operator.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="block px-3 py-2 text-[13px] hover:bg-gray-50 dark:hover:bg-white/5">Dosyalar</a>
                     @if (($customer['status'] ?? '') === 'archived')
-                        <button type="button" wire:click="restoreCustomer" class="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/5">Müşteriyi geri al</button>
+                        <button type="button" wire:click="restoreCustomer" class="block w-full px-3 py-2 text-left text-[13px] hover:bg-gray-50 dark:hover:bg-white/5">Müşteriyi geri al</button>
                     @else
-                        <button type="button" wire:click="archiveCustomer" wire:confirm="Müşteri arşivlensin mi? Veriler silinmez." class="block w-full px-3 py-2 text-left text-sm text-error-600 hover:bg-gray-50 dark:hover:bg-white/5">Müşteriyi arşivle</button>
+                        <button type="button" wire:click="archiveCustomer" wire:confirm="Müşteri arşivlensin mi? Veriler silinmez." class="block w-full px-3 py-2 text-left text-[13px] text-error-600 hover:bg-gray-50 dark:hover:bg-white/5">Müşteriyi arşivle</button>
                     @endif
                 </div>
             </div>
@@ -54,10 +56,19 @@
 
     @if ($attentionBrands->isNotEmpty())
         <section data-customer-attention>
-            <h2 class="section-title">{{ $attentionBrands->count() }} marka dikkat istiyor</h2>
-            <ul class="mt-2 divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+            <div class="section-head">
+                <h2 class="section-title">{{ $attentionBrands->count() }} marka dikkat istiyor</h2>
+            </div>
+            <ul class="card">
                 @foreach ($attentionBrands as $brand)
-                    <li class="flex flex-wrap items-center gap-x-3 break-words py-2.5"><span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span><a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a><span class="text-xs text-gray-500">{{ $brand['attention_reason'] }}</span></li>
+                    <li class="card-row">
+                        <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" />
+                        <div class="min-w-0 flex-1">
+                            <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="break-words text-sm font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
+                            <p class="mt-0.5 flex items-center gap-1.5 text-[13px] text-gray-500"><span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $brand['reconnect'] > 0 ? 'bg-error-500' : 'bg-warning-500' }}" aria-hidden="true"></span>{{ $brand['attention_reason'] }}</p>
+                        </div>
+                        <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="btn hidden sm:inline-flex">Aç</a>
+                    </li>
                 @endforeach
             </ul>
         </section>
@@ -65,50 +76,50 @@
 
     {{-- Brands first: this is where the work happens --}}
     <section data-customer-brands>
-        <div class="flex items-center justify-between">
-            <h2 class="section-title">Markalar <span class="text-sm font-normal text-gray-500">{{ count($brands) }}</span></h2>
+        <div class="section-head">
+            <h2 class="section-title">Markalar <span class="section-count">{{ count($brands) }}</span></h2>
         </div>
         @if ($brands === [])
-            <div class="py-3 text-sm text-gray-500">
+            <div class="card px-4 py-3.5 text-[13px] text-gray-500">
                 Bu müşterinin markası yok.
                 <a href="{{ route('operator.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="link-neutral">İlk markayı ekle</a>; web sitesini girersen hesapları ve hizmetleri "Otomatik kur" bulur.
             </div>
         @else
-            <div class="mt-2 overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="border-b border-gray-200 text-xs text-gray-500 dark:border-gray-800">
+            <div class="card overflow-x-auto">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="py-2.5 pr-4 font-normal">Marka</th>
-                            <th class="hidden px-4 py-2.5 font-normal sm:table-cell">Kanallar</th>
-                            <th class="px-4 py-2.5 text-right font-normal">Açık iş</th>
-                            <th class="py-2.5 pl-4 font-normal">Durum</th>
+                            <th>Marka</th>
+                            <th class="hidden sm:table-cell">Kanallar</th>
+                            <th class="text-right!">Açık iş</th>
+                            <th>Durum</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                    <tbody>
                         @foreach ($brands as $brand)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:key="customer-brand-{{ $brand['id'] }}" data-customer-brand="{{ $brand['id'] }}">
-                                <td class="py-2.5 pr-4">
-                                    <div class="flex min-w-0 items-start gap-2.5">
-                                    <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" size="sm" class="mt-0.5" />
-                                    <div class="min-w-0">
-                                    <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
-                                    <p class="break-all text-xs text-gray-500">{{ collect([$brand['website'], $brand['sector_label'] !== '—' ? $brand['sector_label'] : null])->filter()->implode(', ') ?: 'Web sitesi yok' }}</p>
-                                    <div class="mt-1 sm:hidden">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</div>
-                                    </div>
+                            <tr wire:key="customer-brand-{{ $brand['id'] }}" data-customer-brand="{{ $brand['id'] }}">
+                                <td>
+                                    <div class="flex min-w-0 items-center gap-2.5">
+                                        <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" />
+                                        <div class="min-w-0">
+                                            <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
+                                            <p class="break-all text-[13px] text-gray-500">{{ collect([$brand['website'], $brand['sector_label'] !== '—' ? $brand['sector_label'] : null])->filter()->implode(', ') ?: 'Web sitesi yok' }}</p>
+                                            <div class="mt-1 sm:hidden">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</div>
+                                        </div>
                                     </div>
                                 </td>
-                                <td class="hidden px-4 py-2.5 sm:table-cell">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</td>
-                                <td class="px-4 py-2.5 text-right tabular-nums" data-open-work>
+                                <td class="hidden sm:table-cell">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</td>
+                                <td class="text-right tabular-nums" data-open-work>
                                     <span class="font-medium text-gray-900 dark:text-white">{{ $brand['open_work'] }}</span>
                                     @if ($brand['open_by_channel'] !== [])<p class="mt-0.5 flex flex-wrap justify-end gap-x-1.5 text-xs leading-4 text-gray-500">@foreach ($brand['open_by_channel'] as $label => $n)<span class="whitespace-nowrap">{{ $label }} {{ $n }}</span>@endforeach</p>@endif
                                 </td>
-                                <td class="py-2.5 pl-4">
+                                <td>
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         @if ($brand['needs_attention'] && ($brand['reconnect'] > 0 || ($brand['critical'] ?? 0) > 0))
                                             <x-ta.pill :tone="$brand['reconnect'] > 0 ? 'critical' : 'look'">Dikkat</x-ta.pill>
                                         @endif
                                         @if ($brand['setup']['complete'])
-                                            <span class="text-xs text-gray-500">Kurulum tamam</span>
+                                            <span class="text-[13px] text-gray-500">Kurulum tamam</span>
                                         @else
                                             <x-ta.pill tone="look" class="tabular-nums">Kurulum {{ $brand['setup']['done'] }}/{{ $brand['setup']['total'] }}</x-ta.pill>
                                         @endif
@@ -124,50 +135,50 @@
     </section>
 
     <section data-customer-commercial>
-        <div class="flex flex-wrap items-start justify-between gap-3">
-            <h2 class="section-title" title="Ay sonu tahmini bugüne kadarki harcamanın doğrusal uzantısıdır.">Ücret ve reklam bütçesi <span class="text-sm font-normal text-gray-500">bu ay {{ $commercialSummary['days']['elapsed'] }}/{{ $commercialSummary['days']['total'] }} gün</span></h2>
-            <button type="button" wire:click="editCommercial" class="link-neutral text-xs">Düzenle</button>
+        <div class="section-head">
+            <h2 class="section-title" title="Ay sonu tahmini bugüne kadarki harcamanın doğrusal uzantısıdır.">Ücret ve reklam bütçesi <span class="section-count">bu ay {{ $commercialSummary['days']['elapsed'] }}/{{ $commercialSummary['days']['total'] }} gün</span></h2>
+            <button type="button" wire:click="editCommercial" class="btn-quiet ml-auto h-7! px-2!">Düzenle</button>
         </div>
         @if ($editingCommercial)
-            <form wire:submit="saveCommercial" class="surface mt-4 grid gap-3 p-4 sm:grid-cols-4">
+            <form wire:submit="saveCommercial" class="card mb-3 grid gap-4 p-5 sm:grid-cols-4">
                 @foreach (['monthly_fee' => 'Aylık ücret (₺)', 'ad_budget_google' => 'Google Ads aylık bütçe (₺)', 'ad_budget_meta' => 'Meta aylık bütçe (₺)'] as $field => $label)
-                    <label class="block text-sm"><span class="text-gray-500">{{ $label }}</span>
-                        <input type="text" inputmode="decimal" wire:model="commercial.{{ $field }}" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                    <label class="block"><span class="text-[13px] text-gray-600 dark:text-gray-400">{{ $label }}</span>
+                        <input type="text" inputmode="decimal" wire:model="commercial.{{ $field }}" class="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white" />
                         @error('commercial.'.$field) <span class="text-xs text-error-600">{{ $message }}</span> @enderror
                     </label>
                 @endforeach
-                <div class="flex items-end"><x-ta.button type="submit" size="md" class="w-full sm:w-auto">Kaydet</x-ta.button></div>
+                <div class="flex items-end"><button type="submit" class="btn-primary h-9! w-full sm:w-auto">Kaydet</button></div>
             </form>
         @endif
         @if ($commercialSummary['fee'] !== null || $commercialSummary['channels'] !== [])
-        <div class="mt-4 grid gap-x-8 gap-y-6 sm:grid-cols-3">
-            @if ($commercialSummary['fee'] !== null)
-                <div><p class="text-[26px] leading-8 font-semibold tabular-nums tracking-tight text-gray-900 dark:text-white">{{ $money($commercialSummary['fee']) }}</p><p class="text-xs text-gray-500">Aylık ücret</p></div>
-            @endif
-            @foreach ($commercialSummary['channels'] as $channel)
-                <div>
-                    <div class="flex items-center justify-between gap-2"><p class="text-xs text-gray-500">{{ $channel['label'] }}</p>@if ($channel['state'] !== 'no_budget')<span class="text-xs {{ $stateLabel[$channel['state']][1] }}">{{ $stateLabel[$channel['state']][0] }}</span>@endif</div>
-                    <p class="mt-1 text-sm text-gray-800 dark:text-gray-200"><strong class="tabular-nums">{{ $money($channel['spent']) }}</strong> harcandı, ay sonu ~<span class="tabular-nums">{{ $money($channel['projected']) }}</span></p>
-                    @if ($channel['budget'] !== null)<p class="text-xs text-gray-500">Bütçe <span class="tabular-nums">{{ $money($channel['budget']) }}</span>@if ($channel['share'] !== null) · %{{ number_format($channel['share'] * 100, 0) }}@endif</p>@endif
-                    @if (($channel['accounts'] ?? []) !== [])
-                        <ul class="mt-2 space-y-0.5 text-xs text-gray-500" data-channel-accounts="{{ $channel['key'] }}">
-                            @foreach ($channel['accounts'] as $account)
-                                <li class="flex justify-between gap-2"><span class="truncate">{{ $account['name'] }}</span><span class="shrink-0 tabular-nums">{{ number_format($account['spent'], 0, ',', '.') }} {{ $account['currency'] ?? '' }}</span></li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
-            @endforeach
-        </div>
+            <div class="metric-strip sm:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]">
+                @if ($commercialSummary['fee'] !== null)
+                    <x-ta.metric-card label="Aylık ücret" :value="$money($commercialSummary['fee'])" />
+                @endif
+                @foreach ($commercialSummary['channels'] as $channel)
+                    <div class="flex min-w-0 flex-col bg-white px-[18px] py-4 dark:bg-gray-900">
+                        <div class="flex items-center justify-between gap-2"><span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $channel['label'] }}</span>@if ($channel['state'] !== 'no_budget')<span class="text-xs font-medium {{ $stateLabel[$channel['state']][1] }}">{{ $stateLabel[$channel['state']][0] }}</span>@endif</div>
+                        <p class="mt-1.5 text-sm text-gray-700 dark:text-gray-300"><strong class="text-[22px] leading-8 font-semibold tabular-nums tracking-[-0.02em] text-gray-900 dark:text-white">{{ $money($channel['spent']) }}</strong> harcandı, ay sonu ~<span class="tabular-nums">{{ $money($channel['projected']) }}</span></p>
+                        @if ($channel['budget'] !== null)<p class="mt-0.5 text-xs text-gray-500">Bütçe <span class="tabular-nums">{{ $money($channel['budget']) }}</span>@if ($channel['share'] !== null) · %{{ number_format($channel['share'] * 100, 0) }}@endif</p>@endif
+                        @if (($channel['accounts'] ?? []) !== [])
+                            <ul class="mt-2 space-y-0.5 border-t border-gray-100 pt-2 text-xs text-gray-500 dark:border-gray-800" data-channel-accounts="{{ $channel['key'] }}">
+                                @foreach ($channel['accounts'] as $account)
+                                    <li class="flex justify-between gap-2"><span class="truncate">{{ $account['name'] }}</span><span class="shrink-0 tabular-nums">{{ number_format($account['spent'], 0, ',', '.') }} {{ $account['currency'] ?? '' }}</span></li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
         @endif
         @if ($missingCommercial !== [])
-            <p class="mt-3 text-xs text-gray-500" data-missing-commercial>Eksik bilgi: {{ implode(', ', $missingCommercial) }}</p>
+            <p class="mt-2 text-[13px] text-gray-500" data-missing-commercial>Eksik bilgi: {{ implode(', ', $missingCommercial) }}</p>
         @endif
         @if ($healthReasons !== null || count($commercialSummary['health']) > 1)
-            <div class="mt-6" data-health-reasons>
-                <p class="text-xs text-gray-500">
+            <div class="card mt-3" data-health-reasons>
+                <p class="px-4 py-3 text-[13px] text-gray-500">
                     Sağlık puanı
-                    @if ($healthReasons !== null)<span class="ml-1 font-semibold tabular-nums {{ $chip[$band[$healthReasons['band']] ?? 'warn'] }}">{{ $healthReasons['score'] }}</span>@endif
+                    @if ($healthReasons !== null)<span class="ml-1 text-sm font-semibold tabular-nums {{ $chip[$band[$healthReasons['band']] ?? 'warn'] }}">{{ $healthReasons['score'] }}</span>@endif
                     @if (count($commercialSummary['health']) > 1)
                         <span class="ml-2">geçmiş:
                             @foreach ($commercialSummary['health'] as $point)<span class="ml-1 tabular-nums" title="{{ $point['date'] }}">{{ $point['score'] }}</span>@if (! $loop->last), @endif @endforeach
@@ -175,104 +186,117 @@
                     @endif
                 </p>
                 @if ($healthReasons !== null)
-                    <p class="mt-2 text-xs font-medium text-gray-700 dark:text-gray-300">Puanı düşürenler</p>
-                    <ul class="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
-                        @forelse ($healthReasons['reasons'] as $reason)
-                            <li><span class="tabular-nums text-error-600">−{{ $reason['points'] }}</span> {{ $reason['text'] }}</li>
-                        @empty
-                            <li>Puanı düşüren bir şey yok.</li>
-                        @endforelse
-                    </ul>
+                    <div class="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+                        <p class="text-[13px] font-medium text-gray-700 dark:text-gray-300">Puanı düşürenler</p>
+                        <ul class="mt-1 space-y-0.5 text-[13px] text-gray-600 dark:text-gray-400">
+                            @forelse ($healthReasons['reasons'] as $reason)
+                                <li><span class="tabular-nums text-error-600">−{{ $reason['points'] }}</span> {{ $reason['text'] }}</li>
+                            @empty
+                                <li>Puanı düşüren bir şey yok.</li>
+                            @endforelse
+                        </ul>
+                    </div>
                 @endif
             </div>
         @endif
     </section>
 
-    <div class="grid gap-10 lg:grid-cols-2">
+    <div class="grid gap-x-6 gap-y-10 lg:grid-cols-2">
         <section>
-            <div class="flex items-center justify-between">
-                <h2 class="section-title">Kişiler <span class="text-sm font-normal text-gray-500">{{ count($contacts) }}</span></h2>
+            <div class="section-head">
+                <h2 class="section-title">Kişiler <span class="section-count">{{ count($contacts) }}</span></h2>
+                <button type="button" wire:click="openContactForm" class="btn-quiet ml-auto h-7! px-2!">Ekle</button>
             </div>
-            @if (($customer['primary_email'] ?? null) || ($customer['primary_phone'] ?? null))
-                <p class="mt-1 break-all text-xs text-gray-500">Genel iletişim: {{ collect([$customer['primary_email'] ?? null, $customer['primary_phone'] ?? null])->filter()->implode(', ') }}</p>
-            @endif
-            <div class="mt-2 divide-y divide-gray-200 border-y border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+            <ul class="card">
+                @if (($customer['primary_email'] ?? null) || ($customer['primary_phone'] ?? null))
+                    <li class="border-b border-gray-200 bg-gray-50/60 px-4 py-2.5 break-all text-[13px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.02]">Genel iletişim: {{ collect([$customer['primary_email'] ?? null, $customer['primary_phone'] ?? null])->filter()->implode(', ') }}</li>
+                @endif
                 @forelse ($contacts as $contact)
-                    <div class="flex items-start justify-between gap-3 py-2.5">
-                        <div class="min-w-0">
-                            <p class="font-medium text-gray-900 dark:text-white">{{ $contact['name'] }}@if (! empty($contact['title'])) <span class="font-normal text-gray-500">{{ $contact['title'] }}</span>@endif</p>
-                            @if (filled($contact['email'] ?? null) || filled($contact['phone'] ?? null))<p class="break-all text-xs text-gray-500">{{ collect([$contact['email'] ?? null, $contact['phone'] ?? null])->filter()->implode(', ') }}</p>@endif
+                    <li class="card-row">
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300" aria-hidden="true">{{ mb_strtoupper(mb_substr((string) $contact['name'], 0, 1)) }}</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $contact['name'] }}@if (! empty($contact['title'])) <span class="font-normal text-gray-500">{{ $contact['title'] }}</span>@endif</p>
+                            @if (filled($contact['email'] ?? null) || filled($contact['phone'] ?? null))<p class="mt-0.5 break-all text-[13px] text-gray-500">{{ collect([$contact['email'] ?? null, $contact['phone'] ?? null])->filter()->implode(', ') }}</p>@endif
                         </div>
-                        <div class="flex shrink-0 gap-2 text-xs">
-                            <button type="button" wire:click="openContactForm('{{ $contact['id'] }}')" class="link-neutral">Düzenle</button>
-                            <button type="button" wire:click="deleteContact('{{ $contact['id'] }}')" wire:confirm="Kişi silinsin mi?" class="text-gray-500 hover:text-error-600">Sil</button>
+                        <div class="flex shrink-0 gap-1">
+                            <button type="button" wire:click="openContactForm('{{ $contact['id'] }}')" class="btn-quiet h-7! px-2!">Düzenle</button>
+                            <button type="button" wire:click="deleteContact('{{ $contact['id'] }}')" wire:confirm="Kişi silinsin mi?" class="btn-quiet h-7! px-2! hover:text-error-600!">Sil</button>
                         </div>
-                    </div>
+                    </li>
                 @empty
-                    <p class="py-2.5 text-sm text-gray-500">Kişi eklenmedi.</p>
+                    <li class="px-4 py-3.5 text-[13px] text-gray-500">Kişi eklenmedi.</li>
                 @endforelse
-            </div>
+            </ul>
         </section>
 
         <section data-customer-team>
-            <h2 class="section-title">Sorumlular ve hizmetler</h2>
-            <dl class="mt-3 space-y-3 text-sm">
-                @if ($responsibleUsers !== [])
-                    <div><dt class="text-xs text-gray-500">Hesap sorumlusu ve ekip</dt><dd class="mt-0.5 text-gray-900 dark:text-white">
-                        @foreach ($responsibleUsers as $index => $user)
-                            {{ $user['name'] }}@if ($index === 0) <span class="text-xs text-gray-500">(Hesap sorumlusu)</span>@endif@if (! $loop->last), @endif
-                        @endforeach
-                    </dd></div>
+            <div class="section-head">
+                <h2 class="section-title">Sorumlular ve hizmetler</h2>
+                <a href="{{ route('operator.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="btn-quiet ml-auto h-7! px-2!">Düzenle</a>
+            </div>
+            <div class="card">
+                @if ($responsibleUsers !== [] || $serviceLabels !== [] || ! empty($customer['service_started_at']) || ! empty($customer['legal_name']))
+                    <dl class="text-sm">
+                        @if ($responsibleUsers !== [])
+                            <div class="border-t border-gray-200 px-4 py-3 first:border-t-0 dark:border-gray-800"><dt class="text-[13px] text-gray-500">Hesap sorumlusu ve ekip</dt><dd class="mt-0.5 text-gray-900 dark:text-white">
+                                @foreach ($responsibleUsers as $index => $user)
+                                    {{ $user['name'] }}@if ($index === 0) <span class="text-xs text-gray-500">(Hesap sorumlusu)</span>@endif@if (! $loop->last), @endif
+                                @endforeach
+                            </dd></div>
+                        @endif
+                        @if ($serviceLabels !== [])
+                            <div class="border-t border-gray-200 px-4 py-3 first:border-t-0 dark:border-gray-800"><dt class="text-[13px] text-gray-500">Verilen hizmetler</dt><dd class="mt-0.5 text-gray-900 dark:text-white">{{ implode(', ', $serviceLabels) }}</dd></div>
+                        @endif
+                        @if (! empty($customer['service_started_at']))
+                            <div class="border-t border-gray-200 px-4 py-3 first:border-t-0 dark:border-gray-800"><dt class="text-[13px] text-gray-500">Hizmet başlangıcı</dt><dd class="mt-0.5 tabular-nums text-gray-900 dark:text-white">{{ $customer['service_started_at'] }}</dd></div>
+                        @endif
+                        @if (! empty($customer['legal_name']))
+                            <div class="border-t border-gray-200 px-4 py-3 first:border-t-0 dark:border-gray-800"><dt class="text-[13px] text-gray-500">Ticari unvan</dt><dd class="mt-0.5 break-words text-gray-900 dark:text-white">{{ $customer['legal_name'] }}</dd></div>
+                        @endif
+                    </dl>
                 @endif
-                @if ($serviceLabels !== [])
-                    <div><dt class="text-xs text-gray-500">Verilen hizmetler</dt><dd class="mt-0.5 text-gray-900 dark:text-white">{{ implode(', ', $serviceLabels) }}</dd></div>
+                @if ($serviceScope !== [])
+                    <div class="border-t border-gray-200 px-4 py-3 first:border-t-0 dark:border-gray-800">
+                        <h3 class="text-[13px] text-gray-500">Hizmet kapsamı</h3>
+                        <ul class="mt-1 space-y-1 text-sm">
+                            @foreach ($serviceScope as $scope)
+                                <li class="text-gray-900 dark:text-white">{{ $scope['service_label'] ?? '—' }}@if (! empty($scope['brand_name'])) <span class="text-xs text-gray-500">{{ $scope['brand_name'] }}</span>@endif @if (! empty($scope['owner_name']))<span class="text-xs text-gray-500">, {{ $scope['owner_name'] }}</span>@endif</li>
+                            @endforeach
+                        </ul>
+                    </div>
                 @endif
-                @if (! empty($customer['service_started_at']))
-                    <div><dt class="text-xs text-gray-500">Hizmet başlangıcı</dt><dd class="mt-0.5 tabular-nums text-gray-900 dark:text-white">{{ $customer['service_started_at'] }}</dd></div>
+                @if ($missingTeam !== [])
+                    <p class="border-t border-gray-200 bg-gray-50/60 px-4 py-2.5 text-[13px] text-gray-500 first:border-t-0 dark:border-gray-800 dark:bg-white/[0.02]" data-missing-team>Eksik bilgi: {{ implode(', ', $missingTeam) }}. <a href="{{ route('operator.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="link-neutral font-normal">düzenle</a></p>
                 @endif
-                @if (! empty($customer['legal_name']))
-                    <div><dt class="text-xs text-gray-500">Ticari unvan</dt><dd class="mt-0.5 break-words text-gray-900 dark:text-white">{{ $customer['legal_name'] }}</dd></div>
-                @endif
-            </dl>
-            @if ($serviceScope !== [])
-                <h3 class="mt-5 text-xs font-medium text-gray-500">Hizmet kapsamı</h3>
-                <ul class="mt-1 space-y-1 text-sm">
-                    @foreach ($serviceScope as $scope)
-                        <li class="text-gray-700 dark:text-gray-300">{{ $scope['service_label'] ?? '—' }}@if (! empty($scope['brand_name'])) <span class="text-xs text-gray-500">{{ $scope['brand_name'] }}</span>@endif @if (! empty($scope['owner_name']))<span class="text-xs text-gray-500">, {{ $scope['owner_name'] }}</span>@endif</li>
-                    @endforeach
-                </ul>
-            @endif
-            @if ($missingTeam !== [])
-                <p class="mt-3 text-xs text-gray-500" data-missing-team>Eksik bilgi: {{ implode(', ', $missingTeam) }}. <a href="{{ route('operator.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="link-neutral font-normal">düzenle</a></p>
-            @endif
+            </div>
         </section>
     </div>
 
     <div x-data="{ open: @entangle('showContactForm') }">
         <x-ta.modal>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $editingContactId ? 'Kişiyi düzenle' : 'Kişi ekle' }}</h3>
+            <h3 class="text-[15px] font-semibold text-gray-900 dark:text-white">{{ $editingContactId ? 'Kişiyi düzenle' : 'Kişi ekle' }}</h3>
             <div class="mt-4 space-y-3">
                 <x-ta.form.field label="Ad soyad" :required="true" :error="$errors->first('contact_name')">
-                    <input wire:model="contact_name" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    <input wire:model="contact_name" type="text" class="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                 </x-ta.form.field>
                 <x-ta.form.field label="Rol / unvan" :error="$errors->first('contact_role')">
                     <x-ta.form.select wire:model.live="contact_role" :options="$roleOptions" placeholder="Rol seç…" />
                 </x-ta.form.field>
                 @if ($contact_role === 'other')
                     <x-ta.form.field label="Unvan" :error="$errors->first('contact_title_custom')">
-                        <input wire:model="contact_title_custom" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                        <input wire:model="contact_title_custom" type="text" class="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </x-ta.form.field>
                 @endif
                 <x-ta.form.field label="E-posta" :error="$errors->first('contact_email')">
-                    <input wire:model="contact_email" type="email" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                    <input wire:model="contact_email" type="email" class="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                 </x-ta.form.field>
                 <x-ta.form.field label="Telefon" :error="$errors->first('contact_phone')">
-                    <input wire:model="contact_phone" type="tel" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                    <input wire:model="contact_phone" type="tel" class="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                 </x-ta.form.field>
             </div>
             <div class="mt-6 flex justify-end gap-2">
-                <button type="button" wire:click="closeContactForm" class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700">Vazgeç</button>
-                <x-ta.button size="md" wire:click="saveContact">Kaydet</x-ta.button>
+                <button type="button" wire:click="closeContactForm" class="btn">Vazgeç</button>
+                <button type="button" wire:click="saveContact" class="btn-primary">Kaydet</button>
             </div>
         </x-ta.modal>
     </div>

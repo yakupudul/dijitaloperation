@@ -3,131 +3,91 @@
     $isList = array_is_list($journeys);
     $paths = $isList ? $journeys : ($journeys['paths'] ?? $journeys['aggregated_paths'] ?? []);
     $funnels = $isList ? [] : ($journeys['funnels'] ?? []);
+    $absent = ['Missing', 'Incomplete', 'Not configured'];
+    $stepLabel = fn (mixed $step): string => is_array($step) ? (string) ($step['label'] ?? '') : (string) $step;
 @endphp
 
 <div class="space-y-10">
-    <div class="flex flex-wrap items-start justify-between gap-2">
-        <div>
-            <h2 class="section-title" title="Aggregated paths, no PII, configured measurement only">Journeys</h2>
-        </div>
-        <span class="text-xs text-gray-500">No PII, aggregated only</span>
-    </div>
-
+    {{-- 1. The usual paths through the site (aggregated, no personal data). --}}
     <section>
-        <h3 class="mb-2 section-title">Aggregated paths</h3>
-        <div class="grid gap-10 lg:grid-cols-2">
+        <div class="section-head">
+            <h2 class="section-title" title="Toplu yollar; kişisel veri yok, yalnız kurulu ölçüm">Ziyaret yolları <span class="section-count">{{ count($paths) }}</span></h2>
+            <span class="text-[13px] text-gray-500">Toplu, kişisel veri yok</span>
+        </div>
+        <ul class="card">
             @forelse ($paths as $path)
-                <article class="min-w-0">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $path['path'] ?? $path['label'] ?? $path['name'] }}</h4>
-                            <p class="mt-0.5 text-xs text-gray-500">
-                                @if (array_key_exists('sessions', $path) && $path['sessions'] !== null)
-                                    {{ number_format($path['sessions']) }} sessions
-                                @else
-                                    Sessions, Unavailable
-                                @endif
-                                @if (array_key_exists('mapped_actions', $path))
-                                    <span class="ml-2"></span>
-                                    @if ($path['mapped_actions'] === null)
-                                        <span class="text-warning-700 dark:text-warning-400">actions Unavailable</span>
-                                    @else
-                                        {{ number_format($path['mapped_actions']) }} mapped actions
-                                    @endif
-                                @endif
+                @php $missingActions = array_key_exists('mapped_actions', $path) && $path['mapped_actions'] === null; @endphp
+                <li class="card-row flex-wrap items-start sm:flex-nowrap">
+                    <div class="min-w-0 flex-1">
+                        @if (! empty($path['steps']))
+                            <p class="flex flex-wrap items-center gap-x-1.5 text-sm font-medium text-gray-900 dark:text-white">
+                                @foreach ($path['steps'] as $i => $step)
+                                    @if ($i > 0)<span class="font-normal text-gray-400" aria-hidden="true">›</span>@endif
+                                    <span title="{{ $say($path['roles'][$i] ?? null) }}">{{ $stepLabel($step) }}</span>
+                                @endforeach
                             </p>
-                        </div>
-                        @if (array_key_exists('mapped_actions', $path) && $path['mapped_actions'] === null)
-                            <x-ta.pill tone="look">Incomplete measurement</x-ta.pill>
+                        @elseif (! empty($path['lanes']))
+                            <p class="flex flex-wrap items-center gap-x-1.5 text-sm font-medium">
+                                @foreach ($path['lanes'] as $i => $lane)
+                                    @if ($i > 0)<span class="font-normal text-gray-400" aria-hidden="true">›</span>@endif
+                                    <span @class(['text-gray-400' => in_array($lane['state'] ?? '', $absent, true), 'text-gray-900 dark:text-white' => ! in_array($lane['state'] ?? '', $absent, true)])>{{ $lane['label'] }}</span>
+                                @endforeach
+                            </p>
+                        @else
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $path['path'] ?? $path['label'] ?? $path['name'] ?? '' }}</p>
+                        @endif
+                        <p class="mt-0.5 text-[13px] tabular-nums text-gray-500">
+                            {{ $count($path, 'sessions') }} oturum{{ array_key_exists('mapped_actions', $path) ? ', '.($missingActions ? 'aksiyon verisi yok' : $count($path, 'mapped_actions').' aksiyon') : '' }}
+                        </p>
+                        @if (! empty($path['note']))
+                            <p class="mt-0.5 text-[13px] text-warning-700 dark:text-warning-400">{{ $path['note'] }}</p>
                         @endif
                     </div>
-
-                    @if (! empty($path['steps']))
-                        <div class="mt-3 flex flex-wrap items-center gap-1.5">
-                            @foreach ($path['steps'] as $i => $step)
-                                @if ($i > 0)
-                                    <span class="text-gray-400" aria-hidden="true">›</span>
-                                @endif
-                                <span class="inline-flex items-center text-xs font-medium text-gray-800 dark:text-white/90">
-                                    {{ is_array($step) ? ($step['label'] ?? '') : $step }}
-                                    @if (! empty($path['roles'][$i]))
-                                        <span class="ml-1 text-gray-500">{{ $path['roles'][$i] }}</span>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </div>
-                    @elseif (! empty($path['lanes']))
-                        <div class="mt-3 flex flex-wrap items-center gap-1.5">
-                            @foreach ($path['lanes'] as $i => $lane)
-                                @if ($i > 0)
-                                    <span class="text-gray-400" aria-hidden="true">›</span>
-                                @endif
-                                <span @class([
-                                    'inline-flex items-center text-xs font-medium',
-                                    'text-gray-400' => in_array($lane['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
-                                    'text-gray-800 dark:text-white/90' => ! in_array($lane['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
-                                ])>
-                                    {{ $lane['label'] }}
-                                </span>
-                            @endforeach
-                        </div>
+                    @if ($missingActions)
+                        <x-ta.pill tone="look">Ölçüm eksik</x-ta.pill>
                     @endif
-
-                    @if (! empty($path['note']))
-                        <p class="mt-2 text-xs text-warning-700 dark:text-warning-400">{{ $path['note'] }}</p>
-                    @endif
-                </article>
+                </li>
             @empty
-                <div class="py-6 text-sm text-gray-500 dark:border-gray-700 lg:col-span-2">
-                    No aggregated paths for this period
-                </div>
+                <li><x-ta.empty-state title="Bu dönem için yol verisi yok" /></li>
             @endforelse
-        </div>
+        </ul>
     </section>
 
+    {{-- 2. Funnels set up in Analytics (never invented here). --}}
     @if ($funnels !== [])
         <section>
-            <div class="mb-2 flex items-center justify-between gap-2">
-                <h3 class="section-title">Configured funnels</h3>
-                <span class="text-xs text-gray-500">Configured only, not invented</span>
+            <div class="section-head">
+                <h2 class="section-title">Kurulu huniler <span class="section-count">{{ count($funnels) }}</span></h2>
+                <span class="text-[13px] text-gray-500">Yalnız kurulmuş olanlar</span>
             </div>
-            <div class="space-y-3">
+            <div class="space-y-4">
                 @foreach ($funnels as $funnel)
-                    <article class="min-w-0">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $funnel['name'] }}</h4>
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                @if (! empty($funnel['configured']))
-                                    <x-ta.pill tone="ok">Configured</x-ta.pill>
-                                @endif
-                                @if (! empty($funnel['incomplete']) || ($funnel['state'] ?? '') === 'Incomplete measurement')
-                                    <x-ta.pill tone="look">{{ $funnel['state'] ?? 'Incomplete measurement' }}</x-ta.pill>
-                                @endif
-                            </div>
+                    <div class="card">
+                        <div class="card-row">
+                            <p class="min-w-0 flex-1 text-sm font-medium text-gray-900 dark:text-white">{{ $funnel['name'] }}</p>
+                            @if (! empty($funnel['configured']))
+                                <x-ta.pill tone="ok">Kurulu</x-ta.pill>
+                            @endif
+                            @if (! empty($funnel['incomplete']) || ($funnel['state'] ?? '') === 'Incomplete measurement')
+                                <x-ta.pill tone="look">{{ $say($funnel['state'] ?? 'Incomplete measurement') }}</x-ta.pill>
+                            @endif
                         </div>
-                        @if (! empty($funnel['steps']))
-                            <ol class="mt-3 space-y-2">
-                                @foreach ($funnel['steps'] as $step)
-                                    <li class="flex items-center justify-between gap-2 border-b border-gray-200 py-2.5 text-sm dark:border-gray-800">
-                                        <span class="text-gray-700 dark:text-gray-300">{{ $step['label'] }}</span>
-                                        <span @class([
-                                            'font-semibold tabular-nums',
-                                            'text-gray-400' => in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
-                                            'text-gray-900 dark:text-white' => ! in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true),
-                                        ])>
-                                            @if (in_array($step['state'] ?? '', ['Missing', 'Incomplete', 'Not configured'], true))
-                                                {{ $step['state'] }}
-                                            @elseif (array_key_exists('value', $step) && $step['value'] !== null)
-                                                {{ $step['value'] }}
-                                            @else
-                                                Unavailable
-                                            @endif
-                                        </span>
-                                    </li>
-                                @endforeach
-                            </ol>
-                        @endif
-                    </article>
+                        @foreach ($funnel['steps'] ?? [] as $step)
+                            @php $stepAbsent = in_array($step['state'] ?? '', $absent, true); @endphp
+                            <div class="card-row py-2.5 text-sm">
+                                <span class="min-w-0 flex-1 text-gray-700 dark:text-gray-300">{{ $step['label'] }}</span>
+                                <span @class(['tabular-nums', 'text-gray-400' => $stepAbsent, 'font-medium text-gray-900 dark:text-white' => ! $stepAbsent])>
+                                    @if ($stepAbsent)
+                                        {{ $say($step['state']) }}
+                                    @elseif (array_key_exists('value', $step) && $step['value'] !== null)
+                                        {{ $step['value'] }}
+                                    @else
+                                        Veri yok
+                                    @endif
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
                 @endforeach
             </div>
         </section>

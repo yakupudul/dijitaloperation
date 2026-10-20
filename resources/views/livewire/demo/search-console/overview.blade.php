@@ -7,20 +7,96 @@
         ['key' => 'indexing', 'label' => __('operator.gsc.tabs.indexing'), 'wire' => true],
         ['key' => 'operations', 'label' => __('operator.gsc.tabs.operations'), 'wire' => true],
     ];
+
+    // The data layer speaks English status words; the screen shows plain Turkish (panel concept 2026-10-20).
+    $words = [
+        'critical' => 'Kritik', 'high' => 'Yüksek', 'medium' => 'Orta', 'low' => 'Düşük',
+        'growing' => 'Büyüyor', 'stable' => 'Sabit', 'declining' => 'Düşüyor', 'review' => 'Bakılmalı', 'new' => 'Yeni', 'lost' => 'Kayboldu',
+        'ctr review' => 'Tıklama oranı düşük', 'striking distance' => 'İlk sayfaya yakın',
+        'indexed' => 'Dizinde', 'not indexed' => 'Dizinde değil', 'unavailable' => 'Veri yok', 'unknown' => 'Bilinmiyor', 'excluded' => 'Hariç',
+        'success' => 'Başarılı', 'has errors' => 'Hatalı', 'mismatch' => 'Uyuşmuyor', 'match' => 'Uyuşuyor', 'matches' => 'Uyuşuyor', 'yes' => 'Var', 'no' => 'Yok',
+        'improvement observed' => 'İyileşme görüldü', 'still observed' => 'Sürüyor', 'insufficient evidence' => 'Kanıt yetersiz',
+        'connected' => 'Bağlı', 'not connected' => 'Bağlı değil', 'action required' => 'Bir adım gerekiyor', 'error' => 'Okuma hatası',
+        'healthy' => 'Sağlıklı', 'needs attention' => 'Bakılmalı', 'interrupted' => 'Kesildi', 'linked' => 'Bağlı', 'derived' => 'Türetilmiş',
+        'open' => 'Açık', 'in progress' => 'Sürüyor', 'done' => 'Bitti', 'proposed' => 'Önerildi', 'accepted' => 'Kabul edildi', 'planned' => 'Planlandı', 'blocked' => 'Takıldı', 'resolved' => 'Çözüldü', 'monitoring' => 'İzleniyor', 'draft' => 'Taslak',
+        'completed' => 'Tamamlandı', 'visibility' => 'Görünürlük', 'indexing' => 'Dizin', 'ownership' => 'Sahiplik', 'ctr' => 'Tıklama oranı', 'freshness' => 'Güncellik', 'performance' => 'Performans', 'content' => 'İçerik', 'technical' => 'Teknik',
+        'present' => 'Var', 'missing' => 'Yok', 'observed' => 'Görülüyor', 'pending' => 'Bekliyor', 'no observed impressions' => 'Gösterim yok', 'not in sitemap' => 'Haritada yok',
+        'home' => 'Ana sayfa', 'service / product' => 'Hizmet / ürün', 'conversion / contact' => 'İletişim', 'content / blog' => 'Blog', 'team / expert' => 'Ekip', 'legacy' => 'Eski sayfa', 'location' => 'Konum',
+        'service pages' => 'Hizmet sayfaları', 'location pages' => 'Konum sayfaları', 'articles' => 'Yazılar', 'faq' => 'SSS',
+        'inspect' => 'İncele', 'note' => 'Not', 'open demand' => 'Aramalara bak', 'open indexing' => 'Dizine bak', 'open pages' => 'Sayfalara bak',
+        'mobile' => 'Mobil', 'desktop' => 'Masaüstü', 'tablet' => 'Tablet',
+        'domain property' => 'Alan adı mülkü', 'url-prefix property' => 'URL ön eki mülkü',
+    ];
+    $say = function (?string $value) use ($words): string {
+        $value = trim((string) $value);
+        $key = mb_strtolower(str_replace('_', ' ', $value));
+
+        return $value === '' ? '—' : ($words[$key] ?? str_replace('_', ' ', $value));
+    };
+    // Button words (a verb, not a status): "Review" on a button is "Gözden geçir".
+    $doWords = ['inspect' => 'İncele', 'review' => 'Gözden geçir', 'note' => 'Not', 'open' => 'Aç', 'map action' => 'Eşle', 'open demand' => 'Aramalara bak', 'open indexing' => 'Dizine bak', 'open pages' => 'Sayfalara bak'];
+    $sayAction = fn (?string $value): string => $doWords[mb_strtolower(trim((string) $value))] ?? $say($value);
+    // What a status means for yakup: red only for lost traffic, amber for "bak", green for fine, gray for the rest.
+    $toneOf = fn (?string $value): string => match (mb_strtolower(str_replace('_', ' ', trim((string) $value)))) {
+        'critical', 'high', 'declining', 'lost', 'error', 'has errors' => 'critical',
+        'medium', 'review', 'ctr review', 'mismatch', 'needs attention', 'action required', 'interrupted', 'still observed', 'insufficient evidence', 'not indexed' => 'look',
+        'growing', 'indexed', 'success', 'healthy', 'connected', 'improvement observed', 'linked', 'resolved', 'done', 'completed' => 'ok',
+        default => 'info',
+    };
+    // Glance cell: the change ("−6.8%") goes next to the number, the rest of the provider line becomes a short Turkish hint.
+    $phrase = fn (string $text): string => trim(strtr($text, [
+        ' · impressions (not search volume)' => '', ' · sum(clicks)/sum(impressions)' => '',
+        'vs previous period' => 'önceki döneme göre', 'vs year-ago period' => 'geçen yıla göre', 'vs previous' => 'öncekine göre',
+        'avg pos' => 'ort. sıra', 'Needs attention' => 'dikkat istiyor', 'Unavailable' => 'Veri yok', 'unavailable' => 'yok', ' items' => ' konu', ' · ' => ', ',
+    ]), " ,·");
+    $glanceCell = function (?array $cell, bool $lossWhenDown = true) use ($phrase): array {
+        $cell ??= [];
+        $secondary = (string) ($cell['secondary'] ?? '');
+        $delta = null;
+        if (preg_match('/^\s*([+\-−]?\d[\d.,]*\s?(?:%|pp))\s*(.*)$/u', $secondary, $m) === 1) {
+            [$delta, $secondary] = [$m[1], $m[2]];
+        }
+        $falling = $delta !== null && (str_starts_with($delta, '-') || str_starts_with($delta, '−'));
+        $tone = $delta === null ? 'neutral' : ($falling ? ($lossWhenDown ? 'negative' : 'look') : 'positive');
+        $value = $phrase((string) ($cell['value'] ?? '—'));
+
+        return ['value' => $value === '' ? '—' : $value, 'delta' => $delta, 'tone' => $tone, 'hint' => $phrase($secondary), 'muted' => in_array($value, ['', '—'], true), 'note' => $cell['note'] ?? null];
+    };
+
+    $status = (string) ($identity['status'] ?? '');
+    $connected = ! in_array($status, ['Not connected', 'Action required', 'Error'], true);
+    $title = preg_replace('/ — (not connected|read error)$/', '', (string) $identity['title']);
+
+    // Trend chart: the component's series, drawn in the panel's quiet style (near-black line, hairline grid).
+    $metricNames = ['clicks' => 'Tıklama', 'impressions' => 'Gösterim', 'ctr' => 'Tıklama oranı (%)', 'position' => 'Ortalama sıra'];
+    $chart = $performanceChartOptions;
+    $chart['series'][0]['name'] = $metricNames[$metric] ?? 'Tıklama';
+    $chart['colors'] = ['#191918'];
+    $chart['chart']['fontFamily'] = 'Inter, ui-sans-serif, system-ui, sans-serif';
+    $chart['grid'] = ['borderColor' => '#ebebe9', 'strokeDashArray' => 3, 'padding' => ['left' => 4, 'right' => 8]];
+    $chart['xaxis'] += ['tickAmount' => 6, 'axisBorder' => ['show' => false], 'axisTicks' => ['show' => false], 'labels' => ['rotate' => 0, 'hideOverlappingLabels' => true, 'style' => ['colors' => '#787774', 'fontSize' => '12px']]];
+    $chart['yaxis'] = [['reversed' => $metric === 'position', 'labels' => ['style' => ['colors' => '#787774', 'fontSize' => '12px']]]];
+    $chart['tooltip'] = ['x' => ['show' => true]];
+    $hasTrend = ($chart['series'][0]['data'] ?? []) !== [];
+    $metricTabs = ['clicks' => 'Tıklama', 'impressions' => 'Gösterim', 'ctr' => 'Tıklama oranı', 'position' => 'Sıra'];
+    $series = $data['metric_series'] ?? [];
+    $dec = fn (mixed $value, int $decimals = 1): string => is_numeric($value) ? number_format((float) $value, $decimals, ',', '.') : (string) ($value ?? '—');
+    $spark = fn (string $key): array => array_map('floatval', array_slice($series[$key] ?? [], -28));
 @endphp
 
-<div class="min-w-0 space-y-4">
+<div class="min-w-0 space-y-8">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" :title="$identity['title']">
+    <x-operator.asset-context :asset-id="$assetId" :title="$title">
         <x-slot:mark><x-demo.digital-asset-mark type="gsc" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>
-                {{ $identity['relationship_line'] ?? 'Observes, Website' }}
-                @if (filled($identity['property_label'] ?? null))
-                    <span class="ml-3 break-all text-gray-700 dark:text-gray-300">{{ $identity['property_label'] }}</span>, {{ $identity['property_type'] ?? 'Domain property' }}
-                @endif
-                @if (filled($identity['website_asset_id'] ?? null))
-                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="ml-3 link-neutral font-medium">{{ __('operator.chrome.open_website') }}</a>
-                @endif
+            @if (filled($identity['property_label'] ?? null))
+                <span class="break-all">{{ $identity['property_label'] }}</span>, {{ $say($identity['property_type'] ?? 'Domain property') }}
+            @elseif ($connected)
+                {{ $identity['relationship_line'] ?? '' }}
+            @endif
+            @if (filled($identity['website_asset_id'] ?? null))
+                <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="ml-3 link-neutral" title="{{ $identity['relationship_line'] ?? '' }}">{{ __('operator.chrome.open_website') }}</a>
+            @endif
         </x-slot:meta>
         <x-slot:actions>
             @if ($showPeriodBar)
@@ -33,7 +109,19 @@
         </x-slot:tabs>
     </x-operator.asset-context>
 
-    <p class="text-xs text-gray-500">{{ $data['demo_boundary'] }}</p>
+    @unless ($connected)
+        {{-- Without a bound property there is nothing to read: say so first, with the one way out. --}}
+        <div class="card" data-gsc-connect>
+            <div class="card-row flex-wrap sm:flex-nowrap">
+                <span class="row-icon border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ match ($status) { 'Error' => 'Search Console verisi okunamadı', 'Action required' => 'Search Console bağlantısı bir adım bekliyor', default => 'Search Console bağlı değil' } }}</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $status === 'Error' ? 'Bir okuma hatası oldu, bu yüzden hiçbir rakam gösterilmiyor. Biraz sonra verileri yenile.' : 'Bir Search Console mülkü bağlanınca tıklamalar, aramalar ve sayfalar burada görünür.' }}</p>
+                </div>
+                <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="btn-primary w-full sm:w-auto">{{ $status === 'Not connected' ? 'Kaynağı bağla' : 'Kaynağa bak' }}</a>
+            </div>
+        </div>
+    @endunless
 
     @if ($tab === 'overview')
         @include('livewire.demo.search-console.tabs.overview')
@@ -48,6 +136,10 @@
     @elseif ($tab === 'operations')
         @include('livewire.demo.search-console.tabs.operations')
     @endif
+
+    @if ($connected)
+        <p class="text-xs text-gray-500 dark:text-gray-400" data-gsc-boundary>{{ strtr((string) $data['demo_boundary'], ['Search Console workspace uses collected data. Unbacked cards stay empty. Live API calls are not made on page render.' => 'Rakamlar toplanan Search Console verisinden gelir; verisi olmayan bölümler boş kalır. Sayfa açılırken Google\'a canlı istek atılmaz.']) }}</p>
+    @endif
 </div>
 
 @if ($selectedAttention)
@@ -58,18 +150,20 @@
         </div>
         <div>
             <p class="text-xs text-gray-500">Neden önemli</p>
-            <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['why'] ?? 'Organic demand signal requiring agency review.' }}</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['why'] ?? 'Organik aramada ajansın bakması gereken bir işaret.' }}</p>
         </div>
         <div>
             <p class="text-xs text-gray-500">Önerilen adım</p>
-            <p class="text-gray-700 dark:text-gray-300">{{ $selectedAttention['action'] }}@if (! empty($selectedAttention['tab'])) in {{ str_replace('_', ' ', $selectedAttention['tab']) }}@endif.</p>
+            <p class="text-gray-700 dark:text-gray-300">{{ $sayAction($selectedAttention['action'] ?? '') }}{{ ! empty($selectedAttention['tab']) ? ', '.(collect($navTabs)->firstWhere('key', $selectedAttention['tab'])['label'] ?? str_replace('_', ' ', $selectedAttention['tab'])).' sekmesinde' : '' }}.</p>
         </div>
-        @if (! empty($selectedAttention['finding_id']))
-            <button type="button" wire:click="openFinding('{{ $selectedAttention['finding_id'] }}')" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">İlgili bulguyu aç</button>
-        @endif
-        @if (! empty($selectedAttention['tab']))
-            <button type="button" wire:click="setTab('{{ $selectedAttention['tab'] }}')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Çalışma alanına git</button>
-        @endif
+        <div class="flex flex-wrap gap-2">
+            @if (! empty($selectedAttention['finding_id']))
+                <button type="button" wire:click="openFinding('{{ $selectedAttention['finding_id'] }}')" class="btn-primary">İlgili bulguyu aç</button>
+            @endif
+            @if (! empty($selectedAttention['tab']))
+                <button type="button" wire:click="setTab('{{ $selectedAttention['tab'] }}')" class="btn">Çalışma alanına git</button>
+            @endif
+        </div>
     </x-demo.gads-drawer>
 @endif
 
@@ -78,19 +172,19 @@
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <p class="text-xs text-gray-500">Tıklama</p>
-                <p class="font-semibold tabular-nums">{{ number_format($selectedCluster['clicks'] ?? 0) }}</p>
+                <p class="font-semibold tabular-nums">{{ number_format($selectedCluster['clicks'] ?? 0, 0, ',', '.') }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Gösterim</p>
-                <p class="font-semibold tabular-nums">{{ number_format($selectedCluster['impressions'] ?? 0) }}</p>
+                <p class="font-semibold tabular-nums">{{ number_format($selectedCluster['impressions'] ?? 0, 0, ',', '.') }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-500">CTR</p>
+                <p class="text-xs text-gray-500">Tıklama oranı</p>
                 <p class="font-semibold tabular-nums">{{ $selectedCluster['ctr'] ?? '—' }}%</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Ort. sıra</p>
-                <p class="font-semibold tabular-nums" title="Average position ≠ global rank">{{ $selectedCluster['position'] ?? '—' }}</p>
+                <p class="font-semibold tabular-nums" title="Gösterimlere göre ağırlıklı ortalama, tek bir genel sıra değil">{{ $selectedCluster['position'] ?? '—' }}</p>
             </div>
         </div>
         <div>
@@ -111,25 +205,25 @@
                 </ul>
             </div>
         @endif
-        <button type="button" wire:click="setDemandSub('queries')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Arama gezginini aç</button>
-        <p class="text-xs text-gray-500">Search Console, cluster aggregates</p>
+        <button type="button" wire:click="setDemandSub('queries')" class="btn">Arama gezginini aç</button>
+        <p class="text-xs text-gray-500">Search Console, küme toplamları</p>
     </x-demo.gads-drawer>
 @endif
 
 @if ($selectedPage)
-    <x-demo.gads-drawer :title="$selectedPage['path'] ?? 'Page'" :subtitle="$selectedPage['title'] ?? $selectedPage['content_role'] ?? null" :severity="$selectedPage['state'] ?? $selectedPage['website_attention'] ?? null">
+    <x-demo.gads-drawer :title="$selectedPage['path'] ?? 'Sayfa'" :subtitle="$selectedPage['title'] ?? $selectedPage['content_role'] ?? null" :severity="$selectedPage['state'] ?? $selectedPage['website_attention'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <p class="text-xs text-gray-500">Tıklama</p>
-                <p class="font-semibold tabular-nums">{{ number_format($selectedPage['clicks'] ?? 0) }}</p>
+                <p class="font-semibold tabular-nums">{{ number_format($selectedPage['clicks'] ?? 0, 0, ',', '.') }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Gösterim</p>
-                <p class="font-semibold tabular-nums">{{ number_format($selectedPage['impressions'] ?? 0) }}</p>
+                <p class="font-semibold tabular-nums">{{ number_format($selectedPage['impressions'] ?? 0, 0, ',', '.') }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">İçerik rolü</p>
-                <p class="font-semibold">{{ $selectedPage['content_role'] ?? '—' }}</p>
+                <p class="font-semibold">{{ $say($selectedPage['content_role'] ?? null) }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Hizmet</p>
@@ -150,17 +244,17 @@
         @endif
         @if (! empty($selectedPage['ga4_context']))
             <div>
-                <p class="text-xs text-gray-500">GA4 context (page-level)</p>
+                <p class="text-xs text-gray-500">Analytics (sayfa düzeyi)</p>
                 <p class="text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                    {{ number_format($selectedPage['ga4_context']['sessions'] ?? 0) }} sessions, {{ $selectedPage['ga4_context']['engagement_rate'] ?? '—' }}% engaged, {{ number_format($selectedPage['ga4_context']['mapped_actions'] ?? 0) }} mapped actions
+                    {{ number_format($selectedPage['ga4_context']['sessions'] ?? 0, 0, ',', '.') }} oturum, %{{ $selectedPage['ga4_context']['engagement_rate'] ?? '—' }} etkileşim, {{ number_format($selectedPage['ga4_context']['mapped_actions'] ?? 0, 0, ',', '.') }} eşlenen eylem
                 </p>
-                <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">{{ $selectedPage['ga4_context']['note'] ?? $data['pages']['attribution_note'] ?? '' }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ $selectedPage['ga4_context']['note'] ?? $data['pages']['attribution_note'] ?? '' }}</p>
             </div>
         @endif
         @if (filled($identity['website_asset_id'] ?? null))
-        <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">{{ __('operator.chrome.open_website') }}</a>
+            <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="btn-primary">{{ __('operator.chrome.open_website') }}</a>
         @endif
-        <p class="text-xs text-gray-500">Search Console, page aggregates</p>
+        <p class="text-xs text-gray-500">Search Console, sayfa toplamları</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -173,19 +267,19 @@
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <p class="text-xs text-gray-500">Google dizin durumu</p>
-                <p class="font-semibold">{{ $selectedUrl['index_state'] ?? '—' }}</p>
+                <p class="font-semibold">{{ $say($selectedUrl['index_state'] ?? null) }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Site haritası</p>
-                <p class="font-semibold">{{ $selectedUrl['sitemap'] ?? '—' }}</p>
+                <p class="font-semibold">{{ $say($selectedUrl['sitemap'] ?? null) }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Kanonik</p>
-                <p class="font-semibold">{{ $selectedUrl['canonical'] ?? '—' }}</p>
+                <p class="font-semibold">{{ $say($selectedUrl['canonical'] ?? null) }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Arama görünürlüğü</p>
-                <p class="font-semibold">{{ $selectedUrl['search_visibility'] ?? '—' }}</p>
+                <p class="font-semibold">{{ $say($selectedUrl['search_visibility'] ?? null) }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500">Son tarama</p>
@@ -196,7 +290,7 @@
             <div>
                 <p class="text-xs text-gray-500">Kanonik ayrıntı</p>
                 <p class="text-sm text-warning-700 dark:text-warning-400">
-                    User: {{ $selectedUrl['user_canonical'] ?? '—' }}, Google: {{ $selectedUrl['google_canonical'] ?? '—' }}
+                    Site: {{ $selectedUrl['user_canonical'] ?? '—' }}, Google: {{ $selectedUrl['google_canonical'] ?? '—' }}
                 </p>
             </div>
         @endif
@@ -206,7 +300,7 @@
                 <p class="text-warning-700 dark:text-warning-400">{{ $selectedUrl['attention'] }}</p>
             </div>
         @endif
-        <p class="text-xs text-gray-500">{{ $data['indexing']['inspection_note'] ?? 'Google index state, read-only observation.' }}</p>
+        <p class="text-xs text-gray-500">{{ $data['indexing']['inspection_note'] ?? 'Google dizin durumu, yalnız okunur.' }}</p>
     </x-demo.gads-drawer>
 @endif
 
@@ -220,6 +314,6 @@
                 </div>
             @endif
         @endforeach
-        <p class="text-xs text-gray-500">Tasks are not auto-created. No Search Console write actions.</p>
+        <p class="text-xs text-gray-500">Görev kendiliğinden açılmaz; Search Console'a hiçbir şey yazılmaz.</p>
     </x-demo.gads-drawer>
 @endif

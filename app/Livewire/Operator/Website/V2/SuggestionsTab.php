@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Website\V2;
 
+use App\Models\AssetAlert;
 use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -10,8 +11,10 @@ use App\Models\Suggestion;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Repair\RepairDesk;
+use App\Services\Site\Analysis\TechnicalSeoReader;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\Health\SiteHealthReader;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\OverlapAutopilot;
 use App\Services\Site\ScopedStandards;
@@ -24,6 +27,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -261,7 +265,52 @@ final class SuggestionsTab extends Component
             'applyStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::APPLY_CHANGE, ['suggestion_id' => $opened->id])) : null,
             'altStatus' => SiteOperations::line(SiteOperations::status($site->id, SiteOperations::IMAGE_ALTS)),
             'standardStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::STANDARD, ['suggestion_id' => $opened->id])) : null,
+            'summary' => $this->summary($site),
         ]);
+    }
+
+    /**
+     * The three answers on top of the website page (yakup, 2026-10-20): is the site healthy, what is being fixed, what
+     * waits on the operator. Read only: site health checks, technical findings and this site's suggestions.
+     *
+     * @return array{health: array{tone: string, title: string, line: string}, fixing: array{approved: int, written: int}, waiting: array{open: int, ready: int}}
+     */
+    private function summary(DigitalAsset $site): array
+    {
+        $checks = collect(app(SiteHealthReader::class)->rows($site))->keyBy('key');
+        $tiles = app(TechnicalSeoReader::class)->read($site)['tiles'];
+        $down = ($checks->get('uptime')['state'] ?? null) === 'critical'
+            || AssetAlert::query()->open()->where('digital_asset_id', $site->id)->where('kind', 'site_down')->exists();
+        $bad = $checks->where('state', 'critical')->except('uptime')->first();
+        $warn = $checks->where('state', 'warn')->first();
+        $short = fn (array $check): string => $check['label'].': '.Str::before((string) $check['line'], ' · ');
+        $title = match (true) {
+            $down => 'Site açılmıyor',
+            $bad !== null => $short($bad),
+            $tiles['critical'] > 0 => $tiles['critical'].' sayfada acil teknik sorun var',
+            $warn !== null => $short($warn),
+            $tiles['warning'] > 0 => 'Site ayakta, '.$tiles['warning'].' sayfada uyarı var',
+            default => 'Site sağlıklı',
+        };
+        $valid = collect(['ssl' => 'SSL', 'domain' => 'alan adı'])->filter(fn (string $label, string $key): bool => in_array($checks->get($key)['state'] ?? null, ['ok', 'warn'], true))
+            ->map(fn (string $label, string $key): string => $label.' '.Str::before((string) $checks->get($key)['line'], ' gün').' gün');
+        $line = collect([
+            $valid->isNotEmpty() ? $valid->implode(', ').' daha geçerli' : null,
+            $tiles['critical'] > 0 && $title !== $tiles['critical'].' sayfada acil teknik sorun var' ? $tiles['critical'].' sayfada acil teknik sorun' : null,
+            $tiles['critical'] === 0 && $tiles['warning'] === 0 ? 'Teknik sorun bulunmadı' : null,
+            $tiles['critical'] === 0 && $tiles['warning'] > 0 && ! str_contains($title, 'uyarı') ? $tiles['warning'].' sayfada uyarı' : null,
+        ])->filter()->implode('. ');
+
+        $rows = Suggestion::query()->where('brand_id', (int) $site->brand_id)->where('channel', 'search')->where('action_type', '!=', SiteSuggestionTypes::CONTENT)
+            ->where(fn (Builder $q) => $this->ofSite($q))->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED])
+            ->get(['id', 'status', 'action', 'applied_at']);
+        $open = $rows->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK]);
+
+        return [
+            'health' => ['tone' => $down || $bad !== null || $tiles['critical'] > 0 ? 'critical' : ($warn !== null || $tiles['warning'] > 0 ? 'look' : 'ok'), 'title' => $title, 'line' => $line],
+            'fixing' => ['approved' => $rows->where('status', Suggestion::APPROVED)->count(), 'written' => (int) $tiles['validating']],
+            'waiting' => ['open' => $open->count(), 'ready' => $open->filter(fn (Suggestion $s): bool => self::ready($s))->count()],
+        ];
     }
 
     /**

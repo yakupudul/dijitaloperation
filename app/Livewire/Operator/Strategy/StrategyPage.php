@@ -135,7 +135,7 @@ final class StrategyPage extends Component
 
     public function render(StrategyBook $book): View
     {
-        $strategy = $this->strategy()->load('brand:id,name');
+        $strategy = $this->strategy()->load('brand:id,name,logo_url');
         $versions = $strategy->versions()->get();
         $shown = $versions->firstWhere('version', $this->version ?? $strategy->current_version) ?? $versions->first();
         $rendered = $shown !== null ? $book->render($shown->body) : ['html' => '', 'toc' => [], 'words' => 0];

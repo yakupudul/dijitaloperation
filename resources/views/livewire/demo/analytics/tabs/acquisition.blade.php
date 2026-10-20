@@ -18,135 +18,137 @@
 @endphp
 
 <div class="space-y-10">
-    <div>
-        <h2 class="section-title">Acquisition</h2>
-        <p class="mt-0.5 text-xs text-gray-500">{{ $acq['utm_note'] ?? 'Channels, source/medium, and related paid assets' }}</p>
-    </div>
-
+    {{-- 1. Which channels bring the visits and the actions. --}}
     <section>
-        <h3 class="mb-2 section-title">Channels</h3>
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Channel</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Share</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped actions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Related asset</th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($channels as $row)
-                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ $row['share_pct'] }}%</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">
-                        @if (array_key_exists('mapped_actions', $row) && $row['mapped_actions'] !== null)
-                            {{ number_format($row['mapped_actions']) }}
-                        @else
-                            <span class="text-gray-400">Unavailable</span>
-                        @endif
-                    </td>
-                    <td class="px-4 py-2.5">
-                        @if (! empty($row['related']))
-                            <div class="flex items-center gap-2">
-                                <x-demo.digital-asset-mark :type="$relatedType($row['related'])" size="sm" />
-                                <a href="{{ route($row['related']['route'], ['assetId' => $row['related']['asset_id'] ?? null]) }}" wire:navigate class="link-neutral text-xs">{{ $row['related']['asset'] }}</a>
-                            </div>
-                        @else
-                            <span class="text-xs text-gray-500">—</span>
-                        @endif
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
+        <div class="section-head">
+            <h2 class="section-title" title="{{ $acq['utm_note'] ?? '' }}">Kanallar <span class="section-count">{{ count($channels) }}</span></h2>
+        </div>
+        <div class="card overflow-x-auto">
+            @if ($channels === [])
+                <x-ta.empty-state title="Kanal verisi yok" message="Analytics oturumları kanallara göre gelince burada görünür." />
+            @else
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Kanal</th>
+                            <th class="text-right!">Oturum</th>
+                            <th class="hidden text-right! sm:table-cell">Pay</th>
+                            <th class="text-right!">Aksiyon</th>
+                            <th class="hidden md:table-cell">İlgili varlık</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($channels as $row)
+                            <tr>
+                                <td class="font-medium text-gray-900 dark:text-white">{{ $say($row['channel']) }}</td>
+                                <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td>
+                                <td class="hidden text-right tabular-nums text-gray-600 sm:table-cell dark:text-gray-300">%{{ $row['share_pct'] }}</td>
+                                <td @class(['text-right tabular-nums', 'text-gray-400' => $count($row, 'mapped_actions') === '—'])>{{ $count($row, 'mapped_actions') }}</td>
+                                <td class="hidden md:table-cell">
+                                    @if (! empty($row['related']))
+                                        <a href="{{ route($row['related']['route'], ['assetId' => $row['related']['asset_id'] ?? null]) }}" wire:navigate class="inline-flex items-center gap-2 text-[13px] link-neutral">
+                                            <x-demo.digital-asset-mark :type="$relatedType($row['related'])" size="xs" />
+                                            {{ $row['related']['asset'] }}
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
         </div>
     </section>
 
+    {{-- 2. The same visits by source / medium. --}}
     <section>
-        <h3 class="mb-2 section-title">Source / medium</h3>
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Source / medium</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped actions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Attention</th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($sourceMedium as $row)
-                <tr>
-                    <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['source_medium'] }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">
-                        @if (array_key_exists('mapped_actions', $row) && $row['mapped_actions'] !== null)
-                            {{ number_format($row['mapped_actions']) }}
-                        @else
-                            <span class="text-gray-400">Unavailable</span>
-                        @endif
-                    </td>
-                    <td class="px-4 py-2.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] ?? '—' }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
+        <div class="section-head">
+            <h2 class="section-title">Kaynak / ortam <span class="section-count">{{ count($sourceMedium) }}</span></h2>
+        </div>
+        <div class="card overflow-x-auto">
+            @if ($sourceMedium === [])
+                <x-ta.empty-state size="sm" title="Kaynak / ortam verisi yok" />
+            @else
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Kaynak / ortam</th>
+                            <th class="text-right!">Oturum</th>
+                            <th class="text-right!">Aksiyon</th>
+                            <th class="hidden md:table-cell">Uyarı</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($sourceMedium as $row)
+                            <tr>
+                                <td class="font-medium text-gray-900 dark:text-white">{{ $row['source_medium'] }}</td>
+                                <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td>
+                                <td @class(['text-right tabular-nums', 'text-gray-400' => $count($row, 'mapped_actions') === '—'])>{{ $count($row, 'mapped_actions') }}</td>
+                                <td class="hidden text-[13px] md:table-cell">
+                                    @if (! empty($row['attention']))
+                                        <span class="text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</span>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
         </div>
     </section>
 
+    {{-- 3. Paid campaigns as Analytics measured them, with a way to the ad account. --}}
     <section>
-        <h3 class="mb-2 section-title">Campaigns (measured)</h3>
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Campaign</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Source</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Mapped actions</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Paid workspace</th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($campaigns as $row)
-                <tr>
-                    <td class="px-4 py-2.5">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['campaign'] }}</p>
-                        @if (! empty($row['attention']))
-                            <p class="text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
-                        @endif
-                    </td>
-                    <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['source'] ?? '—' }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">
-                        @if (array_key_exists('mapped_actions', $row) && $row['mapped_actions'] !== null)
-                            {{ number_format($row['mapped_actions']) }}
-                        @else
-                            <span class="text-gray-400">Unavailable</span>
-                        @endif
-                    </td>
-                    <td class="px-4 py-2.5">
-                        @if (! empty($row['route']) && ! empty($row['related_asset']))
-                            @php
-                                $type = str_contains(strtolower($row['related_asset']), 'meta') ? 'meta_ads' : 'google_ads';
-                                $cta = $type === 'meta_ads' ? 'Open Meta' : 'Open Google Ads';
-                            @endphp
-                            <a href="{{ route($row['route'], ['assetId' => $row['related_asset_id'] ?? null]) }}" wire:navigate class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-                                <x-demo.digital-asset-mark :type="$type" size="sm" />
-                                {{ $cta }}
-                            </a>
-                        @else
-                            <span class="text-xs text-gray-500">{{ $row['state'] ?? '—' }}</span>
-                        @endif
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
+        <div class="section-head">
+            <h2 class="section-title">Kampanyalar <span class="section-count">{{ count($campaigns) }}</span></h2>
+            <span class="text-[13px] text-gray-500">Analytics'in ölçtüğü</span>
+        </div>
+        <div class="card overflow-x-auto">
+            @if ($campaigns === [])
+                <x-ta.empty-state size="sm" title="Kampanya verisi yok" />
+            @else
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Kampanya</th>
+                            <th class="hidden sm:table-cell">Kaynak</th>
+                            <th class="text-right!">Oturum</th>
+                            <th class="hidden text-right! sm:table-cell">Aksiyon</th>
+                            <th><span class="sr-only">Reklam hesabı</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($campaigns as $row)
+                            <tr>
+                                <td class="min-w-[12rem]">
+                                    <p class="font-medium text-gray-900 dark:text-white">{{ $row['campaign'] }}</p>
+                                    @if (! empty($row['attention']))
+                                        <p class="text-[13px] text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
+                                    @endif
+                                </td>
+                                <td class="hidden text-[13px] text-gray-500 sm:table-cell">{{ $row['source'] ?? '—' }}</td>
+                                <td class="text-right tabular-nums">{{ $num($row['sessions']) }}</td>
+                                <td @class(['hidden text-right tabular-nums sm:table-cell', 'text-gray-400' => $count($row, 'mapped_actions') === '—'])>{{ $count($row, 'mapped_actions') }}</td>
+                                <td class="text-right whitespace-nowrap">
+                                    @if (! empty($row['route']) && ! empty($row['related_asset']))
+                                        @php $type = str_contains(strtolower($row['related_asset']), 'meta') ? 'meta_ads' : 'google_ads'; @endphp
+                                        <a href="{{ route($row['route'], ['assetId' => $row['related_asset_id'] ?? null]) }}" wire:navigate class="btn h-7! gap-1.5! px-2.5! text-xs!">
+                                            <x-demo.digital-asset-mark :type="$type" size="xs" class="h-4! w-4!" />
+                                            {{ $type === 'meta_ads' ? 'Meta' : 'Google Ads' }}
+                                        </a>
+                                    @else
+                                        <span class="text-[13px] text-gray-500">{{ $say($row['state'] ?? null) }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
         </div>
     </section>
 </div>

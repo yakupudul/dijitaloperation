@@ -83,7 +83,7 @@ final class StrategiesPage extends Component
                     ->orWhereRaw('lower(coalesce(summary, \'\')) like ?', [$term]));
             });
         $counts = (clone $base)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')->map(fn ($n): int => (int) $n)->all();
-        $strategies = (clone $base)->with('brand:id,name')->withCount('versions')
+        $strategies = (clone $base)->with('brand:id,name,logo_url')->withCount('versions')
             ->when(isset(Strategy::STATUSES[$this->status]), fn ($q) => $q->where('status', $this->status), fn ($q) => $q->where('status', '!=', 'archived'))
             ->latest('updated_at')->limit(200)->get();
         $brandIds = Strategy::query()->whereNotNull('brand_id')->distinct()->pluck('brand_id');

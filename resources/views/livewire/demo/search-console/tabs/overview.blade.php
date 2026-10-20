@@ -3,226 +3,233 @@
     $momentum = $data['search_momentum'] ?? [];
     $discoverability = $data['discoverability'] ?? [];
     $maxStage = max(1, (int) collect($discoverability['stages'] ?? [])->max('count'));
+    $attention = $data['needs_attention'] ?? [];
+    $opportunities = $data['opportunities'] ?? [];
+    $outcomes = $data['recent_outcomes'] ?? [];
+    $cells = [
+        ['Tıklama', $glanceCell($glance['clicks'] ?? null), $spark('clicks')],
+        ['Gösterim', $glanceCell($glance['impressions'] ?? null), $spark('impressions')],
+        ['Tıklama oranı', $glanceCell($glance['ctr'] ?? null, false), $spark('ctr')],
+        ['Dikkat isteyen', $glanceCell($glance['search_attention'] ?? null, false), []],
+    ];
+    $momentumBuckets = ['growing' => 'Büyüyen', 'new' => 'Yeni', 'declining' => 'Düşen', 'lost' => 'Kaybolan', 'ctr_review' => 'Tıklama oranı düşük', 'striking_distance' => 'İlk sayfaya yakın'];
+    $hasMomentum = collect(array_keys($momentumBuckets))->contains(fn (string $key): bool => array_key_exists($key, $momentum));
 @endphp
 
 <div class="space-y-10">
-    <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
-        <x-ta.metric-card label="Tıklama" :value="$glance['clicks']['value'] ?? '—'" :delta="$glance['clicks']['secondary'] ?? null" :tone="$glance['clicks']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Gösterim" :value="$glance['impressions']['value'] ?? '—'" :delta="$glance['impressions']['secondary'] ?? null" :tone="$glance['impressions']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="TO (CTR)" :value="$glance['ctr']['value'] ?? '—'" :delta="$glance['ctr']['secondary'] ?? null" :tone="$glance['ctr']['tone'] ?? 'neutral'" />
-        <x-ta.metric-card label="Dikkat isteyen" :value="$glance['search_attention']['value'] ?? '—'" :delta="$glance['search_attention']['secondary'] ?? null" :tone="$glance['search_attention']['tone'] ?? 'neutral'" />
-    </div>
-
-    <div class="grid gap-10 lg:grid-cols-12">
-        <section class="min-w-0 lg:col-span-7">
-            <div class="mb-2 flex items-center justify-between gap-2">
-                <h2 class="section-title">Needs attention</h2>
-                <span class="text-xs text-gray-500">{{ count($data['needs_attention'] ?? []) }} signals</span>
+    {{-- 1. What needs a look, when anything does. --}}
+    @if ($attention !== [])
+        <section data-gsc-attention>
+            <div class="section-head">
+                <h2 class="section-title">Dikkat isteyen <span class="section-count">{{ count($attention) }}</span></h2>
             </div>
-            <ul class="divide-y divide-gray-200 dark:divide-gray-800">
-                @foreach (array_slice($data['needs_attention'] ?? [], 0, 5) as $item)
-                    <li class="flex items-center justify-between gap-3 py-2">
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($item['severity'] ?? '') { 'Critical', 'critical', 'High', 'high' => 'error', 'Medium', 'medium' => 'warning', default => 'light' }] ?? 'info'">{{ $item['severity'] }}</x-ta.pill>
-                                <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $item['title'] }}</span>
-                            </div>
-                            <p class="mt-0.5 truncate text-xs text-gray-600 dark:text-gray-300">{{ $item['metric'] }}</p>
-                            <p class="truncate text-xs text-gray-500">{{ $item['scope'] ?? '' }}</p>
+            <ul class="card">
+                @foreach ($attention as $i => $item)
+                    @php $tone = $toneOf($item['severity'] ?? null); @endphp
+                    @if ($i === 5)
+                        <li>
+                            <details class="group">
+                                <summary class="card-row cursor-pointer list-none text-[13px] text-gray-500 hover:bg-gray-50 group-open:hidden dark:hover:bg-white/[0.02]">{{ count($attention) - 5 }} konu daha göster</summary>
+                                <ul class="border-t border-gray-200 dark:border-gray-800">
+                    @endif
+                    <li class="card-row flex-wrap sm:flex-nowrap" wire:key="gsc-att-{{ $item['id'] }}">
+                        <span @class(['row-icon', 'border-transparent bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400' => $tone === 'critical', 'border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400' => $tone === 'look']) aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400" title="{{ $item['scope'] ?? '' }}">{{ $item['metric'] }}</p>
                         </div>
-                        <button type="button" wire:click="openAttention('{{ $item['id'] }}')" class="link-neutral shrink-0 text-xs">{{ $item['action'] ?? 'Inspect' }}</button>
+                        <x-ta.pill :tone="$tone" class="hidden! sm:inline-flex!">{{ $say($item['severity'] ?? null) }}</x-ta.pill>
+                        <button type="button" wire:click="openAttention('{{ $item['id'] }}')" class="btn w-full sm:w-auto">{{ $sayAction($item['action'] ?? 'Inspect') }}</button>
                     </li>
+                    @if ($i >= 5 && $loop->last)
+                                </ul>
+                            </details>
+                        </li>
+                    @endif
                 @endforeach
             </ul>
-            @if (count($data['needs_attention'] ?? []) > 5)
-                <details class="mt-2">
-                    <summary class="cursor-pointer text-xs font-medium text-brand-600 dark:text-brand-400">Show all signals</summary>
-                    <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-800">
-                        @foreach (array_slice($data['needs_attention'] ?? [], 5) as $item)
-                            <li class="flex items-center justify-between gap-3 py-2">
-                                <div class="min-w-0">
-                                    <div class="flex flex-wrap items-center gap-1.5">
-                                        <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($item['severity'] ?? '') { 'Critical', 'critical', 'High', 'high' => 'error', 'Medium', 'medium' => 'warning', default => 'light' }] ?? 'info'">{{ $item['severity'] }}</x-ta.pill>
-                                        <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $item['title'] }}</span>
-                                    </div>
-                                    <p class="mt-0.5 truncate text-xs text-gray-600 dark:text-gray-300">{{ $item['metric'] }}</p>
-                                </div>
-                                <button type="button" wire:click="openAttention('{{ $item['id'] }}')" class="link-neutral shrink-0 text-xs">{{ $item['action'] ?? 'Inspect' }}</button>
-                            </li>
-                        @endforeach
-                    </ul>
-                </details>
-            @endif
         </section>
+    @endif
 
-        <section class="min-w-0 lg:col-span-5">
-            <div class="mb-2 flex items-center justify-between gap-2">
-                <h2 class="section-title">Performance trend</h2>
-                <button type="button" wire:click="setTab('performance')" class="link-neutral text-xs">Open</button>
-            </div>
-            <div class="mb-2 flex flex-wrap gap-1">
-                @foreach (['clicks' => 'Clicks', 'impressions' => 'Impressions', 'ctr' => 'CTR', 'position' => 'Position'] as $key => $label)
-                    <button type="button" wire:click="setMetric('{{ $key }}')" @class([
-                        'rounded-md px-2 py-1 text-xs font-medium',
-                        'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $metric === $key,
-                        'text-gray-500 hover:text-gray-800 dark:text-gray-400' => $metric !== $key,
-                    ])>{{ $label }}</button>
-                @endforeach
-            </div>
-            <div data-chart='@json($performanceChartOptions)' aria-label="Search performance trend" class="min-h-[200px]"></div>
-            <p class="mt-1 text-xs text-gray-500">{{ $data['period_label'] ?? '' }}, {{ $data['compare_label'] ?? '' }}</p>
-        </section>
-    </div>
-
-    <section class="min-w-0">
-        <div class="mb-3 flex items-center justify-between gap-2">
-            <div>
-                <h2 class="section-title">Search momentum</h2>
-                <p class="text-xs text-gray-500">{{ $momentum['note'] ?? 'Heuristic cluster momentum' }}</p>
-            </div>
-            <button type="button" wire:click="setDemandSub('momentum')" class="link-neutral text-xs">Open demand</button>
-        </div>
-        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            @foreach (['growing' => 'Growing', 'new' => 'New', 'declining' => 'Declining', 'lost' => 'Lost', 'ctr_review' => 'CTR review', 'striking_distance' => 'Striking distance'] as $key => $label)
-                <div class="border-b border-gray-200 py-2.5 dark:border-gray-800">
-                    <p class="text-xs text-gray-500">{{ $label }}</p>
-                    <p class="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $momentum[$key] ?? 0 }}</p>
-                </div>
+    {{-- 2. Is search traffic up or down: four numbers. --}}
+    <section data-gsc-glance>
+        <div class="metric-strip grid-cols-2 lg:grid-cols-4">
+            @foreach ($cells as [$label, $cell, $points])
+                <x-ta.metric-card :label="$label" :value="$cell['value']" :delta="$cell['delta']" :tone="$cell['tone']" :hint="$cell['hint']" :muted="$cell['muted']" :spark="$points" :title="$cell['note']" />
             @endforeach
         </div>
     </section>
 
-    <section class="min-w-0">
-        <div class="mb-2 flex items-center justify-between gap-2">
-            <div>
-                <h2 class="section-title">Discoverability funnel</h2>
-                <p class="text-xs text-gray-500">{{ $discoverability['subtitle'] ?? '' }}</p>
-            </div>
-            <button type="button" wire:click="setTab('indexing')" class="link-neutral text-xs">Indexing</button>
-        </div>
-        <ul class="space-y-2">
-            @foreach ($discoverability['stages'] ?? [] as $stage)
-                <li>
-                    <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-                        <span class="font-medium text-gray-800 dark:text-white/90">{{ $stage['stage'] }}</span>
-                        <span class="tabular-nums text-gray-500">{{ number_format($stage['count']) }}, {{ $stage['provenance'] }}</span>
-                    </div>
-                    <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
-                        <div class="h-full rounded-full bg-gray-500" style="width: {{ min(100, round(($stage['count'] / $maxStage) * 100)) }}%"></div>
-                    </div>
-                </li>
-            @endforeach
-        </ul>
-        <p class="mt-2 text-xs text-gray-700 dark:text-gray-300">{{ $discoverability['note'] ?? '' }}</p>
-    </section>
-
+    {{-- 3. The trend behind the numbers. --}}
     <section>
-        <div class="mb-2 flex items-center justify-between">
-            <h2 class="section-title">Page pulse</h2>
-            <button type="button" wire:click="setTab('pages')" class="link-neutral text-xs">Open pages</button>
+        <div class="section-head">
+            <h2 class="section-title">Arama trendi</h2>
+            <button type="button" wire:click="setTab('performance')" class="ml-auto link-neutral text-[13px]">Ayrıntı</button>
         </div>
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Page</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Clicks</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Trend</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Clusters</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Attention</th>
-                <th class="px-3 py-2 text-left text-xs font-normal text-gray-500"></th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($data['page_pulse'] ?? [] as $row)
-                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td class="px-3 py-2">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
-                        <p class="text-xs text-gray-500">{{ $row['content_role'] }}, {{ $row['title'] ?? '' }}</p>
-                    </td>
-                    <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['clicks']) }}</td>
-                    <td class="px-3 py-2">
-                        <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['state'] ?? '') { 'Growing' => 'success', 'Review' => 'warning', default => 'light' }] ?? 'info'">{{ $row['trend'] ?? $row['state'] }}</x-ta.pill>
-                        @if (isset($row['trend_pct']))
-                            <span class="ml-1 text-xs tabular-nums text-gray-400">{{ $row['trend_pct'] > 0 ? '+' : '' }}{{ $row['trend_pct'] }}%</span>
-                        @endif
-                    </td>
-                    <td class="px-3 py-2 text-xs text-gray-500">{{ $row['cluster_count'] ?? 0 }}</td>
-                    <td class="px-3 py-2 text-xs text-gray-500">{{ $row['website_attention'] ?? '—' }}</td>
-                    <td class="px-3 py-2"><button type="button" wire:click="openPage('{{ $row['id'] ?? $row['path'] }}')" class="link-neutral text-xs">Inspect</button></td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
+        <div class="card">
+            <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Ölçü">
+                @foreach ($metricTabs as $key => $label)
+                    <button type="button" wire:click="setMetric('{{ $key }}')" @class(['tab', 'tab-active' => $metric === $key])>{{ $label }}</button>
+                @endforeach
+            </div>
+            @if ($hasTrend)
+                <div class="px-2 pt-3 pb-1 sm:px-3">
+                    <div data-chart='@json($chart)' aria-label="Search performance trend" class="min-h-[220px]"></div>
+                </div>
+            @else
+                <x-ta.empty-state title="Bu dönem için veri yok" message="Search Console verisi gelince günlük çizgi burada görünür." />
+            @endif
         </div>
     </section>
 
-    <div class="grid gap-10 lg:grid-cols-2">
-        <section class="min-w-0">
-            <div class="mb-2 flex items-center justify-between">
-                <h2 class="section-title">Opportunities</h2>
-            </div>
-            <ul class="space-y-2">
-                @foreach (array_slice($data['opportunities'] ?? [], 0, 4) as $opp)
-                    <li class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($opp['priority'] ?? '') { 'High' => 'error', 'Medium' => 'warning', default => 'info' }] ?? 'info'">{{ $opp['priority'] }}</x-ta.pill>
-                                <span class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $opp['title'] }}</span>
-                            </div>
-                            <p class="mt-0.5 text-xs text-gray-500">{{ $opp['metric'] }}</p>
-                        </div>
-                        @if (! empty($opp['tab']))
-                            <button type="button" wire:click="setTab('{{ $opp['tab'] }}')" class="link-neutral shrink-0 text-xs">{{ $opp['cta'] ?? 'Open' }}</button>
-                        @endif
-                    </li>
-                @endforeach
-            </ul>
-            @if (count($data['opportunities'] ?? []) > 4)
-                <details class="mt-2">
-                    <summary class="cursor-pointer text-xs font-medium text-brand-600 dark:text-brand-400">More opportunities</summary>
-                    <ul class="mt-2 space-y-2">
-                        @foreach (array_slice($data['opportunities'] ?? [], 4) as $opp)
-                            <li class="flex items-start justify-between gap-2">
-                                <div class="min-w-0">
-                                    <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($opp['priority'] ?? '') { 'High' => 'error', 'Medium' => 'warning', default => 'info' }] ?? 'info'">{{ $opp['priority'] }}</x-ta.pill>
-                                    <span class="ml-1 text-sm text-gray-800 dark:text-white/90">{{ $opp['title'] }}</span>
-                                </div>
-                                @if (! empty($opp['tab']))
-                                    <button type="button" wire:click="setTab('{{ $opp['tab'] }}')" class="link-neutral shrink-0 text-xs">{{ $opp['cta'] ?? 'Open' }}</button>
-                                @endif
-                            </li>
+    {{-- 4. Which pages bring the clicks. --}}
+    <section>
+        <div class="section-head">
+            <h2 class="section-title">Sayfalar <span class="section-count">{{ count($data['page_pulse'] ?? []) }}</span></h2>
+            <button type="button" wire:click="setTab('pages')" class="ml-auto link-neutral text-[13px]">Tümü</button>
+        </div>
+        <div class="card overflow-x-auto">
+            @if (($data['page_pulse'] ?? []) === [])
+                <x-ta.empty-state title="Sayfa verisi yok" message="Bu dönemde sayfa bazında tıklama gelmedi." />
+            @else
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Sayfa</th>
+                            <th class="text-right!">Tıklama</th>
+                            <th class="hidden sm:table-cell">Gidiş</th>
+                            <th class="hidden text-right! md:table-cell" title="Sayfanın göründüğü arama kümesi">Küme</th>
+                            <th class="hidden lg:table-cell">Site uyarısı</th>
+                            <th><span class="sr-only">İncele</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($data['page_pulse'] ?? [] as $row)
+                            <tr wire:key="gsc-pulse-{{ $row['id'] ?? $row['path'] }}">
+                                <td class="max-w-0 w-[40%]">
+                                    <p class="truncate font-medium text-gray-900 dark:text-white" title="{{ $row['path'] }}">{{ $row['path'] }}</p>
+                                    <p class="truncate text-[13px] text-gray-500">{{ $row['title'] ?? '' }}</p>
+                                </td>
+                                <td class="text-right tabular-nums text-gray-900 dark:text-white">{{ number_format($row['clicks'], 0, ',', '.') }}</td>
+                                <td class="hidden whitespace-nowrap sm:table-cell">
+                                    <x-ta.pill :tone="match ($row['state'] ?? '') { 'Growing' => 'ok', 'Review' => 'look', default => 'info' }">{{ $say($row['trend'] ?? $row['state'] ?? null) }}</x-ta.pill>
+                                    @if (isset($row['trend_pct']))
+                                        <span class="ml-1 text-[13px] tabular-nums text-gray-500">{{ $row['trend_pct'] > 0 ? '+' : '' }}{{ $row['trend_pct'] }}%</span>
+                                    @endif
+                                </td>
+                                <td class="hidden text-right tabular-nums text-gray-600 md:table-cell dark:text-gray-300">{{ $row['cluster_count'] ?? 0 }}</td>
+                                <td class="hidden text-[13px] text-gray-500 lg:table-cell">{{ $row['website_attention'] ?? '—' }}</td>
+                                <td class="text-right"><button type="button" wire:click="openPage('{{ $row['id'] ?? $row['path'] }}')" class="btn-quiet h-7! px-2!">İncele</button></td>
+                            </tr>
                         @endforeach
-                    </ul>
-                </details>
+                    </tbody>
+                </table>
             @endif
-        </section>
+        </div>
+    </section>
 
-        <section class="min-w-0">
-            <div class="mb-2 flex items-center justify-between">
-                <h2 class="section-title">Recent outcomes</h2>
-                <button type="button" wire:click="setOps('outcomes')" class="link-neutral text-xs">Operations</button>
-            </div>
-            <ul class="space-y-2">
-                @foreach ($data['recent_outcomes'] ?? [] as $o)
-                    <li class="border-b border-gray-200 py-2.5 dark:border-gray-800">
-                        <div class="flex items-start justify-between gap-2">
-                            <span class="text-sm text-gray-800 dark:text-white/90">{{ $o['title'] }}</span>
-                            <span @class([
-                                'shrink-0 text-xs font-semibold',
-                                'text-success-700 dark:text-success-400' => ($o['state'] ?? '') === 'Improvement observed',
-                                'text-warning-700 dark:text-warning-400' => ($o['state'] ?? '') !== 'Improvement observed',
-                            ])>{{ $o['state'] }}</span>
-                        </div>
-                        @if (! empty($o['note']))
-                            <p class="mt-1 text-xs text-gray-500">{{ $o['note'] }}</p>
+    {{-- 5. How the searches move, and how far the site's pages get. --}}
+    @if ($hasMomentum || ($discoverability['stages'] ?? []) !== [])
+        <div class="grid gap-10 lg:grid-cols-2 lg:gap-6">
+            <section class="min-w-0">
+                <div class="section-head">
+                    <h2 class="section-title" title="{{ $momentum['note'] ?? '' }}">Arama hareketi</h2>
+                    <button type="button" wire:click="setDemandSub('momentum')" class="ml-auto link-neutral text-[13px]">Aramalar</button>
+                </div>
+                <ul class="card">
+                    @foreach ($momentumBuckets as $key => $label)
+                        <li class="card-row py-3">
+                            <span @class(['h-1.5 w-1.5 shrink-0 rounded-full', 'bg-success-500' => in_array($key, ['growing', 'new'], true), 'bg-error-500' => in_array($key, ['declining', 'lost'], true), 'bg-warning-500' => in_array($key, ['ctr_review', 'striking_distance'], true)]) aria-hidden="true"></span>
+                            <span class="min-w-0 flex-1 text-sm text-gray-700 dark:text-gray-300">{{ $label }}</span>
+                            <span class="text-sm font-medium tabular-nums text-gray-900 dark:text-white">{{ $momentum[$key] ?? '—' }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+
+            <section class="min-w-0">
+                <div class="section-head">
+                    <h2 class="section-title" title="{{ $discoverability['subtitle'] ?? '' }}">Google'a ulaşan sayfalar</h2>
+                    <button type="button" wire:click="setTab('indexing')" class="ml-auto link-neutral text-[13px]">Dizin</button>
+                </div>
+                <ul class="card" title="{{ $discoverability['note'] ?? '' }}">
+                    @forelse ($discoverability['stages'] ?? [] as $stage)
+                        <li class="card-row flex-col items-stretch gap-1.5 py-3">
+                            <div class="flex items-baseline justify-between gap-3 text-sm">
+                                <span class="text-gray-700 dark:text-gray-300">{{ strtr($stage['stage'], ['Website URLs' => 'Sitedeki sayfa', 'Sitemap discovered' => 'Site haritasında', 'Index observed' => 'Dizinde görülen', 'Impressions' => 'Gösterim alan', 'Clicks' => 'Tıklama alan', 'GA4 mapped actions' => 'Analytics eylemi olan']) }}</span>
+                                <span class="font-medium tabular-nums text-gray-900 dark:text-white" title="{{ $stage['provenance'] }}">{{ number_format($stage['count'], 0, ',', '.') }}</span>
+                            </div>
+                            <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                                <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, round(($stage['count'] / $maxStage) * 100)) }}%"></div>
+                            </div>
+                        </li>
+                    @empty
+                        <li><x-ta.empty-state size="sm" title="Veri yok" message="Search Console sitenin tüm dizin sayılarını vermiyor." /></li>
+                    @endforelse
+                </ul>
+            </section>
+        </div>
+    @endif
+
+    {{-- 6. What to do next, and what earlier work changed. --}}
+    @if ($opportunities !== [] || $outcomes !== [])
+        <div class="grid gap-10 lg:grid-cols-2 lg:gap-6">
+            <section class="min-w-0">
+                <div class="section-head">
+                    <h2 class="section-title">Fırsatlar <span class="section-count">{{ count($opportunities) }}</span></h2>
+                </div>
+                <ul class="card">
+                    @forelse ($opportunities as $i => $opp)
+                        @if ($i === 4)
+                            <li>
+                                <details class="group">
+                                    <summary class="card-row cursor-pointer list-none text-[13px] text-gray-500 hover:bg-gray-50 group-open:hidden dark:hover:bg-white/[0.02]">{{ count($opportunities) - 4 }} fırsat daha göster</summary>
+                                    <ul class="border-t border-gray-200 dark:border-gray-800">
                         @endif
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-    </div>
+                        <li class="card-row">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $opp['title'] }}</p>
+                                <p class="mt-0.5 text-[13px] text-gray-500">{{ $opp['metric'] }}</p>
+                            </div>
+                            <x-ta.pill :tone="$toneOf($opp['priority'] ?? null)" class="hidden! sm:inline-flex!" title="Öncelik">{{ $say($opp['priority'] ?? null) }}</x-ta.pill>
+                            @if (! empty($opp['tab']))
+                                <button type="button" wire:click="setTab('{{ $opp['tab'] }}')" class="btn h-7! px-2.5! text-xs!">{{ $sayAction($opp['cta'] ?? 'Open') }}</button>
+                            @endif
+                        </li>
+                        @if ($i >= 4 && $loop->last)
+                                    </ul>
+                                </details>
+                            </li>
+                        @endif
+                    @empty
+                        <li><x-ta.empty-state size="sm" title="Şu an fırsat yok" /></li>
+                    @endforelse
+                </ul>
+            </section>
+
+            <section class="min-w-0">
+                <div class="section-head">
+                    <h2 class="section-title">Son sonuçlar</h2>
+                    <button type="button" wire:click="setOps('outcomes')" class="ml-auto link-neutral text-[13px]">Operasyon</button>
+                </div>
+                <ul class="card">
+                    @forelse ($outcomes as $o)
+                        <li class="card-row flex-wrap sm:flex-nowrap">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $o['title'] }}</p>
+                                @if (! empty($o['note']))
+                                    <p class="mt-0.5 text-[13px] text-gray-500">{{ $o['note'] }}</p>
+                                @endif
+                            </div>
+                            <x-ta.pill :tone="$toneOf($o['state'] ?? null)">{{ $say($o['state'] ?? null) }}</x-ta.pill>
+                        </li>
+                    @empty
+                        <li><x-ta.empty-state size="sm" title="Henüz sonuç yok" /></li>
+                    @endforelse
+                </ul>
+            </section>
+        </div>
+    @endif
 
     @include('livewire.demo.search-console.tabs.relationships')
-
 </div>

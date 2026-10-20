@@ -1,73 +1,83 @@
 @php
     $behavior = $data['behavior'] ?? [];
     $rows = $behavior['landing_pages'] ?? [];
+    $engagement = $behavior['engagement'] ?? [];
 @endphp
 
 <div class="space-y-10">
-    <div>
-        <h2 class="section-title">Behavior</h2>
-        <p class="mt-0.5 text-xs text-gray-500">{{ $behavior['subtitle'] ?? 'Landing pages, engagement, configured business actions' }}</p>
-    </div>
-
-    @if (! empty($behavior['engagement']))
-        <div class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
-            @foreach ($behavior['engagement'] as $metric)
-                <x-ta.metric-card :label="$metric['metric']" :value="$metric['value']" :hint="$metric['state'] ?? null" />
-            @endforeach
-        </div>
+    {{-- 1. How engaged the visits are. --}}
+    @if ($engagement !== [])
+        <section>
+            <div @class(['metric-strip grid-cols-2', 'lg:grid-cols-3' => count($engagement) === 3, 'lg:grid-cols-4' => count($engagement) >= 4])>
+                @foreach ($engagement as $metricRow)
+                    @php $value = in_array($metricRow['value'], ['Unavailable', null, ''], true) ? '—' : (string) $metricRow['value']; @endphp
+                    <x-ta.metric-card :label="$say($metricRow['metric'])" :value="$value" :muted="$value === '—'" :hint="$say($metricRow['state'] ?? null)" />
+                @endforeach
+            </div>
+        </section>
     @endif
 
-    <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-            <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Landing page</th>
-            <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Content role</th>
-            <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sessions</th>
-            <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Engagement</th>
-            <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Business actions</th>
-            <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Website attention</th>
-            <th class="px-4 py-2.5"></th>
-        </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-        @foreach ($rows as $row)
-            <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                <td class="px-4 py-2.5">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
-                    <p class="text-xs text-gray-500">{{ $row['title'] ?? '' }}</p>
-                </td>
-                <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['content_role'] }}</td>
-                <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
-                <td class="px-4 py-2.5 text-sm tabular-nums">{{ $row['engaged_rate'] }}%, {{ number_format($row['engaged_sessions']) }}</td>
-                <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['mapped_actions']) }}</td>
-                <td class="px-4 py-2.5">
-                    @if (! empty($row['attention']))
-                        <span class="text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</span>
-                    @else
-                        <span class="text-xs text-gray-500">—</span>
-                    @endif
-                </td>
-                <td class="px-4 py-2.5">
-                    <button type="button" wire:click="openLanding('{{ $row['path'] }}')" class="link-neutral text-xs">Inspect</button>
-                </td>
-            </tr>
-        @endforeach
-    </tbody>
-            </table>
+    {{-- 2. Which pages the visits land on and what they lead to. --}}
+    <section>
+        <div class="section-head">
+            <h2 class="section-title" title="{{ $behavior['subtitle'] ?? '' }}">Giriş sayfaları <span class="section-count">{{ count($rows) }}</span></h2>
         </div>
+        <div class="card overflow-x-auto">
+            @if ($rows === [])
+                <x-ta.empty-state title="Giriş sayfası verisi yok" message="Analytics sayfa bazında oturum gönderince burada görünür." />
+            @else
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Sayfa</th>
+                            <th class="hidden lg:table-cell">İçerik rolü</th>
+                            <th class="text-right!">Oturum</th>
+                            <th class="hidden text-right! sm:table-cell">Etkileşim</th>
+                            <th class="hidden text-right! sm:table-cell">Aksiyon</th>
+                            <th class="hidden lg:table-cell">Site uyarısı</th>
+                            <th><span class="sr-only">İncele</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            <tr wire:key="ga4-landing-{{ $row['path'] }}">
+                                <td class="min-w-[12rem]">
+                                    <p class="font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
+                                    <p class="text-[13px] text-gray-500">{{ $row['title'] ?? '' }}</p>
+                                </td>
+                                <td class="hidden text-[13px] text-gray-600 lg:table-cell dark:text-gray-300">{{ $say($row['content_role'] ?? null) }}</td>
+                                <td class="text-right tabular-nums text-gray-900 dark:text-white">{{ $num($row['sessions']) }}</td>
+                                <td class="hidden text-right tabular-nums sm:table-cell" title="{{ $num($row['engaged_sessions'] ?? 0) }} etkileşimli oturum">%{{ $row['engaged_rate'] }}</td>
+                                <td @class(['hidden text-right tabular-nums sm:table-cell', 'text-gray-400' => $count($row, 'mapped_actions') === '—'])>{{ $count($row, 'mapped_actions') }}</td>
+                                <td class="hidden text-[13px] lg:table-cell">
+                                    @if (! empty($row['attention']))
+                                        <span class="text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</span>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-right"><button type="button" wire:click="openLanding('{{ $row['path'] }}')" class="btn-quiet h-7! px-2!">İncele</button></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Aksiyon eşlenmemiş sayfa başarısız dönüşüm demek değildir.</p>
+    </section>
 
+    {{-- 3. Devices. --}}
     @if (! empty($behavior['devices']))
-        <section class="min-w-0">
-            <h3 class="section-title">Devices</h3>
-            <ul class="mt-3 space-y-2">
+        <section>
+            <div class="section-head"><h2 class="section-title">Cihazlar</h2></div>
+            <ul class="card">
                 @foreach ($behavior['devices'] as $device)
-                    <li>
-                        <div class="mb-1 flex justify-between text-xs text-gray-500">
-                            <span>{{ $device['device'] }}</span>
-                            <span class="tabular-nums">{{ $device['share_pct'] }}%, {{ number_format($device['sessions']) }}</span>
+                    <li class="card-row flex-col items-stretch gap-1.5 py-3">
+                        <div class="flex items-baseline justify-between gap-3 text-sm">
+                            <span class="text-gray-900 dark:text-white">{{ $say($device['device']) }}</span>
+                            <span class="tabular-nums text-gray-900 dark:text-white">{{ $num($device['sessions']) }} <span class="text-[13px] text-gray-500">%{{ $device['share_pct'] }}</span></span>
                         </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                        <div class="h-1 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
                             <div class="h-full rounded-full bg-gray-800 dark:bg-gray-300" style="width: {{ min(100, (int) $device['share_pct']) }}%"></div>
                         </div>
                     </li>
@@ -75,6 +85,4 @@
             </ul>
         </section>
     @endif
-
-    <p class="text-xs text-gray-700 dark:text-gray-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — pages without mapped business actions are not failed conversions.' }}</p>
 </div>

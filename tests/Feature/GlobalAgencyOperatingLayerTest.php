@@ -99,7 +99,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->assertSee('Not configured')
             ->assertDontSee('Panorama Ankara GA4')
             ->call('setTab', 'resources')
-            ->assertSee('No resources discovered yet')
+            ->assertSee('Henüz hesap keşfedilmedi.')
             ->call('bindResource', '1')
             ->assertSee('Select a discovered Google resource to bind.')
             ->assertDontSee('Revoke Google access…');

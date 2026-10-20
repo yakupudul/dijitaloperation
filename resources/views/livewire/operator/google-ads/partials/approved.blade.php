@@ -6,35 +6,40 @@
             ->groupBy(fn ($s) => (string) $s->action['editor_batch']);
     @endphp
     <section data-testid="ads-approved">
-        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="section-title">Onaylı taslaklar · {{ $editorDrafts->count() }}</h2>
+        <div class="section-head">
+            <h2 class="section-title">Onaylı taslaklar <span class="section-count">{{ $editorDrafts->count() }}</span></h2>
             @if ($editorDrafts->isNotEmpty())
-                <button type="button" wire:click="downloadEditor" class="{{ $primary }}">Editor dosyası indir</button>
+                <button type="button" wire:click="downloadEditor" class="{{ $primary }} sm:ml-auto">Editor dosyası indir</button>
             @endif
         </div>
-        <div class="text-sm">
+        <ul class="card">
             @foreach ($editorDrafts as $s)
-                <p class="border-b border-gray-200 py-2.5 text-gray-800 dark:border-gray-800 dark:text-gray-200" wire:key="approved-{{ $s->id }}">{{ $s->title }}</p>
+                <li class="card-row text-sm text-gray-900 dark:text-gray-200" wire:key="approved-{{ $s->id }}"><span class="min-w-0 break-words">{{ $s->title }}</span></li>
             @endforeach
             @foreach ($editorBatches as $batch => $rows)
-                <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 py-2.5 dark:border-gray-800" wire:key="batch-{{ md5($batch) }}" data-testid="ads-editor-batch">
-                    <span class="min-w-0 break-all text-gray-800 dark:text-gray-200">İndirilen dosya {{ $batch }} <span class="text-gray-500">{{ $rows->count() }} taslak</span></span>
-                    <button type="button" wire:click="downloadEditor('{{ $batch }}')" class="ml-auto rounded-md px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Tekrar indir</button>
-                    <button type="button" x-on:click="if (confirm('Bu dosyadaki değişiklikler Google Ads Editor’dan gönderildi mi?')) $wire.confirmEditorBatch('{{ $batch }}')" class="rounded-md px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Editor'a aktardım</button>
-                </div>
+                <li class="card-row flex-wrap sm:flex-nowrap" wire:key="batch-{{ md5($batch) }}" data-testid="ads-editor-batch">
+                    <span class="min-w-0 flex-1">
+                        <span class="block break-all text-sm text-gray-900 dark:text-gray-200">İndirilen dosya {{ $batch }}</span>
+                        <span class="mt-0.5 block text-[13px] text-gray-500">{{ $rows->count() }} taslak</span>
+                    </span>
+                    <span class="flex shrink-0 items-center gap-1">
+                        <button type="button" wire:click="downloadEditor('{{ $batch }}')" class="btn-quiet h-7! px-2! text-xs!">Tekrar indir</button>
+                        <button type="button" x-on:click="if (confirm('Bu dosyadaki değişiklikler Google Ads Editor’dan gönderildi mi?')) $wire.confirmEditorBatch('{{ $batch }}')" class="{{ $small }}">Editor'a aktardım</button>
+                    </span>
+                </li>
             @endforeach
             @foreach ($awaitingSend as $s)
-                <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 py-2.5 dark:border-gray-800" wire:key="approved-{{ $s->id }}">
-                    <span class="text-gray-800 dark:text-gray-200">{{ $s->title }}</span>
+                <li class="card-row flex-wrap sm:flex-nowrap" wire:key="approved-{{ $s->id }}">
+                    <span class="min-w-0 flex-1 break-words text-sm text-gray-900 dark:text-gray-200">{{ $s->title }}</span>
                     @if (filled($s->action['sending_write_id'] ?? null))
-                        <span class="ml-auto text-xs text-gray-500">Gönderiliyor…</span>
+                        <span class="flex shrink-0 items-center gap-1.5 text-xs text-gray-500"><span class="live-dot"></span>Gönderiliyor…</span>
                     @elseif ($canWrite)
-                        <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi?')) $wire.approveSuggestion({{ $s->id }})" class="ml-auto rounded-md px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.04]">Gönder</button>
+                        <button type="button" x-on:click="if (confirm('Negatif Google Ads paylaşılan listesine eklensin mi?')) $wire.approveSuggestion({{ $s->id }})" class="{{ $small }}">Gönder</button>
                     @else
-                        <span class="ml-auto text-xs text-gray-500">Göndermeyi Admin onaylar.</span>
+                        <span class="shrink-0 text-xs text-gray-500">Göndermeyi Admin onaylar.</span>
                     @endif
-                </div>
+                </li>
             @endforeach
-        </div>
+        </ul>
     </section>
 @endif

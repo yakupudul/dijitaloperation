@@ -52,6 +52,7 @@ final class LibrariesPage extends Component
             'season' => $this->tab === 'mevsim' && $sectorId !== null ? $libraries->season($sectorId) : null,
             'map' => $this->tab === 'harita' && $sectorId !== null ? $libraries->map($sectorId) : null,
             'months' => AdLibraries::MONTHS,
+            'logos' => WinnersPage::logos(),
         ]);
     }
 }

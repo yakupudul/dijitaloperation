@@ -49,7 +49,7 @@ final class ReleasesPageTest extends SiteTestCase
             ->assertSee('Canlı sürüm:')
             ->assertSeeInOrder(['aaaaaaaa', '06.10 12:39 deploy edildi'])
             ->assertSee('Otomatik deploy: Testler çalışıyor')
-            ->assertSee('Henüz canlıda değil (1)')
+            ->assertSee('Henüz canlıda değil')->assertSeeHtml('data-pending-total="1"')
             ->assertSee('Yorumlar: hazır ama gönderilmemiş yanıtlar ayrı sayılır')
             ->assertSeeInOrder(['Canlıya çıkanlar', '06.10 12:39', '2 değişiklik', 'Yorumlar: AI ile taslak yaz tek tıkta 300', '05.10 11:00', 'Eski değişiklik']);
     }

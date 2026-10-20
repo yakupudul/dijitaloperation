@@ -93,7 +93,7 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('operator.integrations.google', ['tab' => 'resources']))
             ->assertOk()
             ->assertSee('Bağlanmamış hesaplar')
-            ->assertSee('No resources discovered yet')
+            ->assertSee('Henüz hesap keşfedilmedi.')
             ->assertSee('Henüz bağlanmış hesap yok.')
             ->assertDontSee('Panorama Ankara GA4');
         $this->get(route('operator.integrations.meta'))

@@ -1,13 +1,13 @@
 <div wire:poll.15s.visible class="space-y-4">
     @if ($actionMessage)
-        <div class="rounded-lg px-4 py-3 text-sm tone-info">
+        <div class="card px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
             {{ $actionMessage }}
         </div>
     @endif
 
     @forelse ($runs as $run)
-        <section class="border-t border-gray-200 pt-4 dark:border-gray-800" wire:key="gads-live-run-{{ $run['id'] }}">
-            <div class="py-4">
+        <section class="card" wire:key="gads-live-run-{{ $run['id'] }}">
+            <div class="p-4">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
@@ -27,11 +27,11 @@
                             </h2>
                             <span class="text-xs font-medium {{ $run['quota_waiting'] ? 'text-warning-700 dark:text-warning-300' : 'text-gray-500' }}">{{ $run['status_label'] }}</span>
                         </div>
-                        <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }} · Run #{{ $run['id'] }}</p>
+                        <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }}, çekim #{{ $run['id'] }}</p>
                     </div>
 
                     @if ($run['can_stop'])
-                        <button type="button" wire:click="stopRun({{ $run['id'] }})" wire:loading.attr="disabled" wire:target="stopRun({{ $run['id'] }})" class="rounded-lg px-3 py-2 text-sm font-medium text-error-600 ring-1 ring-inset ring-gray-200 hover:bg-error-50 disabled:opacity-50 dark:text-error-300 dark:ring-gray-700 dark:hover:bg-error-500/10">
+                        <button type="button" wire:click="stopRun({{ $run['id'] }})" wire:loading.attr="disabled" wire:target="stopRun({{ $run['id'] }})" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">
                             Durdur
                         </button>
                     @endif
@@ -73,14 +73,14 @@
 
             <div class="divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
                 @foreach ($run['resources'] as $resource)
-                    <article class="py-4" wire:key="gads-live-resource-{{ $resource['id'] }}">
+                    <article class="px-4 py-4" wire:key="gads-live-resource-{{ $resource['id'] }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
                                     <span class="text-xs {{ $resource['status'] === 'retrying' ? 'text-warning-700 dark:text-warning-300' : 'text-gray-500' }}">{{ $resource['status_label'] }}</span>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">Customer ID {{ $resource['customer_id'] }}</p>
+                                <p class="mt-1 text-xs text-gray-500">Müşteri kimliği {{ $resource['customer_id'] }}</p>
 
                                 <div class="mt-3 max-w-3xl">
                                     <div class="mb-1 flex items-center justify-between gap-3 text-xs text-gray-500">
@@ -134,46 +134,45 @@
                 @endforeach
             </div>
 
-            <details class="border-t border-gray-200 py-3 dark:border-gray-800">
+            <details class="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
                 <summary class="cursor-pointer select-none text-xs font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-300">Teknik ayrıntılar</summary>
                 <dl class="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
-                    <div><dt class="text-gray-400">Run ID</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">#{{ $run['id'] }}</dd></div>
+                    <div><dt class="text-gray-400">Çekim no</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">#{{ $run['id'] }}</dd></div>
                     <div><dt class="text-gray-400">API sayfası</dt><dd class="mt-0.5 font-medium tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($run['pages_completed'], 0, ',', '.') }}</dd></div>
                     <div><dt class="text-gray-400">Tamamlanan</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ $run['datasets_completed'] }}</dd></div>
                     <div><dt class="text-gray-400">Hata</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ $run['datasets_failed'] }}</dd></div>
                     <div><dt class="text-gray-400">Durdurulan</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ $run['datasets_cancelled'] }}</dd></div>
                     <div><dt class="text-gray-400">Alınan satır</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ number_format($run['rows_received'], 0, ',', '.') }}</dd></div>
                     <div><dt class="text-gray-400">Kaydedilen satır</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">{{ number_format($run['rows_written'], 0, ',', '.') }}</dd></div>
-                    <div><dt class="text-gray-400">Kapsam</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">Central Data Pool</dd></div>
+                    <div><dt class="text-gray-400">Kapsam</dt><dd class="mt-0.5 font-medium text-gray-700 dark:text-gray-300">Merkezi veri havuzu</dd></div>
                 </dl>
             </details>
         </section>
     @empty
-        <div class="py-6">
-            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Aktif Google Ads veri aktarımı yok.</p>
-            <p class="mt-1 text-xs text-gray-500">Hesaplar sekmesinden bir veya daha fazla müşteri hesabı seçip veri çekebilirsiniz.</p>
+        <div class="card">
+            <x-ta.empty-state size="sm" title="Aktif Google Ads veri aktarımı yok." message="Hesaplar sekmesinden bir veya daha fazla müşteri hesabı seçip veri çekebilirsin." />
         </div>
     @endforelse
 
     @if (! empty($issues))
-        <details class="border-t border-gray-200 pt-4 dark:border-gray-800">
-            <summary class="cursor-pointer text-sm font-medium text-warning-800 dark:text-warning-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
-        <section class="border-t border-gray-200 pt-4 dark:border-gray-800">
-            <div class="pb-3">
+        <details class="card">
+            <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-warning-800 dark:text-warning-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
+        <section class="border-t border-gray-200 dark:border-gray-800">
+            <div class="px-4 pt-4 pb-3">
                 <h2 class="section-title">Tamamlanamayan Google Ads verileri</h2>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Yalnızca eksik kalan datasetleri yeniden deneyebilirsiniz; tamamlanan veri tekrar çekilmez.</p>
             </div>
 
             <div class="divide-y divide-gray-200 dark:divide-gray-800">
                 @foreach ($issues as $issue)
-                    <article class="py-4" wire:key="gads-issue-{{ $issue['id'] }}">
+                    <article class="px-4 py-4" wire:key="gads-issue-{{ $issue['id'] }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3>
                                     <x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">Customer ID {{ $issue['customer_id'] }} · {{ $issue['last_activity'] }}</p>
+                                <p class="mt-1 text-xs text-gray-500">Müşteri kimliği {{ $issue['customer_id'] }} · {{ $issue['last_activity'] }}</p>
                                 @if (! empty($issue['errors']))
                                     <div class="mt-3 space-y-2">
                                         @foreach ($issue['errors'] as $error)
@@ -185,7 +184,7 @@
                                     </div>
                                 @endif
                             </div>
-                            <button type="button" wire:click="repairResource({{ $issue['external_resource_id'] }})" wire:loading.attr="disabled" wire:target="repairResource({{ $issue['external_resource_id'] }})" class="shrink-0 rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50">
+                            <button type="button" wire:click="repairResource({{ $issue['external_resource_id'] }})" wire:loading.attr="disabled" wire:target="repairResource({{ $issue['external_resource_id'] }})" class="btn-primary">
                                 Eksikleri tamamla
                             </button>
                         </div>

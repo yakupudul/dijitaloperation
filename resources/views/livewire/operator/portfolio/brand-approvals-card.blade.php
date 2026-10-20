@@ -2,29 +2,31 @@
 <div>
     @if ($approvals !== null)
         <section aria-labelledby="approvals-heading" data-brand-approvals="{{ $approvals['total'] }}">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="approvals-heading" class="section-title">Bekleyen onaylar <span class="text-sm font-normal text-gray-500">{{ $approvals['total'] }}</span></h2>
+            <div class="section-head">
+                <h2 id="approvals-heading" class="section-title">Bekleyen onaylar <span class="section-count">{{ $approvals['total'] }}</span></h2>
                 @if ($approvals['total'] > 0)
-                    <a href="{{ $approvals['url'] }}" wire:navigate class="inline-flex h-8 items-center rounded-lg px-3 text-xs font-medium text-gray-800 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-800" data-approvals-open>Onarım masasında aç</a>
+                    <a href="{{ $approvals['url'] }}" wire:navigate class="ml-auto text-[13px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" data-approvals-open>Onarım masasında aç</a>
                 @endif
             </div>
-            @if ($approvals['total'] === 0)
-                <p class="mt-1 text-xs text-gray-500" data-approvals-empty>Bu markada onay bekleyen düzeltme yok.</p>
-            @else
-                <ul class="mt-2 divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-                    @foreach ($approvals['packages'] as $package)
-                        <li wire:key="approval-{{ $package['key'] }}">
-                            <a href="{{ $package['url'] }}" wire:navigate class="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-2.5 hover:bg-gray-50 dark:hover:bg-white/[0.03]" data-approval-package="{{ $package['key'] }}">
-                                <span class="min-w-0 truncate font-medium text-gray-800 dark:text-gray-200">{{ $package['label'] }}</span>
-                                <span class="shrink-0 text-xs text-gray-500"><span class="tabular-nums font-semibold text-gray-900 dark:text-white">{{ $package['count'] }}</span> {{ $package['lane'] }}</span>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+            <ul class="card">
+                @forelse ($approvals['packages'] as $package)
+                    <li wire:key="approval-{{ $package['key'] }}">
+                        <a href="{{ $package['url'] }}" wire:navigate class="card-row hover:bg-gray-50 dark:hover:bg-white/[0.02]" data-approval-package="{{ $package['key'] }}">
+                            <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ $package['label'] }}</span>
+                                <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400"><span class="tabular-nums">{{ $package['count'] }}</span> iş, {{ $package['lane'] }}</span>
+                            </span>
+                            <span class="btn">Aç</span>
+                        </a>
+                    </li>
+                @empty
+                    <li data-approvals-empty><x-ta.empty-state size="sm" title="Onay bekleyen iş yok" message="Bu markada onay bekleyen düzeltme yok." /></li>
+                @endforelse
                 @if ($approvals['total'] > count($approvals['packages']))
-                    <a href="{{ $approvals['url'] }}" wire:navigate class="link-neutral mt-2 inline-block text-xs">+{{ $approvals['total'] - count($approvals['packages']) }} paket daha ({{ $approvals['rows'] }} düzeltme)</a>
+                    <li class="border-t border-gray-200 px-4 py-2.5 dark:border-gray-800"><a href="{{ $approvals['url'] }}" wire:navigate class="text-[13px] font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">+{{ $approvals['total'] - count($approvals['packages']) }} paket daha ({{ $approvals['rows'] }} düzeltme)</a></li>
                 @endif
-            @endif
+            </ul>
         </section>
     @endif
 </div>

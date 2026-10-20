@@ -1,4 +1,5 @@
 @php
+    // İşletme profilleri tabs: the first element of the page, above the title, the same look as the layout's section tabs.
     $deskTabs = [
         'operator.gbp-desk' => 'Durum ve ölçüm',
         'operator.gbp-posts' => 'Gönderiler',
@@ -8,9 +9,9 @@
         'operator.gbp-reviews' => 'Yorumlar',
     ];
 @endphp
-<nav class="-mb-px flex gap-1 overflow-x-auto border-b border-gray-200 text-sm dark:border-gray-700" aria-label="İşletme profilleri">
+<nav class="no-scrollbar -mt-1 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="İşletme profilleri">
     @foreach ($deskTabs as $routeName => $label)
-        <a href="{{ route($routeName, array_filter(['marka' => $brandFilter ?? null])) }}" wire:navigate
-            @class(['whitespace-nowrap border-b-2 px-3 py-2 font-medium', 'border-gray-900 text-gray-900 dark:border-white dark:text-white' => $active === $routeName, 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300' => ! ($active === $routeName)])>{{ $label }}</a>
+        <a href="{{ route($routeName, array_filter(['marka' => $brandFilter ?? null])) }}" wire:navigate @if ($active === $routeName) aria-current="page" @endif
+            @class(['tab', 'tab-active' => $active === $routeName])>{{ $label }}</a>
     @endforeach
 </nav>

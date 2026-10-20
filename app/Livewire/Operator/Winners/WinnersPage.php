@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Winners;
 
+use App\Models\Brand;
 use App\Services\Ads\Winners;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -34,6 +35,16 @@ final class WinnersPage extends Component
     #[Url(as: 'marka')]
     public string $brand = '';
 
+    /**
+     * Brand logos by brand name, so the screens show the real logo next to a leader (display only).
+     *
+     * @return array<string, string>
+     */
+    public static function logos(): array
+    {
+        return Brand::query()->whereNotNull('logo_url')->where('logo_url', '!=', '')->pluck('logo_url', 'name')->all();
+    }
+
     public function render(Winners $winners): View
     {
         if (! isset(self::TABS[$this->tab])) {
@@ -47,6 +58,7 @@ final class WinnersPage extends Component
             'brandView' => $ready && $this->tab === 'marka' ? $winners->brandView((int) $this->brand) : null,
             'channels' => Winners::CHANNELS,
             'tabs' => self::TABS,
+            'logos' => self::logos(),
         ]);
     }
 }

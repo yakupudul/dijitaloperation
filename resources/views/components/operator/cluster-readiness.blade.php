@@ -16,8 +16,10 @@
     };
 @endphp
 @if ($text !== null)
-    <div {{ $attributes->class(['flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 py-2.5 text-xs text-gray-700 dark:border-gray-800 dark:text-gray-300']) }} data-cluster-readiness="{{ $r['step'] ?? 'brand' }}">
-        <span class="flex items-baseline gap-2"><span class="h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full bg-warning-500" aria-hidden="true"></span><span><span class="font-medium text-warning-800 dark:text-warning-400">{{ $what }} boş:</span> {{ $text }}</span></span>
-        @if ($link !== null)<a href="{{ $link }}" wire:navigate class="shrink-0 rounded-lg px-3 py-1.5 font-medium text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-white dark:ring-gray-600 dark:hover:bg-white/5">{{ $label }}</a>@endif
+    {{-- One row: an amber dot, why the view is empty, the one next step on the right. Sits inside the caller's card. --}}
+    <div {{ $attributes->class(['flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-gray-600 sm:flex-nowrap dark:text-gray-300']) }} data-cluster-readiness="{{ $r['step'] ?? 'brand' }}">
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+        <span class="min-w-0 flex-1"><span class="font-medium text-gray-900 dark:text-white">{{ $what }} boş:</span> {{ $text }}</span>
+        @if ($link !== null)<a href="{{ $link }}" wire:navigate class="btn w-full sm:w-auto">{{ $label }}</a>@endif
     </div>
 @endif

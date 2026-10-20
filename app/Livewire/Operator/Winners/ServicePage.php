@@ -41,6 +41,7 @@ final class ServicePage extends Component
             'view' => Winners::ready() ? $winners->service($this->serviceId, $this->city, $this->measure) : null,
             'channels' => Winners::CHANNELS,
             'measures' => Winners::MEASURES,
+            'logos' => WinnersPage::logos(),
         ]);
     }
 }

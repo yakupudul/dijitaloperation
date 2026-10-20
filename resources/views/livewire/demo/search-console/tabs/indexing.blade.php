@@ -5,143 +5,146 @@
     $sitemaps = $indexing['sitemaps'] ?? [];
     $reconciliation = $indexing['reconciliation'] ?? [];
     $byRole = $indexing['discoverability_by_role'] ?? [];
+    $num = fn (float|int|null $value): string => number_format((float) ($value ?? 0), 0, ',', '.');
+    // A count the provider did not send is "—", never 0 (missing is not zero).
+    $count = fn (array $source, string $key): string => array_key_exists($key, $source) && is_numeric($source[$key]) ? $num($source[$key]) : '—';
+    $subTabs = ['coverage' => ['Kapsam', null], 'inspection' => ['URL denetimi', count($urls)], 'sitemaps' => ['Site haritaları', count($sitemaps)], 'reconciliation' => ['Karşılaştırma', null]];
 @endphp
 
-<div class="space-y-10">
-    <div>
-        <h2 class="section-title">Indexing</h2>
-        <p class="mt-0.5 text-xs text-gray-500">{{ $indexing['subtitle'] ?? '' }}</p>
-        <p class="mt-1 text-xs text-gray-500">{{ $indexing['inspection_note'] ?? '' }}</p>
-    </div>
-
-    <div class="inline-flex flex-wrap rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="tablist">
-        @foreach (['coverage' => 'Coverage', 'inspection' => 'URL inspection', 'sitemaps' => 'Sitemaps', 'reconciliation' => 'Reconciliation'] as $key => $label)
-            <button type="button" wire:click="setIndexSub('{{ $key }}')" @class([
-                'px-3 py-2 text-xs font-medium',
-                'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $index_sub === $key,
-                'text-gray-600 dark:text-gray-300' => $index_sub !== $key,
-            ])>{{ $label }}</button>
-        @endforeach
-    </div>
-
-    @if ($index_sub === 'coverage')
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            @foreach (['indexed' => 'Dizinde', 'not_indexed' => 'Dizinde değil', 'unknown' => 'Bilinmiyor', 'excluded' => 'Hariç tutulan'] as $key => $label)
-                <x-ta.metric-card :label="$label" :value="number_format($coverage[$key] ?? 0, 0, ',', '.')" />
+<div class="space-y-3">
+    <div class="card">
+        <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Dizine ekleme" title="{{ $indexing['subtitle'] ?? '' }}">
+            @foreach ($subTabs as $key => [$label, $n])
+                <button type="button" wire:click="setIndexSub('{{ $key }}')" @class(['tab', 'tab-active' => $index_sub === $key])>{{ $label }}@if ($n !== null && $n > 0) <span class="text-gray-500">{{ $n }}</span>@endif</button>
             @endforeach
         </div>
 
-        <section class="min-w-0">
-            <h3 class="section-title">Discoverability by role</h3>
-            <div class="max-w-full overflow-x-auto mt-3">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                    <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Role</th>
-                    <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">With impressions</th>
-                    <th class="px-3 py-2 text-left text-xs font-normal text-gray-500">Inventory</th>
-                </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-                @foreach ($byRole as $row)
-                    <tr>
-                        <td class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-white">{{ $row['role'] }}</td>
-                        <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['with_impressions']) }}</td>
-                        <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($row['inventory']) }}</td>
-                    </tr>
+        @if ($index_sub === 'coverage')
+            <div class="grid grid-cols-2 gap-px bg-gray-200 sm:grid-cols-4 dark:bg-gray-800" title="{{ $coverage['note'] ?? '' }}">
+                @foreach (['indexed' => 'Dizinde', 'not_indexed' => 'Dizinde değil', 'unknown' => 'Bilinmiyor', 'excluded' => 'Hariç tutulan'] as $key => $label)
+                    @php $value = $count($coverage, $key); @endphp
+                    <x-ta.metric-card :label="$label" :value="$value" :muted="$value === '—'" />
                 @endforeach
-            </tbody>
-            </table>
-        </div>
-        </section>
-    @elseif ($index_sub === 'inspection')
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">URL</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Google index state</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sitemap</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Canonical</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Search visibility</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500"></th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($urls as $row)
-                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td class="px-4 py-2.5">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
-                        <p class="text-xs text-gray-500">{{ $row['role'] ?? '' }}</p>
-                        @if (! empty($row['attention']))
-                            <p class="mt-0.5 text-xs text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
-                        @endif
-                    </td>
-                    <td class="px-4 py-2.5 text-xs">
-                        <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($row['index_state'] ?? '') { 'Indexed' => 'success', 'Unavailable' => 'error', default => 'warning' }] ?? 'info'">{{ $row['index_state'] }}</x-ta.pill>
-                    </td>
-                    <td class="px-4 py-2.5 text-xs">{{ $row['sitemap'] ?? '—' }}</td>
-                    <td class="px-4 py-2.5 text-xs">
-                        <span @class(['font-medium text-warning-700 dark:text-warning-400' => ($row['canonical'] ?? '') === 'Mismatch'])>{{ $row['canonical'] ?? '—' }}</span>
-                    </td>
-                    <td class="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300">{{ $row['search_visibility'] ?? '—' }}</td>
-                    <td class="px-4 py-2.5">
-                        <button type="button" wire:click="openUrl('{{ $row['id'] ?? $row['path'] }}')" class="link-neutral text-xs">Inspect</button>
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
-        </div>
-        <p class="text-xs text-gray-500">{{ $indexing['inspection_note'] ?? '' }}</p>
-    @elseif ($index_sub === 'sitemaps')
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Sitemap</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Submitted</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Last downloaded</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Discovered</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Warnings</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Errors</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Status</th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($sitemaps as $row)
-                <tr>
-                    <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</td>
-                    <td class="px-4 py-2.5 text-xs">{{ $row['submitted'] }}</td>
-                    <td class="px-4 py-2.5 text-xs">{{ $row['last_downloaded'] }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['discovered']) }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ $row['warnings'] }}</td>
-                    <td class="px-4 py-2.5 text-sm tabular-nums">{{ $row['errors'] }}</td>
-                    <td class="px-4 py-2.5">
-                        <x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][($row['status'] ?? '') === 'Success' ? 'success' : 'warning'] ?? 'info'">{{ $row['status'] }}</x-ta.pill>
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
-        </div>
-    @else
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            @foreach (['website_urls' => 'Sitedeki URL', 'sitemap_urls' => 'Site haritasındaki URL', 'index_observed' => 'Dizinde görülen', 'priority_missing_sitemap' => 'Site haritasında olmayan öncelikli'] as $key => $label)
-                <x-ta.metric-card :label="$label" :value="number_format($reconciliation[$key] ?? 0, 0, ',', '.')" />
-            @endforeach
-        </div>
-
-        <section class="min-w-0">
-            <h3 class="section-title">Reconciliation gaps</h3>
-            <ul class="mt-3 space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                @foreach ($reconciliation['gaps'] ?? [] as $gap)
-                    <li class="flex gap-2">
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-800">
+                @if ($byRole === [])
+                    <x-ta.empty-state size="sm" title="Sayfa türüne göre kırılım yok" message="Search Console sitenin tüm dizin sayılarını vermiyor." />
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Sayfa türü</th>
+                                    <th class="text-right!">Gösterim alan</th>
+                                    <th class="text-right!">Sitedeki</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($byRole as $row)
+                                    <tr>
+                                        <td class="font-medium text-gray-900 dark:text-white">{{ $say($row['role']) }}</td>
+                                        <td class="text-right tabular-nums">{{ $num($row['with_impressions']) }}</td>
+                                        <td class="text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $num($row['inventory']) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
+        @elseif ($index_sub === 'inspection')
+            @if ($urls === [])
+                <x-ta.empty-state title="Denetlenen URL yok" message="Google'a sorulan sayfaların dizin durumu burada görünür." />
+            @else
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Google dizini</th>
+                                <th class="hidden md:table-cell">Site haritası</th>
+                                <th class="hidden md:table-cell">Kanonik</th>
+                                <th class="hidden lg:table-cell">Arama görünürlüğü</th>
+                                <th><span class="sr-only">İncele</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($urls as $row)
+                                <tr wire:key="gsc-url-{{ $row['id'] ?? $row['path'] }}">
+                                    <td class="min-w-[12rem]">
+                                        <p class="font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
+                                        <p class="text-[13px] text-gray-500">{{ $say($row['role'] ?? '') }}</p>
+                                        @if (! empty($row['attention']))
+                                            <p class="mt-0.5 text-[13px] text-warning-700 dark:text-warning-400">{{ $row['attention'] }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="whitespace-nowrap"><x-ta.pill :tone="match ($row['index_state'] ?? '') { 'Indexed' => 'ok', 'Unavailable' => 'info', default => 'look' }">{{ $say($row['index_state'] ?? null) }}</x-ta.pill></td>
+                                    <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $say($row['sitemap'] ?? null) }}</td>
+                                    <td class="hidden text-[13px] md:table-cell">
+                                        <span @class(['text-warning-700 dark:text-warning-400' => ($row['canonical'] ?? '') === 'Mismatch', 'text-gray-600 dark:text-gray-300' => ($row['canonical'] ?? '') !== 'Mismatch'])>{{ $say($row['canonical'] ?? null) }}</span>
+                                    </td>
+                                    <td class="hidden text-[13px] text-gray-600 lg:table-cell dark:text-gray-300">{{ $say($row['search_visibility'] ?? null) }}</td>
+                                    <td class="text-right"><button type="button" wire:click="openUrl('{{ $row['id'] ?? $row['path'] }}')" class="btn-quiet h-7! px-2!">İncele</button></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        @elseif ($index_sub === 'sitemaps')
+            @if ($sitemaps === [])
+                <x-ta.empty-state title="Site haritası yok" message="Search Console'a gönderilen site haritaları burada görünür." />
+            @else
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Site haritası</th>
+                                <th class="hidden md:table-cell">Gönderildi</th>
+                                <th class="hidden md:table-cell">Son okuma</th>
+                                <th class="text-right!" title="Gönderilmesi dizinde olduğu anlamına gelmez">Bulunan</th>
+                                <th class="hidden text-right! sm:table-cell">Uyarı</th>
+                                <th class="hidden text-right! sm:table-cell">Hata</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($sitemaps as $row)
+                                <tr>
+                                    <td class="min-w-[10rem] font-medium break-all text-gray-900 dark:text-white">{{ $row['path'] }}</td>
+                                    <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $row['submitted'] }}</td>
+                                    <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $row['last_downloaded'] }}</td>
+                                    <td class="text-right tabular-nums">{{ $num($row['discovered']) }}</td>
+                                    <td class="hidden text-right tabular-nums sm:table-cell">{{ $row['warnings'] }}</td>
+                                    <td @class(['hidden text-right tabular-nums sm:table-cell', 'text-error-600 dark:text-error-400' => (int) $row['errors'] > 0])>{{ $row['errors'] }}</td>
+                                    <td class="whitespace-nowrap"><x-ta.pill :tone="($row['status'] ?? '') === 'Success' ? 'ok' : 'look'">{{ $say($row['status'] ?? null) }}</x-ta.pill></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        @else
+            <div class="grid grid-cols-2 gap-px bg-gray-200 sm:grid-cols-4 dark:bg-gray-800" title="{{ $reconciliation['note'] ?? '' }}">
+                @foreach (['website_urls' => 'Sitedeki URL', 'sitemap_urls' => 'Site haritasındaki URL', 'index_observed' => 'Dizinde görülen', 'priority_missing_sitemap' => 'Haritada olmayan öncelikli'] as $key => $label)
+                    @php $value = $count($reconciliation, $key); @endphp
+                    <x-ta.metric-card :label="$label" :value="$value" :muted="$value === '—'" />
+                @endforeach
+            </div>
+            <ul class="border-t border-gray-200 dark:border-gray-800">
+                @forelse ($reconciliation['gaps'] ?? [] as $gap)
+                    <li class="card-row items-start py-3">
                         <span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
-                        <span>{{ $gap }}</span>
+                        <span class="min-w-0 text-sm text-gray-800 dark:text-gray-200">{{ $gap }}</span>
                     </li>
-                @endforeach
+                @empty
+                    <li><x-ta.empty-state size="sm" title="Fark listesi yok" message="Site, site haritası ve dizin karşılaştırılınca farklar burada listelenir." /></li>
+                @endforelse
             </ul>
-        </section>
+        @endif
+    </div>
+
+    @if (! empty($indexing['inspection_note']) && in_array($index_sub, ['inspection', 'coverage'], true))
+        <p class="text-xs text-gray-500 dark:text-gray-400">{{ strtr($indexing['inspection_note'], ['URL Inspection is a selective sample only — never extrapolated to uninspected URLs.' => 'URL denetimi seçilmiş birkaç sayfanın örneğidir; denetlenmeyen sayfalara genellenmez.']) }}</p>
     @endif
 </div>

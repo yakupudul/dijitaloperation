@@ -124,7 +124,7 @@ final class WordPressManagementTest extends TestCase
             ->call('applyUpdate', $this->site->id, 'plugin', 'seo/seo.php', 'SEO Eklentisi')->assertForbidden();
 
         $this->actingAs($this->admin);
-        Livewire::test(WordPressSitesPage::class, ['open' => $this->site->id])->assertSee('SEO Eklentisi')->assertSee('2.0 → 2.1')
+        Livewire::test(WordPressSitesPage::class, ['open' => $this->site->id])->assertSee('SEO Eklentisi')->assertSee('2.0 sürümünden 2.1 sürümüne')
             ->call('applyUpdate', $this->site->id, 'plugin', 'seo/seo.php', 'SEO Eklentisi')->assertSee('kuyruğa alındı');
         $action = ExternalWriteAction::query()->firstOrFail();
         $this->assertSame([ExternalWriteAction::ACTION_UPDATE_APPLY, 'succeeded', '2.1'], [$action->action, $action->status, $action->result['to_version']], (string) $action->error);

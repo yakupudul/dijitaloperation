@@ -1,13 +1,13 @@
 <div wire:poll.10s.visible class="space-y-4">
     @if ($actionMessage)
-        <div class="rounded-lg px-4 py-3 text-sm tone-info">
+        <div class="card px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
             {{ $actionMessage }}
         </div>
     @endif
 
     @forelse ($runs as $run)
-        <section class="border-t border-gray-200 pt-4 dark:border-gray-800" wire:key="meta-live-run-{{ $run['id'] }}">
-            <div class="p-5 md:p-6">
+        <section class="card" wire:key="meta-live-run-{{ $run['id'] }}">
+            <div class="p-4">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
@@ -18,10 +18,10 @@
                             <h2 class="section-title">Meta Ads verileri çekiliyor</h2>
                             <span class="text-xs font-medium text-gray-500">{{ $run['status_label'] }}</span>
                         </div>
-                        <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }} · Run #{{ $run['id'] }}</p>
+                        <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }}, çekim #{{ $run['id'] }}</p>
                     </div>
                     @if ($run['can_stop'])
-                        <button type="button" wire:click="stopRun({{ $run['id'] }})" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-sm font-medium text-error-600 ring-1 ring-inset ring-gray-200 hover:bg-error-50 dark:text-error-400 dark:ring-gray-700 dark:hover:bg-error-500/10">Durdur</button>
+                        <button type="button" wire:click="stopRun({{ $run['id'] }})" wire:loading.attr="disabled" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">Durdur</button>
                     @endif
                 </div>
 
@@ -52,7 +52,7 @@
 
             <div class="border-t border-gray-200 dark:border-gray-800">
                 @foreach ($run['resources'] as $resource)
-                    <article class="py-4" wire:key="meta-live-resource-{{ $resource['id'] }}">
+                    <article class="px-4 py-4" wire:key="meta-live-resource-{{ $resource['id'] }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -83,7 +83,7 @@
                                                             <p class="mt-1 break-words">{{ $error['message'] }}</p>
                                                             <p class="mt-1 text-xs opacity-70">{{ $error['code'] ?? '' }} @if($error['category']) · {{ $error['category'] }} @endif · {{ $error['attempts'] }} deneme</p>
                                                         </div>
-                                                        <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-warning-800 ring-1 ring-inset ring-warning-200 dark:bg-gray-900 dark:text-warning-300 dark:ring-warning-700">Yeniden dene</button>
+                                                        <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="btn h-7! px-2.5! text-xs!">Yeniden dene</button>
                                                     </div>
                                                 </div>
                                             @endforeach
@@ -100,22 +100,20 @@
             </div>
         </section>
     @empty
-        <section class="py-6">
-            <span class="hidden">↻</span>
-            <p class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">Şu anda aktif Meta Ads veri toplama yok</p>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">“Şimdi Güncelle” veya “İlk Toplamayı Başlat” dediğinizde canlı ilerleme burada görünür.</p>
-        </section>
+        <div class="card">
+            <x-ta.empty-state size="sm" title="Şu anda aktif Meta Ads veri toplama yok" message="“Şimdi Güncelle” veya “İlk Toplamayı Başlat” dediğinde canlı ilerleme burada görünür." />
+        </div>
     @endforelse
 
     @if (! empty($issues))
-        <section class="border-t border-gray-200 pt-4 dark:border-gray-800">
-            <div class="pb-3">
+        <section class="card">
+            <div class="px-4 pt-4 pb-3">
                 <h2 class="section-title">Tamamlanamayan Meta Ads verileri</h2>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Son toplamalarda hata kalan veri setlerini buradan yeniden deneyebilirsiniz.</p>
             </div>
             <div class="divide-y divide-gray-200 dark:divide-gray-800">
                 @foreach ($issues as $issue)
-                    <article class="py-4">
+                    <article class="px-4 py-4">
                         <div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $issue['name'] }}</h3><x-ta.pill tone="look">{{ $issue['failed_count'] }} hata</x-ta.pill></div>
                         <p class="mt-1 text-xs text-gray-500">{{ $issue['business'] ?? 'Meta Ads' }} · {{ $issue['last_activity'] }}</p>
                         <div class="mt-3 space-y-2">
@@ -131,7 +129,7 @@
                                         <p class="mt-1 break-words text-xs text-gray-500">{{ $error['message'] }}</p>
                                         <p class="mt-1 text-xs text-gray-500">{{ $error['attempts'] }} deneme</p>
                                     </div>
-                                    <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-brand-600 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-brand-400 dark:ring-gray-700">Yeniden dene</button>
+                                    <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="btn h-7! px-2.5! text-xs!">Yeniden dene</button>
                                 </div>
                             @endforeach
                         </div>

@@ -1,106 +1,115 @@
-@php $opsData = $data['operations'] ?? []; @endphp
+@php
+    $opsData = $data['operations'] ?? [];
+    $subTabs = ['findings' => ['Bulgular', count($opsData['findings'] ?? [])], 'recommendations' => ['Öneriler', count($opsData['recommendations'] ?? [])], 'tasks' => ['Görevler', count($opsData['tasks'] ?? [])], 'outcomes' => ['Sonuçlar', count($opsData['outcomes'] ?? [])]];
+@endphp
 
-<div class="space-y-10">
-    <div>
-        <h2 class="section-title">Operations</h2>
-        <p class="mt-0.5 text-xs text-gray-500">{{ $opsData['subtitle'] ?? 'Findings, recommendations, tasks, and observed outcomes' }}</p>
+<div class="space-y-3">
+    <div class="card">
+        <div class="flex gap-1 overflow-x-auto border-b border-gray-200 px-3 no-scrollbar dark:border-gray-800" role="group" aria-label="Operasyon" title="{{ $opsData['subtitle'] ?? '' }}">
+            @foreach ($subTabs as $key => [$label, $n])
+                <button type="button" wire:click="setOps('{{ $key }}')" @class(['tab', 'tab-active' => $ops === $key])>{{ $label }}@if ($n > 0) <span class="text-gray-500">{{ $n }}</span>@endif</button>
+            @endforeach
+        </div>
+
+        @if ($ops === 'findings')
+            @if (($opsData['findings'] ?? []) === [])
+                <x-ta.empty-state title="Bulgu yok" message="Analytics verisinden çıkan bulgular burada listelenir." />
+            @else
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Bulgu</th>
+                                <th class="hidden sm:table-cell">Konu</th>
+                                <th>Önem</th>
+                                <th class="hidden md:table-cell">Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($opsData['findings'] as $f)
+                                <tr wire:key="ga4-finding-{{ $f['id'] }}">
+                                    <td class="min-w-[14rem]"><button type="button" wire:click="openFinding('{{ $f['id'] }}')" class="text-left font-medium text-gray-900 hover:underline dark:text-white">{{ $f['title'] }}</button></td>
+                                    <td class="hidden text-[13px] text-gray-500 sm:table-cell">{{ $say($f['category'] ?? null) }}</td>
+                                    <td class="whitespace-nowrap"><x-ta.pill :tone="$toneOf($f['severity'] ?? null)">{{ $say($f['severity'] ?? null) }}</x-ta.pill></td>
+                                    <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $say($f['status'] ?? null) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        @elseif ($ops === 'recommendations')
+            <ul>
+                @forelse ($opsData['recommendations'] ?? [] as $r)
+                    <li class="card-row flex-wrap sm:flex-nowrap">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $r['title'] }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-500">{{ $say($r['status'] ?? null) }}{{ ! empty($r['detail']) ? '. '.$r['detail'] : '' }}</p>
+                        </div>
+                        <button type="button" wire:click="openFinding('{{ $r['finding_id'] }}')" class="btn h-7! px-2.5! text-xs! w-full sm:w-auto">Bulguyu aç</button>
+                    </li>
+                @empty
+                    <li><x-ta.empty-state title="Öneri yok" /></li>
+                @endforelse
+            </ul>
+        @elseif ($ops === 'tasks')
+            @if (($opsData['tasks'] ?? []) === [])
+                <x-ta.empty-state title="Görev yok" message="Görevler kendiliğinden açılmaz." />
+            @else
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Görev</th>
+                                <th class="hidden sm:table-cell">Kimde</th>
+                                <th class="hidden sm:table-cell">Tarih</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($opsData['tasks'] as $t)
+                                <tr>
+                                    <td class="min-w-[12rem] font-medium text-gray-900 dark:text-white">{{ $t['title'] }}</td>
+                                    <td class="hidden text-[13px] text-gray-600 sm:table-cell dark:text-gray-300">{{ $t['owner'] }}</td>
+                                    <td class="hidden text-[13px] whitespace-nowrap text-gray-600 sm:table-cell dark:text-gray-300">{{ $t['due'] }}</td>
+                                    <td class="whitespace-nowrap"><x-ta.pill :tone="$toneOf($t['status'] ?? null)">{{ $say($t['status'] ?? null) }}</x-ta.pill></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        @else
+            <ul>
+                @forelse ($opsData['outcomes'] ?? [] as $o)
+                    <li class="card-row flex-wrap sm:flex-nowrap">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $o['task'] ?? $o['title'] }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-500">{{ $o['note'] }}</p>
+                        </div>
+                        <x-ta.pill :tone="$toneOf($o['state'] ?? null)">{{ $say($o['state'] ?? null) }}</x-ta.pill>
+                    </li>
+                @empty
+                    <li><x-ta.empty-state title="Henüz sonuç yok" /></li>
+                @endforelse
+            </ul>
+        @endif
     </div>
 
-    <div class="inline-flex rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="tablist">
-        @foreach (['findings' => 'Findings', 'recommendations' => 'Recommendations', 'tasks' => 'Tasks', 'outcomes' => 'Outcomes'] as $key => $label)
-            <button type="button" wire:click="setOps('{{ $key }}')" @class([
-                'px-3 py-2 text-xs font-medium',
-                'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white' => $ops === $key,
-                'text-gray-600 dark:text-gray-300' => $ops !== $key,
-            ])>{{ $label }}</button>
-        @endforeach
-    </div>
-
-    @if ($ops === 'findings')
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Severity</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Category</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Finding</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Status</th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($opsData['findings'] ?? [] as $f)
-                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td class="px-4 py-2.5"><x-ta.pill :tone="['error' => 'critical', 'warning' => 'look', 'success' => 'ok'][match($f['severity']) { 'critical', 'Critical', 'high', 'High' => 'error', 'medium', 'Medium' => 'warning', default => 'light' }] ?? 'info'">{{ $f['severity'] }}</x-ta.pill></td>
-                    <td class="px-4 py-2.5 text-xs text-gray-500">{{ $f['category'] }}</td>
-                    <td class="px-4 py-2.5"><button type="button" wire:click="openFinding('{{ $f['id'] }}')" class="text-left text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $f['title'] }}</button></td>
-                    <td class="px-4 py-2.5 text-xs">{{ $f['status'] }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
-        </div>
-    @elseif ($ops === 'recommendations')
-        <ul class="space-y-2">
-            @foreach ($opsData['recommendations'] ?? [] as $r)
-                <li class="border-b border-gray-200 py-3 dark:border-gray-800">
-                    <p class="text-xs text-gray-500">{{ $r['status'] }}, {{ $r['finding_id'] }}</p>
-                    <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $r['title'] }}</p>
-                    @if (! empty($r['detail']))
-                        <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{{ $r['detail'] }}</p>
-                    @endif
-                    <button type="button" wire:click="openFinding('{{ $r['finding_id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open Finding</button>
-                </li>
-            @endforeach
-        </ul>
-    @elseif ($ops === 'tasks')
-        <div class="max-w-full overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="border-b border-gray-200 dark:border-gray-800">
-                    <tr>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Task</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Owner</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Due</th>
-                <th class="px-4 py-2.5 text-left text-xs font-normal text-gray-500">Status</th>
-            </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
-            @foreach ($opsData['tasks'] ?? [] as $t)
-                <tr>
-                    <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $t['title'] }}</td>
-                    <td class="px-4 py-2.5 text-xs">{{ $t['owner'] }}</td>
-                    <td class="px-4 py-2.5 text-xs">{{ $t['due'] }}</td>
-                    <td class="px-4 py-2.5 text-xs font-medium">{{ $t['status'] }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-            </table>
-        </div>
-    @else
-        <ul class="space-y-2">
-            @foreach ($opsData['outcomes'] ?? [] as $o)
-                <li class="flex flex-col gap-1 border-b border-gray-200 py-3 dark:border-gray-800 sm:flex-row sm:justify-between">
-                    <div>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $o['task'] ?? $o['title'] }}</p>
-                        <p class="mt-0.5 text-xs text-gray-500">{{ $o['note'] }}</p>
-                    </div>
-                    <span @class([
-                        'text-xs font-semibold',
-                        'text-success-700 dark:text-success-400' => ($o['state'] ?? '') === 'Improvement observed',
-                        'text-warning-700 dark:text-warning-400' => ($o['state'] ?? '') !== 'Improvement observed',
-                    ])>{{ $o['state'] }}</span>
-                </li>
-            @endforeach
-        </ul>
-        <p class="text-xs text-gray-500">Observational language only — outcomes do not claim the Task caused the change.</p>
+    @if ($ops === 'outcomes')
+        <p class="text-xs text-gray-500 dark:text-gray-400">Sonuçlar yalnız gözlemdir; değişimi görevin yaptığını iddia etmez.</p>
 
         @if (! empty($opsData['decision_history']))
-            <section class="min-w-0">
-                <h3 class="section-title">Decision history</h3>
-                <ol class="mt-3 space-y-2 text-sm">
+            <section class="pt-7">
+                <div class="section-head"><h2 class="section-title">Karar geçmişi</h2></div>
+                <ul class="card">
                     @foreach ($opsData['decision_history'] as $event)
-                        <li class="flex gap-3"><span class="w-14 shrink-0 text-xs text-gray-500">{{ $event['when'] }}</span><span>{{ $event['event'] }}</span></li>
+                        <li class="card-row py-3 text-sm">
+                            <span class="w-16 shrink-0 text-xs text-gray-500">{{ $event['when'] }}</span>
+                            <span class="min-w-0 text-gray-800 dark:text-gray-200">{{ $event['event'] }}</span>
+                        </li>
                     @endforeach
-                </ol>
+                </ul>
             </section>
         @endif
     @endif

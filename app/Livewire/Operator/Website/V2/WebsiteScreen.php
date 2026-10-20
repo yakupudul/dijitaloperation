@@ -34,8 +34,8 @@ final class WebsiteScreen extends Component
     public const array SETTINGS = ['ayarlar' => 'Site ayarları ve bağlı varlıklar'];
 
     /** Under the "Ayarlar" menu after the settings: views kept for detail work, out of the main row. */
-    public const array MORE = ['fikirler' => 'İçerik fikirleri (ayrıntılı liste)', 'hedef' => 'Hedef sorgular',
-        'donusumler' => 'Dönüşümler', 'eslestirme' => 'Sayfa ↔ hizmet ↔ küme', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'];
+    public const array MORE = ['fikirler' => 'İçerik fikirleri', 'hedef' => 'Hedef sorgular',
+        'donusumler' => 'Dönüşümler', 'eslestirme' => 'Sayfa, hizmet ve küme eşleşmesi', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'];
 
     /** Tabs whose components read Search Console / GA4: the date picker shows there and the range goes along. */
     public const array RANGED = ['analiz', 'sayfalar', 'sorgular', 'kumeler', 'hedef', 'donusumler'];

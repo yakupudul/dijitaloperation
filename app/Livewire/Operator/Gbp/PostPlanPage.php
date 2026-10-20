@@ -227,7 +227,7 @@ final class PostPlanPage extends Component
         $today = GbpPostQueue::today();
         $days = collect(range(0, GbpPostQueue::HORIZON_DAYS))->map(fn (int $i): string => $today->addDays($i)->toDateString())->all();
         $weekEnd = $today->addDays(6)->toDateString();
-        $locations = GbpPostQueue::locations()->with('brand:id,name')->orderBy('digital_assets.name')
+        $locations = GbpPostQueue::locations()->with('brand:id,name,logo_url')->orderBy('digital_assets.name')
             ->get(['digital_assets.id', 'digital_assets.name', 'digital_assets.brand_id']);
         $posts = GbpQueuedPost::query()->whereIn('digital_asset_id', $locations->pluck('id'))
             ->whereBetween('publish_on', [$today->subDays(7)->toDateString(), end($days)])
