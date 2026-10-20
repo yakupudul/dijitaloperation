@@ -9,6 +9,7 @@ use App\Services\Prompts\PromptRegistry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -24,6 +25,9 @@ final class AiLiveIndicator extends Component
      * string: an array property here was diffed by the browser into an invalid "$" update on some polls. */
     public string $watching = '';
 
+    /** Sidebar card (menu prototype 2026-10-20): always shown, says what Claude is doing and how much it finished in a day. */
+    public bool $card = false;
+
     /** An operator click that may have started AI work: refresh now instead of waiting for the next poll. */
     #[On('ai-live-refresh')]
     public function refreshNow(): void {}
@@ -33,8 +37,9 @@ final class AiLiveIndicator extends Component
         $running = auth()->check() ? $live->running() : new EloquentCollection;
         $this->announceFinished($live, $running);
         $visible = $running->isNotEmpty() || (auth()->check() && $live->hasRecent());
-        $queued = $visible ? $live->queued(10) : new EloquentCollection;
-        $finished = $visible ? $live->finishedRecently(10) : new EloquentCollection;
+        $listed = $visible || ($this->card && auth()->check());
+        $queued = $listed ? $live->queued(10) : new EloquentCollection;
+        $finished = $listed ? $live->finishedRecently(10) : new EloquentCollection;
 
         return view('livewire.operator.ai-live-indicator', [
             'running' => $running,
@@ -43,6 +48,7 @@ final class AiLiveIndicator extends Component
             'visible' => $visible,
             'users' => self::userNames($running->concat($queued)->concat($finished)),
             'canOpenSettings' => PromptRegistry::canEdit(auth()->user()),
+            'doneToday' => $this->card && auth()->check() ? self::doneToday() : 0,
         ]);
     }
 
@@ -65,6 +71,13 @@ final class AiLiveIndicator extends Component
             }
         }
         $this->watching = implode(',', $open);
+    }
+
+    /** Top-level AI work finished in the last 24 hours (the card's second line); cached for a minute. */
+    public static function doneToday(): int
+    {
+        return (int) Cache::remember('ai-live.done-24h', 60, fn (): int => AiLiveOperation::query()->whereNull('parent_id')
+            ->where('status', AiLiveOperation::DONE)->where('finished_at', '>=', now()->subDay())->count());
     }
 
     /**

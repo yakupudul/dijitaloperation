@@ -3,10 +3,20 @@
 namespace App\Support;
 
 use App\Models\Brand;
+use App\Models\GbpQueuedPost;
+use App\Models\Strategy;
+use App\Models\WhatsAppConversation;
+use App\Services\GoogleAds\Desk\GoogleAdsDesk;
+use App\Services\Meta\MetaDesk;
+use App\Services\Operations\SystemHealthReader;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
 use App\Support\Demo\DemoMenu;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
+
+use function Illuminate\Support\defer;
 
 /**
  * Sidebar menu for the canonical TailAdmin operator shell.
@@ -15,11 +25,12 @@ use Throwable;
 final class OperatorMenu
 {
     /**
-     * @return list<array{title: string, items: list<array{name: string, path: string, icon: string, routes: list<string>, active: bool, count: ?int, external?: bool}>}>
+     * @return list<array{title: string, pinned: bool, items: list<array{name: string, path: string, icon: string, routes: list<string>, active: bool, count: ?int, tone: ?string, external?: bool}>}>
      */
     public static function groups(?string $currentPath = null, ?string $routeName = null): array
     {
         $counts = self::counters();
+        $badges = self::badges();
         $groups = [];
         foreach (DemoMenu::groups() as $group) {
             $items = [];
@@ -29,11 +40,13 @@ final class OperatorMenu
                     'path' => route($item['route'], absolute: false),
                     'icon' => $item['icon'],
                     'routes' => [$item['route'], ...array_column($item['children'] ?? [], 'route'), ...($item['active'] ?? [])],
-                    'count' => $counts[$item['route']] ?? null,
+                    'count' => $counts[$item['route']] ?? $badges[$item['route']]['count'] ?? null,
+                    'tone' => isset($counts[$item['route']]) ? 'accent' : ($badges[$item['route']]['tone'] ?? null),
                 ];
             }
             $groups[] = [
                 'title' => $group['label'],
+                'pinned' => (bool) ($group['pinned'] ?? false),
                 'items' => $items,
             ];
         }
@@ -72,6 +85,91 @@ final class OperatorMenu
         }
 
         return $repair > 0 ? ['operator.repair' => $repair] : [];
+    }
+
+    private const BADGES_KEY = 'operator-menu.badges';
+
+    /** Badges older than this are refreshed after the response; the menu keeps showing the last ones meanwhile. */
+    private const BADGES_FRESH_SECONDS = 300;
+
+    /**
+     * Menu badges (yakup 2026-10-20, approved menu prototype): where work waits. Computing them reads several desks,
+     * so a page never waits for it: the last result is shown and a stale one is refreshed after the response.
+     *
+     * @return array<string, array{count: ?int, tone: string}> route name => badge
+     */
+    public static function badges(): array
+    {
+        if (! auth()->check()) {
+            return [];
+        }
+        $cached = Cache::get(self::BADGES_KEY);
+        $stale = ! is_array($cached) || (int) ($cached['at'] ?? 0) < now()->getTimestamp() - self::BADGES_FRESH_SECONDS;
+        if ($stale && ! app()->runningUnitTests() && Cache::add(self::BADGES_KEY.'.lock', 1, 120)) {
+            defer(static function (): void {
+                Cache::forever(self::BADGES_KEY, ['at' => now()->getTimestamp(), 'badges' => self::computeBadges()]);
+                Cache::forget(self::BADGES_KEY.'.lock');
+            });
+        }
+
+        return is_array($cached) ? (array) ($cached['badges'] ?? []) : [];
+    }
+
+    /**
+     * Red = money or data being lost, amber = brands needing a look, soft = information, dot = a broken connection.
+     * Each source is failure-safe on its own.
+     *
+     * @return array<string, array{count: ?int, tone: string}>
+     */
+    public static function computeBadges(): array
+    {
+        $out = [];
+        $put = static function (string $route, string $tone, callable $count) use (&$out): void {
+            try {
+                $value = $count();
+                if ($value === true) {
+                    $out[$route] = ['count' => null, 'tone' => $tone];
+                } elseif (is_int($value) && $value > 0) {
+                    $out[$route] = ['count' => $value, 'tone' => $tone];
+                }
+            } catch (Throwable $error) {
+                report($error);
+            }
+        };
+
+        $put('operator.google-ads-desk', 'red', function (): int {
+            $desk = app(GoogleAdsDesk::class);
+
+            return count(array_unique(array_column(GoogleAdsDesk::problems($desk->status($desk->accounts())), 'brand')));
+        });
+        $put('operator.meta-desk', 'red', fn (): int => (int) (app(MetaDesk::class)->desk([])['kpis']['today'] ?? 0));
+        $put('operator.gbp-desk', 'soft', fn (): int => GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)
+            ->where('publish_on', '>=', now()->toDateString())->count());
+        $put('operator.strategies', 'soft', fn (): int => Strategy::query()->where('status', 'draft')->count());
+        $put('operator.brands', 'amber', function (): int {
+            $models = Brand::query()->with(['customer', 'responsibleUsers', 'digitalAssets.assetBindings', 'intelligenceContext', 'sectorCategory'])->get();
+            $signals = app(PortfolioSignalsReader::class)->forBrands($models)['brands'];
+
+            return $models->filter(fn (Brand $brand): bool => (bool) (OperatorPortfolioPresenter::brand($brand, $signals[(int) $brand->id] ?? PortfolioSignalsReader::emptyBrand())['needs_attention'] ?? false))->count();
+        });
+        $put('operator.whatsapp', 'soft', fn (): int => WhatsAppConversation::query()->whereNull('done_at')->whereNull('opted_out_at')
+            ->whereNotNull('last_incoming_at')->whereColumn('last_incoming_at', '>=', 'last_message_at')
+            ->where('last_message_at', '>=', now()->subDays(7))->count());
+        $put('operator.integrations', 'dot', function (): bool {
+            $health = app(SystemHealthReader::class)->read();
+            foreach ($health['integrations'] as $integration) {
+                if (in_array($integration['provider'], ['google', 'meta'], true) && $integration['auth_status'] !== '' && $integration['auth_status'] !== 'connected') {
+                    return true;
+                }
+                if ($integration['expires_in_days'] !== null && $integration['expires_in_days'] < 0) {
+                    return true;
+                }
+            }
+
+            return collect($health['accounts'])->contains(fn (array $a): bool => $a['enabled'] && $a['state'] === 'attention');
+        });
+
+        return $out;
     }
 
     /**

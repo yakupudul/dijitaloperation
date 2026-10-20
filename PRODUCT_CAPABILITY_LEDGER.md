@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — Sol menü: rozetler, dört grup, Claude kartı
+
+- **Karar (yakup 2026-10-20 "tamam yap", prototip `https://claude.ai/artifact/MiPP1V7MZTCtovmb8iLzsK`):** menü "sönük" bulundu.
+- **Görünüm:** seçili ekran vurgu renginin açık tonu, ikon kutusu vurgu renginde; marka seçici beyaz kart; grup başlıkları küçük büyük harf.
+- **Gruplar:** Çalışma (başlıksız), Kanallar, Büyüme (Kazananlar, Stratejiler, Sorgular), Portföy (Markalar, Dijital varlıklar, Web siteleri, WhatsApp); Sistem (Entegrasyonlar, Ayarlar) en altta sabit (`DemoMenu` `pinned`).
+- **Rozetler (`OperatorMenu::badges`):** Onarım masası sarı (onay bekleyen iş); Google Ads kırmızı (para ya da veri kaybeden marka), Meta kırmızı (bugün bakılacak kampanya); Markalar turuncu (dikkat isteyen marka); İşletme profilleri (onay bekleyen gönderi), Stratejiler (karar bekleyen), WhatsApp (cevap bekleyen) gri; Entegrasyonlar kırmızı nokta (yenilenmesi gereken Google / Meta bağlantısı ya da durmuş veri çekimi). Sayfa beklemez: son sonuç gösterilir, 5 dakikadan eskiyse yanıttan sonra yenilenir.
+- **Claude kartı:** üst çubuktaki "AI · N" menünün altına koyu kart olarak indi ("Claude çalışıyor / hazır", sıradaki iş, son 24 saatte biten iş); tıklayınca çalışan, sıradaki ve biten işler açılır.
+- **Durum:** CODED, TESTED (`MenuBadgesTest`, `PanelDesignFreezeTest`, `AiLiveOperationsTest`); açık ve koyu temada yerel kontrol; görsel kabul yakup'ta.
+
 ## 2026-10-20 — Canlı panel dili ve Ayarlar › Görünüm renkleri
 
 - **Karar (yakup 2026-10-20):** onaylı konsept canlıda "çok donuk"; ikas.com/tr ve e-adam.com ile karşılaştırılıp prototip yapıldı (`https://claude.ai/artifact/GAW4785G9CancdGzVCcB2E`), yakup: "Tasarım dili tam istediğim gibi oldu." Renkler sistem ayarından değişebilmeli, varsayılan Moximu logo renkleri.

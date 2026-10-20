@@ -1,12 +1,34 @@
-<div @if ($running->isNotEmpty()) wire:poll.5s="refreshNow" @else wire:poll.30s="refreshNow" @endif class="relative" data-ai-live-indicator>
-    @if ($visible)
+<div @if ($running->isNotEmpty()) wire:poll.5s="refreshNow" @else wire:poll.30s="refreshNow" @endif class="relative" data-ai-live-indicator @if ($card) data-ai-live-card @endif>
+    @if ($visible || $card)
         <details class="group" wire:key="ai-live-details">
+            @if ($card)
+                @php
+                    $cardTitle = $running->isNotEmpty() ? 'Claude çalışıyor' : ($queued->isNotEmpty() ? 'Claude sıradaki işe geçiyor' : 'Claude hazır');
+                    $cardLine = implode(' · ', array_filter([
+                        $running->count() > 1 ? $running->count().' iş çalışıyor' : null,
+                        $queued->isNotEmpty() ? $queued->count().' iş sırada' : null,
+                        'son 24 saatte '.number_format($doneToday, 0, ',', '.').' iş bitti',
+                    ]));
+                @endphp
+                {{-- Sidebar card (menu prototype 2026-10-20): dark, a live dot, what Claude does now and its day's count. --}}
+                <summary class="relative flex cursor-pointer list-none items-center gap-2.5 overflow-hidden rounded-[14px] border border-white/10 bg-hero px-3 py-2.5 text-white"
+                    :class="($store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen) ? '' : 'justify-center px-0'" title="{{ $cardTitle }}">
+                    <span class="pointer-events-none absolute -bottom-10 -right-8 h-24 w-32 bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--color-second)_70%,transparent),transparent)]" aria-hidden="true"></span>
+                    <span @class(['relative h-2.5 w-2.5 shrink-0 rounded-full', 'bg-accent animate-pulse' => $running->isNotEmpty(), 'bg-warning-400' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-success-400' => $running->isEmpty() && $queued->isEmpty()])></span>
+                    <span class="relative min-w-0" x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen">
+                        <span class="block truncate text-[13px] font-semibold">{{ $cardTitle }}</span>
+                        <span class="block truncate text-xs text-white/65">{{ $cardLine }}</span>
+                    </span>
+                    <span class="sr-only">AI · {{ $running->count() }}</span>
+                </summary>
+            @else
             <summary class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-md px-2 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white">
                 <span @class(['h-2 w-2 shrink-0 rounded-full', 'live-dot' => $running->isNotEmpty(), 'bg-warning-500' => $running->isEmpty() && $queued->isNotEmpty(), 'bg-success-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'done', 'bg-error-500' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'failed', 'bg-gray-400' => $running->isEmpty() && $queued->isEmpty() && $finished->first()?->status === 'cancelled'])></span>
                 <span class="sr-only sm:not-sr-only">AI · {{ $running->count() }}</span>
                 @if ($queued->isNotEmpty())<span class="sr-only sm:not-sr-only">+{{ $queued->count() }} sırada</span>@endif
             </summary>
-            <div class="absolute right-0 z-50 mt-1.5 w-96 max-w-[90vw] rounded-xl bg-white p-4 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+            @endif
+            <div @class(['absolute z-50 rounded-xl bg-white p-4 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700', 'right-0 mt-1.5 w-96 max-w-[90vw]' => ! $card, 'bottom-full left-0 mb-2 w-80 max-w-[85vw]' => $card]) data-ai-live-panel>
                 <p class="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">Çalışan AI işlemleri</p>
                 <div class="max-h-80 space-y-2 overflow-y-auto">
                     @forelse ($running as $row)

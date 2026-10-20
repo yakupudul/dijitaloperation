@@ -6,7 +6,8 @@
     $sidebarOpen = '$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen';
 @endphp
 
-{{-- Operator sidebar (panel redesign 2026-10-19): 236 px on the gray page, grouped entries with counters, brand switcher on top. --}}
+{{-- Operator sidebar: 236 px on the gray page, brand switcher card on top, grouped entries with work badges, Claude card
+     and Sistem pinned at the bottom (menu prototype approved 2026-10-20). --}}
 <aside id="operator-sidebar"
     class="fixed left-0 top-0 z-99999 flex h-dvh flex-col border-r border-gray-200 bg-page px-3 text-gray-900 transition-all duration-200 ease-in-out xl:border-r-0 dark:border-gray-800 dark:bg-gray-950"
     :class="{
@@ -19,9 +20,9 @@
     @mouseleave="$store.sidebar.setHovered(false)">
 
     {{-- Workspace: the agency and, under it, every brand it works for (one click to any brand page). --}}
-    <div class="relative flex h-14 shrink-0 items-center" x-data="{ open: false, q: '' }" @click.outside="open = false" @keydown.escape.window="open = false" data-brand-switcher>
+    <div class="relative flex h-16 shrink-0 items-center" x-data="{ open: false, q: '' }" @click.outside="open = false" @keydown.escape.window="open = false" data-brand-switcher>
         <button type="button" @click="open = ! open" :aria-expanded="open" aria-haspopup="menu"
-            class="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-white/5"
+            class="flex w-full items-center gap-2.5 rounded-[12px] border border-gray-200 bg-white px-2 py-1.5 text-left shadow-card transition hover:border-gray-300 dark:border-gray-800 dark:bg-white/[0.04] dark:hover:border-gray-700"
             :class="({{ $sidebarOpen }}) ? '' : 'justify-center'">
             @if (! empty($operatorBranding['logo_url']))
                 <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="h-7 w-7 shrink-0 rounded-md object-contain" />
@@ -54,54 +55,36 @@
         </div>
     </div>
 
-    <!-- Navigation -->
-    <div class="no-scrollbar flex flex-1 flex-col overflow-y-auto overscroll-contain pb-4 pt-1">
-        <nav class="flex flex-col gap-4">
-            @foreach ($menuGroups as $menuGroup)
-                <div>
-                    <h2 class="mb-0.5 flex h-6 items-center px-2 text-xs font-medium text-gray-500 dark:text-gray-500"
-                        :class="({{ $sidebarOpen }}) ? 'justify-start' : 'justify-center'">
-                        <span x-show="{{ $sidebarOpen }}">{{ $menuGroup['title'] }}</span>
-                        <span x-show="!({{ $sidebarOpen }})" class="h-px w-4 bg-gray-200 dark:bg-gray-800" aria-hidden="true"></span>
-                    </h2>
-
-                    <ul class="flex flex-col gap-0.5">
-                        @foreach ($menuGroup['items'] as $item)
-                            @php
-                                // Only the most specific entry is lit (OperatorMenu::activeEntry).
-                                $isActive = $item['active'];
-                                $external = ! empty($item['external']);
-                            @endphp
-                            <li>
-                                <a href="{{ $item['path'] }}"
-                                    @if ($external) target="_self" @endif
-                                    @if ($isActive) aria-current="page" @endif
-                                    title="{{ $item['name'] }}"
-                                    class="menu-item group {{ $isActive ? 'menu-item-active' : 'menu-item-inactive' }}"
-                                    :class="({{ $sidebarOpen }}) ? 'justify-start' : 'justify-center'">
-                                    <span class="shrink-0 {{ $isActive ? 'menu-item-icon-active' : 'menu-item-icon-inactive' }}">
-                                        {!! OperatorMenu::icon($item['icon']) !!}
-                                    </span>
-                                    <span class="menu-item-text flex min-w-0 flex-1 items-center gap-2" x-show="{{ $sidebarOpen }}">
-                                        <span class="truncate">{{ $item['name'] }}</span>
-                                        @if ($external)
-                                            <svg class="h-3.5 w-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                                            </svg>
-                                        @endif
-                                        @if (($item['count'] ?? null) !== null)
-                                            <span class="menu-count" data-menu-count="{{ $item['count'] }}">{{ number_format($item['count'], 0, ',', '.') }}</span>
-                                        @endif
-                                    </span>
-                                    @if (($item['count'] ?? null) !== null)
-                                        <span x-show="!({{ $sidebarOpen }})" class="absolute right-1.5 top-1 h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden="true"></span>
-                                    @endif
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
+    <!-- Navigation: groups scroll, Sistem stays pinned at the bottom with the Claude card (menu prototype 2026-10-20). -->
+    @php
+        $scrollGroups = array_values(array_filter($menuGroups, fn (array $g): bool => ! $g['pinned']));
+        $pinnedGroups = array_values(array_filter($menuGroups, fn (array $g): bool => $g['pinned']));
+    @endphp
+    <div class="no-scrollbar flex flex-1 flex-col overflow-y-auto overscroll-contain pb-3 pt-1">
+        <nav class="flex flex-col gap-3" aria-label="{{ app()->getLocale() === 'tr' ? 'Ana menü' : 'Main menu' }}">
+            @foreach ($scrollGroups as $menuGroup)
+                <div data-menu-group="{{ $menuGroup['title'] }}">
+                    @unless ($loop->first)
+                        <h2 class="mb-0.5 flex h-6 items-center px-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500"
+                            :class="({{ $sidebarOpen }}) ? 'justify-start' : 'justify-center'">
+                            <span x-show="{{ $sidebarOpen }}">{{ $menuGroup['title'] }}</span>
+                            <span x-show="!({{ $sidebarOpen }})" class="h-px w-4 bg-gray-200 dark:bg-gray-800" aria-hidden="true"></span>
+                        </h2>
+                    @endunless
+                    @include('operator.layouts.partials.sidebar-items', ['items' => $menuGroup['items']])
                 </div>
             @endforeach
         </nav>
+    </div>
+
+    <div class="shrink-0 border-t border-gray-200 pb-3 pt-2.5 dark:border-gray-800" data-menu-pinned>
+        @auth
+            <livewire:operator.ai-live-indicator card />
+        @endauth
+        @foreach ($pinnedGroups as $menuGroup)
+            <div class="mt-1.5" data-menu-group="{{ $menuGroup['title'] }}">
+                @include('operator.layouts.partials.sidebar-items', ['items' => $menuGroup['items']])
+            </div>
+        @endforeach
     </div>
 </aside>

@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — Sol menü
+
+- Menü dört grup + altta sabit Sistem; rozetler işin nerede beklediğini gösterir (sarı onay, kırmızı kayıp, turuncu dikkat, gri bilgi, kırmızı nokta bozuk bağlantı). Rozet hesabı sayfayı bekletmez (`OperatorMenu::badges`, yanıttan sonra yenilenir). Claude'un durumu menünün altındaki koyu kartta; üst çubukta AI yazısı yok.
+
 ## 2026-10-20 — Canlı panel dili, renkler ayardan
 
 - Onaylı konsept canlıda yakup'a "çok donuk" geldi; ikas / e-adam örnekleriyle ikinci prototip (claude.ai/artifact/GAW4785G9CancdGzVCcB2E) onaylandı. Renk vurgusu, büyük başlık, koyu rakam paneli, renkli eylem kartları, değişim rozetleri.

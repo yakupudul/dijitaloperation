@@ -16,12 +16,9 @@
         </div>
 
         <div class="flex min-w-0 items-center gap-1.5 sm:gap-2">
-            {{-- One live strip: data jobs and AI work side by side, each only while something is happening. --}}
+            {{-- Data jobs while something is happening; Claude's work is the card at the bottom of the menu (2026-10-20). --}}
             <div class="flex items-center gap-1.5" data-live-strip>
                 <livewire:demo.partials.active-data-sync-indicator />
-                @auth
-                    <livewire:operator.ai-live-indicator />
-                @endauth
             </div>
 
             <x-ta.theme-toggle />

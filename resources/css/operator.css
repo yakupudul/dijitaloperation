@@ -215,12 +215,26 @@
 }
 
 @utility menu-item {
-  @apply relative flex items-center w-full gap-2.5 px-2 py-1 rounded-md text-sm leading-6;
+  @apply relative flex items-center w-full gap-2.5 rounded-[10px] px-1.5 py-[3px] text-sm leading-6 transition-colors duration-150;
 }
 
 /* Counter at the end of a menu entry (Onarım masası · 12). */
 @utility menu-count {
-  @apply ml-auto text-xs tabular-nums text-gray-500 dark:text-gray-400;
+  @apply ml-auto grid h-[21px] min-w-[21px] place-items-center rounded-full bg-black/[0.06] px-1.5 text-xs font-semibold tabular-nums text-gray-500 dark:bg-white/10 dark:text-gray-400;
+}
+/* Badge tones (menu prototype 2026-10-20): accent = waiting for approval, red = money or data lost, amber = brands to
+   look at, soft = information. */
+@utility menu-count-accent {
+  @apply bg-accent text-accent-ink dark:bg-accent dark:text-accent-ink;
+}
+@utility menu-count-red {
+  @apply bg-error-50 text-error-700 dark:bg-error-500/20 dark:text-error-300;
+}
+@utility menu-count-amber {
+  @apply bg-warning-50 text-warning-700 dark:bg-warning-500/20 dark:text-warning-300;
+}
+@utility menu-icon-box {
+  @apply grid h-[30px] w-[30px] shrink-0 place-items-center rounded-[9px] transition duration-150 [&>svg]:h-[18px] [&>svg]:w-[18px];
 }
 
 /* White card with a hairline edge: holds related rows, a form or a dialog. `surface` is the older name.
@@ -419,7 +433,7 @@ th:focus-visible > [data-sort-indicator] {
 
 /* Colour rules: orange (brand) is only the main action, so the active menu entry is neutral. */
 @utility menu-item-active {
-  @apply bg-white font-medium text-gray-900 shadow-card ring-1 ring-gray-200 dark:bg-white/[0.07] dark:text-white dark:ring-white/10;
+  @apply bg-accent-soft font-semibold text-gray-900 dark:text-white;
 }
 
 @utility menu-item-inactive {
@@ -427,11 +441,11 @@ th:focus-visible > [data-sort-indicator] {
 }
 
 @utility menu-item-icon-active {
-  @apply text-gray-900 dark:text-white;
+  @apply bg-accent text-accent-ink shadow-[0_2px_6px_color-mix(in_srgb,var(--color-accent)_45%,transparent)];
 }
 
 @utility menu-item-icon-inactive {
-  @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  @apply text-gray-600 group-hover:bg-white group-hover:text-gray-900 group-hover:shadow-card dark:text-gray-400 dark:group-hover:bg-white/10 dark:group-hover:text-gray-200;
 }
 
 /*
