@@ -25,7 +25,8 @@ use Throwable;
  * HTML (stored crawl) counts as present.
  *
  * No row without expected gain (yakup, 2026-10-11 — "Arama 10672" on one small site was noise): when the site has
- * Search Console data, a page that had no impressions in 90 days gets no row unless it is a service / location page;
+ * Search Console data, a page with fewer than MIN_IMPRESSIONS impressions in 90 days gets no row unless it is a
+ * service / location page (2026-10-20: 1-9 impressions a quarter was still thousands of rows on keyword-page sites);
  * WordPress by-products (pagination such as /page/2/, tag / author archives — SeoText::isCrawlablePage) are not checked
  * at all. Such pages are not junk and get no noindex / delete advice; they are simply not worth a title fix. Their
  * waiting rows close as "auto dismissed" and come back by themselves when the page starts being seen.
@@ -50,6 +51,12 @@ final class SiteAudit
 
     /** `action.auto_closed` of a row the audit closed itself because fixing the page brings nothing (reopens when it does). */
     public const string NO_GAIN = 'no_gain';
+
+    /**
+     * Search Console impressions in 90 days below which a title / description fix brings nothing (a page seen two or
+     * three times a quarter, e.g. Arısoy's thousands of /kw/ pages, made the desk a list of thousands of rows).
+     */
+    public const int MIN_IMPRESSIONS = 10;
 
     public const string NOT_A_PAGE = 'not_a_page';
 
@@ -119,7 +126,7 @@ final class SiteAudit
         foreach ([self::NO_GAIN => $noGain, self::NOT_A_PAGE => $byProducts] as $why => $pageIds) {
             foreach ($waiting->filter(fn (Suggestion $s): bool => in_array((int) $s->page_id, $pageIds, true)) as $suggestion) {
                 $suggestion->forceFill(['status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'action' => array_merge((array) $suggestion->action, ['auto_closed' => $why]),
-                    'operator_note' => $why === self::NO_GAIN ? 'Sayfa 90 günde aramada görünmedi; düzeltmenin beklenen kazancı yok (otomatik kapandı, sayfa görünmeye başlarsa geri gelir).'
+                    'operator_note' => $why === self::NO_GAIN ? 'Sayfa 90 günde aramada '.self::MIN_IMPRESSIONS.' kereden az göründü; düzeltmenin beklenen kazancı yok (otomatik kapandı, sayfa görünmeye başlarsa geri gelir).'
                         : 'Sayfalama / arşiv adresi; düzeltilecek sayfa değil (otomatik kapandı).'])->save();
                 $closed++;
             }
@@ -134,11 +141,11 @@ final class SiteAudit
 
     /**
      * Whether a page's title / description fix can bring anything: always without Search Console data and on a service
-     * or location page; otherwise only when the page had impressions in the last 90 days.
+     * or location page; otherwise only when the page had at least MIN_IMPRESSIONS impressions in the last 90 days.
      */
     public static function worthFixing(?int $impressions, ?string $category): bool
     {
-        return $impressions === null || $impressions > 0 || in_array((string) $category, self::KEY_CATEGORIES, true);
+        return $impressions === null || $impressions >= self::MIN_IMPRESSIONS || in_array((string) $category, self::KEY_CATEGORIES, true);
     }
 
     /**

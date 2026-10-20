@@ -35,6 +35,19 @@ final class SeoFieldsGainTest extends SiteTestCase
         $this->assertSame(2, $result['opened']);
     }
 
+    public function test_a_page_seen_only_a_few_times_a_quarter_gets_no_row_either(): void
+    {
+        $barely = $this->wpPage('/kw/hurdaci-ali/', 64, 'diger');
+        $enough = $this->wpPage('/blog/bakir-fiyati/', 65, 'blog');
+        $this->fact('hurdacı ali', '/kw/hurdaci-ali/', SiteAudit::MIN_IMPRESSIONS - 1, 0, 40.0, '2026-09-20');
+        $this->fact('bakır fiyatı', '/blog/bakir-fiyati/', SiteAudit::MIN_IMPRESSIONS, 0, 25.0, '2026-09-20');
+
+        app(SiteAudit::class)->audit($this->site);
+
+        $this->assertSame([$enough->id], Suggestion::query()->where('action_type', SiteAudit::TYPE)->pluck('page_id')->all());
+        $this->assertFalse(Suggestion::query()->where('page_id', $barely->id)->exists());
+    }
+
     public function test_without_search_console_data_every_page_is_still_checked(): void
     {
         $page = $this->wpPage('/kw/bakir-boru-fiyatlari/', 62, 'diger');
