@@ -266,13 +266,16 @@ final class PortfolioSignalsTest extends TestCase
 
             return $n;
         };
+        // Factories pick industry / sector at random and their labels load once on first use; give every row one so both counts see the same lookups.
+        Customer::query()->each(fn (Customer $customer): bool => $customer->update(['industry' => 'dental']));
+        Brand::query()->each(fn (Brand $brand): bool => $brand->update(['sector' => 'dental']));
         foreach ([CustomersIndex::class, BrandsIndex::class, AssetsIndex::class] as $warmUp) {
             $count($warmUp); // one-time lookups (permissions cache, schema checks, settings row) are not per-row
         }
         $before = ['customers' => $count(CustomersIndex::class), 'brands' => $count(BrandsIndex::class), 'assets' => $count(AssetsIndex::class)];
 
         foreach (range(1, 6) as $i) {
-            $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Ek Marka '.$i]);
+            $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['industry' => 'dental'])->id, 'name' => 'Ek Marka '.$i, 'sector' => 'dental']);
             $this->adsFact($this->bind($this->asset($brand, 'google_ads', 'Ek Ads '.$i), 'google_ads', 'ext-'.$i), '2026-09-26');
             $this->suggestion($brand, 'google_ads', 'x'.$i);
         }
