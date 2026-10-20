@@ -100,6 +100,8 @@ final class WordPressPageCacheExportTest extends TestCase
         $this->assertStringContainsString("dispatch('core/editor').editPost", $box);
         $this->assertStringContainsString("getElementById('publish')", $box);
         $this->assertStringNotContainsString('hidden_', $box);
+        $this->assertStringContainsString("document.body.classList.contains('block-editor-page')", $box, 'classic pages that load the block editor scripts stay on the classic path');
+        $this->assertStringContainsString('$slot[\'date\'] <= $current', $box, 'today only once its hour has come');
         $this->assertStringContainsString("add_filter('bulk_actions-edit-post'", $box);
         $this->assertStringContainsString("check_admin_referer('moxdop_smart_date_bulk')", $box);
         $this->assertStringContainsString('const BULK_MAX = 20;', $box);
@@ -115,9 +117,9 @@ final class WordPressPageCacheExportTest extends TestCase
             $this->assertSame(0, $code, $file.': '.implode("\n", $output));
         }
         $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.22.0')", $plugin);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.23.0')", $plugin);
         $this->assertStringContainsString('class-moxdop-connector-page-cache.php', $plugin);
-        $this->assertStringContainsString('Stable tag: 1.22.0', (string) file_get_contents($root.'/readme.txt'));
+        $this->assertStringContainsString('Stable tag: 1.23.0', (string) file_get_contents($root.'/readme.txt'));
 
         $controller = (string) file_get_contents($root.'/includes/class-moxdop-connector-rest-controller.php');
         $this->assertStringContainsString("'/page-cache'", $controller);

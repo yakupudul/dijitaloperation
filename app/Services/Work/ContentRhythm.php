@@ -25,7 +25,7 @@ use App\Services\Site\ContentTopics;
 final class ContentRhythm
 {
     public const array STAGES = [
-        'empty' => ['label' => 'Harita boş', 'new' => 3, 'update' => 1],
+        'empty' => ['label' => 'Haritanın çoğu boş', 'new' => 3, 'update' => 1],
         'half' => ['label' => 'Harita yarı dolu', 'new' => 2, 'update' => 2],
         'full' => ['label' => 'Harita büyük ölçüde dolu', 'new' => 1, 'update' => 3],
         'local' => ['label' => 'Dar yerel iş', 'new' => 1, 'update' => 1],
