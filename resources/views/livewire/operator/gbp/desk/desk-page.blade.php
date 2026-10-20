@@ -58,10 +58,22 @@
                             <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{!! $icons[$c['key']] ?? $icons['page'] !!}</svg></span>
                             @if ($c['done'])<x-ta.pill tone="ok" class="ml-auto text-[13px]!">Tamam</x-ta.pill>@endif
                         </div>
-                        <p class="soft-number">{{ $c['done'] ? $c['ok'] : $missing }}<span class="text-lg font-medium text-gray-500">/{{ $count }}</span></p>
+                        {{-- A gap reads "26 işletmede eksik" (owner 2026-10-20: "26/26" read as if all were done). --}}
+                        @if ($c['done'])
+                            <p class="soft-number">{{ $c['ok'] }}<span class="text-lg font-medium text-gray-500">/{{ $count }}</span></p>
+                        @else
+                            <p class="soft-number" data-gbp-condition-missing>{{ $missing }} <span class="text-lg font-medium text-gray-600 dark:text-gray-300">işletmede eksik</span></p>
+                        @endif
                         <div>
                             <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{{ $c['label'] }}</p>
-                            <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">{{ $c['done'] ? 'Hepsinde tamam' : ($c['shared'] !== null ? 'işletmede eksik' : 'işletmede eksik, '.$c['ok'].' tanesi tamam') }}<span @class(['hidden' => $c['unknown'] === 0]) title="Google bu veriyi vermiyor ya da henüz toplanmadı; işletmenin satırında nedeni yazar">, {{ $c['unknown'] }} işletmede veri yok</span></p>
+                            @php
+                                $conditionNote = collect([
+                                    $c['done'] ? 'Hepsinde tamam' : null,
+                                    ! $c['done'] && $c['shared'] === null && $c['ok'] > 0 ? $c['ok'].' işletmede tamam' : null,
+                                    $c['unknown'] > 0 ? $c['unknown'].' işletmede veri yok' : null,
+                                ])->filter()->implode(', ');
+                            @endphp
+                            @if ($conditionNote !== '')<p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300" @if ($c['unknown'] > 0) title="Veri yok: Google bu veriyi vermiyor ya da henüz toplanmadı; işletmenin satırında nedeni yazar" @endif>{{ $conditionNote }}</p>@endif
                         </div>
                         <div class="mt-auto pt-1">
                             @if ($c['shared'] !== null)

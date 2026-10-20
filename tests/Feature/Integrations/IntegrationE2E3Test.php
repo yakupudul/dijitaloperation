@@ -102,6 +102,12 @@ final class IntegrationE2E3Test extends TestCase
         $automation->forceFill(['collection_status' => 'attention', 'collection_error' => 'collection_failed', 'collection_failures' => 3])->save();
         $this->actingAs($this->admin);
 
+        // The hub writes the stopped-account sentence once and has no "Keşfedilen varlıklar" button (it is a tab).
+        $hub = $this->get(route('operator.integrations'))->assertOk();
+        $this->assertSame(1, substr_count($hub->getContent(), 'hesapta otomatik veri çekimi durdu'));
+        $this->assertStringContainsString('1 hesapta otomatik veri çekimi durdu.', $hub->getContent());
+        $hub->assertDontSee('class="btn">Keşfedilen varlıklar</a>', false);
+
         Livewire::test(SystemHealthPage::class)->assertSee('Atlas Ads')->assertSee('Şimdi çek')->call('runNow', $automation->id)->assertSee('sıraya alındı');
         $this->assertSame(0, (int) $automation->fresh()->collection_failures);
         $this->assertNull($automation->fresh()->collection_error);
