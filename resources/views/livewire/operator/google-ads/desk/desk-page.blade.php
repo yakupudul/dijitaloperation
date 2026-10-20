@@ -213,7 +213,7 @@
                         @endif
                     @empty
                         <tr><td colspan="6" class="p-0">
-                            <x-ta.empty-state title="Operasyonel markaya bağlı Google Ads hesabı yok." size="sm">
+                            <x-ta.empty-state icon="none" title="Operasyonel markaya bağlı Google Ads hesabı yok." size="sm">
                                 <a href="{{ route('operator.integrations') }}" wire:navigate class="btn">Entegrasyonlardan bağla</a>
                             </x-ta.empty-state>
                         </td></tr>

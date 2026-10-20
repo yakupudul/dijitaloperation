@@ -1,171 +1,212 @@
+@php
+    // Panel concept 2026-10-20: "Hangi site Connector ile eşleşmiş, seçtiğim siteyi nasıl bağlarım?" The picked site's
+    // state and its one next step come first; the site list sits beside it, the build log and setup steps below.
+    $paired = fn ($c): bool => (bool) ($c?->enabled && $c?->credential);
+    $pairedCount = $assets->filter(fn ($a): bool => $paired($a->connections->first()))->count();
+@endphp
 <div class="space-y-10">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <p class="text-xs text-gray-500">{{ __('operator.site_connectors.title') }}</p>
-            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white" title="WordPress’in içeride bildiği CMS verisini imzalı, salt-okunur ve sayfalanmış snapshot’lar halinde toplar.">WordPress Connector</h1>
+    <header class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex min-w-0 items-start gap-3">
+            @include('livewire.demo.integrations.partials.provider-mark', ['provider' => 'wordpress', 'size' => 'lg'])
+            <div class="min-w-0">
+                <h1 class="page-title" title="WordPress’in içeride bildiği CMS verisini imzalı, salt-okunur ve sayfalanmış snapshot’lar halinde toplar.">WordPress Connector</h1>
+                <p class="page-sub">{{ __('operator.site_connectors.title') }}: {{ $assets->count() }} site, {{ $pairedCount }} eşleştirilmiş.</p>
+            </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-            <a href="{{ route('operator.integrations.site-connector.download', ['connector' => 'wordpress']) }}" class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ $packageFilename }}</a>
-            <a href="{{ route('operator.integrations') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.nav.integrations') }}</a>
+        <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+            <a href="{{ route('operator.integrations') }}" wire:navigate class="btn-quiet">{{ __('operator.nav.integrations') }}</a>
+            <a href="{{ route('operator.integrations.site-connector.download', ['connector' => 'wordpress']) }}" class="btn-primary" title="Eklenti paketini indir">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+                {{ $packageFilename }}
+            </a>
         </div>
-    </div>
+    </header>
 
     @if ($message !== '')
-        <div @class([
-            'rounded-lg px-4 py-3 text-sm',
-            'tone-ok' => $messageTone === 'success',
-            'tone-critical' => $messageTone === 'error',
-            'tone-info' => ! in_array($messageTone, ['success', 'error']),
-        ])>{{ $message }}</div>
+        <p @class([
+            'card -mt-4 px-4 py-3 text-sm',
+            'text-success-700 dark:text-success-400' => $messageTone === 'success',
+            'text-error-700 dark:text-error-400' => $messageTone === 'error',
+            'text-gray-700 dark:text-gray-300' => ! in_array($messageTone, ['success', 'error']),
+        ]) role="status">{{ $message }}</p>
     @endif
 
-    <div class="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <section>
-            <h2 class="section-title">Website seçimi</h2>
-            <div class="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
+        <section class="order-last min-w-0 lg:order-none">
+            <div class="section-head"><h2 class="section-title">Website seçimi <span class="section-count">{{ $assets->count() }}</span></h2></div>
+            <ul class="card">
                 @forelse ($assets as $asset)
-                    @php($assetConnection = $asset->connections->first())
-                    <button type="button" wire:click="selectAsset({{ $asset->id }})" @class([
-                        'w-full rounded-md px-2 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]',
-                        'bg-gray-100 dark:bg-white/[0.06]' => $selectedAssetId === $asset->id,
-                    ])>
-                        <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ $asset->name }}</span>
-                        <span class="block text-xs text-gray-500">{{ $asset->domain ?: $asset->primary_url }}</span>
-                        <x-ta.pill class="mt-1" :tone="$assetConnection?->enabled && $assetConnection?->credential ? 'ok' : 'look'">{{ $assetConnection?->enabled && $assetConnection?->credential ? 'Eşleştirilmiş' : 'Eşleştirilmemiş' }}</x-ta.pill>
-                    </button>
+                    @php($assetPaired = $paired($asset->connections->first()))
+                    <li class="border-t border-gray-200 first:border-t-0 dark:border-gray-800">
+                        <button type="button" wire:click="selectAsset({{ $asset->id }})" @class([
+                            'card-row w-full border-t-0 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.03]',
+                            'bg-gray-50 shadow-[inset_2px_0_0_var(--color-gray-900)] dark:bg-white/[0.05] dark:shadow-[inset_2px_0_0_white]' => $selectedAssetId === $asset->id,
+                        ]) @if ($selectedAssetId === $asset->id) aria-current="true" @endif>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ $asset->name }}</span>
+                                <span class="block truncate text-[13px] text-gray-500">{{ $asset->domain ?: $asset->primary_url }}</span>
+                            </span>
+                            <x-ta.pill :tone="$assetPaired ? 'ok' : 'look'">{{ $assetPaired ? 'Eşleştirilmiş' : 'Eşleştirilmemiş' }}</x-ta.pill>
+                        </button>
+                    </li>
                 @empty
-                    <p class="text-sm text-gray-500">Henüz Website dijital varlığı yok.</p>
+                    <li><x-ta.empty-state icon="none" size="sm" title="Henüz Website dijital varlığı yok." /></li>
                 @endforelse
-            </div>
+            </ul>
         </section>
 
-        <section>
+        <section class="min-w-0">
             @if ($selected)
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h2 class="section-title">{{ $selected->name }}</h2>
-                        <p class="text-sm text-gray-500">{{ $selected->primary_url ?: $selected->domain }}</p>
-                    </div>
-                    <x-ta.pill :tone="$connection?->enabled && $connection?->credential ? 'ok' : 'look'">{{ $connection?->enabled && $connection?->credential ? 'Bağlı' : 'Bağlı değil' }}</x-ta.pill>
+                @php($isPaired = $paired($connection))
+                <div class="section-head items-center">
+                    <h2 class="section-title min-w-0 truncate">{{ $selected->name }}</h2>
+                    <x-ta.pill :tone="$isPaired ? 'ok' : 'look'">{{ $isPaired ? 'Bağlı' : 'Bağlı değil' }}</x-ta.pill>
                 </div>
-
-                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                    <div><dt class="text-xs text-gray-400">Son başarılı istek</dt><dd class="font-medium text-gray-800 dark:text-white">{{ $connection?->last_success_at?->diffForHumans() ?? '—' }}</dd></div>
-                    <div><dt class="text-xs text-gray-400">Eklenti sürümü</dt><dd class="font-medium text-gray-800 dark:text-white">{{ data_get($connection?->config, 'plugin_version', '—') }}</dd></div>
-                    <div><dt class="text-xs text-gray-400">Durum endpoint’i</dt><dd class="truncate font-mono text-xs text-gray-600 dark:text-gray-300">{{ data_get($connection?->config, 'status_url', '—') }}</dd></div>
-                    <div><dt class="text-xs text-gray-400">Son bağlantı hatası</dt><dd class="text-xs text-gray-600 dark:text-gray-300">{{ $connection?->last_error ?: '—' }}</dd></div>
-                    @if ($pullSummary)
-                        <div class="sm:col-span-2"><dt class="text-xs text-gray-400">Site işleri kendisi alıyor</dt><dd class="text-xs text-gray-600 dark:text-gray-300">{{ $pullSummary }}</dd></div>
+                <div class="card">
+                    <div class="card-row flex-wrap sm:flex-nowrap">
+                        <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $selected->primary_url ?: $selected->domain }}</p>
+                            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $isPaired ? 'Eklenti eşleşmiş; bağlantıyı doğrulayabilirsiniz.' : 'Eşleştirme kodu üretip WordPress’teki MoxDOP Connector ekranına girin.' }}</p>
+                        </div>
+                        <div class="flex w-full flex-wrap gap-1.5 sm:w-auto sm:flex-nowrap">
+                            @if ($connection?->credential)
+                                <button type="button" wire:click="testConnection" class="btn-primary">Bağlantıyı doğrula</button>
+                            @endif
+                            <button type="button" wire:click="issuePairingCode" class="{{ $connection?->credential ? 'btn' : 'btn-primary' }}">{{ $connection?->credential ? 'Eşleştirmeyi döndür' : 'Eşleştirme kodu üret' }}</button>
+                        </div>
+                    </div>
+                    @if ($pairingCode)
+                        <div class="card-row flex-wrap bg-gray-50/60 dark:bg-white/[0.02]">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[13px] text-gray-500">Tek kullanımlık kod</p>
+                                <code class="mt-1 block break-all font-mono text-base font-semibold text-gray-900 dark:text-white">{{ $pairingCode }}</code>
+                                <p class="mt-1 text-xs text-gray-500" title="Kod veritabanında açık metin tutulmaz.">WordPress, Ayarlar, MoxDOP Connector ekranına girin. Son kullanma: {{ $pairingExpiresAt }}.</p>
+                            </div>
+                        </div>
                     @endif
-                </dl>
-
-                <div class="mt-5 flex flex-wrap gap-2">
-                    <button type="button" wire:click="issuePairingCode" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:ring-gray-700">{{ $connection?->credential ? 'Eşleştirmeyi döndür' : 'Eşleştirme kodu üret' }}</button>
+                    <dl>
+                        <div class="card-row flex-wrap"><dt class="w-40 shrink-0 text-[13px] text-gray-500">Son başarılı istek</dt><dd class="min-w-0 flex-1 text-sm text-gray-900 dark:text-white">{{ $connection?->last_success_at?->diffForHumans() ?? '—' }}</dd></div>
+                        <div class="card-row flex-wrap"><dt class="w-40 shrink-0 text-[13px] text-gray-500">Eklenti sürümü</dt><dd class="min-w-0 flex-1 text-sm text-gray-900 dark:text-white">{{ data_get($connection?->config, 'plugin_version', '—') }}</dd></div>
+                        <div class="card-row flex-wrap"><dt class="w-40 shrink-0 text-[13px] text-gray-500">Durum adresi</dt><dd class="min-w-0 flex-1 truncate font-mono text-xs text-gray-600 dark:text-gray-300" title="{{ data_get($connection?->config, 'status_url', '—') }}">{{ data_get($connection?->config, 'status_url', '—') }}</dd></div>
+                        <div class="card-row flex-wrap"><dt class="w-40 shrink-0 text-[13px] text-gray-500">Son bağlantı hatası</dt><dd @class(['min-w-0 flex-1 text-[13px]', 'text-error-700 dark:text-error-400' => $connection?->last_error, 'text-gray-600 dark:text-gray-300' => ! $connection?->last_error])>{{ $connection?->last_error ?: '—' }}</dd></div>
+                        @if ($pullSummary)
+                            <div class="card-row flex-wrap"><dt class="w-40 shrink-0 text-[13px] text-gray-500">Site işleri kendisi alıyor</dt><dd class="min-w-0 flex-1 text-[13px] text-gray-600 dark:text-gray-300">{{ $pullSummary }}</dd></div>
+                        @endif
+                    </dl>
                     @if ($connection?->credential)
-                        <button type="button" wire:click="testConnection" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Bağlantıyı doğrula</button>
-                        <button type="button" wire:click="disconnect" wire:confirm="Bu Website için MoxDOP Connector erişimi iptal edilsin mi?" class="rounded-lg px-3 py-2 text-sm font-medium text-error-700 ring-1 ring-inset ring-error-300 dark:text-error-300 dark:ring-error-700">Bağlantıyı kes</button>
+                        <div class="card-row justify-end">
+                            <button type="button" wire:click="disconnect" wire:confirm="Bu Website için MoxDOP Connector erişimi iptal edilsin mi?" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">Bağlantıyı kes</button>
+                        </div>
                     @endif
                 </div>
 
                 @if ($connection?->credential)
                     @php($pluginBuild = in_array('build', (array) data_get($connection?->config, 'capabilities', []), true))
-                    <div class="mt-8 border-t border-gray-200 pt-6 dark:border-gray-800">
-                        <h3 class="section-title">Claude site kurulumu</h3>
-                        <p class="mt-1 max-w-2xl text-xs text-gray-500 dark:text-gray-400">Claude MCP üzerinden bu sitede ACF alan grubu ve CPT, sayfa, Elementor şablonu, görsel, menü ve temel ayarları kurar. <strong>Doğrudan</strong>: hemen uygulanır. <strong>Onaylı</strong>: aşağıdaki kayıtta senin onayını bekler. Her kurulum kayıttan geri alınabilir. Sitede eklentinin “Site building” ayarı da açık olmalı (eklenti {{ config('moxdop-wordpress.build_min_plugin_version') }}+). Tema ve eklenti dosyalarına dokunulmaz.</p>
-                        <p class="mt-1 text-xs {{ $pluginBuild ? 'text-gray-500' : 'text-warning-700 dark:text-warning-400' }}">Eklentide: {{ $pluginBuild ? 'açık' : (version_compare((string) data_get($connection?->config, 'plugin_version', '0.0.0'), (string) config('moxdop-wordpress.build_min_plugin_version'), '>=') ? 'kapalı (WordPress › Ayarlar › MoxDOP Connector › “Site building” açılmalı)' : 'eski sürüm, eklentiyi güncelle') }}</p>
-                        <div class="mt-3 inline-flex rounded-lg ring-1 ring-inset ring-gray-300 dark:ring-gray-700" role="group">
-                            @foreach (['off' => 'Kapalı', 'direct' => 'Doğrudan', 'approval' => 'Onaylı'] as $value => $label)
-                                @php($active = ($buildMode ?? 'off') === $value)
-                                <button type="button" @if ($isAdmin && ! $active) wire:click="setBuildMode('{{ $value }}')" @if ($value === 'direct') wire:confirm="Claude bu sitede onay beklemeden değişiklik yapabilsin mi?" @endif @endif @disabled(! $isAdmin) @class([
-                                    'px-3 py-1.5 text-sm font-medium first:rounded-l-lg last:rounded-r-lg',
-                                    'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $active,
-                                    'text-gray-700 dark:text-gray-300' => ! $active,
-                                ])>{{ $label }}</button>
-                            @endforeach
+                    <div class="mt-8">
+                        <div class="section-head">
+                            <h3 class="section-title" title="Claude MCP üzerinden bu sitede ACF alan grubu ve CPT, sayfa, Elementor şablonu, görsel, menü ve temel ayarları kurar. Doğrudan: hemen uygulanır. Onaylı: aşağıdaki kayıtta senin onayını bekler. Her kurulum kayıttan geri alınabilir. Sitede eklentinin “Site building” ayarı da açık olmalı (eklenti {{ config('moxdop-wordpress.build_min_plugin_version') }}+). Tema ve eklenti dosyalarına dokunulmaz.">Claude site kurulumu</h3>
+                        </div>
+                        <div class="card">
+                            <div class="card-row flex-wrap sm:flex-nowrap">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">Claude bu sitede sayfa, şablon ve ayar kurabilir</p>
+                                    <p class="mt-0.5 text-[13px] {{ $pluginBuild ? 'text-gray-500 dark:text-gray-400' : 'text-warning-700 dark:text-warning-400' }}">Eklentide: {{ $pluginBuild ? 'açık' : (version_compare((string) data_get($connection?->config, 'plugin_version', '0.0.0'), (string) config('moxdop-wordpress.build_min_plugin_version'), '>=') ? 'kapalı (WordPress, Ayarlar, MoxDOP Connector, “Site building” açılmalı)' : 'eski sürüm, eklentiyi güncelle') }}</p>
+                                </div>
+                                <div class="inline-flex shrink-0 rounded-lg border border-gray-200 p-0.5 dark:border-gray-700" role="group">
+                                    @foreach (['off' => 'Kapalı', 'direct' => 'Doğrudan', 'approval' => 'Onaylı'] as $value => $label)
+                                        @php($active = ($buildMode ?? 'off') === $value)
+                                        <button type="button" @if ($isAdmin && ! $active) wire:click="setBuildMode('{{ $value }}')" @if ($value === 'direct') wire:confirm="Claude bu sitede onay beklemeden değişiklik yapabilsin mi?" @endif @endif @disabled(! $isAdmin) @class([
+                                            'h-7 rounded-md px-3 text-[13px] font-medium',
+                                            'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $active,
+                                            'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white' => ! $active,
+                                        ])>{{ $label }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
                         </div>
                     </div>
                 @endif
-
-                @if ($pairingCode)
-                    <div class="mt-5 rounded-lg p-4 tone-look">
-                        <p class="text-xs font-semibold">Tek kullanımlık kod</p>
-                        <code class="mt-2 block break-all text-base font-semibold text-gray-900 dark:text-white">{{ $pairingCode }}</code>
-                        <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">WordPress › Ayarlar › MoxDOP Connector ekranına girin. Son kullanma: {{ $pairingExpiresAt }}. Kod veritabanında açık metin tutulmaz.</p>
-                    </div>
-                @endif
             @else
-                <p class="text-sm text-gray-500">Bir Website seçin.</p>
+                <div class="card"><x-ta.empty-state icon="none" size="sm" title="Bir Website seçin." /></div>
             @endif
         </section>
     </div>
 
     @if ($connection?->credential)
         <section>
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="section-title">Site kurulum kaydı <span class="text-sm font-normal text-gray-500">{{ $selected->name }}, son 20</span></h2>
+            <div class="section-head">
+                <h2 class="section-title">Site kurulum kaydı <span class="section-count">{{ $selected->name }}, son 20</span></h2>
             </div>
-            <div class="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
+            <ul class="card">
                 @forelse ($buildLog as $entry)
-                    <div wire:key="build-{{ $entry['id'] }}" class="py-3">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div class="flex flex-wrap items-center gap-2 text-sm">
-                                <span class="font-medium text-gray-900 dark:text-white">#{{ $entry['id'] }}</span>
+                    <li wire:key="build-{{ $entry['id'] }}" class="border-t border-gray-200 px-4 py-3.5 first:border-t-0 dark:border-gray-800">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">Kurulum #{{ $entry['id'] }}</span>
                                 <x-ta.pill :tone="match ($entry['status']) { 'succeeded' => 'ok', 'failed', 'undo_failed' => 'critical', 'awaiting_approval', 'partial' => 'look', default => 'info' }">{{ $entry['status_label'] }}</x-ta.pill>
-                                <span class="text-xs text-gray-500">{{ \Illuminate\Support\Carbon::parse($entry['created_at'])->timezone('Europe/Istanbul')->format('d.m.Y H:i') }} <span class="ml-1">{{ $entry['mode'] === 'approval' ? 'onaylı' : 'doğrudan' }}</span></span>
+                                <span class="text-xs text-gray-500">{{ \Illuminate\Support\Carbon::parse($entry['created_at'])->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}, {{ $entry['mode'] === 'approval' ? 'onaylı' : 'doğrudan' }}</span>
                             </div>
                             @if ($isAdmin)
-                                <div class="flex flex-wrap items-center gap-2">
+                                <div class="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
                                     @if ($entry['status'] === 'awaiting_approval')
-                                        <button type="button" wire:click="approveBuild({{ $entry['id'] }})" class="rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-600">Onayla</button>
-                                        <input type="text" wire:model="rejectReasons.{{ $entry['id'] }}" placeholder="Red nedeni (isteğe bağlı)" class="rounded-lg border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800">
-                                        <button type="button" wire:click="rejectBuild({{ $entry['id'] }})" class="rounded-lg px-3 py-1.5 text-sm font-medium text-error-700 ring-1 ring-inset ring-error-300 dark:text-error-300 dark:ring-error-700">Reddet</button>
+                                        <input type="text" wire:model="rejectReasons.{{ $entry['id'] }}" placeholder="Red nedeni (isteğe bağlı)" aria-label="Red nedeni" class="h-8 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] text-gray-900 sm:w-48 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                        <button type="button" wire:click="rejectBuild({{ $entry['id'] }})" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">Reddet</button>
+                                        <button type="button" wire:click="approveBuild({{ $entry['id'] }})" class="btn-primary">Onayla</button>
                                     @endif
                                     @if ($entry['undoable'])
-                                        <button type="button" wire:click="undoBuild({{ $entry['id'] }})" wire:confirm="Bu kurulumla yapılanlar geri alınsın mı? Oluşturulanlar çöpe taşınır, değiştirilenler eski haline döner." class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Geri al</button>
+                                        <button type="button" wire:click="undoBuild({{ $entry['id'] }})" wire:confirm="Bu kurulumla yapılanlar geri alınsın mı? Oluşturulanlar çöpe taşınır, değiştirilenler eski haline döner." class="btn">Geri al</button>
                                         @if ($entry['status'] === 'undo_failed')
-                                            <button type="button" wire:click="forceUndoBuild({{ $entry['id'] }})" wire:confirm="Kurulumdan sonra sitede yapılan değişikliklerin üzerine yazılacak. Emin misin?" class="rounded-lg px-3 py-1.5 text-sm font-medium text-error-700 ring-1 ring-inset ring-error-300 dark:text-error-300 dark:ring-error-700">Yine de geri al</button>
+                                            <button type="button" wire:click="forceUndoBuild({{ $entry['id'] }})" wire:confirm="Kurulumdan sonra sitede yapılan değişikliklerin üzerine yazılacak. Emin misin?" class="btn-quiet hover:text-error-600! dark:hover:text-error-400!">Yine de geri al</button>
                                         @endif
                                     @endif
                                 </div>
                             @endif
                         </div>
                         @if ($entry['error'])
-                            <p class="mt-2 text-xs text-error-700 dark:text-error-300">{{ $entry['error'] }}</p>
+                            <p class="mt-2 text-[13px] text-error-700 dark:text-error-400">{{ $entry['error'] }}</p>
                         @endif
                         @if ($entry['reject_reason'])
-                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">Red nedeni: {{ $entry['reject_reason'] }}</p>
+                            <p class="mt-2 text-[13px] text-gray-600 dark:text-gray-300">Red nedeni: {{ $entry['reject_reason'] }}</p>
                         @endif
-                        <ul class="mt-2 space-y-1 text-sm">
+                        <ul class="mt-2 space-y-1 text-[13px]">
                             @foreach ($entry['operations'] as $op)
                                 <li class="flex flex-wrap items-baseline gap-x-2">
-                                    <span @class(['text-xs', 'text-success-600' => $op['ok'] === true, 'text-error-600' => $op['ok'] === false, 'text-gray-400' => $op['ok'] === null])>{{ $op['ok'] === true ? '✓' : ($op['ok'] === false ? '✕' : '•') }}</span>
-                                    <span class="font-medium text-gray-800 dark:text-gray-100">{{ $op['label'] }}</span>
+                                    <span @class(['h-1.5 w-1.5 shrink-0 translate-y-[-1px] rounded-full', 'bg-success-500' => $op['ok'] === true, 'bg-error-500' => $op['ok'] === false, 'bg-gray-300 dark:bg-gray-600' => $op['ok'] === null]) aria-label="{{ $op['ok'] === true ? 'tamam' : ($op['ok'] === false ? 'hata' : 'bekliyor') }}"></span>
+                                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ $op['label'] }}</span>
                                     <span class="text-gray-600 dark:text-gray-300">{{ $op['target'] }}</span>
                                     @if ($op['detail'])<span class="text-xs text-gray-500">{{ $op['detail'] }}</span>@endif
                                     @if ($op['edit_url'])<a href="{{ $op['edit_url'] }}" target="_blank" rel="noopener" class="text-xs link-neutral">düzenle</a>@endif
                                     @if ($op['url'])<a href="{{ $op['url'] }}" target="_blank" rel="noopener" class="text-xs link-neutral">aç</a>@endif
-                                    @if ($op['error'])<span class="w-full text-xs text-warning-700 dark:text-warning-300">{{ $op['error'] }}</span>@endif
+                                    @if ($op['error'])<span class="w-full pl-3.5 text-xs text-warning-700 dark:text-warning-400">{{ $op['error'] }}</span>@endif
                                 </li>
                             @endforeach
                         </ul>
                         @if ($entry['undone_at'])
                             <p class="mt-2 text-xs text-gray-500">Geri alındı: {{ \Illuminate\Support\Carbon::parse($entry['undone_at'])->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</p>
                         @endif
-                    </div>
+                    </li>
                 @empty
-                    <p class="text-sm text-gray-500">Bu sitede henüz Claude kurulumu yok.</p>
+                    <li><x-ta.empty-state icon="none" size="sm" title="Bu sitede henüz Claude kurulumu yok." /></li>
                 @endforelse
-            </div>
+            </ul>
         </section>
     @endif
 
     <section>
-        <h2 class="section-title">Kurulum</h2>
-        <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-300">
-            <li>Production ZIP paketini indirin ve WordPress’e eklenti olarak kurup etkinleştirin.</li>
-            <li>Yukarıda ilgili Website için tek kullanımlık kod üretin.</li>
-            <li>WordPress › Ayarlar › MoxDOP Connector altında <code>https://app.moximu.com</code> ve kodu girin.</li>
-            <li>Bağlantıyı doğrulayın; ardından Website entegrasyonundan veri çekimini başlatın.</li>
+        <div class="section-head"><h2 class="section-title">Kurulum</h2></div>
+        <ol class="card">
+            @foreach ([
+                'Production ZIP paketini indirin ve WordPress’e eklenti olarak kurup etkinleştirin.',
+                'Yukarıda ilgili Website için tek kullanımlık kod üretin.',
+                'WordPress, Ayarlar, MoxDOP Connector altında https://app.moximu.com adresini ve kodu girin.',
+                'Bağlantıyı doğrulayın; ardından Website entegrasyonundan veri çekimini başlatın.',
+            ] as $step)
+                <li class="card-row items-start">
+                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs font-medium text-gray-600 dark:border-gray-600 dark:text-gray-300">{{ $loop->iteration }}</span>
+                    <span class="min-w-0 flex-1 pt-0.5 text-sm text-gray-700 dark:text-gray-300">{{ $step }}</span>
+                </li>
+            @endforeach
         </ol>
     </section>
 </div>

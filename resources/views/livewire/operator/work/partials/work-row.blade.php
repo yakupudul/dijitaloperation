@@ -1,14 +1,14 @@
 {{-- One work row inside its card: what, why, and the buttons; the card already says brand, site, type and rule. --}}
 @php
     $overlap = $row['overlap'] ?? null;
-    // Per-row actions are outline (the screen's one main action is the primary button); the row's first action reads a little stronger.
-    $primary = 'h-8 shrink-0 rounded-lg bg-white px-3 text-xs font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-white dark:ring-gray-500 dark:hover:bg-white/5';
-    $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5';
+    // Per-row actions are white bordered buttons (the screen's one main action is the primary button); the rest are quiet.
+    $primary = 'btn';
+    $ghost = 'btn-quiet';
     $hasOwnButtons = $row['can_approve'] || $row['actions'] !== [] || $row['can_done'] || $row['can_reopen'];
 @endphp
-<li class="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-start sm:gap-4" wire:key="{{ $row['kind'] }}-{{ $row['id'] }}" data-work-row="{{ $row['kind'] }}-{{ $row['id'] }}">
+<li class="flex flex-col gap-2.5 border-t border-gray-200 px-4 py-3.5 first:border-t-0 sm:flex-row sm:items-center sm:gap-4 dark:border-gray-800" wire:key="{{ $row['kind'] }}-{{ $row['id'] }}" data-work-row="{{ $row['kind'] }}-{{ $row['id'] }}">
     <div class="min-w-0 sm:flex-1">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 empty:hidden">
             @if($row['rank'] <= 1)<x-ta.pill tone="critical">Acil</x-ta.pill>@endif
             @if($overlap !== null)
                 @if($overlap['recommendation'] === \App\Services\Site\ClusterOverlaps::REDIRECT)
@@ -27,7 +27,7 @@
             @endif
         </div>
         @if($overlap !== null && $overlap['cluster'] !== null)
-            <p class="mt-1 break-all font-medium leading-snug text-gray-900 dark:text-white">
+            <p class="mt-1 break-all font-medium leading-snug text-gray-900 first:mt-0 dark:text-white">
                 @if($view === 'acik' && in_array('merge', $row['actions'], true))
                     <input type="checkbox" wire:model.live="selected" value="{{ $row['id'] }}" class="mr-1 rounded border-gray-300 align-middle text-brand-600 dark:border-gray-700" aria-label="Birleştirmek için seç" data-merge-pick="{{ $row['id'] }}">
                 @endif
@@ -41,7 +41,7 @@
         @if($group['who'] === null && $overlap === null && $row['who'] !== '')<p class="mt-0.5 text-xs text-gray-500">{{ $row['who'] }}</p>@endif
         @if($row['applied_at'])<p class="mt-0.5 text-xs text-gray-500" data-applied-at>Yapıldı {{ $row['applied_at']->timezone('Europe/Istanbul')->format('d.m H:i') }}</p>@endif
     </div>
-    <div class="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+    <div class="flex shrink-0 flex-wrap items-center gap-2">
         @if($row['can_approve'])
             <button type="button" wire:click="approve({{ $row['id'] }})" class="{{ $primary }}">Onayla</button>
         @endif
@@ -59,10 +59,10 @@
         @endif
         @if($view === 'acik')
             <div class="relative" x-data="{ more: false }" x-on:click.outside="more = false" x-on:keydown.escape.window="more = false">
-                <button type="button" x-on:click="more = ! more" class="{{ $ghost }} {{ $hasOwnButtons ? 'px-2' : '' }}" aria-label="Diğer" :aria-expanded="more.toString()" data-row-more>{{ $hasOwnButtons ? '⋯' : ($row['kind'] === 'suggestion' ? 'Ertele / Reddet' : 'Ertele') }}</button>
-                <div x-cloak x-show="more" x-transition.opacity class="surface absolute left-0 z-20 mt-1 w-64 space-y-2 p-3 text-left shadow-lg sm:left-auto sm:right-0">
+                <button type="button" x-on:click="more = ! more" class="{{ $hasOwnButtons ? 'btn-quiet w-8! px-0!' : 'btn' }}" aria-label="Diğer" :aria-expanded="more.toString()" data-row-more>{{ $hasOwnButtons ? '⋯' : ($row['kind'] === 'suggestion' ? 'Ertele / Reddet' : 'Ertele') }}</button>
+                <div x-cloak x-show="more" x-transition.opacity class="surface absolute left-0 z-20 mt-1 w-64 space-y-1 p-2 text-left text-[13px] shadow-lg sm:left-auto sm:right-0">
                     @if($row['kind'] === 'suggestion')
-                        <input type="text" wire:model="notes.{{ $row['id'] }}" placeholder="Not (isteğe bağlı)" aria-label="Not" class="w-full rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950">
+                        <input type="text" wire:model="notes.{{ $row['id'] }}" placeholder="Not (isteğe bağlı)" aria-label="Not" class="mb-1 h-8 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] dark:border-gray-700 dark:bg-gray-900">
                     @endif
                     <button type="button" wire:click="snooze('{{ $row['kind'] }}', {{ $row['id'] }})" x-on:click="more = false" class="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5">7 gün ertele</button>
                     @if($row['kind'] === 'suggestion')

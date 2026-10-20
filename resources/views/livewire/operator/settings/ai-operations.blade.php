@@ -179,7 +179,7 @@
                                 </span>
                             </li>
                         @empty
-                            <li><x-ta.empty-state size="sm" title="Son 24 saatte AI işi yok." /></li>
+                            <li><x-ta.empty-state size="sm" icon="none" title="Son 24 saatte AI işi yok." /></li>
                         @endforelse
                     </ul>
                 </section>

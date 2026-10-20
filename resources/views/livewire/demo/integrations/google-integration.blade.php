@@ -266,7 +266,7 @@
             </div>
             @if (empty($integration['unbound_resources']))
                 <div class="card">
-                    <x-ta.empty-state size="sm" :title="($integration['resources_discovered'] ?? 0) === 0 ? 'Henüz hesap keşfedilmedi.' : 'Bağlanmayı bekleyen hesap yok.'"
+                    <x-ta.empty-state :icon="($integration['resources_discovered'] ?? 0) === 0 ? 'none' : 'check'" size="sm" :title="($integration['resources_discovered'] ?? 0) === 0 ? 'Henüz hesap keşfedilmedi.' : 'Bağlanmayı bekleyen hesap yok.'"
                         :message="($integration['resources_discovered'] ?? 0) === 0 ? 'Google bağlıysa yukarıdan hesapları keşfet.' : 'Bulunan hesapların hepsi bağlı ya da seçilemez durumda.'" />
                 </div>
             @else
@@ -309,7 +309,7 @@
                         <a href="{{ $binding['asset_id'] && $binding['route'] !== 'operator.assets' ? route($binding['route'], ['assetId' => $binding['asset_id']]) : route($binding['route']) }}" class="btn w-full sm:w-auto">Varlığı aç</a>
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" title="Henüz bağlanmış hesap yok." /></li>
+                    <li><x-ta.empty-state icon="none" size="sm" title="Henüz bağlanmış hesap yok." /></li>
                 @endforelse
             </ul>
         </section>

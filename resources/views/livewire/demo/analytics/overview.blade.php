@@ -41,14 +41,31 @@
         'healthy', 'pass', 'receiving', 'connected', 'improvement observed', 'linked', 'measured', 'configured', 'mapped', 'done', 'completed', 'resolved' => 'ok',
         default => 'info',
     };
-    $phrase = fn (string $text): string => trim(strtr($text, [
+    // Provider dates read the Turkish way: "Jul 16" → "16 Tem".
+    $months = ['Jan' => 'Oca', 'Feb' => 'Şub', 'Mar' => 'Mar', 'Apr' => 'Nis', 'May' => 'May', 'Jun' => 'Haz', 'Jul' => 'Tem', 'Aug' => 'Ağu', 'Sep' => 'Eyl', 'Oct' => 'Eki', 'Nov' => 'Kas', 'Dec' => 'Ara'];
+    $trDay = fn (string $text): string => (string) preg_replace_callback('/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2})\b/', fn (array $m): string => $m[2].' '.$months[$m[1]], $text);
+    $phrase = fn (string $text): string => trim(strtr($trDay($text), [
         'vs previous period' => 'önceki döneme göre', 'vs year-ago period' => 'geçen yıla göre', 'vs previous' => 'öncekine göre',
         'Unavailable · not additive' => 'Veri yok, günler toplanamaz', 'No business-action mapping store' => 'İş aksiyonu eşlemesi yok',
         'New users (additive)' => 'Yeni kullanıcı', 'Key events' => 'Anahtar etkinlik', 'Conversions' => 'Dönüşüm', 'totalRevenue' => 'Gelir',
         'Partial · debt present' => 'Kısmi', 'Healthy' => 'sağlıklı', 'Not mapped' => 'eşlenmedi', 'Review' => 'bakılmalı', 'mapped' => 'eşlendi',
         'Unavailable' => 'Veri yok', 'unavailable' => 'yok', ' · ' => ', ',
+        'no_active_ga4_binding' => 'Mülk bağlı değil', 'binding_scope_incomplete' => 'İzin eksik', 'query_error' => 'Okuma hatası',
     ]), " ,·");
-    $glanceCell = function (?array $cell, bool $lossWhenDown = true) use ($phrase): array {
+    // Provider numbers read the Turkish way: "18,420" → "18.420", "18.4K" → "18,4 B", "2.19%" → "%2,19", "-0.4pp" → "-0,4 puan".
+    $trNumber = static function (string $text): string {
+        $comma = static fn (string $digits): string => str_replace('.', ',', $digits);
+        return match (true) {
+            preg_match('/^\d{1,3}(?:,\d{3})+$/', $text) === 1 => str_replace(',', '.', $text),
+            preg_match('/^([+\-−]?)(\d+(?:\.\d+)?)\s?%$/u', $text, $m) === 1 => $m[1].'%'.$comma($m[2]),
+            preg_match('/^([+\-−]?)(\d+(?:\.\d+)?)\s?pp$/u', $text, $m) === 1 => $m[1].$comma($m[2]).' puan',
+            preg_match('/^(\d+(?:\.\d+)?)K$/', $text, $m) === 1 => $comma($m[1]).' B',
+            preg_match('/^(\d+(?:\.\d+)?)M$/', $text, $m) === 1 => $comma($m[1]).' Mn',
+            preg_match('/^\d+\.\d+$/', $text) === 1 => $comma($text),
+            default => $text,
+        };
+    };
+    $glanceCell = function (?array $cell, bool $lossWhenDown = true) use ($phrase, $trNumber): array {
         $cell ??= [];
         $secondary = (string) ($cell['secondary'] ?? '');
         $delta = null;
@@ -60,7 +77,7 @@
         $value = $phrase((string) ($cell['value'] ?? '—'));
         $value = in_array($value, ['', 'Veri yok'], true) ? '—' : $value;
 
-        return ['value' => $value, 'delta' => $delta, 'tone' => $tone, 'hint' => $phrase($secondary), 'muted' => $value === '—', 'note' => $cell['note'] ?? null];
+        return ['value' => $trNumber($value), 'delta' => $delta === null ? null : $trNumber($delta), 'tone' => $tone, 'hint' => $phrase($secondary), 'muted' => $value === '—', 'note' => $cell['note'] ?? null];
     };
     $num = fn (float|int|null $value): string => number_format((float) ($value ?? 0), 0, ',', '.');
     // Missing is not zero: a count the provider did not send prints "—".
@@ -79,6 +96,8 @@
     $chart['chart']['fontFamily'] = 'Inter, ui-sans-serif, system-ui, sans-serif';
     $chart['grid'] = ['borderColor' => '#ebebe9', 'strokeDashArray' => 3, 'padding' => ['left' => 4, 'right' => 8]];
     $chart['legend'] = ['show' => count($chart['series']) > 1, 'position' => 'top', 'horizontalAlign' => 'left', 'fontSize' => '13px', 'labels' => ['colors' => '#5f5e5b'], 'markers' => ['size' => 4]];
+    $chart['xaxis']['categories'] = array_map(fn (mixed $label): string => $trDay((string) $label), $chart['xaxis']['categories'] ?? []);
+    $chart['responsive'] = [['breakpoint' => 640, 'options' => ['xaxis' => ['tickAmount' => 3]]]];
     $chart['xaxis'] += ['tickAmount' => 6, 'axisBorder' => ['show' => false], 'axisTicks' => ['show' => false], 'labels' => ['rotate' => 0, 'hideOverlappingLabels' => true, 'style' => ['colors' => '#787774', 'fontSize' => '12px']]];
     $axisLabels = ['style' => ['colors' => '#787774', 'fontSize' => '12px']];
     $chart['yaxis'] = count($chart['series']) > 1 ? [['labels' => $axisLabels], ['opposite' => true, 'labels' => $axisLabels]] : [['labels' => $axisLabels]];
@@ -94,7 +113,7 @@
                 {{ strtr((string) ($identity['relationship_line'] ?? $identity['measures_line'] ?? ''), ['Measures · ' => 'Ölçtüğü site: ']) }}
             @endif
             @if (filled($identity['website_asset_id'] ?? null))
-                <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="ml-3 link-neutral">{{ __('operator.chrome.open_website') }}</a>
+                <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="ml-2 whitespace-nowrap link-neutral">{{ __('operator.chrome.open_website') }}</a>
             @endif
         </x-slot:meta>
         <x-slot:actions>

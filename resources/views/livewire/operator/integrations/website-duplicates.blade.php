@@ -19,6 +19,7 @@
         'replace' => 'tutulandaki pasif bağlantının yerine geçer',
         'disable' => 'tutulanın bağlantısı kalır; bu pasifleşir',
     ];
+    $statusWords = ['active' => 'aktif', 'inactive' => 'pasif', 'archived' => 'arşivde', 'disabled' => 'pasif'];
 @endphp
 <div class="space-y-10">
     {{-- Panel concept 2026-10-20: "Hangi alan adı birden çok kayıtta, hangisini tutacağım?" One section per host. --}}
@@ -55,12 +56,12 @@
                         <tr>
                             <th class="w-12">Tut</th>
                             <th>Kayıt</th>
-                            <th>Müşteri, marka</th>
+                            <th class="hidden sm:table-cell">Müşteri, marka</th>
                             <th class="hidden md:table-cell">Oluşturma</th>
                             <th class="text-right!">Hesap</th>
-                            <th class="text-right!">Sayfa</th>
-                            <th class="text-right!">Veri</th>
-                            <th class="hidden sm:table-cell">WordPress</th>
+                            <th class="hidden text-right! sm:table-cell">Sayfa</th>
+                            <th class="hidden text-right! sm:table-cell">Veri</th>
+                            <th class="hidden lg:table-cell">WordPress</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -69,19 +70,23 @@
                                 <td>
                                     <input type="radio" name="keeper-{{ $group['key'] }}" value="{{ $row['id'] }}" wire:model.live="keepers.{{ $group['key'] }}" @checked($row['id'] === $keeperId) @disabled(! $isAdmin) aria-label="{{ $row['name'] }} kaydını tut">
                                 </td>
-                                <td class="max-w-0 w-[34%]">
-                                    <span class="block truncate font-medium text-gray-900 dark:text-white" title="#{{ $row['id'] }} {{ $row['name'] }}">{{ $row['name'] }} <span class="font-normal text-gray-400">#{{ $row['id'] }}</span></span>
-                                    <span class="block truncate text-xs text-gray-500" title="{{ $row['url'] }}">{{ $row['url'] }}, {{ $row['status'] }}</span>
+                                <td class="max-w-0 w-[70%] sm:w-[34%]">
+                                    <span class="flex min-w-0 items-center gap-2">
+                                        <span class="truncate font-medium text-gray-900 dark:text-white" title="#{{ $row['id'] }} {{ $row['name'] }}">{{ $row['name'] }} <span class="font-normal text-gray-400">#{{ $row['id'] }}</span></span>
+                                        @if ($row['id'] === $keeperId)<x-ta.pill tone="ok">tutulur</x-ta.pill>@endif
+                                    </span>
+                                    <span class="block truncate text-xs text-gray-500" title="{{ $row['url'] }}">{{ $row['url'] }}, {{ $statusWords[$row['status']] ?? $row['status'] }}</span>
+                                    <span class="block truncate text-xs text-gray-500 sm:hidden">{{ $row['customer'] ?? 'markasız' }}@if ($row['brand']), {{ $row['brand'] }}@endif</span>
                                 </td>
-                                <td class="text-[13px] text-gray-700 dark:text-gray-300">
+                                <td class="hidden text-[13px] text-gray-700 sm:table-cell dark:text-gray-300">
                                     {{ $row['customer'] ?? 'markasız' }}@if ($row['brand']), {{ $row['brand'] }}@endif
                                     @if ($row['customer'] && ! $row['customer_active'])<span class="text-xs text-warning-700 dark:text-warning-400">(pasif)</span>@endif
                                 </td>
                                 <td class="hidden text-[13px] text-gray-500 md:table-cell">{{ $row['created_at'] ? \Illuminate\Support\Carbon::parse($row['created_at'])->format('d.m.Y') : '—' }}</td>
                                 <td class="text-right tabular-nums">{{ $row['counts']['bindings'] }}</td>
-                                <td class="text-right tabular-nums">{{ $row['counts']['pages'] }}</td>
-                                <td class="text-right tabular-nums">{{ $row['counts']['facts'] }}</td>
-                                <td class="hidden text-[13px] sm:table-cell">{{ match ($row['connector']) { 'paired' => 'eşleşmiş', 'pending' => 'bekliyor', default => '—' } }}</td>
+                                <td class="hidden text-right tabular-nums sm:table-cell">{{ $row['counts']['pages'] }}</td>
+                                <td class="hidden text-right tabular-nums sm:table-cell">{{ $row['counts']['facts'] }}</td>
+                                <td class="hidden text-[13px] lg:table-cell">{{ match ($row['connector']) { 'paired' => 'eşleşmiş', 'pending' => 'bekliyor', default => '—' } }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -107,7 +112,7 @@
                             @if ($plan['bindings'] !== [])
                                 <ul class="mt-2 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
                                     @foreach ($plan['bindings'] as $binding)
-                                        <li>Hesap bağlantısı {{ $binding['capability'] }} ({{ $binding['status'] }}): {{ $bindingActions[$binding['action']] ?? $binding['action'] }}</li>
+                                        <li>Hesap bağlantısı {{ \App\Support\Integrations\ProviderRegistry::capabilityLabel((string) $binding['capability']) }} ({{ $statusWords[$binding['status']] ?? $binding['status'] }}): {{ $bindingActions[$binding['action']] ?? $binding['action'] }}</li>
                                     @endforeach
                                 </ul>
                             @endif

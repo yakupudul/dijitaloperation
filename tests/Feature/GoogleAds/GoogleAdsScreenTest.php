@@ -649,7 +649,7 @@ final class GoogleAdsScreenTest extends TestCase
         $this->page('todo')->assertOk()->assertSee('Arama terimlerini incele');
         $this->page('terms')->assertOk()->assertSee('ücretsiz implant')->assertSee('Diş İmplantı')->assertSee('Negatif öner');
         $this->page('strategy')->assertOk()->assertSee('Kampanya yapısı öner')->assertSee('Reklam metni yaz');
-        $this->page('measurement')->assertOk()->assertSee('Form')->assertSee('Birincil')->assertSee($this->day(70));
+        $this->page('measurement')->assertOk()->assertSee('Form')->assertSee('Birincil')->assertSee(\Carbon\CarbonImmutable::parse($this->day(70))->format('d.m.Y'));
         $this->page('analysis')->assertOk()->assertSee('İmplant Ankara')->call('setLevel', 'service')->assertSee('Diş İmplantı')->call('setLevel', 'geo')->assertSee('Veri yok');
         $this->page('settings')->assertOk()->assertSee('1112223333')->assertSee('Çankaya şubesi (şube)')->assertSee('tr, en');
         $this->page('search_demand')->assertSet('tab', 'terms');

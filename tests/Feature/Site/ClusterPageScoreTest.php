@@ -118,7 +118,7 @@ final class ClusterPageScoreTest extends TestCase
 
         $this->artisan('moxdop:clusters:score-pages')->assertSuccessful();
         Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->set('service', (string) $this->implant->id)->call('openCluster', $cluster->id)
-            ->assertSee('Bu kümeye atanmış sayfalar (tüm markalar)')->assertSee('Klinik İzmir')->assertSee('Klinik Ankara')
+            ->assertSeeText('Bu kümeye atanmış sayfalar tüm markalar')->assertSee('Klinik İzmir')->assertSee('Klinik Ankara')
             ->assertSee('GSC bağlı değil')->assertSee('/implant/')->assertSee('5,6')
             ->call('openCluster', $lowCluster->id)->assertSee('veri az')->assertSee('/blog/implant-omru/');
     }

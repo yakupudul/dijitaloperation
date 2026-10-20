@@ -57,7 +57,7 @@
     wire:ignore.self
 >
     <div
-        class="min-h-[42px] w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 shadow-theme-xs outline-none transition focus-within:border-brand-300 focus-within:ring-3 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900"
+        class="min-h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1 shadow-theme-xs outline-none transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-200 dark:border-gray-700 dark:bg-gray-900"
         :class="disabled ? 'opacity-60' : ''"
         @click="if (!disabled) open = true"
     >

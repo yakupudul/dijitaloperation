@@ -101,7 +101,7 @@
         </section>
     @empty
         <div class="card">
-            <x-ta.empty-state size="sm" title="Şu anda aktif Meta Ads veri toplama yok" message="“Şimdi Güncelle” veya “İlk Toplamayı Başlat” dediğinde canlı ilerleme burada görünür." />
+            <x-ta.empty-state icon="none" size="sm" title="Şu anda aktif Meta Ads veri toplama yok" message="“Şimdi Güncelle” veya “İlk Toplamayı Başlat” dediğinde canlı ilerleme burada görünür." />
         </div>
     @endforelse
 

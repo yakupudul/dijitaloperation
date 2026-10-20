@@ -111,9 +111,9 @@ final class QueryBulkAndAssignTest extends TestCase
         });
 
         $page = Livewire::test(QueriesPage::class)->set('service', '__none')
-            ->assertSee('Hizmet ataması kuyruğu · 202 atanmamış sorgu')
+            ->assertSee('Hizmet ataması kuyruğu, 202 atanmamış sorgu')
             ->call('suggestServices')
-            ->assertSee('AI hizmet önerisi')->assertSee('diş sorgusu 1')->assertSee('Zirkonyum Kaplama')->assertSee('Eklenecek eşleme kelimeleri · 1');
+            ->assertSee('AI hizmet önerisi')->assertSee('diş sorgusu 1')->assertSee('Zirkonyum Kaplama')->assertSeeText('Eklenecek eşleme kelimeleri 1');
 
         $this->assertCount(3, $prompts, 'dental 200 + 1, hair 1: every batch, one sector per call');
         $this->assertSame([200, 1, 1], array_map(fn (array $d): int => count($d['queries']), $prompts));
@@ -274,7 +274,7 @@ final class QueryBulkAndAssignTest extends TestCase
         QueryPipeline::markImported();
         Livewire::test(QueriesPage::class)->call('setTab', 'filters')
             ->set('filterInstruction', 'eğitim içerikli kelimeler')->call('generateFilters')
-            ->assertSee('AI önerisi · 2')->assertSee('kursu')
+            ->assertSeeText('AI önerisi 2')->assertSee('kursu')
             ->call('toggleFilterLine', 1)->call('approveFilterProposal')->assertSee('1 filtre terimi kaydedildi · tarama başladı');
         $this->assertSame('eğitim içerikli kelimeler', $prompts[2]['operator_instruction']);
         $this->assertSame([$this->dental->id], array_column($prompts[2]['sectors'], 'id'), 'the used sectors');

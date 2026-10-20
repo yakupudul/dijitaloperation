@@ -73,7 +73,7 @@
         @keydown="onKey"
         :disabled="disabled"
         :aria-expanded="open.toString()"
-        class="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left text-sm text-gray-800 shadow-theme-xs outline-none transition focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
+        class="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white h-9 px-3 text-left text-sm text-gray-800 shadow-theme-xs outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
     >
         <span class="truncate" :class="selectedLabel ? 'text-gray-800 dark:text-white/90' : 'text-gray-400'">
             <span x-text="selectedLabel || placeholder"></span>

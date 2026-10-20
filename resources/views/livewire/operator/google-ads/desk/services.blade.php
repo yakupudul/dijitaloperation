@@ -47,6 +47,6 @@
             </div>
         </section>
     @empty
-        <div class="card"><x-ta.empty-state size="sm" title="Karşılaştırılacak hizmet yok." message="Anahtar kelimeler hizmetlere eşleşip en az {{ \App\Services\Ads\AdServiceStats::MIN_RESULTS }} dönüşüm toplayınca burada görünür." data-testid="google-ads-empty" /></div>
+        <div class="card"><x-ta.empty-state icon="none" size="sm" title="Karşılaştırılacak hizmet yok." message="Anahtar kelimeler hizmetlere eşleşip en az {{ \App\Services\Ads\AdServiceStats::MIN_RESULTS }} dönüşüm toplayınca burada görünür." data-testid="google-ads-empty" /></div>
     @endforelse
 </div>

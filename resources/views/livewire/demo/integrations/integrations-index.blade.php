@@ -154,7 +154,7 @@
                     </div>
                 </li>
             @empty
-                <li><x-ta.empty-state size="sm" :title="__('public_discovery.profiles_empty')" /></li>
+                <li><x-ta.empty-state icon="none" size="sm" :title="__('public_discovery.profiles_empty')" /></li>
             @endforelse
         </ul>
         <div class="mt-3">{{ $discoveredProfiles->links() }}</div>

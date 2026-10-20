@@ -114,7 +114,8 @@
         <livewire:operator.work.work-page :embedded="true" :brand-filter="$brandId" :key="'desk-other-'.($brandId ?? 'all')" />
     @elseif ($inDesk)
         {{-- Paketler: one row per brand and kind; the first package shows its first items until another one is opened. --}}
-        <div class="card" data-repair-packages>
+        {{-- overflow-visible: the "⋯" menu of the last rows must not be cut off by the card edge. --}}
+        <div class="card overflow-visible!" data-repair-packages>
             @forelse ($packages as $package)
                 @php
                     /** Later packages of the same brand drop the logo and name and read as lines of the brand's group. */

@@ -175,7 +175,7 @@
                     </div>
                 </article>
             @empty
-                <x-ta.empty-state size="sm" title="Bu bölümde değişiklik yok." />
+                <x-ta.empty-state size="sm" icon="none" title="Bu bölümde değişiklik yok." />
             @endforelse
         </div>
     @endif

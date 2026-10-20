@@ -55,7 +55,7 @@
                     <span class="flex items-center gap-1.5 text-xs text-gray-500"><span class="h-1.5 w-1.5 rounded-full {{ $cellTone[$tone] }}"></span>{{ $label }}</span>
                 @endforeach
             </div>
-            <div class="card overflow-x-auto">
+            <div class="card relative overflow-x-auto">
                 <table class="data-table min-w-[64rem]" data-testid="brand-scorecard-table">
                     <thead>
                         <tr>

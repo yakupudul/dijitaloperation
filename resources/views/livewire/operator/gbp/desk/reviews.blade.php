@@ -256,7 +256,7 @@
                                         @endif
                                     </span>
                                 </div>
-                                <p class="truncate text-[13px] text-gray-500" title="{{ $names[$review['asset_id']] ?? '' }}">{{ $names[$review['asset_id']] ?? '—' }}</p>
+                                @if ($asset === null)<p class="truncate text-[13px] text-gray-500" title="{{ $names[$review['asset_id']] ?? '' }}">{{ $names[$review['asset_id']] ?? '—' }}</p>@endif
                                 @if (! $review['answered'] && isset($brandAnswers[$review['id']]))
                                     @php $answer = $brandAnswers[$review['id']]; @endphp
                                     <x-ta.pill class="mt-1" :tone="in_array($answer['state'], ['ok', 'edit'], true) ? 'ok' : ($answer['state'] === 'waiting' ? 'look' : 'info')" data-testid="gbp-brand-answer">{{ $answer['label'] }}</x-ta.pill>
@@ -347,7 +347,7 @@
                             </div>
                         </article>
                     @empty
-                        <x-ta.empty-state size="sm" :title="$status === 'bekleyen' ? 'Yanıt bekleyen yorum yok.' : 'Bu süzgeçte yorum yok.'" />
+                        <x-ta.empty-state size="sm" :icon="$status === 'bekleyen' ? 'check' : 'none'" :title="$status === 'bekleyen' ? 'Yanıt bekleyen yorum yok.' : 'Bu süzgeçte yorum yok.'" />
                     @endforelse
                 </div>
                 @if (count($reviews) < $total)
@@ -433,7 +433,7 @@
                     </ul>
                 </section>
             @empty
-                <div class="card"><x-ta.empty-state size="sm" title="Operasyonel markaya bağlı İşletme Profili yok." /></div>
+                <div class="card"><x-ta.empty-state size="sm" icon="none" title="Operasyonel markaya bağlı İşletme Profili yok." /></div>
             @endforelse
         @endif
     </div>

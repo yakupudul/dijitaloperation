@@ -28,7 +28,7 @@
     @include('livewire.demo.partials.flash')
     <x-operator.asset-context :asset-id="$assetId" :title="$asset['name'] ?? 'Google Ads'">
         <x-slot:mark><x-demo.digital-asset-mark type="google_ads" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
-        <x-slot:meta>Google Ads@if ($numbers && $numbers['last_date']), son veri {{ \Carbon\CarbonImmutable::parse($numbers['last_date'])->format('d.m.Y') }}@endif</x-slot:meta>
+        <x-slot:meta>{{ 'Google Ads'.($numbers && $numbers['last_date'] ? ', son veri '.\Carbon\CarbonImmutable::parse($numbers['last_date'])->format('d.m.Y') : '') }}</x-slot:meta>
         <x-slot:actions>
             @if ($ranged)
                 <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="Google Ads verisi her gün dünü kapsar." class="w-full sm:w-auto" />
@@ -112,7 +112,7 @@
                         <span class="min-w-0 basis-full text-[13px] text-gray-500 sm:basis-auto dark:text-gray-400">{{ $check['reason'] }}</span>
                     </div>
                 @empty
-                    <x-ta.empty-state size="sm" title="Kontroller henüz çalışmadı." />
+                    <x-ta.empty-state icon="none" size="sm" title="Kontroller henüz çalışmadı." />
                 @endforelse
             </div>
         </section>
@@ -185,11 +185,11 @@
             @endif
             <div class="card overflow-x-auto" data-testid="ads-terms">
                 @if ($terms === [])
-                    <x-ta.empty-state size="sm" title="Arama terimi verisi yok." />
+                    <x-ta.empty-state icon="none" size="sm" title="Arama terimi verisi yok." />
                 @else
                     <table class="data-table min-w-[820px]">
                         <thead><tr>
-                            <th class="w-10"><span class="sr-only">Seç</span></th><th>Terim</th><th>Kampanya</th>
+                            <th class="relative w-10"><span class="sr-only">Seç</span></th><th>Terim</th><th>Kampanya</th>
                             <th class="text-right!">Maliyet</th><th class="text-right!">Tık</th><th class="text-right!">Dönüşüm</th>
                             <th>Hizmet</th><th>AI</th>
                         </tr></thead>
@@ -250,68 +250,13 @@
                 @forelse ($strategy as $s)
                     @include('livewire.operator.google-ads.partials.suggestion', ['s' => $s])
                 @empty
-                    <x-ta.empty-state size="sm" title="Taslak yok." />
+                    <x-ta.empty-state icon="none" size="sm" title="Taslak yok." />
                 @endforelse
             </div>
         </section>
         @include('livewire.operator.google-ads.partials.approved')
 
     @elseif ($tab === 'measurement')
-        <section data-testid="ads-conversions">
-            <div class="section-head"><h2 class="section-title">Dönüşüm işlemleri <span class="section-count">{{ count($conversionActions) }}</span></h2></div>
-            <div class="card overflow-x-auto">
-                @if ($conversionActions === [])
-                    <x-ta.empty-state size="sm" title="Dönüşüm işlemi verisi yok." />
-                @else
-                    <table class="data-table min-w-[600px]">
-                        <thead><tr><th>Dönüşüm</th><th>Hedef</th><th>Durum</th><th class="text-right!">30 gün</th><th>Son dönüşüm</th></tr></thead>
-                        <tbody>
-                            @foreach ($conversionActions as $action)
-                                <tr>
-                                    <td class="text-gray-900 dark:text-white">{{ $action['name'] }} <span class="text-xs text-gray-500">{{ $categoryLabel[strtoupper((string) $action['category'])] ?? '' }}</span></td>
-                                    <td>{{ $action['primary'] ? 'Birincil' : 'İkincil' }}</td>
-                                    <td class="text-[13px]">{{ ['ENABLED' => 'Etkin', 'REMOVED' => 'Kaldırıldı', 'HIDDEN' => 'Gizli'][$action['status']] ?? ($action['status'] ?? 'veri yok') }}</td>
-                                    <td class="text-right tabular-nums">{{ $num($action['conversions'], 1) }}</td>
-                                    <td class="text-[13px] tabular-nums">{{ $action['last_conversion'] ?? 'yok' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @endif
-            </div>
-        </section>
-        <section data-testid="ads-lead-quality">
-            <div class="section-head">
-                <h2 class="section-title" title="Google Ads dönüşümünün karşılığı: gerçek form, uygun müşteri, randevu ve satış, her ay elle girilir.">Lead kalitesi <span class="section-count">elle</span></h2>
-                <select wire:change="setLeadMonth($event.target.value)" aria-label="Ay" class="{{ $input }} ml-auto pr-8">
-                    @foreach ($leadMonths as $month)
-                        <option value="{{ $month }}" @selected($month === $leadMonthValue)>{{ $month }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="card overflow-x-auto">
-                @if ($leadQuality === [])
-                    <x-ta.empty-state size="sm" title="Bu ay kampanya verisi yok." />
-                @else
-                    <table class="data-table min-w-[720px]">
-                        <thead><tr><th>Kampanya</th><th class="text-right!">Google Ads dönüşüm</th>
-                            @foreach ($leadFields as $label)<th>{{ $label }}</th>@endforeach<th><span class="sr-only">Kaydet</span></th></tr></thead>
-                        <tbody>
-                            @foreach ($leadQuality as $row)
-                                <tr wire:key="lead-{{ $row['campaign_id'] }}">
-                                    <td class="text-gray-900 dark:text-white">{{ $row['name'] }}</td>
-                                    <td class="text-right tabular-nums">{{ $row['ads_conversions'] === null ? 'veri yok' : $num($row['ads_conversions'], 1) }}</td>
-                                    @foreach ($leadFields as $field => $label)
-                                        <td class="py-2"><input type="number" min="0" wire:model="leadRows.{{ $row['campaign_id'] }}.{{ $field }}" aria-label="{{ $label }}" class="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-sm tabular-nums dark:border-gray-700 dark:bg-gray-900"></td>
-                                    @endforeach
-                                    <td class="py-2 text-right"><button type="button" wire:click="saveLeadQuality('{{ $row['campaign_id'] }}')" class="{{ $small }}">Kaydet</button></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @endif
-            </div>
-        </section>
         <section>
             @php $tracking = collect($checks['items'] ?? [])->whereIn('id', ['conversion_tracking', 'conversion_goals', 'landing']); @endphp
             <div class="section-head"><h2 class="section-title">İzleme kontrolleri</h2></div>
@@ -323,8 +268,63 @@
                         <span class="min-w-0 basis-full text-[13px] text-gray-500 sm:basis-auto dark:text-gray-400">{{ $check['reason'] }}</span>
                     </div>
                 @empty
-                    <x-ta.empty-state size="sm" title="Kontroller henüz çalışmadı." />
+                    <x-ta.empty-state icon="none" size="sm" title="Kontroller henüz çalışmadı." />
                 @endforelse
+            </div>
+        </section>
+        <section data-testid="ads-conversions">
+            <div class="section-head"><h2 class="section-title">Dönüşüm işlemleri <span class="section-count">{{ count($conversionActions) }}</span></h2></div>
+            <div class="card overflow-x-auto">
+                @if ($conversionActions === [])
+                    <x-ta.empty-state icon="none" size="sm" title="Dönüşüm işlemi verisi yok." />
+                @else
+                    <table class="data-table min-w-[600px]">
+                        <thead><tr><th>Dönüşüm</th><th>Hedef</th><th>Durum</th><th class="text-right!">30 gün</th><th>Son dönüşüm</th></tr></thead>
+                        <tbody>
+                            @foreach ($conversionActions as $action)
+                                <tr>
+                                    <td class="text-gray-900 dark:text-white">{{ $action['name'] }} <span class="text-xs text-gray-500">{{ $categoryLabel[strtoupper((string) $action['category'])] ?? '' }}</span></td>
+                                    <td>{{ $action['primary'] ? 'Birincil' : 'İkincil' }}</td>
+                                    <td class="text-[13px]">{{ ['ENABLED' => 'Etkin', 'REMOVED' => 'Kaldırıldı', 'HIDDEN' => 'Gizli'][$action['status']] ?? ($action['status'] ?? 'veri yok') }}</td>
+                                    <td class="text-right tabular-nums">{{ $num($action['conversions'], 1) }}</td>
+                                    <td @class(['whitespace-nowrap text-[13px] tabular-nums', 'text-gray-500' => $action['last_conversion'] === null])>{{ $action['last_conversion'] ? \Carbon\CarbonImmutable::parse($action['last_conversion'])->format('d.m.Y') : 'yok' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+            </div>
+        </section>
+        <section data-testid="ads-lead-quality">
+            <div class="section-head">
+                <h2 class="section-title" title="Google Ads dönüşümünün karşılığı: gerçek form, uygun müşteri, randevu ve satış, her ay elle girilir.">Lead kalitesi <span class="section-count">elle</span></h2>
+                <select wire:change="setLeadMonth($event.target.value)" aria-label="Ay" class="{{ $input }} pr-8 sm:ml-auto">
+                    @foreach ($leadMonths as $month)
+                        <option value="{{ $month }}" @selected($month === $leadMonthValue)>{{ \Illuminate\Support\Carbon::parse($month.'-01')->locale('tr')->translatedFormat('F Y') }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="card overflow-x-auto">
+                @if ($leadQuality === [])
+                    <x-ta.empty-state icon="none" size="sm" title="Bu ay kampanya verisi yok." />
+                @else
+                    <table class="data-table min-w-[720px]">
+                        <thead><tr><th>Kampanya</th><th class="text-right!">Google Ads dönüşüm</th>
+                            @foreach ($leadFields as $label)<th>{{ $label }}</th>@endforeach<th class="relative"><span class="sr-only">Kaydet</span></th></tr></thead>
+                        <tbody>
+                            @foreach ($leadQuality as $row)
+                                <tr wire:key="lead-{{ $row['campaign_id'] }}">
+                                    <td class="text-gray-900 dark:text-white">{{ $row['name'] }}</td>
+                                    <td class="text-right tabular-nums">{{ $row['ads_conversions'] === null ? 'veri yok' : $num($row['ads_conversions'], 1) }}</td>
+                                    @foreach ($leadFields as $field => $label)
+                                        <td class="py-2!"><input type="number" min="0" wire:model="leadRows.{{ $row['campaign_id'] }}.{{ $field }}" aria-label="{{ $label }}" class="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-sm tabular-nums dark:border-gray-700 dark:bg-gray-900"></td>
+                                    @endforeach
+                                    <td class="py-2! text-right"><button type="button" wire:click="saveLeadQuality('{{ $row['campaign_id'] }}')" class="{{ $small }}">Kaydet</button></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
             </div>
         </section>
 
@@ -340,7 +340,7 @@
             </div>
             <div class="card overflow-x-auto" data-testid="ads-analysis">
                 @if ($analysis === [])
-                    <x-ta.empty-state size="sm" title="Veri yok." />
+                    <x-ta.empty-state icon="none" size="sm" title="Veri yok." />
                 @else
                     <table class="data-table min-w-[720px]">
                         <thead><tr><th>{{ $levels[$level] }}</th><th class="text-right!">Maliyet</th><th class="text-right!">Önceki</th><th class="text-right!">Tık</th><th class="text-right!">Dönüşüm</th><th class="text-right!">Önceki</th><th class="text-right!">Dönüşüm başı</th></tr></thead>

@@ -67,7 +67,7 @@
 
         @if (! $ready)
             <div class="card">
-                <x-ta.empty-state title="Kazananlar tabloları henüz hazır değil" message="Sayılar her sabah hesaplanır."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
+                <x-ta.empty-state icon="none" title="Kazananlar tabloları henüz hazır değil" message="Sayılar her sabah hesaplanır."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
             </div>
         @elseif ($tab === 'marka' && $brandView)
             <section class="space-y-10" data-testid="winners-brand">
@@ -109,7 +109,7 @@
                             </li>
                         @empty
                             <li>
-                                <x-ta.empty-state :title="$brandView['brand'] === null ? 'Henüz yarışa giren marka yok.' : 'Bu marka yarıştığı hiçbir pazarda geride değil.'">
+                                <x-ta.empty-state icon="none" :title="$brandView['brand'] === null ? 'Henüz yarışa giren marka yok.' : 'Bu marka yarıştığı hiçbir pazarda geride değil.'">
                                     <button type="button" wire:click="$set('tab', 'pazarlar')" class="btn" data-empty-action>Pazarlara bak</button>
                                 </x-ta.empty-state>
                             </li>
@@ -136,7 +136,7 @@
             </section>
         @elseif ($view && $view['sectors'] === [])
             <div class="card" data-testid="winners-empty">
-                <x-ta.empty-state title="Henüz yarışa giren pazar yok" message="Aynı şehirde aynı hizmette en az iki markanın verisi olunca burada görünür; sayılar her sabah hesaplanır."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
+                <x-ta.empty-state icon="none" title="Henüz yarışa giren pazar yok" message="Aynı şehirde aynı hizmette en az iki markanın verisi olunca burada görünür; sayılar her sabah hesaplanır."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
             </div>
         @elseif ($view)
             <section data-testid="winners-markets">
@@ -146,7 +146,7 @@
                 </div>
                 @if ($view['markets'] === [])
                     <div class="card">
-                        <x-ta.empty-state size="sm" title="Bu şehirde henüz gerçek bir yarış yok.">
+                        <x-ta.empty-state icon="none" size="sm" title="Bu şehirde henüz gerçek bir yarış yok.">
                             @if ($view['city'] !== $all)<button type="button" wire:click="$set('city', '{{ $all }}')" class="btn" data-empty-action>Türkiye geneline bak</button>@endif</x-ta.empty-state>
                     </div>
                 @else

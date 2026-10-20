@@ -15,7 +15,7 @@
         <span>en yüksek {{ $format($max) }}</span>
     </figcaption>
     @if ($count > 1)
-        <svg viewBox="0 0 {{ $w }} {{ $h }}" preserveAspectRatio="none" class="h-16 w-full text-brand-500" role="img" aria-label="{{ $label }} günlük seyir">
+        <svg viewBox="0 0 {{ $w }} {{ $h }}" preserveAspectRatio="none" class="h-16 w-full text-gray-900 dark:text-white" role="img" aria-label="{{ $label }} günlük seyir">
             <line x1="0" y1="{{ $h - 2 }}" x2="{{ $w }}" y2="{{ $h - 2 }}" class="stroke-gray-200 dark:stroke-gray-700" stroke-width="1" vector-effect="non-scaling-stroke" />
             <polygon points="0,{{ $h - 2 }} {{ $line }} {{ $w }},{{ $h - 2 }}" fill="currentColor" fill-opacity="0.08" />
             <polyline points="{{ $line }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />

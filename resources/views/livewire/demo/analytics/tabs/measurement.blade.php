@@ -41,18 +41,21 @@
                                     <th class="hidden sm:table-cell">Analytics etkinliği</th>
                                     <th class="hidden md:table-cell">Rol</th>
                                     <th class="text-right!">Adet</th>
-                                    <th>Durum</th>
+                                    <th class="hidden sm:table-cell">Durum</th>
                                     <th><span class="sr-only">İncele</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($m['business_actions'] as $row)
                                     <tr wire:key="ga4-action-{{ $row['action'] }}">
-                                        <td class="font-medium text-gray-900 dark:text-white">{{ $row['action'] }}</td>
+                                        <td>
+                                            <p class="font-medium text-gray-900 dark:text-white">{{ $row['action'] }}</p>
+                                            <x-ta.pill :tone="$toneOf($row['state'] ?? null)" class="mt-0.5 sm:hidden!">{{ $say($row['state'] ?? null) }}</x-ta.pill>
+                                        </td>
                                         <td class="hidden text-[13px] text-gray-500 sm:table-cell">{{ $row['ga4_event'] ?? 'Veri yok' }}</td>
                                         <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $say($row['role'] ?? null) }}</td>
                                         <td @class(['text-right tabular-nums', 'text-gray-400' => $count($row, 'event_count') === '—'])>{{ $count($row, 'event_count') }}</td>
-                                        <td class="whitespace-nowrap"><x-ta.pill :tone="$toneOf($row['state'] ?? null)">{{ $say($row['state'] ?? null) }}</x-ta.pill></td>
+                                        <td class="hidden whitespace-nowrap sm:table-cell"><x-ta.pill :tone="$toneOf($row['state'] ?? null)">{{ $say($row['state'] ?? null) }}</x-ta.pill></td>
                                         <td class="text-right"><button type="button" wire:click="openAction('{{ $row['action'] }}')" class="btn-quiet h-7! px-2!">İncele</button></td>
                                     </tr>
                                 @endforeach
@@ -71,17 +74,20 @@
                                     <th>Etkinlik</th>
                                     <th class="hidden sm:table-cell">Eşlenen aksiyon</th>
                                     <th class="text-right!">Adet</th>
-                                    <th>Durum</th>
+                                    <th class="hidden sm:table-cell">Durum</th>
                                     <th><span class="sr-only">İncele</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($m['events'] as $row)
                                     <tr>
-                                        <td class="font-medium text-gray-900 dark:text-white">{{ $row['event'] }}</td>
+                                        <td>
+                                            <p class="font-medium text-gray-900 dark:text-white">{{ $row['event'] }}</p>
+                                            <x-ta.pill :tone="$toneOf($row['state'] ?? null)" class="mt-0.5 sm:hidden!">{{ $say($row['state'] ?? null) }}</x-ta.pill>
+                                        </td>
                                         <td class="hidden text-[13px] text-gray-500 sm:table-cell">{{ $say($row['mapped_action'] ?? null) }}</td>
                                         <td @class(['text-right tabular-nums', 'text-gray-400' => $count($row, 'count') === '—'])>{{ $count($row, 'count') }}</td>
-                                        <td class="whitespace-nowrap"><x-ta.pill :tone="$toneOf($row['state'] ?? null)">{{ $say($row['state'] ?? null) }}</x-ta.pill></td>
+                                        <td class="hidden whitespace-nowrap sm:table-cell"><x-ta.pill :tone="$toneOf($row['state'] ?? null)">{{ $say($row['state'] ?? null) }}</x-ta.pill></td>
                                         <td class="text-right"><button type="button" wire:click="openEvent('{{ $row['event'] }}')" class="btn-quiet h-7! px-2!">İncele</button></td>
                                     </tr>
                                 @endforeach
@@ -176,7 +182,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200 shadow-card dark:border-gray-800 dark:bg-gray-800">
                     <x-ta.metric-card label="Etiketsiz oturum payı" :value="isset($utm['unavailable_pct']) ? '%'.$utm['unavailable_pct'] : '—'" :muted="! isset($utm['unavailable_pct'])" :hint="isset($utm['prior_unavailable_pct']) ? 'Önceki dönem %'.$utm['prior_unavailable_pct'] : null" />
-                    <x-ta.metric-card label="Etkilenen oturum" :value="isset($utm['unavailable_sessions']) ? $num($utm['unavailable_sessions']) : '—'" :muted="! isset($utm['unavailable_sessions'])" :hint="isset($utm['trend']) ? 'Gidiş: '.mb_strtolower($say($utm['trend'])) : null" />
+                    <x-ta.metric-card label="Etkilenen oturum" :value="isset($utm['unavailable_sessions']) ? $num($utm['unavailable_sessions']) : '—'" :muted="! isset($utm['unavailable_sessions'])" :hint="isset($utm['trend']) && ! isset($utm['prior_unavailable_pct']) ? $utm['trend'] : null" />
                 </div>
             </section>
 

@@ -207,9 +207,10 @@
   @apply ml-auto text-xs tabular-nums text-gray-500 dark:text-gray-400;
 }
 
-/* White card with a hairline edge: holds related rows, a form or a dialog. `surface` is the older name. */
+/* White card with a hairline edge: holds related rows, a form or a dialog. `surface` is the older name.
+   `relative` keeps screen-reader-only labels inside a scrolling table card (they widened the phone page). */
 @utility card {
-  @apply min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-white/[0.03];
+  @apply relative min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-white/[0.03];
 }
 @utility surface {
   @apply rounded-xl border border-gray-200 bg-white shadow-card dark:border-gray-800 dark:bg-gray-900;

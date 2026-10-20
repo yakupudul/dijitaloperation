@@ -105,7 +105,7 @@
             </x-ta.empty-state>
         </div>
     @else
-        <section class="card overflow-x-auto">
+        <section class="card relative overflow-x-auto">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -150,7 +150,7 @@
                             <td class="hidden text-right tabular-nums sm:table-cell">{{ $customer['brands_count'] }}</td>
                             <td class="text-right tabular-nums" data-open-work>
                                 {{ $customer['open_work'] }}
-                                @if ($customer['critical'] > 0)<p class="text-xs text-error-600">{{ $customer['critical'] }} kritik</p>@endif
+                                @if ($customer['critical'] > 0)<p class="whitespace-nowrap text-xs text-error-600">{{ $customer['critical'] }} kritik</p>@endif
                             </td>
                             <td class="hidden text-right tabular-nums sm:table-cell" data-data-issues>@if ($customer['data_issues'] > 0)<span class="text-warning-700 dark:text-warning-300">{{ $customer['data_issues'] }}</span>@else<span class="text-gray-500">0</span>@endif</td>
                             <td data-attention>

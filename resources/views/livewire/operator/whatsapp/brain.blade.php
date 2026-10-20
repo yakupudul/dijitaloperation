@@ -5,49 +5,75 @@
     $list = fn ($items): array => array_values(array_filter((array) $items, fn ($item) => is_string($item) && trim($item) !== ''));
 @endphp
 <section class="space-y-6" data-wa-brain>
-    <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
+    <div>
+        <div class="section-head mb-1! items-center!">
             <h2 class="section-title">Beyin</h2>
-            <p class="mt-1 text-sm text-gray-500">
-                @if($brainBusy)
-                    Görüşmeleri okuyor; birkaç dakika içinde burada görünür.
-                @elseif($brain)
-                    {{ $when($brain['learned_at'] ?? null) }} tarihinde {{ $brain['conversations'] ?? 0 }} görüşmeden öğrendi. Cevaplar bunu ve aşağıdaki talimatlarınızı kullanır; talimatlarınız her zaman önce gelir.
-                @else
-                    İlk yedek çıkarılınca görüşmelerden hizmetlerinizi, verdiğiniz fiyatları, sık soruları ve yazış üslubunuzu öğrenir.
-                @endif
-            </p>
+            <button type="button" wire:click="learnBrain" wire:loading.attr="disabled" wire:target="learnBrain" @disabled($brainBusy) class="btn ml-auto">{{ $brain ? 'Yeniden öğren' : 'Öğren' }}</button>
         </div>
-        <button type="button" wire:click="learnBrain" wire:loading.attr="disabled" wire:target="learnBrain" @disabled($brainBusy) class="shrink-0 rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:ring-gray-700 dark:hover:bg-white/[0.04]">{{ $brain ? 'Yeniden öğren' : 'Öğren' }}</button>
+        <p class="text-[13px] text-gray-500 dark:text-gray-400">
+            @if($brainBusy)
+                Görüşmeleri okuyor; birkaç dakika içinde burada görünür.
+            @elseif($brain)
+                {{ $when($brain['learned_at'] ?? null) }} tarihinde {{ $brain['conversations'] ?? 0 }} görüşmeden öğrendi. Cevaplar bunu ve aşağıdaki talimatlarınızı kullanır; talimatlarınız her zaman önce gelir.
+            @else
+                İlk yedek çıkarılınca görüşmelerden hizmetlerinizi, verdiğiniz fiyatları, sık soruları ve yazış üslubunuzu öğrenir.
+            @endif
+        </p>
     </div>
     @if($brainStatus === 'failed')
-        <p role="alert" class="rounded-lg p-3 text-sm {{ $tone['bad'] }}">{{ \App\Services\WhatsApp\WhatsAppBrain::ERROR_LABELS[$config['brain_error'] ?? ''] ?? 'Öğrenme tamamlanamadı.' }}</p>
+        <p role="alert" class="rounded-xl px-4 py-3 text-sm tone-critical">{{ \App\Services\WhatsApp\WhatsAppBrain::ERROR_LABELS[$config['brain_error'] ?? ''] ?? 'Öğrenme tamamlanamadı.' }}</p>
     @endif
     @error('brain')<p role="alert" class="text-sm text-error-600">{{ $message }}</p>@enderror
 
-    @if($brain)
-        @if($list($brain['open_questions'] ?? []) !== [])
-            <div class="rounded-lg p-3 text-sm {{ $tone['warn'] }}" data-wa-brain-questions>
-                <p class="font-medium">Senden istediklerim</p>
-                <p class="mt-0.5 text-xs">Her sorunun altına cevabını yaz ve kaydet. Cevaplar talimatlarına eklenir, soru listeden kalkar; boş bıraktığın soru kalır.</p>
-                <form wire:submit="saveAnswers" class="mt-2 space-y-3">
-                    @foreach((array) $brain['open_questions'] as $index => $question)
-                        @if(is_string($question) && trim($question) !== '')
-                            <label class="block" wire:key="wa-question-{{ $index }}-{{ md5($question) }}">
-                                <span class="block">{{ $question }}</span>
-                                <textarea wire:model="answers.{{ $index }}" rows="2" maxlength="2000" placeholder="Cevabın" class="mt-1 w-full rounded-lg border border-warning-300 bg-white p-2 text-sm text-gray-900 dark:border-warning-500/30 dark:bg-gray-900 dark:text-gray-100"></textarea>
-                            </label>
-                        @endif
-                    @endforeach
-                    @error('answers')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
-                    <button type="submit" wire:loading.attr="disabled" wire:target="saveAnswers" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Cevapları kaydet</button>
-                </form>
+    @if($brain && $list($brain['open_questions'] ?? []) !== [])
+        <form wire:submit="saveAnswers" class="card" data-wa-brain-questions>
+            <div class="card-row items-start">
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Senden istediklerim</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Her sorunun altına cevabını yaz ve kaydet. Cevaplar talimatlarına eklenir, soru listeden kalkar; boş bıraktığın soru kalır.</p>
+                </div>
             </div>
-        @endif
-        <details class="text-sm" wire:ignore.self>
-            <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-200">Öğrendikleri</summary>
-            <div class="mt-3 grid gap-4 md:grid-cols-2">
-                <div class="md:col-span-2"><p class="text-gray-600 dark:text-gray-300">{{ $brain['summary'] ?? '' }}</p></div>
+            @foreach((array) $brain['open_questions'] as $index => $question)
+                @if(is_string($question) && trim($question) !== '')
+                    <label class="card-row block" wire:key="wa-question-{{ $index }}-{{ md5($question) }}">
+                        <span class="block text-sm text-gray-900 dark:text-white">{{ $question }}</span>
+                        <textarea wire:model="answers.{{ $index }}" rows="2" maxlength="2000" placeholder="Cevabın" class="mt-2 w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white"></textarea>
+                    </label>
+                @endif
+            @endforeach
+            <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+                @error('answers')<p class="mr-auto text-xs text-error-600">{{ $message }}</p>@enderror
+                <button type="submit" wire:loading.attr="disabled" wire:target="saveAnswers" class="btn-primary">Cevapları kaydet</button>
+            </div>
+        </form>
+    @endif
+
+    <form wire:submit="saveInstructions" class="card" data-wa-instructions>
+        <label class="block px-4 pt-3.5">
+            <span class="block text-sm font-medium text-gray-900 dark:text-white">Talimatlarım</span>
+            <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Güncel fiyatlar, hizmetler, nasıl yazmasını istediğin, söylememesi gerekenler. Burada yazan, beynin öğrendiğinin önüne geçer; burada olmayan fiyatı uydurmaz.</span>
+            <textarea wire:model="business_context" rows="6" maxlength="12000" class="mt-3 w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white"></textarea>
+        </label>
+        @error('business_context')<p class="px-4 pt-1 text-xs text-error-600">{{ $message }}</p>@enderror
+        <div class="mt-3.5 flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+            <button type="submit" wire:loading.attr="disabled" wire:target="saveInstructions" class="btn-primary">Kaydet</button>
+        </div>
+    </form>
+
+    @if($brain)
+        <details class="group/learned" wire:ignore.self>
+            <summary class="card flex cursor-pointer list-none items-center gap-3.5 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+                <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-medium text-gray-900 dark:text-white">Öğrendikleri</span>
+                    <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Hizmetler, kurallar, üslup, verilen fiyatlar ve sık sorular.</span>
+                </span>
+                <span class="btn-quiet"><span class="group-open/learned:hidden">Aç</span><span class="hidden group-open/learned:inline">Kapat</span></span>
+            </summary>
+            <div class="card mt-3 grid gap-5 p-5 text-sm md:grid-cols-2">
+                @if(filled($brain['summary'] ?? null))
+                    <p class="text-gray-600 md:col-span-2 dark:text-gray-300">{{ $brain['summary'] }}</p>
+                @endif
                 @foreach(['services' => 'Hizmetler', 'policies' => 'Kurallar ve süreç', 'avoid' => 'Kaçındıkları'] as $key => $label)
                     @if($list($brain[$key] ?? []) !== [])
                         <div><p class="font-medium text-gray-900 dark:text-white">{{ $label }}</p><ul class="mt-1 list-disc space-y-0.5 pl-5 text-gray-600 dark:text-gray-300">@foreach($list($brain[$key]) as $item)<li>{{ $item }}</li>@endforeach</ul></div>
@@ -58,7 +84,7 @@
                 @endif
                 @if(! empty($brain['prices']))
                     <div class="md:col-span-2"><p class="font-medium text-gray-900 dark:text-white">Daha önce verilen fiyatlar</p>
-                        <ul class="mt-1 space-y-0.5 text-gray-600 dark:text-gray-300">@foreach((array) $brain['prices'] as $price)@if(is_array($price))<li>{{ $price['item'] ?? '' }}: <strong>{{ $price['price'] ?? '' }}</strong> <span class="text-xs text-gray-500">· son {{ $price['last_quoted'] ?? '—' }}</span></li>@endif @endforeach</ul>
+                        <ul class="mt-1 space-y-0.5 text-gray-600 dark:text-gray-300">@foreach((array) $brain['prices'] as $price)@if(is_array($price))<li>{{ $price['item'] ?? '' }}: <span class="font-medium text-gray-900 dark:text-white">{{ $price['price'] ?? '' }}</span> <span class="text-xs text-gray-500">son {{ $price['last_quoted'] ?? '—' }}</span></li>@endif @endforeach</ul>
                     </div>
                 @endif
                 @if(! empty($brain['faq']))
@@ -69,13 +95,4 @@
             </div>
         </details>
     @endif
-
-    <form wire:submit="saveInstructions" class="space-y-2" data-wa-instructions>
-        <label class="block text-sm font-medium text-gray-900 dark:text-white">Talimatlarım
-            <textarea wire:model="business_context" rows="5" maxlength="12000" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 text-sm font-normal dark:border-gray-700"></textarea>
-        </label>
-        <p class="text-xs text-gray-500">Güncel fiyatlar, hizmetler, nasıl yazmasını istediğin, söylememesi gerekenler. Burada yazan, beynin öğrendiğinin önüne geçer; burada olmayan fiyatı uydurmaz.</p>
-        @error('business_context')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
-        <button type="submit" wire:loading.attr="disabled" wire:target="saveInstructions" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">Kaydet</button>
-    </form>
 </section>

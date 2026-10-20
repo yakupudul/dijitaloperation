@@ -33,7 +33,7 @@
     @endphp
     @if ($sources->isEmpty())
         <div class="card -mt-4">
-            <x-ta.empty-state title="Bu filtrede kaynak yok." size="sm" />
+            <x-ta.empty-state title="Bu filtrede kaynak yok." size="sm" icon="none" />
         </div>
     @else
         @foreach ([['bound', $boundSources], ['unbound', $unboundSources]] as [$group, $list])
@@ -56,10 +56,10 @@
                     <li wire:key="src-{{ $source['key'] }}" class="border-t border-gray-200 first:border-t-0 dark:border-gray-800">
                         <button type="button" wire:click="toggle('{{ $source['key'] }}')" aria-expanded="{{ $isOpen ? 'true' : 'false' }}" class="flex w-full min-w-0 items-center gap-3.5 px-4 py-3.5 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]">
                             <span class="min-w-0 flex-1">
-                                <span class="block break-all text-sm font-medium text-gray-900 dark:text-white">{{ $source['name'] }}</span>
+                                <span class="line-clamp-2 break-words text-sm font-medium text-gray-900 dark:text-white" title="{{ $source['name'] }}">{{ $source['name'] }}</span>
                                 <span class="mt-0.5 flex flex-wrap gap-x-3 text-[13px] text-gray-500 dark:text-gray-400">
                                     <span>{{ $source['provider'] }}</span>
-                                    @if ($source['feeds'] !== [])<span class="min-w-0 break-words">Besler: {{ implode(', ', $source['feeds']) }}</span>@endif
+                                    @if ($source['feeds'] !== [])<span class="min-w-0 max-w-full truncate" title="{{ implode(', ', $source['feeds']) }}">Besler: {{ implode(', ', $source['feeds']) }}</span>@endif
                                     @if ($source['collected_at'])<span class="tabular-nums">Son çekim {{ $source['collected_at'] }}</span>@endif
                                 </span>
                             </span>
@@ -86,7 +86,7 @@
                                                         <input type="checkbox" value="{{ $dataset['dataset'] }}" wire:model.live="picked.{{ $source['key'] }}" aria-label="Seç" class="size-4 rounded border-gray-300">
                                                     @endif
                                                 </td>
-                                                <td class="text-gray-900 dark:text-white">{{ $dataset['label'] }} @if ($dataset['protected'])<span class="text-xs text-gray-500">korunur</span>@endif</td>
+                                                <td class="whitespace-nowrap text-gray-900 dark:text-white">{{ $dataset['label'] }} @if ($dataset['protected'])<span class="text-xs text-gray-500">korunur</span>@endif</td>
                                                 <td class="text-right tabular-nums">{{ $fmt($dataset['rows']) }}</td>
                                                 <td class="whitespace-nowrap text-gray-500 tabular-nums">{{ $dataset['from'] ? $dataset['from'].' – '.$dataset['through'] : '—' }}</td>
                                                 <td class="hidden whitespace-nowrap text-gray-500 tabular-nums sm:table-cell">{{ $dataset['collected_at'] ?? '—' }}</td>

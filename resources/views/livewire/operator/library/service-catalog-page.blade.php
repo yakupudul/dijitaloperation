@@ -87,7 +87,7 @@
                             </tr>
                         @empty
                             <tr><td colspan="4" class="p-0!">
-                                <x-ta.empty-state size="sm" :title="$search !== '' || $sector !== '' ? 'Aramanızla eşleşen hizmet bulunamadı.' : 'Bu görünümde hizmet bulunmuyor.'" />
+                                <x-ta.empty-state icon="none" size="sm" :title="$search !== '' || $sector !== '' ? 'Aramanızla eşleşen hizmet bulunamadı.' : 'Bu görünümde hizmet bulunmuyor.'" />
                             </td></tr>
                         @endforelse
                     </tbody>

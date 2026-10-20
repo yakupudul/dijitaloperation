@@ -58,9 +58,9 @@
         @if ($strategies->isEmpty())
             <div class="card">
                 @if ($brand !== '' || $channel !== '' || $status !== '' || trim($search) !== '')
-                    <x-ta.empty-state size="sm" title="Bu filtrede strateji yok." />
+                    <x-ta.empty-state icon="none" size="sm" title="Bu filtrede strateji yok." />
                 @else
-                    <x-ta.empty-state title="Henüz strateji yok." message="Claude’dan bir strateji istediğinde (ör. “OPC için yurt dışı Google Ads stratejisi çıkar”) burada belirir." />
+                    <x-ta.empty-state icon="none" title="Henüz strateji yok." message="Claude’dan bir strateji istediğinde (ör. “OPC için yurt dışı Google Ads stratejisi çıkar”) burada belirir." />
                 @endif
             </div>
         @else

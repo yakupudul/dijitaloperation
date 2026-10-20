@@ -14,8 +14,9 @@
         $bareId = preg_replace('/^act_/', '', $actId);
         $pageTitle = trim((string) preg_replace('/\s*[·\-|]\s*(act_)?'.preg_quote($bareId, '/').'\s*$/u', '', $pageTitle)) ?: $pageTitle;
     }
-    $btn = 'rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset ring-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/[0.04]';
-    $primary = 'rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500 disabled:opacity-50';
+    /** Panel concept: white bordered secondary, near-black primary. */
+    $btn = 'btn';
+    $primary = 'btn-primary';
     $th = 'px-3 py-2 text-right font-normal';
     $td = 'px-3 py-1.5 text-right';
     $bound = $account !== null;
@@ -28,12 +29,12 @@
         $state = $aiStates[$op] ?? null;
         [$class, $text, $poll] = match ($state['status'] ?? null) {
             'running' => ['text-gray-500', 'Çalışıyor…', true],
-            'failed' => ['text-error-700', (string) ($state['message'] ?? 'Başarısız.'), false],
-            'ready' => ['text-success-700', (string) ($state['message'] ?? 'Hazır.'), false],
+            'failed' => ['text-error-700 dark:text-error-400', (string) ($state['message'] ?? 'Başarısız.'), false],
+            'ready' => ['text-success-700 dark:text-success-400', (string) ($state['message'] ?? 'Hazır.'), false],
             default => [null, null, false],
         };
 
-        return $class === null ? '' : '<p class="text-xs '.$class.'"'.($poll ? ' wire:poll.5s' : '').'>'.e($aiLabels[$op]).': '.e($text).'</p>';
+        return $class === null ? '' : '<p class="text-[13px] '.$class.'"'.($poll ? ' wire:poll.5s' : '').'>'.e($aiLabels[$op]).': '.e($text).'</p>';
     };
     $stateBadge = [
         'issue' => ['Sorun', 'critical'],
@@ -41,168 +42,190 @@
         'no_data' => ['veri yok', 'info'],
         'low_data' => ['veri az', 'look'],
     ];
-    $h2 = 'section-title mb-2';
-    $tr = 'border-b border-gray-200 dark:border-gray-800';
+    /** Checks: problems first. */
+    $checkRows = fn (array $items) => collect($items)->sortBy(fn (array $c): int => ['issue' => 0, 'low_data' => 1, 'no_data' => 2, 'ok' => 3][$c['state']] ?? 4);
 @endphp
 
-<div class="space-y-8">
+<div class="space-y-10">
     @include('livewire.demo.partials.flash')
     <x-operator.asset-context :asset-id="$assetId" :title="$pageTitle">
         <x-slot:mark><x-demo.digital-asset-mark type="meta_ads" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
-        <x-slot:meta>Meta reklamları · {{ $brand?->name ?? 'Marka yok' }}@if ($bound), {{ $currency }} <span class="break-all text-xs text-gray-500">{{ $actId }}</span>@else, hesap bağlı değil @endif</x-slot:meta>
+        <x-slot:meta>{{ 'Meta reklamları'.($brand ? '' : ', marka yok') }}@if ($bound), {{ $currency }} <span class="break-all text-xs text-gray-500">{{ $actId }}</span>@else, hesap bağlı değil @endif</x-slot:meta>
         <x-slot:actions>
             @if ($bound && $brand)
-                <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="{{ $btn }} inline-flex items-center gap-2">Eşleşmeyenleri ata @if (($board['open'] ?? 0) > 0)<span class="text-xs tabular-nums text-gray-500">{{ $board['open'] }}</span>@endif</a>
+                <a href="{{ route('operator.meta.assign', ['assetId' => $assetId]) }}" wire:navigate class="btn h-9! w-full sm:w-auto">Eşleşmeyenleri ata @if (($board['open'] ?? 0) > 0)<span class="text-xs font-normal tabular-nums text-gray-500">{{ $board['open'] }}</span>@endif</a>
             @endif
             @if ($ranged)
                 <x-operator.date-range-picker :range="$range" :last-day="$lastDay" note="Meta verisi her gün toplanır." class="w-full sm:w-auto" />
             @endif
-            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="{{ $btn }}">Verileri yenile</button>
+            <button type="button" wire:click="refreshData" wire:loading.attr="disabled" @disabled(! $bound) class="btn h-9! w-full sm:w-auto">Verileri yenile</button>
         </x-slot:actions>
         <x-slot:tabs>
-            <nav class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Meta">
+            <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Meta">
                 @foreach ($tabs as $key => $label)
-                    <button type="button" wire:click="setTab('{{ $key }}')" @class([
-                        'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium',
-                        'border-gray-900 text-gray-900 dark:border-white dark:text-white' => $tab === $key,
-                        'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' => $tab !== $key,
-                    ])>{{ $label }}@if ($key === 'todo' && $openCount > 0) <span class="ml-1 text-xs font-normal tabular-nums text-gray-500">{{ $openCount }}</span>@endif</button>
+                    <button type="button" wire:click="setTab('{{ $key }}')" @if ($tab === $key) aria-current="page" @endif @class(['tab', 'tab-active' => $tab === $key])>{{ $label }}@if ($key === 'todo' && $openCount > 0) <span class="text-[13px] font-normal tabular-nums text-gray-500">{{ $openCount }}</span>@endif</button>
                 @endforeach
             </nav>
         </x-slot:tabs>
     </x-operator.asset-context>
 
     @unless ($bound)
-        <section class="flex flex-wrap items-center gap-3 text-sm">
-            <x-ta.pill tone="look" class="text-sm">Reklam hesabı bağlı değil</x-ta.pill>
-            <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="{{ $primary }} inline-flex">Bağla</a>
-        </section>
+        <div class="card">
+            <div class="card-row flex-wrap sm:flex-nowrap">
+                <span class="row-icon border-transparent bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Reklam hesabı bağlı değil</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500">Hesap bağlanınca kampanyalar, sonuçlar ve kontroller burada görünür.</p>
+                </div>
+                <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="{{ $primary }} w-full sm:w-auto">Bağla</a>
+            </div>
+        </div>
     @endunless
 
     @if ($tab === 'campaigns')
         @include('livewire.demo.meta.partials.campaigns')
 
     @elseif ($tab === 'todo')
-        <div class="flex flex-wrap items-center gap-2">
-            <button type="button" wire:click="recheck" @disabled(! $bound) class="{{ $btn }}">Yeniden kontrol et</button>
-            {!! $aiButton('creatives') !!}
-            {!! $aiButton('structure') !!}
-            {!! $aiButton('landing') !!}
-            @unless ($operational)<span class="text-xs text-gray-500">Marka operasyonel değil; AI kapalı.</span>@endunless
-        </div>
-        {!! $aiLine('creatives') !!}{!! $aiLine('structure') !!}{!! $aiLine('landing') !!}
-
         <section data-testid="meta-checks">
-            <h2 class="{{ $h2 }}">Kontroller @if ($checks)<span class="text-sm font-normal text-gray-500">{{ \Carbon\CarbonImmutable::parse($checks['at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}</span>@endif</h2>
-            @if ($checks === null)
-                <x-ta.empty-state size="sm" title="Henüz kontrol edilmedi." />
-            @else
-                <ul class="divide-y divide-gray-200 border-b border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
-                    @foreach ($checks['checks'] as $check)
-                        <li class="flex flex-wrap items-center gap-2 py-2.5">
-                            <span class="min-w-0 font-medium text-gray-900 sm:w-52 sm:shrink-0 dark:text-gray-200">{{ $check['label'] }}</span>
-                            <x-ta.pill :tone="$stateBadge[$check['state']][1] ?? 'info'" class="sm:w-20">{{ $stateBadge[$check['state']][0] ?? $check['state'] }}</x-ta.pill>
-                            <span class="min-w-0 basis-full break-words text-gray-500 sm:flex-1 sm:basis-auto dark:text-gray-400">{{ $check['detail'] }}</span>
-                        </li>
+            <div class="section-head">
+                <h2 class="section-title">Kontroller @if ($checks)<span class="section-count">{{ collect($checks['checks'])->where('state', 'issue')->count() }} sorun</span>@endif</h2>
+                @if ($checks)<span class="text-[13px] tabular-nums text-gray-500">{{ \Carbon\CarbonImmutable::parse($checks['at'])->timezone('Europe/Istanbul')->format('d.m H:i') }}</span>@endif
+                <button type="button" wire:click="recheck" @disabled(! $bound) class="btn-quiet sm:ml-auto">Yeniden kontrol et</button>
+            </div>
+            <div class="card">
+                @if ($checks === null)
+                    <x-ta.empty-state icon="none" size="sm" title="Henüz kontrol edilmedi." />
+                @else
+                    @foreach ($checkRows($checks['checks']) as $check)
+                        <div class="card-row flex-wrap items-start gap-y-1 sm:flex-nowrap">
+                            <span class="min-w-0 text-sm font-medium text-gray-900 sm:w-52 sm:shrink-0 dark:text-gray-200">{{ $check['label'] }}</span>
+                            <x-ta.pill :tone="$stateBadge[$check['state']][1] ?? 'info'" class="shrink-0 sm:mt-0.5 sm:w-20">{{ $stateBadge[$check['state']][0] ?? $check['state'] }}</x-ta.pill>
+                            <span class="min-w-0 basis-full break-words text-[13px] text-gray-500 sm:flex-1 sm:basis-auto dark:text-gray-400">{{ $check['detail'] }}</span>
+                        </div>
                     @endforeach
-                </ul>
-            @endif
+                @endif
+            </div>
         </section>
 
-        @include('livewire.demo.meta.partials.suggestions', ['items' => $suggestions])
+        <div class="space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center">{!! $aiButton('creatives') !!}</span>
+                <span class="inline-flex items-center">{!! $aiButton('structure') !!}</span>
+                <span class="inline-flex items-center">{!! $aiButton('landing') !!}</span>
+                @unless ($operational)<span class="text-xs text-gray-500">Marka operasyonel değil; AI kapalı.</span>@endunless
+            </div>
+            {!! $aiLine('creatives') !!}{!! $aiLine('structure') !!}{!! $aiLine('landing') !!}
+            @include('livewire.demo.meta.partials.suggestions', ['items' => $suggestions])
+        </div>
 
         <section data-testid="meta-approved">
-            <div class="mb-2 flex items-center justify-between gap-3">
-                <h2 class="section-title">Uygulanacaklar · {{ $approved->count() }}</h2>
-                @if ($approved->isNotEmpty())<button type="button" wire:click="exportCsv" class="{{ $btn }}">CSV indir</button>@endif
+            <div class="section-head">
+                <h2 class="section-title">Uygulanacaklar <span class="section-count">{{ $approved->count() }}</span></h2>
+                @if ($approved->isNotEmpty())<button type="button" wire:click="exportCsv" class="{{ $btn }} sm:ml-auto">CSV indir</button>@endif
             </div>
-            @forelse ($approved as $s)
-                <div class="flex flex-wrap items-start gap-2 border-b border-gray-200 py-2.5 dark:border-gray-800" wire:key="approved-{{ $s->id }}" x-data="{ text: @js((string) ($s->action['text'] ?? $s->title)) }">
-                    <div class="min-w-0 flex-1">
-                        <p class="break-words text-sm font-medium text-gray-900 dark:text-white">{{ $s->title }}</p>
-                        <p class="whitespace-pre-line break-words text-xs text-gray-500 dark:text-gray-400">{{ $s->action['text'] ?? '' }}</p>
+            <div class="card">
+                @forelse ($approved as $s)
+                    <div class="card-row flex-wrap items-start sm:flex-nowrap" wire:key="approved-{{ $s->id }}" x-data="{ text: @js((string) ($s->action['text'] ?? $s->title)) }">
+                        <div class="min-w-0 flex-1">
+                            <p class="break-words text-sm font-medium text-gray-900 dark:text-white">{{ $s->title }}</p>
+                            <p class="mt-0.5 whitespace-pre-line break-words text-[13px] text-gray-500 dark:text-gray-400">{{ $s->action['text'] ?? '' }}</p>
+                        </div>
+                        <span class="flex shrink-0 items-center gap-1">
+                            <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="btn-quiet h-7! px-2! text-xs!">Kopyala</button>
+                            <button type="button" wire:click="markApplied({{ $s->id }})" class="btn h-7! px-2.5! text-xs!">Uygulandı</button>
+                        </span>
                     </div>
-                    <button type="button" x-on:click="navigator.clipboard.writeText(text)" class="link-neutral text-xs">Kopyala</button>
-                    <button type="button" wire:click="markApplied({{ $s->id }})" class="rounded-lg px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700">Uygulandı</button>
-                </div>
-            @empty
-                <x-ta.empty-state size="sm" title="Onaylanan öneri yok." />
-            @endforelse
+                @empty
+                    <x-ta.empty-state icon="none" size="sm" title="Onaylanan öneri yok." />
+                @endforelse
+            </div>
         </section>
 
     @elseif ($tab === 'measurement')
         @php $m = $measurement; @endphp
         @if (! ($m['bound'] ?? false))
-            <x-ta.empty-state size="sm" title="Veri yok." />
+            <div class="card"><x-ta.empty-state icon="none" size="sm" title="Veri yok." /></div>
         @else
             <section data-testid="meta-results">
-                <div class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3">
-                    <x-ta.metric-card :label="'Meta sonuçları · '.$range->label()" :value="$num($m['meta']['results'], 1)" :hint="'Lead '.$num($m['meta']['leads'], 1).', mesaj '.$num($m['meta']['messages'], 1).', satış '.$num($m['meta']['purchases'], 1)" />
-                    <x-ta.metric-card :label="'GA4, Meta kaynaklı · '.$range->label()" :value="$m['ga4']['has_data'] ? $num($m['ga4']['key_events'], 1) : '—'" :muted="! $m['ga4']['has_data']" :hint="$m['ga4']['has_data'] ? 'anahtar etkinlik, '.$num($m['ga4']['sessions']).' oturum' : 'veri yok'" />
-                    <x-ta.metric-card :label="'CRM (lead işaretleri) · '.$range->label()" :value="$m['crm']['total'] > 0 ? $num($m['crm']['marks']['randevu'] + $m['crm']['marks']['satis']) : '—'" :muted="$m['crm']['total'] === 0" :hint="$m['crm']['total'] > 0 ? 'randevu + satış · '.$m['crm']['total'].' lead, '.$m['crm']['marked'].' işaretli' : 'veri yok'" />
+                <div class="section-head">
+                    <h2 class="section-title">{{ $range->label() }}</h2>
+                    <span class="text-[13px] text-gray-500">Üç kaynak ayrı sayar; toplanmaz.</span>
                 </div>
-                <p class="mt-3 text-xs text-gray-500">Üç kaynak ayrı sayar; toplanmaz.</p>
+                <div class="metric-strip grid-cols-1 sm:grid-cols-3">
+                    <x-ta.metric-card label="Meta sonuçları" :value="$num($m['meta']['results'], 1)" :hint="'Lead '.$num($m['meta']['leads'], 1).', mesaj '.$num($m['meta']['messages'], 1).', satış '.$num($m['meta']['purchases'], 1)" />
+                    <x-ta.metric-card label="GA4, Meta kaynaklı" :value="$m['ga4']['has_data'] ? $num($m['ga4']['key_events'], 1) : '—'" :muted="! $m['ga4']['has_data']" :hint="$m['ga4']['has_data'] ? 'Anahtar etkinlik, '.$num($m['ga4']['sessions']).' oturum' : 'veri yok'" />
+                    <x-ta.metric-card label="CRM (lead işaretleri)" :value="$m['crm']['total'] > 0 ? $num($m['crm']['marks']['randevu'] + $m['crm']['marks']['satis']) : '—'" :muted="$m['crm']['total'] === 0" :hint="$m['crm']['total'] > 0 ? 'Randevu + satış; '.$m['crm']['total'].' lead, '.$m['crm']['marked'].' işaretli' : 'veri yok'" />
+                </div>
             </section>
 
             <div class="grid gap-10 xl:grid-cols-2">
                 <section class="min-w-0" data-testid="meta-attribution">
-                    <h2 class="{{ $h2 }}">İlişkilendirme ayarı</h2>
-                    @forelse ($m['attribution'] as $label => $row)
-                        <p class="flex justify-between gap-3 border-b border-gray-200 py-2.5 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300"><span class="font-medium">{{ $label }}</span><span class="text-gray-500">{{ $row['count'] }} reklam seti</span></p>
-                    @empty
-                        <p class="py-4 text-sm text-gray-500">veri yok</p>
-                    @endforelse
+                    <div class="section-head"><h2 class="section-title">İlişkilendirme ayarı</h2></div>
+                    <ul class="card">
+                        @forelse ($m['attribution'] as $label => $row)
+                            <li class="card-row justify-between text-sm"><span class="min-w-0 font-medium text-gray-900 dark:text-gray-200">{{ $label }}</span><span class="shrink-0 text-[13px] text-gray-500">{{ $row['count'] }} reklam seti</span></li>
+                        @empty
+                            <li class="card-row text-sm text-gray-500">veri yok</li>
+                        @endforelse
+                    </ul>
                 </section>
                 <section class="min-w-0" data-testid="meta-pixel">
-                    <h2 class="{{ $h2 }}">Pixel / CAPI</h2>
-                    <p class="text-sm text-gray-700 dark:text-gray-300">Pixel: <span class="font-medium">{{ $m['pixel']['label'] }}</span>, CAPI: veri yok</p>
-                    @foreach ($m['pixel']['pixels'] as $pixel)
-                        <p class="py-1 text-xs text-gray-500">{{ $pixel['name'] }}, son olay {{ $pixel['last_fired'] ?? 'yok' }}</p>
-                    @endforeach
+                    <div class="section-head"><h2 class="section-title">Pixel / CAPI</h2></div>
+                    <ul class="card">
+                        <li class="card-row text-sm text-gray-700 dark:text-gray-300">Pixel: <span class="font-medium text-gray-900 dark:text-white">{{ $m['pixel']['label'] }}</span>, CAPI: veri yok</li>
+                        @foreach ($m['pixel']['pixels'] as $pixel)
+                            <li class="card-row text-[13px] text-gray-500">{{ $pixel['name'] }}, son olay {{ $pixel['last_fired'] ?? 'yok' }}</li>
+                        @endforeach
+                    </ul>
                 </section>
             </div>
         @endif
 
         <section data-testid="meta-leads">
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
+            <div class="section-head">
                 <h2 class="section-title">Lead kalitesi</h2>
-                <form wire:submit="uploadLeads" class="flex flex-wrap items-center gap-2">
-                    <input type="file" wire:model="leadFile" accept=".csv,.tsv,.txt" aria-label="Lead dosyası" class="text-xs">
+                <form wire:submit="uploadLeads" class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+                    <input type="file" wire:model="leadFile" accept=".csv,.tsv,.txt" aria-label="Lead dosyası" class="min-w-0 max-w-full text-xs text-gray-600 file:mr-2 file:h-8 file:rounded-lg file:border file:border-gray-300 file:bg-white file:px-3 file:text-[13px] file:font-medium file:text-gray-900 dark:text-gray-400 dark:file:border-gray-700 dark:file:bg-white/[0.04] dark:file:text-gray-200">
                     <button type="submit" class="{{ $btn }}">Lead dosyası yükle</button>
-                    @error('leadFile')<span class="text-xs text-error-700">{{ $message }}</span>@enderror
+                    @error('leadFile')<span class="text-xs text-error-700 dark:text-error-400">{{ $message }}</span>@enderror
                 </form>
             </div>
             @if ($leadCampaigns !== [])
-                <div class="overflow-x-auto"><table class="w-full min-w-[36rem] text-sm">
-                    <thead><tr class="{{ $tr }} text-left text-xs text-gray-500"><th class="py-2 pr-3 font-normal">Kampanya</th><th class="{{ $th }}">Lead</th>@foreach (\App\Models\MetaLead::MARKS as $label)<th class="{{ $th }}">{{ $label }}</th>@endforeach<th class="{{ $th }}">İşaretsiz</th></tr></thead>
-                    <tbody class="divide-y divide-gray-200 border-b border-gray-200 tabular-nums dark:divide-gray-800 dark:border-gray-800">
-                        @foreach ($leadCampaigns as $row)
-                            <tr class="text-gray-700 dark:text-gray-300"><td class="py-1.5 pr-3">{{ $row['campaign'] }}</td><td class="{{ $td }}">{{ $row['total'] }}</td>@foreach (array_keys(\App\Models\MetaLead::MARKS) as $mark)<td class="{{ $td }}">{{ $row[$mark] }}</td>@endforeach<td class="{{ $td }}">{{ $row['unmarked'] }}</td></tr>
-                        @endforeach
-                    </tbody>
-                </table></div>
+                <div class="card overflow-x-auto">
+                    <table class="data-table min-w-[36rem]">
+                        <thead><tr><th>Kampanya</th><th class="text-right!">Lead</th>@foreach (\App\Models\MetaLead::MARKS as $label)<th class="text-right!">{{ $label }}</th>@endforeach<th class="text-right!">İşaretsiz</th></tr></thead>
+                        <tbody class="tabular-nums">
+                            @foreach ($leadCampaigns as $row)
+                                <tr><td class="text-gray-900 dark:text-white">{{ $row['campaign'] }}</td><td class="text-right">{{ $row['total'] }}</td>@foreach (array_keys(\App\Models\MetaLead::MARKS) as $mark)<td class="text-right text-gray-600 dark:text-gray-400">{{ $row[$mark] }}</td>@endforeach<td class="text-right text-gray-600 dark:text-gray-400">{{ $row['unmarked'] }}</td></tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             @endif
-            <div class="mt-6 flex items-center justify-between border-b border-gray-200 py-2 dark:border-gray-800">
-                <p class="text-sm text-gray-500">Son 100 lead</p>
-                <label class="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model.live="unmarkedOnly" class="rounded border-gray-300"> İşaretsiz</label>
+        </section>
+
+        <section>
+            <div class="section-head">
+                <h2 class="section-title">Son 100 lead</h2>
+                <label class="inline-flex items-center gap-1.5 text-[13px] text-gray-600 sm:ml-auto dark:text-gray-300"><input type="checkbox" wire:model.live="unmarkedOnly" class="h-4 w-4 rounded border-gray-300"> İşaretsiz</label>
             </div>
-            <div class="divide-y divide-gray-200 dark:divide-gray-800">
+            <div class="card">
                 @forelse ($leadList as $lead)
-                    <div class="flex flex-wrap items-center gap-2 py-2.5 text-sm" wire:key="lead-{{ $lead->id }}">
-                        <span class="w-28 shrink-0 text-xs text-gray-500">{{ $lead->received_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? '—' }}</span>
-                        <span class="min-w-0 flex-1 truncate text-gray-700 dark:text-gray-300" title="{{ $lead->campaign_name }}">{{ $lead->campaign_name ?? '—' }}@if ($lead->form_name), {{ $lead->form_name }}@endif</span>
-                        <div class="flex flex-wrap gap-1">
+                    <div class="card-row flex-wrap py-3! text-sm sm:flex-nowrap" wire:key="lead-{{ $lead->id }}">
+                        <span class="w-28 shrink-0 text-xs tabular-nums text-gray-500">{{ $lead->received_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? '—' }}</span>
+                        <span class="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-200" title="{{ $lead->campaign_name }}">{{ $lead->campaign_name ?? '—' }}@if ($lead->form_name)<span class="text-gray-500">, {{ $lead->form_name }}</span>@endif</span>
+                        <div class="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-800 dark:bg-white/[0.03]" role="group" aria-label="İşaret">
                             @foreach (\App\Models\MetaLead::MARKS as $mark => $label)
-                                <button type="button" wire:click="markLead({{ $lead->id }}, '{{ $lead->mark === $mark ? '' : $mark }}')" @class([
-                                    'rounded px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
-                                    'bg-gray-900 text-white ring-gray-900 dark:bg-white dark:text-gray-900 dark:ring-white' => $lead->mark === $mark,
-                                    'text-gray-600 ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700' => $lead->mark !== $mark,
+                                <button type="button" wire:click="markLead({{ $lead->id }}, '{{ $lead->mark === $mark ? '' : $mark }}')" @if ($lead->mark === $mark) aria-pressed="true" @endif @class([
+                                    'h-6 rounded-md px-2 text-xs font-medium',
+                                    'bg-white text-gray-900 shadow-card dark:bg-gray-800 dark:text-white' => $lead->mark === $mark,
+                                    'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white' => $lead->mark !== $mark,
                                 ])>{{ $label }}</button>
                             @endforeach
                         </div>
                     </div>
                 @empty
-                    <x-ta.empty-state size="sm" title="Lead yok." message="Reklam Yöneticisi’nden lead dosyasını indirip yükleyin." />
+                    <x-ta.empty-state icon="none" size="sm" title="Lead yok." message="Reklam Yöneticisi’nden lead dosyasını indirip yükleyin." />
                 @endforelse
             </div>
         </section>
@@ -222,11 +245,12 @@
             ];
         @endphp
         <section data-testid="meta-settings">
-            <dl class="divide-y divide-gray-200 border-b border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
+            <div class="section-head"><h2 class="section-title">Hesap ayarları</h2></div>
+            <dl class="card">
                 @foreach ($rows as $label => $value)
-                    <div class="grid gap-1 py-2.5 sm:grid-cols-4">
-                        <dt class="text-gray-500">{{ $label }}</dt>
-                        <dd class="min-w-0 break-words text-gray-900 dark:text-gray-100 sm:col-span-3">
+                    <div class="card-row flex-wrap items-start gap-y-0.5 text-sm sm:flex-nowrap">
+                        <dt class="w-full text-[13px] text-gray-500 sm:w-44 sm:shrink-0">{{ $label }}</dt>
+                        <dd class="min-w-0 break-words text-gray-900 dark:text-gray-100">
                             @if ($label === 'Marka' && $brand)
                                 <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="link-neutral">{{ $value }}</a>
                             @else
@@ -236,10 +260,10 @@
                     </div>
                 @endforeach
             </dl>
-            <div class="flex flex-wrap gap-x-5 gap-y-2 py-3 text-sm">
-                <a href="{{ route('operator.integrations.meta') }}" wire:navigate class="link-neutral">Meta entegrasyonu</a>
-                @if ($brand)<a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="link-neutral">Bölge ve dilleri düzenle</a>@endif
-                <a href="{{ route('operator.asset.edit', ['assetId' => $assetId]) }}" wire:navigate class="link-neutral">Varlığı düzenle</a>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <a href="{{ route('operator.integrations.meta') }}" wire:navigate class="{{ $btn }}">Meta entegrasyonu</a>
+                @if ($brand)<a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="{{ $btn }}">Bölge ve dilleri düzenle</a>@endif
+                <a href="{{ route('operator.asset.edit', ['assetId' => $assetId]) }}" wire:navigate class="{{ $btn }}">Varlığı düzenle</a>
             </div>
         </section>
     @endif

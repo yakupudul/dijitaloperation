@@ -31,7 +31,7 @@
                         <td class="hidden whitespace-nowrap text-right text-xs tabular-nums text-gray-500 lg:table-cell">{{ $member['last_login'] ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="5"><x-ta.empty-state size="sm" title="Kullanıcı yok." class="px-0! py-0!" /></td></tr>
+                    <tr><td colspan="5"><x-ta.empty-state size="sm" icon="none" title="Kullanıcı yok." class="px-0! py-0!" /></td></tr>
                 @endforelse
             </tbody>
         </table>

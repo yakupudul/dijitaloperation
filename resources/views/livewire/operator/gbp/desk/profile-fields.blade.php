@@ -127,7 +127,7 @@
                     </div>
                 </section>
             @empty
-                <div class="card"><x-ta.empty-state size="sm" title="Operasyonel markaya bağlı İşletme Profili yok." /></div>
+                <div class="card"><x-ta.empty-state size="sm" icon="none" title="Operasyonel markaya bağlı İşletme Profili yok." /></div>
             @endforelse
         @elseif ($section === 'saatler')
             @if ($holidays === [])
@@ -216,7 +216,7 @@
                                         </label>
                                     @endforeach
                                 @empty
-                                    <x-ta.empty-state size="sm" title="Operasyonel markaya bağlı İşletme Profili yok." />
+                                    <x-ta.empty-state size="sm" icon="none" title="Operasyonel markaya bağlı İşletme Profili yok." />
                                 @endforelse
                             </div>
                             <p class="mt-2 text-[13px] text-gray-500">Durum son toplanan profil verisinden okunur; gönderimden sonra bir sonraki toplamada güncellenir.</p>
@@ -342,7 +342,7 @@
                     </div>
                 </section>
             @empty
-                <div class="card"><x-ta.empty-state size="sm" title="Operasyonel markaya bağlı İşletme Profili yok." /></div>
+                <div class="card"><x-ta.empty-state size="sm" icon="none" title="Operasyonel markaya bağlı İşletme Profili yok." /></div>
             @endforelse
         @endif
     </div>

@@ -85,26 +85,27 @@
                 <a href="{{ route('operator.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="link-neutral">İlk markayı ekle</a>; web sitesini girersen hesapları ve hizmetleri "Otomatik kur" bulur.
             </div>
         @else
-            <div class="card overflow-x-auto">
+            <div class="card relative overflow-x-auto">
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Marka</th>
                             <th class="hidden sm:table-cell">Kanallar</th>
                             <th class="text-right!">Açık iş</th>
-                            <th>Durum</th>
+                            <th class="hidden sm:table-cell">Durum</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($brands as $brand)
-                            <tr wire:key="customer-brand-{{ $brand['id'] }}" data-customer-brand="{{ $brand['id'] }}">
+                            <tr wire:key="customer-brand-{{ $brand['id'] }}" class="max-sm:[&>td]:align-top" data-customer-brand="{{ $brand['id'] }}">
                                 <td>
                                     <div class="flex min-w-0 items-center gap-2.5">
                                         <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" />
                                         <div class="min-w-0">
                                             <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>
-                                            <p class="break-all text-[13px] text-gray-500">{{ collect([$brand['website'], $brand['sector_label'] !== '—' ? $brand['sector_label'] : null])->filter()->implode(', ') ?: 'Web sitesi yok' }}</p>
+                                            <p class="break-words text-[13px] text-gray-500">{{ collect([$brand['website'], $brand['sector_label'] !== '—' ? $brand['sector_label'] : null])->filter()->implode(', ') ?: 'Web sitesi yok' }}</p>
                                             <div class="mt-1 sm:hidden">@include('livewire.demo.portfolio.partials.channel-dots', ['channels' => $brand['channels']])</div>
+                                            @unless ($brand['setup']['complete'])<x-ta.pill tone="look" class="mt-1 tabular-nums sm:hidden!">Kurulum {{ $brand['setup']['done'] }}/{{ $brand['setup']['total'] }}</x-ta.pill>@endunless
                                         </div>
                                     </div>
                                 </td>
@@ -113,7 +114,7 @@
                                     <span class="font-medium text-gray-900 dark:text-white">{{ $brand['open_work'] }}</span>
                                     @if ($brand['open_by_channel'] !== [])<p class="mt-0.5 flex flex-wrap justify-end gap-x-1.5 text-xs leading-4 text-gray-500">@foreach ($brand['open_by_channel'] as $label => $n)<span class="whitespace-nowrap">{{ $label }} {{ $n }}</span>@endforeach</p>@endif
                                 </td>
-                                <td>
+                                <td class="hidden sm:table-cell">
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         @if ($brand['needs_attention'] && ($brand['reconnect'] > 0 || ($brand['critical'] ?? 0) > 0))
                                             <x-ta.pill :tone="$brand['reconnect'] > 0 ? 'critical' : 'look'">Dikkat</x-ta.pill>
@@ -171,7 +172,13 @@
                 @endforeach
             </div>
         @endif
-        @if ($missingCommercial !== [])
+        @if ($missingCommercial !== [] && $commercialSummary['fee'] === null && $commercialSummary['channels'] === [] && ! $editingCommercial)
+            <div class="card-row card">
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                <p class="min-w-0 flex-1 text-[13px] text-gray-500" data-missing-commercial>Eksik bilgi: {{ implode(', ', $missingCommercial) }}</p>
+                <button type="button" wire:click="editCommercial" class="btn">Gir</button>
+            </div>
+        @elseif ($missingCommercial !== [])
             <p class="mt-2 text-[13px] text-gray-500" data-missing-commercial>Eksik bilgi: {{ implode(', ', $missingCommercial) }}</p>
         @endif
         @if ($healthReasons !== null || count($commercialSummary['health']) > 1)

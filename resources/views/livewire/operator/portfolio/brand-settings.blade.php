@@ -107,7 +107,7 @@
                         <h3 class="section-title">Öneriler <span class="section-count">{{ $proposals->count() }}</span></h3>
                         <button type="button" wire:click="mergeProposals" class="btn ml-auto">Birleştir</button>
                     </div>
-                    <div class="card overflow-x-auto">
+                    <div class="card relative overflow-x-auto">
                         <table class="data-table min-w-[600px]">
                             <thead><tr><th class="w-8"></th><th>Ad</th><th>Katalog</th><th>Sayfa</th><th>Öncelik</th><th></th></tr></thead>
                             <tbody>

@@ -102,7 +102,7 @@
             </x-ta.empty-state>
         </div>
     @else
-        <section class="card overflow-x-auto">
+        <section class="card relative overflow-x-auto">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -134,10 +134,10 @@
                             $byChannel = collect($brand['open_by_channel'])->map(fn ($n, $label) => $label.' '.$n);
                             $attentionVars = ['needsAttention' => $brand['needs_attention'], 'isException' => $isException, 'critical' => $brand['reconnect'] > 0, 'reason' => $brand['attention_reason']];
                         @endphp
-                        <tr wire:key="brand-{{ $brand['id'] }}" data-brand-row="{{ $brand['id'] }}">
+                        <tr wire:key="brand-{{ $brand['id'] }}" class="max-sm:[&>td]:align-top" data-brand-row="{{ $brand['id'] }}">
                             @if ($isAdmin)<td class="pr-0!"><input type="checkbox" aria-label="Seç" value="{{ (int) $brand['id'] }}" wire:model.live="selected" class="rounded border-gray-300"></td>@endif
                             <td>
-                                <div class="flex min-w-0 items-center gap-2.5">
+                                <div class="flex min-w-0 items-start gap-2.5 sm:items-center">
                                     <x-ta.brand-avatar :name="$brand['name']" :logo="$brand['logo_url'] ?? null" />
                                     <div class="min-w-0">
                                         <a href="{{ $href }}" wire:navigate class="break-words font-medium text-gray-900 hover:underline dark:text-white">{{ $brand['name'] }}</a>

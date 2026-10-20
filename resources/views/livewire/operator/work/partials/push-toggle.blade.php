@@ -1,19 +1,19 @@
 {{-- Phone / browser notifications (Web Push): only the important work alerts (site down, ad account stopped, bad review …). --}}
-<div wire:ignore x-data="moxdopPush({ key: @js(route('push.key')), subscribe: @js(route('push.subscribe')), unsubscribe: @js(route('push.unsubscribe')), test: @js(route('push.test')) })" x-init="init()" class="flex items-center gap-2 text-xs" data-push-toggle>
+<div wire:ignore x-data="moxdopPush({ key: @js(route('push.key')), subscribe: @js(route('push.subscribe')), unsubscribe: @js(route('push.unsubscribe')), test: @js(route('push.test')) })" x-init="init()" class="flex flex-wrap items-center gap-2 text-[13px]" data-push-toggle>
     <template x-if="state === 'unsupported'">
         <span class="text-gray-500" x-text="hint"></span>
     </template>
     <template x-if="state === 'off' || state === 'denied'">
-        <button type="button" x-on:click="enable()" :disabled="state === 'denied' || busy" class="rounded-lg px-3 py-2 font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:ring-gray-700">Telefona bildirim aç</button>
+        <button type="button" x-on:click="enable()" :disabled="state === 'denied' || busy" class="btn">Telefona bildirim aç</button>
     </template>
     <template x-if="state === 'on'">
         <span class="flex items-center gap-2">
             <x-ta.pill tone="ok">Bildirim açık</x-ta.pill>
-            <button type="button" x-on:click="sendTest()" :disabled="busy" class="text-gray-500 hover:underline">Dene</button>
-            <button type="button" x-on:click="disable()" :disabled="busy" class="text-gray-500 hover:underline">Kapat</button>
+            <button type="button" x-on:click="sendTest()" :disabled="busy" class="btn-quiet h-7! px-2! text-xs!">Dene</button>
+            <button type="button" x-on:click="disable()" :disabled="busy" class="btn-quiet h-7! px-2! text-xs!">Kapat</button>
         </span>
     </template>
-    <span x-show="note !== ''" x-text="note" class="text-gray-500"></span>
+    <span x-show="note !== ''" x-text="note" class="text-xs text-gray-500"></span>
 </div>
 
 @once

@@ -10,7 +10,7 @@
     <div class="space-y-10">
         @if (! $ready || ! $view)
             <header><h1 class="page-title">Kazananlar</h1></header>
-            <div class="card"><x-ta.empty-state title="Kazananlar tabloları henüz hazır değil." /></div>
+            <div class="card"><x-ta.empty-state icon="none" title="Kazananlar tabloları henüz hazır değil." /></div>
         @else
             <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4" data-testid="winner-service-hero">
                 <div class="min-w-0">
@@ -43,7 +43,7 @@
                     @endif
                 </div>
                 @if ($view['podium'] === [])
-                    <div class="card"><x-ta.empty-state size="sm" title="Bu şehirde hiçbir kanalda eşiği geçen marka yok." data-testid="winner-podium" /></div>
+                    <div class="card"><x-ta.empty-state icon="none" size="sm" title="Bu şehirde hiçbir kanalda eşiği geçen marka yok." data-testid="winner-podium" /></div>
                 @else
                     <div @class(['metric-strip grid-cols-1 sm:grid-cols-2', 'lg:grid-cols-4' => count($view['podium']) === 4, 'lg:grid-cols-3' => count($view['podium']) === 3])>
                         @foreach ($view['podium'] as $key => $p)
@@ -143,7 +143,7 @@
                                 </div>
                             </li>
                         @empty
-                            <li><x-ta.empty-state size="sm" title="Henüz lider yok." /></li>
+                            <li><x-ta.empty-state icon="none" size="sm" title="Henüz lider yok." /></li>
                         @endforelse
                     </ul>
                 </section>
@@ -152,7 +152,7 @@
                         <div class="section-head"><h2 class="section-title">Yükselenler ve düşenler</h2></div>
                         <ul class="card">
                             @if ($view['risers'] === [] && $view['fallers'] === [])
-                                <li><x-ta.empty-state size="sm" title="Henüz kıyas yok" message="Bir hafta önceki sıralama birikince burada görünür." /></li>
+                                <li><x-ta.empty-state icon="none" size="sm" title="Henüz kıyas yok" message="Bir hafta önceki sıralama birikince burada görünür." /></li>
                             @else
                                 @foreach (array_merge($view['risers'], $view['fallers']) as $x)
                                     <li class="card-row py-3!">
@@ -173,7 +173,7 @@
                                     <p class="min-w-0 flex-1 break-words text-[13px] text-gray-700 dark:text-gray-300">{{ $f['text'] }}</p>
                                 </li>
                             @empty
-                                <li><x-ta.empty-state size="sm" title="Son 60 günde lider değişmedi." /></li>
+                                <li><x-ta.empty-state icon="none" size="sm" title="Son 60 günde lider değişmedi." /></li>
                             @endforelse
                         </ul>
                     </section>

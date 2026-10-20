@@ -1,17 +1,18 @@
 {{-- Genel işler list: brand → one card per site · work type (its rule said once) → rows; overlaps under their cluster. --}}
 @php
     $per = \App\Services\Work\WorkDesk::PER_GROUP;
-    $ghost = 'h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5';
+    $workLogos ??= [];
+    $ghost = 'btn';
 @endphp
 <div class="space-y-10" data-work-list>
     @forelse($sections as $section)
-        <section class="space-y-4" wire:key="work-brand-{{ $section['brand_id'] ?? 0 }}" data-work-brand="{{ $section['brand_id'] ?? 0 }}">
-            <header class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <h2 class="section-title text-gray-900 dark:text-white">{{ $section['brand'] }}</h2>
-                <span class="text-sm text-gray-500">{{ $section['count'] }} iş</span>
-                @if($section['urgent'] > 0)<span class="text-sm text-error-700 dark:text-error-400">{{ $section['urgent'] }} acil</span>@endif
+        <section class="space-y-3" wire:key="work-brand-{{ $section['brand_id'] ?? 0 }}" data-work-brand="{{ $section['brand_id'] ?? 0 }}">
+            <header class="section-head mb-0! items-center!">
+                <x-ta.brand-avatar :name="$section['brand']" :logo="$section['brand_id'] !== null ? ($workLogos[$section['brand_id']] ?? null) : null" size="sm" />
+                <h2 class="section-title">{{ $section['brand'] }} <span class="section-count">{{ $section['count'] }} iş</span></h2>
+                @if($section['urgent'] > 0)<span class="text-[13px] text-error-700 dark:text-error-400">{{ $section['urgent'] }} acil</span>@endif
                 @if($brand === null && $section['brand_id'] !== null && count($sections) > 1)
-                    <button type="button" wire:click="showBrand({{ $section['brand_id'] }})" class="link-neutral ml-auto text-sm">Yalnız bu marka</button>
+                    <button type="button" wire:click="showBrand({{ $section['brand_id'] }})" class="link-neutral ml-auto text-[13px]">Yalnız bu marka</button>
                 @endif
             </header>
 
@@ -23,21 +24,21 @@
                     $hidden = count($units) - count($shownUnits);
                     $sharedAsset = $group['asset'];
                 @endphp
-                <article wire:key="work-group-{{ $group['key'] }}" class="text-sm" data-work-group="{{ $group['key'] }}">
-                    <header class="flex flex-col gap-2 border-b border-gray-200 py-2.5 sm:flex-row sm:items-start sm:gap-3 dark:border-gray-800">
+                <article wire:key="work-group-{{ $group['key'] }}" class="card overflow-visible! text-sm" data-work-group="{{ $group['key'] }}">
+                    <header class="flex flex-col gap-2 rounded-t-xl border-b border-gray-200 bg-gray-50/60 px-4 py-3 sm:flex-row sm:items-start sm:gap-3 dark:border-gray-800 dark:bg-white/[0.02]">
                         <div class="min-w-0 sm:flex-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h3 class="font-semibold text-gray-900 first-letter:uppercase dark:text-white">{{ $group['type'] }}</h3>
-                                <span class="text-xs tabular-nums text-gray-500">{{ $group['count'] }}</span>
-                                @if($group['urgent'] > 0)<span class="text-xs text-error-700 dark:text-error-400">{{ $group['urgent'] }} acil</span>@endif
-                                @if($sharedAsset)<span class="truncate text-xs text-gray-500">{{ $sharedAsset }}</span>@endif
+                            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                <h3 class="text-sm font-medium text-gray-900 first-letter:uppercase dark:text-white">{{ $group['type'] }}</h3>
+                                <span class="text-[13px] tabular-nums text-gray-500">{{ $group['count'] }}</span>
+                                @if($group['urgent'] > 0)<span class="text-[13px] text-error-700 dark:text-error-400">{{ $group['urgent'] }} acil</span>@endif
+                                @if($sharedAsset)<span class="min-w-0 truncate text-[13px] text-gray-500">{{ $sharedAsset }}</span>@endif
                             </div>
                             @if($group['about'])<p class="mt-0.5 max-w-3xl text-xs text-gray-500" data-work-rule>{{ $group['about'] }}</p>@endif
                         </div>
-                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <div class="flex flex-wrap items-center gap-2">
                             @php $mergeable = $group['mergeable'] ?? []; $ticked = count(array_intersect(array_map('intval', $selected), $mergeable)); @endphp
                             @if($view === 'acik' && $ticked > 0)
-                                <button type="button" wire:click="mergeSelected" wire:confirm="Seçilen {{ $ticked }} sayfanın ziyaretçileri ana sayfalarına yönlendirilsin ve sayfalar taslağa alınsın mı? Silinmez, geri alınabilir." class="h-8 shrink-0 rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white hover:bg-brand-600" data-merge-selected>Seçilenleri birleştir ({{ $ticked }})</button>
+                                <button type="button" wire:click="mergeSelected" wire:confirm="Seçilen {{ $ticked }} sayfanın ziyaretçileri ana sayfalarına yönlendirilsin ve sayfalar taslağa alınsın mı? Silinmez, geri alınabilir." class="btn-primary" data-merge-selected>Seçilenleri birleştir ({{ $ticked }})</button>
                             @endif
                             @if($view === 'acik' && count($mergeable) > 1)
                                 <button type="button" wire:click="mergeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ count($mergeable) }} «Birleştirilecek» sayfanın ziyaretçileri ana sayfalarına yönlendirilsin ve sayfalar taslağa alınsın mı? Silinmez, geri alınabilir." class="{{ $ghost }}" data-merge-group>Hepsini birleştir ({{ count($mergeable) }})</button>
@@ -46,25 +47,25 @@
                                 <button type="button" wire:click="snoozeGroup('{{ $group['key'] }}')" wire:confirm="Bu karttaki {{ $group['snoozable'] }} iş 7 gün ertelensin mi?{{ $group['snoozable'] < $group['count'] ? ' Onaylanmış işler ertelenmez.' : '' }}" class="{{ $ghost }}" data-snooze-group>Hepsini 7 gün ertele ({{ $group['snoozable'] }})</button>
                             @endif
                             @if($group['url'])
-                                <a href="{{ $group['url'] }}" @if($group['external']) target="_blank" rel="noopener" @else wire:navigate @endif class="link-neutral">{{ $group['url_label'] }}</a>
+                                <a href="{{ $group['url'] }}" @if($group['external']) target="_blank" rel="noopener" @else wire:navigate @endif class="link-neutral text-[13px]">{{ $group['url_label'] }}</a>
                             @endif
                         </div>
                     </header>
 
                     @if($group['clusters'] !== null)
                         @foreach($shownUnits as $cluster)
-                            <div class="border-b border-gray-200 dark:border-gray-800" wire:key="work-cluster-{{ $group['key'] }}-{{ $loop->index }}" data-work-cluster>
+                            <div class="border-t border-gray-200 first:border-t-0 dark:border-gray-800" wire:key="work-cluster-{{ $group['key'] }}-{{ $loop->index }}" data-work-cluster>
                                 @if($cluster['name'] !== null)
-                                    <div class="pt-3 pb-1">
+                                    <div class="px-4 pt-3 pb-1">
                                         <p class="font-medium text-gray-900 dark:text-white">«{{ $cluster['name'] }}»</p>
                                         <p class="text-xs text-gray-500">
                                             Ana sayfa:
-                                            @if($cluster['main_url'])<a href="{{ $cluster['main_url'] }}" target="_blank" rel="noopener" class="text-gray-700 hover:underline dark:text-gray-300">{{ $cluster['main_path'] }}</a>@else{{ $cluster['main_path'] }}@endif
-                                            · {{ count($cluster['items']) }} sayfa aynı ihtiyaca yanıt veriyor
+                                            @if($cluster['main_url'])<a href="{{ $cluster['main_url'] }}" target="_blank" rel="noopener" class="text-gray-700 hover:underline dark:text-gray-300">{{ $cluster['main_path'] }}</a>@else{{ $cluster['main_path'] }}@endif.
+                                            {{ count($cluster['items']) }} sayfa aynı ihtiyaca yanıt veriyor.
                                         </p>
                                     </div>
                                 @endif
-                                <ul class="divide-y divide-gray-200 dark:divide-gray-800">
+                                <ul>
                                     @foreach($cluster['items'] as $row)
                                         @include('livewire.operator.work.partials.work-row', ['row' => $row, 'group' => $group])
                                     @endforeach
@@ -72,7 +73,7 @@
                             </div>
                         @endforeach
                     @else
-                        <ul class="divide-y divide-gray-200 border-b border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                        <ul>
                             @foreach($shownUnits as $row)
                                 @include('livewire.operator.work.partials.work-row', ['row' => $row, 'group' => $group])
                             @endforeach
@@ -80,7 +81,7 @@
                     @endif
 
                     @if($hidden > 0)
-                        <button type="button" wire:click="expand('{{ $group['key'] }}')" class="w-full border-b border-gray-200 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5" data-expand-group>
+                        <button type="button" wire:click="expand('{{ $group['key'] }}')" class="w-full rounded-b-xl border-t border-gray-200 py-2.5 text-[13px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5" data-expand-group>
                             Tümünü göster (+{{ $hidden }} {{ $group['clusters'] !== null ? 'küme' : 'iş' }})
                         </button>
                     @endif
@@ -89,7 +90,7 @@
         </section>
     @empty
         @if(! ($tab === 'icerik' && $view === 'acik'))
-            <p class="py-6 text-sm text-gray-500">{{ $view === 'acik' ? 'Bu sekmede açık iş yok.' : 'Son 30 günde yapılan iş yok.' }}</p>
+            <div class="card"><x-ta.empty-state size="sm" :icon="$view === 'acik' ? 'check' : 'none'" :title="$view === 'acik' ? 'Bu sekmede açık iş yok.' : 'Son 30 günde yapılan iş yok.'" /></div>
         @endif
     @endforelse
 
@@ -98,6 +99,6 @@
     @endif
 
     @if($hiddenSections > 0)
-        <button type="button" wire:click="more" class="w-full rounded-lg py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5">Daha fazla marka göster ({{ $hiddenSections }})</button>
+        <button type="button" wire:click="more" class="btn w-full">Daha fazla marka göster ({{ $hiddenSections }})</button>
     @endif
 </div>

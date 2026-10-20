@@ -27,21 +27,23 @@
         @foreach ($observes as $item)
             <li class="card-row flex-wrap sm:flex-nowrap">
                 <x-demo.digital-asset-mark :type="$assetType($item['asset'] ?? 'website')" size="md" class="shrink-0" />
-                <div class="min-w-0 flex-1">
+                <div class="min-w-[10rem] flex-1">
                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $item['asset'] }}</p>
                     <p class="mt-0.5 text-[13px] text-gray-500">İzlediği site{{ ! empty($item['detail']) ? ', '.$item['detail'] : '' }}</p>
                 </div>
-                <x-ta.pill tone="ok">Bağlı</x-ta.pill>
-                @if (! empty($item['route']))
-                    <a href="{{ route($item['route'], ['assetId' => $item['asset_id'] ?? $identity['website_asset_id'] ?? null]) }}" wire:navigate class="btn h-7! px-2.5! text-xs!">{{ __('operator.chrome.open_website') }}</a>
-                @endif
+                <div class="ml-auto flex shrink-0 items-center gap-2">
+                    <x-ta.pill tone="ok">Bağlı</x-ta.pill>
+                    @if (! empty($item['route']))
+                        <a href="{{ route($item['route'], ['assetId' => $item['asset_id'] ?? $identity['website_asset_id'] ?? null]) }}" wire:navigate class="btn h-7! px-2.5! text-xs!">{{ __('operator.chrome.open_website') }}</a>
+                    @endif
+                </div>
             </li>
         @endforeach
 
         @foreach ($evidenceTo as $asset)
             <li class="card-row flex-wrap sm:flex-nowrap">
                 <x-demo.digital-asset-mark :type="$assetType($asset['asset'] ?? '')" size="md" class="shrink-0" />
-                <div class="min-w-0 flex-1">
+                <div class="min-w-[10rem] flex-1">
                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $asset['asset'] }}</p>
                     <p class="mt-0.5 text-[13px] text-gray-500">Bu veriyi kullanır{{ ! empty($asset['detail']) ? ', '.$asset['detail'] : '' }}</p>
                 </div>
@@ -53,7 +55,7 @@
 
         <li class="card-row flex-wrap sm:flex-nowrap" data-gsc-connection>
             <span class="row-icon" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
-            <div class="min-w-0 flex-1" title="{{ $connection['note'] ?? '' }}">
+            <div class="min-w-[10rem] flex-1" title="{{ $connection['note'] ?? '' }}">
                 <p class="text-sm font-medium text-gray-900 dark:text-white">Search Console mülkü</p>
                 <p class="mt-0.5 break-all text-[13px] text-gray-500">
                     {{ $connection['property'] ?? $identity['property_label'] ?? 'Mülk seçilmedi' }}@if (filled($connection['property_type'] ?? $identity['property_type'] ?? null)), {{ $say($connection['property_type'] ?? $identity['property_type']) }}@endif, yalnız okunur

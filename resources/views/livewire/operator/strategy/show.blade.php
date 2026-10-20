@@ -181,7 +181,7 @@
                         <div class="section-head"><h2 class="section-title">Dayanak @if (! empty($shown?->evidence))<span class="section-count">{{ count($shown->evidence) }}</span>@endif</h2></div>
                         <ul class="card">
                             @if (empty($shown?->evidence))
-                                <li><x-ta.empty-state size="sm" title="Ayrı dayanak listesi yok" message="Bu sürümün dayandığı veriler metnin içinde." /></li>
+                                <li><x-ta.empty-state icon="none" size="sm" title="Ayrı dayanak listesi yok" message="Bu sürümün dayandığı veriler metnin içinde." /></li>
                             @else
                                 @foreach ($shown->evidence as $row)
                                     <li class="card-row items-start"><div class="min-w-0"><p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['label'] ?? '' }}</p>@if (! empty($row['detail']))<p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $row['detail'] }}</p>@endif</div></li>

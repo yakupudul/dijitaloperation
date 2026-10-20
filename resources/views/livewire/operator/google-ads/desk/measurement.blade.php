@@ -77,7 +77,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="p-0"><x-ta.empty-state size="sm" title="Operasyonel markaya bağlı Google Ads hesabı yok." /></td></tr>
+                        <tr><td colspan="5" class="p-0"><x-ta.empty-state icon="none" size="sm" title="Operasyonel markaya bağlı Google Ads hesabı yok." /></td></tr>
                     @endforelse
                 </tbody>
             </table>

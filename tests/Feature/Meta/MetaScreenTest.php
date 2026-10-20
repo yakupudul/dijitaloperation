@@ -161,7 +161,7 @@ final class MetaScreenTest extends TestCase
         app(MetaChecks::class)->sync($this->asset);
         $utm = Suggestion::query()->where('decision_key', 'meta:'.$this->asset->id.':check:utm')->sole();
 
-        $page = $this->page('todo')->assertSee('UTM eksik: 1 bağlantı')->call('approveSuggestion', $utm->id)->assertSee('Uygulanacaklar · 1')->assertSee('CSV indir');
+        $page = $this->page('todo')->assertSee('UTM eksik: 1 bağlantı')->call('approveSuggestion', $utm->id)->assertSeeHtml('Uygulanacaklar <span class="section-count">1</span>')->assertSee('CSV indir');
         $this->assertSame(Suggestion::APPROVED, $utm->fresh()->status);
         $csv = $page->call('exportCsv')->effects['download'] ?? null;
         $this->assertNotNull($csv);
@@ -201,7 +201,7 @@ final class MetaScreenTest extends TestCase
         $this->assertSame($this->admin->id, (int) $b->fresh()->marked_by);
 
         $page->call('setTab', 'measurement')->assertSee('Lead kalitesi')->assertSee('Genel Trafik')
-            ->assertSee('randevu + satış · 3 lead, 3 işaretli')->assertDontSee('Ayşe');
+            ->assertSee('Randevu + satış; 3 lead, 3 işaretli')->assertDontSee('Ayşe');
     }
 
     public function test_measurement_shows_attribution_pixel_and_meta_ga4_crm_separately(): void
@@ -223,8 +223,8 @@ final class MetaScreenTest extends TestCase
         $this->assertSame(['has_data' => true, 'sessions' => 300, 'key_events' => 12.0], array_intersect_key($m['ga4'], array_flip(['has_data', 'sessions', 'key_events'])), 'only Meta sources');
         $this->assertSame(1, $m['crm']['marks']['randevu']);
         $this->assertSame(['7 gün tıklama · 1 gün görüntüleme'], array_keys($m['attribution']));
-        // Sade panel (2026-10-20): at most one "·" per label, so the GA4 card reads "GA4, Meta kaynaklı · …" (decoration only).
-        $this->page('measurement')->assertSee('Meta sonuçları · Son 28 gün')->assertSee('GA4, Meta kaynaklı · Son 28 gün')->assertSee('CRM (lead işaretleri) · Son 28 gün')
+        // Panel concept (2026-10-20): the period is the section head, the three sources are the cells under it.
+        $this->page('measurement')->assertSeeInOrder(['Son 28 gün', 'Meta sonuçları', 'GA4, Meta kaynaklı', 'CRM (lead işaretleri)'])
             ->assertSee('Üç kaynak ayrı sayar; toplanmaz.')->assertSee('7 gün tıklama · 1 gün görüntüleme')->assertSee('CAPI: veri yok');
     }
 
@@ -234,7 +234,7 @@ final class MetaScreenTest extends TestCase
 
         $this->page('campaigns')->assertSee('Harcama')->assertSee('Diş İmplantı Lead Ankara')->assertSee('Reddedilen reklam');
         $this->page('todo')->assertSee('Kontroller')->assertSee('Kreatif öner')->assertSee('Kampanya yapısı öner')->assertSee('Form / açılış sayfası öner')->assertSee('Sonuç başı maliyet arttı');
-        $this->page('analysis')->assertSee('Harcama ve sonuç · haftalık')->assertSee('Ülke ve bölge')->assertSee('İlgi alanları')->assertSee('-50,0%')
+        $this->page('analysis')->assertSee('Harcama ve sonuç')->assertSee('haftalık, çubuk harcama')->assertSee('Ülke ve bölge')->assertSee('İlgi alanları')->assertSee('-50,0%')
             ->call('setDays', 7)->assertSet('days', 7)->call('setDays', 5)->assertSet('days', 28);
         $this->page('settings')->assertSee('act_777')->assertSee('Çankaya şubesi (şube)')->assertSee('tr, en')->assertSee('Meta entegrasyonu');
         $this->page('overview')->assertSet('tab', 'campaigns');

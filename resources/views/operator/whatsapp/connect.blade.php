@@ -3,34 +3,43 @@
     $coexistence = $attempt['mode'] === 'coexistence';
     $lastReason = in_array($attempt['status'], ['cancelled'], true) ? ($attempt['details']['message'] ?? null) : null;
 @endphp
-<div class="mx-auto max-w-2xl space-y-4">
-    <a href="{{ route('operator.whatsapp') }}" class="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">WhatsApp</a>
-    <section class="space-y-5 dark:text-gray-200">
-        <div>
-            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">WhatsApp numarasını bağla</h1>
-            <p class="mt-1 text-sm text-gray-500">{{ $coexistence ? 'Telefonunuzdaki WhatsApp Business uygulaması çalışmaya devam eder; MoxDOP yalnız mesajları okur.' : 'WhatsApp Cloud API hesabınızı Meta penceresinden seçin.' }}</p>
-        </div>
+<div class="mx-auto max-w-2xl space-y-8">
+    <div>
+        <a href="{{ route('operator.whatsapp') }}" class="btn-quiet -ml-2.5 mb-2">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L8.83 10l3.94 3.71a.75.75 0 1 1-1.04 1.08l-4.5-4.25a.75.75 0 0 1 0-1.08l4.5-4.25a.75.75 0 0 1 1.06.02Z" clip-rule="evenodd"/></svg>
+            WhatsApp
+        </a>
+        <h1 class="page-title">WhatsApp numarasını bağla</h1>
+        <p class="page-sub">{{ $coexistence ? 'Telefonunuzdaki WhatsApp Business uygulaması çalışmaya devam eder; MoxDOP yalnız mesajları okur.' : 'WhatsApp Cloud API hesabınızı Meta penceresinden seçin.' }}</p>
+    </div>
+    <section class="space-y-4 dark:text-gray-200">
         @if($attempt['expires_at']->isPast())
-            <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-900 dark:bg-warning-500/10 dark:text-warning-200">Bu bağlantı oturumunun süresi doldu. WhatsApp ekranına dönüp yeniden başlatın.</p>
+            <p class="rounded-xl px-4 py-3 text-sm tone-look">Bu bağlantı oturumunun süresi doldu. WhatsApp ekranına dönüp yeniden başlatın.</p>
         @elseif($attempt['status'] === 'choose_phone')
-            <p class="text-sm">{{ $attempt['details']['message'] ?? 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz işletme numarasını seçin.' }}</p>
-            <label for="wa-selected-phone" class="block text-sm font-medium">İşletme numarası</label>
-            <select id="wa-selected-phone" class="w-full rounded-lg border border-gray-300 bg-transparent p-3 dark:border-gray-700">
-                <option value="">Numara seçin</option>
-                @foreach($phones as $phone)
-                    <option value="{{ $phone['id'] }}">{{ $phone['display_phone_number'] }} · {{ $phone['verified_name'] }}@if(filled($phone['waba_id'] ?? null)) · WhatsApp hesabı {{ $phone['waba_id'] }}@endif</option>
-                @endforeach
-            </select>
-            <button id="wa-select-phone" type="button" class="rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Bu numarayı bağla</button>
+            <div class="card">
+                <div class="card-row block">
+                    <p class="text-sm text-gray-700 dark:text-gray-300">{{ $attempt['details']['message'] ?? 'Meta birden fazla numara paylaştı. Bağlamak istediğiniz işletme numarasını seçin.' }}</p>
+                    <label for="wa-selected-phone" class="mt-4 block text-[13px] text-gray-600 dark:text-gray-300">İşletme numarası</label>
+                    <select id="wa-selected-phone" class="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white">
+                        <option value="">Numara seçin</option>
+                        @foreach($phones as $phone)
+                            <option value="{{ $phone['id'] }}">{{ $phone['display_phone_number'] }} · {{ $phone['verified_name'] }}@if(filled($phone['waba_id'] ?? null)) · WhatsApp hesabı {{ $phone['waba_id'] }}@endif</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex justify-end border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+                    <button id="wa-select-phone" type="button" class="btn-primary h-9! px-4!">Bu numarayı bağla</button>
+                </div>
+            </div>
         @elseif(in_array($attempt['status'], ['prepared', 'cancelled'], true))
             @if($lastReason)
-                <div role="alert" class="rounded-lg p-3 text-sm tone-critical">
-                    <p class="font-semibold">Önceki deneme tamamlanmadı</p>
+                <div role="alert" class="rounded-xl px-4 py-3 text-sm tone-critical">
+                    <p class="font-medium">Önceki deneme tamamlanmadı</p>
                     <p class="mt-1">{{ $lastReason }}</p>
                 </div>
             @endif
             @if($attempt['status'] === 'prepared' && $attempt['launched_at'])
-                <p class="rounded-lg bg-warning-50 p-3 text-sm text-warning-900 dark:bg-warning-500/10 dark:text-warning-200" data-wa-previous-popup>Bu bağlantı için Meta penceresi daha önce açılmıştı (saat {{ $attempt['launched_at']->timezone('Europe/Istanbul')->format('H:i') }}). O pencere hâlâ açıksa kapatın ve aşağıdan yeniden başlatın; sayfa yenilendiği için eski pencerenin sonucu buraya ulaşamaz.</p>
+                <p class="rounded-xl px-4 py-3 text-sm tone-look" data-wa-previous-popup>Bu bağlantı için Meta penceresi daha önce açılmıştı (saat {{ $attempt['launched_at']->timezone('Europe/Istanbul')->format('H:i') }}). O pencere hâlâ açıksa kapatın ve aşağıdan yeniden başlatın; sayfa yenilendiği için eski pencerenin sonucu buraya ulaşamaz.</p>
             @endif
             @php
                 $steps = $coexistence ? [
@@ -44,15 +53,17 @@
                     ['WhatsApp hesabını ve numarayı seçin,', 'doğrulama adımını bitirip son ekranda "Bitti" deyin.'],
                 ];
             @endphp
-            <ol class="space-y-3 text-sm">
-                @foreach($steps as [$lead, $rest])
-                    <li class="flex gap-3"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold dark:bg-gray-800">{{ $loop->iteration }}</span><span><strong>{{ $lead }}</strong> {{ $rest }}</span></li>
-                @endforeach
-            </ol>
-            <div class="flex flex-wrap items-center gap-3">
-                <button id="wa-facebook-login" type="button" disabled class="rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Facebook yükleniyor…</button>
-                <button id="wa-focus-popup" type="button" hidden class="rounded-lg px-5 py-3 text-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Meta penceresine dön</button>
-                <button id="wa-retry-handoff" type="button" hidden class="rounded-lg px-5 py-3 text-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Sonucu tekrar gönder</button>
+            <div class="card">
+                <ol>
+                    @foreach($steps as [$lead, $rest])
+                        <li class="card-row items-start"><span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200">{{ $loop->iteration }}</span><span class="min-w-0 text-sm text-gray-600 dark:text-gray-300"><span class="font-medium text-gray-900 dark:text-white">{{ $lead }}</span> {{ $rest }}</span></li>
+                    @endforeach
+                </ol>
+                <div class="flex flex-wrap items-center gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+                    <button id="wa-facebook-login" type="button" disabled class="btn-primary h-9! px-4!">Facebook yükleniyor…</button>
+                    <button id="wa-focus-popup" type="button" hidden class="btn h-9! px-4!">Meta penceresine dön</button>
+                    <button id="wa-retry-handoff" type="button" hidden class="btn h-9! px-4!">Sonucu tekrar gönder</button>
+                </div>
             </div>
         @else
             <p class="text-sm">Bağlantı sonucu WhatsApp ekranında gösteriliyor.</p>

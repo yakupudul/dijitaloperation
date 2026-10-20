@@ -170,7 +170,7 @@ final class QueryReviewFlowTest extends TestCase
         $this->get('/library/queries/review/'.$review->id)->assertRedirect($url);
         $this->get('/library/queries/review/999999')->assertRedirect($url);
 
-        $this->get($url)->assertOk()->assertSee('Silinecek sorgular · 3')->assertSee('bedava implant')->assertSeeHtml('data-deletions-count>3<');
+        $this->get($url)->assertOk()->assertSeeText('Silinecek sorgular 3')->assertSee('bedava implant')->assertSeeHtml('data-deletions-count>3<');
         $keep = QueryReviewItem::query()->where('query_id', $id('implant forum yorumları'))->sole();
         $selected = QueryReviewItem::query()->whereKeyNot($keep->id)->pluck('id')->map(fn ($v): int => (int) $v)->all();
         Livewire::test(QueriesPage::class)->call('setTab', 'deletions')->assertSee('Onayla ve sil')
@@ -218,7 +218,7 @@ final class QueryReviewFlowTest extends TestCase
 
         // Term filter + "filtreye uyan tümü" minus one unticked line.
         $tab = Livewire::test(QueriesPage::class)->call('setTab', 'deletions')
-            ->assertSeeHtml('data-deletions-count>5<')->assertSee('forum · 2')->assertSee('bedava · 2')
+            ->assertSeeHtml('data-deletions-count>5<')->assertSee('forum (2)')->assertSee('bedava (2)')
             ->set('reviewTerm', 'bedava')->assertSee('bedava implant forum')->assertDontSee('implant forum yorumları')
             ->call('selectAllMatching')->assertSee('Filtreye uyan 2 satır seçili')
             ->call('toggleExcluded', (int) QueryReviewItem::query()->where('query_id', $id('bedava implant'))->value('id'))
@@ -254,7 +254,7 @@ final class QueryReviewFlowTest extends TestCase
         $item = QueryReviewItem::query()->where('kind', QueryReviewItem::SERVICE)->sole();
         $this->assertSame([$zirkonyum->id, null, $this->zirkonyum->id], [$item->query_id, $item->from_service_id, $item->to_service_id]);
 
-        $tab = Livewire::test(QueriesPage::class)->call('setTab', 'deletions')->assertSee('Hizmet değişikliği · 1')
+        $tab = Livewire::test(QueriesPage::class)->call('setTab', 'deletions')->assertSeeText('Hizmet değişikliği 1')
             ->set('reviewKind', QueryReviewItem::SERVICE)->assertSee('yeni atama')->assertSee('eşleşen kelime: zirkonyum')->assertSee('Onayla ve uygula')
             ->call('approveReview')->assertSee('Önce satır seçin')
             ->set('selected', [$item->id])->call('keepReview')->assertSee('1 sorgu tutuldu');

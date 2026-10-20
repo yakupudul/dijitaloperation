@@ -22,67 +22,68 @@
     </script>
 </head>
 
-<body class="min-h-full bg-white text-gray-800 antialiased dark:bg-gray-950 dark:text-gray-100">
-    <div class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        <div class="mb-8 text-center">
-            @if (! empty($operatorBranding['logo_url']))
-                <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="mx-auto mb-4 h-14 w-auto object-contain" />
-            @endif
-            <p class="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</p>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</p>
-            <div class="mt-4 flex justify-center gap-3" role="group" aria-label="{{ __('operator.profile.locale') }}">
-                <a href="{{ route('app.login', ['locale' => 'en']) }}"
-                    @class(['text-xs transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'en', 'text-gray-500 hover:text-gray-900 dark:text-gray-400' => app()->getLocale() !== 'en'])>EN</a>
-                <a href="{{ route('app.login', ['locale' => 'tr']) }}"
-                    @class(['text-xs transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'tr', 'text-gray-500 hover:text-gray-900 dark:text-gray-400' => app()->getLocale() !== 'tr'])>TR</a>
+<body class="min-h-full bg-page font-outfit text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
+    <main class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+        <div class="card w-full max-w-[400px] p-7 sm:p-9">
+            <div class="mb-8 flex items-center gap-2.5">
+                @if (! empty($operatorBranding['logo_url']))
+                    <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="h-8 w-8 shrink-0 rounded-lg object-contain" />
+                @else
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-sm font-bold text-white dark:bg-white dark:text-gray-900" aria-hidden="true">{{ $operatorBranding['display_initial'] ?? 'M' }}</span>
+                @endif
+                <span class="text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</span>
             </div>
-        </div>
-
-        <div class="w-full max-w-md rounded-2xl bg-white p-8 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ __('operator.auth.login_heading') }}</h1>
+            <h1 class="text-2xl leading-8 font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{{ __('operator.auth.login_heading') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.auth.login_subtitle') }}</p>
-
             @if (session('status'))
-                <p class="mt-4 rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-950/40 dark:text-success-200" role="status">{{ session('status') }}</p>
+                <p class="mt-5 rounded-lg bg-success-50 px-3 py-2 text-sm text-success-800 dark:bg-success-500/10 dark:text-success-300" role="status">{{ session('status') }}</p>
             @endif
 
-            <form method="POST" action="{{ route('app.login.store') }}" class="mt-6 space-y-4">
+            <form method="POST" action="{{ route('app.login.store') }}" class="mt-7 space-y-4">
                 @csrf
 
-                <label class="block text-sm">
-                    <span class="text-gray-600 dark:text-gray-300">{{ __('operator.auth.email') }}</span>
+                <label class="block">
+                    <span class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ __('operator.auth.email') }}</span>
                     <input type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username"
-                        class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
+                        class="mt-1.5 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 dark:border-gray-700 dark:bg-transparent dark:text-white dark:focus:border-white dark:focus:ring-white/10" />
                     @error('email')
-                        <span class="mt-1 block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
+                        <span class="mt-1 block text-[13px] text-error-600 dark:text-error-400">{{ $message }}</span>
                     @enderror
                 </label>
 
-                <label class="block text-sm">
-                    <span class="text-gray-600 dark:text-gray-300">{{ __('operator.auth.password') }}</span>
+                <label class="block">
+                    <span class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ __('operator.auth.password') }}</span>
                     <input type="password" name="password" required autocomplete="current-password"
-                        class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
+                        class="mt-1.5 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 dark:border-gray-700 dark:bg-transparent dark:text-white dark:focus:border-white dark:focus:ring-white/10" />
                     @error('password')
-                        <span class="mt-1 block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
+                        <span class="mt-1 block text-[13px] text-error-600 dark:text-error-400">{{ $message }}</span>
                     @enderror
                 </label>
 
-                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                    <input type="checkbox" name="remember" value="1" @checked(old('remember'))
-                        class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
-                    <span>{{ __('operator.auth.remember') }}</span>
-                </label>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <label class="flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" name="remember" value="1" @checked(old('remember'))
+                            class="size-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20" />
+                        <span>{{ __('operator.auth.remember') }}</span>
+                    </label>
+                    <a href="{{ route('app.password.request') }}" class="link-neutral text-[13px]">{{ __('operator.auth.forgot_password') }}</a>
+                </div>
 
-                <button type="submit"
-                    class="inline-flex w-full items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
+                <button type="submit" class="btn-primary h-10! w-full text-sm!">
                     {{ __('operator.auth.sign_in') }}
                 </button>
             </form>
-            <p class="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                <a href="{{ route('app.password.request') }}" class="font-medium text-brand-600 hover:underline">{{ __('operator.auth.forgot_password') }}</a>
-            </p>
         </div>
-    </div>
+        <div class="mt-5 flex w-full max-w-[400px] items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
+            <span>{{ __('operator.product.tagline') }}</span>
+            <span class="flex gap-3" role="group" aria-label="{{ __('operator.profile.locale') }}">
+                <a href="{{ route('app.login', ['locale' => 'en']) }}"
+                    @class(['transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'en', 'hover:text-gray-900 dark:hover:text-white' => app()->getLocale() !== 'en'])>EN</a>
+                <a href="{{ route('app.login', ['locale' => 'tr']) }}"
+                    @class(['transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'tr', 'hover:text-gray-900 dark:hover:text-white' => app()->getLocale() !== 'tr'])>TR</a>
+            </span>
+        </div>
+    </main>
 </body>
 
 </html>

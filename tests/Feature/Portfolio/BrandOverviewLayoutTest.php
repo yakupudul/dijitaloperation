@@ -17,13 +17,13 @@ use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
 
 /**
- * Marka sayfası (panel önerileri §3, 2026-10-11): Özet opens with the period numbers, then the brand's approvals on the
- * Onarım masası, then Yolculuk (linked boxes, the step losing the most in red); Marka bilgi kartı and Kimlik tutarlılığı
+ * Marka sayfası (panel önerileri §3, 2026-10-11; panel concept 2026-10-20: action first): Özet opens with the brand's
+ * approvals on the Onarım masası, then the period numbers, then Yolculuk (linked boxes, the step losing the most in red); Marka bilgi kartı and Kimlik tutarlılığı
  * live under Bilgi dosyası; services are chips with ★ first and at most ten before "+N hizmet".
  */
 final class BrandOverviewLayoutTest extends SiteTestCase
 {
-    public function test_ozet_order_is_numbers_approvals_journey_and_the_cards_moved_to_the_file_tab(): void
+    public function test_ozet_order_is_approvals_numbers_journey_and_the_cards_moved_to_the_file_tab(): void
     {
         $this->site->forceFill(['status' => 'active'])->save();
         $page = $this->page('/implant/', 'Ankara İmplant Tedavisi', ['category' => 'hizmet', 'wp_post_id' => 42]);
@@ -38,7 +38,7 @@ final class BrandOverviewLayoutTest extends SiteTestCase
         $package = $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY;
 
         $view = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSeeHtmlInOrder(['data-brand-kpis', 'operator.portfolio.brand-approvals-card', 'data-brand-journey', 'data-brand-assets'])
+            ->assertSeeHtmlInOrder(['operator.portfolio.brand-approvals-card', 'data-brand-kpis', 'data-brand-journey', 'data-brand-assets'])
             ->assertDontSeeHtml('data-brand-file-tab');
         $approvals = Livewire::test(BrandApprovalsCard::class, ['brandId' => $this->brand->id])
             ->assertSeeHtml('data-brand-approvals="1"')

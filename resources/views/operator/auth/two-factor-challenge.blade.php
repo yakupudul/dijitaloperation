@@ -22,56 +22,49 @@
     </script>
 </head>
 
-<body class="min-h-full bg-white text-gray-800 antialiased dark:bg-gray-950 dark:text-gray-100">
-    <div class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        <div class="mb-8 text-center">
-            @if (! empty($operatorBranding['logo_url']))
-                <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="mx-auto mb-4 h-14 w-auto object-contain" />
-            @endif
-            <p class="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</p>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</p>
-            <div class="mt-4 flex justify-center gap-3" role="group" aria-label="{{ __('operator.profile.locale') }}">
-                <a href="{{ route('app.login', ['locale' => 'en']) }}"
-                    @class(['text-xs transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'en', 'text-gray-500 hover:text-gray-900 dark:text-gray-400' => app()->getLocale() !== 'en'])>EN</a>
-                <a href="{{ route('app.login', ['locale' => 'tr']) }}"
-                    @class(['text-xs transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'tr', 'text-gray-500 hover:text-gray-900 dark:text-gray-400' => app()->getLocale() !== 'tr'])>TR</a>
+<body class="min-h-full bg-page font-outfit text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
+    <main class="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+        <div class="card w-full max-w-[400px] p-7 sm:p-9">
+            <div class="mb-8 flex items-center gap-2.5">
+                @if (! empty($operatorBranding['logo_url']))
+                    <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="h-8 w-8 shrink-0 rounded-lg object-contain" />
+                @else
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-sm font-bold text-white dark:bg-white dark:text-gray-900" aria-hidden="true">{{ $operatorBranding['display_initial'] ?? 'M' }}</span>
+                @endif
+                <span class="text-[15px] font-semibold tracking-tight text-gray-900 dark:text-white">{{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</span>
             </div>
-        </div>
-
-        <div class="w-full max-w-md rounded-2xl bg-white p-8 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ __('two_factor.challenge_title') }}</h1>
+            <h1 class="text-2xl leading-8 font-semibold tracking-[-0.02em] text-gray-900 dark:text-white">{{ __('two_factor.challenge_title') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('two_factor.challenge_hint') }}</p>
 
-            <form method="POST" action="{{ route('app.login.two-factor.store') }}" class="mt-6 space-y-4">
+            <form method="POST" action="{{ route('app.login.two-factor.store') }}" class="mt-7 space-y-4">
                 @csrf
 
-                <label class="block text-sm">
-                    <span class="text-gray-600 dark:text-gray-300">{{ __('two_factor.code') }}</span>
+                <label class="block">
+                    <span class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ __('two_factor.code') }}</span>
                     <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus
-                        class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-center text-lg tracking-[0.4em] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
+                        class="mt-1.5 h-12 w-full rounded-lg border border-gray-200 bg-white px-3 text-center text-lg tracking-[0.4em] text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 dark:border-gray-700 dark:bg-transparent dark:text-white dark:focus:border-white dark:focus:ring-white/10" />
                 </label>
 
-                <details class="text-sm">
-                    <summary class="cursor-pointer font-medium text-brand-600">{{ __('two_factor.use_recovery') }}</summary>
+                <details class="group text-[13px]">
+                    <summary class="cursor-pointer list-none font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white [&::-webkit-details-marker]:hidden">{{ __('two_factor.use_recovery') }}</summary>
                     <p class="mt-2 text-gray-500 dark:text-gray-400">{{ __('two_factor.recovery_hint') }}</p>
                     <input type="text" name="recovery_code" autocomplete="off" aria-label="{{ __('two_factor.recovery_code') }}"
-                        class="mt-2 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:text-white" />
+                        class="mt-2 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 dark:border-gray-700 dark:bg-transparent dark:text-white dark:focus:border-white dark:focus:ring-white/10" />
                 </details>
 
                 @error('code')
-                    <span class="block text-sm text-error-600 dark:text-error-400">{{ $message }}</span>
+                    <span class="block text-[13px] text-error-600 dark:text-error-400">{{ $message }}</span>
                 @enderror
 
-                <button type="submit"
-                    class="inline-flex w-full items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
+                <button type="submit" class="btn-primary h-10! w-full text-sm!">
                     {{ __('two_factor.verify') }}
                 </button>
             </form>
-            <p class="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                <a href="{{ route('app.login') }}" class="hover:underline">{{ __('two_factor.back_to_login') }}</a>
+            <p class="mt-6 text-center text-[13px]">
+                <a href="{{ route('app.login') }}" class="link-neutral">{{ __('two_factor.back_to_login') }}</a>
             </p>
         </div>
-    </div>
+    </main>
 </body>
 
 </html>

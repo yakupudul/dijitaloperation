@@ -1,66 +1,76 @@
+@php
+    // Panel concept 2026-10-20: "Bu yapay zekâ sağlayıcısının anahtarı kayıtlı ve çalışıyor mu?" State first, then the form.
+    $status = \App\Support\Integrations\Presentation\OperatorLabel::turkish($statusLabel);
+    $note = \App\Support\Integrations\Presentation\OperatorLabel::turkish($supportNote);
+@endphp
 <div class="space-y-10">
     @include('livewire.demo.partials.flash')
 
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <p class="text-xs text-gray-500">Entegrasyon</p>
-            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ $providerLabel }}</h1>
-            <div class="mt-2 flex flex-wrap items-center gap-2">
-                <x-ta.pill :tone="$configured ? 'ok' : 'info'">{{ $statusLabel }}</x-ta.pill>
+    <header class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex min-w-0 items-start gap-3">
+            @include('livewire.demo.integrations.partials.provider-mark', ['provider' => $provider, 'size' => 'lg'])
+            <div class="min-w-0">
+                <h1 class="page-title">{{ $providerLabel }}</h1>
+                <p class="page-sub flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <x-ta.pill :tone="$configured ? 'ok' : 'info'">{{ $status }}</x-ta.pill>
+                    <span class="min-w-0">{{ $note }}</span>
+                </p>
             </div>
-            <p class="mt-1 text-sm text-gray-500">{{ $supportNote }}</p>
         </div>
-        <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">Tüm entegrasyonlar</x-ta.button>
-    </div>
+        <a href="{{ route('operator.integrations') }}" wire:navigate class="btn-quiet">Tüm entegrasyonlar</a>
+    </header>
 
-    <div>
-        <h2 class="section-title">Ayarlar</h2>
-        <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-                <dt class="text-xs text-gray-500">API anahtarı</dt>
-                <dd class="font-medium text-gray-800 dark:text-white/90">{{ $statusLabel }}</dd>
+    <section>
+        <div class="section-head"><h2 class="section-title">Bağlantı durumu</h2></div>
+        <dl class="card">
+            <div class="card-row flex-wrap">
+                <dt class="w-40 shrink-0 text-[13px] text-gray-500">API anahtarı</dt>
+                <dd class="min-w-0 flex-1 text-sm text-gray-900 dark:text-white">{{ $status }}</dd>
             </div>
-            <div>
-                <dt class="text-xs text-gray-500">Son doğrulama</dt>
-                <dd class="font-medium text-gray-800 dark:text-white/90">{{ $lastTestedAt ?? 'Test edilmedi' }}</dd>
+            <div class="card-row flex-wrap">
+                <dt class="w-40 shrink-0 text-[13px] text-gray-500">Son doğrulama</dt>
+                <dd class="min-w-0 flex-1 text-sm text-gray-900 dark:text-white">{{ $lastTestedAt ?? 'Test edilmedi' }}</dd>
             </div>
         </dl>
-    </div>
+    </section>
 
     @if ($canManageCredentials)
-        <form wire:submit.prevent="saveConfiguration">
-            <h2 class="section-title">API anahtarı</h2>
-            <div class="mt-4">
-                <x-ta.form.field label="API Key" :helper="$keyConfigured ? 'Configured — leave blank to keep the stored value.' : 'Write-only. Never shown after save.'" :error="$errors->first('api_key')">
+        <section>
+            <div class="section-head"><h2 class="section-title">API anahtarı</h2></div>
+            <form wire:submit.prevent="saveConfiguration" class="card p-5">
+                <x-ta.form.field label="API Key" :helper="$keyConfigured ? 'Kayıtlı; değiştirmeyecekseniz boş bırakın.' : 'Yalnız yazılır; kaydedildikten sonra gösterilmez.'" :error="$errors->first('api_key')">
                     <input wire:model="apiKey" type="password" autocomplete="new-password" placeholder="{{ $keyConfigured ? 'Bilgiyi değiştir' : '' }}"
-                        class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        class="h-9 w-full max-w-xl rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                 </x-ta.form.field>
                 @if ($keyConfigured)
-                    <label class="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <label class="mt-3 flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">
                         <input type="checkbox" wire:model="clearApiKey" class="rounded border-gray-300" />
-                        Clear stored API key
+                        Kayıtlı API anahtarını sil
                     </label>
                 @endif
-            </div>
-            <div class="mt-4 flex flex-wrap gap-2">
-                <x-ta.button type="submit" size="sm">Kaydet</x-ta.button>
-                <x-ta.button type="button" wire:click="testConfiguration" size="sm" variant="outline">Ayarları test et</x-ta.button>
-                @if ($configured || $keyConfigured)
-                    <x-ta.button type="button" wire:click="askRemove" size="sm" variant="outline">Bilgileri sil</x-ta.button>
-                @endif
-            </div>
-        </form>
-        @if ($confirmRemove)
-            <div class="rounded-lg p-4 tone-look">
-                <p class="text-sm font-medium text-gray-800 dark:text-white/90">Remove {{ $providerLabel }} API key?</p>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Kayıtlı anahtar silinir. Geçmiş yapay zekâ çalıştırmaları korunur.</p>
-                <div class="mt-3 flex gap-2">
-                    <x-ta.button wire:click="removeConfiguration" size="sm">Evet, sil</x-ta.button>
-                    <x-ta.button wire:click="cancelRemove" size="sm" variant="outline">Vazgeç</x-ta.button>
+                <div class="mt-5 flex flex-wrap gap-2">
+                    <button type="submit" class="btn-primary w-full sm:w-auto">Kaydet</button>
+                    <button type="button" wire:click="testConfiguration" class="btn w-full sm:w-auto">Ayarları test et</button>
+                    @if ($configured || $keyConfigured)
+                        <button type="button" wire:click="askRemove" class="btn-quiet w-full hover:text-error-600! sm:w-auto dark:hover:text-error-400!">Bilgileri sil</button>
+                    @endif
                 </div>
-            </div>
-        @endif
+            </form>
+            @if ($confirmRemove)
+                <div class="card mt-4">
+                    <div class="card-row flex-wrap sm:flex-nowrap">
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $providerLabel }} API anahtarı silinsin mi?</p>
+                            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Kayıtlı anahtar silinir. Geçmiş yapay zekâ çalıştırmaları korunur.</p>
+                        </div>
+                        <button type="button" wire:click="cancelRemove" class="btn w-full sm:w-auto">Vazgeç</button>
+                        <button type="button" wire:click="removeConfiguration" class="btn-primary w-full sm:w-auto">Evet, sil</button>
+                    </div>
+                </div>
+            @endif
+        </section>
     @else
-        <p class="text-sm text-gray-500">Only administrators can view or change {{ $providerLabel }} credentials.</p>
+        <p class="card px-4 py-3 text-[13px] text-gray-500">{{ $providerLabel }} bilgilerini yalnız yöneticiler görebilir ve değiştirebilir.</p>
     @endif
 </div>

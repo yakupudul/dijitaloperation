@@ -19,7 +19,7 @@ use Livewire\WithPagination;
 
 /**
  * Sorgular › Sayfalar & hizmetler: the page list with category and service (operator edits are locked), "Sayfaları
- * sınıflandır", "Hizmet ↔ sayfa", "Analiz et" per row and "Seçilenleri analiz et". AI steps run as queued jobs. The
+ * sınıflandır", "Hizmetlerle eşleştir", "Analiz et" per row and "Seçilenleri analiz et". AI steps run as queued jobs. The
  * cluster ↔ page rows live in İçerik fikirleri (ContentIdeasTab).
  */
 final class ClustersPagesTab extends Component

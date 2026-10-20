@@ -98,11 +98,11 @@ class MetaAnalysisTest extends TestCase
     public function test_analysis_tab_renders_and_switches(): void
     {
         Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'analysis'])
-            ->assertSee('Yaş × cinsiyet · form başı')->assertSee('En iyi dilim:')->assertSee('Gün × saat')->assertSee('Facebook akış')->assertSee('Mobil uygulama')
+            ->assertSeeInOrder(['Yaş × cinsiyet', 'form başı'])->assertSee('En iyi dilim:')->assertSee('Gün × saat')->assertSee('Facebook akış')->assertSee('Mobil uygulama')
             ->assertSee('Kırılım verisini çek', false)
-            ->set('focus', 'campaign:c2')->assertSee('Genel Trafik · ')
+            ->set('focus', 'campaign:c2')->assertSee('Genel Trafik, ')
             ->set('compare', 'year')->assertSet('compare', 'year')->assertSee('karşılaştırma yok')
             ->set('compare', 'nope')->assertSet('compare', 'prev')
-            ->set('analysisType', 'messages')->assertSee('Yaş × cinsiyet · mesaj başı')->assertSee('Bu türde yaş / cinsiyet verisi yok.');
+            ->set('analysisType', 'messages')->assertSeeInOrder(['Yaş × cinsiyet', 'mesaj başı'])->assertSee('Bu türde yaş / cinsiyet verisi yok.');
     }
 }

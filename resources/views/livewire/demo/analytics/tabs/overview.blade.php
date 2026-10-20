@@ -48,7 +48,7 @@
     <section data-ga4-glance>
         <div @class(['metric-strip grid-cols-2', 'lg:grid-cols-4' => count($cells) === 4, 'lg:grid-cols-5' => count($cells) === 5])>
             @foreach ($cells as [$label, $cell, $points])
-                <x-ta.metric-card :label="$label" :value="$cell['value']" :delta="$cell['delta']" :tone="$cell['tone']" :hint="$cell['hint']" :muted="$cell['muted']" :spark="$points" :title="$cell['note']" />
+                <x-ta.metric-card :label="$label" :value="$cell['value']" :delta="$cell['delta']" :tone="$cell['tone']" :hint="$cell['hint']" :muted="$cell['muted']" :spark="$points" :title="$cell['note']" :class="$loop->last && $loop->odd ? 'col-span-2 lg:col-span-1' : ''" />
             @endforeach
         </div>
     </section>

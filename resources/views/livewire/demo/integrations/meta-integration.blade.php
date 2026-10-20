@@ -215,7 +215,7 @@
                         </div>
                     </form>
                 @else
-                    <div class="card"><x-ta.empty-state size="sm" :title="$isTr ? 'Meta uygulama bilgilerini yalnızca yöneticiler değiştirebilir.' : 'Only administrators can change Meta application credentials.'" /></div>
+                    <div class="card"><x-ta.empty-state icon="none" size="sm" :title="$isTr ? 'Meta uygulama bilgilerini yalnızca yöneticiler değiştirebilir.' : 'Only administrators can change Meta application credentials.'" /></div>
                 @endif
 
                 @if ($confirmRemoveMetaCredentials ?? false)
@@ -313,7 +313,7 @@
                         @endif
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" :title="$isTr ? 'Henüz Business Portfolio keşfedilmedi' : 'No Business Portfolios discovered yet'" :message="$isTr ? 'Meta bağlantısı aktifse Business’ları keşfederek başlayın.' : 'If Meta is authorized, start by discovering businesses.'" /></li>
+                    <li><x-ta.empty-state icon="none" size="sm" :title="$isTr ? 'Henüz Business Portfolio keşfedilmedi' : 'No Business Portfolios discovered yet'" :message="$isTr ? 'Meta bağlantısı aktifse Business’ları keşfederek başlayın.' : 'If Meta is authorized, start by discovering businesses.'" /></li>
                 @endforelse
             </ul>
         </section>
@@ -374,7 +374,7 @@
                         </div>
                     </li>
                 @empty
-                    <li><x-ta.empty-state size="sm" :title="$isTr ? 'Henüz bağlı reklam hesabı yok.' : 'No connected ad accounts yet.'" /></li>
+                    <li><x-ta.empty-state icon="none" size="sm" :title="$isTr ? 'Henüz bağlı reklam hesabı yok.' : 'No connected ad accounts yet.'" /></li>
                 @endforelse
             </ul>
         </section>
@@ -503,7 +503,7 @@
                             <x-ta.pill :tone="$eventTone">{{ $L($eventStatus) }}</x-ta.pill>
                         </li>
                     @empty
-                        <li><x-ta.empty-state size="sm" :title="$isTr ? 'Henüz Meta aktivitesi yok.' : 'No Meta activity yet.'" /></li>
+                        <li><x-ta.empty-state icon="none" size="sm" :title="$isTr ? 'Henüz Meta aktivitesi yok.' : 'No Meta activity yet.'" /></li>
                     @endforelse
                 </ul>
             </section>

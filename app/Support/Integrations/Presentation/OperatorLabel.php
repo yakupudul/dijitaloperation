@@ -38,6 +38,8 @@ final class OperatorLabel
         'Collect data via Collection Engine' => 'Veri çek',
         'Manage Google' => 'Google bağlantısını yönet',
         'Configure Meta App credentials' => 'Meta uygulama bilgilerini gir',
+        'Gemini uses a provider API key. This is separate from Google OAuth application credentials.' => 'Gemini kendi API anahtarını kullanır; Google OAuth uygulama bilgilerinden ayrıdır.',
+        'API keys are stored with authenticated application encryption. A stored key is not a live connection.' => 'API anahtarı şifreli saklanır. Kayıtlı anahtar canlı bağlantı demek değildir.',
         'Connect Meta' => 'Meta ile bağlan',
         'Reauthorize Meta' => 'Meta yetkisini yenile',
         'Discover Businesses' => 'İşletmeleri keşfet',
@@ -90,6 +92,6 @@ final class OperatorLabel
             return 'Son veri çekimi: '.substr($label, strlen('Last collection · '));
         }
 
-        return $label;
+        return str_replace(' → ', ', ', $label);
     }
 }

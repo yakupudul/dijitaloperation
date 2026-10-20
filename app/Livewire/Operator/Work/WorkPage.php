@@ -245,7 +245,7 @@ final class WorkPage extends Component
 
     public function render(WorkDesk $desk, ContentBoard $board): View
     {
-        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name']);
+        $brands = Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url']);
         if ($this->brand !== null && ! $brands->contains('id', $this->brand)) {
             $this->brand = null; // an old link to a brand that is no longer served: every brand, not an empty page
         }
@@ -270,6 +270,7 @@ final class WorkPage extends Component
             'total' => $rows->count(),
             'truncated' => $rows->count() >= WorkDesk::LIMIT,
             'brands' => $brands,
+            'workLogos' => $brands->pluck('logo_url', 'id')->filter()->all(),
             'brandCounts' => $desk->brandCounts($this->tab),
             'brandName' => $this->brand !== null ? $brands->firstWhere('id', $this->brand)?->name : null,
             'pushDevices' => PushSubscription::query()->where('user_id', auth()->id())->count(),

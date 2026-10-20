@@ -173,10 +173,10 @@ final class KeywordInsightsTest extends TestCase
         $this->assertSame([], QueryReviewItem::query()->pluck('query_id')->map(fn ($id): int => (int) $id)->all());
 
         $page = Livewire::test(QueriesPage::class)->set('sector', (string) $this->dental->id)->call('setTab', 'keywords')
-            ->assertSeeHtml('data-keyword-view="conflicts"')->assertSee('Çakışmalar · 3')
+            ->assertSeeHtml('data-keyword-view="conflicts"')->assertSeeText('Çakışmalar 3')
             ->call('setKeywordView', 'conflicts')
             ->assertSee('zirkonyum mu implant mı')->assertSee('implant üstü zirkonyum')->assertDontSee('zirkonyum implant yorum')
-            ->assertSee('zirkonyum → Zirkonyum')->assertSee('implant → Diş İmplantı');
+            ->assertSeeText('zirkonyum: Zirkonyum')->assertSeeText('implant: Diş İmplantı');
 
         // One line by hand (locked).
         $page->set('conflictPick.'.$ruleConflict->id, (string) $this->zirkonyum->id)->call('resolveConflict', $ruleConflict->id)->assertSee('1 sorgu hizmete atandı (kilitli).');
@@ -216,9 +216,9 @@ final class KeywordInsightsTest extends TestCase
         $this->assertSame([QueryReviewItem::REASON_SECTOR, null], [$line->reason, $line->to_service_id]);
         $this->assertFalse(QueryReviewItem::query()->where('query_id', $wrongManual->id)->exists(), 'manual stays');
         $page = Livewire::test(QueriesPage::class)->set('reviewKind', QueryReviewItem::SERVICE)->call('setTab', 'deletions')
-            ->assertSee('hizmetsiz kalacak (artık hiçbir hizmetin kelimesi eşleşmiyor) · hiçbir eşleme kelimesi eşleşmiyor · sektör uyuşmuyor')->assertSee('Hizmetsiz');
+            ->assertSee('hizmetsiz kalacak (artık hiçbir hizmetin kelimesi eşleşmiyor)')->assertSee('hiçbir eşleme kelimesi eşleşmiyor, sektör uyuşmuyor')->assertSee('Hizmetsiz');
 
-        $page->call('setTab', 'keywords')->assertSee('Sektör uyumu · 2')->call('setKeywordView', 'sectors')
+        $page->call('setTab', 'keywords')->assertSeeText('Sektör uyumu 2')->call('setKeywordView', 'sectors')
             ->assertSee('saç ekimi fiyat diş')->assertSee('Hizmetin sektörüne taşı')
             ->call('moveMismatch', $this->dental->id, 'hair')->assertSee('2 sorgu hizmetin sektörüne taşındı.')->assertSee('Sektör uyumsuzluğu yok.');
         $this->assertSame($this->hair->id, $wrong->fresh()->sector_id);

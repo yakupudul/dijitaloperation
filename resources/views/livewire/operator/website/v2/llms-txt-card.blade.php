@@ -1,26 +1,27 @@
 {{-- Teknik › llms.txt (yakup, 2026-10-07): a short map of the site for AI assistants, built by rules, sent with one click. --}}
-<section class="text-sm" data-llms-txt>
-    <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
+<section class="min-w-0 text-sm" data-llms-txt>
+    <div class="section-head justify-between">
+        <div class="flex min-w-0 flex-[1_1_20rem] flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <h2 class="section-title" title="Yapay zekâ asistanları için sitenin kısa haritası. MoxDOP verilerinden kuralla hazırlanır; sitede kendi llms.txt'si açıksa o geçerli kalır.">llms.txt</h2>
+            <span class="text-[13px] text-gray-500 dark:text-gray-400">Yapay zekâ asistanları için sitenin kısa haritası.</span>
             <p class="sr-only">Yapay zekâ asistanları için sitenin kısa haritası: işletme, hizmet verilen yerler, iletişim, hizmet sayfaları, uzmanlar ve yazılar. MoxDOP'taki verilerden kuralla hazırlanır; eklenti <span class="font-mono">{{ $url }}</span> adresinde sunar. Sitede llms.txt dosyası ya da SEO eklentisinin kendi llms.txt'si açıksa o geçerli kalır.</p>
-            @if ($last)
-                <p class="text-xs text-gray-500" data-llms-last>Son gönderim {{ $last->created_at?->format('d.m.Y H:i') }}, {{ $last->statusLabel() }}</p>
-            @endif
         </div>
-        <div class="flex shrink-0 items-center gap-2">
-            <button type="button" wire:click="$toggle('preview')" class="h-8 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ $preview ? 'Gizle' : 'Önizle' }}</button>
+        <div class="flex w-full shrink-0 items-center gap-1.5 sm:w-auto">
+            <button type="button" wire:click="$toggle('preview')" class="btn-quiet">{{ $preview ? 'Gizle' : 'Önizle' }}</button>
             @if ($isAdmin)
-                <button type="button" wire:click="send" wire:confirm="llms.txt siteye gönderilsin mi?" wire:loading.attr="disabled" class="h-8 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-llms-send>Siteye gönder</button>
+                <button type="button" wire:click="send" wire:confirm="llms.txt siteye gönderilsin mi?" wire:loading.attr="disabled" class="btn flex-1 sm:flex-none" data-llms-send>Siteye gönder</button>
                 @if ($last?->isUndoable())
-                    <button type="button" wire:click="undo({{ $last->id }})" wire:confirm="Önceki llms.txt'ye dönülsün mü?" class="h-8 px-2 text-xs text-gray-500 hover:text-error-600">Geri al</button>
+                    <button type="button" wire:click="undo({{ $last->id }})" wire:confirm="Önceki llms.txt'ye dönülsün mü?" class="btn-quiet hover:text-error-600!">Geri al</button>
                 @endif
             @endif
         </div>
     </div>
-    @error('write')<p class="mt-2 text-xs text-error-600">{{ $message }}</p>@enderror
-    @if ($message !== '')<p role="status" class="mt-2 text-xs text-success-700 dark:text-success-300">{{ $message }}</p>@endif
+    @if ($last)
+        <p class="-mt-1 mb-2 text-xs text-gray-500" data-llms-last>Son gönderim {{ $last->created_at?->format('d.m.Y H:i') }}, {{ $last->statusLabel() }}</p>
+    @endif
+    @error('write')<p class="mb-2 text-xs text-error-600">{{ $message }}</p>@enderror
+    @if ($message !== '')<p role="status" class="mb-2 text-xs text-success-700 dark:text-success-300">{{ $message }}</p>@endif
     @if ($preview)
-        <pre class="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-mono text-xs text-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-llms-preview>{{ $text }}</pre>
+        <pre class="card max-h-96 overflow-auto whitespace-pre-wrap px-4 py-3 font-mono text-xs text-gray-800 dark:text-gray-200" data-llms-preview>{{ $text }}</pre>
     @endif
 </section>

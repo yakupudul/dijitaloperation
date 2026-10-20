@@ -591,7 +591,7 @@ final class GbpDeskTest extends TestCase
         app(ExternalWriteService::class)->requestProfileFields($this->admin, $this->location, ['description' => $this->description()], 'Açıklama');
 
         Livewire::actingAs($this->admin)->test(OverviewPage::class, ['assetId' => (string) $this->location->id])
-            ->assertSee('İşletme profilleri ·')
+            ->assertSee('/6 tamam')
             ->assertSee('Şube sayfası')
             ->assertSee('MoxDOP’un bu profilde yaptıkları')
             ->assertSee('Açıklama')

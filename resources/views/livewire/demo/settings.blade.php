@@ -36,7 +36,7 @@
 
     @if ($section === 'general')
         <section aria-label="{{ $current['label'] ?? __('operator.settings_ia.general') }}">
-            <form wire:submit="saveGeneral" class="card">
+            <form wire:submit="saveGeneral" class="card overflow-visible!">
                 <div class="{{ $row }}">
                     <label for="set-agency-name" class="{{ $rowLabel }}"><span class="{{ $labelText }}">{{ __('operator.settings.agency_name') }} <span class="text-error-500">*</span></span></label>
                     <div class="{{ $control }}">
@@ -98,7 +98,7 @@
                         <span class="{{ $hint }}">{{ __('operator.settings.timezone_note') }}</span>
                     </div>
                     <div class="{{ $control }}">
-                        <x-ta.form.select wire:model="default_timezone" :options="$timezoneOptions" :placeholder="__('operator.settings.search_timezone')" :disabled="! $isAdmin" class="[&>button]:h-9 [&>button]:py-0" />
+                        <x-ta.form.select wire:model="default_timezone" :options="$timezoneOptions" :placeholder="__('operator.settings.search_timezone')" :disabled="! $isAdmin" />
                         @error('default_timezone')<p class="{{ $error }}">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -138,7 +138,7 @@
                         @error('default_analytical_date_range')<p class="{{ $error }}">{{ $message }}</p>@enderror
                     </div>
                 </div>
-                <div class="{{ $footer }}">
+                <div class="{{ $footer }} rounded-b-xl">
                     @if ($isAdmin)
                         <button type="submit" class="btn-primary w-full sm:w-auto">{{ __('operator.settings.save_general') }}</button>
                     @else

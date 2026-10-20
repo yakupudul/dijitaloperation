@@ -66,7 +66,7 @@
                         @forelse ($brands as $brand)
                             @php $brandLabel = $sectors[(int) ($brandSectors[$brand->id] ?? 0)] ?? (str_starts_with((string) ($brandSectors[$brand->id] ?? ''), 'new:') ? substr($brandSectors[$brand->id], 4) : '—'); @endphp
                             <tr wire:key="b-{{ $brand->id }}" class="[&>td]:bg-gray-50/60 dark:[&>td]:bg-white/[0.02]">
-                                <td><span class="flex min-w-0 items-center gap-2"><x-ta.brand-avatar :name="$brand->name" :logo="$brand->logo_url" size="sm" /><span class="truncate font-medium text-gray-900 dark:text-white">{{ $brand->name }}</span></span>@if ($brand->customer?->name)<span class="mt-0.5 block pl-8 text-xs text-gray-500">{{ $brand->customer?->name }}</span>@endif@if ($proposal['brands'][$brand->id]['reason'] ?? false)<span class="mt-0.5 block pl-8 text-xs text-gray-500 md:hidden">{{ $proposal['brands'][$brand->id]['reason'] }}</span>@endif</td>
+                                <td><span class="flex min-w-0 items-center gap-2"><x-ta.brand-avatar :name="$brand->name" :logo="$brand->logo_url" size="sm" /><span class="truncate font-medium text-gray-900 dark:text-white">{{ $brand->name }}</span></span>@if ($brand->customer?->name)<span class="mt-0.5 block pl-8 text-xs text-gray-500">{{ $brand->customer?->name }}</span>@endif @if ($proposal['brands'][$brand->id]['reason'] ?? false)<span class="mt-0.5 block pl-8 text-xs text-gray-500 md:hidden">{{ $proposal['brands'][$brand->id]['reason'] }}</span>@endif</td>
                                 <td class="hidden md:table-cell"></td>
                                 <td>@include('livewire.operator.library.partials.sector-select', ['model' => 'brandSectors.'.$brand->id, 'brandLabel' => null])</td>
                                 <td class="hidden text-xs text-gray-500 md:table-cell">{{ $proposal['brands'][$brand->id]['reason'] ?? '' }}</td>
@@ -102,8 +102,8 @@
 
     {{-- 2. Hizmetler ve eşleme kelimeleri --}}
     @if ($step === 2)
-        <section class="space-y-10" data-section="services">
-            <div class="section-head mb-0! -mb-6! items-center!">
+        <section class="space-y-8" data-section="services">
+            <div class="section-head mb-0! items-center!">
                 <h2 class="section-title">Hizmetler ve eşleme kelimeleri <span class="section-count">{{ $used->count() }} sektör</span></h2>
                 <span class="ml-auto flex items-center gap-2">
                     @if ($statusText)<span class="text-[13px] text-gray-500">{{ $statusText }}</span>@endif
@@ -113,7 +113,7 @@
             </div>
             @forelse ($used as $sector)
                 <div wire:key="s-{{ $sector->id }}">
-                    <div class="section-head"><h3 class="section-title">{{ $sector->name }} <span class="section-count">{{ count($services[$sector->id] ?? []) }} hizmet</span></h3></div>
+                    <h3 class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ $sector->name }} <span class="font-normal text-gray-500">{{ count($services[$sector->id] ?? []) }} hizmet</span></h3>
                     <div class="card">
                         <ul>
                             @foreach ($services[$sector->id] ?? [] as $item)
@@ -148,7 +148,7 @@
                     </div>
                 </div>
             @empty
-                <div class="card"><x-ta.empty-state size="sm" title="Sektör yok." message="1. adımda sektör seçin." /></div>
+                <div class="card"><x-ta.empty-state icon="none" size="sm" title="Sektör yok." message="1. adımda sektör seçin." /></div>
             @endforelse
 
             @if ($status === 'ready')
@@ -163,21 +163,21 @@
                             </span>
                         @endif
                     </div>
-                    @if (($proposal['failed'] ?? []) !== [])<p class="mb-2 text-[13px] text-error-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} ; tekrar çalıştırın.</p>@endif
+                    @if (($proposal['failed'] ?? []) !== [])<p class="mb-2 text-[13px] text-error-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }}. Tekrar çalıştırın.</p>@endif
                     <ul class="card">
                         @forelse ($proposal['items'] as $i => $row)
                             <li class="card-row items-start py-2.5! text-[13px]"><input type="checkbox" wire:model.live="pick.{{ $i }}" aria-label="Seç" class="mt-0.5 rounded border-gray-300 dark:border-gray-700">
                                 <span class="min-w-0 flex-1">
                                     @switch($row['type'])
                                         @case('new_service')<span class="font-medium text-gray-900 dark:text-white">Yeni hizmet: {{ $row['name'] }}</span>@if ($row['keywords'] !== []) ({{ implode(', ', $row['keywords']) }})@endif @break
-                                        @case('add')<span class="font-medium text-gray-900 dark:text-white">+ {{ $row['keyword'] }}</span> → {{ $row['service'] }} @break
+                                        @case('add')<span class="font-medium text-gray-900 dark:text-white">+ {{ $row['keyword'] }}</span>, {{ $row['service'] }} hizmetine @break
                                         @case('remove')<span class="font-medium text-gray-900 dark:text-white">− {{ $row['keyword'] }}</span> ({{ $row['service'] }}) @break
-                                        @case('move')<span class="font-medium text-gray-900 dark:text-white">{{ $row['keyword'] }}</span>: {{ $row['service'] }} → {{ $row['to_service'] }} @break
+                                        @case('move')<span class="font-medium text-gray-900 dark:text-white">{{ $row['keyword'] }}</span>, {{ $row['service'] }} hizmetinden {{ $row['to_service'] }} hizmetine @break
                                     @endswitch
                                     <span class="mt-0.5 block text-xs text-gray-500">{{ $sectors[$row['sector_id']] ?? '' }}, {{ $row['reason'] }}</span>
                                 </span></li>
                         @empty
-                            <li><x-ta.empty-state size="sm" title="Öneri yok." /></li>
+                            <li><x-ta.empty-state icon="none" size="sm" title="Öneri yok." /></li>
                         @endforelse
                     </ul>
                 </div>
@@ -191,8 +191,8 @@
 
     {{-- 3. Sektör filtre sepeti --}}
     @if ($step === 3)
-        <section class="space-y-10" data-section="filters">
-            <div class="-mb-6 space-y-3">
+        <section class="space-y-8" data-section="filters">
+            <div class="space-y-3">
                 <div class="section-head mb-0! items-center!">
                     <h2 class="section-title">Sektör filtre sepeti <span class="section-count">içeren sorgu silinir</span></h2>
                     <span class="ml-auto flex items-center gap-2">
@@ -201,11 +201,11 @@
                         <x-operator.ai-prompt-info operation="queries.plan_filters" />
                     </span>
                 </div>
-                <textarea wire:model="filterInstruction" rows="2" maxlength="1000" placeholder="AI talimatınız (isteğe bağlı), örn. iş ilanı ve eğitim içerikli kelimeler üret" aria-label="AI talimatı" data-filter-instruction class="{{ $input }} w-full py-2"></textarea>
+                <textarea wire:model="filterInstruction" rows="2" maxlength="1000" placeholder="AI talimatınız (isteğe bağlı), örn. iş ilanı ve eğitim içerikli kelimeler üret" aria-label="AI talimatı" data-filter-instruction class="{{ $input }} block w-full py-2"></textarea>
             </div>
             @foreach ($used as $sector)
                 <div wire:key="f-{{ $sector->id }}">
-                    <div class="section-head"><h3 class="section-title">{{ $sector->name }} <span class="section-count">{{ count($terms[$sector->id] ?? []) }} terim</span></h3></div>
+                    <h3 class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ $sector->name }} <span class="font-normal text-gray-500">{{ count($terms[$sector->id] ?? []) }} terim</span></h3>
                     <div class="card flex flex-wrap items-center gap-1.5 px-4 py-3.5">
                         @foreach ($terms[$sector->id] ?? [] as $term)
                             <span wire:key="t-{{ $term->id }}" class="{{ $chip }}">{{ $term->term }}<button type="button" wire:click="deleteTerm({{ $term->id }})" aria-label="Sil" class="text-gray-400 hover:text-gray-900 dark:hover:text-white">×</button></span>
@@ -228,13 +228,13 @@
                             </span>
                         @endif
                     </div>
-                    @if (($proposal['failed'] ?? []) !== [])<p class="mb-2 text-[13px] text-error-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }} ; tekrar çalıştırın.</p>@endif
+                    @if (($proposal['failed'] ?? []) !== [])<p class="mb-2 text-[13px] text-error-600">Yanıt alınamayan sektörler: {{ implode(', ', $proposal['failed']) }}. Tekrar çalıştırın.</p>@endif
                     <ul class="card">
                         @forelse ($proposal['items'] as $i => $row)
                             <li class="card-row items-start py-2.5! text-[13px]"><input type="checkbox" wire:model="pick.{{ $i }}" aria-label="Seç" class="mt-0.5 rounded border-gray-300 dark:border-gray-700">
                                 <span class="min-w-0 flex-1"><span class="font-medium text-gray-900 dark:text-white">{{ $row['term'] }}</span> <span class="text-xs text-gray-500">{{ $row['sector'] }}, {{ $row['reason'] }}</span></span></li>
                         @empty
-                            <li><x-ta.empty-state size="sm" title="Öneri yok." /></li>
+                            <li><x-ta.empty-state icon="none" size="sm" title="Öneri yok." /></li>
                         @endforelse
                     </ul>
                 </div>

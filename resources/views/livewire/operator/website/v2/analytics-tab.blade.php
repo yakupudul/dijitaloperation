@@ -72,51 +72,54 @@
     $first = $trend['series'][0]['date'] ?? null;
     $last = $trend['series'] !== [] ? end($trend['series'])['date'] : null;
 @endphp
-<div class="space-y-10 text-sm" data-analytics-tab>
-    <section class="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 xl:grid-cols-6" data-scorecards>
+<div class="min-w-0 space-y-10 text-sm" data-analytics-tab>
+    {{-- 1. The answer: is search traffic and what it brings up or down against the previous period. Click a number to chart it. --}}
+    <section class="metric-strip grid-cols-2 sm:grid-cols-3 xl:grid-cols-6" data-scorecards>
         @foreach ($cards as $metric => $item)
             @php $selected = $item['source'] === 'gsc' ? $gscMetric === $metric : $ga4Metric === $metric; @endphp
             <button type="button" wire:click="pick('{{ $metric }}')" data-scorecard="{{ $metric }}" aria-pressed="{{ $selected ? 'true' : 'false' }}"
-                    class="{{ $card }} -mx-2 rounded-md px-2 py-1.5 text-left transition {{ $selected ? 'bg-gray-100 dark:bg-white/10' : 'hover:bg-gray-50 dark:hover:bg-white/[0.03]' }}">
-                <span class="flex items-center justify-between text-xs text-gray-500">
-                    <span>{{ $item['label'] }}</span>
-                    <span class="text-xs text-gray-500">{{ $item['source'] === 'gsc' ? 'GSC' : 'GA4' }}</span>
+                    @if ($selected) style="box-shadow: inset 0 -2px 0 {{ $colors[$item['source']] }}" @endif
+                    @class(['flex min-w-0 flex-col px-[18px] py-4 text-left transition', 'bg-gray-50 dark:bg-gray-800' => $selected, 'bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/60' => ! $selected])>
+                <span class="flex items-center justify-between gap-2 text-[13px] text-gray-500 dark:text-gray-400">
+                    <span class="truncate">{{ $item['label'] }}</span>
+                    <span class="shrink-0 text-[11px] text-gray-400">{{ $item['source'] === 'gsc' ? 'GSC' : 'GA4' }}</span>
                 </span>
-                <span class="mt-1 block text-[26px] leading-8 font-semibold tracking-tight tabular-nums text-gray-900 dark:text-white">{{ $fmt($item['value'], $item['format']) }}</span>
-                <span class="mt-0.5 flex items-center gap-1 text-xs">
+                <span class="mt-1.5 block text-[26px] leading-8 font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $fmt($item['value'], $item['format']) }}</span>
+                <span class="mt-1 flex min-w-0 items-center gap-1.5 text-xs">
                     @if ($item['delta'] !== null)
-                        <span @class(['tabular-nums', 'text-success-700' => $item['better'] === true, 'text-error-700' => $item['better'] === false, 'text-gray-500' => $item['better'] === null])>{{ $item['delta'] > 0 ? '+' : ($item['delta'] < 0 ? '−' : '') }}%{{ number_format(abs($item['delta']), 1, ',', '.') }}</span>
+                        <span @class(['shrink-0 font-medium tabular-nums', 'text-success-600 dark:text-success-400' => $item['better'] === true, 'text-error-600 dark:text-error-400' => $item['better'] === false, 'text-gray-500' => $item['better'] === null])>{{ $item['delta'] > 0 ? '+' : ($item['delta'] < 0 ? '−' : '') }}%{{ number_format(abs($item['delta']), 1, ',', '.') }}</span>
                     @endif
                     <span class="truncate text-gray-500">önceki {{ $fmt($item['previous'], $item['format']) }}</span>
                 </span>
                 @if (($d = $spark($item['points'])) !== '')
-                    <svg viewBox="0 0 100 28" preserveAspectRatio="none" class="mt-2 h-7 w-full" aria-hidden="true"><path d="{{ $d }}" fill="none" stroke="{{ $colors[$item['source']] }}" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
+                    <svg viewBox="0 0 100 28" preserveAspectRatio="none" class="mt-2.5 h-6 w-full" aria-hidden="true"><path d="{{ $d }}" fill="none" stroke="{{ $colors[$item['source']] }}" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
                 @endif
             </button>
         @endforeach
     </section>
 
-    <section class="{{ $card }} space-y-6" data-charts>
-        <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+    {{-- 2. The day-by-day lines of the chosen numbers. --}}
+    <section class="card" data-charts>
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
             <span>Günlük, {{ $first ? \App\Services\Site\Analysis\SiteRange::format($first, $last) : '—' }}</span>
             <span class="flex items-center gap-3">
-                <span class="flex items-center gap-1"><span class="inline-block h-0.5 w-4 bg-gray-700 dark:bg-gray-200"></span> bu dönem</span>
-                <span class="flex items-center gap-1"><span class="inline-block w-4 border-t border-dashed border-gray-400"></span> karşılaştırma</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 bg-gray-700 dark:bg-gray-200"></span>bu dönem</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block w-4 border-t border-dashed border-gray-400"></span>karşılaştırma</span>
             </span>
         </div>
         @foreach ($charts as [$source, $chart, $metrics, $sourceLabel, $has])
-            <div data-chart="{{ $source }}">
-                <div class="mb-1 flex flex-wrap items-center gap-2">
-                    <span class="text-xs font-semibold" style="color: {{ $colors[$source] }}">{{ $sourceLabel }}</span>
-                    <span class="flex gap-1">
+            <div class="border-t border-gray-200 px-4 py-4 first-of-type:border-t-0 dark:border-gray-800" data-chart="{{ $source }}">
+                <div class="mb-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span class="flex items-center gap-1.5 text-[13px] font-medium text-gray-900 dark:text-white"><span class="h-2 w-2 rounded-full" style="background: {{ $colors[$source] }}" aria-hidden="true"></span>{{ $sourceLabel }}</span>
+                    <span class="flex flex-wrap gap-1">
                         @foreach ($metrics as $key => $label)
-                            <button type="button" wire:click="pick('{{ $key }}')" @class(['rounded-md px-2 py-0.5 text-xs', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $chart['metric'] === $key, 'text-gray-500 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800' => $chart['metric'] !== $key])>{{ $label }}</button>
+                            <button type="button" wire:click="pick('{{ $key }}')" @class(['h-7 rounded-md px-2 text-xs', 'bg-gray-100 font-medium text-gray-900 dark:bg-white/10 dark:text-white' => $chart['metric'] === $key, 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5' => $chart['metric'] !== $key])>{{ $label }}</button>
                         @endforeach
                     </span>
-                    @if ($chart['metric'] === 'position')<span class="text-xs text-gray-500">(yukarısı daha iyi)</span>@endif
+                    @if ($chart['metric'] === 'position')<span class="text-xs text-gray-500">yukarısı daha iyi</span>@endif
                 </div>
                 @if (! $has)
-                    <p class="py-6 text-center text-xs text-gray-500">{{ $sourceLabel }} bağlı değil.</p>
+                    <p class="py-6 text-center text-[13px] text-gray-500">{{ $sourceLabel }} bağlı değil.</p>
                 @else
                     <div class="relative" x-data="siteChart(@js($tooltip($chart)))" @mousemove="move($event)" @mouseleave="leave()">
                         <svg viewBox="0 0 {{ $w }} {{ $h }}" preserveAspectRatio="none" class="h-40 w-full" role="img" aria-label="{{ $sourceLabel }}, {{ $metrics[$chart['metric']] }}">
@@ -140,80 +143,84 @@
         @endforeach
     </section>
 
-    <section class="{{ $card }}" data-funnel>
-        <h2 class="mb-3 section-title">Aramadan dönüşüme</h2>
+    {{-- 3. From a search to a conversion. --}}
+    <section class="min-w-0" data-funnel>
+        <div class="section-head"><h2 class="section-title">Aramadan dönüşüme</h2></div>
         @php $top = max(1, (float) ($funnel[0]['value'] ?? 0)); @endphp
-        <ol class="grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-4">
+        <ol class="metric-strip grid-cols-2 md:grid-cols-4">
             @foreach ($funnel as $i => $step)
-                <li data-funnel-step="{{ $i }}">
-                    <p class="text-xs text-gray-500">{{ $step['label'] }}</p>
-                    <p class="text-[26px] leading-8 font-semibold tracking-tight tabular-nums text-gray-900 dark:text-white">{{ $fmt($step['value'], $i === 3 ? 'dec' : 'int') }}</p>
-                    <div class="mt-2 h-1 rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-1 rounded-full bg-gray-400 dark:bg-gray-500" style="width: {{ $step['value'] !== null ? max(2, min(100, $step['value'] / $top * 100)) : 0 }}%"></div></div>
-                    <p class="mt-1.5 text-xs text-gray-500">@if ($step['rate'] !== null)<span class="font-semibold text-gray-700 dark:text-gray-300">%{{ number_format($step['rate'], 1, ',', '.') }}</span>, @endif{{ $step['value'] === null && $i >= 2 ? 'GA4 kaynak / ortam verisi yok' : $step['note'] }}</p>
+                <li class="flex min-w-0 flex-col bg-white px-[18px] py-4 dark:bg-gray-900" data-funnel-step="{{ $i }}">
+                    <p class="text-[13px] text-gray-500 dark:text-gray-400">{{ $step['label'] }}</p>
+                    <p class="mt-1.5 text-[26px] leading-8 font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $fmt($step['value'], $i === 3 ? 'dec' : 'int') }}</p>
+                    <div class="mt-2.5 h-1 rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-1 rounded-full bg-gray-400 dark:bg-gray-500" style="width: {{ $step['value'] !== null ? max(2, min(100, $step['value'] / $top * 100)) : 0 }}%"></div></div>
+                    <p class="mt-2 text-xs text-gray-500">@if ($step['rate'] !== null)<span class="font-medium text-gray-700 dark:text-gray-300">%{{ number_format($step['rate'], 1, ',', '.') }}</span>, @endif{{ $step['value'] === null && $i >= 2 ? 'GA4 kaynak / ortam verisi yok' : $step['note'] }}</p>
                 </li>
             @endforeach
         </ol>
     </section>
 
-    <section class="grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-2 xl:grid-cols-4" data-insights>
+    {{-- 4. What the rules noticed in the numbers. --}}
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" data-insights>
         @foreach ($insights as $insight)
-            <article class="{{ $card }} flex flex-col" data-insight="{{ $insight['key'] }}">
+            <article class="card flex flex-col px-4 py-3.5" data-insight="{{ $insight['key'] }}">
                 <div class="flex items-start justify-between gap-2">
-                    <h4 class="text-xs text-gray-500">{{ $insight['title'] }}</h4>
-                    <span @class(['mt-1 h-1.5 w-1.5 shrink-0 rounded-full', 'bg-warning-500' => $insight['tone'] === 'warn', 'bg-success-500' => $insight['tone'] !== 'warn'])></span>
+                    <h4 class="text-[13px] text-gray-500 dark:text-gray-400">{{ $insight['title'] }}</h4>
+                    <span @class(['mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', 'bg-warning-500' => $insight['tone'] === 'warn', 'bg-success-500' => $insight['tone'] !== 'warn'])></span>
                 </div>
-                <p class="mt-1 text-[26px] leading-8 font-semibold tracking-tight tabular-nums text-gray-900 dark:text-white">{{ $insight['value'] }}</p>
-                <p class="mt-1 text-xs text-gray-500">{{ $insight['text'] }}</p>
+                <p class="mt-1 text-[22px] leading-8 font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $insight['value'] }}</p>
+                <p class="mt-0.5 text-xs text-gray-500">{{ $insight['text'] }}</p>
                 @if ($insight['items'] !== [])
                     <ul class="mt-2 space-y-0.5 text-xs text-gray-700 dark:text-gray-300">@foreach ($insight['items'] as $item)<li class="truncate" title="{{ $item }}">{{ $item }}</li>@endforeach</ul>
                 @endif
                 @if ($insight['tab'])
-                    <button type="button" wire:click="$parent.setTab('{{ $insight['tab'] }}')" class="link-neutral mt-auto pt-2 text-left text-xs">Ayrıntı</button>
+                    <button type="button" wire:click="$parent.setTab('{{ $insight['tab'] }}')" class="link-neutral mt-auto pt-2.5 text-left text-xs">Ayrıntı</button>
                 @endif
             </article>
         @endforeach
     </section>
 
-    <section class="{{ $card }}" data-page-scorecard>
-        <header class="mb-1 flex flex-wrap items-center justify-between gap-2">
-            <div>
-                <h2 class="section-title" title="Search Console + GA4. Teşhis kurallarla, AI değil.">Sayfa karnesi <span class="text-sm font-normal text-gray-500">{{ count($scorecard) }} / {{ number_format($pageCount, 0, ',', '.') }}</span></h2>
+    {{-- 5. Page by page. --}}
+    <section class="min-w-0" data-page-scorecard>
+        <div class="section-head justify-between">
+            <div class="flex min-w-0 flex-wrap items-baseline gap-x-3">
+                <h2 class="section-title" title="Search Console + GA4. Teşhis kurallarla, AI değil.">Sayfa karnesi</h2>
+                <span class="section-count">{{ count($scorecard) }} / {{ number_format($pageCount, 0, ',', '.') }}</span>
             </div>
-            <span class="flex items-center gap-2">
-                <button type="button" wire:click="$parent.setTab('sayfalar')" class="link-neutral text-xs">Tüm sayfalar</button>
-                <button type="button" wire:click="csv" class="h-8 rounded-lg px-3 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700" data-csv>CSV indir</button>
+            <span class="flex items-center gap-1.5">
+                <button type="button" wire:click="$parent.setTab('sayfalar')" class="btn-quiet">Tüm sayfalar</button>
+                <button type="button" wire:click="csv" class="btn" data-csv>CSV indir</button>
             </span>
-        </header>
-        <div class="min-w-0 overflow-x-auto">
-        <table class="w-full text-left text-sm">
-            <thead class="border-b border-gray-200 text-gray-500 dark:border-gray-800">
-                <tr>
-                    <th class="font-normal py-2 pr-2">Sayfa</th>
-                    <th class="font-normal px-2 text-right">Tıklama</th><th class="font-normal px-2 text-right">Gösterim</th><th class="font-normal px-2 text-right">TO</th><th class="font-normal px-2 text-right">Sıra</th>
-                    <th class="font-normal px-2 text-right">Oturum</th><th class="font-normal px-2 text-right">Dönüşüm</th>
-                    <th class="font-normal pl-4">Teşhis</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($scorecard as $row)
-                    <tr class="border-t border-gray-200 dark:border-gray-800" wire:key="karne-{{ md5($row['path']) }}" data-karne-row="{{ $row['path'] }}">
-                        <td class="max-w-xs py-2.5 pr-2">
-                            <span class="block truncate font-medium text-gray-900 dark:text-white">{{ $row['title'] ?: $row['path'] }}</span>
-                            <span class="block truncate text-xs text-gray-500">{{ $row['path'] }}, {{ \App\Services\Site\Analysis\SitePagesReader::TYPES[$row['type']] ?? '' }}</span>
-                        </td>
-                        <td class="px-2 text-right tabular-nums">{{ $fmt($row['clicks'], 'int') }}</td>
-                        <td class="px-2 text-right tabular-nums">{{ $fmt($row['impressions'], 'int') }}</td>
-                        <td class="px-2 text-right tabular-nums">{{ $row['ctr'] === null ? '—' : '%'.number_format($row['ctr'], 1, ',', '.') }}</td>
-                        <td class="px-2 text-right tabular-nums">{{ $fmt($row['position'], 'dec') }}</td>
-                        <td class="px-2 text-right tabular-nums">{{ $fmt($row['sessions'], 'int') }}</td>
-                        <td class="px-2 text-right tabular-nums">{{ $fmt($row['key_events'], 'dec') }}</td>
-                        <td class="pl-4"><x-ta.pill :tone="$row['diagnosis'] === 'İyi' ? 'ok' : 'look'">{{ $row['diagnosis'] }}</x-ta.pill></td>
+        </div>
+        <div class="card overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Sayfa</th>
+                        <th class="text-right!">Tıklama</th><th class="text-right!">Gösterim</th><th class="text-right!">TO</th><th class="text-right!">Sıra</th>
+                        <th class="text-right!">Oturum</th><th class="text-right!">Dönüşüm</th>
+                        <th>Teşhis</th>
                     </tr>
-                @empty
-                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">Bu dönemde Search Console / GA4 sayfa verisi yok.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @forelse ($scorecard as $row)
+                        <tr wire:key="karne-{{ md5($row['path']) }}" data-karne-row="{{ $row['path'] }}">
+                            <td class="max-w-xs min-w-[12rem]">
+                                <span class="block truncate font-medium text-gray-900 dark:text-white">{{ $row['title'] ?: $row['path'] }}</span>
+                                <span class="block truncate text-xs text-gray-500">{{ $row['path'] }}, {{ \App\Services\Site\Analysis\SitePagesReader::TYPES[$row['type']] ?? '' }}</span>
+                            </td>
+                            <td class="text-right tabular-nums">{{ $fmt($row['clicks'], 'int') }}</td>
+                            <td class="text-right tabular-nums">{{ $fmt($row['impressions'], 'int') }}</td>
+                            <td class="text-right tabular-nums">{{ $row['ctr'] === null ? '—' : '%'.number_format($row['ctr'], 1, ',', '.') }}</td>
+                            <td class="text-right tabular-nums">{{ $fmt($row['position'], 'dec') }}</td>
+                            <td class="text-right tabular-nums">{{ $fmt($row['sessions'], 'int') }}</td>
+                            <td class="text-right tabular-nums">{{ $fmt($row['key_events'], 'dec') }}</td>
+                            <td class="whitespace-nowrap"><x-ta.pill :tone="$row['diagnosis'] === 'İyi' ? 'ok' : 'look'">{{ $row['diagnosis'] }}</x-ta.pill></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="8" class="py-6 text-center text-[13px] text-gray-500">Bu dönemde Search Console / GA4 sayfa verisi yok.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </section>
 </div>

@@ -36,7 +36,7 @@
             @endforeach
         </div>
 
-        <div class="card overflow-x-auto">
+        <div class="card relative overflow-x-auto">
             <table class="data-table min-w-[640px]">
                 <thead>
                     <tr><th>Kaynak</th><th>Sinyal</th><th>Ne anlama geliyor</th><th class="text-right!">30 gün</th><th>Toplama girer</th></tr>

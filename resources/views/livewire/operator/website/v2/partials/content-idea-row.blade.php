@@ -14,24 +14,24 @@
     $rowStatuses = collect($statuses)->filter(fn ($line, $k) => str_starts_with($k, $key.':'));
     $rowOverlaps = ! $extra && $model !== null ? ($overlaps[(int) $model->id] ?? collect()) : collect();
     // Per-row actions stay neutral; orange is the tab's one main action ("Eşleştir").
-    $rowBtn = 'rounded-lg bg-white px-2 py-1 text-xs font-semibold text-gray-800 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700';
+    $rowBtn = 'btn h-7! px-2.5! text-xs!';
     $audited = $model !== null && ($model->rediscovered_at !== null || ($model->audited_at ?? null) !== null);
 @endphp
-<tbody wire:key="body-{{ $key }}" x-data="{ detail: false }" class="border-t border-gray-200 dark:border-gray-800">
+<tbody wire:key="body-{{ $key }}" x-data="{ detail: false }" class="border-t border-gray-200 first-of-type:border-t-0 dark:border-gray-800">
 <tr data-idea-row="{{ $key }}" data-state="{{ $r['state'] }}" @class(['align-top', 'text-gray-700 dark:text-gray-300' => $extra])>
-    <td @class(['py-2.5', 'pl-6' => $extra])>
-        <span @class(['font-semibold' => ! $extra])>{{ $extra ? '↳ ' : '' }}{{ $title }}</span>
+    <td @class(['min-w-[12rem]', 'pl-8!' => $extra])>
+        <span @class(['font-medium text-gray-900 dark:text-white' => ! $extra])>{{ $extra ? '↳ ' : '' }}{{ $title }}</span>
         @if (! $extra && $model->language)<span class="ml-1 text-xs font-normal text-gray-500">{{ $model->language }}</span>@endif
         @if ($model?->locked)<span class="ml-1 text-xs font-normal text-gray-500">elle</span>@endif
         @if ($extra)
-            <p class="text-gray-500">{{ $r['idea']->angle }}, üreten: {{ $r['idea']->originBrand?->name ?? 'Sorgular (genel)' }}</p>
+            <p class="mt-0.5 text-xs text-gray-500">{{ $r['idea']->angle }}, üreten: {{ $r['idea']->originBrand?->name ?? 'Sorgular (genel)' }}</p>
         @else
-            <p class="text-gray-500">{{ $cluster->service?->primaryName?->raw_label }}</p>
+            <p class="mt-0.5 text-xs text-gray-500">{{ $cluster->service?->primaryName?->raw_label }}</p>
         @endif
     </td>
-    <td>{{ $types[$type] ?? \App\Models\Cluster::PAGE_TYPE_LABELS[$type] ?? $type }}</td>
+    <td class="whitespace-nowrap text-[13px]">{{ $types[$type] ?? \App\Models\Cluster::PAGE_TYPE_LABELS[$type] ?? $type }}</td>
     <td class="text-right tabular-nums">{{ $demand !== null ? $num($demand) : '' }}</td>
-    <td class="max-w-[14rem] truncate">
+    <td class="max-w-[11rem] truncate text-[13px]">
         @if ($page)<a href="{{ $page->url }}" target="_blank" rel="noopener" class="link-neutral" title="{{ $page->path ?: '/' }}">{{ $page->path ?: '/' }}</a>@else<span class="text-gray-400">—</span>@endif
     </td>
     <td class="text-right tabular-nums">
@@ -39,17 +39,17 @@
         @elseif ($score)<span class="text-gray-400">{{ ['low_data' => 'veri az', 'no_gsc' => 'GSC yok', 'no_gsc_data' => 'veri yok', 'no_page' => '—'][$score->state] ?? '—' }}</span>
         @else<span class="text-gray-400">—</span>@endif
     </td>
-    <td class="max-w-[16rem]">
+    <td class="min-w-[11rem] max-w-[14rem]">
         <button type="button" @click="detail = !detail" :aria-expanded="detail.toString()" class="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white" data-idea-state title="Ayrıntı için tıkla">
             <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $tone[$r['state']] ?? 'bg-gray-400' }}" aria-hidden="true"></span>{{ \App\Services\Site\ContentIdeaState::LABELS[$r['state']] ?? $r['state'] }}
             <svg class="h-3 w-3 transition" :class="detail && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </button>
-        <p class="mt-0.5 line-clamp-2 text-gray-500">{{ $r['reason'] }}</p>
+        <p class="mt-0.5 line-clamp-2 text-xs text-gray-500">{{ $r['reason'] }}</p>
         @foreach ($rowStatuses as $k => $line)
-            <p class="text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
+            <p class="text-xs text-gray-500">{{ \App\Services\Site\SiteOperations::LABELS[\Illuminate\Support\Str::after($k, ':')] ?? '' }}: {{ $line }}</p>
         @endforeach
     </td>
-    <td class="text-right">
+    <td class="w-[12.5rem] min-w-[12.5rem] text-right">
         <div class="flex flex-wrap justify-end gap-1">
             @if ($r['state'] !== 'excluded')
                 <button type="button" wire:click="rediscover('{{ $actKind }}', {{ $actId }})" class="{{ $ghost }}" data-rediscover>Yeniden keşfet</button>
@@ -68,7 +68,7 @@
                 <button type="button" wire:click="produce('{{ $r['kind'] }}', {{ $model->id }})" class="{{ $rowBtn }}" data-produce title="AI bu fikir için makaleyi yazar ve İçerik planı'na koyar. WordPress'e kendiliğinden gitmez: orada inceleyip «WordPress taslağı gönder» dersen yazı WordPress'te taslak olarak açılır.">AI ile taslak yaz</button>
             @endif
             @if ($contentSuggestion !== null)
-                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'icerik', 'taslak' => $contentSuggestion->id]) }}" wire:navigate class="{{ $ghost }}" data-content-link>{{ is_array(data_get($contentSuggestion->action, 'article')) ? 'Taslağı oku' : (data_get($contentSuggestion->action, 'article_blocked') ? 'Taslak takıldı · gör' : 'İçerik planında') }}</a>
+                <a href="{{ route('operator.website', ['assetId' => $assetId, 'tab' => 'icerik', 'taslak' => $contentSuggestion->id]) }}" wire:navigate class="{{ $ghost }}" data-content-link>{{ is_array(data_get($contentSuggestion->action, 'article')) ? 'Taslağı oku' : (data_get($contentSuggestion->action, 'article_blocked') ? 'Taslak takıldı, gör' : 'İçerik planında') }}</a>
             @endif
             @if (! $extra)<button type="button" wire:click="generateIdeas({{ $cluster->id }})" @disabled(($ideaStatus['status'] ?? null) === 'running') class="{{ $ghost }}" data-generate-ideas="{{ $cluster->id }}" title="Bu küme için AI yeni içerik fikirleri üretir (sayı üstten seçilir).">{{ ($ideaStatus['status'] ?? null) === 'running' ? 'Fikirler üretiliyor…' : '+ Fikir' }}</button>@endif
             @if ($model !== null)<button type="button" wire:click="toggle('{{ $key }}:edit')" class="{{ $ghost }}">{{ $extra ? 'Sayfa seç' : 'Düzenle' }}</button>@endif
@@ -76,19 +76,19 @@
     </td>
 </tr>
 <tr x-show="detail" x-cloak data-idea-detail="{{ $key }}">
-    <td colspan="7" class="bg-gray-50 px-3 pb-3 pt-2 dark:bg-gray-950">
-        <p class="text-gray-700 dark:text-gray-300"><span class="font-semibold">Neden bu durum:</span> {{ $r['reason'] }}</p>
+    <td colspan="7" class="bg-gray-50/70 px-4! py-3! text-[13px] dark:bg-white/[0.02]">
+        <p class="text-gray-700 dark:text-gray-300"><span class="font-medium text-gray-900 dark:text-white">Neden bu durum:</span> {{ $r['reason'] }}</p>
         @if (! $extra && $r['state'] === 'no_page')
             {{-- Eşleşmeyen küme: the content idea comes from the cluster itself (need, page type, sections) — nothing invented. --}}
             <div class="mt-2 border-l-2 border-gray-200 pl-3 text-gray-900 dark:border-gray-700 dark:text-gray-100" data-content-idea>
-                <p><span class="font-semibold">İçerik önerisi:</span> yeni {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$cluster->page_type] ?? 'içerik' }} sayfası · «{{ $cluster->name }}»@if ($cluster->user_need) — {{ $cluster->user_need }}@endif</p>
+                <p><span class="font-medium">İçerik önerisi:</span> yeni {{ \App\Models\Cluster::PAGE_TYPE_LABELS[$cluster->page_type] ?? 'içerik' }} sayfası · «{{ $cluster->name }}»@if ($cluster->user_need) — {{ $cluster->user_need }}@endif</p>
                 @if ((array) $cluster->subtopics !== [])<p class="mt-0.5">Bölümler: {{ implode(' · ', (array) $cluster->subtopics) }}</p>@endif
                 @if ($cluster->mainQuery)<p class="mt-0.5 text-gray-700 dark:text-gray-300">Hedef sorgu: «{{ $cluster->mainQuery->text }}»</p>@endif
             </div>
         @endif
         @if ($rowOverlaps->isNotEmpty())
             <div class="mt-2 text-gray-800 dark:text-gray-200" data-overlaps>
-                <p class="font-semibold">Bu kümeyle eşleşen diğer sayfalar ({{ $rowOverlaps->count() }})</p>
+                <p class="font-medium">Bu kümeyle eşleşen diğer sayfalar ({{ $rowOverlaps->count() }})</p>
                 @foreach ($rowOverlaps as $overlap)
                     <div class="mt-1 flex flex-wrap items-center gap-2" wire:key="overlap-{{ $overlap->id }}" data-overlap="{{ $overlap->id }}">
                         <a href="{{ data_get($overlap->action, 'overlap_url') }}" target="_blank" rel="noopener" class="link-neutral font-medium">{{ parse_url((string) data_get($overlap->action, 'overlap_url'), PHP_URL_PATH) ?: '/' }}</a>
@@ -107,7 +107,7 @@
         @endif
         @if ($gaps !== [] || $questions !== [])
             <div class="mt-2" data-gaps>
-                <p class="font-semibold text-gray-800 dark:text-gray-100">Eksikler ({{ count($gaps) }})</p>
+                <p class="font-medium text-gray-800 dark:text-gray-100">Eksikler ({{ count($gaps) }})</p>
                 <ul class="mt-1 list-disc space-y-0.5 pl-4">@foreach ($gaps as $gap)<li>{{ $gap['text'] ?? '' }} <span class="text-gray-500">({{ $kinds[$gap['kind'] ?? ''] ?? '' }})</span></li>@endforeach</ul>
                 @if ($questions !== [])<p class="mt-1 font-medium text-gray-600">AI asistanına sorulanlar</p><ul class="list-disc pl-4 text-gray-500">@foreach ($questions as $question)<li>{{ $question }}</li>@endforeach</ul>@endif
             </div>
@@ -116,7 +116,7 @@
 </tr>
 
 @if ($open === $key.':recipe' && $recipe !== [])
-    <tr wire:key="recipe-{{ $key }}"><td colspan="7" class="bg-gray-50 p-3 dark:bg-gray-950" data-recipe-panel>
+    <tr wire:key="recipe-{{ $key }}"><td colspan="7" class="bg-gray-50/70 px-4! py-3! text-[13px] dark:bg-white/[0.02]" data-recipe-panel>
         @if (! empty($recipe['summary']))<p class="font-semibold">{{ $recipe['summary'] }}</p>@endif
         <ol class="mt-1 list-decimal space-y-1 pl-5">
             @foreach ((array) ($recipe['steps'] ?? []) as $step)
@@ -130,7 +130,7 @@
     </td></tr>
 @endif
 @if ($open === $key.':edit' && $model !== null)
-    <tr wire:key="edit-{{ $key }}"><td colspan="7" class="bg-gray-50 p-3 dark:bg-gray-950" data-edit-panel>
+    <tr wire:key="edit-{{ $key }}"><td colspan="7" class="bg-gray-50/70 px-4! py-3! text-[13px] dark:bg-white/[0.02]" data-edit-panel>
         <div class="flex flex-wrap items-end gap-2">
             <input type="search" wire:model.live.debounce.400ms="pageSearch" placeholder="URL ara" aria-label="URL ara" class="{{ $input }} w-40">
             @if ($extra)

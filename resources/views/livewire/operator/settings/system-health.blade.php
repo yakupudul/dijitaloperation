@@ -245,7 +245,7 @@
                     @endif
                 </div>
                 @if ($live === [])
-                    <div class="card"><x-ta.empty-state size="sm" title="Henüz doğrulama yapılmadı" message="moxdop:verify:live her sabah çalışır." /></div>
+                    <div class="card"><x-ta.empty-state size="sm" icon="none" title="Henüz doğrulama yapılmadı" message="moxdop:verify:live her sabah çalışır." /></div>
                 @else
                     <div class="card overflow-x-auto">
                         <table class="data-table">
@@ -399,7 +399,7 @@
                             </span>
                         </li>
                     @empty
-                        <li><x-ta.empty-state size="sm" title="Eşleşmiş WordPress sitesi yok." /></li>
+                        <li><x-ta.empty-state size="sm" icon="none" title="Eşleşmiş WordPress sitesi yok." /></li>
                     @endforelse
                 </ul>
             </section>

@@ -31,7 +31,7 @@
     @if(! in_array($assetType, ['website', 'google_business_profile'], true))
         <section>
             <div class="section-head"><h2 class="section-title">{{ $assetType === 'google_ads' ? 'Google Ads' : 'Meta Ads' }}</h2></div>
-            <div class="card"><x-ta.empty-state :title="$tr ? 'Reklam standartları henüz tanımlanmadı' : 'Advertising checks have not been defined yet'" :message="$tr ? 'Bu kategori hazır; şu an web sitesi standartlarını düzenliyoruz.' : 'This category is reserved.'" /></div>
+            <div class="card"><x-ta.empty-state icon="none" :title="$tr ? 'Reklam standartları henüz tanımlanmadı' : 'Advertising checks have not been defined yet'" :message="$tr ? 'Bu kategori hazır; şu an web sitesi standartlarını düzenliyoruz.' : 'This category is reserved.'" /></div>
         </section>
     @else
         <div class="metric-strip grid-cols-2 lg:grid-cols-4">
@@ -114,7 +114,7 @@
                                 </dl>
                             </details>
                         </article>
-                    @empty<x-ta.empty-state size="sm" :title="$tr ? 'Bu filtrelere uygun standart bulunamadı.' : 'No matching standards.'" />@endforelse
+                    @empty<x-ta.empty-state icon="none" size="sm" :title="$tr ? 'Bu filtrelere uygun standart bulunamadı.' : 'No matching standards.'" />@endforelse
                     </div>
                 </div>
                 {{ $standards->links() }}

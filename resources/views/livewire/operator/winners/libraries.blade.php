@@ -56,7 +56,7 @@
                             </div>
                         </li>
                     @empty
-                        <li><x-ta.empty-state title="Kütüphane boş." message="Strateji öner’deki kazanan kampanyalardan “Metni kütüphaneye kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state></li>
+                        <li><x-ta.empty-state icon="none" title="Kütüphane boş." message="Strateji öner’deki kazanan kampanyalardan “Metni kütüphaneye kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state></li>
                     @endforelse
                 </ul>
             </section>
@@ -65,7 +65,7 @@
                 <div class="section-head"><h2 class="section-title">Kazanan hedeflemeler <span class="section-count">{{ count($items) }}</span></h2></div>
                 @if ($items === [])
                     <div class="card">
-                        <x-ta.empty-state title="Kütüphane boş." message="Strateji öner’deki kazananlardan “Hedeflemeyi kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
+                        <x-ta.empty-state icon="none" title="Kütüphane boş." message="Strateji öner’deki kazananlardan “Hedeflemeyi kaydet” ile eklenir."><a href="{{ route('operator.meta-strategy') }}" wire:navigate class="btn" data-empty-action>Strateji öner’e git</a></x-ta.empty-state>
                     </div>
                 @else
                     <div class="card overflow-x-auto">
@@ -98,7 +98,7 @@
                 </div>
                 @if (! $season || $season['rows'] === [])
                     <div class="card">
-                        <x-ta.empty-state title="Aylık arama hacmi yok" message="Bu sektörde aylık arama hacmi verisi yok. Hacimler ayda bir çekilir."><a href="{{ route('operator.winners') }}" wire:navigate class="btn" data-empty-action>Kazananlara git</a></x-ta.empty-state>
+                        <x-ta.empty-state icon="none" title="Aylık arama hacmi yok" message="Bu sektörde aylık arama hacmi verisi yok. Hacimler ayda bir çekilir."><a href="{{ route('operator.winners') }}" wire:navigate class="btn" data-empty-action>Kazananlara git</a></x-ta.empty-state>
                     </div>
                 @else
                     @if ($season['note'])
@@ -141,7 +141,7 @@
                 </div>
                 @if (! $map || $map['rows'] === [])
                     <div class="card">
-                        <x-ta.empty-state title="Marka ya da hizmet yok" message="Bu sektörde marka ya da hizmet yok."><a href="{{ route('operator.brands') }}" wire:navigate class="btn" data-empty-action>Markalara git</a></x-ta.empty-state>
+                        <x-ta.empty-state icon="none" title="Marka ya da hizmet yok" message="Bu sektörde marka ya da hizmet yok."><a href="{{ route('operator.brands') }}" wire:navigate class="btn" data-empty-action>Markalara git</a></x-ta.empty-state>
                     </div>
                 @else
                     <div class="card w-fit max-w-full overflow-x-auto">

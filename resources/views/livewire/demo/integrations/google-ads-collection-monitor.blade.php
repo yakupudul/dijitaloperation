@@ -150,7 +150,7 @@
         </section>
     @empty
         <div class="card">
-            <x-ta.empty-state size="sm" title="Aktif Google Ads veri aktarımı yok." message="Hesaplar sekmesinden bir veya daha fazla müşteri hesabı seçip veri çekebilirsin." />
+            <x-ta.empty-state icon="none" size="sm" title="Aktif Google Ads veri aktarımı yok." message="Hesaplar sekmesinden bir veya daha fazla müşteri hesabı seçip veri çekebilirsin." />
         </div>
     @endforelse
 

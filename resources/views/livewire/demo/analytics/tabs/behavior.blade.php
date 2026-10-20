@@ -2,6 +2,22 @@
     $behavior = $data['behavior'] ?? [];
     $rows = $behavior['landing_pages'] ?? [];
     $engagement = $behavior['engagement'] ?? [];
+
+    /** Reads an engagement value the Turkish way: "59.6%" → "%59,6", "1m 42s" → "1 dk 42 sn", "2.4" → "2,4". */
+    $metricValue = static function (mixed $raw): string {
+        if (in_array($raw, ['Unavailable', null, ''], true)) {
+            return '—';
+        }
+        $text = trim((string) $raw);
+        if (preg_match('/^(\d+(?:\.\d+)?)\s?%$/', $text, $match)) {
+            return '%'.str_replace('.', ',', $match[1]);
+        }
+        if (preg_match('/^\d+\.\d+$/', $text)) {
+            return str_replace('.', ',', $text);
+        }
+
+        return preg_replace(['/(\d+)m\b/', '/(\d+)s\b/'], ['$1 dk', '$1 sn'], $text);
+    };
 @endphp
 
 <div class="space-y-10">
@@ -10,8 +26,8 @@
         <section>
             <div @class(['metric-strip grid-cols-2', 'lg:grid-cols-3' => count($engagement) === 3, 'lg:grid-cols-4' => count($engagement) >= 4])>
                 @foreach ($engagement as $metricRow)
-                    @php $value = in_array($metricRow['value'], ['Unavailable', null, ''], true) ? '—' : (string) $metricRow['value']; @endphp
-                    <x-ta.metric-card :label="$say($metricRow['metric'])" :value="$value" :muted="$value === '—'" :hint="$say($metricRow['state'] ?? null)" />
+                    @php $value = $metricValue($metricRow['value'] ?? null); @endphp
+                    <x-ta.metric-card :label="$say($metricRow['metric'])" :value="$value" :muted="$value === '—'" :hint="$say($metricRow['state'] ?? null)" :class="$loop->last && $loop->odd ? 'col-span-2 lg:col-span-1' : ''" />
                 @endforeach
             </div>
         </section>

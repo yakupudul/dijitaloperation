@@ -37,9 +37,10 @@
                 @foreach ($rows as $row)
                     <li class="card-row flex-wrap items-start sm:flex-nowrap sm:items-center">
                         <div class="min-w-0 flex-1">
-                            <p class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['title'] }}</span>
-                                @if ($row['asset'])<span class="text-[13px] text-gray-500">{{ $row['asset'] }}</span>@endif
+                            @php($assetText = $row['asset'] ? str_replace(' · ', ', ', (string) $row['asset']) : '')
+                            <p class="flex min-w-0 items-baseline gap-2.5">
+                                <span class="shrink-0 text-sm font-medium text-gray-900 dark:text-white">{{ str_replace(' · ', ', ', $row['title']) }}</span>
+                                @if ($assetText !== '')<span class="min-w-0 truncate text-[13px] text-gray-500" title="{{ $assetText }}">{{ $assetText }}</span>@endif
                             </p>
                             <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $row['detail'] }}</p>
                         </div>

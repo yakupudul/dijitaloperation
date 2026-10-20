@@ -50,7 +50,7 @@
                     <span class="w-full pl-5 text-xs text-gray-500 sm:w-auto sm:pl-0">{{ $when($commit['at']) }}, {{ $commit['branch'] }} <span class="font-mono">{{ substr($commit['sha'], 0, 8) }}</span></span>
                 </li>
             @empty
-                <li><x-ta.empty-state size="sm" :title="$autoDeploy !== null ? 'Dala gönderilen her şey canlıda.' : 'Otomatik deploy kurulunca burada bekleyen değişiklikler görünür.'" /></li>
+                <li><x-ta.empty-state size="sm" :icon="$autoDeploy !== null ? 'check' : 'none'" :title="$autoDeploy !== null ? 'Dala gönderilen her şey canlıda.' : 'Otomatik deploy kurulunca burada bekleyen değişiklikler görünür.'" /></li>
             @endforelse
         </ul>
     </section>
@@ -75,7 +75,7 @@
                     </ul>
                 </article>
             @empty
-                <x-ta.empty-state size="sm" title="Deploy geçmişi bir sonraki deploy'dan itibaren tutulur." />
+                <x-ta.empty-state size="sm" icon="none" title="Deploy geçmişi bir sonraki deploy'dan itibaren tutulur." />
             @endforelse
         </div>
     </section>

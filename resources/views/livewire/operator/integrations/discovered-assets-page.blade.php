@@ -98,7 +98,8 @@
                     <li class="card-row flex-wrap sm:flex-nowrap">
                         <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm text-gray-900 dark:text-white">{{ $problem['label'] }}: <span class="font-medium">{{ $problem['subject'] }}</span></p>
+                            @php($subject = str_replace(' · ', ', ', (string) $problem['subject']))
+                            <p class="truncate text-sm text-gray-900 dark:text-white" title="{{ $subject }}">{{ $problem['label'] }}: <span class="font-medium">{{ $subject }}</span></p>
                             <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $problem['detail'] }}</p>
                         </div>
                         @if($problem['code'] === 'duplicate_host')<a href="{{ route('operator.integrations.website-duplicates') }}" wire:navigate class="btn">Birleştir</a>@endif
@@ -112,9 +113,9 @@
         <div class="section-head items-center">
             <h2 class="section-title">Tüm varlıklar <span class="section-count">{{ $rows->total() }}</span></h2>
             <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
-                <input type="search" wire:model.live.debounce.300ms="search" placeholder="Ara…" aria-label="Ara" class="{{ $field }} w-full min-w-0 flex-1 sm:w-48 sm:flex-none">
-                <select wire:model.live="kind" aria-label="Tür" class="{{ $field }}"><option value="">Tüm türler</option>@foreach($kinds as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
-                <select wire:model.live="bound" aria-label="Bağlı" class="{{ $field }}"><option value="">Hepsi</option><option value="yes">Markaya bağlı</option><option value="no">Markasız</option></select>
+                <input type="search" wire:model.live.debounce.300ms="search" placeholder="Ara…" aria-label="Ara" class="{{ $field }} w-full min-w-0 basis-full sm:w-48 sm:basis-auto sm:flex-none">
+                <select wire:model.live="kind" aria-label="Tür" class="{{ $field }} min-w-0 flex-1 sm:flex-none"><option value="">Tüm türler</option>@foreach($kinds as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
+                <select wire:model.live="bound" aria-label="Bağlı" class="{{ $field }} min-w-0 flex-1 sm:flex-none"><option value="">Hepsi</option><option value="yes">Markaya bağlı</option><option value="no">Markasız</option></select>
             </div>
         </div>
         <div class="card overflow-x-auto">
@@ -123,9 +124,9 @@
                 <tbody>
                     @forelse($rows as $row)
                         <tr wire:key="asset-{{ $row['key'] }}">
-                            <td class="max-w-0 w-[34%]"><span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $row['name'] }}">{{ $row['name'] }}</span>@if($row['host'] && $row['host'] !== $row['name'])<span class="block truncate text-xs text-gray-500">{{ $row['host'] }}</span>@endif<span class="text-xs text-gray-500 sm:hidden">{{ $kinds[$row['kind']] ?? $row['kind'] }}</span></td>
-                            <td class="hidden text-[13px] text-gray-600 sm:table-cell dark:text-gray-300">{{ $kinds[$row['kind']] ?? $row['kind'] }}</td>
-                            <td class="text-[13px]">@if($row['brand']){{ $row['brand'] }}@else<x-ta.pill tone="look">Markasız</x-ta.pill>@endif</td>
+                            <td class="max-w-0 w-[55%] sm:w-[34%]"><span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $row['name'] }}">{{ str_replace(' · ', ', ', $row['name']) }}</span>@if($row['host'] && $row['host'] !== $row['name'])<span class="block truncate text-xs text-gray-500">{{ $row['host'] }}</span>@endif<span class="text-xs text-gray-500 sm:hidden">{{ $kinds[$row['kind']] ?? $row['kind'] }}</span></td>
+                            <td class="hidden whitespace-nowrap text-[13px] text-gray-600 sm:table-cell dark:text-gray-300">{{ $kinds[$row['kind']] ?? $row['kind'] }}</td>
+                            <td class="max-w-0 text-[13px] sm:max-w-none">@if($row['brand'])<span class="block truncate sm:whitespace-normal" title="{{ $row['brand'] }}">{{ $row['brand'] }}</span>@else<x-ta.pill tone="look">Markasız</x-ta.pill>@endif</td>
                             <td class="hidden text-[13px] text-gray-600 md:table-cell dark:text-gray-300">{{ $row['customer'] ?? '—' }}</td>
                             @if($isAdmin)
                                 <td class="text-right">

@@ -1,114 +1,108 @@
-<div class="space-y-10">
+@php
+    $input = 'h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white';
+    $filtered = trim($search) !== '' || $scope !== '';
+@endphp
+<div class="space-y-10" x-data="{ uploadOpen: @js($files->isEmpty() && ! $filtered) }">
     @include('livewire.demo.partials.flash')
 
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <h1 class="text-[28px] leading-9 font-semibold tracking-tight text-gray-900 dark:text-white">{{ __('operator.files.title') }}</h1>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+            <h1 class="page-title" title="{{ __('operator.files.subtitle') }}">{{ __('operator.files.title') }}</h1>
+            <p class="page-sub">{{ $files->total() }} dosya, özel depolamada; indirmek için giriş gerekir.</p>
         </div>
+        <button type="button" @click="uploadOpen = ! uploadOpen" class="btn-primary" :aria-expanded="uploadOpen.toString()">{{ __('operator.files.upload_cta') }}</button>
     </div>
 
-    <form wire:submit="uploadFile">
-        <h2 class="section-title">{{ __('operator.files.upload_cta') }}</h2>
-        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+    <form wire:submit="uploadFile" x-show="uploadOpen || {{ $errors->has('upload') ? 'true' : 'false' }}" x-cloak class="card -mt-4">
+        <div class="grid gap-4 p-5 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
             <label class="block sm:col-span-2 lg:col-span-1">
-                <span class="text-gray-500 dark:text-gray-400">{{ __('operator.actions.upload') }}</span>
+                <span class="text-gray-600 dark:text-gray-300">{{ __('operator.actions.upload') }}</span>
                 <input type="file" wire:model="upload"
-                    class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 dark:file:bg-white/10 dark:file:text-gray-200 dark:text-gray-300" />
+                    class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:h-9 file:rounded-lg file:border file:border-gray-200 file:bg-white file:px-3 file:text-[13px] file:font-medium file:text-gray-900 hover:file:bg-gray-50 dark:text-gray-300 dark:file:border-gray-700 dark:file:bg-white/[0.04] dark:file:text-gray-200" />
                 @error('upload') <span class="mt-1 block text-error-600 dark:text-error-400">{{ $message }}</span> @enderror
             </label>
             <label class="block">
-                <span class="text-gray-500 dark:text-gray-400">{{ __('operator.files.scope') }}</span>
-                <select wire:model="uploadScope" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white">
+                <span class="text-gray-600 dark:text-gray-300">{{ __('operator.files.scope') }}</span>
+                <select wire:model="uploadScope" class="{{ $input }} mt-1">
                     @foreach ($scopes as $scopeKey)
                         <option value="{{ $scopeKey }}">{{ __('operator.files.scopes.'.$scopeKey) }}</option>
                     @endforeach
                 </select>
             </label>
             <label class="block">
-                <span class="text-gray-500 dark:text-gray-400">Description</span>
-                <input wire:model="uploadDescription" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                <span class="text-gray-600 dark:text-gray-300">Açıklama</span>
+                <input wire:model="uploadDescription" type="text" class="{{ $input }} mt-1" />
             </label>
         </div>
-        <div class="mt-3">
-            <x-ta.button type="submit" size="sm" wire:loading.attr="disabled">{{ __('operator.actions.upload') }}</x-ta.button>
+        <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+            <p class="mr-auto text-xs text-gray-500">Görseller, PDF, DOC/DOCX, XLS/XLSX, TXT, CSV ve ZIP yüklenebilir; PHP ve EXE yüklenemez.</p>
+            <button type="button" @click="uploadOpen = false" class="btn-quiet">{{ __('operator.actions.cancel') }}</button>
+            <button type="submit" wire:loading.attr="disabled" class="btn-primary">{{ __('operator.actions.upload') }}</button>
         </div>
     </form>
 
-    <div class="flex flex-wrap items-end gap-3">
-        <label class="block min-w-[200px] flex-1 text-sm">
-            <span class="sr-only">{{ __('operator.actions.search') }}</span>
-            <input wire:model.live.debounce.300ms="search" type="search" placeholder="{{ __('operator.files.search_placeholder') }}"
-                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
-        </label>
-        <label class="block text-sm">
-            <span class="sr-only">{{ __('operator.files.scope') }}</span>
-            <select wire:model.live="scope" class="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                <option value="">{{ __('operator.files.scope_all') }}</option>
-                @foreach ($scopes as $scopeKey)
-                    <option value="{{ $scopeKey }}">{{ __('operator.files.scopes.'.$scopeKey) }}</option>
-                @endforeach
-            </select>
-        </label>
-    </div>
-
-    @if ($files->isEmpty())
-        <div class="py-6">
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('operator.files.empty') }}</p>
-            <p class="mt-1 text-xs text-gray-500">Allowed: images, PDF, DOC/DOCX, XLS/XLSX, TXT, CSV, ZIP — not PHP/EXE.</p>
-        </div>
-    @else
-        <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead>
-                    <tr class="border-b border-gray-200 dark:border-gray-800">
-                        <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.files.original_name') }}</th>
-                        <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.files.scope') }}</th>
-                        <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.files.size') }}</th>
-                        <th scope="col" class="py-2 pr-4 text-left text-xs font-normal text-gray-500">{{ __('operator.files.uploaded_at') }}</th>
-                        <th scope="col" class="py-2 text-right text-xs font-normal text-gray-500">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($files as $file)
-                        <tr wire:key="file-{{ $file->id }}" class="border-b border-gray-200 dark:border-gray-800">
-                            <td class="py-2.5 pr-4">
-                                @if ($renamingId === $file->id)
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <input wire:model="renameName" type="text" class="rounded-lg border border-gray-200 bg-transparent px-2 py-1 dark:border-gray-700 dark:text-white" />
-                                        <button type="button" wire:click="saveRename" class="link-primary text-xs font-medium">{{ __('operator.actions.save') }}</button>
-                                        <button type="button" wire:click="cancelRename" class="text-xs text-gray-500">{{ __('operator.actions.cancel') }}</button>
-                                    </div>
-                                    @error('renameName') <span class="text-xs text-error-600">{{ $message }}</span> @enderror
-                                @else
-                                    <p class="font-medium text-gray-800 dark:text-white/90">{{ $file->original_name }}</p>
-                                    <p class="text-xs text-gray-500">{{ $file->mime }}</p>
-                                @endif
-                            </td>
-                            <td class="py-2.5 pr-4 text-gray-600 dark:text-gray-300">{{ __('operator.files.scopes.'.$file->scope_type) }}</td>
-                            <td class="py-2.5 pr-4 tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($file->size / 1024, 1) }} KB</td>
-                            <td class="py-2.5 pr-4 text-gray-500">{{ $file->created_at?->diffForHumans() }}</td>
-                            <td class="py-2.5 pr-4">
-                                <div class="flex flex-wrap justify-end gap-2">
-                                    <a href="{{ route('operator.files.download', $file) }}" class="link-neutral text-xs font-medium">{{ __('operator.actions.download') }}</a>
-                                    <button type="button" wire:click="startRename({{ $file->id }})" class="text-xs font-medium text-gray-600 dark:text-gray-300">{{ __('operator.actions.rename') }}</button>
-                                    @if ($confirmDeleteId === $file->id)
-                                        <button type="button" wire:click="deleteFile" class="text-xs font-medium text-error-600 dark:text-error-400">{{ __('operator.actions.confirm') }}</button>
-                                        <button type="button" wire:click="cancelDelete" class="text-xs text-gray-500">{{ __('operator.actions.cancel') }}</button>
-                                    @else
-                                        <button type="button" wire:click="askDelete({{ $file->id }})" class="text-xs font-medium text-error-600 dark:text-error-400">{{ __('operator.actions.delete') }}</button>
-                                    @endif
-                                </div>
-                                @if ($confirmDeleteId === $file->id)
-                                    <p class="mt-1 text-right text-xs text-warning-600 dark:text-warning-400">{{ __('operator.files.confirm_delete') }}</p>
-                                @endif
-                            </td>
-                        </tr>
+    <section>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+            <label class="block min-w-0 flex-1 sm:max-w-sm">
+                <span class="sr-only">{{ __('operator.actions.search') }}</span>
+                <input wire:model.live.debounce.300ms="search" type="search" placeholder="{{ __('operator.files.search_placeholder') }}" class="{{ $input }}" />
+            </label>
+            <label class="block">
+                <span class="sr-only">{{ __('operator.files.scope') }}</span>
+                <select wire:model.live="scope" class="{{ $input }} w-auto">
+                    <option value="">{{ __('operator.files.scope_all') }}</option>
+                    @foreach ($scopes as $scopeKey)
+                        <option value="{{ $scopeKey }}">{{ __('operator.files.scopes.'.$scopeKey) }}</option>
                     @endforeach
-                </tbody>
-            </table>
-            <div class="py-3">
+                </select>
+            </label>
+        </div>
+
+        @if ($files->isEmpty())
+            <div class="card">
+                <x-ta.empty-state :title="__('operator.files.empty')" size="sm" icon="none" />
+            </div>
+        @else
+            <ul class="card">
+                @foreach ($files as $file)
+                    @php($extension = strtoupper((string) pathinfo((string) $file->original_name, PATHINFO_EXTENSION)))
+                    <li wire:key="file-{{ $file->id }}" class="card-row flex-wrap sm:flex-nowrap">
+                        <span class="row-icon text-[10px] font-semibold tracking-wide" title="{{ $file->mime }}">{{ $extension !== '' ? mb_substr($extension, 0, 4) : 'DOS' }}</span>
+                        <div class="min-w-0 flex-1">
+                            @if ($renamingId === $file->id)
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <input wire:model="renameName" type="text" aria-label="{{ __('operator.files.original_name') }}" class="h-8 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none sm:w-80 dark:border-gray-700 dark:bg-transparent dark:text-white" />
+                                    <button type="button" wire:click="saveRename" class="btn-primary h-7! px-2.5! text-xs!">{{ __('operator.actions.save') }}</button>
+                                    <button type="button" wire:click="cancelRename" class="btn-quiet h-7! text-xs!">{{ __('operator.actions.cancel') }}</button>
+                                </div>
+                                @error('renameName') <span class="text-xs text-error-600">{{ $message }}</span> @enderror
+                            @else
+                                <p class="break-words text-sm font-medium text-gray-900 dark:text-white">{{ $file->original_name }}</p>
+                                <p class="mt-0.5 flex flex-wrap gap-x-3 text-[13px] text-gray-500 dark:text-gray-400">
+                                    <span>{{ __('operator.files.scopes.'.$file->scope_type) }}</span>
+                                    <span class="tabular-nums">{{ number_format($file->size / 1024, 1, ',', '.') }} KB</span>
+                                    <span>{{ $file->created_at?->diffForHumans() }}</span>
+                                    @if (filled($file->description))<span class="min-w-0 break-words">{{ $file->description }}</span>@endif
+                                </p>
+                            @endif
+                        </div>
+                        <div class="flex w-full shrink-0 flex-wrap items-center justify-end gap-1 pl-11 sm:w-auto sm:pl-0">
+                            @if ($confirmDeleteId === $file->id)
+                                <span class="mr-1 text-xs text-warning-700 dark:text-warning-400">{{ __('operator.files.confirm_delete') }}</span>
+                                <button type="button" wire:click="deleteFile" class="btn h-7! px-2.5! text-xs! text-error-700! dark:text-error-300!">{{ __('operator.actions.confirm') }}</button>
+                                <button type="button" wire:click="cancelDelete" class="btn-quiet h-7! text-xs!">{{ __('operator.actions.cancel') }}</button>
+                            @else
+                                <button type="button" wire:click="startRename({{ $file->id }})" class="btn-quiet h-7! text-xs!">{{ __('operator.actions.rename') }}</button>
+                                <button type="button" wire:click="askDelete({{ $file->id }})" class="btn-quiet h-7! text-xs!">{{ __('operator.actions.delete') }}</button>
+                                <a href="{{ route('operator.files.download', $file) }}" class="btn h-7! px-2.5! text-xs!">{{ __('operator.actions.download') }}</a>
+                            @endif
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+            <div class="pt-3">
                 {{ $files->links() }}
             </div>
-        </div>
-    @endif
+        @endif
+    </section>
 </div>

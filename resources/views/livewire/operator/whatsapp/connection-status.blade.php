@@ -13,7 +13,7 @@
             default => ['muted', '—'],
         }],
         ['Hesap erişimi', match ($check) {
-            'verified' => ['ok', 'Doğrulandı · '.$when($config['connection_checked_at'] ?? null)],
+            'verified' => ['ok', 'Doğrulandı, '.$when($config['connection_checked_at'] ?? null)],
             'queued' => ['warn', 'Kontrol ediliyor…'],
             'failed', 'phone_mismatch' => ['bad', 'Sorun var'],
             'dispatch_failed' => ['bad', 'Kontrol başlatılamadı'],
@@ -30,35 +30,40 @@
         ['Geçmiş mesajlar', match (true) {
             ($config['history_state'] ?? '') === 'received_partial' => ['ok', 'Alındı'],
             ($config['history_state'] ?? '') === 'provider_error' => ['bad', 'Meta geçmişi paylaşamadı'],
-            ($config['history_sync'] ?? '') === 'requested' => ['warn', 'İstendi · '.$when($config['history_sync_requested_at'] ?? null)],
+            ($config['history_sync'] ?? '') === 'requested' => ['warn', 'İstendi, '.$when($config['history_sync_requested_at'] ?? null)],
             ($config['history_sync'] ?? '') === 'failed' => ['bad', 'İstenemedi'],
-            $historyDeadline !== null => ['warn', 'Alınmadı · son '.$when($historyDeadline)],
+            $historyDeadline !== null => ['warn', 'Alınmadı, son '.$when($historyDeadline)],
             default => ['muted', '—'],
         }],
         ['Son gelen mesaj', ! empty($config['last_message_received_at']) ? ['ok', $when($config['last_message_received_at'])] : ['muted', 'Henüz yok']],
     ];
 @endphp
-<section class="space-y-4" data-wa-connection>
-    <h2 class="section-title">Bağlantı</h2>
-    <dl class="divide-y divide-gray-100 text-sm dark:divide-gray-800">
-        @foreach($rowsStatus as [$label, [$rowTone, $value]])
-            <div class="flex items-center justify-between gap-3 py-2">
-                <dt class="text-gray-500">{{ $label }}</dt>
-                <dd class="flex items-center gap-2 text-right font-medium"><span class="h-2 w-2 shrink-0 rounded-full {{ ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500', 'muted' => 'bg-gray-300 dark:bg-gray-600'][$rowTone] }}"></span>{{ $value }}</dd>
-            </div>
+<section data-wa-connection>
+    <div class="section-head"><h2 class="section-title">Bağlantı</h2></div>
+    <div class="card">
+        <dl>
+            @foreach($rowsStatus as [$label, [$rowTone, $value]])
+                <div class="card-row justify-between py-3!">
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">{{ $label }}</dt>
+                    <dd class="min-w-0 text-right"><x-ta.pill :tone="$toneDot[$rowTone]" class="text-sm! whitespace-normal!">{{ $value }}</x-ta.pill></dd>
+                </div>
+            @endforeach
+        </dl>
+        @foreach(['connection_error' => 'Hesap erişimi', 'subscription_error' => 'Mesaj aboneliği', 'history_sync_error' => 'Geçmiş mesaj aktarımı'] as $key => $label)
+            @if(!empty($config[$key]))
+                <div class="card-row items-start text-error-800 dark:text-error-300">
+                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-error-500" aria-hidden="true"></span>
+                    <div class="min-w-0 flex-1">@include('livewire.operator.whatsapp.error-detail', ['error' => $config[$key], 'label' => $label])</div>
+                </div>
+            @endif
         @endforeach
-    </dl>
-    @foreach(['connection_error' => 'Hesap erişimi', 'subscription_error' => 'Mesaj aboneliği', 'history_sync_error' => 'Geçmiş mesaj aktarımı'] as $key => $label)
-        @if(!empty($config[$key]))
-            <div class="rounded-lg p-3 {{ $tone['bad'] }}">@include('livewire.operator.whatsapp.error-detail', ['error' => $config[$key], 'label' => $label])</div>
-        @endif
-    @endforeach
-    <div class="flex flex-wrap gap-2">
-        <button type="button" wire:click="checkConnection" wire:loading.attr="disabled" class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset ring-gray-300 disabled:opacity-50 dark:ring-gray-700"><span wire:loading.remove wire:target="checkConnection">Erişimi kontrol et</span><span wire:loading wire:target="checkConnection">Sıraya alınıyor…</span></button>
-        <button type="button" wire:click="subscribeWebhook" wire:loading.attr="disabled" @disabled($attemptBusy) class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset ring-gray-300 disabled:opacity-50 dark:ring-gray-700">Mesaj aboneliğini kur</button>
-        @if($state === 'connected')
-            <button type="button" wire:click="beginSignup" wire:loading.attr="disabled" @disabled(! $metaReady || $attemptBusy) class="rounded-lg px-3 py-2 text-sm ring-1 ring-inset ring-gray-300 disabled:opacity-50 dark:ring-gray-700">Numarayı yeniden bağla</button>
-        @endif
+        <div class="flex flex-wrap items-center gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+            <button type="button" wire:click="checkConnection" wire:loading.attr="disabled" class="btn"><span wire:loading.remove wire:target="checkConnection">Erişimi kontrol et</span><span wire:loading wire:target="checkConnection">Sıraya alınıyor…</span></button>
+            <button type="button" wire:click="subscribeWebhook" wire:loading.attr="disabled" @disabled($attemptBusy) class="btn">Mesaj aboneliğini kur</button>
+            @if($state === 'connected')
+                <button type="button" wire:click="beginSignup" wire:loading.attr="disabled" @disabled(! $metaReady || $attemptBusy) class="btn">Numarayı yeniden bağla</button>
+            @endif
+        </div>
     </div>
-    <p class="text-xs text-gray-500">Webhook adresi: <span class="font-mono">{{ route('api.whatsapp.webhook') }}</span>. Görsel ve ses kayıtlarının içeriği okunmaz; saatler Türkiye saatidir.</p>
+    <p class="mt-2 text-xs text-gray-500">Webhook adresi: <span class="break-all font-mono">{{ route('api.whatsapp.webhook') }}</span>. Görsel ve ses kayıtlarının içeriği okunmaz; saatler Türkiye saatidir.</p>
 </section>

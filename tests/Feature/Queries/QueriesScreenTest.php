@@ -495,7 +495,7 @@ final class QueriesScreenTest extends TestCase
         });
 
         Livewire::test(QueriesPage::class)->call('setTab', 'clusters')->call('clusterAll')->assertSee('2 hizmet sıraya alındı')
-            ->assertSee('Son toplu kümeleme bitti · 2 hizmet')->assertSee('kümelendi')->assertDontSee('kümelenmedi');
+            ->assertSee('Son toplu kümeleme bitti, 2 hizmet')->assertSee('kümelendi')->assertDontSee('kümelenmedi');
 
         $this->assertSame(['Diş İmplantı', 'Zirkonyum Kaplama'], $services, 'biggest demand first, one service at a time');
         $this->assertSame(2, $approved->clusterQueries()->count(), 'the new query joined the approved cluster');

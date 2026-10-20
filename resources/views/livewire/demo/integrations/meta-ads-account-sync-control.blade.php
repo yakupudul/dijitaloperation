@@ -37,7 +37,7 @@
                 </button>
             </li>
         @empty
-            <li><x-ta.empty-state size="sm" title="Henüz markaya bağlanmış Meta Ads reklam hesabı yok." /></li>
+            <li><x-ta.empty-state icon="none" size="sm" title="Henüz markaya bağlanmış Meta Ads reklam hesabı yok." /></li>
         @endforelse
     </ul>
 </section>

@@ -104,7 +104,7 @@ final class QueryRuleEngineTest extends TestCase
         $this->assertSame('implant', Query::query()->where('text', 'implant ücreti')->value('topic_key'));
 
         $page = Livewire::test(QueriesPage::class)
-            ->assertSeeText('6 sorgu → 3 varyant → 2 konu')
+            ->assertSeeText('6 sorgu, 3 varyant, 2 konu')
             ->assertSee('+2 varyant')->assertDontSee('dis implant');
 
         // Hiding the head hides its variants.
