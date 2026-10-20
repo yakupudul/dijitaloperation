@@ -130,7 +130,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         Livewire::test(BrandShow::class, ['brand' => (string) $brand->id])
             ->assertOk()
             ->assertSee('Exact Brand')
-            ->assertSee('Exact Customer')
+            ->assertDontSee('Exact Customer')
             ->assertDontSee('Atlas Dental Ankara')
             ->assertDontSee('Meta CPL');
 

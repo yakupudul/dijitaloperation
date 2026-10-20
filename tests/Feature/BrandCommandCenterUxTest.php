@@ -75,7 +75,7 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->assertSee('Atlas Dental Ankara')
-            ->assertSee('Atlas Health Group')
+            ->assertDontSee('Atlas Health Group')
             ->assertSee('Dijital varlıklar')
             ->assertSee('Hizmetler')
             ->assertSee('Otomatik kur')
