@@ -49,7 +49,7 @@
                         <td class="hidden text-right align-top tabular-nums sm:table-cell">{{ array_key_exists($site->id, $clicks) ? $num($clicks[$site->id]) : '—' }}</td>
                         <td class="text-right align-top tabular-nums" data-open-work>
                             @if ($openCount > 0)
-                                <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'yapilacaklar']) }}" wire:navigate class="link-neutral whitespace-nowrap font-normal" title="Sitenin Yapılacaklar listesini aç"><span class="font-medium text-gray-900 dark:text-white">{{ $num($openCount) }}</span> açık iş</a>
+                                <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'yapilacaklar']) }}" wire:navigate class="link-neutral whitespace-nowrap font-normal" title="Sitenin Yapılacaklar listesini aç"><span class="font-medium text-gray-900 dark:text-white">{{ $num($openCount) }}</span><span class="hidden sm:inline"> açık iş</span></a>
                             @else
                                 <span class="text-gray-500">0</span>
                             @endif

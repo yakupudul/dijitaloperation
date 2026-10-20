@@ -283,7 +283,7 @@ final class ContentCycleTest extends SiteTestCase
         $this->assertSame([$written->id, $writing->id], $ready->pluck('id')->all());
         $this->assertSame('2026-10-19 11:15', ContentAutopilot::postDate($ready[0])->format('Y-m-d H:i'));
         $this->assertSame('2026-10-21 10:00', ContentAutopilot::postDate($ready[1])->format('Y-m-d H:i'));
-        Livewire::test(DailySendStrip::class)->assertSee('2 yazı')->assertSee('bu haftanın 1 yazısı hâlâ yazılıyor');
+        Livewire::test(DailySendStrip::class)->assertSee('2 yazı')->assertSee('Bu haftanın 1 yazısı hâlâ yazılıyor');
 
         // A site still in its back-dated fill waits.
         ContentSiteState::for($this->site)->forceFill(['backfill' => ContentSiteState::BACKFILL_ELIGIBLE])->save();

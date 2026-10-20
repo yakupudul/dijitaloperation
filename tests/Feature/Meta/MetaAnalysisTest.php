@@ -103,6 +103,6 @@ class MetaAnalysisTest extends TestCase
             ->set('focus', 'campaign:c2')->assertSee('Genel Trafik, ')
             ->set('compare', 'year')->assertSet('compare', 'year')->assertSee('karşılaştırma yok')
             ->set('compare', 'nope')->assertSet('compare', 'prev')
-            ->set('analysisType', 'messages')->assertSeeInOrder(['Yaş × cinsiyet', 'mesaj başı'])->assertSee('Bu türde yaş / cinsiyet verisi yok.');
+            ->set('analysisType', 'messages')->assertSee('Yaş × cinsiyet')->assertSeeHtml('<span class="text-[13px] text-gray-500">mesaj başı</span>')->assertSee('Bu türde yaş / cinsiyet verisi yok.');
     }
 }
