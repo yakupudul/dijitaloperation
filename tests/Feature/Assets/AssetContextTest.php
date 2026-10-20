@@ -11,6 +11,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Roles;
+use App\View\Components\Operator\AssetContext;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -58,6 +59,29 @@ final class AssetContextTest extends TestCase
 
         $this->get(route('operator.asset.sources', ['assetId' => $this->website->id]))->assertOk()->assertSee('data-asset-context', false);
         $this->get(route('operator.asset.edit', ['assetId' => $this->website->id]))->assertOk()->assertSee('data-asset-context', false);
+    }
+
+    public function test_head_is_one_line_with_turkish_names_and_sources_and_edit_in_the_menu(): void
+    {
+        $profile = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'name' => 'İşletme Profili · Örnek Klinik Çankaya | İmplant | Diş']);
+
+        $html = $this->get(route('operator.website', ['assetId' => $this->website->id]))->assertOk()
+            ->assertSee('Web sitesi')->assertDontSee('Website · ')
+            ->assertSee('İşletme Profili')->assertDontSee('Google Business Profile')
+            ->assertSeeInOrder(['data-asset-context', 'data-brand-link', 'Örnek Klinik', '<h1', 'Örnek Site', 'data-asset-menu', e(__('operator_asset.sources')), e(__('operator_asset.edit')), 'data-tab='], false)
+            ->getContent();
+        $this->assertSame(1, substr_count($html, 'data-asset-context'), 'breadcrumb, title, status and links share one line');
+        $this->assertStringContainsString(route('operator.asset.sources', ['assetId' => $this->website->id]), $html);
+        $this->assertSame('Veri kaynakları', __('operator_asset.sources', [], 'tr'));
+        $this->assertStringContainsString('<h1 title="Web sitesi · Örnek Site"', $html);
+        $this->assertStringContainsString('<title>Web sitesi · Örnek Site |', $html);
+        $this->assertSame('Web sitesi · moximu.com', AssetContext::assetTitle(new DigitalAsset(['type' => 'website', 'name' => 'Website · moximu.com'])));
+        $this->assertSame('İşletme Profili · Avrupadent Çiğli', AssetContext::assetTitle(new DigitalAsset(['type' => 'google_business_profile', 'name' => 'Google Business Profile · İşletme Profili · Avrupadent Çiğli | İmplant'])));
+
+        $this->get(route('operator.asset.edit', ['assetId' => $profile->id]))->assertOk()
+            ->assertSee('<span class="min-w-0 truncate">İşletme Profili · Örnek Klinik Çankaya</span>', false)->assertDontSee('Google Business Profile ·');
+        $this->get(route('operator.gbp', ['assetId' => $profile->id]))->assertOk()
+            ->assertSee('<h1 title="Örnek Klinik · Çankaya"', false);
     }
 
     public function test_ga4_and_search_console_count_as_website_sources(): void

@@ -450,6 +450,28 @@ final class SiteSuggestionsTest extends SiteTestCase
             ->assertSee('data-tab="icerik" aria-current="page"', false)->assertSee('data-content', false)->assertSee('Haftalık içerik öner');
     }
 
+    public function test_yapilacaklar_filters_by_typed_url_without_listing_every_address_and_shows_the_open_count_once(): void
+    {
+        $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'İmplant başlığı']);
+        $this->suggestion(['page_id' => $this->zirkonyumPage->id, 'title' => 'Zirkonyum başlığı']);
+
+        $tab = Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])
+            ->assertSeeHtml('wire:model.live.debounce.400ms="urlSearch"')->assertSee('URL ara')
+            ->assertDontSee('Tüm URL’ler')->assertDontSeeHtml('<option value="'.$this->zirkonyumPage->id.'"')
+            ->assertSee('İmplant başlığı')->assertSee('Zirkonyum başlığı');
+        $this->assertSame(1, substr_count($tab->html(), '2 iş'), 'the open count is written once');
+        $this->assertStringNotContainsString('sr-only">2 iş', $tab->html());
+
+        $tab->set('urlSearch', 'zirkon')->assertSee('Zirkonyum başlığı')->assertDontSee('İmplant başlığı')
+            ->set('urlSearch', 'yok-boyle-bir-sayfa')->assertDontSee('Zirkonyum başlığı')
+            ->set('urlSearch', '')->assertSee('İmplant başlığı');
+
+        // Sayfalar "Önerileri aç" links with the page id: one removable page chip, no address list.
+        Livewire::test(SuggestionsTab::class, ['assetId' => $this->site->id])->set('pageFilter', (string) $this->implantPage->id)
+            ->assertSeeHtml('data-page-filter')->assertSee('/implant/')->assertSee('İmplant başlığı')->assertDontSee('Zirkonyum başlığı')
+            ->set('pageFilter', '')->assertDontSeeHtml('data-page-filter')->assertSee('Zirkonyum başlığı');
+    }
+
     /** @param  array<string, mixed>  $overrides */
     private function suggestion(array $overrides): Suggestion
     {

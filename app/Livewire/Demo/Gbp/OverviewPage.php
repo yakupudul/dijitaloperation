@@ -463,11 +463,14 @@ class OverviewPage extends Component
         $plan = $this->tab === 'services' ? $this->syncPlan(app(GbpProfilePlanner::class)->latest($asset)) : null;
         $peerFound = $this->tab === 'services' && $this->peerOpen ? $this->peerFound(app(GbpPeerProfiles::class)) : null;
 
+        $pageTitle = app(GbpDesk::class)->title($asset, (string) ($data['identity']['title'] ?? ''));
+
         return view('livewire.demo.gbp.overview', [
             'asset' => $this->presentCanonicalAsset(),
             'tabs' => self::TABS,
             'data' => $data,
             'identity' => $data['identity'],
+            'pageTitle' => $pageTitle,
             'bound' => (bool) ($data['connection']['bound'] ?? false),
             'brand' => $asset->brand,
             'sectorName' => $asset->sector()?->name,
@@ -498,7 +501,7 @@ class OverviewPage extends Component
             'range' => $this->dateRange(),
             'lastDay' => $screen->lastDay($resourceId)->toDateString(),
             'ranged' => in_array($this->tab, ['overview', 'analysis'], true),
-        ]);
+        ])->title($pageTitle.' · İşletme Profili');
     }
 
     /** @param  array{page_id?: int}  $params */

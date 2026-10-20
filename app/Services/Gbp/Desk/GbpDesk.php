@@ -75,6 +75,33 @@ final class GbpDesk
         return $out;
     }
 
+    /**
+     * Page title of a Business Profile: brand + branch ("Avrupadent · Çiğli") instead of the long Google name. The branch
+     * is what follows the brand in the profile name, else the district / city of the latest snapshot; without either the
+     * short profile name stays.
+     */
+    public function title(DigitalAsset $location, ?string $googleName = null): string
+    {
+        $short = self::shortName(filled($googleName) ? (string) $googleName : (string) $location->name);
+        $brand = trim((string) $location->brand?->name);
+        if ($brand === '') {
+            return $short;
+        }
+        $branch = '';
+        if (mb_stripos($short, $brand) === 0) {
+            $branch = trim((string) preg_replace('/^[\s·:\-–—,]+/u', '', mb_substr($short, mb_strlen($brand))));
+        }
+        if ($branch === '') {
+            $address = (array) ($this->snapshots([(int) $location->id])[(int) $location->id]['address'] ?? []);
+            $branch = trim((string) (($address['sublocality'] ?? '') ?: ($address['locality'] ?? '')));
+        }
+        if ($branch === '' || mb_stripos($brand, $branch) !== false) {
+            return mb_stripos($short, $brand) === 0 || $short === '' ? $brand : $short;
+        }
+
+        return $brand.' · '.$branch;
+    }
+
     /** "İşletme Profili · Avrupadent Çiğli | İmplant | …" → "Avrupadent Çiğli". */
     public static function shortName(string $name): string
     {

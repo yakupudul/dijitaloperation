@@ -12,9 +12,10 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * The "Veri durumu" strip under the asset context bar of every asset page: one line per data source from
- * DataStatusReader, with its single action. "Verileri yenile" starts the canonical collection for that source
- * (the same path the former per-page sync controls used); it refreshes itself while a collection is running.
+ * The "Veri durumu" dot in the one-line asset page head: the worst source state as a dot and a word, every source's
+ * line (DataStatusReader) on hover and in its small panel with the reconnect / bind links, and one "Yenile" that starts
+ * the canonical collection of every source that can be refreshed (hidden when the page has its own refresh button).
+ * It refreshes itself while a collection is running.
  */
 final class DataStatusStrip extends Component
 {
@@ -29,9 +30,34 @@ final class DataStatusStrip extends Component
 
     public string $feedbackTone = 'info';
 
-    public function mount(int|string $assetId): void
+    /** Show the single "Yenile"; false when the page has its own refresh button. */
+    public bool $refresh = true;
+
+    public function mount(int|string $assetId, bool $refresh = true): void
     {
         $this->assetId = (int) $assetId;
+        $this->refresh = $refresh;
+    }
+
+    /** "Yenile": starts the collection of every source whose action is a refresh; the feedback names each source. */
+    public function refreshAll(DataSyncScopeService $sync, AsyncOperationService $async, DataStatusReader $reader): void
+    {
+        $asset = DigitalAsset::query()->findOrFail($this->assetId);
+        $capabilities = collect($reader->forAsset($asset))->filter(fn (DataStatus $s): bool => $s->action === DataStatus::ACTION_REFRESH)->pluck('capability')->all();
+        if ($capabilities === []) {
+            [$this->feedback, $this->feedbackTone] = ['Yenilenecek bağlı kaynak yok.', 'warning'];
+
+            return;
+        }
+        $lines = [];
+        $ok = true;
+        foreach ($capabilities as $capability) {
+            $this->refreshSource($capability, $sync, $async, $reader);
+            $lines[] = $this->feedback;
+            $ok = $ok && $this->feedbackTone === 'success';
+        }
+        $this->feedback = implode(' ', array_unique($lines));
+        $this->feedbackTone = $ok ? 'success' : 'warning';
     }
 
     public function refreshSource(string $capability, DataSyncScopeService $sync, AsyncOperationService $async, DataStatusReader $reader): void
@@ -65,10 +91,16 @@ final class DataStatusStrip extends Component
     {
         $asset = DigitalAsset::query()->find($this->assetId);
         $statuses = $asset !== null ? $reader->forAsset($asset) : [];
+        $worst = null;
+        foreach (['bad', 'warn', 'muted', 'ok'] as $tone) {
+            $worst ??= collect($statuses)->first(fn (DataStatus $s): bool => $s->tone() === $tone);
+        }
 
         return view('livewire.operator.assets.data-status-strip', [
             'statuses' => $statuses,
             'asset' => $asset,
+            'worst' => $worst,
+            'canRefresh' => $this->refresh && collect($statuses)->contains(fn (DataStatus $s): bool => $s->action === DataStatus::ACTION_REFRESH),
             'polling' => collect($statuses)->contains(fn (DataStatus $s): bool => $s->collecting || $s->state === DataStatus::FIRST_LOAD),
         ]);
     }

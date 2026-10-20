@@ -20,10 +20,10 @@
 @endphp
 
 <div class="min-w-0 space-y-8">
-    <x-operator.asset-context :asset-id="$assetId" current="sources" :title="$asset->name">
+    <x-operator.asset-context :asset-id="$assetId" current="sources" :title="$asset->name" :refresh="false">
         <x-slot:mark><x-demo.digital-asset-mark :type="(string) $asset->type" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>
-            <span title="{{ collect([$customer?->name, $brand?->name])->filter()->unique()->implode(', ') }}. {{ __('operator_runtime.sources.description') }}">{{ \App\Support\DigitalAssetTypes::options()[$asset->type] ?? $asset->type }} veri kaynakları ve hesap bağlantısı</span>
+            <span title="{{ collect([$customer?->name, $brand?->name])->filter()->unique()->implode(', ') }}. {{ __('operator_runtime.sources.description') }}">{{ \App\View\Components\Operator\AssetContext::typeLabel((string) $asset->type) }} veri kaynakları ve hesap bağlantısı</span>
         </x-slot:meta>
         <x-slot:actions>
             @foreach ($canDiscover ? $providers : [] as $provider)

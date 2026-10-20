@@ -26,7 +26,7 @@
 
 <div class="space-y-10">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" :title="$asset['name'] ?? 'Google Ads'">
+    <x-operator.asset-context :asset-id="$assetId" :title="$asset['name'] ?? 'Google Ads'" :refresh="false">
         <x-slot:mark><x-demo.digital-asset-mark type="google_ads" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>{{ 'Google Ads'.($numbers && $numbers['last_date'] ? ', son veri '.\Carbon\CarbonImmutable::parse($numbers['last_date'])->format('d.m.Y') : '') }}</x-slot:meta>
         <x-slot:actions>

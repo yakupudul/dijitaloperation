@@ -48,7 +48,7 @@
 
 <div class="space-y-10">
     @include('livewire.demo.partials.flash')
-    <x-operator.asset-context :asset-id="$assetId" :title="$pageTitle">
+    <x-operator.asset-context :asset-id="$assetId" :title="$pageTitle" :refresh="false">
         <x-slot:mark><x-demo.digital-asset-mark type="meta_ads" size="lg" class="mt-0.5 shrink-0" /></x-slot:mark>
         <x-slot:meta>{{ 'Meta reklamları'.($brand ? '' : ', marka yok') }}@if ($bound), {{ $currency }} <span class="break-all text-xs text-gray-500">{{ $actId }}</span>@else, hesap bağlı değil @endif</x-slot:meta>
         <x-slot:actions>

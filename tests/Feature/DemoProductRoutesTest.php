@@ -171,7 +171,7 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Atlas Dental Website');
         $this->get(route('operator.gbp', ['assetId' => $gbp->id]))
             ->assertOk()
-            ->assertSee('Google Business Profile')
+            ->assertSee('İşletme Profili')
             ->assertDontSee('Demo local rank tracking');
         $this->get(route('operator.analytics', ['assetId' => $ga4->id]))
             ->assertOk()
