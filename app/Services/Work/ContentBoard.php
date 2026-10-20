@@ -2,6 +2,7 @@
 
 namespace App\Services\Work;
 
+use App\Jobs\SendReadyContentJob;
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -35,7 +36,7 @@ use Throwable;
  */
 final class ContentBoard
 {
-    public const array STEPS = ['yazilacak' => 'Yazılacak', 'okunacak' => 'Okunacak', 'taslakta' => 'Taslakta', 'yayinda' => 'Yayında'];
+    public const array STEPS = ['yazilacak' => 'Yazılacak', 'okunacak' => 'Gönderime hazır', 'taslakta' => 'Taslakta', 'yayinda' => 'Yayında'];
 
     /** Sent articles stay on Taslakta / Yayında this long. */
     public const int SENT_DAYS = 180;
@@ -172,6 +173,38 @@ final class ContentBoard
 
         return $translation ? ($label ?? strtoupper((string) $language)).' çevirisi yazılıyor; bitince Okunacak\'ta.'
             : 'Yazılıyor'.($label !== null ? ' ('.$label.')' : '').'; Claude yazınca Okunacak\'a düşer.';
+    }
+
+    /**
+     * "Hepsini siteye gönder" (yakup 2026-10-20): every article Claude's check passed goes to WordPress as a draft with
+     * its translations and image, off the web request (writes queue). Held ones stay with their reason.
+     */
+    public function sendAll(User $user, ?int $brandId = null, ?int $siteId = null): string
+    {
+        $ready = $this->readyCount($brandId, $siteId);
+        if ($ready === 0) {
+            throw ValidationException::withMessages(['work' => 'Kontrolden geçmiş, gönderilecek yazı yok.']);
+        }
+        SendReadyContentJob::dispatch((int) $user->id, $brandId, $siteId);
+
+        return $ready.' yazı WordPress\'e taslak olarak gidiyor (geri alınabilir); bitince Taslakta\'da.';
+    }
+
+    /** Articles the one click would send now (connected sites only). */
+    public function readyCount(?int $brandId = null, ?int $siteId = null): int
+    {
+        $bySite = $this->readyBySite($brandId);
+
+        return $siteId === null ? array_sum($bySite) : (int) ($bySite[$siteId] ?? 0);
+    }
+
+    /** @return array<int, int> site id => checked articles the one click would send now (connected sites only) */
+    public function readyBySite(?int $brandId = null): array
+    {
+        $paired = ContentAutopilot::pairedSiteIds();
+
+        return app(ContentAutopilot::class)->ready($brandId)->map(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))
+            ->filter(fn (int $siteId): bool => in_array($siteId, $paired, true))->countBy()->all();
     }
 
     public function send(int $id, User $user): string
@@ -411,6 +444,9 @@ final class ContentBoard
             'reason' => $why,
             'score' => $scored['score'] ?? 0, 'score_line' => $scored !== null ? ContentScore::explain($scored) : null,
             'can_apply' => false,
+            // Claude's check of the written article (yakup 2026-10-20: every article is checked; reading it is optional).
+            'check' => is_array(data_get($action, 'autopilot.review')) ? ['verdict' => (string) data_get($action, 'autopilot.review.verdict'), 'reason' => (string) data_get($action, 'autopilot.review.reason')] : null,
+            'sendable' => ! $sent && ContentAutopilot::sendable($s),
         ];
         if (! empty($action['page_update'])) {
             // A strengthened page: its new version waits as a draft copy of the page until "Sayfaya uygula" puts it live.

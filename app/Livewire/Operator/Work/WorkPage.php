@@ -203,6 +203,11 @@ final class WorkPage extends Component
         });
     }
 
+    protected function contentBrandScope(): ?int
+    {
+        return $this->brand;
+    }
+
     private function resetList(): void
     {
         $this->shown = 20;
@@ -261,6 +266,7 @@ final class WorkPage extends Component
             'sections' => array_slice($sections, 0, $this->shown),
             'hiddenSections' => max(0, count($sections) - $this->shown),
             'queue' => $queue,
+            'readyBySite' => $queue !== null ? $board->readyBySite($this->brand) : [],
             'coverage' => $coverage = ($queue !== null ? app(ContentCoverage::class)->rows($this->brand) : []),
             'outcomes' => $coverage !== [] ? app(ContentCoverage::class)->outcomes(array_map(fn (array $r): int => (int) $r['site']->id, $coverage)) : [],
             'onDesk' => $onDesk = $desk->onDesk($this->brand),

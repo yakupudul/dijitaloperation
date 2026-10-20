@@ -135,6 +135,7 @@ final class ContentTab extends Component
 
         return view('livewire.operator.website.v2.content-tab', [
             'boxes' => app(ContentBoard::class)->boxes(null, (int) $site->id),
+            'readyBySite' => app(ContentBoard::class)->readyBySite((int) $site->brand_id),
             'article' => $this->reading !== null ? app(ContentBoard::class)->article($this->reading) : null,
             'items' => $items,
             'clusterNames' => $clusterNames,
@@ -147,6 +148,11 @@ final class ContentTab extends Component
                 ->mapWithKeys(fn (string $op): array => [$op => SiteOperations::line(SiteOperations::status($site->id, $op))])->filter()->all(),
             'draftStatus' => $opened !== null ? SiteOperations::line(SiteOperations::status($site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => $opened->id])) : null,
         ]);
+    }
+
+    protected function contentSiteScope(): ?int
+    {
+        return $this->assetId;
     }
 
     protected function ownsContentIdea(int $id): bool

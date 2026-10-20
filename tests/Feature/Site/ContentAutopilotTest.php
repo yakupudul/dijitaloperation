@@ -7,9 +7,11 @@ use App\Ai\Agents\Site\RepairReviewAgent;
 use App\Jobs\ApproveRepairRowsJob;
 use App\Jobs\ReviewRepairRowsJob;
 use App\Jobs\SendDailyBatchJob;
+use App\Jobs\SendReadyContentJob;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Jobs\Site\TopUpContentPoolJob;
 use App\Livewire\Operator\Repair\DailySendStrip;
+use App\Livewire\Operator\Work\WorkPage;
 use App\Models\AiTask;
 use App\Models\ContentSiteState;
 use App\Models\CoreConnection;
@@ -25,6 +27,7 @@ use App\Services\Repair\RepairDesk;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\ContentAutopilot;
+use App\Services\Work\ContentBoard;
 use App\Services\Work\DailySend;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
@@ -32,6 +35,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 /**
@@ -157,6 +161,46 @@ final class ContentAutopilotTest extends SiteTestCase
         $this->assertSame('2026-10-12 07:00:00', CarbonImmutable::parse((string) $draft['post_date'])->utc()->toDateTimeString(), 'dated to its plan day, 10:00 Istanbul');
         $this->assertFalse((bool) ($draft['schedule'] ?? false), 'a past date is not scheduled');
         $this->assertSame([], $autopilot->ready()->all(), 'a sent article is not sent again');
+    }
+
+    public function test_articles_the_operator_wrote_are_checked_too_and_one_click_sends_them_as_plain_drafts(): void
+    {
+        $manual = $this->idea('Diş taşı temizliği ne sıklıkla yapılmalı', ['article' => self::article('Diş taşı temizliği ne sıklıkla yapılmalı')], Suggestion::APPROVED);
+        $held = $this->idea('Beyazlatma kalıcı mı', ['article' => self::article('Beyazlatma kalıcı mı')], Suggestion::APPROVED);
+        $update = $this->idea('İmplant sayfasını güçlendir', ['kind' => 'update', 'article' => self::article('İmplant sayfasını güçlendir')], Suggestion::APPROVED);
+        $blocked = $this->idea('Garantili implant', ['article' => self::article('Garantili implant'), 'article_blocked' => 'Sektör kuralı'], Suggestion::APPROVED);
+        ContentReviewAgent::fake(fn (string $prompt): array => ['items' => [['id' => 0, 'verdict' => str_contains($prompt, 'Beyazlatma') ? 'unsure' : 'ok', 'reason' => 'Uygun.']]]);
+
+        $autopilot = app(ContentAutopilot::class);
+        $this->assertSame(2, $autopilot->preparing(), 'written, waiting for the check');
+        $autopilot->review($this->site);
+
+        $this->assertSame('ok', $manual->fresh()->action['autopilot']['review']['verdict'], 'an undated article written by the operator is checked');
+        $this->assertSame('unsure', $held->fresh()->action['autopilot']['review']['verdict']);
+        $this->assertArrayNotHasKey('autopilot', $update->fresh()->action, 'a page update keeps its own approval');
+        $this->assertArrayNotHasKey('autopilot', $blocked->fresh()->action);
+        $this->assertSame([$manual->id], $autopilot->ready()->pluck('id')->all());
+        $this->assertSame([$held->id], $autopilot->held()->pluck('id')->all());
+
+        CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
+            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.5.0']]);
+        $board = app(ContentBoard::class);
+        $this->assertSame([(int) $this->site->id => 1], $board->readyBySite());
+
+        Queue::fake();
+        Livewire::actingAs($this->admin)->test(WorkPage::class)->call('setStep', 'okunacak')
+            ->assertSee('Gönderime hazır')->assertSeeHtml('data-send-all-content')->assertSee('Claude kontrol etti')->assertSee('Kontrolde takıldı')->assertSee('Yine de gönder')
+            ->call('sendAllContent');
+        Queue::assertPushed(SendReadyContentJob::class, fn ($job): bool => $job->siteId === null);
+        $this->assertStringContainsString('1 yazı', $board->sendAll($this->admin, null, (int) $this->site->id));
+        Queue::assertPushed(SendReadyContentJob::class, fn ($job): bool => $job->siteId === (int) $this->site->id && $job->userId === (int) $this->admin->id);
+
+        $this->assertSame(['sent' => 1, 'failed' => []], $autopilot->sendReady($this->admin, null, null, (int) $this->site->id));
+        $draft = (array) ExternalWriteAction::query()->sole()->request_payload['drafts'][0]['draft'];
+        $this->assertArrayNotHasKey('post_date', $draft, 'undated: a plain draft, dated on the site when published');
+        $this->assertSame([], $autopilot->ready()->all());
+        $this->expectException(ValidationException::class);
+        $board->sendAll($this->admin);
     }
 
     public function test_business_profile_posts_are_checked_and_only_passed_ones_are_approved(): void

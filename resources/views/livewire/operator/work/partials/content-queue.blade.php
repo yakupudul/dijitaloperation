@@ -4,11 +4,17 @@
     $ghost = 'btn-quiet';
     $langs = \App\Services\Work\ContentBoard::LANGUAGE_LABELS;
     $chip = 'text-xs text-gray-500 dark:text-gray-400';
-    $stepLabels = ['yazilacak' => 'Onay bekleyen başlıklar', 'okunacak' => 'Okunacak yazılar', 'taslakta' => 'Taslakta', 'yayinda' => 'Yayında'];
+    $readyTotal = array_sum($readyBySite ?? []);
+    $readySites = count($readyBySite ?? []);
+    $stepLabels = ['yazilacak' => 'Onay bekleyen başlıklar', 'okunacak' => 'Gönderime hazır', 'taslakta' => 'Taslakta', 'yayinda' => 'Yayında'];
 @endphp
 <section class="space-y-4" data-content-queue>
     <div class="section-head mb-0!">
-        <h2 class="section-title" title="Onayla, Claude yazsın; Oku, yazıyı ve görselini gör; Gönder, WordPress'e taslak gitsin (geri alınabilir).">İçerik fikirleri</h2>
+        <h2 class="section-title" title="Onayla, Claude yazsın; Claude her yazıyı kontrol eder; Gönder, WordPress'e taslak gitsin (geri alınabilir). Okumak isteğe bağlı.">İçerik fikirleri</h2>
+        @if ($readyTotal > 0 && auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
+            <button type="button" wire:click="sendAllContent" wire:confirm="Claude'un kontrolünden geçen {{ $readyTotal }} yazı, çevirileri ve görselleriyle WordPress'e taslak olarak gönderilsin mi? Tarihi sitede «Akıllı tarihle yayınla» ile verirsin; geri alınabilir."
+                    class="btn-primary ml-auto" data-send-all-content>Hepsini siteye gönder ({{ $readyTotal }} yazı · {{ $readySites }} site)</button>
+        @endif
     </div>
 
     @include('livewire.operator.work.partials.content-coverage')
@@ -45,6 +51,9 @@
                     @endforeach
                 </div>
                 <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+                    @if ($step === 'okunacak' && ($readyBySite[$site->id] ?? 0) > 0 && $readySites > 1 && auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
+                        <button type="button" wire:click="sendAllContent({{ $site->id }})" wire:confirm="Bu sitenin kontrolden geçen {{ $readyBySite[$site->id] }} yazısı WordPress'e taslak olarak gönderilsin mi?" class="btn-dark" data-send-site="{{ $site->id }}">Bu siteyi gönder ({{ $readyBySite[$site->id] }})</button>
+                    @endif
                     @if ($step === 'yazilacak' && $group['waiting'] > 1)
                         <button type="button" wire:click="writeAll({{ $site->id }})" wire:confirm="{{ min($group['waiting'], \App\Services\Work\ContentBoard::WRITE_ALL_MAX) }} başlık onaylanıp yazdırılsın mı?" class="btn-dark" data-write-all="{{ $site->id }}">Hepsini onayla ve yazdır ({{ min($group['waiting'], \App\Services\Work\ContentBoard::WRITE_ALL_MAX) }})</button>
                     @endif
@@ -68,6 +77,7 @@
                                 <span class="{{ $chip }}">{{ $item['kind'] }}</span>
                                 <span class="{{ $chip }}">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>
                                 @if ($item['blocked'])<x-ta.pill tone="critical">Kurala takıldı</x-ta.pill>@endif
+                                @if ($step === 'okunacak' && $item['sendable'])@include('livewire.operator.work.partials.content-check', ['item' => $item])@endif
                                 @if ($item['writing'])<x-ta.pill tone="live" data-writing>{{ $step === 'yazilacak' ? 'yazılıyor…' : 'çeviri yazılıyor…' }}</x-ta.pill>@endif
                                 @if ($item['angle'])<span class="{{ $chip }}" data-angle>{{ $item['angle'] }}</span>@endif
                             </div>
@@ -89,8 +99,11 @@
                                 @endif
                             @elseif ($step === 'okunacak')
                                 @if ($item['translating'] !== [])<span class="text-xs text-gray-500" data-translating="{{ $item['id'] }}">{{ implode(', ', array_map('strtoupper', $item['translating'])) }} çevirisi hazırlanıyor…</span>@endif
-                                @if ($item['blocked'])<button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>@endif
-                                <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $btn }}" data-read="{{ $item['id'] }}">Oku</button>
+                                @if ($item['blocked'] || in_array($item['check']['verdict'] ?? null, ['wrong', 'unsure'], true))<button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>@endif
+                                <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $ghost }}" data-read="{{ $item['id'] }}">Oku</button>
+                                @if ($item['sendable'] && $item['translating'] === [])
+                                    <button type="button" wire:click="sendContent({{ $item['id'] }})" wire:confirm="Yazı çevirileriyle WordPress'e taslak olarak gönderilsin mi? Geri alınabilir." class="{{ ($item['check']['verdict'] ?? null) === 'ok' ? 'btn-dark' : $btn }}" data-send="{{ $item['id'] }}">{{ in_array($item['check']['verdict'] ?? null, ['wrong', 'unsure'], true) ? 'Yine de gönder' : 'Siteye gönder' }}</button>
+                                @endif
                             @else
                                 @if ($item['link'])<a href="{{ $item['link'] }}" target="_blank" rel="noopener" class="link-neutral text-[13px]" data-post-link="{{ $item['id'] }}">Sitede aç</a>@endif
                                 @if ($item['unsent'] !== [])
@@ -107,7 +120,7 @@
             </ul>
         </article>
     @empty
-        <div class="card"><x-ta.empty-state size="sm" :icon="in_array($step, ['yazilacak', 'okunacak'], true) ? 'check' : 'none'" :title="['yazilacak' => 'Onay bekleyen başlık yok.', 'okunacak' => 'Okunacak yazı yok.', 'taslakta' => 'Sitede taslakta bekleyen yazı yok.', 'yayinda' => 'Son 180 günde gönderilip yayınlanan yazı yok.'][$step] ?? ''" /></div>
+        <div class="card"><x-ta.empty-state size="sm" :icon="in_array($step, ['yazilacak', 'okunacak'], true) ? 'check' : 'none'" :title="['yazilacak' => 'Onay bekleyen başlık yok.', 'okunacak' => 'Gönderime hazır yazı yok.', 'taslakta' => 'Sitede taslakta bekleyen yazı yok.', 'yayinda' => 'Son 180 günde gönderilip yayınlanan yazı yok.'][$step] ?? ''" /></div>
     @endforelse
 </section>
 

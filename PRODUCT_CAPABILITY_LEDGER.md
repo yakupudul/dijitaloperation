@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-10-20 — İçerik tek tıkla toplu gönderim, okuma isteğe bağlı
+
+- **Karar (yakup 2026-10-20 "yap, sırayla"):** yazılan içerikler tek tek okunmadan tek tıkla siteye gidebilmeli; yakup yazıyı sitede yayınlarken okuyor.
+- **Kontrol herkese:** `ContentAutopilot::written` sitenin gönderilmemiş tüm yeni yazılarını (otopilotun tarihlediği ve operatörün "Yaz" ile yazdırdığı) `content.review` kontrolüne sokar. Sayfa güncellemeleri ve kurala takılanlar dışarıda (`sendable`).
+- **Hazır olanlar:** `ready()` tarihsiz yazıları da sayar; bunlar tarihsiz WordPress taslağı olarak gider (tarih sitede connector'ın "Akıllı tarihle yayınla" toplu işlemiyle). Onarım masasındaki "Hepsini gönder" bunları da kapsar.
+- **Ekran:** "Okunacak" adımı "Gönderime hazır"; satırda Claude kontrol durumu (kontrol etti / kontrolde takıldı + neden / kontrol sırada), "Siteye gönder" (takılanda "Yine de gönder"), Oku isteğe bağlı. Genel işler ve sitenin İçerik sekmesinde Admin için "Hepsini siteye gönder (N yazı · M site)", birden çok sitede site başına "Bu siteyi gönder". Tıklama `SendReadyContentJob`'u writes kuyruğuna koyar; geri alınabilir.
+- **Durum:** CODED, TESTED (`ContentAutopilotTest`); UAT yok.
+
 ## 2026-10-20 — Sol menü: rozetler, dört grup, Claude kartı
 
 - **Karar (yakup 2026-10-20 "tamam yap", prototip `https://claude.ai/artifact/MiPP1V7MZTCtovmb8iLzsK`):** menü "sönük" bulundu.

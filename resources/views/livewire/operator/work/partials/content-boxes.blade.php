@@ -5,7 +5,7 @@
     $ghost = 'btn-quiet h-7! px-2! text-xs!';
     $langs = \App\Services\Work\ContentBoard::LANGUAGE_LABELS;
     $chip = 'text-xs text-gray-500 dark:text-gray-400';
-    $empty = ['yazilacak' => 'Yazılacak fikir yok.', 'okunacak' => 'Okunacak yazı yok.', 'taslakta' => 'Sitede taslakta yazı yok.', 'yayinda' => 'Yayında yazı yok.'];
+    $empty = ['yazilacak' => 'Yazılacak fikir yok.', 'okunacak' => 'Gönderime hazır yazı yok.', 'taslakta' => 'Sitede taslakta yazı yok.', 'yayinda' => 'Yayında yazı yok.'];
 @endphp
 <section class="min-w-0" data-content-boxes>
     @if ($boxes->isEmpty())
@@ -54,6 +54,7 @@
                                             @if ($item['kind'] === 'Güncelleme')<span class="{{ $chip }}">{{ $item['kind'] }}</span>@endif
                                             @if ($item['translations'] !== [] || count($box['languages']) > 1)<span class="{{ $chip }}">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>@endif
                                             @if ($item['blocked'])<x-ta.pill tone="look">Kurala takıldı</x-ta.pill>@endif
+                                            @if ($code === 'okunacak' && $item['sendable'])@include('livewire.operator.work.partials.content-check', ['item' => $item])@endif
                                         </p>
                                         @include('livewire.operator.work.partials.content-target', ['item' => $item])
                                         @if ($item['line'])<p @class(['mt-0.5 text-xs', 'text-gray-500 dark:text-gray-400' => $item['writing'], 'text-error-700 dark:text-error-400' => ! $item['writing']])>{{ $item['writing'] ? ($code === 'yazilacak' ? 'Yazılıyor: ' : 'Çeviri yazılıyor: ') : 'Son deneme: ' }}{{ $item['line'] }}</p>@endif
@@ -72,10 +73,13 @@
                                             @if ($item['translating'] !== [])
                                                 <span class="text-gray-500 dark:text-gray-400" data-translating="{{ $item['id'] }}">{{ implode(', ', array_map('strtoupper', $item['translating'])) }} çevirisi hazırlanıyor…</span>
                                             @endif
-                                            @if ($item['blocked'])
+                                            @if ($item['blocked'] || in_array($item['check']['verdict'] ?? null, ['wrong', 'unsure'], true))
                                                 <button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>
                                             @endif
-                                            <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $btn }}" data-read="{{ $item['id'] }}">Oku</button>
+                                            <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $ghost }}" data-read="{{ $item['id'] }}">Oku</button>
+                                            @if ($item['sendable'] && $item['translating'] === [])
+                                                <button type="button" wire:click="sendContent({{ $item['id'] }})" wire:confirm="Yazı çevirileriyle WordPress'e taslak olarak gönderilsin mi? Geri alınabilir." class="{{ $btn }}" data-send="{{ $item['id'] }}">{{ in_array($item['check']['verdict'] ?? null, ['wrong', 'unsure'], true) ? 'Yine de gönder' : 'Siteye gönder' }}</button>
+                                            @endif
                                         @else
                                             @if ($item['link'])<a href="{{ $item['link'] }}" target="_blank" rel="noopener" class="{{ $ghost }}">Sitede aç</a>@endif
                                             @if ($item['unsent'] !== [])

@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Work\Concerns;
 
 use App\Services\Work\ContentBoard;
+use App\Support\Roles;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -36,6 +37,28 @@ trait ActsOnContentIdeas
         }
         $this->contentStep(fn (): string => app(ContentBoard::class)->send($id, auth()->user()));
         $this->reading = null;
+    }
+
+    /**
+     * "Hepsini siteye gönder" (yakup 2026-10-20): every article Claude's check passed goes to WordPress as a draft, in
+     * one Admin click; reading them first is optional.
+     */
+    public function sendAllContent(?int $siteId = null): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $this->contentStep(fn (): string => app(ContentBoard::class)->sendAll(auth()->user(), $this->contentBrandScope(), $this->contentSiteScope() ?? $siteId));
+    }
+
+    /** The brand the screen is limited to (Genel işler's brand filter). */
+    protected function contentBrandScope(): ?int
+    {
+        return null;
+    }
+
+    /** The site the screen is limited to (the website İçerik tab). */
+    protected function contentSiteScope(): ?int
+    {
+        return null;
     }
 
     /** "Sayfaya uygula": a strengthened page's new version replaces the live page (Admin click, undoable). */

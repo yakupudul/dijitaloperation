@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-10-20 — İçerik toplu gönderim
+
+- Yazılan her yeni yazı (otopilot ya da elle "Yaz") Claude kontrolünden geçer; kontrolden geçenler tek tıkla WordPress'e taslak gider. Okumak isteğe bağlı; yakup yazıyı sitede yayınlarken okur ve tarihi connector'ın "Akıllı tarihle yayınla" toplu işlemiyle verir. Sayfa güncellemeleri toplu gitmez.
+
 ## 2026-10-20 — Sol menü
 
 - Menü dört grup + altta sabit Sistem; rozetler işin nerede beklediğini gösterir (sarı onay, kırmızı kayıp, turuncu dikkat, gri bilgi, kırmızı nokta bozuk bağlantı). Rozet hesabı sayfayı bekletmez (`OperatorMenu::badges`, yanıttan sonra yenilenir). Claude'un durumu menünün altındaki koyu kartta; üst çubukta AI yazısı yok.

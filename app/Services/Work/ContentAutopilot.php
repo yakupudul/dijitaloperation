@@ -318,7 +318,29 @@ final class ContentAutopilot
     }
 
     /**
-     * Reads the site's written, dated articles once more (`content.review`), one call per article. Runs in the site's
+     * Every written new article of the site that has not gone to WordPress yet, dated by the otopilot or written from
+     * the operator's own "Yaz" (yakup 2026-10-20: every article is checked, so the one click can send all of them).
+     * Page updates stay out: they replace a live page and keep their own approval.
+     *
+     * @return Collection<int, Suggestion>
+     */
+    public static function written(DigitalAsset $site): Collection
+    {
+        return self::ideas($site)->where('status', Suggestion::APPROVED)->whereNull('action->article_write_id')->get()
+            ->filter(fn (Suggestion $s): bool => self::sendable($s))->values();
+    }
+
+    /** A written new article that has not been sent (no page update, no rule block). */
+    public static function sendable(Suggestion $suggestion): bool
+    {
+        $action = (array) $suggestion->action;
+
+        return is_array($action['article'] ?? null) && ! isset($action['article_write_id']) && ! isset($action['article_blocked'])
+            && ($action['kind'] ?? null) !== 'update' && empty($action['page_update']);
+    }
+
+    /**
+     * Reads the site's written articles once more (`content.review`), one call per article. Runs in the site's
      * content job, so Claude (MCP) can answer when the credit is used up.
      *
      * @return array{status: string, reviewed: int, waiting: int}
@@ -328,9 +350,9 @@ final class ContentAutopilot
         $brand = Brand::query()->with('sectorCategory')->find($site->brand_id);
         $reviewed = 0;
         $waiting = 0;
-        foreach (self::planned($site) as $suggestion) {
+        foreach (self::written($site) as $suggestion) {
             $action = (array) $suggestion->action;
-            if (! is_array($action['article'] ?? null) || isset($action['article_write_id']) || data_get($action, 'autopilot.review') !== null) {
+            if (data_get($action, 'autopilot.review') !== null) {
                 continue;
             }
             if ($reviewed >= self::REVIEWS_PER_RUN) {
@@ -437,8 +459,9 @@ final class ContentAutopilot
     }
 
     /**
-     * Checked articles waiting for the send: back-dated ones whose date has come and this week's ones (sent scheduled
-     * for their day, so the Monday click covers the week).
+     * Checked articles waiting for the send: back-dated ones whose date has come, this week's ones (sent scheduled
+     * for their day, so the Monday click covers the week) and the undated ones the operator had written (sent as
+     * drafts; the site's "Akıllı tarihle yayınla" dates them when the operator publishes).
      *
      * @return Collection<int, Suggestion>
      */
@@ -450,10 +473,10 @@ final class ContentAutopilot
         return Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
             ->whereNotNull('action->autopilot')->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
             ->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->get()
-            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review.verdict') === 'ok' && ! isset($s->action['article_write_id'])
-                && is_array($s->action['article'] ?? null) && is_string(data_get($s->action, 'autopilot.date'))
-                && (string) data_get($s->action, 'autopilot.date') <= (data_get($s->action, 'autopilot.week') !== null ? $weekEnd : $today))
-            ->sortBy(fn (Suggestion $s): string => (string) data_get($s->action, 'autopilot.date'))->values();
+            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review.verdict') === 'ok' && self::sendable($s)
+                && (! is_string(data_get($s->action, 'autopilot.date'))
+                    || (string) data_get($s->action, 'autopilot.date') <= (data_get($s->action, 'autopilot.week') !== null ? $weekEnd : $today)))
+            ->sortBy(fn (Suggestion $s): string => (string) (data_get($s->action, 'autopilot.date') ?? '9999'))->values();
     }
 
     /**
@@ -469,14 +492,15 @@ final class ContentAutopilot
             ->map(fn (CoreConnection $c): int => (int) $c->digital_asset_id)->unique()->values()->all();
     }
 
-    /** This week's articles still being written, translated or checked (shown next to the send button). */
+    /** This week's articles still being written, translated or checked, plus written ones still waiting for the check (shown next to the send button). */
     public function preparing(): int
     {
         $monday = self::today()->startOfWeek(CarbonImmutable::MONDAY)->toDateString();
 
         return Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
-            ->where('action->autopilot->week', $monday)->whereNull('action->article_write_id')->get(['id', 'action'])
-            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review') === null && ! isset($s->action['article_blocked']))->count();
+            ->whereNull('action->article_write_id')->get(['id', 'action'])
+            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review') === null && ! isset($s->action['article_blocked'])
+                && (data_get($s->action, 'autopilot.week') === $monday || self::sendable($s)))->count();
     }
 
     /** @return Collection<int, Suggestion> dated articles the check held back (shown with their reason) */
@@ -484,15 +508,18 @@ final class ContentAutopilot
     {
         return Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
             ->whereNotNull('action->autopilot')->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))->get()
-            ->filter(fn (Suggestion $s): bool => in_array(data_get($s->action, 'autopilot.review.verdict'), ['wrong', 'unsure'], true) && ! isset($s->action['article_write_id']))->values();
+            ->filter(fn (Suggestion $s): bool => in_array(data_get($s->action, 'autopilot.review.verdict'), ['wrong', 'unsure'], true) && self::sendable($s))->values();
     }
 
     /**
-     * The plan date as the post's date and time (10:00 Istanbul). A week article whose time has already passed when
+     * The plan date as the post's date and time (10:00 Istanbul); null for an undated article (sent as a plain draft). A week article whose time has already passed when
      * the operator clicks goes out a few minutes later (scheduled, not left as a draft); a back-dated one keeps its date.
      */
-    public static function postDate(Suggestion $suggestion): CarbonImmutable
+    public static function postDate(Suggestion $suggestion): ?CarbonImmutable
     {
+        if (! is_string(data_get($suggestion->action, 'autopilot.date'))) {
+            return null;
+        }
         $date = CarbonImmutable::parse((string) data_get($suggestion->action, 'autopilot.date'), 'Europe/Istanbul')->setTime(self::POST_HOUR, 0);
         if (data_get($suggestion->action, 'autopilot.week') !== null && $date->lte(now()->addMinutes(5))) {
             return CarbonImmutable::now('Europe/Istanbul')->addMinutes(15)->startOfMinute();
@@ -510,13 +537,14 @@ final class ContentAutopilot
      * @param  (callable(int, int): mixed)|null  $onProgress
      * @return array{sent: int, failed: list<string>}
      */
-    public function sendReady(User $user, ?int $brandId = null, ?callable $onProgress = null): array
+    public function sendReady(User $user, ?int $brandId = null, ?callable $onProgress = null, ?int $siteId = null): array
     {
         $planner = app(ContentPlanner::class);
         $sent = 0;
         $failed = [];
         $paired = self::pairedSiteIds();
-        $ready = $this->ready($brandId)->filter(fn (Suggestion $s): bool => in_array((int) data_get($s->action, 'site_id'), $paired, true))->values();
+        $ready = $this->ready($brandId)->filter(fn (Suggestion $s): bool => in_array((int) data_get($s->action, 'site_id'), $paired, true)
+            && ($siteId === null || (int) data_get($s->action, 'site_id') === $siteId))->values();
         $total = $ready->count();
         if ($onProgress !== null) {
             $onProgress(0, $total);

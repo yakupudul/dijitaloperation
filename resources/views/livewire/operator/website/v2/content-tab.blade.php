@@ -21,6 +21,9 @@
                 <span class="min-w-0 text-[13px] text-gray-500 dark:text-gray-400" data-rhythm>Bu hafta {{ $rhythm['new'] }} yeni yazı ve {{ $rhythm['update'] }} güncelleme. {{ $rhythm['label'] }}, yeterli küme oranı %{{ $rhythm['filled'] }}@if ($contentState?->inBackfill()), geriye dönük doldurma sürüyor @endif.</span>
             </div>
             <div class="flex w-full items-center gap-1.5 sm:w-auto">
+                @if (($readyBySite[$assetId] ?? 0) > 0 && auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
+                    <button type="button" wire:click="sendAllContent" wire:confirm="Claude'un kontrolünden geçen {{ $readyBySite[$assetId] }} yazı WordPress'e taslak olarak gönderilsin mi? Geri alınabilir." class="btn-dark flex-1 sm:flex-none" data-send-all-content>Hepsini siteye gönder ({{ $readyBySite[$assetId] }})</button>
+                @endif
                 <button type="button" wire:click="run('weekly_content')" class="btn-primary flex-1 sm:flex-none">Haftalık içerik öner</button>
                 <x-operator.ai-prompt-info operation="site.weekly_content" />
             </div>
