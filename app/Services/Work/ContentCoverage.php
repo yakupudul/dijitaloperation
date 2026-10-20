@@ -237,7 +237,8 @@ final class ContentCoverage
     public static function stage(array $row): array
     {
         return match (true) {
-            $row['reading'] > 0 => ['label' => $row['reading'].' yazı gönderime hazır', 'tone' => 'amber'],
+            // Written, not necessarily checked: "gönderime hazır" is only what the one click would send (yakup 2026-10-20).
+            $row['reading'] > 0 => ['label' => $row['reading'].' yazı yazıldı, okunmayı bekliyor', 'tone' => 'amber'],
             $row['writing'] > 0 => ['label' => $row['writing'].' yazı yazılıyor', 'tone' => 'sky'],
             $row['waiting'] > 0 => ['label' => 'Başlıklar onayını bekliyor', 'tone' => 'amber'],
             $row['clusters'] === 0 => ['label' => 'Tıkalı: küme yok', 'tone' => 'rose'],

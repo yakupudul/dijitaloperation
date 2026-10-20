@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.22.0
+Stable tag: 1.23.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.23.0 =
+* Akıllı tarih: the button works in the classic editor again (sites whose SEO plugin loads the block editor's scripts on classic pages took the block path, saved nothing and left the button disabled). Today is offered only once its publishing hour has come, so at night the box no longer offers "today, 00:49"; a scheduled day ahead always lies in the future.
 
 = 1.22.0 =
 * One-click login can open a given admin screen (for example one post's editor) instead of the dashboard: MoxDOP sends a relative wp-admin path with the login request; anything that is not a plain wp-admin path opens the dashboard as before.
