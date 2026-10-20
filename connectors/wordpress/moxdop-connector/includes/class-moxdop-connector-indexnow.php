@@ -7,6 +7,9 @@ defined('ABSPATH') || exit;
  *
  * The site itself sends the notice (like SEO plugins do); MoxDOP never pings search engines on its behalf.
  * The key file is served at /{key}.txt. Off when the site admin unticks it or the site discourages search engines.
+ *
+ * 1.21.0 (yakup 2026-10-20: "Markaya bağlı olmayan hiçbir şey için herhangi bir şey yapılmasın"): also off while
+ * MoxDOP says the site has no brand (it is only being built); MoxDOP says so with every answer to the site's ask.
  */
 final class MoxDOP_Connector_IndexNow
 {
@@ -16,10 +19,14 @@ final class MoxDOP_Connector_IndexNow
 
     const ENDPOINT = 'https://api.indexnow.org/indexnow';
 
+    /** 1.21.0: '0' while MoxDOP says the site has no brand (written by MoxDOP_Connector_Commands). */
+    const SERVICED_OPTION = 'moxdop_connector_serviced';
+
     public static function enabled()
     {
         return (bool) apply_filters('moxdop_connector_indexnow', get_option('moxdop_connector_indexnow', '1') === '1')
-            && (string) get_option('blog_public', '1') === '1';
+            && (string) get_option('blog_public', '1') === '1'
+            && (string) get_option(self::SERVICED_OPTION, '1') === '1';
     }
 
     public static function key()

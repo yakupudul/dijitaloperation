@@ -115,6 +115,11 @@ final class SiteOperations
     /** @param  array<string, mixed>  $params */
     public static function dispatch(int $siteId, string $operation, array $params = []): void
     {
+        if (! BrandlessSites::serviced($siteId)) {
+            self::putStatus($siteId, $operation, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON], $params);
+
+            return;
+        }
         self::putStatus($siteId, $operation, ['status' => 'running'], $params);
         RunSiteOperationJob::dispatch($siteId, $operation, $params);
     }
@@ -140,6 +145,11 @@ final class SiteOperations
      */
     public static function dispatchUrlAnalysis(int $siteId, array $pageIds): int
     {
+        if (! BrandlessSites::serviced($siteId)) {
+            self::putStatus($siteId, self::URL_ANALYSIS, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON]);
+
+            return 0;
+        }
         $pageIds = array_values(array_unique(array_map('intval', $pageIds)));
         foreach (array_chunk(array_slice($pageIds, 0, 60), self::URL_BATCH) as $chunk) {
             RunSiteOperationJob::dispatch($siteId, self::URL_ANALYSIS, ['page_ids' => $chunk]);
@@ -155,6 +165,9 @@ final class SiteOperations
      */
     public function run(DigitalAsset $site, string $operation, array $params = []): array
     {
+        if (! BrandlessSites::serviced($site)) {
+            return ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON];
+        }
         $brand = SiteScope::brandOf($site);
         $suggestion = isset($params['suggestion_id']) ? Suggestion::query()->where('brand_id', $site->brand_id)->find((int) $params['suggestion_id']) : null;
         $subject = isset($params['kind'], $params['id']) ? ContentIdeaSubject::find((int) $site->id, (string) $params['kind'], (int) $params['id']) : null;
@@ -370,7 +383,7 @@ final class SiteOperations
             'no_services' => 'onaylı hizmet yok',
             'no_clusters' => 'onaylı küme yok',
             'no_queries' => 'sorgu yok',
-            'no_brand' => 'marka / sektör yok',
+            'no_brand' => isset($status['reason']) ? 'markaya bağlı değil: otomatik iş yapılmaz' : 'marka / sektör yok',
             'no_gaps' => 'giderilecek eksik yok',
             'has_page' => 'sayfası var',
             'blocked' => 'uyum kuralına takıldı',

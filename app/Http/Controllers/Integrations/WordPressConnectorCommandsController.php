@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Models\CoreConnection;
 use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use App\Services\Site\BrandlessSites;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,7 +103,10 @@ final class WordPressConnectorCommandsController
         }
 
         // 1.18.0: work still on its way, so the site asks again at once instead of waiting for a visit (older plugins ignore it).
-        $data = ['commands' => $handed, 'pull' => data_get($connection->fresh()?->config, 'rest_transport') === 'pull', 'waiting' => WordPressConnectorCommands::waiting($connection)];
+        // 1.21.0 (yakup 2026-10-20): a site without a brand is only being built, so the plugin tells no search engine
+        // about its pages (IndexNow off) until it is given a brand (older plugins ignore it).
+        $data = ['commands' => $handed, 'pull' => data_get($connection->fresh()?->config, 'rest_transport') === 'pull', 'waiting' => WordPressConnectorCommands::waiting($connection),
+            'serviced' => $connection->digital_asset_id !== null && BrandlessSites::serviced((int) $connection->digital_asset_id)];
         $time = time();
 
         return response()->json(['data' => $data, 'meta' => [

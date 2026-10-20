@@ -4,6 +4,7 @@ namespace App\Jobs\Site;
 
 use App\Models\DigitalAsset;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\SiteOperations;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -80,6 +81,12 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
         $site = DigitalAsset::query()->where('type', 'website')->find($this->siteId);
         if ($site === null) {
             SiteOperations::putStatus($this->siteId, $this->operation, ['status' => 'no_site'], $this->params);
+
+            return;
+        }
+        if (! BrandlessSites::serviced($site)) {
+            // Queued before the site lost its brand (or before the rule): nothing runs, not even the AI call.
+            SiteOperations::putStatus($this->siteId, $this->operation, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON], $this->params);
 
             return;
         }

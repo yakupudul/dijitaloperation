@@ -4533,3 +4533,12 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: publi
 - Pool #47: brand data audit, web health audit, site audit and cluster links open findings through `Suggestion::openOnce()` (`createOrFirst` on brand + fingerprint), so two checks of one brand running together keep one row instead of failing on `suggestions_brand_fingerprint_uq`.
 - Pool #48: a website collection started while another trigger is admitting one waits up to 15 s for that trigger and returns its run instead of throwing.
 - Tested: `SuggestionOpenOnceTest` (sqlite and PostgreSQL).
+
+## 2026-10-20 — Markasız site: otomatik iş yok
+
+- Coded + PHPUnit (`BrandlessSitesTest`, `WordPressConnectorPullTest`); real UAT pending deploy and the connector 1.21.0
+  update on acelewebsite.com/avrupadenthospital (site 93). A website without a brand is only built: `SiteOperations`
+  queues nothing for it (status `no_brand`), a `RunSiteOperationJob` queued earlier does nothing, `ExternalWriteService`
+  refuses SEO / content writes and fails queued ones (site build, connector / plugin updates and undo still run).
+  Waiting writes, back-dated fills and site-operation AI tasks stop once on deploy (`moxdop:sites:stop-brandless`).
+  The commands answer says `serviced`; connector 1.21.0 keeps IndexNow off while it is false.

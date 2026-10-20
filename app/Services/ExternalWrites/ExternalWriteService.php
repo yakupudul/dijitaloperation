@@ -23,6 +23,7 @@ use App\Services\Integrations\WordPress\SiteDidNotTakeWork;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Repair\WebHealthAudit;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ContentPlanner;
@@ -146,6 +147,7 @@ final class ExternalWriteService
     public function requestDraft(User $user, DigitalAsset $site, array $draft, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        $this->guardBrandless($site);
         if (blank($draft['title'] ?? null) || blank($draft['reference'] ?? null)) {
             throw ValidationException::withMessages(['write' => 'Taslağın başlığı ve referansı olmalı.']);
         }
@@ -250,6 +252,7 @@ final class ExternalWriteService
     public function requestSiteFixes(User $user, DigitalAsset $site, array $changes, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        $this->guardBrandless($site);
         $changes = array_values(array_filter($changes, fn (mixed $change): bool => is_array($change) && filled($change['type'] ?? null) && filled($change['reference'] ?? null)
             && (in_array($change['type'], ['noindex', 'canonical', 'schema'], true) || (($change['value'] ?? null) !== null && ($change['value'] ?? null) !== ''))));
         if ($changes === []) {
@@ -277,6 +280,7 @@ final class ExternalWriteService
     public function requestContentDraft(User $user, DigitalAsset $site, array $payload, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        $this->guardBrandless($site);
         $article = is_array($payload['article'] ?? null) ? ArticleDraft::fromArray($payload['article']) : null;
         if ($article === null && (blank($payload['html'] ?? null) || (int) ($payload['object_id'] ?? 0) < 1)) {
             throw ValidationException::withMessages(['write' => 'Bu öneride gönderilecek metin yok.']);
@@ -305,6 +309,7 @@ final class ExternalWriteService
     public function requestArticleDrafts(User $user, DigitalAsset $site, ArticleDraft $source, array $translations = []): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        $this->guardBrandless($site);
         foreach ([$source, ...$translations] as $article) {
             $this->assertArticleCompliant($site->brand_id, $article, $article->language !== null ? 'Metin ('.$article->language.')' : 'Metin');
         }
@@ -342,6 +347,7 @@ final class ExternalWriteService
     public function requestPostDate(User $user, DigitalAsset $site, Suggestion $suggestion, array $posts, CarbonImmutable $date, bool $schedule): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        $this->guardBrandless($site);
         try {
             $connection = $this->drafts->connection((int) $site->id);
         } catch (Throwable $exception) {
@@ -386,6 +392,7 @@ final class ExternalWriteService
     public function requestContentApply(User $user, DigitalAsset $site, int $draftId, ?Suggestion $suggestion = null): ExternalWriteAction
     {
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
+        $this->guardBrandless($site);
         if ($draftId < 1) {
             throw ValidationException::withMessages(['write' => 'Önce yeni sürümü WordPress’e taslak olarak gönder.']);
         }
@@ -780,6 +787,12 @@ final class ExternalWriteService
     /** Executed by the job. */
     public function execute(ExternalWriteAction $action): void
     {
+        // Queued before the rule or before the site lost its brand: nothing goes to a brandless website (BrandlessSites).
+        if (! BrandlessSites::writeAllowed($action, $action->digital_asset_id !== null ? DigitalAsset::query()->find($action->digital_asset_id) : null)) {
+            $this->abandon($action, 'Gönderilmedi: '.BrandlessSites::REASON);
+
+            return;
+        }
         $action->forceFill(['status' => 'running', 'started_at' => now()])->save();
         try {
             $result = match (true) {
@@ -952,6 +965,14 @@ final class ExternalWriteService
         }
         if (! self::allowed($user, $channel)) {
             abort(403, 'Harici yazmayı yalnız Admin onaylayabilir.');
+        }
+    }
+
+    /** A brandless website gets no SEO / content write (BrandlessSites); the build and updates have their own paths. */
+    private function guardBrandless(DigitalAsset $site): void
+    {
+        if (! BrandlessSites::serviced($site)) {
+            throw ValidationException::withMessages(['write' => BrandlessSites::REASON]);
         }
     }
 
