@@ -15,7 +15,7 @@
      accent send button on the left; how a send works and the notes on the right. --}}
 <section class="relative grid overflow-hidden rounded-[20px] bg-hero text-white lg:grid-cols-[1.2fr_1fr]" data-daily-send @if ($running) wire:poll.10s @endif>
     <div class="relative p-5 sm:p-6" style="background-image: radial-gradient(70% 90% at 0% 0%, color-mix(in srgb, var(--color-accent) 22%, transparent), transparent 60%)">
-        <p class="flex items-center gap-2 text-[13px] text-white/60">@if ($ready > 0)<span class="live-dot" aria-hidden="true"></span>@endif{{ $ready > 0 ? 'Gönderilmeye hazır, Claude kontrol etti' : 'Günlük gönderim' }}</p>
+        <p class="flex items-center gap-2 text-[13px] text-white/60">@if ($ready > 0)<span class="live-dot" aria-hidden="true"></span>@endif{{ $ready > 0 ? 'Bütün markalarda gönderilmeye hazır, Claude kontrol etti' : 'Günlük gönderim' }}</p>
         <p class="mt-3 font-semibold tabular-nums tracking-[-0.04em]" data-daily-ready="{{ $ready }}">
             @if ($ready > 0)
                 <span class="text-[56px] leading-none sm:text-[60px]">{{ $n($ready) }}</span><span class="ml-1 text-[22px] font-medium tracking-normal text-white/60">iş</span>
@@ -32,7 +32,7 @@
             @endif
         </p>
         @if (($summary['content_preparing'] ?? 0) > 0)
-            <p class="mt-2 text-[13px] text-white/60" data-daily-preparing>Bu haftanın {{ $n($summary['content_preparing']) }} yazısı hâlâ yazılıyor.</p>
+            <p class="mt-2 text-[13px] text-white/60" data-daily-preparing>{{ $n($summary['content_preparing']) }} yazı daha yazılıyor ya da kontrol bekliyor (bütün markalar).</p>
         @endif
         @if ($running && is_array($progress))
             @php $percent = $progress['total'] > 0 ? (int) min(100, round($progress['done'] * 100 / $progress['total'])) : 0; @endphp

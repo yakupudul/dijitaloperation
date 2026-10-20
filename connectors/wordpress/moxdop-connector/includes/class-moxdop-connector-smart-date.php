@@ -260,18 +260,24 @@ final class MoxDOP_Connector_Smart_Date
         $today = (new DateTimeImmutable('@'.($now ?? time())))->setTimezone($tz)->setTime(0, 0);
         $taken = self::taken($post_id, $today) + array_fill_keys((array) $skip, true);
         $weekdays = self::weekdays();
+        $current = (new DateTimeImmutable('@'.($now ?? time())))->setTimezone($tz)->format('Y-m-d\TH:i:s');
         $out = [];
         for ($i = 0; $i <= self::DAYS_BACK && count($out) < $count; $i++) {
             $day = $today->modify('-'.$i.' days');
             if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')])) {
-                $out[] = self::slot($post_id, $day, true, $now);
+                $slot = self::slot($post_id, $day, true, $now);
+                // Today counts as a past day only once its hour has come (1.23.0: at night it offered "today, 00:49").
+                if ($i > 0 || $slot['date'] <= $current) {
+                    $out[] = $slot;
+                }
             }
         }
         if ($out === []) {
-            for ($i = 1; $i <= self::DAYS_AHEAD && count($out) < $count; $i++) {
+            for ($i = 0; $i <= self::DAYS_AHEAD && count($out) < $count; $i++) {
                 $day = $today->modify('+'.$i.' days');
-                if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')])) {
-                    $out[] = self::slot($post_id, $day, false, $now);
+                $slot = self::slot($post_id, $day, false, $now);
+                if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')]) && $slot['date'] > $current) {
+                    $out[] = $slot;
                 }
             }
         }
@@ -285,11 +291,6 @@ final class MoxDOP_Connector_Smart_Date
         // 09:00–11:30, the same for the same post and day (what the box shows is what is published).
         $minutes = 9 * 60 + (abs(crc32($post_id.'|'.$day->format('Y-m-d'))) % 151);
         $at = $day->setTime(intdiv($minutes, 60), $minutes % 60);
-        $current = (new DateTimeImmutable('@'.($now ?? time())))->setTimezone(wp_timezone());
-        if ($past && $at > $current) {
-            // Today, before the picked hour: published now.
-            $at = $current;
-        }
         $names = ['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
         $months = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -402,19 +403,24 @@ final class MoxDOP_Connector_Smart_Date
         var body = new URLSearchParams({ action: 'moxdop_smart_date_pick', nonce: config.nonce, post_id: String(config.post) });
         var mark = window.fetch ? fetch(config.ajax, { method: 'POST', credentials: 'same-origin', body: body }).catch(function () {}) : Promise.resolve();
         mark.then(function () {
-            if (window.wp && wp.data && wp.data.select('core/editor')) {
+            // 1.23.0: classic pages load the block editor's scripts too (SEO plugins), so the page type decides.
+            var publish = document.getElementById('publish');
+            if (document.body.classList.contains('block-editor-page') && window.wp && wp.data && wp.data.dispatch('core/editor')) {
                 wp.data.dispatch('core/editor').editPost({ date: date, status: 'publish' });
-                wp.data.dispatch('core/editor').savePost().then(function () { window.location.reload(); });
+                Promise.resolve(wp.data.dispatch('core/editor').savePost()).then(function () { window.location.reload(); }, function () { button.disabled = false; });
                 return;
             }
+            if (!publish) { button.disabled = false; return; }
             var parts = date.split(/[-T:]/);
             var fields = { aa: parts[0], mm: parts[1], jj: parts[2], hh: parts[3], mn: parts[4] };
+            // The publish box's date fields are filled as if "Edit" was used; WordPress compares them with the saved date.
+            var edit = document.querySelector('.edit-timestamp');
+            if (edit && window.jQuery) { jQuery(edit).trigger('click'); }
             Object.keys(fields).forEach(function (id) {
                 var el = document.getElementById(id);
                 if (el) { el.value = fields[id]; }
             });
-            var publish = document.getElementById('publish');
-            if (publish) { publish.click(); } else { button.disabled = false; }
+            publish.click();
         });
     });
 })();
