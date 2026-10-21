@@ -152,7 +152,7 @@ final class ContentAutopilotTest extends SiteTestCase
         CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
             'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.5.0']]);
         Cache::put(DailySend::LAST_KEY, ['at' => now()->subDays(5)->toIso8601String(), 'content' => ['sent' => 0, 'failed' => ['A: Site yanıt vermedi.', 'B: Site yanıt vermedi.']], 'posts' => 0, 'repair' => ['applied' => 0, 'failed' => []]]);
-        Livewire::actingAs($this->admin)->test(DailySendStrip::class)->assertSee('Gönderilmeye hazır')->assertSeeHtml('data-daily-ready="1"')->assertSee('Son gönderim 5 gün önce')
+        Livewire::actingAs($this->admin)->test(DailySendStrip::class)->assertSee('Bütün markalarda gönderilmeye hazır')->assertSeeHtml('data-daily-ready="1"')->assertSee('Son gönderim 5 gün önce')
             ->assertSee('2 yazı: Site yanıt vermedi')->assertDontSeeHtml('data-daily-no-connector');
         $this->assertSame(['sent' => 1, 'failed' => []], $autopilot->sendReady($this->admin));
         $write = ExternalWriteAction::query()->sole();
