@@ -55,6 +55,28 @@ final class RequestTimings
     }
 
     /**
+     * The most repeated query shapes of the last request of a page that ran many queries (latest per key).
+     *
+     * @param  array<string, int>  $shapes
+     */
+    public function recordHeavy(string $key, int $queries, array $shapes): void
+    {
+        try {
+            $heavy = (array) Cache::get(self::PREFIX.'heavy', []);
+            $heavy[$key] = ['at' => now()->toIso8601String(), 'queries' => $queries,
+                'top' => array_map(fn (string $sql, int $n): array => ['n' => $n, 'sql' => $sql], array_keys($shapes), $shapes)];
+            Cache::put(self::PREFIX.'heavy', array_slice($heavy, -20, null, true), self::KEEP_SECONDS);
+        } catch (Throwable) {
+        }
+    }
+
+    /** @return array<string, array{at: string, queries: int, top: list<array{n: int, sql: string}>}> */
+    public function heavy(): array
+    {
+        return (array) Cache::get(self::PREFIX.'heavy', []);
+    }
+
+    /**
      * The last $hours hours, slowest total first.
      *
      * @return list<array{key: string, requests: int, total_s: float, avg_ms: int, max_ms: int, slow: int, queries_per_request: float}>

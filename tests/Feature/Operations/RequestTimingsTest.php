@@ -35,6 +35,15 @@ class RequestTimingsTest extends TestCase
         $this->assertSame(2.0, $lazy['queries_per_request']);
     }
 
+    public function test_a_heavy_page_keeps_its_most_repeated_query_shapes(): void
+    {
+        app(RequestTimings::class)->recordHeavy('operator.dashboard', 7400, ['select * from "pages" where "id" = ?' => 7000]);
+
+        $heavy = app(RequestTimings::class)->heavy()['operator.dashboard'];
+        $this->assertSame(7400, $heavy['queries']);
+        $this->assertSame([['n' => 7000, 'sql' => 'select * from "pages" where "id" = ?']], $heavy['top']);
+    }
+
     public function test_a_livewire_update_is_keyed_by_its_components_and_calls(): void
     {
         $request = Request::create('/livewire/update', 'POST', ['components' => [

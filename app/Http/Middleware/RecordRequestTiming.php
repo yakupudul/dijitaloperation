@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\Operations\RequestTimings;
 use Closure;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,12 +17,18 @@ final class RecordRequestTiming
     /** Static: Laravel calls terminate() on a fresh instance of the middleware. */
     private static int $queries = 0;
 
+    /** @var array<string, int> query shape => times run in this request */
+    private static array $shapes = [];
+
     public function handle(Request $request, Closure $next): Response
     {
         self::$queries = 0;
+        self::$shapes = [];
         if (! app()->runningUnitTests()) {
-            DB::listen(static function (): void {
+            DB::listen(static function (QueryExecuted $query): void {
                 self::$queries++;
+                $shape = mb_substr($query->sql, 0, 300);
+                self::$shapes[$shape] = (self::$shapes[$shape] ?? 0) + 1;
             });
         }
 
@@ -38,7 +45,13 @@ final class RecordRequestTiming
             return;
         }
         $timings = app(RequestTimings::class);
-        $timings->record(self::key($request), (microtime(true) - (float) $started) * 1000, self::$queries);
+        $key = self::key($request);
+        $timings->record($key, (microtime(true) - (float) $started) * 1000, self::$queries);
+        // A page that ran hundreds of queries: which query shapes repeated (the N+1 to fix).
+        if (self::$queries >= 300) {
+            arsort(self::$shapes);
+            $timings->recordHeavy($key, self::$queries, array_slice(self::$shapes, 0, 8, true));
+        }
         $timings->flushLazyLoads();
     }
 
