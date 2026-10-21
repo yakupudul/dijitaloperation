@@ -27,7 +27,7 @@ final class ServerStatusReader
 
     private const string DISK_BREAKDOWN_KEY = 'server-status:disk-breakdown';
 
-    private const string STORAGE_DETAIL_KEY = 'server-status:storage-detail';
+    private const string STORAGE_DETAIL_KEY = 'server-status:storage-detail:v2';
 
     public function __construct(private readonly StorageGuard $storage) {}
 
@@ -319,6 +319,21 @@ final class ServerStatusReader
             "select digital_asset_id as site, count(*) as edges, count(distinct source_url) as pages,
                 count(*) filter (where observed_at < now() - interval '30 days') as older_30d, min(observed_at)::date::text as oldest
             from website_link_edge group by 1 order by 2 desc limit 15")));
+        // Why the biggest site holds so many edges: several observations of one page left behind, or a few pages with
+        // thousands of links (a listing / sitemap page), or one block repeated on every page.
+        $top = (int) ($detail['link_edges_by_site'][0]['site'] ?? 0);
+        $read('link_edges_top_site', fn (): array => $top === 0 ? [] : [
+            'site' => $top,
+            'page_observations' => (int) DB::selectOne('select count(*) as n from (select distinct source_url, observed_at from website_link_edge where digital_asset_id = ?) x', [$top])->n,
+            'internal' => (int) DB::selectOne('select count(*) as n from website_link_edge where digital_asset_id = ? and is_internal', [$top])->n,
+            'top_sources' => array_map(fn (object $r): array => (array) $r, DB::select('select source_url, count(*) as edges, count(distinct observed_at) as observations
+                from website_link_edge where digital_asset_id = ? group by 1 order by 2 desc limit 8', [$top])),
+            'top_targets' => array_map(fn (object $r): array => (array) $r, DB::select('select normalized_target_url as target, left(coalesce(anchor_text, \'\'), 60) as anchor, count(*) as edges
+                from website_link_edge where digital_asset_id = ? group by 1, 2 order by 3 desc limit 12', [$top])),
+        ]);
+        $read('cms_versions', fn (): array => array_map(fn (object $r): array => (array) $r, DB::select(
+            'select digital_asset_id as site, count(*) as rows, count(distinct (object_type, object_id)) as objects
+            from website_cms_object_snapshot group by 1 order by 2 desc limit 8')));
         $read('cms_objects_by_type', fn (): array => array_map(fn (object $r): array => (array) $r, DB::select(
             'select object_type, count(*) as objects from website_cms_object_snapshot group by 1 order by 2 desc limit 15')));
         $read('raw_copies', fn (): array => array_map(fn (object $r): array => (array) $r, DB::select(
