@@ -8,10 +8,10 @@ use App\Models\DigitalAsset;
 use App\Services\Analysis\Support\CollectedFactsJson;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Support\Findings\RuleMatch;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Connector facts and connector ↔ published HTML parity rules.
@@ -154,7 +154,7 @@ final class WordPressCollectedFactsEvaluator
         }
 
         $publicRunIds = $this->completedPublicDatasetRunIds($asset);
-        if ($publicRunIds !== [] && Schema::hasTable('website_metadata_snapshot')) {
+        if ($publicRunIds !== [] && SchemaState::hasTable('website_metadata_snapshot')) {
             $publicByUrl = $this->publicMetadataByUrl($asset, $publicRunIds);
             $seoRows = DB::table('website_cms_seo_snapshot')
                 ->where('digital_asset_id', $asset->id)
@@ -299,7 +299,7 @@ final class WordPressCollectedFactsEvaluator
     private function tablesReady(): bool
     {
         foreach (['website_cms_site_snapshot', 'website_cms_extension_snapshot', 'website_cms_seo_snapshot'] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! SchemaState::hasTable($table)) {
                 return false;
             }
         }

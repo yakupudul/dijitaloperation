@@ -7,10 +7,10 @@ use App\Jobs\CollectMetaGeoResultsJob;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\MetaAds\MetaGeoResults;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Hourly catch-up of the once-a-day Meta / Kazananlar numbers, so a deploy or a missed morning run does not leave the
@@ -60,7 +60,7 @@ class AdsCatchUp
     /** Meta accounts without breakdown rows: their first 30 days, at most once a day each. */
     private function queueMissingBreakdowns(): int
     {
-        if (! Schema::hasTable(MetaGeoResults::BREAKDOWN_TABLE)) {
+        if (! SchemaState::hasTable(MetaGeoResults::BREAKDOWN_TABLE)) {
             return 0;
         }
         $with = DB::table(MetaGeoResults::BREAKDOWN_TABLE)->distinct()->pluck('digital_asset_id')->map(fn ($id): int => (int) $id)->all();

@@ -6,6 +6,7 @@ use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiLiveOperation;
 use App\Services\AiJobs\AiJobTracker;
 use App\Support\Ai\AiOperationLabels;
+use App\Support\SchemaState;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\Events\ConnectionFailed;
@@ -13,7 +14,6 @@ use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
@@ -151,12 +151,8 @@ final class AiLiveOperations
             $provider = (string) ($event->response->meta->provider ?? 'unknown');
             $model = (string) ($event->response->meta->model ?? 'unknown');
             $listCost = $this->pricing->cost($provider, $model, $usage->promptTokens, $usage->completionTokens, $usage->cacheReadInputTokens, $usage->cacheWriteInputTokens);
-            // OpenAI ücretsiz paylaşım kotası: the tokens inside today's quota are not billed.
-            $quota = app(OpenAiFreeQuota::class);
-            [$cost, $free] = $quota->bill($provider, $model, max(0, $usage->promptTokens) + max(0, $usage->completionTokens), $listCost, $id);
             $cancelled = AiLiveOperation::query()->whereKey($id)->whereNotNull('cancel_requested_at')->exists() || $this->jobs->cancelRequested();
-            $this->close($id, $cancelled ? AiLiveOperation::CANCELLED : AiLiveOperation::DONE, $cancelled ? 'Durduruldu; bu çağrının sonucu kullanılmadı.' : null, $cost, [
-                ...($quota->enabled() ? ['list_cost_usd' => $listCost, 'free_tokens' => $free] : []),
+            $this->close($id, $cancelled ? AiLiveOperation::CANCELLED : AiLiveOperation::DONE, $cancelled ? 'Durduruldu; bu çağrının sonucu kullanılmadı.' : null, $listCost, [
                 'provider' => $provider !== 'unknown' ? mb_substr($provider, 0, 48) : null,
                 'model' => $model !== 'unknown' ? mb_substr($model, 0, 190) : null,
                 'input_tokens' => max(0, $usage->promptTokens),
@@ -353,6 +349,6 @@ final class AiLiveOperations
 
     private function ready(): bool
     {
-        return $this->ready ??= Schema::hasColumn('ai_live_operations', 'input_text');
+        return $this->ready ??= SchemaState::hasColumn('ai_live_operations', 'input_text');
     }
 }

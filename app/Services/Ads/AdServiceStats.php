@@ -15,9 +15,9 @@ use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaScreen;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SiteAnalysisReader;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Cross-brand ad numbers, rebuilt daily by rules (no AI): every brand service's 30-day spend and results per channel
@@ -87,7 +87,7 @@ class AdServiceStats
         $currency = (string) ($account['currency'] ?? '');
         $entities = $this->screen->entities($account);
         $ads = $this->screen->adPerformance($account, $board['window']['from'], $end, $entities);
-        $hasProfile = Schema::hasColumn('ad_campaign_stats', 'profile');
+        $hasProfile = SchemaState::hasColumn('ad_campaign_stats', 'profile');
 
         $campaigns = [];
         foreach ($board['rows'] as $row) {
@@ -255,7 +255,7 @@ class AdServiceStats
 
     private function hasTopCampaign(): bool
     {
-        return $this->topCampaign ??= Schema::hasColumn('ad_service_stats', 'top_campaign');
+        return $this->topCampaign ??= SchemaState::hasColumn('ad_service_stats', 'top_campaign');
     }
 
     /**
@@ -265,7 +265,7 @@ class AdServiceStats
      */
     private function refreshWebsite(DigitalAsset $site, Brand $brand): int
     {
-        if (! Schema::hasTable('web_service_stats')) {
+        if (! SchemaState::hasTable('web_service_stats')) {
             return 0;
         }
         $offerings = [];
@@ -347,7 +347,7 @@ class AdServiceStats
     /** İşletme Profili (Kazananlar): rating, reviews, new reviews in 30 days and the brand services listed on the profile. */
     private function refreshProfile(DigitalAsset $asset, Brand $brand): int
     {
-        if (! Schema::hasTable('gbp_profile_stats')) {
+        if (! SchemaState::hasTable('gbp_profile_stats')) {
             return 0;
         }
         $resource = $this->gbp->resource($asset);

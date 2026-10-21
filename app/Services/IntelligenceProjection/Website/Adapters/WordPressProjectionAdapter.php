@@ -12,8 +12,8 @@ use App\Services\IntelligenceCore\Identity\PageIdentityResolver;
 use App\Services\IntelligenceProjection\Website\WebsiteProjectionAdapterSupport;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
 {
@@ -54,7 +54,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
             ->where('enabled', true)
             ->exists();
 
-        $objectRows = Schema::hasTable('website_cms_object_snapshot')
+        $objectRows = SchemaState::hasTable('website_cms_object_snapshot')
             ? DB::table('website_cms_object_snapshot')
                 ->where('digital_asset_id', $assetId)
                 ->orderByDesc('observed_at')
@@ -65,7 +65,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
             $objectRows,
             static fn (object $row): string => $row->cms.'|'.$row->object_type.'|'.$row->object_id,
         );
-        $seoRows = Schema::hasTable('website_cms_seo_snapshot')
+        $seoRows = SchemaState::hasTable('website_cms_seo_snapshot')
             ? DB::table('website_cms_seo_snapshot')->where('digital_asset_id', $assetId)->orderByDesc('observed_at')->orderByDesc('id')->cursor()
             : [];
         $seo = $this->support->latestBy(
@@ -204,7 +204,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
     /** @return array<string, mixed>|null */
     private function currentSite(int $assetId): ?array
     {
-        if (! Schema::hasTable('website_cms_site_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_site_snapshot')) {
             return null;
         }
 
@@ -262,7 +262,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
      */
     private function currentExtensions(int $assetId): ?array
     {
-        if (! Schema::hasTable('website_cms_extension_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_extension_snapshot')) {
             return null;
         }
 
@@ -312,7 +312,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
     /** @return array{count:int,content_count:int,by_taxonomy:array<string,int>,by_language:array<string,int>,observed_at:string,last_collected_at:string}|null */
     private function currentTaxonomies(int $assetId): ?array
     {
-        if (! Schema::hasTable('website_cms_taxonomy_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_taxonomy_snapshot')) {
             return null;
         }
 

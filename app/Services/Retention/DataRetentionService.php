@@ -3,6 +3,7 @@
 namespace App\Services\Retention;
 
 use App\Services\DataPool\Compact\CompactFactStore;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ final class DataRetentionService
     private array $plans = [];
 
     /**
-     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int, closed_suggestions: int, ai_run_inputs: int}
+     * @return array{raw_objects: int, telemetry: array<string, int>, rolled_rows: int, rollup_rows: int, query_daily_rows: array<string, int>, query_source_rows: int, closed_suggestions: int, ai_run_inputs: int, ai_copies: int}
      */
     public function run(bool $dryRun = false): array
     {
@@ -37,16 +38,45 @@ final class DataRetentionService
             'query_source_rows' => $this->purgeQuerySources($dryRun),
             'closed_suggestions' => $this->purgeClosedSuggestions($dryRun),
             'ai_run_inputs' => $this->purgeAiRunInputs($dryRun),
+            'ai_copies' => $this->purgeAiCopies($dryRun),
         ];
     }
 
-    /** AI run inputs (prompt texts) are kept 90 days; the usage row itself stays as the run summary. */
-    public function purgeAiRunInputs(bool $dryRun = false): int
+    /**
+     * The nightly part: the windows that grow every day (raw copies, telemetry, AI text copies). The monthly run does
+     * the rest (rollups, query facts, closed suggestions).
+     *
+     * @return array{raw_objects: int, telemetry: array<string, int>, ai_run_inputs: int, ai_copies: int}
+     */
+    public function runDaily(bool $dryRun = false): array
     {
-        if (! Schema::hasColumn('ai_usage_records', 'input_text')) {
+        return [
+            'raw_objects' => $this->purgeAllRawPayloads($dryRun),
+            'telemetry' => $this->purgeTelemetry($dryRun),
+            'ai_run_inputs' => $this->purgeAiRunInputs($dryRun),
+            'ai_copies' => $this->purgeAiCopies($dryRun),
+        ];
+    }
+
+    /** AI işleri copies (input / output / context) are emptied after `ai_copy_days`; the row stays. */
+    public function purgeAiCopies(bool $dryRun = false): int
+    {
+        if (! SchemaState::hasColumn('ai_live_operations', 'input_text')) {
             return 0;
         }
-        $query = DB::table('ai_usage_records')->whereNotNull('input_text')->where('created_at', '<', CarbonImmutable::now()->subDays(90));
+        $query = DB::table('ai_live_operations')->where('started_at', '<', CarbonImmutable::now()->subDays(max(1, (int) config('moxdop-retention.ai_copy_days', 7))))
+            ->where(fn ($q) => $q->whereNotNull('input_text')->orWhereNotNull('output_text')->orWhereNotNull('context'));
+
+        return $dryRun ? $query->count() : $query->update(['input_text' => null, 'output_text' => null, 'context' => null]);
+    }
+
+    /** AI run inputs (prompt texts) are kept `ai_input_days` (14); the usage row itself stays as the run summary. */
+    public function purgeAiRunInputs(bool $dryRun = false): int
+    {
+        if (! SchemaState::hasColumn('ai_usage_records', 'input_text')) {
+            return 0;
+        }
+        $query = DB::table('ai_usage_records')->whereNotNull('input_text')->where('created_at', '<', CarbonImmutable::now()->subDays(max(1, (int) config('moxdop-retention.ai_input_days', 14))));
 
         return $dryRun ? $query->count() : $query->update(['input_text' => null]);
     }
@@ -87,7 +117,7 @@ final class DataRetentionService
         $compact = app(CompactFactStore::class);
         $result = [];
         foreach ((array) config('moxdop-retention.query_daily_tables', []) as $table) {
-            if (! Schema::hasTable($table) && ! $compact->isCompact($table)) {
+            if (! SchemaState::hasTable($table) && ! $compact->isCompact($table)) {
                 continue;
             }
             $target = $compact->isCompact($table) ? (string) $compact->spec($table)['fact'] : $table;
@@ -101,7 +131,7 @@ final class DataRetentionService
     /** query_sources months older than the query window (24 months). */
     public function purgeQuerySources(bool $dryRun = false): int
     {
-        if (! Schema::hasTable('query_sources')) {
+        if (! SchemaState::hasTable('query_sources')) {
             return 0;
         }
         $cutoff = CarbonImmutable::now()->startOfMonth()->subMonths(max(1, (int) config('moxdop-retention.query_sources_months', 24)));
@@ -113,7 +143,7 @@ final class DataRetentionService
     /** Closed suggestions (applied / dismissed) closed more than `closed_suggestion_months` (12) ago. */
     public function purgeClosedSuggestions(bool $dryRun = false): int
     {
-        if (! Schema::hasTable('suggestions')) {
+        if (! SchemaState::hasTable('suggestions')) {
             return 0;
         }
         $cutoff = CarbonImmutable::now()->subMonths(max(1, (int) config('moxdop-retention.closed_suggestion_months', 12)));
@@ -125,10 +155,10 @@ final class DataRetentionService
 
     public function purgeRawPayloads(bool $dryRun = false): int
     {
-        if (! Schema::hasTable('raw_ingestion_objects')) {
+        if (! SchemaState::hasTable('raw_ingestion_objects')) {
             return 0;
         }
-        $cutoff = now()->subDays(max(30, (int) config('moxdop-retention.raw_payload_days', 90)));
+        $cutoff = now()->subDays(max(7, (int) config('moxdop-retention.raw_payload_days', 14)));
         $query = DB::table('raw_ingestion_objects as o')
             ->where('o.captured_at', '<', $cutoff)
             ->whereNotIn('o.id', $this->protectedRawObjectIds($cutoff))
@@ -162,7 +192,7 @@ final class DataRetentionService
         $result = [];
         foreach ((array) config('moxdop-retention.telemetry', []) as $table => $rule) {
             [$column, $days] = $rule;
-            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+            if (! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, $column)) {
                 continue;
             }
             $query = DB::table($table)->where($column, '<', now()->subDays(max(1, (int) $days)));
@@ -182,7 +212,7 @@ final class DataRetentionService
     {
         $cutoff = $this->dailyCutoff();
         $totals = ['rolled_rows' => 0, 'rollup_rows' => 0];
-        if (! Schema::hasTable('performance_monthly_rollups')) {
+        if (! SchemaState::hasTable('performance_monthly_rollups')) {
             return $totals;
         }
 
@@ -281,7 +311,7 @@ final class DataRetentionService
             ->merge($views)
             ->map(fn (string $table): string => str_contains($table, '.') ? substr($table, strrpos($table, '.') + 1) : $table)
             ->filter(fn (string $table): bool => str_ends_with($table, '_daily') && ! in_array($table, $gold, true))
-            ->filter(fn (string $table): bool => Schema::hasColumn($table, 'reporting_date'))
+            ->filter(fn (string $table): bool => SchemaState::hasColumn($table, 'reporting_date'))
             ->unique()->sort()->values()->all();
     }
 

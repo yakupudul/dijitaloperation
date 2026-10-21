@@ -49,6 +49,18 @@ if [[ -n "$(swapon --noheadings 2>/dev/null)" ]]; then
   sysctl -q -p /etc/sysctl.d/90-moxdop.conf >/dev/null 2>&1 || true
 fi
 
+# A swap that filled up during a spike stays full after it (2026-10-21: 99 % used with 56 % of RAM free), so the next
+# spike has nowhere to go. When the swapped pages fit in free memory twice over, they are moved back.
+SWAP_USED_MB="$(free -m | awk '/^Swap:/ {print $3}')"
+AVAIL_MB="$(free -m | awk '/^Mem:/ {print $7}')"
+if [[ "${SWAP_USED_MB:-0}" -gt 256 && "${AVAIL_MB:-0}" -gt $(( ${SWAP_USED_MB:-0} * 2 + 1024 )) ]]; then
+  if swapoff -a 2>/dev/null && swapon -a 2>/dev/null; then
+    note "swap: ${SWAP_USED_MB} MB doluydu, belleğe geri alındı"
+  else
+    swapon -a 2>/dev/null || true
+  fi
+fi
+
 # ---------------------------------------------------------------------------------------------------------------
 # 2. PHP-FPM pool and OPcache. Children from memory: ~15 % of RAM at ~75 MB each, 8..24.
 # ---------------------------------------------------------------------------------------------------------------
@@ -137,6 +149,24 @@ if command -v psql >/dev/null 2>&1 && id postgres >/dev/null 2>&1 && [[ "$(psql_
 else
   note "postgresql: psql ile bağlanılamadı; atlandı"
 fi
+
+# ---------------------------------------------------------------------------------------------------------------
+# 4. System logs (/var/log was 2.6 GB on 2026-10-21 with the disk at 94 %): the systemd journal is capped at 300 MB
+#    and rotated log files older than 14 days are deleted. Live log files are never touched.
+# ---------------------------------------------------------------------------------------------------------------
+LOG_BEFORE="$(du -sm /var/log 2>/dev/null | cut -f1)"
+if command -v journalctl >/dev/null 2>&1; then
+  JCONF=/etc/systemd/journald.conf.d/90-moxdop.conf
+  mkdir -p "$(dirname "$JCONF")"
+  JWANT="$(printf '%s\n' '[Journal]' 'SystemMaxUse=300M' 'MaxRetentionSec=14day')"
+  if [[ "$(cat "$JCONF" 2>/dev/null)" != "$JWANT" ]]; then
+    printf '%s\n' "$JWANT" > "$JCONF"
+    systemctl restart systemd-journald 2>/dev/null || true
+  fi
+  journalctl --vacuum-size=300M --vacuum-time=14d >/dev/null 2>&1 || true
+fi
+find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.[0-9].log' -o -name '*.old' \) -mtime +14 -delete 2>/dev/null || true
+note "loglar: /var/log ${LOG_BEFORE:-?} MB → $(du -sm /var/log 2>/dev/null | cut -f1) MB (journal en çok 300 MB, 14 günden eski dönmüş loglar silindi)"
 
 # ---------------------------------------------------------------------------------------------------------------
 mkdir -p "$(dirname "$REPORT")"

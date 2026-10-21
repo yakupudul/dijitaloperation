@@ -2,10 +2,10 @@
 
 namespace App\Services\Advisor\GoogleAds;
 
+use App\Support\SchemaState;
 use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Keeps a daily copy of each keyword's Quality Score and its three components. The keyword snapshot only holds
@@ -16,7 +16,7 @@ final class QualityScoreHistoryRecorder
     /** @return int rows written */
     public function record(): int
     {
-        if (! Schema::hasTable('google_ads_keyword_snapshot') || ! Schema::hasTable('google_ads_quality_score_history')) {
+        if (! SchemaState::hasTable('google_ads_keyword_snapshot') || ! SchemaState::hasTable('google_ads_quality_score_history')) {
             return 0;
         }
         $written = 0;

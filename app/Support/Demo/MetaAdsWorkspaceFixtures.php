@@ -247,56 +247,6 @@ final class MetaAdsWorkspaceFixtures
     }
 
     /**
-     * @return array<string, mixed>|null
-     */
-    public static function campaignDetail(string $id, string $preset = 'last_28', ?string $start = null, ?string $end = null): ?array
-    {
-        $workspace = self::workspace($preset, $start, $end);
-        $campaign = null;
-        foreach ($workspace['campaigns'] as $row) {
-            if ($row['id'] === $id) {
-                $campaign = $row;
-                break;
-            }
-        }
-
-        if ($campaign === null) {
-            return null;
-        }
-
-        $adSets = self::adSetsForCampaign($id, (int) $campaign['spend'], (int) $campaign['results'], (string) $campaign['result_label']);
-        $creatives = array_values(array_filter(
-            $workspace['creatives']['gallery'],
-            static fn (array $c): bool => ($c['campaign_id'] ?? null) === $id,
-        ));
-
-        return array_merge($campaign, [
-            'period_label' => $workspace['period_label'],
-            'period_start' => $workspace['period_start'],
-            'period_end' => $workspace['period_end'],
-            'compare_label' => $workspace['compare_label'],
-            'adsets' => $adSets,
-            'creatives' => $creatives,
-            'audience' => self::audienceForCampaign($id, (int) $campaign['spend']),
-            'funnel' => [
-                'destination' => $campaign['destination'],
-                'optimization' => $campaign['optimization'],
-                'result_label' => $campaign['result_label'],
-                'results' => $campaign['results'],
-                'cost_result' => $campaign['cost_result'],
-            ],
-            'kpis' => [
-                ['label' => 'Spend', 'value' => (int) $campaign['spend'], 'format' => 'try'],
-                ['label' => $campaign['result_label'], 'value' => (int) $campaign['results'], 'format' => 'int'],
-                ['label' => 'Cost / Result', 'value' => $campaign['cost_result'], 'format' => 'try'],
-                ['label' => 'Link CTR', 'value' => $campaign['ctr'], 'format' => 'pct'],
-                ['label' => 'Frequency', 'value' => $campaign['frequency'], 'format' => 'float'],
-            ],
-            'demo_boundary' => $workspace['demo_boundary'],
-        ]);
-    }
-
-    /**
      * @return array<string, mixed>
      */
     public static function identity(): array

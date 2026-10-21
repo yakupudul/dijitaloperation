@@ -2,9 +2,9 @@
 
 namespace App\Services\Collection\Google;
 
+use App\Support\SchemaState;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 /**
@@ -59,8 +59,8 @@ final class GoogleAdsKeywordGrainProof
         $adsCustomerHash = $adsCustomerId === null ? null : self::hashIdentifier($adsCustomerId);
 
         $notes = [];
-        $tablePresent = Schema::hasTable(self::TABLE);
-        $columnPresent = $tablePresent && Schema::hasColumn(self::TABLE, 'ad_group_id');
+        $tablePresent = SchemaState::hasTable(self::TABLE);
+        $columnPresent = $tablePresent && SchemaState::hasColumn(self::TABLE, 'ad_group_id');
 
         if (! $tablePresent) {
             return $this->emptyProof(

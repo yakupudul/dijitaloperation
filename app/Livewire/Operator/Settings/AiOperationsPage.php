@@ -13,8 +13,6 @@ use App\Services\Ai\AiCredits;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Ai\AiSchedule;
-use App\Services\Ai\OpenAiCostAudit;
-use App\Services\Ai\OpenAiFreeQuota;
 use App\Services\AiJobs\AiJobTracker;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Operator\AgencySettingService;
@@ -22,9 +20,9 @@ use App\Services\Prompts\PromptRegistry;
 use App\Services\Prompts\PromptRunStats;
 use App\Services\Prompts\PromptTrial;
 use App\Support\Ai\AiProviderCatalog;
+use App\Support\SchemaState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -57,12 +55,6 @@ final class AiOperationsPage extends Component
     /** Daily ceiling of automatic AI work in USD (rolling 24 hours; operator clicks keep running). */
     public string $dailyAutoBudget = '';
 
-    /** OpenAI › Veri kontrolleri › "Giriş ve çıkışları paylaş" is on: the daily free tokens are not counted as spend. */
-    public bool $openAiFreeQuota = false;
-
-    /** OpenAI Admin key (Kota denetimi reads the real costs); never shown back, empty keeps the stored one. */
-    public string $openAiAdminKey = '';
-
     /** Cost breakdown window: 24 | 168 hours. */
     public int $costHours = 24;
 
@@ -78,7 +70,6 @@ final class AiOperationsPage extends Component
         $this->authorizeAdmin();
         $this->budget = (string) round($aiBudget->monthlyBudget(), 2);
         $this->dailyAutoBudget = (string) round($aiBudget->dailyBudget(), 2);
-        $this->openAiFreeQuota = app(OpenAiFreeQuota::class)->enabled();
         if ($this->operation !== '') {
             $this->open($this->operation, $registry);
         }
@@ -106,12 +97,8 @@ final class AiOperationsPage extends Component
         $this->validate(['budget' => ['required', 'numeric', 'min:0', 'max:100000'], 'dailyAutoBudget' => ['required', 'numeric', 'min:0', 'max:10000']], [],
             ['budget' => 'Aylık bütçe', 'dailyAutoBudget' => 'Günlük AI tavanı']);
         $setting = AgencySetting::query()->orderBy('id')->first() ?? new AgencySetting;
-        $this->validate(['openAiAdminKey' => ['nullable', 'string', 'max:300']]);
-        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2),
-            'ai_openai_free_quota' => $this->openAiFreeQuota]
-            + (trim($this->openAiAdminKey) !== '' ? ['ai_openai_admin_key' => trim($this->openAiAdminKey)] : []))->save();
+        $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2)])->save();
         app(AgencySettingService::class)->forget();
-        $this->openAiAdminKey = '';
         session()->flash('status', 'AI bütçeleri kaydedildi.');
     }
 
@@ -136,15 +123,6 @@ final class AiOperationsPage extends Component
         }
         $counts = $assignments->apply($plan, auth()->user());
         session()->flash('status', sprintf('%s uygulandı: %d işlem değişti, %d zaten öyleydi, %d dokunulmadı.', AiAssignments::PLANS[$plan], $counts['changed'], $counts['unchanged'], $counts['kept']));
-    }
-
-    /** "Şimdi denetle": OpenAI's real costs against our estimate (also hourly by itself). */
-    public function auditOpenAi(OpenAiCostAudit $audit): void
-    {
-        $this->authorizeAdmin();
-        $result = $audit->run();
-        $this->openAiFreeQuota = app(OpenAiFreeQuota::class)->enabled();
-        session()->flash('status', (string) ($result['message'] ?? 'Denetlendi.'));
     }
 
     public function close(): void
@@ -252,8 +230,6 @@ final class AiOperationsPage extends Component
             'costs' => $detail === null ? $aiBudget->breakdown(in_array($this->costHours, [24, 168], true) ? $this->costHours : 24) : [],
             'autoSpend' => $aiBudget->dailySpend(), 'autoBudget' => $aiBudget->dailyBudget(), 'remaining' => max(0.0, $aiBudget->monthlyBudget() - $aiBudget->monthSpend()),
             'schedule' => $detail === null ? app(AiSchedule::class)->upcoming() : [],
-            'quota' => app(OpenAiFreeQuota::class)->status(), 'audit' => OpenAiCostAudit::last(),
-            'adminKeySet' => (string) (AgencySetting::query()->orderBy('id')->first()?->ai_openai_admin_key ?? '') !== '',
             'mcpTasks' => $detail === null ? $this->mcpTasks() : null,
             'credits' => app(AiCredits::class)->all(), 'plans' => AiAssignments::PLANS,
             'kinds' => collect($rows)->countBy('kind')->all()]);
@@ -262,7 +238,7 @@ final class AiOperationsPage extends Component
     /** @return array{open: int, done: int, failed: int, recent: Collection<int, AiTask>}|null */
     private function mcpTasks(): ?array
     {
-        if (! AiTaskQueue::enabled() || ! Schema::hasTable('ai_tasks')) {
+        if (! AiTaskQueue::enabled() || ! SchemaState::hasTable('ai_tasks')) {
             return null;
         }
         $week = now()->subDays(7);

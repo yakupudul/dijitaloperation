@@ -10,9 +10,9 @@ use App\Services\Collection\CancellationService;
 use App\Services\Collection\CollectionStateMachine;
 use App\Services\Collection\CollectionStatusAggregator;
 use App\Services\Collection\Providers\Website\WebsiteCrawlPoliteness;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use MoxDop\Website\SeoIntelligence\WebsiteDomainTarget;
 
@@ -83,7 +83,7 @@ final class WebsiteCollectionStopper
             $stopped++;
         }
 
-        if ($runs->isNotEmpty() && Schema::hasTable('website_connector_delivery')) {
+        if ($runs->isNotEmpty() && SchemaState::hasTable('website_connector_delivery')) {
             DB::table('website_connector_delivery')->whereIn('collection_run_id', $runs->pluck('id'))
                 ->update(['collection_run_id' => null, 'next_reconcile_at' => null, 'last_error' => null]);
             DB::table('website_connector_delivery')->whereNull('collection_run_id')->where('next_reconcile_at', '>', now())

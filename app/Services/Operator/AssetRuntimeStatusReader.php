@@ -5,10 +5,10 @@ namespace App\Services\Operator;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Support\Integrations\AssetBindingCompatibility;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Real connection / freshness / open-work status for a list of Digital Assets, in a fixed number of
@@ -98,7 +98,7 @@ final class AssetRuntimeStatusReader
             }
         };
 
-        if (Schema::hasTable('collection_resource_runs')) {
+        if (SchemaState::hasTable('collection_resource_runs')) {
             DB::table('collection_resource_runs')
                 ->whereIn('external_resource_id', $resourceIds)
                 ->whereIn('status', ['completed', 'partial'])
@@ -125,7 +125,7 @@ final class AssetRuntimeStatusReader
      */
     private function websiteSync(array $assetIds): array
     {
-        if (! Schema::hasTable('collection_runs')) {
+        if (! SchemaState::hasTable('collection_runs')) {
             return [];
         }
 

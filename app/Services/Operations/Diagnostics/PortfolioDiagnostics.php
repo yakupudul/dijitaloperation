@@ -12,11 +12,11 @@ use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\Collection\LastDataDay;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
 use App\Support\Operator\DormantAccountHint;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -238,12 +238,12 @@ final class PortfolioDiagnostics
 
     private function hasTable(string $table): bool
     {
-        return $this->tables[$table] ??= Schema::hasTable($table);
+        return $this->tables[$table] ??= SchemaState::hasTable($table);
     }
 
     private function hasColumn(string $table, string $column): bool
     {
-        return $this->columns[$table.'.'.$column] ??= $this->hasTable($table) && Schema::hasColumn($table, $column);
+        return $this->columns[$table.'.'.$column] ??= $this->hasTable($table) && SchemaState::hasColumn($table, $column);
     }
 
     /** Prints "<table>: yok" and returns false when a table is missing. */

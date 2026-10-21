@@ -18,12 +18,12 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\SiteFlow;
+use App\Support\SchemaState;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -623,7 +623,7 @@ final class QueryClusterer
      */
     private function googlePages(int $sectorId, array $texts): array
     {
-        if (! Schema::hasTable('gsc_query_page_daily')) {
+        if (! SchemaState::hasTable('gsc_query_page_daily')) {
             return [];
         }
         $wanted = array_fill_keys($texts, true);

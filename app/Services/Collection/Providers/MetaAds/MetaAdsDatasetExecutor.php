@@ -18,7 +18,7 @@ use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\Integrations\Meta\MetaException;
-use Illuminate\Support\Facades\Schema;
+use App\Support\SchemaState;
 use RuntimeException;
 use Throwable;
 
@@ -357,7 +357,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
                 $formIds[$id] = $id;
             }
         }
-        if ($formIds === [] || ! Schema::hasTable('meta_lead_forms')) {
+        if ($formIds === [] || ! SchemaState::hasTable('meta_lead_forms')) {
             return;
         }
         $accountId = (string) $scope['account_id'];

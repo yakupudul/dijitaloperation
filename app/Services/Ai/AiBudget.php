@@ -11,13 +11,13 @@ use App\Services\WhatsApp\WhatsAppSuggestions;
 use App\Support\Ai\AiOperationLabels;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * AI spend guard: the OpenAI free sharing quota first (OpenAiFreeQuota), then a daily ceiling for all paid AI of the day
+ * AI spend guard: a daily ceiling for all paid AI of the day
  * (default 1 $), the monthly budget, and automatic work (nobody
  * clicked) only in the areas allowed to run by themselves (Sorgular) or delegated to Claude. Checked when a route is resolved and again right
  * before every agent call (AiLiveOperations::started), so no paid call starts past the ceiling.
@@ -28,7 +28,7 @@ final class AiBudget
 
     public function monthlyBudget(): float
     {
-        $stored = Schema::hasColumn('agency_settings', 'ai_monthly_budget_usd')
+        $stored = SchemaState::hasColumn('agency_settings', 'ai_monthly_budget_usd')
             ? AgencySetting::query()->orderBy('id')->value('ai_monthly_budget_usd')
             : null;
 
@@ -40,7 +40,7 @@ final class AiBudget
 
     public function monthSpend(): float
     {
-        if (! Schema::hasTable('ai_usage_records')) {
+        if (! SchemaState::hasTable('ai_usage_records')) {
             return 0.0;
         }
 
@@ -86,10 +86,6 @@ final class AiBudget
             return 'Bu AI işi yalnız operatör tıklayınca çalışır (otomatik çalışan alan: Sorgular).';
         }
         if ($provider !== null && $model !== null && $provider !== '' && $model !== '' && $this->pricing->isFree($provider, $model)) {
-            return null;
-        }
-        // Önce ücretsiz kota, sonra günlük tavan: free OpenAI tokens left today → the call costs nothing.
-        if (app(OpenAiFreeQuota::class)->hasRoom($provider, $model)) {
             return null;
         }
         if (app(AiCredits::class)->exhausted($provider)) {
@@ -153,7 +149,7 @@ final class AiBudget
      */
     public function spendBlocked(string $provider, string $model, ?string $operation = null): bool
     {
-        if ($this->pricing->isFree($provider, $model) || app(OpenAiFreeQuota::class)->hasRoom($provider, $model)) {
+        if ($this->pricing->isFree($provider, $model)) {
             return false;
         }
 
@@ -201,7 +197,7 @@ final class AiBudget
 
     public function dailyBudget(): float
     {
-        $stored = Schema::hasColumn('agency_settings', 'ai_daily_auto_budget_usd')
+        $stored = SchemaState::hasColumn('agency_settings', 'ai_daily_auto_budget_usd')
             ? AgencySetting::query()->orderBy('id')->value('ai_daily_auto_budget_usd')
             : null;
 
@@ -212,17 +208,16 @@ final class AiBudget
         return $window !== null && $budget > 0 ? max($budget, $window) : $budget;
     }
 
-    /** Spend of every AI call today (Europe/Istanbul): the largest of the call list, the usage records and OpenAI's audited cost. */
+    /** Spend of every AI call today (Europe/Istanbul): the larger of the call list and the usage records. */
     public function dailySpend(): float
     {
         $since = now('Europe/Istanbul')->startOfDay()->utc();
-        $calls = Schema::hasTable('ai_live_operations')
+        $calls = SchemaState::hasTable('ai_live_operations')
             ? (float) DB::table('ai_live_operations')->where('kind', 'call')->where('started_at', '>=', $since)->sum('cost_usd') : 0.0;
-        $records = Schema::hasTable('ai_usage_records')
+        $records = SchemaState::hasTable('ai_usage_records')
             ? (float) DB::table('ai_usage_records')->where('created_at', '>=', $since)->sum('cost_usd') : 0.0;
 
-        // OpenAI's real cost of today (Kota denetimi) is a floor: our estimate never hides real spend.
-        return max($calls, $records, (float) OpenAiCostAudit::todayActual());
+        return max($calls, $records);
     }
 
     /**
@@ -270,7 +265,7 @@ final class AiBudget
      */
     public function breakdown(int $hours = 24): array
     {
-        if (! Schema::hasTable('ai_live_operations')) {
+        if (! SchemaState::hasTable('ai_live_operations')) {
             return [];
         }
 
@@ -305,7 +300,7 @@ final class AiBudget
         $budget = $this->monthlyBudget();
         $spend = $this->monthSpend();
         $empty = ['budget' => $budget, 'spend' => $spend, 'remaining' => max(0.0, $budget - $spend), 'exhausted' => $this->isExhausted(), 'calls' => 0, 'unknown_cost_calls' => 0, 'by_route' => []];
-        if (! Schema::hasTable('ai_usage_records')) {
+        if (! SchemaState::hasTable('ai_usage_records')) {
             return $empty;
         }
         $base = DB::table('ai_usage_records')->where('created_at', '>=', now()->startOfMonth());

@@ -7,10 +7,10 @@ use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Operator\OperatorReportingPeriod;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -74,7 +74,7 @@ final class WebsiteSearchConsoleAnalysisService
             'external_resource_id' => $resourceId,
         ]);
 
-        if (! Schema::hasTable('gsc_property_daily')) {
+        if (! SchemaState::hasTable('gsc_property_daily')) {
             return $connected;
         }
 
@@ -422,7 +422,7 @@ final class WebsiteSearchConsoleAnalysisService
         int $limit,
         string $orderBy,
     ): array {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return [];
         }
 
@@ -497,7 +497,7 @@ final class WebsiteSearchConsoleAnalysisService
     /** @return array{status:string,reason:?string,items:list<array<string,mixed>>} */
     private function searchAppearances(int $resourceId, string $siteUrl, string $start, string $end): array
     {
-        if (! Schema::hasTable('gsc_search_appearance_daily')) {
+        if (! SchemaState::hasTable('gsc_search_appearance_daily')) {
             return ['status' => 'unavailable', 'reason' => 'dataset_table_missing', 'items' => []];
         }
 
@@ -536,7 +536,7 @@ final class WebsiteSearchConsoleAnalysisService
      */
     private function crossDimensionPerformance(string $table, array $dimensions, int $resourceId, string $siteUrl, string $start, string $end, int $limit): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return [];
         }
 
@@ -829,7 +829,7 @@ final class WebsiteSearchConsoleAnalysisService
     /** @return list<array<string,mixed>> */
     private function cannibalizationCandidates(int $resourceId, string $siteUrl, string $start, string $end): array
     {
-        if (! Schema::hasTable('gsc_query_page_daily')) {
+        if (! SchemaState::hasTable('gsc_query_page_daily')) {
             return [];
         }
 
@@ -871,7 +871,7 @@ final class WebsiteSearchConsoleAnalysisService
 
     private function cannibalizationCandidateCount(int $resourceId, string $siteUrl, string $start, string $end): int
     {
-        if (! Schema::hasTable('gsc_query_page_daily')) {
+        if (! SchemaState::hasTable('gsc_query_page_daily')) {
             return 0;
         }
 
@@ -886,7 +886,7 @@ final class WebsiteSearchConsoleAnalysisService
     /** @return list<array<string,mixed>> */
     private function sitemaps(int $resourceId, string $siteUrl): array
     {
-        if (! Schema::hasTable('gsc_sitemap_snapshot')) {
+        if (! SchemaState::hasTable('gsc_sitemap_snapshot')) {
             return [];
         }
 
@@ -933,7 +933,7 @@ final class WebsiteSearchConsoleAnalysisService
     /** @return list<array<string,mixed>> */
     private function urlInspectionSamples(int $resourceId, string $siteUrl, int $limit): array
     {
-        if (! Schema::hasTable('gsc_url_inspection_snapshot')) {
+        if (! SchemaState::hasTable('gsc_url_inspection_snapshot')) {
             return [];
         }
 
@@ -1128,7 +1128,7 @@ final class WebsiteSearchConsoleAnalysisService
         if ($start !== null && $end !== null) {
             $query->whereBetween('reporting_date', [$start, $end]);
         }
-        if ($searchType !== null && Schema::hasColumn($table, 'search_type')) {
+        if ($searchType !== null && SchemaState::hasColumn($table, 'search_type')) {
             $query->where('search_type', $searchType);
         }
 

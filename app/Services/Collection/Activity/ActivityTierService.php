@@ -10,10 +10,10 @@ use App\Models\CoreExternalResource;
 use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 /**
@@ -310,7 +310,7 @@ final class ActivityTierService
 
     public function ready(): bool
     {
-        return $this->ready ??= Schema::hasTable('resource_activity') && Schema::hasTable('collection_activity_passes');
+        return $this->ready ??= SchemaState::hasTable('resource_activity') && SchemaState::hasTable('collection_activity_passes');
     }
 
     private function computeTier(CoreExternalResource $resource, string $provider, ?CarbonImmutable $lastActive): ActivityTier
@@ -335,7 +335,7 @@ final class ActivityTierService
         $signal = (array) config('moxdop-collection-activity.signals.'.$provider, []);
         $table = (string) ($signal['table'] ?? '');
         $metric = (string) ($signal['metric'] ?? '');
-        if ($table === '' || $metric === '' || ! Schema::hasTable($table)) {
+        if ($table === '' || $metric === '' || ! SchemaState::hasTable($table)) {
             return null;
         }
         $max = DB::table($table)->where('external_resource_id', $externalResourceId)->where($metric, '>', 0)->max('reporting_date');

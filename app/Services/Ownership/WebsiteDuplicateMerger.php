@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Support\Roles;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\JoinClause;
@@ -751,7 +752,7 @@ final class WebsiteDuplicateMerger
 
     private function countFor(string $table, string $column, int $id): int
     {
-        if (! ($this->readable[$table] ??= Schema::hasTable($table) || Schema::hasView($table))) {
+        if (! ($this->readable[$table] ??= SchemaState::hasTable($table) || Schema::hasView($table))) {
             return 0;
         }
 

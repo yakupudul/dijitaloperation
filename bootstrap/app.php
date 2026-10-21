@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\DropInvalidLivewireUpdates;
+use App\Http\Middleware\RecordRequestTiming;
 use App\Http\Middleware\SetOperatorLocale;
 use App\Http\Middleware\SetOperatorTimezone;
 use App\Services\Operations\ErrorAlertReporter;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         $middleware->web(append: [
+            RecordRequestTiming::class,
             DropInvalidLivewireUpdates::class,
             SetOperatorLocale::class,
             SetOperatorTimezone::class,

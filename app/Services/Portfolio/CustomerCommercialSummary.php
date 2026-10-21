@@ -4,9 +4,9 @@ namespace App\Services\Portfolio;
 
 use App\Models\Customer;
 use App\Services\Measurement\BrandMeasurementScope;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -42,7 +42,7 @@ final class CustomerCommercialSummary
                 $scope = BrandMeasurementScope::for($brand);
                 foreach (self::CHANNELS as $key => [, $table, $column]) {
                     $spend[$key] += $this->sum($scope, $table, $column, $start, $today->subDay());
-                    if (Schema::hasTable($table) && ! $today->subDay()->lt($start)) {
+                    if (SchemaState::hasTable($table) && ! $today->subDay()->lt($start)) {
                         $currencies[$key] = [...$currencies[$key], ...$scope->currencies($table, $start, $today->subDay())];
                         foreach ($scope->perAccount($table, $start, $today->subDay(), ['spent' => $column]) as $account) {
                             $accounts[$key][] = $account + ['brand' => (string) $brand->name];
@@ -72,7 +72,7 @@ final class CustomerCommercialSummary
                     $mixed => 'mixed_currency', $share === null => 'no_budget', $share > 1.1 => 'over', $share < 0.85 => 'under', default => 'on_track'
                 }];
         }
-        $health = Schema::hasTable('customer_health_history')
+        $health = SchemaState::hasTable('customer_health_history')
             ? DB::table('customer_health_history')->where('customer_id', $customer->id)->orderByDesc('recorded_on')->limit(12)->get(['recorded_on', 'score'])
                 ->reverse()->map(fn ($row): array => ['date' => (string) $row->recorded_on, 'score' => (int) $row->score])->values()->all()
             : [];
@@ -82,7 +82,7 @@ final class CustomerCommercialSummary
 
     private function sum(BrandMeasurementScope $scope, string $table, string $column, CarbonImmutable $from, CarbonImmutable $to): float
     {
-        if (! Schema::hasTable($table) || $to->lt($from)) {
+        if (! SchemaState::hasTable($table) || $to->lt($from)) {
             return 0.0;
         }
 

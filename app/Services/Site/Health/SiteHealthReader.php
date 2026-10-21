@@ -3,9 +3,9 @@
 namespace App\Services\Site\Health;
 
 use App\Models\DigitalAsset;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Site Sağlığı rows (durum · tarih · tek satır): WordPress core / plugin / theme updates and critical Site Health items
@@ -19,7 +19,7 @@ final class SiteHealthReader
     {
         $warnDays = (int) config('moxdop-site.health.warn_days', 30);
         $rows = [...$this->wordpress($site)];
-        $expiry = Schema::hasTable('website_expiry_checks') ? DB::table('website_expiry_checks')->where('website_asset_id', $site->id)->first() : null;
+        $expiry = SchemaState::hasTable('website_expiry_checks') ? DB::table('website_expiry_checks')->where('website_asset_id', $site->id)->first() : null;
         $rows[] = self::expiryRow('ssl', 'SSL sertifikası', $expiry?->ssl_expires_at, $expiry?->ssl_error, $expiry === null, $warnDays,
             filled($expiry?->ssl_issuer) ? (string) $expiry->ssl_issuer : null);
         $rows[] = self::expiryRow('domain', 'Alan adı', $expiry?->domain_expires_at, $expiry?->domain_error, $expiry === null, $warnDays,
@@ -36,7 +36,7 @@ final class SiteHealthReader
     /** @return list<array{key: string, label: string, state: string, date: ?string, line: string}> */
     private function wordpress(DigitalAsset $site): array
     {
-        if (! Schema::hasTable('wordpress_site_health')) {
+        if (! SchemaState::hasTable('wordpress_site_health')) {
             return [];
         }
         $row = DB::table('wordpress_site_health')->where('digital_asset_id', $site->id)->first();
@@ -85,7 +85,7 @@ final class SiteHealthReader
     /** @return array{key: string, label: string, state: string, date: ?string, line: string} */
     private function uptime(DigitalAsset $site): array
     {
-        $state = Schema::hasTable('uptime_states') ? DB::table('uptime_states')->where('digital_asset_id', $site->id)->first() : null;
+        $state = SchemaState::hasTable('uptime_states') ? DB::table('uptime_states')->where('digital_asset_id', $site->id)->first() : null;
         if ($state === null) {
             return ['key' => 'uptime', 'label' => 'Erişilebilirlik', 'state' => 'unknown', 'date' => null, 'line' => 'Henüz ölçülmedi'];
         }

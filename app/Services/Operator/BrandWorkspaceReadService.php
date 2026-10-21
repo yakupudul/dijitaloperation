@@ -11,9 +11,9 @@ use App\Models\BrandSetupProposal;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Support\Collection\LastDataDay;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Read model for the brand page: real connection state (confirmed account bindings, last successful
@@ -310,7 +310,7 @@ final class BrandWorkspaceReadService
      */
     private function dataThrough(array $resourceIds): array
     {
-        if ($resourceIds === [] || ! Schema::hasTable('resource_automations')) {
+        if ($resourceIds === [] || ! SchemaState::hasTable('resource_automations')) {
             return [];
         }
 
@@ -326,7 +326,7 @@ final class BrandWorkspaceReadService
      */
     private function lastSync(array $resourceIds): array
     {
-        if ($resourceIds === [] || ! Schema::hasTable('collection_resource_runs')) {
+        if ($resourceIds === [] || ! SchemaState::hasTable('collection_resource_runs')) {
             return [];
         }
 

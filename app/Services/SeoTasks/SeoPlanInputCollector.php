@@ -11,10 +11,10 @@ use App\Services\Brand\BrandScope;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Step A — gather the plan package from stored data only. No provider or HTTP calls.
@@ -95,7 +95,7 @@ final class SeoPlanInputCollector
      */
     public function competitorGaps(DigitalAsset $site): array
     {
-        if ($site->brand_id === null || ! Schema::hasTable('demand_service_comparisons')) {
+        if ($site->brand_id === null || ! SchemaState::hasTable('demand_service_comparisons')) {
             return [];
         }
         $host = mb_strtolower((string) parse_url(SeoText::origin((string) ($site->primary_url ?: 'https://'.$site->domain)), PHP_URL_HOST));
@@ -134,7 +134,7 @@ final class SeoPlanInputCollector
         } else {
             $query->where('digital_asset_id', $site->id);
         }
-        if (Schema::hasColumn($table, 'search_type')) {
+        if (SchemaState::hasColumn($table, 'search_type')) {
             $query->where(fn ($scope) => $scope->whereNull('search_type')->orWhere('search_type', 'web'));
         }
 
@@ -149,7 +149,7 @@ final class SeoPlanInputCollector
      */
     public function pageTraffic(DigitalAsset $site, CarbonImmutable $end): array
     {
-        if (! Schema::hasTable('gsc_page_daily')) {
+        if (! SchemaState::hasTable('gsc_page_daily')) {
             return ['available' => false, 'history_days' => 0, 'pages' => []];
         }
         $decay = (int) config('moxdop-seo-tasks.decay.window_days', 28);
@@ -192,7 +192,7 @@ final class SeoPlanInputCollector
      */
     public function inspections(DigitalAsset $site): array
     {
-        if (! Schema::hasTable('gsc_url_inspection_snapshot')) {
+        if (! SchemaState::hasTable('gsc_url_inspection_snapshot')) {
             return [];
         }
         $out = [];
@@ -222,7 +222,7 @@ final class SeoPlanInputCollector
     /** @return list<array{path: string, errors: int, warnings: int, is_pending: bool, last_downloaded: ?string}> */
     public function sitemaps(DigitalAsset $site): array
     {
-        if (! Schema::hasTable('gsc_sitemap_snapshot')) {
+        if (! SchemaState::hasTable('gsc_sitemap_snapshot')) {
             return [];
         }
         $out = [];
@@ -255,7 +255,7 @@ final class SeoPlanInputCollector
      */
     public function internalLinks(DigitalAsset $site): array
     {
-        if (! Schema::hasTable('website_link_edge')) {
+        if (! SchemaState::hasTable('website_link_edge')) {
             return ['available' => false, 'inlinks' => [], 'outlinks' => []];
         }
         $latest = DB::table('website_link_edge')
@@ -292,7 +292,7 @@ final class SeoPlanInputCollector
     /** @return array<string, array{url: string, lcp_ms: ?int, strategy: ?string, observed_at: string}> latest lab measurement per page */
     public function performance(DigitalAsset $site): array
     {
-        if (! Schema::hasTable('website_performance_measurement')) {
+        if (! SchemaState::hasTable('website_performance_measurement')) {
             return [];
         }
         $out = [];
@@ -326,7 +326,7 @@ final class SeoPlanInputCollector
      */
     public function businessProfile(DigitalAsset $site): ?array
     {
-        if (! Schema::hasTable('gbp_location_snapshots') || $site->brand_id === null) {
+        if (! SchemaState::hasTable('gbp_location_snapshots') || $site->brand_id === null) {
             return null;
         }
         $resourceIds = BrandScope::resources((int) $site->brand_id, 'google_business_profile');
@@ -416,7 +416,7 @@ final class SeoPlanInputCollector
     public function gsc(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
     {
         $empty = ['available' => false, 'reason' => null, 'rows' => [], 'query_count' => 0, 'page_count' => 0, 'truncated' => false];
-        if (! Schema::hasTable('gsc_query_page_daily')) {
+        if (! SchemaState::hasTable('gsc_query_page_daily')) {
             return $empty + ['reason' => 'table_missing'];
         }
 
@@ -436,7 +436,7 @@ final class SeoPlanInputCollector
             $query->where('digital_asset_id', $site->id);
         }
 
-        if (Schema::hasColumn('gsc_query_page_daily', 'search_type')) {
+        if (SchemaState::hasColumn('gsc_query_page_daily', 'search_type')) {
             $query->where(function ($scope): void {
                 $scope->whereNull('search_type')->orWhere('search_type', 'web');
             });
@@ -699,12 +699,12 @@ final class SeoPlanInputCollector
     /** @return array{available: bool, landing: array<string, array<string, int>>} */
     public function ga4(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
     {
-        if (! Schema::hasTable('ga4_landing_page_daily')) {
+        if (! SchemaState::hasTable('ga4_landing_page_daily')) {
             return ['available' => false, 'landing' => []];
         }
         $query = $this->scopeGa4(DB::table('ga4_landing_page_daily'), $site)
             ->whereBetween('reporting_date', [$start->toDateString(), $end->toDateString()]);
-        $hasKeyEvents = Schema::hasColumn('ga4_landing_page_daily', 'keyEvents');
+        $hasKeyEvents = SchemaState::hasColumn('ga4_landing_page_daily', 'keyEvents');
         $columns = ['landingPage', 'sessions', 'engagedSessions'];
         if ($hasKeyEvents) {
             $columns[] = 'keyEvents';

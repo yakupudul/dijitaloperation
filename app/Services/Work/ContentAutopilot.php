@@ -24,11 +24,11 @@ use App\Services\Site\SiteScope;
 use App\Services\Site\SiteSuggestions;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Support\Roles;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -96,7 +96,7 @@ final class ContentAutopilot
     /** The day of the site's newest published post that MoxDOP did not write, null when none is known. */
     public static function lastOwnPost(DigitalAsset $site): ?CarbonImmutable
     {
-        if (! Schema::hasTable('website_cms_object_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_object_snapshot')) {
             return null;
         }
         $date = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->where('status', 'publish')->where('object_type', 'post')
@@ -154,7 +154,7 @@ final class ContentAutopilot
     /** The day of the site's newest published post (WordPress inventory), null when none is known. */
     public static function lastPublished(DigitalAsset $site): ?CarbonImmutable
     {
-        if (! Schema::hasTable('website_cms_object_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_object_snapshot')) {
             return null;
         }
         $date = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)

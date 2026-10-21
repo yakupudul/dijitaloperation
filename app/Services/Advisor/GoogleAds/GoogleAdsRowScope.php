@@ -2,9 +2,9 @@
 
 namespace App\Services\Advisor\GoogleAds;
 
+use App\Support\SchemaState;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Row scope for one bound Google Ads account. Central rows (digital_asset_id NULL) win per table and date
@@ -44,7 +44,7 @@ final class GoogleAdsRowScope
 
     private function scoped(string $table, ?string $from = null, ?string $to = null): Builder
     {
-        if (! (self::$tables[$table] ??= Schema::hasTable($table))) {
+        if (! (self::$tables[$table] ??= SchemaState::hasTable($table))) {
             return DB::table($table)->whereRaw('1 = 0');
         }
         $key = $table.'|'.$from.'|'.$to;

@@ -10,8 +10,8 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Work\PageSearchStats;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Küme bağları ve ölçüm (yakup, 2026-10-15): once an article MoxDOP sent is live on the site,
@@ -131,7 +131,7 @@ final class ClusterLinks
     private function strengthenIfUnseen(Suggestion $idea, DigitalAsset $site, Page $page): bool
     {
         $sentAt = $idea->resolved_at ?? $idea->updated_at;
-        if ($sentAt === null || $sentAt->gt(now()->subDays(self::WEAK_AFTER_DAYS)) || ! Schema::hasTable('gsc_page_daily')) {
+        if ($sentAt === null || $sentAt->gt(now()->subDays(self::WEAK_AFTER_DAYS)) || ! SchemaState::hasTable('gsc_page_daily')) {
             return false;
         }
         $key = SeoText::urlKey((string) $page->url);
@@ -161,7 +161,7 @@ final class ClusterLinks
     private function strengthenIfStriking(Suggestion $idea, DigitalAsset $site, Page $page): bool
     {
         $sentAt = $idea->resolved_at ?? $idea->updated_at;
-        if ($sentAt === null || $sentAt->gt(now()->subDays(self::REFRESH_AFTER_DAYS)) || ! Schema::hasTable('gsc_page_daily')) {
+        if ($sentAt === null || $sentAt->gt(now()->subDays(self::REFRESH_AFTER_DAYS)) || ! SchemaState::hasTable('gsc_page_daily')) {
             return false;
         }
         $stats = PageSearchStats::forUrls([(string) $page->url], 28)[SeoText::urlKey((string) $page->url)] ?? ['impressions' => 0, 'position' => null];
@@ -195,7 +195,7 @@ final class ClusterLinks
     /** Whether the site's link map already holds a link from one page to the other. */
     private function links(DigitalAsset $site, string $from, string $to): bool
     {
-        if (! Schema::hasTable('website_link_edge')) {
+        if (! SchemaState::hasTable('website_link_edge')) {
             return false;
         }
         $targets = array_values(array_unique([$to, rtrim($to, '/'), rtrim($to, '/').'/']));

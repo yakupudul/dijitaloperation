@@ -7,11 +7,11 @@ use App\Enums\DataPool\MaterializationStatus;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Usable collected-facts window: non-partial verified contiguous coverage plus completed DatasetRuns.
@@ -256,7 +256,7 @@ final class CollectedFactsCompletedCoverage
         }
 
         $table = $materialization->dataset_id;
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'reporting_date')) {
+        if (! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, 'reporting_date')) {
             return [];
         }
 

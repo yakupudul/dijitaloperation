@@ -5,11 +5,11 @@ namespace App\Mcp\Tools;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Services\Brand\BrandScope;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -50,7 +50,7 @@ class MetaPerformance extends Tool
         if ($brand === null) {
             return Response::error('Marka bulunamadı ya da aktif müşteri değil.');
         }
-        if (! Schema::hasTable(self::GEO)) {
+        if (! SchemaState::hasTable(self::GEO)) {
             return Response::error('Meta sonuç tablosu yok.');
         }
 
@@ -106,7 +106,7 @@ class MetaPerformance extends Tool
     private function group(string $group, callable $geo, array $assetIds, string $from, string $to, int $limit): array
     {
         if (in_array($group, ['age_gender', 'placement', 'device', 'hour'], true)) {
-            if (! Schema::hasTable(self::BREAKDOWN)) {
+            if (! SchemaState::hasTable(self::BREAKDOWN)) {
                 return [];
             }
             $query = DB::table(self::BREAKDOWN)->whereIn('digital_asset_id', $assetIds)->where('dimension', $group)
@@ -223,10 +223,10 @@ class MetaPerformance extends Tool
      */
     private function targeting(array $resourceIds, int $limit): array
     {
-        if ($resourceIds === [] || ! Schema::hasTable('meta_adset_targeting_snapshot')) {
+        if ($resourceIds === [] || ! SchemaState::hasTable('meta_adset_targeting_snapshot')) {
             return [];
         }
-        $active = Schema::hasTable('meta_ad_snapshot')
+        $active = SchemaState::hasTable('meta_ad_snapshot')
             ? DB::table('meta_ad_snapshot')->whereIn('external_resource_id', $resourceIds)->where('effective_status', 'ACTIVE')->distinct()->pluck('adset_id')->map(fn ($id): string => (string) $id)->all()
             : [];
 
@@ -278,7 +278,7 @@ class MetaPerformance extends Tool
      */
     private function adStatus(array $resourceIds): array
     {
-        if ($resourceIds === [] || ! Schema::hasTable('meta_ad_snapshot')) {
+        if ($resourceIds === [] || ! SchemaState::hasTable('meta_ad_snapshot')) {
             return [];
         }
 

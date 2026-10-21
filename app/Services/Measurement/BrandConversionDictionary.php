@@ -6,10 +6,10 @@ use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Services\SeoTasks\SeoText;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Brand conversion dictionary. Discovers the conversion signals the brand's accounts actually report —
@@ -265,7 +265,7 @@ final class BrandConversionDictionary
     {
         $out = [];
         $sum = function (string $table, string $keyColumn, string $valueColumn, array $keys, ?callable $extra = null) use ($scope, $from, $to): array {
-            if ($keys === [] || ! Schema::hasTable($table)) {
+            if ($keys === [] || ! SchemaState::hasTable($table)) {
                 return [];
             }
             // Each account counted once: central rows win over legacy per-asset copies of the same account.
@@ -293,7 +293,7 @@ final class BrandConversionDictionary
     private function ga4Events(BrandMeasurementScope $scope): array
     {
         $events = [];
-        if (Schema::hasTable('ga4_property_metadata')) {
+        if (SchemaState::hasTable('ga4_property_metadata')) {
             foreach ($scope->apply(DB::table('ga4_property_metadata'))->pluck('metadata') as $metadata) {
                 foreach ((array) data_get(json_decode((string) $metadata, true), 'key_events', []) as $keyEvent) {
                     $name = is_array($keyEvent) ? ($keyEvent['eventName'] ?? $keyEvent['event_name'] ?? null) : $keyEvent;
@@ -303,7 +303,7 @@ final class BrandConversionDictionary
                 }
             }
         }
-        if (Schema::hasTable('ga4_key_event_daily')) {
+        if (SchemaState::hasTable('ga4_key_event_daily')) {
             foreach ($scope->apply(DB::table('ga4_key_event_daily'))->where('reporting_date', '>=', now()->subDays(90)->toDateString())->distinct()->pluck('eventName') as $name) {
                 $events[(string) $name] = true;
             }
@@ -315,7 +315,7 @@ final class BrandConversionDictionary
     /** @return list<array{id: string, customer_id: string, name: string, category: string, type: string, status: string, primary: bool, ga4_event: ?string}> */
     private function adsActions(BrandMeasurementScope $scope): array
     {
-        if (! Schema::hasTable('google_ads_conversion_action_snapshot')) {
+        if (! SchemaState::hasTable('google_ads_conversion_action_snapshot')) {
             return [];
         }
         $actions = [];
@@ -388,7 +388,7 @@ final class BrandConversionDictionary
     /** One entity level per brand so the same action is not summed at account, campaign and ad level. */
     private function metaLevel(BrandMeasurementScope $scope): ?string
     {
-        if (! Schema::hasTable('meta_typed_action_daily')) {
+        if (! SchemaState::hasTable('meta_typed_action_daily')) {
             return null;
         }
         $levels = $scope->apply(DB::table('meta_typed_action_daily'))->distinct()->pluck('entity_level')->all();
@@ -430,7 +430,7 @@ final class BrandConversionDictionary
     /** @return list<string> */
     private function gbpMetrics(BrandMeasurementScope $scope): array
     {
-        if (! Schema::hasTable('gbp_performance_daily')) {
+        if (! SchemaState::hasTable('gbp_performance_daily')) {
             return [];
         }
 

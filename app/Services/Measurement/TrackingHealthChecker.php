@@ -6,9 +6,9 @@ use App\Models\Brand;
 use App\Models\BrandConversionSource;
 use App\Models\DigitalAsset;
 use App\Services\Website\PublicDiscovery\StoredHtmlReader;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -54,7 +54,7 @@ final class TrackingHealthChecker
             }
         }
 
-        if ($brand === null || ! $this->isPrimaryWebsite($website, $brand) || ! Schema::hasTable('ga4_acquisition_channel_daily')) {
+        if ($brand === null || ! $this->isPrimaryWebsite($website, $brand) || ! SchemaState::hasTable('ga4_acquisition_channel_daily')) {
             return $alerts;
         }
         $cfg = (array) config('moxdop-alerts.tracking');
@@ -139,7 +139,7 @@ final class TrackingHealthChecker
      */
     public function tags(DigitalAsset $website): ?array
     {
-        if (! Schema::hasTable('website_html_snapshot')) {
+        if (! SchemaState::hasTable('website_html_snapshot')) {
             return null;
         }
         $snapshot = DB::table('website_html_snapshot')->where('digital_asset_id', $website->id)
@@ -166,7 +166,7 @@ final class TrackingHealthChecker
     /** @return list<string> */
     public function measurementIds(BrandMeasurementScope $scope): array
     {
-        if (! Schema::hasTable('ga4_property_metadata')) {
+        if (! SchemaState::hasTable('ga4_property_metadata')) {
             return [];
         }
         $ids = [];

@@ -7,9 +7,9 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\Integrations\Meta\MetaException;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -68,7 +68,7 @@ class MetaGeoResults
         $act = (string) ($binding->actId ?: 'act_'.$accountId);
         // Both tables need their first 30 days: an account collected before the breakdowns existed gets them too.
         $hasRows = DB::table(self::TABLE)->where('digital_asset_id', $asset->id)->where('account_id', $accountId)->exists()
-            && (! Schema::hasTable(self::BREAKDOWN_TABLE) || DB::table(self::BREAKDOWN_TABLE)->where('digital_asset_id', $asset->id)->where('account_id', $accountId)->exists());
+            && (! SchemaState::hasTable(self::BREAKDOWN_TABLE) || DB::table(self::BREAKDOWN_TABLE)->where('digital_asset_id', $asset->id)->where('account_id', $accountId)->exists());
         $days ??= $hasRows ? 3 : 30;
         $end = CarbonImmutable::now((string) ($binding->timezone ?: config('app.timezone')))->subDay()->startOfDay();
         $start = $end->subDays(max(1, $days) - 1);
@@ -80,7 +80,7 @@ class MetaGeoResults
             $countries = $this->fetch($integration, $act, $range, 'country');
             $regions = $this->fetch($integration, $act, $range, 'region');
             $stored += $this->store((int) $asset->id, $accountId, $range, $countries, $regions);
-            if (Schema::hasTable(self::BREAKDOWN_TABLE)) {
+            if (SchemaState::hasTable(self::BREAKDOWN_TABLE)) {
                 $breakdowns = [];
                 foreach (self::BREAKDOWNS as $dimension => [$breakdown]) {
                     $breakdowns[$dimension] = $this->fetch($integration, $act, $range, $breakdown);

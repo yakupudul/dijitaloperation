@@ -5,8 +5,8 @@ namespace App\Services\Meta;
 use App\Models\Brand;
 use App\Models\ServiceCatalogItem;
 use App\Services\Ads\AdServiceStats;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Meta masası: every brand's Meta campaigns in one place, from the daily 30-day rows (AdServiceStats → ad_campaign_stats).
@@ -34,7 +34,7 @@ class MetaDesk
      */
     public function desk(array $filters): array
     {
-        if (! Schema::hasTable('ad_campaign_stats')) {
+        if (! SchemaState::hasTable('ad_campaign_stats')) {
             return ['ready' => false];
         }
         $brands = Brand::query()->with('sectorCategory')->whereIn('id', DB::table('ad_campaign_stats')->where('channel', 'meta')->distinct()->pluck('brand_id'))->get()->keyBy('id');

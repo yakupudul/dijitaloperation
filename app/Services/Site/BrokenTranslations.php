@@ -16,9 +16,9 @@ use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\ExternalWrites\WordPressDraftWriter;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Repair\RepairDesk;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -94,7 +94,7 @@ final class BrokenTranslations
     /** The page's version in the site's main language (else in English), from the connector's Polylang translations. */
     public function source(DigitalAsset $site, Page $page, string $main): ?Page
     {
-        if (! Schema::hasTable('website_cms_object_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_object_snapshot')) {
             return null;
         }
         $meta = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->where('object_id', (string) $page->wp_post_id)->value('metadata');

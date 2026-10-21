@@ -13,6 +13,7 @@ use App\Services\Ai\AiBudget;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Operations\AutoDeployStatus;
+use App\Services\Operations\RequestTimings;
 use App\Services\Operations\ServerStatusReader;
 use App\Services\Operations\SystemHealthReader;
 use App\Services\Queries\QueryAutopilot;
@@ -25,7 +26,7 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do, approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons, and the Onarım masası writes of the last 24 hours (desk_writes, with rows still queued for approval). Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
+#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), what fills the biggest stores (storage_detail, nightly: link edges per site and age, WordPress objects by type, raw copies by data set) the tables read by full scans (scan_hotspots: where an index is missing), where the panel spends its time over the last 24 hours (request_timings: per page or Livewire component requests, total / average / slowest ms, queries per request; "lazy:" rows are relations still loaded one row at a time), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do, approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons, and the Onarım masası writes of the last 24 hours (desk_writes, with rows still queued for approval). Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
 #[IsReadOnly]
 class SystemHealth extends Tool
 {
@@ -60,6 +61,9 @@ class SystemHealth extends Tool
             $out['largest_tables'] = app(ServerStatusReader::class)->largestTables();
             $out['disk_breakdown'] = app(ServerStatusReader::class)->diskBreakdown();
             $out['tuning'] = app(ServerStatusReader::class)->tuningFacts();
+            $out['storage_detail'] = app(ServerStatusReader::class)->storageDetail();
+            $out['scan_hotspots'] = app(ServerStatusReader::class)->scanHotspots();
+            $out['request_timings'] = app(RequestTimings::class)->top();
         } catch (Throwable $exception) {
             report($exception);
             $out['server_error'] = mb_substr($exception->getMessage(), 0, 300);

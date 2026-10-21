@@ -242,11 +242,11 @@ final class PromptRegistryTest extends TestCase
         Livewire::test(AiOperationsPage::class)->call('open', AiRouteKeys::GBP_POST_FROM_PAGE)->set('trialInput', '')->call('runTrial')->assertHasErrors('trial');
     }
 
-    public function test_run_inputs_are_cleared_after_ninety_days(): void
+    public function test_run_inputs_are_cleared_after_fourteen_days(): void
     {
         DB::table('ai_usage_records')->insert([
             ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'eski', 'created_at' => now()->subDays(91)],
-            ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'yeni', 'created_at' => now()->subDays(10)],
+            ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'yeni', 'created_at' => now()->subDays(5)],
         ]);
 
         $this->assertSame(1, app(DataRetentionService::class)->purgeAiRunInputs());

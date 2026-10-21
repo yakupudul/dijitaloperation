@@ -32,8 +32,6 @@ class AiAgentRawDatabaseBoundaryTest extends TestCase
         // Loaded API credit (ai_credit_topups) against the recorded cost: no business data.
         'AiCredits.php',
         // OpenAI free quota and its cost audit: token / cost sums of the AI call list, no business data.
-        'OpenAiFreeQuota.php',
-        'OpenAiCostAudit.php',
     ];
 
     /**

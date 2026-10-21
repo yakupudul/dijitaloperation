@@ -6,16 +6,34 @@
  * second Alpine instance breaks wire:click / Livewire updates on operator pages.
  * Theme + sidebar Alpine stores are registered via alpine:init in the layout.
  */
-import ApexCharts from 'apexcharts';
-import flatpickr from 'flatpickr';
-import 'flatpickr/dist/flatpickr.min.css';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import './maps/ga4-world-map';
 import { bindSortableTables } from './sortable-tables';
 import './site-screen';
 
-window.ApexCharts = ApexCharts;
-window.flatpickr = flatpickr;
+// ApexCharts (~500 KB) and flatpickr load only on a page that has a chart or a date range (2026-10-21: they were in
+// every page's bundle, the login page included).
+let ApexCharts = null;
+let apexLoading = null;
+let flatpickr = null;
+let flatpickrLoading = null;
+
+function loadApexCharts() {
+    apexLoading ??= import('apexcharts').then((module) => {
+        ApexCharts = module.default;
+        window.ApexCharts = ApexCharts;
+    });
+
+    return apexLoading;
+}
+
+function loadFlatpickr() {
+    flatpickrLoading ??= Promise.all([import('flatpickr'), import('flatpickr/dist/flatpickr.min.css')]).then(([module]) => {
+        flatpickr = module.default;
+        window.flatpickr = flatpickr;
+    });
+
+    return flatpickrLoading;
+}
 
 let postMorphFrame = null;
 let postMorphVerificationTimer = null;
@@ -34,7 +52,15 @@ function matchingElements(root, selector) {
 }
 
 function bindDatePickers(root = document) {
-    matchingElements(root, '[data-flatpickr-range]').forEach((el) => {
+    const hosts = matchingElements(root, '[data-flatpickr-range]');
+    if (hosts.length === 0) {
+        return;
+    }
+    if (!flatpickr) {
+        loadFlatpickr().then(() => bindDatePickers(root));
+        return;
+    }
+    hosts.forEach((el) => {
         if (el.__fpBound) {
             return;
         }
@@ -189,7 +215,15 @@ function destroyOperatorChart(el) {
  * measurable width. This also covers Livewire morphs and responsive grid changes.
  */
 function renderOperatorCharts(root = document) {
-    matchingElements(root, '[data-chart]').forEach((el) => {
+    const hosts = matchingElements(root, '[data-chart]');
+    if (hosts.length === 0) {
+        return;
+    }
+    if (!ApexCharts) {
+        loadApexCharts().then(() => renderOperatorCharts(document));
+        return;
+    }
+    hosts.forEach((el) => {
         if (!el.isConnected) {
             return;
         }

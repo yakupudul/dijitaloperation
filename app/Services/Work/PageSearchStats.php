@@ -3,8 +3,8 @@
 namespace App\Services\Work;
 
 use App\Services\SeoTasks\SeoText;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Search Console numbers of a few pages over the last days: impressions, clicks and the impression-weighted average
@@ -18,7 +18,7 @@ final class PageSearchStats
      */
     public static function forUrls(array $urls, int $days): array
     {
-        if ($urls === [] || ! Schema::hasTable('gsc_page_daily')) {
+        if ($urls === [] || ! SchemaState::hasTable('gsc_page_daily')) {
             return [];
         }
         $variants = collect($urls)->flatMap(fn (string $u): array => [$u, rtrim($u, '/'), rtrim($u, '/').'/'])->unique()->values()->all();

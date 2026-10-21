@@ -21,12 +21,12 @@ use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\SeoTasks\SeoText;
+use App\Support\SchemaState;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Discovery\PublicHttpFetcher;
 use MoxDop\Website\Discovery\PublicUrlNormalizer;
@@ -731,7 +731,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     private function contentExportSource(int $assetId, array $queue, string $seed): ?array
     {
         if (count($queue) < max(1, (int) config('moxdop-website-intelligence.crawl.content_export_min_queue', 10))
-            || ! Schema::hasTable('website_cms_object_snapshot')) {
+            || ! SchemaState::hasTable('website_cms_object_snapshot')) {
             return null;
         }
         $connection = $this->pairedConnection($assetId);
@@ -1213,7 +1213,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         $previousHtmlHash = null;
         $previousSemanticMetadata = null;
-        if (Schema::hasTable('website_html_snapshot')) {
+        if (SchemaState::hasTable('website_html_snapshot')) {
             $previous = DB::table('website_html_snapshot')
                 ->where('digital_asset_id', $assetId)
                 ->where('url', $url)
@@ -1387,7 +1387,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
     private function hasCmsInventory(int $assetId): bool
     {
-        return Schema::hasTable('website_cms_object_snapshot')
+        return SchemaState::hasTable('website_cms_object_snapshot')
             && DB::table('website_cms_object_snapshot')->where('digital_asset_id', $assetId)->whereNotNull('permalink')->exists();
     }
 
@@ -1409,7 +1409,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         /** @var array<string, string> $modified */
         $modified = [];
 
-        if (Schema::hasTable('website_cms_object_snapshot')) {
+        if (SchemaState::hasTable('website_cms_object_snapshot')) {
             foreach (DB::table('website_cms_object_snapshot')
                 ->where('digital_asset_id', $assetId)
                 ->where('status', 'publish')
@@ -1426,7 +1426,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
 
-        if (Schema::hasTable('website_url')) {
+        if (SchemaState::hasTable('website_url')) {
             $candidates = array_merge($candidates, DB::table('website_url')
                 ->where('digital_asset_id', $assetId)
                 ->orderBy('normalized_url')
@@ -1480,7 +1480,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
      */
     private function unchangedSinceLastFetch(int $assetId, array $urls, array $modified, string $home, bool $strict = false): array
     {
-        if ($urls === [] || ! Schema::hasTable('website_html_snapshot')) {
+        if ($urls === [] || ! SchemaState::hasTable('website_html_snapshot')) {
             return [];
         }
         $lastFetched = [];

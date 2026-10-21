@@ -4,8 +4,8 @@ namespace App\Services\Operator;
 
 use App\Models\AgencySetting;
 use App\Support\Operator\AgencySettingCatalog;
+use App\Support\SchemaState;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -31,7 +31,7 @@ final class AgencySettingService
         }
 
         try {
-            if (! Schema::hasTable('agency_settings')) {
+            if (! SchemaState::hasTable('agency_settings')) {
                 return $this->ephemeralDefaults();
             }
         } catch (\Throwable) {
@@ -94,7 +94,7 @@ final class AgencySettingService
     {
         $this->assertControlled($attributes);
 
-        if (! Schema::hasTable('agency_settings')) {
+        if (! SchemaState::hasTable('agency_settings')) {
             throw new InvalidArgumentException('Agency settings are not available.');
         }
 
@@ -152,7 +152,7 @@ final class AgencySettingService
     /** Saves the two panel colors; null resets one to the Moximu logo color. */
     public function updateTheme(?string $accent, ?string $second): AgencySetting
     {
-        if (! Schema::hasTable('agency_settings')) {
+        if (! SchemaState::hasTable('agency_settings')) {
             throw new InvalidArgumentException('Agency settings are not available.');
         }
 

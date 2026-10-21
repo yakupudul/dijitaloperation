@@ -3,9 +3,9 @@
 namespace App\Services\Async;
 
 use App\Models\Run;
+use App\Support\SchemaState;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Bounded queue-worker health signal for Activity Center (no Prometheus).
@@ -30,7 +30,7 @@ final class AsyncWorkerHealth
         $pending = 0;
         $oldestAge = null;
 
-        if ($driver === 'database' && Schema::hasTable('jobs')) {
+        if ($driver === 'database' && SchemaState::hasTable('jobs')) {
             $pending = (int) DB::table('jobs')->count();
             $availableAt = DB::table('jobs')->orderBy('available_at')->value('available_at');
             if ($availableAt !== null) {

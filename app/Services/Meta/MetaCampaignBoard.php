@@ -7,8 +7,8 @@ use App\Models\MetaLead;
 use App\Models\MetaLeadForm;
 use App\Services\Ads\AdServiceStats;
 use App\Services\Site\Analysis\SiteRange;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Meta hesap sayfası › Kampanyalar and Kampanya detayı: every campaign of the bound ad account with its services
@@ -348,7 +348,7 @@ final class MetaCampaignBoard
         $cta = strtoupper((string) ($creative['cta'] ?? ''));
         $formId = (string) ($creative['lead_gen_form_id'] ?? '');
         if ($formId !== '' || strtoupper($destinationType) === 'ON_AD') {
-            $form = $formId !== '' && Schema::hasTable('meta_lead_forms')
+            $form = $formId !== '' && SchemaState::hasTable('meta_lead_forms')
                 ? MetaLeadForm::query()->where('account_id', $account['account_id'])->where('form_id', $formId)->first() : null;
 
             return ['kind' => 'form', 'form_id' => $formId, 'form' => $form === null ? null : [
@@ -382,7 +382,7 @@ final class MetaCampaignBoard
      */
     private function leadMarks(DigitalAsset $asset, string $adName): ?array
     {
-        if (! Schema::hasTable('meta_leads')) {
+        if (! SchemaState::hasTable('meta_leads')) {
             return null;
         }
         $rows = MetaLead::query()->where('digital_asset_id', $asset->id)->where('ad_name', $adName)->selectRaw('mark, count(*) as n')->groupBy('mark')->pluck('n', 'mark');
@@ -575,7 +575,7 @@ final class MetaCampaignBoard
     {
         $brand = $asset->brand;
         $serviceOf = $brand !== null ? array_column($this->services->offerings($brand), 'service_id', 'id') : [];
-        $costs = $serviceOf !== [] && Schema::hasTable('ad_service_stats') ? AdServiceStats::brandCosts('meta', array_values(array_unique(array_filter($serviceOf)))) : [];
+        $costs = $serviceOf !== [] && SchemaState::hasTable('ad_service_stats') ? AdServiceStats::brandCosts('meta', array_values(array_unique(array_filter($serviceOf)))) : [];
         $city = $brand !== null && $costs !== [] ? AdServiceStats::city($brand) : '';
         foreach ($rows as $i => $row) {
             $rows[$i]['average'] = null;

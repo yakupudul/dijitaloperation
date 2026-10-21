@@ -6,9 +6,9 @@ use App\Enums\Observability\OperationalAlertState;
 use App\Models\Observability\OperationalAlert;
 use App\Services\Verification\LiveVerifier;
 use App\Support\Operator\CollectionErrorExplainer;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Hata merkezi (operator decision 2026-11-17): every open system alert lands in one of three buckets, so the operator
@@ -252,7 +252,7 @@ final class ErrorTriage
 
     private static function hasLiveChecks(): bool
     {
-        return self::$hasLiveChecks = self::$hasLiveChecks || Schema::hasTable('live_checks');
+        return self::$hasLiveChecks = self::$hasLiveChecks || SchemaState::hasTable('live_checks');
     }
 
     /**

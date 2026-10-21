@@ -2,9 +2,9 @@
 
 namespace App\Services\Assistant;
 
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * KVKK (Faz 10d): when the WhatsApp screen sets a retention period, WhatsApp message texts older than it are blanked;
@@ -20,8 +20,8 @@ final class WhatsAppRetention
 
     public function run(): int
     {
-        $days = Schema::hasColumn('agency_settings', 'whatsapp_retention_days') ? DB::table('agency_settings')->value('whatsapp_retention_days') : null;
-        if ($days === null || (int) $days < 30 || ! Schema::hasTable('whatsapp_messages')) {
+        $days = SchemaState::hasColumn('agency_settings', 'whatsapp_retention_days') ? DB::table('agency_settings')->value('whatsapp_retention_days') : null;
+        if ($days === null || (int) $days < 30 || ! SchemaState::hasTable('whatsapp_messages')) {
             return 0;
         }
         $ids = DB::table('whatsapp_messages')->where('sent_at', '<', now()->subDays((int) $days))

@@ -3,12 +3,12 @@
 namespace App\Services\Operations;
 
 use App\Models\ClaudeNote;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -169,7 +169,7 @@ class QueueDoctor
 
     private function failedJobs(string $queue): string
     {
-        if (! Schema::hasTable('failed_jobs')) {
+        if (! SchemaState::hasTable('failed_jobs')) {
             return '';
         }
         $groups = [];

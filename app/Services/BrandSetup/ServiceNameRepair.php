@@ -18,9 +18,9 @@ use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Site\SiteText;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use App\Support\Options\LocationOptions;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -465,7 +465,7 @@ final class ServiceNameRepair
                 $this->pageByObject[(int) $page->website_asset_id][(int) $page->wp_post_id] = (int) $page->id;
             }
         }
-        if (! Schema::hasTable('website_cms_object_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_object_snapshot')) {
             return;
         }
         $rows = DB::table('website_cms_object_snapshot')->whereIn('digital_asset_id', array_keys($this->mains))->where('cms', 'wordpress')

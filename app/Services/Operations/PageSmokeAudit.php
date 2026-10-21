@@ -4,6 +4,7 @@ namespace App\Services\Operations;
 
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Support\SchemaState;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Client\Events\RequestSending;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Throwable;
 
@@ -102,7 +102,7 @@ final class PageSmokeAudit
     public function urls(int $perType): array
     {
         $urls = [];
-        $ids = fn (string $table, int $limit): array => Schema::hasTable($table)
+        $ids = fn (string $table, int $limit): array => SchemaState::hasTable($table)
             ? DB::table($table)->orderByDesc('id')->limit($limit)->pluck('id')->map(fn ($id): string => (string) $id)->all() : [];
         $assetsByType = DigitalAsset::query()->orderByDesc('id')->get(['id', 'type'])->groupBy('type')
             ->map(fn ($group) => $group->take($perType)->pluck('id')->map(fn ($id): string => (string) $id)->all());

@@ -15,9 +15,9 @@ use App\Services\Observability\OperationalAlertExplainer;
 use App\Services\Observability\QueueWaitMonitor;
 use App\Services\Verification\LiveVerifier;
 use App\Support\Roles;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * One read of "is the machine working": scheduler and worker heartbeats, open operational alerts, each
@@ -47,11 +47,11 @@ final class SystemHealthReader
             ],
             'plugins' => $this->plugins(),
             'plugin_current' => (string) config('moxdop-wordpress.connector_version', ''),
-            'backup' => Schema::hasTable('system_backups') ? app(SystemBackup::class)->status() : null,
+            'backup' => SchemaState::hasTable('system_backups') ? app(SystemBackup::class)->status() : null,
             'two_factor' => $this->twoFactor(),
             'watchdog' => OpsWatchdog::status(),
-            'live_checks' => Schema::hasTable('live_checks') ? LiveVerifier::latest() : [],
-            'suspicious_data' => Schema::hasTable('data_consistency_issues') ? DB::table('data_consistency_issues')->whereNull('resolved_at')->count() : 0,
+            'live_checks' => SchemaState::hasTable('live_checks') ? LiveVerifier::latest() : [],
+            'suspicious_data' => SchemaState::hasTable('data_consistency_issues') ? DB::table('data_consistency_issues')->whereNull('resolved_at')->count() : 0,
             'release' => ReleaseInfo::current(),
             'queue_waits' => app(QueueWaitMonitor::class)->waits(),
             'error_groups' => $this->errorGroups(),
@@ -66,7 +66,7 @@ final class SystemHealthReader
      */
     private function errorGroups(): array
     {
-        if (! Schema::hasTable('app_error_groups')) {
+        if (! SchemaState::hasTable('app_error_groups')) {
             return [];
         }
 
@@ -214,7 +214,7 @@ final class SystemHealthReader
     public function datasets(int $automationId): array
     {
         $resourceId = ResourceAutomation::query()->whereKey($automationId)->value('external_resource_id');
-        if ($resourceId === null || ! Schema::hasTable('dataset_materializations')) {
+        if ($resourceId === null || ! SchemaState::hasTable('dataset_materializations')) {
             return [];
         }
 
@@ -232,7 +232,7 @@ final class SystemHealthReader
     /** @return list<array{site: string, version: ?string, outdated: bool, last_received: ?string, silent: bool}> */
     private function plugins(): array
     {
-        if (! Schema::hasTable('website_connector_delivery')) {
+        if (! SchemaState::hasTable('website_connector_delivery')) {
             return [];
         }
         $current = (string) config('moxdop-wordpress.connector_version', '');

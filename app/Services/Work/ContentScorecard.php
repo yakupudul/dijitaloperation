@@ -9,8 +9,8 @@ use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterLinks;
 use App\Services\Site\SiteScope;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -75,7 +75,7 @@ final class ContentScorecard
      */
     private function index(DigitalAsset $site, array $urls): array
     {
-        if ($urls === [] || ! Schema::hasTable('gsc_url_inspection_snapshot')) {
+        if ($urls === [] || ! SchemaState::hasTable('gsc_url_inspection_snapshot')) {
             return [];
         }
         $wanted = collect($urls)->mapWithKeys(fn (string $u): array => [SeoText::urlKey($u) => true])->all();
@@ -111,7 +111,7 @@ final class ContentScorecard
     private function conversions(Brand $brand, array $urls, int $days): array
     {
         $resources = SiteScope::resourceIds($brand, 'ga4');
-        if ($urls === [] || $resources === [] || ! Schema::hasTable('ga4_event_landing_daily') || ! Schema::hasTable('ga4_key_event_daily')) {
+        if ($urls === [] || $resources === [] || ! SchemaState::hasTable('ga4_event_landing_daily') || ! SchemaState::hasTable('ga4_key_event_daily')) {
             return [];
         }
         try {

@@ -20,9 +20,9 @@ use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Repair\RepairDesk;
 use App\Services\Site\SiteScope;
 use App\Support\Options\LocationOptions;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -342,7 +342,7 @@ final class BrandDataAudit
     private function queries(Brand $brand): array
     {
         $ids = SiteScope::resourceIds($brand, 'search_console');
-        if ($ids === [] || ! Schema::hasTable('gsc_query_page_daily')) {
+        if ($ids === [] || ! SchemaState::hasTable('gsc_query_page_daily')) {
             return [];
         }
 
@@ -476,7 +476,7 @@ final class BrandDataAudit
             ->where('locked', false)->where('created_at', '<', now()->subDays(7))->get()
             ->reject(fn (BrandOffering $o): bool => $o->isMain())
             ->reject(fn (BrandOffering $o): bool => OfferingPage::query()->where('brand_offering_id', $o->id)->exists())
-            ->reject(fn (BrandOffering $o): bool => Schema::hasTable('ad_campaign_services') && DB::table('ad_campaign_services')->where('brand_offering_id', $o->id)->exists())
+            ->reject(fn (BrandOffering $o): bool => SchemaState::hasTable('ad_campaign_services') && DB::table('ad_campaign_services')->where('brand_offering_id', $o->id)->exists())
             ->reject(function (BrandOffering $o) use ($texts): bool {
                 $names = $o->names->pluck('raw_label')->push($o->catalogItem?->primaryName?->raw_label)->filter()
                     ->map(fn ($n): string => LocationOptions::fold((string) $n))->filter(fn (string $n): bool => mb_strlen($n) >= 3)->unique();

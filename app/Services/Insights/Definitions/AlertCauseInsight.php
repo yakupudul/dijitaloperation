@@ -9,11 +9,11 @@ use App\Models\DigitalAsset;
 use App\Services\Ai\Insights\BaseInsight;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /** "Olası neden" for one alert, from the brand's daily numbers across channels. */
@@ -87,9 +87,9 @@ final class AlertCauseInsight extends BaseInsight
                 'first_detected' => $subject->first_detected_at?->toDateString()],
             'brand' => $this->brandFacts($assets->first()?->brand),
             'daily' => array_filter($series),
-            'uptime_failures' => Schema::hasTable('uptime_checks') ? DB::table('uptime_checks')->whereIn('digital_asset_id', $ids)->where('ok', false)
+            'uptime_failures' => SchemaState::hasTable('uptime_checks') ? DB::table('uptime_checks')->whereIn('digital_asset_id', $ids)->where('ok', false)
                 ->where('checked_at', '>=', $from)->orderByDesc('checked_at')->limit(30)->get(['checked_at', 'status_code', 'error'])->map(fn ($r): array => (array) $r)->all() : [],
-            'chart_notes' => Schema::hasTable('chart_annotations') ? DB::table('chart_annotations')->where(fn ($q) => $q->where('brand_id', $assets->first()?->brand_id)->orWhereNull('brand_id'))
+            'chart_notes' => SchemaState::hasTable('chart_annotations') ? DB::table('chart_annotations')->where(fn ($q) => $q->where('brand_id', $assets->first()?->brand_id)->orWhereNull('brand_id'))
                 ->whereBetween('starts_on', [$from, $to])->orderBy('starts_on')->limit(40)->get(['starts_on', 'kind', 'title', 'note'])->map(fn ($r): array => (array) $r)->all() : [],
             'other_open_alerts' => AssetAlert::query()->open()->whereIn('digital_asset_id', $ids)->whereKeyNot($subject->id)->limit(10)->get(['title', 'message', 'first_detected_at'])
                 ->map(fn (AssetAlert $a): array => ['title' => $a->title, 'message' => $a->message, 'since' => $a->first_detected_at?->toDateString()])->all(),
@@ -108,7 +108,7 @@ final class AlertCauseInsight extends BaseInsight
      */
     private function daily(Builder $query, string $from, string $to, array $columns, string $table): array
     {
-        $columns = array_values(array_filter($columns, fn (string $c): bool => Schema::hasColumn($table, $c)));
+        $columns = array_values(array_filter($columns, fn (string $c): bool => SchemaState::hasColumn($table, $c)));
         if ($columns === []) {
             return [];
         }

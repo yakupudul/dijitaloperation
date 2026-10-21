@@ -4,9 +4,9 @@ namespace App\Services\Ads;
 
 use App\Models\Brand;
 use App\Services\Meta\MetaDesk;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Kazananlar: the race between brands in a market (city × catalog service) on four channels over the last 30 days,
@@ -53,7 +53,7 @@ class Winners
 
     public static function ready(): bool
     {
-        return Schema::hasTable('web_service_stats') && Schema::hasTable('gbp_profile_stats') && Schema::hasColumn('ad_service_stats', 'top_campaign');
+        return SchemaState::hasTable('web_service_stats') && SchemaState::hasTable('gbp_profile_stats') && SchemaState::hasColumn('ad_service_stats', 'top_campaign');
     }
 
     /* ---------------- data ---------------- */
@@ -740,7 +740,7 @@ class Winners
     {
         $label = AdServiceStats::TYPE_LABELS[$type] ?? 'sonuç';
         $head = ($e['top'] !== null ? $e['top'].': ' : '').number_format((float) $e['results'], 0, ',', '.').' '.$label.', '.$label.' başı '.number_format((float) $e['cpr'], 0, ',', '.').' TRY.';
-        if (! Schema::hasColumn('ad_campaign_stats', 'profile')) {
+        if (! SchemaState::hasColumn('ad_campaign_stats', 'profile')) {
             return $head;
         }
         $best = null;
@@ -772,7 +772,7 @@ class Winners
     /** Stores today's leaders and ranking of every market (city × service, cost measure). @return int markets stored */
     public function snapshot(): int
     {
-        if (! self::ready() || ! Schema::hasTable('ad_winner_snapshots')) {
+        if (! self::ready() || ! SchemaState::hasTable('ad_winner_snapshots')) {
             return 0;
         }
         $raw = $this->raw();
@@ -809,7 +809,7 @@ class Winners
     /** The newest snapshot of a market at least MOVE_DAYS old. */
     private function weekAgo(int $serviceId, string $city): ?object
     {
-        if (! Schema::hasTable('ad_winner_snapshots')) {
+        if (! SchemaState::hasTable('ad_winner_snapshots')) {
             return null;
         }
 
@@ -845,7 +845,7 @@ class Winners
     /** @return list<array{date: string, text: string}> the market's leadership changes of the last 60 days, newest first */
     private function feed(int $serviceId, string $city): array
     {
-        if (! Schema::hasTable('ad_winner_snapshots')) {
+        if (! SchemaState::hasTable('ad_winner_snapshots')) {
             return [];
         }
         $snapshots = DB::table('ad_winner_snapshots')->where('service_id', $serviceId)->where('city', $city)

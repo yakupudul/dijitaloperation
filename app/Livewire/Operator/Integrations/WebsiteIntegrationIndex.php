@@ -24,6 +24,7 @@ use App\Services\PageSpeedConnectionProbeService;
 use App\Services\Portfolio\PortfolioDeletionService;
 use App\Services\Portfolio\UnassignedWebsites;
 use App\Support\Roles;
+use App\Support\SchemaState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -297,7 +298,7 @@ final class WebsiteIntegrationIndex extends Component
 
     private function deliveryState(?CoreConnection $connection): ?array
     {
-        if (! $connection || ! Schema::hasTable('website_connector_delivery')) {
+        if (! $connection || ! SchemaState::hasTable('website_connector_delivery')) {
             return null;
         }
         $state = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first();
@@ -714,7 +715,7 @@ final class WebsiteIntegrationIndex extends Component
     /** @return array{pages: int, changed: int} */
     private function htmlCoverageMetrics(int $assetId, ?int $collectionRunId): array
     {
-        if (! Schema::hasTable('website_html_snapshot')) {
+        if (! SchemaState::hasTable('website_html_snapshot')) {
             return ['pages' => 0, 'changed' => 0];
         }
 
@@ -1001,7 +1002,7 @@ final class WebsiteIntegrationIndex extends Component
         }
 
         try {
-            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'digital_asset_id')) {
+            if (! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, 'digital_asset_id')) {
                 return $this->emptyExplorer('unavailable');
             }
 
@@ -1912,7 +1913,7 @@ final class WebsiteIntegrationIndex extends Component
     /** Published WordPress pages a visitor can land on (latest inventory, one per address). */
     private function wordpressPageCount(int $assetId): int
     {
-        if (! Schema::hasTable('website_cms_object_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_object_snapshot')) {
             return 0;
         }
 

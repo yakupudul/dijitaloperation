@@ -4,8 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\User;
 use App\Support\Ai\AiProviderCatalog;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 /**
@@ -43,7 +43,7 @@ final class AiCredits
     public function status(string $provider): array
     {
         $empty = ['provider' => $provider, 'label' => self::label($provider), 'tracked' => false, 'loaded' => 0.0, 'spent' => 0.0, 'remaining' => 0.0, 'low' => false, 'exhausted' => false, 'since' => null];
-        if (! Schema::hasTable('ai_credit_topups')) {
+        if (! SchemaState::hasTable('ai_credit_topups')) {
             return $empty;
         }
         $topups = DB::table('ai_credit_topups')->where('provider', $provider);
@@ -52,7 +52,7 @@ final class AiCredits
             return $empty;
         }
         $loaded = (float) (clone $topups)->sum('amount_usd');
-        $spent = Schema::hasTable('ai_usage_records')
+        $spent = SchemaState::hasTable('ai_usage_records')
             ? (float) DB::table('ai_usage_records')->where('provider', $provider)->where('created_at', '>=', $since)->sum('cost_usd') : 0.0;
         $remaining = round($loaded - $spent, 4);
 

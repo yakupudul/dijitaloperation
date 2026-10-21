@@ -6,9 +6,9 @@ use App\Models\DigitalAsset;
 use App\Services\MetaAds\MetaGeoResults;
 use App\Services\Site\Analysis\SiteRange;
 use App\Support\Meta\MetaRegionCountry;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Analiz (Meta): one account, or one service / one campaign of it, over a window compared with the previous window or
@@ -208,7 +208,7 @@ class MetaAnalysis
      */
     private function regions(array $account, string $from, string $to, ?array $scope): array
     {
-        if (! Schema::hasTable(MetaGeoResults::TABLE)) {
+        if (! SchemaState::hasTable(MetaGeoResults::TABLE)) {
             return [];
         }
         $rows = fn (string $level) => DB::table(MetaGeoResults::TABLE)->where('digital_asset_id', $account['asset_id'])->where('account_id', $account['account_id'])
@@ -258,7 +258,7 @@ class MetaAnalysis
      */
     private function breakdownRows(array $account, string $from, string $to, ?array $scope): array
     {
-        if (! Schema::hasTable(MetaGeoResults::BREAKDOWN_TABLE)) {
+        if (! SchemaState::hasTable(MetaGeoResults::BREAKDOWN_TABLE)) {
             return [];
         }
 

@@ -2,8 +2,8 @@
 
 namespace App\Support\Collection;
 
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Last day with data of a provider account / property: the newest reporting_date in the account-grain Data Pool fact
@@ -86,6 +86,6 @@ final class LastDataDay
 
     private static function readable(string $table): bool
     {
-        return self::$readable[$table] ??= Schema::hasTable($table) && Schema::hasColumn($table, 'external_resource_id');
+        return self::$readable[$table] ??= SchemaState::hasTable($table) && SchemaState::hasColumn($table, 'external_resource_id');
     }
 }

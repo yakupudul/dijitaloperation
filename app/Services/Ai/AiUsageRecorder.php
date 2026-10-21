@@ -4,10 +4,10 @@ namespace App\Services\Ai;
 
 use App\Ai\Contracts\RegistryPrompted;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Laravel\Ai\Events\AgentFailedOver;
 use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Events\PromptingAgent;
@@ -120,7 +120,7 @@ final class AiUsageRecorder
     public function failed(AgentFailedOver $event): void
     {
         try {
-            if (! Schema::hasTable('ai_usage_records')) {
+            if (! SchemaState::hasTable('ai_usage_records')) {
                 return;
             }
             $agent = class_basename($event->agent);
@@ -144,7 +144,7 @@ final class AiUsageRecorder
     public function handle(AgentPrompted $event): void
     {
         try {
-            if (! Schema::hasTable('ai_usage_records')) {
+            if (! SchemaState::hasTable('ai_usage_records')) {
                 return;
             }
             $agent = class_basename($event->prompt->agent);
@@ -180,7 +180,7 @@ final class AiUsageRecorder
 
     private static function keepsInput(): bool
     {
-        return self::$keepsInput ??= Schema::hasColumn('ai_usage_records', 'input_text');
+        return self::$keepsInput ??= SchemaState::hasColumn('ai_usage_records', 'input_text');
     }
 
     /**
@@ -199,7 +199,7 @@ final class AiUsageRecorder
     /** The billed cost the call list wrote (OpenAI ücretsiz kota applied there), else the list price. */
     private function billedCost(string $invocationId, ?float $listCost): ?float
     {
-        if (! Schema::hasColumn('ai_live_operations', 'list_cost_usd')) {
+        if (! SchemaState::hasColumn('ai_live_operations', 'list_cost_usd')) {
             return $listCost;
         }
         $row = DB::table('ai_live_operations')->where('invocation_id', mb_substr($invocationId, 0, 64))->where('kind', 'call')

@@ -8,12 +8,12 @@ use App\Services\Advisor\GoogleAds\GoogleAdsRowScope;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Support\SchemaState;
 use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -145,11 +145,11 @@ final class DataConsistencyChecker
     {
         [$from, $to] = [$this->start->toDateString(), $this->end->toDateString()];
         $query = match ($binding->capability) {
-            'ga4' => Schema::hasTable('ga4_property_daily')
+            'ga4' => SchemaState::hasTable('ga4_property_daily')
                 ? $this->seo->scopeGa4(DB::table('ga4_property_daily'), $asset)->whereBetween('reporting_date', [$from, $to])
                     ->selectRaw('reporting_date as day, sum(sessions) as activity')
                 : null,
-            'search_console' => Schema::hasTable('gsc_property_daily')
+            'search_console' => SchemaState::hasTable('gsc_property_daily')
                 ? $this->seo->scopeGsc(DB::table('gsc_property_daily'), $asset, 'gsc_property_daily')->whereBetween('reporting_date', [$from, $to])
                     ->selectRaw('reporting_date as day, sum(impressions) as activity')
                 : null,
@@ -182,7 +182,7 @@ final class DataConsistencyChecker
     private function metaQuery(DigitalAsset $asset, string $from, string $to): ?Builder
     {
         $binding = $this->metaBindings->resolve((string) $asset->id);
-        if (! $binding->isReal() || ! Schema::hasTable('meta_account_daily')) {
+        if (! $binding->isReal() || ! SchemaState::hasTable('meta_account_daily')) {
             return null;
         }
 
@@ -301,12 +301,12 @@ final class DataConsistencyChecker
      */
     private function ga4Paid(array $sites): ?array
     {
-        if (! Schema::hasTable('ga4_source_medium_daily') || ! Schema::hasTable('ga4_property_daily')) {
+        if (! SchemaState::hasTable('ga4_source_medium_daily') || ! SchemaState::hasTable('ga4_property_daily')) {
             return null;
         }
         [$from, $to] = [$this->start->toDateString(), $this->end->toDateString()];
         $mediums = array_map('strtolower', (array) config('moxdop-verification.consistency.paid_mediums', ['cpc']));
-        $hasKeyEvents = Schema::hasColumn('ga4_source_medium_daily', 'keyEvents');
+        $hasKeyEvents = SchemaState::hasColumn('ga4_source_medium_daily', 'keyEvents');
         $out = ['sessions' => [], 'paid' => [], 'key_events' => [], 'has_key_events' => $hasKeyEvents];
         $seen = false;
         foreach ($sites as $site) {

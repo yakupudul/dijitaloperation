@@ -19,11 +19,11 @@ use App\Services\Operator\AssetRuntimeStatusReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Support\Operator\CollectionErrorExplainer;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -261,7 +261,7 @@ final class AssetAlertScanner
     private function metaAds(DigitalAsset $asset): array
     {
         $binding = $this->metaBindings->resolve((string) $asset->id);
-        if (! $binding->isReal() || ! Schema::hasTable('meta_account_daily')) {
+        if (! $binding->isReal() || ! SchemaState::hasTable('meta_account_daily')) {
             return [];
         }
         // meta_account_daily is keyed by the ad account (central rows carry no asset).
@@ -303,7 +303,7 @@ final class AssetAlertScanner
      */
     private function budgetAlerts(DigitalAsset $asset, array $days, string $channel): array
     {
-        if (! Schema::hasTable('ad_budget_status')) {
+        if (! SchemaState::hasTable('ad_budget_status')) {
             return [];
         }
         $row = DB::table('ad_budget_status')->where('digital_asset_id', $asset->id)->first();
@@ -385,7 +385,7 @@ final class AssetAlertScanner
     /** @return list<array<string, mixed>> */
     private function website(DigitalAsset $asset): array
     {
-        if (! Schema::hasTable('gsc_property_daily')) {
+        if (! SchemaState::hasTable('gsc_property_daily')) {
             return [];
         }
         $latest = $this->seoInputs->scopeGsc(DB::table('gsc_property_daily'), $asset, 'gsc_property_daily')->max('reporting_date');
@@ -446,7 +446,7 @@ final class AssetAlertScanner
      */
     private function ga4Drops(DigitalAsset $asset): array
     {
-        if (! Schema::hasTable('ga4_property_daily')) {
+        if (! SchemaState::hasTable('ga4_property_daily')) {
             return [];
         }
         $latest = $this->seoInputs->scopeGa4(DB::table('ga4_property_daily'), $asset)->max('reporting_date');
@@ -460,7 +460,7 @@ final class AssetAlertScanner
         $cfg = (array) config('moxdop-alerts.ga4_drop');
         $alerts = [];
         foreach ([['sessions', 'min_previous_sessions', 'ga4_sessions_drop', 'Site ziyaretleri düştü', 'oturum'], ['keyEvents', 'min_previous_key_events', 'ga4_conversions_drop', 'Site dönüşümleri düştü', 'dönüşüm']] as [$column, $minKey, $kind, $title, $unit]) {
-            if (! Schema::hasColumn('ga4_property_daily', $column)) {
+            if (! SchemaState::hasColumn('ga4_property_daily', $column)) {
                 continue;
             }
             $current = $sum($column, $end->subDays(6), $end);
@@ -487,7 +487,7 @@ final class AssetAlertScanner
      */
     private function wordpressConnector(DigitalAsset $asset): array
     {
-        if (! Schema::hasTable('website_connector_delivery')) {
+        if (! SchemaState::hasTable('website_connector_delivery')) {
             return [];
         }
         $installed = DB::table('website_connector_delivery as d')->join('core_connections as c', 'c.id', '=', 'd.connection_id')

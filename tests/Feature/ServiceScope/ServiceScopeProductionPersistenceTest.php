@@ -15,8 +15,6 @@ use App\Models\User;
 use App\Services\ServiceScope\CommercialServiceContextProvider;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\ServiceScope\CustomerServiceScopeService;
-use App\Support\Demo\CommercialContextFixtures;
-use App\Support\Demo\DemoCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -245,9 +243,6 @@ class ServiceScopeProductionPersistenceTest extends TestCase
     {
         $customer = Customer::factory()->create();
         $this->assertSame([], $this->read->forCustomer($customer));
-
-        $demoRows = CommercialContextFixtures::serviceScopeForCustomer(DemoCatalog::CUSTOMER_ID);
-        $this->assertNotEmpty($demoRows);
     }
 
     public function test_commercial_context_provider_active_only(): void

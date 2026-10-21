@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\SchemaState;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -156,7 +157,7 @@ final class MoxdopResetCommand extends Command
             foreach ($tables as $table) {
                 DB::table($table)->delete();
             }
-            if ($driver === 'sqlite' && Schema::hasTable('sqlite_sequence')) {
+            if ($driver === 'sqlite' && SchemaState::hasTable('sqlite_sequence')) {
                 DB::table('sqlite_sequence')->whereIn('name', $tables)->delete();
             }
         } finally {

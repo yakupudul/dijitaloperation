@@ -28,9 +28,9 @@ use App\Services\Site\SiteText;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use App\Support\Options\LocationOptions;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -410,7 +410,7 @@ final class BrandSetupServiceSuggester
      */
     private function wordpressPages(DigitalAsset $website): array
     {
-        if (! Schema::hasTable('website_cms_object_snapshot')) {
+        if (! SchemaState::hasTable('website_cms_object_snapshot')) {
             return [];
         }
         $rows = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $website->id)->where('cms', 'wordpress')
@@ -571,7 +571,7 @@ final class BrandSetupServiceSuggester
     private function queries(array $items): array
     {
         $gsc = collect($items)->first(fn (array $item): bool => ($item['capability'] ?? null) === 'search_console' && in_array($item['status'], ['proposed', 'already'], true));
-        if ($gsc === null || ! Schema::hasTable('gsc_query_page_daily')) {
+        if ($gsc === null || ! SchemaState::hasTable('gsc_query_page_daily')) {
             return [];
         }
         $resource = CoreExternalResource::query()->find($gsc['resource_id']);

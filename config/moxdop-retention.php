@@ -7,12 +7,19 @@
  * - the query daily facts (Search Console query × page, Google Ads search terms) are not rolled up generically: their
  *   monthly aggregate IS `query_sources`, kept `query_sources_months` (24);
  * - raw provider payloads / HTML copies older than `raw_payload_days` are deleted (each page's latest HTML is kept);
+ *   this part, the telemetry windows and the AI text copies also run nightly (`moxdop:retention --apply --daily`);
  * - telemetry is trimmed to its own window. GBP provider content has its own 30-day job (moxdop:gbp:purge-expired).
  */
 return [
     'enabled' => (bool) env('MOXDOP_RETENTION_ENABLED', true),
 
-    'raw_payload_days' => (int) env('MOXDOP_RETENTION_RAW_DAYS', 90),
+    // Ham kopyalar tablolara işlendikten sonra yalnızca yeniden işlemek için durur; 11 GB'a çıktı (2026-10-21), 14 gün yeter.
+    'raw_payload_days' => (int) env('MOXDOP_RETENTION_RAW_DAYS', 14),
+
+    /* AI text copies: prompt texts of ai_usage_records and input / output / context of ai_live_operations are emptied
+       after these days; the rows stay as the run record (cost, tokens, status). */
+    'ai_input_days' => (int) env('MOXDOP_RETENTION_AI_INPUT_DAYS', 14),
+    'ai_copy_days' => (int) env('MOXDOP_RETENTION_AI_COPY_DAYS', 7),
     'raw_payload_batch' => 2000,
 
     'daily_performance_months' => (int) env('MOXDOP_RETENTION_DAILY_MONTHS', 16),
@@ -70,5 +77,7 @@ return [
         'uptime_checks' => ['checked_at', 30],
         'push_notifications' => ['created_at', 90],
         'app_error_groups' => ['last_seen_at', 90],
+        // Write bookkeeping of collections (627k rows / 563 MB on 2026-10-21); a re-run batch is simply written again.
+        'dataset_write_batches' => ['created_at', 60],
     ],
 ];

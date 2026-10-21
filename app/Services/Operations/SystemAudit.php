@@ -2,9 +2,9 @@
 
 namespace App\Services\Operations;
 
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -69,13 +69,13 @@ final class SystemAudit
     private function queue(): array
     {
         $out = [];
-        if (Schema::hasTable('jobs')) {
+        if (SchemaState::hasTable('jobs')) {
             $pending = DB::table('jobs')->count();
             $oldest = DB::table('jobs')->min('created_at');
             $minutes = $oldest !== null ? (int) floor((time() - (int) $oldest) / 60) : 0;
             $out[] = [$minutes > 30 ? 'fail' : 'ok', 'Veritabanı kuyruğu', $pending.' bekleyen iş'.($pending > 0 ? ', en eskisi '.$minutes.' dk' : '')];
         }
-        if (Schema::hasTable('failed_jobs')) {
+        if (SchemaState::hasTable('failed_jobs')) {
             $since = now()->subDay();
             $failed = DB::table('failed_jobs')->where('failed_at', '>=', $since)->get(['payload', 'exception']);
             $groups = $failed->groupBy(fn ($row): string => (string) (json_decode((string) $row->payload, true)['displayName'] ?? '?').' — '.mb_substr((string) strtok((string) $row->exception, "\n"), 0, 160))
@@ -203,7 +203,7 @@ final class SystemAudit
     {
         $out = [];
         $since = now()->subDays(7);
-        if (Schema::hasTable('collection_dataset_runs')) {
+        if (SchemaState::hasTable('collection_dataset_runs')) {
             $rows = DB::table('collection_dataset_runs')->where('updated_at', '>=', $since)->whereIn('status', ['failed', 'blocked', 'dead_lettered', 'exhausted'])
                 ->selectRaw('provider_or_source, error_code, error_message, count(*) as n, max(updated_at) as last_at')->groupBy('provider_or_source', 'error_code', 'error_message')
                 ->orderByDesc('n')->limit(300)->get();
@@ -222,7 +222,7 @@ final class SystemAudit
                 $out[] = ['warn', '  ×'.$group['n'].' '.$group['source'].' (son '.$this->shortTime($group['last']).')', $group['message']];
             }
         }
-        if (Schema::hasTable('runs')) {
+        if (SchemaState::hasTable('runs')) {
             $messages = DB::table('runs')->where('module_id', 'google-business-profile')->where('status', 'failed')->where('created_at', '>=', $since)
                 ->orderByDesc('id')->limit(500)->pluck('metadata')
                 ->map(function ($metadata): string {

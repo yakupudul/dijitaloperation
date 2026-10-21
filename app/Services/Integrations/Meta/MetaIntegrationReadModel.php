@@ -17,8 +17,8 @@ use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\Presentation\IntegrationHealthPresenter;
 use App\Support\Integrations\Presentation\IntegrationOperatorStatus;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\SchemaState;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Frozen `/app/integrations` Meta read model.
@@ -524,7 +524,7 @@ final class MetaIntegrationReadModel
      */
     private function collectionSummary(CoreIntegration $integration): array
     {
-        if (! Schema::hasTable('collection_runs')) {
+        if (! SchemaState::hasTable('collection_runs')) {
             return ['state' => 'not_run', 'label' => 'Collection not run'];
         }
 
@@ -568,7 +568,7 @@ final class MetaIntegrationReadModel
      */
     private function dataFreshnessSummary(CoreIntegration $integration): array
     {
-        if (! Schema::hasTable('dataset_materializations')) {
+        if (! SchemaState::hasTable('dataset_materializations')) {
             return ['state' => 'none', 'label' => 'No data available'];
         }
 
@@ -706,7 +706,7 @@ final class MetaIntegrationReadModel
 
     private function selectedBusinessCount(CoreIntegration $integration): int
     {
-        if (! Schema::hasTable('core_integration_discovery_contexts')) {
+        if (! SchemaState::hasTable('core_integration_discovery_contexts')) {
             return 0;
         }
 
@@ -763,7 +763,7 @@ final class MetaIntegrationReadModel
      */
     private function businessRows(CoreIntegration $integration): array
     {
-        $selectedIds = Schema::hasTable('core_integration_discovery_contexts')
+        $selectedIds = SchemaState::hasTable('core_integration_discovery_contexts')
             ? CoreIntegrationDiscoveryContext::query()
                 ->where('integration_id', $integration->id)
                 ->where('purpose', CoreIntegrationDiscoveryContext::PURPOSE_DISCOVERY_CONTEXT)

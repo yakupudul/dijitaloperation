@@ -9,10 +9,10 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\User;
 use App\Services\Portfolio\UnassignedWebsites;
+use App\Support\SchemaState;
 use App\Support\ServiceScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -77,7 +77,7 @@ final class BrandSetupAssistant
             return ['Bu adres için bağlı bir web sitesi yok. Hizmetler siteden okunamaz; yalnız arama verisinden (varsa) tahmin edilir ve eksik kalır. Önce siteyi Dijital varlıklara ekleyip sayfalarının toplanmasını bekleyin.'];
         }
         $pages = Page::query()->where('website_asset_id', $site->id)->count();
-        $wordpress = Schema::hasTable('website_cms_object_snapshot') ? DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->count() : 0;
+        $wordpress = SchemaState::hasTable('website_cms_object_snapshot') ? DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->count() : 0;
         if ($pages === 0 && $wordpress === 0) {
             return ['Sitenin sayfaları henüz toplanmadı. Hizmetler sayfalardan çıkarılır; şimdi çalışırsa çoğu hizmet bulunamaz. Sitenin Veri kaynakları ekranından toplamayı başlatıp bitmesini bekleyin.'];
         }

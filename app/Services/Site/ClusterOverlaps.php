@@ -16,9 +16,9 @@ use App\Services\Queries\ClusterEditor;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SitePagesReader;
 use App\Support\Options\LocationOptions;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -456,7 +456,7 @@ final class ClusterOverlaps
     /** @return array<string, int> language → WordPress post id, from the connector's Polylang translations */
     private static function translations(DigitalAsset $site, int $postId): array
     {
-        if ($postId <= 0 || ! Schema::hasTable('website_cms_object_snapshot')) {
+        if ($postId <= 0 || ! SchemaState::hasTable('website_cms_object_snapshot')) {
             return [];
         }
         $meta = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->where('object_id', (string) $postId)->value('metadata');

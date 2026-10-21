@@ -18,9 +18,9 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -391,7 +391,7 @@ final class BrandCandidateBuilder
     private function resourceHosts(CoreExternalResource $resource): array
     {
         $host = $this->grouper->hostOf($resource);
-        if ($host === null && $resource->resource_type === 'google_business_profile' && Schema::hasTable('gbp_location_snapshots')) {
+        if ($host === null && $resource->resource_type === 'google_business_profile' && SchemaState::hasTable('gbp_location_snapshots')) {
             $uri = DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->orderByDesc('id')->value('website_uri');
             $host = $this->usableHost((string) $uri);
         }
@@ -405,7 +405,7 @@ final class BrandCandidateBuilder
     private function adHost(CoreExternalResource $resource): ?string
     {
         [$table, $path] = $resource->resource_type === 'google_ads' ? ['google_ads_ad_snapshot', 'final_urls'] : ['meta_creative_snapshot', 'link_url'];
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return null;
         }
         $counts = [];
@@ -553,7 +553,7 @@ final class BrandCandidateBuilder
     {
         $meta = is_array($resource->metadata) ? $resource->metadata : [];
         $category = $meta['primary_category'] ?? null;
-        if (! is_string($category) && Schema::hasTable('gbp_location_snapshots')) {
+        if (! is_string($category) && SchemaState::hasTable('gbp_location_snapshots')) {
             $category = DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->orderByDesc('id')->value('primary_category');
         }
 

@@ -6,7 +6,6 @@ use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GoogleAdsWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,19 +70,5 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
                 ->assertSet('tab', $tab)
                 ->assertOk();
         }
-    }
-
-    public function test_demo_totals_are_coherent_and_deterministic(): void
-    {
-        $a = GoogleAdsWorkspaceFixtures::workspace('last_28');
-        $b = GoogleAdsWorkspaceFixtures::workspace('last_28');
-
-        $this->assertSame($a['glance'], $b['glance']);
-        $spend = (int) array_sum(array_column($a['campaigns'], 'spend'));
-        $leads = (int) array_sum(array_column($a['campaigns'], 'leads'));
-        $this->assertSame(48320, $spend);
-        $this->assertSame(114, $leads);
-        $this->assertSame(424, (int) round($spend / $leads));
-        $this->assertSame($a['search']['review_spend'], 4820);
     }
 }

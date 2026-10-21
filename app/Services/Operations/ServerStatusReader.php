@@ -2,11 +2,11 @@
 
 namespace App\Services\Operations;
 
+use App\Support\SchemaState;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -26,6 +26,8 @@ final class ServerStatusReader
     private const float CRITICAL_SHARE = 0.90;
 
     private const string DISK_BREAKDOWN_KEY = 'server-status:disk-breakdown';
+
+    private const string STORAGE_DETAIL_KEY = 'server-status:storage-detail';
 
     public function __construct(private readonly StorageGuard $storage) {}
 
@@ -144,7 +146,7 @@ final class ServerStatusReader
     /** @return list<array{label: string, value: string, tone: string}> */
     private function errors(): array
     {
-        if (! Schema::hasTable('app_error_groups')) {
+        if (! SchemaState::hasTable('app_error_groups')) {
             return [];
         }
         $groups = DB::table('app_error_groups')->where('last_seen_at', '>=', now()->subDay())->count();
@@ -158,7 +160,7 @@ final class ServerStatusReader
     /** @return list<array{label: string, value: string, tone: string}> */
     private function failedJobs(): array
     {
-        if (! Schema::hasTable('failed_jobs')) {
+        if (! SchemaState::hasTable('failed_jobs')) {
             return [];
         }
         $failed = DB::table('failed_jobs')->where('failed_at', '>=', now()->subDay())->count();
@@ -286,6 +288,64 @@ final class ServerStatusReader
         Cache::put(self::DISK_BREAKDOWN_KEY, $breakdown, now()->addHours(3));
 
         return $breakdown;
+    }
+
+    /** @return array<string, mixed> */
+    public function storageDetail(): array
+    {
+        return (array) Cache::get(self::STORAGE_DETAIL_KEY, []);
+    }
+
+    /**
+     * What fills the biggest data stores (measured nightly, never in a web request): link edges per site and by age,
+     * WordPress object copies by type, raw copies by data set and age. Read through MCP system-health.
+     *
+     * @return array<string, mixed>
+     */
+    public function measureStorage(): array
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return [];
+        }
+        $detail = ['at' => now()->toIso8601String()];
+        $read = function (string $key, callable $query) use (&$detail): void {
+            try {
+                $detail[$key] = $query();
+            } catch (Throwable $exception) {
+                $detail[$key.'_error'] = mb_substr($exception->getMessage(), 0, 200);
+            }
+        };
+        $read('link_edges_by_site', fn (): array => array_map(fn (object $r): array => (array) $r, DB::select(
+            "select digital_asset_id as site, count(*) as edges, count(distinct source_url) as pages,
+                count(*) filter (where observed_at < now() - interval '30 days') as older_30d, min(observed_at)::date::text as oldest
+            from website_link_edge group by 1 order by 2 desc limit 15")));
+        $read('cms_objects_by_type', fn (): array => array_map(fn (object $r): array => (array) $r, DB::select(
+            'select object_type, count(*) as objects from website_cms_object_snapshot group by 1 order by 2 desc limit 15')));
+        $read('raw_copies', fn (): array => array_map(fn (object $r): array => (array) $r, DB::select(
+            "select dataset_id, count(*) as objects, sum(byte_size)::bigint as bytes,
+                count(*) filter (where captured_at < now() - interval '14 days') as older_14d
+            from raw_ingestion_objects group by 1 order by 3 desc nulls last limit 15")));
+        Cache::put(self::STORAGE_DETAIL_KEY, $detail, now()->addDays(2));
+
+        return $detail;
+    }
+
+    /**
+     * Tables PostgreSQL reads by walking every row (seq scans) far more than through an index: where an index is missing.
+     *
+     * @return list<array{table: string, seq_scans: int, seq_rows_read: int, index_scans: int, rows: int}>
+     */
+    public function scanHotspots(int $limit = 15): array
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return [];
+        }
+
+        return array_map(fn (object $r): array => [
+            'table' => (string) $r->relname, 'seq_scans' => (int) $r->seq_scan, 'seq_rows_read' => (int) $r->seq_tup_read,
+            'index_scans' => (int) $r->idx_scan, 'rows' => (int) $r->n_live_tup,
+        ], DB::select('select relname, seq_scan, seq_tup_read, coalesce(idx_scan, 0) as idx_scan, n_live_tup from pg_stat_user_tables
+            where n_live_tup > 5000 order by seq_tup_read desc limit ?', [$limit]));
     }
 
     /**

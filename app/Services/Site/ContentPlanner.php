@@ -32,11 +32,11 @@ use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Work\ContentCoverage;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -891,7 +891,7 @@ final class ContentPlanner
      */
     private function paidResults(Brand $brand): array
     {
-        if (! Schema::hasTable('ad_service_stats')) {
+        if (! SchemaState::hasTable('ad_service_stats')) {
             return [];
         }
         $rows = DB::table('ad_service_stats')->where('brand_id', $brand->id)->whereNotNull('service_id')->where('results', '>', 0)->orderByDesc('results')->limit(20)
@@ -1325,7 +1325,7 @@ final class ContentPlanner
     {
         $urls = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->orderBy('id')->limit(2000)->get(['id', 'url', 'path', 'language'])
             ->filter(fn (Page $p): bool => self::inLanguage($p, $language))->pluck('url')->map(fn ($u): string => (string) $u)->values();
-        if ($urls->count() < self::DEMAND_PAGES || ! Schema::hasTable('gsc_page_daily')) {
+        if ($urls->count() < self::DEMAND_PAGES || ! SchemaState::hasTable('gsc_page_daily')) {
             return true;
         }
         $variants = $urls->flatMap(fn (string $u): array => [$u, rtrim($u, '/'), rtrim($u, '/').'/'])->unique()->values()->all();

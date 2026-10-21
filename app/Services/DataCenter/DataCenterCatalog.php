@@ -4,8 +4,8 @@ namespace App\Services\DataCenter;
 
 use App\Services\DataPool\Compact\CompactFactStore;
 use App\Services\DataPool\DataPoolStorageRegistry;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -118,16 +118,16 @@ final class DataCenterCatalog
 
             return DB::table((string) $spec['fact'])->where($column, $id)->delete();
         }
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return 0;
         }
         $column = isset(self::EXTRA_TABLES[$dataset]) ? self::EXTRA_TABLES[$dataset][0] : ($kind === 'resource' ? 'external_resource_id' : 'digital_asset_id');
-        if (! Schema::hasColumn($table, $column)) {
+        if (! SchemaState::hasColumn($table, $column)) {
             return 0;
         }
         $query = DB::table($table)->where($column, $id);
         // A website asset's own rows only; rows collected through an account belong to that account's source.
-        if ($kind === 'asset' && ! isset(self::EXTRA_TABLES[$dataset]) && Schema::hasColumn($table, 'external_resource_id')) {
+        if ($kind === 'asset' && ! isset(self::EXTRA_TABLES[$dataset]) && SchemaState::hasColumn($table, 'external_resource_id')) {
             $query->whereNull('external_resource_id');
         }
 

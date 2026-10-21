@@ -10,8 +10,8 @@ use App\Services\IntelligenceCore\Identity\PageIdentityResolver;
 use App\Services\IntelligenceProjection\Website\WebsiteProjectionAdapterSupport;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAdapter
 {
@@ -258,7 +258,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
     /** @return array<string, object> */
     private function inventory(int $assetId): array
     {
-        if (! Schema::hasTable('website_url')) {
+        if (! SchemaState::hasTable('website_url')) {
             return [];
         }
 
@@ -271,7 +271,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
     /** @return array<string, object> */
     private function latestSnapshots(string $table, int $assetId): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return [];
         }
 
@@ -284,7 +284,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
     /** @return array<string, list<array<string, mixed>>> */
     private function latestPerformance(int $assetId): array
     {
-        if (! Schema::hasTable('website_performance_measurement')) {
+        if (! SchemaState::hasTable('website_performance_measurement')) {
             return [];
         }
 
@@ -312,7 +312,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
      */
     private function latestIssues(int $assetId, array $http, array $metadata): array
     {
-        if (! Schema::hasTable('website_crawl_issue_snapshot')) {
+        if (! SchemaState::hasTable('website_crawl_issue_snapshot')) {
             return [];
         }
 
@@ -347,7 +347,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
      */
     private function latestLinks(int $assetId, array $http, array $metadata): array
     {
-        if (! Schema::hasTable('website_link_edge')) {
+        if (! SchemaState::hasTable('website_link_edge')) {
             return [];
         }
 
@@ -423,7 +423,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         );
 
         $infra = null;
-        if (Schema::hasTable('website_infra_snapshot')) {
+        if (SchemaState::hasTable('website_infra_snapshot')) {
             $infraRow = DB::table('website_infra_snapshot')
                 ->where('digital_asset_id', $asset->getKey())
                 ->orderByDesc('observed_at')

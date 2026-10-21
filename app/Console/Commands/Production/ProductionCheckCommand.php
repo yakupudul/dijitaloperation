@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands\Production;
 
+use App\Support\SchemaState;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
-use Illuminate\Support\Facades\Schema;
 use Laravel\Horizon\Horizon;
 use Throwable;
 
@@ -186,7 +186,7 @@ final class ProductionCheckCommand extends Command
     private function checkMigrationsTable(): void
     {
         try {
-            if (! Schema::hasTable('migrations')) {
+            if (! SchemaState::hasTable('migrations')) {
                 $this->record('MIGRATIONS', 'FAIL', 'migrations table missing — run migrate before go-live.');
 
                 return;
@@ -201,7 +201,7 @@ final class ProductionCheckCommand extends Command
     private function checkRolesSeeded(): void
     {
         try {
-            if (! Schema::hasTable('roles')) {
+            if (! SchemaState::hasTable('roles')) {
                 $this->record('ROLES_SEED', 'FAIL', 'roles table missing.');
 
                 return;
@@ -287,7 +287,7 @@ final class ProductionCheckCommand extends Command
 
     private function checkSchedulerHeartbeat(): void
     {
-        if (! Schema::hasTable('ops_dispatcher_heartbeats')) {
+        if (! SchemaState::hasTable('ops_dispatcher_heartbeats')) {
             $this->record('SCHEDULER', 'WARN', 'ops_dispatcher_heartbeats table missing — scheduler heartbeat not observable yet.');
 
             return;

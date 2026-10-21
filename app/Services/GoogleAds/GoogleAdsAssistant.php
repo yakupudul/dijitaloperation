@@ -27,11 +27,11 @@ use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Epicrisis\Epicrisis;
 use App\Services\ExternalWrites\GoogleAdsNegativeListWriter;
 use App\Services\SeoTasks\SeoText;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
@@ -691,7 +691,7 @@ final class GoogleAdsAssistant
         $keywords = array_values(array_unique(array_filter(array_map(fn (array $k): string => $k['ad_group_id'] === $key && $k['status'] === 'ENABLED' ? $k['text'] : '',
             $this->screen->keywordTexts($ctx['scope'])))));
         $headlines = $descriptions = $urls = [];
-        if (Schema::hasTable('google_ads_ad_daily')) {
+        if (SchemaState::hasTable('google_ads_ad_daily')) {
             foreach ($ctx['scope']->professional('google_ads_ad_daily')->where('ad_group_id', $key)->orderByDesc('reporting_date')->limit(50)->pluck('metadata') as $meta) {
                 $meta = GoogleAdsAdvisorInputCollector::decode($meta);
                 $headlines = [...$headlines, ...(array) ($meta['headlines'] ?? [])];

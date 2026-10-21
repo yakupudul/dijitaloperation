@@ -15,10 +15,10 @@ use App\Services\MetaAds\Support\MetaAdsBindingContext;
 use App\Services\Queries\QueryServiceMatcher;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SiteRange;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Meta screen numbers (Faz 6), read only from the collected Meta tables of the ONE bound ad account — never the Meta
@@ -505,7 +505,7 @@ final class MetaScreen
     /** @return list<array{region: string, country: string, spend: float, results: float, cpr: ?float}> */
     public function regions(array $account, string $from, string $to): array
     {
-        if (! Schema::hasTable(MetaGeoResults::TABLE)) {
+        if (! SchemaState::hasTable(MetaGeoResults::TABLE)) {
             return [];
         }
 
@@ -675,7 +675,7 @@ final class MetaScreen
     public function ga4(?Brand $brand, string $from, string $to): array
     {
         $empty = ['has_data' => false, 'sessions' => 0, 'key_events' => 0.0, 'landing' => []];
-        if ($brand === null || ! Schema::hasTable('ga4_landing_source_daily')) {
+        if ($brand === null || ! SchemaState::hasTable('ga4_landing_source_daily')) {
             return $empty;
         }
         $assets = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'ga4')->pluck('id');
@@ -922,12 +922,12 @@ final class MetaScreen
 
     private static function hasTable(string $table): bool
     {
-        return self::$tables[$table] ??= Schema::hasTable($table);
+        return self::$tables[$table] ??= SchemaState::hasTable($table);
     }
 
     private static function hasResourceColumn(string $table): bool
     {
-        return self::$resourceColumns[$table] ??= Schema::hasColumn($table, 'external_resource_id');
+        return self::$resourceColumns[$table] ??= SchemaState::hasColumn($table, 'external_resource_id');
     }
 
     /** @return array<string, array<string, float>> ad id => action type => value */

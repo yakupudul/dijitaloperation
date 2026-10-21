@@ -15,10 +15,10 @@ use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Roles;
+use App\Support\SchemaState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -267,7 +267,7 @@ class CustomersIndex extends Component
      */
     private function health(): array
     {
-        if (! Schema::hasTable('customer_health')) {
+        if (! SchemaState::hasTable('customer_health')) {
             return [];
         }
 

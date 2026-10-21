@@ -16,10 +16,10 @@ use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\ContactRoleOptions;
 use App\Support\Options\CountryOptions;
+use App\Support\SchemaState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -287,7 +287,7 @@ class CustomerDetail extends Component
      */
     private function healthReasons(int $customerId): ?array
     {
-        if (! Schema::hasTable('customer_health')) {
+        if (! SchemaState::hasTable('customer_health')) {
             return null;
         }
         $row = DB::table('customer_health')->where('customer_id', $customerId)->first(['score', 'band', 'reasons']);

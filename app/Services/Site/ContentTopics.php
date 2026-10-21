@@ -17,9 +17,9 @@ use App\Services\Epicrisis\Epicrisis;
 use App\Services\Meta\MetaDesk;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Work\PageSearchStats;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Konu haritası (yakup, 2026-10-16 "kümeyi bitir"): every service of a site gets a map of one main page and 8–15
@@ -92,7 +92,7 @@ final class ContentTopics
             ->groupBy('cq.cluster_id')->selectRaw('cq.cluster_id, sum(q.impressions) + sum(coalesce(q.volume, 0)) as demand')->pluck('demand', 'cq.cluster_id')->all();
         $main = BrandOffering::query()->where('brand_id', $brand->id)->where(fn ($q) => $q->where('priority', 'main')->orWhere('is_priority', true))
             ->pluck('service_catalog_item_id')->map(fn ($id): int => (int) $id)->flip()->all();
-        $paid = Schema::hasTable('ad_service_stats') ? DB::table('ad_service_stats')->where('brand_id', $brand->id)->where('results', '>', 0)->pluck('service_id')->map(fn ($id): int => (int) $id)->flip()->all() : [];
+        $paid = SchemaState::hasTable('ad_service_stats') ? DB::table('ad_service_stats')->where('brand_id', $brand->id)->where('results', '>', 0)->pluck('service_id')->map(fn ($id): int => (int) $id)->flip()->all() : [];
         $out = [];
         foreach ($rows->groupBy(fn (BrandClusterPage $r): int => (int) ($r->cluster?->service_id ?? 0)) as $serviceId => $group) {
             if ($serviceId === 0) {

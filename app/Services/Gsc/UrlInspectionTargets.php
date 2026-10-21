@@ -12,8 +12,8 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Work\ContentAutopilot;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -62,7 +62,7 @@ final class UrlInspectionTargets
             return ['site_url' => null, 'targets' => []];
         }
         $siteUrl = (string) $binding->siteUrl;
-        $recent = Schema::hasTable('gsc_url_inspection_snapshot')
+        $recent = SchemaState::hasTable('gsc_url_inspection_snapshot')
             ? DB::table('gsc_url_inspection_snapshot')->where(fn ($q) => $q->where('digital_asset_id', $site->id)->orWhere('external_resource_id', $binding->externalResourceId))
                 ->where('inspected_at', '>=', now()->subDays(self::INTERVAL_DAYS))->pluck('page')->map(fn ($u): string => SeoText::urlKey((string) $u))->flip()->all()
             : [];

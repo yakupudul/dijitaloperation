@@ -5,10 +5,10 @@ namespace App\Services\Operations;
 use App\Models\Observability\OpsDispatcherHeartbeat;
 use App\Models\Observability\WorkerHeartbeat;
 use App\Services\Assistant\PushNotifier;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Faz 13: watches the scheduler and the workers from OUTSIDE the scheduler. It is run by its own system cron line
@@ -42,7 +42,7 @@ final class OpsWatchdog
             $this->doctor->treat(array_map(fn (string $id): string => substr($id, 6), $stale));
         }
 
-        if (config('queue.connections.'.config('queue.default').'.driver') === 'database' && Schema::hasTable('jobs')) {
+        if (config('queue.connections.'.config('queue.default').'.driver') === 'database' && SchemaState::hasTable('jobs')) {
             $oldest = DB::table('jobs')->whereNull('reserved_at')->min('available_at');
             $waiting = $oldest !== null ? (int) floor((now()->getTimestamp() - (int) $oldest) / 60) : 0;
             if ($waiting > (int) config('moxdop-observability.watchdog.backlog_minutes', 30)) {

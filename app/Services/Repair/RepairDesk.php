@@ -31,6 +31,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
+use function Illuminate\Support\defer;
+
 /**
  * Onarım masası (Onarım Faz 2, yakup 2026-10-08): every prepared fix of every brand in one list, each with the value it
  * will write (eski → yeni) and a risk. The operator approves one row or many; approval writes through the existing
@@ -111,6 +113,9 @@ final class RepairDesk
     /** Cache key of summary(): the one waiting-work count of the menu, Bugün, Onarım masası and the brand pages. */
     public const string SUMMARY_KEY = 'repair-desk.summary';
 
+    /** The desk count is counted again after a page's response once it is older than this. */
+    private const int SUMMARY_FRESH_SECONDS = 120;
+
     /** Set on a row the operator approved while ApproveRepairRowsJob has not run yet: the row leaves the list meanwhile. */
     public const string QUEUED_AT = 'desk_queued_at';
 
@@ -152,7 +157,29 @@ final class RepairDesk
      */
     public function summary(): array
     {
-        return Cache::remember(self::SUMMARY_KEY, 120, fn (): array => self::summarize($this->rows()));
+        // Reading every desk row takes seconds; the menu of every page reads this. A page shows the last count and a
+        // stale one is counted again after the response (only the very first count is made while a page waits).
+        $cached = Cache::get(self::SUMMARY_KEY);
+        if (is_array($cached) && is_array($cached['summary'] ?? null)) {
+            if ((int) ($cached['at'] ?? 0) >= now()->getTimestamp() - self::SUMMARY_FRESH_SECONDS) {
+                return $cached['summary'];
+            }
+            if (! app()->runningUnitTests()) {
+                if (Cache::add(self::SUMMARY_KEY.'.lock', 1, 120)) {
+                    defer(static function (): void {
+                        try {
+                            self::rememberSummary(app(self::class)->rows());
+                        } finally {
+                            Cache::forget(self::SUMMARY_KEY.'.lock');
+                        }
+                    });
+                }
+
+                return $cached['summary'];
+            }
+        }
+
+        return self::rememberSummary($this->rows());
     }
 
     /**
@@ -179,13 +206,20 @@ final class RepairDesk
     public static function rememberSummary(Collection $rows): array
     {
         $summary = self::summarize($rows);
-        Cache::put(self::SUMMARY_KEY, $summary, 120);
+        Cache::put(self::SUMMARY_KEY, ['at' => now()->getTimestamp(), 'summary' => $summary], now()->addDay());
 
         return $summary;
     }
 
     public static function forgetSummary(): void
     {
+        // Kept as the last count but marked stale: the next page shows it and counts again after its response.
+        $cached = Cache::get(self::SUMMARY_KEY);
+        if (is_array($cached) && is_array($cached['summary'] ?? null) && ! app()->runningUnitTests()) {
+            Cache::put(self::SUMMARY_KEY, ['at' => 0, 'summary' => $cached['summary']], now()->addDay());
+
+            return;
+        }
         Cache::forget(self::SUMMARY_KEY);
     }
 

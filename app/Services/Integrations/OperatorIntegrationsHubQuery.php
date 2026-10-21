@@ -17,9 +17,9 @@ use App\Services\Operations\SystemHealthReader;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Operator integrations hub projection.
@@ -188,7 +188,7 @@ final class OperatorIntegrationsHubQuery
     {
         $sites = DB::table('core_connections')->where('type', 'wordpress_connector')->where('enabled', true)
             ->get(['id', 'config'])->filter(fn (object $row): bool => data_get(json_decode((string) $row->config, true), 'pairing_state') === 'paired');
-        $delivery = Schema::hasTable('website_connector_delivery')
+        $delivery = SchemaState::hasTable('website_connector_delivery')
             ? DB::table('website_connector_delivery')->whereIn('connection_id', $sites->pluck('id'))->get(['plugin_version', 'last_received_at'])
             : collect();
         $current = (string) config('moxdop-wordpress.connector_version', '');

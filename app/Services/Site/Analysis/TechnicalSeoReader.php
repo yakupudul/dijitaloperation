@@ -7,8 +7,8 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Teknik SEO of a website from stored rows only: what Google reports (latest Search Console URL inspection per page,
@@ -144,7 +144,7 @@ final class TechnicalSeoReader
     {
         $groups = [];
         $hasCrawl = false;
-        if (Schema::hasTable('website_crawl_issue_snapshot') && Schema::hasTable('website_http_snapshot')) {
+        if (SchemaState::hasTable('website_crawl_issue_snapshot') && SchemaState::hasTable('website_http_snapshot')) {
             $latest = DB::table('website_http_snapshot')->where('digital_asset_id', $site->id)->groupBy('url')->select('url')->selectRaw('max(observed_at) as observed_at');
             $hasCrawl = DB::table('website_http_snapshot')->where('digital_asset_id', $site->id)->exists();
             DB::table('website_crawl_issue_snapshot as i')->joinSub($latest, 'l', fn ($join) => $join->on('l.url', '=', 'i.url')->on('l.observed_at', '=', 'i.observed_at'))

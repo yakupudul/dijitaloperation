@@ -14,10 +14,10 @@ use App\Support\IntelligenceCore\IntelligenceSourceReference;
 use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
+use App\Support\SchemaState;
 use App\Support\Time\SafeTimezone;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
 {
@@ -67,10 +67,10 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
         $start = $context->periodStart->toDateString();
         $end = $context->periodEnd->toDateString();
         $timezone = SafeTimezone::normalize($binding->timezone ?: 'UTC', 'UTC');
-        $landing = Schema::hasTable('ga4_landing_page_daily')
+        $landing = SchemaState::hasTable('ga4_landing_page_daily')
             ? $this->landingAggregates($binding->externalResourceId, $binding->propertyId, $start, $end)
             : [];
-        $content = Schema::hasTable('ga4_page_content_daily')
+        $content = SchemaState::hasTable('ga4_page_content_daily')
             ? $this->contentAggregates($binding->externalResourceId, $binding->propertyId, $start, $end)
             : [];
 
@@ -435,7 +435,7 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
     /** @return array<string,array<string,mixed>> */
     private function keyEventAggregates(int $resourceId, string $propertyId, string $start, string $end): array
     {
-        if (! Schema::hasTable('ga4_key_event_daily')) {
+        if (! SchemaState::hasTable('ga4_key_event_daily')) {
             return [];
         }
         $events = [];

@@ -112,6 +112,7 @@ use App\Services\Integrations\BoundCollectorRegistry;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
+use App\Services\Operations\RequestTimings;
 use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
@@ -371,6 +372,15 @@ class AppServiceProvider extends ServiceProvider
         // Do not abort the PHPUnit suite — production stays unchanged.
         if ($this->app->environment('local')) {
             Model::preventLazyLoading();
+        }
+        // N+1 (2026-10-21): a relation read one row at a time is counted (MCP system-health › request_timings, "lazy:" rows), never
+        // thrown, so it can be fixed from live data.
+        // Pages only (queue jobs are not counted); the counts are written once, after the response.
+        if (! $this->app->environment('local') && ! $this->app->runningUnitTests() && ! $this->app->runningInConsole()) {
+            Model::preventLazyLoading();
+            Model::handleLazyLoadingViolationUsing(static function (Model $model, string $relation): void {
+                RequestTimings::lazyLoad($model::class.'.'.$relation);
+            });
         }
 
         $broadcast = BroadcastCollectionRunChanged::class;

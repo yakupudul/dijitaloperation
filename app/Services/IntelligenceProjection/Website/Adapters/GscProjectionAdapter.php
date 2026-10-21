@@ -13,10 +13,10 @@ use App\Support\IntelligenceCore\IntelligenceSourceReference;
 use App\Support\IntelligenceCore\IntelligenceTimeContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
+use App\Support\SchemaState;
 use App\Support\Time\SafeTimezone;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
 {
@@ -65,7 +65,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
                 ],
             );
         }
-        if (! Schema::hasTable('gsc_page_daily') || ! Schema::hasTable('gsc_query_daily')) {
+        if (! SchemaState::hasTable('gsc_page_daily') || ! SchemaState::hasTable('gsc_query_daily')) {
             return new WebsiteProjectionContribution(
                 sourceId: $this->sourceId(),
                 coverage: ['state' => 'not_collected', 'external_resource_id' => $binding->externalResourceId],
@@ -77,7 +77,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
         $timezone = SafeTimezone::normalize($binding->timezone ?: 'UTC', 'UTC');
         $pages = $this->aggregateDimension('gsc_page_daily', 'page', $binding->externalResourceId, $binding->siteUrl, $start, $end);
         $terms = $this->aggregateDimension('gsc_query_daily', 'query', $binding->externalResourceId, $binding->siteUrl, $start, $end);
-        $relations = Schema::hasTable('gsc_query_page_daily')
+        $relations = SchemaState::hasTable('gsc_query_page_daily')
             ? $this->aggregateQueryPages($binding->externalResourceId, $binding->siteUrl, $start, $end)
             : [];
 
@@ -476,7 +476,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
             ->where('external_resource_id', $resourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end]);
-        if (Schema::hasColumn($table, 'search_type')) {
+        if (SchemaState::hasColumn($table, 'search_type')) {
             $query->where('search_type', self::SEARCH_TYPE);
         }
 

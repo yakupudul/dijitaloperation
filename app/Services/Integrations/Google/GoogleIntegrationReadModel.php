@@ -14,9 +14,9 @@ use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Presentation\IntegrationHealthPresenter;
 use App\Support\Integrations\Presentation\IntegrationOperatorStatus;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\SchemaState;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Frozen `/app/integrations` Google read model.
@@ -581,7 +581,7 @@ final class GoogleIntegrationReadModel
      */
     private function collectionSummary(CoreIntegration $integration): array
     {
-        if (! Schema::hasTable('collection_runs')) {
+        if (! SchemaState::hasTable('collection_runs')) {
             return ['state' => 'not_run', 'label' => 'Collection not run'];
         }
 
@@ -616,7 +616,7 @@ final class GoogleIntegrationReadModel
      */
     private function dataFreshnessSummary(CoreIntegration $integration): array
     {
-        if (! Schema::hasTable('dataset_materializations')) {
+        if (! SchemaState::hasTable('dataset_materializations')) {
             return ['state' => 'none', 'label' => 'No data available'];
         }
 

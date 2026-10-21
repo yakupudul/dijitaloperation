@@ -10,11 +10,11 @@ use App\Services\Brand\BrandScope;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\Site\Competitors\CompetitorTargets;
 use App\Services\Site\SiteMetrics;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -418,7 +418,7 @@ final class SiteAnalysisReader
     private function byPage(array $resources, string $from, string $to): array
     {
         $facts = $this->byColumn($resources, 'page', $from, $to);
-        if ($resources === [] || ! Schema::hasTable('gsc_page_daily')) {
+        if ($resources === [] || ! SchemaState::hasTable('gsc_page_daily')) {
             return $facts;
         }
         $totals = DB::table('gsc_page_daily')->whereIn('external_resource_id', $resources)->where('search_type', 'web')

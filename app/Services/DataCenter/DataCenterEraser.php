@@ -3,9 +3,9 @@
 namespace App\Services\DataCenter;
 
 use App\Models\User;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -38,7 +38,7 @@ final class DataCenterEraser
             $deleted += $dataset === DataCenterCatalog::RAW
                 ? $this->eraseRaw($kind, $id)
                 : DB::transaction(fn (): int => $this->catalog->deleteRows($dataset, $kind, $id));
-            if ($dataset !== DataCenterCatalog::RAW && Schema::hasTable('dataset_materializations')) {
+            if ($dataset !== DataCenterCatalog::RAW && SchemaState::hasTable('dataset_materializations')) {
                 DB::table('dataset_materializations')->where('dataset_id', $dataset)
                     ->where($kind === 'resource' ? 'external_resource_id' : 'digital_asset_id', $id)
                     ->when($kind === 'asset', fn ($q) => $q->whereNull('external_resource_id'))
@@ -64,7 +64,7 @@ final class DataCenterEraser
 
     private function eraseRaw(string $kind, int $id): int
     {
-        if (! Schema::hasTable('raw_ingestion_objects')) {
+        if (! SchemaState::hasTable('raw_ingestion_objects')) {
             return 0;
         }
         $deleted = 0;

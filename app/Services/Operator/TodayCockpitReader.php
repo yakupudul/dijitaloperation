@@ -12,11 +12,11 @@ use App\Services\DataStatus\DataStatusReader;
 use App\Services\Measurement\BrandMeasurementScope;
 use App\Services\Repair\RepairDesk;
 use App\Support\Ai\AiOperationLabels;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -221,7 +221,7 @@ final class TodayCockpitReader
                     $brandOf = fn (object $row): ?int => $assetBrand[(int) ($row->digital_asset_id ?? 0)] ?? $assetBrand[$resourceAsset[(int) ($row->external_resource_id ?? 0)] ?? 0] ?? null;
                     $scope = BrandMeasurementScope::forAssetIds(array_keys($assetBrand));
 
-                    if (Schema::hasTable('gsc_property_daily')) {
+                    if (SchemaState::hasTable('gsc_property_daily')) {
                         $scope->rows('gsc_property_daily', $from, $to)->where('search_type', 'web')
                             ->selectRaw('digital_asset_id, external_resource_id, reporting_date, sum(clicks) as day_sum')
                             ->groupBy('digital_asset_id', 'external_resource_id', 'reporting_date')->get()
@@ -233,7 +233,7 @@ final class TodayCockpitReader
                                 }
                             });
                     }
-                    if (Schema::hasTable('google_ads_account_daily')) {
+                    if (SchemaState::hasTable('google_ads_account_daily')) {
                         $split = $to->subDays(6)->toDateString();
                         $scope->rows('google_ads_account_daily', $to->subDays(13), $to)
                             ->selectRaw('digital_asset_id, external_resource_id, sum(case when reporting_date >= ? then conversions else 0 end) as current_sum, sum(case when reporting_date < ? then conversions else 0 end) as previous_sum', [$split, $split])
@@ -300,7 +300,7 @@ final class TodayCockpitReader
      */
     private function daily(BrandMeasurementScope $scope, string $table, string $column, CarbonImmutable $from, CarbonImmutable $to, ?callable $filter = null): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return [];
         }
         $query = $scope->rows($table, $from, $to)->selectRaw('reporting_date, sum('.$column.') as day_sum')->groupBy('reporting_date');
@@ -323,7 +323,7 @@ final class TodayCockpitReader
      */
     private function sums(BrandMeasurementScope $scope, string $table, string $column, CarbonImmutable $previousFrom, CarbonImmutable $from, CarbonImmutable $to, ?callable $filter = null, bool $perCurrency = false): Collection
     {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return collect();
         }
         $split = $from->toDateString();

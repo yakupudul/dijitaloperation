@@ -10,9 +10,9 @@ use App\Services\Gbp\GbpStandardInput;
 use App\Services\Meta\MetaCampaignServices;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\Analysis\SiteAnalysisReader;
+use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Hizmet karnesi (brand page): every brand service across four channels over the last 30 days. Web sitesi: the
@@ -39,7 +39,7 @@ class BrandServiceScorecard
         }
         $city = AdServiceStats::city($brand);
         $serviceIds = array_values(array_unique(array_filter(array_column($offerings, 'service_id'))));
-        $hasStats = Schema::hasTable('ad_service_stats');
+        $hasStats = SchemaState::hasTable('ad_service_stats');
         $costs = ['meta' => $hasStats ? AdServiceStats::brandCosts('meta', $serviceIds) : [], 'google_ads' => $hasStats ? AdServiceStats::brandCosts('google_ads', $serviceIds) : []];
         $own = $hasStats ? DB::table('ad_service_stats')->where('brand_id', $brand->id)->groupBy('channel', 'brand_offering_id', 'result_type')
             ->selectRaw('channel, brand_offering_id, result_type, sum(spend) as spend, sum(results) as results')->get()

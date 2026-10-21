@@ -5,6 +5,7 @@ namespace App\Services\AiJobs;
 use App\Models\AiLiveOperation;
 use App\Models\User;
 use App\Services\Ai\AiLiveOperations;
+use App\Support\SchemaState;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobFailed;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -314,6 +314,6 @@ final class AiJobTracker
 
     private function ready(): bool
     {
-        return $this->ready ??= Schema::hasColumn('ai_live_operations', 'job_uuid');
+        return $this->ready ??= SchemaState::hasColumn('ai_live_operations', 'job_uuid');
     }
 }

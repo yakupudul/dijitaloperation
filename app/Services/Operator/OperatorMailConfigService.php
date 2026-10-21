@@ -6,9 +6,9 @@ use App\Mail\OperatorTestMail;
 use App\Models\AgencySetting;
 use App\Models\User;
 use App\Support\Operator\AgencySettingCatalog;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Throwable;
 
@@ -274,7 +274,7 @@ final class OperatorMailConfigService
     private function agencySettingsAreQueryable(): bool
     {
         try {
-            return Schema::hasTable('agency_settings');
+            return SchemaState::hasTable('agency_settings');
         } catch (Throwable) {
             return false;
         }

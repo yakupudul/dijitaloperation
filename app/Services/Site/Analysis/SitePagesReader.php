@@ -10,12 +10,12 @@ use App\Models\Suggestion;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\SiteScope;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Sayfalar (one row per URL path of one website): inventory (`pages` = WordPress + sitemap, `website_url` = page
@@ -528,7 +528,7 @@ final class SitePagesReader
     private function health(DigitalAsset $site): array
     {
         $out = [];
-        if (! Schema::hasTable('website_http_snapshot')) {
+        if (! SchemaState::hasTable('website_http_snapshot')) {
             return $out;
         }
         $http = DB::table('website_http_snapshot as s')->joinSub($this->latest('website_http_snapshot', (int) $site->id), 'l', fn ($join) => $join->on('l.url', '=', 's.url')->on('l.observed_at', '=', 's.observed_at'))
@@ -541,7 +541,7 @@ final class SitePagesReader
             }
             $out[$path] = ['status_code' => is_numeric($meta['status_code'] ?? null) ? (int) $meta['status_code'] : null, 'noindex' => false, 'issues' => 0, 'serious' => 0, 'observed_at' => (string) $row->observed_at];
         }
-        if (Schema::hasTable('website_metadata_snapshot')) {
+        if (SchemaState::hasTable('website_metadata_snapshot')) {
             DB::table('website_metadata_snapshot as s')->joinSub($this->latest('website_metadata_snapshot', (int) $site->id), 'l', fn ($join) => $join->on('l.url', '=', 's.url')->on('l.observed_at', '=', 's.observed_at'))
                 ->where('s.digital_asset_id', $site->id)->orderBy('s.id')->select(['s.url', 's.metadata'])->get()
                 ->each(function (object $row) use (&$out): void {
@@ -553,7 +553,7 @@ final class SitePagesReader
                     }
                 });
         }
-        if (Schema::hasTable('website_crawl_issue_snapshot')) {
+        if (SchemaState::hasTable('website_crawl_issue_snapshot')) {
             $serious = "'".implode("','", self::SERIOUS)."'";
             DB::table('website_crawl_issue_snapshot as i')->joinSub($this->latest('website_http_snapshot', (int) $site->id), 'l', fn ($join) => $join->on('l.url', '=', 'i.url')->on('l.observed_at', '=', 'i.observed_at'))
                 ->where('i.digital_asset_id', $site->id)->groupBy('i.url')->orderBy('i.url')
@@ -706,11 +706,11 @@ final class SitePagesReader
     {
         $issues = [];
         $links = null;
-        if (! Schema::hasTable('website_http_snapshot')) {
+        if (! SchemaState::hasTable('website_http_snapshot')) {
             return ['issues' => $issues, 'links' => $links];
         }
         $latest = fn (): Builder => $this->latest('website_http_snapshot', (int) $site->id);
-        if (Schema::hasTable('website_crawl_issue_snapshot')) {
+        if (SchemaState::hasTable('website_crawl_issue_snapshot')) {
             $issues = DB::table('website_crawl_issue_snapshot as i')->joinSub($latest(), 'l', fn ($join) => $join->on('l.url', '=', 'i.url')->on('l.observed_at', '=', 'i.observed_at'))
                 ->where('i.digital_asset_id', $site->id)->whereIn('i.url', $urls)->orderBy('i.severity')->orderBy('i.issue_code')->limit(50)
                 ->get(['i.issue_code', 'i.severity', 'i.message'])
@@ -718,7 +718,7 @@ final class SitePagesReader
             $rank = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3, 'info' => 4];
             usort($issues, fn (array $a, array $b): int => [$rank[$a['severity']] ?? 9, $a['code']] <=> [$rank[$b['severity']] ?? 9, $b['code']]);
         }
-        if (Schema::hasTable('website_link_edge') && DB::table('website_link_edge')->where('digital_asset_id', $site->id)->exists()) {
+        if (SchemaState::hasTable('website_link_edge') && DB::table('website_link_edge')->where('digital_asset_id', $site->id)->exists()) {
             $edges = fn (): Builder => DB::table('website_link_edge as e')->joinSub($latest(), 'l', fn ($join) => $join->on('l.url', '=', 'e.source_url')->on('l.observed_at', '=', 'e.observed_at'))
                 ->where('e.digital_asset_id', $site->id)->where('e.is_internal', true);
             $links = [

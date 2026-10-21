@@ -2,9 +2,9 @@
 
 namespace App\Services\Collection\Providers\Website;
 
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Site-level crawl state (table website_crawl_state).
@@ -188,6 +188,6 @@ final class WebsiteCrawlState
 
     private function ready(): bool
     {
-        return $this->tables['website_crawl_state'] ??= Schema::hasTable('website_crawl_state');
+        return $this->tables['website_crawl_state'] ??= SchemaState::hasTable('website_crawl_state');
     }
 }

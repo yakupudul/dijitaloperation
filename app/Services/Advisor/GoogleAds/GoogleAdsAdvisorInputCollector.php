@@ -9,10 +9,10 @@ use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Support\GoogleAds\DemographicLabels;
+use App\Support\SchemaState;
 use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Reads the Google Ads data that is already collected (normalized tables) for one Google Ads asset and
@@ -160,7 +160,7 @@ final class GoogleAdsAdvisorInputCollector
         }
         $snapshots = [];
         $languages = [];
-        $hasLanguages = Schema::hasColumn('google_ads_campaign_snapshot', 'language_codes');
+        $hasLanguages = SchemaState::hasColumn('google_ads_campaign_snapshot', 'language_codes');
         foreach ($scope->snapshot('google_ads_campaign_snapshot')->get(array_merge(['campaign_id', 'metadata'], $hasLanguages ? ['language_codes'] : [])) as $row) {
             $snapshots[(string) $row->campaign_id] = self::decode($row->metadata);
             $languages[(string) $row->campaign_id] = $hasLanguages && filled($row->language_codes) ? (string) $row->language_codes : null;
@@ -298,7 +298,7 @@ final class GoogleAdsAdvisorInputCollector
      */
     private function sharedNegatives(DigitalAsset $asset): array
     {
-        if (! Schema::hasTable('external_write_actions')) {
+        if (! SchemaState::hasTable('external_write_actions')) {
             return [];
         }
         $rows = DB::table('external_write_actions')->where('digital_asset_id', $asset->id)->where('channel', 'google_ads')
@@ -348,7 +348,7 @@ final class GoogleAdsAdvisorInputCollector
             ->map(fn ($rows, $key): array => ['label' => (string) $key] + $sum($rows))->values()->all();
         $regionRows = $scope->daily('google_ads_geo_daily', $window[0], $window[1])->where('location_type', 'LOCATION_OF_PRESENCE')
             ->get(['geo_target_region', 'cost_amount', 'clicks', 'conversions'])->groupBy('geo_target_region');
-        $names = $regionRows->isNotEmpty() && Schema::hasTable('google_ads_geo_names')
+        $names = $regionRows->isNotEmpty() && SchemaState::hasTable('google_ads_geo_names')
             ? DB::table('google_ads_geo_names')->whereIn('resource_name', $regionRows->keys()->all())->pluck('name', 'resource_name')->all() : [];
         $region = $regionRows->reject(fn ($rows, $key): bool => ! isset($names[$key]))
             ->map(fn ($rows, $key): array => ['label' => (string) $names[$key]] + $sum($rows))->values()->all();
@@ -410,7 +410,7 @@ final class GoogleAdsAdvisorInputCollector
      */
     private function qualityHistory(GoogleAdsRowScope $scope, CarbonImmutable $end): array
     {
-        if (! Schema::hasTable('google_ads_quality_score_history')) {
+        if (! SchemaState::hasTable('google_ads_quality_score_history')) {
             return [];
         }
         $lookback = (int) config('moxdop-advisor.google_ads.quality_history.lookback_days', 28);
@@ -445,7 +445,7 @@ final class GoogleAdsAdvisorInputCollector
             $adGroups[(string) $row->ad_group_id] = (string) (self::decode($row->metadata)['name'] ?? ('Reklam grubu '.$row->ad_group_id));
         }
         $cost = [];
-        if (Schema::hasTable('google_ads_ad_daily')) {
+        if (SchemaState::hasTable('google_ads_ad_daily')) {
             $scope->professional('google_ads_ad_daily')
                 ->whereBetween('reporting_date', $window)
                 ->select(['ad_id', 'cost_amount', 'clicks', 'conversions'])
@@ -561,7 +561,7 @@ final class GoogleAdsAdvisorInputCollector
     /** @return array{available: bool, observed_date: ?string, items: list<array<string, mixed>>} */
     private function recommendations(GoogleAdsRowScope $scope): array
     {
-        if (! Schema::hasTable('google_ads_recommendation_snapshot')) {
+        if (! SchemaState::hasTable('google_ads_recommendation_snapshot')) {
             return ['available' => false, 'observed_date' => null, 'items' => []];
         }
         $latest = $scope->professional('google_ads_recommendation_snapshot')->max('observed_date');
@@ -584,7 +584,7 @@ final class GoogleAdsAdvisorInputCollector
     /** @return array{available: bool, items: list<array<string, mixed>>} */
     private function changes(GoogleAdsRowScope $scope): array
     {
-        if (! Schema::hasTable('google_ads_change_event')) {
+        if (! SchemaState::hasTable('google_ads_change_event')) {
             return ['available' => false, 'items' => []];
         }
         $items = $scope->professional('google_ads_change_event')
@@ -639,7 +639,7 @@ final class GoogleAdsAdvisorInputCollector
     private function ga4(DigitalAsset $asset, array $window): array
     {
         $empty = ['available' => false, 'sessions' => null, 'key_events' => null];
-        if ($asset->brand_id === null || ! Schema::hasTable('ga4_source_medium_daily')) {
+        if ($asset->brand_id === null || ! SchemaState::hasTable('ga4_source_medium_daily')) {
             return $empty;
         }
         $sites = DigitalAsset::query()->where('brand_id', $asset->brand_id)->where('type', 'website')->pluck('id');

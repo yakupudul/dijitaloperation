@@ -2,8 +2,8 @@
 
 namespace App\Services\Collection\Providers\GoogleAds;
 
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Campaign language targeting (campaign_criterion type LANGUAGE), kept on the campaign snapshot as
@@ -26,7 +26,7 @@ final class GoogleAdsCampaignLanguages
      */
     public static function store(int $resourceId, string $customerId, array $rows, bool $reset = true): int
     {
-        if (! Schema::hasColumn('google_ads_campaign_snapshot', 'language_codes')) {
+        if (! SchemaState::hasColumn('google_ads_campaign_snapshot', 'language_codes')) {
             return 0;
         }
         $byCampaign = [];

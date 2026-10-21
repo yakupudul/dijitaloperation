@@ -10,10 +10,10 @@ use App\Services\Ai\AiPricing;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Ai\AiUsageRecorder;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 use RuntimeException;
@@ -37,7 +37,7 @@ final class PromptTrial
     /** @return list<array{id: int, at: string, version: ?int, chars: int}> recent real inputs of the operation, newest first */
     public function samples(string $operation, int $limit = 5): array
     {
-        if (! Schema::hasColumn('ai_usage_records', 'input_text')) {
+        if (! SchemaState::hasColumn('ai_usage_records', 'input_text')) {
             return [];
         }
 

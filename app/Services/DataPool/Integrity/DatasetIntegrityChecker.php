@@ -12,8 +12,8 @@ use App\Models\DataPool\DatasetWriteBatch;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\DataPool\Integrity\Support\IntegrityCheckOutcome;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Provider-neutral per-dataset integrity checks. Read-only — never mutates facts.
@@ -204,7 +204,7 @@ final class DatasetIntegrityChecker
             );
         }
 
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return IntegrityCheckOutcome::unverified(
                 checkId: 'natural_key_duplicates',
                 category: 'structural',
@@ -217,7 +217,7 @@ final class DatasetIntegrityChecker
         }
 
         $query = DB::table($table);
-        if ($assetId !== null && Schema::hasColumn($table, 'digital_asset_id')) {
+        if ($assetId !== null && SchemaState::hasColumn($table, 'digital_asset_id')) {
             $query->where('digital_asset_id', $assetId);
         }
 
@@ -265,7 +265,7 @@ final class DatasetIntegrityChecker
         $provider = (string) $profile['provider_or_source'];
         $table = (string) $profile['physical_table'];
 
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'digital_asset_id')) {
+        if (! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, 'digital_asset_id')) {
             return IntegrityCheckOutcome::notApplicable(
                 checkId: 'referential_integrity',
                 category: 'structural',
@@ -340,7 +340,7 @@ final class DatasetIntegrityChecker
         $provider = (string) $profile['provider_or_source'];
         $table = (string) $profile['physical_table'];
 
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return IntegrityCheckOutcome::unverified(
                 checkId: 'provenance',
                 category: 'provenance',
@@ -353,7 +353,7 @@ final class DatasetIntegrityChecker
         }
 
         $rowCount = DB::table($table);
-        if ($assetId !== null && Schema::hasColumn($table, 'digital_asset_id')) {
+        if ($assetId !== null && SchemaState::hasColumn($table, 'digital_asset_id')) {
             $rowCount->where('digital_asset_id', $assetId);
         }
         $total = (int) $rowCount->count();
@@ -371,7 +371,7 @@ final class DatasetIntegrityChecker
         }
 
         $missing = 0;
-        if (Schema::hasColumn($table, 'last_collection_run_id')) {
+        if (SchemaState::hasColumn($table, 'last_collection_run_id')) {
             $q = DB::table($table)->whereNull('last_collection_run_id');
             if ($assetId !== null) {
                 $q->where('digital_asset_id', $assetId);
@@ -1007,7 +1007,7 @@ final class DatasetIntegrityChecker
         $table = (string) $profile['physical_table'];
         $source = (string) ($profile['timezone_source'] ?? 'unknown');
 
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return IntegrityCheckOutcome::unverified(
                 checkId: 'timezone_provenance',
                 category: 'timezone',
@@ -1021,7 +1021,7 @@ final class DatasetIntegrityChecker
 
         $tzColumn = null;
         foreach (['source_timezone', 'timezone', 'property_timezone'] as $candidate) {
-            if (Schema::hasColumn($table, $candidate)) {
+            if (SchemaState::hasColumn($table, $candidate)) {
                 $tzColumn = $candidate;
                 break;
             }
@@ -1048,7 +1048,7 @@ final class DatasetIntegrityChecker
         }
 
         $q = DB::table($table)->whereNotNull($tzColumn);
-        if ($assetId !== null && Schema::hasColumn($table, 'digital_asset_id')) {
+        if ($assetId !== null && SchemaState::hasColumn($table, 'digital_asset_id')) {
             $q->where('digital_asset_id', $assetId);
         }
         $distinct = $q->distinct()->limit(10)->pluck($tzColumn)->filter()->values();
@@ -1102,7 +1102,7 @@ final class DatasetIntegrityChecker
             );
         }
 
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'currency')) {
+        if (! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, 'currency')) {
             return IntegrityCheckOutcome::unverified(
                 checkId: 'currency_provenance',
                 category: 'currency',

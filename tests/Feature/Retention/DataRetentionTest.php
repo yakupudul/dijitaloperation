@@ -93,6 +93,39 @@ final class DataRetentionTest extends TestCase
         $this->assertNull(DB::table('website_html_snapshot')->where('observed_at', $old->copy()->subDays(10))->value('raw_ingestion_object_id'));
     }
 
+    public function test_raw_payloads_are_kept_fourteen_days_and_purged_nightly(): void
+    {
+        Storage::fake('raw-test');
+        $old = $this->rawObject('old.json.gz', now()->subDays(15));
+        $recent = $this->rawObject('recent.json.gz', now()->subDays(13));
+
+        $this->artisan('moxdop:retention', ['--apply' => true, '--daily' => true])->expectsOutputToContain('Ham kopya: 1')->assertSuccessful();
+
+        $this->assertSame([$recent], DB::table('raw_ingestion_objects')->pluck('id')->all());
+        $this->assertNotContains($old, DB::table('raw_ingestion_objects')->pluck('id')->all());
+        $this->assertStringContainsString("Schedule::command('moxdop:retention--apply--daily')->dailyAt(", (string) preg_replace('/\s+/', '', (string) file_get_contents(base_path('routes/console.php'))));
+    }
+
+    public function test_ai_text_copies_are_emptied_but_the_rows_stay(): void
+    {
+        DB::table('ai_usage_records')->insert([
+            ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'eski', 'created_at' => now()->subDays(15)],
+            ['agent' => 'A', 'provider' => 'anthropic', 'model' => 'm', 'input_text' => 'yeni', 'created_at' => now()->subDays(3)],
+        ]);
+        DB::table('ai_live_operations')->insert([
+            ['label' => 'eski', 'agent' => 'A', 'status' => 'done', 'started_at' => now()->subDays(8), 'input_text' => 'girdi', 'output_text' => 'çıktı', 'context' => 'bağlam'],
+            ['label' => 'yeni', 'agent' => 'A', 'status' => 'done', 'started_at' => now()->subDays(2), 'input_text' => 'girdi', 'output_text' => 'çıktı', 'context' => 'bağlam'],
+        ]);
+
+        $result = app(DataRetentionService::class)->runDaily();
+
+        $this->assertSame(1, $result['ai_run_inputs']);
+        $this->assertSame(1, $result['ai_copies']);
+        $this->assertSame(['yeni'], DB::table('ai_usage_records')->whereNotNull('input_text')->pluck('input_text')->all());
+        $this->assertSame(['yeni'], DB::table('ai_live_operations')->whereNotNull('input_text')->pluck('label')->all());
+        $this->assertSame(2, DB::table('ai_live_operations')->count());
+    }
+
     public function test_command_is_a_dry_run_unless_apply(): void
     {
         $this->adsDay(CarbonImmutable::now()->startOfMonth()->subMonths(17), impressions: 10, clicks: 1, share: 0.2);

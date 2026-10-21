@@ -8,10 +8,10 @@ use App\Models\ComplianceRule;
 use App\Models\DigitalAsset;
 use App\Services\Measurement\BrandMeasurementScope;
 use App\Services\Website\PublicDiscovery\StoredHtmlReader;
+use App\Support\SchemaState;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -117,7 +117,7 @@ final class ComplianceAuditor
     private function subjects(Brand $brand): iterable
     {
         $scope = BrandMeasurementScope::for($brand);
-        if (! $scope->isEmpty() && Schema::hasTable('meta_creative_snapshot')) {
+        if (! $scope->isEmpty() && SchemaState::hasTable('meta_creative_snapshot')) {
             foreach ($scope->apply(DB::table('meta_creative_snapshot'))->orderByDesc('last_collected_at')->limit(2000)->get()->unique('creative_id') as $row) {
                 $meta = (array) json_decode((string) $row->metadata, true);
                 $text = trim(implode(' . ', array_filter([(string) ($meta['title'] ?? ''), (string) ($meta['body'] ?? '')])));
@@ -127,7 +127,7 @@ final class ComplianceAuditor
             }
         }
         // Faz 14: live Google Ads responsive search ad texts (headlines + descriptions from the last 30 days).
-        if (! $scope->isEmpty() && Schema::hasTable('google_ads_ad_daily')) {
+        if (! $scope->isEmpty() && SchemaState::hasTable('google_ads_ad_daily')) {
             foreach ($scope->apply(DB::table('google_ads_ad_daily'))->where('reporting_date', '>=', now()->subDays(30)->toDateString())
                 ->orderByDesc('reporting_date')->limit(5000)->get(['digital_asset_id', 'ad_id', 'metadata'])->unique('ad_id') as $row) {
                 $meta = (array) json_decode((string) $row->metadata, true);
@@ -137,7 +137,7 @@ final class ComplianceAuditor
                 }
             }
         }
-        if (! $scope->isEmpty() && Schema::hasTable('meta_adset_targeting_snapshot')) {
+        if (! $scope->isEmpty() && SchemaState::hasTable('meta_adset_targeting_snapshot')) {
             foreach ($scope->apply(DB::table('meta_adset_targeting_snapshot'))->orderByDesc('last_collected_at')->limit(2000)->get()->unique('adset_id') as $row) {
                 $targeting = (array) json_decode((string) $row->targeting, true);
                 if ($targeting !== []) {
@@ -153,7 +153,7 @@ final class ComplianceAuditor
     /** @return iterable<array{source: string, ref: string, label: string, asset_id: ?int, text: string}> */
     private function websitePages(Brand $brand): iterable
     {
-        if (! Schema::hasTable('website_html_snapshot')) {
+        if (! SchemaState::hasTable('website_html_snapshot')) {
             return;
         }
         $limit = (int) config('moxdop-sector-packs.website_pages_per_brand', 150);
@@ -182,20 +182,20 @@ final class ComplianceAuditor
         if ($scope->isEmpty()) {
             return;
         }
-        if (Schema::hasTable('gbp_location_snapshots')) {
+        if (SchemaState::hasTable('gbp_location_snapshots')) {
             foreach ($scope->apply(DB::table('gbp_location_snapshots'))->orderByDesc('captured_at')->limit(500)->get()->unique('location_name') as $row) {
                 $profile = (array) json_decode((string) $row->profile, true);
                 yield ['source' => 'gbp', 'ref' => 'gbp_profile:'.$row->location_name, 'label' => 'Profil: '.($row->title ?: $row->location_name), 'asset_id' => $row->digital_asset_id,
                     'text' => trim(($row->title ?? '').' . '.($profile['description'] ?? ''))];
             }
         }
-        if (Schema::hasTable('gbp_posts')) {
+        if (SchemaState::hasTable('gbp_posts')) {
             foreach ($scope->apply(DB::table('gbp_posts'))->whereNotNull('summary')->orderByDesc('collected_at')->limit(500)->get()->unique('post_name') as $row) {
                 yield ['source' => 'gbp', 'ref' => 'gbp_post:'.$row->post_name, 'label' => 'Gönderi: '.mb_substr((string) $row->summary, 0, 60), 'asset_id' => $row->digital_asset_id,
                     'text' => trim((string) $row->summary.' . '.self::flatten((array) json_decode((string) $row->offer, true)))];
             }
         }
-        if (Schema::hasTable('gbp_service_snapshots')) {
+        if (SchemaState::hasTable('gbp_service_snapshots')) {
             foreach ($scope->apply(DB::table('gbp_service_snapshots'))->orderByDesc('captured_at')->limit(200)->get()->unique('location_name') as $row) {
                 $text = self::flatten((array) json_decode((string) $row->service_items, true));
                 if ($text !== '') {

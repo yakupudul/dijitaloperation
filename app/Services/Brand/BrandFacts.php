@@ -18,9 +18,9 @@ use App\Services\Meta\MetaDesk;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteScope;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -327,7 +327,7 @@ final class BrandFacts
         }
         $shared = [];
         foreach (['ad_service_stats', 'web_service_stats'] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! SchemaState::hasTable($table)) {
                 continue;
             }
             DB::table($table)->whereIn('service_id', $serviceIds)->where('brand_id', '!=', $brand->id)->whereRaw('lower(city) = ?', [mb_strtolower($city)])
@@ -356,13 +356,13 @@ final class BrandFacts
         foreach ($this->websites($brand) as $site) {
             $resources = array_merge($resources, $this->reader->window($site, 28)['gsc']);
         }
-        if ($resources === [] || ! Schema::hasTable('gsc_property_daily')) {
+        if ($resources === [] || ! SchemaState::hasTable('gsc_property_daily')) {
             return ['items' => [], 'source' => 'Search Console bağlı değil.'];
         }
         $from = CarbonImmutable::today()->subMonths(12)->startOfMonth();
         $months = [];
         DB::table('gsc_property_daily')->whereIn('external_resource_id', array_values(array_unique($resources)))
-            ->when(Schema::hasColumn('gsc_property_daily', 'search_type'), fn ($q) => $q->where('search_type', 'web'))
+            ->when(SchemaState::hasColumn('gsc_property_daily', 'search_type'), fn ($q) => $q->where('search_type', 'web'))
             ->where('reporting_date', '>=', $from->toDateString())->where('reporting_date', '<', CarbonImmutable::today()->startOfMonth()->toDateString())
             ->get(['reporting_date', 'impressions'])->each(function (object $r) use (&$months): void {
                 $month = (int) substr((string) $r->reporting_date, 5, 2);

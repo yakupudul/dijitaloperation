@@ -2,8 +2,8 @@
 
 namespace App\Services\DataPool;
 
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Latest-state upkeep of the per-page Website tables. New data still goes through the DatasetWritePipeline; this
@@ -146,6 +146,6 @@ final class WebsitePageStateStore
 
     private function hasTable(string $table): bool
     {
-        return $this->tables[$table] ??= Schema::hasTable($table);
+        return $this->tables[$table] ??= SchemaState::hasTable($table);
     }
 }

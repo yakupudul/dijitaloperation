@@ -5,8 +5,8 @@ namespace App\Services\BrandSetup;
 use App\Models\Brand;
 use App\Models\CoreExternalResource;
 use App\Support\Options\LocationOptions;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -106,7 +106,7 @@ final class BrandSetupAreaSuggester
     public static function address(CoreExternalResource $resource): ?array
     {
         $address = (array) ($resource->metadata['storefront_address'] ?? []);
-        if (Schema::hasTable('gbp_location_snapshots')) {
+        if (SchemaState::hasTable('gbp_location_snapshots')) {
             $snapshot = DB::table('gbp_location_snapshots')->where('external_resource_id', $resource->id)->orderByDesc('captured_at')->value('storefront_address');
             $decoded = is_string($snapshot) ? json_decode($snapshot, true) : null;
             $address = is_array($decoded) && $decoded !== [] ? $decoded : $address;

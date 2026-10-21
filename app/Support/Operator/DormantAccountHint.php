@@ -2,9 +2,9 @@
 
 namespace App\Support\Operator;
 
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -70,7 +70,7 @@ final class DormantAccountHint
         $latest = [];
         foreach (['google_ads_account_daily', 'google_ads_campaign_daily'] as $table) {
             try {
-                if (! Schema::hasColumn($table, 'cost_amount')) {
+                if (! SchemaState::hasColumn($table, 'cost_amount')) {
                     continue;
                 }
                 $rows = DB::table($table)->whereIn('external_resource_id', $resourceIds)->where('cost_amount', '>', 0)

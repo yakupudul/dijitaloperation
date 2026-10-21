@@ -2,6 +2,9 @@
 
 namespace App\Support\Options;
 
+use App\Models\ServiceCategory;
+use App\Support\SchemaState;
+
 /**
  * Shared industry / sector catalog for Customer and Brand forms.
  * Stored values are stable codes; labels are operator-facing.
@@ -15,8 +18,8 @@ final class IndustryOptions
      */
     public static function options(): array
     {
-        if (\Illuminate\Support\Facades\Schema::hasTable('service_categories')) {
-            return \App\Models\ServiceCategory::options();
+        if (SchemaState::hasTable('service_categories')) {
+            return ServiceCategory::options();
         }
 
         return self::defaults();

@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
  */
 final class DataRetentionCommand extends Command
 {
-    protected $signature = 'moxdop:retention {--apply : Değişiklikleri uygula (varsayılan: yalnız sayar)}';
+    protected $signature = 'moxdop:retention {--apply : Değişiklikleri uygula (varsayılan: yalnız sayar)} {--daily : Yalnız her gün büyüyenler: ham kopyalar, telemetri, AI metin kopyaları}';
 
     protected $description = 'Veri saklama: 16 aydan eski günlük verileri aylığa çevirip siler, sorgu kaynaklarını 24 ay tutar, ham kopyaları, telemetriyi ve 12 aydan eski kapalı önerileri temizler.';
 
@@ -24,6 +24,13 @@ final class DataRetentionCommand extends Command
             return self::SUCCESS;
         }
         $dryRun = ! $this->option('apply');
+        if ($this->option('daily')) {
+            $result = $retention->runDaily($dryRun);
+            $this->info(sprintf('%sHam kopya: %d · telemetri: %d · AI girdi metni: %d · AI işi kopyası: %d.', $dryRun ? '[deneme] ' : '',
+                $result['raw_objects'], array_sum($result['telemetry']), $result['ai_run_inputs'], $result['ai_copies']));
+
+            return self::SUCCESS;
+        }
         $result = $retention->run($dryRun);
         $this->info(sprintf(
             '%sGünlük veri sınırı: %s · ham kopya: %d · telemetri: %d · aylığa çevrilen günlük satır: %d (%d aylık satır) · silinen sorgu günlük satırı: %d · silinen sorgu kaynağı: %d · silinen kapalı öneri: %d · silinen AI girdi metni: %d.',

@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Models\Brand;
 use App\Services\Brand\BrandScope;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\Query\Builder;
@@ -76,14 +77,14 @@ class ChannelData extends Tool
         }
         $definition = self::DATASETS[$validated['dataset']];
         [$table, $dateColumn, $groups, $metrics] = $definition;
-        if (! Schema::hasTable($table) && ! in_array($table, array_column(Schema::getViews(), 'name'), true)) {
+        if (! SchemaState::hasTable($table) && ! in_array($table, array_column(Schema::getViews(), 'name'), true)) {
             return Response::error('Bu veri tablosu yok: '.$table);
         }
 
         $from = CarbonImmutable::now()->subDays((int) ($validated['days'] ?? 90))->toDateString();
         $owned = $this->owned((int) $brand->id, $validated['dataset'], $dateColumn, $from);
         $limit = (int) ($validated['limit'] ?? 50);
-        $webOnly = str_starts_with($table, 'gsc_') && Schema::hasColumn($table, 'search_type');
+        $webOnly = str_starts_with($table, 'gsc_') && SchemaState::hasColumn($table, 'search_type');
         $base = fn () => $owned(DB::table($table), $table)->where($dateColumn, '>=', $from)
             ->when($webOnly, fn ($q) => $q->where(fn ($w) => $w->whereNull('search_type')->orWhere('search_type', 'web')));
         $sums = implode(', ', array_map(fn (string $m): string => $this->sum($table, $m), $metrics));
@@ -133,7 +134,7 @@ class ChannelData extends Tool
      */
     private function sources(int $brandId, string $dataset, string $table, string $dateColumn): array
     {
-        if (! Schema::hasColumn($table, 'external_resource_id')) {
+        if (! SchemaState::hasColumn($table, 'external_resource_id')) {
             return [];
         }
         $out = [];
@@ -174,9 +175,9 @@ class ChannelData extends Tool
         return function (Builder $query, string $table) use ($assetIds, $resourceIds, $dateColumn, $from): Builder {
             // Central only where the account has central rows in the period read: old central rows outside it must not
             // hide the asset-bound rows that are inside it.
-            $central = $resourceIds !== [] && Schema::hasColumn($table, 'external_resource_id')
+            $central = $resourceIds !== [] && SchemaState::hasColumn($table, 'external_resource_id')
                 ? array_values(array_filter($resourceIds, fn (int $id): bool => DB::table($table)->where('external_resource_id', $id)->whereNull('digital_asset_id')
-                    ->when($dateColumn !== null && $from !== null && Schema::hasColumn($table, $dateColumn), fn (Builder $q) => $q->where($dateColumn, '>=', $from))->exists()))
+                    ->when($dateColumn !== null && $from !== null && SchemaState::hasColumn($table, $dateColumn), fn (Builder $q) => $q->where($dateColumn, '>=', $from))->exists()))
                 : [];
 
             return $query->where(fn (Builder $scope) => $scope
@@ -190,7 +191,7 @@ class ChannelData extends Tool
     {
         $expression = match (true) {
             $metric === 'count' => 'count(*)',
-            $metric === 'cost' && Schema::hasColumn($table, 'cost_amount') => 'sum(coalesce(cost_amount, cost_micros / 1000000.0))',
+            $metric === 'cost' && SchemaState::hasColumn($table, 'cost_amount') => 'sum(coalesce(cost_amount, cost_micros / 1000000.0))',
             $metric === 'cost' => 'sum(cost_micros) / 1000000.0',
             default => 'sum('.$this->wrap($metric).')',
         };
@@ -224,7 +225,7 @@ class ChannelData extends Tool
         if ($resolver === null || $rows === []) {
             return $rows;
         }
-        $meta = fn (string $table, string $key): array => Schema::hasTable($table)
+        $meta = fn (string $table, string $key): array => SchemaState::hasTable($table)
             ? $owned(DB::table($table), $table)->get([$key, 'metadata'])
                 ->mapWithKeys(fn (object $r): array => [(string) $r->{$key} => is_string($r->metadata) ? (array) json_decode($r->metadata, true) : (array) $r->metadata])->all()
             : [];
@@ -236,7 +237,7 @@ class ChannelData extends Tool
         }
         if ($resolver === 'keyword') {
             $keywords = [];
-            if (Schema::hasTable('google_ads_keyword_snapshot')) {
+            if (SchemaState::hasTable('google_ads_keyword_snapshot')) {
                 foreach ($owned(DB::table('google_ads_keyword_snapshot'), 'google_ads_keyword_snapshot')->get(['ad_group_id', 'criterion_id', 'metadata']) as $k) {
                     $keywords[$k->ad_group_id."\0".$k->criterion_id] = is_string($k->metadata) ? (array) json_decode($k->metadata, true) : (array) $k->metadata;
                 }

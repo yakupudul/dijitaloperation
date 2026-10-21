@@ -14,9 +14,9 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandPack;
 use App\Services\Epicrisis\Epicrisis;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -69,7 +69,7 @@ class MetaStrategy
      */
     public function strategy(array $filters): array
     {
-        if (! Schema::hasTable('ad_campaign_stats') || ! Schema::hasColumn('ad_campaign_stats', 'profile')) {
+        if (! SchemaState::hasTable('ad_campaign_stats') || ! SchemaState::hasColumn('ad_campaign_stats', 'profile')) {
             return ['ready' => false];
         }
         $type = array_key_exists($filters['type'] ?? '', self::TYPES) ? $filters['type'] : 'leads';

@@ -5,10 +5,10 @@ namespace App\Services\Measurement;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
+use App\Support\SchemaState;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * The brand's rows in the collected data pool: rows written for one of its assets or for an external
@@ -90,7 +90,7 @@ final class BrandMeasurementScope
      */
     public function currencies(string $table, CarbonInterface $from, CarbonInterface $to): array
     {
-        if ($this->isEmpty() || ! Schema::hasTable($table) || ! Schema::hasColumn($table, 'currency')) {
+        if ($this->isEmpty() || ! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, 'currency')) {
             return [];
         }
 
@@ -106,7 +106,7 @@ final class BrandMeasurementScope
      */
     public function perAccount(string $table, CarbonInterface $from, CarbonInterface $to, array $sums): array
     {
-        if ($this->isEmpty() || ! Schema::hasTable($table)) {
+        if ($this->isEmpty() || ! SchemaState::hasTable($table)) {
             return [];
         }
         $grammar = DB::getQueryGrammar();
@@ -114,7 +114,7 @@ final class BrandMeasurementScope
         foreach ($sums as $key => $column) {
             $select[] = 'sum('.$grammar->wrap($column).') as '.$grammar->wrap($key);
         }
-        $hasCurrency = Schema::hasColumn($table, 'currency');
+        $hasCurrency = SchemaState::hasColumn($table, 'currency');
         if ($hasCurrency) {
             $select[] = 'max(currency) as currency';
         }

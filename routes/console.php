@@ -40,7 +40,6 @@ use App\Services\Ads\DormantAdWork;
 use App\Services\Ads\Winners;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\ClaudeApiWindow;
-use App\Services\Ai\OpenAiCostAudit;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
@@ -103,6 +102,7 @@ use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
 use App\Support\Roles;
 use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
@@ -668,16 +668,33 @@ Schedule::command('moxdop:gbp:purge-expired')
     ->name('gbp-content-retention');
 
 // v2 Faz 1: veri saklama (ayda bir) — günlük veriler 16 ay (eskisi aylığa çevrilip silinir), sorgu günlükleri 16 ay
-// (aylık hali query_sources, 24 ay), ham kopyalar 90 gün (her sayfanın son HTML'i kalır), telemetri kendi süresi.
+// (aylık hali query_sources, 24 ay), kapalı öneriler 12 ay.
 Schedule::command('moxdop:retention --apply')
     ->monthlyOn(2, '07:10')
     ->withoutOverlapping(720)
     ->name('data-retention');
 
+// Her gece büyüyenler (disk %94, 2026-10-21): ham kopyalar 14 gün (her sayfanın son HTML'i kalır), telemetri kendi
+// süresi, AI metin kopyaları 7/14 gün. Yedekten (06:30) önce, böylece yedek de küçülür.
+Schedule::command('moxdop:retention --apply --daily')
+    ->dailyAt('03:20')
+    ->withoutOverlapping(300)
+    ->runInBackground()
+    ->name('data-retention-daily');
+
 // Where the disk space went (MCP system-health disk_breakdown): du runs here, never inside a web request.
 Schedule::call(fn () => app(ServerStatusReader::class)->measureDisk())
     ->hourlyAt(19)
     ->name('disk-breakdown')
+    ->withoutOverlapping(30);
+
+// What fills the biggest data stores (MCP system-health storage_detail): counted about once a day (first right after a
+// deploy), never in a web request.
+Schedule::call(fn () => app(ServerStatusReader::class)->measureStorage())
+    ->hourlyAt(25)
+    ->when(fn (): bool => ! filled(app(ServerStatusReader::class)->storageDetail()['at'] ?? null)
+        || now()->diffInHours(Carbon::parse(app(ServerStatusReader::class)->storageDetail()['at'])) >= 20)
+    ->name('storage-detail')
     ->withoutOverlapping(30);
 
 // failed_jobs keeps every failed job's whole payload and stack trace and was never trimmed (509 failures on 2026-10-13
@@ -1523,13 +1540,6 @@ Artisan::command('moxdop:ai:costs {--hours=24 : Kaç saat geriye}', function (Ai
     ], $rows));
     $this->info(sprintf('Toplam: $%.3f · bugün tüm AI: $%.3f / günlük tavan $%.2f', array_sum(array_column($rows, 'cost')), $budget->dailySpend(), $budget->dailyBudget()));
 })->purpose('Show the AI spend per operation (automatic vs operator) and the daily automatic ceiling.');
-
-// Kota denetimi: OpenAI's real costs against our estimate (turns the free-quota accounting off when they disagree).
-Artisan::command('moxdop:ai:openai-audit', function (OpenAiCostAudit $audit): void {
-    $result = $audit->run();
-    $this->info((string) ($result['message'] ?? $result['status']));
-})->purpose('Compare OpenAI\'s real costs (Costs API) with the recorded AI spend; disable the free-quota accounting on mismatch.');
-Schedule::command('moxdop:ai:openai-audit')->hourlyAt(23)->withoutOverlapping(10)->name('ai-openai-audit');
 
 // Takılı AI işleri: rows a dead worker left "Çalışıyor" (killed for timeout before the tracker closed them on failure).
 Artisan::command('moxdop:ai:close-stuck {--minutes=30 : Bu kadar dakikadır çalışıyor görünenler (en uzun iş süresi 28 dk)}', function (): void {

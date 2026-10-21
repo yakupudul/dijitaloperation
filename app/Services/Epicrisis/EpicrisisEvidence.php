@@ -7,8 +7,8 @@ use App\Models\BrandEpicrisisItem;
 use App\Models\BrandOffering;
 use App\Services\Brand\BrandFacts;
 use App\Services\Site\SiteScope;
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -67,7 +67,7 @@ final class EpicrisisEvidence
     /** @return list<array<string, mixed>> */
     private function adResults(Brand $brand): array
     {
-        if (! Schema::hasTable('ad_service_stats')) {
+        if (! SchemaState::hasTable('ad_service_stats')) {
             return [];
         }
         $names = SiteScope::offerings($brand)->mapWithKeys(fn (BrandOffering $o): array => [(int) $o->id => trim($o->displayName())]);

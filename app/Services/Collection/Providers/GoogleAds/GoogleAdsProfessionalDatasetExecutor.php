@@ -13,10 +13,10 @@ use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -284,7 +284,7 @@ final class GoogleAdsProfessionalDatasetExecutor implements DatasetExecutor
         try {
             $ids = collect($records)->flatMap(fn (array $r): array => [$r['geo_target_region'] ?? '', $r['geo_target_city'] ?? ''])
                 ->filter(fn ($id): bool => is_string($id) && str_starts_with($id, 'geoTargetConstants/'))->unique()->values();
-            if ($ids->isEmpty() || ! Schema::hasTable('google_ads_geo_names')) {
+            if ($ids->isEmpty() || ! SchemaState::hasTable('google_ads_geo_names')) {
                 return;
             }
             $missing = $ids->diff(DB::table('google_ads_geo_names')->whereIn('resource_name', $ids->all())->pluck('resource_name'))->values();

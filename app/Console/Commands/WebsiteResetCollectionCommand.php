@@ -3,9 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Services\Collection\Website\WebsiteCollectionStopper;
+use App\Support\SchemaState;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -75,7 +75,7 @@ final class WebsiteResetCollectionCommand extends Command
 
     private function purgeLinkEdges(bool $force): void
     {
-        if (! Schema::hasTable('website_link_edge')) {
+        if (! SchemaState::hasTable('website_link_edge')) {
             return;
         }
         $count = DB::table('website_link_edge')->count();
@@ -95,7 +95,7 @@ final class WebsiteResetCollectionCommand extends Command
      */
     private function keepLatestRows(string $table, array $keyColumns, int $chunk, bool $force): void
     {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return;
         }
 
@@ -145,7 +145,7 @@ final class WebsiteResetCollectionCommand extends Command
      */
     private function deleteUnreferencedRawObjects(array $rawIds): int
     {
-        if (! Schema::hasTable('raw_ingestion_objects')) {
+        if (! SchemaState::hasTable('raw_ingestion_objects')) {
             return 0;
         }
         $deleted = 0;

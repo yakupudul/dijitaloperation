@@ -10,10 +10,10 @@ use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Website\Pages\WordPressPageSync;
+use App\Support\SchemaState;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -238,7 +238,7 @@ final class WordPressEventReconciliation
      */
     private function startNightlyFullReads(int $fullSlots): int
     {
-        if ($fullSlots < 1 || ! self::inNightWindow() || ! Schema::hasTable('website_crawl_state')) {
+        if ($fullSlots < 1 || ! self::inNightWindow() || ! SchemaState::hasTable('website_crawl_state')) {
             return $fullSlots;
         }
         $due = now()->subDays(max(1, (int) config('moxdop-website-intelligence.crawl.full_read_interval_days', 30)));
@@ -309,7 +309,7 @@ final class WordPressEventReconciliation
     private function neverRead(int $assetId): bool
     {
         return app(WebsiteCrawlState::class)->lastFullReadAt($assetId) === null
-            && Schema::hasTable('website_html_snapshot')
+            && SchemaState::hasTable('website_html_snapshot')
             && DB::table('website_html_snapshot')->where('digital_asset_id', $assetId)->doesntExist();
     }
 

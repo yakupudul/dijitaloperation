@@ -10,11 +10,11 @@ use App\Models\DigitalAsset;
 use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Support\Integrations\AssetBindingCompatibility;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Container\Attributes\Scoped;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * The one reader behind every "is this data source connected and current?" signal: asset pages, the Veri durumu
@@ -548,6 +548,6 @@ class DataStatusReader
 
     private static function hasTable(string $table): bool
     {
-        return self::$tables[$table] ??= Schema::hasTable($table);
+        return self::$tables[$table] ??= SchemaState::hasTable($table);
     }
 }

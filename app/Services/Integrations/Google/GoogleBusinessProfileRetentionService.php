@@ -2,8 +2,8 @@
 
 namespace App\Services\Integrations\Google;
 
+use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Enforces Google Business Profile API content-storage retention.
@@ -33,7 +33,7 @@ final class GoogleBusinessProfileRetentionService
         $deleted = 0;
 
         foreach (self::TABLE_TIMESTAMP as $table => $column) {
-            if (! Schema::hasTable($table)) {
+            if (! SchemaState::hasTable($table)) {
                 continue;
             }
 

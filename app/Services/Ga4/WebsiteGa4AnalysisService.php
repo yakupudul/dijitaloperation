@@ -7,11 +7,11 @@ use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Operator\OperatorReportingPeriod;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Website-scoped GA4 read model over the resource-first central Data Pool.
@@ -62,7 +62,7 @@ final class WebsiteGa4AnalysisService
         }
 
         $resourceId = (int) $resource->id;
-        if (! Schema::hasTable('ga4_property_daily')) {
+        if (! SchemaState::hasTable('ga4_property_daily')) {
             return array_merge($empty, [
                 'connected' => true,
                 'property_id' => $propertyId,
@@ -456,7 +456,7 @@ final class WebsiteGa4AnalysisService
     private function conversionSources(int $resourceId, string $propertyId, string $start, string $end): array
     {
         $empty = ['channel' => [], 'campaign' => [], 'landing' => []];
-        if (! Schema::hasTable('ga4_key_event_daily')) {
+        if (! SchemaState::hasTable('ga4_key_event_daily')) {
             return $empty;
         }
         $names = $this->baseQuery('ga4_key_event_daily', $resourceId, $propertyId, $start, $end)
@@ -465,7 +465,7 @@ final class WebsiteGa4AnalysisService
             return $empty;
         }
         $read = function (string $table, string $dimension) use ($resourceId, $propertyId, $start, $end, $names): array {
-            if (! Schema::hasTable($table)) {
+            if (! SchemaState::hasTable($table)) {
                 return [];
             }
 
@@ -589,7 +589,7 @@ final class WebsiteGa4AnalysisService
         string $orderMetric,
         int $limit,
     ): Collection {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaState::hasTable($table)) {
             return collect();
         }
 

@@ -9,7 +9,7 @@ use App\Models\Page;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorRuleEngine;
 use App\Services\SeoTasks\SeoText;
-use Illuminate\Support\Facades\Schema;
+use App\Support\SchemaState;
 
 /**
  * Faz 5 Google Ads system checks (no AI, at most 10): deterministic, from the collected data of the bound account.
@@ -391,7 +391,7 @@ final class GoogleAdsChecks
     private function policy(DigitalAsset $asset, array $pack): array
     {
         $ctx = $this->screen->context($asset);
-        if ($ctx === null || ! Schema::hasTable('google_ads_ad_daily')) {
+        if ($ctx === null || ! SchemaState::hasTable('google_ads_ad_daily')) {
             return $this->result('policy', 'nodata', 'Reklam onay verisi yok.');
         }
         $latest = [];

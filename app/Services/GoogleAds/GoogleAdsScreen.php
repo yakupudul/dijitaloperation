@@ -17,10 +17,10 @@ use App\Services\Operator\ExternalLinks;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryServiceMatcher;
 use App\Services\Site\Analysis\SiteRange;
+use App\Support\SchemaState;
 use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Numbers of the Google Ads screen (Faz 5), read from the collected google_ads_* tables of the one bound account:
@@ -285,7 +285,7 @@ final class GoogleAdsScreen
      */
     private function regions(GoogleAdsRowScope $scope, string $from, string $to): array
     {
-        if (! Schema::hasTable('google_ads_geo_daily') || ! Schema::hasTable('google_ads_geo_names')) {
+        if (! SchemaState::hasTable('google_ads_geo_daily') || ! SchemaState::hasTable('google_ads_geo_names')) {
             return [];
         }
         $rows = $scope->daily('google_ads_geo_daily', $from, $to)->where('location_type', 'LOCATION_OF_PRESENCE')
@@ -432,7 +432,7 @@ final class GoogleAdsScreen
                 $out[(string) $r->campaign_id] = $row($names['campaigns'][(string) $r->campaign_id]['name'] ?? (string) $r->campaign_id, null, $r) + ['ref' => ['campaign' => (string) $r->campaign_id]];
             }
         } elseif ($level === 'ad_group') {
-            if (Schema::hasTable('google_ads_ad_group_daily')) {
+            if (SchemaState::hasTable('google_ads_ad_group_daily')) {
                 foreach ($scope->professional('google_ads_ad_group_daily')->whereBetween('reporting_date', $window)->groupBy('ad_group_id')->selectRaw('ad_group_id, MAX(campaign_id) as campaign_id, '.$sum)->get() as $r) {
                     $group = $names['ad_groups'][(string) $r->ad_group_id] ?? null;
                     $out[(string) $r->ad_group_id] = $row($group['name'] ?? (string) $r->ad_group_id, $names['campaigns'][(string) $r->campaign_id]['name'] ?? null, $r)
@@ -463,7 +463,7 @@ final class GoogleAdsScreen
         } else {
             $geo = $scope->daily('google_ads_geo_daily', $window[0], $window[1])->where('location_type', 'LOCATION_OF_PRESENCE')
                 ->groupBy('geo_target_city', 'geo_target_region')->selectRaw('geo_target_city, geo_target_region, '.$sum)->get();
-            $geoNames = Schema::hasTable('google_ads_geo_names') && $geo->isNotEmpty()
+            $geoNames = SchemaState::hasTable('google_ads_geo_names') && $geo->isNotEmpty()
                 ? DB::table('google_ads_geo_names')->whereIn('resource_name', $geo->pluck('geo_target_city')->merge($geo->pluck('geo_target_region'))->filter()->unique()->all())->pluck('name', 'resource_name')->all() : [];
             foreach ($geo as $r) {
                 $city = $geoNames[(string) $r->geo_target_city] ?? null;

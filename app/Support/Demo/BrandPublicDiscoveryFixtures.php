@@ -471,20 +471,4 @@ final class BrandPublicDiscoveryFixtures
             ],
         ];
     }
-
-    /**
-     * @return list<array{field: string, state: string}>
-     */
-    public static function publicIdentity(): array
-    {
-        return self::overview()['public_identity'];
-    }
-
-    /**
-     * @return list<array{id: string, label: string}>
-     */
-    public static function existingOfferingsForMap(): array
-    {
-        return self::workspace()['existing_offerings'];
-    }
 }

@@ -8,9 +8,9 @@ use App\Models\Task;
 use App\Services\GoogleAds\GoogleAdsPoolReadRepository;
 use App\Services\Gsc\GscPoolReadRepository;
 use App\Services\Tasks\TaskReadService;
+use App\Support\SchemaState;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Repository-local Prompt 65 benchmark harness (no production dependency).
@@ -53,7 +53,7 @@ final class BenchmarkHarness
         });
         unset($measurements['task_eloquent_query']['result']);
 
-        if ($asset !== null && Schema::hasTable('gsc_query_daily') && (int) $profile['gsc_rows'] > 0) {
+        if ($asset !== null && SchemaState::hasTable('gsc_query_daily') && (int) $profile['gsc_rows'] > 0) {
             $repo = app(GscPoolReadRepository::class);
             $measurements['gsc_top_queries'] = $this->probe->measure(function () use ($repo, $asset, $start, $end) {
                 return $repo->topQueries($asset->id, 1, 'https://bench.example.test/', $start, $end, 20);
@@ -75,7 +75,7 @@ final class BenchmarkHarness
             unset($measurements['gsc_aggregate_sql']['result']);
         }
 
-        if ($asset !== null && Schema::hasTable('google_ads_search_term_daily') && (int) $profile['ads_rows'] > 0) {
+        if ($asset !== null && SchemaState::hasTable('google_ads_search_term_daily') && (int) $profile['ads_rows'] > 0) {
             $adsRepo = app(GoogleAdsPoolReadRepository::class);
             $measurements['ads_search_terms'] = $this->probe->measure(function () use ($adsRepo, $asset, $start, $end) {
                 return $adsRepo->topSearchTerms($asset->id, 1, 'bench-ads-customer', $start, $end, 50);
@@ -95,10 +95,10 @@ final class BenchmarkHarness
             'customers' => Customer::query()->count(),
             'brands' => count($fixture['brands']),
             'digital_assets' => count($fixture['assets']),
-            'gsc_query_daily' => Schema::hasTable('gsc_query_daily')
+            'gsc_query_daily' => SchemaState::hasTable('gsc_query_daily')
                 ? (int) DB::table('gsc_query_daily')->count()
                 : 0,
-            'google_ads_search_term_daily' => Schema::hasTable('google_ads_search_term_daily')
+            'google_ads_search_term_daily' => SchemaState::hasTable('google_ads_search_term_daily')
                 ? (int) DB::table('google_ads_search_term_daily')->count()
                 : 0,
             'findings' => Finding::query()->count(),
