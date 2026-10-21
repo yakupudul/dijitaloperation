@@ -24,11 +24,11 @@ final class ExternalLinks
 {
     public const string GBP_MANAGER = 'https://business.google.com/locations';
 
-    /** @var array<int, true>|null connector sites of the brand forBrand() reads (null: look each site up) */
-    private ?array $wordPressSites = null;
+    /** @var array<int, ?string> latest place id per profile resource read so far (preloaded per brand, else one by one) */
+    private array $placeIds = [];
 
-    /** @var array<int, string>|null latest place id per profile resource of that brand */
-    private ?array $placeIds = null;
+    /** @var array<int, true>|null every connector site, read once per request (the class is scoped): a desk of 5,000 rows asked per row */
+    private ?array $allWordPressSites = null;
 
     /**
      * Links for one asset: its own account (and for a website the site, WordPress and the Search Console / GA4 bound to it).
@@ -259,22 +259,20 @@ final class ExternalLinks
     public function isWordPress(DigitalAsset $site): bool
     {
         return strtolower((string) $site->cms) === 'wordpress'
-            || ($this->wordPressSites !== null ? isset($this->wordPressSites[(int) $site->id])
-                : DB::table('core_connections')->where('digital_asset_id', $site->id)->where('type', 'wordpress_connector')->where('enabled', true)->exists());
+            || isset(($this->allWordPressSites ??= DB::table('core_connections')->where('type', 'wordpress_connector')
+                ->where('enabled', true)->whereNotNull('digital_asset_id')->pluck('digital_asset_id')->mapWithKeys(fn ($id): array => [(int) $id => true])->all())[(int) $site->id]);
     }
 
     /**
-     * A brand's connector sites and profile place ids in one query each, so its "Hızlı giriş" menu costs the same
+     * A brand's profile place ids in one query (connector sites: isWordPress reads them all once), so its "Hızlı giriş" menu costs the same
      * number of queries for one website or profile as for many.
      *
      * @param  Collection<int, DigitalAsset>  $assets
      */
     private function preload(Collection $assets): void
     {
-        $this->wordPressSites = DB::table('core_connections')->whereIn('digital_asset_id', $assets->where('type', 'website')->pluck('id')->all() ?: [0])
-            ->where('type', 'wordpress_connector')->where('enabled', true)->pluck('digital_asset_id')->mapWithKeys(fn ($id): array => [(int) $id => true])->all();
         $resources = $assets->flatMap(fn (DigitalAsset $asset) => $asset->assetBindings)->where('capability', 'google_business_profile')->pluck('external_resource_id')->filter()->unique()->values()->all();
-        $this->placeIds = [];
+        $this->placeIds += array_fill_keys($resources, null);
         DB::table('gbp_location_snapshots')->whereIn('external_resource_id', $resources ?: [0])->whereNotNull('place_id')
             ->orderBy('captured_at')->orderBy('id')->get(['external_resource_id', 'place_id'])
             ->each(function (object $row): void {
@@ -310,8 +308,11 @@ final class ExternalLinks
 
     private function placeId(int $resourceId, mixed $metadata): ?string
     {
-        $placeId = ($this->placeIds !== null ? ($this->placeIds[$resourceId] ?? null) : DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceId)->whereNotNull('place_id')
-            ->orderByDesc('captured_at')->orderByDesc('id')->value('place_id')) ?? data_get($metadata, 'place_id');
+        if (! array_key_exists($resourceId, $this->placeIds)) {
+            $this->placeIds[$resourceId] = DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceId)->whereNotNull('place_id')
+                ->orderByDesc('captured_at')->orderByDesc('id')->value('place_id');
+        }
+        $placeId = $this->placeIds[$resourceId] ?? data_get($metadata, 'place_id');
 
         return is_string($placeId) && trim($placeId) !== '' ? trim($placeId) : null;
     }

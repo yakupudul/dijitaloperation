@@ -5,6 +5,7 @@ namespace Tests\Feature\Operator;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
+use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\User;
@@ -13,6 +14,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -76,6 +78,21 @@ final class ExternalLinksTest extends TestCase
         $member->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($member);
         $this->assertStringContainsString('href="https://www.atlas.com/wp-admin/post.php?post=12&amp;action=edit"', Blade::render('<x-operator.open-link :link="$link" />', ['link' => $post]));
+    }
+
+    public function test_connector_sites_are_read_once_per_request_however_many_rows_ask(): void
+    {
+        $sites = collect(range(1, 6))->map(fn (int $i): DigitalAsset => DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website',
+            'status' => 'active', 'module_id' => 'website', 'name' => 'Site '.$i, 'domain' => 'site'.$i.'.test', 'cms' => null]));
+        CoreConnection::factory()->create(['digital_asset_id' => $sites[0]->id, 'type' => 'wordpress_connector', 'enabled' => true]);
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        // The desk asks once per row (19,378 queries on Bugün, 2026-10-21): app() hands every row the same instance.
+        $answers = $sites->map(fn (DigitalAsset $site): bool => app(ExternalLinks::class)->isWordPress($site))->all();
+
+        $this->assertSame([true, false, false, false, false, false], $answers);
+        $this->assertCount(1, DB::getQueryLog());
     }
 
     public function test_the_brand_page_groups_links_and_folds_many_profiles_into_one(): void

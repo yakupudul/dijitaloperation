@@ -114,6 +114,7 @@ use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Services\Operations\RequestTimings;
 use App\Services\Operator\AgencySettingService;
+use App\Services\Operator\ExternalLinks;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
 use App\Services\Prompts\PromptRegistry;
@@ -169,6 +170,7 @@ class AppServiceProvider extends ServiceProvider
         Connection::resolverFor('pgsql', static fn ($pdo, string $database, string $prefix, array $config): ViewAwarePostgresConnection => new ViewAwarePostgresConnection($pdo, $database, $prefix, $config));
 
         $this->app->scoped(ServiceScope::class);
+        $this->app->scoped(ExternalLinks::class);
         $this->app->scoped(AiLiveOperations::class);
         $this->app->scoped(AiTaskQueue::class);
         $this->app->singleton(AiJobTracker::class);
