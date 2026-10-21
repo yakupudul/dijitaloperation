@@ -211,18 +211,40 @@ final class ContentCoverage
             ->filter(fn (Suggestion $s): bool => $siteIds === null || in_array((int) data_get($s->action, 'site_id'), $siteIds, true));
         $writes = ExternalWriteAction::query()->whereIn('id', $ideas->map(fn (Suggestion $s): int => (int) data_get($s->action, 'article_write_id'))->all() ?: [0])
             ->whereIn('status', ['succeeded', 'partial'])->get(['id', 'result'])->keyBy('id');
-        $out = [];
+        $sent = [];
         foreach ($ideas as $idea) {
             $write = $writes->get((int) data_get($idea->action, 'article_write_id'));
             if ($write === null) {
                 continue;
             }
-            $siteId = (int) data_get($idea->action, 'site_id');
             $posts = array_values(array_unique(array_filter([(int) data_get($write->result, 'post_id'), ...array_map(fn (mixed $p): int => (int) data_get($p, 'post_id'), (array) data_get($write->result, 'posts', []))])));
-            $urls = $posts === [] ? [] : Page::query()->where('website_asset_id', $siteId)->whereIn('wp_post_id', $posts)->pluck('url')->all();
-            $clicks = fn (int $days): int => $urls === [] ? 0 : (int) DB::table('gsc_page_daily')->whereIn('page', $urls)->where('reporting_date', '>=', now()->subDays($days)->toDateString())->sum('clicks');
+            $sent[] = [$idea, (int) data_get($idea->action, 'site_id'), $posts];
+        }
+        // Pages and clicks of every sent article in two queries, not two or three per article.
+        $urlsOf = [];
+        $allPosts = array_values(array_unique(array_merge(...array_map(fn (array $s): array => $s[2], $sent ?: [[0, 0, []]]))));
+        foreach (array_chunk($allPosts, 1000) as $chunk) {
+            Page::query()->whereIn('website_asset_id', array_values(array_unique(array_column($sent, 1))))->whereIn('wp_post_id', $chunk)
+                ->get(['website_asset_id', 'wp_post_id', 'url'])
+                ->each(function (Page $page) use (&$urlsOf): void {
+                    $urlsOf[(int) $page->website_asset_id][(int) $page->wp_post_id][] = (string) $page->url;
+                });
+        }
+        $clicksOf = [];
+        $allUrls = array_values(array_unique(array_merge(...array_merge([[]], ...array_map(fn (array $posts): array => array_values($posts), array_values($urlsOf))))));
+        foreach (array_chunk($allUrls, 1000) as $chunk) {
+            DB::table('gsc_page_daily')->whereIn('page', $chunk)->where('reporting_date', '>=', now()->subDays(90)->toDateString())->groupBy('page')
+                ->selectRaw('page, sum(clicks) as clicks90, sum(case when reporting_date >= ? then clicks else 0 end) as clicks28', [now()->subDays(28)->toDateString()])
+                ->get()->each(function (object $row) use (&$clicksOf): void {
+                    $clicksOf[(string) $row->page] = [(int) $row->clicks28, (int) $row->clicks90];
+                });
+        }
+        $out = [];
+        foreach ($sent as [$idea, $siteId, $posts]) {
+            $urls = array_values(array_unique(array_merge(...array_map(fn (int $post): array => $urlsOf[$siteId][$post] ?? [], $posts ?: [0]))));
             $out[] = ['suggestion_id' => (int) $idea->id, 'site_id' => $siteId, 'angle' => is_string(data_get($idea->action, 'angle')) ? (string) data_get($idea->action, 'angle') : null,
-                'live' => $urls !== [], 'clicks' => $clicks(28), 'clicks90' => $clicks(90)];
+                'live' => $urls !== [], 'clicks' => array_sum(array_map(fn (string $u): int => $clicksOf[$u][0] ?? 0, $urls)),
+                'clicks90' => array_sum(array_map(fn (string $u): int => $clicksOf[$u][1] ?? 0, $urls))];
         }
 
         return $out;

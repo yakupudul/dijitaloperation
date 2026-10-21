@@ -143,12 +143,48 @@ final class RepairAutopilot
      */
     public function checked(string $which, ?int $brandId = null): Collection
     {
-        $rows = $this->rows($brandId);
-        $reviews = Suggestion::query()->whereIn('id', $rows->pluck('id'))->get(['id', 'action'])->mapWithKeys(fn (Suggestion $s): array => [(int) $s->id => data_get($s->action, self::KEY)]);
+        return $this->sorted($this->withReviews($this->rows($brandId)))[$which === 'ok' ? 'ok' : 'held'];
+    }
 
-        return $rows->map(fn (array $r): array => $r + ['review' => $reviews[$r['id']] ?? null])
-            ->filter(fn (array $r): bool => ($r['review']['fingerprint'] ?? null) === self::fingerprint($r)
-                && ($which === 'ok' ? ($r['review']['verdict'] ?? null) === 'ok' : in_array($r['review']['verdict'] ?? null, ['wrong', 'unsure'], true)))->values();
+    /**
+     * Both lists from one read of the desk (the daily strip shows both; the desk builds thousands of rows).
+     *
+     * @return array{ok: Collection<int, array<string, mixed>>, held: Collection<int, array<string, mixed>>}
+     */
+    public function checkedBoth(?int $brandId = null): array
+    {
+        return $this->sorted($this->withReviews($this->rows($brandId)));
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{ok: Collection<int, array<string, mixed>>, held: Collection<int, array<string, mixed>>}
+     */
+    private function sorted(Collection $rows): array
+    {
+        $current = $rows->filter(fn (array $r): bool => ($r['review']['fingerprint'] ?? null) === self::fingerprint($r));
+
+        return [
+            'ok' => $current->filter(fn (array $r): bool => ($r['review']['verdict'] ?? null) === 'ok')->values(),
+            'held' => $current->filter(fn (array $r): bool => in_array($r['review']['verdict'] ?? null, ['wrong', 'unsure'], true))->values(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function withReviews(Collection $rows): Collection
+    {
+        $reviews = [];
+        foreach ($rows->pluck('id')->chunk(1000) as $ids) {
+            Suggestion::query()->whereIn('id', $ids->all())->get(['id', 'action'])
+                ->each(function (Suggestion $s) use (&$reviews): void {
+                    $reviews[(int) $s->id] = data_get($s->action, self::KEY);
+                });
+        }
+
+        return $rows->map(fn (array $r): array => $r + ['review' => $reviews[$r['id']] ?? null]);
     }
 
     /**

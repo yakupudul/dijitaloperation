@@ -43,13 +43,14 @@ final class DailySend
         $noConnector = $waiting->countBy(fn (Suggestion $s): int => (int) data_get($s->action, 'site_id'))
             ->map(fn (int $count, int $siteId): array => ['site' => (string) ($sites[$siteId] ?? 'Site'), 'count' => $count])->values()->all();
 
+        $repair = $this->repair->checkedBoth();
         $held = [
             ...$this->content->held()->map(fn (Suggestion $s): array => ['area' => 'İçerik', 'title' => (string) $s->title, 'reason' => (string) data_get($s->action, 'autopilot.review.reason', '')]),
             ...$this->posts->held()->map(fn (GbpQueuedPost $p): array => ['area' => 'Profil gönderisi', 'title' => ($p->digitalAsset?->name ?? '').' · '.$p->publish_on, 'reason' => (string) ($p->review['reason'] ?? '')]),
-            ...$this->repair->checked('held')->map(fn (array $r): array => ['area' => RepairDesk::KINDS[$r['kind']] ?? 'Onarım', 'title' => $r['brand'].' · '.$r['title'], 'reason' => (string) ($r['review']['reason'] ?? '')]),
+            ...$repair['held']->map(fn (array $r): array => ['area' => RepairDesk::KINDS[$r['kind']] ?? 'Onarım', 'title' => $r['brand'].' · '.$r['title'], 'reason' => (string) ($r['review']['reason'] ?? '')]),
         ];
 
-        return ['content' => $content->count(), 'content_preparing' => $this->content->preparing(), 'posts' => $this->posts->ready()->count(), 'repair' => $this->repair->checked('ok')->count(),
+        return ['content' => $content->count(), 'content_preparing' => $this->content->preparing(), 'posts' => $this->posts->ready()->count(), 'repair' => $repair['ok']->count(),
             'held' => array_slice($held, 0, 30), 'held_total' => count($held), 'no_connector' => $noConnector];
     }
 
