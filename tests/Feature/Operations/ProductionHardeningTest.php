@@ -163,6 +163,32 @@ final class ProductionHardeningTest extends TestCase
         File::deleteDirectory($temp);
     }
 
+    public function test_old_backups_make_room_before_the_space_check_and_the_last_dump_sizes_the_next(): void
+    {
+        $dir = sys_get_temp_dir().'/moxdop-backup-room-'.uniqid();
+        $temp = $dir.'-tmp';
+        File::ensureDirectoryExists($dir);
+        File::ensureDirectoryExists($temp);
+        foreach (range(1, 9) as $day) {
+            file_put_contents($dir.sprintf('/moxdop-202610%02d-063000-000000-sqlite.sqlite.gz', $day), 'old');
+        }
+        $source = $dir.'-source.sqlite';
+        file_put_contents($source, "SQLite format 3\0".str_repeat('page data ', 200));
+        config(['database.connections.sqlite.database' => $source, 'moxdop-backup.directory' => $dir, 'moxdop-backup.keep' => 7,
+            'moxdop-backup.temp_directory' => $temp, 'moxdop-backup.remote_disk' => null, 'moxdop-backup.free_space_margin_mb' => 100_000_000]);
+
+        $this->assertSame('failed', app(SystemBackup::class)->run()['status']);
+        $this->assertCount(6, glob($dir.'/moxdop-*.gz'), 'the oldest went although the new one failed');
+
+        DB::table('system_backups')->insert(['status' => 'succeeded', 'driver' => 'pgsql', 'bytes' => 1024 ** 3, 'started_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        config(['moxdop-backup.free_space_margin_mb' => 200]);
+        $this->assertSame((int) ceil(1.5 * 1024 ** 3) + 200 * 1024 * 1024, app(SystemBackup::class)->estimatedBytes('pgsql', []));
+
+        @unlink($source);
+        File::deleteDirectory($dir);
+        File::deleteDirectory($temp);
+    }
+
     public function test_data_pool_audit_findings_do_not_fail_the_scheduler_unless_strict(): void
     {
         $this->artisan('moxdop:data-pool-audit', ['--provider' => ['META_ADS']])->assertSuccessful();

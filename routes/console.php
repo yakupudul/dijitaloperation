@@ -600,6 +600,14 @@ Schedule::command('moxdop:backup')
     ->withoutOverlapping(120)
     ->name('system-backup-nightly');
 
+// A night without a good backup (a full disk, 2026-10-19..21) is caught up within the hour, not the next night.
+Schedule::command('moxdop:backup')
+    ->hourlyAt(50)
+    ->when(fn (): bool => ! DB::table('system_backups')->where('status', 'succeeded')->where('finished_at', '>=', now()->subHours(30))->exists()
+        && ! DB::table('system_backups')->where('status', 'failed')->where('finished_at', '>=', now()->subHours(3))->exists())
+    ->withoutOverlapping(120)
+    ->name('system-backup-catch-up');
+
 // Faz D: günlük varlık uyarıları (harcama sıçraması/durması, dönüşüm kesilmesi, arama trafiği düşüşü, eski veri, yanıtsız kötü yorum).
 Schedule::command('moxdop:alerts:scan')
     ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '09:30'))

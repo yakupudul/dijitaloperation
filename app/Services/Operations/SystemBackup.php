@@ -36,6 +36,9 @@ final class SystemBackup
                 }
             }
             $this->cleanTemp($tempDir);
+            // Room for the new file first: the oldest backups beyond `keep - 1` go now, not only after a success (a
+            // full disk kept every old backup while each new one failed, 2026-10-19..21).
+            $this->prune($dir, 1);
             $this->assertFreeSpace($driver, $cfg, $tempDir, $dir);
             $name = 'moxdop-'.now()->format('Ymd-His-u').'-'.$driver.'.'.($driver === 'sqlite' ? 'sqlite.gz' : 'sql.gz');
             // Written and verified in the temp folder first (BACKUP_TEMP_DIR, on the main disk by default), then
@@ -92,6 +95,12 @@ final class SystemBackup
      */
     public function estimatedBytes(string $driver, array $cfg): int
     {
+        // The last good dump is the best measure (1,2 GB while the database was 20 GB: indexes and the excluded
+        // tables are not in it); half again on top for growth.
+        $last = (int) (DB::table('system_backups')->where('status', 'succeeded')->where('driver', $driver)->latest('id')->value('bytes') ?? 0);
+        if ($last > 0) {
+            return (int) ceil($last * 1.5) + (int) config('moxdop-backup.free_space_margin_mb', 200) * 1024 * 1024;
+        }
         $raw = 0;
         try {
             $raw = match ($driver) {
@@ -377,11 +386,12 @@ final class SystemBackup
         return $files;
     }
 
-    private function prune(string $dir): void
+    /** Keeps the newest `keep` backups (minus $room, the places a backup about to be written needs). */
+    private function prune(string $dir, int $room = 0): void
     {
         $files = glob($dir.'/moxdop-*.gz') ?: [];
         rsort($files);
-        foreach (array_slice($files, max(1, (int) config('moxdop-backup.keep', 14))) as $old) {
+        foreach (array_slice($files, max(1, (int) config('moxdop-backup.keep', 7) - $room)) as $old) {
             @unlink($old);
         }
     }
