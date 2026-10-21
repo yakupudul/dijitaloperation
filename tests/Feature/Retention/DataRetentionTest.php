@@ -106,6 +106,24 @@ final class DataRetentionTest extends TestCase
         $this->assertStringContainsString("Schedule::command('moxdop:retention--apply--daily')->dailyAt(", (string) preg_replace('/\s+/', '', (string) file_get_contents(base_path('routes/console.php'))));
     }
 
+    public function test_only_the_latest_copy_of_each_wordpress_object_is_kept(): void
+    {
+        $row = fn (string $objectId, string $title, string $observed): array => ['digital_asset_id' => 7, 'cms' => 'wordpress', 'object_type' => 'post', 'object_id' => $objectId,
+            'title' => $title, 'observed_at' => $observed, 'contract_version' => 1, 'first_collected_at' => $observed, 'last_collected_at' => $observed,
+            'record_fingerprint' => str_repeat('a', 64), 'created_at' => $observed, 'updated_at' => $observed];
+        DB::table('website_cms_object_snapshot')->insert([
+            $row('1', 'Eski', '2026-10-01 09:00:00'), $row('1', 'Daha eski', '2026-09-01 09:00:00'), $row('1', 'Güncel', '2026-10-20 09:00:00'),
+            $row('2', 'Tek kopya', '2026-09-01 09:00:00'),
+        ]);
+
+        $this->assertSame(['website_cms_object_snapshot' => 2], array_filter(app(DataRetentionService::class)->purgeOldCmsVersions(true)));
+        $this->assertSame(4, DB::table('website_cms_object_snapshot')->count(), 'a dry run removes nothing');
+
+        app(DataRetentionService::class)->runDaily();
+
+        $this->assertSame(['Güncel', 'Tek kopya'], DB::table('website_cms_object_snapshot')->orderBy('object_id')->pluck('title')->all());
+    }
+
     public function test_ai_text_copies_are_emptied_but_the_rows_stay(): void
     {
         DB::table('ai_usage_records')->insert([

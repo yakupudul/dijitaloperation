@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
  */
 final class DataRetentionCommand extends Command
 {
-    protected $signature = 'moxdop:retention {--apply : Değişiklikleri uygula (varsayılan: yalnız sayar)} {--daily : Yalnız her gün büyüyenler: ham kopyalar, telemetri, AI metin kopyaları}';
+    protected $signature = 'moxdop:retention {--apply : Değişiklikleri uygula (varsayılan: yalnız sayar)} {--daily : Yalnız her gün büyüyenler: ham kopyalar, telemetri, AI metin kopyaları, eski WordPress kopyaları}';
 
     protected $description = 'Veri saklama: 16 aydan eski günlük verileri aylığa çevirip siler, sorgu kaynaklarını 24 ay tutar, ham kopyaları, telemetriyi ve 12 aydan eski kapalı önerileri temizler.';
 
@@ -26,8 +26,8 @@ final class DataRetentionCommand extends Command
         $dryRun = ! $this->option('apply');
         if ($this->option('daily')) {
             $result = $retention->runDaily($dryRun);
-            $this->info(sprintf('%sHam kopya: %d · telemetri: %d · AI girdi metni: %d · AI işi kopyası: %d.', $dryRun ? '[deneme] ' : '',
-                $result['raw_objects'], array_sum($result['telemetry']), $result['ai_run_inputs'], $result['ai_copies']));
+            $this->info(sprintf('%sHam kopya: %d · telemetri: %d · AI girdi metni: %d · AI işi kopyası: %d · eski WordPress kopyası: %d.', $dryRun ? '[deneme] ' : '',
+                $result['raw_objects'], array_sum($result['telemetry']), $result['ai_run_inputs'], $result['ai_copies'], array_sum($result['cms_versions'])));
 
             return self::SUCCESS;
         }

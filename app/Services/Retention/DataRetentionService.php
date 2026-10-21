@@ -46,7 +46,7 @@ final class DataRetentionService
      * The nightly part: the windows that grow every day (raw copies, telemetry, AI text copies). The monthly run does
      * the rest (rollups, query facts, closed suggestions).
      *
-     * @return array{raw_objects: int, telemetry: array<string, int>, ai_run_inputs: int, ai_copies: int}
+     * @return array{raw_objects: int, telemetry: array<string, int>, ai_run_inputs: int, ai_copies: int, cms_versions: array<string, int>}
      */
     public function runDaily(bool $dryRun = false): array
     {
@@ -55,7 +55,50 @@ final class DataRetentionService
             'telemetry' => $this->purgeTelemetry($dryRun),
             'ai_run_inputs' => $this->purgeAiRunInputs($dryRun),
             'ai_copies' => $this->purgeAiCopies($dryRun),
+            'cms_versions' => $this->purgeOldCmsVersions($dryRun),
         ];
+    }
+
+    /** WordPress connector tables: one row per object and observation; readers take the latest per key. */
+    private const array CMS_VERSION_KEYS = [
+        'website_cms_object_snapshot' => ['digital_asset_id', 'cms', 'object_type', 'object_id'],
+        'website_cms_seo_snapshot' => ['digital_asset_id', 'cms', 'object_type', 'object_id'],
+        'website_cms_taxonomy_snapshot' => ['digital_asset_id', 'cms', 'taxonomy', 'term_id'],
+        'website_cms_extension_snapshot' => ['digital_asset_id', 'cms', 'extension_type', 'extension_id'],
+    ];
+
+    /**
+     * Every connector sync appended a full copy of every object (one site kept 363 copies of each of its 3,968 objects,
+     * 1.4M rows, 2026-10-21) while every reader takes the latest copy per object: older copies are removed.
+     *
+     * @return array<string, int> table => rows removed (or that would be)
+     */
+    public function purgeOldCmsVersions(bool $dryRun = false): array
+    {
+        $out = [];
+        foreach (self::CMS_VERSION_KEYS as $table => $key) {
+            if (! SchemaState::hasTable($table)) {
+                continue;
+            }
+            $older = fn () => DB::table(DB::raw('(select id, row_number() over (partition by '.implode(', ', $key).' order by observed_at desc, id desc) as version from '.$table.') v'))
+                ->where('version', '>', 1)->select('id');
+            if ($dryRun) {
+                $out[$table] = $older()->count();
+
+                continue;
+            }
+            $removed = 0;
+            for ($round = 0; $round < 100; $round++) {
+                $ids = $older()->limit(50000)->pluck('id')->all();
+                if ($ids === []) {
+                    break;
+                }
+                $removed += DB::table($table)->whereIn('id', $ids)->delete();
+            }
+            $out[$table] = $removed;
+        }
+
+        return $out;
     }
 
     /** AI işleri copies (input / output / context) are emptied after `ai_copy_days`; the row stays. */
