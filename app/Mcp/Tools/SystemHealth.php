@@ -43,6 +43,8 @@ class SystemHealth extends Tool
             $out += [
                 'release' => $read['release'] ?? null,
                 'auto_deploy' => $this->autoDeploy(),
+                // Last good backup, its error and the monthly restore drill (audit D5): a deploy waits without a recent backup.
+                'backup' => $read['backup'] ?? null,
                 'scheduler' => $read['scheduler'] ?? null,
                 'stopped_workers' => array_values(array_filter((array) ($read['workers'] ?? []), fn (array $w): bool => ! ($w['ok'] ?? true))),
                 'queue_waits' => $read['queue_waits'] ?? null,
