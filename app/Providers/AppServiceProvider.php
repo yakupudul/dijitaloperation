@@ -16,6 +16,7 @@ use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
 use App\Events\FindingEvaluationCompleted;
 use App\Jobs\Ads\RefreshAdServiceStatsJob;
+use App\Jobs\ApproveKomutaGroupJob;
 use App\Jobs\ApproveRepairRowsJob;
 use App\Jobs\Async\CollectLiveBoundDataJob;
 use App\Jobs\Async\PublicDiscoveryJob;
@@ -472,6 +473,7 @@ class AppServiceProvider extends ServiceProvider
             PrepareBranchPageJob::class => 'content',
             PrepareOverlapRewriteJob::class => 'content',
             ApproveRepairRowsJob::class => 'writes',
+            ApproveKomutaGroupJob::class => 'writes',
             // Dispatched on its own lane (writes, or content for an article); this keeps a bare dispatch off "default" too.
             ExecuteExternalWriteJob::class => 'writes',
         ];
