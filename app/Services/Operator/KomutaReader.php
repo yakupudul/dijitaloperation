@@ -5,6 +5,7 @@ namespace App\Services\Operator;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\GbpReview;
+use App\Models\Suggestion;
 use App\Services\Goals\BrandTargets;
 use App\Services\Goals\TargetImpact;
 use App\Services\Integrations\BrandAccountCandidates;
@@ -91,7 +92,7 @@ final class KomutaReader
             $failed = true;
         }
         usort($groups, fn (array $a, array $b): int => [($b['impact'] ?? 0), $b['count']] <=> [($a['impact'] ?? 0), $a['count']]);
-        $groups = [...$this->targetGroup(), ...$this->planGroup(), ...$groups];
+        $groups = [...$this->targetGroup(), ...$this->nameGroup(), ...$this->planGroup(), ...$groups];
 
         return ['groups' => $groups, 'decisions' => (int) array_sum(array_map(fn (array $g): int => count($g['items']), $groups)), 'manual' => $manual] + ($failed ? ['failed' => true] : []);
     }
@@ -157,6 +158,56 @@ final class KomutaReader
                 'url' => route('operator.portfolio', ['marka' => $t->brand_id]),
             ])->values()->all(),
         ]];
+    }
+
+    public const string NAME_STANDARD = 'gbp:name_no_keywords';
+
+    /**
+     * Aşama 9 (K1): Business Profile names carrying district or service words (suspension risk), one decision per brand:
+     * "Onayla" = the name will be put back to the signage name on Google (the operator does it, the profile check closes
+     * the card), "Gerek yok" = the signage really says this.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function nameGroup(): array
+    {
+        $rows = self::nameRows();
+        if ($rows->isEmpty()) {
+            return [];
+        }
+        $assets = DigitalAsset::query()->whereIn('id', $rows->pluck('target_id')->unique()->all())->pluck('name', 'id');
+        $items = $rows->groupBy('brand_id')->map(fn ($brandRows, int $brandId): array => [
+            'key' => 'gbpname:'.$brandId,
+            'brand_id' => $brandId,
+            'brand' => (string) $brandRows[0]->brand?->name,
+            'logo' => $brandRows[0]->brand?->logo_url ?: null,
+            'line' => $brandRows->count().' profil · '.$brandRows->take(2)->map(fn (Suggestion $s): string => (string) ($assets[$s->target_id] ?? ''))->filter()->implode(', ')
+                .' · Onayla: adı tabeladaki hale getireceksin · Gerek yok: tabelada bu ad yazıyor',
+            'count' => $brandRows->count(),
+            'impact' => null,
+            'approve' => true,
+            'url' => route('operator.gbp', ['assetId' => (int) $brandRows[0]->target_id]),
+        ])->sortByDesc('count')->values();
+
+        return [[
+            'key' => 'gbp-names',
+            'kind' => 'gbp',
+            'title' => 'İşletme adında semt ya da hizmet kelimesi',
+            'line' => $items->count().' marka · '.$rows->count().' profil · Google profili askıya alabilir',
+            'count' => $rows->count(),
+            'brands' => $items->count(),
+            'impact' => null,
+            'bulk' => false,
+            'items' => $items->all(),
+        ]];
+    }
+
+    /** @return Collection<int, Suggestion> open name findings of served brands (one brand when given) */
+    public static function nameRows(?int $brandId = null): Collection
+    {
+        return Suggestion::query()->with('brand:id,name,logo_url')->where('action_type', 'gbp_standard')->where('action->standard_id', self::NAME_STANDARD)
+            ->where('status', Suggestion::OPEN)->whereHas('brand', fn ($q) => $q->operational())
+            ->when($brandId !== null, fn ($q) => $q->where('brand_id', $brandId))->orderBy('id')->get();
     }
 
     /** @return list<array<string, mixed>> the week's content plan (Aşama 8), one package per brand */

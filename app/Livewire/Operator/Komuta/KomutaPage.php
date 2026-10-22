@@ -3,7 +3,9 @@
 namespace App\Livewire\Operator\Komuta;
 
 use App\Models\BrandTarget;
+use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Gbp\GbpSuggestions;
 use App\Services\Goals\BrandTargets;
 use App\Services\Operator\KomutaReader;
 use App\Services\Operator\TodayCockpitReader;
@@ -45,6 +47,13 @@ final class KomutaPage extends Component
 
             return;
         }
+        if (str_starts_with($key, 'gbpname:')) {
+            $rows = KomutaReader::nameRows((int) substr($key, 8));
+            $rows->each(fn ($s) => app(GbpSuggestions::class)->approve($s, $user));
+            $this->say($rows->count().' profilin adı düzeltilecek olarak işaretlendi; Google\'da adı tabeladaki hale getirince profil kontrolü kartı kapatır.');
+
+            return;
+        }
         $ids = $komuta->packageIds($key);
         $result = $ids === [] ? ['applied' => 0] : $desk->queueApproval($ids, $user);
         $this->say($result['applied'] > 0 ? $result['applied'].' iş onaylandı ve gönderime alındı. Akış\'ta izleyebilirsin.' : 'Bu paket artık masada değil.');
@@ -53,6 +62,13 @@ final class KomutaPage extends Component
     public function dismissItem(string $key, KomutaReader $komuta, RepairDesk $desk): void
     {
         $user = $this->admin();
+        if (str_starts_with($key, 'gbpname:')) {
+            $rows = KomutaReader::nameRows((int) substr($key, 8));
+            $rows->each(fn ($s) => $s->forceFill(['status' => Suggestion::DISMISSED, 'resolved_by' => $user->id, 'resolved_at' => now(), 'operator_note' => 'Tabelada bu ad yazıyor.'])->save());
+            $this->say($rows->count().' profilin adı olduğu gibi kalıyor; aynı ad yeniden sorulmaz.');
+
+            return;
+        }
         if (! str_starts_with($key, 'pkg:')) {
             return;
         }

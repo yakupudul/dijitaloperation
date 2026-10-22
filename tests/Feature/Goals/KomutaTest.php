@@ -8,6 +8,7 @@ use App\Livewire\Operator\Komuta\KomutaPage;
 use App\Livewire\Operator\Portfolio\PortfolioPage;
 use App\Models\BrandConversionSource;
 use App\Models\BrandTarget;
+use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\WorkBatch;
@@ -223,5 +224,28 @@ final class KomutaTest extends SiteTestCase
             'status' => Suggestion::OPEN, 'action' => ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => $fields]], 'evidence' => [],
             'page_id' => $this->implantPage->id,
         ]);
+    }
+
+    public function test_profile_names_with_district_or_service_words_are_one_decision_per_brand(): void
+    {
+        $profiles = collect(['Panorama Ankara İmplant', 'Panorama Kızılay Diş'])->map(fn (string $name): DigitalAsset => DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id, 'type' => 'google_business_profile', 'status' => 'active', 'name' => $name]));
+        $rows = $profiles->map(fn (DigitalAsset $p): Suggestion => Suggestion::query()->create([
+            'brand_id' => $this->brand->id, 'channel' => 'gbp', 'decision_key' => 'gbp:'.$p->id.':standard:'.KomutaReader::NAME_STANDARD, 'fingerprint' => Str::random(40), 'material_hash' => 'm',
+            'title' => 'İşletme adına eklenen kelimeler', 'reason' => 'Profil adında markada olmayan "implant" kelimesi var.', 'priority' => 1, 'action_type' => 'gbp_standard',
+            'status' => Suggestion::OPEN, 'action' => ['standard_id' => KomutaReader::NAME_STANDARD, 'todo' => 'Adı tabeladaki hale getir.'], 'evidence' => [],
+            'target_type' => 'gbp_location', 'target_id' => $p->id]));
+
+        $group = collect(app(KomutaReader::class)->box()['groups'])->firstWhere('key', 'gbp-names');
+        $this->assertSame(2, $group['count']);
+        $this->assertStringContainsString('Panorama Ankara İmplant', $group['items'][0]['line']);
+
+        Livewire::test(KomutaPage::class)->assertSee('İşletme adında semt ya da hizmet kelimesi')
+            ->call('dismissItem', 'gbpname:'.$this->brand->id)->assertSee('2 profilin adı olduğu gibi kalıyor');
+        $this->assertSame([Suggestion::DISMISSED, Suggestion::DISMISSED], $rows->map(fn (Suggestion $s): string => $s->fresh()->status)->all());
+
+        $rows->each(fn (Suggestion $s) => $s->fresh()->forceFill(['status' => Suggestion::OPEN])->save());
+        Livewire::test(KomutaPage::class)->call('approveItem', 'gbpname:'.$this->brand->id)->assertSee('2 profilin adı düzeltilecek');
+        $this->assertSame([Suggestion::APPROVED, Suggestion::APPROVED], $rows->map(fn (Suggestion $s): string => $s->fresh()->status)->all());
     }
 }

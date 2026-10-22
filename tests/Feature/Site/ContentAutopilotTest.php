@@ -309,7 +309,7 @@ final class ContentAutopilotTest extends SiteTestCase
         CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
             'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.5.0']]);
         Livewire::test(DailySendStrip::class)->assertDontSeeHtml('data-daily-progress')->call('send');
-        $this->assertSame(['content' => [0, 1], 'posts' => [0, 0], 'repair' => [0, 0], 'done' => 0, 'total' => 1], DailySend::currentProgress(), 'the click starts the progress from the ready counts');
+        $this->assertSame(['content' => [0, 1], 'posts' => [0, 0], 'replies' => [0, 0], 'repair' => [0, 0], 'done' => 0, 'total' => 1], DailySend::currentProgress(), 'the click starts the progress from the ready counts');
 
         Cache::put(DailySend::PROGRESS_KEY, ['content' => [3, 5], 'posts' => [0, 2], 'repair' => [0, 4]]);
         Livewire::test(DailySendStrip::class)->assertSeeHtml('wire:poll.10s')->assertSeeHtml('data-daily-progress="3/11"')

@@ -39,6 +39,8 @@ use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Gbp\ReviewReplyCheck;
+use App\Services\Work\DailySend;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -811,6 +813,36 @@ final class GbpDeskTest extends TestCase
         $puts = collect($this->writes())->filter(fn (array $c): bool => $c[0] === 'PUT')->values();
         $this->assertCount(1, $puts);
         $this->assertStringEndsWith('/reviews/r3/reply', $puts[0][1]);
+    }
+
+    public function test_checked_reply_drafts_go_with_the_daily_send_and_the_rest_stay_with_their_reason(): void
+    {
+        $review = fn (string $id, string $stars): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22',
+            'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe '.$id]), 'star_rating' => $stars, 'comment' => 'Yorum '.$id, 'create_time' => '2026-10-04 10:00:00',
+            'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $good = $review('g1', 'FIVE');
+        $bad = $review('b1', 'ONE');
+        $phone = $review('p1', 'FOUR');
+        $none = $review('n1', 'FIVE');
+        $desk = app(ReviewDesk::class);
+        $desk->saveDraft($this->admin, $good, 'Güzel yorumunuz için çok teşekkür ederiz, sizi yeniden ağırlamaktan mutluluk duyarız.');
+        $desk->saveDraft($this->admin, $bad, 'Yaşadığınız durum için üzgünüz, konuyu ekibimizle konuşacağız.');
+        $desk->saveDraft($this->admin, $phone, 'Teşekkür ederiz, randevu için 0312 555 55 55 numarasından bize ulaşabilirsiniz.');
+
+        $checked = app(ReviewReplyCheck::class)->checked()->keyBy(fn (array $r): int => (int) $r['review']['id']);
+        $this->assertNull($checked[$good]['reason']);
+        $this->assertSame('Kötü yorum: yanıtı sen gözden geçir.', $checked[$bad]['reason']);
+        $this->assertSame('Yanıtta telefon ya da bağlantı var.', $checked[$phone]['reason']);
+        $this->assertFalse($checked->has($none), 'no draft yet: the night asks one');
+
+        $summary = app(DailySend::class)->summary();
+        $this->assertSame(1, $summary['replies']);
+        $this->assertSame(2, collect($summary['held'])->where('area', 'Yorum yanıtı')->count());
+        $result = app(DailySend::class)->send($this->admin);
+        $this->assertSame(1, $result['replies']);
+        $puts = collect($this->writes())->filter(fn (array $c): bool => $c[0] === 'PUT')->values();
+        $this->assertCount(1, $puts);
+        $this->assertStringEndsWith('/reviews/g1/reply', $puts[0][1]);
     }
 
     public function test_photos_named_after_another_branch_are_not_offered_and_kinds_match_whole_words(): void

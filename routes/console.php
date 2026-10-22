@@ -63,6 +63,7 @@ use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpPostReview;
+use App\Services\Gbp\ReviewReplyCheck;
 use App\Services\GoogleAds\GoogleAdsAssistant;
 use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\Gsc\UrlInspectionTargets;
@@ -939,6 +940,18 @@ Schedule::command('moxdop:gbp:review-posts')
     ->hourlyAt(17)
     ->withoutOverlapping(30)
     ->name('gbp-review-posts');
+
+// Aşama 9 (2026-10-22): unanswered reviews of served profiles get a reply draft at night (Claude's queue); the checked
+// drafts go with the daily click (ReviewReplyCheck). Nothing goes to Google without the click.
+Artisan::command('moxdop:gbp:reply-drafts', function (): void {
+    $this->info('Taslağı istenen yorum: '.app(ReviewReplyCheck::class)->draftNight());
+})->purpose('Ask reply drafts for unanswered Business Profile reviews (checked ones go with the daily send).');
+
+Schedule::command('moxdop:gbp:reply-drafts')
+    ->dailyAt('03:40')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('gbp-reply-drafts');
 
 Artisan::command('moxdop:gbp:publish-queue', function (): void {
     $this->info(json_encode(app(GbpPostQueue::class)->publishDue(), JSON_UNESCAPED_UNICODE));

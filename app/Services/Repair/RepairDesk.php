@@ -727,6 +727,21 @@ final class RepairDesk
 
                 continue;
             }
+            // A review card (Aşama 9: a campaign spending without conversions) is always the operator's own work.
+            if ($kind === self::ADS_CHANGE) {
+                $group = $group->reject(function (array $row) use ($suggestions, $user, &$result): bool {
+                    if (data_get($suggestions[$row['id']]->action, 'field') !== GoogleAdsChanges::REVIEW_FIELD) {
+                        return false;
+                    }
+                    GoogleAdsSuggestions::doneByHand($suggestions[$row['id']], $user);
+                    $result['applied']++;
+
+                    return true;
+                })->values();
+                if ($group->isEmpty()) {
+                    continue;
+                }
+            }
             if ($kind === self::ADS_NEGATIVE) {
                 foreach ($group->groupBy('asset_id') as $assetId => $negatives) {
                     try {
@@ -1041,10 +1056,10 @@ final class RepairDesk
             // Budget, pause and location changes spend money: never in a bulk approval (one by one); while Google Ads writes
             // are off (yakup 2026-10-21) every Ads row is the operator's to do in Google Ads ("Yaptım").
             GoogleAdsChanges::TYPE => filled($action['field'] ?? null) ? $base + ['kind' => self::ADS_CHANGE,
-                'risk' => ! ExternalWriteService::adsWritesOn() ? self::MANUAL : (in_array($action['field'] ?? null, self::ADS_SINGLE_FIELDS, true) ? self::HIGH
+                'risk' => ! ExternalWriteService::adsWritesOn() || ($action['field'] ?? null) === GoogleAdsChanges::REVIEW_FIELD ? self::MANUAL : (in_array($action['field'] ?? null, self::ADS_SINGLE_FIELDS, true) ? self::HIGH
                     : (in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM, self::HIGH], true) ? $action['risk'] : self::MEDIUM)),
-                'target' => (string) ($action['target'] ?? ''), 'before' => [GoogleAdsChangeWriter::text($action['before'] ?? null)],
-                'after' => [(string) ($action['label'] ?? '')]] : null,
+                'target' => (string) ($action['target'] ?? ''), 'before' => ($action['field'] ?? null) === GoogleAdsChanges::REVIEW_FIELD ? [] : [GoogleAdsChangeWriter::text($action['before'] ?? null)],
+                'after' => ($action['todo'] ?? []) !== [] ? array_map('strval', (array) $action['todo']) : [(string) ($action['label'] ?? '')]] : null,
             WebHealthAudit::TYPE => $base + ['kind' => ($action['changes'] ?? []) !== [] ? self::WEB_FIX : self::WEB_TASK,
                 'risk' => ($action['changes'] ?? []) !== [] ? self::MEDIUM : self::MANUAL, 'target' => (string) ($action['target'] ?? ''),
                 'before' => array_map('strval', (array) ($action['before'] ?? [])), 'after' => array_map('strval', (array) ($action['after'] ?? [])),

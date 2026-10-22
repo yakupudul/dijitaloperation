@@ -29,7 +29,7 @@ final class DailySendStrip extends Component
             return;
         }
         $summary = $daily->summary();
-        $daily->queue(auth()->user(), ['content' => $summary['content'], 'posts' => $summary['posts'], 'repair' => $summary['repair']]);
+        $daily->queue(auth()->user(), ['content' => $summary['content'], 'posts' => $summary['posts'], 'replies' => $summary['replies'], 'repair' => $summary['repair']]);
         $this->message = 'Gönderim başladı; birkaç dakika içinde biter. Bu haftanın yazıları gününe zamanlanmış olarak, geriye dönük yazılar tarihli taslak olarak, gönderiler gününde, onarımlar "Yapılanlar"a gider.';
     }
 

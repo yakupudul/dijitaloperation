@@ -87,9 +87,24 @@ abstract class AssetSuggestions
             if ($stale->isNotEmpty()) {
                 Suggestion::query()->whereIn('id', $stale)->update(['status' => Suggestion::RECHECK, 'updated_at' => $now]);
             }
+            // Aşama 9 (2026-10-22): what the operator did by hand ("Yaptım") and the next check no longer sees is done:
+            // the card closes itself.
+            if (($note = $this->doneByHandNote()) !== null) {
+                $this->query($asset)->where('decision_key', 'like', $this->key($asset, $group.':').'%')
+                    ->where('status', Suggestion::SNOOZED)->where('operator_note', $note)->whereNotIn('fingerprint', $seen ?: [''])
+                    ->update(['status' => Suggestion::APPLIED, 'resolved_at' => $now, 'operator_note' => self::CLOSED_BY_CHECK, 'updated_at' => $now]);
+            }
         });
 
         return count($seen);
+    }
+
+    public const string CLOSED_BY_CHECK = 'Elle yapıldı; gece kontrolü sorunun gittiğini gördü, kart kapandı.';
+
+    /** The note "Yaptım" leaves on a row this channel closes when the check no longer sees it (null: none). */
+    protected function doneByHandNote(): ?string
+    {
+        return null;
     }
 
     /** @return Collection<int, Suggestion> open (and due snoozed) suggestions of the asset, most important first */

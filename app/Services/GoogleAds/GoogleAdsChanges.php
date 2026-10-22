@@ -26,7 +26,10 @@ use Throwable;
  *  - a keyword with ≥ 30 clicks, spend of at least twice its campaign's cost per conversion and no conversion in the
  *    30 days before the conversion lag → paused (medium; never a brand keyword);
  *  - a campaign with ≥ 10 conversions losing ≥ 20% of impressions to budget while converting at or below the account's
- *    cost per conversion → budget +20% (medium; shared budgets left alone; not again within 30 days of a budget write).
+ *    cost per conversion → budget +20% (medium; shared budgets left alone; not again within 30 days of a budget write);
+ *  - Aşama 9 (2026-10-22): a campaign that spent at least WASTE_MIN (and twice the account's cost per conversion, when
+ *    there is one) in 30 days without a conversion → a "harcıyor, dönüşüm yok" card with the steps to check it in Google
+ *    Ads. Never written by MoxDOP; the card closes when the next nightly check no longer sees it.
  * Nothing is written here: each change goes to Google only after the Admin approves it (GoogleAdsChangeWriter).
  */
 final class GoogleAdsChanges
@@ -45,6 +48,12 @@ final class GoogleAdsChanges
 
     /** A keyword is judged on at least this many clicks. */
     public const int MIN_KEYWORD_CLICKS = 30;
+
+    /** A campaign without a conversion is a card from this spend in 30 days (account currency units). */
+    public const int WASTE_MIN = 1000;
+
+    /** The card's field: never sent to Google by MoxDOP, always the operator's own work. */
+    public const string REVIEW_FIELD = 'campaign_review';
 
     public function __construct(
         private readonly GoogleApiClient $google,
@@ -139,9 +148,15 @@ final class GoogleAdsChanges
                 $item('location_option:'.$resource, 'Konum seçeneği "ilgilenenler" de', 'Reklam hedef bölgede olmayan ama bölgeyle "ilgilenen" kişilere de gösteriliyor; markanın yabancı dilde sayfası yok, yerel işletmede yalnız bölgedeki kişiler hedeflenmeli.',
                     1, 'location_option', $resource, 'PRESENCE_OR_INTEREST', 'PRESENCE', 'Konum seçeneği: yalnız bölgede bulunanlar · '.$name, $name, 'medium');
             }
+            $campaignConversions = (float) data_get($campaign, 'metrics.conversions', 0);
+            if ($campaignConversions <= 0 && $spend >= self::WASTE_MIN * 1_000_000 && ($cpa === null || $spend >= $cpa * self::KEYWORD_CPA_MULTIPLE)) {
+                $item('no_conversion:'.$resource, 'Harcıyor, dönüşüm yok', 'Son 30 günde '.$money($spend).' harcadı, tek dönüşüm gelmedi.'.($cpa !== null ? ' Hesabın dönüşüm başına maliyeti '.$money($cpa).'.' : ' Hesapta da dönüşüm yok: önce ölçümü kontrol et.'),
+                    $spend >= self::WASTE_MIN * 5_000_000 ? 1 : 2, self::REVIEW_FIELD, $resource, 'ENABLED', 'ENABLED', 'Kampanyayı gözden geçir · '.$name, $name, 'manual');
+                $items[array_key_last($items)]['action']['todo'] = self::wasteSteps($cpa === null);
+                $items[array_key_last($items)]['action']['cost_micros'] = $spend;
+            }
             $lost = (float) data_get($campaign, 'metrics.searchBudgetLostImpressionShare', 0);
             $budget = (int) data_get($campaign, 'campaignBudget.amountMicros', 0);
-            $campaignConversions = (float) data_get($campaign, 'metrics.conversions', 0);
             // Not again within 30 days of a budget write (its window would still show the old loss: +20% would compound).
             if ($cpa !== null && $conversions >= self::MIN_ACCOUNT_CONVERSIONS && $lost >= self::BUDGET_LOST_SHARE && $budget > 0 && $campaignConversions >= GoogleAdsChecks::MIN_CONVERSIONS
                 && data_get($campaign, 'campaignBudget.explicitlyShared') !== true && $spend / $campaignConversions <= $cpa
@@ -180,6 +195,18 @@ final class GoogleAdsChanges
         }
 
         return $items;
+    }
+
+    /** @return list<string> what to do in Google Ads for a campaign spending without conversions */
+    public static function wasteSteps(bool $accountWithout): array
+    {
+        return array_values(array_filter([
+            $accountWithout ? 'Google Ads › Hedefler › Dönüşümler: form, arama ve WhatsApp dönüşümünün "Etkin" ve birincil olduğunu kontrol et (Ölçüm sekmesi ayrıntıyı gösterir).' : null,
+            'Kampanya › Arama terimleri: son 30 günün terimlerine bak, hizmetle ilgisiz olanları negatif ekle.',
+            'Kampanya › Konumlar: reklamın gösterildiği ülke ve şehirler hedefle aynı mı bak; "ilgilenenler" seçiliyse "bulunanlar" yap.',
+            'Açılış sayfası: formun ve telefon düğmesinin çalıştığını telefondan dene.',
+            'Bir hafta sonra yine dönüşüm yoksa kampanyayı duraklat ya da bütçesini düşür. Bitirince "Yaptım" de; gece kontrolü sonucu görür.',
+        ]));
     }
 
     /** The brand serves people from abroad: a foreign-language field on the brand, or ≥ 10 pages in another language. */

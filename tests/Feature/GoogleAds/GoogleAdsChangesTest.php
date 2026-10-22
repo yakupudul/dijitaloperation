@@ -273,4 +273,30 @@ final class GoogleAdsChangesTest extends TestCase
         $this->assertSame(GoogleAdsSuggestions::DONE_BY_HAND_NOTE, $suggestion->operator_note);
         $this->assertSame(0, ExternalWriteAction::query()->count());
     }
+
+    public function test_a_campaign_spending_without_conversions_is_a_card_with_steps_and_a_fixed_problem_closes_itself(): void
+    {
+        config(['moxdop-external-writes.google_ads.enabled' => false]);
+        // Aşama 9: OPC-like abroad campaign, 16.733 TRY in 30 days and no conversion.
+        $this->state['campaigns']['99'] = ['type' => 'SEARCH', 'search' => false, 'content' => false, 'geo' => 'PRESENCE', 'cost' => 16_733_000_000, 'conv' => 0.0, 'lost' => 0.0, 'budget' => '99'];
+        $this->state['budgets']['99'] = 600_000_000;
+        $rows = $this->prepared();
+
+        $card = $rows[GoogleAdsChanges::REVIEW_FIELD];
+        $this->assertSame('Harcıyor, dönüşüm yok', $card['title']);
+        $this->assertSame(RepairDesk::MANUAL, $card['risk']);
+        $this->assertSame(1, $card['priority'], 'big waste goes first');
+        $this->assertStringContainsString('16.733 TRY', $card['reason']);
+        $this->assertStringContainsString('Arama terimleri', implode(' ', $card['after']), 'the steps are on the card');
+
+        // "Yaptım" for the card and for the Search Partners fix; the partners stay on, the campaign is fixed.
+        app(RepairDesk::class)->approve([$card['id'], $rows['search_partners']['id']], $this->admin);
+        $this->assertSame([], $this->mutations, 'nothing is written to Google Ads');
+        $this->state['campaigns']['99']['conv'] = 3.0;
+        $this->artisan('moxdop:repair:audit')->assertSuccessful();
+
+        $this->assertSame(Suggestion::APPLIED, Suggestion::query()->find($card['id'])->status);
+        $this->assertSame(GoogleAdsSuggestions::CLOSED_BY_CHECK, Suggestion::query()->find($card['id'])->operator_note);
+        $this->assertSame(Suggestion::SNOOZED, Suggestion::query()->find($rows['search_partners']['id'])->status, 'still seen: waits out its week and comes back');
+    }
 }

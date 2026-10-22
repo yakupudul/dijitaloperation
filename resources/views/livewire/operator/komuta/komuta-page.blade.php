@@ -99,7 +99,7 @@
                                         <input id="goal-{{ $targetId }}" type="number" min="1" inputmode="numeric" wire:model="goals.{{ $targetId }}" placeholder="{{ preg_replace('/\D.*$/', '', substr($item['line'], 5)) }}" class="h-8 w-20 rounded-lg border border-gray-200 bg-white px-2 text-sm tabular-nums dark:border-gray-700 dark:bg-gray-900" />
                                     @endif
                                     <a href="{{ $item['url'] }}" wire:navigate class="btn-quiet" data-act="open">Aç</a>
-                                    @if ($isAdmin && str_starts_with($item['key'], 'pkg:'))
+                                    @if ($isAdmin && (str_starts_with($item['key'], 'pkg:') || str_starts_with($item['key'], 'gbpname:')))
                                         <button type="button" wire:click="dismissItem(@js($item['key']))" wire:loading.attr="disabled" class="btn-quiet" data-act="dismiss">Gerek yok</button>
                                     @endif
                                     @if ($isAdmin && $item['approve'])

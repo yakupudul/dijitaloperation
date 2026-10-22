@@ -137,7 +137,8 @@ final class GoogleAdsSuggestions extends AssetSuggestions
     public function approve(Suggestion $suggestion, ?User $user): void
     {
         // Google Ads writes off (yakup 2026-10-21): a setting change or shared negative is done by hand in Google Ads.
-        if (! ExternalWriteService::adsWritesOn() && ($suggestion->action_type === GoogleAdsChanges::TYPE || self::isSharedNegative($suggestion))) {
+        if ((! ExternalWriteService::adsWritesOn() && ($suggestion->action_type === GoogleAdsChanges::TYPE || self::isSharedNegative($suggestion)))
+            || data_get($suggestion->action, 'field') === GoogleAdsChanges::REVIEW_FIELD) {
             self::doneByHand($suggestion, $user);
 
             return;
@@ -183,6 +184,11 @@ final class GoogleAdsSuggestions extends AssetSuggestions
 
         return $this->query($asset)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])
             ->update(['status' => Suggestion::SNOOZED, 'snoozed_until' => now()->addDays(7), 'operator_note' => self::UNREACHABLE_NOTE, 'updated_at' => now()]);
+    }
+
+    protected function doneByHandNote(): ?string
+    {
+        return self::DONE_BY_HAND_NOTE;
     }
 
     public const string DONE_BY_HAND_NOTE = 'Google Ads\'te elle yapıldı; gece kontrolü sonucu görecek.';
