@@ -35,6 +35,7 @@ use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\DataCenterPage;
+use App\Livewire\Operator\Flow\FlowPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage as GbpBranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\DeskPage as GbpDeskPage;
 use App\Livewire\Operator\Gbp\Desk\PhotosPage as GbpPhotosPage;
@@ -129,6 +130,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
         Route::livewire('/integrations/connection-health', ConnectionHealthPage::class)->name('operator.integrations.connection-health');
         Route::livewire('/onarim', RepairDeskPage::class)->name('operator.repair');
+        // Aşama 4 (2026-10-22): every piece of work of today, live.
+        Route::livewire('/akis', FlowPage::class)->name('operator.flow');
         // DataForSEO is never used (yakup 2026-10-11); its settings page was removed 2026-10-20, the name stays for old links.
         Route::get('/integrations/dataforseo', fn () => abort(410))->name('operator.integrations.dataforseo');
         Route::livewire('/integrations/bing', BingIntegrationPage::class)->name('operator.integrations.bing');

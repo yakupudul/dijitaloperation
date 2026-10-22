@@ -23,6 +23,7 @@ use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ImageAlts;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\PageTraffic;
+use App\Services\Work\WorkBatches;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -177,7 +178,7 @@ final class RepairDesk
      * the operator's approval (lanes ready + review, the menu badge), `manual` what only the operator can do on the site.
      * Every screen reads it from here; approving, rejecting and editing drop it so the next screen counts again.
      *
-     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
+     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>, channels?: array<string, int>}
      */
     public function summary(): array
     {
@@ -212,7 +213,7 @@ final class RepairDesk
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
      * @param  array<int, array<string, int>>  $overflow  overflow(): rows past the per-brand limit, counted too
-     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
+     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>, channels?: array<string, int>}
      */
     public static function summarize(Collection $rows, array $overflow = []): array
     {
@@ -230,7 +231,10 @@ final class RepairDesk
             }
         }
 
-        return ['decide' => $lanes[self::LANE_READY] + $lanes[self::LANE_REVIEW], 'manual' => $lanes[self::LANE_MANUAL], 'lanes' => $lanes, 'brands' => $brands];
+        // Akış's stage table: the rows waiting for a decision, per channel (overflow rows are not split by kind).
+        $channels = $rows->reject(fn (array $row): bool => self::lane($row) === self::LANE_MANUAL)->countBy(fn (array $row): string => self::channelOfKind((string) $row['kind']))->all();
+
+        return ['decide' => $lanes[self::LANE_READY] + $lanes[self::LANE_REVIEW], 'manual' => $lanes[self::LANE_MANUAL], 'lanes' => $lanes, 'brands' => $brands, 'channels' => $channels];
     }
 
     /**
@@ -238,7 +242,7 @@ final class RepairDesk
      *
      * @param  Collection<int, array<string, mixed>>  $rows  rows() of all brands
      * @param  array<int, array<string, int>>  $overflow  overflow() of the same read
-     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
+     * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>, channels?: array<string, int>}
      */
     public static function rememberSummary(Collection $rows, array $overflow = []): array
     {
@@ -246,6 +250,16 @@ final class RepairDesk
         Cache::put(self::SUMMARY_KEY, ['at' => now()->getTimestamp(), 'summary' => $summary], now()->addDay());
 
         return $summary;
+    }
+
+    /** web | gbp | google_ads of a desk kind. */
+    public static function channelOfKind(string $kind): string
+    {
+        return match ($kind) {
+            self::ADS_NEGATIVE, self::ADS_CHANGE => 'google_ads',
+            self::GBP_DESCRIPTION, self::GBP_FIELDS => 'gbp',
+            default => 'web',
+        };
     }
 
     public static function forgetSummary(): void
@@ -780,8 +794,11 @@ final class RepairDesk
             unset($action[self::BEAT_AT]);
             $suggestion->forceFill(['action' => array_merge($action, [self::QUEUED_AT => now()->toIso8601String(), 'desk_queued_by' => $user->id])])->save();
         }
+        // Akış: the approval is one row there, whatever its size (Aşama 4).
+        $first = $rows->first();
+        $batch = app(WorkBatches::class)->openForDesk($queue, $user, count($queue) === 1 ? 'Onaylandı: '.$first['title'] : 'Toplu onay · Onarım masası');
         foreach (array_chunk($queue, 200) as $chunk) {
-            dispatch(new ApproveRepairRowsJob($chunk, (int) $user->id))->onQueue((string) config('queue.writes_queue', 'default'));
+            dispatch(new ApproveRepairRowsJob($chunk, (int) $user->id, 1, $batch))->onQueue((string) config('queue.writes_queue', 'default'));
         }
         $result['applied'] = count($queue);
         self::forgetSummary();

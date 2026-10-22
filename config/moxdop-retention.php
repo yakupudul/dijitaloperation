@@ -79,5 +79,9 @@ return [
         'app_error_groups' => ['last_seen_at', 90],
         // Write bookkeeping of collections (627k rows / 563 MB on 2026-10-21); a re-run batch is simply written again.
         'dataset_write_batches' => ['created_at', 60],
+        // Akış: one row per approval or send the operator started; its writes keep their own record.
+        'work_batches' => ['created_at', 180],
+        // Operator time (active minutes, clicks): a year back is enough for the weekly trend.
+        'operator_activity' => ['day', 400],
     ],
 ];

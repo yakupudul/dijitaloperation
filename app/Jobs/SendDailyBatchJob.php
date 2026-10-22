@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\User;
 use App\Services\Work\DailySend;
+use App\Services\Work\WorkBatches;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -24,7 +25,7 @@ final class SendDailyBatchJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 900;
 
-    public function __construct(public int $userId)
+    public function __construct(public int $userId, public ?int $batchId = null)
     {
         $this->onQueue((string) config('queue.writes_queue', 'default'));
     }
@@ -35,16 +36,18 @@ final class SendDailyBatchJob implements ShouldBeUnique, ShouldQueue
         if ($user === null) {
             Cache::forget(DailySend::RUNNING_KEY);
             DailySend::clearProgress();
+            app(WorkBatches::class)->finish($this->batchId, 'Gönderen kullanıcı bulunamadı.');
 
             return;
         }
-        $daily->send($user);
+        $daily->send($user, $this->batchId);
     }
 
     public function failed(?Throwable $exception): void
     {
         Cache::forget(DailySend::RUNNING_KEY);
         DailySend::clearProgress();
+        app(WorkBatches::class)->finish($this->batchId, mb_substr((string) $exception?->getMessage(), 0, 200) ?: 'Gönderim yarıda kaldı.');
         Cache::put(DailySend::LAST_KEY, ['error' => mb_substr((string) $exception?->getMessage(), 0, 200), 'at' => now()->toIso8601String()], now()->addDays(7));
     }
 }

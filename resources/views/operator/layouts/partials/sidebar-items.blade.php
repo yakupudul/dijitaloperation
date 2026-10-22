@@ -29,7 +29,9 @@
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                         </svg>
                     @endif
-                    @if ($hasCount)
+                    @if ($hasCount && $tone === 'live')
+                        <span class="menu-count gap-1.5 bg-second-soft text-second" data-menu-count="{{ $item['count'] }}" data-menu-badge="live" title="{{ app()->getLocale() === 'tr' ? 'Şu an çalışan iş' : 'Running now' }}"><span class="live-dot h-1.5 w-1.5"></span>{{ number_format($item['count'], 0, ',', '.') }}</span>
+                    @elseif ($hasCount)
                         <span @class(['menu-count', 'menu-count-accent' => $tone === 'accent', 'menu-count-red' => $tone === 'red', 'menu-count-amber' => $tone === 'amber'])
                             data-menu-count="{{ $item['count'] }}" data-menu-badge="{{ $tone ?? 'soft' }}">{{ number_format($item['count'], 0, ',', '.') }}</span>
                     @elseif ($tone === 'dot')
@@ -37,7 +39,7 @@
                     @endif
                 </span>
                 @if ($hasCount || $tone === 'dot')
-                    <span x-show="!({{ $sidebarOpen }})" @class(['absolute right-1.5 top-1 h-1.5 w-1.5 rounded-full', 'bg-accent' => $tone === 'accent', 'bg-error-500' => in_array($tone, ['red', 'dot'], true), 'bg-warning-500' => $tone === 'amber', 'bg-gray-400' => $tone === null || $tone === 'soft']) aria-hidden="true"></span>
+                    <span x-show="!({{ $sidebarOpen }})" @class(['absolute right-1.5 top-1 h-1.5 w-1.5 rounded-full', 'bg-accent' => $tone === 'accent', 'bg-live-500' => $tone === 'live', 'bg-error-500' => in_array($tone, ['red', 'dot'], true), 'bg-warning-500' => $tone === 'amber', 'bg-gray-400' => $tone === null || $tone === 'soft']) aria-hidden="true"></span>
                 @endif
             </a>
         </li>

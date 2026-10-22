@@ -35,6 +35,8 @@ final class DemoMenu
         return [
             $group($tr ? 'Çalışma' : 'Work', [
                 $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard'),
+                // Aşama 4 (2026-10-22): every approval and send, live; the count is what runs now.
+                $item($tr ? 'Akış' : 'Flow', 'operator.flow', 'flow'),
                 // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.
                 $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
                 // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.

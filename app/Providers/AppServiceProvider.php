@@ -127,6 +127,7 @@ use App\Support\Ai\AiRouteRegistry;
 use App\Support\Database\ViewAwarePostgresConnection;
 use App\Support\Database\WebRequestDatabaseLimits;
 use App\Support\Operator\LivewireActionErrors;
+use App\Support\Operator\OperatorClicks;
 use App\Support\Roles;
 use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
@@ -328,6 +329,7 @@ class AppServiceProvider extends ServiceProvider
         // TypeError on a typed Livewire property or a PostgreSQL "invalid input syntax for type bigint".
         Route::patterns(array_fill_keys(['assetId', 'brandId', 'brand', 'customerId', 'taskId'], '[0-9]{1,18}'));
         LivewireActionErrors::register();
+        OperatorClicks::register();
         $this->routeHeavyJobs();
         $this->flushServiceScopeOnPortfolioChange();
         Event::listen(ConnectionEstablished::class, WebRequestDatabaseLimits::class);

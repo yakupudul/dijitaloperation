@@ -537,6 +537,15 @@ final class ContentAutopilot
      * @param  (callable(int, int): mixed)|null  $onProgress
      * @return array{sent: int, failed: list<string>}
      */
+    /** Articles sendReady() would take now (paired sites, of the brand / site when given). */
+    public function readyFor(?int $brandId = null, ?int $siteId = null): int
+    {
+        $paired = self::pairedSiteIds();
+
+        return $this->ready($brandId)->filter(fn (Suggestion $s): bool => in_array((int) data_get($s->action, 'site_id'), $paired, true)
+            && ($siteId === null || (int) data_get($s->action, 'site_id') === $siteId))->count();
+    }
+
     public function sendReady(User $user, ?int $brandId = null, ?callable $onProgress = null, ?int $siteId = null): array
     {
         $planner = app(ContentPlanner::class);

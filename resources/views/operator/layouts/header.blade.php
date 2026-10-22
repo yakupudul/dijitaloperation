@@ -19,6 +19,10 @@
             {{-- Data jobs while something is happening; Claude's work is the card at the bottom of the menu (2026-10-20). --}}
             <div class="flex items-center gap-1.5" data-live-strip>
                 <livewire:demo.partials.active-data-sync-indicator />
+                {{-- Aşama 4: what runs now and what finished today; opens Akış. --}}
+                @auth
+                    <livewire:operator.flow.flow-pill />
+                @endauth
             </div>
 
             <x-ta.theme-toggle />

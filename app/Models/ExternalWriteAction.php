@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Work\WorkBatches;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -66,6 +67,22 @@ class ExternalWriteAction extends Model
 
     protected $guarded = [];
 
+    /** A write made while an approval or send of Akış runs belongs to it (WorkBatches::within). */
+    protected static function booted(): void
+    {
+        static::creating(function (self $action): void {
+            if ($action->work_batch_id === null && ($batch = WorkBatches::current()) !== null) {
+                $action->work_batch_id = $batch;
+            }
+        });
+    }
+
+    /** @return BelongsTo<WorkBatch, $this> */
+    public function workBatch(): BelongsTo
+    {
+        return $this->belongsTo(WorkBatch::class);
+    }
+
     /** @return BelongsTo<DigitalAsset, $this> */
     public function digitalAsset(): BelongsTo
     {
@@ -116,6 +133,8 @@ class ExternalWriteAction extends Model
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
             'undone_at' => 'datetime',
+            'retried_at' => 'datetime',
+            'work_batch_id' => 'integer',
         ];
     }
 }

@@ -12,6 +12,7 @@ use App\Services\Operations\SystemHealthReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
+use App\Services\Work\FlowFeed;
 use App\Support\Demo\DemoMenu;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -40,8 +41,8 @@ final class OperatorMenu
                     'path' => route($item['route'], absolute: false),
                     'icon' => $item['icon'],
                     'routes' => [$item['route'], ...array_column($item['children'] ?? [], 'route'), ...($item['active'] ?? [])],
-                    'count' => $counts[$item['route']] ?? $badges[$item['route']]['count'] ?? null,
-                    'tone' => isset($counts[$item['route']]) ? 'accent' : ($badges[$item['route']]['tone'] ?? null),
+                    'count' => $item['route'] === 'operator.flow' ? self::flowRunning() : ($counts[$item['route']] ?? $badges[$item['route']]['count'] ?? null),
+                    'tone' => $item['route'] === 'operator.flow' ? 'live' : (isset($counts[$item['route']]) ? 'accent' : ($badges[$item['route']]['tone'] ?? null)),
                 ];
             }
             $groups[] = [
@@ -83,6 +84,23 @@ final class OperatorMenu
         }
 
         return $repair > 0 ? ['operator.repair' => $repair] : [];
+    }
+
+    /** Akış's entry: what runs right now (shared with the top bar pill for a few seconds); null when nothing runs. */
+    public static function flowRunning(): ?int
+    {
+        if (! auth()->check()) {
+            return null;
+        }
+        try {
+            $run = (int) (Cache::remember('flow-feed.pill', 8, fn (): array => app(FlowFeed::class)->counts())['run'] ?? 0);
+        } catch (Throwable $error) {
+            report($error);
+
+            return null;
+        }
+
+        return $run > 0 ? $run : null;
     }
 
     private const BADGES_KEY = 'operator-menu.badges';
@@ -253,6 +271,7 @@ final class OperatorMenu
     {
         return match ($key) {
             'dashboard' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+            'flow' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
             'work' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="m3 6 1.5 1.5L7 5"/><path d="m3 12 1.5 1.5L7 11"/><path d="m3 18 1.5 1.5L7 17"/></svg>',
             'customers' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
             'website' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/></svg>',

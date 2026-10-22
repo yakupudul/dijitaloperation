@@ -7,10 +7,12 @@ use App\Models\DigitalAsset;
 use App\Models\GbpQueuedPost;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Models\WorkBatch;
 use App\Services\Gbp\GbpPostReview;
 use App\Services\Repair\RepairAutopilot;
 use App\Services\Repair\RepairDesk;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 /**
  * Günlük gönderim (yakup, 2026-10-14, "Günde 1 tık"): what the night prepared and AI checked — dated articles, the next
@@ -64,7 +66,8 @@ final class DailySend
     {
         Cache::put(self::RUNNING_KEY, now()->toIso8601String(), now()->addMinutes(30));
         $this->progress(['content' => [0, (int) ($totals['content'] ?? 0)], 'posts' => [0, (int) ($totals['posts'] ?? 0)], 'repair' => [0, (int) ($totals['repair'] ?? 0)]]);
-        SendDailyBatchJob::dispatch((int) $user->id);
+        $batch = app(WorkBatches::class)->open(WorkBatch::KIND_DAILY, 'Günlük gönderim', $user, array_sum(array_map('intval', $totals)), ['channel' => 'mixed']);
+        SendDailyBatchJob::dispatch((int) $user->id, $batch);
     }
 
     /**
@@ -102,18 +105,29 @@ final class DailySend
     /**
      * @return array{content: array{sent: int, failed: list<string>}, posts: int, repair: array{applied: int, skipped_high: int, failed: list<string>}}
      */
-    public function send(User $user): array
+    public function send(User $user, ?int $batchId = null): array
     {
+        $batches = app(WorkBatches::class);
+        $batches->start($batchId);
         // Same parts in the same order as before; each step only writes how far it got (the strip polls it).
-        $content = $this->content->sendReady($user, null, fn (int $done, int $total) => $this->progress(['content' => [$done, $total]]));
-        $sentContent = $content['sent'] + count($content['failed']);
-        $this->progress(['content' => [$sentContent, $sentContent]]);
-        $posts = $this->posts->approveReady($user);
-        $this->progress(['posts' => [$posts, $posts]]);
-        $repair = $this->repair->approveReady($user);
-        $repairDone = $repair['applied'] + $repair['skipped_high'] + count($repair['failed']);
-        $this->progress(['repair' => [$repairDone, $repairDone]]);
+        [$content, $posts, $repair] = WorkBatches::within($batchId, function () use ($user): array {
+            $content = $this->content->sendReady($user, null, fn (int $done, int $total) => $this->progress(['content' => [$done, $total]]));
+            $sentContent = $content['sent'] + count($content['failed']);
+            $this->progress(['content' => [$sentContent, $sentContent]]);
+            $posts = $this->posts->approveReady($user);
+            $this->progress(['posts' => [$posts, $posts]]);
+            $repair = $this->repair->approveReady($user);
+            $repairDone = $repair['applied'] + $repair['skipped_high'] + count($repair['failed']);
+            $this->progress(['repair' => [$repairDone, $repairDone]]);
+
+            return [$content, $posts, $repair];
+        });
         $result = ['content' => $content, 'posts' => $posts, 'repair' => $repair];
+        // Akış: one row for the click, the parts that did not go listed under it.
+        $failures = array_map(fn (string $line): array => ['title' => Str::before($line, ':'), 'reason' => trim(Str::after($line, ':')) ?: $line],
+            [...array_map('strval', $content['failed']), ...array_map('strval', $repair['failed'])]);
+        $batches->step($batchId, 0, $failures);
+        $batches->finish($batchId, null, $content['sent'] + $posts + $repair['applied']);
         Cache::put(self::LAST_KEY, $result + ['at' => now()->toIso8601String(), 'by' => $user->name], now()->addDays(7));
         Cache::forget(self::RUNNING_KEY);
         self::clearProgress();

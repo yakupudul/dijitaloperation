@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\DropInvalidLivewireUpdates;
+use App\Http\Middleware\RecordOperatorActivity;
 use App\Http\Middleware\RecordRequestTiming;
 use App\Http\Middleware\SetOperatorLocale;
 use App\Http\Middleware\SetOperatorTimezone;
@@ -44,6 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
             DropInvalidLivewireUpdates::class,
             SetOperatorLocale::class,
             SetOperatorTimezone::class,
+            // Aşama 4: operator time (active minutes per brand).
+            RecordOperatorActivity::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
