@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Komuta;
 
+use App\Jobs\ApproveKomutaGroupJob;
 use App\Models\BrandTarget;
 use App\Models\Suggestion;
 use App\Models\User;
@@ -13,6 +14,7 @@ use App\Services\Repair\RepairDesk;
 use App\Services\Work\ContentWeekPlan;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -95,10 +97,14 @@ final class KomutaPage extends Component
 
             return;
         }
-        $group = collect($komuta->box()['groups'])->firstWhere('key', $key);
-        $ids = collect($group['items'] ?? [])->where('approve', true)->flatMap(fn (array $item): array => $komuta->packageIds($item['key']))->unique()->values()->all();
-        $result = $ids === [] ? ['applied' => 0] : $desk->queueApproval($ids, $user);
-        $this->say($result['applied'] > 0 ? $result['applied'].' iş onaylandı ve gönderime alındı. Akış\'ta izleyebilirsin.' : 'Bu grupta tek tıkla onaylanacak iş kalmadı.');
+        // Across every brand this is thousands of rows: the click only queues the work (no 500 on a big group).
+        if (! Cache::add(ApproveKomutaGroupJob::lockKey($key), $user->id, now()->addMinutes(15))) {
+            $this->say('Bu grubun onayı zaten sırada; birkaç dakika içinde Akış\'ta görünür.');
+
+            return;
+        }
+        ApproveKomutaGroupJob::dispatch($key, (int) $user->id)->onQueue((string) config('queue.writes_queue', 'default'));
+        $this->say('Gruptaki bütün işler onaya alındı; birkaç dakika içinde gönderilmeye başlar. Akış\'ta izleyebilirsin.');
     }
 
     private function approvePlan(?int $brandId, User $user): void

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Goals;
 
+use App\Jobs\ApproveKomutaGroupJob;
 use App\Jobs\ApproveRepairRowsJob;
 use App\Livewire\Demo\GlobalSearch;
 use App\Livewire\Operator\Komuta\KomutaPage;
@@ -143,6 +144,23 @@ final class KomutaTest extends SiteTestCase
         Livewire::test(KomutaPage::class)->assertSee($group['title'])->call('approveItem', $item['key'])->assertSee('2 iş onaylandı');
 
         $this->assertSame(1, WorkBatch::query()->count(), 'the approval is one row of Akış');
+    }
+
+    public function test_hepsini_onayla_only_queues_the_group_so_a_big_group_never_times_out(): void
+    {
+        $this->suggestion('Başlık 1', ['seo_title' => 'Birinci başlık']);
+        $this->suggestion('Başlık 2', ['seo_title' => 'İkinci başlık']);
+        $group = collect(app(KomutaReader::class)->box()['groups'])->first(fn (array $g): bool => str_starts_with($g['key'], 'kind:'));
+
+        Livewire::test(KomutaPage::class)->call('approveGroup', $group['key'])->assertSee('onaya alındı')
+            ->call('approveGroup', $group['key'])->assertSee('zaten sırada');
+        Queue::assertPushed(ApproveKomutaGroupJob::class, 1);
+        $this->assertSame(0, WorkBatch::query()->count(), 'nothing is approved inside the click');
+
+        $this->assertCount(2, app(KomutaReader::class)->groupIds($group['key']));
+        (new ApproveKomutaGroupJob($group['key'], (int) $this->admin->id))->handle(app(KomutaReader::class), app(RepairDesk::class));
+        $this->assertSame(1, WorkBatch::query()->count(), 'the group goes out as one row of Akış');
+        $this->assertFalse(Cache::has(ApproveKomutaGroupJob::lockKey($group['key'])), 'the group can be approved again once done');
     }
 
     public function test_gerek_yok_drops_a_package(): void

@@ -44,7 +44,34 @@ final class KomutaReader
         RepairDesk::SITE_CONTENT => 'icerik',
     ];
 
+    /** The desk rows, read once per reader: building them for every brand takes seconds, so box() and the ids share them. */
+    private ?Collection $deskRows = null;
+
     public function __construct(private readonly RepairDesk $desk, private readonly TargetImpact $impact, private readonly BrandTargets $targets) {}
+
+    /** @return Collection<int, array<string, mixed>> */
+    private function deskRows(): Collection
+    {
+        return $this->deskRows ??= $this->desk->rows();
+    }
+
+    /**
+     * Every desk row a group's "Hepsini onayla" sends: the one-click items of that group, from one read of the desk.
+     *
+     * @return list<int>
+     */
+    public function groupIds(string $groupKey): array
+    {
+        $group = collect($this->box()['groups'])->firstWhere('key', $groupKey);
+        $keys = collect($group['items'] ?? [])->where('approve', true)->pluck('key')
+            ->map(fn (string $k): string => str_starts_with($k, 'pkg:') ? substr($k, 4) : $k)->flip();
+        if ($keys->isEmpty()) {
+            return [];
+        }
+
+        return $this->deskRows()->filter(fn (array $r): bool => $keys->has(RepairDesk::packageKey($r)))
+            ->pluck('id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+    }
 
     /**
      * @return array{groups: list<array{key: string, kind: string, title: string, line: string, count: int, brands: int, impact: ?float, bulk: bool, items: list<array{key: string, brand_id: int, brand: string, logo: ?string, line: string, count: int, impact: ?float, approve: bool, url: string}>}>, decisions: int, manual: int, failed?: bool}
@@ -55,7 +82,7 @@ final class KomutaReader
         $manual = 0;
         $failed = false;
         try {
-            $rows = $this->desk->rows();
+            $rows = $this->deskRows();
             $manual = $rows->filter(fn (array $r): bool => RepairDesk::lane($r) === RepairDesk::LANE_MANUAL)->count();
             $packages = $this->desk->packages($rows->reject(fn (array $r): bool => RepairDesk::lane($r) === RepairDesk::LANE_MANUAL)->values());
             $logos = Brand::query()->pluck('logo_url', 'id');
@@ -316,7 +343,7 @@ final class KomutaReader
     {
         $key = str_starts_with($key, 'pkg:') ? substr($key, 4) : $key;
         /** @var Collection<int, array<string, mixed>> $rows */
-        $rows = $this->desk->rows()->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $key);
+        $rows = $this->deskRows()->filter(fn (array $r): bool => RepairDesk::packageKey($r) === $key);
 
         return $rows->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
     }
