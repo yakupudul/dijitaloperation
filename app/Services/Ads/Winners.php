@@ -173,7 +173,7 @@ class Winners
      *
      * @return array<string, array<int, array<int, true>>> city => service id => brand ids
      */
-    private function marketBrands(array $raw): array
+    public function marketBrands(array $raw): array
     {
         $out = [];
         foreach ($raw['ads'] as $r) {
@@ -740,8 +740,16 @@ class Winners
     {
         $label = AdServiceStats::TYPE_LABELS[$type] ?? 'sonuç';
         $head = ($e['top'] !== null ? $e['top'].': ' : '').number_format((float) $e['results'], 0, ',', '.').' '.$label.', '.$label.' başı '.number_format((float) $e['cpr'], 0, ',', '.').' TRY.';
+        $way = $this->metaWay($brandId, $serviceId, $type);
+
+        return $way === '' ? $head : $head.' '.$way.'.';
+    }
+
+    /** The brand's cheapest Meta campaign setup for the service (objective · destination · audience · best ad), no names. */
+    public function metaWay(int $brandId, int $serviceId, string $type): string
+    {
         if (! SchemaState::hasColumn('ad_campaign_stats', 'profile')) {
-            return $head;
+            return '';
         }
         $best = null;
         foreach (DB::table('ad_campaign_stats')->where('channel', 'meta')->where('brand_id', $brandId)->where('result_type', $type)->whereNotNull('cpr')->orderBy('cpr')->get() as $r) {
@@ -752,7 +760,7 @@ class Winners
             }
         }
         if ($best === null || $best === []) {
-            return $head;
+            return '';
         }
         $t = $best['targeting'] ?? [];
         $parts = array_filter([
@@ -764,7 +772,7 @@ class Winners
             isset($best['best_ad']) ? 'en iyi reklam '.(($best['best_ad']['video'] ?? false) ? 'video' : 'görsel') : null,
         ]);
 
-        return $head.' '.implode(' · ', $parts).'.';
+        return implode(' · ', $parts);
     }
 
     /* ---------------- history ---------------- */

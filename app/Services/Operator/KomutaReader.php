@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\GbpReview;
 use App\Models\Suggestion;
+use App\Services\Ads\SectorPlaybook;
 use App\Services\Goals\BrandTargets;
 use App\Services\Goals\TargetImpact;
 use App\Services\Integrations\BrandAccountCandidates;
@@ -92,7 +93,7 @@ final class KomutaReader
             $failed = true;
         }
         usort($groups, fn (array $a, array $b): int => [($b['impact'] ?? 0), $b['count']] <=> [($a['impact'] ?? 0), $a['count']]);
-        $groups = [...$this->targetGroup(), ...$this->nameGroup(), ...$this->planGroup(), ...$groups];
+        $groups = [...$this->targetGroup(), ...$this->nameGroup(), ...$this->planGroup(), ...$groups, ...$this->sectorGroup()];
 
         return ['groups' => $groups, 'decisions' => (int) array_sum(array_map(fn (array $g): int => count($g['items']), $groups)), 'manual' => $manual] + ($failed ? ['failed' => true] : []);
     }
@@ -157,6 +158,52 @@ final class KomutaReader
                 'approve' => true,
                 'url' => route('operator.portfolio', ['marka' => $t->brand_id]),
             ])->values()->all(),
+        ]];
+    }
+
+    /**
+     * Aşama 10: where each brand is behind in its sector (city × service × channel), one item per brand with its biggest
+     * gap as "sen / ortası / lider" and the leader's way as the step (no other brand is named). Opens the brand.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function sectorGroup(): array
+    {
+        try {
+            $all = app(SectorPlaybook::class)->all();
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
+        $brands = Brand::query()->operational()->whereIn('brands.id', array_keys($all) ?: [0])->get(['brands.id', 'brands.name', 'brands.logo_url'])->keyBy('id');
+        $items = collect($all)->filter(fn (array $rows, int $id): bool => $brands->has($id) && $rows !== [])
+            ->map(fn (array $rows, int $id): array => [
+                'key' => 'sector:'.$id,
+                'brand_id' => $id,
+                'brand' => (string) $brands[$id]->name,
+                'logo' => $brands[$id]->logo_url ?: null,
+                'line' => $rows[0]['line'].(count($rows) > 1 ? ' · '.(count($rows) - 1).' yerde daha geride' : ''),
+                'solution' => $rows[0]['play'],
+                'count' => count($rows),
+                'impact' => null,
+                'approve' => false,
+                'url' => route('operator.brand', $id),
+            ])->sortByDesc(fn (array $i): float => $all[$i['brand_id']][0]['gap'])->values();
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        return [[
+            'key' => 'sector',
+            'kind' => 'marka',
+            'title' => 'Sektörde geride kaldığın yerler',
+            'line' => $items->count().' marka · sen / sektör ortası / lider, liderin yolu adım olarak',
+            'count' => (int) $items->sum('count'),
+            'brands' => $items->count(),
+            'impact' => null,
+            'bulk' => false,
+            'items' => $items->all(),
         ]];
     }
 

@@ -17,9 +17,11 @@ use App\Models\Page;
 use App\Services\Ads\AdLibraries;
 use App\Services\Ads\AdServiceStats;
 use App\Services\Ads\MarketCity;
+use App\Services\Ads\SectorPlaybook;
 use App\Services\Ads\Winners;
 use App\Services\Intel\SerpResults;
 use App\Services\Meta\MetaCampaignServices;
+use App\Services\Operator\KomutaReader;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -156,6 +158,26 @@ class WinnersTest extends TestCase
         $this->assertSame((int) $this->brand->id, $volume['channels']['meta']['entries'][0]['brand_id'], 'more forms');
         $izmir = $winners->race($winners->load('İzmir'), $this->serviceId);
         $this->assertSame(['messages', 1, 0], [$izmir['channels']['meta']['type'], $izmir['competing'], $izmir['eligible']], 'Gama spends in İzmir but alone');
+    }
+
+    public function test_every_brand_sees_where_it_is_behind_as_sen_ortasi_lider_with_the_leaders_way_and_no_names(): void
+    {
+        $this->race();
+
+        $rows = collect(app(SectorPlaybook::class)->forBrand((int) $this->brand->id))->keyBy('channel');
+        $this->assertSame(['meta', 'web'], $rows->keys()->sort()->values()->all(), 'Panorama is second on Meta forms and the website');
+        $this->assertStringContainsString('Ankara · Meta: sen 47 / ortası 43 / lider 40 TRY', $rows['meta']['line']);
+        $this->assertStringContainsString('sen 4,2. sıra / ortası 3,4 / lider 2,5', $rows['web']['line']);
+        $this->assertStringContainsString('Lider bu hizmete 2 sayfa bağlamış', $rows['web']['play']);
+        foreach ($rows as $row) {
+            $this->assertStringNotContainsString('Atlas', $row['line'].$row['play'], 'the leader is never named');
+        }
+
+        $group = collect(app(KomutaReader::class)->box()['groups'])->firstWhere('key', 'sector');
+        $this->assertNotNull($group);
+        $panorama = collect($group['items'])->firstWhere('brand_id', (int) $this->brand->id);
+        $this->assertStringContainsString('1 yerde daha geride', $panorama['line']);
+        $this->assertStringNotContainsString('Atlas', $panorama['line'].$panorama['solution']);
     }
 
     public function test_screens_show_sectors_the_podium_the_ranking_and_history(): void

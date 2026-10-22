@@ -88,9 +88,14 @@
                                 class="grid grid-cols-1 items-center gap-2 border-t border-gray-100 px-4 py-2.5 outline-none first:border-t-0 focus:bg-accent-soft/60 sm:grid-cols-[minmax(0,1fr)_auto] sm:pl-[62px] dark:border-gray-800">
                                 <div class="flex min-w-0 items-center gap-2.5">
                                     <x-ta.brand-avatar :name="$item['brand']" :logo="$item['logo']" size="sm" />
+                                    <div class="min-w-0">
                                     <p class="min-w-0 truncate text-sm"><b class="font-medium text-gray-900 dark:text-white">{{ $item['brand'] }}</b> <span class="text-gray-500 dark:text-gray-400">· {{ $item['line'] }}</span>
                                         @if (($label = TargetImpact::label($item['impact'])) !== '')<span class="ml-1 chip chip-up" title="Tahmin: sayfaların arama tıklamaları × bu tür düzeltmelerin etkisi × markanın tık başına talebi">{{ $label }}</span>@endif
                                     </p>
+                                    @if (! empty($item['solution']))
+                                        <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300" data-komuta-solution><span class="font-medium text-gray-900 dark:text-white">Çözüm:</span> {{ $item['solution'] }}</p>
+                                    @endif
+                                    </div>
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     @if (str_starts_with($item['key'], 'target:') && $isAdmin)
