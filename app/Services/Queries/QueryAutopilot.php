@@ -22,6 +22,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -121,11 +122,25 @@ final class QueryAutopilot
         return (bool) config('moxdop-queries.autopilot', true) && ! self::paused() && QueryPipeline::importedAt() !== null;
     }
 
-    /** @return Builder<Query> unassigned, visible, collected queries with a sector that AI has not seen */
+    /** @return Builder<Query> unassigned, visible, collected queries of a sector with services that AI has not seen */
     public static function queue(): Builder
     {
-        return Query::query()->whereNull('service_id')->where('hidden', false)->where('is_suggested', false)
-            ->whereNotNull('sector_id')->whereNull('ai_checked_at');
+        return self::inServicedSectors(Query::query()->whereNull('service_id')->where('hidden', false)->where('is_suggested', false)
+            ->whereNotNull('sector_id')->whereNull('ai_checked_at'));
+    }
+
+    /**
+     * Only sectors that have a catalog service: a sector without services ("Diğer", 10,656 queries, panel audit 16) has
+     * nothing to assign its queries to; they wait for the sector ("sektör bekliyor") and stay out of the queue and its counts.
+     *
+     * @template T of \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder
+     *
+     * @param  T  $query
+     * @return T
+     */
+    public static function inServicedSectors($query)
+    {
+        return $query->whereIn('sector_id', DB::table('service_categories')->whereIn('code', DB::table('service_catalog_items')->whereNotNull('sector')->select('sector'))->select('id'));
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Ads\SupersededAdAccounts;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Work\OpenWork;
@@ -85,7 +86,7 @@ final class PortfolioSignalsReader
         $brandSignals = [];
         foreach ($brands as $brand) {
             $brandAssets = $assets->where('brand_id', $brand->id);
-            $brandAlarms = $brandAssets->filter(fn (DigitalAsset $a): bool => ($a->status?->value ?? 'active') === 'active')
+            $brandAlarms = $brandAssets->filter(fn (DigitalAsset $a): bool => ($a->status?->value ?? 'active') === 'active' && ! SupersededAdAccounts::isSuperseded((int) $a->id))
                 ->flatMap(fn (DigitalAsset $a): array => $alarms[(int) $a->id] ?? [])->values()->all();
             $brandSignals[(int) $brand->id] = $this->brandSignal($brandAssets, $assetSignals, $statuses, $brandWork[(int) $brand->id] ?? ['total' => 0, 'critical' => 0, 'by_channel' => []], $brandAlarms);
         }
@@ -159,7 +160,7 @@ final class PortfolioSignalsReader
         $worst = collect($sources)->sortByDesc(fn (array $s): int => self::TONE_RANK[$s['tone']] ?? 0)->first();
         $problems = collect($sources)->filter(fn (array $s): bool => in_array($s['tone'], ['bad', 'warn'], true));
         $reconnect = collect($sources)->where('reconnect', true)->count();
-        $active = ($asset->status?->value ?? 'active') === 'active';
+        $active = ($asset->status?->value ?? 'active') === 'active' && ! SupersededAdAccounts::isSuperseded((int) $asset->id);
 
         return [
             'open_work' => $work['total'],
@@ -189,7 +190,7 @@ final class PortfolioSignalsReader
         $channels = self::emptyChannels();
         $problems = collect();
         foreach ($assets as $asset) {
-            $active = ($asset->status?->value ?? 'active') === 'active';
+            $active = ($asset->status?->value ?? 'active') === 'active' && ! SupersededAdAccounts::isSuperseded((int) $asset->id);
             foreach ($statuses[(int) $asset->id] ?? [] as $status) {
                 if (! isset($channels[$status->capability])) {
                     continue;

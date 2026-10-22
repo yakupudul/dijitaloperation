@@ -44,6 +44,10 @@ final class DormantAdWork
                 $out[(int) $assetId] = $last;
             }
         }
+        // The old copy of a same-named working account produces no work either.
+        foreach (array_keys(SupersededAdAccounts::map()) as $assetId) {
+            $out[$assetId] ??= '';
+        }
 
         return $out;
     }

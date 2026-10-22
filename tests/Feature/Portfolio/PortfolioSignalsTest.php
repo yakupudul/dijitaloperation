@@ -18,6 +18,9 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Ads\DormantAdWork;
+use App\Services\Ads\SupersededAdAccounts;
+use App\Services\Alerts\AssetAlertScanner;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Support\Demo\DemoMenu;
@@ -133,6 +136,19 @@ final class PortfolioSignalsTest extends TestCase
         $calm = $read();
         $this->assertTrue($calm['needs_attention']);
         $this->assertSame('Reklamlar harcama yapmadı · 1 kritik öneri', $calm['reason']);
+    }
+
+    public function test_an_old_ads_account_next_to_a_working_one_of_the_brand_raises_nothing(): void
+    {
+        $old = $this->asset($this->late, 'google_ads', 'Geciken Ads');
+        $this->adsFact($this->bind($old, 'google_ads', '9998887777'), '2026-09-10');
+        $this->alarm($old, 'high', 'Veri güncel değil');
+        $this->assertSame([$old->id => $this->ads->id], SupersededAdAccounts::map());
+
+        app(AssetAlertScanner::class)->scan($old->fresh());
+        $this->assertFalse(AssetAlert::query()->active()->where('digital_asset_id', $old->id)->exists(), 'its alarms resolve');
+        $this->assertArrayHasKey($old->id, app(DormantAdWork::class)->dormantAssets(), 'its work is quiet');
+        $this->assertArrayNotHasKey($this->ads->id, SupersededAdAccounts::map(), 'the working copy counts');
     }
 
     public function test_revoked_account_needs_a_reconnect(): void

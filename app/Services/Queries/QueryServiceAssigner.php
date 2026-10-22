@@ -82,8 +82,8 @@ final class QueryServiceAssigner
     /** @return Builder<Query> the queue: unassigned, visible, collected (not AI-suggested) queries with a sector */
     public static function queue(?int $sectorId): Builder
     {
-        return Query::query()->whereNull('service_id')->where('hidden', false)->where('is_suggested', false)->whereNotNull('sector_id')
-            ->when($sectorId !== null, fn (Builder $q) => $q->where('sector_id', $sectorId));
+        return QueryAutopilot::inServicedSectors(Query::query()->whereNull('service_id')->where('hidden', false)->where('is_suggested', false)->whereNotNull('sector_id')
+            ->when($sectorId !== null, fn (Builder $q) => $q->where('sector_id', $sectorId)));
     }
 
     /**
