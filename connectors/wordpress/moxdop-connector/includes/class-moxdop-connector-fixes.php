@@ -1,5 +1,6 @@
 <?php
 
+use Elementor\Plugin;
 use RankMath\Helper;
 
 defined('ABSPATH') || exit;
@@ -23,6 +24,12 @@ defined('ABSPATH') || exit;
  * Redirections module / SEOPress's Redirections feature is switched on when it is off. Without such a plugin the change
  * fails ("no SEO plugin can hold redirects") instead of landing in the connector's own list; redirects already in
  * that list move into the SEO plugin and the rest keep working.
+ *
+ * 1.24.0 (MoxDOP audit S1/S2): before a 301 is written the site's redirects are read both ways — a target that itself
+ * redirects is refused (no chains), and redirects that pointed at the old address now point at the new one. Links in
+ * published posts (post content and Elementor data) that went to the old address are repointed to the new one, each
+ * post logged and undoable on its own. JSON-LD is printed with "<" and ">" escaped, so "</script>" in a value can never
+ * break the page head.
  */
 final class MoxDOP_Connector_Fixes
 {
@@ -36,6 +43,12 @@ final class MoxDOP_Connector_Fixes
     const LLMS_OPTION = 'moxdop_connector_llms_txt';
 
     const MAX_LOG = 3000;
+
+    /** 1.24.0: JSON-LD flags; JSON_HEX_TAG turns "<" and ">" into \u003C / \u003E so a value can never close the script tag. */
+    const JSON_LD = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG;
+
+    /** 1.24.0: posts relinked from a redirected address in one change (the rest follow with the next sync's fix). */
+    const MAX_RELINK = 200;
 
     const SEO_KEYS = [
         'yoast' => ['title' => '_yoast_wpseo_title', 'description' => '_yoast_wpseo_metadesc', 'canonical' => '_yoast_wpseo_canonical', 'noindex' => '_yoast_wpseo_meta-robots-noindex'],
@@ -167,6 +180,12 @@ final class MoxDOP_Connector_Fixes
         }
         $result = ['ok' => true, 'type' => $type, 'change_id' => $id, 'before' => $this->summary($before), 'after' => $this->summary($after)];
 
+        if (in_array($type, ['redirect', 'merge_redirect'], true)) {
+            $to = $type === 'redirect' ? (string) $value : (string) ($value['to'] ?? '');
+            if ($to !== '') {
+                $result += $this->follow_redirect($target, $to, sanitize_text_field((string) ($change['reference'] ?? '')));
+            }
+        }
         if ($type === 'redirect') {
             return $result + ['provider' => $this->last_provider, 'enabled_module' => $this->enabled_module];
         }
@@ -234,7 +253,7 @@ final class MoxDOP_Connector_Fixes
                     return '';
                 }
 
-                return is_array($decoded) ? wp_json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : new WP_Error('bad', 'schema must be JSON-LD');
+                return is_array($decoded) ? wp_json_encode($decoded, self::JSON_LD) : new WP_Error('bad', 'schema must be JSON-LD');
             case 'llms_txt':
                 $text = trim(str_replace("\r\n", "\n", wp_strip_all_tags((string) $value, false)));
 
@@ -244,8 +263,12 @@ final class MoxDOP_Connector_Fixes
                     return '';
                 }
                 $url = esc_url_raw((string) $value);
+                if ($url === '') {
+                    return new WP_Error('bad', 'redirect target is not a URL');
+                }
+                $chain = $this->chain_error($target, $url);
 
-                return $url !== '' ? $url : new WP_Error('bad', 'redirect target is not a URL');
+                return $chain !== '' ? new WP_Error('bad', $chain) : $url;
             case 'merge_redirect':
                 $url = esc_url_raw((string) $value);
                 if ($url === '') {
@@ -253,6 +276,10 @@ final class MoxDOP_Connector_Fixes
                 }
                 if ($this->path($url) === $target['from']) {
                     return new WP_Error('bad', 'a page cannot redirect to itself');
+                }
+                $chain = $this->chain_error($target, $url);
+                if ($chain !== '') {
+                    return new WP_Error('bad', $chain);
                 }
 
                 return ['to' => $url, 'status' => $target['post_id'] > 0 ? 'draft' : ''];
@@ -299,6 +326,8 @@ final class MoxDOP_Connector_Fixes
                 return ['to' => $this->redirect_target($target), 'status' => $target['post_id'] > 0 ? (string) get_post_status($target['post_id']) : ''];
             case 'content':
                 return ['title' => (string) get_post_field('post_title', $target['post_id'], 'raw'), 'content' => (string) get_post_field('post_content', $target['post_id'], 'raw')];
+            case 'relink':
+                return ['content' => (string) get_post_field('post_content', $target['post_id'], 'raw'), 'elementor' => (string) get_post_meta($target['post_id'], '_elementor_data', true)];
         }
 
         return null;
@@ -353,6 +382,23 @@ final class MoxDOP_Connector_Fixes
                 $result = wp_update_post(['ID' => $target['post_id'], 'post_title' => wp_slash((string) ($value['title'] ?? '')), 'post_content' => wp_slash((string) ($value['content'] ?? ''))], true);
 
                 return is_wp_error($result) ? $result : true;
+            case 'relink':
+                if ((string) get_post_field('post_content', $target['post_id'], 'raw') !== (string) ($value['content'] ?? '')) {
+                    $result = wp_update_post(['ID' => $target['post_id'], 'post_content' => wp_slash((string) ($value['content'] ?? ''))], true);
+                    if (is_wp_error($result)) {
+                        return $result;
+                    }
+                }
+                if ((string) ($value['elementor'] ?? '') !== '' && (string) get_post_meta($target['post_id'], '_elementor_data', true) !== (string) $value['elementor']) {
+                    update_post_meta($target['post_id'], '_elementor_data', wp_slash((string) $value['elementor']));
+                    delete_post_meta($target['post_id'], '_elementor_css');
+                    if (class_exists('\\Elementor\\Plugin') && isset(Plugin::$instance->files_manager)) {
+                        Plugin::$instance->files_manager->clear_cache();
+                    }
+                }
+                clean_post_cache($target['post_id']);
+
+                return true;
         }
 
         return new WP_Error('bad', 'unknown change type');
@@ -621,6 +667,159 @@ final class MoxDOP_Connector_Fixes
         }
     }
 
+    /* ------------------------------------------------- 1.24.0: no chains, links follow the 301 */
+
+    /** '' when the 301 may be written; else why not (the target redirects again, so this would be a chain). */
+    private function chain_error(array $target, $to)
+    {
+        if (wp_parse_url($to, PHP_URL_HOST) !== null && strtolower(preg_replace('/^www\./', '', (string) wp_parse_url($to, PHP_URL_HOST))) !== $this->host()) {
+            return '';
+        }
+        $hop = $this->redirect_target(['from' => $this->path($to), 'source' => $this->source_path($to), 'post_id' => 0]);
+
+        return $hop !== '' ? 'redirect chain: the target already redirects to '.$hop : '';
+    }
+
+    /**
+     * After a 301 from $target to $to: redirects that pointed at the old address point at $to (the connector's list
+     * and Rank Math), and published posts linking the old address link $to (each post one undoable "relink" change).
+     *
+     * @return array{repointed_redirects: int, relinked_posts: int, relink_change_ids: list<string>}
+     */
+    private function follow_redirect(array $target, $to, $reference)
+    {
+        $from = $target['from'];
+        $repointed = 0;
+        $redirects = (array) get_option(self::REDIRECTS_OPTION, []);
+        foreach ($redirects as $source => $url) {
+            if ($source !== $from && $this->path((string) $url) === $from && $this->same_site((string) $url)) {
+                $redirects[$source] = (string) $to;
+                $repointed++;
+            }
+        }
+        if ($repointed > 0) {
+            update_option(self::REDIRECTS_OPTION, $redirects, true);
+        }
+        if ($this->redirect_provider() === 'rank_math') {
+            global $wpdb;
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT id, url_to FROM '.$wpdb->prefix.'rank_math_redirections WHERE status = %s AND url_to LIKE %s',
+                'active', '%'.$wpdb->esc_like(rtrim($target['source'], '/')).'%'));
+            foreach ((array) $rows as $row) {
+                if ($this->path((string) $row->url_to) === $from && $this->same_site((string) $row->url_to)) {
+                    $wpdb->update($wpdb->prefix.'rank_math_redirections', ['url_to' => (string) $to], ['id' => (int) $row->id]);
+                    $repointed++;
+                }
+            }
+        }
+        $ids = [];
+        foreach ($this->linking_posts($target['source']) as $post_id) {
+            $relink = ['post_id' => (int) $post_id];
+            $before = $this->read('relink', $relink);
+            $after = ['content' => $this->relink_text($before['content'], $from, (string) $to), 'elementor' => $this->relink_elementor($before['elementor'], $from, (string) $to)];
+            if ($after === $before) {
+                continue;
+            }
+            if (is_wp_error($this->write('relink', $relink, $after))) {
+                continue;
+            }
+            $ids[] = $this->remember('relink', $relink, $before, $this->read('relink', $relink), $reference.'-relink-'.$post_id);
+        }
+
+        return ['repointed_redirects' => $repointed, 'relinked_posts' => count($ids), 'relink_change_ids' => $ids];
+    }
+
+    /** Published posts whose content or Elementor data mentions the path (MAX_RELINK at most). */
+    private function linking_posts($source)
+    {
+        global $wpdb;
+        $needle = rtrim((string) $source, '/');
+        if ($needle === '') {
+            return [];
+        }
+        $like = '%'.$wpdb->esc_like($needle).'%';
+        $escaped = '%'.$wpdb->esc_like(str_replace('/', '\\/', $needle)).'%';
+        $types = "'revision','attachment','nav_menu_item','seopress_404'";
+
+        return array_map('intval', (array) $wpdb->get_col($wpdb->prepare(
+            "SELECT DISTINCT p.ID FROM {$wpdb->posts} p LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_elementor_data'
+             WHERE p.post_status = 'publish' AND p.post_type NOT IN ({$types}) AND (p.post_content LIKE %s OR m.meta_value LIKE %s OR m.meta_value LIKE %s)
+             ORDER BY p.ID LIMIT %d", $like, $like, $escaped, self::MAX_RELINK)));
+    }
+
+    /** href="…old…" (absolute on this site or relative, query / fragment kept) becomes the new address. */
+    private function relink_text($html, $from, $to)
+    {
+        if ($html === '') {
+            return $html;
+        }
+
+        return (string) preg_replace_callback('~(href\s*=\s*)(\\\\?["\'])([^"\'\\\\]+)(\\\\?["\'])~i', function ($m) use ($from, $to) {
+            return $this->is_old_url(html_entity_decode($m[3]), $from) ? $m[1].$m[2].$this->with_tail($m[3], $to).$m[4] : $m[0];
+        }, $html);
+    }
+
+    /** The same inside Elementor's data: URL fields ("url") and links inside text widgets. */
+    private function relink_elementor($json, $from, $to)
+    {
+        if ($json === '') {
+            return $json;
+        }
+        $data = json_decode($json, true);
+        if (! is_array($data)) {
+            return $json;
+        }
+        $changed = false;
+        $walk = function (&$node) use (&$walk, &$changed, $from, $to) {
+            foreach ($node as $key => &$value) {
+                if (is_array($value)) {
+                    $walk($value);
+                } elseif (is_string($value) && $value !== '') {
+                    $new = $key === 'url' && $this->is_old_url($value, $from) ? $this->with_tail($value, $to) : $this->relink_text($value, $from, $to);
+                    if ($new !== $value) {
+                        $value = $new;
+                        $changed = true;
+                    }
+                }
+            }
+        };
+        $walk($data);
+
+        return $changed ? (string) wp_json_encode($data) : $json;
+    }
+
+    private function is_old_url($url, $from)
+    {
+        $url = trim((string) $url);
+        if ($url === '' || $url[0] === '#' || ! $this->same_site($url)) {
+            return false;
+        }
+
+        return $this->path($url) === $from;
+    }
+
+    /** The new address with the old link's query and fragment. */
+    private function with_tail($old, $to)
+    {
+        $tail = '';
+        if (preg_match('~([?#].*)$~', (string) $old, $m) === 1) {
+            $tail = $m[1];
+        }
+
+        return esc_url_raw((string) $to).$tail;
+    }
+
+    private function same_site($url)
+    {
+        $host = wp_parse_url((string) $url, PHP_URL_HOST);
+
+        return $host === null || $host === false || strtolower(preg_replace('/^www\./', '', (string) $host)) === $this->host();
+    }
+
+    private function host()
+    {
+        return strtolower(preg_replace('/^www\./', '', (string) wp_parse_url(home_url(), PHP_URL_HOST)));
+    }
+
     /** The path as sent (decoded, leading slash, trailing slash kept): what SEO plugins match. */
     private function source_path($url)
     {
@@ -774,7 +973,7 @@ final class MoxDOP_Connector_Fixes
 
     public function head()
     {
-        $site = (string) get_option(self::SITE_SCHEMA_OPTION, '');
+        $site = self::json_ld((string) get_option(self::SITE_SCHEMA_OPTION, ''));
         if ($site !== '' && (is_front_page() || is_home())) {
             echo '<script type="application/ld+json">'.$site.'</script>'."\n";
         }
@@ -782,7 +981,7 @@ final class MoxDOP_Connector_Fixes
             return;
         }
         $post_id = get_queried_object_id();
-        $schema = (string) get_post_meta($post_id, '_moxdop_schema', true);
+        $schema = self::json_ld((string) get_post_meta($post_id, '_moxdop_schema', true));
         if ($schema !== '') {
             echo '<script type="application/ld+json">'.$schema.'</script>'."\n";
         }
@@ -792,6 +991,17 @@ final class MoxDOP_Connector_Fixes
                 echo '<meta name="description" content="'.esc_attr($description).'">'."\n";
             }
         }
+    }
+
+    /** Stored JSON-LD as printed: decoded and encoded again with JSON_LD; '' when it is not JSON (never printed raw). */
+    public static function json_ld($stored)
+    {
+        if ($stored === '') {
+            return '';
+        }
+        $decoded = json_decode($stored, true);
+
+        return is_array($decoded) ? (string) wp_json_encode($decoded, self::JSON_LD) : '';
     }
 
     public function document_title($title)

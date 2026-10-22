@@ -411,6 +411,7 @@ final class WebHealthAuditTest extends SiteTestCase
         app(WebHealthAudit::class)->writeFinished($write);
         $row = app(RepairDesk::class)->rows()->firstWhere('id', $fix['id']);
         $this->assertStringContainsString('Sitedeki MoxDOP eklentisi eski; 1.12.0', $row['reason']);
+        $this->assertStringContainsString('zincir 301 yapılmaz', WebHealthAudit::plainError('redirect chain: the target already redirects to /yeni/'));
     }
 
     private function inspection(string $url, array $meta): void

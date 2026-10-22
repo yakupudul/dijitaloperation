@@ -478,7 +478,7 @@ final class MoxDOP_Connector_Builder
             if ($schema === null || $schema === '') {
                 delete_post_meta($post_id, '_moxdop_schema');
             } elseif (is_array($decoded)) {
-                update_post_meta($post_id, '_moxdop_schema', wp_slash(wp_json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
+                update_post_meta($post_id, '_moxdop_schema', wp_slash(wp_json_encode($decoded, MoxDOP_Connector_Fixes::JSON_LD)));
             } else {
                 $warnings[] = 'schema must be JSON-LD';
             }

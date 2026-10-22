@@ -117,9 +117,9 @@ final class WordPressPageCacheExportTest extends TestCase
             $this->assertSame(0, $code, $file.': '.implode("\n", $output));
         }
         $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.23.0')", $plugin);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.24.0')", $plugin);
         $this->assertStringContainsString('class-moxdop-connector-page-cache.php', $plugin);
-        $this->assertStringContainsString('Stable tag: 1.23.0', (string) file_get_contents($root.'/readme.txt'));
+        $this->assertStringContainsString('Stable tag: 1.24.0', (string) file_get_contents($root.'/readme.txt'));
 
         $controller = (string) file_get_contents($root.'/includes/class-moxdop-connector-rest-controller.php');
         $this->assertStringContainsString("'/page-cache'", $controller);

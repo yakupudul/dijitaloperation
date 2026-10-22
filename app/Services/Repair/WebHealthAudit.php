@@ -222,6 +222,9 @@ final class WebHealthAudit
         if ($error === '') {
             return 'gönderim tamamlanmadı';
         }
+        if (str_contains($error, 'redirect chain')) {
+            return 'Hedef sayfa sitede zaten başka bir adrese yönleniyor; zincir 301 yapılmaz. Hedefi son adres olarak seçip yeniden onayla.';
+        }
         if (str_contains($error, 'no SEO plugin can hold redirects')) {
             return 'Sitedeki MoxDOP eklentisi eski; 1.12.0 ve sonrası 301\'i kendi listesine yazar. Eklentiyi güncelle, sonra yeniden onayla.';
         }

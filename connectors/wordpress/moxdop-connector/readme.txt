@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.23.0
+Stable tag: 1.24.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,11 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.24.0 =
+* 301s never chain: a redirect whose target already redirects is refused, and redirects that pointed at the old address now point at the new one (MoxDOP's list and Rank Math).
+* Links follow a 301: published posts (content and Elementor data) that linked the old address link the new one; each post is logged and can be undone on its own.
+* JSON-LD is printed with < and > escaped, so a "</script>" inside a schema value can never break the page head.
 
 = 1.23.0 =
 * Akıllı tarih: the button works in the classic editor again (sites whose SEO plugin loads the block editor's scripts on classic pages took the block path, saved nothing and left the button disabled). Today is offered only once its publishing hour has come, so at night the box no longer offers "today, 00:49"; a scheduled day ahead always lies in the future.

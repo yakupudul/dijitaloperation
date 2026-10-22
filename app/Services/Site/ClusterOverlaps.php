@@ -229,7 +229,10 @@ final class ClusterOverlaps
                 continue;
             }
             $error = (string) ($result['error'] ?? $write->error ?? 'site yanıt vermedi');
-            if (str_contains($error, 'no SEO plugin can hold redirects')) {
+            if (str_contains($error, 'redirect chain')) {
+                // Connector 1.24.0 (audit S1): a 301 to a page that itself redirects would make a chain.
+                $error = 'Hedef sayfa sitede zaten başka bir adrese yönleniyor; zincir 301 yapılmaz. Hedefi son adres olarak seçip yeniden onayla.';
+            } elseif (str_contains($error, 'no SEO plugin can hold redirects')) {
                 $error = 'Sitedeki MoxDOP eklentisi eski; 1.12.0 ve sonrası 301\'i kendi listesine yazar. Web siteleri › eklentiyi güncelle, sonra yeniden onayla.';
             }
             $suggestion->forceFill(['status' => Suggestion::OPEN, 'resolved_at' => null, 'action' => array_merge($action, ['merge_error' => mb_substr($error, 0, 300)])])->save();
