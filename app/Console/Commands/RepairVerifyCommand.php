@@ -17,7 +17,8 @@ final class RepairVerifyCommand extends Command
     public function handle(RepairVerifier $verifier): int
     {
         $done = $verifier->run();
-        $this->line(sprintf('%d düzeltme doğrulandı, %d düzeltme sitede görünmüyor, %d başarısız yazma masaya geri döndü.', $done['confirmed'], $done['still_seen'], $done['reopened']));
+        $this->line(sprintf('%d düzeltme doğrulandı, %d düzeltme sitede görünmüyor, %d başarısız yazma masaya geri döndü, %d görünmeyen düzeltme masaya geri döndü.',
+            $done['confirmed'], $done['still_seen'], $done['reopened'], $done['returned']));
 
         return self::SUCCESS;
     }

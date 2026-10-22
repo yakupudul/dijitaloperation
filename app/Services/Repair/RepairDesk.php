@@ -856,7 +856,7 @@ final class RepairDesk
             if ($error !== null) {
                 $action[self::DESK_ERROR] = mb_substr($error, 0, 300);
             } elseif (! in_array((int) $suggestion->id, $failedIds, true)) {
-                unset($action[self::DESK_ERROR]);
+                unset($action[self::DESK_ERROR], $action[RepairVerifier::NOTE]);
             }
             $suggestion->forceFill(['action' => $action])->save();
         }
@@ -1001,7 +1001,8 @@ final class RepairDesk
             'work_type' => OutcomeTracker::workType((string) $s->action_type, $action),
             'title' => (string) $s->title, 'priority' => (int) ($s->priority ?? 3), 'page_id' => $s->page_id !== null ? (int) $s->page_id : null,
             'page_title' => $s->relationLoaded('page') ? (string) ($s->page?->h1 ?: $s->page?->title ?? '') : '',
-            'reason' => trim((string) $s->reason.(filled($lastError) ? ' · Önceki gönderim başarısız: '.$lastError : ''), ' ·')];
+            'reason' => trim((string) $s->reason.(filled($lastError) ? ' · Önceki gönderim başarısız: '.$lastError : '')
+                .(filled($action[RepairVerifier::NOTE] ?? null) ? ' · '.$action[RepairVerifier::NOTE] : ''), ' ·')];
         if ($s->status === Suggestion::SNOOZED && $s->snoozed_until !== null && $s->snoozed_until->isFuture()) {
             return null;
         }

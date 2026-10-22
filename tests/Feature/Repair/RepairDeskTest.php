@@ -290,7 +290,7 @@ final class RepairDeskTest extends SiteTestCase
         ExternalWriteAction::query()->where('suggestion_id', $other->id)->update(['status' => 'failed', 'error' => 'Eklenti yanıt vermedi']);
 
         $this->travel(2)->hours();
-        $this->assertSame(['confirmed' => 0, 'still_seen' => 0, 'reopened' => 0], app(RepairVerifier::class)->run(), 'settling');
+        $this->assertSame(['confirmed' => 0, 'still_seen' => 0, 'reopened' => 0, 'returned' => 0], app(RepairVerifier::class)->run(), 'settling');
         $this->travel(1)->day();
         $this->implantPage->forceFill(['title' => 'Yeni  Başlık'])->save();
         $this->artisan('moxdop:repair:verify')->expectsOutputToContain('1 düzeltme doğrulandı')->assertSuccessful();
@@ -299,6 +299,46 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(Suggestion::OPEN, $other->fresh()->status);
         $row = app(RepairDesk::class)->rows()->firstWhere('id', $other->id);
         $this->assertStringContainsString('Eklenti yanıt vermedi', $row['reason'], 'back on the desk with the error');
+    }
+
+    /**
+     * Audit N6/7: a fix the site still does not show returns to the desk saying so (twice at most), and internal links
+     * are checked on the page's next crawl.
+     */
+    public function test_a_fix_the_site_does_not_show_returns_to_the_desk_and_links_are_checked_on_the_next_crawl(): void
+    {
+        $fields = $this->suggestion('Başlığı güçlendir', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni Başlık']]]);
+        app(RepairDesk::class)->approve([$fields->id], $this->admin);
+        $applied = $fields->fresh()->applied_at;
+        $this->travel(25)->hours();
+        $this->implantPage->forceFill(['title' => 'Eski başlık'])->save();
+
+        $this->assertSame(['confirmed' => 0, 'still_seen' => 1, 'reopened' => 0, 'returned' => 1], app(RepairVerifier::class)->run());
+        $row = app(RepairDesk::class)->rows()->firstWhere('id', $fields->id);
+        $this->assertNotNull($row, 'back on the desk');
+        $this->assertStringContainsString('Gönderildi ama sitede hâlâ eski hali görünüyor', $row['reason']);
+        $this->assertSame(1, data_get($fields->fresh()->action, RepairVerifier::RETURNS));
+        $this->assertNotNull($applied);
+
+        // A second and a third time: after MAX_RETURNS it stays "still seen" in Geçmiş.
+        foreach ([2, 3] as $round) {
+            app(RepairDesk::class)->approve([$fields->id], $this->admin);
+            $this->travel(25)->hours();
+            $this->implantPage->forceFill(['title' => 'Eski başlık '.$round])->save();
+            app(RepairVerifier::class)->run();
+        }
+        $this->assertSame(Suggestion::APPLIED, $fields->fresh()->status);
+        $this->assertSame(Suggestion::VERIFY_STILL_SEEN, $fields->fresh()->verification);
+
+        $links = $this->suggestion('Bağlantı ekle', 'internal_links', ['proposal' => ['kind' => 'fields', 'current' => [],
+            'new' => ['internal_links' => [['anchor' => 'zirkonyum kaplama', 'url' => '/zirkonyum/']]]]],
+            ['status' => Suggestion::APPLIED, 'applied_at' => now()->subDays(2), 'page_id' => $this->implantPage->id]);
+        $this->assertSame(0, app(RepairVerifier::class)->run()['confirmed'], 'not crawled again yet');
+        DB::table('website_link_edge')->insert(['digital_asset_id' => $this->site->id, 'edge_key' => str_repeat('a', 64),
+            'source_url' => $this->implantPage->url, 'target_url' => 'https://example.com/zirkonyum/', 'normalized_target_url' => 'https://example.com/zirkonyum',
+            'is_internal' => true, 'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => str_repeat('b', 64)]);
+        $this->assertSame(1, app(RepairVerifier::class)->run()['confirmed']);
+        $this->assertSame(Suggestion::VERIFY_CONFIRMED, $links->fresh()->verification);
     }
 
     public function test_site_audit_opens_one_fix_per_page_with_bad_title_or_description_and_closes_it_when_fixed(): void

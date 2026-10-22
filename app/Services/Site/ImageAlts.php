@@ -119,6 +119,30 @@ final class ImageAlts
     }
 
     /**
+     * RepairVerifier: whether the sent alt texts show on the site — false when an image synced after the write still
+     * has none, true once every image was synced again with one, null while not all of them were.
+     */
+    public function written(Suggestion $suggestion): ?bool
+    {
+        $site = DigitalAsset::query()->where('type', 'website')->find((int) data_get($suggestion->action, 'site_id'));
+        $ids = array_map(fn (array $i): int => (int) $i['image_id'], (array) data_get($suggestion->action, 'images', []));
+        if ($site === null || $ids === [] || $suggestion->applied_at === null) {
+            return null;
+        }
+        $after = DB::table('website_cms_object_snapshot')->where('digital_asset_id', $site->id)->where('object_type', 'attachment')
+            ->whereIn('object_id', array_map('strval', $ids))->where('observed_at', '>', $suggestion->applied_at)->distinct()->pluck('object_id')
+            ->map(fn ($id): int => (int) $id)->all();
+        $latest = $this->latest($site, $after);
+        foreach ($latest as $meta) {
+            if (trim((string) ($meta['alt_text'] ?? '')) === '') {
+                return false;
+            }
+        }
+
+        return count($after) === count(array_unique($ids)) ? true : null;
+    }
+
+    /**
      * Images (latest snapshot of each attachment) without alt text that belong to a stored page of the site.
      *
      * @return Collection<int, array{object_id: int, file: string, title: string, page: Page}>
