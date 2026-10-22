@@ -6,6 +6,7 @@ use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\Brand\RunBrandEpicrisisJob;
 use App\Jobs\CheckAdBudgetJob;
+use App\Jobs\CheckDoorwayPagesJob;
 use App\Jobs\CheckOverlapsJob;
 use App\Jobs\CheckSitemapChangesJob;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
@@ -1315,6 +1316,20 @@ Schedule::command('moxdop:overlaps:check')
     ->withoutOverlapping(30)
     ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::OVERLAP_CHECK))
     ->name('overlaps-check');
+
+// Kapı sayfaları (yakup, 2026-10-22: "sadece riskli olanları kaldır"): Claude reads each template page's title once; a page
+// naming another business / person or an unserved place becomes a noindex row on Onarım masası. Nothing is written to a site.
+Artisan::command('moxdop:site:doorway-check', function (): void {
+    CheckDoorwayPagesJob::dispatch();
+    $this->info('Kapı sayfası kontrolü kuyruğa alındı.');
+})->purpose('Claude reads template pages once: those naming another business or an unserved place go to Onarım masası as noindex rows (nothing is written).');
+
+Schedule::command('moxdop:site:doorway-check')
+    ->hourlyAt(35)
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::SITE_DOORWAY_CHECK))
+    ->name('site-doorway-check');
 
 Schedule::command('moxdop:content:autopilot')
     ->cron('7,27,47 * * * *')

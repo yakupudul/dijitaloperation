@@ -53,6 +53,7 @@ final class WebHealthAudit
         'bloat' => 'Gereksiz dizin',
         'conversion' => 'Dönüşüm yolu',
         'aeo' => 'AI cevap motorları',
+        'doorway' => 'Kapı sayfası',
     ];
 
     /** Answer-engine crawlers a robots.txt must not shut out (Aşama 7: AEO). */
@@ -172,6 +173,8 @@ final class WebHealthAudit
                     'bloat' => $this->bloat($site, $brand),
                     'conversion' => $this->conversion($site, $brand),
                     'aeo' => $this->aeo($site),
+                    // Kapı sayfaları are read by Claude (DoorwayCheck), which opens and closes their rows itself.
+                    'doorway' => null,
                 };
             } catch (Throwable $e) {
                 report($e);

@@ -149,6 +149,9 @@ final class AiRouteKeys
     /** Küme çakışması kontrolü (yakup, 2026-10-19): each open overlap is read once; a wrong pairing closes by itself. */
     public const string OVERLAP_CHECK = 'overlap.check';
 
+    /** Kapı sayfaları (yakup, 2026-10-22): template pages naming another business / person or an unserved place. */
+    public const string SITE_DOORWAY_CHECK = 'site.doorway_check';
+
     /** Faz 4: write one article of the content studio from an idea. */
     public const string CONTENT_ARTICLE = 'content.article';
 

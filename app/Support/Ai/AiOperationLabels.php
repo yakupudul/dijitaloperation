@@ -78,6 +78,7 @@ final class AiOperationLabels
         'brand.epicrisis_synthesis' => 'Marka epikrizi: konumlanma, ses, itirazlar',
         'repair.review' => 'Otomatik onarım kontrolü',
         'overlap.check' => 'Aynı konuyu anlatan sayfalar kontrolü',
+        'site.doorway_check' => 'Kapı sayfası kontrolü (başka firma adı, hizmet dışı şehir)',
         'site.translation_fix' => 'Bozuk çeviri onarımı',
         'site.setup' => 'Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)',
         'site.weekly_refresh' => 'Site haftalık yenileme',

@@ -106,6 +106,7 @@ final class AiTaskQueue
         AiRouteKeys::INSIGHT_TECHNICAL_TASKS,
         AiRouteKeys::REPAIR_REVIEW,
         AiRouteKeys::OVERLAP_CHECK,
+        AiRouteKeys::SITE_DOORWAY_CHECK,
     ];
 
     /**
