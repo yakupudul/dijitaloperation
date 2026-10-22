@@ -65,7 +65,7 @@ if grep -Fq -- "redirect('/app')" routes/web.php \
   exit 1
 fi
 
-if ! grep -Fq -- "Route::livewire('/', Dashboard::class)" routes/demo.php; then
+if ! grep -Eq -- "Route::livewire\('/', (Dashboard|KomutaPage)::class\)" routes/demo.php; then
   echo "deploy/staging: ERROR — canonical root dashboard route is missing" >&2
   exit 1
 fi
