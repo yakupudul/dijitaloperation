@@ -7,7 +7,9 @@ use App\Support\Demo\DemoState;
 use App\Support\Operator\AgencySettingCatalog;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -30,6 +32,9 @@ class ProfilePage extends Component
     public string $password = '';
 
     public string $password_confirmation = '';
+
+    /** Panel audit D4: changing the e-mail or the password asks for the current password. */
+    public string $current_password = '';
 
     public string $locale = 'en';
 
@@ -72,6 +77,9 @@ class ProfilePage extends Component
             'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'password' => ['nullable', 'confirmed', Password::defaults()],
         ];
+        if ($this->password !== '' || mb_strtolower(trim($this->email)) !== mb_strtolower((string) $user->email)) {
+            $rules['current_password'] = ['required', 'current_password'];
+        }
 
         $validated = $this->validate($rules);
 
@@ -80,8 +88,11 @@ class ProfilePage extends Component
         $user->locale = $validated['locale'];
         $user->timezone = $validated['timezone'] !== '' ? $validated['timezone'] : null;
 
-        if (! empty($validated['password'])) {
+        $passwordChanged = ! empty($validated['password']);
+        if ($passwordChanged) {
             $user->password = $validated['password'];
+            // A stolen remember-me cookie stops working too.
+            $user->setRememberToken(Str::random(60));
         }
 
         if ($this->removeAvatar && $user->avatar_path) {
@@ -98,11 +109,16 @@ class ProfilePage extends Component
         }
 
         $user->save();
+        if ($passwordChanged) {
+            // AuthenticateSession (web group) signs out every other session whose stored password hash is now stale.
+            Auth::logoutOtherDevices($validated['password']);
+        }
 
         $this->avatar = null;
         $this->removeAvatar = false;
         $this->password = '';
         $this->password_confirmation = '';
+        $this->current_password = '';
 
         app()->setLocale($user->locale);
 

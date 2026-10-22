@@ -179,7 +179,9 @@ final class BrandAccountCandidates
     {
         $meta = is_array($resource->metadata) ? $resource->metadata : [];
 
-        return ($meta['is_manager'] ?? false) !== true && ($meta['selectable'] ?? true) !== false && ($meta['bindable'] ?? true) !== false;
+        // not_served_at: a business the agency does not serve ("Kullanılmıyor"), never suggested for a brand.
+        return ($meta['is_manager'] ?? false) !== true && ($meta['selectable'] ?? true) !== false && ($meta['bindable'] ?? true) !== false
+            && empty($meta['not_served_at']);
     }
 
     /** @param Collection<string, string> $managerNames */

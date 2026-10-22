@@ -59,6 +59,20 @@ final class ExternalWriteService
         private readonly GbpWriter $gbp,
     ) {}
 
+    /** Shown wherever a Google Ads write is refused while those writes are off (yakup 2026-10-21). */
+    public const string ADS_OFF_REASON = 'Google Ads\'e yazma şimdilik kapalı: öneriyi Google Ads\'te elle uygula, sonra "Yaptım" de.';
+
+    /** Whether MoxDOP may write to this channel at all (config `moxdop-external-writes`). */
+    public static function channelOn(string $channel): bool
+    {
+        return (bool) config('moxdop-external-writes.enabled', true) && (bool) config('moxdop-external-writes.'.$channel.'.enabled', true);
+    }
+
+    public static function adsWritesOn(): bool
+    {
+        return self::channelOn(ExternalWriteAction::CHANNEL_GOOGLE_ADS);
+    }
+
     public static function allowed(?User $user, string $channel): bool
     {
         return (bool) config('moxdop-external-writes.enabled', true)
@@ -793,6 +807,12 @@ final class ExternalWriteService
 
             return;
         }
+        // Queued (or undone) before Google Ads writes were turned off: nothing goes to Google Ads now.
+        if (! self::channelOn((string) $action->channel)) {
+            $this->abandon($action, $action->channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS ? 'Gönderilmedi: '.self::ADS_OFF_REASON : 'Gönderilmedi: bu kanala yazma kapalı.');
+
+            return;
+        }
         $action->forceFill(['status' => 'running', 'started_at' => now()])->save();
         try {
             $result = match (true) {
@@ -960,8 +980,9 @@ final class ExternalWriteService
 
     private function guard(User $user, string $channel): void
     {
-        if (! (bool) config('moxdop-external-writes.enabled', true) || ! (bool) config('moxdop-external-writes.'.$channel.'.enabled', true)) {
-            throw ValidationException::withMessages(['write' => 'Harici yazma kapalı (EXTERNAL_WRITES_ENABLED).']);
+        if (! self::channelOn($channel)) {
+            throw ValidationException::withMessages(['write' => $channel === ExternalWriteAction::CHANNEL_GOOGLE_ADS && (bool) config('moxdop-external-writes.enabled', true)
+                ? self::ADS_OFF_REASON : 'Harici yazma kapalı (EXTERNAL_WRITES_ENABLED).']);
         }
         if (! self::allowed($user, $channel)) {
             abort(403, 'Harici yazmayı yalnız Admin onaylayabilir.');

@@ -76,6 +76,8 @@ return [
         'email' => 'E-posta',
         'password' => 'Yeni şifre',
         'password_confirmation' => 'Şifreyi onayla',
+        'current_password' => 'Mevcut şifre',
+        'current_password_hint' => 'E-posta ya da şifre değişirken gerekir. Şifre değişince diğer cihazlardaki oturumlar kapanır.',
         'locale' => 'Dil',
         'timezone' => 'Saat dilimi',
         'avatar' => 'Avatar',

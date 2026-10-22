@@ -70,6 +70,8 @@ final class ExternalWritesTest extends TestCase
 
     public function test_admin_sends_negative_list_to_shared_set_and_undoes_it(): void
     {
+        // The write machinery itself; Google Ads writes are off in the app for now (yakup 2026-10-21).
+        config(['moxdop-external-writes.google_ads.enabled' => true]);
         $asset = $this->googleAdsAsset();
         $mutations = [];
         Http::fake(function (Request $request) use (&$mutations) {

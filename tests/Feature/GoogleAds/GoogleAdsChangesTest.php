@@ -63,6 +63,8 @@ final class GoogleAdsChangesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // These tests drive the Google Ads write machinery; writes are off in the app for now (yakup 2026-10-21).
+        config(['moxdop-external-writes.google_ads.enabled' => true]);
         $this->seed(RoleAndPermissionSeeder::class);
         config(['moxdop.google.client_id' => 'cid', 'moxdop.google.client_secret' => 'csecret', 'moxdop.google.developer_token' => 'devtoken']);
         $this->admin = User::factory()->create(['is_active' => true]);
@@ -163,7 +165,10 @@ final class GoogleAdsChangesTest extends TestCase
 
         $this->assertEqualsCanonicalizing(['auto_tagging', 'search_partners', 'location_option', 'budget', 'keyword_status'], array_keys($rows));
         $this->assertSame('low', $rows['search_partners']['risk']);
-        $this->assertSame('medium', $rows['budget']['risk']);
+        // Budget, pause and location spend money: approved one by one only.
+        $this->assertSame('high', $rows['budget']['risk']);
+        $this->assertSame('high', $rows['keyword_status']['risk']);
+        $this->assertSame('high', $rows['location_option']['risk']);
         $this->assertStringContainsString('100 TRY → 120 TRY', $rows['budget']['after'][0]);
         $this->assertStringContainsString('ücretsiz implant', $rows['keyword_status']['target']);
         $this->assertSame([], $this->mutations, 'the audit only reads');
@@ -189,8 +194,12 @@ final class GoogleAdsChangesTest extends TestCase
         $rows = $this->prepared();
 
         $result = app(RepairDesk::class)->approve(array_column($rows, 'id'), $this->admin);
+        $this->assertSame(2, $result['applied'], implode(' ', $result['failed']));
+        $this->assertSame(3, $result['skipped_high'], 'budget, pause and location wait for a one-by-one approval');
+        foreach (['location_option', 'budget', 'keyword_status'] as $field) {
+            $this->assertSame(1, app(RepairDesk::class)->approve([$rows[$field]['id']], $this->admin)['applied']);
+        }
 
-        $this->assertSame(5, $result['applied'], implode(' ', $result['failed']));
         $this->assertTrue($this->state['auto_tagging']);
         $this->assertFalse($this->state['campaigns']['77']['search']);
         $this->assertSame('PRESENCE', $this->state['campaigns']['77']['geo']);
@@ -249,5 +258,19 @@ final class GoogleAdsChangesTest extends TestCase
         $this->assertSame(Suggestion::APPLIED, $suggestion->refresh()->status);
         $this->assertNotContains($suggestion->id, app(GoogleAdsSuggestions::class)->editorDrafts($this->asset)->pluck('id')->all());
         $this->assertSame(GoogleAdsChanges::TYPE, $suggestion->action_type);
+    }
+
+    public function test_while_google_ads_writes_are_off_approving_only_marks_it_done_by_hand(): void
+    {
+        config(['moxdop-external-writes.google_ads.enabled' => false]);
+        $rows = $this->prepared();
+        $suggestion = Suggestion::query()->find($rows['search_partners']['id']);
+
+        app(GoogleAdsSuggestions::class)->approve($suggestion, $this->admin);
+
+        $this->assertTrue($this->state['campaigns']['77']['search'], 'nothing written to Google Ads');
+        $this->assertSame(Suggestion::SNOOZED, $suggestion->refresh()->status);
+        $this->assertSame(GoogleAdsSuggestions::DONE_BY_HAND_NOTE, $suggestion->operator_note);
+        $this->assertSame(0, ExternalWriteAction::query()->count());
     }
 }

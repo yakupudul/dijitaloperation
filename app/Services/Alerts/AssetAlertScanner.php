@@ -159,7 +159,7 @@ final class AssetAlertScanner
 
     /**
      * "Veri güncel değil": the asset's newest pull (AssetRuntimeStatusReader: any bound account, or the website crawl)
-     * is older than `moxdop-alerts.stale_data_hours`. Accounts collected weekly (idle / dormant) get the weekly interval
+     * is older than `moxdop-alerts.stale_data_hours` (48: red, on Bugün and on the phone). Accounts collected weekly (idle / dormant) get the weekly interval
      * on top when every collected account of the asset is weekly; an asset whose bound accounts are all parked on
      * purpose is not judged. The reader's own 72-hour state (shown on screens) is not changed.
      *
@@ -186,7 +186,7 @@ final class AssetAlertScanner
             return null;
         }
 
-        return $this->alert('stale_data', 'medium', 'Veri güncel değil',
+        return $this->alert('stale_data', 'high', 'Veri güncel değil',
             sprintf('Bağlı hesaptan son veri %s geldi (%d saatten eski%s); bu varlığın raporları ve önerileri eski veriye dayanıyor. Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın; kaynakta "Erişim sorunu" yazıyorsa önce bağlantıyı yenileyin.',
                 (string) ($runtime['last_update'] ?? '—'), $hours, $weekly ? '; hesapta etkinlik olmadığı için haftada bir çekiliyor' : ''),
             ['weekly' => $weekly, 'hours' => $hours]);
@@ -219,7 +219,7 @@ final class AssetAlertScanner
                 $name = (string) ($automation->resource?->display_name ?? '');
                 $category = app(AlertSubjects::class)->lastErrorCategory($account['resource_id']);
                 $reason = $category !== null ? CollectionErrorExplainer::explain($category) : null;
-                $alerts[] = $this->alert($account['capability'] === 'ga4' ? 'ga4_stale' : 'gsc_stale', 'medium', $label.' verisi güncel değil',
+                $alerts[] = $this->alert($account['capability'] === 'ga4' ? 'ga4_stale' : 'gsc_stale', 'high', $label.' verisi güncel değil',
                     sprintf('%s hesabından%s son başarılı veri çekimi %s; site raporları ve SEO önerileri eski veriye dayanıyor. %s',
                         $label, $name !== '' ? ' ("'.$name.'")' : '', $last?->timezone('Europe/Istanbul')->format('d.m.Y') ?? 'hiç yapılmadı',
                         $reason !== null ? 'Neden: '.$reason['problem'].'. '.$reason['fix'] : 'Varlığın Veri kaynakları sayfasında "Verileri yenile" ile çekimi başlatın.'),
@@ -655,6 +655,8 @@ final class AssetAlertScanner
             $keys[] = $key;
             $row = AssetAlert::query()->firstOrNew(['digital_asset_id' => $asset->id, 'alert_key' => $key]);
             $isNew = ! $row->exists || $row->resolved_at !== null;
+            // An open alert that turned red (e.g. data missing past 48 hours) rings once too.
+            $escalated = ! $isNew && (PushNotifier::SEVERITY_ORDER[$alert['severity']] ?? 0) > (PushNotifier::SEVERITY_ORDER[(string) $row->severity] ?? 0);
             // A new bad review on an alert that is already open: it rings again (once per review).
             $newer = ! $isNew && $alert['kind'] === 'bad_review_unanswered' && (int) ($alert['data']['latest'] ?? 0) > (int) data_get($row->data, 'latest', 0);
             if ($isNew) {
@@ -674,7 +676,7 @@ final class AssetAlertScanner
                 'last_detected_at' => now(),
             ])->save();
             // Faz 6: a newly opened high / critical alert also goes to the phone (once per alert opening).
-            if (($isNew || $newer) && in_array($alert['severity'], ['high', 'critical'], true) && $alert['kind'] !== 'site_down') {
+            if (($isNew || $newer || $escalated) && in_array($alert['severity'], ['high', 'critical'], true) && $alert['kind'] !== 'site_down') {
                 try {
                     app(PushNotifier::class)->send('alert:'.$asset->id.':'.$alert['kind'].':'.($newer ? 'r'.$alert['data']['latest'] : $row->first_detected_at?->format('Ymd')),
                         $alert['title'].' — '.($asset->name ?? $asset->domain), $alert['message'], $alert['severity'], OperatorPortfolioPresenter::specialistUrl($asset), 24);

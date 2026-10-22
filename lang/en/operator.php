@@ -76,6 +76,8 @@ return [
         'email' => 'Email',
         'password' => 'New password',
         'password_confirmation' => 'Confirm password',
+        'current_password' => 'Current password',
+        'current_password_hint' => 'Needed when the e-mail or password changes. A new password signs out your other devices.',
         'locale' => 'Language',
         'timezone' => 'Timezone',
         'avatar' => 'Avatar',

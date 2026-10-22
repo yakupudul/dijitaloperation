@@ -5,6 +5,7 @@ namespace App\Services\AiTasks;
 use App\Ai\Contracts\RegistryPrompted;
 use App\Models\AiTask;
 use App\Services\Ai\AiBudget;
+use App\Services\Mcp\McpKeys;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
@@ -43,7 +44,7 @@ final class AiTaskQueue
 
     public static function enabled(): bool
     {
-        return trim((string) config('moxdop-mcp.token')) !== '';
+        return McpKeys::serverOpen();
     }
 
     /**

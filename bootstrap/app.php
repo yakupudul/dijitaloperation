@@ -11,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -37,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         $middleware->web(append: [
+            // Panel audit D4: a password change signs out the user's other sessions (Auth::logoutOtherDevices).
+            AuthenticateSession::class,
             RecordRequestTiming::class,
             DropInvalidLivewireUpdates::class,
             SetOperatorLocale::class,

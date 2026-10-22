@@ -192,6 +192,7 @@ class OverviewPage extends Component
         }
         $suggestions->approve($suggestion, auth()->user());
         DemoState::flash(match (true) {
+            $suggestion->operator_note === GoogleAdsSuggestions::DONE_BY_HAND_NOTE => 'Yaptın olarak işaretlendi; gece kontrolü Google Ads\'te sonucu görecek.',
             $suggestion->action_type === 'ads_negative' && ($suggestion->action['scope'] ?? '') === 'shared' => 'Onaylandı; göndermeyi Admin yapar.',
             in_array($suggestion->action_type, GoogleAdsSuggestions::EDITOR_TYPES, true) => 'Onaylandı; Editor dosyasına eklendi.',
             default => 'Onaylandı.',

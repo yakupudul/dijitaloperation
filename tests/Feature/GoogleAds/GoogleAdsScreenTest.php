@@ -412,6 +412,8 @@ final class GoogleAdsScreenTest extends TestCase
 
     public function test_shared_negative_goes_to_the_shared_list_through_the_writer_and_is_undoable(): void
     {
+        // The write machinery itself; Google Ads writes are off in the app for now (yakup 2026-10-21).
+        config(['moxdop-external-writes.google_ads.enabled' => true]);
         $this->seedAccount();
         GoogleAdsSearchTermsAgent::fake([['terms' => [], 'negatives' => [['text' => 'ücretsiz', 'match_type' => 'PHRASE', 'scope' => 'shared', 'campaign' => '', 'ad_group' => '', 'reason' => 'Ücretsiz.']]]]);
         $mutations = [];
@@ -452,6 +454,8 @@ final class GoogleAdsScreenTest extends TestCase
 
     public function test_shared_negative_is_not_applied_when_the_write_fails(): void
     {
+        // The write machinery itself; Google Ads writes are off in the app for now (yakup 2026-10-21).
+        config(['moxdop-external-writes.google_ads.enabled' => true]);
         $this->seedAccount();
         GoogleAdsSearchTermsAgent::fake([['terms' => [], 'negatives' => [['text' => 'ücretsiz', 'match_type' => 'BROAD', 'scope' => 'shared', 'campaign' => '', 'ad_group' => '', 'reason' => 'Ücretsiz.']]]]);
         Http::fake(fn (Request $request) => str_contains($request->url(), 'googleAds:search') ? Http::response(['results' => []]) : Http::response(['error' => ['message' => 'denied']], 403));

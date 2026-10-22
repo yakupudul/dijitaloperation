@@ -14,8 +14,10 @@ return [
     'queue_connection' => env('EXTERNAL_WRITES_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
     'queue' => env('EXTERNAL_WRITES_QUEUE', env('WRITES_QUEUE', env('QUEUE_CONNECTION') === 'redis' ? 'writes' : 'default')),
 
+    // yakup 2026-10-21: no Google Ads (or Meta) writes for now — findings and "how to do it" only, the operator applies
+    // them in Google Ads and says "Yaptım". Deliberately not read from .env so a stale server value cannot turn it on.
     'google_ads' => [
-        'enabled' => env('EXTERNAL_WRITES_GOOGLE_ADS', true),
+        'enabled' => false,
         'shared_set_name' => 'MoxDOP negatifleri',
         'max_terms' => 200,
         'max_term_length' => 80,

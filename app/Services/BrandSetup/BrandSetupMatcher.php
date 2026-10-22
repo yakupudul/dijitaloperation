@@ -342,7 +342,7 @@ final class BrandSetupMatcher
         $items = [];
         foreach ($this->resources($type, $provider) as $resource) {
             $meta = is_array($resource->metadata) ? $resource->metadata : [];
-            if (($meta['is_manager'] ?? false) === true || ($meta['selectable'] ?? true) === false || ($meta['bindable'] ?? true) === false) {
+            if (($meta['is_manager'] ?? false) === true || ($meta['selectable'] ?? true) === false || ($meta['bindable'] ?? true) === false || ! empty($meta['not_served_at'])) {
                 continue;
             }
             $name = trim($resource->display_name.' '.($meta['descriptive_name'] ?? '').' '.($meta['business_name'] ?? ''));

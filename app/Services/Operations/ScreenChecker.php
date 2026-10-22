@@ -64,7 +64,7 @@ final class ScreenChecker
         'operator.integrations.bing' => 'Bing Webmaster', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
         'operator.data-center' => 'Veri merkezi', 'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
         'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.system-health' => 'Sistem',
-        'operator.settings.users' => 'Kullanıcılar', 'operator.settings.sector-packs' => 'Sektör paketleri',
+        'operator.settings.users' => 'Kullanıcılar', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.sector-packs' => 'Sektör paketleri',
         'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.settings.releases' => 'Sürümler', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
     ];
 

@@ -40,7 +40,8 @@ return [
         'zero_spend_after_hour' => 14, // account-local hour after which "no spend today" is critical
         'capped_before_hour' => 20,    // campaign daily budget used up before this hour → high
     ],
-    'stale_data_hours' => 72,
+    // Panel audit N2 (2026-10-21): data missing for 48 hours is red and on Bugün (it was 72 hours at medium).
+    'stale_data_hours' => 48,
     'bad_review' => [
         'max_stars' => 2,
         'days' => 7,

@@ -69,6 +69,7 @@ use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
+use App\Livewire\Operator\Settings\McpKeysPage;
 use App\Livewire\Operator\Settings\ReleasesPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
@@ -191,6 +192,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
+        Route::livewire('/settings/mcp', McpKeysPage::class)->name('operator.settings.mcp');
         Route::livewire('/settings/query-rules', QueriesPage::class)->name('operator.settings.query-rules');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');

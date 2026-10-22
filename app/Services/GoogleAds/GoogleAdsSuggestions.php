@@ -136,6 +136,12 @@ final class GoogleAdsSuggestions extends AssetSuggestions
      */
     public function approve(Suggestion $suggestion, ?User $user): void
     {
+        // Google Ads writes off (yakup 2026-10-21): a setting change or shared negative is done by hand in Google Ads.
+        if (! ExternalWriteService::adsWritesOn() && ($suggestion->action_type === GoogleAdsChanges::TYPE || self::isSharedNegative($suggestion))) {
+            self::doneByHand($suggestion, $user);
+
+            return;
+        }
         if ($suggestion->action_type === GoogleAdsChanges::TYPE) {
             // ADR-081: approving a prepared setting change writes it to Google (Admin).
             abort_if($user === null, 403);
@@ -150,6 +156,18 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         }
         $this->markApplied($suggestion, $user);
     }
+
+    /**
+     * "Yaptım" while Google Ads writes are off: the row rests for a week; the nightly Ads check closes it when the account
+     * no longer shows the problem, or it comes back.
+     */
+    public static function doneByHand(Suggestion $suggestion, ?User $user): void
+    {
+        $suggestion->forceFill(['status' => Suggestion::SNOOZED, 'snoozed_until' => now()->addDays(7), 'resolved_by' => $user?->id,
+            'operator_note' => self::DONE_BY_HAND_NOTE])->save();
+    }
+
+    public const string DONE_BY_HAND_NOTE = 'Google Ads\'te elle yapıldı; gece kontrolü sonucu görecek.';
 
     /**
      * Applied: status applied with the outcome baseline (OutcomeTracker: 28 days of the referenced campaign, else the

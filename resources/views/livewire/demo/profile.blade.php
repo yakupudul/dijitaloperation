@@ -102,6 +102,14 @@
                     <input id="profile-password-confirm" wire:model="password_confirmation" type="password" autocomplete="new-password" class="{{ $input }}" />
                 </div>
             </div>
+            <div class="{{ $row }}">
+                <label for="profile-current-password" class="{{ $rowLabel }}"><span class="{{ $labelText }}">{{ __('operator.profile.current_password') }}</span></label>
+                <div class="{{ $control }}">
+                    <input id="profile-current-password" wire:model="current_password" type="password" autocomplete="current-password" class="{{ $input }}" />
+                    <span class="text-xs text-gray-500">{{ __('operator.profile.current_password_hint') }}</span>
+                    @error('current_password') <span class="{{ $error }}">{{ $message }}</span> @enderror
+                </div>
+            </div>
             <div class="{{ $footer }}">
                 <a href="{{ route('operator.settings') }}" class="btn w-full sm:w-auto">{{ __('operator.actions.cancel') }}</a>
                 <button type="submit" class="btn-primary w-full sm:w-auto">{{ __('operator.actions.save') }}</button>

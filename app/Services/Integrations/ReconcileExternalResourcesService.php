@@ -17,7 +17,8 @@ final class ReconcileExternalResourcesService
      * MoxDOP's own marks that the provider inventory never reports; the daily discovery keeps them
      * (a closed Google Ads account stays parked for its week instead of being probed again every morning).
      */
-    private const array APP_METADATA_KEYS = ['not_enabled_at'];
+    /** Keys MoxDOP itself writes into a resource's metadata; a new discovery keeps them. not_served_at: "Kullanılmıyor", a business the agency does not serve. */
+    private const array APP_METADATA_KEYS = ['not_enabled_at', 'not_served_at'];
 
     /**
      * @param  list<DiscoveredExternalResource>  $resources

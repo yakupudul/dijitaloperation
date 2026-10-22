@@ -40,6 +40,8 @@ final class TodayCockpitTest extends SiteTestCase
 
     public function test_cockpit_shows_counters_alarms_approvals_and_last_night(): void
     {
+        // Negatives as the sample approval package (with Google Ads writes off they are the operator's manual work).
+        config(['moxdop-external-writes.google_ads.enabled' => true]);
         $this->negative('implant fiyat bedava');
         $this->negative('implant nedir');
         $meta = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'meta_ads', 'name' => 'Meta Ads · Obezite']);

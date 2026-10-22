@@ -5,9 +5,11 @@ namespace App\Services\Observability;
 use App\Enums\DomainEventActorKind;
 use App\Enums\DomainEventSubjectKind;
 use App\Enums\DomainEventType;
+use App\Enums\Observability\OperationalAlertSeverity;
 use App\Models\Observability\OperationalAlert;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\Assistant\PushNotifier;
 use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Roles;
 use Throwable;
@@ -37,6 +39,16 @@ final class OperationalAlertNotifier
         // bell; if it has not healed after ErrorTriage::ESCALATE_HOURS it reaches the operator in the daily digest.
         if (ErrorTriage::cause($alert) === ErrorTriage::AUTO) {
             return;
+        }
+        // Panel audit D6: a red alert that needs the operator also goes to the phone / browser, not only the bell.
+        if ($alert->severity === OperationalAlertSeverity::Critical) {
+            try {
+                $message = $this->explainer->explain($alert);
+                app(PushNotifier::class)->send('ops-red:'.$alert->semantic_key.':'.$alert->opened_at?->getTimestamp(), $message->title,
+                    mb_substr($message->plainText(), 0, 400), 'critical', route('operator.settings.system-health'), 24);
+            } catch (Throwable) {
+                // a push failure never blocks the bell
+            }
         }
 
         $recipients = $this->recipientIds();

@@ -15,7 +15,8 @@ trait RollsBackMigrationsUntil
      */
     protected function rollbackUntilTablesMissing(string ...$tables): void
     {
-        $guard = 300;
+        // One rollback step per migration file, so the guard grows with the migration count.
+        $guard = 500;
 
         while ($guard-- > 0) {
             $anyPresent = false;

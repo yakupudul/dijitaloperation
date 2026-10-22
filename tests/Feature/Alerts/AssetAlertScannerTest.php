@@ -224,13 +224,13 @@ final class AssetAlertScannerTest extends TestCase
             return $this->openKinds($asset);
         };
 
-        $this->assertNotContains('stale_data', $scan($idle), 'dormant: 72 hours + one week');
-        $this->assertContains('stale_data', $scan($active), 'active: 72 hours');
-        $this->assertStringContainsString('(72 saatten eski)', (string) AssetAlert::query()->open()->where('digital_asset_id', $active->id)->where('kind', 'stale_data')->value('message'));
+        $this->assertNotContains('stale_data', $scan($idle), 'dormant: 48 hours + one week');
+        $this->assertContains('stale_data', $scan($active), 'active: 48 hours');
+        $this->assertStringContainsString('(48 saatten eski)', (string) AssetAlert::query()->open()->where('digital_asset_id', $active->id)->where('kind', 'stale_data')->value('message'));
 
         $this->collected($idleAccount, 11);
         $this->assertContains('stale_data', $scan($idle), 'missed its weekly pass');
-        $this->assertStringContainsString('240 saatten eski; hesapta etkinlik olmadığı için haftada bir çekiliyor', (string) AssetAlert::query()->open()->where('digital_asset_id', $idle->id)->where('kind', 'stale_data')->value('message'));
+        $this->assertStringContainsString('216 saatten eski; hesapta etkinlik olmadığı için haftada bir çekiliyor', (string) AssetAlert::query()->open()->where('digital_asset_id', $idle->id)->where('kind', 'stale_data')->value('message'));
     }
 
     public function test_stale_data_skips_accounts_not_collected_on_purpose_but_not_one_to_reconnect(): void

@@ -3,15 +3,17 @@
 namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
+use App\Services\AiTasks\AiTaskPriority;
 use App\Support\Ai\AiOperationLabels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Carbon;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
-#[Description('Lists AI tasks waiting for Claude (oldest first): id, operation, brand, subject, status, plus `by_operation` (waiting count per operation, for get-tasks). Optional filters: operation key, brand_id.')]
+#[Description('Lists AI tasks waiting for Claude (most urgent first: writing and repair checks, then WhatsApp / review replies, then bulk work; oldest first inside): id, operation, brand, subject, status, plus `by_operation` (waiting count per operation in the order to work them, for get-tasks) and `oldest_waiting_hours`. Optional filters: operation key, brand_id.')]
 #[IsReadOnly]
 class ListTasks extends Tool
 {
@@ -24,13 +26,17 @@ class ListTasks extends Tool
         $tasks = AiTask::query()->with('brand:id,name')->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
             ->when($validated['operation'] ?? null, fn ($q, string $operation) => $q->where('operation', $operation))
             ->when($validated['brand_id'] ?? null, fn ($q, int $brandId) => $q->where('brand_id', $brandId))
-            ->orderBy('id')->limit((int) config('moxdop-mcp.list_limit', 20))->get();
+            ->orderByRaw(AiTaskPriority::orderSql())->orderBy('id')->limit((int) config('moxdop-mcp.list_limit', 20))->get();
+        $oldest = AiTask::query()->where('status', AiTask::PENDING)->min('created_at');
 
         return Response::json([
             'waiting' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(),
+            'oldest_waiting_hours' => $oldest !== null ? (int) floor(Carbon::parse((string) $oldest)->diffInMinutes(now()) / 60) : null,
+            // Work order: writing / repair checks first, then people waiting (WhatsApp, reviews), then bulk; oldest first inside.
             'by_operation' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
-                ->selectRaw('operation, count(*) as waiting')->groupBy('operation')->orderByDesc('waiting')
-                ->pluck('waiting', 'operation')->map(fn ($n): int => (int) $n)->all(),
+                ->selectRaw('operation, count(*) as waiting, min(created_at) as oldest')->groupBy('operation')->get()
+                ->sortBy(fn ($row): array => [AiTaskPriority::tier((string) $row->operation), (string) $row->oldest])
+                ->mapWithKeys(fn ($row): array => [(string) $row->operation => (int) $row->waiting])->all(),
             'tasks' => $tasks->map(fn (AiTask $task): array => [
                 'id' => $task->id,
                 'operation' => $task->operation,

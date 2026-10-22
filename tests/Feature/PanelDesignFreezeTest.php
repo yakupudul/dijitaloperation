@@ -91,7 +91,7 @@ class PanelDesignFreezeTest extends TestCase
         $tabs = OperatorMenu::sectionTabs('operator.integrations.discovered');
         $this->assertSame(['/integrations', '/integrations/connection-health', '/integrations/discovered', '/integrations/wordpress-sites', '/data-center', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20');
         $this->assertSame([false, false, true, false, false, false], array_column($tabs, 'active'));
-        $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, Sistem, Geliştirme havuzu, Sürümler');
+        $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/mcp', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, MCP anahtarları, Sistem, Geliştirme havuzu, Sürümler');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
 
         $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.data-center', absolute: false), false);

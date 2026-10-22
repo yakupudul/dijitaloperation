@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\GoogleAds\Desk;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Services\Analyst\AnalystDecisionStore;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
@@ -89,7 +90,9 @@ trait DeskScope
         if ($desk !== []) {
             $result = app(RepairDesk::class)->queueApproval($desk, $user);
             if ($result['applied'] > 0) {
-                $parts[] = $result['applied'].' değişiklik Google Ads’e gönderiliyor (kayıtlı, geri alınabilir; gönderilemeyen nedeniyle geri döner)';
+                $parts[] = ExternalWriteService::adsWritesOn()
+                    ? $result['applied'].' değişiklik Google Ads’e gönderiliyor (kayıtlı, geri alınabilir; gönderilemeyen nedeniyle geri döner)'
+                    : $result['applied'].' iş "yaptım" olarak işaretlendi; gece kontrolü Google Ads’te sonucu görecek';
             }
             if ($result['skipped_high'] > 0) {
                 $parts[] = $result['skipped_high'].' yüksek riskli iş tek tek onaylanmalı';

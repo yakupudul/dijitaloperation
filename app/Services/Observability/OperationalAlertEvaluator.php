@@ -34,6 +34,7 @@ final class OperationalAlertEvaluator
         private readonly DueCollectionQueryService $dueCollections,
         private readonly QueueWaitMonitor $queueWaits,
         private readonly AlertSubjects $subjects,
+        private readonly SystemRedEvents $redEvents,
     ) {}
 
     /**
@@ -53,6 +54,7 @@ final class OperationalAlertEvaluator
         $opened += $this->evaluateProviderRates();
         $opened += $this->evaluateCredentials();
         $opened += $this->evaluateStaleDatasets();
+        $opened += $this->redEvents->evaluate($this->lifecycle);
 
         // Resolutions counted inside helpers via lifecycle; approximate from returns.
         return [

@@ -60,6 +60,9 @@ final class RepairDesk
 
     public const string ADS_CHANGE = 'ads_change';
 
+    /** Google Ads changes that are only ever approved one by one (money and reach). */
+    public const array ADS_SINGLE_FIELDS = ['budget', 'keyword_status', 'location_option'];
+
     public const string WEB_FIX = 'web_fix';
 
     public const string WEB_TASK = 'web_task';
@@ -666,6 +669,16 @@ final class RepairDesk
 
                 continue;
             }
+            // Google Ads writes off: "Yaptım" hides the row for a week; the nightly Ads check closes it when the account no
+            // longer shows the problem, or brings it back.
+            if (in_array($kind, [self::ADS_NEGATIVE, self::ADS_CHANGE], true) && ! ExternalWriteService::adsWritesOn()) {
+                foreach ($group as $row) {
+                    GoogleAdsSuggestions::doneByHand($suggestions[$row['id']], $user);
+                    $result['applied']++;
+                }
+
+                continue;
+            }
             if ($kind === self::ADS_NEGATIVE) {
                 foreach ($group->groupBy('asset_id') as $assetId => $negatives) {
                     try {
@@ -874,7 +887,7 @@ final class RepairDesk
                 'target' => (string) ($action['overlap_url'] ?? ''), 'before' => [(string) ($action['overlap_url'] ?? '')],
                 'after' => ['Ziyaretçiler şu sayfaya gider: '.($action['main_url'] ?? ''), 'Eski sayfa silinmez, taslağa alınır'], 'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null] : null,
             'ads_negative' => ($action['scope'] ?? '') === 'shared' && ! isset($action['sending_write_id']) && filled($action['text'] ?? null)
-                ? $base + ['kind' => self::ADS_NEGATIVE, 'risk' => ($action['blocks'] ?? []) === [] ? self::LOW : self::HIGH, 'target' => 'Paylaşılan negatif listesi', 'before' => [],
+                ? $base + ['kind' => self::ADS_NEGATIVE, 'risk' => ! ExternalWriteService::adsWritesOn() ? self::MANUAL : (($action['blocks'] ?? []) === [] ? self::LOW : self::HIGH), 'target' => 'Paylaşılan negatif listesi', 'before' => [],
                     'after' => [GoogleAdsSuggestions::line((string) $action['text'], (string) ($action['match_type'] ?? 'PHRASE')).(isset($action['cost']) ? ' · boşa giden '.$action['cost'] : '')
                         .(($action['blocks'] ?? []) !== [] ? ' · engelleyebileceği: '.implode(', ', array_slice((array) $action['blocks'], 0, 5)) : '')]] : null,
             'gbp_description' => filled($action['proposed'] ?? null) ? $base + ['kind' => self::GBP_DESCRIPTION, 'risk' => self::LOW, 'target' => 'İşletme açıklaması',
@@ -882,8 +895,11 @@ final class RepairDesk
             ProfileInfo::TYPE => filled($action['fields'] ?? null) ? $base + ['kind' => self::GBP_FIELDS, 'risk' => ($action['field'] ?? null) === 'regular_hours' ? self::HIGH : self::MEDIUM,
                 'target' => trim(($action['location'] ?? '').' · '.(ProfileInfo::FIELD_LABELS[$action['field'] ?? ''] ?? 'Profil bilgisi'), ' ·'), 'before' => [(string) ($action['current'] ?? '') ?: '—'],
                 'after' => [(string) ($action['proposed'] ?? '')]] : null,
+            // Budget, pause and location changes spend money: never in a bulk approval (one by one); while Google Ads writes
+            // are off (yakup 2026-10-21) every Ads row is the operator's to do in Google Ads ("Yaptım").
             GoogleAdsChanges::TYPE => filled($action['field'] ?? null) ? $base + ['kind' => self::ADS_CHANGE,
-                'risk' => in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM], true) ? $action['risk'] : self::MEDIUM,
+                'risk' => ! ExternalWriteService::adsWritesOn() ? self::MANUAL : (in_array($action['field'] ?? null, self::ADS_SINGLE_FIELDS, true) ? self::HIGH
+                    : (in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM, self::HIGH], true) ? $action['risk'] : self::MEDIUM)),
                 'target' => (string) ($action['target'] ?? ''), 'before' => [GoogleAdsChangeWriter::text($action['before'] ?? null)],
                 'after' => [(string) ($action['label'] ?? '')]] : null,
             WebHealthAudit::TYPE => $base + ['kind' => ($action['changes'] ?? []) !== [] ? self::WEB_FIX : self::WEB_TASK,

@@ -2,12 +2,17 @@
 
 namespace Tests\Feature\Mcp;
 
+use App\Enums\Observability\OperationalAlertSeverity;
 use App\Jobs\Site\RunSiteOperationJob;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\GetTasks;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\SubmitResults;
 use App\Models\AiTask;
+use App\Models\Observability\OperationalAlert;
+use App\Services\Observability\ErrorTriage;
+use App\Services\Observability\OperationalAlertLifecycleService;
+use App\Services\Observability\SystemRedEvents;
 use App\Services\Site\SiteOperations;
 use Illuminate\Support\Facades\Queue;
 use Tests\Feature\Site\SiteTestCase;
@@ -69,6 +74,25 @@ final class McpBatchTasksTest extends SiteTestCase
         $this->task('run-b', 1, 't', 'site.cluster_match');
 
         MoxdopServer::tool(ListTasks::class, [])->assertOk()->assertSee('"by_operation":{"queries.triage":2,"site.cluster_match":1}');
+    }
+
+    public function test_list_tasks_puts_writing_and_repair_checks_first_and_an_old_queue_raises_a_red_alert(): void
+    {
+        $this->task('run-a', 1, 't');
+        $this->task('run-a', 2, 't');
+        $check = $this->task('run-c', 1, 't', 'repair.review');
+
+        MoxdopServer::tool(ListTasks::class, [])->assertOk()->assertSee('"by_operation":{"repair.review":1,"queries.triage":2}')->assertSee('"oldest_waiting_hours":0');
+
+        app(SystemRedEvents::class)->evaluate(app(OperationalAlertLifecycleService::class));
+        $this->assertFalse(OperationalAlert::query()->where('rule_key', SystemRedEvents::AI_QUEUE_RULE)->exists());
+
+        AiTask::query()->whereKey($check->id)->update(['created_at' => now()->subHours(13)]);
+        app(SystemRedEvents::class)->evaluate(app(OperationalAlertLifecycleService::class));
+        $alert = OperationalAlert::query()->where('rule_key', SystemRedEvents::AI_QUEUE_RULE)->sole();
+        $this->assertSame(OperationalAlertSeverity::Critical, $alert->severity);
+        $this->assertStringContainsString('1 tanesi yazı / onarım kontrolü', (string) $alert->summary);
+        $this->assertSame(ErrorTriage::YOU, ErrorTriage::cause($alert));
     }
 
     private function task(string $run, int $sequence, string $instructions, string $operation = 'queries.triage'): AiTask

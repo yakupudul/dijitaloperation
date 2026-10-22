@@ -16,15 +16,16 @@ use Throwable;
  * chat id), configured in Ayarlar › Bildirimler, and the browsers / phones that turned on notifications in Genel
  * işler (Web Push, `browser`). These are the agency's own notification channels, not writes to a client account.
  * The same dedupe key is sent at most once per window; every attempt is logged. The browser channel carries only
- * work alerts (yakup, 2026-10-03: "çok önemli bildirimler"): software / watchdog / backup alerts stay on ntfy and
- * Telegram.
+ * the important alerts (yakup, 2026-10-03: "çok önemli bildirimler"): work alerts and, since the panel audit D6
+ * (2026-10-21, three nights of failed backups nobody heard about), the red system events too (backup failed, watchdog,
+ * deploy stopped, AI queue stuck). Software errors and new-account discovery stay on ntfy and Telegram.
  */
 final class PushNotifier
 {
     public const array SEVERITY_ORDER = ['info' => 0, 'low' => 1, 'medium' => 2, 'high' => 3, 'critical' => 4];
 
-    /** Dedupe key prefixes of system (not work) alerts: never sent to the browser channel. */
-    public const array SYSTEM_PREFIXES = ['app-error:', 'ops-watchdog:', 'backup-failed:', 'discovery-new:'];
+    /** Dedupe key prefixes of system alerts that never go to the browser channel (too frequent / not urgent). */
+    public const array SYSTEM_PREFIXES = ['app-error:', 'discovery-new:'];
 
     /** @return list<string> configured channels */
     public function channels(): array

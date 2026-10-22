@@ -3,6 +3,9 @@
     $groups = $items->groupBy(fn (\App\Models\Suggestion $s): string => (string) ($accounts[$s->target_id]?->brand?->name ?? ''));
     $matchLabels = ['EXACT' => 'tam eşleme', 'PHRASE' => 'sıralı eşleme', 'BROAD' => 'geniş eşleme'];
     $manual = fn (\App\Models\Suggestion $s): bool => in_array($s->action_type, ['ads_check', \App\Services\GoogleAds\GoogleAdsSuggestions::ADVICE_TYPE], true);
+    // Google Ads writes off (yakup 2026-10-21): setting changes and shared negatives are done in Google Ads, then "Yaptım".
+    $byHand = fn (\App\Models\Suggestion $s): bool => ! \App\Services\ExternalWrites\ExternalWriteService::adsWritesOn()
+        && ($s->action_type === \App\Services\GoogleAds\GoogleAdsChanges::TYPE || \App\Services\GoogleAds\GoogleAdsSuggestions::isSharedNegative($s));
     $kindLabel = fn (\App\Models\Suggestion $s): string => match ($s->action_type) {
         'ads_negative' => (data_get($s->action, 'scope') === 'shared' ? 'Paylaşılan liste' : 'Editor dosyası'),
         'ads_change' => 'Ayar değişikliği, '.(\App\Services\Repair\RepairDesk::RISKS[data_get($s->action, 'risk', 'medium')] ?? 'Orta').' risk',
@@ -86,7 +89,11 @@
                         </div>
                         <div class="flex w-full shrink-0 flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end">
                             @if ($isAdmin && ! $manual($s) && ! \App\Services\Repair\RepairDesk::isQueued($s))
-                                <button type="button" wire:click="approve({{ $s->id }})" class="btn-dark">Onayla</button>
+                                @if ($byHand($s))
+                                    <button type="button" wire:click="approve({{ $s->id }})" class="btn-dark" title="Google Ads'e yazma şimdilik kapalı: değişikliği Google Ads'te elle yap, sonra buna bas.">Yaptım</button>
+                                @else
+                                    <button type="button" wire:click="approve({{ $s->id }})" class="btn-dark">Onayla</button>
+                                @endif
                             @endif
                             @if ($isAdmin)
                                 <button type="button" wire:click="snooze({{ $s->id }})" class="btn-quiet px-2!">7 gün ertele</button>

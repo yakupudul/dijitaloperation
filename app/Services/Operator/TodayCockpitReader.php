@@ -148,7 +148,9 @@ final class TodayCockpitReader
     public function alarms(): array
     {
         try {
-            $query = AssetAlert::query()->active()->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)
+            // Freshness alerts only once they are red (data missing past 48 hours, panel audit N2): those are the operator's job.
+            $query = AssetAlert::query()->active()
+                ->where(fn (Builder $q): Builder => $q->whereNotIn('kind', DataStatusReader::FRESHNESS_ALERT_KINDS)->orWhereIn('severity', ['critical', 'high']))
                 ->where(fn (Builder $q): Builder => $q->whereIn('kind', self::LOSS_KINDS)->orWhereIn('severity', ['critical', 'high']))
                 ->whereHas('digitalAsset', fn (Builder $asset): Builder => $asset->operational());
             $alerts = (clone $query)->with(['digitalAsset:id,name,type,brand_id', 'brand:id,name,logo_url'])
