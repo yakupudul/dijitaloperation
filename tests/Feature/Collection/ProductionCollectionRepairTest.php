@@ -86,7 +86,7 @@ final class ProductionCollectionRepairTest extends TestCase
             ['gsc_property_daily', 'gsc_query_page_daily'], '2026-09-24');
         Http::fake(['*' => Http::response(['rows' => []])]);
 
-        $this->assertSame(['gsc_query_page_daily'], app(SearchConsoleCentralCollectionService::class)->datasetsMissingFacts($resource));
+        $this->assertEqualsCanonicalizing(['gsc_query_page_daily', 'gsc_page_daily', 'gsc_country_daily', 'gsc_device_daily'], app(SearchConsoleCentralCollectionService::class)->datasetsMissingFacts($resource));
 
         $plan = $this->plan(SearchConsoleCentralCollectionService::class, 'smartPlan', $resource);
         $this->assertSame('2025-08-26', $this->gscStart($plan, 'gsc_query_page_daily'), 'no stored query × page row: whole 395-day window');
@@ -121,7 +121,7 @@ final class ProductionCollectionRepairTest extends TestCase
             ->assertSuccessful();
         $run = CollectionRun::query()->latest('id')->firstOrFail();
         $datasets = $run->datasetRuns()->pluck('dataset_contract_id')->unique()->values()->all();
-        $this->assertSame(['gsc_query_page_daily'], $datasets);
+        $this->assertEqualsCanonicalizing(['gsc_query_page_daily', 'gsc_page_daily', 'gsc_country_daily', 'gsc_device_daily'], $datasets);
         $query = $run->datasetRuns()->where('dataset_contract_id', 'gsc_query_page_daily')->firstOrFail();
         $this->assertSame('2025-05-27', data_get($query->metadata, 'date_range.start'), '486-day window');
         $this->assertSame([], (array) $query->checkpoint);
@@ -139,7 +139,7 @@ final class ProductionCollectionRepairTest extends TestCase
         app(ResourceAutomationService::class)->collect($automation->id);
 
         $run = CollectionRun::query()->findOrFail($automation->fresh()->collection_run_id);
-        $this->assertEqualsCanonicalizing(['gsc_property_daily', 'gsc_query_page_daily', 'gsc_sitemap_snapshot', 'gsc_site_metadata'],
+        $this->assertEqualsCanonicalizing(['gsc_property_daily', 'gsc_query_page_daily', 'gsc_page_daily', 'gsc_country_daily', 'gsc_device_daily', 'gsc_sitemap_snapshot', 'gsc_site_metadata'],
             $run->datasetRuns()->pluck('dataset_contract_id')->unique()->values()->all());
         $this->assertFalse((bool) data_get($run->metadata, 'query_only'));
         $this->assertSame('2025-08-26', data_get($run->datasetRuns()->where('dataset_contract_id', 'gsc_query_page_daily')->first()->metadata, 'date_range.start'));

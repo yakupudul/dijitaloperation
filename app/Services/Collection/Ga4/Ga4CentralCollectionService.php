@@ -19,6 +19,7 @@ use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Providers\Ga4\Ga4MetadataCompatibilityService;
 use App\Services\Collection\Providers\Ga4\Ga4RequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Support\Collection\CollectionDatasetCatalog;
 use App\Support\Integrations\Google\GoogleResourceType;
@@ -26,9 +27,11 @@ use App\Support\Integrations\ProviderRegistry;
 use App\Support\Time\SafeTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Starts GA4 collection from discovered provider resources before any Customer/Brand/Asset binding exists.
@@ -280,6 +283,11 @@ final class Ga4CentralCollectionService
                 continue;
             }
             $covered = app(ResourceAutomationService::class)->coverageEnd($resource->id, 'GA4', $family);
+            if ($covered !== null && $this->familyHasNoFacts($resource, $family)) {
+                // Self-heal: "covered" by earlier runs but nothing stored (a breakdown switched back on after its table
+                // was emptied): the whole window again, at most once a week per breakdown.
+                $covered = null;
+            }
             $familyRanges[$family] = [
                 'start' => $covered ? min($start->toDateString(), CarbonImmutable::parse($covered)->addDay()->toDateString()) : $closedEnd->subDays(self::INITIAL_DAYS - 1)->toDateString(),
                 'end' => $closedEnd->toDateString(),
@@ -299,6 +307,27 @@ final class Ga4CentralCollectionService
         ];
     }
 
+    /** True when the family's fact table holds no row of this property (weekly guard against refetching an empty one). */
+    private function familyHasNoFacts(CoreExternalResource $resource, string $family): bool
+    {
+        $datasetId = (string) (Ga4RequestFamilyCatalog::definition($family)['dataset_id'] ?? '');
+        $storage = app(DataPoolStorageRegistry::class);
+        if ($datasetId === '' || in_array($datasetId, ['ga4_property_metadata', 'ga4_property_daily'], true) || ! $storage->hasPhysicalTable($datasetId)) {
+            return false;
+        }
+        try {
+            // Only a property with traffic: an empty breakdown of a silent property is not refetched.
+            if (! DB::table('ga4_property_daily')->where('external_resource_id', $resource->id)->where('sessions', '>', 0)->exists()) {
+                return false;
+            }
+            $empty = ! DB::table($storage->tableName($datasetId))->where('external_resource_id', $resource->id)->exists();
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $empty && Cache::add('ga4-central-refetch:'.$resource->id.':'.$datasetId, true, now()->addDays(7));
+    }
+
     /** @return array{0:string,1:CarbonImmutable} */
     private function propertyClock(CoreIntegration $integration, CoreExternalResource $resource): array
     {
@@ -312,7 +341,7 @@ final class Ga4CentralCollectionService
 
         try {
             $end = CarbonImmutable::now($timezone)->subDay()->startOfDay();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             $timezone = 'UTC';
             $end = CarbonImmutable::now('UTC')->subDay()->startOfDay();
         }

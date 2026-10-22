@@ -24,7 +24,8 @@ final class V2DatasetCatalogueTest extends TestCase
             SearchConsoleRequestFamilyCatalog::centralFamilies(),
         );
 
-        $this->assertEqualsCanonicalizing(['gsc_property_daily', 'gsc_query_page_daily', 'gsc_sitemap_snapshot', null], $datasets);
+        // Page, country and device totals are back since the panel audit (2026-10-21); the big cross tables stay off.
+        $this->assertEqualsCanonicalizing(['gsc_property_daily', 'gsc_query_page_daily', 'gsc_page_daily', 'gsc_country_daily', 'gsc_device_daily', 'gsc_sitemap_snapshot', null], $datasets);
         $this->assertNotContains(SearchConsoleRequestFamilyCatalog::FAMILY_URL_INSPECTION, SearchConsoleRequestFamilyCatalog::centralFamilies());
         $this->assertTrue(CollectionDatasetCatalog::isOnDemand('SEARCH_CONSOLE', 'gsc_url_inspection_snapshot'));
     }

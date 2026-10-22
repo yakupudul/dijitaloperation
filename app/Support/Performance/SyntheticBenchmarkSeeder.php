@@ -202,14 +202,26 @@ final class SyntheticBenchmarkSeeder
      */
     private function insertGscQueryRows(array $rows): void
     {
+        $this->insertGscRows('gsc_query_daily', $rows);
+        // Query readers total over query × page (the table still collected), so seed it alongside.
+        if ($this->tableExists('gsc_query_page_daily')) {
+            $this->insertGscRows('gsc_query_page_daily', array_map(fn (array $row) => $row + ['page' => $row['site_url']], $rows));
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function insertGscRows(string $table, array $rows): void
+    {
         $store = app(CompactFactStore::class);
-        if (! $store->isCompact('gsc_query_daily')) {
-            DB::table('gsc_query_daily')->insert($rows);
+        if (! $store->isCompact($table)) {
+            DB::table($table)->insert($rows);
 
             return;
         }
         $dates = array_column($rows, 'reporting_date');
-        app(PartitionManager::class)->ensureRange((string) $store->spec('gsc_query_daily')['fact'], min($dates), max($dates));
-        $store->upsert('gsc_query_daily', $rows);
+        app(PartitionManager::class)->ensureRange((string) $store->spec($table)['fact'], min($dates), max($dates));
+        $store->upsert($table, $rows);
     }
 }

@@ -103,6 +103,11 @@ return [
             'gsc_site_metadata',           // permission level / active search types (no fact table)
             'gsc_property_daily',          // totals
             'gsc_query_page_daily',        // query × page daily (16 months)
+            // Panel audit finding 1 / N4 (2026-10-21): small totals tables back on. Page totals include the anonymised
+            // queries that query × page drops; content results, Site › Analiz and Claude's gsc.pages read them.
+            'gsc_page_daily',              // page daily totals
+            'gsc_country_daily',           // country daily totals
+            'gsc_device_daily',            // device daily totals
             'gsc_sitemap_snapshot',        // sitemap status
         ],
         'GA4' => [
@@ -110,6 +115,14 @@ return [
             'ga4_property_daily',          // totals
             'ga4_landing_source_daily',    // landing page × session source / medium (+ key events)
             'ga4_key_event_daily',         // key events
+            // Panel audit finding 1 / N4: the small breakdowns every reader expects (all were empty since 2026-09-29).
+            'ga4_acquisition_channel_daily', // default channel group
+            'ga4_source_medium_daily',     // session source / medium
+            'ga4_landing_page_daily',      // landing page totals
+            'ga4_device_daily',            // device category
+            'ga4_geo_country_daily',       // country
+            'ga4_event_daily',             // every event (key events only in ga4_key_event_daily)
+            'ga4_campaign_daily',          // campaign
         ],
         'GOOGLE_BUSINESS_PROFILE' => [
             'gbp_location',                // profile: NAP, categories, description, hours

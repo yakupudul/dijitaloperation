@@ -65,7 +65,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
                 ],
             );
         }
-        if (! SchemaState::hasTable('gsc_page_daily') || ! SchemaState::hasTable('gsc_query_daily')) {
+        if (! SchemaState::hasTable('gsc_page_daily') || ! SchemaState::hasTable('gsc_query_page_daily')) {
             return new WebsiteProjectionContribution(
                 sourceId: $this->sourceId(),
                 coverage: ['state' => 'not_collected', 'external_resource_id' => $binding->externalResourceId],
@@ -76,7 +76,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
         $end = $context->periodEnd->toDateString();
         $timezone = SafeTimezone::normalize($binding->timezone ?: 'UTC', 'UTC');
         $pages = $this->aggregateDimension('gsc_page_daily', 'page', $binding->externalResourceId, $binding->siteUrl, $start, $end);
-        $terms = $this->aggregateDimension('gsc_query_daily', 'query', $binding->externalResourceId, $binding->siteUrl, $start, $end);
+        $terms = $this->aggregateDimension('gsc_query_page_daily', 'query', $binding->externalResourceId, $binding->siteUrl, $start, $end);
         $relations = SchemaState::hasTable('gsc_query_page_daily')
             ? $this->aggregateQueryPages($binding->externalResourceId, $binding->siteUrl, $start, $end)
             : [];
@@ -124,7 +124,7 @@ final class GscProjectionAdapter implements WebsiteProjectionSourceAdapter
             $observations[] = [
                 'observed_text' => (string) $query,
                 'term_kind' => SearchTermKind::GscQuery,
-                'source' => $this->aggregateSource('gsc_query_daily', $aggregate, $binding->externalResourceId),
+                'source' => $this->aggregateSource('gsc_query_page_daily', $aggregate, $binding->externalResourceId),
                 'time' => $this->support->time(
                     timezone: $timezone,
                     periodStart: $start,

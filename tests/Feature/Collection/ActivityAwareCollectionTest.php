@@ -372,6 +372,10 @@ class ActivityAwareCollectionTest extends TestCase
         $this->ga4Sessions($active, '2026-09-26', 10);
         Cache::put('ga4:property-context:properties/5550002', ['timeZone' => 'UTC'], 3600);
         $this->centralBaseline($active, 'GA4', array_fill_keys(Ga4RequestFamilyCatalog::centralFamilies(), '2026-09-26'));
+        // The breakdown tables hold no row here: the first plan refetches them over the whole window (self-heal) ...
+        $healed = $this->privatePlan(Ga4CentralCollectionService::class, $active);
+        $this->assertSame('2025-08-28', $healed['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY]['start']);
+        // ... and at most once a week, so the next plan is the normal three-day refetch.
         $full = $this->privatePlan(Ga4CentralCollectionService::class, $active);
         $this->assertSame(Ga4RequestFamilyCatalog::centralFamilies(), $full['families']);
         $this->assertSame(['start' => '2026-09-24', 'end' => '2026-09-26'], $full['family_ranges'][Ga4RequestFamilyCatalog::FAMILY_LANDING_SOURCE_DAILY]);

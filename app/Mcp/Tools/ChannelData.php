@@ -40,7 +40,7 @@ class ChannelData extends Tool
         'google_ads.devices' => ['google_ads_device_daily', 'reporting_date', ['device'], ['impressions', 'clicks', 'cost', 'conversions']],
         'google_ads.conversion_actions' => ['google_ads_conversion_action_daily', 'reporting_date', ['conversion_action_id'], ['conversions', 'conversions_value', 'all_conversions'], 'conversion_action'],
         'gsc.months' => ['gsc_property_daily', 'reporting_date', ['month'], ['clicks', 'impressions']],
-        'gsc.queries' => ['gsc_query_daily', 'reporting_date', ['query'], ['clicks', 'impressions']],
+        'gsc.queries' => ['gsc_query_page_daily', 'reporting_date', ['query'], ['clicks', 'impressions']],
         'gsc.pages' => ['gsc_page_daily', 'reporting_date', ['page'], ['clicks', 'impressions']],
         'gsc.countries' => ['gsc_country_daily', 'reporting_date', ['country'], ['clicks', 'impressions']],
         'gsc.query_countries' => ['gsc_query_country_daily', 'reporting_date', ['query', 'country'], ['clicks', 'impressions']],

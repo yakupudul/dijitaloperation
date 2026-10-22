@@ -111,20 +111,17 @@ final class ContentScorecard
     private function conversions(Brand $brand, array $urls, int $days): array
     {
         $resources = SiteScope::resourceIds($brand, 'ga4');
-        if ($urls === [] || $resources === [] || ! SchemaState::hasTable('ga4_event_landing_daily') || ! SchemaState::hasTable('ga4_key_event_daily')) {
+        // Key events per landing page from landing page × source (collected); the event × landing table is not
+        // collected since 2026-09-29 and always read 0 (panel audit N4).
+        if ($urls === [] || $resources === [] || ! SchemaState::hasTable('ga4_landing_source_daily')) {
             return [];
         }
         try {
             $from = now()->subDays($days)->toDateString();
-            $names = DB::table('ga4_key_event_daily')->whereIn('external_resource_id', $resources)->where('reporting_date', '>=', $from)
-                ->where('keyEvents', '>', 0)->distinct()->pluck('eventName')->filter()->values()->all();
-            if ($names === []) {
-                return [];
-            }
             $paths = collect($urls)->map(fn (string $u): string => SeoText::urlPath($u))->flatMap(fn (string $p): array => [$p, rtrim($p, '/'), rtrim($p, '/').'/'])->unique()->values()->all();
 
-            return DB::table('ga4_event_landing_daily')->whereIn('external_resource_id', $resources)->where('reporting_date', '>=', $from)->whereIn('eventName', $names)
-                ->whereIn('landingPage', $paths)->groupBy('landingPage')->selectRaw('"landingPage" as landing, sum("eventCount") as events')->get()
+            return DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $resources)->where('reporting_date', '>=', $from)
+                ->whereIn('landingPage', $paths)->groupBy('landingPage')->selectRaw('"landingPage" as landing, sum("keyEvents") as events')->get()
                 ->reduce(function (array $carry, object $r): array {
                     $path = rtrim(SeoText::urlPath((string) $r->landing), '/');
                     $carry[$path] = ($carry[$path] ?? 0) + (int) $r->events;

@@ -275,7 +275,7 @@ class GscRealDataMigrationTest extends TestCase
     {
         $dates = $this->contiguousDates('2026-07-16', 28);
         $this->seedDatasetReady('gsc_property_daily', $dates);
-        $this->seedDatasetReady('gsc_query_daily', $dates);
+        $this->seedDatasetReady('gsc_query_page_daily', $dates);
         $this->insertPropertyDailyRows($dates);
         $this->insertQueryDailyRows($dates, 'observed query', clicks: 5, impressions: 50);
 
@@ -600,12 +600,13 @@ class GscRealDataMigrationTest extends TestCase
         int $impressions,
     ): void {
         foreach ($dates as $date) {
-            $this->insertFacts('gsc_query_daily', [
+            $this->insertFacts('gsc_query_page_daily', [
                 'digital_asset_id' => $this->asset->id,
                 'external_resource_id' => $this->resource->id,
                 'site_url' => 'sc-domain:example.com',
                 'reporting_date' => $date,
                 'query' => $query,
+                'page' => 'https://example.com/',
                 'clicks' => $clicks,
                 'impressions' => $impressions,
                 'contract_version' => 1,

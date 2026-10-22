@@ -22,6 +22,9 @@ use Illuminate\Support\Str;
  */
 final class WebsiteSearchConsoleAnalysisService
 {
+    /** Query totals: query × page summed per query (the query-only table is not collected since 2026-09-29; panel audit N4). */
+    private const string QUERY_TABLE = 'gsc_query_page_daily';
+
     private const string DEFAULT_SEARCH_TYPE = 'web';
 
     /**
@@ -142,10 +145,10 @@ final class WebsiteSearchConsoleAnalysisService
         }
 
         $queryCurrent = $rangeUsable
-            ? $this->dimensionPerformance('gsc_query_daily', 'query', $resourceId, $siteUrl, $rangeStart, $rangeEnd, 400, 'impressions')
+            ? $this->dimensionPerformance(self::QUERY_TABLE, 'query', $resourceId, $siteUrl, $rangeStart, $rangeEnd, 400, 'impressions')
             : [];
         $queryPrevious = $compare && $rangeUsable
-            ? $this->dimensionPerformance('gsc_query_daily', 'query', $resourceId, $siteUrl, $previousStart, $previousEnd, 400, 'impressions')
+            ? $this->dimensionPerformance(self::QUERY_TABLE, 'query', $resourceId, $siteUrl, $previousStart, $previousEnd, 400, 'impressions')
             : [];
         $pageCurrent = $rangeUsable
             ? $this->dimensionPerformance('gsc_page_daily', 'page', $resourceId, $siteUrl, $rangeStart, $rangeEnd, 150, 'impressions')

@@ -146,7 +146,8 @@ class Ga4ProductionCollectorTest extends TestCase
         $this->assertSame('GA4', $plan['resources'][0]['provider_or_source']);
         $families = array_column($plan['datasets'], 'request_family_id');
         $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY, $families);
-        $this->assertNotContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_PAGE_DAILY, $families, 'v2 dataset catalogue');
+        $this->assertContains(Ga4RequestFamilyCatalog::FAMILY_LANDING_PAGE_DAILY, $families, 'landing page totals are collected again (panel audit 2026-10-21)');
+        $this->assertNotContains(Ga4RequestFamilyCatalog::FAMILY_PAGE_CONTENT_DAILY, $families, 'v2 dataset catalogue');
 
         $this->binding->forceFill(['status' => CoreAssetBinding::STATUS_DISABLED])->save();
         $this->expectException(\InvalidArgumentException::class);

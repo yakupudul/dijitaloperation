@@ -2,6 +2,7 @@
 
 namespace App\Services\Gsc;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -10,6 +11,12 @@ use Illuminate\Support\Facades\DB;
  */
 class GscPoolReadRepository
 {
+    /** @var array<string, bool> table:account => whether central rows exist */
+    private array $central = [];
+
+    /** @var array<string, int> table:account => when was read */
+    private array $checkedAt = [];
+
     /**
      * Property-level sums for a date range from gsc_property_daily only.
      *
@@ -22,9 +29,7 @@ class GscPoolReadRepository
         string $start,
         string $end,
     ): array {
-        $rows = DB::table('gsc_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        $rows = $this->owned(DB::table('gsc_property_daily'), 'gsc_property_daily', $digitalAssetId, $externalResourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end])
             ->get(['clicks', 'impressions', 'metadata']);
@@ -66,9 +71,7 @@ class GscPoolReadRepository
         string $start,
         string $end,
     ): array {
-        return DB::table('gsc_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('gsc_property_daily'), 'gsc_property_daily', $digitalAssetId, $externalResourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end])
             ->orderBy('reporting_date')
@@ -95,9 +98,7 @@ class GscPoolReadRepository
         string $end,
         int $limit = 10,
     ): array {
-        $rows = DB::table('gsc_query_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        $rows = $this->owned(DB::table('gsc_query_page_daily'), 'gsc_query_page_daily', $digitalAssetId, $externalResourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('query')
@@ -110,9 +111,7 @@ class GscPoolReadRepository
         $detailsByQuery = [];
         if ($queryKeys !== []) {
             // One bounded detail query for the top-N queries (avoids N+1) — Prompt 65.
-            $detailRows = DB::table('gsc_query_daily')
-                ->where('digital_asset_id', $digitalAssetId)
-                ->where('external_resource_id', $externalResourceId)
+            $detailRows = $this->owned(DB::table('gsc_query_page_daily'), 'gsc_query_page_daily', $digitalAssetId, $externalResourceId)
                 ->where('site_url', $siteUrl)
                 ->whereIn('query', $queryKeys)
                 ->whereBetween('reporting_date', [$start, $end])
@@ -158,9 +157,7 @@ class GscPoolReadRepository
         string $end,
         int $limit = 20,
     ): array {
-        return DB::table('gsc_page_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('gsc_page_daily'), 'gsc_page_daily', $digitalAssetId, $externalResourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('page')
@@ -186,9 +183,7 @@ class GscPoolReadRepository
         string $start,
         string $end,
     ): array {
-        $aggregates = DB::table('gsc_device_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        $aggregates = $this->owned(DB::table('gsc_device_daily'), 'gsc_device_daily', $digitalAssetId, $externalResourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('device')
@@ -199,9 +194,7 @@ class GscPoolReadRepository
         $deviceKeys = $aggregates->map(static fn ($row): string => (string) $row->device)->all();
         $detailsByDevice = [];
         if ($deviceKeys !== []) {
-            $detailRows = DB::table('gsc_device_daily')
-                ->where('digital_asset_id', $digitalAssetId)
-                ->where('external_resource_id', $externalResourceId)
+            $detailRows = $this->owned(DB::table('gsc_device_daily'), 'gsc_device_daily', $digitalAssetId, $externalResourceId)
                 ->where('site_url', $siteUrl)
                 ->whereIn('device', $deviceKeys)
                 ->whereBetween('reporting_date', [$start, $end])
@@ -247,9 +240,7 @@ class GscPoolReadRepository
         string $end,
         int $limit = 10,
     ): array {
-        return DB::table('gsc_country_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('gsc_country_daily'), 'gsc_country_daily', $digitalAssetId, $externalResourceId)
             ->where('site_url', $siteUrl)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('country')
@@ -274,7 +265,8 @@ class GscPoolReadRepository
     {
         // Bound SQL before PHP dedupe (Prompt 65) — unique sitemap paths only.
         $rows = DB::table('gsc_sitemap_snapshot')
-            ->where('digital_asset_id', $digitalAssetId)
+            // Central collection writes snapshots without an asset; the site URL names the property.
+            ->where(fn (Builder $q) => $q->where('digital_asset_id', $digitalAssetId)->orWhereNull('digital_asset_id'))
             ->where('site_url', $siteUrl)
             ->orderByDesc('retrieved_at')
             ->limit(500)
@@ -310,7 +302,8 @@ class GscPoolReadRepository
         $limit = max(1, min(100, $limit));
         // Over-fetch for per-page dedupe without loading the entire snapshot history.
         $rows = DB::table('gsc_url_inspection_snapshot')
-            ->where('digital_asset_id', $digitalAssetId)
+            // Central collection writes snapshots without an asset; the site URL names the property.
+            ->where(fn (Builder $q) => $q->where('digital_asset_id', $digitalAssetId)->orWhereNull('digital_asset_id'))
             ->where('site_url', $siteUrl)
             ->orderByDesc('inspected_at')
             ->limit(min(500, $limit * 25))
@@ -365,5 +358,25 @@ class GscPoolReadRepository
         }
 
         return (float) $meta[$key];
+    }
+
+    /**
+     * The asset's rows of an account: central rows (collected per account, no asset id; everything since the v2
+     * collection of 2026-09-29) when the account has any, else the older per-asset copies. Never both, so a day is
+     * not counted twice.
+     */
+    private function owned(Builder $query, string $table, int $digitalAssetId, int $externalResourceId): Builder
+    {
+        $key = $table.':'.$externalResourceId;
+        // Singleton in long-running workers: "has central rows" is kept (it never turns false again), "none yet" a minute.
+        $known = $this->central[$key] ?? null;
+        if ($known === null || ($known === false && ($this->checkedAt[$key] ?? 0) < time() - 60)) {
+            $known = $this->central[$key] = DB::table($table)->whereNull('digital_asset_id')->where('external_resource_id', $externalResourceId)->exists();
+            $this->checkedAt[$key] = time();
+        }
+
+        return $known
+            ? $query->whereNull('digital_asset_id')->where('external_resource_id', $externalResourceId)
+            : $query->where('digital_asset_id', $digitalAssetId)->where('external_resource_id', $externalResourceId);
     }
 }

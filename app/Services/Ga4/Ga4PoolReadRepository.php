@@ -2,6 +2,7 @@
 
 namespace App\Services\Ga4;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,6 +13,12 @@ use Illuminate\Support\Facades\DB;
  */
 class Ga4PoolReadRepository
 {
+    /** @var array<string, bool> table:account => whether central rows exist */
+    private array $central = [];
+
+    /** @var array<string, int> table:account => when was read */
+    private array $checkedAt = [];
+
     /**
      * Property-level sums for a date range. Deliberately excludes `totalUsers` —
      * GA4 unique users cannot be summed across days into a period total. Optional
@@ -26,9 +33,7 @@ class Ga4PoolReadRepository
         string $start,
         string $end,
     ): array {
-        $row = DB::table('ga4_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        $row = $this->owned(DB::table('ga4_property_daily'), 'ga4_property_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->selectRaw('COUNT(*) as rows_count, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM("engagedSessions"), 0) as engaged_sum, COALESCE(SUM("screenPageViews"), 0) as views_sum, COALESCE(SUM("userEngagementDuration"), 0) as engagement_duration_sum, COALESCE(SUM("activeUsers"), 0) as active_users_sum, SUM("newUsers") as new_users_sum, SUM(conversions) as conversions_sum, SUM("keyEvents") as key_events_sum, SUM("totalRevenue") as revenue_sum')
@@ -60,9 +65,7 @@ class Ga4PoolReadRepository
         string $start,
         string $end,
     ): array {
-        return DB::table('ga4_property_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_property_daily'), 'ga4_property_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->orderBy('reporting_date')
@@ -86,9 +89,7 @@ class Ga4PoolReadRepository
         string $start,
         string $end,
     ): array {
-        return DB::table('ga4_acquisition_channel_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_acquisition_channel_daily'), 'ga4_acquisition_channel_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('sessionDefaultChannelGroup')
@@ -114,9 +115,7 @@ class Ga4PoolReadRepository
         string $end,
         int $limit = 10,
     ): array {
-        return DB::table('ga4_source_medium_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_source_medium_daily'), 'ga4_source_medium_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('sessionSource', 'sessionMedium')
@@ -143,9 +142,7 @@ class Ga4PoolReadRepository
         string $end,
         int $limit = 10,
     ): array {
-        return DB::table('ga4_campaign_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_campaign_daily'), 'ga4_campaign_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('sessionCampaignName')
@@ -171,9 +168,7 @@ class Ga4PoolReadRepository
         string $start,
         string $end,
     ): int {
-        return (int) DB::table('ga4_campaign_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return (int) $this->owned(DB::table('ga4_campaign_daily'), 'ga4_campaign_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->where(function ($query): void {
@@ -194,9 +189,7 @@ class Ga4PoolReadRepository
         string $end,
         int $limit = 10,
     ): array {
-        return DB::table('ga4_landing_page_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_landing_page_daily'), 'ga4_landing_page_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('landingPage')
@@ -223,9 +216,7 @@ class Ga4PoolReadRepository
         string $end,
         int $limit = 20,
     ): array {
-        return DB::table('ga4_event_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_event_daily'), 'ga4_event_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('eventName')
@@ -250,9 +241,7 @@ class Ga4PoolReadRepository
         string $start,
         string $end,
     ): array {
-        return DB::table('ga4_device_daily')
-            ->where('digital_asset_id', $digitalAssetId)
-            ->where('external_resource_id', $externalResourceId)
+        return $this->owned(DB::table('ga4_device_daily'), 'ga4_device_daily', $digitalAssetId, $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
             ->groupBy('deviceCategory')
@@ -275,7 +264,7 @@ class Ga4PoolReadRepository
     public function propertyMetadata(int $digitalAssetId, string $propertyId): ?array
     {
         $row = DB::table('ga4_property_metadata')
-            ->where('digital_asset_id', $digitalAssetId)
+            ->where(fn (Builder $q) => $q->where('digital_asset_id', $digitalAssetId)->orWhereNull('digital_asset_id'))
             ->where('property_id', $propertyId)
             ->first();
 
@@ -293,5 +282,25 @@ class Ga4PoolReadRepository
             'metadata' => $metadata,
             'last_collected_at' => $row->last_collected_at ?? null,
         ];
+    }
+
+    /**
+     * The asset's rows of an account: central rows (collected per account, no asset id; everything since the v2
+     * collection of 2026-09-29) when the account has any, else the older per-asset copies. Never both, so a day is
+     * not counted twice.
+     */
+    private function owned(Builder $query, string $table, int $digitalAssetId, int $externalResourceId): Builder
+    {
+        $key = $table.':'.$externalResourceId;
+        // Singleton in long-running workers: "has central rows" is kept (it never turns false again), "none yet" a minute.
+        $known = $this->central[$key] ?? null;
+        if ($known === null || ($known === false && ($this->checkedAt[$key] ?? 0) < time() - 60)) {
+            $known = $this->central[$key] = DB::table($table)->whereNull('digital_asset_id')->where('external_resource_id', $externalResourceId)->exists();
+            $this->checkedAt[$key] = time();
+        }
+
+        return $known
+            ? $query->whereNull('digital_asset_id')->where('external_resource_id', $externalResourceId)
+            : $query->where('digital_asset_id', $digitalAssetId)->where('external_resource_id', $externalResourceId);
     }
 }
