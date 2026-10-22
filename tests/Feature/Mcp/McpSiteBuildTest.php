@@ -153,6 +153,21 @@ final class McpSiteBuildTest extends TestCase
         $this->assertCount(3, $this->sent);
     }
 
+    public function test_a_build_mode_unused_for_seven_days_switches_itself_off(): void
+    {
+        $this->actingAs($this->admin);
+        Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])->set('selectedAssetId', $this->site->id)->call('setBuildMode', 'direct');
+        $this->travel(6)->days();
+        MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'trash', 'ref' => 'x']]])->assertOk();
+        $this->assertNotNull(data_get($this->connection->fresh()->config, 'claude_build.used_at'), 'a build keeps the mode alive');
+
+        $this->travel(8)->days();
+        $sent = count($this->sent);
+        MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'trash', 'ref' => 'x']]])->assertHasErrors(['kendiliğinden kapandı']);
+        $this->assertSame($sent, count($this->sent), 'nothing was sent to the site');
+        $this->assertNull(WordPressSiteBuilder::mode($this->connection->fresh()));
+    }
+
     public function test_approval_mode_waits_for_the_admin_who_approves_or_rejects(): void
     {
         $this->actingAs($this->admin);
@@ -189,7 +204,7 @@ final class McpSiteBuildTest extends TestCase
 
     public function test_the_plugin_must_allow_building_and_only_admins_change_the_mode(): void
     {
-        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['capabilities' => ['drafts'], 'claude_build' => ['enabled' => true, 'mode' => 'direct', 'by' => $this->admin->id]])])->save();
+        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['capabilities' => ['drafts'], 'claude_build' => ['enabled' => true, 'mode' => 'direct', 'by' => $this->admin->id, 'at' => now()->toIso8601String()]])])->save();
         $this->statusCapabilities = ['drafts'];
         MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'trash', 'ref' => 'x']]])->assertHasErrors(['Site building']);
         $this->assertSame(['GET'], array_column($this->sent, 0), 'only the status was asked again, nothing was built');

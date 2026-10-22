@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\User;
 use App\Support\Roles;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -27,6 +28,9 @@ use Throwable;
 final class WordPressSiteBuilder
 {
     public const string MODE_DIRECT = 'direct';
+
+    /** Audit T5 (2026-10-22): a build mode nobody used for this many days switches itself off. */
+    public const int IDLE_DAYS = 7;
 
     public const string MODE_APPROVAL = 'approval';
 
@@ -154,6 +158,9 @@ final class WordPressSiteBuilder
     {
         $connection = $this->connection($siteId);
         $awaiting = self::mode($connection) === self::MODE_APPROVAL;
+        $config = (array) $connection->config;
+        $config['claude_build']['used_at'] = now()->toIso8601String();
+        $connection->forceFill(['config' => $config])->save();
         $action = ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_SITE_BUILD,
             'digital_asset_id' => $siteId, 'brand_id' => $connection->digitalAsset?->brand_id,
@@ -369,7 +376,22 @@ final class WordPressSiteBuilder
 
     public static function switchedOn(?CoreConnection $connection): bool
     {
-        return $connection !== null && (bool) data_get($connection->config, 'claude_build.enabled', false) && (int) data_get($connection->config, 'claude_build.by') > 0;
+        return $connection !== null && (bool) data_get($connection->config, 'claude_build.enabled', false) && (int) data_get($connection->config, 'claude_build.by') > 0
+            && ! self::idle($connection);
+    }
+
+    /** Switched on, but neither turned on nor used for a build in the last IDLE_DAYS days: counts as off. */
+    public static function idle(?CoreConnection $connection): bool
+    {
+        if ($connection === null || ! (bool) data_get($connection->config, 'claude_build.enabled', false)) {
+            return false;
+        }
+        $last = (string) (data_get($connection->config, 'claude_build.used_at') ?: data_get($connection->config, 'claude_build.at', ''));
+        try {
+            return $last === '' || Carbon::parse($last)->lt(now()->subDays(self::IDLE_DAYS));
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     /** direct | approval while on, null while off. */
@@ -423,6 +445,9 @@ final class WordPressSiteBuilder
     {
         if (! (bool) config('moxdop-external-writes.enabled', true) || ! (bool) config('moxdop-external-writes.wordpress.enabled', true)) {
             return 'Harici yazma kapalı (EXTERNAL_WRITES_ENABLED).';
+        }
+        if (self::idle($connection)) {
+            return 'Bu sitede "Claude site kurulumu" '.self::IDLE_DAYS.' gündür kullanılmadığı için kendiliğinden kapandı. MoxDOP › Entegrasyonlar › WordPress bağlayıcısı ekranından yeniden aç.';
         }
         if (! self::switchedOn($connection)) {
             return 'Bu sitede "Claude site kurulumu" kapalı. MoxDOP › Entegrasyonlar › WordPress bağlayıcısı ekranından aç.';
