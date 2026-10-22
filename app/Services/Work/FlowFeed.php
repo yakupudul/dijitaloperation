@@ -455,7 +455,7 @@ final class FlowFeed
             'brand' => (string) ($brands[$task->brand_id] ?? ''),
             'subject' => (string) ($task->subject ?? AiOperationLabels::for($operation)),
             'line' => match ($task->status) {
-                AiTask::FAILED => Str::limit((string) $task->error, 140),
+                AiTask::FAILED => Str::limit(RepairDesk::plainError((string) $task->error), 140),
                 AiTask::PENDING => 'Claude\'un sırasında',
                 AiTask::CLAIMED => 'Claude yazıyor',
                 default => (string) (LiveFeed::preview($task->output) ?? 'Bitti'),

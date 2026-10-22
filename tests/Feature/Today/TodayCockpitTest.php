@@ -166,13 +166,13 @@ final class TodayCockpitTest extends SiteTestCase
             ->assertSeeHtml('aria-current="page"');
     }
 
-    public function test_header_has_profile_menu_with_language_and_no_tagline_or_settings_button(): void
+    public function test_header_has_profile_menu_without_language_switch_tagline_or_settings_button(): void
     {
         $this->get(route('operator.dashboard'))->assertOk()
             ->assertDontSee(__('operator.product.tagline'))
             ->assertSeeHtml('data-profile-menu')->assertSeeHtml('data-global-search')
             ->assertSeeHtml('aria-keyshortcuts="Control+K Meta+K"')
-            ->assertSee(__('operator.profile.locale'));
+            ->assertDontSee(__('operator.profile.locale'), 'Aşama 11 (2026-10-22): the panel is Turkish only');
     }
 
     public function test_search_finds_panel_pages_and_offers_queries(): void

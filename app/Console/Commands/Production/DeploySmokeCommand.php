@@ -22,7 +22,7 @@ final class DeploySmokeCommand extends Command
     /** @var array<string, string> route name => label */
     public const array SCREENS = [
         'operator.dashboard' => 'Komuta', 'operator.today' => 'Bugün özeti', 'operator.portfolio' => 'Portföy', 'operator.repair' => 'Onarım masası', 'operator.brands' => 'Markalar',
-        'operator.websites' => 'Web siteleri', 'operator.content' => 'İçerik', 'operator.google-ads-desk' => 'Google Ads',
+        'operator.websites' => 'Web siteleri', 'operator.content' => 'İçerik', 'operator.google-ads-desk' => 'Google Ads', 'operator.flow' => 'Akış',
     ];
 
     public function handle(ScreenChecker $checker): int

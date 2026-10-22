@@ -81,7 +81,7 @@ return [
         'health_title' => 'Web sitesi sağlığı', 'health_body' => 'Gerçek teknik kontrol çalışmaları ve Bulgu kayıtları', 'run_again' => 'Tekrar çalıştır', 'checks' => 'kontrol değerlendirildi',
         'open_findings' => 'açık bulgu', 'high_severity' => 'yüksek önem', 'no_diagnosis' => 'Henüz teknik kontrol çalışması yok.',
         'organic_search' => 'Organik Arama', 'seo_refresh' => 'SEO verisini yenile',
-        'seo_body' => 'Search Console verileri ve DataForSEO istihbaratı. Ücretli provider çağrıları yalnız açık bir yenileme aksiyonuyla çalışır.',
+        'seo_body' => 'Search Console verileri.',
         'no_seo_opportunities' => 'Henüz gerçek SEO fırsatı yok.', 'discovery_competitors' => 'Açık web keşfi ve rakipler',
         'discovery_body' => 'Kamuya açık tarama, incelenebilir gerçekler ve sınırlı rakip keşfi Açık Web Keşfi sayfasında yönetilir.',
         'open_discovery' => 'Açık Web Keşfi’ni aç', 'performance_title' => 'Performans',

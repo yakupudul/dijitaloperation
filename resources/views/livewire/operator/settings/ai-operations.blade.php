@@ -192,10 +192,10 @@
             </div>
         </div>
 
-        {{-- GPT / Claude API / Claude abonelik dağılımı ve yüklenen kredi --}}
+        {{-- AI dağılımı (bütün işler Claude aboneliğinde) --}}
         <section data-ai-credits>
             <div class="section-head">
-                <h2 class="section-title" title="Her AI işlemi üç yoldan biriyle çalışır: GPT (OpenAI), Claude API (yüklediğin krediden düşer) veya Claude abonelik (MCP kuyruğu). Claude API kredisi biter ya da günlük tavan dolarsa, kuyruğu destekleyen işler kendiliğinden aboneliğe geçer.">AI dağılımı ve kredi</h2>
+                <h2 class="section-title" title="Bütün AI işleri Claude aboneliğinde (MCP kuyruğu) çalışır.">AI dağılımı ve kredi</h2>
             </div>
             <div class="card">
                 @foreach ($credits as $credit)

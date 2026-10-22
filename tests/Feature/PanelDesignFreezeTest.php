@@ -63,16 +63,13 @@ class PanelDesignFreezeTest extends TestCase
             'operator.gbp-desk',
             'operator.google-ads-desk',
             'operator.meta-desk',
-            'operator.winners',
-            'operator.strategies',
-            'operator.library.queries',
             'operator.portfolio',
             'operator.brands',
             'operator.websites',
             'operator.whatsapp',
             'operator.integrations',
             'operator.settings',
-        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan; Google Ads menu added 2026-10-19; Stratejiler added 2026-10-12; Onarım masası added with the repair plan 2026-10-08 and, since 2026-10-10, the one work list for everyone (Genel işler is its Diğer işler section); Müşteriler merged into Markalar 2026-10-19; Sorgular under Büyüme and WhatsApp under Portföy with the menu prototype 2026-10-20; İçerik added and Dijital varlıklar moved under Entegrasyonlar 2026-10-20 (yönetici turu); Akış added 2026-10-22 (Aşama 4); Portföy added and Bugün became Komuta 2026-10-22 (Aşama 5)');
+        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan; Google Ads menu added 2026-10-19; Stratejiler added 2026-10-12; Onarım masası added with the repair plan 2026-10-08 and, since 2026-10-10, the one work list for everyone (Genel işler is its Diğer işler section); Müşteriler merged into Markalar 2026-10-19; Sorgular under Büyüme and WhatsApp under Portföy with the menu prototype 2026-10-20; İçerik added and Dijital varlıklar moved under Entegrasyonlar 2026-10-20 (yönetici turu); Akış added 2026-10-22 (Aşama 4); Portföy added and Bugün became Komuta 2026-10-22 (Aşama 5); Kazananlar, Stratejiler and Sorgular left the menu 2026-10-22 (Aşama 11)');
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])
@@ -91,12 +88,12 @@ class PanelDesignFreezeTest extends TestCase
     public function test_hidden_screens_are_tabs_of_their_sidebar_entry(): void
     {
         $tabs = OperatorMenu::sectionTabs('operator.integrations.discovered');
-        $this->assertSame(['/integrations', '/integrations/connection-health', '/integrations/discovered', '/integrations/wordpress-sites', '/data-center', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20');
-        $this->assertSame([false, false, true, false, false, false], array_column($tabs, 'active'));
+        $this->assertSame(['/integrations', '/integrations/connection-health', '/integrations/discovered', '/integrations/wordpress-sites', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20; Veri merkezi left 2026-10-22 (Aşama 11)');
+        $this->assertSame([false, false, true, false, false], array_column($tabs, 'active'));
         $this->assertSame(['/settings', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/mcp', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, MCP anahtarları, Sistem, Geliştirme havuzu, Sürümler');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
 
-        $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertSee(route('operator.data-center', absolute: false), false);
+        $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee(route('operator.data-center', absolute: false).'"', false);
         $this->get(route('operator.settings.users'))->assertOk();
         $this->get(route('operator.settings.ai-operations'))->assertOk();
         $this->get(route('operator.library.queries'))->assertOk();

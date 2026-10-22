@@ -242,7 +242,30 @@ final class WebHealthAudit
             return 'Sitedeki MoxDOP eklentisi eski; 1.12.0 ve sonrası 301\'i kendi listesine yazar. Eklentiyi güncelle, sonra yeniden onayla.';
         }
 
-        return $error;
+        return self::plainTechnical($error) ?? $error;
+    }
+
+    /** Raw technical reasons (timeouts, HTTP codes, exception text) in plain Turkish (Aşama 11, 2026-10-22); null when none fits. */
+    private static function plainTechnical(string $error): ?string
+    {
+        $e = mb_strtolower($error);
+        $rules = [
+            'Site zamanında yanıt vermedi; bir sonraki gönderimde yeniden denenir.' => ['timed out', 'timeout', 'curl error 28'],
+            'Siteye bağlanılamadı (sunucu kapalı ya da adres yanlış); bir sonraki gönderimde yeniden denenir.' => ['could not resolve host', 'connection refused', 'failed to connect', 'curl error 6', 'curl error 7', 'ssl'],
+            'Site bağlantısı reddetti (yetki yok); bağlantıyı Entegrasyonlar\'dan yenile.' => ['401', '403', 'unauthorized', 'forbidden', 'unauthenticated', 'invalid token', 'invalid_grant'],
+            'Hedef sayfa sitede bulunamadı (silinmiş ya da adresi değişmiş).' => ['404', 'not found'],
+            'Karşı taraf çok fazla istek dedi; biraz sonra yeniden denenir.' => ['429', 'too many requests', 'rate limit', 'quota'],
+            'Karşı sunucuda geçici bir hata oldu; bir sonraki gönderimde yeniden denenir.' => ['500', '502', '503', '504', 'internal server error', 'bad gateway', 'service unavailable'],
+        ];
+        foreach ($rules as $plain => $needles) {
+            foreach ($needles as $needle) {
+                if (preg_match('/(?<![\\w])'.preg_quote($needle, '/').'(?![\\w])/u', $e) === 1) {
+                    return $plain;
+                }
+            }
+        }
+
+        return null;
     }
 
     /** "Yaptım" on a task row: hidden for a week; the nightly run closes it when the problem is gone, else it returns. */

@@ -47,10 +47,6 @@
                         class="absolute right-0 z-50 mt-1.5 w-60 rounded-xl bg-white p-1.5 shadow-theme-lg ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
                         <p class="truncate px-2.5 pb-1.5 pt-1 text-xs text-gray-500 dark:text-gray-400">{{ auth()->user()->email }}</p>
                         <a href="{{ route('operator.profile') }}" wire:navigate role="menuitem" class="block rounded-lg px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">{{ __('operator.nav.profile') }}</a>
-                        <div class="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 dark:text-gray-300">
-                            <span>{{ __('operator.profile.locale') }}</span>
-                            <livewire:demo.locale-switcher />
-                        </div>
                         <form method="POST" action="{{ route('app.logout') }}" class="mt-1 border-t border-gray-100 pt-1 dark:border-gray-800">
                             @csrf
                             <button type="submit" role="menuitem" class="block w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">{{ __('operator.auth.logout') }}</button>

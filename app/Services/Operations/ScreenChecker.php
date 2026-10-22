@@ -55,18 +55,18 @@ final class ScreenChecker
     private string $lastHtml = '';
 
     private const array STATIC_ROUTES = [
-        'operator.dashboard' => 'Komuta', 'operator.today' => 'Bugün özeti', 'operator.portfolio' => 'Portföy', 'operator.repair' => 'Onarım masası', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
+        'operator.dashboard' => 'Komuta', 'operator.today' => 'Bugün özeti', 'operator.portfolio' => 'Portföy', 'operator.repair' => 'Onarım masası', 'operator.flow' => 'Akış', 'operator.content' => 'İçerik',
+        'operator.google-ads-desk' => 'Google Ads', 'operator.meta-desk' => 'Meta', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
         'operator.gbp-branch-pages' => 'İşletme profilleri › Şube sayfaları', 'operator.gbp-profile-fields' => 'İşletme profilleri › Açıklama ve saatler',
-        'operator.gbp-photos' => 'İşletme profilleri › Fotoğraflar', 'operator.gbp-reviews' => 'İşletme profilleri › Yorumlar', 'operator.customers' => 'Müşteriler', 'operator.brands' => 'Markalar',
-        'operator.assets' => 'Dijital varlıklar', 'operator.websites' => 'Web siteleri', 'operator.library.queries' => 'Sorgular',
-        'operator.library.queries.plan' => 'Sorgular › AI ile planla', 'operator.library.services' => 'Sektör ve hizmet kataloğu',
+        'operator.gbp-photos' => 'İşletme profilleri › Fotoğraflar', 'operator.gbp-reviews' => 'İşletme profilleri › Yorumlar', 'operator.brands' => 'Markalar',
+        'operator.assets' => 'Dijital varlıklar', 'operator.websites' => 'Web siteleri', 'operator.library.services' => 'Sektör ve hizmet kataloğu',
         'operator.library.website-standards' => 'Standartlar', 'operator.integrations' => 'Entegrasyonlar',
         'operator.integrations.discovered' => 'Keşfedilen varlıklar', 'operator.integrations.wordpress-sites' => 'WordPress siteleri',
         'operator.integrations.google' => 'Google bağlantısı', 'operator.integrations.meta' => 'Meta bağlantısı',
         'operator.integrations.bing' => 'Bing Webmaster', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
-        'operator.data-center' => 'Veri merkezi', 'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
+        'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
         'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.system-health' => 'Sistem',
-        'operator.settings.users' => 'Kullanıcılar', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.sector-packs' => 'Sektör paketleri',
+        'operator.settings.users' => 'Kullanıcılar', 'operator.settings.query-rules' => 'Sorgu kuralları', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.sector-packs' => 'Sektör paketleri',
         'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.settings.releases' => 'Sürümler', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
     ];
 

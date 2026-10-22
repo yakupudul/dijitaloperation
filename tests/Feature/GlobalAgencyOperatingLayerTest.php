@@ -46,7 +46,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertContains('Command', $labels, 'Aşama 5 (2026-10-22): Komuta replaced Bugün');
         $this->assertNotContains('Customers', $labels, 'Müşteriler merged into Markalar 2026-10-19');
         $this->assertContains('Brands', $labels);
-        $this->assertContains('Queries', $labels, 'v2: Sorgular in the sidebar');
+        $this->assertNotContains('Queries', $labels, 'Aşama 11 (2026-10-22): Sorgular, Kazananlar, Stratejiler left the menu');
         $this->assertNotContains('Digital Assets', $labels, 'Step 3: assets are reached from Entegrasyonlar / brand Ayarlar');
         $this->assertNotContains('Findings', $labels, 'Faz 10e sade menü');
         $this->assertNotContains('Recommendations', $labels);
@@ -61,7 +61,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotContains('Run Registry', $labels);
 
         $groupTitles = array_column(OperatorMenu::groups(), 'title');
-        $this->assertSame(['Work', 'Channels', 'Growth', 'Portfolio', 'System'], $groupTitles, 'menu prototype 2026-10-20: four groups and a pinned System (six since 2026-10-19, one in v2)');
+        $this->assertSame(['Work', 'Channels', 'Portfolio', 'System'], $groupTitles, 'Aşama 11 (2026-10-22): Büyüme left with its screens; three groups and a pinned System');
         $this->assertNotContains('Data', $groupTitles);
     }
 

@@ -8,7 +8,7 @@ use App\Support\Roles;
  * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
  *
  * MoxDOP v2 (Faz 0): the sidebar is exactly Bugün · Onarım masası · İçerik · İşletme profilleri · Google Ads · Meta reklamları ·
- * Kazananlar · Stratejiler · Sorgular · Markalar (Müşteriler merged in, 2026-10-19) · Web siteleri (Dijital varlıklar left the menu 2026-10-20: every asset is on its brand page, under Entegrasyonlar too) · WhatsApp (admins) ·
+ * (Kazananlar · Stratejiler · Sorgular left with Aşama 11, 2026-10-22) · Markalar (Müşteriler merged in, 2026-10-19) · Web siteleri (Dijital varlıklar left the menu 2026-10-20: every asset is on its brand page, under Entegrasyonlar too) · WhatsApp (admins) ·
  * Entegrasyonlar · Ayarlar: Çalışma (no heading), Kanallar, Büyüme, Portföy, and Sistem pinned at the bottom (menu
  * prototype approved 2026-10-20).
  * Ayarlar carries the settings screens as tabs: AI işlemleri ve promptlar, Standartlar, Sektör ve hizmet kataloğu,
@@ -48,11 +48,8 @@ final class DemoMenu
                 $item('Google Ads', 'operator.google-ads-desk', 'seo', [], ['operator.google-ads-terms', 'operator.google-ads-changes', 'operator.google-ads-ads', 'operator.google-ads-measurement', 'operator.google-ads-services', 'operator.google-ads.overview']),
                 $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy']),
             ]),
-            $group($tr ? 'Büyüme' : 'Growth', [
-                $item($tr ? 'Kazananlar' : 'Winners', 'operator.winners', 'trophy', [], ['operator.winner-service', 'operator.libraries']),
-                $item($tr ? 'Stratejiler' : 'Strategies', 'operator.strategies', 'strategy', [], ['operator.strategy']),
-                $item($tr ? 'Sorgular' : 'Queries', 'operator.library.queries', 'search'),
-            ]),
+            // Aşama 11 (2026-10-22): Büyüme left the menu. Kazananlar lives in Komuta's sector cards, Stratejiler opens from
+            // the brand page, Sorgular feeds the content plan; the screens stay reachable by link for a week.
             $group($tr ? 'Portföy' : 'Portfolio', [
                 // Aşama 5: every brand's goal, channel health and trend on one list.
                 $item($tr ? 'Portföy' : 'Portfolio', 'operator.portfolio', 'portfolio'),
@@ -67,7 +64,6 @@ final class DemoMenu
                     $child($tr ? 'Bağlantı sağlığı' : 'Connection health', 'operator.integrations.connection-health'),
                     $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
                     $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),
-                    $child($tr ? 'Veri merkezi' : 'Data Center', 'operator.data-center'),
                     $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets'),
                 ]),
                 $item(__('operator.nav.settings'), 'operator.settings', 'settings', [

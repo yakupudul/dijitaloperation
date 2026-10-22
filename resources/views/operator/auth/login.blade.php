@@ -77,12 +77,6 @@
         </div>
         <div class="mt-5 flex w-full max-w-[400px] items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
             <span>{{ __('operator.product.tagline') }}</span>
-            <span class="flex gap-3" role="group" aria-label="{{ __('operator.profile.locale') }}">
-                <a href="{{ route('app.login', ['locale' => 'en']) }}"
-                    @class(['transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'en', 'hover:text-gray-900 dark:hover:text-white' => app()->getLocale() !== 'en'])>EN</a>
-                <a href="{{ route('app.login', ['locale' => 'tr']) }}"
-                    @class(['transition', 'font-semibold text-gray-900 dark:text-white' => app()->getLocale() === 'tr', 'hover:text-gray-900 dark:hover:text-white' => app()->getLocale() !== 'tr'])>TR</a>
-            </span>
         </div>
     </main>
 </body>

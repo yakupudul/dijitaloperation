@@ -8,18 +8,7 @@
     <form wire:submit="saveAiSettings" data-wa-ai-settings>
         <div class="section-head"><h2 class="section-title">Yanıt önerileri</h2></div>
         <div class="card">
-            <label class="{{ $row }}">
-                <span class="{{ $rowLabel }}">
-                    <span class="block text-sm font-medium text-gray-900 dark:text-white">Model (OpenAI)</span>
-                    <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Öneriler OpenAI ile birkaç saniyede hazırlanır; günlük AI bütçesi geçerlidir.</span>
-                </span>
-                <span class="w-full min-w-0 sm:w-80 sm:shrink-0">
-                    <select wire:model="ai_model" class="{{ $field }}">
-                        @foreach($modelOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-                    </select>
-                    @error('ai_model')<span class="mt-1 block text-xs text-error-600">{{ $message }}</span>@enderror
-                </span>
-            </label>
+            {{-- Model seçimi kalktı (Aşama 11, 2026-10-22): yanıt önerileri Claude ile hazırlanır. --}}
             <label class="{{ $row }} cursor-pointer">
                 <span class="{{ $rowLabel }} sm:pt-0!">
                     <span class="block text-sm font-medium text-gray-900 dark:text-white">Yeni mesaj gelince öneriyi kendiliğinden hazırla</span>

@@ -36,6 +36,8 @@
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                 <x-operator.quick-access :groups="$quickAccess" />
+                {{-- Aşama 11 (2026-10-22): Stratejiler left the menu; a brand's strategies open from its page. --}}
+                <a href="{{ route('operator.strategies', ['marka' => (int) $brand]) }}" wire:navigate class="btn h-8! px-3! text-[13px]!" data-brand-strategies>Stratejiler</a>
                 @if ($tab === 'ozet')
                     <div class="{{ $segmentGroup }}" role="group" aria-label="Dönem" data-period-selector>
                         @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)

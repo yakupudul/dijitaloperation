@@ -175,12 +175,21 @@ class SystemHealth extends Tool
         ];
     }
 
-    /** @return array<string, mixed>|null the last automatic deploy check, with the failing tests when it stopped on them */
+    /**
+     * @return array<string, mixed>|null the last automatic deploy check, with the failing tests when it stopped on them,
+     *                                   and the last stop's failures (sha · time first) while a newer commit is tested
+     */
     private function autoDeploy(): ?array
     {
         $status = AutoDeployStatus::current();
-        $failure = $status !== null && in_array($status['state'], ['tests_failed', 'deploy_failed'], true) ? AutoDeployStatus::failure(4000) : null;
+        if ($status === null) {
+            return null;
+        }
+        $failure = AutoDeployStatus::failure(4000);
+        if ($failure === null) {
+            return $status;
+        }
 
-        return $status === null ? null : $status + ($failure !== null ? ['failure' => $failure] : []);
+        return $status + [in_array($status['state'], ['tests_failed', 'deploy_failed'], true) ? 'failure' : 'last_failure' => $failure];
     }
 }
