@@ -247,6 +247,13 @@ if has_command moxdop:deploy:backup-gate; then
   echo "$gate" >> "$LOG"
 fi
 
+# A release deployed by hand while the tests ran (2026-10-22) must not be replaced by this older target, nor rolled
+# back to the release this check started from: the next check starts again from the new live release.
+if [[ "$(git rev-parse HEAD)" != "$LIVE" ]]; then
+  echo "auto-deploy: live moved to $(git rev-parse --short HEAD) during the tests; ${SHORT} skipped" >> "$LOG"
+  status idle "" "$(git rev-parse HEAD)" "Canlı sürüm elle değişti; sıradaki kontrol yeni sürümden başlar."
+  exit 0
+fi
 # 3) Deploy: the app checks the tested commit out and runs the normal deploy script; then the main screens must open
 #    (desktop + phone viewport) as an admin, or the release goes back like a failed deploy.
 status deploying "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçti, deploy ediliyor."
