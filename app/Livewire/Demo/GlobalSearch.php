@@ -5,14 +5,20 @@ namespace App\Livewire\Demo;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\Suggestion;
+use App\Services\Operator\KomutaReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Repair\RepairDesk;
 use App\Support\Demo\DemoMenu;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Component;
+use Throwable;
 
 /**
- * Global portfolio search for the operator header (Ctrl / Cmd + K): panel pages, customers, brands and digital assets,
- * and a last row that opens Sorgular filtered by the same words.
+ * Global search for the operator header (Ctrl / Cmd + K): panel pages, work waiting (a brand's decisions, a kind of
+ * work across brands, open desk rows by title), customers, brands and digital assets, and a last row that opens
+ * Sorgular filtered by the same words. Turkish letters match either way ("implant" finds "İmplant"); arrow keys move.
  */
 class GlobalSearch extends Component
 {
@@ -32,22 +38,23 @@ class GlobalSearch extends Component
 
     public function render(): View
     {
-        $needle = mb_strtolower(trim($this->q));
+        $needle = self::fold(trim($this->q));
         $results = [];
 
         if ($needle !== '') {
             foreach (self::pages() as $page) {
-                if (str_contains(mb_strtolower($page['label']), $needle)) {
+                if (str_contains(self::fold($page['label']), $needle)) {
                     $results[] = ['label' => $page['label'], 'meta' => __('operator.search.page'), 'url' => $page['url']];
                 }
             }
+            $results = [...$results, ...$this->work($needle)];
 
             Customer::query()
                 ->orderBy('name')
                 ->get()
                 ->each(function (Customer $customer) use ($needle, &$results): void {
                     $name = (string) $customer->name;
-                    if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
+                    if ($name !== '' && str_contains(self::fold($name), $needle)) {
                         $results[] = [
                             'label' => $name,
                             'meta' => __('operator.nav.customers'),
@@ -62,7 +69,7 @@ class GlobalSearch extends Component
                 ->get()
                 ->each(function (Brand $brand) use ($needle, &$results): void {
                     $name = (string) $brand->name;
-                    if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
+                    if ($name !== '' && str_contains(self::fold($name), $needle)) {
                         $results[] = [
                             'label' => $name,
                             'meta' => __('operator.nav.brands').' · '.($brand->customer?->name ?? '—'),
@@ -83,7 +90,7 @@ class GlobalSearch extends Component
                     $typeLabel = (string) ($presented['type_label'] ?? '');
                     if ($asset->type === 'website') {
                         // Websites are found by domain / URL too and open the website screen.
-                        if (str_contains(mb_strtolower($name.' '.$asset->domain.' '.$asset->primary_url.' '.$type.' '.$typeLabel), $needle)) {
+                        if (str_contains(self::fold($name.' '.$asset->domain.' '.$asset->primary_url.' '.$type.' '.$typeLabel), $needle)) {
                             $results[] = [
                                 'label' => $name !== '' ? $name : (string) $asset->domain,
                                 'meta' => 'Web sitesi · '.($asset->domain ?: $asset->primary_url ?: '—').' · '.($asset->brand?->name ?? 'markasız'),
@@ -93,9 +100,9 @@ class GlobalSearch extends Component
 
                         return;
                     }
-                    if (($name !== '' && str_contains(mb_strtolower($name), $needle))
-                        || ($type !== '' && str_contains(mb_strtolower($type), $needle))
-                        || ($typeLabel !== '' && str_contains(mb_strtolower($typeLabel), $needle))) {
+                    if (($name !== '' && str_contains(self::fold($name), $needle))
+                        || ($type !== '' && str_contains(self::fold($type), $needle))
+                        || ($typeLabel !== '' && str_contains(self::fold($typeLabel), $needle))) {
                         $results[] = [
                             'label' => $name !== '' ? $name : $typeLabel,
                             'meta' => __('operator.nav.digital_assets').' · '.($presented['brand_name'] ?? '—'),
@@ -117,6 +124,51 @@ class GlobalSearch extends Component
         return view('livewire.demo.global-search', [
             'results' => $results,
         ]);
+    }
+
+    /** Lower case with Turkish dotted/dotless I and accents folded, so either spelling matches. */
+    public static function fold(string $text): string
+    {
+        return Str::ascii(mb_strtolower(strtr($text, ['İ' => 'i', 'I' => 'ı'])));
+    }
+
+    /**
+     * Work waiting on the operator: a brand's decisions (the desk's count), a kind of work across brands (Komuta's
+     * group names) and open desk rows whose title matches.
+     *
+     * @return list<array{label: string, meta: string, url: string}>
+     */
+    private function work(string $needle): array
+    {
+        $out = [];
+        try {
+            $summary = app(RepairDesk::class)->summary();
+            $names = Brand::query()->whereIn('id', array_keys($summary['brands']))->pluck('name', 'id');
+            foreach ($summary['brands'] as $brandId => $counts) {
+                $name = (string) ($names[$brandId] ?? '');
+                if ($name !== '' && (int) $counts['decide'] > 0 && str_contains(self::fold($name), $needle)) {
+                    $out[] = ['label' => $name.' · '.number_format((int) $counts['decide'], 0, ',', '.').' karar', 'meta' => 'İş · Onarım masası', 'url' => route('operator.repair', ['marka' => $brandId])];
+                }
+            }
+            foreach (KomutaReader::GROUP_TITLES as $kind => $title) {
+                if (str_contains(self::fold($title.' '.(RepairDesk::KINDS[$kind] ?? '')), $needle)) {
+                    $out[] = ['label' => $title, 'meta' => 'İş türü · Onarım masası', 'url' => route('operator.repair', ['tur' => $kind])];
+                }
+            }
+            $words = trim($this->q);
+            if (mb_strlen($words) >= 3) {
+                Suggestion::query()->with('brand:id,name')->where('status', Suggestion::OPEN)
+                    ->whereRaw('lower(title) like ?', ['%'.mb_strtolower(strtr($words, ['İ' => 'i', 'I' => 'ı'])).'%'])
+                    ->latest('id')->limit(4)->get(['id', 'brand_id', 'title'])
+                    ->each(function (Suggestion $row) use (&$out): void {
+                        $out[] = ['label' => Str::limit((string) $row->title, 70), 'meta' => 'Açık iş · '.($row->brand?->name ?? '—'), 'url' => route('operator.repair', ['marka' => $row->brand_id])];
+                    });
+            }
+        } catch (Throwable $error) {
+            report($error);
+        }
+
+        return $out;
     }
 
     /**

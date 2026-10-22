@@ -55,6 +55,7 @@ use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
 use App\Livewire\Operator\Integrations\WordPressSitesPage;
+use App\Livewire\Operator\Komuta\KomutaPage;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Library\QueryPlanWizard;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
@@ -67,6 +68,7 @@ use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Meta\StrategyPage as MetaStrategyPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\PortfolioPage;
 use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
@@ -99,7 +101,11 @@ foreach ([
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
     ->group(function (): void {
-        Route::livewire('/', Dashboard::class)->name('operator.dashboard');
+        // Aşama 5 (2026-10-22): Komuta is the home screen — one decision box for every brand. The old Bugün cockpit
+        // stays one click away as the day's summary.
+        Route::livewire('/', KomutaPage::class)->name('operator.dashboard');
+        Route::livewire('/bugun', Dashboard::class)->name('operator.today');
+        Route::livewire('/portfoy', PortfolioPage::class)->name('operator.portfolio');
 
         Route::livewire('/customers', CustomersIndex::class)->name('operator.customers');
         Route::livewire('/customers/create', CustomerCreate::class)->name('operator.customer.create');

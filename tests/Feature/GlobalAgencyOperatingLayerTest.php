@@ -43,7 +43,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->flatMap(fn (array $group): array => array_column($group['items'], 'name'))
             ->all();
 
-        $this->assertContains('Today', $labels);
+        $this->assertContains('Command', $labels, 'Aşama 5 (2026-10-22): Komuta replaced Bugün');
         $this->assertNotContains('Customers', $labels, 'Müşteriler merged into Markalar 2026-10-19');
         $this->assertContains('Brands', $labels);
         $this->assertContains('Queries', $labels, 'v2: Sorgular in the sidebar');

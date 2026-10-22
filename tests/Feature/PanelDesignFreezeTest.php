@@ -66,12 +66,13 @@ class PanelDesignFreezeTest extends TestCase
             'operator.winners',
             'operator.strategies',
             'operator.library.queries',
+            'operator.portfolio',
             'operator.brands',
             'operator.websites',
             'operator.whatsapp',
             'operator.integrations',
             'operator.settings',
-        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan; Google Ads menu added 2026-10-19; Stratejiler added 2026-10-12; Onarım masası added with the repair plan 2026-10-08 and, since 2026-10-10, the one work list for everyone (Genel işler is its Diğer işler section); Müşteriler merged into Markalar 2026-10-19; Sorgular under Büyüme and WhatsApp under Portföy with the menu prototype 2026-10-20; İçerik added and Dijital varlıklar moved under Entegrasyonlar 2026-10-20 (yönetici turu); Akış added 2026-10-22 (Aşama 4)');
+        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan; Google Ads menu added 2026-10-19; Stratejiler added 2026-10-12; Onarım masası added with the repair plan 2026-10-08 and, since 2026-10-10, the one work list for everyone (Genel işler is its Diğer işler section); Müşteriler merged into Markalar 2026-10-19; Sorgular under Büyüme and WhatsApp under Portföy with the menu prototype 2026-10-20; İçerik added and Dijital varlıklar moved under Entegrasyonlar 2026-10-20 (yönetici turu); Akış added 2026-10-22 (Aşama 4); Portföy added and Bugün became Komuta 2026-10-22 (Aşama 5)');
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])

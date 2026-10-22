@@ -46,7 +46,7 @@ final class DeployGatesTest extends TestCase
 
         $this->onlyOnSqlite('drops a table mid-test; PostgreSQL aborts the surrounding test transaction');
         Schema::drop('brands');
-        $this->artisan('moxdop:deploy:smoke')->expectsOutputToContain('Bozuk ekran: Bugün')->assertFailed();
+        $this->artisan('moxdop:deploy:smoke')->expectsOutputToContain('Bozuk ekran: Komuta')->assertFailed();
     }
 
     public function test_auto_deploy_tests_on_a_throwaway_postgres_database_and_gates_the_deploy(): void

@@ -48,7 +48,8 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $this->assertSame(0, Brand::query()->count());
         $this->assertSame(0, DigitalAsset::query()->count());
 
-        $html = $this->get('/')
+        $this->get('/')->assertOk();
+        $html = $this->get('/bugun')
             ->assertOk()
             ->assertSee(__('operator.dashboard_exec.today'))
             ->getContent();

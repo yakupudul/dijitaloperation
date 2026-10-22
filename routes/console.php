@@ -741,6 +741,13 @@ Schedule::command('moxdop:measurement:refresh')
     ->withoutOverlapping(60)
     ->name('brand-measurement-daily');
 
+// Aşama 5: marka amaçları — her markanın ay ay talebi günde bir okunur, amacı önerilir (onaylı amaç değişmez); saatlik
+// çalışır ama yalnız 20 saatten eski okunanları okur, yeni marka ve ilk kurulum beklemeden okunur.
+Schedule::command('moxdop:targets:refresh')
+    ->hourlyAt(40)
+    ->withoutOverlapping(60)
+    ->name('brand-targets-daily');
+
 // Faz 4: kuyruk işçisi yoklaması — her kuyruğa küçük bir iş; işlenince heartbeat yazar (Sistem Sağlığı ve uyarılar).
 Schedule::call(function (): void {
     // The heavy queue (Horizon supervisor-heavy) is probed too when it is a separate queue.

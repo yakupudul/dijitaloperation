@@ -127,7 +127,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('Today')
+            ->assertSee('Command')
             ->assertSee('Brands') // Müşteriler merged into Markalar 2026-10-19 (no own sidebar entry)
             ->assertSee('Settings');
 

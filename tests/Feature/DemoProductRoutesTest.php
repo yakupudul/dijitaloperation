@@ -48,10 +48,12 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_dashboard_and_portfolio_routes_smoke(): void
     {
-        $this->get('/')
+        $this->get('/')->assertOk()->assertSee('Komuta')->assertDontSee('Agency Health');
+        $this->get(route('operator.today'))
             ->assertOk()
             ->assertSee(__('operator.dashboard_exec.today'))
             ->assertDontSee('Agency Health');
+        $this->get(route('operator.portfolio'))->assertOk()->assertSee('Portföy');
 
         $this->get(route('operator.customers'))->assertOk()->assertSee('Müşteriler'); // Müşteriler merged into Markalar 2026-10-19: "Customers" was the sidebar entry
         $this->get(route('operator.brands'))->assertOk()->assertSee('Brands');

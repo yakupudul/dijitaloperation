@@ -1,9 +1,12 @@
 @php
     use App\Livewire\Operator\Repair\RepairDeskPage;
+    use App\Services\Goals\TargetImpact;
     use App\Services\Repair\RepairDesk;
     // Panel concept (yakup approved 2026-10-20, prototype "Onarım masası"): the send card on top, then one tab row
     // (three lanes, Diğer işler, Geçmiş), a quiet toolbar and one card of packages; a package opens to its items
     // (old value struck through, new value under it). Red only for money / traffic loss, amber "bak", gray info.
+    // Aşama 5: each package's expected effect on the brand's goal, an estimate from its pages' clicks.
+    $impact = app(TargetImpact::class);
     $riskTone = ['low' => 'ok', 'medium' => 'look', 'high' => 'look', 'manual' => 'info'];
     $laneHint = [
         RepairDesk::LANE_READY => 'Düşük riskli, hazır işler. Paketin tamamını tek tıkla onaylayabilirsin.',
@@ -125,6 +128,7 @@
                     $approvable = $package['count'] - $package['high'];
                     $isManual = $package['lane'] === RepairDesk::LANE_MANUAL;
                     $monthly = $package['measured'] && $package['clicks'] > 0 ? (int) round($package['clicks'] / 3) : null;
+                    $gain = TargetImpact::label($impact->forPackage($package));
                 @endphp
                 <article @class(['relative', 'border-t border-gray-200 first:border-t-0 dark:border-gray-800' => ! $sameBrand,
                     'before:absolute before:left-4 before:right-0 before:top-0 before:h-px before:bg-gray-100 sm:before:left-[86px] dark:before:bg-gray-800/70' => $sameBrand]) wire:key="package-{{ $package['key'] }}" data-package="{{ $package['key'] }}">
@@ -147,7 +151,9 @@
                                 @if (($package['track'] ?? '') !== '')<span class="block text-xs text-gray-500" data-package-track>{{ $package['track'] }}</span>@endif
                             </span>
                         </button>
-                        @if ($monthly !== null)
+                        @if ($gain !== '')
+                            <span class="chip chip-up hidden md:inline-flex" title="Tahmin: bu işler sayfaların tıkını artırırsa markanın tık başına talep oranıyla ayda bu kadar talep getirir." data-package-gain>tahminen {{ $gain }}</span>
+                        @elseif ($monthly !== null)
                             <span class="chip chip-up hidden md:inline-flex" title="Bu işlerin dokunduğu sayfalar son 90 günde ayda ortalama bu kadar tık aldı.">≈ {{ $n($monthly) }} tık/ay</span>
                         @endif
                         @if ($isAdmin)
