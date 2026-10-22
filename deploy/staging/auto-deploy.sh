@@ -4,9 +4,14 @@
 # Every 15 minutes (cron, root) this looks at the watched branches. A branch head is deployed only when
 #   1. it contains the live release (git merge-base --is-ancestor <live> <head>): a branch that was not built on
 #      top of what is live would roll back another thread's work, so it is skipped and reported instead;
-#   2. the full PHPUnit suite passes on that exact commit (separate checkout, SQLite :memory:, never the live DB).
-# Then the app checks the commit out (detached) and runs deploy/staging/deploy.sh. A failed test run or deploy is
-# reported once per commit (phone + Ayarlar › Geliştirme havuzu) and that commit is not tried again.
+#   2. the full PHPUnit suite passes on that exact commit (separate checkout, never the live DB): on PostgreSQL in a
+#      throwaway test database of the live server (audit T2, 2026-10-22: the live app runs on PostgreSQL, and views,
+#      partitions and column lengths behave differently from SQLite), SQLite :memory: only when that cannot be prepared;
+#   3. a successful backup exists from the last 30 hours, or one is taken now (audit T3): no migration without a backup.
+# Then the app checks the commit out (detached) and runs deploy/staging/deploy.sh, and the main screens are opened as an
+# admin (moxdop:deploy:smoke, desktop + phone viewport). A deploy or screen check that fails puts the live release
+# back. A failed test run or deploy is reported once per commit (phone + Ayarlar › Geliştirme havuzu) and that commit
+# is not tried again; a missing backup only waits (the same commit goes ahead once a backup exists).
 #
 #   bash deploy/staging/auto-deploy.sh --install   # once, as root: installs /etc/cron.d/moxdop-autodeploy
 #   bash deploy/staging/auto-deploy.sh             # one check now (what cron runs)
@@ -26,6 +31,8 @@ STATUS_FILE="${STATE_DIR}/auto-deploy.json"
 TRIED_FILE="${STATE_DIR}/auto-deploy.tried"
 FAILURE_FILE="${STATE_DIR}/auto-deploy-failure.txt"
 LOG_DIR="storage/logs/auto-deploy"
+TEST_DB="${MOXDOP_AUTODEPLOY_TEST_DB:-moxdop_autodeploy_test}"
+BACKUP_HOURS="${MOXDOP_AUTODEPLOY_BACKUP_HOURS:-30}"
 
 if [[ "${1:-}" == "--install" ]]; then
   if [[ "$(id -u)" -ne 0 ]]; then
@@ -78,6 +85,29 @@ status() {
 notify() {
   sudo -u "$WEB_USER" php artisan moxdop:auto-deploy:report "$1" --branch="$2" --sha="$3" --reason="$4" --no-interaction >/dev/null 2>&1 || true
 }
+
+# A value of the live .env (never printed): env_value DB_DATABASE
+env_value() { sed -n "s/^${1}=//p" "${ROOT}/.env" 2>/dev/null | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"; }
+
+# The suite's PostgreSQL database: dropped and created fresh for every run, owned by the app's database user, on the
+# live server's PostgreSQL. Never the live database: a name equal to DB_DATABASE is refused. Prints nothing; on
+# success TEST_PG_* are set for the test run.
+prepare_test_db() {
+  local live_db
+  [[ "$(env_value DB_CONNECTION)" == "pgsql" ]] || return 1
+  live_db="$(env_value DB_DATABASE)"
+  TEST_PG_USER="$(env_value DB_USERNAME)"
+  TEST_PG_PASSWORD="$(env_value DB_PASSWORD)"
+  TEST_PG_HOST="$(env_value DB_HOST)"
+  TEST_PG_PORT="$(env_value DB_PORT)"
+  [[ -n "$TEST_PG_USER" && -n "$live_db" && "$TEST_DB" != "$live_db" && "$TEST_DB" =~ ^[a-z0-9_]+$ ]] || return 1
+  command -v psql >/dev/null 2>&1 || return 1
+  sudo -u postgres dropdb --if-exists "$TEST_DB" >/dev/null 2>&1 || return 1
+  sudo -u postgres createdb -O "$TEST_PG_USER" "$TEST_DB" >/dev/null 2>&1 || return 1
+}
+
+# A command the live release knows (a new gate is skipped until the release that brings it is live).
+has_command() { sudo -u "$WEB_USER" php artisan list --raw --no-interaction 2>/dev/null | grep -q "^${1}[[:space:]]"; }
 
 tried() { grep -qx "$1" "$TRIED_FILE"; }
 mark_tried() { echo "$1" >> "$TRIED_FILE"; tail -n 200 "$TRIED_FILE" > "${TRIED_FILE}.tmp" && mv -f "${TRIED_FILE}.tmp" "$TRIED_FILE"; }
@@ -150,12 +180,21 @@ fi
 SHORT="${TARGET:0:8}"
 LOG="${LOG_DIR}/${SHORT}.log"
 
-# 1) Tests on the exact commit, in a separate checkout (dev dependencies, SQLite :memory: from phpunit.xml).
+# 1) Tests on the exact commit, in a separate checkout (dev dependencies), on the throwaway PostgreSQL test database.
 status testing "$TARGET_BRANCH" "$TARGET" "${SHORT} için testler çalışıyor."
+: >> "$LOG"
+TEST_ENGINE="sqlite"
+if tried "tested:${TARGET}"; then
+  TEST_ENGINE="done" # passed on an earlier check that then waited for a backup
+elif prepare_test_db; then
+  TEST_ENGINE="pgsql"
+else
+  echo "auto-deploy: PostgreSQL test veritabanı hazırlanamadı; testler SQLite ile çalışıyor." >> "$LOG"
+fi
 if [[ ! -d "${CHECKOUT}/.git" && ! -f "${CHECKOUT}/.git" ]]; then
   git worktree add --detach "$CHECKOUT" "$TARGET" >/dev/null 2>&1 || git clone --quiet "$ROOT" "$CHECKOUT"
 fi
-if ! (
+if [[ "$TEST_ENGINE" != "done" ]] && ! (
   cd "$CHECKOUT"
   git fetch --quiet "$ROOT" "$TARGET" 2>/dev/null || true
   git checkout --quiet --force --detach "$TARGET"
@@ -164,8 +203,13 @@ if ! (
   [[ -f .env ]] || cp .env.example .env
   php artisan key:generate --force --no-interaction >/dev/null
   php artisan config:clear --no-interaction >/dev/null
-  DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan test --compact
-) > "$LOG" 2>&1; then
+  if [[ "$TEST_ENGINE" == "pgsql" ]]; then
+    DB_CONNECTION=pgsql DB_HOST="${TEST_PG_HOST:-127.0.0.1}" DB_PORT="${TEST_PG_PORT:-5432}" DB_DATABASE="$TEST_DB" \
+      DB_USERNAME="$TEST_PG_USER" DB_PASSWORD="$TEST_PG_PASSWORD" php artisan test --compact
+  else
+    DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan test --compact
+  fi
+) >> "$LOG" 2>&1; then
   mark_tried "$TARGET"
   # Without colour codes: the failing tests by name for the status, and each failure with its first lines for the
   # pages and Claude (Sürümler, system-health) so the cause can be read without the server.
@@ -177,12 +221,36 @@ if ! (
   failed="${count:-0} test: ${failed}"
   status tests_failed "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçmedi, canlıya alınmadı. ${failed}"
   notify tests_failed "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçmedi, canlıya alınmadı. ${failed}"
+  [[ "$TEST_ENGINE" == "pgsql" ]] && sudo -u postgres dropdb --if-exists "$TEST_DB" >/dev/null 2>&1 || true
   exit 0
 fi
+[[ "$TEST_ENGINE" == "pgsql" ]] && sudo -u postgres dropdb --if-exists "$TEST_DB" >/dev/null 2>&1 || true
+tried "tested:${TARGET}" || mark_tried "tested:${TARGET}"
 
-# 2) Deploy: the app checks the tested commit out and runs the normal deploy script.
+# 2) No migration without a backup: one from the last BACKUP_HOURS hours, or one taken now. Without it the deploy waits
+#    (the commit is not marked tried, so the next check deploys it once a backup exists); reported once per commit.
+if has_command moxdop:deploy:backup-gate; then
+  if ! gate="$(sudo -u "$WEB_USER" php artisan moxdop:deploy:backup-gate --hours="$BACKUP_HOURS" --no-interaction 2>&1)"; then
+    echo "$gate" >> "$LOG"
+    msg="${SHORT} testleri geçti ama son ${BACKUP_HOURS} saatte yedek yok ve yeni yedek alınamadı; deploy yedek alınınca yapılacak. $(printf '%s' "$gate" | tail -n 1)"
+    status blocked "$TARGET_BRANCH" "$TARGET" "$msg"
+    if ! tried "backup:${TARGET}"; then
+      mark_tried "backup:${TARGET}"
+      notify blocked "$TARGET_BRANCH" "$TARGET" "$msg"
+    fi
+    exit 0
+  fi
+  echo "$gate" >> "$LOG"
+fi
+
+# 3) Deploy: the app checks the tested commit out and runs the normal deploy script; then the main screens must open
+#    (desktop + phone viewport) as an admin, or the release goes back like a failed deploy.
 status deploying "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçti, deploy ediliyor."
-if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1; then
+screens_open() {
+  has_command moxdop:deploy:smoke || return 0
+  sudo -u "$WEB_USER" php artisan moxdop:deploy:smoke --no-interaction >> "$LOG" 2>&1
+}
+if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1 && screens_open; then
   write_pending
   rm -f "$FAILURE_FILE"
   status deployed "$TARGET_BRANCH" "$TARGET" "${SHORT} canlıda ($(git log -1 --format=%s "$TARGET" | head -c 120))."

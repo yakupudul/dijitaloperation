@@ -52,6 +52,8 @@ final class ScreenChecker
     /** Only while a screen renders: the listener of an earlier checker in a long-lived worker stays silent. */
     private bool $recording = false;
 
+    private string $lastHtml = '';
+
     private const array STATIC_ROUTES = [
         'operator.dashboard' => 'Bugün', 'operator.repair' => 'Onarım masası', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
         'operator.gbp-branch-pages' => 'İşletme profilleri › Şube sayfaları', 'operator.gbp-profile-fields' => 'İşletme profilleri › Açıklama ve saatler',
@@ -140,6 +142,12 @@ final class ScreenChecker
      * @return array{status: int, duration_ms: int, queries: int, db_ms: int, slow_queries: list<array{sql: string, count: int, ms: float, frame: ?string}>,
      *     error: ?string, outline: ?string, release: ?string, checked_at: Carbon}
      */
+    /** The page the last check() rendered (the deploy smoke looks for the phone viewport in it). */
+    public function lastHtml(): string
+    {
+        return $this->lastHtml;
+    }
+
     public function check(string $path, User $admin): array
     {
         if (! $this->listening) {
@@ -182,6 +190,7 @@ final class ScreenChecker
             }
         }
         $ms = (int) round((hrtime(true) - $started) / 1_000_000);
+        $this->lastHtml = $html;
 
         return [
             'status' => $status, 'duration_ms' => $ms, 'queries' => $this->queries, 'db_ms' => (int) round($this->dbMs), 'slow_queries' => $this->slowQueries(),
