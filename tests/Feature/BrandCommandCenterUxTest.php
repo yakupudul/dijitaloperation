@@ -79,7 +79,7 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Dijital varlıklar')
             ->assertSee('Hizmetler')
             ->assertSee('Otomatik kur')
-            ->assertSee('Varlık ekle')
+            ->assertSeeHtml('operator.portfolio.brand-page-panel')
             ->assertSee('Düzenle')
             ->assertDontSee(route('operator.customer', ['customerId' => $this->workCustomer->id], absolute: false))
             ->assertDontSee('Brand Health')

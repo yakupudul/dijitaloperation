@@ -3,6 +3,7 @@
 namespace Tests\Feature\Portfolio;
 
 use App\Enums\DigitalAssetStatus;
+use App\Livewire\Operator\Portfolio\BrandPagePanel;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -37,24 +38,28 @@ final class BrandOverviewMetaTest extends TestCase
 
     public function test_meta_spend_and_results_are_ad_kpis_with_change(): void
     {
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+        // Aşama 6: the asset cards live under Diğer › Dijital varlıklar, the numbers in the brand page panel.
+        Livewire::withQueryParams(['tab' => 'varliklar'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSee('data-asset-card="'.$this->asset->id.'"', false)
             ->assertSee(route('operator.meta.overview', ['assetId' => $this->asset->id]), false);
-        $kpis = collect($page->viewData('kpis'))->keyBy('key');
+        $kpis = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id]);
 
         $this->assertSame(['ok', '₺4.200', 0, 'Meta'], [$kpis['ad_spend']['state'], $kpis['ad_spend']['value'], $kpis['ad_spend']['delta'], $kpis['ad_spend']['source']]);
         $this->assertSame(['56', -50], [$kpis['ad_conversions']['value'], $kpis['ad_conversions']['delta']]);
         $this->assertSame('not_bound', $kpis['gbp_actions']['state']);
 
-        Livewire::withQueryParams(['tab' => 'meta'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('Panorama Meta')->assertSee('Meta Ads')->assertDontSee('data-channel-missing', false);
+        // The old ?tab=meta link lands on the brand page; the Meta card names the account.
+        Livewire::withQueryParams(['tab' => 'meta'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSet('tab', 'ozet');
+        $meta = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('cards'))->keyBy('key')['meta'];
+        $this->assertSame(['ok', '1 hesap'], [$meta['state'], $meta['line']]);
     }
 
     public function test_the_ad_kpis_read_no_entity_snapshots(): void
     {
         DB::flushQueryLog();
         DB::enableQueryLog();
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $kpis = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('kpis'))->keyBy('key');
         $log = collect(DB::getQueryLog());
         DB::disableQueryLog();
         $snapshots = $log->filter(fn (array $q): bool => preg_match('/from "meta_(campaign|adset|adset_targeting|ad|creative)_snapshot"/', $q['query']) === 1)->count();

@@ -38,6 +38,16 @@
                 <x-operator.quick-access :groups="$quickAccess" />
                 {{-- Aşama 11 (2026-10-22): Stratejiler left the menu; a brand's strategies open from its page. --}}
                 <a href="{{ route('operator.strategies', ['marka' => (int) $brand]) }}" wire:navigate class="btn h-8! px-3! text-[13px]!" data-brand-strategies>Stratejiler</a>
+                <button type="button" wire:click="setTab('ayarlar')" class="btn h-8! px-3! text-[13px]!" data-brand-settings-link>Marka ayarları</button>
+                <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" data-brand-more>
+                    <button type="button" @click="open = ! open" :aria-expanded="open" class="btn h-8! px-3! text-[13px]!">Diğer ▾</button>
+                    <div x-show="open" x-cloak class="absolute right-0 z-30 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900" role="menu">
+                        @foreach ($tabs as $key => $label)
+                            @continue(in_array($key, ['ozet', 'ayarlar'], true))
+                            <button type="button" role="menuitem" wire:click="setTab('{{ $key }}')" @click="open = false" data-tab="{{ $key }}" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">{{ $label }}</button>
+                        @endforeach
+                    </div>
+                </div>
                 @if ($tab === 'ozet')
                     <div class="{{ $segmentGroup }}" role="group" aria-label="Dönem" data-period-selector>
                         @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)
@@ -56,13 +66,15 @@
             </div>
         </div>
 
-        <nav class="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label="Sekmeler">
-            <div class="flex min-w-max items-center gap-x-2 border-b border-gray-200 dark:border-gray-800" role="tablist" aria-label="Marka">
-                @foreach ($tabs as $key => $label)
-                    <button type="button" role="tab" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @class(['tab', 'tab-active' => $tab === $key])>{{ $label }}</button>
-                @endforeach
-            </div>
-        </nav>
+        {{-- Aşama 6 (2026-10-22): no tab row. The brand page is the goal and the channel cards; the other views open from
+             the head (Marka ayarları, Diğer) and come back with "Marka sayfası". --}}
+        @if ($tab !== 'ozet')
+            <p class="flex items-center gap-2 text-sm" data-brand-back>
+                <button type="button" wire:click="setTab('ozet')" class="link-neutral">← Marka sayfası</button>
+                <span class="text-gray-400">/</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ $tabs[$tab] ?? '' }}</span>
+            </p>
+        @endif
     </header>
 
     @if ($tab === 'ozet')

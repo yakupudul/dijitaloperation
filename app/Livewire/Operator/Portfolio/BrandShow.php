@@ -503,32 +503,17 @@ class BrandShow extends Component
     }
 
     /**
-     * Özet: period KPIs, asset cards and open work (both filtered by the channel chip), services.
+     * Özet: the period (for the channel cards), the Yolculuk strip and the services.
      *
      * @param  list<array<string, mixed>>  $services
      * @return array<string, mixed>
      */
     private function overviewData(Brand $brand, BrandOverviewReader $overview, array $services): array
     {
-        $models = $overview->assetModels($brand);
-        $cards = $overview->assetCards($models);
-        $channel = BrandOverviewReader::CHANNELS[$this->kanal] ?? null;
-        $limit = $this->allWork ? 100 : self::WORK_LIMIT;
-        $all = $overview->openWork($brand, null, $channel === null ? $limit : 0);
-        $work = $channel === null ? $all : $overview->openWork($brand, $channel['channel'], $limit);
-        $channelCounts = [];
-        foreach (BrandOverviewReader::CHANNELS as $key => $definition) {
-            $channelCounts[$key] = ['label' => Suggestion::CHANNEL_LABELS[$definition['channel']] ?? $key, 'count' => (int) ($all['by_key'][$definition['channel']] ?? 0)];
-        }
-
+        // Aşama 6 (2026-10-22): the numbers, findings and assets are the channel cards of BrandPagePanel (loaded after
+        // the page); Özet itself keeps the period, the Yolculuk strip and the services.
         return [
             'days' => $this->overviewDays(),
-            'kpis' => $overview->kpis($brand, $models, $cards, $this->overviewDays()),
-            'assetCards' => $channel === null ? $cards : array_values(array_filter($cards, fn (array $c): bool => in_array($c['type'], $channel['types'], true))),
-            'channelFilter' => $channel === null ? null : ['key' => $this->kanal, 'label' => $channelCounts[$this->kanal]['label'], 'asset_label' => $channel['asset_label']],
-            'channelCounts' => $channelCounts,
-            'workTotal' => $all['total'],
-            'work' => $work,
             'serviceSummary' => $overview->services($services, count($services)),
             'journey' => $this->journey($brand),
         ];

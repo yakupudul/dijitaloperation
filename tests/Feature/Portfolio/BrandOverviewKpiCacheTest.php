@@ -5,7 +5,7 @@ namespace Tests\Feature\Portfolio;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
-use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandPagePanel;
 use App\Models\Brand;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\CoreAssetBinding;
@@ -18,6 +18,7 @@ use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\Operator\BrandOverviewReader;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleResourceType;
@@ -26,6 +27,7 @@ use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -179,7 +181,12 @@ final class BrandOverviewKpiCacheTest extends TestCase
         $this->app->forgetScopedInstances();
         DB::flushQueryLog();
         DB::enableQueryLog();
-        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id]);
+        // Aşama 6: the numbers are read by the lazy brand page panel; only the KPI read is measured.
+        $this->app->instance('request', Request::create('/')); // a new request: the per-request status memo starts empty
+        $reader = app(BrandOverviewReader::class);
+        $brand = $this->brand->fresh();
+        $models = $reader->assetModels($brand);
+        $reader->kpis($brand, $models, $reader->assetCards($models), 28);
         $n = count(DB::getQueryLog());
         DB::disableQueryLog();
 
@@ -191,7 +198,7 @@ final class BrandOverviewKpiCacheTest extends TestCase
     {
         $this->app->forgetScopedInstances();
 
-        return collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        return collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('kpis'))->keyBy('key');
     }
 
     /**

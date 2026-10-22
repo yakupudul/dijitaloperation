@@ -38,7 +38,7 @@ final class BrandOverviewLayoutTest extends SiteTestCase
         $package = $this->brand->id.'.'.RepairDesk::SITE_FIELDS.'.'.RepairDesk::LANE_READY;
 
         $view = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSeeHtmlInOrder(['operator.portfolio.brand-approvals-card', 'data-brand-kpis', 'data-brand-journey', 'data-brand-assets'])
+            ->assertSeeHtmlInOrder(['operator.portfolio.brand-page-panel', 'data-brand-journey', 'data-brand-services'])
             ->assertDontSeeHtml('data-brand-file-tab');
         $approvals = Livewire::test(BrandApprovalsCard::class, ['brandId' => $this->brand->id])
             ->assertSeeHtml('data-brand-approvals="1"')

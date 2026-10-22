@@ -114,16 +114,11 @@ class PanelDesignFreezeTest extends TestCase
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach (['Özet', 'Dijital varlıklar', 'Hizmet karnesi', 'Epikriz', 'Ayarlar'] as $tab) {
-            $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
-        }
-
-        preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
-        $this->assertSame(
-            ['ozet', 'varliklar', 'karne', 'dosya', 'ayarlar'],
-            $matches[1] ?? [],
-            'Brand page: five tabs (Hizmet karnesi added with the Meta plan, 2026-10-07); files live under Ayarlar'
-        );
+        // Aşama 6 (2026-10-22): no tab row; Marka ayarları in the head, the other views under "Diğer".
+        $this->assertStringNotContainsString('role="tablist"', $html);
+        $this->assertStringContainsString('data-brand-settings-link', $html);
+        preg_match_all('/role="menuitem" wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
+        $this->assertSame(['varliklar', 'karne', 'dosya'], $matches[1] ?? [], 'Dijital varlıklar, Hizmet karnesi and Epikriz open from Diğer');
         $this->assertStringNotContainsString('Domain (legacy)', $html);
         $this->assertStringNotContainsString('Hosting (legacy)', $html);
     }

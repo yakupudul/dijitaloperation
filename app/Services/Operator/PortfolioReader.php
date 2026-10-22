@@ -92,7 +92,7 @@ final class PortfolioReader
      * @param  list<int>  $brandIds
      * @return array<int, array<string, string>>
      */
-    private function health(array $brandIds): array
+    public function health(array $brandIds): array
     {
         $out = [];
         foreach ($brandIds as $id) {

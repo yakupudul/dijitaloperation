@@ -1,7 +1,6 @@
 {{--
-    Özet (panel concept 2026-10-20): what the brand needs from the operator first (approvals waiting on the Onarım masası,
-    missing brand data), then the period numbers and the Yolculuk strip, then open work and digital assets filtered by
-    channel, then services. Red only lost traffic, amber "bak", green ok; near-black only the page's one main action.
+    Özet (Aşama 6, 2026-10-22): the goal and the four channel cards first (numbers, top findings, "Hepsini çöz"), then
+    missing brand data, the Yolculuk strip and services. Red only lost traffic, amber "bak", green ok; near-black only the page's one main action.
 --}}
 @php
     $missingSetup = collect($checklist['items'])->where('required', true)->where('done', false)->values();
@@ -22,8 +21,8 @@
         <p class="card px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-brand-not-served>{{ \App\Support\ServiceScope::NOT_SERVED }}</p>
     @endunless
 
-    {{-- 1. What waits on the operator: the brand's prepared fixes on the Onarım masası (loaded after the page) --}}
-    <livewire:operator.portfolio.brand-approvals-card lazy :brand-id="(int) $brandModel->id" :key="'brand-approvals-'.$brandModel->id" />
+    {{-- 1. Aşama 6 (2026-10-22): the month's goal and one card per channel with its top findings and "Hepsini çöz" (loaded after the page) --}}
+    <livewire:operator.portfolio.brand-page-panel lazy :brand-id="(int) $brandModel->id" :days="$days" :key="'brand-page-'.$brandModel->id.'-'.$days" />
 
     {{-- Marka eksikleri (yakup, 2026-10-07): amber = missing, gray = filled automatically and not checked yet. Nothing missing → one row. --}}
     @if (! $setupComplete)
@@ -54,39 +53,6 @@
             </div>
         </section>
     @endif
-
-    {{-- 2. Numbers: each against the previous period of the same length --}}
-    <section aria-labelledby="kpi-heading" data-brand-kpis>
-        <div class="section-head">
-            <h2 id="kpi-heading" class="section-title">Son {{ $days }} gün</h2>
-            <span class="text-sm text-gray-500" title="Her kaynak kendi son veri gününe kadar">önceki {{ $days }} günle</span>
-        </div>
-        {{-- Canlı panel (2026-10-20): the brand's key numbers in the dark number panel; the change as a chip. --}}
-        <div class="hero-panel grid-cols-2 lg:grid-cols-3">
-            @foreach ($kpis as $kpi)
-                @php
-                    $kpiOk = $kpi['state'] === 'ok';
-                    // Spend going up is not good or bad by itself: only results are coloured.
-                    $kpiChip = ! $kpiOk || $kpi['delta'] === null ? null : ($kpi['delta'] === 0 || $kpi['key'] === 'ad_spend' ? 'chip-flat bg-white/10! text-white/80!' : ($kpi['delta'] > 0 ? 'chip-up' : 'chip-down'));
-                    $kpiDelta = $kpiOk && $kpi['delta'] !== null ? ($kpi['delta'] > 0 ? '▲ ' : ($kpi['delta'] < 0 ? '▼ ' : '')).'%'.abs($kpi['delta']) : null;
-                    $kpiDown = $kpiOk && $kpi['delta'] !== null && $kpi['delta'] < 0 && $kpi['key'] !== 'ad_spend';
-                @endphp
-                <div class="hero-tile" data-kpi="{{ $kpi['key'] }}" data-state="{{ $kpi['state'] }}" title="{{ $kpi['source'] }}{{ $kpiOk ? ': '.$kpi['value'] : '' }}">
-                    <span class="hero-label"><span class="truncate">{{ $kpi['label'] }}</span></span>
-                    <p @class(['hero-value', 'text-white/35! text-xl! font-medium!' => ! $kpiOk])>{{ $kpiOk ? $kpi['value'] : 'veri yok' }}</p>
-                    <p class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/60">
-                        @if ($kpiDelta !== null)<span class="chip {{ $kpiChip }}">{{ $kpiDelta }}</span>@endif
-                        @if ($kpiOk && $kpi['delta'] === null)<span>karşılaştırma yok</span>@endif
-                        @if (filled($kpi['note']))<span class="min-w-0">{{ $kpi['note'] }}</span>@endif
-                    </p>
-                    @if ($kpi['action'])<a href="{{ $kpi['action']['url'] }}" wire:navigate class="mt-2 w-max text-xs font-medium text-white underline decoration-white/30 underline-offset-2 hover:decoration-white" title="{{ $kpi['source'] }}">{{ $kpi['action']['label'] }}</a>@endif
-                    @if ($kpiOk && is_array($kpi['spark'] ?? null) && count($kpi['spark']) >= 2)
-                        <x-ta.sparkline :values="$kpi['spark']" :tone="$kpiDown ? 'down' : 'second'" :width="200" :height="28" :fill="false" class="mt-auto block h-7 w-full pt-2" />
-                    @endif
-                </div>
-            @endforeach
-        </div>
-    </section>
 
     {{-- 3. Yolculuk (yakup, 2026-10-07): searches → services → clusters → site → idea pool → sent; the step losing the most is red. --}}
     @if ($journey)
@@ -136,82 +102,6 @@
             </div>
         </section>
     @endif
-
-    {{-- 4. Open work and the digital assets, filtered by channel (the channel tabs' content until each channel has its own tab) --}}
-    <div class="space-y-6">
-        <div class="no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" data-channel-filter>
-            <div class="flex min-w-max items-center gap-1.5" role="group" aria-label="Kanal">
-                <button type="button" wire:click="setChannel('')" aria-pressed="{{ $channelFilter === null ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $channelFilter === null])>Tüm kanallar <span @class(['tabular-nums text-xs', 'text-accent' => $channelFilter === null, 'text-gray-400 dark:text-gray-500' => $channelFilter !== null])>{{ $workTotal }}</span></button>
-                @foreach ($channelCounts as $channelKey => $channelRow)
-                    @php $channelActive = ($channelFilter['key'] ?? null) === $channelKey; @endphp
-                    <button type="button" wire:click="setChannel('{{ $channelKey }}')" data-channel="{{ $channelKey }}" aria-pressed="{{ $channelActive ? 'true' : 'false' }}" @class(['seg', 'seg-active' => $channelActive])>{{ $channelRow['label'] }} <span @class(['tabular-nums text-xs', 'text-accent' => $channelActive, 'text-gray-400 dark:text-gray-500' => ! $channelActive])>{{ $channelRow['count'] }}</span></button>
-                @endforeach
-            </div>
-        </div>
-
-        <div class="space-y-10">
-            {{-- Open work --}}
-            <section aria-labelledby="work-heading" data-brand-work>
-                <div class="section-head">
-                    <h2 id="work-heading" class="section-title">{{ $channelFilter !== null ? $channelFilter['label'].' açık öneriler' : 'Açık işler' }}</h2>
-                </div>
-                <ul class="card">
-                    @forelse ($work['items'] as $item)
-                        <li wire:key="work-{{ $item['id'] }}" class="card-row flex-wrap sm:flex-nowrap" data-work-item="{{ $item['id'] }}">
-                            <span class="row-icon" title="{{ $item['channel_label'] }}" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{!! $channelIcons[$item['channel']] ?? $channelIcons['search'] !!}</svg></span>
-                            <div class="min-w-0 flex-1">
-                                <p class="break-words text-sm font-medium text-gray-900 dark:text-white"><span class="sr-only">{{ $item['channel_label'] }}: </span>{{ $item['title'] }}</p>
-                                <p class="mt-0.5 line-clamp-2 text-[13px] text-gray-500 dark:text-gray-400">@if ($channelFilter === null){{ $item['channel_label'] }}@if ($item['reason'] !== ''), @endif @endif{{ $item['reason'] }}</p>
-                            </div>
-                            @if ($item['url'])<a href="{{ $item['url'] }}" wire:navigate class="btn ml-[46px] w-[calc(100%-46px)] sm:ml-0 sm:w-auto">Aç</a>@endif
-                        </li>
-                    @empty
-                        <li class="card-row text-sm text-gray-500" data-work-empty>{{ $channelFilter !== null ? 'Bu kanalda açık öneri yok.' : 'Açık öneri yok.' }}@if ($channelFilter !== null && $assetCards === []) Önce {{ $channelFilter['asset_label'] }} bağlanmalı.@endif</li>
-                    @endforelse
-                    @if ($work['total'] > count($work['items']))
-                        <li class="border-t border-gray-200 dark:border-gray-800"><button type="button" wire:click="showAllWork" class="w-full px-4 py-2.5 text-left text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.02] dark:hover:text-white" data-work-more>Hepsini göster</button></li>
-                    @elseif ($allWork && $work['total'] > \App\Livewire\Operator\Portfolio\BrandShow::WORK_LIMIT)
-                        <li class="border-t border-gray-200 dark:border-gray-800"><button type="button" wire:click="showAllWork(false)" class="w-full px-4 py-2.5 text-left text-[13px] font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:hover:bg-white/[0.02] dark:hover:text-white">Daha az göster</button></li>
-                    @endif
-                </ul>
-            </section>
-
-            {{-- Digital assets --}}
-            <section aria-labelledby="assets-heading" data-brand-assets>
-                <div class="section-head">
-                    <h2 id="assets-heading" class="section-title">{{ $channelFilter !== null ? $channelFilter['label'].' veri kaynakları' : 'Dijital varlıklar' }} <span class="section-count">{{ count($assetCards) }}</span></h2>
-                    <span class="ml-auto flex items-center gap-4">
-                        <button type="button" wire:click="setTab('varliklar')" class="{{ $quietLink }}">Hesap bağla</button>
-                        <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="{{ $quietLink }}">Varlık ekle</a>
-                    </span>
-                </div>
-                @if ($assetCards === [] && $channelFilter !== null)
-                    <div class="card">
-                        <div class="card-row flex-wrap sm:flex-nowrap" data-channel-missing>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">Markaya bağlı {{ $channelFilter['asset_label'] }} yok.</p>
-                                <p class="mt-0.5 text-[13px] text-gray-500">Bağlanmadan bu kanal için veri toplanmaz. Markada yoksa sorun değil.</p>
-                            </div>
-                            <span class="flex w-full items-center gap-2 sm:w-auto">
-                                <x-ta.button variant="outline" size="sm" :href="route('operator.brand', ['brand' => $brandModel->id, 'tab' => 'varliklar'])" wire:navigate>Hesap bağla</x-ta.button>
-                                <x-ta.button variant="ghost" size="sm" :href="route('operator.asset.create', ['brandId' => $brandModel->id])" wire:navigate>Varlık ekle</x-ta.button>
-                            </span>
-                        </div>
-                    </div>
-                @elseif ($assetCards === [])
-                    <div class="card">
-                        <div class="card-row"><span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span><div class="min-w-0 flex-1"><p class="text-sm font-medium text-gray-900 dark:text-white">Henüz dijital varlık yok</p><p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Otomatik kur web sitesinden hesapları bulur.</p></div><a href="{{ route('operator.brand.setup', ['brand' => $brandModel->id]) }}" wire:navigate class="btn">Otomatik kur</a></div>
-                    </div>
-                @else
-                    <div class="grid gap-3 md:grid-cols-2">
-                        @foreach ($assetCards as $asset)
-                            @include('livewire.operator.portfolio.partials.asset-card', ['asset' => $asset])
-                        @endforeach
-                    </div>
-                @endif
-            </section>
-        </div>
-    </div>
 
     {{-- 5. Services: chips, ★ (main) first, at most 10 before "+N hizmet"; edited under Ayarlar --}}
     <section aria-labelledby="services-heading" data-brand-services x-data="{ allServices: false }">

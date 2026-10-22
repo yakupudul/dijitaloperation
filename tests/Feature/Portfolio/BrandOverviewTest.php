@@ -4,6 +4,7 @@ namespace Tests\Feature\Portfolio;
 
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
+use App\Livewire\Operator\Portfolio\BrandPagePanel;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\BrandOffering;
@@ -20,12 +21,16 @@ use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Gbp\GbpSuggestions;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\Operator\BrandOverviewReader;
+use App\Services\Operator\BrandPageReader;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\Support\InsertsFacts;
@@ -71,16 +76,16 @@ final class BrandOverviewTest extends TestCase
             ->assertSee('data-open-website="'.$this->site->id.'"', false)
             ->assertDontSee('Bu hafta yapılacaklar');
 
-        // One row of tabs; placeholder channel tabs are not in it.
+        // Aşama 6: no tab row; Marka ayarları in the head, the other views under "Diğer"; placeholder channel tabs are not in it.
         $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSet('tab', 'ozet')
-            ->assertSee('role="tablist" aria-label="Marka"', false)
-            ->assertSee('data-tab="varliklar"', false)->assertSee('data-tab="dosya"', false)->assertSee('data-tab="ayarlar"', false)
+            ->assertDontSee('role="tablist"', false)->assertSeeHtml('data-brand-settings-link')
+            ->assertSee('data-tab="varliklar"', false)->assertSee('data-tab="dosya"', false)
             ->assertSee('Epikriz')
             ->assertDontSee('data-tab="arama"', false)->assertDontSee('data-tab="harita"', false)->assertDontSee('Dikkat gerektirenler');
         $this->assertSame(['ozet', 'varliklar', 'karne', 'dosya', 'ayarlar'], array_keys($page->viewData('tabs')));
 
         $page->call('setTab', 'bogus')->assertSet('tab', 'ozet')
-            ->call('setTab', 'arama')->assertSet('tab', 'ozet')->assertSet('kanal', 'arama')->assertSee('data-channel-filter', false)
+            ->call('setTab', 'arama')->assertSet('tab', 'ozet')->assertSet('kanal', 'arama')
             ->call('setTab', 'ayarlar')->assertSet('tab', 'ayarlar')->assertSet('sub', 'marka')->assertSet('kanal', '')
             ->call('setTab', 'work')->assertSet('tab', 'ozet')
             ->call('setTab', 'estate')->assertSet('tab', 'varliklar')
@@ -88,7 +93,7 @@ final class BrandOverviewTest extends TestCase
             ->call('setTab', 'discovery')->assertSet('tab', 'ayarlar')->assertSet('sub', 'marka')
             ->call('setTab', 'files')->assertSet('tab', 'ayarlar')->assertSet('sub', 'dosyalar')
             ->call('setSub', 'olmayan')->assertSet('sub', 'marka')
-            ->call('setTab', 'ozet')->assertSee('data-brand-kpis', false);
+            ->call('setTab', 'ozet')->assertSeeHtml('operator.portfolio.brand-page-panel')->assertDontSeeHtml('data-brand-back');
 
         // Old ?tab= links land on their new place.
         $legacy = ['google_ads' => ['ozet', '', 'google_ads'], 'meta' => ['ozet', '', 'meta'], 'harita' => ['ozet', '', 'harita'], 'arama' => ['ozet', '', 'arama'],
@@ -105,14 +110,7 @@ final class BrandOverviewTest extends TestCase
 
     public function test_kpis_without_bound_sources_say_veri_yok_with_the_fix(): void
     {
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('veri yok')
-            ->assertSee('Search Console bağlı değil')
-            ->assertSee('Google Analytics bağlı değil')
-            ->assertSee('Reklam hesabı bağlı değil')
-            ->assertSee('İşletme Profili bağlı değil')
-            ->assertSee(route('operator.asset.sources', ['assetId' => $this->site->id]), false);
-        $kpis = collect($page->viewData('kpis'))->keyBy('key');
+        $kpis = $this->kpis();
 
         $this->assertSame(['organic_clicks', 'sessions', 'web_conversions', 'ad_spend', 'ad_conversions', 'gbp_actions'], $kpis->keys()->all());
         $this->assertSame(['not_bound'], $kpis->pluck('state')->unique()->values()->all(), 'nothing bound: never 0, always veri yok');
@@ -122,8 +120,10 @@ final class BrandOverviewTest extends TestCase
         // Search Console bound but nothing collected yet: "veri henüz gelmedi", not a zero.
         $gsc = CoreExternalResource::factory()->searchConsole()->create(['display_name' => 'sc-domain:panorama.example']);
         CoreAssetBinding::factory()->create(['digital_asset_id' => $this->site->id, 'external_resource_id' => $gsc->id, 'capability' => 'search_console']);
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSee('Bağlı · veri henüz gelmedi')->viewData('kpis'))->keyBy('key');
+        Cache::flush();
+        $kpis = $this->kpis();
         $this->assertSame('no_data', $kpis['organic_clicks']['state']);
+        $this->assertSame('Bağlı · veri henüz gelmedi', $kpis['organic_clicks']['note']);
         $this->assertSame('not_bound', $kpis['sessions']['state']);
     }
 
@@ -160,8 +160,7 @@ final class BrandOverviewTest extends TestCase
                 'location_name' => 'locations/22', 'value' => $day < 28 ? 2 : 1, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
         }
 
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id]);
-        $kpis = collect($page->viewData('kpis'))->keyBy('key');
+        $kpis = $this->kpis();
 
         $this->assertSame(['ok'], $kpis->pluck('state')->unique()->values()->all());
         $this->assertSame(['50', 100], [$kpis['organic_clicks']['value'], $kpis['organic_clicks']['delta']]);
@@ -172,11 +171,15 @@ final class BrandOverviewTest extends TestCase
         $this->assertSame('önceki 28 gün: ₺360', $kpis['ad_spend']['note']);
         $this->assertSame(['28', 133], [$kpis['ad_conversions']['value'], $kpis['ad_conversions']['delta']]);
         $this->assertSame(['56', 100], [$kpis['gbp_actions']['value'], $kpis['gbp_actions']['delta']]);
-        // Canlı panel (2026-10-20): the change is a chip (▲ %100) in the dark number panel.
-        $page->assertSee('▲ %100')->assertSee('₺840');
+        // Aşama 6: the channel cards carry the numbers with their change as a chip.
+        $cards = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->assertSee('₺840')->assertSee('+100%')->viewData('cards'))->keyBy('key');
+        $this->assertSame(['Harcama', '₺840', 133], [$cards['google_ads']['metrics'][0]['label'], $cards['google_ads']['metrics'][0]['value'], $cards['google_ads']['metrics'][0]['delta']]);
+        $this->assertSame(['Tık', '50'], [$cards['web']['metrics'][0]['label'], $cards['web']['metrics'][0]['value']]);
 
         // 90 days: the compact selector reuses the shared period preset.
-        $kpis90 = collect($page->call('setPeriod', 'last_90')->assertSet('period', 'last_90')->assertSee('Son 90 gün')->viewData('kpis'))->keyBy('key');
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->call('setPeriod', 'last_90')->assertSet('period', 'last_90')
+            ->assertSeeHtml('brand-page-'.$this->brand->id.'-90');
+        $kpis90 = $this->kpis(90);
         $this->assertSame('₺1.200', $kpis90['ad_spend']['value']);
         $this->assertNull($kpis90['ad_spend']['delta'], 'no previous 90 days of data: no made-up change');
         $this->assertSame(['75', null], [$kpis90['organic_clicks']['value'], $kpis90['organic_clicks']['delta']]);
@@ -209,7 +212,7 @@ final class BrandOverviewTest extends TestCase
                 'run_id' => 2, 'location_name' => 'locations/23', 'value' => 50, 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
         }
 
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $kpis = $this->kpis();
 
         // Current: 28 calls + 84 directions = 112; previous: 28 calls + 28 website clicks = 56.
         $this->assertSame(['ok', '112', 100], [$kpis['gbp_actions']['state'], $kpis['gbp_actions']['value'], $kpis['gbp_actions']['delta']]);
@@ -220,7 +223,7 @@ final class BrandOverviewTest extends TestCase
     {
         $this->gbp();
 
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $kpis = $this->kpis();
 
         $this->assertSame(['no_data', null], [$kpis['gbp_actions']['state'], $kpis['gbp_actions']['value']]);
     }
@@ -235,10 +238,10 @@ final class BrandOverviewTest extends TestCase
         CoreAssetBinding::factory()->create(['digital_asset_id' => $gbpAsset->id, 'external_resource_id' => $lost->id, 'capability' => 'google_business_profile']);
         DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'domain', 'name' => 'panorama-domain']);
 
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+        // Aşama 6: the asset cards live under Diğer › Dijital varlıklar.
+        $page = Livewire::withQueryParams(['tab' => 'varliklar'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
             ->assertSee('data-asset-card="'.$this->site->id.'"', false)
             ->assertSee('data-asset-card="'.$ads->id.'"', false)
-            ->assertDontSee('panorama-domain')
             ->assertSee(route('operator.website', ['assetId' => $this->site->id]), false)
             ->assertSee(route('operator.google-ads.overview', ['assetId' => $ads->id]), false)
             ->assertSee(route('operator.gbp', ['assetId' => $gbpAsset->id]), false)
@@ -246,8 +249,7 @@ final class BrandOverviewTest extends TestCase
             ->assertSee('İlk veri yükleniyor')
             ->assertSee('Erişim sorunu')
             ->assertSee('Kaynağı bağla')
-            ->assertSee('Varlık ekle')
-            ->assertSee('Hesap bağla');
+            ->assertSee('Varlık ekle');
         $cards = collect($page->viewData('assetCards'))->keyBy('id');
 
         $site = collect($cards[$this->site->id]['sources'])->keyBy('capability');
@@ -264,7 +266,7 @@ final class BrandOverviewTest extends TestCase
 
     public function test_open_work_lists_actionable_suggestions_with_where_to_act(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSee('Açık öneri yok.')->assertSee('data-work-empty', false);
+        Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->assertSee('Hesap bağlanınca tespitler burada görünür.');
 
         $gbp = $this->gbp()['asset'];
         app(GbpSuggestions::class)->replaceGroup($gbp, 'standard', [
@@ -278,19 +280,16 @@ final class BrandOverviewTest extends TestCase
         Suggestion::query()->where('title', 'Fotoğraf ekle')->update(['status' => Suggestion::DISMISSED]);
         Suggestion::query()->where('title', 'Gönderi paylaş')->update(['status' => Suggestion::SNOOZED, 'snoozed_until' => now()->subDay()]);
 
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
+        // Aşama 6: the profile card lists the channel's open work, the most urgent first, each with where to act.
+        $page = Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])
             ->assertSee('Çalışma saatlerini ekle')
             ->assertSee('Gönderi paylaş')
             ->assertDontSee('Fotoğraf ekle')
             ->assertSee(route('operator.gbp', ['assetId' => $gbp->id]), false);
-        $work = $page->viewData('work');
-        $this->assertSame(2, $work['total']);
-        $this->assertSame(['Harita' => 2], $work['by_channel']);
-        $this->assertSame('Çalışma saatlerini ekle', $work['items'][0]['title'], 'most urgent first');
-
-        // The Harita tab lists the same open work instead of a bare "Hazırlanıyor".
-        Livewire::withQueryParams(['tab' => 'harita'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('Çalışma saatlerini ekle')->assertSee('data-asset-card="'.$gbp->id.'"', false)->assertDontSee('Hazırlanıyor');
+        $gbpCard = collect($page->viewData('cards'))->firstWhere('key', 'gbp');
+        $this->assertCount(2, $gbpCard['findings']);
+        $this->assertSame('Çalışma saatlerini ekle', $gbpCard['findings'][0]['title'], 'most urgent first');
+        $this->assertSame('1 profil', $gbpCard['line']);
     }
 
     public function test_services_show_count_priority_and_page_mapping(): void
@@ -314,39 +313,23 @@ final class BrandOverviewTest extends TestCase
         $view->call('setTab', 'business')->assertSet('tab', 'ayarlar');
     }
 
-    public function test_old_channel_tabs_open_ozet_filtered_and_say_what_is_missing(): void
+    public function test_old_channel_tabs_open_the_brand_page_and_the_cards_say_what_is_missing(): void
     {
         Livewire::withQueryParams(['tab' => 'harita'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSet('tab', 'ozet')->assertSet('kanal', 'harita')
-            ->assertSee('Markaya bağlı İşletme Profili yok.')
-            ->assertSee('data-channel-missing', false)
-            ->assertSee(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'varliklar']), false)
-            ->assertSee('Bu kanalda açık öneri yok.')
-            ->assertDontSee('Hazırlanıyor');
-        Livewire::withQueryParams(['tab' => 'meta'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('Markaya bağlı Meta reklam hesabı yok.');
-
-        Livewire::withQueryParams(['tab' => 'arama'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('data-asset-card="'.$this->site->id.'"', false)
-            ->assertSee('Search Console')
-            ->assertSee('Bağlı değil')
-            ->assertSee('Kaynağı bağla')
-            ->assertSee(route('operator.website', ['assetId' => $this->site->id]), false)
-            ->assertDontSee('data-channel-missing', false);
+            ->assertSeeHtml('operator.portfolio.brand-page-panel')->assertDontSee('Hazırlanıyor');
 
         $this->googleAds(10);
-        Livewire::withQueryParams(['tab' => 'google_ads'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('Panorama Ads')
-            ->assertSee('Google Ads')
-            ->assertDontSee('data-channel-missing', false)
-            ->assertDontSee('data-asset-card="'.$this->site->id.'"', false)
-            // The same chip again clears the filter: every asset again.
-            ->call('setChannel', 'google_ads')->assertSet('kanal', '')
-            ->assertSee('data-asset-card="'.$this->site->id.'"', false)
-            ->call('setChannel', 'harita')->assertSet('kanal', 'harita')
-            ->call('setChannel', 'olmayan')->assertSet('kanal', '');
+        $cards = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])
+            ->assertSee('Bu kanalda bağlı hesap yok.')->assertSee('panorama.example')->viewData('cards'))->keyBy('key');
+        $this->assertSame(['web', 'google_ads', 'gbp', 'meta'], $cards->keys()->all());
+        $this->assertSame(['none', 'Bağlı değil'], [$cards['gbp']['state'], $cards['gbp']['state_label']]);
+        $this->assertSame('none', $cards['meta']['state']);
+        $this->assertSame('ok', $cards['google_ads']['state']);
+        $this->assertSame('1 hesap', $cards['google_ads']['line']);
+        $this->assertSame(route('operator.google-ads-desk', ['marka' => $this->brand->id]), $cards['google_ads']['desk_url']);
     }
 
-    public function test_more_open_work_is_a_link_that_shows_every_item(): void
+    public function test_a_card_lists_its_three_best_findings_and_the_desk_holds_the_rest(): void
     {
         $gbp = $this->gbp()['asset'];
         $rows = [];
@@ -356,14 +339,9 @@ final class BrandOverviewTest extends TestCase
         }
         app(GbpSuggestions::class)->replaceGroup($gbp, 'standard', $rows, sweep: false);
 
-        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])
-            ->assertSee('Harita işi 1')->assertDontSee('Harita işi 7')
-            ->assertSee('data-work-more', false)->assertSee('Hepsini göster');
-        $this->assertCount(BrandShow::WORK_LIMIT, $page->viewData('work')['items']);
-        $this->assertSame(7, $page->viewData('channelCounts')['harita']['count']);
-
-        $page->call('showAllWork')->assertSee('Harita işi 7')->assertDontSee('data-work-more', false)->assertSee('Daha az göster');
-        $page->call('showAllWork', false)->assertDontSee('Harita işi 7');
+        $page = Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])
+            ->assertSee('Harita işi 1')->assertDontSee('Harita işi 7')->assertSee('Profil masası');
+        $this->assertCount(BrandPageReader::FINDINGS, collect($page->viewData('cards'))->firstWhere('key', 'gbp')['findings']);
     }
 
     public function test_passive_brand_is_marked_and_says_it_is_not_served(): void
@@ -374,6 +352,15 @@ final class BrandOverviewTest extends TestCase
             ->assertSee('data-brand-state="passive"', false)
             ->assertSee('Pasif')
             ->assertSee('data-brand-not-served', false);
+    }
+
+    /** @return Collection<string, array<string, mixed>> the period numbers the channel cards show */
+    private function kpis(int $days = 28): Collection
+    {
+        $reader = app(BrandOverviewReader::class);
+        $models = $reader->assetModels($this->brand);
+
+        return collect($reader->kpis($this->brand, $models, $reader->assetCards($models), $days))->keyBy('key');
     }
 
     /** A bound Google Ads account with $days days (before today) of 2 campaigns: 30 cost and 1 conversion a day. */

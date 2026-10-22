@@ -4,6 +4,7 @@ namespace Tests\Feature\Performance;
 
 use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
+use App\Livewire\Operator\Portfolio\BrandPagePanel;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -87,7 +88,7 @@ final class BrandPageQueryCountTest extends TestCase
         $this->assertGreaterThan($before['warm'], $before['cold'], 'the cold run really computed the KPIs');
         $this->assertSame($assetsTab, $this->render('varliklar'), 'Dijital varlıklar tab: no per-asset queries');
 
-        $kpis = collect($this->page()->viewData('kpis'))->keyBy('key');
+        $kpis = collect($this->panel()->viewData('kpis'))->keyBy('key');
         // Five profiles, each 2 calls a day in the current 28 days and 1 a day in the 28 before.
         $this->assertSame(['ok', '280', 100], [$kpis['gbp_actions']['state'], $kpis['gbp_actions']['value'], $kpis['gbp_actions']['delta']]);
 
@@ -110,7 +111,7 @@ final class BrandPageQueryCountTest extends TestCase
         // previous period × Search Console + GA4) once. Before this change bindings and last day were read twice (14).
         $this->assertLessThanOrEqual(7, $after['cold'] - $before['cold'], 'cold KPI cache: one window + totals per website');
 
-        $kpis = collect($this->page()->viewData('kpis'))->keyBy('key');
+        $kpis = collect($this->panel()->viewData('kpis'))->keyBy('key');
         $this->assertSame(['60', 100], [$kpis['organic_clicks']['value'], $kpis['organic_clicks']['delta']]);
         $this->assertSame(['400', 100], [$kpis['sessions']['value'], $kpis['sessions']['delta']]);
     }
@@ -132,7 +133,7 @@ final class BrandPageQueryCountTest extends TestCase
         // change every account cost ~40 queries (entity snapshots, schema checks, binding chain, two periods).
         $this->assertSame($before['cold'], $after['cold'], 'cold KPI cache: Meta accounts are read in one batch');
 
-        $kpis = collect($this->page()->viewData('kpis'))->keyBy('key');
+        $kpis = collect($this->panel()->viewData('kpis'))->keyBy('key');
         // Five accounts, each 10 spend and 1 lead a day in the current 28 days, 5 spend and 2 leads a day before.
         $this->assertSame(['ok', '₺1.400', 100], [$kpis['ad_spend']['state'], $kpis['ad_spend']['value'], $kpis['ad_spend']['delta']]);
         $this->assertSame(['140', -50], [$kpis['ad_conversions']['value'], $kpis['ad_conversions']['delta']]);
@@ -155,7 +156,7 @@ final class BrandPageQueryCountTest extends TestCase
         // central-row check (6). Before this change every account cost 17 (binding chain, credential checks, schema checks).
         $this->assertLessThanOrEqual(3 * 6, $after['cold'] - $before['cold'], 'cold KPI cache: Google Ads bindings are resolved in one batch');
 
-        $kpis = collect($this->page()->viewData('kpis'))->keyBy('key');
+        $kpis = collect($this->panel()->viewData('kpis'))->keyBy('key');
         // Four accounts, each 20 a day for the 40 days before today: 28 days = 560 each, the 28 before = 12 days = 240.
         $this->assertSame(['ok', '₺2.240', 133], [$kpis['ad_spend']['state'], $kpis['ad_spend']['value'], $kpis['ad_spend']['delta']]);
     }
@@ -182,10 +183,18 @@ final class BrandPageQueryCountTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->page($tab);
+        if ($tab === 'ozet') {
+            $this->panel(); // Aşama 6: the numbers are read by the lazy brand page panel
+        }
         $n = count(DB::getQueryLog());
         DB::disableQueryLog();
 
         return $n;
+    }
+
+    private function panel(): Testable
+    {
+        return Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id]);
     }
 
     private function page(string $tab = 'ozet'): Testable

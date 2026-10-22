@@ -60,9 +60,9 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('operator.brand', ['brand' => $this->workBrand->id]))
             ->assertOk()
             ->assertSee('Atlas Dental Ankara')
-            ->assertSee('Açık işler')
+            ->assertSee('operator.portfolio.brand-page-panel', false)
             ->assertSee('Dijital varlıklar')
-            ->assertSee('Ayarlar');
+            ->assertSee('Marka ayarları');
         $this->get(route('operator.brand', ['brand' => $this->workBrand->id, 'tab' => 'ayarlar']))->assertOk()->assertSee('Dijital varlıklar');
         $this->get(route('operator.brand', ['brand' => $this->workBrand->id, 'tab' => 'discovery']))
             ->assertOk()

@@ -198,7 +198,7 @@ final class BrandWorkspaceTest extends TestCase
     {
         $this->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'assets']))
             ->assertOk()
-            ->assertSee('role="tablist" aria-label="Marka"', false)
+            ->assertSee('data-brand-settings-link', false)
             ->assertSee('data-asset-row="'.$this->website->id.'"', false);
         $this->get(route('operator.customer', ['customerId' => $this->brand->customer_id]))
             ->assertOk()
