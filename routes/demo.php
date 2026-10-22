@@ -49,6 +49,7 @@ use App\Livewire\Operator\GoogleAds\Desk\MeasurementPage as GoogleAdsDeskMeasure
 use App\Livewire\Operator\GoogleAds\Desk\ServicesPage as GoogleAdsDeskServicesPage;
 use App\Livewire\Operator\GoogleAds\Desk\TermsPage as GoogleAdsDeskTermsPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
+use App\Livewire\Operator\Integrations\AccountsPage;
 use App\Livewire\Operator\Integrations\BingIntegrationPage;
 use App\Livewire\Operator\Integrations\ConnectionHealthPage;
 use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
@@ -133,6 +134,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations', IntegrationsIndex::class)->name('operator.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('operator.integrations.meta');
+        Route::livewire('/integrations/accounts', AccountsPage::class)->name('operator.integrations.accounts');
         Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
         Route::livewire('/integrations/connection-health', ConnectionHealthPage::class)->name('operator.integrations.connection-health');
         Route::livewire('/onarim', RepairDeskPage::class)->name('operator.repair');

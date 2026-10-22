@@ -61,6 +61,7 @@ final class DemoMenu
             ]),
             $group($tr ? 'Sistem' : 'System', [
                 $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
+                    $child($tr ? 'Hesaplar' : 'Accounts', 'operator.integrations.accounts'),
                     $child($tr ? 'Bağlantı sağlığı' : 'Connection health', 'operator.integrations.connection-health'),
                     $child($tr ? 'Keşfedilen varlıklar' : 'Discovered Assets', 'operator.integrations.discovered'),
                     $child($tr ? 'WordPress siteleri' : 'WordPress Sites', 'operator.integrations.wordpress-sites'),

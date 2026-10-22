@@ -61,7 +61,7 @@ final class ScreenChecker
         'operator.gbp-photos' => 'İşletme profilleri › Fotoğraflar', 'operator.gbp-reviews' => 'İşletme profilleri › Yorumlar', 'operator.brands' => 'Markalar',
         'operator.assets' => 'Dijital varlıklar', 'operator.websites' => 'Web siteleri', 'operator.library.services' => 'Sektör ve hizmet kataloğu',
         'operator.library.website-standards' => 'Standartlar', 'operator.integrations' => 'Entegrasyonlar',
-        'operator.integrations.discovered' => 'Keşfedilen varlıklar', 'operator.integrations.wordpress-sites' => 'WordPress siteleri',
+        'operator.integrations.accounts' => 'Hesaplar', 'operator.integrations.discovered' => 'Keşfedilen varlıklar', 'operator.integrations.wordpress-sites' => 'WordPress siteleri',
         'operator.integrations.google' => 'Google bağlantısı', 'operator.integrations.meta' => 'Meta bağlantısı',
         'operator.integrations.bing' => 'Bing Webmaster', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
         'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',

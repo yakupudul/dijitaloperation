@@ -43,6 +43,15 @@
         @endif
     </section>
 
+    {{-- Aşama 6: the brand's ad and profile accounts in the same table as Entegrasyonlar › Hesaplar. --}}
+    <section data-brand-accounts>
+        <div class="section-head">
+            <h2 class="section-title">Hesaplar</h2>
+            <a href="{{ route('operator.integrations.accounts') }}" wire:navigate class="ml-auto text-[13px] font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">Tüm hesaplar</a>
+        </div>
+        <livewire:operator.integrations.accounts-table :brand-id="(int) $brandModel->id" :key="'brand-accounts-'.$brandModel->id" />
+    </section>
+
     @if ($setup !== null)
         @include('livewire.operator.portfolio.partials.add-account', ['candidates' => $setup['candidates']])
         @include('livewire.operator.portfolio.partials.setup-status')
