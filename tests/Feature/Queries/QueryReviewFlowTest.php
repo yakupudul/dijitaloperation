@@ -347,7 +347,8 @@ final class QueryReviewFlowTest extends TestCase
         $page = Livewire::test(QueriesPage::class)->assertSeeHtml('data-pending-count>2<')->call('setTab', 'pending')
             ->assertSee('implant   kaplama  fiyatı')->assertSee('Zirkonyum Kaplama')
             ->assertDontSee('Diş  İmplantı Fiyatları')->assertDontSee('ÜCRETSİZ implant muayenesi')->assertDontSee("Ankara'da İmplant", false);
-        $this->assertSame(['Zirkonyum Kaplama', 'implant   kaplama  fiyatı'], PendingQuery::query()->where('status', PendingQuery::PENDING)->orderBy('text')->pluck('text')->all());
+        // Sorted in PHP: the database's collation (C here, tr/en on the server) orders mixed case differently.
+        $this->assertSame(['Zirkonyum Kaplama', 'implant   kaplama  fiyatı'], PendingQuery::query()->where('status', PendingQuery::PENDING)->pluck('text')->sort()->values()->all());
 
         // A new filter term takes effect at once, before the queued rescan.
         $page->call('setTab', 'filters')->set('termText', 'KAPLAMA')->call('addTerm')->call('setTab', 'pending')
