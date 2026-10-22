@@ -55,7 +55,17 @@ final class SystemBackup
             $this->moveInto($temp, $path);
             $temp = null;
             $remote = false;
-            if (filled(config('moxdop-backup.remote_disk'))) {
+            $copy = app(RemoteBackupCopy::class);
+            if ($copy->configured()) {
+                // Panel setting (Ayarlar › Sistem sağlığı, audit D5): a failed copy is recorded but the local backup stands.
+                try {
+                    $copy->put($path);
+                    $copy->prune((int) config('moxdop-backup.keep', 7));
+                    $remote = true;
+                } catch (Throwable $exception) {
+                    DB::table('system_backups')->where('id', $id)->update(['error' => mb_substr('Uzak kopya alınamadı: '.$exception->getMessage(), 0, 1000)]);
+                }
+            } elseif (filled(config('moxdop-backup.remote_disk'))) {
                 $stream = fopen($path, 'rb');
                 $remote = Storage::disk((string) config('moxdop-backup.remote_disk'))->writeStream('moxdop-backups/'.basename($path), $stream);
                 is_resource($stream) && fclose($stream);
@@ -207,7 +217,7 @@ final class SystemBackup
             'seconds' => (int) ($raw['seconds'] ?? 0), 'checked_at' => isset($raw['checked_at']) ? (string) $raw['checked_at'] : null];
     }
 
-    /** @return array{last_success_at: ?string, hours: ?int, ok: bool, bytes: ?int, last_error: ?string, remote: bool, drill: ?array<string, mixed>} */
+    /** @return array{last_success_at: ?string, hours: ?int, ok: bool, bytes: ?int, last_error: ?string, remote: bool, remote_error: ?string, remote_target: ?string, drill: ?array<string, mixed>} */
     public function status(): array
     {
         $last = DB::table('system_backups')->where('status', 'succeeded')->orderByDesc('finished_at')->first();
@@ -221,6 +231,8 @@ final class SystemBackup
             'bytes' => $last?->bytes !== null ? (int) $last->bytes : null,
             'last_error' => $failed !== null && ($last === null || $failed->finished_at > $last->finished_at) ? $failed->error : null,
             'remote' => (bool) ($last->remote_copied ?? false),
+            'remote_error' => $last !== null && ! ($last->remote_copied ?? false) && filled($last->error ?? null) ? (string) $last->error : null,
+            'remote_target' => app(RemoteBackupCopy::class)->target(),
             'drill' => self::drill(),
         ];
     }

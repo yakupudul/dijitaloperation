@@ -32,6 +32,9 @@ use Illuminate\Database\Eloquent\Model;
     'bing_webmaster_api_key',
     'theme_accent',
     'theme_second',
+    'backup_remote_url',
+    'backup_remote_username',
+    'backup_remote_password',
 ])]
 #[Hidden([
     'ai_openai_admin_key',
@@ -39,6 +42,7 @@ use Illuminate\Database\Eloquent\Model;
     'push_ntfy_token',
     'push_telegram_bot_token',
     'bing_webmaster_api_key',
+    'backup_remote_password',
 ])]
 class AgencySetting extends Model
 {
@@ -61,6 +65,7 @@ class AgencySetting extends Model
             'push_ntfy_token' => 'encrypted',
             'push_telegram_bot_token' => 'encrypted',
             'bing_webmaster_api_key' => 'encrypted',
+            'backup_remote_password' => 'encrypted',
             'ai_openai_free_quota' => 'boolean',
             'ai_openai_admin_key' => 'encrypted',
             'ai_openai_audit' => 'array',

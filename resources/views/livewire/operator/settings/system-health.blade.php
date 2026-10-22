@@ -182,9 +182,27 @@
                         <div class="card-row flex-wrap items-start sm:flex-nowrap">
                             <div class="min-w-0 flex-1">
                                 <h3 class="{{ $title }}">Sistem yedeği</h3>
-                                <p class="{{ $line }}">Son başarılı: {{ $when($health['backup']['last_success_at']) }}@if ($health['backup']['bytes']), {{ number_format($health['backup']['bytes'] / 1048576, 1, ',', '.') }} MB @endif, {{ $health['backup']['remote'] ? 'uzak kopya var' : 'yalnız sunucuda (MOXDOP_BACKUP_REMOTE_DISK ile uzak kopya)' }}.@if ($health['backup']['last_success_at']) Her yedek alındıktan sonra baştan sona okunup doğrulanır.@endif</p>
+                                <p class="{{ $line }}">Son başarılı: {{ $when($health['backup']['last_success_at']) }}@if ($health['backup']['bytes']), {{ number_format($health['backup']['bytes'] / 1048576, 1, ',', '.') }} MB @endif, {{ $health['backup']['remote'] ? 'uzak kopya var' : 'yalnız sunucuda' }}.@if ($health['backup']['last_success_at']) Her yedek alındıktan sonra baştan sona okunup doğrulanır.@endif</p>
                                 <p class="mt-1 text-xs {{ ($health['backup']['drill']['state'] ?? null) === 'failed' ? 'text-error-700 dark:text-error-400' : 'text-neutral-500' }}">Geri yükleme provası (ayda bir): {{ ($health['backup']['drill'] ?? null) === null ? 'henüz yapılmadı' : $when($health['backup']['drill']['checked_at']).' · '.$health['backup']['drill']['message'] }}</p>
                                 @if ($health['backup']['last_error'])<p class="mt-1 text-xs text-error-700 dark:text-error-400">Son hata: {{ \Illuminate\Support\Str::limit($health['backup']['last_error'], 200) }}</p>@endif
+                                <p class="mt-1 text-xs {{ ($health['backup']['remote_error'] ?? null) ? 'text-error-700 dark:text-error-400' : 'text-neutral-500' }}">Uzak kopya: {{ ($health['backup']['remote_target'] ?? null) ? $health['backup']['remote_target'] : 'ayarlı değil; sunucu bozulursa yedek de gider' }}@if ($health['backup']['remote_error'] ?? null) · {{ \Illuminate\Support\Str::limit($health['backup']['remote_error'], 160) }}@endif
+                                    @if ($isAdmin && ! $editingRemote) · <button type="button" wire:click="editRemote" class="underline">{{ ($health['backup']['remote_target'] ?? null) ? 'Değiştir' : 'Uzak klasör ekle' }}</button>@endif
+                                </p>
+                                @if ($isAdmin && $editingRemote)
+                                    <form wire:submit="saveRemote" class="mt-3 grid max-w-xl gap-2" data-remote-backup>
+                                        <p class="text-xs text-neutral-500">WebDAV klasörü (ör. Hetzner Storage Box: https://u123456.your-storagebox.de/moxdop-yedek). Şifre kaydedilince bir daha gösterilmez.</p>
+                                        <input type="url" wire:model="remoteUrl" class="input" placeholder="https://u123456.your-storagebox.de/moxdop-yedek" aria-label="Klasör adresi">
+                                        @error('remoteUrl')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                                        <input type="text" wire:model="remoteUsername" class="input" autocomplete="off" placeholder="Kullanıcı adı" aria-label="Kullanıcı adı">
+                                        @error('remoteUsername')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                                        <input type="password" wire:model="remotePassword" class="input" autocomplete="new-password" placeholder="Şifre (boş bırakılırsa eskisi kalır)" aria-label="Şifre">
+                                        <div class="flex flex-wrap gap-2">
+                                            <button type="submit" class="btn-primary" wire:loading.attr="disabled">Kaydet ve dene</button>
+                                            <button type="button" wire:click="$set('editingRemote', false)" class="btn-quiet">Vazgeç</button>
+                                            @if ($health['backup']['remote_target'] ?? null)<button type="button" wire:click="removeRemote" wire:confirm="Uzak yedek kapatılsın mı? Oradaki dosyalar silinmez." class="btn-quiet">Kapat</button>@endif
+                                        </div>
+                                    </form>
+                                @endif
                             </div>
                             <x-ta.pill :tone="$okText($health['backup']['ok'])">{{ $health['backup']['last_success_at'] === null ? 'Hiç yedek alınmamış' : ($health['backup']['ok'] ? 'Güncel' : 'Son yedek eski') }}</x-ta.pill>
                         </div>
