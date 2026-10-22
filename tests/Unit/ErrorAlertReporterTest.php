@@ -45,4 +45,14 @@ final class ErrorAlertReporterTest extends TestCase
         $this->assertStringStartsWith('vendor/laravel/framework/src/Illuminate/Database/Eloquent/Collection.php:', $where);
         $this->assertStringContainsString(' ← tests/Unit/ErrorAlertReporterTest.php:', $where);
     }
+
+    public function test_a_credential_in_an_error_message_never_reaches_the_error_center(): void
+    {
+        $token = 'EAAG'.str_repeat('Zb3x', 20);
+        $message = ErrorAlertReporter::normalizeMessage('cURL error 28: timed out for https://graph.facebook.com/v23.0/debug_token?input_token='.$token.'&access_token=123|abcsecret and Bearer '.$token);
+
+        $this->assertStringNotContainsString($token, $message);
+        $this->assertStringNotContainsString('abcsecret', $message);
+        $this->assertStringContainsString('debug_token?input_token=#', $message);
+    }
 }

@@ -71,9 +71,10 @@ final class MetaCredentialValidator
             $response = Http::timeout(MetaApiConfig::timeoutSeconds())
                 ->connectTimeout(5)
                 ->acceptJson()
+                // Audit Y3: the app token goes in the Authorization header, not the URL an error message could quote.
+                ->withToken($appToken)
                 ->get(MetaApiConfig::graphBaseUrl().'/debug_token', [
                     'input_token' => $token,
-                    'access_token' => $appToken,
                 ]);
         } catch (Throwable $exception) {
             Log::warning('meta.token_validation.transport_failure', [

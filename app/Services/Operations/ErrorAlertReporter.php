@@ -87,13 +87,16 @@ final class ErrorAlertReporter
     public static function normalizeMessage(string $message): string
     {
         $normalized = preg_replace([
+            // Audit Y3: a credential in a URL query (Meta debug_token, an API key) never reaches the error center.
+            '/([?&](?:access_token|input_token|token|key|api_key|client_secret|secret|password|appsecret_proof)=)[^&\s"\']+/i',
+            '/\b[A-Za-z0-9_\-]{40,}\b/',                                       // long opaque values (tokens)
             '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', // uuids
             '/"[^"]*"|\'[^\']*\'|`[^`]*`/u',                                  // quoted values
             '/\b[0-9a-f]{12,}\b/i',                                            // long hex (hashes, tokens)
             '/\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)?/',    // dates and timestamps
             '/\d+(?:[.,]\d+)*/',                                               // numbers, ids, dates, ips
             '/\s+/u',
-        ], ['#', '?', '#', '#', '#', ' '], $message) ?? $message;
+        ], ['$1#', '#', '#', '?', '#', '#', '#', ' '], $message) ?? $message;
 
         return mb_substr(trim($normalized), 0, 300);
     }
