@@ -183,6 +183,7 @@
                             <div class="min-w-0 flex-1">
                                 <h3 class="{{ $title }}">Sistem yedeği</h3>
                                 <p class="{{ $line }}">Son başarılı: {{ $when($health['backup']['last_success_at']) }}@if ($health['backup']['bytes']), {{ number_format($health['backup']['bytes'] / 1048576, 1, ',', '.') }} MB @endif, {{ $health['backup']['remote'] ? 'uzak kopya var' : 'yalnız sunucuda (MOXDOP_BACKUP_REMOTE_DISK ile uzak kopya)' }}.@if ($health['backup']['last_success_at']) Her yedek alındıktan sonra baştan sona okunup doğrulanır.@endif</p>
+                                <p class="mt-1 text-xs {{ ($health['backup']['drill']['state'] ?? null) === 'failed' ? 'text-error-700 dark:text-error-400' : 'text-neutral-500' }}">Geri yükleme provası (ayda bir): {{ ($health['backup']['drill'] ?? null) === null ? 'henüz yapılmadı' : $when($health['backup']['drill']['checked_at']).' · '.$health['backup']['drill']['message'] }}</p>
                                 @if ($health['backup']['last_error'])<p class="mt-1 text-xs text-error-700 dark:text-error-400">Son hata: {{ \Illuminate\Support\Str::limit($health['backup']['last_error'], 200) }}</p>@endif
                             </div>
                             <x-ta.pill :tone="$okText($health['backup']['ok'])">{{ $health['backup']['last_success_at'] === null ? 'Hiç yedek alınmamış' : ($health['backup']['ok'] ? 'Güncel' : 'Son yedek eski') }}</x-ta.pill>

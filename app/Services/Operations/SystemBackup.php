@@ -189,7 +189,25 @@ final class SystemBackup
         return $bytes >= 1024 ** 3 ? number_format($bytes / 1024 ** 3, 1, ',', '.').' GB' : number_format($bytes / 1024 ** 2, 0, ',', '.').' MB';
     }
 
-    /** @return array{last_success_at: ?string, hours: ?int, ok: bool, bytes: ?int, last_error: ?string, remote: bool} */
+    /** Result of the monthly restore drill (deploy/staging/restore-drill.sh, audit D5), or null before the first one. */
+    public static function drillPath(): string
+    {
+        return storage_path('app/restore-drill.json');
+    }
+
+    /** @return array{state: string, message: string, backup: string, seconds: int, checked_at: ?string}|null */
+    public static function drill(): ?array
+    {
+        $raw = is_file(self::drillPath()) ? json_decode((string) @file_get_contents(self::drillPath()), true) : null;
+        if (! is_array($raw) || ! in_array($raw['state'] ?? null, ['ok', 'failed', 'skipped'], true)) {
+            return null;
+        }
+
+        return ['state' => (string) $raw['state'], 'message' => (string) ($raw['message'] ?? ''), 'backup' => (string) ($raw['backup'] ?? ''),
+            'seconds' => (int) ($raw['seconds'] ?? 0), 'checked_at' => isset($raw['checked_at']) ? (string) $raw['checked_at'] : null];
+    }
+
+    /** @return array{last_success_at: ?string, hours: ?int, ok: bool, bytes: ?int, last_error: ?string, remote: bool, drill: ?array<string, mixed>} */
     public function status(): array
     {
         $last = DB::table('system_backups')->where('status', 'succeeded')->orderByDesc('finished_at')->first();
@@ -203,6 +221,7 @@ final class SystemBackup
             'bytes' => $last?->bytes !== null ? (int) $last->bytes : null,
             'last_error' => $failed !== null && ($last === null || $failed->finished_at > $last->finished_at) ? $failed->error : null,
             'remote' => (bool) ($last->remote_copied ?? false),
+            'drill' => self::drill(),
         ];
     }
 

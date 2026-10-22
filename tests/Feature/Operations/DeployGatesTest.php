@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Operations;
 
+use App\Models\AgencySetting;
 use App\Models\User;
+use App\Services\Operations\SystemBackup;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -58,5 +62,23 @@ final class DeployGatesTest extends TestCase
         $this->assertNotFalse($deploy);
         $this->assertTrue($tests < $gate && $gate < $deploy && $deploy < $restore, 'tests → backup → deploy + screens → restore on failure');
         $this->assertStringContainsString('mark_tried "backup:${TARGET}"', $script, 'a missing backup is reported once and does not burn the commit');
+    }
+
+    public function test_the_monthly_restore_drill_shows_on_system_health_and_a_failed_one_reaches_the_phone(): void
+    {
+        File::delete(SystemBackup::drillPath());
+        $this->assertNull(SystemBackup::drill());
+
+        File::put(SystemBackup::drillPath(), json_encode(['state' => 'failed', 'message' => 'Yedek geri yüklendi ama tablolar eksik: brands', 'backup' => 'moxdop-x-pgsql.sql.gz', 'seconds' => 60, 'checked_at' => '2026-10-22T02:00:00Z']));
+        $this->assertSame('failed', app(SystemBackup::class)->status()['drill']['state']);
+        Http::fake(['*' => Http::response('ok')]);
+        AgencySetting::query()->create(['push_ntfy_url' => 'https://ntfy.example.test/moxdop', 'push_min_severity' => 'high']);
+        $this->artisan('moxdop:backup:drill-report')->assertSuccessful();
+        $this->assertStringContainsString('provası başarısız', (string) DB::table('push_notifications')->sole()->title);
+
+        $script = (string) file_get_contents(base_path('deploy/staging/restore-drill.sh'));
+        $this->assertStringContainsString('"$DRILL_DB" == "$LIVE_DB"', $script, 'the drill never restores into the live database');
+        $this->assertStringContainsString('dropdb --if-exists "$DRILL_DB"', $script);
+        File::delete(SystemBackup::drillPath());
     }
 }

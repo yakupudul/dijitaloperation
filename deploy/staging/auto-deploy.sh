@@ -174,6 +174,10 @@ if [[ -z "$TARGET" ]]; then
   if [[ ! -f "$STATUS_FILE" ]] || grep -qE '"state":"(installed|deployed|idle|paused|testing|deploying)"' "$STATUS_FILE"; then
     status idle "" "$LIVE" "Yeni commit yok."
   fi
+  # Idle: the monthly restore drill may run (it decides itself whether one is due; audit D5).
+  if [[ -f deploy/staging/restore-drill.sh ]]; then
+    bash deploy/staging/restore-drill.sh >> "${LOG_DIR}/restore-drill.log" 2>&1 || true
+  fi
   exit 0
 fi
 
