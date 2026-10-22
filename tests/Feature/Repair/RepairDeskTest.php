@@ -428,11 +428,16 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertStringContainsString('Önceki gönderim başarısız: Sayfa WordPress’ten gelmiyor', $row['reason']);
         $this->assertSame(0, $desk->queuedCount());
 
-        // A job that died (timeout) puts the row back with a plain reason; a later successful approval clears it.
+        // A job that died (timeout) gets one more try; when that dies too the row comes back with a plain reason, and
+        // a later successful approval clears it.
         $desk->queueApproval([$fields->id], $this->admin);
         (new ApproveRepairRowsJob([$fields->id], $this->admin->id))->failed(new \RuntimeException('Job timed out'));
+        Queue::assertPushed(ApproveRepairRowsJob::class, fn (ApproveRepairRowsJob $job): bool => $job->ids === [$fields->id] && $job->attempt === 2);
+        $this->assertNull($desk->rows()->firstWhere('id', $fields->id), 'still waiting for the second try');
+        (new ApproveRepairRowsJob([$fields->id], $this->admin->id, 2))->failed(new \RuntimeException('Job timed out'));
         $this->assertStringContainsString('Onay uygulanamadı (Job timed out); tekrar onaylayın.', $desk->rows()->firstWhere('id', $fields->id)['reason']);
         $this->implantPage->forceFill(['wp_post_id' => 42])->save();
+        $desk->queueApproval([$fields->id], $this->admin);
         (new ApproveRepairRowsJob([$fields->id], $this->admin->id))->handle($desk);
         $this->assertArrayNotHasKey(RepairDesk::DESK_ERROR, (array) $fields->fresh()->action);
         $this->assertSame(Suggestion::APPLIED, $fields->fresh()->status);
@@ -440,10 +445,49 @@ final class RepairDeskTest extends SiteTestCase
 
     public function test_a_stale_queued_mark_no_longer_hides_the_row(): void
     {
-        $fields = $this->suggestion('Başlık', 'title_description', ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']],
-            RepairDesk::QUEUED_AT => now()->subMinutes(RepairDesk::QUEUED_MINUTES + 5)->toIso8601String()]);
+        $proposal = ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']];
+        $waiting = $this->suggestion('Sırada', 'title_description', ['proposal' => $proposal,
+            RepairDesk::QUEUED_AT => now()->subHours(RepairDesk::WAITING_HOURS - 1)->toIso8601String()]);
+        $working = $this->suggestion('Çalışıyor', 'title_description', ['proposal' => $proposal,
+            RepairDesk::QUEUED_AT => now()->subHours(RepairDesk::WAITING_HOURS + 1)->toIso8601String(), RepairDesk::BEAT_AT => now()->subMinutes(2)->toIso8601String()]);
+        $dead = $this->suggestion('Ölü iş', 'title_description', ['proposal' => $proposal,
+            RepairDesk::QUEUED_AT => now()->subHour()->toIso8601String(), RepairDesk::BEAT_AT => now()->subMinutes(RepairDesk::QUEUED_MINUTES + 5)->toIso8601String()]);
+        $forgotten = $this->suggestion('Unutulmuş', 'title_description', ['proposal' => $proposal,
+            RepairDesk::QUEUED_AT => now()->subHours(RepairDesk::WAITING_HOURS + 1)->toIso8601String()]);
 
-        $this->assertSame([$fields->id], app(RepairDesk::class)->rows()->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$dead->id, $forgotten->id], app(RepairDesk::class)->rows()->pluck('id')->all());
+        $this->assertSame(2, app(RepairDesk::class)->queuedCount());
+        $this->assertNotNull($waiting->id);
+        $this->assertNotNull($working->id);
+    }
+
+    /**
+     * Audit N6: a 5,000-row approval used to bring rows back after 30 minutes while their package still waited, so
+     * they could be approved again. Rows stay hidden while their job works through them step by step, each step is
+     * released as soon as it is done, and an approval of a row already queued sends nothing new.
+     */
+    public function test_a_long_approval_keeps_its_rows_until_their_step_is_done_and_never_sends_twice(): void
+    {
+        Queue::fake();
+        $proposal = fn (int $i): array => ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık '.$i]]];
+        $ids = [];
+        foreach (range(1, ApproveRepairRowsJob::STEP + 3) as $i) {
+            $ids[] = $this->suggestion('Başlık '.$i, 'title_description', $proposal($i))->id;
+        }
+        $desk = app(RepairDesk::class);
+        $desk->queueApproval($ids, $this->admin);
+        $this->travel(2)->hours();
+
+        $this->assertSame([], $desk->rows()->pluck('id')->all(), 'still waiting behind other packages: hidden');
+        $this->assertSame(0, $desk->queueApproval($ids, $this->admin)['applied'], 'a second click finds nothing to send');
+        Queue::assertPushed(ApproveRepairRowsJob::class, 1);
+
+        (new ApproveRepairRowsJob($ids, $this->admin->id))->handle($desk);
+
+        $this->assertSame(0, $desk->queuedCount());
+        $this->assertSame(count($ids), ExternalWriteAction::query()->whereIn('suggestion_id', $ids)->count());
+        (new ApproveRepairRowsJob($ids, $this->admin->id))->handle($desk);
+        $this->assertSame(count($ids), ExternalWriteAction::query()->whereIn('suggestion_id', $ids)->count(), 'a repeated job sends nothing');
     }
 
     /**

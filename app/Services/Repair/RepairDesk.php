@@ -133,8 +133,21 @@ final class RepairDesk
     /** Why the last approval of a row could not be sent (shown on the row until it is approved again). */
     public const string DESK_ERROR = 'desk_error';
 
-    /** A queued mark older than this (the job died) no longer hides the row. */
-    public const int QUEUED_MINUTES = 30;
+    /**
+     * Set on queued rows while their ApproveRepairRowsJob works through them (after every small step): a row stays
+     * "sırada" for as long as its job is alive, however long the whole approval takes.
+     */
+    public const string BEAT_AT = 'desk_beat_at';
+
+    /**
+     * yakup 2026-10-22 (audit N6): a 5,000-row approval waits behind earlier packages for well over the old 30 minutes,
+     * so rows came back and could be approved twice. A row waiting for its job stays hidden this long; a row whose
+     * job started stays hidden while the job beats (QUEUED_MINUTES since its last beat), so only a dead job lets it go.
+     */
+    public const int WAITING_HOURS = 12;
+
+    /** A job that started but has not beaten for this long died: its rows are no longer hidden. */
+    public const int QUEUED_MINUTES = 20;
 
     /** @var array<string, array{won: int, neutral: int, lost: int, unclear: int, measured: int, weight: float}>|null */
     private ?array $learned = null;
@@ -763,7 +776,9 @@ final class RepairDesk
             return $result;
         }
         foreach (Suggestion::query()->whereIn('id', $queue)->get() as $suggestion) {
-            $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, [self::QUEUED_AT => now()->toIso8601String(), 'desk_queued_by' => $user->id])])->save();
+            $action = (array) $suggestion->action;
+            unset($action[self::BEAT_AT]);
+            $suggestion->forceFill(['action' => array_merge($action, [self::QUEUED_AT => now()->toIso8601String(), 'desk_queued_by' => $user->id])])->save();
         }
         foreach (array_chunk($queue, 200) as $chunk) {
             dispatch(new ApproveRepairRowsJob($chunk, (int) $user->id))->onQueue((string) config('queue.writes_queue', 'default'));
@@ -778,8 +793,52 @@ final class RepairDesk
     public function queuedCount(?int $brandId = null): int
     {
         return Suggestion::query()->whereNotNull('action->'.self::QUEUED_AT)
-            ->where('updated_at', '>=', now()->subMinutes(self::QUEUED_MINUTES))
-            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))->count();
+            ->where('updated_at', '>=', now()->subHours(self::WAITING_HOURS))
+            ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
+            ->get(['id', 'action'])->filter(fn (Suggestion $s): bool => self::isQueued($s))->count();
+    }
+
+    /**
+     * The approval job is alive and still holds these rows (called before each small step).
+     *
+     * @param  list<int>  $ids
+     */
+    public function beat(array $ids): void
+    {
+        if ($ids === []) {
+            return;
+        }
+        $at = now()->toIso8601String();
+        foreach (Suggestion::query()->whereIn('id', $ids)->whereNotNull('action->'.self::QUEUED_AT)->get() as $suggestion) {
+            $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, [self::BEAT_AT => $at])])->save();
+        }
+    }
+
+    /**
+     * A dead approval job's rows wait for the job that tries them again: hidden as waiting rows (WAITING_HOURS), not
+     * as rows of a job that stopped beating.
+     *
+     * @param  list<int>  $ids
+     */
+    public function waitAgain(array $ids): void
+    {
+        foreach (Suggestion::query()->whereIn('id', $ids)->whereNotNull('action->'.self::QUEUED_AT)->get() as $suggestion) {
+            $action = (array) $suggestion->action;
+            unset($action[self::BEAT_AT]);
+            $suggestion->forceFill(['action' => array_merge($action, [self::QUEUED_AT => now()->toIso8601String()])])->save();
+        }
+    }
+
+    /**
+     * The rows of $ids an approval job still holds (marked queued, not released yet).
+     *
+     * @param  list<int>  $ids
+     * @return list<int>
+     */
+    public function stillQueued(array $ids): array
+    {
+        return Suggestion::query()->whereIn('id', $ids)->whereNotNull('action->'.self::QUEUED_AT)
+            ->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
     }
 
     /**
@@ -793,7 +852,7 @@ final class RepairDesk
     {
         foreach (Suggestion::query()->whereIn('id', $ids)->get() as $suggestion) {
             $action = (array) $suggestion->action;
-            unset($action[self::QUEUED_AT], $action['desk_queued_by']);
+            unset($action[self::QUEUED_AT], $action[self::BEAT_AT], $action['desk_queued_by']);
             if ($error !== null) {
                 $action[self::DESK_ERROR] = mb_substr($error, 0, 300);
             } elseif (! in_array((int) $suggestion->id, $failedIds, true)) {
@@ -810,8 +869,11 @@ final class RepairDesk
         if (! is_string($at) || $at === '') {
             return false;
         }
+        $beat = data_get($suggestion->action, self::BEAT_AT);
         try {
-            return CarbonImmutable::parse($at)->gt(now()->subMinutes(self::QUEUED_MINUTES));
+            return is_string($beat) && $beat !== ''
+                ? CarbonImmutable::parse($beat)->gt(now()->subMinutes(self::QUEUED_MINUTES))
+                : CarbonImmutable::parse($at)->gt(now()->subHours(self::WAITING_HOURS));
         } catch (Throwable) {
             return false;
         }
