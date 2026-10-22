@@ -292,6 +292,34 @@ final class AiTaskQueue
     }
 
     /**
+     * A named call (see answer()) the open run no longer needs: its question is withdrawn (a late answer is refused).
+     */
+    public function dropSlot(string $operation, string $slot): int
+    {
+        if ($this->run === null) {
+            return 0;
+        }
+
+        return AiTask::query()->where('resume_key', $this->run['key'])->where('operation', $operation)
+            ->where('input_hash', hash('sha256', $operation."\n".'slot:'.$slot))->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
+            ->update(['status' => AiTask::CONSUMED, 'consumed_at' => now()]);
+    }
+
+    /**
+     * The open run starts its questions of this operation over (its pack was rebuilt): the unclaimed ones asked
+     * before are obsolete and withdrawn (a late answer to one is refused).
+     */
+    public function dropPending(string $operation): int
+    {
+        if ($this->run === null) {
+            return 0;
+        }
+
+        return AiTask::query()->where('resume_key', $this->run['key'])->where('operation', $operation)
+            ->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->update(['status' => AiTask::CONSUMED, 'consumed_at' => now()]);
+    }
+
+    /**
      * The delegated call for callers that report a failed call as a status string: the structured output, 'queued'
      * (waiting for Claude), 'error' (Claude could not do it, or an inline call outside a resumable run), or null when
      * the operation is not delegated (the caller keeps the provider route).

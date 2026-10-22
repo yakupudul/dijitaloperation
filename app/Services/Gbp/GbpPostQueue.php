@@ -20,6 +20,7 @@ use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -147,16 +148,21 @@ final class GbpPostQueue
         if ($days === [] || (! $force && self::HORIZON_DAYS - count($days) >= self::REFILL_BELOW)) {
             return ['status' => 'full', 'added' => 0, 'empty' => count($days)];
         }
-        $slots = $this->slots($location, $days);
+        // A pack waiting for Claude is kept as it was asked: the brand's other profiles fill their days meanwhile
+        // (recent posts, sibling pages), and a rebuilt pack would be a new task for the same days every time.
+        $plan = $this->frozenPlan($location, $days);
+        if ($plan === null) {
+            $this->tasks->dropPending(GbpPostQueueAgent::OPERATION);
+        }
+        $slots = $plan['slots'] ?? $this->slots($location, $days);
         if ($slots === []) {
             return ['status' => 'no_content', 'added' => 0, 'empty' => count($days)];
         }
-        $recent = $this->recentTexts($location);
-        $context = [
+        $context = $plan['context'] ?? [
             'business' => $location->brand->name, 'area' => $this->area($location),
             'offerings' => array_column(app(GbpAssistant::class)->offerings($location->brand), 'name'),
             'compliance' => app(SectorPackRegistry::class)->rulesForBrand($location->brand)->pluck('message')->unique()->values()->take(12)->all(),
-            'recent_posts' => array_map(fn (string $t): string => mb_substr($t, 0, 300), array_slice($recent, 0, 12)),
+            'recent_posts' => array_map(fn (string $t): string => mb_substr($t, 0, 300), array_slice($this->recentTexts($location), 0, 12)),
         ] + Epicrisis::input($location->brand, 'gbp');
         $answers = [];
         $waiting = false;
@@ -177,16 +183,28 @@ final class GbpPostQueue
             }
         }
         if ($waiting) {
+            Cache::put(self::planKey($location), ['date' => self::today()->toDateString(), 'context' => $context,
+                'slots' => array_map(fn (array $s): array => ['slot' => $s['slot'], 'day' => $s['day'], 'page_id' => (int) $s['page']->id, 'angle' => $s['angle']], $slots)], now()->addDay());
+
             return null;
         }
+        Cache::forget(self::planKey($location));
+        // Checked against what exists now: a day filled meanwhile, or a page and angle a sibling profile took, is left out.
+        $recent = $this->recentTexts($location);
+        $open = array_flip($this->emptyDays($location));
+        $siblings = $this->siblingUses($location);
         $added = 0;
         foreach ($slots as $slot) {
             $row = $answers[$slot['slot']] ?? null;
+            if (! isset($open[$slot['day']]) || isset($siblings[$slot['page']->id.':'.$slot['angle']])) {
+                continue;
+            }
             $text = $row !== null ? $this->checked($location, (string) ($row['text'] ?? ''), $recent) : null;
             if ($text === null) {
                 continue;
             }
             $recent[] = $text;
+            $open = array_diff_key($open, [$slot['day'] => true]);
             GbpQueuedPost::query()->create([
                 'digital_asset_id' => $location->id, 'brand_id' => $location->brand_id, 'page_id' => $slot['page']->id, 'angle' => $slot['angle'],
                 'publish_on' => $slot['day'], 'summary' => $text, 'url' => (string) $slot['page']->url,
@@ -258,10 +276,7 @@ final class GbpPostQueue
             ->where('publish_on', '>=', $since)->get(['page_id', 'angle', 'publish_on']);
         $used = $history->map(fn (GbpQueuedPost $r): string => $r->page_id.':'.$r->angle)->flip();
         $lastUsed = $history->groupBy('page_id')->map(fn (Collection $rows): string => substr((string) $rows->max('publish_on'), 0, 10));
-        $siblings = GbpQueuedPost::query()->where('brand_id', $location->brand_id)->where('digital_asset_id', '!=', $location->id)
-            ->whereNotIn('status', [GbpQueuedPost::FAILED, GbpQueuedPost::SKIPPED, GbpQueuedPost::EXPIRED])
-            ->where('publish_on', '>=', self::today()->subDays(self::SIBLING_GAP_DAYS)->toDateString())
-            ->get(['page_id', 'angle'])->map(fn (GbpQueuedPost $r): string => $r->page_id.':'.$r->angle)->flip();
+        $siblings = $this->siblingUses($location);
         $gapBefore = CarbonImmutable::parse($days[0])->subDays(self::PAGE_GAP_DAYS)->toDateString();
         $fresh = self::today()->subDays(30);
         $district = $this->district($location);
@@ -273,7 +288,7 @@ final class GbpPostQueue
                 continue;
             }
             $angles = array_values(array_filter(self::ANGLES_BY_CATEGORY[$category] ?? self::ANGLES_BY_CATEGORY['blog'],
-                fn (string $a): bool => ! $used->has($page->id.':'.$a) && ! $siblings->has($page->id.':'.$a)));
+                fn (string $a): bool => ! $used->has($page->id.':'.$a) && ! isset($siblings[$page->id.':'.$a])));
             $last = $lastUsed->get($page->id);
             if ($angles === [] || ($last !== null && $last > $gapBefore)) {
                 continue;
@@ -601,6 +616,46 @@ final class GbpPostQueue
             ->where('object_id', (string) $mediaId)->where('object_type', 'attachment')->orderByDesc('id')->value('permalink') : null;
 
         return is_string($url) && preg_match('~^https://\S+\.(?:jpe?g|png)(?:\?\S*)?$~i', $url) === 1 ? $url : null;
+    }
+
+    public static function planKey(DigitalAsset $location): string
+    {
+        return 'gbp-post-plan:'.$location->id;
+    }
+
+    /**
+     * Today's pack of the location that waits for Claude, while all its days are still empty and its pages exist.
+     *
+     * @param  list<string>  $days
+     * @return array{slots: list<array{slot: int, day: string, page: Page, angle: string}>, context: array<string, mixed>}|null
+     */
+    private function frozenPlan(DigitalAsset $location, array $days): ?array
+    {
+        $plan = Cache::get(self::planKey($location));
+        if (! is_array($plan) || ($plan['date'] ?? null) !== self::today()->toDateString() || ! is_array($plan['slots'] ?? null) || $plan['slots'] === []) {
+            return null;
+        }
+        $pages = Page::query()->whereIn('id', array_column($plan['slots'], 'page_id'))->get()->keyBy('id');
+        $open = array_flip($days);
+        $slots = [];
+        foreach ($plan['slots'] as $s) {
+            $page = $pages->get((int) $s['page_id']);
+            if ($page === null || ! isset($open[(string) $s['day']])) {
+                return null;
+            }
+            $slots[] = ['slot' => (int) $s['slot'], 'day' => (string) $s['day'], 'page' => $page, 'angle' => (string) $s['angle']];
+        }
+
+        return ['slots' => $slots, 'context' => (array) $plan['context']];
+    }
+
+    /** @return array<string, int> "page:angle" the brand's other profiles use around now */
+    private function siblingUses(DigitalAsset $location): array
+    {
+        return GbpQueuedPost::query()->where('brand_id', $location->brand_id)->where('digital_asset_id', '!=', $location->id)
+            ->whereNotIn('status', [GbpQueuedPost::FAILED, GbpQueuedPost::SKIPPED, GbpQueuedPost::EXPIRED])
+            ->where('publish_on', '>=', self::today()->subDays(self::SIBLING_GAP_DAYS)->toDateString())
+            ->get(['page_id', 'angle'])->map(fn (GbpQueuedPost $r): string => $r->page_id.':'.$r->angle)->flip()->all();
     }
 
     /**

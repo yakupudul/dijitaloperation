@@ -12,8 +12,10 @@ use App\Models\Cluster;
 use App\Models\ContentIdea;
 use App\Models\DigitalAsset;
 use App\Models\Page;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Brand\BrandAudit;
 use App\Services\SeoTasks\SeoText;
+use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -695,7 +697,13 @@ final class ClusterAudit
         if ($group !== null && $this->unchanged('match', $group, $inputs) && $rows->every(fn (BrandClusterPage $row): bool => $row->audited_at !== null)) {
             return 'skipped';
         }
+        // Claude (MCP): the call is named by its language, service and clusters, so a re-run of the pass finds the answer
+        // although candidate pages, queries or page texts moved while it waited (no second task for the same question).
+        $slot = 'match:'.($rows->first()->language ?? '').'|'.$rows->first()->cluster->service_id.'|'
+            .$rows->map(fn (BrandClusterPage $row): int => (int) $row->cluster_id)->sort()->implode(',');
         if ($pageIds === []) {
+            // Nothing to read (a language with no page of its own): a question asked before is withdrawn.
+            app(AiTaskQueue::class)->dropSlot(AiRouteKeys::SITE_CLUSTER_MATCH, $slot);
             foreach ($rows as $row) {
                 $this->place($row, null, 'none', 'Sitede bu konuyu işleyen sayfa bulunamadı.', []);
             }
@@ -705,10 +713,6 @@ final class ClusterAudit
 
             return 0;
         }
-        // Claude (MCP): the call is named by its language, service and clusters, so a re-run of the pass finds the answer
-        // although candidate pages, queries or page texts moved while it waited (no second task for the same question).
-        $slot = 'match:'.($rows->first()->language ?? '').'|'.$rows->first()->cluster->service_id.'|'
-            .$rows->map(fn (BrandClusterPage $row): int => (int) $row->cluster_id)->sort()->implode(',');
         $result = $this->ai->run(new ClusterMatchAgent, [
             'service' => (string) ($rows->first()->cluster->service?->primaryName?->raw_label ?? ''),
             'clusters' => $rows->map(fn (BrandClusterPage $row): array => [
@@ -754,11 +758,14 @@ final class ClusterAudit
      */
     private function candidatePages(DigitalAsset $site, ?string $language): Collection
     {
+        $primary = SiteScope::primaryLanguage($site);
+
         return Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)
             ->where(fn ($q) => $q->whereIn('category', self::PAGE_CATEGORIES)->orWhereNull('category'))
             ->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
-            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'category', 'content_hash'])
-            ->reject(fn (Page $p): bool => preg_match(self::NEVER_CANDIDATE, '/'.trim((string) $p->path, '/')) === 1 || trim((string) $p->path, '/') === '')
+            ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'category', 'content_hash', 'language'])
+            ->reject(fn (Page $p): bool => preg_match(self::NEVER_CANDIDATE, '/'.trim((string) $p->path, '/')) === 1 || trim((string) $p->path, '/') === ''
+                || ! SiteScope::inLanguage($p, $language, $primary))
             ->values();
     }
 

@@ -163,6 +163,24 @@ final class SiteScope
         return $row?->language;
     }
 
+    /**
+     * Whether a page belongs to the language's page set. A page without a language field is the site's main language
+     * (Polylang leaves the default language unmarked on some sites): it counts for another language only under that
+     * language's path ("/en/…"). Without this every English row of Avrupadent read the Turkish pages again and asked
+     * Claude the Turkish question a second time.
+     */
+    public static function inLanguage(Page $page, ?string $language, ?string $primary): bool
+    {
+        if ($language === null || $page->language === $language) {
+            return true;
+        }
+        if ($page->language !== null) {
+            return false;
+        }
+
+        return $language === $primary || str_starts_with('/'.ltrim((string) $page->path, '/'), '/'.$language.'/');
+    }
+
     /** @return list<string> languages of the site's pages */
     public static function languages(DigitalAsset $site): array
     {

@@ -4,7 +4,9 @@ namespace Tests\Feature\Gbp;
 
 use App\Ai\Agents\GbpPostQueueAgent;
 use App\Enums\CustomerStatus;
+use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Livewire\Operator\Gbp\PostPlanPage;
+use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -18,6 +20,7 @@ use App\Models\GbpQueuedPost;
 use App\Models\Page;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\AiTasks\AiTaskQueue;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\GbpPostQueue;
 use App\Support\Roles;
@@ -25,6 +28,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -167,6 +171,39 @@ final class GbpPostQueueTest extends TestCase
         $sibling = $this->profile('Panorama Keçiören', 'accounts/11/locations/33');
         $slots = app(GbpPostQueue::class)->slots($sibling, app(GbpPostQueue::class)->emptyDays($sibling));
         $this->assertSame('kimler', collect($slots)->firstWhere('page.id', $this->pages['implant']->id)['angle']);
+    }
+
+    public function test_a_pack_waiting_for_claude_is_asked_once_although_sibling_profiles_fill_their_days_meanwhile(): void
+    {
+        config(['moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        $run = fn () => (new FillGbpPostQueueJob($this->location->id))->handle(app(GbpPostQueue::class), app(AiTaskQueue::class));
+        $run();
+        $task = AiTask::query()->where('operation', 'gbp.post_queue')->sole();
+        $sibling = $this->profile('Panorama Keçiören', 'accounts/11/locations/33');
+        GbpQueuedPost::query()->create(['digital_asset_id' => $sibling->id, 'brand_id' => $this->brand->id, 'page_id' => $this->pages['zirkonyum']->id, 'angle' => 'tanim',
+            'publish_on' => '2026-10-08', 'summary' => self::text('zirkonyum'), 'url' => (string) $this->pages['zirkonyum']->url, 'action_type' => 'BOOK', 'status' => GbpQueuedPost::DRAFT]);
+
+        $run();
+
+        $this->assertSame([$task->id], AiTask::query()->where('operation', 'gbp.post_queue')->where('status', AiTask::PENDING)->pluck('id')->all(), 'no new task for the same days');
+        $slots = json_decode(substr((string) $task->input, strpos((string) $task->input, '{')), true)['slots'];
+        $this->assertContains([(string) $this->pages['zirkonyum']->url, 'tanim'], array_map(fn (array $s): array => [$s['page']['url'], $s['angle']], $slots));
+        $task->forceFill(['status' => AiTask::DONE, 'completed_at' => now(), 'output' => ['posts' => array_map(fn (array $s): array => ['slot' => $s['slot'],
+            'text' => self::text($s['page']['title'].' '.$s['angle'].' '.$s['slot']), 'action_type' => 'BOOK'], $slots)]])->save();
+        $run();
+        $this->assertNull(Cache::get(GbpPostQueue::planKey($this->location)));
+        $taken = GbpQueuedPost::query()->where('digital_asset_id', $this->location->id)->get(['page_id', 'angle'])->map(fn ($r): string => $r->page_id.':'.$r->angle)->all();
+        $this->assertNotContains($this->pages['zirkonyum']->id.':tanim', $taken, 'a page and angle the sibling took meanwhile is left out');
+
+        // A pack rebuilt (a new day, a filled day) drops the questions it replaces.
+        Cache::put(GbpPostQueue::planKey($this->location), ['date' => '2026-10-01', 'slots' => [], 'context' => []]);
+        GbpQueuedPost::query()->where('digital_asset_id', $this->location->id)->delete();
+        $run();
+        $first = AiTask::query()->where('operation', 'gbp.post_queue')->where('status', AiTask::PENDING)->sole();
+        Cache::forget(GbpPostQueue::planKey($this->location));
+        $run();
+        $this->assertSame(AiTask::CONSUMED, $first->fresh()->status);
+        $this->assertSame(1, AiTask::query()->where('operation', 'gbp.post_queue')->where('status', AiTask::PENDING)->count());
     }
 
     public function test_bulk_approval_publishes_each_post_on_its_day_after_a_last_check(): void

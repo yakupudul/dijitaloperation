@@ -122,6 +122,8 @@ final class ClusterPageMapper
     {
         $pages = Page::query()->where('website_asset_id', $site->id)->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
             ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'category', 'language']);
+        $primary = SiteScope::primaryLanguage($site);
+        $pages = $pages->filter(fn (Page $p): bool => SiteScope::inLanguage($p, $language, $primary))->values();
         $byKey = $pages->keyBy(fn (Page $p): string => SeoText::urlKey((string) $p->url));
         $pagesByOffering = OfferingPage::query()->whereNotNull('brand_offering_id')->whereIn('page_id', $pages->pluck('id'))->orderBy('id')->get()
             ->groupBy('brand_offering_id')->map(fn (Collection $links): array => $links->pluck('page_id')->map(fn ($id): int => (int) $id)->all());
