@@ -23,6 +23,7 @@ use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\SiteAudit;
 use App\Services\Site\SiteOperations;
 use App\Support\OperatorMenu;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
@@ -484,6 +485,26 @@ final class RepairDeskTest extends SiteTestCase
      * @param  array<string, mixed>  $action
      * @param  array<string, mixed>  $extra
      */
+    public function test_one_brand_past_the_row_limit_neither_hides_another_brand_nor_cuts_the_count(): void
+    {
+        $other = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Bornova Hurda']);
+        $row = fn (int $brand, int $i): array => ['brand_id' => $brand, 'channel' => 'search', 'decision_key' => 'repair.test', 'fingerprint' => hash('sha256', $brand.'-'.$i),
+            'material_hash' => hash('sha256', 'x'), 'title' => 'Başlık '.$i, 'reason' => 'Gerekçe.', 'priority' => $brand === $other->id ? 4 : 1, 'action_type' => 'title_description',
+            'status' => Suggestion::OPEN, 'action' => json_encode(['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni '.$i]]]), 'evidence' => '[]',
+            'page_id' => $this->implantPage->id, 'created_at' => now(), 'updated_at' => now()];
+        foreach (array_chunk(range(1, RepairDesk::LIMIT + 3), 500) as $chunk) {
+            DB::table('suggestions')->insert(array_map(fn (int $i): array => $row($this->brand->id, $i), $chunk));
+        }
+        DB::table('suggestions')->insert([$row($other->id, 1), $row($other->id, 2)]);
+
+        $desk = app(RepairDesk::class);
+        $rows = $desk->rows();
+        $this->assertSame(2, $rows->where('brand_id', $other->id)->count(), 'the other brand is still on the desk (audit 3)');
+        $summary = RepairDesk::summarize($rows, $desk->overflow($rows));
+        $this->assertSame(RepairDesk::LIMIT + 5, $summary['decide']);
+        $this->assertSame(RepairDesk::LIMIT + 3, $summary['brands'][$this->brand->id]['decide']);
+    }
+
     private function suggestion(string $title, string $type, array $action, array $extra = []): Suggestion
     {
         return Suggestion::query()->create(array_merge([

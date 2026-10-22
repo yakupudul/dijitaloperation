@@ -107,11 +107,19 @@ final class RepairDesk
     public const int TRACK_DAYS = 14;
 
     /**
-     * Rows read per kind (the list is a work queue, not an archive). Website rows are read only when prepared, so the
-     * limit is never spent on suggestions still waiting for "AI ile yap" (a 1500 cap cut Decco's 1483 rows to 874 in the
-     * all-brands list while its own page showed all of them, yakup 2026-10-20).
+     * Rows read per kind and brand (the list is a work queue, not an archive). Website rows are read only when prepared,
+     * so the limit is never spent on suggestions still waiting for "AI ile yap" (a 1500 cap cut Decco's 1483 rows to 874
+     * in the all-brands list while its own page showed all of them, yakup 2026-10-20). Per brand, so one brand's rows
+     * never push another brand off the desk (one 5,000 cap left Bornova out, audit 3); rows past it are counted in the
+     * database (overflow()) and added to the counts.
      */
     public const int LIMIT = 5000;
+
+    /** @var array<int, array<int, int>> brand id => candidate query index => rows past LIMIT */
+    private array $overflow = [];
+
+    /** @var array<int, int> suggestion id => candidate query index (for overflow()) */
+    private array $queryOf = [];
 
     /** Cache key of summary(): the one waiting-work count of the menu, Bugün, Onarım masası and the brand pages. */
     public const string SUMMARY_KEY = 'repair-desk.summary';
@@ -171,7 +179,8 @@ final class RepairDesk
                 if (Cache::add(self::SUMMARY_KEY.'.lock', 1, 120)) {
                     defer(static function (): void {
                         try {
-                            self::rememberSummary(app(self::class)->rows());
+                            $desk = app(self::class);
+                            self::rememberSummary($rows = $desk->rows(), $desk->overflow($rows));
                         } finally {
                             Cache::forget(self::SUMMARY_KEY.'.lock');
                         }
@@ -182,20 +191,31 @@ final class RepairDesk
             }
         }
 
-        return self::rememberSummary($this->rows());
+        $rows = $this->rows();
+
+        return self::rememberSummary($rows, $this->overflow($rows));
     }
 
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
+     * @param  array<int, array<string, int>>  $overflow  overflow(): rows past the per-brand limit, counted too
      * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
      */
-    public static function summarize(Collection $rows): array
+    public static function summarize(Collection $rows, array $overflow = []): array
     {
         $lanes = array_merge(array_fill_keys(array_keys(self::LANES), 0), $rows->countBy(fn (array $row): string => self::lane($row))->all());
         $brands = $rows->groupBy('brand_id')->map(fn (Collection $group): array => [
             'decide' => $group->reject(fn (array $row): bool => self::lane($row) === self::LANE_MANUAL)->count(),
             'manual' => $group->filter(fn (array $row): bool => self::lane($row) === self::LANE_MANUAL)->count(),
         ])->all();
+        foreach ($overflow as $brand => $byLane) {
+            foreach ($byLane as $lane => $n) {
+                $lanes[$lane] = ($lanes[$lane] ?? 0) + $n;
+                $key = $lane === self::LANE_MANUAL ? 'manual' : 'decide';
+                $brands[$brand] ??= ['decide' => 0, 'manual' => 0];
+                $brands[$brand][$key] += $n;
+            }
+        }
 
         return ['decide' => $lanes[self::LANE_READY] + $lanes[self::LANE_REVIEW], 'manual' => $lanes[self::LANE_MANUAL], 'lanes' => $lanes, 'brands' => $brands];
     }
@@ -204,11 +224,12 @@ final class RepairDesk
      * The desk read every row anyway: its count becomes the menu's and Bugün's, so the desk never disagrees with them.
      *
      * @param  Collection<int, array<string, mixed>>  $rows  rows() of all brands
+     * @param  array<int, array<string, int>>  $overflow  overflow() of the same read
      * @return array{decide: int, manual: int, lanes: array<string, int>, brands: array<int, array{decide: int, manual: int}>}
      */
-    public static function rememberSummary(Collection $rows): array
+    public static function rememberSummary(Collection $rows, array $overflow = []): array
     {
-        $summary = self::summarize($rows);
+        $summary = self::summarize($rows, $overflow);
         Cache::put(self::SUMMARY_KEY, ['at' => now()->getTimestamp(), 'summary' => $summary], now()->addDay());
 
         return $summary;
@@ -851,7 +872,7 @@ final class RepairDesk
             ->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::APPROVED, Suggestion::SNOOZED]);
 
-        return collect([
+        $queries = collect([
             $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('channel', 'search')->whereIn('action_type', SiteSuggestionTypes::APPLICABLE)->where('status', '!=', Suggestion::APPROVED)->whereNotNull('action->proposal'),
             $base()->where('action_type', ImageAlts::TYPE),
             $base()->with('page:id,url,website_asset_id,title,h1,wp_post_id')->where('action_type', BrokenTranslations::TYPE)->where('status', '!=', Suggestion::APPROVED)->whereNotNull('action->proposal'),
@@ -863,8 +884,50 @@ final class RepairDesk
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', GoogleAdsChanges::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', WebHealthAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', BrandDataAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
-        ])->flatMap(fn (Builder $query): Collection => $query->orderBy('priority')->orderBy('id')->limit(self::LIMIT)->get())
-            ->unique('id')->values();
+        ]);
+        $this->overflow = [];
+        $this->queryOf = [];
+
+        return $queries->flatMap(function (Builder $query, int $index): Collection {
+            $counter = (clone $query)->toBase();
+            $query->orderBy('priority')->orderBy('id')->getQuery()->groupLimit(self::LIMIT, 'brand_id');
+            $rows = $query->get();
+            // Only a brand that filled its limit is counted in the database (no extra query on an ordinary day).
+            $full = $rows->countBy('brand_id')->filter(fn (int $n): bool => $n >= self::LIMIT)->keys()->all();
+            if ($full !== []) {
+                $counts = $counter->whereIn('brand_id', $full)->groupBy('brand_id')->selectRaw('brand_id, count(*) as n')->pluck('n', 'brand_id');
+                foreach ($counts as $brand => $n) {
+                    if ((int) $n > self::LIMIT) {
+                        $this->overflow[(int) $brand][$index] = (int) $n - self::LIMIT;
+                    }
+                }
+            }
+            foreach ($rows as $row) {
+                $this->queryOf[(int) $row->id] ??= $index;
+            }
+
+            return $rows;
+        })->unique('id')->values();
+    }
+
+    /**
+     * Rows past the per-brand limit of the last read, by brand and lane (the lane of the same kind's rows that were read).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, int>> brand id => lane => count
+     */
+    public function overflow(Collection $rows): array
+    {
+        $out = [];
+        foreach ($this->overflow as $brand => $byQuery) {
+            foreach ($byQuery as $index => $n) {
+                $lane = $rows->first(fn (array $r): bool => $r['brand_id'] === $brand && ($this->queryOf[$r['id']] ?? null) === $index);
+                $lane = $lane !== null ? self::lane($lane) : self::LANE_REVIEW;
+                $out[$brand][$lane] = ($out[$brand][$lane] ?? 0) + $n;
+            }
+        }
+
+        return $out;
     }
 
     /** @return array<string, mixed>|null */

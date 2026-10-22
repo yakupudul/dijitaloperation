@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Repair;
 
+use App\Models\BrandOffering;
+use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Repair\SiteAudit;
@@ -26,6 +28,10 @@ final class SeoFieldsGainTest extends SiteTestCase
         $seen = $this->wpPage('/blog/goruldu/', 61, 'blog');
         $this->wpPage('/kw/bakir-boru-fiyatlari/', 62, 'diger');
         $service = $this->wpPage('/implant/', 63, 'hizmet');
+        // A "lokasyon" page the brand never mapped (bulk-generated) follows the impression rule (audit 4).
+        $this->wpPage('/kw/bornova-hurda/', 66, 'lokasyon');
+        $offering = BrandOffering::query()->create(['brand_id' => $this->brand->id]);
+        OfferingPage::query()->create(['brand_offering_id' => $offering->id, 'page_id' => $service->id, 'source' => 'rule']);
         $this->fact('bakır boru', '/blog/goruldu/', 30, 1, 7.0, '2026-09-20');
 
         $result = app(SiteAudit::class)->audit($this->site);

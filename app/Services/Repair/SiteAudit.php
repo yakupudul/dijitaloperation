@@ -3,7 +3,9 @@
 namespace App\Services\Repair;
 
 use App\Models\Brand;
+use App\Models\BrandClusterPage;
 use App\Models\DigitalAsset;
+use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoText;
@@ -99,6 +101,9 @@ final class SiteAudit
         $titleCounts = $this->counts($pages, fn (Page $p): string => trim((string) $p->title));
         $descriptionCounts = $this->counts($pages, fn (Page $p): string => $descriptions[(int) $p->id]);
 
+        // A service / location page is key only when the brand maps it to a service or a topic: bulk-generated /kw/ pages
+        // the categorizer also calls "lokasyon" follow the impression rule (Arısoy 3,323 rows on unseen pages, audit 4).
+        $mapped = $this->mappedPages($site);
         $existing = Suggestion::query()->where('brand_id', $site->brand_id)->where('action_type', self::TYPE)
             ->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))->get()->keyBy('page_id');
         $opened = 0;
@@ -111,13 +116,14 @@ final class SiteAudit
                 continue;
             }
             $seenImpressions = $impressions === null ? null : ($impressions[SeoText::urlKey((string) $page->url)] ?? 0);
-            if (! self::worthFixing($seenImpressions, (string) $page->category)) {
+            $category = isset($mapped[(int) $page->id]) ? (string) $page->category : '';
+            if (! self::worthFixing($seenImpressions, $category)) {
                 $noGain[] = (int) $page->id;
 
                 continue;
             }
             $seen[] = (int) $page->id;
-            $priority = self::priority($problems, $seenImpressions, (string) $page->category);
+            $priority = self::priority($problems, $seenImpressions, $category);
             $opened += $this->upsert($site, $page, $description, $problems, $priority, $existing->get($page->id)) ? 1 : 0;
         }
         $waiting = $existing->filter(fn (Suggestion $s): bool => ! in_array((int) $s->page_id, $seen, true)
@@ -137,6 +143,22 @@ final class SiteAudit
                 'operator_note' => 'Sorun sayfada kalmadı (otomatik kapandı).']);
 
         return ['opened' => $opened, 'closed' => $closed];
+    }
+
+    /**
+     * Pages of the site the brand maps to a service (offering pages) or a topic (cluster pages, extra pages included).
+     *
+     * @return array<int, true>
+     */
+    private function mappedPages(DigitalAsset $site): array
+    {
+        $ids = OfferingPage::query()->whereIn('page_id', Page::query()->where('website_asset_id', $site->id)->select('id'))->pluck('page_id')->all();
+        foreach (BrandClusterPage::query()->where('website_asset_id', $site->id)->get(['page_id', 'extra_page_ids']) as $row) {
+            $ids[] = $row->page_id;
+            array_push($ids, ...array_values((array) ($row->extra_page_ids ?? [])));
+        }
+
+        return array_fill_keys(array_map('intval', array_filter($ids)), true);
     }
 
     /**

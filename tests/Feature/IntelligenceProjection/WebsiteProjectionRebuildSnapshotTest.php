@@ -197,9 +197,10 @@ final class WebsiteProjectionRebuildSnapshotTest extends TestCase
      */
     private function seedThirdCollection(): void
     {
-        $this->gsc('gsc_query_daily', '2026-09-15', ['query' => 'tedavi'], 0, 2, 9.0, 3, '2026-09-22 06:00:00');
-        $this->gsc('gsc_query_daily', '2026-09-15', ['query' => 'Diş İmplant'], 1, 4, 2.0, 3, '2026-09-22 06:00:00');
-        $this->gsc('gsc_query_daily', '2026-09-11', ['query' => "\u{00A0}"], 0, 1, 20.0, 0, '2026-09-22 06:00:00');
+        // Query totals are read from query × page (the query table is no longer collected, panel audit N4).
+        $this->gsc('gsc_query_page_daily', '2026-09-15', ['query' => 'tedavi', 'page' => 'https://golden.test/'], 0, 2, 9.0, 3, '2026-09-22 06:00:00');
+        $this->gsc('gsc_query_page_daily', '2026-09-15', ['query' => 'Diş İmplant', 'page' => 'https://golden.test/implant/'], 1, 4, 2.0, 3, '2026-09-22 06:00:00');
+        $this->gsc('gsc_query_page_daily', '2026-09-11', ['query' => "\u{00A0}", 'page' => 'https://golden.test/'], 0, 1, 20.0, 0, '2026-09-22 06:00:00');
         $this->ga4('ga4_landing_page_daily', '2026-09-15', ['landingPagePlusQueryString' => null, 'landingPage' => '/hizmetler/', 'sessions' => 5, 'engagedSessions' => 3, 'keyEvents' => 1.0], 3, '2026-09-22 07:00:00');
     }
 

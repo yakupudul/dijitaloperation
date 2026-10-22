@@ -170,7 +170,7 @@ final class QuerySourceAggregatorTest extends TestCase
         $this->assertStringContainsString('Sorgu kaynakları gsc: 1 satır · 1 hesap · son ay 2026-08', $lines);
         $this->assertStringContainsString('#'.$gsc->id.' Bağsız mülk (search_console): 1 sorgu×ay · son ay 2026-08', $lines);
         $this->assertStringContainsString('Hesaplar search_console bağsız: current=1', $lines);
-        $this->assertStringContainsString('Katalog GA4 (4): ga4_property_metadata, ga4_property_daily, ga4_landing_source_daily, ga4_key_event_daily', $lines);
+        $this->assertStringContainsString('Katalog GA4 (11): ga4_property_metadata, ga4_property_daily, ga4_landing_source_daily, ga4_key_event_daily, ga4_acquisition_channel_daily', $lines);
     }
 
     private function gsc(int $resourceId, string $date, string $query, string $path, int $impressions, int $clicks, float $position, string $searchType = 'web'): void

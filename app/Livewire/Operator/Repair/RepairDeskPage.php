@@ -269,7 +269,7 @@ final class RepairDeskPage extends Component
     public function render(RepairDesk $desk): View
     {
         $all = $desk->rows();
-        $summary = RepairDesk::rememberSummary($all);
+        $summary = RepairDesk::rememberSummary($all, $desk->overflow($all));
         $filtered = $this->filter($all);
         $lanes = $filtered->countBy(fn (array $r): string => RepairDesk::lane($r))->all();
         if (! array_key_exists($this->lane, RepairDesk::LANES) || (! $this->laneChosen && ($lanes[$this->lane] ?? 0) === 0 && $filtered->isNotEmpty())) {

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Repair;
 
+use App\Models\BrandOffering;
 use App\Models\DigitalAsset;
+use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Operator\PortfolioSignalsReader;
@@ -33,6 +35,9 @@ final class SeoFieldSeverityTest extends SiteTestCase
         $blogTitle = $this->wpPage('/blog/yazi/', '', 43, ['category' => 'blog', 'meta_description' => self::DESCRIPTION]);
         $serviceTitle = $this->wpPage('/zirkonyum/', '', 44, ['category' => 'hizmet', 'meta_description' => self::DESCRIPTION.' Zirkonyum']);
         $long = $this->wpPage('/kopru/', 'Diş köprüsü tedavisi Çankaya | Panorama', 45, ['meta_description' => str_repeat('Diş köprüsü tedavisi hakkında bilgi. ', 6)]);
+        // Key only as a page the brand maps to a service.
+        $offering = BrandOffering::query()->create(['brand_id' => $this->brand->id]);
+        OfferingPage::query()->create(['brand_offering_id' => $offering->id, 'page_id' => $serviceTitle->id, 'source' => 'rule']);
 
         app(SiteAudit::class)->audit($this->site);
 
