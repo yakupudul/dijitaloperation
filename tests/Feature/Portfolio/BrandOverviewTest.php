@@ -144,6 +144,12 @@ final class BrandOverviewTest extends TestCase
             $this->insertFacts('ga4_landing_source_daily', ['digital_asset_id' => null, 'external_resource_id' => $ga4->id, 'property_id' => 'properties/1',
                 'reporting_date' => $date, 'landingPage' => '/implant/', 'sessionSource' => 'google', 'sessionMedium' => 'organic', 'sessions' => $sessions,
                 'keyEvents' => $keyEvents, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(20)]);
+            // Conversions come from the key events the dictionary counts: page views marked as key events are left out.
+            foreach (['generate_lead' => $keyEvents, 'page_view' => $sessions * 3] as $event => $value) {
+                $this->insertFacts('ga4_key_event_daily', ['digital_asset_id' => null, 'external_resource_id' => $ga4->id, 'property_id' => 'properties/1',
+                    'reporting_date' => $date, 'eventName' => $event, 'keyEvents' => $value, 'contract_version' => 1, 'first_collected_at' => now(),
+                    'last_collected_at' => now(), 'record_fingerprint' => Str::random(20)]);
+            }
         }
         $this->googleAds(40);
         $gbp = $this->gbp();

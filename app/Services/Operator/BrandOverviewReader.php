@@ -10,6 +10,7 @@ use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\GoogleAds\GoogleAdsScreen;
+use App\Services\Measurement\Ga4Conversions;
 use App\Services\Meta\MetaScreen;
 use App\Services\Outcomes\Readers\MapsOutcomeReader;
 use App\Services\Site\Analysis\SiteAnalysisReader;
@@ -41,7 +42,7 @@ final class BrandOverviewReader
     public const string KPI_TIMEZONE = 'Europe/Istanbul';
 
     /** Changes whenever rawKpis() changes shape, so a value cached by an older release is never read. */
-    private const string CACHE_VERSION = 'v3';
+    private const string CACHE_VERSION = 'v4';
 
     /** Asset types shown on the brand page (infrastructure types are left out). */
     public const array TYPE_LABELS = [
@@ -76,6 +77,7 @@ final class BrandOverviewReader
         private readonly MetaScreen $meta,
         private readonly GbpDailyWorkspace $gbp,
         private readonly MapsOutcomeReader $maps,
+        private readonly Ga4Conversions $conversions,
     ) {}
 
     public static function days(int $days): int
@@ -252,7 +254,7 @@ final class BrandOverviewReader
         if (is_array($raw)) {
             return $raw;
         }
-        $raw = $this->rawKpis($models, $days);
+        $raw = $this->rawKpis($brand, $models, $days);
         $seconds = self::CACHE_MINUTES * 60;
         if ($raw['until'] !== null) {
             $seconds = min($seconds, $raw['until'] - CarbonImmutable::now()->getTimestamp());
@@ -266,7 +268,7 @@ final class BrandOverviewReader
      * @param  Collection<int, DigitalAsset>  $models
      * @return array{web: array<string, mixed>, ads: array<string, mixed>, gbp: array<string, mixed>, until: ?int}
      */
-    private function rawKpis(Collection $models, int $days): array
+    private function rawKpis(Brand $brand, Collection $models, int $days): array
     {
         $web = ['gsc' => false, 'ga4' => false, 'clicks' => [0, 0], 'sessions' => [0, 0], 'key_events' => [0.0, 0.0], 'daily' => ['clicks' => [], 'sessions' => [], 'key_events' => []]];
         foreach ($models->where('type', 'website') as $site) {
@@ -276,7 +278,7 @@ final class BrandOverviewReader
             }
             $web['gsc'] = $web['gsc'] || $window['gsc'] !== [];
             $web['ga4'] = $web['ga4'] || $window['ga4'] !== [];
-            $this->addWindow($web, $window);
+            $this->addWindow($brand, $web, $window);
         }
 
         $ads = ['bound' => false, 'data' => false, 'sources' => [], 'spend' => [], 'conversions' => [0.0, 0.0]];
@@ -329,7 +331,7 @@ final class BrandOverviewReader
      * @param  array<string, mixed>  $web
      * @param  array{start: string, end: string, prev_start: string, prev_end: string, gsc: list<int>, ga4: list<int>}  $window
      */
-    private function addWindow(array &$web, array $window): void
+    private function addWindow(Brand $brand, array &$web, array $window): void
     {
         $period = static fn (string $day): ?int => $day >= $window['start'] && $day <= $window['end'] ? 0 : ($day >= $window['prev_start'] && $day <= $window['prev_end'] ? 1 : null);
         $from = min($window['start'], $window['prev_start']);
@@ -352,17 +354,25 @@ final class BrandOverviewReader
         if ($window['ga4'] !== []) {
             $rows = DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $window['ga4'])
                 ->whereBetween('reporting_date', [$from, $to])->groupBy('reporting_date')
-                ->selectRaw('reporting_date as day, sum(sessions) as sessions, sum("keyEvents") as key_events')->get();
+                ->selectRaw('reporting_date as day, sum(sessions) as sessions')->get();
             foreach ($rows as $row) {
                 $day = substr((string) $row->day, 0, 10);
                 if (($index = $period($day)) === null) {
                     continue;
                 }
                 $web['sessions'][$index] += (int) $row->sessions;
-                $web['key_events'][$index] += (float) $row->key_events;
                 if ($index === 0) {
                     $web['daily']['sessions'][$day] = ($web['daily']['sessions'][$day] ?? 0) + (int) $row->sessions;
-                    $web['daily']['key_events'][$day] = ($web['daily']['key_events'][$day] ?? 0.0) + (float) $row->key_events;
+                }
+            }
+            // Conversions as the brand dictionary counts them: GA4's keyEvents column also adds page views (audit 2).
+            foreach ($this->conversions->daily($brand, $window['ga4'], $from, $to) as $day => $value) {
+                if (($index = $period($day)) === null) {
+                    continue;
+                }
+                $web['key_events'][$index] += $value;
+                if ($index === 0) {
+                    $web['daily']['key_events'][$day] = ($web['daily']['key_events'][$day] ?? 0.0) + $value;
                 }
             }
         }

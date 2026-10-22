@@ -52,6 +52,10 @@
                                 @if (! $row['has_phone'] && $row['actions'] > 0)
                                     <span class="mt-0.5 block text-xs text-warning-700 dark:text-warning-300">Telefon araması dönüşümü yok.</span>
                                 @endif
+                                @if ($row['customer_share'] !== null)
+                                    <span @class(['mt-0.5 block text-xs', 'text-warning-700 dark:text-warning-300' => $row['customer_share'] < 0.8, 'text-gray-500' => $row['customer_share'] >= 0.8])
+                                        title="Marka dönüşüm sözlüğüne göre form, arama, mesaj ve satış olan dönüşümlerin payı. Kazananlar markaları bu payla karşılaştırır.">Gerçek talep payı %{{ number_format($row['customer_share'] * 100, 0, ',', '.') }}</span>
+                                @endif
                             </td>
                             <td @class(['whitespace-nowrap text-[13px] tabular-nums', 'text-error-700 dark:text-error-400' => $row['last_conversion'] !== null && $row['last_conversion'] < $weekAgo])>{{ $date($row['last_conversion']) }}</td>
                             <td>

@@ -5,6 +5,7 @@ namespace App\Services\Site;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Compact\CompactFactStore;
+use App\Services\Measurement\Ga4Conversions;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\SeoTasks\SeoText;
 use Carbon\CarbonImmutable;
@@ -304,7 +305,10 @@ final class SiteMetrics
             ->whereBetween('reporting_date', $range)->whereIn('landingPage', $paths)
             ->selectRaw('sum(sessions) as sessions, sum('.DB::getQueryGrammar()->wrap('keyEvents').') as key_events')->first();
 
-        return ['sessions' => (int) ($row->sessions ?? 0), 'key_events' => round((float) ($row->key_events ?? 0), 1)];
+        // Scaled to the share the brand dictionary counts: GA4's keyEvents column also adds page views (audit 2).
+        $share = app(Ga4Conversions::class)->share($brand, $ids, $range[0], $range[1]) ?? 1.0;
+
+        return ['sessions' => (int) ($row->sessions ?? 0), 'key_events' => round((float) ($row->key_events ?? 0) * $share, 1)];
     }
 
     private function host(DigitalAsset $site): string

@@ -14,6 +14,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Brand\BrandFacts;
 use App\Services\Measurement\BrandConversionDictionary;
+use App\Services\Measurement\Ga4Conversions;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -248,6 +249,35 @@ final class BrandConversionDictionaryTest extends TestCase
         $this->assertSame('Arama 1 (Google Ads)', $field['items'][0]);
         $this->assertSame('+3 sinyal daha (Dönüşümler)', $field['items'][7]);
         $this->assertStringContainsString('İşletme Profili', $field['source']);
+    }
+
+    public function test_ga4_conversions_count_only_the_dictionary_events_not_page_views(): void
+    {
+        $ga4 = app(Ga4Conversions::class);
+        $from = now()->subDays(10)->toDateString();
+        $to = now()->toDateString();
+
+        // Before discovery: every key event except the known attention events.
+        $this->assertSame(9.0, array_sum($ga4->daily($this->brand, [1], $from, $to)));
+
+        app(BrandConversionDictionary::class)->discover($this->brand);
+        $ga4 = app(Ga4Conversions::class);
+        $this->assertSame(9.0, array_sum($ga4->daily($this->brand, [1], $from, $to)), 'generate_lead 5 + telefon_tiklama 4, page_view 900 left out');
+        $this->assertEqualsWithDelta(9 / 909, $ga4->share($this->brand, [1], $from, $to), 0.0001);
+        $this->assertLessThan(Ga4Conversions::RELIABLE_SHARE, $ga4->share($this->brand, [1], $from, $to));
+    }
+
+    public function test_customer_share_leaves_out_ads_actions_that_count_page_visits(): void
+    {
+        $this->adsAction('15', 'Page visit', 'PAGE_VIEW', 'WEBPAGE');
+        $this->adsDaily('15', 9);
+        $dictionary = app(BrandConversionDictionary::class);
+        $this->assertNull($dictionary->customerShare($this->brand, BrandConversionSource::SOURCE_GOOGLE_ADS, now()->subDays(29), now()));
+
+        $dictionary->discover($this->brand);
+
+        // Website lead 6 (not in the brand total because GA4 counts the site, still a customer) + calls 3 of 18.
+        $this->assertSame(0.5, $dictionary->customerShare($this->brand, BrandConversionSource::SOURCE_GOOGLE_ADS, now()->subDays(29), now()));
     }
 
     /** @param  array<string, mixed>  $metadata */

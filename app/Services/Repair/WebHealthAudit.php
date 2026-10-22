@@ -9,6 +9,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Measurement\Ga4Conversions;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\SiteScope;
@@ -951,6 +952,10 @@ final class WebHealthAudit
             ->groupBy('landingPage')->selectRaw($this->wrap('landingPage').' as landing, sum(sessions) as sessions, sum('.$this->wrap('keyEvents').') as key_events')->get();
         if ((float) $rows->sum('key_events') < 3) {
             // No counted conversions at all: the tracking alert (conversions_not_defined) already covers it.
+            return [];
+        }
+        // Mostly page views / scrolls marked as key events (audit 2): every page "converts", the split says nothing.
+        if ((app(Ga4Conversions::class)->share($brand, $ids, $from, (string) $last) ?? 1.0) < Ga4Conversions::RELIABLE_SHARE) {
             return [];
         }
         $pages = $this->pages($site)->filter(fn (Page $p): bool => in_array($p->category, ['hizmet', 'lokasyon'], true) && (bool) $p->is_indexable)

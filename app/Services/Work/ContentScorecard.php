@@ -5,6 +5,7 @@ namespace App\Services\Work;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
+use App\Services\Measurement\Ga4Conversions;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterLinks;
 use App\Services\Site\SiteScope;
@@ -111,20 +112,24 @@ final class ContentScorecard
     private function conversions(Brand $brand, array $urls, int $days): array
     {
         $resources = SiteScope::resourceIds($brand, 'ga4');
-        // Key events per landing page from landing page × source (collected); the event × landing table is not
-        // collected since 2026-09-29 and always read 0 (panel audit N4).
+        // Key events per landing page from landing page × source (collected; the event × landing table is not, panel
+        // audit N4), scaled to the share the brand dictionary counts: the column also adds page views (audit 2).
         if ($urls === [] || $resources === [] || ! SchemaState::hasTable('ga4_landing_source_daily')) {
             return [];
         }
         try {
             $from = now()->subDays($days)->toDateString();
+            $share = app(Ga4Conversions::class)->share($brand, $resources, $from, now()->toDateString()) ?? 1.0;
+            if ($share < Ga4Conversions::RELIABLE_SHARE) {
+                return [];
+            }
             $paths = collect($urls)->map(fn (string $u): string => SeoText::urlPath($u))->flatMap(fn (string $p): array => [$p, rtrim($p, '/'), rtrim($p, '/').'/'])->unique()->values()->all();
 
             return DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $resources)->where('reporting_date', '>=', $from)
                 ->whereIn('landingPage', $paths)->groupBy('landingPage')->selectRaw('"landingPage" as landing, sum("keyEvents") as events')->get()
-                ->reduce(function (array $carry, object $r): array {
+                ->reduce(function (array $carry, object $r) use ($share): array {
                     $path = rtrim(SeoText::urlPath((string) $r->landing), '/');
-                    $carry[$path] = ($carry[$path] ?? 0) + (int) $r->events;
+                    $carry[$path] = ($carry[$path] ?? 0) + (int) round((float) $r->events * $share);
 
                     return $carry;
                 }, []);

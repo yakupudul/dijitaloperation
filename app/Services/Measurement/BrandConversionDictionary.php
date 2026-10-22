@@ -31,7 +31,7 @@ final class BrandConversionDictionary
     ];
 
     /** GA4 events that are engagement, not conversions, even when marked as key events. */
-    private const array GA4_ENGAGEMENT = ['page_view', 'scroll', 'session_start', 'first_visit', 'user_engagement', 'click', 'view_search_results', 'video_start', 'video_progress', 'file_download', 'form_start', 'video_complete', 'view_item', 'view_item_list'];
+    public const array GA4_ENGAGEMENT = ['page_view', 'scroll', 'session_start', 'first_visit', 'user_engagement', 'click', 'view_search_results', 'video_start', 'video_progress', 'file_download', 'form_start', 'video_complete', 'view_item', 'view_item_list'];
 
     /** Metadata key: the type the operator picked; discovery keeps it, the row stays automatic otherwise. */
     public const string TYPE_BY_OPERATOR = 'type_by_operator';
@@ -234,6 +234,29 @@ final class BrandConversionDictionary
         arsort($result['by_type']);
 
         return $result;
+    }
+
+    /**
+     * Share of one source's reported conversions that are customers (form, call, message, sale), leaving out attention
+     * signals such as page views or "website visits" an account counts as a conversion. Double counting between
+     * sources does not matter here, so a signal the brand total skips for that reason still counts. Kazananlar compares
+     * brands on it (audit W1): accounts that count page visits no longer win on volume. Null without dictionary rows.
+     */
+    public function customerShare(Brand $brand, string $source, CarbonInterface $from, CarbonInterface $to): ?float
+    {
+        $rows = BrandConversionSource::query()->where('brand_id', $brand->id)->where('source', $source)->get();
+        if ($rows->isEmpty()) {
+            return null;
+        }
+        $values = $this->values(BrandMeasurementScope::for($brand), [$source => $rows->pluck('source_key')->all()], $from->toDateString(), $to->toDateString())[$source] ?? [];
+        $all = array_sum($values);
+        if ($all <= 0) {
+            return null;
+        }
+        $customers = $rows->filter(fn (BrandConversionSource $row): bool => ! $this->isEngagementRow($row) || (bool) (((array) ($row->metadata ?? []))[self::ENGAGEMENT_KEPT] ?? false))
+            ->sum(fn (BrandConversionSource $row): float => (float) ($values[$row->source_key] ?? 0));
+
+        return round(min(1.0, $customers / $all), 4);
     }
 
     /**

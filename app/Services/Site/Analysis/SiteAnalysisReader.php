@@ -2,11 +2,13 @@
 
 namespace App\Services\Site\Analysis;
 
+use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandServiceArea;
 use App\Models\ClusterQuery;
 use App\Models\DigitalAsset;
 use App\Services\Brand\BrandScope;
+use App\Services\Measurement\Ga4Conversions;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\Site\Competitors\CompetitorTargets;
 use App\Services\Site\SiteMetrics;
@@ -65,12 +67,13 @@ final class SiteAnalysisReader
             return null;
         }
 
-        return $this->cached($site, 'organic', $w, function () use ($w): ?array {
+        return $this->cached($site, 'organic', $w, function () use ($site, $w): ?array {
             $out = [];
             foreach (['current' => [$w['start'], $w['end']], 'previous' => [$w['prev_start'], $w['prev_end']]] as $key => [$from, $to]) {
                 $row = DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $w['ga4'])->whereBetween('reporting_date', [$from, $to])
                     ->whereRaw('lower("sessionMedium") = ?', ['organic'])->selectRaw('count(*) as n, sum(sessions) as sessions, sum("keyEvents") as key_events')->first();
-                $out[$key] = ['rows' => (int) ($row->n ?? 0), 'sessions' => (int) ($row->sessions ?? 0), 'key_events' => round((float) ($row->key_events ?? 0), 1)];
+                $events = (float) ($row->key_events ?? 0) * $this->share($site, $w['ga4'], $from, $to);
+                $out[$key] = ['rows' => (int) ($row->n ?? 0), 'sessions' => (int) ($row->sessions ?? 0), 'key_events' => round($events, 1)];
             }
             if ($out['current']['rows'] === 0 && $out['previous']['rows'] === 0) {
                 return null;
@@ -102,7 +105,7 @@ final class SiteAnalysisReader
     {
         $w = $this->window($site, $days);
 
-        return $this->cached($site, 'totals', $w, fn (): array => $this->readTotals($w));
+        return $this->cached($site, 'totals', $w, fn (): array => $this->readTotals($site, $w));
     }
 
     /**
@@ -114,14 +117,14 @@ final class SiteAnalysisReader
      */
     public function freshTotals(DigitalAsset $site, int $days): array
     {
-        return $this->readTotals($this->window($site, $days));
+        return $this->readTotals($site, $this->window($site, $days));
     }
 
     /**
      * @param  array{end: string, start: string, prev_start: string, prev_end: string, gsc: list<int>, ga4: list<int>}  $w
      * @return array{current: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}, previous: array{clicks: int, impressions: int, position: ?float, sessions: int, key_events: float}}
      */
-    private function readTotals(array $w): array
+    private function readTotals(DigitalAsset $site, array $w): array
     {
         $out = [];
         foreach (['current' => [$w['start'], $w['end']], 'previous' => [$w['prev_start'], $w['prev_end']]] as $key => [$from, $to]) {
@@ -130,7 +133,7 @@ final class SiteAnalysisReader
                 ->whereBetween('reporting_date', [$from, $to])->selectRaw('sum(sessions) as sessions, sum("keyEvents") as key_events')->first();
             $out[$key] = [
                 'clicks' => (int) ($gsc->clicks ?? 0), 'impressions' => (int) ($gsc->impressions ?? 0), 'position' => self::position($gsc),
-                'sessions' => (int) ($ga4->sessions ?? 0), 'key_events' => round((float) ($ga4->key_events ?? 0), 1),
+                'sessions' => (int) ($ga4->sessions ?? 0), 'key_events' => round((float) ($ga4->key_events ?? 0) * $this->share($site, $w['ga4'], $from, $to), 1),
             ];
         }
 
@@ -158,12 +161,12 @@ final class SiteAnalysisReader
     {
         $w = $this->window($site, $days);
 
-        return $this->cached($site, 'pages', $w, function () use ($w): array {
+        return $this->cached($site, 'pages', $w, function () use ($site, $w): array {
             $previous = [];
             foreach ($this->byPage($w['gsc'], $w['prev_start'], $w['prev_end']) as $url => $m) {
                 $previous[self::path((string) $url)] = ($previous[self::path((string) $url)] ?? 0) + $m['clicks'];
             }
-            $landing = $this->landing($w['ga4'], $w['start'], $w['end']);
+            $landing = $this->landing($w['ga4'], $w['start'], $w['end'], $this->share($site, $w['ga4'], $w['start'], $w['end']));
             $rows = [];
             foreach ($this->byPage($w['gsc'], $w['start'], $w['end']) as $url => $m) {
                 $path = self::path((string) $url);
@@ -194,10 +197,11 @@ final class SiteAnalysisReader
     {
         $w = $this->window($site, $days);
 
-        return $this->cached($site, 'conversions', $w, function () use ($w): array {
+        return $this->cached($site, 'conversions', $w, function () use ($site, $w): array {
             if ($w['ga4'] === []) {
                 return [];
             }
+            $share = $this->share($site, $w['ga4'], $w['start'], $w['end']);
 
             return DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $w['ga4'])
                 ->whereBetween('reporting_date', [$w['start'], $w['end']])
@@ -206,7 +210,7 @@ final class SiteAnalysisReader
                 ->havingRaw('sum("keyEvents") > 0')
                 ->orderByDesc('key_events')->orderByDesc('sessions')->limit(self::MAX_ROWS)->get()
                 ->map(fn (object $r): array => ['landing' => (string) $r->landing, 'source' => (string) $r->source, 'medium' => (string) $r->medium,
-                    'sessions' => (int) $r->sessions, 'key_events' => round((float) $r->key_events, 1)])->all();
+                    'sessions' => (int) $r->sessions, 'key_events' => round((float) $r->key_events * $share, 1)])->all();
         });
     }
 
@@ -241,7 +245,7 @@ final class SiteAnalysisReader
             $current = $this->byRawQueries($w['gsc'], array_keys($rawCluster), $w['start'], $w['end']);
             $previous = $this->byRawQueries($w['gsc'], array_keys($rawCluster), $w['prev_start'], $w['prev_end']);
             $areas = $this->areaTerms((int) $brand->id);
-            $landing = $this->landing($w['ga4'], $w['start'], $w['end']);
+            $landing = $this->landing($w['ga4'], $w['start'], $w['end'], $this->share($site, $w['ga4'], $w['start'], $w['end']));
             $mapped = BrandClusterPage::query()->with('page:id,url')->where('brand_id', $brand->id)->where('website_asset_id', $site->id)
                 ->whereNotNull('page_id')->orderBy('id')->get()->groupBy('cluster_id');
 
@@ -494,7 +498,7 @@ final class SiteAnalysisReader
      * @param  list<int>  $resources
      * @return array<string, array{sessions: int, key_events: float}>
      */
-    private function landing(array $resources, string $from, string $to): array
+    private function landing(array $resources, string $from, string $to, float $share = 1.0): array
     {
         if ($resources === []) {
             return [];
@@ -503,13 +507,13 @@ final class SiteAnalysisReader
         DB::table('ga4_landing_source_daily')->whereIn('external_resource_id', $resources)->whereBetween('reporting_date', [$from, $to])
             ->groupBy('landingPage')->selectRaw('"landingPage" as landing, sum(sessions) as sessions, sum("keyEvents") as key_events')
             ->orderByDesc('sessions')->limit(self::MAX_ROWS)->get()
-            ->each(function (object $r) use (&$out): void {
+            ->each(function (object $r) use (&$out, $share): void {
                 $landing = (string) $r->landing;
                 if ($landing === '' || $landing === '(not set)') {
                     return;
                 }
                 $path = self::path($landing);
-                $out[$path] = ['sessions' => (int) $r->sessions + ($out[$path]['sessions'] ?? 0), 'key_events' => (float) $r->key_events + ($out[$path]['key_events'] ?? 0.0)];
+                $out[$path] = ['sessions' => (int) $r->sessions + ($out[$path]['sessions'] ?? 0), 'key_events' => (float) $r->key_events * $share + ($out[$path]['key_events'] ?? 0.0)];
             });
 
         return $out;
@@ -524,7 +528,20 @@ final class SiteAnalysisReader
      */
     private function cached(DigitalAsset $site, string $part, array $w, callable $build): mixed
     {
-        return Cache::remember('site:analysis:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addHour(), $build);
+        return Cache::remember('site:analysis:v2:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addHour(), $build);
+    }
+
+    /**
+     * Share of GA4's key events the brand dictionary counts (GA4's keyEvents column also adds page views and scrolls,
+     * audit finding 2); landing-level key events are scaled by it. 1 for a site without a brand or key events.
+     *
+     * @param  list<int>  $ga4
+     */
+    private function share(DigitalAsset $site, array $ga4, string $from, string $to): float
+    {
+        $brand = $site->brand_id ? Brand::query()->find($site->brand_id) : null;
+
+        return $brand === null ? 1.0 : (app(Ga4Conversions::class)->share($brand, $ga4, $from, $to) ?? 1.0);
     }
 
     /** A period length the readers accept: a preset of the date picker, else 28. */

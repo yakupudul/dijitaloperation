@@ -3,6 +3,7 @@
 namespace App\Services\Alerts;
 
 use App\Models\AssetAlert;
+use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
@@ -11,6 +12,7 @@ use App\Services\Assistant\PushNotifier;
 use App\Services\Collection\Activity\ActivityTierService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Integrations\ResourceAutomationService;
+use App\Services\Measurement\Ga4Conversions;
 use App\Services\Measurement\TrackingHealthChecker;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\Observability\AlertSubjects;
@@ -454,9 +456,18 @@ final class AssetAlertScanner
             return [];
         }
         $end = CarbonImmutable::parse((string) $latest);
-        $sum = fn (string $column, CarbonImmutable $from, CarbonImmutable $to): float => (float) $this->seoInputs
-            ->scopeGa4(DB::table('ga4_property_daily'), $asset)
-            ->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])->sum($column);
+        $brand = $asset->brand_id ? Brand::query()->find($asset->brand_id) : null;
+        $sum = function (string $column, CarbonImmutable $from, CarbonImmutable $to) use ($asset, $brand): float {
+            if ($column === 'keyEvents' && $brand !== null && SchemaState::hasTable('ga4_key_event_daily')) {
+                // Only the events the brand dictionary counts: page views marked as key events are not a lost customer (audit 2).
+                $query = $this->seoInputs->scopeGa4(DB::table('ga4_key_event_daily'), $asset)->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()]);
+
+                return (float) app(Ga4Conversions::class)->constrain($query, $brand)->sum('keyEvents');
+            }
+
+            return (float) $this->seoInputs->scopeGa4(DB::table('ga4_property_daily'), $asset)
+                ->whereBetween('reporting_date', [$from->toDateString(), $to->toDateString()])->sum($column);
+        };
         $cfg = (array) config('moxdop-alerts.ga4_drop');
         $alerts = [];
         foreach ([['sessions', 'min_previous_sessions', 'ga4_sessions_drop', 'Site ziyaretleri düştü', 'oturum'], ['keyEvents', 'min_previous_key_events', 'ga4_conversions_drop', 'Site dönüşümleri düştü', 'dönüşüm']] as [$column, $minKey, $kind, $title, $unit]) {

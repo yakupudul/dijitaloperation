@@ -106,7 +106,7 @@ class WinnersTest extends TestCase
         OfferingPage::query()->firstOrCreate(['brand_offering_id' => $this->implant->id, 'page_id' => $page->id], ['source' => 'manual']);
         // SiteAnalysisReader is final: its hourly cache is filled with the numbers the reader would build.
         $w = app(SiteAnalysisReader::class)->window($site, AdServiceStats::DAYS);
-        $key = fn (string $part): string => 'site:analysis:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']]));
+        $key = fn (string $part): string => 'site:analysis:v2:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']]));
         Cache::put($key('clusters'), [
             ['cluster_id' => $cluster, 'clicks' => 80, 'impressions' => 1000, 'position' => 3.0],
             ['cluster_id' => $cluster, 'clicks' => 20, 'impressions' => 1000, 'position' => 5.0],
@@ -237,7 +237,7 @@ class WinnersTest extends TestCase
         $site = DigitalAsset::query()->where('brand_id', $this->brand->id)->where('type', 'website')->firstOrFail();
         $cluster = DB::table('clusters')->insertGetId(['sector_id' => $this->brand->sector_id, 'service_id' => $this->serviceId, 'name' => 'İmplant', 'approved' => true, 'created_at' => now(), 'updated_at' => now()]);
         $w = app(SiteAnalysisReader::class)->window($site, AdServiceStats::DAYS);
-        $key = fn (string $part): string => 'site:analysis:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']]));
+        $key = fn (string $part): string => 'site:analysis:v2:'.$site->id.':'.$part.':'.$w['start'].':'.$w['end'].':'.$w['prev_start'].':'.md5(json_encode([$w['gsc'], $w['ga4']]));
         Cache::put($key('clusters'), [['cluster_id' => $cluster, 'clicks' => 100, 'impressions' => 2000, 'position' => 4.0, 'areas' => [
             ['area' => 'Çankaya şubesi', 'clicks' => 60, 'impressions' => 1000, 'position' => 3.0],
             ['area' => 'Karşıyaka şubesi', 'clicks' => 30, 'impressions' => 600, 'position' => 5.0],

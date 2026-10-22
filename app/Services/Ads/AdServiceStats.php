@@ -3,6 +3,7 @@
 namespace App\Services\Ads;
 
 use App\Models\Brand;
+use App\Models\BrandConversionSource;
 use App\Models\BrandServiceArea;
 use App\Models\Cluster;
 use App\Models\DigitalAsset;
@@ -10,6 +11,7 @@ use App\Models\OfferingPage;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\GbpStandardInput;
 use App\Services\GoogleAds\GoogleAdsScreen;
+use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Meta\MetaCampaignBoard;
 use App\Services\Meta\MetaCampaignServices;
 use App\Services\Meta\MetaScreen;
@@ -155,13 +157,16 @@ class AdServiceStats
             }
         }
         $split = self::citySplit((array) ($totals['regions'] ?? []), MarketCity::brandCities((int) $brand->id));
+        // Only customer conversions race (audit W1): an account that also counts page visits is scaled down to its forms and calls.
+        $end = CarbonImmutable::parse((string) $totals['period_end']);
+        $share = app(BrandConversionDictionary::class)->customerShare($brand, BrandConversionSource::SOURCE_GOOGLE_ADS, $end->subDays(self::DAYS - 1), $end) ?? 1.0;
         $sum = [];
         foreach ($totals['services'] as $serviceId => $row) {
             if (! isset($offerings[$serviceId])) {
                 continue;
             }
             foreach ($split as $city => $w) {
-                $sum[$offerings[$serviceId]['id']]['conversions'][$city] = ['spend' => $row['spend'] * $w['spend'], 'results' => $row['conversions'] * $w['results'], 'top' => $row['campaign'] ?? null];
+                $sum[$offerings[$serviceId]['id']]['conversions'][$city] = ['spend' => $row['spend'] * $w['spend'], 'results' => $row['conversions'] * $share * $w['results'], 'top' => $row['campaign'] ?? null];
             }
         }
 
