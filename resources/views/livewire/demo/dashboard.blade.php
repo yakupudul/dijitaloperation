@@ -157,9 +157,25 @@
         <p class="page-sub mt-1.5! text-[15px]!">{{ __('operator.dashboard_exec.today') }}, {{ $now->isoFormat('D MMMM dddd') }}. {{ $actions === [] ? 'Bugün senden beklenen bir şey yok.' : 'Senden '.count($actions).' şey bekleniyor, en çok getirecek olan en üstte.' }}</p>
     </header>
 
+    @php
+        // A part that could not be read says so instead of showing 0 (panel audit N5); the error is already recorded.
+        $unread = array_keys(array_filter(['Onarım masası' => $approvals['failed'] ?? false, 'Alarmlar' => $alarms['failed'] ?? false,
+            'Hata merkezi' => $systemAlerts['failed'] ?? false, 'Günlük gönderim' => $daily['failed'] ?? false, 'Haftalık sayılar' => $week['failed'] ?? false]));
+    @endphp
+    @if ($unread !== [])
+        <div class="card border-warning-200 bg-warning-50 px-4 py-3 text-[13px] text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200" data-today-unread>
+            <span class="font-medium">Okunamadı: {{ implode(', ', $unread) }}.</span>
+            Bu kutulardaki sayılar şu an bilinmiyor, sıfır değil. Hata kaydedildi; <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="underline">Hata merkezi</a>'nde görünür.
+        </div>
+    @endif
+
     {{-- 1. What waits on the operator: one tinted card each, one button each. --}}
     <section data-today-actions>
-        @if ($actions === [])
+        @if ($actions === [] && $unread !== [])
+            <div class="card">
+                <x-ta.empty-state title="Okunamadı" message="Bekleyen işler şu an okunamadı. Sayfayı biraz sonra yenile." />
+            </div>
+        @elseif ($actions === [])
             <div class="card">
                 <x-ta.empty-state title="Sorun yok" message="Harcaması duran hesap, erişilemeyen site ya da biten bütçe yok. Onarım masası boş." data-today-counter="approvals" />
             </div>

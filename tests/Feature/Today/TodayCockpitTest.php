@@ -18,6 +18,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
 use Tests\Support\InsertsFacts;
@@ -110,6 +111,17 @@ final class TodayCockpitTest extends SiteTestCase
         Cache::flush();
         $this->gscClicks(['2026-10-07' => 100, '2026-10-14' => 30]);
         Livewire::test(Dashboard::class)->assertSee('Tık düşüyor')->assertDontSee('Yolunda');
+    }
+
+    public function test_a_part_that_cannot_be_read_says_so_instead_of_zero(): void
+    {
+        // The error center's own table is gone: Bugün must not say "0 sorun".
+        Schema::drop('operational_alerts');
+
+        Livewire::test(Dashboard::class)
+            ->assertSeeHtml('data-today-unread')
+            ->assertSee('Okunamadı: Hata merkezi.')
+            ->assertSee('Bu kutulardaki sayılar şu an bilinmiyor, sıfır değil.');
     }
 
     public function test_empty_portfolio_renders_quiet_cockpit(): void

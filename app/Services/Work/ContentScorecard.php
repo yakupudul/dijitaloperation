@@ -133,7 +133,9 @@ final class ContentScorecard
 
                     return $carry;
                 }, []);
-        } catch (Throwable) {
+        } catch (Throwable $error) {
+            report($error);
+
             return [];
         }
     }

@@ -59,7 +59,7 @@ class Dashboard extends Component
     /**
      * The daily send (Onarım masası top card): what passed Claude's check and when the last send ran.
      *
-     * @return array{ready: int, content: int, posts: int, repair: int, last_at: ?CarbonImmutable}
+     * @return array{ready: int, content: int, posts: int, repair: int, last_at: ?CarbonImmutable, failed?: bool}
      */
     private function daily(): array
     {
@@ -73,7 +73,7 @@ class Dashboard extends Component
         } catch (Throwable $error) {
             report($error);
 
-            return ['ready' => 0, 'content' => 0, 'posts' => 0, 'repair' => 0, 'last_at' => null];
+            return ['ready' => 0, 'content' => 0, 'posts' => 0, 'repair' => 0, 'last_at' => null, 'failed' => true];
         }
     }
 
@@ -96,7 +96,7 @@ class Dashboard extends Component
     /**
      * Hata merkezi on Bugün: only what needs the operator (ErrorTriage `you` + `code`); self-healing problems stay off.
      *
-     * @return array{critical: int, warning: int, top: ?string}
+     * @return array{critical: int, warning: int, top: ?string, failed?: bool}
      */
     private function systemAlerts(): array
     {
@@ -110,8 +110,11 @@ class Dashboard extends Component
                 'warning' => (int) $code->sum('count'),
                 'top' => $you->first()['title'] ?? $code->first()['title'] ?? null,
             ];
-        } catch (Throwable) {
-            return ['critical' => 0, 'warning' => 0, 'top' => null];
+        } catch (Throwable $error) {
+            // Never "0 sorun" when the error center itself is broken (panel audit N5): Bugün says it could not be read.
+            report($error);
+
+            return ['critical' => 0, 'warning' => 0, 'top' => null, 'failed' => true];
         }
     }
 }

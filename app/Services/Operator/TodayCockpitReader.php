@@ -61,7 +61,7 @@ final class TodayCockpitReader
      * `lanes` counts every fix per lane (manual ones included) and `by_brand` the fixes waiting per brand, for the
      * "Senden beklenenler" rows and the brand table.
      *
-     * @return array{total: int, rows: int, packages: list<array{key: string, brand_id: int, brand: string, kind: string, kind_label: string, lane: string, lane_label: string, count: int, url: string}>, lanes: array<string, int>, by_brand: array<int, int>}
+     * @return array{total: int, rows: int, packages: list<array{key: string, brand_id: int, brand: string, kind: string, kind_label: string, lane: string, lane_label: string, count: int, url: string}>, lanes: array<string, int>, by_brand: array<int, int>, failed?: bool}
      */
     public function approvals(): array
     {
@@ -83,14 +83,14 @@ final class TodayCockpitReader
         } catch (Throwable $error) {
             report($error);
 
-            return ['total' => 0, 'rows' => 0, 'packages' => [], 'lanes' => [], 'by_brand' => []];
+            return ['total' => 0, 'rows' => 0, 'packages' => [], 'lanes' => [], 'by_brand' => [], 'failed' => true];
         }
     }
 
     /**
      * `series` carries the day-by-day numbers of the 14 days (previous and current week) for the sparklines on Bugün.
      *
-     * @return array{from: string, to: string, clicks: array{current: int, previous: int}, conversions: array{current: int, previous: int}, spend: list<array{currency: string, current: float, previous: float}>, series: array{clicks: list<int>, conversions: list<int>}}
+     * @return array{from: string, to: string, clicks: array{current: int, previous: int}, conversions: array{current: int, previous: int}, spend: list<array{currency: string, current: float, previous: float}>, series: array{clicks: list<int>, conversions: list<int>}, failed?: bool}
      */
     public function week(?CarbonImmutable $today = null): array
     {
@@ -134,7 +134,7 @@ final class TodayCockpitReader
         } catch (Throwable $error) {
             report($error);
 
-            return $empty;
+            return $empty + ['failed' => true];
         }
     }
 
@@ -143,7 +143,7 @@ final class TodayCockpitReader
      * `others`; `accounts` and `loss` count those accounts, so the card and the list agree. `by_brand` is each brand's
      * worst alarm (loss first), for the status column of the brand table.
      *
-     * @return array{accounts: int, loss: int, items: list<array{id: int, tone: string, title: string, message: string, brand: string, brand_id: int, logo: ?string, asset: string, url: ?string, since: ?string, others?: list<string>}>, more: int, by_brand: array<int, array{tone: string, title: string}>}
+     * @return array{accounts: int, loss: int, items: list<array{id: int, tone: string, title: string, message: string, brand: string, brand_id: int, logo: ?string, asset: string, url: ?string, since: ?string, others?: list<string>}>, more: int, by_brand: array<int, array{tone: string, title: string}>, failed?: bool}
      */
     public function alarms(): array
     {
@@ -193,7 +193,7 @@ final class TodayCockpitReader
         } catch (Throwable $error) {
             report($error);
 
-            return ['accounts' => 0, 'loss' => 0, 'items' => [], 'more' => 0, 'by_brand' => []];
+            return ['accounts' => 0, 'loss' => 0, 'items' => [], 'more' => 0, 'by_brand' => [], 'failed' => true];
         }
     }
 
