@@ -12,6 +12,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Measurement\Ga4Conversions;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ChangeApplier;
+use App\Services\Site\LlmsTxt;
 use App\Services\Site\SiteScope;
 use Carbon\Carbon;
 use GuzzleHttp\Psr7\Uri;
@@ -51,7 +52,15 @@ final class WebHealthAudit
         'headers' => 'Güvenlik başlıkları',
         'bloat' => 'Gereksiz dizin',
         'conversion' => 'Dönüşüm yolu',
+        'aeo' => 'AI cevap motorları',
     ];
+
+    /** Answer-engine crawlers a robots.txt must not shut out (Aşama 7: AEO). */
+    public const array AI_BOTS = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'PerplexityBot', 'Google-Extended'];
+
+    /** schema.org types that tell an answer engine who the business is. */
+    public const array BUSINESS_TYPES = ['localbusiness', 'organization', 'dentist', 'medicalbusiness', 'medicalclinic', 'medicalorganization', 'physician',
+        'hospital', 'professionalservice', 'homeandconstructionbusiness', 'plumber', 'store', 'recyclingcenter', 'healthandbeautybusiness', 'corporation'];
 
     /** Outbound links checked per site per night (results are kept for a week). */
     public const int EXTERNAL_PER_RUN = 60;
@@ -162,6 +171,7 @@ final class WebHealthAudit
                     'headers' => $this->headers($site),
                     'bloat' => $this->bloat($site, $brand),
                     'conversion' => $this->conversion($site, $brand),
+                    'aeo' => $this->aeo($site),
                 };
             } catch (Throwable $e) {
                 report($e);
@@ -850,6 +860,116 @@ final class WebHealthAudit
             'before' => array_map(fn (string $n, array $w): string => $n.': yok ('.$w[0].')', array_keys($missing), $missing),
             'after' => ['Hosting dosya yöneticisinde sitenin .htaccess dosyasının en üstüne şunu ekle (ya da hostinge ilet):', '<IfModule mod_headers.c>',
                 ...array_column($missing, 1), '</IfModule>', 'Sonra siteyi aç, her şeyin çalıştığını kontrol et.']]];
+    }
+
+    /**
+     * AEO (Aşama 7, 2026-10-22): what AI answer engines (ChatGPT, Claude, Perplexity, Google AI) need to read and quote
+     * the site — robots.txt lets their crawlers in, /llms.txt describes the business (sent by MoxDOP through the
+     * connector, ≥ 1.11.0) and the home page says in schema.org who the business is. Two light reads of the site.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function aeo(DigitalAsset $site): ?array
+    {
+        $origin = $this->origin($site);
+        if (! str_starts_with($origin, 'http')) {
+            return null;
+        }
+        $agent = ['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP AEO check)'];
+        try {
+            $robots = Http::timeout(10)->connectTimeout(5)->withHeaders($agent)->get($origin.'/robots.txt');
+            $llms = Http::timeout(10)->connectTimeout(5)->withHeaders($agent)->get($origin.'/llms.txt');
+        } catch (Throwable) {
+            return null;
+        }
+        if ($robots->status() >= 500 || $llms->status() >= 500) {
+            return null;
+        }
+        $items = [];
+        $blocked = $robots->successful() ? self::blockedAiBots((string) $robots->body()) : [];
+        if ($blocked !== []) {
+            $items[] = ['key' => 'aeo-robots', 'priority' => 2, 'target' => $origin.'/robots.txt', 'title' => 'AI asistanları siteyi okuyamıyor ('.count($blocked).' bot engelli)',
+                'reason' => 'robots.txt bu tarayıcıları engelliyor; ChatGPT, Claude ve Perplexity siteyi okuyamaz, cevaplarında göstermez.',
+                'before' => array_map(fn (string $bot): string => $bot.': Disallow /', $blocked),
+                'after' => ['SEO eklentisi › robots.txt düzenleyicisini aç (Rank Math: Genel ayarlar › robots.txt; Yoast: Araçlar › Dosya düzenleyici).',
+                    'Bu botlar için yazılmış "Disallow: /" satırlarını sil; "User-agent: *" altında "Disallow: /" varsa onu da kaldır.', 'Kaydet; gece denetimi kontrol edip bu işi kapatır.']];
+        }
+        $body = ltrim((string) $llms->body());
+        if (! $llms->successful() || ! str_starts_with($body, '#')) {
+            $version = (string) data_get($site->connections()->where('type', 'wordpress_connector')->where('enabled', true)->first()?->config, 'plugin_version', '0.0.0');
+            $text = version_compare($version, LlmsTxt::MIN_PLUGIN_VERSION, '>=') ? app(LlmsTxt::class)->build($site) : '';
+            $items[] = ['key' => 'aeo-llms', 'priority' => 3, 'target' => $origin.'/llms.txt', 'title' => 'llms.txt yok',
+                'reason' => 'AI asistanlarına işletmeyi, hizmetleri ve bölgeleri anlatan kısa site haritası yok.',
+                'before' => ['/llms.txt: '.($llms->successful() ? 'boş ya da geçersiz' : 'bulunamadı ('.$llms->status().')')],
+                'after' => $text !== '' ? ['MoxDOP markanın doğrulanmış bilgisinden llms.txt hazırladı; onaylanınca site /llms.txt adresinde sunar.']
+                    : ['Sitedeki MoxDOP eklentisini '.LlmsTxt::MIN_PLUGIN_VERSION.' ya da sonrasına güncelle (Web siteleri listesinden); sonra llms.txt tek tıkla gider.'],
+                'changes' => $text !== '' ? [['type' => 'llms_txt', 'object_id' => 0, 'reference' => 'llms-txt', 'value' => $text]] : []];
+        }
+        $types = $this->homeSchemaTypes($site);
+        if ($types !== null && array_intersect($types, self::BUSINESS_TYPES) === []) {
+            $items[] = ['key' => 'aeo-schema', 'priority' => 3, 'target' => $origin.'/', 'title' => 'Ana sayfada işletme bilgisi (schema) yok',
+                'reason' => 'Ana sayfa schema.org ile işletmenin türünü, adresini ve telefonunu söylemiyor; AI asistanları ve Google bilgiyi tahmin etmek zorunda kalıyor.',
+                'before' => [$types === [] ? 'Ana sayfada schema yok' : 'Ana sayfadaki schema türleri: '.implode(', ', $types)],
+                'after' => ['SEO eklentisinde yerel işletme ayarını aç (Rank Math: Başlıklar ve Meta › Yerel SEO; Yoast: Yoast Local SEO).',
+                    'İşletme türünü (ör. Diş Hekimi), adresi, telefonu ve çalışma saatlerini doldur.', 'Kaydet; bir sonraki taramada kontrol edilir.']];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Answer-engine bots a robots.txt shuts out of the whole site: their own group, or the "*" group when they have none.
+     *
+     * @return list<string>
+     */
+    public static function blockedAiBots(string $robots): array
+    {
+        $groups = [];
+        $agents = [];
+        $inRules = false;
+        foreach (preg_split('/\R/', $robots) ?: [] as $line) {
+            $line = trim((string) preg_replace('/#.*$/', '', $line));
+            if (! str_contains($line, ':')) {
+                continue;
+            }
+            [$field, $value] = array_map('trim', explode(':', $line, 2));
+            $field = mb_strtolower($field);
+            if ($field === 'user-agent') {
+                if ($inRules) {
+                    $agents = [];
+                    $inRules = false;
+                }
+                $agents[] = mb_strtolower($value);
+                $groups[mb_strtolower($value)] ??= false;
+
+                continue;
+            }
+            if ($field === 'disallow' || $field === 'allow') {
+                $inRules = true;
+                foreach ($agents as $agent) {
+                    if ($field === 'disallow' && $value === '/') {
+                        $groups[$agent] = true;
+                    } elseif ($field === 'allow' && $value === '/') {
+                        $groups[$agent] = false;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_filter(self::AI_BOTS, fn (string $bot): bool => $groups[mb_strtolower($bot)] ?? ($groups['*'] ?? false)));
+    }
+
+    /** @return list<string>|null lower-case schema.org types on the home page (null: the page was never read for schema) */
+    private function homeSchemaTypes(DigitalAsset $site): ?array
+    {
+        $origin = $this->origin($site);
+        $row = DB::table('website_schema_snapshot')->where('digital_asset_id', $site->id)
+            ->whereIn('url', [$origin, $origin.'/'])->orderByDesc('observed_at')->first(['metadata']);
+        if ($row === null) {
+            return null;
+        }
+
+        return array_values(array_unique(array_map(fn ($t): string => mb_strtolower((string) $t), (array) data_get($this->json($row->metadata), 'types', []))));
     }
 
     /** @return list<array<string, mixed>>|null */

@@ -458,7 +458,7 @@ final class ContentPlanner
             ->pluck('cluster_id')->map(fn ($id): int => (int) $id)->flip()->all();
         $updatedPages = $previous->pluck('page_id')->filter()->map(fn ($id): int => (int) $id)->flip()->all();
         $inMain = fn ($q) => $q->where(fn ($l) => $l->whereNull('language')->orWhere('language', $main));
-        $rows = $only ?? $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path,language'])->where('brand_id', $brand->id)
+        $rows = $only ?? $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName', 'page:id,url,title,path,language,category,word_count'])->where('brand_id', $brand->id)
             ->where('website_asset_id', $site->id)->whereIn('state', ['no_page', 'thin_coverage', 'weak_performance'])->where('excluded', false))
             ->orderBy('id')->limit(self::GAP_CANDIDATES)->get();
         $clusterIds = $rows->pluck('cluster_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
@@ -541,12 +541,16 @@ final class ContentPlanner
             // A main (★) service's thin page comes before everything else: the brand earns from it (audit K2, Avrupadent's
             // ★ All-on-4 and Gülüş tasarımı were thin while blog ideas went first).
             $mainThin = $isUpdate && $row->state === 'thin_coverage' && $serviceId !== null && isset($mainServices[$serviceId]);
+            // Aşama 7: a service or location page under SiteHealthScore::THIN_WORDS words is "ana sayfayı güçlendir" work,
+            // whatever its service: it goes first too.
+            $mainThin = $mainThin || ($isUpdate && SiteHealthScore::isThin($row->page));
             if (! isset($usedKeys[$key])) {
                 $out[] = [
                     'key' => $key, 'source' => $isUpdate ? 'update' : 'cluster', 'kind' => $isUpdate ? 'update' : 'new', 'row' => $row, 'query' => $mainQuery !== '' ? $mainQuery : null,
                     'page' => $isUpdate ? $row->page : null, 'angle_hint' => $isUpdate ? 'update' : null,
                     'tier' => $mainThin ? -1 : $rotation, 'score' => $demand * ($isUpdate ? ($row->state === 'weak_performance' ? 0.7 : 0.85) : 1.0) * ($angleWeights[$isUpdate ? 'update' : 'decision'] ?? 1.0),
                     'evidence' => [$clusterLine, ...($isUpdate ? [['kind' => 'page', 'value' => SeoText::urlPath((string) $row->page->url).' · '.$row->stateLabel()
+                        .(SiteHealthScore::isThin($row->page) ? ' · yalnız '.(int) $row->page->word_count.' kelime, ana sayfa güçlendirilecek' : '')
                         .(filled($row->reason) ? ' · '.mb_substr((string) $row->reason, 0, 120) : ''), 'source' => 'site']] : []), ...$paidLine($serviceId)],
                 ];
             }

@@ -20,6 +20,9 @@
         </section>
     @endforeach
 
+    {{-- Aşama 7: site score in four layers, sector median and leader, one "Hepsini onar" per problem type. --}}
+    <livewire:operator.website.v2.site-health-card :asset-id="$this->assetId" lazy :key="'site-health-'.$this->assetId" />
+
     <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
         <span>{{ \Carbon\CarbonImmutable::parse($trend['start'])->format('d.m.Y') }} – {{ \Carbon\CarbonImmutable::parse($trend['end'])->format('d.m.Y') }}, önceki {{ $periodDays }} günle karşılaştırma</span>
         <select wire:model.live="period" aria-label="Dönem" class="rounded-lg border-gray-300 py-1 text-xs dark:border-gray-700 dark:bg-gray-950 dark:text-white">
