@@ -94,20 +94,14 @@
     @elseif ($tab === 'varliklar')
         @include('livewire.operator.portfolio.partials.brand-assets')
     @else
-        {{-- ============================================================ AYARLAR --}}
-        <div class="{{ $segmentGroup }}" role="group" aria-label="Ayarlar" data-settings-nav>
-            @foreach (\App\Livewire\Operator\Portfolio\BrandShow::SETTINGS as $key => $label)
-                <button type="button" wire:click="setSub('{{ $key }}')" data-sub="{{ $key }}" aria-pressed="{{ $sub === $key ? 'true' : 'false' }}" class="{{ $segment($sub === $key) }}">{{ $label }}</button>
-            @endforeach
-        </div>
-
-        @if ($sub === 'marka')
+        {{-- ============================================================ MARKA AYARLARI (one page, Aşama 6) --}}
+        <div class="space-y-10" data-brand-settings>
             @include('livewire.operator.portfolio.partials.brand-info')
-        @else
-            <section data-brand-files>
+
+            <section id="dosyalar" data-brand-files>
                 <div class="section-head">
                     <h2 class="section-title" title="Sözleşme, teklif, logo, marka kılavuzu gibi bu markaya ait dosyalar.">Dosyalar <span class="section-count">{{ count($brandFiles) }}</span></h2>
-                    <a href="{{ route('operator.files', ['scope' => 'brand', 'brand' => $brandModel->id]) }}" wire:navigate class="btn-primary ml-auto">Dosya yükle</a>
+                    <a href="{{ route('operator.files', ['scope' => 'brand', 'brand' => $brandModel->id]) }}" wire:navigate class="btn ml-auto">Dosya yükle</a>
                 </div>
                 <ul class="card">
                     @forelse ($brandFiles as $file)
@@ -124,6 +118,30 @@
                     @endforelse
                 </ul>
             </section>
-        @endif
+
+            {{-- Markayı durdur: the customer goes passive (service runs per customer); accounts stay bound. --}}
+            <section data-brand-stop>
+                <div class="section-head"><h2 class="section-title">{{ $stop['running'] ? 'Markayı durdur' : 'Marka durduruldu' }}</h2></div>
+                <div class="card flex flex-wrap items-center gap-4 p-5">
+                    <div class="min-w-0 flex-1">
+                        @if ($stop['running'])
+                            <p class="text-sm text-gray-900 dark:text-white">Durdurunca bu markada otomatik iş, veri çekme, AI ve siteye gönderim durur. Hesaplar bağlı kalır; istediğin an yeniden başlatırsın.</p>
+                        @else
+                            <p class="text-sm text-gray-900 dark:text-white">Bu markada otomatik iş, veri çekme, AI ve gönderim durdu. Yeniden başlatınca kaldığı yerden sürer.</p>
+                        @endif
+                        @if ($stop['siblings'] !== [])
+                            <p class="mt-1 text-[13px] text-gray-500" data-brand-stop-siblings>Aynı müşterinin markaları da birlikte {{ $stop['running'] ? 'durur' : 'başlar' }}: {{ implode(', ', $stop['siblings']) }}.</p>
+                        @endif
+                    </div>
+                    @if ($stop['can'])
+                        @if ($stop['running'])
+                            <button type="button" wire:click="toggleService" wire:confirm="{{ $brandModel->name }}{{ $stop['siblings'] !== [] ? ' ve aynı müşterinin '.count($stop['siblings']).' markası' : '' }} durdurulsun mu? Otomatik işler ve veri çekme durur." class="btn" data-brand-stop-button>Markayı durdur</button>
+                        @else
+                            <button type="button" wire:click="toggleService" class="btn-dark" data-brand-start-button>Yeniden başlat</button>
+                        @endif
+                    @endif
+                </div>
+            </section>
+        </div>
     @endif
 </div>

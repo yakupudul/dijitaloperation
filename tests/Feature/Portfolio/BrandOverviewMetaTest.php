@@ -81,7 +81,7 @@ final class BrandOverviewMetaTest extends TestCase
                 'record_fingerprint' => hash('sha256', 'central'.$row->id)] + array_diff_key((array) $row, array_flip(['id', 'digital_asset_id', 'external_resource_id', 'spend', 'record_fingerprint'])));
         }
 
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $kpis = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('kpis'))->keyBy('key');
 
         $this->assertSame(['₺8.400', 0], [$kpis['ad_spend']['value'], $kpis['ad_spend']['delta']]);
         $this->assertSame(['56', -50], [$kpis['ad_conversions']['value'], $kpis['ad_conversions']['delta']]);
@@ -98,7 +98,7 @@ final class BrandOverviewMetaTest extends TestCase
     {
         DB::table('meta_ad_daily')->delete();
 
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $kpis = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('kpis'))->keyBy('key');
 
         $this->assertSame([], app(MetaScreen::class)->kpiTotals(app(MetaScreen::class)->accounts([$this->asset]), 28));
         $this->assertSame(['no_data', null, 'Meta'], [$kpis['ad_spend']['state'], $kpis['ad_spend']['value'], $kpis['ad_spend']['source']]);
@@ -136,7 +136,7 @@ final class BrandOverviewMetaTest extends TestCase
         }
 
         // 4 200 + 658 now, 4 200 + 522 before (12 days collected); 56 + 28 results now, 112 + 12 before.
-        $kpis = collect(Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->viewData('kpis'))->keyBy('key');
+        $kpis = collect(Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->viewData('kpis'))->keyBy('key');
         $this->assertSame(['₺4.858', 3], [$kpis['ad_spend']['value'], $kpis['ad_spend']['delta']]);
         $this->assertSame(['84', -32], [$kpis['ad_conversions']['value'], $kpis['ad_conversions']['delta']]);
     }

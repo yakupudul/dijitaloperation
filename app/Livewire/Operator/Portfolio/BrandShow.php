@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Operator\Portfolio;
 
+use App\Enums\CustomerStatus;
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Operator\Workspace\BrandDossierTab;
 use App\Livewire\Operator\Workspace\BrandScorecardTab;
 use App\Models\Brand;
@@ -65,7 +67,7 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** The tab row. */
-    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Epikriz', 'ayarlar' => 'Ayarlar'];
+    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Epikriz', 'ayarlar' => 'Marka ayarları'];
 
     /** Ayarlar views. */
     public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];
@@ -154,6 +156,24 @@ class BrandShow extends Component
     public function setSub(string $sub): void
     {
         $this->applyTab('ayarlar', $sub);
+    }
+
+    /**
+     * Marka ayarları › "Markayı durdur" (Aşama 6): service runs per customer, so stopping the brand sets its customer
+     * passive; every automatic flow, data read, AI and send stops (ServiceScope) and the accounts stay bound. Starting
+     * again resumes the paused collection. A customer with more brands stops them together; the page says so first.
+     */
+    public function toggleService(): void
+    {
+        $brand = Brand::query()->with('customer')->findOrFail((int) $this->brand);
+        $customer = $brand->customer;
+        abort_if($customer === null, 404);
+        abort_unless(CustomersIndex::canToggle($customer, auth()->user()), 403);
+        $start = $customer->status !== CustomerStatus::Active;
+        $customer->forceFill(['status' => $start ? CustomerStatus::Active : CustomerStatus::Inactive])->save();
+        DemoState::flash($start
+            ? $brand->name.' yeniden başladı; durmuş veri çekme ve işler birkaç dakika içinde sürer.'
+            : $brand->name.' durduruldu; otomatik iş, veri çekme, AI ve gönderim durdu. Hesaplar bağlı kaldı.');
     }
 
     /** Özet channel filter; the same channel again (or an unknown one) clears it. */
@@ -535,19 +555,24 @@ class BrandShow extends Component
     }
 
     /**
-     * Ayarlar: Marka bilgileri (brand settings, İş bağlamı, scope, conversions) or Dosyalar.
+     * Marka ayarları, one page (Aşama 6): Marka bilgileri (brand settings, İş bağlamı, scope, conversions, experts),
+     * Dosyalar and "Markayı durdur".
      *
      * @param  list<array<string, mixed>>  $services
      * @return array<string, mixed>
      */
     private function settingsData(Brand $brand, array $services): array
     {
-        if ($this->sub === 'dosyalar') {
-            return ['brandFiles' => $this->brandFiles($brand)];
-        }
         $context = $brand->intelligenceContext;
+        $customer = $brand->customer;
 
         return [
+            'brandFiles' => $this->brandFiles($brand),
+            'stop' => [
+                'running' => $customer?->status === CustomerStatus::Active,
+                'can' => $customer !== null && CustomersIndex::canToggle($customer, auth()->user()),
+                'siblings' => $customer === null ? [] : Brand::query()->where('customer_id', $customer->id)->whereKeyNot($brand->id)->orderBy('name')->pluck('name')->all(),
+            ],
             'services' => $services,
             'responsible' => $brand->responsibleUsers->pluck('name')->all(),
             'context' => $this->contextRows($brand, $context instanceof BrandIntelligenceContext ? $context : null),

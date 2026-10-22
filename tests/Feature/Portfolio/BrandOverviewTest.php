@@ -355,6 +355,23 @@ final class BrandOverviewTest extends TestCase
     }
 
     /** @return Collection<string, array<string, mixed>> the period numbers the channel cards show */
+    public function test_marka_ayarlari_is_one_page_and_markayi_durdur_stops_and_starts_the_service(): void
+    {
+        Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Panorama Kızılay']);
+
+        $page = Livewire::withQueryParams(['tab' => 'ayarlar'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-brand-info')->assertSeeHtml('data-brand-files')->assertSeeHtml('data-brand-stop-button')
+            ->assertDontSeeHtml('data-settings-nav')
+            ->assertSee('Aynı müşterinin markaları da birlikte durur: Panorama Kızılay.');
+
+        $page->call('toggleService')->assertSeeHtml('data-brand-start-button')->assertSee('Marka durduruldu');
+        $this->assertSame(CustomerStatus::Inactive, $this->brand->customer->fresh()->status);
+        $this->assertFalse($this->brand->fresh()->isOperational());
+
+        $page->call('toggleService')->assertSeeHtml('data-brand-stop-button');
+        $this->assertSame(CustomerStatus::Active, $this->brand->customer->fresh()->status);
+    }
+
     private function kpis(int $days = 28): Collection
     {
         $reader = app(BrandOverviewReader::class);
