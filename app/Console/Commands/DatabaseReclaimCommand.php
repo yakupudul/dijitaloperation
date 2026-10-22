@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Operations\StorageGuard;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -133,11 +134,7 @@ final class DatabaseReclaimCommand extends Command
 
     private function freeBytes(): float
     {
-        try {
-            $dir = (string) DB::selectOne("select current_setting('data_directory') as d")->d;
-        } catch (Throwable) {
-            $dir = '/';
-        }
+        $dir = StorageGuard::dataDirectory() ?? '/';
 
         return (float) (@disk_free_space(is_dir($dir) ? $dir : '/') ?: @disk_free_space('/') ?: 0);
     }

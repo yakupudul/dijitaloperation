@@ -55,6 +55,20 @@ final class AgencySettingService
         return $this->current = $settings;
     }
 
+    /**
+     * The stored row without creating one (app boot reads the mail settings: a boot must never write — on PostgreSQL
+     * the test run showed every boot committing a row before the test's transaction began). Kept like current().
+     */
+    public function peek(): ?AgencySetting
+    {
+        if ($this->current !== null) {
+            return $this->current;
+        }
+        $row = AgencySetting::query()->orderBy('id')->first();
+
+        return $row instanceof AgencySetting ? $this->current = $row : null;
+    }
+
     /** Drops the kept row: the next current() reads the database again (after a write that bypassed this service). */
     public function forget(): void
     {

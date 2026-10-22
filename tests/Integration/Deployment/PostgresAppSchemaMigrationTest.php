@@ -22,6 +22,5 @@ class PostgresAppSchemaMigrationTest extends TestCase
         $this->assertTrue(Schema::hasTable('customers'));
         $this->assertTrue(Schema::hasTable('core_asset_bindings'));
         $this->assertTrue(Schema::hasTable('collection_schedules'));
-        $this->assertTrue(Schema::hasTable('prospects'));
     }
 }

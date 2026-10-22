@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 trait InsertsFacts
 {
     /** @param  array<string, mixed>  $row */
-    private function insertFact(string $table, array $row): void
+    protected function insertFact(string $table, array $row): void
     {
         $store = app(CompactFactStore::class);
         if (DB::getDriverName() === 'pgsql' && $store->isCompact($table)) {
@@ -28,7 +28,7 @@ trait InsertsFacts
      *
      * @param  array<string, mixed>|list<array<string, mixed>>  $rows
      */
-    private function insertFacts(string $table, array $rows): void
+    protected function insertFacts(string $table, array $rows): void
     {
         foreach (array_is_list($rows) ? $rows : [$rows] as $row) {
             $this->insertFact($table, $row);

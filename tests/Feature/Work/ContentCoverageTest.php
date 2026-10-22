@@ -107,7 +107,7 @@ final class ContentCoverageTest extends SiteTestCase
             'result' => ['post_id' => 31, 'posts' => [['post_id' => 31], ['post_id' => 32]]]]);
         $this->title('Gönderilen', ['article_write_id' => $write->id], Suggestion::APPROVED);
         $live = $this->page('/implant-fiyatlari/', 'İmplant fiyatları', ['category' => 'blog', 'wp_post_id' => 31]);
-        DB::table('gsc_page_daily')->insert(['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => now()->subDays(3)->toDateString(),
+        $this->insertFacts('gsc_page_daily', ['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => now()->subDays(3)->toDateString(),
             'page' => $live->url, 'clicks' => 12, 'impressions' => 300, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => md5('x')]);
 
         $coverage = app(ContentCoverage::class);

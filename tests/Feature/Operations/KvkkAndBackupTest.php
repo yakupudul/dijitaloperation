@@ -39,6 +39,7 @@ final class KvkkAndBackupTest extends TestCase
 
     public function test_sqlite_backup_is_compressed_recorded_pruned_and_shown_on_system_health(): void
     {
+        $this->onlyOnSqlite('backs up and restores a SQLite file');
         $source = $this->dir.'-source.sqlite';
         file_put_contents($source, "SQLite format 3\0".str_repeat('page data ', 200));
         config(['database.connections.sqlite.database' => $source]);
@@ -68,6 +69,7 @@ final class KvkkAndBackupTest extends TestCase
 
     public function test_failed_backup_is_recorded_with_its_error(): void
     {
+        $this->onlyOnSqlite('backs up and restores a SQLite file');
         config(['database.connections.sqlite.database' => ':memory:']);
 
         $result = app(SystemBackup::class)->run();
@@ -79,6 +81,7 @@ final class KvkkAndBackupTest extends TestCase
 
     public function test_incomplete_backup_is_rejected_by_verification(): void
     {
+        $this->onlyOnSqlite('backs up and restores a SQLite file');
         $source = $this->dir.'-broken.sqlite';
         file_put_contents($source, str_repeat('not a database ', 50));
         config(['database.connections.sqlite.database' => $source]);
@@ -119,6 +122,7 @@ final class KvkkAndBackupTest extends TestCase
 
     public function test_sqlite_backup_can_be_restored_after_a_safety_backup(): void
     {
+        $this->onlyOnSqlite('backs up and restores a SQLite file');
         $database = $this->dir.'-live.sqlite';
         File::ensureDirectoryExists($this->dir);
         file_put_contents($database, "SQLite format 3\0".'version-one');

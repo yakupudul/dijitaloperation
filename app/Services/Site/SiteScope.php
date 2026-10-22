@@ -158,7 +158,7 @@ final class SiteScope
             return (string) $home;
         }
         $row = Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')
-            ->groupBy('language')->selectRaw('language, count(*) as n')->orderByDesc('n')->first();
+            ->groupBy('language')->selectRaw('language, count(*) as n, min(id) as first_id')->orderByDesc('n')->orderBy('first_id')->first();
 
         return $row?->language;
     }

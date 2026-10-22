@@ -27,6 +27,47 @@ abstract class TestCase extends BaseTestCase
         Http::preventStrayRequests();
 
         $this->preparePostgresPartitions();
+        $this->resetPostgresIds();
+    }
+
+    /**
+     * PostgreSQL run (audit T2): a rolled-back insert does not give its id back, while tests written on SQLite expect
+     * the first row of a table to be 1. Every id sequence continues right after the rows the test can see.
+     */
+    private function resetPostgresIds(): void
+    {
+        if (getenv('NO_ID_RESET') || ! isset($this->app) || DB::getDriverName() !== 'pgsql' || DB::transactionLevel() === 0) {
+            return;
+        }
+        try {
+            DB::statement(<<<'SQL'
+                DO $$
+                DECLARE r record;
+                BEGIN
+                    FOR r IN SELECT s.relname AS seq, t.relname AS tbl, a.attname AS col
+                        FROM pg_class s JOIN pg_depend d ON d.objid = s.oid AND d.deptype IN ('a', 'i')
+                        JOIN pg_class t ON t.oid = d.refobjid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
+                        JOIN pg_namespace n ON n.oid = s.relnamespace
+                        WHERE s.relkind = 'S' AND n.nspname = current_schema() AND t.relkind IN ('r', 'p')
+                    LOOP
+                        EXECUTE format('SELECT setval(%L, COALESCE((SELECT max(%I) FROM %I), 0) + 1, false)', r.seq, r.col, r.tbl);
+                    END LOOP;
+                END $$;
+                SQL);
+        } catch (Throwable) {
+            // not migrated yet
+        }
+    }
+
+    /**
+     * A test written for SQLite only (file databases, sqlite3 dumps, SQLite pragmas): on the PostgreSQL run (audit T2,
+     * the deploy also tests on the real database type) it is skipped instead of touching the test database.
+     */
+    protected function onlyOnSqlite(string $why = 'SQLite-specific test'): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped($why);
+        }
     }
 
     /**

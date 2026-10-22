@@ -52,7 +52,7 @@ final class EvidenceAnalyticalFingerprintBuilder
         $payload = is_array($evidence->payload) ? $evidence->payload : [];
         $observation = [
             'definition_id' => (string) $evidence->definition_id,
-            'evidence_fingerprint' => (string) $evidence->evidence_fingerprint,
+            'evidence_fingerprint' => rtrim((string) $evidence->evidence_fingerprint),
             'eligibility_status' => (string) ($evidence->eligibility_status ?? ''),
             'observed_at' => optional($evidence->observed_at)?->toIso8601String(),
             'fresh_until' => optional($evidence->fresh_until)?->toIso8601String(),
@@ -61,7 +61,7 @@ final class EvidenceAnalyticalFingerprintBuilder
             'brand_goal_id' => $evidence->brand_goal_id,
             'brand_offering_id' => $evidence->brand_offering_id,
             // Stable observation slice — not full noisy payload dump when fingerprint exists.
-            'metrics_hash' => hash('sha256', json_encode($payload['metrics'] ?? $payload, JSON_THROW_ON_ERROR)),
+            'metrics_hash' => hash('sha256', json_encode(self::canonical($payload['metrics'] ?? $payload), JSON_THROW_ON_ERROR)),
             'period' => $payload['period'] ?? $payload['reporting_period'] ?? null,
             'integrity' => $payload['integrity'] ?? $payload['integrity_status'] ?? null,
             'freshness' => $payload['freshness'] ?? $payload['freshness_state'] ?? null,
@@ -74,10 +74,27 @@ final class EvidenceAnalyticalFingerprintBuilder
         return [
             'definition_id' => (string) $evidence->definition_id,
             'evidence_id' => (int) $evidence->id,
-            'evidence_fingerprint' => (string) $evidence->evidence_fingerprint,
+            'evidence_fingerprint' => rtrim((string) $evidence->evidence_fingerprint),
             'digital_asset_id' => (int) $evidence->digital_asset_id,
-            'analytical_fingerprint' => 'eaf:'.hash('sha256', json_encode($observation, JSON_THROW_ON_ERROR)),
+            'analytical_fingerprint' => 'eaf:'.hash('sha256', json_encode(self::canonical($observation), JSON_THROW_ON_ERROR)),
             'observation' => $observation,
         ];
+    }
+
+    /**
+     * Keys sorted at every level: PostgreSQL's jsonb gives the payload back with its keys reordered, so the same
+     * evidence read again would otherwise get another fingerprint (and a needless re-evaluation).
+     */
+    private static function canonical(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        $value = array_map(self::canonical(...), $value);
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return $value;
     }
 }

@@ -8,6 +8,7 @@ use App\Services\DataPool\PostgresWarehouseWriter;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -84,12 +85,16 @@ final class FactPartitionManagerTest extends TestCase
 
         $this->assertTrue($receipt->isCommitted());
         // Declared NONE, still asked with the batch's min / max date (on PostgreSQL the compact gsc_f_* target).
-        $this->assertSame([['gsc_query_country_daily', false, '2025-06-30', '2026-09-02']], $spy->calls);
-        $this->assertFalse($spy->ensureForWrite('gsc_query_country_daily', false, '2026-01-01', '2026-01-31'), 'no partitioning on SQLite');
+        $target = DB::getDriverName() === 'pgsql' ? 'gsc_f_query_country' : 'gsc_query_country_daily';
+        $this->assertSame([[$target, false, '2025-06-30', '2026-09-02']], $spy->calls);
+        if (DB::getDriverName() === 'sqlite') {
+            $this->assertFalse($spy->ensureForWrite('gsc_query_country_daily', false, '2026-01-01', '2026-01-31'), 'no partitioning on SQLite');
+        }
     }
 
     public function test_ensure_partitions_command_is_a_safe_no_op_off_postgres(): void
     {
+        $this->onlyOnSqlite('checks the command off PostgreSQL');
         $this->artisan('moxdop:db:ensure-partitions', ['--months' => 3])
             ->expectsOutputToContain('Yalnız PostgreSQL için')
             ->assertSuccessful();

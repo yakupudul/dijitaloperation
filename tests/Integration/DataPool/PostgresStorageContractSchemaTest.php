@@ -35,6 +35,9 @@ class PostgresStorageContractSchemaTest extends TestCase
                 'select column_name from information_schema.columns where table_schema = ? and table_name = ?',
                 ['public', $table]
             ))->pluck('column_name')->all();
+            if ($actual === [] && str_starts_with($table, 'dataforseo_')) {
+                continue; // DataForSEO was removed; its empty tables were dropped (2026_12_21_100000)
+            }
 
             foreach ($dataset['columns'] as $column) {
                 $this->assertContains(

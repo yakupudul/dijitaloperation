@@ -327,7 +327,7 @@ class IntelligenceSchedulingTest extends TestCase
 
         $this->assertGreaterThanOrEqual(1, IntelligenceTrigger::query()->count());
         $this->assertGreaterThanOrEqual(1, IntelligenceExecutionPlan::query()->count());
-        $this->assertSame(IntelligenceTriggerSource::EvidenceAnalyticalStateChanged, IntelligenceTrigger::query()->first()->source_kind);
+        $this->assertSame(IntelligenceTriggerSource::EvidenceAnalyticalStateChanged, IntelligenceTrigger::query()->orderBy('id')->first()->source_kind);
     }
 
     #[Test]

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Performance;
 
+use App\Services\DataPool\Compact\CompactFactStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Group;
@@ -31,7 +33,11 @@ class CollectionWriteScaleTest extends TestCase
         $this->assertTrue(Schema::hasTable('gsc_query_daily'));
         $this->assertTrue(Schema::hasTable('google_ads_search_term_daily'));
 
-        $gscIndexes = collect(Schema::getIndexes('gsc_query_daily'))
+        // On PostgreSQL the logical table is a view over its compact fact table, which carries the keys.
+        $store = app(CompactFactStore::class);
+        $gscTable = DB::getDriverName() === 'pgsql' && $store->isCompact('gsc_query_daily')
+            ? (string) ($store->spec('gsc_query_daily')['fact'] ?? 'gsc_query_daily') : 'gsc_query_daily';
+        $gscIndexes = collect(Schema::getIndexes($gscTable))
             ->pluck('name')
             ->all();
         $adsIndexes = collect(Schema::getIndexes('google_ads_search_term_daily'))
@@ -39,7 +45,8 @@ class CollectionWriteScaleTest extends TestCase
             ->all();
 
         $this->assertTrue(
-            collect($gscIndexes)->contains(fn (string $n): bool => str_contains($n, 'nk') || str_contains($n, 'unique')),
+            // compact fact tables keep their natural key as the primary key
+            collect($gscIndexes)->contains(fn (string $n): bool => str_contains($n, 'nk') || str_contains($n, 'unique') || ($gscTable !== 'gsc_query_daily' && str_ends_with($n, 'pkey'))),
         );
         $this->assertTrue(
             collect($adsIndexes)->contains(fn (string $n): bool => str_contains($n, 'nk') || str_contains($n, 'unique')),

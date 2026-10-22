@@ -127,7 +127,10 @@ final class OperatorMailConfigService
             return false;
         }
 
-        $settings = $this->settings()->current();
+        $settings = $this->settings()->peek();
+        if ($settings === null) {
+            return false;
+        }
         $password = $settings->mail_password;
 
         return (bool) $settings->mail_enabled

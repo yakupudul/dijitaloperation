@@ -17,20 +17,30 @@ final class StorageGuard
     public function disk(): array
     {
         return Cache::remember('storage-guard:disk', 60, function (): array {
-            $dir = '/';
-            try {
-                if (DB::getDriverName() === 'pgsql') {
-                    $dir = (string) DB::selectOne("select current_setting('data_directory') as d")->d;
-                }
-            } catch (Throwable) {
-                $dir = '/';
-            }
+            $dir = self::dataDirectory() ?? '/';
             $dir = is_dir($dir) ? $dir : base_path();
             $free = (float) (@disk_free_space($dir) ?: 0);
             $total = (float) (@disk_total_space($dir) ?: 0);
 
             return ['free_bytes' => $free, 'total_bytes' => $total, 'share' => $total > 0 ? $free / $total : 1.0];
         });
+    }
+
+    /**
+     * PostgreSQL's data directory, or null (not PostgreSQL, or the app user may not read the setting). Asked inside its
+     * own savepoint: a refused read must not abort a transaction the caller is in (PostgreSQL then ignores every
+     * later statement of it, which the test run on PostgreSQL showed for system health).
+     */
+    public static function dataDirectory(): ?string
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return null;
+        }
+        try {
+            return (string) DB::transaction(fn () => DB::selectOne("select current_setting('data_directory') as d")->d);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /** Collection writes must wait: free space below the pause share or the pause bytes floor. */
