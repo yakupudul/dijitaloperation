@@ -538,11 +538,14 @@ final class ContentPlanner
                 continue;
             }
             $key = ($isUpdate ? 'p:'.$row->page_id.':' : 'c:').$row->cluster_id;
+            // A main (★) service's thin page comes before everything else: the brand earns from it (audit K2, Avrupadent's
+            // ★ All-on-4 and Gülüş tasarımı were thin while blog ideas went first).
+            $mainThin = $isUpdate && $row->state === 'thin_coverage' && $serviceId !== null && isset($mainServices[$serviceId]);
             if (! isset($usedKeys[$key])) {
                 $out[] = [
                     'key' => $key, 'source' => $isUpdate ? 'update' : 'cluster', 'kind' => $isUpdate ? 'update' : 'new', 'row' => $row, 'query' => $mainQuery !== '' ? $mainQuery : null,
                     'page' => $isUpdate ? $row->page : null, 'angle_hint' => $isUpdate ? 'update' : null,
-                    'tier' => $rotation, 'score' => $demand * ($isUpdate ? ($row->state === 'weak_performance' ? 0.7 : 0.85) : 1.0) * ($angleWeights[$isUpdate ? 'update' : 'decision'] ?? 1.0),
+                    'tier' => $mainThin ? -1 : $rotation, 'score' => $demand * ($isUpdate ? ($row->state === 'weak_performance' ? 0.7 : 0.85) : 1.0) * ($angleWeights[$isUpdate ? 'update' : 'decision'] ?? 1.0),
                     'evidence' => [$clusterLine, ...($isUpdate ? [['kind' => 'page', 'value' => SeoText::urlPath((string) $row->page->url).' · '.$row->stateLabel()
                         .(filled($row->reason) ? ' · '.mb_substr((string) $row->reason, 0, 120) : ''), 'source' => 'site']] : []), ...$paidLine($serviceId)],
                 ];
@@ -598,8 +601,8 @@ final class ContentPlanner
     }
 
     /**
-     * Karışım: about 60% new pages, 25% updates of existing pages and 15% answers to AI-assistant questions, best first in
-     * each; a short share is filled from the best of the rest.
+     * Karışım: thin pages of main (★) services first (up to half), then about 60% new pages, 25% updates of existing
+     * pages and 15% answers to AI-assistant questions, best first in each; a short share is filled from the best of the rest.
      *
      * @param  list<array<string, mixed>>  $candidates  best first
      * @return list<array<string, mixed>>
@@ -613,8 +616,13 @@ final class ContentPlanner
         $quota = ['update' => (int) round($count * 0.25), 'ai' => (int) round($count * 0.15)];
         $quota['new'] = max(0, $count - $quota['update'] - $quota['ai']);
         $chosen = [];
+        // Thin pages of main (★) services (tier -1) go first, up to half of the run, before the shares.
+        foreach (array_slice(array_values(array_filter($candidates, fn (array $c): bool => ($c['tier'] ?? 0) < 0)), 0, (int) ceil($count / 2)) as $c) {
+            $chosen[$c['id']] = $c;
+            $quota['update'] = max(0, $quota['update'] - 1);
+        }
         foreach ($quota as $group => $n) {
-            foreach (array_slice($groups[$group], 0, $n) as $c) {
+            foreach (array_slice(array_values(array_filter($groups[$group], fn (array $c): bool => ! isset($chosen[$c['id']]))), 0, $n) as $c) {
                 $chosen[$c['id']] = $c;
             }
         }
