@@ -89,7 +89,7 @@ final class ConnectionHealth
             foreach ($candidates[(int) $brand->id] ?? [] as $candidate) {
                 $rows[] = $row(['asset_id' => null, 'asset' => (string) $candidate['name'], 'kind' => 'unbound', 'who' => self::OPERATOR,
                     'title' => (string) $candidate['type_label'].' hesabı markaya bağlı değil',
-                    'detail' => sprintf('"%s" bu markanın işletmesine ait görünüyor ama bağlanmamış; verisi markada görünmez.', $candidate['name']),
+                    'detail' => sprintf('"%s" bu markanın işletmesine ait olabilir ama bağlanmamış; verisi markada görünmez. Değilse Hesap ekle listesinde "Bu markanın değil" ya da "Kullanılmıyor" deyin, bir daha sorulmaz.', $candidate['name']),
                     'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'varliklar']).'#hesap-ekle']);
             }
         }

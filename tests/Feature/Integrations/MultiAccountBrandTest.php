@@ -151,6 +151,24 @@ final class MultiAccountBrandTest extends TestCase
         Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->call('addAccount', $foreign->id)->assertForbidden();
     }
 
+    public function test_an_answer_on_a_suggested_account_is_remembered_and_never_asked_again(): void
+    {
+        $this->manager('9990000001', 'Atlas MCC');
+        $this->adsAccount('1110000001', 'Atlas Implant', manager: '9990000001');
+        $sibling = $this->resource('1110000002', 'Atlas Ortodonti', manager: '9990000001');
+        $other = $this->resource('1110000003', 'Atlas Estetik', manager: '9990000001');
+        $this->assertCount(2, app(BrandAccountCandidates::class)->forBrand($this->brand));
+
+        $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->call('setTab', 'assets');
+        $page->call('dismissAccount', $sibling->id);
+        $page->call('dismissAccount', $other->id, true);
+
+        $this->assertSame([], app(BrandAccountCandidates::class)->forBrand($this->brand));
+        $this->assertSame([(int) $this->brand->id], $sibling->fresh()->metadata[BrandAccountCandidates::NOT_BRAND_IDS]);
+        $this->assertNotEmpty($other->fresh()->metadata['not_served_at']);
+        $this->assertFalse(CoreAssetBinding::query()->whereIn('external_resource_id', [$sibling->id, $other->id])->exists(), 'an answer never binds');
+    }
+
     public function test_setup_status_walks_each_channel_to_its_next_step(): void
     {
         DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => 'active', 'domain' => 'atlasdental.test', 'primary_url' => 'https://atlasdental.test/']);

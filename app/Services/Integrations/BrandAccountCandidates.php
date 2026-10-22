@@ -31,6 +31,9 @@ final class BrandAccountCandidates
 
     public const array TYPE_LABELS = ['google_ads' => 'Google Ads', 'meta_ads' => 'Meta Ads', 'google_business_profile' => 'İşletme Profili'];
 
+    /** Resource metadata: brands the operator said the account does not belong to ("Bu markanın değil", audit T6). */
+    public const string NOT_BRAND_IDS = 'not_brand_ids';
+
     /** Score from BrandSetupMatcher::nameScore at which an account name counts as the brand's. */
     private const float NAME_MATCH = 0.6;
 
@@ -146,6 +149,9 @@ final class BrandAccountCandidates
             $rows = [];
             foreach ($unbound as $resource) {
                 $meta = is_array($resource->metadata) ? $resource->metadata : [];
+                if (in_array($brandId, array_map('intval', (array) ($meta[self::NOT_BRAND_IDS] ?? [])), true)) {
+                    continue; // answered once: not this brand's account
+                }
                 $keys = self::containers($resource);
                 $shared = array_values(array_filter($keys, fn (string $key): bool => isset($containerBrands[$key][$brandId])));
                 $name = trim($resource->display_name.' '.($meta['descriptive_name'] ?? '').' '.($meta['business_name'] ?? ''));
@@ -173,6 +179,21 @@ final class BrandAccountCandidates
         }
 
         return $out;
+    }
+
+    /**
+     * The operator's answer on a candidate, remembered on the account (audit T6): "not this brand" hides it for this
+     * brand only, "Kullanılmıyor" (a business the agency does not serve) for every brand.
+     */
+    public static function answer(CoreExternalResource $resource, Brand $brand, bool $notServed): void
+    {
+        $meta = is_array($resource->metadata) ? $resource->metadata : [];
+        if ($notServed) {
+            $meta['not_served_at'] = now()->toIso8601String();
+        } else {
+            $meta[self::NOT_BRAND_IDS] = array_values(array_unique([...array_map('intval', (array) ($meta[self::NOT_BRAND_IDS] ?? [])), (int) $brand->id]));
+        }
+        $resource->forceFill(['metadata' => $meta])->save();
     }
 
     private function bindable(CoreExternalResource $resource): bool

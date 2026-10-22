@@ -18,7 +18,11 @@
                     </p>
                 </div>
                 @if ($isAdmin)
-                    <button type="button" wire:click="addAccount({{ $candidate['resource_id'] }})" wire:loading.attr="disabled" class="btn w-full sm:w-auto">Bağla</button>
+                    <div class="flex w-full gap-2 sm:w-auto">
+                        <button type="button" wire:click="addAccount({{ $candidate['resource_id'] }})" wire:loading.attr="disabled" class="btn flex-1 sm:flex-none">Bağla</button>
+                        <button type="button" wire:click="dismissAccount({{ $candidate['resource_id'] }})" wire:loading.attr="disabled" class="btn-quiet flex-1 sm:flex-none" title="Bu hesap bu markaya ait değil; bu marka için bir daha önerilmez.">Bu markanın değil</button>
+                        <button type="button" wire:click="dismissAccount({{ $candidate['resource_id'] }}, true)" wire:loading.attr="disabled" class="btn-quiet flex-1 sm:flex-none" title="Hizmet vermediğimiz bir işletme; hiçbir markaya önerilmez.">Kullanılmıyor</button>
+                    </div>
                 @endif
             </li>
         @empty

@@ -322,6 +322,21 @@ class BrandShow extends Component
         DemoState::flash($this->bindCandidate($brand, CoreExternalResource::query()->findOrFail($resourceId), $actor), 'info');
     }
 
+    /** "Bu markanın değil" / "Kullanılmıyor" on a candidate: remembered, never suggested again (audit T6). */
+    public function dismissAccount(int $resourceId, bool $notServed = false): void
+    {
+        $this->adminActor();
+        $brand = $this->brandModel();
+        if (! collect(app(BrandAccountCandidates::class)->forBrand($brand))->contains('resource_id', $resourceId)) {
+            return;
+        }
+        $resource = CoreExternalResource::query()->findOrFail($resourceId);
+        BrandAccountCandidates::answer($resource, $brand, $notServed);
+        DemoState::flash($notServed
+            ? '"'.$resource->display_name.'" kullanılmıyor olarak işaretlendi; hiçbir markaya önerilmez.'
+            : '"'.$resource->display_name.'" bu marka için bir daha önerilmez.', 'info');
+    }
+
     /** Bind every suggested (strong) candidate of the brand at once. */
     public function addSuggestedAccounts(): void
     {

@@ -18,7 +18,7 @@ final class ReconcileExternalResourcesService
      * (a closed Google Ads account stays parked for its week instead of being probed again every morning).
      */
     /** Keys MoxDOP itself writes into a resource's metadata; a new discovery keeps them. not_served_at: "Kullanılmıyor", a business the agency does not serve. */
-    private const array APP_METADATA_KEYS = ['not_enabled_at', 'not_served_at'];
+    private const array APP_METADATA_KEYS = ['not_enabled_at', 'not_served_at', BrandAccountCandidates::NOT_BRAND_IDS];
 
     /**
      * @param  list<DiscoveredExternalResource>  $resources
