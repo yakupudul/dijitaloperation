@@ -115,6 +115,7 @@ final class TodayCockpitTest extends SiteTestCase
 
     public function test_a_part_that_cannot_be_read_says_so_instead_of_zero(): void
     {
+        $this->onlyOnSqlite('drops a table mid-test; PostgreSQL aborts the surrounding test transaction');
         // The error center's own table is gone: Bugün must not say "0 sorun".
         Schema::drop('operational_alerts');
 

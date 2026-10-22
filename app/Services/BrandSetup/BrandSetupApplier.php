@@ -23,6 +23,7 @@ use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\Site\SiteOperations;
 use App\Support\Integrations\ResourceBindingPlan;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -466,7 +467,8 @@ final class BrandSetupApplier
     private function attempt(array &$results, string $key, string $label, string $fallback, callable $step): mixed
     {
         try {
-            return $step();
+            // Its own savepoint: on PostgreSQL a refused write would otherwise abort every later step of the same transaction.
+            return DB::transaction(fn () => $step());
         } catch (Throwable $exception) {
             $results[] = $this->failed($key, $label, $this->reason($exception, $fallback));
 

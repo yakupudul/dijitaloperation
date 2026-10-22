@@ -138,6 +138,7 @@ class DataPoolIntegrityReconciliationTest extends TestCase
     #[Test]
     public function natural_key_duplicates_are_detected_without_repair(): void
     {
+        $this->onlyOnSqlite('PostgreSQL fact tables key on their primary key, not a separate unique index');
         if (! Schema::hasTable('meta_campaign_daily')) {
             $this->markTestSkipped('meta_campaign_daily missing');
         }

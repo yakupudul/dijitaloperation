@@ -84,7 +84,7 @@ final class ContentCycleTest extends SiteTestCase
 
     private function pageStat(string $url, int $impressions, float $position, string $date): void
     {
-        DB::table('gsc_page_daily')->insert(['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => $date, 'page' => $url,
+        $this->insertFacts('gsc_page_daily', ['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => $date, 'page' => $url,
             'clicks' => 2, 'impressions' => $impressions, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => Str::random(30),
             'metadata' => json_encode(['provider_average_position' => $position])]);
     }

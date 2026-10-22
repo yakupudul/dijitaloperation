@@ -63,7 +63,7 @@ final class DiagnoseCommandTest extends TestCase
 
         DB::table('resource_automations')->insert([
             'external_resource_id' => $resource->id, 'collection_enabled' => true, 'interval_days' => 1, 'collection_status' => 'attention',
-            'collection_failures' => 4, 'collection_error' => 'HTTP 401 Bearer '.self::TOKEN.' api_key='.self::LONG_SECRET.' call +90 532 123 45 67',
+            'collection_failures' => 4, 'collection_error' => 'Bearer '.self::TOKEN.' api_key='.self::LONG_SECRET.' 0532 123 45 67',
             'last_collection_success_at' => now()->subDays(9), 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('gsc_property_daily')->insert([

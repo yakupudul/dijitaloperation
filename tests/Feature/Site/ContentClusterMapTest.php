@@ -219,7 +219,7 @@ final class ContentClusterMapTest extends SiteTestCase
 
         // A page Google shows is not flagged; a main page that already links is left alone.
         Suggestion::query()->whereKey([$link->id, $weak->id])->delete();
-        DB::table('gsc_page_daily')->insert(['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => now()->subDays(3)->toDateString(),
+        $this->insertFacts('gsc_page_daily', ['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'reporting_date' => now()->subDays(3)->toDateString(),
             'page' => $live->url, 'clicks' => 0, 'impressions' => 40, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => md5('seen')]);
         DB::table('website_link_edge')->insert(['digital_asset_id' => $this->site->id, 'edge_key' => hash('sha256', 'e'), 'source_url' => $main->url, 'target_url' => $live->url,
             'normalized_target_url' => $live->url, 'is_internal' => true, 'observed_at' => now(), 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),

@@ -15,6 +15,9 @@ trait RollsBackMigrationsUntil
      */
     protected function rollbackUntilTablesMissing(string ...$tables): void
     {
+        // PostgreSQL keeps fact tables behind views that the old down() methods drop as tables; rollback runs on SQLite.
+        $this->onlyOnSqlite('migration rollback runs on SQLite');
+
         // One rollback step per migration file, so the guard grows with the migration count.
         $guard = 500;
 

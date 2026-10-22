@@ -35,7 +35,7 @@ class ListTasks extends Tool
             // Work order: writing / repair checks first, then people waiting (WhatsApp, reviews), then bulk; oldest first inside.
             'by_operation' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
                 ->selectRaw('operation, count(*) as waiting, min(created_at) as oldest')->groupBy('operation')->get()
-                ->sortBy(fn ($row): array => [AiTaskPriority::tier((string) $row->operation), (string) $row->oldest])
+                ->sortBy(fn ($row): array => [AiTaskPriority::tier((string) $row->operation), (string) $row->oldest, (string) $row->operation])
                 ->mapWithKeys(fn ($row): array => [(string) $row->operation => (int) $row->waiting])->all(),
             'tasks' => $tasks->map(fn (AiTask $task): array => [
                 'id' => $task->id,

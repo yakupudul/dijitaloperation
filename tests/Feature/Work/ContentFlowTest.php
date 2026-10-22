@@ -143,7 +143,7 @@ final class ContentFlowTest extends SiteTestCase
         $live = $this->sent(502, 'Zirkonyum kaplama ömrü');
         ContentPosts::remember((int) $this->site->id, 501, ['status' => 'future', 'date_gmt' => '2026-10-20T07:00:00+00:00']);
         $this->snapshot('post', '502', 'Zirkonyum kaplama ömrü', 'https://panorama.com.tr/zirkonyum-kaplama-omru/', [], ['published_at' => now()->subDays(40)]);
-        DB::table('gsc_page_daily')->insert([
+        $this->insertFacts('gsc_page_daily', [
             'digital_asset_id' => null, 'external_resource_id' => $this->gsc->id, 'site_url' => 'sc-domain:panorama.com.tr', 'search_type' => 'web',
             'reporting_date' => now()->subDays(5)->toDateString(), 'page' => 'https://panorama.com.tr/zirkonyum-kaplama-omru/', 'clicks' => 12, 'impressions' => 340,
             'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'z'),

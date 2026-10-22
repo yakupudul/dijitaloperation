@@ -22,7 +22,8 @@ final class SystemAudit
         $checks = [];
         foreach (['environment', 'migrations', 'queue', 'health', 'collection', 'disk', 'tables', 'log'] as $section) {
             try {
-                array_push($checks, ...$this->{$section}());
+                // Each section reads inside its own savepoint: a refused read (pg_ls_waldir without pg_monitor) must not abort a caller's transaction.
+                array_push($checks, ...DB::transaction(fn (): array => $this->{$section}()));
             } catch (Throwable $exception) {
                 $checks[] = ['fail', $section, 'Kontrol çalışmadı: '.mb_substr($exception->getMessage(), 0, 300)];
             }
@@ -286,7 +287,7 @@ final class SystemAudit
                     number_format($live, 0, ',', '.'), number_format($dead, 0, ',', '.'), $row->vacuumed ? ' · vacuum '.substr((string) $row->vacuumed, 0, 16) : ' · hiç vacuum yok')];
             }
             try {
-                $wal = DB::selectOne('select coalesce(sum(size), 0) as bytes from pg_ls_waldir()');
+                $wal = DB::transaction(fn () => DB::selectOne('select coalesce(sum(size), 0) as bytes from pg_ls_waldir()'));
                 $out[] = ['info', '  WAL (pg_wal)', sprintf('%.2f GB', (float) $wal->bytes / 1e9)];
             } catch (Throwable) {
                 // Needs pg_monitor; skipped when the app user lacks it.

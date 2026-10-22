@@ -187,6 +187,7 @@ final class GbpCollectionFailureCauseTest extends TestCase
 
     public function test_end_to_end_a_software_error_while_saving_is_reported(): void
     {
+        $this->onlyOnSqlite('drops a fact table mid-test; PostgreSQL aborts the surrounding test transaction');
         Exceptions::fake();
         $this->metricsStatus = 200;
         $this->fakeGoogle();
