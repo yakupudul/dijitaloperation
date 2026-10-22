@@ -11,9 +11,9 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * Ayarlar › MCP anahtarları (Admin): the keys Claude connects to MoxDOP with. A new key is shown once here and goes
- * straight into the claude.ai connector setting (never into a chat); read keys only read, write keys also do queue
- * work. The old server key can be turned off here once a panel key is in use.
+ * Ayarlar › MCP anahtarları (Admin): the keys Claude connects to MoxDOP with. A key made here is shown once and is for
+ * tools that send a header (Claude Code); a claude.ai connector gets its key over the OAuth approval and lists here too
+ * (never into a chat). Read keys only read, write keys also do queue work. The old server key can be turned off here.
  */
 #[Layout('operator.layouts.app')]
 #[Title('MCP anahtarları')]

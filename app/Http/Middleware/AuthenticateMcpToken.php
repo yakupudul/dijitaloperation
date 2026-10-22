@@ -9,15 +9,15 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * MoxDOP MCP sunucusu: only a client sending a valid bearer key gets in (a key made in Ayarlar › MCP anahtarları, or
- * the old MOXDOP_MCP_TOKEN while it is on); no key at all = the server is closed (404). A read key may call only the
- * tools that change nothing; any other tool call gets a JSON-RPC error saying so.
+ * MoxDOP MCP sunucusu: only a client sending a valid bearer key gets in (a key made in Ayarlar › MCP anahtarları or
+ * over the claude.ai OAuth approval, or the old MOXDOP_MCP_TOKEN while it is on). Without a valid key the answer is a
+ * 401 that points to the OAuth metadata (laravel/mcp adds the header from the route names in routes/ai.php), so a claude.ai connector can start the approval even before any key exists.
+ * A read key may call only the tools that change nothing; any other tool call gets a JSON-RPC error saying so.
  */
 final class AuthenticateMcpToken
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless(McpKeys::serverOpen(), 404);
         $scope = McpKeys::scopeOf((string) $request->bearerToken());
         if ($scope === null) {
             return response()->json(['error' => 'unauthorized'], 401);

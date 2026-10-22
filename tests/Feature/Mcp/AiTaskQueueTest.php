@@ -118,7 +118,7 @@ final class AiTaskQueueTest extends SiteTestCase
         $this->postJson('/mcp/moxdop', $message, ['Authorization' => 'Bearer test-mcp-token'])->assertOk()->assertSee('submit_result');
 
         config(['moxdop-mcp.token' => '']);
-        $this->postJson('/mcp/moxdop', $message, ['Authorization' => 'Bearer test-mcp-token'])->assertNotFound();
+        $this->postJson('/mcp/moxdop', $message, ['Authorization' => 'Bearer test-mcp-token'])->assertUnauthorized();
     }
 
     public function test_a_delegated_operation_called_outside_a_job_never_uses_the_provider(): void

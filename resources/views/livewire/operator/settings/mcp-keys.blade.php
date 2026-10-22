@@ -6,11 +6,12 @@
     <header class="min-w-0">
         <h1 class="page-title">MCP anahtarları</h1>
         <p class="page-sub">Claude MoxDOP'a bu anahtarlarla bağlanır; okuma anahtarı yalnız okur, yazma anahtarı kuyruk işlerini de yapar.</p>
+        <p class="mt-1 text-xs text-gray-500" data-oauth-hint>claude.ai bağlayıcısı anahtar istemez: {{ $serverUrl }} adresini ekleyip Bağlan'a bas, açılan MoxDOP ekranında onayla; anahtar burada kendiliğinden görünür.</p>
     </header>
 
     @if ($newKey)
         <section class="card -mt-4 space-y-3 p-4" data-new-key>
-            <p class="text-sm font-medium text-gray-900 dark:text-white">Yeni anahtar yalnız şimdi görünür. Kopyala ve claude.ai'de Ayarlar › Bağlayıcılar › MoxDOP bağlayıcısına yapıştır; sohbete yazma.</p>
+            <p class="text-sm font-medium text-gray-900 dark:text-white">Yeni anahtar yalnız şimdi görünür. Anahtarı başlıkla gönderebilen araçlar (Claude Code gibi) içindir; sohbete yazma.</p>
             <div x-data="{ copied: false }" class="flex flex-wrap items-center gap-2">
                 <code class="min-w-0 flex-1 break-all rounded-lg bg-gray-100 px-3 py-2 text-[13px] dark:bg-white/10" x-ref="key">{{ $newKey }}</code>
                 <button type="button" class="btn w-full sm:w-auto" x-on:click="navigator.clipboard.writeText($refs.key.innerText); copied = true" x-text="copied ? 'Kopyalandı' : 'Kopyala'">Kopyala</button>

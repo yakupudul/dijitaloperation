@@ -10,6 +10,7 @@ use App\Http\Controllers\Integrations\WhatsAppBackupController;
 use App\Http\Controllers\Integrations\WhatsAppExportController;
 use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
+use App\Http\Controllers\Mcp\McpOAuthController;
 use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
@@ -40,6 +41,11 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
 // Brand approval of prepared review replies (link without login; ADR-073 publishing stays with the Admin).
 Route::get('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'show'])->middleware('throttle:60,1')->name('gbp-review-approval');
 Route::post('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'store'])->middleware('throttle:20,1')->name('gbp-review-approval.store');
+// claude.ai connector OAuth: the Admin approves the MCP connection (login first, then back here).
+Route::middleware(['web', 'auth'])->group(function (): void {
+    Route::get('/mcp/oauth/authorize', [McpOAuthController::class, 'showAuthorize'])->name('mcp.oauth.authorize');
+    Route::post('/mcp/oauth/authorize', [McpOAuthController::class, 'approve'])->middleware('throttle:10,1')->name('mcp.oauth.approve');
+});
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 Route::middleware(['web', 'auth'])->prefix('push')->name('push.')->group(function (): void {

@@ -17,7 +17,7 @@ final class McpKeysTest extends SiteTestCase
     public function test_a_panel_key_is_shown_once_stored_as_a_hash_and_opens_the_server(): void
     {
         config(['moxdop-mcp.token' => '']);
-        $this->postJson('/mcp/moxdop', self::LIST)->assertNotFound();
+        $this->postJson('/mcp/moxdop', self::LIST)->assertUnauthorized();
 
         $page = Livewire::test(McpKeysPage::class)->set('name', 'claude.ai')->set('scope', 'write')->call('create');
         $plain = (string) $page->get('newKey');
@@ -32,7 +32,7 @@ final class McpKeysTest extends SiteTestCase
         $this->assertNotNull($token->fresh()->last_used_at);
 
         Livewire::test(McpKeysPage::class)->assertDontSee($plain)->call('revoke', $token->id);
-        $this->postJson('/mcp/moxdop', self::LIST, ['Authorization' => 'Bearer '.$plain])->assertNotFound();
+        $this->postJson('/mcp/moxdop', self::LIST, ['Authorization' => 'Bearer '.$plain])->assertUnauthorized();
     }
 
     public function test_a_read_key_reads_but_cannot_call_a_tool_that_changes_something(): void
