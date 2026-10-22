@@ -167,6 +167,24 @@ final class GoogleAdsSuggestions extends AssetSuggestions
             'operator_note' => self::DONE_BY_HAND_NOTE])->save();
     }
 
+    public const string UNREACHABLE_NOTE = 'Bu Google Ads hesabına erişim yok; erişim gelene kadar öneriler beklemede (gece kontrolü her gün bakar).';
+
+    /**
+     * Audit round 1, finding 5: an account MoxDOP cannot reach (binding lost, or an old account next to the brand's
+     * working one) keeps no open rows on the desk — approving them could only fail with "hesap bağlı değil". They wait
+     * snoozed for a week; the nightly check parks them again while the account stays unreachable, and they come back
+     * when it is reachable again.
+     */
+    public function parkUnreachable(DigitalAsset $asset): int
+    {
+        if ($asset->brand_id === null) {
+            return 0;
+        }
+
+        return $this->query($asset)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])
+            ->update(['status' => Suggestion::SNOOZED, 'snoozed_until' => now()->addDays(7), 'operator_note' => self::UNREACHABLE_NOTE, 'updated_at' => now()]);
+    }
+
     public const string DONE_BY_HAND_NOTE = 'Google Ads\'te elle yapıldı; gece kontrolü sonucu görecek.';
 
     /**

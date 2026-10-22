@@ -7,6 +7,7 @@ use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Ads\SupersededAdAccounts;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\ExternalWrites\GoogleAdsChangeWriter;
@@ -56,10 +57,18 @@ final class GoogleAdsChanges
         $done = ['accounts' => 0, 'prepared' => 0, 'failed' => 0];
         $assets = DigitalAsset::query()->operational()->where('type', 'google_ads')->whereNotNull('brand_id')->orderBy('id')->get();
         foreach ($assets as $asset) {
+            if (SupersededAdAccounts::isSuperseded((int) $asset->id)) {
+                app(GoogleAdsSuggestions::class)->parkUnreachable($asset);
+
+                continue;
+            }
             try {
                 $items = $this->items($asset);
             } catch (Throwable $error) {
                 $done['failed']++;
+                if ($error instanceof RuntimeException && $error->getMessage() === GoogleAdsChangeWriter::NOT_BOUND) {
+                    app(GoogleAdsSuggestions::class)->parkUnreachable($asset);
+                }
                 if (! $error instanceof RuntimeException) {
                     report($error);
                 }

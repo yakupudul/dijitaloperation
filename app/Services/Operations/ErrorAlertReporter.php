@@ -35,7 +35,7 @@ final class ErrorAlertReporter
             if (! self::isReportable($exception)) {
                 return;
             }
-            $where = str_replace(base_path().'/', '', $exception->getFile()).':'.$exception->getLine();
+            $where = self::where($exception);
 
             $this->group($exception, $where);
 
@@ -49,6 +49,27 @@ final class ErrorAlertReporter
         } catch (Throwable) {
             // an alert must never break error handling
         }
+    }
+
+    /**
+     * Where the error happened: the throw site, and when that is inside vendor/ also the app line that called it
+     * (audit N9: "getKey() on array" was grouped under Eloquent's Collection.php only, so nobody could find it).
+     */
+    public static function where(Throwable $exception): string
+    {
+        $base = base_path().'/';
+        $where = str_replace($base, '', $exception->getFile()).':'.$exception->getLine();
+        if (! str_starts_with($where, 'vendor/')) {
+            return $where;
+        }
+        foreach ($exception->getTrace() as $frame) {
+            $file = str_replace($base, '', (string) ($frame['file'] ?? ''));
+            if ($file !== '' && ! str_starts_with($file, 'vendor/') && ! str_starts_with($file, 'storage/framework/')) {
+                return $where.' ← '.$file.':'.($frame['line'] ?? 0);
+            }
+        }
+
+        return $where;
     }
 
     public static function isReportable(Throwable $exception): bool

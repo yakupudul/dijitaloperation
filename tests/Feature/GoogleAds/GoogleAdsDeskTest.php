@@ -193,6 +193,20 @@ final class GoogleAdsDeskTest extends TestCase
     }
 
     /** @return array{0: DigitalAsset, 1: ?CoreExternalResource} */
+    /** Audit round 1, finding 5: an unreachable account keeps no open rows that could only fail on approval. */
+    public function test_the_nightly_check_parks_the_rows_of_an_account_it_cannot_reach(): void
+    {
+        [$unbound] = $this->account('Dentocare', null);
+        $row = $this->suggestion($unbound, 'ads_change', 'Bütçeyi artır', ['change' => 'budget']);
+
+        $done = app(GoogleAdsChanges::class)->auditAll();
+
+        $this->assertSame(1, $done['failed']);
+        $this->assertSame(Suggestion::SNOOZED, $row->fresh()->status);
+        $this->assertSame(GoogleAdsSuggestions::UNREACHABLE_NOTE, $row->fresh()->operator_note);
+        $this->assertTrue($row->fresh()->snoozed_until->isFuture());
+    }
+
     private function account(string $brandName, ?string $customerId): array
     {
         $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id, 'name' => $brandName]);

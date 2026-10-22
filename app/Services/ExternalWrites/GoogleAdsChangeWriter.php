@@ -18,6 +18,8 @@ use RuntimeException;
  */
 final class GoogleAdsChangeWriter
 {
+    public const string NOT_BOUND = 'Google Ads hesabı bağlı değil.';
+
     /** change field => [service, update mask, GAQL resource, GAQL field] */
     public const array FIELDS = [
         'search_partners' => ['campaigns', 'network_settings.target_search_network', 'campaign', 'campaign.network_settings.target_search_network'],
@@ -120,7 +122,7 @@ final class GoogleAdsChangeWriter
     {
         $binding = $this->bindings->resolve((string) $assetId);
         if (! $binding->isReal()) {
-            throw new RuntimeException('Google Ads hesabı bağlı değil.');
+            throw new RuntimeException(self::NOT_BOUND);
         }
         $resource = CoreExternalResource::query()->with('integration')->findOrFail((int) $binding->externalResourceId);
         if (! $resource->integration instanceof CoreIntegration) {

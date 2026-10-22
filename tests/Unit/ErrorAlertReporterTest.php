@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\AgencySetting;
 use App\Services\Operations\ErrorAlertReporter;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -30,5 +31,18 @@ final class ErrorAlertReporterTest extends TestCase
         $rows = DB::table('push_notifications')->get();
         $this->assertCount(1, $rows);
         $this->assertStringContainsString('RuntimeException: boom', (string) $rows[0]->body);
+    }
+
+    public function test_an_error_thrown_inside_vendor_names_the_app_line_that_called_it(): void
+    {
+        try {
+            (new Collection([['not' => 'a model']]))->modelKeys();
+            $this->fail('expected an error');
+        } catch (\Error $error) {
+            $where = ErrorAlertReporter::where($error);
+        }
+
+        $this->assertStringStartsWith('vendor/laravel/framework/src/Illuminate/Database/Eloquent/Collection.php:', $where);
+        $this->assertStringContainsString(' ← tests/Unit/ErrorAlertReporterTest.php:', $where);
     }
 }
