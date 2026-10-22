@@ -49,6 +49,10 @@ final class OperationalAlertExplainer
                 $alert->rule_key === 'provider_error_rate' => $this->errorRate($observed),
                 $alert->rule_key === 'queue_interactive_backlog', $alert->rule_key === QueueWaitMonitor::RULE_KEY => $this->queue($alert, $observed),
                 $alert->rule_key === 'worker_heartbeat_missing' => $this->workers(),
+                $alert->rule_key === SystemRedEvents::AI_QUEUE_RULE => $this->redEvent($alert, 'Yazı takvimi ve Onarım masası bu kontrollere bağlı; kuyruk boşalana kadar gecikirler.',
+                    'Claude kuyruğu öncelik sırasıyla boşaltır (önce yazı ve onarım kontrolleri). Senden bir şey gerekmez; bir gün içinde düzelmezse Claude\'a yaz.', 'operator.ai-jobs', 'AI işlerini aç'),
+                $alert->rule_key === SystemRedEvents::DEPLOY_RULE => $this->redEvent($alert, 'Yeni sürüm canlıya çıkmadı; canlıdaki eski sürüm çalışmaya devam ediyor.',
+                    'Claude hatayı düzeltip yeniden gönderir. Senden bir şey gerekmez.', 'operator.settings.releases', 'Sürümleri aç'),
                 default => null,
             };
         } catch (Throwable $error) {
@@ -376,6 +380,13 @@ final class OperationalAlertExplainer
             'link_url' => $this->route('operator.settings.system-health'),
             'link_label' => 'Sistem sağlığında işçileri aç',
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function redEvent(OperationalAlert $alert, string $why, string $action, string $route, string $label): array
+    {
+        return ['title' => (string) $alert->title, 'what' => trim((string) $alert->summary) ?: (string) $alert->title, 'why' => $why,
+            'action' => $action, 'link_url' => $this->route($route), 'link_label' => $label];
     }
 
     /** @return array<string, mixed> */

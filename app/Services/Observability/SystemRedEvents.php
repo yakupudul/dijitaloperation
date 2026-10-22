@@ -55,7 +55,7 @@ final class SystemRedEvents
             scopeType: 'QUEUE',
             scopeKey: 'ai-queue',
             title: 'AI kuyruğu birikti: en eski iş '.$hours.' saattir bekliyor',
-            summary: sprintf('%d iş %d saatten uzun süredir Claude\'u bekliyor%s. Yazı takvimi ve Onarım masası bu kontrollere bağlı. Claude\'un kuyruk rutininin çalıştığını kontrol et (AI kuyruğu rutinleri).',
+            summary: sprintf('%d iş %d saatten uzun süredir Claude\'u bekliyor%s.',
                 $count, self::AI_QUEUE_HOURS, $urgent > 0 ? ' ('.$urgent.' tanesi yazı / onarım kontrolü)' : ''),
             observed: ['waiting' => $count, 'oldest_hours' => $hours, 'urgent' => $urgent, 'oldest_operation' => $oldest?->operation],
         );
@@ -87,7 +87,7 @@ final class SystemRedEvents
             scopeType: 'DEPLOY',
             scopeKey: 'auto-deploy',
             title: 'Otomatik deploy durdu: '.$status['label'],
-            summary: trim(($status['sha'] !== '' ? $status['sha'].' canlıya alınmadı. ' : '').mb_substr($status['message'], 0, 300).' Ayrıntı: Ayarlar › Sürümler.'),
+            summary: trim(($status['sha'] !== '' ? $status['sha'].' canlıya alınmadı. ' : '').mb_substr($status['message'], 0, 300)),
             observed: ['state' => $status['state'], 'sha' => $status['sha'], 'branch' => $status['branch']],
         );
 
