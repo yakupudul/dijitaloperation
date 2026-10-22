@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Meta;
 
 use App\Jobs\CollectMetaGeoResultsJob;
+use App\Livewire\Concerns\AdminOnly;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Livewire\Operator\Concerns\HasDateRange;
 use App\Models\DigitalAsset;
@@ -31,6 +32,7 @@ use Livewire\Component;
 #[Title('Meta kampanyası')]
 class CampaignPage extends Component
 {
+    use AdminOnly;
     use HasDateRange;
     use ResolvesCanonicalOperatorAsset;
 
@@ -98,6 +100,7 @@ class CampaignPage extends Component
 
     public function removeService(int $offeringId, MetaCampaignServices $services): void
     {
+        $this->adminOnly();
         $services->remove($this->asset(), $this->campaignId, $offeringId, auth()->user());
     }
 

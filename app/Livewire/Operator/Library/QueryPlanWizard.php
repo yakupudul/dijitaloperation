@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Library;
 
 use App\Jobs\Queries\ProcessQueriesJob;
 use App\Jobs\Queries\RescanQueriesJob;
+use App\Livewire\Concerns\AdminOnly;
 use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\FilterTerm;
 use App\Models\ServiceCatalogItem;
@@ -32,6 +33,7 @@ use Livewire\Component;
 #[Title('AI ile planla')]
 final class QueryPlanWizard extends Component
 {
+    use AdminOnly;
     use PreviewsKeywordImpact;
 
     public const array STEP_KEYS = [1 => 'sectors', 2 => 'services', 3 => 'filters'];
@@ -272,6 +274,7 @@ final class QueryPlanWizard extends Component
 
     public function removeService(int $serviceId, ServiceCatalogService $catalog): void
     {
+        $this->adminOnly();
         $catalog->delete(ServiceCatalogItem::query()->findOrFail($serviceId), $this->actor());
     }
 
@@ -289,6 +292,7 @@ final class QueryPlanWizard extends Component
 
     public function removeKeyword(int $id): void
     {
+        $this->adminOnly();
         $this->actor();
         ServiceMatchingKeyword::query()->whereKey($id)->delete();
     }
@@ -325,6 +329,7 @@ final class QueryPlanWizard extends Component
 
     public function deleteTerm(int $id): void
     {
+        $this->adminOnly();
         $this->actor();
         FilterTerm::query()->whereKey($id)->delete();
     }

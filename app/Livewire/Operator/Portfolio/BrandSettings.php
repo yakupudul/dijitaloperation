@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Portfolio;
 
 use App\Enums\OfferingStatus;
 use App\Jobs\ExtractBrandServicesJob;
+use App\Livewire\Concerns\AdminOnly;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
@@ -45,6 +46,8 @@ use Throwable;
  */
 final class BrandSettings extends Component
 {
+    use AdminOnly;
+
     #[Locked]
     public int $brandId;
 
@@ -135,6 +138,7 @@ final class BrandSettings extends Component
 
     public function removeArea(int $areaId): void
     {
+        $this->adminOnly();
         $this->actor();
         $this->area($areaId)->delete();
         $this->message = 'Bölge silindi.';
@@ -175,6 +179,7 @@ final class BrandSettings extends Component
 
     public function removeOffering(int $offeringId, BrandOfferingService $offerings): void
     {
+        $this->adminOnly();
         $offerings->archive($this->offering($offeringId), $this->actor());
         $this->message = 'Hizmet kaldırıldı.';
     }

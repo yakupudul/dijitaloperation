@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Website\V2;
 
 use App\Jobs\Site\ProposeBacklinkSourcesJob;
 use App\Jobs\Site\VerifyBacklinkSourceJob;
+use App\Livewire\Concerns\AdminOnly;
 use App\Livewire\Operator\Website\V2\Concerns\WebsiteTab;
 use App\Models\Backlink;
 use App\Models\BacklinkSource;
@@ -29,6 +30,7 @@ use Throwable;
  */
 final class BacklinksTab extends Component
 {
+    use AdminOnly;
     use WebsiteTab;
     use WithFileUploads;
     use WithPagination;
@@ -76,6 +78,7 @@ final class BacklinksTab extends Component
 
     public function removeBacklink(int $id): void
     {
+        $this->adminOnly();
         $this->actor();
         Backlink::query()->where('brand_id', $this->brand()->id)->whereKey($id)->delete();
     }
@@ -135,6 +138,7 @@ final class BacklinksTab extends Component
 
     public function removeSource(int $id): void
     {
+        $this->adminOnly();
         $this->actor();
         BacklinkSource::query()->where('brand_id', $this->brand()->id)->whereKey($id)->delete();
     }

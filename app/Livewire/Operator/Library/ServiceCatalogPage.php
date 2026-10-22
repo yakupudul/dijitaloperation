@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Library;
 
 use App\Jobs\Queries\RescanQueriesJob;
+use App\Livewire\Concerns\AdminOnly;
 use App\Models\DigitalAsset;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCatalogName;
@@ -26,6 +27,7 @@ use Livewire\WithPagination;
 #[Title('Hizmetler')]
 class ServiceCatalogPage extends Component
 {
+    use AdminOnly;
     use WithPagination;
 
     #[Url(as: 'q', history: true)]
@@ -148,12 +150,14 @@ class ServiceCatalogPage extends Component
 
     public function removeAlias(int $id, ServiceCatalogService $catalog): void
     {
+        $this->adminOnly();
         $catalog->removeAlias(ServiceCatalogItem::query()->findOrFail($this->editingId), $id);
         $this->message = 'Eş ad kaldırıldı.';
     }
 
     public function deleteService(int $id, ServiceCatalogService $catalog): void
     {
+        $this->adminOnly();
         $catalog->delete(ServiceCatalogItem::query()->findOrFail($id), auth()->user());
         $this->closeEditor();
         $this->resetPage();
@@ -219,6 +223,7 @@ class ServiceCatalogPage extends Component
 
     public function deleteCategory(int $id): void
     {
+        $this->adminOnly();
         DB::transaction(function () use ($id): void {
             $category = ServiceCategory::query()->lockForUpdate()->findOrFail($id);
             ServiceCatalogItem::withTrashed()->where('sector', $category->code)->update(['sector' => null, 'updated_at' => now()]);

@@ -11,6 +11,7 @@ use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Jobs\Site\GenerateContentIdeasJob;
 use App\Jobs\Site\SuggestForbiddenTermsJob;
+use App\Livewire\Concerns\AdminOnly;
 use App\Livewire\Concerns\PreviewsKeywordImpact;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
@@ -77,6 +78,7 @@ use Livewire\WithPagination;
 #[Title('Sorgular')]
 final class QueriesPage extends Component
 {
+    use AdminOnly;
     use PreviewsKeywordImpact;
     use WithPagination;
 
@@ -634,6 +636,7 @@ final class QueriesPage extends Component
     /** Only the sector's own phrases are deleted; pack rules are switched off instead. */
     public function deleteForbidden(int $id): void
     {
+        $this->adminOnly();
         $this->actor();
         $rule = $this->forbiddenRule($id);
         abort_unless(str_starts_with((string) $rule->pack_id, SectorPackRegistry::SECTOR_PREFIX), 403);
@@ -722,6 +725,7 @@ final class QueriesPage extends Component
 
     public function removeClusterQueries(ClusterEditor $editor): void
     {
+        $this->adminOnly();
         $this->actor();
         $removed = $editor->removeQueries($this->openedCluster(), $this->clusterQueryIds(), $this->confirmShared);
         $this->selectedClusterQueries = [];
@@ -763,6 +767,7 @@ final class QueriesPage extends Component
 
     public function deleteCluster(ClusterEditor $editor): void
     {
+        $this->adminOnly();
         $this->actor();
         $editor->delete($this->openedCluster(), $this->confirmShared);
         $this->openClusterId = null;
@@ -852,6 +857,7 @@ final class QueriesPage extends Component
 
     public function deleteTerm(int $id): void
     {
+        $this->adminOnly();
         $this->actor();
         FilterTerm::query()->whereKey($id)->delete();
         $this->message = 'Terim silindi.';
@@ -1130,6 +1136,7 @@ final class QueriesPage extends Component
 
     public function clearMismatch(int $sectorId, string $code): void
     {
+        $this->adminOnly();
         $this->actor();
         $count = KeywordInsights::clearMismatchedService($sectorId, $code);
         $this->message = $count.' sorgunun hizmeti kaldırıldı · sektörün eşleme kelimeleri sonraki taramada yeniden atayabilir.';
@@ -1184,6 +1191,7 @@ final class QueriesPage extends Component
 
     public function deleteKeyword(int $id): void
     {
+        $this->adminOnly();
         $actor = $this->actor();
         ServiceMatchingKeyword::query()->whereKey($id)->delete();
         RescanQueriesJob::dispatch((int) $actor->id);

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Winners;
 
+use App\Livewire\Concerns\AdminOnly;
 use App\Services\Ads\AdLibraries;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -17,6 +18,8 @@ use Livewire\Component;
 #[Title('Metinler ve takvim')]
 final class LibrariesPage extends Component
 {
+    use AdminOnly;
+
     #[Url(as: 'sekme')]
     public string $tab = 'metin';
 
@@ -28,6 +31,7 @@ final class LibrariesPage extends Component
 
     public function remove(int $id, AdLibraries $libraries): void
     {
+        $this->adminOnly();
         $libraries->remove($id);
     }
 
