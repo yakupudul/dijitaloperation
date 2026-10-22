@@ -32,7 +32,7 @@ final class WebsiteScreen extends Component
         'teknik' => 'Teknik SEO'];
 
     /** First entry of the "Ayarlar" menu: the site's settings and linked assets. */
-    public const array SETTINGS = ['ayarlar' => 'Site ayarları ve bağlı varlıklar'];
+    public const array SETTINGS = ['ayarlar' => 'Bağlantılar ve site ayarları'];
 
     /** Under the "Ayarlar" menu after the settings: views kept for detail work, out of the main row. */
     public const array MORE = ['fikirler' => 'İçerik fikirleri', 'hedef' => 'Hedef sorgular',
@@ -49,7 +49,7 @@ final class WebsiteScreen extends Component
         'sorgular' => [[AnalysisTab::class, ['fixed' => 'queries']]],
         'teknik' => [[TechnicalSeoTab::class, []], [HealthTab::class, []], [LlmsTxtCard::class, []]],
         'yapilacaklar' => [[SuggestionsTab::class, []]],
-        'ayarlar' => [[SettingsTab::class, []], [LinkedAssetsTab::class, []]],
+        'ayarlar' => [[ConnectionStepsCard::class, []], [SettingsTab::class, []], [LinkedAssetsTab::class, []]],
         'fikirler' => [[ContentIdeasTab::class, []]],
         'icerik' => [[ContentTab::class, []]],
         'hedef' => [[AnalysisTab::class, ['fixed' => 'targets']]],

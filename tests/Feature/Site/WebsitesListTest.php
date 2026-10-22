@@ -4,6 +4,7 @@ namespace Tests\Feature\Site;
 
 use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\CustomerStatus;
+use App\Livewire\Operator\Website\V2\ConnectionStepsCard;
 use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Models\Brand;
 use App\Models\Collection\CollectionRun;
@@ -64,6 +65,25 @@ final class WebsitesListTest extends TestCase
         $page->call('setFilter', 'eski')->assertSeeHtml('data-website-row="'.$old->id.'"')->assertDontSeeHtml('data-website-row="'.$good->id.'"');
         $page->call('setFilter', 'markasiz')->assertSee('sahipsiz.example')->assertSeeHtml('data-site-state="brandless"')->assertDontSeeHtml('data-website-row="'.$good->id.'"');
         $page->call('setFilter', 'olmayan')->assertSet('filter', 'tumu');
+    }
+
+    public function test_the_site_settings_show_the_four_connection_steps(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create(['is_active' => true]);
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+        config(['moxdop-wordpress.connector_version' => '1.24.0']);
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create(['status' => CustomerStatus::Active])->id]);
+        $site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'status' => 'active', 'name' => 'iyi.example', 'domain' => 'iyi.example']);
+        $this->connector($site, '1.20.0');
+        $this->bind($site, CoreExternalResource::factory()->searchConsole()->create(['external_id' => 'sc-domain:iyi.example']), 'search_console');
+
+        $this->get(route('operator.website', ['assetId' => $site->id, 'tab' => 'ayarlar']))->assertOk()->assertSee('data-connection-steps', false);
+        $card = Livewire::test(ConnectionStepsCard::class, ['assetId' => $site->id])
+            ->assertSee('1/4 hazır', false)->assertSee('Sürüm 1.20.0, güncel sürüm 1.24.0.')->assertSee('Site henüz taranmadı.')
+            ->assertSeeHtml('data-step-action="eklenti"');
+        $this->assertSame(['eklenti' => false, 'gsc' => true, 'ga4' => false, 'tarama' => false], collect($card->viewData('steps'))->pluck('done', 'key')->all());
     }
 
     private function connector(DigitalAsset $site, string $version): void
