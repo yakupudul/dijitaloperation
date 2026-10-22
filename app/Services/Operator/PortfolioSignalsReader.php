@@ -2,6 +2,7 @@
 
 namespace App\Services\Operator;
 
+use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -10,6 +11,7 @@ use App\Models\Suggestion;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Work\OpenWork;
+use App\Support\SchemaState;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
@@ -22,8 +24,10 @@ use Illuminate\Support\Collection;
  *  - Veri durumu: the DataStatusReader state of every bound source of the brand's active assets; the worst tone wins,
  *    exactly as the brand Özet asset card summarises it. A data problem is a source in tone bad (Erişim sorunu) or warn
  *    (Gecikmiş / İlk veri yükleniyor).
- *  - Dikkat: a data problem, an account that must be reconnected, or a critical open suggestion — with the reason text.
- *    Kritik counts check types, not rows: every (asset, action type) with a critical open suggestion counts once.
+ *  - Dikkat: only a real exception (audit 8: 12 of 13 brands were red because every site has a priority-1 title row):
+ *    a stopped or blocked source, or an open high / critical alarm (spend stopped, site down, conversions fell) — with
+ *    the reason text. Critical suggestions are work, not an exception: they stay a number (Kritik counts check types,
+ *    not rows: every (asset, action type) with a critical open suggestion counts once).
  */
 final class PortfolioSignalsReader
 {
@@ -71,16 +75,19 @@ final class PortfolioSignalsReader
             ->values();
         $statuses = $assets->isEmpty() ? [] : $this->statuses->forAssets($assets);
         [$brandWork, $assetWork] = $this->openWork($brands, $assets);
+        $alarms = $this->alarms($assets);
 
         $assetSignals = [];
         foreach ($assets as $asset) {
-            $assetSignals[(int) $asset->id] = $this->assetSignal($asset, $statuses[(int) $asset->id] ?? [], $assetWork[(int) $asset->id] ?? ['total' => 0, 'critical' => 0]);
+            $assetSignals[(int) $asset->id] = $this->assetSignal($asset, $statuses[(int) $asset->id] ?? [], $assetWork[(int) $asset->id] ?? ['total' => 0, 'critical' => 0], $alarms[(int) $asset->id] ?? []);
         }
 
         $brandSignals = [];
         foreach ($brands as $brand) {
             $brandAssets = $assets->where('brand_id', $brand->id);
-            $brandSignals[(int) $brand->id] = $this->brandSignal($brandAssets, $assetSignals, $statuses, $brandWork[(int) $brand->id] ?? ['total' => 0, 'critical' => 0, 'by_channel' => []]);
+            $brandAlarms = $brandAssets->filter(fn (DigitalAsset $a): bool => ($a->status?->value ?? 'active') === 'active')
+                ->flatMap(fn (DigitalAsset $a): array => $alarms[(int) $a->id] ?? [])->values()->all();
+            $brandSignals[(int) $brand->id] = $this->brandSignal($brandAssets, $assetSignals, $statuses, $brandWork[(int) $brand->id] ?? ['total' => 0, 'critical' => 0, 'by_channel' => []], $brandAlarms);
         }
 
         return ['brands' => $brandSignals, 'assets' => $assetSignals];
@@ -141,7 +148,7 @@ final class PortfolioSignalsReader
      * @param  array{total: int, critical: int}  $work
      * @return array<string, mixed>
      */
-    private function assetSignal(DigitalAsset $asset, array $statuses, array $work): array
+    private function assetSignal(DigitalAsset $asset, array $statuses, array $work, array $alarms = []): array
     {
         $sources = [];
         foreach ($statuses as $status) {
@@ -163,10 +170,10 @@ final class PortfolioSignalsReader
             'data_label' => $worst === null ? 'Veri kaynağı yok' : ($problems->isEmpty() && $worst['tone'] === 'ok' ? 'Güncel' : $worst['label'].': '.$worst['state_label']),
             'data_issues' => $problems->count(),
             'reconnect' => $reconnect,
-            // Dikkat only for a real exception (yakup 2026-10-20: 13/13 red meant nothing): a stopped or blocked source or a
-            // critical suggestion. A late source stays an amber dot.
-            'needs_attention' => $active && ($problems->contains('tone', 'bad') || $work['critical'] > 0),
-            'reason' => $active ? $this->reason($problems, $work['critical']) : null,
+            // Dikkat only for a real exception (yakup 2026-10-20: 13/13 red meant nothing): a stopped or blocked source or an
+            // open high alarm. A late source stays an amber dot, a critical suggestion a number.
+            'needs_attention' => $active && ($problems->contains('tone', 'bad') || $alarms !== []),
+            'reason' => $active ? $this->reason($problems, $work['critical'], $alarms) : null,
         ];
     }
 
@@ -177,7 +184,7 @@ final class PortfolioSignalsReader
      * @param  array{total: int, critical: int, by_channel: array<string, int>}  $work
      * @return array<string, mixed>
      */
-    private function brandSignal(Collection $assets, array $assetSignals, array $statuses, array $work): array
+    private function brandSignal(Collection $assets, array $assetSignals, array $statuses, array $work, array $alarms = []): array
     {
         $channels = self::emptyChannels();
         $problems = collect();
@@ -210,22 +217,44 @@ final class PortfolioSignalsReader
             'reconnect' => $problems->where('reconnect', true)->count(),
             'worst_tone' => $worst,
             'channels' => $channels,
-            'needs_attention' => $problems->contains('tone', 'bad') || $work['critical'] > 0,
-            'reason' => $this->reason($problems, $work['critical']),
+            'needs_attention' => $problems->contains('tone', 'bad') || $alarms !== [],
+            'reason' => $this->reason($problems, $work['critical'], $alarms),
         ];
     }
 
     /**
-     * Short reason next to the Dikkat badge: reconnect first, then the worst late source, then critical suggestions.
+     * Open high / critical alarms per asset (titles), the exceptions besides a broken source.
+     *
+     * @param  Collection<int, DigitalAsset>  $assets
+     * @return array<int, list<string>>
+     */
+    private function alarms(Collection $assets): array
+    {
+        if ($assets->isEmpty() || ! SchemaState::hasTable('asset_alerts')) {
+            return [];
+        }
+
+        return AssetAlert::query()->active()->whereIn('digital_asset_id', $assets->pluck('id')->all())->whereIn('severity', ['high', 'critical'])
+            ->orderByRaw("CASE WHEN severity = 'critical' THEN 0 ELSE 1 END")->orderBy('id')->get(['digital_asset_id', 'title'])
+            ->groupBy('digital_asset_id')->map(fn (Collection $group): array => $group->pluck('title')->map(fn ($t): string => (string) $t)->all())->all();
+    }
+
+    /**
+     * Short reason next to the Dikkat badge: reconnect first, then an alarm, then the worst late source, then critical
+     * suggestions.
      *
      * @param  Collection<int, array<string, mixed>>  $problems
+     * @param  list<string>  $alarms
      */
-    private function reason(Collection $problems, int $critical): ?string
+    private function reason(Collection $problems, int $critical, array $alarms = []): ?string
     {
         $parts = [];
         $reconnect = $problems->where('reconnect', true);
         if ($reconnect->isNotEmpty()) {
             $parts[] = 'Yeniden bağlanmalı: '.$reconnect->pluck('label')->unique()->implode(', ');
+        }
+        if ($alarms !== []) {
+            $parts[] = $alarms[0].(count($alarms) > 1 ? ' · +'.(count($alarms) - 1).' alarm' : '');
         }
         $late = $problems->where('reconnect', false)->sortByDesc(fn (array $p): int => self::TONE_RANK[$p['tone']] ?? 0)->values();
         if ($late->isNotEmpty()) {

@@ -385,13 +385,49 @@ final class BrandDossier
         $top = (clone $clusters)->where('approved', true)
             ->select('clusters.id', 'clusters.name')->selectSub(DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')
             ->whereColumn('cq.cluster_id', 'clusters.id')->selectRaw('coalesce(sum(q.impressions), 0)'), 'demand')
-            ->orderByDesc('demand')->orderBy('clusters.id')->limit(self::TOP_CLUSTERS)->get();
+            ->orderByDesc('demand')->orderBy('clusters.id')->limit(self::TOP_CLUSTERS * 2)->get();
 
+        // Same-named clusters (OPC listed "Çene eklemi (TME) nedir…" twice) are shown once.
+        $list = fn (Collection $rows): string => $rows->unique(fn ($c): string => mb_strtolower(trim((string) $c->name)))->take(self::TOP_CLUSTERS)
+            ->map(fn ($c): string => $c->name.' ('.number_format((int) $c->demand, 0, ',', '.').')')->implode(', ');
+        $own = $this->ownDemand($brand, (clone $clusters)->where('approved', true)->pluck('id')->all());
+
+        // The brand's own demand (its Search Console) and the sector pool are two lines: the pool is shared by every
+        // brand of the sector and is not this brand's demand (audit 12: Ankara and Kadıköy clinics showed the same numbers).
         return implode("\n", array_filter([
-            sprintf('- Sorgu kütüphanesinde bu hizmetlere ait %s sorgu, toplam %s gösterim', number_format((int) $queries->n, 0, ',', '.'), number_format((int) $queries->imp, 0, ',', '.')),
+            $own === null ? '- Markanın kendi talebi: Search Console bağlı değil ya da veri yok'
+                : sprintf('- Markanın kendi talebi (kendi Search Console\'u, son 3 ay): %s gösterim', number_format($own['impressions'], 0, ',', '.'))
+                    .($own['top']->isNotEmpty() ? '; en çok: '.$list($own['top']) : ''),
+            sprintf('- Sektör havuzu (sektördeki bütün markalar): bu hizmetlere ait %s sorgu, toplam %s gösterim', number_format((int) $queries->n, 0, ',', '.'), number_format((int) $queries->imp, 0, ',', '.')),
             sprintf('- Kümeler: %d (onaylı %d)', (clone $clusters)->count(), (clone $clusters)->where('approved', true)->count()),
-            $top->isNotEmpty() ? '- En çok aranan onaylı kümeler: '.$top->map(fn ($c): string => $c->name.' ('.number_format((int) $c->demand, 0, ',', '.').')')->implode(', ') : null,
+            $top->isNotEmpty() ? '- Sektörde en çok aranan onaylı kümeler: '.$list($top) : null,
         ]));
+    }
+
+    /**
+     * Impressions of the brand's own Search Console properties over the last 3 months, and its top approved clusters.
+     *
+     * @param  list<int>  $clusterIds
+     * @return array{impressions: int, top: Collection<int, object>}|null
+     */
+    private function ownDemand(Brand $brand, array $clusterIds): ?array
+    {
+        $resources = SiteScope::resourceIds($brand, 'search_console');
+        if ($resources === []) {
+            return null;
+        }
+        $since = now()->subMonths(3)->startOfMonth()->toDateString();
+        $base = fn () => DB::table('query_sources')->whereIn('external_resource_id', $resources)->where('source', 'gsc')->where('month', '>=', $since);
+        $impressions = (int) $base()->sum('impressions');
+        if ($impressions === 0) {
+            return null;
+        }
+        $top = $clusterIds === [] ? collect() : $base()->join('cluster_queries as cq', 'cq.query_id', '=', 'query_sources.query_id')
+            ->join('clusters as c', 'c.id', '=', 'cq.cluster_id')->whereIn('c.id', $clusterIds)
+            ->groupBy('c.id', 'c.name')->selectRaw('c.name as name, sum(query_sources.impressions) as demand')
+            ->orderByDesc('demand')->limit(self::TOP_CLUSTERS * 2)->get();
+
+        return ['impressions' => $impressions, 'top' => $top];
     }
 
     private function site(Brand $brand): string

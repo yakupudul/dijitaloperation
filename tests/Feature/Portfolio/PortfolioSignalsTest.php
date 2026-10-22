@@ -8,6 +8,7 @@ use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\Portfolio\BrandsIndex;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
+use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -30,8 +31,8 @@ use Tests\TestCase;
 
 /**
  * Müşteriler / Markalar / Dijital varlıklar list signals: open work = actionable suggestions (same as the brand Özet),
- * data status = the worst DataStatus source (same as the asset card), attention = data problem / reconnect / critical
- * suggestion with its reason; grouped queries, URL-bound asset filters, the active filter and the passive-switch guard.
+ * data status = the worst DataStatus source (same as the asset card), attention = a broken source / reconnect / an open
+ * high alarm with its reason (a critical suggestion is a number, audit 8); grouped queries, URL-bound asset filters, the active filter and the passive-switch guard.
  */
 final class PortfolioSignalsTest extends TestCase
 {
@@ -120,9 +121,18 @@ final class PortfolioSignalsTest extends TestCase
 
         $this->assertFalse($signals['brands'][$this->calm->id]['needs_attention']);
         $this->suggestion($this->calm, 'google_ads', 'crit', ['priority' => 1]);
-        $calm = app(PortfolioSignalsReader::class)->forBrands(Brand::query()->whereKey($this->calm->id)->get())['brands'][$this->calm->id];
-        $this->assertTrue($calm['needs_attention']);
+        $read = fn (): array => app(PortfolioSignalsReader::class)->forBrands(Brand::query()->whereKey($this->calm->id)->get())['brands'][$this->calm->id];
+        $calm = $read();
+        $this->assertFalse($calm['needs_attention'], 'a critical suggestion is work, not an exception (audit 8)');
         $this->assertSame('1 kritik öneri', $calm['reason']);
+
+        $calmAds = DigitalAsset::query()->where('brand_id', $this->calm->id)->where('type', 'google_ads')->sole();
+        $this->alarm($calmAds, 'medium', 'Tıklama maliyeti arttı');
+        $this->assertFalse($read()['needs_attention'], 'a medium alarm is not Dikkat either');
+        $this->alarm($calmAds, 'high', 'Reklamlar harcama yapmadı');
+        $calm = $read();
+        $this->assertTrue($calm['needs_attention']);
+        $this->assertSame('Reklamlar harcama yapmadı · 1 kritik öneri', $calm['reason']);
     }
 
     public function test_revoked_account_needs_a_reconnect(): void
@@ -146,6 +156,7 @@ final class PortfolioSignalsTest extends TestCase
     {
         $this->suggestion($this->late, 'search', 's1', ['priority' => 1]);
         $this->suggestion($this->late, 'maps', 's2');
+        $this->alarm($this->site, 'high', 'Site açılmıyor');
 
         Livewire::test(CustomersIndex::class)
             ->assertSee('Alfa Sağlık')
@@ -195,6 +206,7 @@ final class PortfolioSignalsTest extends TestCase
     public function test_brands_list_shows_domain_channel_dots_open_work_and_reason(): void
     {
         $this->suggestion($this->late, 'search', 's1', ['priority' => 1]);
+        $this->alarm($this->site, 'critical', 'Site açılmıyor');
 
         Livewire::test(BrandsIndex::class)
             ->assertSee('geciken.test')
@@ -241,6 +253,7 @@ final class PortfolioSignalsTest extends TestCase
     public function test_customer_detail_rows_carry_channel_health_and_no_single_tab_strip(): void
     {
         $this->suggestion($this->late, 'google_ads', 'g1', ['priority' => 1]);
+        $this->alarm($this->ads, 'high', 'Reklamlar harcama yapmadı');
         $this->alfa->responsibleUsers()->attach($this->admin->id);
 
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->alfa->id])
@@ -327,6 +340,15 @@ final class PortfolioSignalsTest extends TestCase
             'brand_id' => $brand->id, 'channel' => $channel, 'decision_key' => $key, 'fingerprint' => hash('sha256', $brand->id.$key),
             'material_hash' => 'm', 'title' => 'Öneri '.$key, 'reason' => 'r', 'priority' => 2, 'evidence' => [], 'action_type' => 'content',
             'status' => Suggestion::OPEN, 'first_seen_at' => now(), 'last_seen_at' => now(), 'action' => [],
+        ]);
+    }
+
+    private function alarm(DigitalAsset $asset, string $severity, string $title): void
+    {
+        AssetAlert::query()->create([
+            'digital_asset_id' => $asset->id, 'brand_id' => $asset->brand_id, 'alert_key' => hash('sha256', $title.$asset->id), 'kind' => 'test',
+            'severity' => $severity, 'title' => $title, 'message' => 'Ayrıntı.', 'data' => [],
+            'first_detected_at' => now()->subDay(), 'last_detected_at' => now(),
         ]);
     }
 }
