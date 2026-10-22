@@ -11,6 +11,7 @@ use App\Services\Brand\BrandPack;
 use App\Services\Compliance\BriefCompliance;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\DoorwayCheck;
 use App\Services\Site\SiteAi;
 use App\Services\Site\SiteEvidence;
 use App\Services\Site\SiteScope;
@@ -71,6 +72,15 @@ final class SeoFieldsBatch
         $suggestions = Suggestion::query()->with('page')->whereIn('id', $suggestionIds)->where('brand_id', $brand->id)->whereIn('action_type', self::TYPES)
             ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->get()
             ->filter(fn (Suggestion $s): bool => $s->page !== null && (int) $s->page->website_asset_id === (int) $site->id && self::needsPreparing($s))
+            // A doorway page Claude has not cleared gets no title: it goes to the noindex rows instead (DoorwayCheck).
+            ->reject(function (Suggestion $s): bool {
+                if (! DoorwayCheck::held($s->page)) {
+                    return false;
+                }
+                DoorwayCheck::holdRow($s, DoorwayCheck::verdict($s->page));
+
+                return true;
+            })
             ->groupBy(fn (Suggestion $s): string => self::packKey($s->page))->first()?->take(self::PAGES_PER_CALL)->values() ?? collect();
         if ($suggestions->isEmpty()) {
             return ['status' => 'ready', 'prepared' => 0, 'skipped' => 0];

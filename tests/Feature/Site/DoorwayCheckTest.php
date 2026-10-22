@@ -5,6 +5,8 @@ namespace Tests\Feature\Site;
 use App\Ai\Agents\Site\DoorwayCheckAgent;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Repair\SeoFieldsBatch;
+use App\Services\Repair\SiteAudit;
 use App\Services\Repair\WebHealthAudit;
 use App\Services\Site\DoorwayCheck;
 
@@ -72,6 +74,38 @@ final class DoorwayCheckTest extends SiteTestCase
 
         $this->assertSame(1, Suggestion::query()->where('action->check', DoorwayCheck::CHECK)->count());
         $this->assertSame(Suggestion::DISMISSED, $row->fresh()->status);
+    }
+
+    public function test_titles_of_doorway_pages_are_held_back_until_claude_clears_the_page(): void
+    {
+        $this->enableAi();
+        $pages = [];
+        foreach (range(1, DoorwayCheck::MIN_TEMPLATE_PAGES) as $i) {
+            $pages[] = $this->template('/kws/konu-'.$i.'/', 'Müge Anlı Hurda '.$i, 100 + $i);
+        }
+        $proposal = ['kind' => 'fields', 'new' => ['seo_title' => 'Müge Anlı Hurda 1 | Panorama Ankara']];
+        $row = Suggestion::query()->create(['brand_id' => $this->brand->id, 'channel' => 'search', 'action_type' => SiteAudit::TYPE, 'status' => Suggestion::OPEN,
+            'decision_key' => 'repair.'.SiteAudit::TYPE, 'title' => 'Başlık', 'reason' => 'x', 'priority' => 3, 'target_type' => 'page', 'target_id' => $pages[0]->id,
+            'page_id' => $pages[0]->id, 'fingerprint' => 'f1', 'material_hash' => 'm1', 'first_seen_at' => now(), 'last_seen_at' => now(), 'action' => ['site_id' => $this->site->id, 'proposal' => $proposal]]);
+
+        $this->assertSame(1, app(DoorwayCheck::class)->hold($this->site));
+        $action = $row->fresh()->action;
+        $this->assertArrayNotHasKey('proposal', $action, 'off the send');
+        $this->assertSame(DoorwayCheck::HOLD_REASONS['unchecked'], $action['proposal_blocked']);
+        $this->assertTrue(DoorwayCheck::held($pages[0]));
+        $this->assertSame(['status' => 'ready', 'prepared' => 0, 'skipped' => 0], app(SeoFieldsBatch::class)->prepare($this->site, [$row->id]), 'no title is written for it');
+
+        DoorwayCheckAgent::fake(function (string $prompt) use ($pages): array {
+            $data = json_decode(substr($prompt, strpos($prompt, '{')), true);
+
+            return ['items' => array_map(fn (array $p): array => ['id' => $p['id'], 'verdict' => $p['id'] === $pages[0]->id ? 'keep' : 'other_business', 'reason' => 'x'], $data['pages'])];
+        });
+        app(DoorwayCheck::class)->run();
+
+        $this->assertSame($proposal, $row->fresh()->action['proposal'], 'a cleared page gets its title back');
+        $this->assertArrayNotHasKey('proposal_blocked', $row->fresh()->action);
+        $this->assertFalse(DoorwayCheck::held($pages[0]));
+        $this->assertTrue(DoorwayCheck::held($pages[1]));
     }
 
     public function test_a_few_contact_pages_are_not_a_doorway_set(): void

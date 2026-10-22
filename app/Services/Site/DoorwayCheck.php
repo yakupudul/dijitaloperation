@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Brand\BrandPack;
+use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\WebHealthAudit;
 use App\Services\SeoTasks\SeoText;
 use Illuminate\Support\Collection;
@@ -41,6 +42,14 @@ final class DoorwayCheck
     private const int SHOWN = 12;
 
     private const string CACHE = 'site-doorway-check:';
+
+    /** Start of the block reason on a title / description row of a template page (lifted once the page is cleared). */
+    public const string HOLD = 'Kapı sayfası: ';
+
+    public const array HOLD_REASONS = [
+        'risky' => 'Kapı sayfası: başlıkta başka firma, kişi ya da hizmet verilmeyen yer var; başlık yazılmaz, sayfa Google\'a kapatma satırında.',
+        'unchecked' => 'Kapı sayfası: Claude başlığı okuyana kadar başlık ve açıklama hazırlanmaz.',
+    ];
 
     public const array TITLES = [
         'other_business' => 'Başka firma ya da kişi adıyla açılmış sayfalar',
@@ -76,9 +85,104 @@ final class DoorwayCheck
                     $result['flagged'] += $done['flagged'];
                 }
                 $result['closed'] += $this->rows($site, $brand, $pages);
+                $this->hold($site, $pages);
             });
 
         return $result;
+    }
+
+    /**
+     * Title / description rows of a doorway set's pages (Bornova Hurda, 2026-10-22: titles naming Müge Anlı, Hurdacı
+     * Rasim, Çolakoğlu reached the desk): a page Claude has not cleared gets no title; a prepared one is held back
+     * (kept under held_proposal) and comes back as it was once the page is cleared ("keep").
+     *
+     * @param  Collection<int, Page>|null  $templates  the site's template pages when already read
+     * @return int rows held back
+     */
+    public function hold(DigitalAsset $site, ?Collection $templates = null): int
+    {
+        $templates ??= self::templatePages($site);
+        Cache::put(self::templatesKey((int) $site->id), $templates->count() >= self::MIN_TEMPLATE_PAGES ? $templates->pluck('id')->map(fn ($id): int => (int) $id)->all() : [], now()->addHours(2));
+        if ($templates->count() < self::MIN_TEMPLATE_PAGES) {
+            return 0;
+        }
+        $held = 0;
+        foreach ($templates->pluck('id')->chunk(1000) as $ids) {
+            $verdicts = Cache::many($ids->map(fn ($id): string => self::CACHE.$id)->all());
+            Suggestion::query()->where('brand_id', $site->brand_id)->whereIn('action_type', SeoFieldsBatch::TYPES)
+                ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->whereIn('page_id', $ids->all())->whereNull('action->writes')->get()
+                ->each(function (Suggestion $s) use ($verdicts, &$held): void {
+                    $verdict = $verdicts[self::CACHE.$s->page_id]['verdict'] ?? null;
+                    $held += self::holdRow($s, $verdict) ? 1 : 0;
+                });
+        }
+
+        return $held;
+    }
+
+    /** Holds back (or gives back) one title / description row by the page's verdict; true when it was held now. */
+    public static function holdRow(Suggestion $suggestion, ?string $verdict): bool
+    {
+        $action = (array) $suggestion->action;
+        $blocked = (string) ($action['proposal_blocked'] ?? '');
+        if ($verdict === 'keep') {
+            if (str_starts_with($blocked, self::HOLD)) {
+                if (isset($action['held_proposal'])) {
+                    $action['proposal'] = $action['held_proposal'];
+                }
+                unset($action['proposal_blocked'], $action['held_proposal']);
+                $suggestion->forceFill(['action' => $action])->save();
+            }
+
+            return false;
+        }
+        $reason = self::HOLD_REASONS[isset(self::TITLES[(string) $verdict]) ? 'risky' : 'unchecked'];
+        if ($blocked === $reason) {
+            return false;
+        }
+        if ($blocked !== '' && ! str_starts_with($blocked, self::HOLD)) {
+            return false; // blocked for its own reason already: it stays out of the send all the same
+        }
+        if (isset($action['proposal'])) {
+            $action['held_proposal'] = $action['proposal'];
+            unset($action['proposal']);
+        }
+        $action['proposal_blocked'] = $reason;
+        $suggestion->forceFill(['action' => $action])->save();
+
+        return true;
+    }
+
+    /** Whether the page belongs to a doorway set and Claude has not cleared it (no title is prepared for it). */
+    public static function held(Page $page): bool
+    {
+        $ids = Cache::get(self::templatesKey((int) $page->website_asset_id));
+        if (! is_array($ids)) {
+            $site = DigitalAsset::query()->find((int) $page->website_asset_id);
+            if ($site === null) {
+                return false;
+            }
+            app(self::class)->hold($site);
+            $ids = (array) Cache::get(self::templatesKey((int) $page->website_asset_id), []);
+        }
+        if (! in_array((int) $page->id, $ids, true)) {
+            return false;
+        }
+
+        return (Cache::get(self::CACHE.$page->id)['verdict'] ?? null) !== 'keep';
+    }
+
+    /** Verdict of a page, as Claude gave it (null while unchecked). */
+    public static function verdict(Page $page): ?string
+    {
+        $known = Cache::get(self::CACHE.$page->id);
+
+        return is_array($known) ? ($known['verdict'] ?? null) : null;
+    }
+
+    private static function templatesKey(int $siteId): string
+    {
+        return 'site-doorway-templates:'.$siteId;
     }
 
     /**
