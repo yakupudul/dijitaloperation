@@ -5,6 +5,7 @@ namespace App\Services\Tasks;
 use App\Enums\TaskScopeKind;
 use App\Enums\TaskSourceKind;
 use App\Models\Task;
+use App\Support\Operator\OperatorClock;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -246,7 +247,7 @@ final class TaskReadService
         if ($task->due_date === null) {
             return 'none';
         }
-        $today = now()->startOfDay();
+        $today = OperatorClock::today();
         $due = $task->due_date->copy()->startOfDay();
         if ($due->lt($today)) {
             return 'overdue';

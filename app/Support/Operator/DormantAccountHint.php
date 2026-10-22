@@ -33,7 +33,7 @@ final class DormantAccountHint
         if ($lastSpend === null || $lastSpend === '') {
             return null;
         }
-        $today ??= CarbonImmutable::today();
+        $today ??= OperatorClock::today();
         $days = (int) CarbonImmutable::parse(substr($lastSpend, 0, 10))->diffInDays($today, true);
         if ($days < self::MIN_DAYS) {
             return null;

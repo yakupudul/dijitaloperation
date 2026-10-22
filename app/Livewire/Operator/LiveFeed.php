@@ -6,6 +6,7 @@ use App\Models\AiLiveOperation;
 use App\Models\AiTask;
 use App\Models\Brand;
 use App\Support\Ai\AiOperationLabels;
+use App\Support\Operator\OperatorClock;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -28,7 +29,7 @@ final class LiveFeed extends Component
             ->selectRaw('operation, brand_id, count(*) as n, min(claimed_at) as since, max(subject) as subject')
             ->groupBy('operation', 'brand_id')->orderByDesc('n')->limit(4)->get();
         $waiting = AiTask::query()->where('status', AiTask::PENDING)->count();
-        $since = Carbon::today();
+        $since = OperatorClock::startOfToday();
         $doneToday = AiTask::query()->whereIn('status', [AiTask::DONE, AiTask::CONSUMED])->where('completed_at', '>=', $since)->count();
         $failedToday = AiTask::query()->where('status', AiTask::FAILED)->where('completed_at', '>=', $since)->count();
         $jobsToday = AiLiveOperation::query()->whereNull('parent_id')->where('status', AiLiveOperation::DONE)->where('finished_at', '>=', $since)->count();

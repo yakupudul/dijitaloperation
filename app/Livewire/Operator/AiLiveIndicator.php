@@ -6,6 +6,7 @@ use App\Models\AiLiveOperation;
 use App\Models\User;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Prompts\PromptRegistry;
+use App\Support\Operator\OperatorClock;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -73,11 +74,13 @@ final class AiLiveIndicator extends Component
         $this->watching = implode(',', $open);
     }
 
-    /** Top-level AI work finished in the last 24 hours (the card's second line); cached for a minute. */
+    /** Top-level AI work finished today, Istanbul day (the card's "bugün N iş bitirdi"); cached for a minute. */
     public static function doneToday(): int
     {
-        return (int) Cache::remember('ai-live.done-24h', 60, fn (): int => AiLiveOperation::query()->whereNull('parent_id')
-            ->where('status', AiLiveOperation::DONE)->where('finished_at', '>=', now()->subDay())->count());
+        $since = OperatorClock::startOfToday();
+
+        return (int) Cache::remember('ai-live.done-today.'.$since->toDateString(), 60, fn (): int => AiLiveOperation::query()->whereNull('parent_id')
+            ->where('status', AiLiveOperation::DONE)->where('finished_at', '>=', $since)->count());
     }
 
     /**
