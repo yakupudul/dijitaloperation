@@ -87,6 +87,9 @@
     @endif
 
     @if($queue !== null)
+        @if($contentOnly)
+            <livewire:operator.work.content-week-plan-card :brand-id="$brand" :key="'week-plan'" />
+        @endif
         @include('livewire.operator.work.partials.content-queue')
         @if(! $contentOnly && $sections !== [])<h2 class="section-title">Diğer SEO işleri</h2>@endif
     @endif

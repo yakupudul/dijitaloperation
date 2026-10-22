@@ -8,6 +8,7 @@ use App\Services\Goals\BrandTargets;
 use App\Services\Operator\KomutaReader;
 use App\Services\Operator\TodayCockpitReader;
 use App\Services\Repair\RepairDesk;
+use App\Services\Work\ContentWeekPlan;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,11 @@ final class KomutaPage extends Component
         $user = $this->admin();
         if (str_starts_with($key, 'target:')) {
             $this->approveTarget((int) substr($key, 7), $targets);
+
+            return;
+        }
+        if (str_starts_with($key, 'plan:')) {
+            $this->approvePlan((int) substr($key, 5), $user);
 
             return;
         }
@@ -68,10 +74,24 @@ final class KomutaPage extends Component
 
             return;
         }
+        if ($key === 'content-plan') {
+            $this->approvePlan(null, $user);
+
+            return;
+        }
         $group = collect($komuta->box()['groups'])->firstWhere('key', $key);
         $ids = collect($group['items'] ?? [])->where('approve', true)->flatMap(fn (array $item): array => $komuta->packageIds($item['key']))->unique()->values()->all();
         $result = $ids === [] ? ['applied' => 0] : $desk->queueApproval($ids, $user);
         $this->say($result['applied'] > 0 ? $result['applied'].' iş onaylandı ve gönderime alındı. Akış\'ta izleyebilirsin.' : 'Bu grupta tek tıkla onaylanacak iş kalmadı.');
+    }
+
+    private function approvePlan(?int $brandId, User $user): void
+    {
+        try {
+            $this->say(app(ContentWeekPlan::class)->approve(null, $user, $brandId));
+        } catch (ValidationException $error) {
+            $this->say((string) collect($error->errors())->flatten()->first());
+        }
     }
 
     public function approveTarget(int $id, BrandTargets $targets): void

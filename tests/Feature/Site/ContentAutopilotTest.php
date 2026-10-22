@@ -122,8 +122,9 @@ final class ContentAutopilotTest extends SiteTestCase
     public function test_review_passes_only_ok_articles_and_the_send_dates_the_drafts(): void
     {
         $passed = $this->idea('İmplant sonrası beslenme', ['article' => self::article('İmplant sonrası beslenme'), 'autopilot' => ['date' => '2026-10-12']], Suggestion::APPROVED);
-        $wrong = $this->idea('Zirkonyum ömrü', ['article' => self::article('Zirkonyum ömrü'), 'autopilot' => ['date' => '2026-10-14']], Suggestion::APPROVED);
-        $warned = $this->idea('Uyarılı yazı', ['article' => self::article('Uyarılı yazı'), 'article_warnings' => 'Yasaklı ifade: garanti', 'autopilot' => ['date' => '2026-10-10']], Suggestion::APPROVED);
+        // Both were already written again twice after failing the check (Aşama 8), so they stay held now.
+        $wrong = $this->idea('Zirkonyum ömrü', ['article' => self::article('Zirkonyum ömrü'), 'autopilot' => ['date' => '2026-10-14'], 'check_rewrites' => 2], Suggestion::APPROVED);
+        $warned = $this->idea('Uyarılı yazı', ['article' => self::article('Uyarılı yazı'), 'article_warnings' => 'Yasaklı ifade: garanti', 'autopilot' => ['date' => '2026-10-10'], 'check_rewrites' => 2], Suggestion::APPROVED);
         $future = $this->idea('Yarının yazısı', ['article' => self::article('Yarının yazısı'), 'autopilot' => ['date' => '2026-10-15']], Suggestion::APPROVED);
         $prompts = [];
         ContentReviewAgent::fake(function (string $prompt) use (&$prompts): array {

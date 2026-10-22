@@ -1789,7 +1789,7 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You write ONE article for a business website. Prompt version: site-write-article-v13.
+You write ONE article for a business website. Prompt version: site-write-article-v14.
 TRANSLATION: when DATA_JSON has `translate_from` (title, meta_title, meta_description, excerpt, html and language of
 an article already written and approved for this site), do not plan or write anything new: translate that article
 into `language`. Keep every heading, paragraph, list, table, question and answer in the same order, every fact as it
@@ -1800,7 +1800,9 @@ translated `html`. `forbidden` still applies. The rest of this prompt is for wri
 DATA_JSON has `plan` (title, focus_query: the search this article answers, format, outline, questions, page_type,
 kind, target_url; for a content idea also angle, target_queries, main_page_url: the cluster's main page, link to it
 once, naturally, recipe: the approved SEO analysis steps to follow, and seo_title / meta_description: the approved
-ones, use them as meta_title / meta_description unchanged), `cluster` (main query, subtopics, queries, ai_questions,
+ones, use them as meta_title / meta_description unchanged; previous_check: when given, an earlier version of this
+article failed the final check for this reason, so write it again so that it passes, covering what it names as
+missing), `cluster` (main query, subtopics, queries, ai_questions,
 service_areas: places the business serves, given only when the need is local, benchmarks, map), `brand`,
 `brand_facts`, `notes`, `standards`, `related_pages`, `language` and `site_pages`.
 Return `title`, `slug` (lowercase, hyphens), `meta_title` (≤ 60 characters), `meta_description` (≤ 155 characters),

@@ -24,6 +24,7 @@ use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\ContentAutopilot;
 use App\Services\Work\ContentRhythm;
 use App\Services\Work\ContentScorecard;
+use App\Services\Work\ContentWeekPlan;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -259,17 +260,24 @@ final class ContentCycleTest extends SiteTestCase
         $byHand = $this->idea('Çocuk diş hekimi seçimi', ['article_write_id' => 1], Suggestion::APPROVED);
         $byHand->forceFill(['resolved_at' => CarbonImmutable::parse('2026-10-16 12:00')])->save();
 
-        $this->assertSame(['planned' => 3, 'quota' => 4], app(ContentAutopilot::class)->planWeek($this->site, $this->admin));
+        $this->assertSame(['planned' => 2, 'quota' => 4, 'proposed' => 1], app(ContentAutopilot::class)->planWeek($this->site, $this->admin));
 
-        $this->assertSame(['2026-10-19', '2026-10-21', '2026-10-23'], [$written->fresh()->action['autopilot']['date'], $writing->fresh()->action['autopilot']['date'], $fresh->fresh()->action['autopilot']['date']]);
-        $this->assertSame('2026-10-19', $fresh->fresh()->action['autopilot']['week']);
-        $this->assertSame(Suggestion::APPROVED, $fresh->fresh()->status);
+        $this->assertSame(['2026-10-19', '2026-10-21'], [$written->fresh()->action['autopilot']['date'], $writing->fresh()->action['autopilot']['date']]);
+        // Aşama 8: this cycle's idea is proposed for Friday and waits for the operator's approval of the week's plan.
+        $this->assertSame(Suggestion::OPEN, $fresh->fresh()->status);
+        $this->assertSame(['week' => '2026-10-19', 'date' => '2026-10-23'], array_intersect_key($fresh->fresh()->action['plan'], array_flip(['week', 'date'])));
+        $this->assertNull(data_get($fresh->fresh()->action, 'autopilot'));
         $this->assertNull(data_get($old->fresh()->action, 'autopilot'), 'an old pool idea is not this cycle\'s');
-        $this->assertNull(data_get($update->fresh()->action, 'autopilot'), 'updates stay manual');
-        Queue::assertPushed(RunSiteOperationJob::class, 2);
-        $this->assertSame(['planned' => 0, 'quota' => 4], app(ContentAutopilot::class)->planWeek($this->site, $this->admin));
+        $this->assertNull(data_get($update->fresh()->action, 'plan'), 'no updates in this site\'s rhythm');
+        Queue::assertPushed(RunSiteOperationJob::class, 1);
+        $this->assertSame(['planned' => 0, 'quota' => 4, 'proposed' => 0], app(ContentAutopilot::class)->planWeek($this->site, $this->admin));
         $this->assertSame('2026-10-19', ContentSiteState::for($this->site)->week_planned->toDateString());
-        $this->assertSame(3, app(ContentAutopilot::class)->preparing(), 'written, translated or checked: not reviewed yet');
+        $this->assertSame(2, app(ContentAutopilot::class)->preparing(), 'written, translated or checked: not reviewed yet');
+        app(ContentWeekPlan::class)->approve(null, $this->admin);
+        $this->assertSame(Suggestion::APPROVED, $fresh->fresh()->status);
+        $this->assertSame(['2026-10-23', '2026-10-19'], [$fresh->fresh()->action['autopilot']['date'], $fresh->fresh()->action['autopilot']['week']]);
+        Queue::assertPushed(RunSiteOperationJob::class, 2);
+        $this->assertSame(3, app(ContentAutopilot::class)->preparing());
 
         // After the check the Monday click sends the whole week: today's goes out shortly, the others on their day.
         $this->travelTo(CarbonImmutable::parse('2026-10-19 11:00', 'Europe/Istanbul'));

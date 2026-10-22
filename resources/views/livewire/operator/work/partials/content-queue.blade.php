@@ -13,7 +13,7 @@
         <h2 class="section-title" title="Onayla, Claude yazsın; Claude her yazıyı kontrol eder; Gönder, WordPress'e taslak gitsin (geri alınabilir). Okumak isteğe bağlı.">İçerik fikirleri</h2>
         @if ($readyTotal > 0 && auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
             <button type="button" wire:click="sendAllContent" wire:confirm="Claude'un kontrolünden geçen {{ $readyTotal }} yazı, çevirileri ve görselleriyle WordPress'e taslak olarak gönderilsin mi? Tarihi sitede «Akıllı tarihle yayınla» ile verirsin; geri alınabilir."
-                    class="btn-primary ml-auto" data-send-all-content>Hepsini siteye gönder ({{ $readyTotal }} yazı · {{ $readySites }} site)</button>
+                    class="btn-primary ml-auto" data-send-all-content>Tümünü taslak olarak gönder ({{ $readyTotal }} yazı · {{ $readySites }} site)</button>
         @endif
     </div>
 

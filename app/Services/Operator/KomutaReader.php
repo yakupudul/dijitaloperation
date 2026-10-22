@@ -9,6 +9,7 @@ use App\Services\Goals\BrandTargets;
 use App\Services\Goals\TargetImpact;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Repair\RepairDesk;
+use App\Services\Work\ContentWeekPlan;
 use App\Support\SchemaState;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -90,7 +91,7 @@ final class KomutaReader
             $failed = true;
         }
         usort($groups, fn (array $a, array $b): int => [($b['impact'] ?? 0), $b['count']] <=> [($a['impact'] ?? 0), $a['count']]);
-        $groups = [...$this->targetGroup(), ...$groups];
+        $groups = [...$this->targetGroup(), ...$this->planGroup(), ...$groups];
 
         return ['groups' => $groups, 'decisions' => (int) array_sum(array_map(fn (array $g): int => count($g['items']), $groups)), 'manual' => $manual] + ($failed ? ['failed' => true] : []);
     }
@@ -155,6 +156,48 @@ final class KomutaReader
                 'approve' => true,
                 'url' => route('operator.portfolio', ['marka' => $t->brand_id]),
             ])->values()->all(),
+        ]];
+    }
+
+    /** @return list<array<string, mixed>> the week's content plan (Aşama 8), one package per brand */
+    private function planGroup(): array
+    {
+        try {
+            $rows = app(ContentWeekPlan::class)->waiting();
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
+        if ($rows->isEmpty()) {
+            return [];
+        }
+        $items = $rows->groupBy('brand_id')->map(function ($brandRows, int $brandId): array {
+            $kinds = $brandRows->countBy('kind_label')->map(fn (int $n, string $label): string => $n.' '.mb_strtolower($label))->implode(', ');
+
+            return [
+                'key' => 'plan:'.$brandId,
+                'brand_id' => $brandId,
+                'brand' => (string) $brandRows[0]['brand'],
+                'logo' => $brandRows[0]['logo'],
+                'line' => $kinds,
+                'count' => $brandRows->count(),
+                'impact' => null,
+                'approve' => true,
+                'url' => route('operator.content', ['marka' => $brandId]),
+            ];
+        })->values();
+
+        return [[
+            'key' => 'content-plan',
+            'kind' => 'icerik',
+            'title' => 'Bu haftanın içerik planı',
+            'line' => $items->count().' marka · '.$rows->count().' yazı ve güncelleme',
+            'count' => $rows->count(),
+            'brands' => $items->count(),
+            'impact' => null,
+            'bulk' => true,
+            'items' => $items->all(),
         ]];
     }
 

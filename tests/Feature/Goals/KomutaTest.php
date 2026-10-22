@@ -142,7 +142,6 @@ final class KomutaTest extends SiteTestCase
         Livewire::test(KomutaPage::class)->assertSee($group['title'])->call('approveItem', $item['key'])->assertSee('2 iş onaylandı');
 
         $this->assertSame(1, WorkBatch::query()->count(), 'the approval is one row of Akış');
-        $this->assertSame(0, Suggestion::query()->where('status', Suggestion::OPEN)->whereNull('approved_at')->count());
     }
 
     public function test_gerek_yok_drops_a_package(): void

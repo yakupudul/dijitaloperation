@@ -70,6 +70,9 @@ final class ContentAutopilot
     /** The writing round of the cluster-map rules (2026-10-15): dated articles written before it are written again once. */
     public const int REWRITE_ROUND = 1;
 
+    /** An article the check holds back is written again this many times before it waits for the operator. */
+    public const int CHECK_REWRITES = 2;
+
     public function __construct(private readonly SiteSuggestions $suggestions, private readonly ContentScore $scorer) {}
 
     public static function today(): CarbonImmutable
@@ -261,7 +264,11 @@ final class ContentAutopilot
      * ones still being written, then this cycle's ideas (Wednesday's). New articles the operator sent himself since
      * Wednesday count against the week's number. Sites still in their back-dated fill wait.
      *
-     * @return array{planned: int, quota: int, reason?: string}
+     * Aşama 8 (2026-10-22): this cycle's ideas are no longer approved here. They are proposed for their day (action.plan)
+     * with the week's updates (thin ★ / service pages first) and wait for the operator's "Tümünü onayla" or "At"
+     * (ContentWeekPlan). Already approved articles are dated as before. Last week's unanswered proposals go back to the pool.
+     *
+     * @return array{planned: int, quota: int, proposed: int, reason?: string}
      */
     public function planWeek(DigitalAsset $site, User $by, ?CarbonImmutable $today = null): array
     {
@@ -269,22 +276,38 @@ final class ContentAutopilot
         $monday = $today->startOfWeek(CarbonImmutable::MONDAY);
         $state = ContentSiteState::for($site);
         if ($state->inBackfill()) {
-            return ['planned' => 0, 'quota' => 0, 'reason' => 'backfill'];
+            return ['planned' => 0, 'quota' => 0, 'proposed' => 0, 'reason' => 'backfill'];
         }
         if (! SiteScope::aiAllowed(Brand::query()->find($site->brand_id))) {
-            return ['planned' => 0, 'quota' => 0, 'reason' => 'not_operational'];
+            return ['planned' => 0, 'quota' => 0, 'proposed' => 0, 'reason' => 'not_operational'];
         }
         $quota = $state->new_per_week ?? app(ContentRhythm::class)->store($site)['new'];
         $cycleStart = $monday->subDays(5);
-        $ideas = self::ideas($site)->get()->filter(fn (Suggestion $s): bool => ($s->action['kind'] ?? 'new') !== 'update');
-        $thisWeek = $ideas->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.week') === $monday->toDateString());
+        $all = self::ideas($site)->get();
+        $week = $monday->toDateString();
+        // Last week's proposals nobody answered go back to the pool.
+        foreach ($all as $idea) {
+            $planWeek = data_get($idea->action, 'plan.week');
+            if ($idea->status === Suggestion::OPEN && is_string($planWeek) && $planWeek < $week && data_get($idea->action, 'plan.approved_at') === null) {
+                $action = (array) $idea->action;
+                unset($action['plan']);
+                $idea->forceFill(['action' => $action])->save();
+            }
+        }
+        $proposedNow = fn (Suggestion $s): bool => $s->status === Suggestion::OPEN && data_get($s->action, 'plan.week') === $week && data_get($s->action, 'plan.approved_at') === null;
+        $proposed = $this->proposeUpdates($all, (int) ($state->updates_per_week ?? 0), $week, $proposedNow);
+        $ideas = $all->filter(fn (Suggestion $s): bool => ($s->action['kind'] ?? 'new') !== 'update');
+        $thisWeek = $ideas->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.week') === $week || $proposedNow($s));
         $sentByHand = $ideas->filter(fn (Suggestion $s): bool => isset($s->action['article_write_id']) && data_get($s->action, 'autopilot') === null
-            && $s->resolved_at !== null && $s->resolved_at->gte($cycleStart))->count();
+            && data_get($s->action, 'plan') === null && $s->resolved_at !== null && $s->resolved_at->gte($cycleStart))->count();
         $left = $quota - $thisWeek->count() - $sentByHand;
         if ($left <= 0) {
-            return ['planned' => 0, 'quota' => $quota];
+            $state->forceFill(['week_planned' => $monday])->save();
+
+            return ['planned' => 0, 'quota' => $quota, 'proposed' => $proposed];
         }
-        $free = fn (Suggestion $s): bool => ! isset($s->action['article_write_id']) && ! isset($s->action['article_blocked']) && data_get($s->action, 'autopilot.date') === null;
+        $free = fn (Suggestion $s): bool => ! isset($s->action['article_write_id']) && ! isset($s->action['article_blocked']) && data_get($s->action, 'autopilot.date') === null
+            && data_get($s->action, 'plan') === null;
         $written = $ideas->filter(fn (Suggestion $s): bool => $free($s) && $s->status === Suggestion::APPROVED && is_array($s->action['article'] ?? null)
             && data_get($s->action, 'autopilot.review.verdict') !== 'wrong');
         $writing = $ideas->filter(fn (Suggestion $s): bool => $free($s) && $s->status === Suggestion::APPROVED && ! is_array($s->action['article'] ?? null));
@@ -293,6 +316,7 @@ final class ContentAutopilot
         $map = app(ContentMap::class);
         $used = $thisWeek->count();
         $planned = 0;
+        $proposedNew = 0;
         foreach ([...$written->sortBy('id')->values(), ...$writing->sortBy('id')->values(), ...$fresh->values()] as $suggestion) {
             if ($planned >= $left || $used >= count(self::WEEK_DAYS)) {
                 break;
@@ -300,11 +324,16 @@ final class ContentAutopilot
             if ($map->resolve($suggestion) !== null) {
                 continue;
             }
-            if ($suggestion->status !== Suggestion::APPROVED) {
-                $this->suggestions->approve($suggestion, $by);
-                $suggestion->refresh();
-            }
             $date = $monday->addDays(self::WEEK_DAYS[$used++])->toDateString();
+            if ($suggestion->status !== Suggestion::APPROVED) {
+                // Proposed for the day; the operator's "Tümünü onayla" writes it (ContentWeekPlan).
+                $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, ['plan' => ['week' => $week, 'date' => $date, 'proposed_at' => now()->toIso8601String()]])])->save();
+                $proposed++;
+                $proposedNew++;
+                $planned++;
+
+                continue;
+            }
             $autopilot = array_merge((array) data_get($suggestion->action, 'autopilot', []), ['date' => $date, 'planned_at' => now()->toIso8601String(), 'week' => $monday->toDateString()]);
             $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, ['autopilot' => $autopilot])])->save();
             if (! is_array($suggestion->action['article'] ?? null)) {
@@ -314,7 +343,41 @@ final class ContentAutopilot
         }
         $state->forceFill(['week_planned' => $monday])->save();
 
-        return ['planned' => $planned, 'quota' => $quota];
+        return ['planned' => $planned - $proposedNew, 'quota' => $quota, 'proposed' => $proposed];
+    }
+
+    /**
+     * The week's update proposals: up to the site's updates per week, thin service pages ("ana sayfa güçlendirilecek")
+     * first, then the most urgent update ideas.
+     *
+     * @param  Collection<int, Suggestion>  $all
+     * @param  callable(Suggestion): bool  $proposedNow
+     */
+    private function proposeUpdates(Collection $all, int $perWeek, string $week, callable $proposedNow): int
+    {
+        $updates = $all->filter(fn (Suggestion $s): bool => ($s->action['kind'] ?? 'new') === 'update');
+        $left = $perWeek - $updates->filter($proposedNow)->count()
+            - $updates->filter(fn (Suggestion $s): bool => data_get($s->action, 'plan.week') === $week && data_get($s->action, 'plan.approved_at') !== null)->count();
+        if ($left <= 0) {
+            return 0;
+        }
+        $map = app(ContentMap::class);
+        $candidates = $updates->filter(fn (Suggestion $s): bool => $s->status === Suggestion::OPEN && data_get($s->action, 'plan') === null
+            && ! is_array($s->action['article'] ?? null) && ! isset($s->action['article_blocked']))
+            ->sortBy(fn (Suggestion $s): string => (ContentWeekPlan::kind($s) === 'strengthen' ? '0' : '1').str_pad((string) $s->priority, 3, '0', STR_PAD_LEFT).str_pad((string) $s->id, 10, '0', STR_PAD_LEFT));
+        $proposed = 0;
+        foreach ($candidates as $suggestion) {
+            if ($proposed >= $left) {
+                break;
+            }
+            if ($map->resolve($suggestion) !== null) {
+                continue;
+            }
+            $suggestion->forceFill(['action' => array_merge((array) $suggestion->action, ['plan' => ['week' => $week, 'proposed_at' => now()->toIso8601String()]])])->save();
+            $proposed++;
+        }
+
+        return $proposed;
     }
 
     /**
@@ -372,9 +435,35 @@ final class ContentAutopilot
             $fresh = $suggestion->fresh();
             $fresh->forceFill(['action' => array_replace_recursive((array) $fresh->action, ['autopilot' => ['review' => $verdict]])])->save();
             $reviewed++;
+            $this->rewriteAfterCheck($fresh->fresh(), $verdict);
         }
 
         return ['status' => 'ready', 'reviewed' => $reviewed, 'waiting' => $waiting];
+    }
+
+    /**
+     * Aşama 8 (2026-10-22): an article the check holds back ("wrong") is written again with the check's reason, at most
+     * CHECK_REWRITES times; only one that fails again stays held for the operator (with the last reason).
+     *
+     * @param  array{verdict: string, reason: string}  $verdict
+     */
+    private function rewriteAfterCheck(Suggestion $suggestion, array $verdict): void
+    {
+        $action = (array) $suggestion->action;
+        $rounds = (int) ($action['check_rewrites'] ?? 0);
+        if ($verdict['verdict'] !== 'wrong' || $rounds >= self::CHECK_REWRITES || isset($action['article_write_id']) || ! is_array($action['article'] ?? null)) {
+            return;
+        }
+        unset($action['article'], $action['translations'], $action['translations_blocked'], $action['article_seo'], $action['article_warnings'], $action['article_note'],
+            $action['article_format'], $action['article_score']);
+        $action['autopilot'] = array_diff_key((array) ($action['autopilot'] ?? []), array_flip(['review', 'written_seen_at']));
+        if ($action['autopilot'] === []) {
+            unset($action['autopilot']);
+        }
+        $action['check_rewrites'] = $rounds + 1;
+        $action['check_feedback'] = mb_substr($verdict['reason'], 0, 400);
+        $suggestion->forceFill(['action' => $action])->save();
+        SiteOperations::dispatch((int) $action['site_id'], SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id]);
     }
 
     /** Every other language of the site is written (or blocked), or the wait is over. */
@@ -414,6 +503,14 @@ final class ContentAutopilot
         // Too thin for its subject even after the second write: never sent by the one click (yakup, 2026-10-15).
         if (isset($format['words_min'], $format['words_max']) && ContentFormat::tooShort($words, ['words' => [(int) $format['words_min'], (int) $format['words_max']]])) {
             return ['verdict' => 'wrong', 'reason' => 'Yazı kısa: '.$words.' kelime; bu konu için '.$format['words_min'].'–'.$format['words_max'].' kelime gerekiyor.', 'at' => $at];
+        }
+        // İçerik puanı (Aşama 8): what Google's first results cover, the article must cover too.
+        $coverage = is_array($action['brief'] ?? null) ? ArticleCoverage::score((string) ($article['html'] ?? ''), (array) $action['brief']) : null;
+        if ($coverage !== null) {
+            $suggestion->forceFill(['action' => array_merge((array) $suggestion->fresh()->action, ['article_score' => $coverage['score']])])->save();
+            if ($coverage['score'] < ArticleCoverage::MIN) {
+                return ['verdict' => 'wrong', 'reason' => ArticleCoverage::reason($coverage), 'at' => $at];
+            }
         }
         $facts = array_intersect_key(app(BrandFacts::class)->forPrompt($brand), array_flip(['experts', 'regions', 'questions', 'objections', 'praise']));
         // Bilgi doğrulama (marka epikrizi): a phone, price, warranty, years or patient count the brand's record and the

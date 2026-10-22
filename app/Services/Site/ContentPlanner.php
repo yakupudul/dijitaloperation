@@ -644,7 +644,8 @@ final class ContentPlanner
 
     /**
      * What earlier articles of each angle brought (live pages' Search Console clicks in 28 days against the average of
-     * all), 0.7–1.5; an angle with fewer than 3 live articles stays 1.0.
+     * all), 0.5–1.5; an angle with fewer than 3 live articles stays 1.0. Aşama 8 (2026-10-22): the floor went from 0.7 to
+     * 0.5 so a topic type that brings little is pulled back harder in later plans.
      *
      * @return array<string, float>
      */
@@ -662,7 +663,7 @@ final class ContentPlanner
             $out = [];
             foreach ($clicks as $angle => $list) {
                 if (count($list) >= 3 && $average > 0) {
-                    $out[$angle] = round(max(0.7, min(1.5, (array_sum($list) / count($list)) / $average)), 2);
+                    $out[$angle] = round(max(0.5, min(1.5, (array_sum($list) / count($list)) / $average)), 2);
                 }
             }
 
@@ -1168,7 +1169,9 @@ final class ContentPlanner
                 'format' => ['type' => $format['label'], 'words_min' => $format['words'][0], 'words_max' => $format['words'][1], 'shape' => $format['shape']]]
                 + array_filter(['focus_query' => $focus, 'reason' => $reason !== $angle ? $reason : null, 'angle' => $angle, 'target_queries' => $scrub((array) ($action['target_queries'] ?? [])),
                     'main_page_url' => $action['main_page_url'] ?? ($kind === 'new' ? data_get($map, 'main_page.url') : null),
-                    'recipe' => $recipe, 'seo_title' => $text($recipeSeo['seo_title'] ?? null), 'meta_description' => $text($recipeSeo['meta_description'] ?? null)],
+                    'recipe' => $recipe, 'seo_title' => $text($recipeSeo['seo_title'] ?? null), 'meta_description' => $text($recipeSeo['meta_description'] ?? null),
+                    // Aşama 8: the previous version did not pass the check; this is why (fix it, keep what was right).
+                    'previous_check' => $text($action['check_feedback'] ?? null)],
                     fn (mixed $v): bool => $v !== null && $v !== []),
             'cluster' => $cluster !== null ? array_filter(['name' => $cluster->name, 'main_query' => $text($cluster->mainQuery?->text), 'subtopics' => $scrub(array_filter((array) $cluster->subtopics, 'is_string')),
                 'queries' => $scrub($cluster->clusterQueries->filter(fn (ClusterQuery $q): bool => $q->searchQuery !== null && ! $q->searchQuery->hidden)
@@ -1209,7 +1212,8 @@ final class ContentPlanner
             $input['brief'] = $action['brief'];
         }
         // A rewrite (ContentAutopilot::rework) asks under new names: an answered call of an earlier round is never reused.
-        $slot = 'article-'.$suggestion->id.($round > 0 ? '-r'.$round : '');
+        $checkRound = (int) ($action['check_rewrites'] ?? 0);
+        $slot = 'article-'.$suggestion->id.($round > 0 ? '-r'.$round : '').($checkRound > 0 ? '-c'.$checkRound : '');
         $outcome = $this->writeWithFix($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, $slot);
         $firstWords = $outcome['status'] === 'ready' ? ContentFormat::words((string) $outcome['article']['html']) : 0;
         if ($outcome['status'] === 'ready' && $outcome['attempts'] === 1 && ContentFormat::tooShort($firstWords, $format)) {

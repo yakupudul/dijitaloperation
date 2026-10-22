@@ -1142,7 +1142,8 @@ Schedule::command('moxdop:content:weekly-titles --weekly')
 
 // Haftalık döngü, pazartesi (yakup, 2026-10-16): the week's new articles of every site (written backlog first, then
 // Wednesday's ideas) get Monday / Wednesday / Friday dates and are written with their translations, then AI-checked;
-// the Monday click on the Onarım masası sends them scheduled for their days. Updates stay manual.
+// the Monday click on the Onarım masası sends them scheduled for their days. Aşama 8 (2026-10-22): Wednesday's ideas
+// and the week's updates are proposed as the week's plan and wait for "Tümünü onayla" (Komuta, İçerik).
 Artisan::command('moxdop:content:week {--site= : One website asset id}', function (ContentAutopilot $autopilot): void {
     $actor = ContentAutopilot::actor();
     if ($actor === null) {
@@ -1151,6 +1152,7 @@ Artisan::command('moxdop:content:week {--site= : One website asset id}', functio
         return;
     }
     $planned = 0;
+    $proposed = 0;
     $sites = 0;
     foreach (ContentAutopilot::sites() as $site) {
         if ($this->option('site') !== null && (int) $this->option('site') !== (int) $site->id) {
@@ -1158,9 +1160,10 @@ Artisan::command('moxdop:content:week {--site= : One website asset id}', functio
         }
         $result = $autopilot->planWeek($site, $actor);
         $planned += $result['planned'];
-        $sites += $result['planned'] > 0 ? 1 : 0;
+        $proposed += $result['proposed'];
+        $sites += $result['planned'] + $result['proposed'] > 0 ? 1 : 0;
     }
-    $this->info($sites.' sitede '.$planned.' yeni yazı bu haftaya planlandı.');
+    $this->info($sites.' sitede '.$planned.' onaylı yazı bu haftaya tarihlendi, '.$proposed.' plan satırı onay bekliyor.');
 })->purpose('Date the week\'s new articles of every site (Mon / Wed / Fri), write and AI-check them for the Monday click');
 
 Schedule::command('moxdop:content:week')
