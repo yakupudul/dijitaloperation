@@ -143,6 +143,7 @@ class RecommendationSourceArchitectureTest extends TestCase
 
     public function test_migration_backfills_legacy_rows_with_finding_source(): void
     {
+        $this->onlyOnSqlite('migration rollback runs on SQLite');
         $finding = Finding::factory()->create(['digital_asset_id' => $this->asset->id]);
 
         // Later prompts added migrations after Prompt 41; roll back until the
