@@ -256,6 +256,15 @@ final class EpicrisisTest extends SiteTestCase
         $this->assertContains('e-posta info@baska.com', $found);
         $this->assertSame([], $claims->unsupported($this->brand, 'Fiyat 18.000 TL.', ['Kampanya: 18.000 TL']), 'the text\'s own source may hold it');
         $this->assertStringStartsWith('Kaynağı olmayan bilgi: telefon', EpicrisisClaims::reason($found));
+
+        // Audit Y5: success rates, promised speed and superiority are claims too; general advice is not.
+        $found = $claims->unsupported($this->brand, '<p>%98 başarı oranıyla İzmir\'in en iyi diş kliniği. İmplant 7 günde tamamlanır. Ankara\'nın 1 numaralı merkezi.</p>');
+        $this->assertContains('başarı oranı: %98 başarı', $found);
+        $this->assertContains('süre: 7 günde', $found);
+        $this->assertContains('üstünlük iddiası: İzmir\'in en iyi diş kliniği', $found);
+        $this->assertContains('üstünlük iddiası: 1 numaralı', $found);
+        $this->assertSame([], $claims->unsupported($this->brand, '<p>En iyi sonuç için 2 günde bir ağzınızı çalkalayın; tedavi 3 ay sürer.</p>'));
+        $this->assertSame([], $claims->unsupported($this->brand, 'Best dentist in town.', ['Yorum: best dentist in town']), 'the brand\'s own words may say it');
     }
 
     public function test_lessons_come_from_the_operators_rejections_and_reasons_the_check_repeats(): void

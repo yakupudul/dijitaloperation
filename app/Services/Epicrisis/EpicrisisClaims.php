@@ -13,6 +13,10 @@ use App\Models\BrandMemory;
  * e-mails, prices, "N yıl garanti", "N yıllık deneyim" / "since 2005" and "N hasta / vaka". A claim that neither holds
  * is invented: the text stays on the desk with the claim named. Durations of a treatment ("3 ay sürer") are general
  * knowledge, not checked.
+ *
+ * Audit Y5 (2026-10-22): also a success rate ("%98 başarı"), a speed the business promises ("3 günde", "24 saat
+ * içinde") and a superiority claim ("İzmir'in en iyi kliniği", "1 numaralı", "best dentist") — the writer and its AI
+ * check read the same sources, so these are held by rule, not left to the check.
  */
 final class EpicrisisClaims
 {
@@ -28,7 +32,12 @@ final class EpicrisisClaims
         ['/(\d+)\s*(?:\+\s*)?(?:yıl|yil|year|jahr)\w*\s+(?:\p{L}+\s+)?(?:deneyim|tecrübe|tecrube|experience|erfahrung)/iu', 'deneyim'],
         ['/(?:since|seit|beri)\s+((?:19|20)\d{2})|((?:19|20)\d{2})\s*(?:yılından|yilindan|\'?(?:den|dan|ten|tan))\s+(?:bu\s+yana|beri)/iu', 'kuruluş yılı'],
         ['/(\d[\d.,]*)\s*\+?\s*(?:\'?(?:den|dan|ten|tan)\s+fazla\s+)?(?:mutlu\s+)?(?:hasta|vaka|patient|case|müşteri|musteri|customer)\w*/iu', 'hasta / vaka sayısı'],
+        ['/%\s?(\d+(?:[.,]\d+)?)\s*(?:\'?(?:lik|lık|luk|lük))?\s*(?:\p{L}+\s+)?(?:başarı|basari|success|erfolg)|(?:başarı|basari|success|erfolg)\w*\s+(?:oranı|orani|rate|quote)?\s*%\s?(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s?%\s*(?:\p{L}+\s+)?(?:success|erfolg)/iu', 'başarı oranı'],
+        ['/(?<![\d.,])(\d+)\s*(?:saat|gün|gun|dakika|hafta)(?:\s*(?:içinde|icinde)|\'?(?:te|ta|de|da))(?!\p{L})(?!\s+bir\b)|\b(?:in|within)\s+(\d+)\s+(?:hours?|days?|minutes?|weeks?)\b/iu', 'süre'],
     ];
+
+    /** Superiority claims without a number: held unless the brand's own words say the same. */
+    private const string SUPERIORITY = '/(?:\p{L}+\'(?:nin|nın|nun|nün|in|ın|un|ün)\s+)?en\s+(?:iyi|ucuz|uygun|büyük|buyuk|güvenilir|guvenilir|deneyimli|başarılı|basarili)\s+(?:\p{L}+\s+)?(?:klini\p{L}*|doktor\p{L}*|hekim\p{L}*|hastane\p{L}*|merkez\p{L}*|firma\p{L}*|şirket\p{L}*|ekib\p{L}*|ekip\p{L}*|hizmet\p{L}*|fiyat\p{L}*)|(?:1|bir)\s+numaralı|\bbest\s+(?:\p{L}+\s+)?(?:clinic|dentist|doctor|surgeon|hospital|price|team)s?\b|\bnumber\s+one\b|\bthe\s+cheapest\b/iu';
 
     /**
      * Claims of the text the brand's record and the given sources do not hold.
@@ -79,6 +88,14 @@ final class EpicrisisClaims
                 if ($digits !== '' && ! str_contains($knownDigits, ' '.$digits.' ')) {
                     $out[] = $label.': '.trim($match[0]);
                 }
+            }
+        }
+
+        preg_match_all(self::SUPERIORITY, $text, $m);
+        $knownLower = mb_strtolower($known);
+        foreach (array_unique($m[0]) as $phrase) {
+            if (! str_contains($knownLower, mb_strtolower(trim($phrase)))) {
+                $out[] = 'üstünlük iddiası: '.trim($phrase);
             }
         }
 
