@@ -8,7 +8,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Sorgu otomatik pilotu: one tick (triage → Bekleyenler → daily clustering); while triage work is left the job queues
+ * Sorgu otomatik pilotu: one tick (triage → Bekleyenler → weekly clustering); while triage work is left the job queues
  * itself again. One tick and one clean-up at a time (locks); the 15-minute schedule restarts it after a failure. The
  * clean-up runs hourly and at once after 50 new filter terms (QueryAutopilot::cleanIfDue).
  */

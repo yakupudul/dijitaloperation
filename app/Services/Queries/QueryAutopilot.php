@@ -38,7 +38,7 @@ use Throwable;
  *     `ai_checked_at` marks the query so it is never sent again.
  *  2. When no query is left: Bekleyenler is imported (filter terms already applied; matching keywords assign), and
  *     the next round triages what the keywords did not place.
- *  3. At most once a day, whatever triage still has to do: services with new, never clustered queries are clustered
+ *  3. At most once a week, whatever triage still has to do: services with new, never clustered queries are clustered
  *     one by one ("Hepsini kümele" queue: place into the existing clusters, or a full run for a service without
  *     clusters). A finished run approves its sound clusters itself (QueryClusterer::autoApprove).
  *  4. Hourly clean-up: a full rescan with the grown filter basket and keywords, then every open Silinecekler line is
@@ -63,7 +63,8 @@ final class QueryAutopilot
     /** Stops starting new AI calls before the job's timeout; the job continues in the next tick. */
     private const int TIME_BUDGET_SECONDS = 600;
 
-    private const int CLUSTER_EVERY_HOURS = 20;
+    /** Weekly since 2026-10-25 (yakup: protect the Claude quota); the topic maps are built weekly anyway. */
+    private const int CLUSTER_EVERY_HOURS = 160;
 
     /** Failed triage calls in a row before the pilot waits ERROR_PAUSE_HOURS (the same queries are not paid for again and again). */
     private const int MAX_ERRORS = 3;
@@ -144,7 +145,7 @@ final class QueryAutopilot
     }
 
     /**
-     * One tick: triage until the queue or the time budget ends, then Bekleyenler, then (daily) clustering.
+     * One tick: triage until the queue or the time budget ends, then Bekleyenler, then (weekly) clustering.
      *
      * @return string more (call again) | imported | clustering | claude (batches wait for Claude) | idle | off | no_provider
      */

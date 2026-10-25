@@ -527,7 +527,7 @@ Artisan::command('moxdop:work:warm-page-traffic', function (): void {
 Schedule::command('moxdop:work:warm-page-traffic')
     ->cron('40 */3 * * *')->withoutOverlapping(60)->name('work-warm-page-traffic');
 
-// Sorgu otomatik pilotu: AI ile hizmet / filtre (her sorgu bir kez), Bekleyenler içe aktarımı, günlük kümeleme.
+// Sorgu otomatik pilotu: AI ile hizmet / filtre (her sorgu bir kez), Bekleyenler içe aktarımı, haftalık kümeleme.
 Artisan::command('moxdop:queries:autopilot {--clean : Saatlik temizlik (tam tarama + Silinecekler uygulanır)}', function (): void {
     QueryAutopilotJob::dispatch((bool) $this->option('clean'));
     $this->info($this->option('clean') ? 'Temizlik kuyruğa alındı.' : 'Otomatik pilot turu kuyruğa alındı.');
@@ -1324,8 +1324,9 @@ Artisan::command('moxdop:site:doorway-check', function (): void {
     $this->info('Kapı sayfası kontrolü kuyruğa alındı.');
 })->purpose('Claude reads template pages once: those naming another business or an unserved place go to Onarım masası as noindex rows (nothing is written).');
 
+// Daily since 2026-10-25 (yakup: protect the Claude quota); template pages change rarely.
 Schedule::command('moxdop:site:doorway-check')
-    ->hourlyAt(35)
+    ->dailyAt('04:35')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::SITE_DOORWAY_CHECK))
