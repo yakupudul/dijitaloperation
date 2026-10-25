@@ -1142,7 +1142,8 @@ final class RepairDesk
     private function siteRow(Suggestion $s, array $base, array $action): ?array
     {
         $proposal = (array) ($action['proposal'] ?? []);
-        if ($proposal === [] || isset($action['proposal_blocked']) || isset($action['writes'])) {
+        // A fix whose page left the site can never be sent (ChangeApplier needs the page): not a row to approve.
+        if ($proposal === [] || isset($action['proposal_blocked']) || isset($action['writes']) || $s->page === null) {
             return null;
         }
         $current = (array) ($proposal['current'] ?? []);

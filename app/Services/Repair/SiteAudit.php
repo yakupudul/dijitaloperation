@@ -11,6 +11,7 @@ use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\PageTechnical;
 use App\Services\Site\SiteMetrics;
+use App\Services\Website\Pages\PageStore;
 use Illuminate\Support\Collection;
 use Throwable;
 
@@ -67,7 +68,7 @@ final class SiteAudit
     /** @return array{sites: int, opened: int, closed: int} */
     public function run(): array
     {
-        $done = ['sites' => 0, 'opened' => 0, 'closed' => 0];
+        $done = ['sites' => 0, 'opened' => 0, 'closed' => PageStore::closeOrphanFixes()];
         DigitalAsset::query()->operational()->where('type', 'website')->orderBy('id')->each(function (DigitalAsset $site) use (&$done): void {
             try {
                 $result = $this->audit($site);

@@ -3,6 +3,8 @@
 namespace App\Services\Website\Pages;
 
 use App\Models\Page;
+use App\Models\Suggestion;
+use App\Services\Repair\SiteAudit;
 use App\Services\Site\BrandMemoryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +23,9 @@ final class PageStore
     public const string UPDATED = 'updated';
 
     public const string UNCHANGED = 'unchanged';
+
+    /** `action.auto_closed` of a page fix whose page left the site (deleted, unpublished or moved to another row). */
+    public const string PAGE_GONE = 'page_gone';
 
     /**
      * @param  array{url: string, language?: ?string, title?: ?string, meta_description?: ?string, canonical?: ?string,
@@ -112,6 +117,25 @@ final class PageStore
         BrandMemoryService::recheck($siteId, $ids);
 
         return Page::query()->whereIn('id', $ids)->delete();
+    }
+
+    /**
+     * Akış 2026-10-26 (Avrupadent 170 rows "Önce AI ile yap" on every approval): a title / description fix of the night's
+     * audit whose page was deleted keeps its prepared value with no page and can never be sent. It is closed; the audit
+     * opens a new one for the page that took its place.
+     */
+    public static function closeOrphanFixes(): int
+    {
+        $closed = 0;
+        Suggestion::query()->whereNull('page_id')->where('target_type', 'page')->whereNotIn('target_id', Page::query()->select('id'))
+            ->where('action_type', SiteAudit::TYPE)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED])->whereNull('action->writes')
+            ->get(['id', 'action'])->each(function (Suggestion $fix) use (&$closed): void {
+                $fix->forceFill(['status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'action' => array_merge((array) $fix->action, ['auto_closed' => self::PAGE_GONE]),
+                    'operator_note' => 'Sayfa sitede artık yok (silindi ya da adresi başka bir kayda geçti); iş otomatik kapandı.'])->save();
+                $closed++;
+            });
+
+        return $closed;
     }
 
     /** A template / theme change: every page of the site is marked changed without refetching anything. */

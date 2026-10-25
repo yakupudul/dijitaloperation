@@ -22,6 +22,7 @@ use App\Services\Repair\RepairVerifier;
 use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\SiteAudit;
 use App\Services\Site\SiteOperations;
+use App\Services\Website\Pages\PageStore;
 use App\Support\OperatorMenu;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -587,6 +588,28 @@ final class RepairDeskTest extends SiteTestCase
         $summary = RepairDesk::summarize($rows, $desk->overflow($rows));
         $this->assertSame(RepairDesk::LIMIT + 5, $summary['decide']);
         $this->assertSame(RepairDesk::LIMIT + 3, $summary['brands'][$this->brand->id]['decide']);
+    }
+
+    public function test_a_fix_whose_page_left_the_site_is_closed_not_failed_on_every_approval(): void
+    {
+        // Akış 2026-10-26: Avrupadent's 170 title / description rows failed with "Önce AI ile yap" on every approval.
+        $proposal = ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]];
+        $orphan = $this->suggestion('Başlık ve açıklamayı düzelt: /eski/', SiteAudit::TYPE, $proposal, ['page_id' => null, 'target_type' => 'page', 'target_id' => 999999]);
+        $gone = $this->page('/silinecek/', 'Silinecek', ['wp_post_id' => 77]);
+        $deleted = $this->suggestion('Başlık ve açıklamayı düzelt: /silinecek/', SiteAudit::TYPE, $proposal, ['page_id' => $gone->id, 'target_type' => 'page', 'target_id' => $gone->id]);
+        $kept = $this->suggestion('Başlık', 'title_description', $proposal);
+        $desk = app(RepairDesk::class);
+        $this->assertSame([$deleted->id, $kept->id], $desk->rows()->pluck('id')->sort()->values()->all(), 'a row without its page is not offered');
+
+        PageStore::deleteRows($this->site->id, Page::query()->whereKey($gone->id));
+        $this->assertSame(Suggestion::RECHECK, $deleted->fresh()->status);
+        $this->assertSame([$kept->id], $desk->rows()->pluck('id')->all(), 'the deleted page\'s fix leaves the desk at once');
+
+        $this->assertSame(2, PageStore::closeOrphanFixes(), 'the night closes them');
+        $this->assertSame([Suggestion::DISMISSED, Suggestion::DISMISSED], [$orphan->fresh()->status, $deleted->fresh()->status]);
+        $this->assertSame(PageStore::PAGE_GONE, $deleted->fresh()->action['auto_closed']);
+        $this->assertSame(Suggestion::OPEN, $kept->fresh()->status);
+        $this->assertSame([$kept->id], $desk->rows()->pluck('id')->all());
     }
 
     private function suggestion(string $title, string $type, array $action, array $extra = []): Suggestion

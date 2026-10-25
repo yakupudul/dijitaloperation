@@ -293,6 +293,9 @@ final class ChangeApplier
         $proposal = (array) data_get($suggestion->action, 'proposal', []);
         $page = $suggestion->page_id !== null ? Page::query()->find($suggestion->page_id) : null;
         $site = $page?->website;
+        if ($proposal !== [] && $page === null) {
+            throw ValidationException::withMessages(['write' => 'Sayfa sitede artık yok (silindi ya da adresi değişti); bu düzeltme gönderilemez.']);
+        }
         if ($proposal === [] || $page === null || $site === null) {
             throw ValidationException::withMessages(['write' => 'Önce "AI ile yap" ile yeni sürümü hazırla.']);
         }
