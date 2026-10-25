@@ -4617,3 +4617,7 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: publi
   campaign, profile or page), "Sitede gör" on written items, WordPress + Search Console on the Sayfalar detail, Google Ads
   Analiz campaign / ad group rows, şube sayfası "WordPress’te aç ve yayınla". Sorgular / Kazananlar are cross-brand
   libraries, so they get no single external target.
+
+## 2026-10-25 — Yazı haritası: kümenin başka sayfası yokken eski yazılar
+
+- `ContentMap::forWriter` failed with "Call to a member function getKey() on array" when a cluster had no other page in the site's language but had earlier written articles (an empty Eloquent collection merged with plain rows); the writer then got no cluster map (5 errors on 22 Oct). The page list is a plain collection now. Tested: `ContentClusterMapTest::test_the_cluster_map_lists_earlier_articles_when_the_cluster_has_no_other_page`.

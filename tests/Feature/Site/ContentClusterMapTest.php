@@ -110,6 +110,17 @@ final class ContentClusterMapTest extends SiteTestCase
         $this->assertContains('Markaya özgü bilgi yok: hekim, şube ya da kliniğin kendi süreci geçmiyor; yazı her sitede yayınlanabilecek kadar genel.', $action['article_seo']);
     }
 
+    public function test_the_cluster_map_lists_earlier_articles_when_the_cluster_has_no_other_page(): void
+    {
+        $cluster = $this->cluster($this->implant, 'Kanal tedavisi', ['kanal tedavisi'], ['Süreç']);
+        $this->idea('Kanal tedavisi kaç seans sürer?', ['article_write_id' => 7, 'target_url' => 'https://example.test/kanal-seans/'], Suggestion::APPLIED, $cluster->id);
+        $idea = $this->idea('Kanal tedavisinde iğne yapılır mı?', [], Suggestion::APPROVED, $cluster->id);
+
+        $map = app(ContentMap::class)->forWriter($this->brand, $this->site, $cluster, $idea);
+
+        $this->assertSame([['url' => 'https://example.test/kanal-seans/', 'title' => 'Kanal tedavisi kaç seans sürer?']], $map['other_pages']);
+    }
+
     public function test_the_autopilot_turns_an_owned_subject_into_the_page_update_and_closes_a_second_idea_of_the_same_subject(): void
     {
         Queue::fake();

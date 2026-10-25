@@ -133,7 +133,7 @@ final class ContentMap
             ->reject(fn (int $id): bool => $id === $own || $id === $pillar?->id)->values()->all();
         $main = SiteScope::primaryLanguage($site);
         $others = Page::query()->whereIn('id', $pageIds ?: [0])->get(['id', 'url', 'title', 'language', 'path'])
-            ->filter(fn (Page $p): bool => ContentPlanner::inLanguage($p, $main))
+            ->filter(fn (Page $p): bool => ContentPlanner::inLanguage($p, $main))->toBase()
             ->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values();
         $articles = Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)->where('cluster_id', $cluster->id)
             ->where('id', '!=', $suggestion->id)->whereIn('status', [Suggestion::APPROVED, Suggestion::APPLIED])->whereNotNull('action->article_write_id')
