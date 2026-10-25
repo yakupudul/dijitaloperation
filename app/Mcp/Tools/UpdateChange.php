@@ -52,7 +52,7 @@ class UpdateChange extends Tool
             'id' => $schema->integer()->description('Change id from list-changes.')->required(),
             'step' => $schema->string()->enum(['start', 'ready', 'give_back', 'verified', 'failed'])->required(),
             'commit' => $schema->string()->description('step=ready: the pushed commit SHA.'),
-            'branch' => $schema->string()->description('step=ready: the branch (default claude/project-thread-e5yimf).'),
+            'branch' => $schema->string()->description('step=ready: the branch (default claude/project-thread-671d3s).'),
             'deploy_commands' => $schema->string()->description('step=ready: the exact commands the operator runs, one per line.'),
             'note' => $schema->string()->description('Turkish: what was done / why given back / what was checked.'),
         ];

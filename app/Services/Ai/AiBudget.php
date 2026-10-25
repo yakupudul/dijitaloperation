@@ -26,11 +26,34 @@ final class AiBudget
 {
     public function __construct(private readonly AiPricing $pricing) {}
 
+    /** @var array<string, array{0: mixed, 1: float}> settings and sums read in the last seconds (pool #54) */
+    private static array $memo = [];
+
+    public static function forget(): void
+    {
+        self::$memo = [];
+    }
+
+    private static function memo(string $key, callable $read): mixed
+    {
+        if (app()->runningUnitTests()) {
+            return $read();
+        }
+        $hit = self::$memo[$key] ?? null;
+        if ($hit !== null && microtime(true) - $hit[1] < 10) {
+            return $hit[0];
+        }
+        $value = $read();
+        self::$memo[$key] = [$value, microtime(true)];
+
+        return $value;
+    }
+
     public function monthlyBudget(): float
     {
-        $stored = SchemaState::hasColumn('agency_settings', 'ai_monthly_budget_usd')
+        $stored = self::memo('monthly_budget', fn (): mixed => SchemaState::hasColumn('agency_settings', 'ai_monthly_budget_usd')
             ? AgencySetting::query()->orderBy('id')->value('ai_monthly_budget_usd')
-            : null;
+            : null);
 
         $budget = $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.monthly_budget_usd', 100);
 
@@ -44,9 +67,9 @@ final class AiBudget
             return 0.0;
         }
 
-        return (float) DB::table('ai_usage_records')
+        return (float) self::memo('month_spend', fn (): mixed => DB::table('ai_usage_records')
             ->where('created_at', '>=', now()->startOfMonth())
-            ->sum('cost_usd');
+            ->sum('cost_usd'));
     }
 
     public function isExhausted(): bool
@@ -197,9 +220,9 @@ final class AiBudget
 
     public function dailyBudget(): float
     {
-        $stored = SchemaState::hasColumn('agency_settings', 'ai_daily_auto_budget_usd')
+        $stored = self::memo('daily_budget', fn (): mixed => SchemaState::hasColumn('agency_settings', 'ai_daily_auto_budget_usd')
             ? AgencySetting::query()->orderBy('id')->value('ai_daily_auto_budget_usd')
-            : null;
+            : null);
 
         $budget = $stored !== null ? (float) $stored : (float) config('moxdop-ai-pricing.daily_auto_budget_usd', 1);
         $window = ClaudeApiWindow::dailyBudget();

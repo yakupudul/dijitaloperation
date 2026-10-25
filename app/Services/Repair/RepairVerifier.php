@@ -7,6 +7,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Site\ImageAlts;
+use App\Services\Site\TemplateLinks;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -134,7 +135,8 @@ final class RepairVerifier
             return null;
         }
 
-        return collect($urls)->every(fn (string $url): bool => in_array(self::url($url), $edges, true));
+        return collect($urls)->every(fn (string $url): bool => in_array(self::url($url), $edges, true)
+            || TemplateLinks::isTemplate((int) $page->website_asset_id, $url));
     }
 
     /** The Business Profile shows the written description once a snapshot taken after the write came in. */

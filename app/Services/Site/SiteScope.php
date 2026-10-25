@@ -151,6 +151,36 @@ final class SiteScope
     /** The site's main language: its home page's language, else the most common page language (null when pages carry none). */
     public static function primaryLanguage(DigitalAsset $site): ?string
     {
+        return self::memo('primary:'.$site->id, fn (): ?string => self::readPrimaryLanguage($site));
+    }
+
+    /**
+     * A site's languages read a few seconds ago (pool #53: /icerik asked the same 13 sites 41 times each). Tests read
+     * straight through, since they add pages between calls.
+     */
+    private static function memo(string $key, callable $read): mixed
+    {
+        if (app()->runningUnitTests()) {
+            return $read();
+        }
+        $hit = self::$memo[$key] ?? null;
+        if ($hit !== null && microtime(true) - $hit[1] < 30) {
+            return $hit[0];
+        }
+        if (count(self::$memo) > 500) {
+            self::$memo = [];
+        }
+        $value = $read();
+        self::$memo[$key] = [$value, microtime(true)];
+
+        return $value;
+    }
+
+    /** @var array<string, array{0: mixed, 1: float}> */
+    private static array $memo = [];
+
+    private static function readPrimaryLanguage(DigitalAsset $site): ?string
+    {
         // The home page's language is the site's own (drsuadagasimova.com: Turkish at "/", more Russian pages under
         // "/ru/" — counting pages called it a Russian site and treated every Turkish page as a translation).
         $home = Page::query()->where('website_asset_id', $site->id)->whereIn('path', ['/', ''])->whereNotNull('language')->value('language');
@@ -184,8 +214,8 @@ final class SiteScope
     /** @return list<string> languages of the site's pages */
     public static function languages(DigitalAsset $site): array
     {
-        return Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')->distinct()->orderBy('language')
-            ->pluck('language')->map(fn ($l): string => (string) $l)->all();
+        return self::memo('languages:'.$site->id, fn (): array => Page::query()->where('website_asset_id', $site->id)->whereNotNull('language')->distinct()->orderBy('language')
+            ->pluck('language')->map(fn ($l): string => (string) $l)->all());
     }
 
     public static function origin(DigitalAsset $site): string

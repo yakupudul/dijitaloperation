@@ -198,6 +198,10 @@ final class ClusterLinks
         if (! SchemaState::hasTable('website_link_edge')) {
             return false;
         }
+        // A link the site repeats on most pages (kept once per site, pool #56) is already there.
+        if (TemplateLinks::isTemplate((int) $site->id, $to)) {
+            return true;
+        }
         $targets = array_values(array_unique([$to, rtrim($to, '/'), rtrim($to, '/').'/']));
         $sources = array_values(array_unique([$from, rtrim($from, '/'), rtrim($from, '/').'/']));
 

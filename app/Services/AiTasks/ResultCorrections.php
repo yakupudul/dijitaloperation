@@ -4,6 +4,7 @@ namespace App\Services\AiTasks;
 
 use App\Models\AiTask;
 use App\Models\Brand;
+use App\Models\BrandClusterPage;
 use App\Models\DigitalAsset;
 use App\Models\GbpQueuedPost;
 use App\Models\Page;
@@ -42,6 +43,11 @@ final class ResultCorrections
     public const string TARGET_SUGGESTION = 'suggestion';
 
     public const string TARGET_GBP_POST = 'gbp_post';
+
+    /** A cluster row's match reason or missing items (site.cluster_match / site.cluster_gaps; pool #46). */
+    public const string TARGET_CLUSTER_ROW = 'cluster_row';
+
+    public const array CLUSTER_OPERATIONS = ['site.cluster_match', 'site.cluster_gaps'];
 
     /** Kept on a row at most (newest last). */
     private const int LOG_MAX = 20;
@@ -85,10 +91,74 @@ final class ResultCorrections
             }
         }
 
+        $clusterRows = collect();
+        if (in_array((string) $task->operation, self::CLUSTER_OPERATIONS, true) && $task->brand_id !== null) {
+            $clusterIds = collect((array) data_get($task->output, 'clusters', []))->map(fn ($r): mixed => is_array($r) ? ($r['cluster_id'] ?? null) : null)
+                ->filter(fn ($id): bool => is_int($id))->unique()->values()->all();
+            if ($clusterIds !== []) {
+                $clusterRows = BrandClusterPage::query()->where('brand_id', $task->brand_id)->whereIn('cluster_id', $clusterIds)
+                    ->when(is_int(data_get($task->input, 'site_id')), fn ($q) => $q->where('website_asset_id', data_get($task->input, 'site_id')))
+                    ->orderBy('id')->limit(200)->get();
+            }
+        }
+
         return [
             ...$suggestions->map(fn (Suggestion $s): array => $this->describe($s))->filter(fn (array $t): bool => $t['fields'] !== [])->values()->all(),
             ...$posts->unique('id')->map(fn (GbpQueuedPost $p): array => $this->describe($p))->values()->all(),
+            ...$clusterRows->map(fn (BrandClusterPage $row): array => $this->describeClusterRow($row))->filter(fn (array $t): bool => $t['fields'] !== [])->values()->all(),
         ];
+    }
+
+    /**
+     * A cluster row's operator-visible texts: the match reason and each missing item (never sent anywhere).
+     *
+     * @return array{type: string, id: int, title: string, status: string, fields: array<string, array{text: mixed, sent: bool}>}
+     */
+    public function describeClusterRow(BrandClusterPage $row): array
+    {
+        $fields = [];
+        if (is_string($row->reason) && trim($row->reason) !== '') {
+            $fields['reason'] = ['text' => $row->reason, 'sent' => false];
+        }
+        foreach ((array) $row->gaps as $i => $gap) {
+            if (is_array($gap) && is_string($gap['text'] ?? null)) {
+                $fields['gaps.'.$i.'.text'] = ['text' => $gap['text'], 'sent' => false];
+            }
+        }
+
+        return ['type' => self::TARGET_CLUSTER_ROW, 'id' => (int) $row->id, 'title' => 'Küme satırı #'.$row->id.' ('.(string) $row->language.')',
+            'status' => (string) $row->state, 'fields' => $fields];
+    }
+
+    /** @param  list<array{find: string, replace: string}>  $replacements */
+    private function correctClusterRow(BrandClusterPage $row, string $path, array $replacements, mixed $value, string $note, ?int $taskId): array
+    {
+        $current = $this->describeClusterRow($row)['fields'][$path] ?? null;
+        if ($current === null) {
+            throw ValidationException::withMessages(['path' => 'Bu satırda "'.$path.'" yok. Düzeltilebilecek alanlar: '.implode(', ', array_keys($this->describeClusterRow($row)['fields'])).'.']);
+        }
+        $new = trim(self::edited((string) $current['text'], $replacements, $value));
+        if ($new === $current['text']) {
+            throw ValidationException::withMessages(['value' => 'Düzeltme metni değiştirmiyor.']);
+        }
+        // The same rule as the AI answer (ClusterAudit): a URL or a number of two or more digits is not from the page.
+        if (preg_match('/https?:|www\.|\d{2,}/u', $new) === 1) {
+            throw ValidationException::withMessages(['value' => 'Gerekçe ve eksik metninde adres ya da iki haneli sayı olamaz.']);
+        }
+        if ($path === 'reason') {
+            $row->forceFill(['reason' => mb_substr($new, 0, 300)])->save();
+        } else {
+            $gaps = (array) $row->gaps;
+            $index = (int) explode('.', $path)[1];
+            if (mb_strlen($new) < 5) {
+                throw ValidationException::withMessages(['value' => 'Eksik metni en az 5 karakter olmalı.']);
+            }
+            $gaps[$index]['text'] = mb_substr($new, 0, 200);
+            $row->forceFill(['gaps' => array_values($gaps)])->save();
+        }
+        logger()->info('Cluster row corrected by Claude.', ['row' => $row->id, 'path' => $path, 'note' => mb_substr(trim($note), 0, 300), 'task_id' => $taskId]);
+
+        return ['outcome' => 'corrected', 'target' => $this->describeClusterRow($row->fresh()), 'message' => 'Düzeltildi; küme satırı yalnız panelde görünür, siteye bir şey gitmez.'];
     }
 
     /**
@@ -146,6 +216,9 @@ final class ResultCorrections
     {
         if ($type === self::TARGET_GBP_POST) {
             return $this->correctPost(GbpQueuedPost::query()->findOrFail($id), $path, $replacements, $value);
+        }
+        if ($type === self::TARGET_CLUSTER_ROW) {
+            return $this->correctClusterRow(BrandClusterPage::query()->findOrFail($id), $path, $replacements, $value, $note, $taskId);
         }
         $suggestion = Suggestion::query()->with('page')->findOrFail($id);
         $current = $this->describe($suggestion)['fields'][$path] ?? null;

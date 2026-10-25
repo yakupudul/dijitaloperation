@@ -20,11 +20,19 @@ final class RecordRequestTiming
     /** @var array<string, int> query shape => times run in this request */
     private static array $shapes = [];
 
+    /** One query listener per process (pool #55: the nightly screen check handles every screen in one process). */
+    private static bool $listening = false;
+
+    private static ?float $started = null;
+
     public function handle(Request $request, Closure $next): Response
     {
         self::$queries = 0;
         self::$shapes = [];
-        if (! app()->runningUnitTests()) {
+        // A request after the first one in this process starts its own clock (LARAVEL_START is the process start).
+        self::$started = self::$listening ? microtime(true) : null;
+        if (! app()->runningUnitTests() && ! self::$listening) {
+            self::$listening = true;
             DB::listen(static function (QueryExecuted $query): void {
                 self::$queries++;
                 $shape = mb_substr($query->sql, 0, 300);
@@ -40,7 +48,11 @@ final class RecordRequestTiming
         if (app()->runningUnitTests()) {
             return;
         }
-        $started = defined('LARAVEL_START') ? LARAVEL_START : $request->server('REQUEST_TIME_FLOAT');
+        // The nightly screen check measures its own renders; its in-process requests are not panel traffic.
+        if (app()->runningInConsole()) {
+            return;
+        }
+        $started = self::$started ?? (defined('LARAVEL_START') ? LARAVEL_START : $request->server('REQUEST_TIME_FLOAT'));
         if (! is_numeric($started)) {
             return;
         }

@@ -10,6 +10,7 @@ use App\Models\Suggestion;
 use App\Services\Queries\QuerySourceAggregator;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\SiteScope;
+use App\Services\Site\TemplateLinks;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -721,9 +722,12 @@ final class SitePagesReader
         if (SchemaState::hasTable('website_link_edge') && DB::table('website_link_edge')->where('digital_asset_id', $site->id)->exists()) {
             $edges = fn (): Builder => DB::table('website_link_edge as e')->joinSub($latest(), 'l', fn ($join) => $join->on('l.url', '=', 'e.source_url')->on('l.observed_at', '=', 'e.observed_at'))
                 ->where('e.digital_asset_id', $site->id)->where('e.is_internal', true);
+            $template = collect(TemplateLinks::rows((int) $site->id, true))->filter(fn (object $t): bool => in_array((string) $t->normalized_target_url, $urls, true))
+                ->max('source_pages');
             $links = [
                 'out' => (int) $edges()->whereIn('e.source_url', $urls)->count(),
-                'in' => (int) $edges()->whereIn('e.normalized_target_url', $urls)->whereNotIn('e.source_url', $urls)->distinct()->count('e.source_url'),
+                // A link repeated on most pages (pool #56) counts its pages, kept once per site.
+                'in' => (int) $edges()->whereIn('e.normalized_target_url', $urls)->whereNotIn('e.source_url', $urls)->distinct()->count('e.source_url') + (int) $template,
             ];
         }
 

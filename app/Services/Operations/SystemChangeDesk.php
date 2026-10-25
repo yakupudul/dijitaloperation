@@ -17,7 +17,17 @@ use Illuminate\Validation\ValidationException;
  */
 final class SystemChangeDesk
 {
-    public const string BRANCH = 'claude/project-thread-e5yimf';
+    public const string BRANCH = 'claude/project-thread-671d3s';
+
+    public const string NOTE_BATCH = 'Hata: onay gerekmez, salı toplu düzeltmede yapılır.';
+
+    public const string NOTE_URGENT = 'Acil hata: onay gerekmez, aynı gün düzeltilir.';
+
+    /** Tuesday in Istanbul: the day the approved errors are fixed together. */
+    public static function isBatchDay(): bool
+    {
+        return now('Europe/Istanbul')->isoWeekday() === SystemChange::BATCH_WEEKDAY;
+    }
 
     /**
      * @param  array{kind: string, title: string, detail: string, evidence?: ?list<string>, priority?: ?int, fingerprint?: ?string}  $input
@@ -35,10 +45,17 @@ final class SystemChangeDesk
             return ['change' => $existing, 'created' => false];
         }
 
+        $error = in_array($input['kind'], SystemChange::ERROR_KINDS, true);
+        $priority = (int) ($input['priority'] ?? 2);
+
         return ['change' => SystemChange::query()->create([
             'kind' => $input['kind'], 'title' => trim($input['title']), 'detail' => trim($input['detail']),
-            'evidence' => array_values($input['evidence'] ?? []) ?: null, 'priority' => (int) ($input['priority'] ?? 2),
-            'fingerprint' => $fingerprint, 'source' => 'claude', 'status' => SystemChange::PROPOSED,
+            'evidence' => array_values($input['evidence'] ?? []) ?: null, 'priority' => $priority,
+            'fingerprint' => $fingerprint, 'source' => 'claude',
+            // Errors need no approval: fixed in the Tuesday batch, urgent ones the same day (yakup 2026-10-19 / 25).
+            'status' => $error ? SystemChange::APPROVED : SystemChange::PROPOSED,
+            'decided_at' => $error ? now() : null,
+            'operator_note' => $error ? ($priority === 1 ? self::NOTE_URGENT : self::NOTE_BATCH) : null,
         ]), 'created' => true];
     }
 
@@ -129,7 +146,8 @@ final class SystemChangeDesk
         $pool = $release['pool'] ?? [];
         if ($pool !== []) {
             $named = 0;
-            foreach (SystemChange::query()->whereIn('id', $pool)->whereIn('status', [SystemChange::APPROVED, SystemChange::IN_PROGRESS, SystemChange::READY])->get() as $change) {
+            // Proposed ones too: a live commit that names a card did its work (pool #36-#49 sat "Onay bekliyor" while live).
+            foreach (SystemChange::query()->whereIn('id', $pool)->whereIn('status', [SystemChange::PROPOSED, SystemChange::APPROVED, SystemChange::IN_PROGRESS, SystemChange::READY])->get() as $change) {
                 $change->forceFill(['status' => SystemChange::DEPLOYED, 'deployed_at' => now(), 'commit_sha' => $change->commit_sha ?? substr($sha, 0, 40),
                     'work_note' => $change->work_note ?? 'Sizin deploy\'unuzla canlıya çıktı (sürüm '.substr($sha, 0, 8).'); kodu Claude dala yazmıştı.'])->save();
                 $named++;

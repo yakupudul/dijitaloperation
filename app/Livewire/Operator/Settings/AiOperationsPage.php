@@ -98,6 +98,7 @@ final class AiOperationsPage extends Component
             ['budget' => 'Aylık bütçe', 'dailyAutoBudget' => 'Günlük AI tavanı']);
         $setting = AgencySetting::query()->orderBy('id')->first() ?? new AgencySetting;
         $setting->forceFill(['ai_monthly_budget_usd' => round((float) $this->budget, 2), 'ai_daily_auto_budget_usd' => round((float) $this->dailyAutoBudget, 2)])->save();
+        AiBudget::forget();
         app(AgencySettingService::class)->forget();
         session()->flash('status', 'AI bütçeleri kaydedildi.');
     }

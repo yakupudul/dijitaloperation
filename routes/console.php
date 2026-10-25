@@ -684,6 +684,14 @@ Schedule::command('moxdop:retention --apply')
     ->withoutOverlapping(720)
     ->name('data-retention');
 
+// İç bağlantı tablosu (havuz #56): sitenin çoğu sayfasında tekrarlanan bağlantılar site başına bir kez saklanır.
+Schedule::command('moxdop:links:templates')
+    ->dailyAt('02:10')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(240)
+    ->runInBackground()
+    ->name('link-templates-nightly');
+
 // Her gece büyüyenler (disk %94, 2026-10-21): ham kopyalar 14 gün (her sayfanın son HTML'i kalır), telemetri kendi
 // süresi, AI metin kopyaları 7/14 gün. Yedekten (06:30) önce, böylece yedek de küçülür.
 Schedule::command('moxdop:retention --apply --daily')

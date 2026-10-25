@@ -11,6 +11,7 @@ use App\Services\Brand\BrandScope;
 use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
+use App\Services\Site\TemplateLinks;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -282,10 +283,17 @@ final class SeoPlanInputCollector
                 }
             });
 
+        $template = [];
+        foreach (TemplateLinks::rows((int) $site->id, true) as $row) {
+            $template[SeoText::urlKey((string) $row->normalized_target_url)] = (int) $row->source_pages;
+        }
+
         return [
             'available' => $outlinks !== [],
             'inlinks' => array_map('array_keys', $inlinks),
             'outlinks' => array_map('array_keys', $outlinks),
+            // Targets linked from most pages (sidebar, related block; pool #56) => how many pages carry the link.
+            'template_inlinks' => $template,
         ];
     }
 

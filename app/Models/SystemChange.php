@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Geliştirme havuzu: one fix or improvement of MoxDOP itself. Claude proposes (or the operator writes one) → the
- * operator approves → Claude codes it, pushes the branch and writes the deploy commands (ready) → the operator deploys
+ * operator approves (errors are approved on arrival, see ERROR_KINDS) → Claude codes it, pushes the branch and writes the deploy commands (ready) → the operator deploys
  * and marks it (deployed) → Claude checks the live system (verified / failed). Rejected ones stay as a record so the
  * same finding is not proposed again (fingerprint).
  */
@@ -40,6 +40,26 @@ class SystemChange extends Model
     ];
 
     public const array PRIORITY_LABELS = [1 => 'Acil', 2 => 'Normal', 3 => 'Düşük'];
+
+    /**
+     * Errors go in approved (yakup 2026-10-19, switched on 2026-10-25): Claude fixes them in the Tuesday batch, urgent
+     * ones the same day. New features and design changes still wait for the operator's approval.
+     */
+    public const array ERROR_KINDS = ['bug', 'collection', 'page'];
+
+    /** The weekly batch day (ISO weekday, 2 = Tuesday). */
+    public const int BATCH_WEEKDAY = 2;
+
+    public function isError(): bool
+    {
+        return in_array($this->kind, self::ERROR_KINDS, true);
+    }
+
+    /** Fixed the same day instead of on Tuesday: an urgent (priority 1) error. */
+    public function isUrgent(): bool
+    {
+        return $this->isError() && (int) $this->priority === 1;
+    }
 
     /** @var list<string> */
     protected $fillable = [

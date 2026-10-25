@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Geliştirme havuzu: proposes one fix or improvement of MoxDOP itself for the operator to approve (kind: bug, collection, page, design, improvement). Write it in Turkish: title = what changes, detail = what is wrong, why it matters and the proposed fix (file:line when known). evidence = error groups, screen paths, ids. The same finding (same fingerprint, or kind + title) is never proposed twice; a rejected one stays rejected. Proposing changes nothing in the system.')]
+#[Description('Geliştirme havuzu: proposes one fix or improvement of MoxDOP itself (kind: bug, collection, page, design, improvement). Errors (bug, collection, page) go in approved: fixed in the Tuesday batch, priority 1 the same day. design and improvement wait for the operator approval. Write it in Turkish: title = what changes, detail = what is wrong, why it matters and the proposed fix (file:line when known). evidence = error groups, screen paths, ids. The same finding (same fingerprint, or kind + title) is never proposed twice; a rejected one stays rejected. Proposing changes nothing in the system.')]
 class ProposeChange extends Tool
 {
     public function handle(Request $request, SystemChangeDesk $desk): Response
@@ -29,7 +29,9 @@ class ProposeChange extends Tool
         $change = $outcome['change'];
 
         return Response::text($outcome['created']
-            ? 'Öneri #'.$change->id.' havuza eklendi; operatör onayını bekliyor.'
+            ? 'Öneri #'.$change->id.' havuza eklendi; '.($change->status === SystemChange::APPROVED
+                ? ($change->isUrgent() ? 'acil hata: onay gerekmez, bugün düzeltilir.' : 'hata: onay gerekmez, salı toplu düzeltmede yapılır.')
+                : 'operatör onayını bekliyor.')
             : 'Bu bulgu zaten havuzda: #'.$change->id.' ('.(SystemChange::STATUS_LABELS[$change->status] ?? $change->status).').');
     }
 

@@ -4621,3 +4621,22 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: publi
 ## 2026-10-25 — Yazı haritası: kümenin başka sayfası yokken eski yazılar
 
 - `ContentMap::forWriter` failed with "Call to a member function getKey() on array" when a cluster had no other page in the site's language but had earlier written articles (an empty Eloquent collection merged with plain rows); the writer then got no cluster map (5 errors on 22 Oct). The page list is a plain collection now. Tested: `ContentClusterMapTest::test_the_cluster_map_lists_earlier_articles_when_the_cluster_has_no_other_page`.
+
+## 2026-10-25 — Geliştirme havuzu: bekleyenlerin hepsi (pool #36-#56) ve haftalık mod
+
+- yakup approved every waiting card on 2026-10-25. Coded + PHPUnit; real UAT after auto-deploy.
+- #50: `moxdop:repair:audit` runs each step (titles, web-health, score, ads) in its own PHP process, raises the soft
+  open-files limit and collects each site's HTTP pools; a step that dies is reported and the next still runs.
+- #52: Search Console's allowed delay follows the collector (final_lag_days + 2), no more "Gecikmiş · 5 gün" every morning.
+- #55: request timing registers one query listener per process and skips console requests (the nightly screen check).
+- #53 / #54: `SiteScope` languages, `McpKeys` env-key flag and `AiBudget` settings/sums are memoised for seconds.
+- #56: `website_template_links` + `TemplateLinks`: a link on ≥40 % of a site's (≥50) crawled pages is kept once per site,
+  its per-page rows are deleted nightly (`moxdop:links:templates` 02:10, VACUUM FULL after ≥500k) and the crawl skips it
+  (the home page keeps all its links). Dead / external link checks read it through its sample page; ClusterLinks, the
+  link verifier, link suggestions and incoming counts treat a template target as linked. Per-page counts are content links.
+- #46: `correct-result` target `cluster_row` (match reason, missing items) for site.cluster_match / site.cluster_gaps.
+- #43: backup pruning also drops the oldest copies while the disk is under 15 % free (newest 3 always stay).
+- Already live before: #36, #41 (takesAll), #44, #45, #47-#49, #51; #37-#40 screens now under 2 s.
+- Weekly mode: errors (bug / collection / page) enter approved (note: Tuesday batch, priority 1 same day); design /
+  improvement wait for approval; `list-changes` todo shows non-urgent errors only on Tuesday; a live commit naming a
+  proposed card moves it too. Faz 3 leftovers became cards #57 (demo mode) and #58 (DataForSEO).

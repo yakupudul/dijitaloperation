@@ -55,6 +55,7 @@ final class McpKeys
     public static function setEnvKeyOff(bool $off): void
     {
         AgencySetting::query()->first()?->forceFill(['mcp_env_token_off' => $off])->save();
+        self::$envOff = null;
     }
 
     /** The server answers at all: the old key is on or at least one panel key is not revoked. */
@@ -114,12 +115,21 @@ final class McpKeys
         });
     }
 
+    /** @var array{0: bool, 1: float}|null the setting and when it was read (pool #54: read once per row before) */
+    private static ?array $envOff = null;
+
     private static function envKeyTurnedOff(): bool
     {
+        if (self::$envOff !== null && microtime(true) - self::$envOff[1] < 30 && ! app()->runningUnitTests()) {
+            return self::$envOff[0];
+        }
         try {
-            return (bool) AgencySetting::query()->value('mcp_env_token_off');
+            $off = (bool) AgencySetting::query()->value('mcp_env_token_off');
         } catch (QueryException) {
             return false;
         }
+        self::$envOff = [$off, microtime(true)];
+
+        return $off;
     }
 }

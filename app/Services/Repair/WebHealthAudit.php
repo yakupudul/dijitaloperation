@@ -14,6 +14,7 @@ use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\LlmsTxt;
 use App\Services\Site\SiteScope;
+use App\Services\Site\TemplateLinks;
 use Carbon\Carbon;
 use GuzzleHttp\Psr7\Uri;
 use Illuminate\Http\Client\Pool;
@@ -146,6 +147,8 @@ final class WebHealthAudit
             $done['sites']++;
             $done['opened'] += $result['opened'];
             $done['closed'] += $result['closed'];
+            // The site's HTTP pools hold sockets until they are collected (pool #50: "Too many open files").
+            gc_collect_cycles();
         });
 
         return $done;
@@ -680,7 +683,10 @@ final class WebHealthAudit
             return $this->deadLinks[(int) $site->id];
         }
         $edges = DB::table('website_link_edge')->where('digital_asset_id', $site->id)->where('is_internal', true)
-            ->limit(30000)->get(['source_url', 'normalized_target_url', 'target_url']);
+            ->limit(30000)->get(['source_url', 'normalized_target_url', 'target_url'])
+            // Links repeated on most pages are kept once per site; checked through one page that carries them.
+            ->concat(array_map(fn (object $t): object => (object) ['source_url' => $t->sample_source_url, 'normalized_target_url' => $t->normalized_target_url, 'target_url' => $t->target_url],
+                TemplateLinks::rows((int) $site->id, true)));
         if ($edges->isEmpty()) {
             return $this->deadLinks[(int) $site->id] = null;
         }
@@ -736,7 +742,9 @@ final class WebHealthAudit
     private function externalLinks(DigitalAsset $site): ?array
     {
         $edges = DB::table('website_link_edge')->where('digital_asset_id', $site->id)->where('is_internal', false)
-            ->limit(20000)->get(['source_url', 'target_url']);
+            ->limit(20000)->get(['source_url', 'target_url'])
+            ->concat(array_map(fn (object $t): object => (object) ['source_url' => $t->sample_source_url, 'target_url' => $t->target_url],
+                TemplateLinks::rows((int) $site->id, false)));
         if ($edges->isEmpty()) {
             return null;
         }
@@ -1153,7 +1161,7 @@ final class WebHealthAudit
             $targetKey = SeoText::urlKey((string) $target->url);
             $words = $subject($target);
             $ranked = $sources->filter(fn (Page $p): bool => $p->id !== $target->id && (string) $p->language === (string) $target->language
-                && ! $edges->has(SeoText::urlKey((string) $p->url).'>'.$targetKey))
+                && ! $edges->has(SeoText::urlKey((string) $p->url).'>'.$targetKey) && ! TemplateLinks::isTemplate((int) $site->id, (string) $target->url))
                 ->map(fn (Page $p): array => ['page' => $p, 'shared' => count(array_intersect($words, $subject($p)))])
                 ->filter(fn (array $r): bool => $r['shared'] >= 2)->sortByDesc('shared')->take(2);
             foreach ($ranked as $r) {

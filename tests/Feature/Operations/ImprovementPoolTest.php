@@ -14,6 +14,7 @@ use App\Models\SystemChange;
 use App\Models\User;
 use App\Services\Operations\ReleaseInfo;
 use App\Services\Operations\ScreenChecker;
+use App\Services\Operations\SystemChangeDesk;
 use App\Support\Roles;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ final class ImprovementPoolTest extends SiteTestCase
     public function test_a_finding_goes_from_proposal_to_verified_through_the_operator_and_claude(): void
     {
         Queue::fake();
-        $proposal = ['kind' => 'bug', 'title' => 'Web sitesi projeksiyonu 3 denemede düşüyor', 'detail' => 'RebuildWebsiteProjectionJob zaman aşımı; ağır kuyruğa alınmalı.',
+        $proposal = ['kind' => 'improvement', 'title' => 'Web sitesi projeksiyonu 3 denemede düşüyor', 'detail' => 'RebuildWebsiteProjectionJob zaman aşımı; ağır kuyruğa alınmalı.',
             'evidence' => ['MaxAttemptsExceededException ×31'], 'fingerprint' => 'MaxAttempts|RebuildWebsiteProjectionJob'];
         MoxdopServer::tool(ProposeChange::class, $proposal)->assertOk()->assertSee('havuza eklendi');
         MoxdopServer::tool(ProposeChange::class, $proposal)->assertOk()->assertSee('zaten havuzda');
@@ -69,6 +70,23 @@ final class ImprovementPoolTest extends SiteTestCase
         $other = SystemChange::query()->create(['kind' => 'design', 'title' => 'Buton rengi', 'detail' => 'Gri buton yerine mavi.', 'fingerprint' => hash('sha256', 'design|buton rengi'), 'status' => SystemChange::PROPOSED]);
         Livewire::test(ImprovementsPage::class)->call('reject', $other->id);
         MoxdopServer::tool(ProposeChange::class, ['kind' => 'design', 'title' => 'Buton rengi', 'detail' => 'Gri buton yerine mavi olsun.'])->assertSee('Reddedildi');
+    }
+
+    public function test_an_error_goes_in_approved_for_the_tuesday_batch_and_an_urgent_one_for_the_same_day(): void
+    {
+        MoxdopServer::tool(ProposeChange::class, ['kind' => 'bug', 'title' => 'Gece denetimi düşüyor', 'detail' => 'Too many open files.', 'priority' => 1])->assertOk();
+        MoxdopServer::tool(ProposeChange::class, ['kind' => 'page', 'title' => 'İçerik ekranı yavaş', 'detail' => '418 sorgu.'])->assertOk();
+        MoxdopServer::tool(ProposeChange::class, ['kind' => 'improvement', 'title' => 'Yeni rapor', 'detail' => 'Aylık müşteri raporu.'])->assertOk();
+
+        $urgent = SystemChange::query()->where('title', 'Gece denetimi düşüyor')->sole();
+        $this->assertSame(SystemChange::APPROVED, $urgent->status);
+        $this->assertTrue($urgent->isUrgent());
+        $this->assertSame(SystemChangeDesk::NOTE_URGENT, $urgent->operator_note);
+        $slow = SystemChange::query()->where('title', 'İçerik ekranı yavaş')->sole();
+        $this->assertSame(SystemChange::APPROVED, $slow->status);
+        $this->assertFalse($slow->isUrgent());
+        $this->assertSame(SystemChangeDesk::NOTE_BATCH, $slow->operator_note);
+        $this->assertSame(SystemChange::PROPOSED, SystemChange::query()->where('title', 'Yeni rapor')->sole()->status);
     }
 
     public function test_the_operator_writes_a_request_that_is_approved_at_once_and_only_admins_open_the_pool(): void

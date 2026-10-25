@@ -425,5 +425,23 @@ final class SystemBackup
         foreach (array_slice($files, max(1, (int) config('moxdop-backup.keep', 7) - $room)) as $old) {
             @unlink($old);
         }
+        // Pool #43: when the disk is still short of room, the oldest copies go too (the newest MIN_KEEP always stay).
+        $files = array_slice($files, 0, max(1, (int) config('moxdop-backup.keep', 7) - $room));
+        $minFree = (float) config('moxdop-backup.min_free_ratio', 0.15);
+        while (! app()->runningUnitTests() && count($files) > self::MIN_KEEP && self::freeRatio($dir) !== null && self::freeRatio($dir) < $minFree) {
+            @unlink((string) array_pop($files));
+        }
+    }
+
+    /** The newest copies a full disk never deletes. */
+    private const int MIN_KEEP = 3;
+
+    private static function freeRatio(string $dir): ?float
+    {
+        clearstatcache();
+        $total = @disk_total_space($dir);
+        $free = @disk_free_space($dir);
+
+        return is_float($total) && $total > 0 && is_float($free) ? $free / $total : null;
     }
 }

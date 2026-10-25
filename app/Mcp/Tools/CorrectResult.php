@@ -11,13 +11,13 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Corrects a result you already submitted where it landed (find it with task-result): one field of a desk / content row (target suggestion; path like article.html, translations.en.html, proposal.seo_title, proposal.meta_description, proposal.internal_links, proposed, repair_review.reason) or a planned Business Profile post (target gbp_post, path summary). Give replacements (exact find → replace pairs; every occurrence) or a whole new value. Not sent yet → corrected in place, sector checks run again and the row is AI-checked again; it still goes out only with the operator\'s daily click or desk approval. Already sent → nothing goes to the site: a new row with the corrected value waits for the operator\'s approval. Never invent facts, links or claims; fix only what is wrong.')]
+#[Description('Corrects a result you already submitted where it landed (find it with task-result): one field of a desk / content row (target suggestion; path like article.html, translations.en.html, proposal.seo_title, proposal.meta_description, proposal.internal_links, proposed, repair_review.reason) a planned Business Profile post (target gbp_post, path summary), or a cluster row of site.cluster_match / site.cluster_gaps (target cluster_row, path reason or gaps.N.text; panel text only). Give replacements (exact find → replace pairs; every occurrence) or a whole new value. Not sent yet → corrected in place, sector checks run again and the row is AI-checked again; it still goes out only with the operator\'s daily click or desk approval. Already sent → nothing goes to the site: a new row with the corrected value waits for the operator\'s approval. Never invent facts, links or claims; fix only what is wrong.')]
 class CorrectResult extends Tool
 {
     public function handle(Request $request, ResultCorrections $corrections): Response
     {
         $validated = $request->validate([
-            'target' => ['required', Rule::in([ResultCorrections::TARGET_SUGGESTION, ResultCorrections::TARGET_GBP_POST])],
+            'target' => ['required', Rule::in([ResultCorrections::TARGET_SUGGESTION, ResultCorrections::TARGET_GBP_POST, ResultCorrections::TARGET_CLUSTER_ROW])],
             'id' => ['required', 'integer'],
             'path' => ['required', 'string', 'max:80'],
             'replacements' => ['nullable', 'array', 'max:30'],
@@ -46,8 +46,8 @@ class CorrectResult extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'target' => $schema->string()->enum([ResultCorrections::TARGET_SUGGESTION, ResultCorrections::TARGET_GBP_POST])->description('suggestion | gbp_post')->required(),
-            'id' => $schema->integer()->description('Row id (suggestion id or gbp post id) from task-result.')->required(),
+            'target' => $schema->string()->enum([ResultCorrections::TARGET_SUGGESTION, ResultCorrections::TARGET_GBP_POST, ResultCorrections::TARGET_CLUSTER_ROW])->description('suggestion | gbp_post | cluster_row')->required(),
+            'id' => $schema->integer()->description('Row id (suggestion, gbp post or cluster row id) from task-result.')->required(),
             'path' => $schema->string()->description('Field path from task-result fields.')->required(),
             'replacements' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
                 'find' => $row->string()->required(), 'replace' => $row->string()->required(),

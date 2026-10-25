@@ -9,6 +9,7 @@ use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
+use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
@@ -43,6 +44,20 @@ class DataStatusReader
     public const array EXPECTED_LAG_DAYS = [
         'search_console' => 3, 'ga4' => 2, 'google_ads' => 2, 'meta_ads' => 2, 'google_business_profile' => 6,
     ];
+
+    /**
+     * The delay a source's last day may have. Search Console follows its collector (pool #52): the collector asks for
+     * days up to "today − final_lag_days" in Pacific time, Google often does not have that last day yet, and the age is
+     * counted in Istanbul days, so a healthy property is final_lag_days + 2 days behind just before the next run.
+     */
+    public static function expectedLag(string $capability): int
+    {
+        if ($capability === 'search_console') {
+            return max(2, (int) config('moxdop-gsc-central.final_lag_days', SearchConsoleCentralCollectionService::FINAL_LAG_DAYS)) + 2;
+        }
+
+        return self::EXPECTED_LAG_DAYS[$capability] ?? 2;
+    }
 
     /**
      * Data Pool fact tables whose newest reporting_date is the source's last data day (account/property grain).
@@ -336,7 +351,7 @@ class DataStatusReader
                 : new DataStatus(...$common, state: DataStatus::FIRST_LOAD, reason: $reason);
         }
 
-        $allowed = (self::EXPECTED_LAG_DAYS[$capability] ?? 2) + max(1, (int) ($automation?->interval_days ?? 1));
+        $allowed = self::expectedLag($capability) + max(1, (int) ($automation?->interval_days ?? 1));
         if ($ageDays > $allowed) {
             return new DataStatus(...$common, state: DataStatus::STALE, reason: $reason);
         }

@@ -21,6 +21,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Integrations\WordPress\WordPressConnectorSiteException;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\TemplateLinks;
 use App\Support\SchemaState;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
@@ -1133,6 +1134,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             ? (string) $fetch['final_url']
             : $requestedUrl;
         $edges = $this->pageAnalyzer->linkEdges($assetId, (string) $fetch['body'], $siteSeed, $resolutionBase, $observedAt);
+        // Links the site repeats on most pages are kept once per site (pool #56), not again for every page.
+        $edges = TemplateLinks::strip($assetId, $this->urls->normalizeAbsolute($resolutionBase) ?? $resolutionBase, $this->urls->normalizeAbsolute($siteSeed) ?? $siteSeed, $edges);
         if ($edges !== []) {
             $rowsWritten += $this->writeOne($context, 'website_link_edge', $source.'_links', $assetId, $edges, $compactRaw, $requestedUrl, $pageIdentity);
         }
