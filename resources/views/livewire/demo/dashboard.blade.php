@@ -375,7 +375,7 @@
     </section>
 
     {{-- 6. Şef's plan for the week. --}}
-    <section data-chief-plan @if ($chiefPlan === null || $chiefPlan->status === 'failed') data-chief-plan-empty @endif>
+    <section id="sef-plani" data-chief-plan @if ($chiefPlan === null || $chiefPlan->status === 'failed') data-chief-plan-empty @endif>
         <div class="section-head">
             <h2 class="section-title">Bu haftanın planı</h2>
             @if ($chiefPlan !== null && $chiefPlan->status !== 'failed')

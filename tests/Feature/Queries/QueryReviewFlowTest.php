@@ -164,7 +164,7 @@ final class QueryReviewFlowTest extends TestCase
 
         // Bell: unread badge; opening the notification marks it read and goes to the Silinecekler tab.
         Livewire::test(NotificationBell::class)->assertSeeHtml('data-unread-count>1<')->assertSee('Filtre taraması hazır')
-            ->call('open', (string) $notice->id)->assertRedirect($url);
+            ->call('openNotification', (string) $notice->id)->assertRedirect($url);
         $this->assertNotNull($notice->fresh()->read_at);
         // Old per-rescan links (also of reviews that no longer exist) open the tab.
         $this->get('/library/queries/review/'.$review->id)->assertRedirect($url);

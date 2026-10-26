@@ -28,6 +28,23 @@ final class NotificationBellPresentationTest extends TestCase
         $this->assertSame('3 hesap × veri seti güncellenemiyor.', $withSummary['detail']);
     }
 
+    public function test_the_chief_plan_opens_on_bugun_and_rows_call_a_method_alpine_does_not_shadow(): void
+    {
+        foreach (['/', null] as $old) {
+            $item = NotificationBell::present(['title' => 'Şef: bu haftanın planı hazır (10 iş)', 'presentation' => ['url' => $old]]);
+            $this->assertSame(route('operator.today', [], false).'#sef-plani', $item['url']);
+        }
+        $this->assertSame('/onarim', NotificationBell::present(['title' => 'Başka', 'presentation' => ['url' => '/onarim']])['url']);
+
+        // Livewire leaves names in Alpine scope as they are: a row calling open(..) under x-data="{ open: .. }" did nothing.
+        $blade = (string) file_get_contents(resource_path('views/livewire/demo/notification-bell.blade.php'));
+        preg_match_all('/x-data="\{\s*(\w+)\s*:/', $blade, $scope);
+        preg_match_all('/wire:click(?:\.\w+)*="(\w+)\(/', $blade, $calls);
+        $this->assertNotEmpty($calls[1]);
+        $this->assertSame([], array_values(array_intersect($scope[1], $calls[1])));
+        $this->assertTrue(method_exists(NotificationBell::class, 'openNotification'));
+    }
+
     public function test_every_menu_item_has_a_distinct_icon(): void
     {
         app()->setLocale('tr');

@@ -27,8 +27,11 @@ class NotificationBell extends Component
         app(NotificationUiActions::class)->markRead($user, $id);
     }
 
-    /** Opens the notification's target and marks it read. */
-    public function open(string $id): void
+    /**
+     * Opens the notification's target and marks it read. Not named open(): the dropdown's Alpine state is in scope and
+     * Livewire leaves Alpine names alone, so wire:click="open(..)" called the boolean and nothing happened (2026-10-26).
+     */
+    public function openNotification(string $id): void
     {
         $user = Auth::user();
         if ($user === null || ! ctype_digit($id)) {
@@ -40,9 +43,7 @@ class NotificationBell extends Component
         }
         app(NotificationUiActions::class)->markRead($user, $id);
         $url = self::present($item)['url'] ?? null;
-        if (is_string($url) && $url !== '') {
-            $this->redirect($url, navigate: true);
-        }
+        $this->redirect(is_string($url) && $url !== '' ? $url : route('operator.dashboard'), navigate: true);
     }
 
     /** Feedback of the last one-click action ("Şimdi güncelle"). */
@@ -121,6 +122,12 @@ class NotificationBell extends Component
         $subject = trim((string) ($item['subject_label'] ?? ''));
         $detail = $summary !== '' ? $summary : ($subject !== '' && $subject !== (string) ($item['title'] ?? '') ? $subject : '');
 
+        $url = is_string(data_get($item, 'presentation.url')) ? data_get($item, 'presentation.url') : null;
+        // The Şef plan lives on Bugün; rows written before 2026-10-26 pointed at Komuta ("/").
+        if (str_starts_with((string) ($item['title'] ?? ''), 'Şef:') && in_array($url, [null, '', '/', route('operator.dashboard')], true)) {
+            $url = route('operator.today', [], false).'#sef-plani';
+        }
+
         return array_merge($item, [
             'title' => $title !== '' ? $title : null,
             'detail' => $detail,
@@ -132,7 +139,7 @@ class NotificationBell extends Component
             'when' => $when,
             'url' => ($item['subject_kind'] ?? null) === 'operational_alert' && Route::has('operator.settings.system-health')
                 ? route('operator.settings.system-health')
-                : (is_string(data_get($item, 'presentation.url')) ? data_get($item, 'presentation.url') : null),
+                : $url,
         ]);
     }
 
