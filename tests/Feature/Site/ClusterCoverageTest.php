@@ -81,7 +81,7 @@ final class ClusterCoverageTest extends SiteTestCase
         Livewire::test(BrandCoverageCard::class, ['brandId' => $this->brand->id])
             ->assertSee('Küme kapsaması')->assertSee('5 küme · 1 yeterli · 1 kapsam yetersiz · 3 sayfa yok')->assertSee('Sıradaki:')
             ->call('toggle', $this->site->id, $this->implant->id)
-            ->assertSee('İmplant sonrası bakım')->assertSee('Henüz plan yok')->assertSee('Yazı gönderildi')->assertSee('Yazılıyor');
+            ->assertSee('İmplant sonrası bakım')->assertSee('Yeni hizmet sayfası · «implant sonrası bakım»')->assertSee('kümenin planı hazır')->assertSee('Yazı gönderildi')->assertSee('Yazılıyor');
     }
 
     public function test_the_brand_file_counts_each_cluster_once_in_the_main_language(): void

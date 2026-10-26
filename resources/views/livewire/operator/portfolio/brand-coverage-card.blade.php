@@ -29,6 +29,7 @@
                         <a href="{{ route('operator.website', ['assetId' => $site->id, 'tab' => 'kumeler']) }}" wire:navigate class="text-sm font-medium text-gray-900 hover:underline dark:text-white">{{ $site->domain ?: $site->name }}</a>
                         <span class="text-[13px] tabular-nums text-gray-500" data-coverage-totals>{{ $num($row['total']) }} küme · {{ $num($row['ok']) }} yeterli · {{ $num($row['thin']) }} kapsam yetersiz · {{ $num($row['none']) }} sayfa yok</span>
                         <span class="text-[13px] tabular-nums text-gray-500" data-coverage-content>{{ $num($row['sent']) }} kümeye yazı gönderildi, {{ $num($row['planned']) }} kümeye yazı planlandı</span>
+                        @if ($row['open'] > 0)<span @class(['text-[13px] tabular-nums', 'font-medium text-warning-700 dark:text-warning-400' => $row['weeks'] > 26, 'text-gray-500' => $row['weeks'] <= 26]) data-coverage-pace title="İçeriği olmayan her kümenin planı aşağıda; bu hızla hepsinin bitmesi için gereken süre">{{ $num($row['open']) }} kümenin planı hazır · haftada {{ $row['per_week'] }} içerikle ~{{ $num($row['weeks']) }} hafta</span>@endif
                     </div>
                     <div class="flex h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
                         <span class="block h-full bg-success-500" style="width: {{ $pct($row['ok']) }}%"></span>
@@ -79,7 +80,7 @@
                                                         <span class="tabular-nums text-gray-500" title="Sorgu kütüphanesindeki gösterim + aylık arama + sitenin 28 günlük gösterimi">{{ $num($cluster['demand']) }} talep</span>
                                                         <x-ta.pill :tone="$stateTone($cluster['state'])">{{ $cluster['state_label'] }}</x-ta.pill>
                                                         @if ($cluster['page_url'])<a href="{{ $cluster['page_url'] }}" target="_blank" rel="noopener" class="max-w-64 truncate text-gray-500 hover:underline" title="{{ $cluster['page_title'] }}">{{ \App\Services\SeoTasks\SeoText::urlPath((string) $cluster['page_url']) }} ↗</a>@endif
-                                                        <span class="{{ $contentTone[$cluster['content']] ?? 'text-gray-500' }}" data-coverage-line="{{ $cluster['content'] }}">{{ $cluster['content_label'] }}</span>
+                                                        <span class="{{ $contentTone[$cluster['content']] ?? 'text-gray-500' }}" data-coverage-line="{{ $cluster['content'] }}">{{ $cluster['plan'] ?? $cluster['content_label'] }}</span>
                                                     </li>
                                                 @endforeach
                                             </ul>

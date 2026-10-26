@@ -412,7 +412,7 @@ final class ContentTopics
     {
         $main = ContentPlanner::siteLanguages($site)[0];
 
-        return BrandClusterPage::query()->with(['cluster:id,name,service_id,ai_queries,main_query_id', 'page:id,url,title,path,language'])
+        return BrandClusterPage::query()->with(['cluster:id,name,service_id,ai_queries,main_query_id,page_type', 'page:id,url,title,path,language'])
             ->where('brand_id', $site->brand_id)->where('website_asset_id', $site->id)->where('excluded', false)
             ->where(fn ($q) => $q->whereNull('language')->orWhere('language', $main))->orderBy('id')->get()
             ->sortBy(fn (BrandClusterPage $r): array => [$r->language === $main ? 0 : 1, (int) $r->id])->unique('cluster_id')->values();
