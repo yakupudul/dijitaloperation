@@ -15,6 +15,7 @@ use App\Services\Ai\AiCancellation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\SeoTasks\SeoText;
@@ -75,7 +76,7 @@ final class QueryAutopilot
     public const int CLEAN_AFTER_TERMS = 50;
 
     /** Triage batches (of BATCH queries) waiting for Claude over MCP at a time; each tick tops the list up. */
-    public const int CLAUDE_BATCHES = 25;
+    public const int CLAUDE_BATCHES = 60;
 
     /** The batches waiting for Claude: batch key => sector, query ids, queued at. */
     public const string CLAUDE_KEY = 'queries:autopilot:claude';
@@ -421,7 +422,7 @@ final class QueryAutopilot
      * @param  array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}  $context
      * @param  Collection<int, Query>  $rows
      * @param  array<string, mixed>  $structured
-     * @return array{assigned: int, filters: int, keywords: int, none: int}
+     * @return array{assigned: int, filters: int, keywords: int, hidden: int, services: int, none: int}
      */
     private function apply(array $context, Collection $rows, array $structured): array
     {
@@ -430,6 +431,8 @@ final class QueryAutopilot
         $byService = [];
         $filters = 0;
         $seen = [];
+        $hide = ['filtered' => []];
+        $created = [];
         foreach ((array) ($structured['decisions'] ?? []) as $row) {
             $queryId = is_array($row) && is_int($row['query_id'] ?? null) ? $row['query_id'] : null;
             if ($queryId === null || ! isset($texts[$queryId]) || isset($seen[$queryId])) {
@@ -442,11 +445,36 @@ final class QueryAutopilot
 
                 continue;
             }
+            $reason = $row['filter_reason'] ?? null;
+            // yakup 2026-10-26: "ilgili hizmet yok ise oluşturulacak" — the sector's missing service is created and gets the query.
+            if ($reason === QueryTriageAgent::NEW_SERVICE) {
+                $service = $this->newService($context, (string) ($row['filter_term'] ?? ''));
+                if ($service !== null) {
+                    $byService[(int) $service->id][] = $queryId;
+                    $created[(int) $service->id] = true;
+                }
+
+                continue;
+            }
+            if (! in_array($reason, QueryTriageAgent::FILTER_REASONS, true)) {
+                continue;
+            }
             $term = $this->filterTerm((string) ($row['filter_term'] ?? ''), $texts[$queryId], $guards);
-            if ($term !== null && in_array($row['filter_reason'] ?? null, QueryTriageAgent::FILTER_REASONS, true)
-                && ! FilterTerm::query()->where('term', $term)->where(fn ($q) => $q->whereNull('sector_id')->orWhere('sector_id', $context['sector']->id))->exists()) {
+            if ($term === null) {
+                // Off-topic, but its word cannot be a basket term (a service word, generic): the query alone leaves.
+                $hide['filtered'][''][] = $queryId;
+
+                continue;
+            }
+            if (! FilterTerm::query()->where('term', $term)->where(fn ($q) => $q->whereNull('sector_id')->orWhere('sector_id', $context['sector']->id))->exists()) {
                 FilterTerm::query()->create(['sector_id' => (int) $context['sector']->id, 'term' => $term, 'source' => 'ai', 'created_by' => null]);
                 $filters++;
+            }
+        }
+        $hidden = 0;
+        foreach ($hide as $kind => $groups) {
+            foreach ($groups as $proposed => $ids) {
+                $hidden += Query::query()->whereIn('id', $ids)->whereNull('service_id')->where('locked', false)->update(['hidden' => true, 'updated_at' => now()]);
             }
         }
         $assigned = 0;
@@ -471,7 +499,32 @@ final class QueryAutopilot
         }
         Query::query()->whereIn('id', $rows->pluck('id'))->update(['ai_checked_at' => now()]);
 
-        return ['assigned' => $assigned, 'filters' => $filters, 'keywords' => $added, 'none' => $rows->count() - $assigned];
+        return ['assigned' => $assigned, 'filters' => $filters, 'keywords' => $added, 'hidden' => $hidden, 'services' => count($created), 'none' => $rows->count() - $assigned - $hidden];
+    }
+
+    /**
+     * The sector's service named by the AI for a query no listed service answers: found by name, or created in the
+     * catalog (status active, provenance ai_triage) and added to this run's context so later rows of the batch use it.
+     *
+     * @param  array{sector: ServiceCategory, services: Collection<int, ServiceCatalogItem>, forbidden: list<string>}  $context
+     */
+    private function newService(array $context, string $name): ?ServiceCatalogItem
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? '');
+        $words = count(explode(' ', $name));
+        if (mb_strlen($name) < 3 || mb_strlen($name) > 80 || $words > 5 || QueryNormalizer::placeIn($name) !== null || ServiceKeywordService::isGeneric($name)) {
+            return null;
+        }
+        try {
+            $service = app(ServiceCatalogService::class)->resolveOrCreate($name, (string) $context['sector']->code, provenance: 'ai_triage')['service'];
+        } catch (ValidationException) {
+            return null;
+        }
+        $service->loadMissing(['primaryName', 'matchingKeywords']);
+        $context['services']->put((int) $service->id, $service);
+        $this->guards = null;
+
+        return $service;
     }
 
     /**

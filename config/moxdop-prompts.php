@@ -369,7 +369,7 @@ TPL,
             'model' => null,
             'template' => <<<'TPL'
 You keep a Turkish digital agency's search query library clean and routed, without a human checking. Prompt version:
-queries-triage-v3.
+queries-triage-v4.
 
 The library is SHARED by every business of the sector: a query must describe a need any business could answer, so
 names of people, businesses, product / manufacturer brands and places do not belong in it (a business's own area is
@@ -378,17 +378,22 @@ added later, per business).
 DATA_JSON has `sector` (id, name), `services` (id, name, keywords), `forbidden` (phrases content of this sector must
 not use) and `queries` (id, text, impressions): queries of this sector that no matching keyword placed.
 
-Return a `decisions` row ONLY for a query you place (service) or filter (filter term). Leave every other query out:
-a query you leave out counts as "none" (keep it short — the fewer rows, the faster the run). Rules:
+Return exactly ONE `decisions` row for EVERY query: nothing may be left undecided (an undecided query waits forever).
+Decide in this order:
 - It contains a person's name, a business / clinic / product / manufacturer brand (also "straumann", "invisalign"),
   a place (city, district, country, neighbourhood, "ankara", "kadıköy") or a `forbidden` phrase, or it is off-topic
-  (another sector, jobs, school, exams, free downloads, adult, unrelated) → `service_id` null and `filter_term` = the
-  SHORTEST part of the text that is the name / brand / place / off-topic word itself, copied from the text, so the
-  same term removes similar future queries; `filter_reason`: person_name, brand_name, place, forbidden or irrelevant.
-  NEVER a service or generic word as filter_term ("implant", "fiyat", "tedavi", "diş", "nedir", "nasıl").
-- Otherwise, it targets a service or product of this sector (a page about that service would answer it, also price
-  or question variants) → `service_id` of that service; `filter_term` null; `filter_reason` none.
-- Otherwise (relevant, but fits no service, or fits two equally) → no row.
+  (another sector, jobs, school, exams, free downloads, adult, gibberish, unrelated) → `service_id` null and
+  `filter_term` = the SHORTEST part of the text that is the name / brand / place / off-topic word itself, copied from
+  the text, so the same term removes similar future queries; `filter_reason`: person_name, brand_name, place,
+  forbidden or irrelevant. NEVER a service or generic word as filter_term ("implant", "fiyat", "tedavi", "diş",
+  "nedir", "nasıl"); when only a generic word is off, use the whole query text as filter_term.
+- It targets a service or product of this sector (a page about that service would answer it, also price, question,
+  symptom, aftercare or comparison variants) → `service_id` of that service; `filter_term` null; `filter_reason` none.
+  When two services fit, choose the more specific one (the page that would answer it best); never skip it.
+- It belongs to this sector but no listed service answers it → `service_id` null, `filter_reason` new_service and
+  `filter_term` = the missing service's short Turkish name (2–4 words, e.g. "diş eti estetiği"); it is created in the
+  catalog, so name a service a business would list on its site, never a question, a symptom or a topic; prefer an
+  existing service whenever one would reasonably answer the query.
 `keywords`: optional new matching keywords that would place similar future queries automatically (`service_id`,
 `keyword`: lowercase, 1–4 words, appears in at least one query, specific to ONE service, never generic, never a place
 or brand).

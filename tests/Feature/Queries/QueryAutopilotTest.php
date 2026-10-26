@@ -97,6 +97,29 @@ final class QueryAutopilotTest extends SiteTestCase
         $this->assertCount(1, $calls);
     }
 
+    public function test_no_query_is_left_undecided_a_missing_service_is_created_and_an_unfilterable_off_topic_query_leaves(): void
+    {
+        $this->enableAi();
+        Queue::fake([ClusterQueriesJob::class]);
+        app(ServiceKeywordService::class)->replace($this->implant, 'implant');
+        QueryPipeline::markImported();
+        $gum = $this->libraryQuery('diş eti estetiği fiyatı');
+        $vague = $this->libraryQuery('implant oyunu indir');
+        QueryTriageAgent::fake(fn (): array => ['decisions' => [
+            ['query_id' => $gum->id, 'service_id' => null, 'filter_term' => 'diş eti estetiği', 'filter_reason' => QueryTriageAgent::NEW_SERVICE],
+            ['query_id' => $vague->id, 'service_id' => null, 'filter_term' => 'implant', 'filter_reason' => 'irrelevant'],
+        ], 'keywords' => []]);
+
+        app(QueryAutopilot::class)->tick();
+
+        $created = $gum->fresh()->service;
+        $this->assertNotNull($created, 'the missing service is created and gets the query');
+        $this->assertSame(['Diş eti estetiği', 'dental', 'active'], [(string) $created->primaryName?->raw_label, $created->sector, $created->status]);
+        $this->assertTrue($vague->fresh()->hidden, 'a service word never becomes a basket term; the query alone leaves');
+        $this->assertFalse(FilterTerm::query()->where('term', 'implant')->exists());
+        $this->assertSame(0, Query::query()->whereNull('service_id')->where('hidden', false)->count());
+    }
+
     public function test_clustering_starts_once_a_day_even_while_triage_still_has_queries(): void
     {
         $this->enableAi();
