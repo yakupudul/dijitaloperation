@@ -950,11 +950,11 @@ Schedule::command('moxdop:gbp:review-posts')
     ->withoutOverlapping(30)
     ->name('gbp-review-posts');
 
-// Aşama 9 (2026-10-22): unanswered reviews of served profiles get a reply draft at night (Claude's queue); the checked
-// drafts go with the daily click (ReviewReplyCheck). Nothing goes to Google without the click.
+// Aşama 9 (2026-10-22): unanswered reviews of served profiles get a reply draft at night (Claude's queue). Since
+// 2026-10-26 they wait on the brand's approval link; what the client approves goes to Google (ReviewApprovals).
 Artisan::command('moxdop:gbp:reply-drafts', function (): void {
     $this->info('Taslağı istenen yorum: '.app(ReviewReplyCheck::class)->draftNight());
-})->purpose('Ask reply drafts for unanswered Business Profile reviews (checked ones go with the daily send).');
+})->purpose('Ask reply drafts for unanswered Business Profile reviews (sent when the client approves them on the link).');
 
 Schedule::command('moxdop:gbp:reply-drafts')
     ->dailyAt('03:40')

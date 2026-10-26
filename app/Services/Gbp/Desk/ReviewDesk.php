@@ -279,6 +279,24 @@ final class ReviewDesk
         return trim((string) preg_replace('/^,\s*|\s+([,.!?])/u', '$1', $out));
     }
 
+    /**
+     * Of the given reviews, those still without a reply on Google and without a reply on its way (checked right before a
+     * client-approved reply goes out, the review may have been answered meanwhile).
+     *
+     * @param  list<int>  $reviewIds
+     * @return list<int>
+     */
+    public function openIds(array $reviewIds): array
+    {
+        if ($reviewIds === []) {
+            return [];
+        }
+        $open = DB::table('gbp_reviews')->whereIn('id', $reviewIds)->whereRaw(self::OPEN_SQL)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $actions = $this->daily->replyActions($open);
+
+        return array_values(array_filter($open, fn (int $id): bool => ! in_array($actions[$id]['status'] ?? null, ['queued', 'running', 'succeeded'], true)));
+    }
+
     /** True when a reply is on its way to Google or already there (no new reply can be sent). */
     public static function busy(array $review): bool
     {

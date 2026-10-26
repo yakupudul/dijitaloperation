@@ -289,8 +289,28 @@ final class ReviewsPage extends Component
     }
 
     /**
-     * "Markaya onaya gönder": the picked reviews with a reply go to the brand as a link (one brand at a time); the
-     * brand's approved / edited texts come back as drafts, publishing stays here.
+     * Müşteri onay linki: the standing link of the profile in view (one profile picked) or of the brand; the client
+     * approves the current drafts there and what is approved goes to Google by itself.
+     */
+    public function liveLink(ReviewApprovals $approvals): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $locations = $this->reviewLocations();
+        $asset = $locations->count() === 1 ? $locations->first() : null;
+        $brandId = $asset?->brand_id ?? $this->brand;
+        if ($brandId === null) {
+            $this->say('Önce üstten bir marka ya da işletme seçin; link o markanın yorumları için hazırlanır.', 'error');
+
+            return;
+        }
+        $link = $approvals->live(auth()->user(), Brand::query()->findOrFail($brandId), $asset !== null ? DigitalAsset::query()->find($asset->id) : null);
+        $this->approvalUrl = ReviewApprovals::url($link);
+        $this->say('Müşteri onay linki hazır. Müşteri onayladığı yanıtlar Google’a kendiliğinden gider.');
+    }
+
+    /**
+     * "Markaya onaya gönder": the picked reviews with a reply go to the brand as a link (one brand at a time); what the
+     * brand approves goes to Google by itself (2026-10-26).
      */
     public function sendToBrand(ReviewDesk $desk, ReviewApprovals $approvals): void
     {
@@ -317,7 +337,7 @@ final class ReviewsPage extends Component
             $approval = $approvals->create(auth()->user(), Brand::query()->findOrFail($brandIds->first()), $rows, $names);
             $this->approvalUrl = ReviewApprovals::url($approval);
             $this->selected = [];
-            $this->say(count($approval->items).' yanıt için onay bağlantısı hazır; kopyalayıp markaya gönderin.');
+            $this->say(count($approval->items).' yanıt için onay bağlantısı hazır; markanın onayladıkları Google’a kendiliğinden gider.');
         } catch (ValidationException $exception) {
             $this->sayError($exception);
         }

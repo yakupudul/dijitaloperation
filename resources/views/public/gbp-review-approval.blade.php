@@ -39,11 +39,11 @@
 </head>
 <body>
 <main>
-    <h1>{{ $approval->brand?->name }} · Google yorum yanıtları</h1>
-    <p class="intro">Google’daki yorumlarınıza vermeyi önerdiğimiz yanıtlar aşağıda. Her biri için “Uygun”, “Düzelterek onayla” (metni değiştirin) ya da “Yanıtlamayalım” seçip en alttan gönderin. Onayınızdan sonra yanıtları biz yayınlarız; bu sayfadan Google’a hiçbir şey gitmez.</p>
+    <h1>{{ $approval->digitalAsset ? \App\Services\Gbp\Desk\GbpDesk::shortName((string) $approval->digitalAsset->name) : $approval->brand?->name }} · Google yorum yanıtları</h1>
+    <p class="intro">Google’daki yorumlarınıza vermeyi önerdiğimiz yanıtlar aşağıda. Her biri için “Uygun”, “Düzelterek onayla” (metni değiştirin) ya da “Yanıtlamayalım” seçip en alttan gönderin. Onayladığınız yanıtlar birkaç dakika içinde Google’da yayınlanır; seçim yapmadığınız yanıtlara dokunulmaz.@if ($approval->live) Bu bağlantı kalıcıdır: yeni yorumlar geldikçe yanıtları buraya eklenir.@endif</p>
 
     @if ($saved)
-        <div class="notice ok">Teşekkürler, yanıtınız bize ulaştı. Bağlantı açık kaldığı sürece değiştirip yeniden gönderebilirsiniz.</div>
+        <div class="notice ok">Teşekkürler. Onayladığınız yanıtlar Google’a gönderiliyor.@if ($approval->live) Yeni yanıtlar hazır olunca bu sayfada görünür.@endif</div>
     @endif
     @if ($errors->any())
         <div class="notice err">{{ $errors->first() }}</div>
@@ -54,10 +54,13 @@
 
     <form method="post" action="{{ route('gbp-review-approval.store', ['token' => $approval->token]) }}" id="approval">
         @csrf
-        @foreach ($approval->items as $index => $item)
+        @if ($items === [])
+            <div class="notice ok">Şu an onayınızı bekleyen yanıt yok.</div>
+        @endif
+        @foreach ($items as $index => $item)
             @php
                 $id = $item['review_id'];
-                $decision = old('decision.'.$id, $item['decision'] ?? 'ok');
+                $decision = old('decision.'.$id, $item['decision'] ?? '');
                 $text = old('text.'.$id, $item['brand_text'] ?? $item['text']);
             @endphp
             <section class="item" data-item>
@@ -87,17 +90,26 @@
             <p class="reply-label" style="margin-top:0">Notunuz (isteğe bağlı)</p>
             <textarea name="note" rows="3" maxlength="2000" class="note" @readonly(! $usable) placeholder="Genel bir isteğiniz varsa yazın (ör. yanıtlarda hitap “Sayın …” olsun).">{{ old('note', $approval->note) }}</textarea>
         </section>
-        <footer>Bu bağlantı {{ $approval->expires_at->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihine kadar açıktır. Moximu</footer>
+        <footer>@unless ($approval->live)Bu bağlantı {{ $approval->expires_at->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihine kadar açıktır. @endunless Moximu</footer>
 
-        @if ($usable)
+        @if ($usable && $items !== [])
             <div class="bar"><div class="bar-inner">
-                <button type="submit">Yanıtlarımı gönder</button>
-                <span style="font-size:13px;color:var(--muted)">{{ count($approval->items) }} yanıt</span>
+                <button type="submit">Onayla ve yayınla</button>
+                <button type="button" class="all" data-all>Hepsini uygun işaretle</button>
+                <span style="font-size:13px;color:var(--muted)">{{ count($items) }} yanıt</span>
             </div></div>
         @endif
     </form>
 </main>
 <script>
+    var all = document.querySelector('[data-all]');
+    if (all) {
+        all.addEventListener('click', function () {
+            document.querySelectorAll('[data-choice][value="ok"]').forEach(function (radio) {
+                if (! radio.closest('[data-item]').querySelector('[data-choice]:checked')) { radio.checked = true; radio.dispatchEvent(new Event('change')); }
+            });
+        });
+    }
     document.querySelectorAll('[data-item]').forEach(function (item) {
         var text = item.querySelector('[data-text]');
         item.querySelectorAll('[data-choice]').forEach(function (radio) {

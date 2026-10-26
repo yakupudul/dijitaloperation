@@ -1,5 +1,5 @@
 @php
-    $ready = $summary['content'] + $summary['posts'] + ($summary['replies'] ?? 0) + $summary['repair'];
+    $ready = $summary['content'] + $summary['posts'] + $summary['repair'];
     $n = fn (int $v): string => number_format($v, 0, ',', '.');
     $lastAt = is_array($last) && isset($last['at']) ? \Illuminate\Support\Carbon::parse($last['at'])->timezone('Europe/Istanbul') : null;
     /** Days since the last send; a send older than a day is the first thing the operator should see (yakup 2026-10-19). */
@@ -26,7 +26,6 @@
         <p class="mt-4 flex flex-wrap gap-2 text-[13px]">
             <span class="inline-flex h-[30px] items-center gap-1.5 rounded-[9px] border border-white/10 bg-white/[0.06] px-3" data-daily-content><b class="font-semibold tabular-nums">{{ $n($summary['content']) }}</b> yazı</span>
             <span class="inline-flex h-[30px] items-center gap-1.5 rounded-[9px] border border-white/10 bg-white/[0.06] px-3" data-daily-posts><b class="font-semibold tabular-nums">{{ $n($summary['posts']) }}</b> profil gönderisi</span>
-            <span class="inline-flex h-[30px] items-center gap-1.5 rounded-[9px] border border-white/10 bg-white/[0.06] px-3" data-daily-replies><b class="font-semibold tabular-nums">{{ $n($summary['replies'] ?? 0) }}</b> yorum yanıtı</span>
             <span class="inline-flex h-[30px] items-center gap-1.5 rounded-[9px] border border-white/10 bg-white/[0.06] px-3" data-daily-repair><b class="font-semibold tabular-nums">{{ $n($summary['repair']) }}</b> site onarımı</span>
             @if ($summary['held_total'] > 0)
                 <button type="button" wire:click="$toggle('showHeld')" class="inline-flex h-[30px] items-center rounded-[9px] px-2 text-[#f5c26b] hover:underline" data-daily-held>{{ $n($summary['held_total']) }} iş kontrolde kaldı</button>
@@ -45,7 +44,6 @@
                     <span class="font-medium tabular-nums text-white" data-daily-progress-text>{{ $n($progress['done']) }} / {{ $n($progress['total']) }} gönderildi</span>
                     <span class="tabular-nums">{{ $n($progress['content'][0]) }}/{{ $n($progress['content'][1]) }} yazı</span>
                     <span class="tabular-nums">{{ $n($progress['posts'][0]) }}/{{ $n($progress['posts'][1]) }} gönderi</span>
-                    <span class="tabular-nums">{{ $n($progress['replies'][0]) }}/{{ $n($progress['replies'][1]) }} yanıt</span>
                     <span class="tabular-nums">{{ $n($progress['repair'][0]) }}/{{ $n($progress['repair'][1]) }} onarım</span>
                 </p>
             </div>
@@ -100,7 +98,7 @@
                 @if (isset($last['error']))
                     Son gönderim yarıda kaldı: {{ $last['error'] }}
                 @elseif ($lastAt !== null)
-                    Son gönderim {{ $lastAt->format('d.m H:i') }}: {{ $n((int) ($last['content']['sent'] ?? 0)) }} yazı, {{ $n((int) ($last['posts'] ?? 0)) }} gönderi, {{ $n((int) ($last['replies'] ?? 0)) }} yanıt, {{ $n((int) ($last['repair']['applied'] ?? 0)) }} onarım.
+                    Son gönderim {{ $lastAt->format('d.m H:i') }}: {{ $n((int) ($last['content']['sent'] ?? 0)) }} yazı, {{ $n((int) ($last['posts'] ?? 0)) }} gönderi, {{ $n((int) ($last['repair']['applied'] ?? 0)) }} onarım.
                     @if ($failedReasons->isNotEmpty() || $repairFailed > 0)
                         Gönderilemeyen:
                         {{ $failedReasons->map(fn (int $count, string $reason): string => $count.' yazı: '.rtrim($reason, '.'))->values()->implode('; ') }}@if ($failedReasons->isNotEmpty() && $repairFailed > 0); @endif{{ $repairFailed > 0 ? $repairFailed.' onarım (nedeniyle masaya döndü)' : '' }}.

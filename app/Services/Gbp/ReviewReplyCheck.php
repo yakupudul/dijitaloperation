@@ -5,7 +5,6 @@ namespace App\Services\Gbp;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\GbpReviewFlag;
-use App\Models\User;
 use App\Services\Epicrisis\EpicrisisClaims;
 use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
@@ -15,11 +14,11 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Yorum yanıtları Günlük gönderimde (Aşama 9, 2026-10-22). Every unanswered review of the last 90 days on a served
- * profile gets a reply draft at night (Claude, the review reply prompt); the draft is checked without AI before it can
- * go with the daily click: long enough, no phone number or link, no claim the brand's record does not hold. A 1-2 star
- * review, one the brand said not to answer and one with an open removal request stay held: the operator answers them on
- * the review screen. Nothing goes to Google without the Admin's click.
+ * Yorum yanıtı taslakları (Aşama 9, 2026-10-22). Every unanswered review of the last 90 days on a served profile gets
+ * a reply draft at night (Claude, the review reply prompt); `checked()` tells without AI whether a draft is sound: long
+ * enough, no phone number or link, no claim the brand's record does not hold, not a 1-2 star review, not declined by the
+ * brand, no open removal request. Since 2026-10-26 replies go to Google when the client approves them on the brand's
+ * approval link (ReviewApprovals), not with the daily click.
  */
 final class ReviewReplyCheck
 {
@@ -85,17 +84,6 @@ final class ReviewReplyCheck
     public function held(): Collection
     {
         return $this->checked()->whereNotNull('reason')->values();
-    }
-
-    /** The daily click: every ready reply goes to Google (one write each, undoable from the review screen). */
-    public function sendReady(User $user): int
-    {
-        $ready = $this->ready()->pluck('review')->all();
-        if ($ready === []) {
-            return 0;
-        }
-
-        return $this->desk->sendDrafts($user, $ready)['sent'];
     }
 
     /** Night: drafts for unanswered reviews that have none (oldest first, at most NIGHT_DRAFTS). */

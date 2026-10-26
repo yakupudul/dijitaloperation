@@ -46,6 +46,16 @@
             </section>
         @endif
 
+        @if ($canWrite && $section === 'yanit' && ($brand !== null || $this->location !== null || $asset !== null))
+            <section class="card flex flex-wrap items-center gap-3 p-4" data-testid="gbp-live-link">
+                <div class="min-w-0 flex-1 basis-60">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Müşteri onay linki</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500">Linki müşteriyle paylaş; hazır yanıtları orada görür, onayladıkları Google’a kendiliğinden gider. Link kalıcı, yeni yanıtlar ona eklenir.</p>
+                </div>
+                <button type="button" wire:click="liveLink" class="btn-primary">Linki al</button>
+            </section>
+        @endif
+
         @if ($approvalUrl || $approvalLinks->isNotEmpty())
             <section data-testid="gbp-approval-links">
                 <div class="section-head"><h2 class="section-title">Marka onay bağlantıları <span class="section-count">{{ $approvalLinks->count() }}</span></h2></div>
@@ -62,6 +72,7 @@
                             $decided = collect($link->items)->whereNotNull('decision');
                             $state = match (true) {
                                 $link->status === \App\Models\GbpReviewApproval::CLOSED => 'Kapatıldı',
+                                $link->live => 'Kalıcı link'.($link->answered_at !== null ? ': son onay '.$link->answered_at->timezone('Europe/Istanbul')->format('d.m H:i').', '.$decided->whereIn('decision', ['ok', 'edit'])->count().' yanıt onaylandı' : ''),
                                 ! $link->isUsable() => 'Süresi doldu',
                                 $link->answered_at !== null => 'Marka yanıtladı: '.$decided->where('decision', 'ok')->count().' uygun, '.$decided->where('decision', 'edit')->count().' düzeltildi, '.$decided->where('decision', 'skip')->count().' istenmedi',
                                 default => 'Markada bekliyor',
@@ -69,7 +80,7 @@
                         @endphp
                         <div class="card-row flex-wrap sm:flex-nowrap" wire:key="approval-{{ $link->id }}">
                             <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $link->brand?->name }}, {{ count($link->items) }} yanıt</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $link->brand?->name }}{{ $link->live ? ($link->digitalAsset ? ' · '.\App\Services\Gbp\Desk\GbpDesk::shortName((string) $link->digitalAsset->name) : ' · bütün işletmeler') : ', '.count($link->items).' yanıt' }}</p>
                                 <p class="mt-0.5 flex flex-wrap items-center gap-x-3 text-[13px] text-gray-500"><span class="tabular-nums">{{ $link->created_at?->timezone('Europe/Istanbul')->format('d.m H:i') }}</span> <x-ta.pill :tone="! $link->isUsable() ? 'info' : ($link->answered_at !== null ? 'ok' : 'look')">{{ $state }}</x-ta.pill></p>
                                 @if ($link->note)<p class="mt-1 text-[13px] text-gray-600 dark:text-gray-300">Markanın notu: {{ $link->note }}</p>@endif
                             </div>
@@ -215,7 +226,7 @@
                             <span class="text-[13px] text-gray-500">{{ $readyCount }} yanıtı hazır (gönderilmedi) · {{ $toDraftCount }} taslaksız</span>
                             <span class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
                                 @if ($toDraftCount > 0)<button type="button" wire:click="draftSelected" class="btn" title="Yalnız taslağı olmayanlara yazar; hazır yanıtlara dokunmaz">AI ile taslak yaz ({{ min($toDraftCount, \App\Services\Gbp\Desk\ReviewDesk::DRAFT_BATCH) }})</button>@endif
-                                <button type="button" wire:click="sendToBrand" class="btn" title="Marka giriş yapmadan açar; her yanıtı onaylar, düzeltir ya da istemez">Markaya onaya gönder</button>
+                                <button type="button" wire:click="sendToBrand" class="btn" title="Marka giriş yapmadan açar; her yanıtı onaylar, düzeltir ya da istemez. Onayladıkları Google’a kendiliğinden gider.">Markaya onaya gönder</button>
                                 @if ($readyCount > 0)<button type="button" wire:click="deleteSelectedDrafts" wire:confirm="Seçilen {{ $readyCount }} yorumun yanıt taslağı silinsin mi?" class="btn" data-testid="gbp-delete-drafts">Taslakları sil ({{ $readyCount }})</button>@endif
                                 <a href="{{ $this->pdfUrl() }}" class="btn" title="Hazır yanıtları markanın onayına göndermek için">PDF</a>
                                 <button type="button" wire:click="openPreview" class="btn-primary">Ön izle ve yayımla ({{ $readyCount }})</button>

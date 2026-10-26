@@ -542,7 +542,7 @@ final class GbpDeskTest extends TestCase
             ->assertSee('Çankaya yorumu');
     }
 
-    public function test_the_brand_approves_edits_or_declines_replies_from_a_link_and_publishing_stays_here(): void
+    public function test_the_brand_approves_edits_or_declines_replies_from_a_link_and_approved_ones_go_to_google(): void
     {
         $review = fn (string $id, string $stars, string $comment): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1,
             'location_name' => 'locations/22', 'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe Yılmaz']), 'star_rating' => $stars, 'comment' => $comment,
@@ -575,14 +575,15 @@ final class GbpDeskTest extends TestCase
         $approval->refresh();
         $this->assertSame(['ok', 'edit', 'skip'], array_column($approval->items, 'decision'));
         $this->assertNotNull($approval->answered_at);
-        $this->assertSame(0, ExternalWriteAction::query()->count(), 'nothing is published from the link');
-        $drafts = collect(app(ReviewDesk::class)->unanswered([$this->location->id => $this->resourceId]))->keyBy('id');
-        $this->assertSame('Beklettiğimiz için çok özür dileriz, sizi arayacağız.', $drafts[$bad]['draft'], 'the brand’s edit becomes the draft');
+        $sent = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->get()->keyBy(fn (ExternalWriteAction $a): int => (int) $a->request_payload['review_id']);
+        $this->assertEqualsCanonicalizing([$good, $bad], $sent->keys()->all(), 'what the brand approved goes to Google, the declined one does not');
+        $this->assertSame('Beklettiğimiz için çok özür dileriz, sizi arayacağız.', $sent[$bad]->request_payload['comment'], 'the brand’s edit is what goes');
+        $this->assertSame($this->admin->id, (int) $sent[$good]->requested_by, 'sent as the link maker');
 
         Livewire::actingAs($this->admin)->test(ReviewsPage::class, ['brand' => $this->brand->id])
             ->set('brand', $this->brand->id)
-            ->assertSee('Marka onayladı')->assertSee('Marka düzeltti')->assertSee('Marka istemedi')->assertSee('Düşük puanlara telefon numarası vermeyin.')
-            ->call('pick', 'brand')->assertSet('selected', [$good, $bad])
+            ->set('status', 'tumu')
+            ->assertSee('Marka istemedi')->assertSee('Düşük puanlara telefon numarası vermeyin.')
             ->call('closeApproval', $approval->id);
         $this->assertFalse($approval->fresh()->isUsable());
         $this->post(route('gbp-review-approval.store', ['token' => $approval->token]), ['decision' => [$good => 'skip']])->assertSessionHasErrors('approval');
@@ -815,7 +816,7 @@ final class GbpDeskTest extends TestCase
         $this->assertStringEndsWith('/reviews/r3/reply', $puts[0][1]);
     }
 
-    public function test_checked_reply_drafts_go_with_the_daily_send_and_the_rest_stay_with_their_reason(): void
+    public function test_reply_drafts_are_checked_but_no_longer_go_with_the_daily_send(): void
     {
         $review = fn (string $id, string $stars): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22',
             'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe '.$id]), 'star_rating' => $stars, 'comment' => 'Yorum '.$id, 'create_time' => '2026-10-04 10:00:00',
@@ -836,13 +837,48 @@ final class GbpDeskTest extends TestCase
         $this->assertFalse($checked->has($none), 'no draft yet: the night asks one');
 
         $summary = app(DailySend::class)->summary();
-        $this->assertSame(1, $summary['replies']);
-        $this->assertSame(2, collect($summary['held'])->where('area', 'Yorum yanıtı')->count());
+        $this->assertArrayNotHasKey('replies', $summary);
+        $this->assertSame(0, collect($summary['held'])->where('area', 'Yorum yanıtı')->count());
         $result = app(DailySend::class)->send($this->admin);
-        $this->assertSame(1, $result['replies']);
-        $puts = collect($this->writes())->filter(fn (array $c): bool => $c[0] === 'PUT')->values();
-        $this->assertCount(1, $puts);
-        $this->assertStringEndsWith('/reviews/g1/reply', $puts[0][1]);
+        $this->assertArrayNotHasKey('replies', $result);
+        $this->assertSame(0, ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->count(), 'replies wait for the client’s approval');
+    }
+
+    public function test_the_standing_client_link_lists_current_drafts_and_sends_what_the_client_approves(): void
+    {
+        $review = fn (string $id, string $stars): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22',
+            'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe '.$id]), 'star_rating' => $stars, 'comment' => 'Yorum '.$id, 'create_time' => '2026-10-04 10:00:00',
+            'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $good = $review('g1', 'FIVE');
+        $low = $review('b1', 'ONE');
+        $later = $review('l1', 'FOUR');
+        $desk = app(ReviewDesk::class);
+        $desk->saveDraft($this->admin, $good, 'Güzel yorumunuz için çok teşekkür ederiz.');
+        $desk->saveDraft($this->admin, $low, 'Yaşadığınız durum için üzgünüz, sizi arayacağız.');
+
+        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)->set('brand', $this->brand->id)->call('liveLink');
+        $link = GbpReviewApproval::query()->sole();
+        $this->assertTrue($link->live);
+        $page->assertSet('approvalUrl', ReviewApprovals::url($link))->assertSee('Kalıcı link');
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class)->set('brand', $this->brand->id)->call('liveLink');
+        $this->assertSame(1, GbpReviewApproval::query()->count(), 'the open standing link is reused');
+
+        auth()->logout();
+        $this->get(ReviewApprovals::url($link))->assertOk()->assertSee('Güzel yorumunuz için çok teşekkür ederiz.')->assertSee('sizi arayacağız')->assertSee('Onayla ve yayınla');
+        $this->post(route('gbp-review-approval.store', ['token' => $link->token]), [])->assertSessionHasErrors('approval');
+        $this->post(route('gbp-review-approval.store', ['token' => $link->token]), ['decision' => [$good => 'ok', $low => 'skip'], 'text' => [$good => 'Güzel yorumunuz için çok teşekkür ederiz.']])
+            ->assertRedirect(ReviewApprovals::url($link));
+
+        $sent = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->get();
+        $this->assertSame([$good], $sent->map(fn (ExternalWriteAction $a): int => (int) $a->request_payload['review_id'])->all());
+        $this->assertSame(GbpReviewApproval::OPEN, $link->fresh()->status, 'a standing link stays open');
+
+        $desk->saveDraft($this->admin, $later, 'Teşekkürler, yine bekleriz.');
+        $this->get(ReviewApprovals::url($link))->assertOk()->assertSee('Teşekkürler, yine bekleriz.')
+            ->assertDontSee('Güzel yorumunuz için çok teşekkür ederiz.')->assertDontSee('sizi arayacağız');
+        $this->post(route('gbp-review-approval.store', ['token' => $link->token]), ['decision' => [$later => 'ok', $good => 'ok']]);
+        $this->assertSame(2, ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_REVIEW_REPLY)->count(), 'only shown drafts are answered; nothing goes twice');
+        $this->assertSame(['ok', 'skip', 'ok'], array_column($link->fresh()->items, 'decision'));
     }
 
     public function test_photos_named_after_another_branch_are_not_offered_and_kinds_match_whole_words(): void
