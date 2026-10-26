@@ -103,6 +103,9 @@
         </section>
     @endif
 
+    {{-- 4. Küme kapsaması (yakup, 2026-10-26): per service, which clusters have a page and an article, what is written next (loaded after the page) --}}
+    <livewire:operator.portfolio.brand-coverage-card lazy :brand-id="(int) $brandModel->id" :key="'brand-coverage-'.$brandModel->id" />
+
     {{-- 5. Services: chips, ★ (main) first, at most 10 before "+N hizmet"; edited under Ayarlar --}}
     <section aria-labelledby="services-heading" data-brand-services x-data="{ allServices: false }">
         <div class="section-head">

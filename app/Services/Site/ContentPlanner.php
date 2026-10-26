@@ -31,6 +31,7 @@ use App\Services\Queries\QueryNormalizer;
 use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\Analysis\SiteAnalysisReader;
+use App\Services\Site\Analysis\SitePagesReader;
 use App\Services\Work\ContentCoverage;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
@@ -72,6 +73,17 @@ final class ContentPlanner
 
     /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
     private const int STRIKING_QUERIES = 40;
+
+    /**
+     * Düşen yazı (2026-10-26, "kümelerin hepsi dolunca neye göre içerik?"): a page with at least DECAY_MIN_PREVIOUS
+     * Search Console clicks in the previous 90 days that lost DECAY_DROP of them in the last 90 is a refresh candidate.
+     * Once a site's clusters have pages, this is where most of the work comes from.
+     */
+    public const int DECAY_MIN_PREVIOUS = 20;
+
+    public const float DECAY_DROP = 0.3;
+
+    private const int DECAY_PAGES = 20;
 
     private const array MONTHS = [1 => 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -514,6 +526,27 @@ final class ContentPlanner
             }
         }
 
+        // 1b) Pages whose Search Console clicks fell (last 90 days vs the 90 before): refresh them.
+        if ($only === null) {
+            $declining = $this->decliningPages($site, $main);
+            $declineRows = $inMain(BrandClusterPage::query()->with(['cluster.mainQuery', 'cluster.service.primaryName'])->where('brand_id', $brand->id)
+                ->where('website_asset_id', $site->id)->where('excluded', false)->whereIn('page_id', array_map(fn (array $d): int => (int) $d['page']->id, $declining) ?: [0]))
+                ->orderBy('id')->get()->unique('page_id')->keyBy('page_id');
+            foreach ($declining as $d) {
+                $page = $d['page'];
+                $key = 'd:'.$page->id;
+                if (isset($updatedPages[(int) $page->id]) || isset($usedKeys[$key])) {
+                    continue;
+                }
+                $out[] = [
+                    'key' => $key, 'source' => 'update', 'kind' => 'update', 'row' => $declineRows->get((int) $page->id), 'query' => null, 'page' => $page, 'angle_hint' => 'update',
+                    'score' => 1.5 * log10(1 + $d['previous'] - $d['clicks']) * ($angleWeights['update'] ?? 1.0),
+                    'evidence' => [['kind' => 'decline', 'value' => SeoText::urlPath((string) $page->url).' · son 90 günde '.$number($d['clicks']).' tıklama, önceki 90 günde '
+                        .$number($d['previous']).' (%'.$number(round(100 * ($d['previous'] - $d['clicks']) / max(1, $d['previous']))).' düşüş)', 'source' => 'Search Console']],
+                ];
+            }
+        }
+
         // 2) Clusters without a suitable page / with thin coverage, 3) weak pages, 4) AI-assistant questions of the clusters.
         foreach ($rows as $row) {
             $cluster = $row->cluster;
@@ -880,6 +913,37 @@ final class ContentPlanner
         usort($out, fn (array $a, array $b): int => [$b['impressions'], $a['query']] <=> [$a['impressions'], $b['query']]);
 
         return array_slice($out, 0, self::STRIKING_QUERIES);
+    }
+
+    /**
+     * Main-language pages of the site that lost at least DECAY_DROP of their Search Console clicks (last 90 days vs the
+     * 90 before, from at least DECAY_MIN_PREVIOUS), most clicks lost first.
+     *
+     * @return list<array{page: Page, clicks: int, previous: int}>
+     */
+    public function decliningPages(DigitalAsset $site, string $main): array
+    {
+        try {
+            $rows = app(SitePagesReader::class)->rows($site, 90);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+        $falling = collect($rows)->filter(fn (array $r): bool => $r['page_id'] !== null && $r['prev_clicks'] >= self::DECAY_MIN_PREVIOUS
+            && $r['clicks'] <= $r['prev_clicks'] * (1 - self::DECAY_DROP))
+            ->sortByDesc(fn (array $r): int => $r['prev_clicks'] - $r['clicks'])->take(self::DECAY_PAGES * 2);
+        $pages = Page::query()->whereIn('id', $falling->pluck('page_id')->all() ?: [0])->where('website_asset_id', $site->id)
+            ->get(['id', 'url', 'title', 'path', 'language', 'category', 'word_count', 'wp_post_type'])->keyBy('id');
+        $out = [];
+        foreach ($falling as $r) {
+            $page = $pages->get((int) $r['page_id']);
+            if ($page !== null && self::inLanguage($page, $main) && trim(SeoText::urlPath((string) $page->url), '/') !== '') {
+                $out[] = ['page' => $page, 'clicks' => (int) $r['clicks'], 'previous' => (int) $r['prev_clicks']];
+            }
+        }
+
+        return array_slice($out, 0, self::DECAY_PAGES);
     }
 
     /**

@@ -14,6 +14,7 @@ use App\Models\Page;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Site\Analysis\SitePagesReader;
+use App\Services\Site\ContentTopics;
 use App\Services\Site\SiteScope;
 use App\Services\Work\OpenWork;
 use App\Support\Collection\LastDataDay;
@@ -435,8 +436,9 @@ final class BrandDossier
         $lines = [];
         foreach (DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get() as $site) {
             $pages = Page::query()->where('website_asset_id', $site->id);
-            $states = BrandClusterPage::query()->where('website_asset_id', $site->id)->whereNotNull('state')->groupBy('state')
-                ->selectRaw('state, count(*) as n')->pluck('n', 'state')->all();
+            // One row per cluster in the site's main language (2026-10-26: opcklinik.com counted each cluster in 4 languages).
+            $mainRows = $site->brand_id !== null ? ContentTopics::mainRows($site)->filter(fn (BrandClusterPage $r): bool => $r->state !== null) : collect();
+            $states = $mainRows->countBy('state')->all();
             $trend = null;
             try {
                 $trend = app(SitePagesReader::class)->trend($site, 28);
@@ -452,7 +454,7 @@ final class BrandDossier
                 $lines[] = '  - Küme sayfaları: '.collect($states)->map(fn ($n, $state): string => (BrandClusterPage::STATE_LABELS[$state] ?? $state).' '.$n)->implode(', ');
                 foreach (array_keys($states) as $state) {
                     if ($state !== 'sufficient') {
-                        $lines[] = '    - '.$this->stateClusters($site, (string) $state, (int) $states[$state]);
+                        $lines[] = '    - '.$this->stateClusters($mainRows, (string) $state, (int) $states[$state]);
                     }
                 }
             }
@@ -461,13 +463,16 @@ final class BrandDossier
         return implode("\n", $lines) ?: 'Web sitesi bağlı değil.';
     }
 
-    /** "Veri yetersiz: implant ankara, zirkonyum (+3)": the clusters behind one cluster-page state, most seen first. */
-    private function stateClusters(DigitalAsset $site, string $state, int $count): string
+    /**
+     * "Veri yetersiz: implant ankara, zirkonyum (+3)": the clusters behind one cluster-page state, most seen first.
+     *
+     * @param  Collection<int, BrandClusterPage>  $rows  the site's main-language rows
+     */
+    private function stateClusters(Collection $rows, string $state, int $count): string
     {
-        $names = BrandClusterPage::query()->join('clusters', 'clusters.id', '=', 'brand_cluster_pages.cluster_id')
-            ->where('brand_cluster_pages.website_asset_id', $site->id)->where('brand_cluster_pages.state', $state)
-            ->orderByRaw('coalesce(brand_cluster_pages.impressions_28d, 0) desc')->orderBy('clusters.name')
-            ->limit(self::STATE_CLUSTERS)->pluck('clusters.name')->map(fn ($name): string => (string) $name)->all();
+        $names = $rows->where('state', $state)->filter(fn (BrandClusterPage $r): bool => $r->cluster !== null)
+            ->sortBy(fn (BrandClusterPage $r): array => [-(int) ($r->impressions_28d ?? 0), (string) $r->cluster->name])
+            ->take(self::STATE_CLUSTERS)->map(fn (BrandClusterPage $r): string => (string) $r->cluster->name)->values()->all();
         $more = $count - count($names);
 
         return Str::ucfirst(BrandClusterPage::STATE_LABELS[$state] ?? $state).': '.($names !== [] ? implode(', ', $names) : '—').($more > 0 ? ' (+'.$more.')' : '');
