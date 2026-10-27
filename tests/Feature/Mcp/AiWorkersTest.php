@@ -39,22 +39,27 @@ final class AiWorkersTest extends SiteTestCase
         McpKeys::issue('ChatGPT (bağlantı)', McpToken::WRITE, null, AiWorkers::CHATGPT_MCP);
     }
 
-    public function test_a_backup_stands_down_while_claude_comes_and_takes_over_when_claude_is_silent(): void
+    public function test_a_backup_stands_down_while_claude_comes_to_its_rounds_and_takes_over_when_claude_misses_one(): void
     {
+        $this->travelTo(now('Europe/Istanbul')->setTime(10, 40));
         $workers = app(AiWorkers::class);
+        $workers->setRounds(AiWorkers::CLAUDE_MCP, ['10:00', '14:00']);
         $task = $this->task(1);
-        $task->forceFill(['created_at' => now()->subHours(3)])->save();
+        $task->forceFill(['created_at' => now()->subHours(5)])->save();
+        $this->travelTo(now('Europe/Istanbul')->setTime(10, 2));
         $workers->markSeen(AiWorkers::CLAUDE_MCP);
+        $this->travelTo(now('Europe/Istanbul')->setTime(13, 30));
+        $this->assertSame(AiWorkers::CLAUDE_MCP, $workers->active(), 'between rounds Claude waits for its next round, it is not down');
 
         $this->as(AiWorkers::CHATGPT_MCP);
         MoxdopServer::tool(ListTasks::class, [])->assertOk()->assertSee('"your_turn":false')->assertSee('Sıra sende değil');
         MoxdopServer::tool(GetTasks::class, ['operation' => 'queries.triage'])->assertOk()->assertSee('"tasks":[]');
         $this->assertSame(AiTask::PENDING, $task->fresh()->status);
-        $this->assertSame(AiWorkers::CLAUDE_MCP, $workers->active());
 
-        $this->travel(2)->hours();
+        $this->travelTo(now('Europe/Istanbul')->setTime(14, 30));
         MoxdopServer::tool(GetTasks::class, ['operation' => 'queries.triage'])->assertOk()->assertSee('"your_turn":true')->assertSee('"id":'.$task->id);
-        $this->assertSame(AiWorkers::CHATGPT_MCP, $workers->active(), 'work waited 90+ minutes and Claude did not come');
+        $this->assertSame(AiWorkers::CHATGPT_MCP, $workers->active(), 'Claude missed its 14:00 round');
+        $this->assertStringContainsString('14:00 turuna gelmedi', (string) $workers->downReason(AiWorkers::CLAUDE_MCP));
         $this->assertSame(AiWorkers::CHATGPT_MCP, $task->fresh()->claimed_by);
 
         MoxdopServer::tool(SubmitResults::class, ['results' => [['id' => $task->id, 'output' => ['label' => 'implant']]]])->assertOk();

@@ -65,7 +65,7 @@ final class ScreenChecker
         'operator.integrations.google' => 'Google bağlantısı', 'operator.integrations.meta' => 'Meta bağlantısı',
         'operator.integrations.bing' => 'Bing Webmaster', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
         'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
-        'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.system-health' => 'Sistem',
+        'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.ai-workers' => 'AI sağlayıcıları', 'operator.settings.system-health' => 'Sistem',
         'operator.settings.users' => 'Kullanıcılar', 'operator.settings.query-rules' => 'Sorgu kuralları', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.sector-packs' => 'Sektör paketleri',
         'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.settings.releases' => 'Sürümler', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
     ];

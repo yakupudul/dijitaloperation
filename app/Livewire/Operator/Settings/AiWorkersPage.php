@@ -28,6 +28,9 @@ final class AiWorkersPage extends Component
 
     public string $usdTry = '';
 
+    /** @var array<string, string> each MCP worker's routine times, "08:27, 12:27, …" */
+    public array $rounds = [];
+
     /** MCP connection being removed, and which of the two confirmations is showing. */
     public ?int $removeId = null;
 
@@ -92,6 +95,18 @@ final class AiWorkersPage extends Component
         $this->saved = $worker;
     }
 
+    public function saveRounds(string $worker): void
+    {
+        $this->authorizeAdmin();
+        if (! AiWorkers::isMcp($worker)) {
+            return;
+        }
+        $times = AiWorkers::cleanTimes(preg_split('/[\s,;]+/', (string) ($this->rounds[$worker] ?? '')) ?: []);
+        app(AiWorkers::class)->setRounds($worker, $times);
+        $this->rounds[$worker] = implode(', ', $times);
+        $this->saved = 'rounds-'.$worker;
+    }
+
     public function saveRate(): void
     {
         $this->authorizeAdmin();
@@ -153,7 +168,7 @@ final class AiWorkersPage extends Component
             'doneToday' => AiTask::query()->whereIn('status', [AiTask::DONE, AiTask::CONSUMED])->where('completed_at', '>=', $since)->count(),
             'models' => [AiWorkers::CLAUDE_API => AiWorkers::models(AiWorkers::CLAUDE_API), AiWorkers::OPENAI_API => AiWorkers::models(AiWorkers::OPENAI_API)],
             'serverUrl' => url((string) config('moxdop-mcp.path', 'mcp/moxdop')),
-            'routines' => self::routines(),
+            'routines' => self::routines($workers->settings()['rounds']),
             'removing' => $this->removeId !== null ? McpToken::query()->find($this->removeId) : null,
         ]);
     }
@@ -162,9 +177,10 @@ final class AiWorkersPage extends Component
      * The routine prompt for each assistant and its times (the backup 30 minutes after the first, so it only works
      * when the first did not come).
      *
+     * @param  array<string, list<string>>  $rounds
      * @return list<array{label: string, times: string, where: string, prompt: string}>
      */
-    public static function routines(): array
+    public static function routines(array $rounds = AiWorkers::DEFAULT_ROUNDS): array
     {
         $prompt = fn (string $who, string $connector): string => <<<TXT
 MoxDOP AI kuyruğu turu ({$who}). {$connector} bağlantısını kullan; bağlantının sunucu yönergelerine uy.
@@ -176,9 +192,9 @@ Uydurma bilgi, telefon, fiyat ya da adres ekleme. Anahtar ve gizli bilgileri asl
 TXT;
 
         return [
-            ['label' => 'Claude', 'times' => '08:27 · 12:27 · 16:27 · 21:27', 'where' => 'Claude rutini (claude.ai › Code › Rutinler ya da mevcut kuyruk rutini)',
+            ['label' => 'Claude', 'times' => implode(' · ', $rounds[AiWorkers::CLAUDE_MCP] ?? []), 'where' => 'Claude rutini (claude.ai › Code › Rutinler ya da mevcut kuyruk rutini)',
                 'prompt' => $prompt('Claude', 'MoxDOP MCP')],
-            ['label' => 'ChatGPT', 'times' => '08:57 · 12:57 · 16:57 · 21:57', 'where' => 'ChatGPT zamanlanmış görev (Developer mode açık, MoxDOP bağlayıcısı seçili)',
+            ['label' => 'ChatGPT', 'times' => implode(' · ', $rounds[AiWorkers::CHATGPT_MCP] ?? []), 'where' => 'ChatGPT zamanlanmış görev (Developer mode açık, MoxDOP bağlayıcısı seçili)',
                 'prompt' => $prompt('ChatGPT', 'MoxDOP')],
         ];
     }
@@ -195,6 +211,9 @@ TXT;
             ];
         }
         $this->usdTry = (string) $settings['usd_try'];
+        foreach ($settings['rounds'] as $worker => $times) {
+            $this->rounds[$worker] = implode(', ', $times);
+        }
     }
 
     private function authorizeAdmin(): void
