@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.28.0
+Stable tag: 1.29.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,12 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.29.0 =
+* One MoxDOP menu in the admin with tabs (Genel, Gelen sorular, Sorular ve yorumlar, Görünüm ve metinler, Claude / ChatGPT, Yönlendirmeler, Polylang). Old Settings/Tools links redirect.
+* Gelen sorular: answer, edit, take off or delete visitor questions in the admin; the answer shows on the site at once, the asker gets an e-mail and MoxDOP is told (qa.answered / qa.hidden).
+* Görünüm ve metinler: answerer name, role and photo, every fixed text of the question and review blocks and the asker e-mail, accent colour and font (Elementor kit by default).
+* New question and review design: site font instead of the browser serif, eyebrow, highlighted heading word, soft cards, answer box with the answerer.
 
 = 1.28.0 =
 * Sorular ve yorumlar (Settings › Sorular ve yorumlar): choose pages, post types and taxonomies; each gets a question page at <page>/sorular/ (a real post, so SEO plugins, sitemaps and Polylang see it; noindex until 3 answered questions).

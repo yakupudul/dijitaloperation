@@ -131,6 +131,7 @@ final class SiteShowcaseTest extends SiteTestCase
         $published = $this->question(51, 'Ağrılı mı?');
         $published->forceFill(['status' => SiteQuestion::PUBLISHED, 'answer' => 'Lokal anestezi ile ağrı hissedilmez.', 'published_at' => now()])->save();
         $this->question(52, 'Bekleyen?');
+        $this->question(53, 'Kaldırılan?')->forceFill(['status' => SiteQuestion::HIDDEN])->save();
 
         $this->app->instance(WordPressConnectorClient::class, new WordPressConnectorClient(new WordPressConnectorCanonicalJson, new PublicUrlSafety(fn (string $host): array => ['93.184.216.34'])));
         $sent = [];
@@ -157,6 +158,7 @@ final class SiteShowcaseTest extends SiteTestCase
         $this->assertSame(4.8, $sent[0]['reviews']['rating']);
         $qa = $sent[0]['qa'];
         $this->assertSame(['Ağrılı mı?'], array_column($qa['post:42'], 'q'), 'only published questions');
+        $this->assertSame([53], $sent[0]['qa_hidden'], 'questions taken off in MoxDOP stay off even when answered on the site');
 
         (new SyncSiteShowcaseJob($this->site->id))->handle(app(SiteShowcase::class), app(SiteQuestions::class));
         Queue::assertPushed(PlanSiteQuestionsJob::class, fn (PlanSiteQuestionsJob $job): bool => $job->target['key'] === 'post:42');
@@ -193,6 +195,32 @@ final class SiteShowcaseTest extends SiteTestCase
         Queue::assertPushed(SyncSiteShowcaseJob::class, fn (SyncSiteShowcaseJob $job): bool => $job->siteId === $this->site->id);
     }
 
+    public function test_a_question_answered_or_taken_off_in_the_site_admin_closes_the_desk_row(): void
+    {
+        $this->enableAi();
+        $this->brand->forceFill(['showcase_enabled' => true])->save();
+        $this->page('/implant/', 'Ankara İmplant Tedavisi', ['wp_post_id' => 42]);
+        SiteQaAnswerAgent::fake([['verdict' => 'publish', 'question' => 'İmplant ağrılı mı?', 'answer' => 'Lokal anestezi altında yapıldığı için işlem sırasında ağrı hissedilmez.', 'link_url' => '']]);
+        $question = $this->question(61);
+        app(SiteQuestions::class)->answer((int) $question->id);
+        $suggestionId = (int) $question->refresh()->suggestion_id;
+
+        $this->send([$this->answered(61, 'İmplant ağrılı mı?', 'Hayır, uyuşturma ile yapılır. Dr. Ayşe')])->assertOk();
+
+        $question->refresh();
+        $this->assertSame([SiteQuestion::PUBLISHED, 'Hayır, uyuşturma ile yapılır. Dr. Ayşe'], [$question->status, $question->answer]);
+        $this->assertSame(Suggestion::DISMISSED, Suggestion::query()->find($suggestionId)->status, 'Claude\'s draft leaves the desk');
+        $this->assertNull(app(RepairDesk::class)->rows()->firstWhere('id', $suggestionId));
+
+        $hidden = $this->answered(61, '', '');
+        $this->send([['type' => 'qa.hidden'] + $hidden])->assertOk();
+        $this->assertSame(SiteQuestion::HIDDEN, $question->refresh()->status);
+
+        // An answer written on the site before MoxDOP ever saw the question is recorded as published.
+        $this->send([$this->answered(62, 'Kaç gün sürer?', 'Genellikle iki seansta biter.')])->assertOk();
+        $this->assertSame(SiteQuestion::PUBLISHED, SiteQuestion::query()->where('local_id', 62)->value('status'));
+    }
+
     public function test_the_plugin_keeps_names_on_the_site_and_cleans_up_on_uninstall(): void
     {
         $root = base_path('connectors/wordpress/moxdop-connector');
@@ -206,6 +234,15 @@ final class SiteShowcaseTest extends SiteTestCase
         $this->assertStringContainsString("'moxdop_sorular'", $showcase);
         $this->assertStringContainsString("'moxdop_yorumlar'", $showcase);
         $this->assertStringContainsString('wp_mail(', $showcase, 'notifications go through the site\'s own mail / SMTP');
+
+        // 1.29.0: one MoxDOP menu with tabs; questions are answered in the admin and every fixed text is a setting.
+        $ui = (string) file_get_contents($root.'/includes/class-moxdop-connector-admin-ui.php');
+        $admin = (string) file_get_contents($root.'/includes/class-moxdop-connector-showcase-admin.php');
+        $this->assertStringContainsString('add_menu_page(', $ui);
+        $this->assertStringContainsString('admin_page_access_denied', $ui, 'old Settings / Tools links redirect');
+        $this->assertStringContainsString('MoxDOP_Connector_Events::answered(', $admin);
+        $this->assertStringContainsString('self::TEXTS_OPTION', $showcase);
+        $this->assertStringNotContainsString('add_options_page(\'Sorular', $showcase);
     }
 
     private function question(int $localId = 31, string $text = 'İmplant ağrılı mı?'): SiteQuestion
@@ -237,11 +274,17 @@ final class SiteShowcaseTest extends SiteTestCase
             'target' => 'post:42', 'question' => $text];
     }
 
+    /** @return array<string, mixed> */
+    private function answered(int $localId, string $question, string $answer): array
+    {
+        return ['type' => 'qa.answered', 'origin' => 'wordpress_user', 'fields' => ['question', 'answer'], 'question' => $question, 'answer' => $answer, 'actor_id' => '1'] + $this->asked($localId, $question);
+    }
+
     /** @param  list<array<string, mixed>>  $events */
     private function send(array $events): TestResponse
     {
         $body = json_encode([
-            'schema_version' => 1, 'installation_id' => self::INSTALLATION, 'plugin_version' => '1.28.0', 'events' => $events,
+            'schema_version' => 1, 'installation_id' => self::INSTALLATION, 'plugin_version' => '1.29.0', 'events' => $events,
             'delivery' => ['pending' => 0, 'gap_at' => null, 'storage_ready' => true, 'wp_cron_disabled' => false],
         ], JSON_THROW_ON_ERROR);
         $timestamp = (string) time();

@@ -301,17 +301,35 @@ final class MoxDOP_Connector_Events
      */
     public static function question($local_id, $target, $title, $url, $text)
     {
+        self::qa_event('qa.asked', $local_id, $target, $title, $url, ['question' => mb_substr((string) $text, 0, 2000)]);
+    }
+
+    /** 1.29.0: the site admin answered a visitor's question here (MoxDOP › Gelen sorular); it is live already. */
+    public static function answered($local_id, $target, $title, $url, $question, $answer)
+    {
+        self::qa_event('qa.answered', $local_id, $target, $title, $url, ['question' => mb_substr((string) $question, 0, 2000), 'answer' => mb_substr((string) $answer, 0, 4000)]);
+    }
+
+    /** 1.29.0: the site admin took a visitor's question down here. */
+    public static function hidden($local_id, $target, $title, $url)
+    {
+        self::qa_event('qa.hidden', $local_id, $target, $title, $url, ['question' => '']);
+    }
+
+    /** A question event for MoxDOP: never the visitor's name or contact. */
+    private static function qa_event($type, $local_id, $target, $title, $url, array $extra)
+    {
         global $wpdb;
         if (! get_option(MoxDOP_Connector_Secrets::OPTION) || get_option('moxdop_connector_outbox_version') !== '1') {
             return;
         }
         $event = [
-            'event_id' => wp_generate_uuid4(), 'type' => 'qa.asked', 'occurred_at' => gmdate('c'),
+            'event_id' => wp_generate_uuid4(), 'type' => $type, 'occurred_at' => gmdate('c'),
             'object_type' => 'moxdop_question', 'object_id' => (string) (int) $local_id,
             'title' => mb_substr(wp_strip_all_tags((string) $title), 0, 200), 'url' => substr((string) $url, 0, 2048),
-            'actor_id' => '0', 'actor_name' => '', 'origin' => 'wordpress_automation', 'fields' => ['question'],
-            'target' => substr((string) $target, 0, 64), 'question' => mb_substr((string) $text, 0, 2000),
-        ];
+            'actor_id' => (string) get_current_user_id(), 'actor_name' => '', 'origin' => $type === 'qa.asked' ? 'wordpress_automation' : 'wordpress_user',
+            'fields' => array_keys($extra), 'target' => substr((string) $target, 0, 64),
+        ] + $extra;
         if ($wpdb->insert($wpdb->prefix.'moxdop_outbox', ['event_id' => $event['event_id'], 'payload' => wp_json_encode($event), 'created_at' => gmdate('Y-m-d H:i:s')]) === false) {
             update_option('moxdop_connector_events_gap_at', gmdate('c'), false);
 

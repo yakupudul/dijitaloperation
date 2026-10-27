@@ -3,7 +3,7 @@
 /**
  * Plugin Name: MoxDOP Website Connector
  * Description: Signed Website inventory connector for MoxDOP. Reads inventory and health; creates drafts (with categories, SEO fields and Polylang language / translation links); one-click login, approved updates, approved SEO fixes (301 merges are kept by the connector, listed under Tools › MoxDOP yönlendirmeleri, and the old page becomes a draft) and approved content updates only when a site admin enables them; tells MoxDOP (with the state of the posts MoxDOP made) and IndexNow about changes right after a save, without waiting for WP-Cron; exports HTML the page-cache plugin already stored and the rendered content of published pages (read-only); builds a site (ACF, pages, Elementor templates, media, menus) only when a site admin enables site building; when the host refuses MoxDOP's requests, the site fetches its work from MoxDOP itself; the post editor offers "Akıllı tarih": the nearest free Monday, Wednesday or Friday of the last 60 days (or the next one ahead)  as the publishing date; a site admin can connect the site directly to Claude or ChatGPT (MCP with OAuth sign-in: read, drafts, SEO and content edits by the chosen level, never publishing, every write undoable).
- * Version: 1.28.0
+ * Version: 1.29.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.28.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.29.0');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 
@@ -38,6 +38,8 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-smart-date.ph
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-ai.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-ai-full.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-showcase.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-showcase-admin.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-admin-ui.php';
 
 (new MoxDOP_Connector_Management)->register();
 (new MoxDOP_Connector_Fixes)->register();
@@ -64,6 +66,8 @@ add_action('rest_api_init', static function () {
 });
 
 if (is_admin()) {
+    (new MoxDOP_Connector_Admin_UI)->register();
+    (new MoxDOP_Connector_Showcase_Admin)->register();
     (new MoxDOP_Connector_Admin(new MoxDOP_Connector_Secrets))->register();
     (new MoxDOP_Connector_Translation_Pairing)->register();
 }

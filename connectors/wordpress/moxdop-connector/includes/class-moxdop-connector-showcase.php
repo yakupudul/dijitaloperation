@@ -31,6 +31,12 @@ final class MoxDOP_Connector_Showcase
 
     const ENABLED_OPTION = 'moxdop_showcase_enabled';
 
+    /** 1.29.0: the admin's own wording of every visitor text (MoxDOP › Görünüm ve metinler). */
+    const TEXTS_OPTION = 'moxdop_showcase_texts';
+
+    /** 1.29.0: who answers (name, line, photo), accent colour, font, privacy page. */
+    const LOOK_OPTION = 'moxdop_showcase_look';
+
     const QA_TYPE = 'moxdop_qa';
 
     const QUESTION_TYPE = 'moxdop_question';
@@ -72,6 +78,7 @@ final class MoxDOP_Connector_Showcase
         add_action('parse_request', [$this, 'route']);
         add_filter('post_type_link', [$this, 'permalink'], 10, 2);
         add_filter('the_content', [$this, 'page_content'], 20);
+        add_filter('single_template_hierarchy', [$this, 'page_template']);
         add_filter('wp_robots', [$this, 'robots']);
         add_filter('wp_sitemaps_posts_query_args', [$this, 'sitemap_args'], 10, 2);
         add_filter('wpseo_exclude_from_sitemap_by_post_ids', [$this, 'noindexed_ids']);
@@ -79,12 +86,6 @@ final class MoxDOP_Connector_Showcase
         add_shortcode('moxdop_yorumlar', [$this, 'shortcode_reviews']);
         add_action('rest_api_init', [$this, 'public_routes']);
         add_action('elementor/widgets/register', [$this, 'elementor_widget']);
-        if (is_admin()) {
-            add_action('admin_menu', [$this, 'menu']);
-            add_action('admin_post_moxdop_showcase_save', [$this, 'save_settings']);
-            add_filter('manage_'.self::QUESTION_TYPE.'_posts_columns', [$this, 'question_columns']);
-            add_action('manage_'.self::QUESTION_TYPE.'_posts_custom_column', [$this, 'question_column'], 10, 2);
-        }
     }
 
     /* ------------------------------------------------------------------ types and addresses */
@@ -94,13 +95,14 @@ final class MoxDOP_Connector_Showcase
         register_post_type(self::QA_TYPE, [
             'labels' => ['name' => 'Soru sayfaları', 'singular_name' => 'Soru sayfası'],
             'public' => true, 'publicly_queryable' => true, 'exclude_from_search' => true, 'show_ui' => true,
-            'show_in_menu' => 'edit.php?post_type='.self::QUESTION_TYPE, 'show_in_nav_menus' => false, 'show_in_rest' => false,
+            'show_in_menu' => false, 'show_in_nav_menus' => false, 'show_in_rest' => false,
             'has_archive' => false, 'rewrite' => false, 'query_var' => false, 'supports' => ['title'],
             'capabilities' => ['create_posts' => 'do_not_allow'], 'map_meta_cap' => true,
         ]);
         register_post_type(self::QUESTION_TYPE, [
             'labels' => ['name' => 'Sorular', 'singular_name' => 'Soru', 'menu_name' => 'Sorular', 'all_items' => 'Gelen sorular'],
-            'public' => false, 'show_ui' => true, 'show_in_menu' => true, 'menu_icon' => 'dashicons-format-chat', 'menu_position' => 26,
+            // Answered and managed in MoxDOP › Gelen sorular (1.29.0), not in a WordPress list of its own.
+            'public' => false, 'show_ui' => false, 'show_in_menu' => false,
             'supports' => ['title', 'editor'], 'capabilities' => ['create_posts' => 'do_not_allow'], 'map_meta_cap' => true,
         ]);
     }
@@ -183,7 +185,7 @@ final class MoxDOP_Connector_Showcase
         ];
     }
 
-    private static function parse_key($key)
+    public static function parse_key($key)
     {
         if (! preg_match('/^(post|term):([1-9][0-9]*)$/', (string) $key, $m)) {
             return null;
@@ -192,7 +194,7 @@ final class MoxDOP_Connector_Showcase
         return ['kind' => $m[1], 'id' => (int) $m[2]];
     }
 
-    private static function key(array $target)
+    public static function key(array $target)
     {
         return $target['kind'].':'.$target['id'];
     }
@@ -213,7 +215,7 @@ final class MoxDOP_Connector_Showcase
         return $term instanceof WP_Term && in_array($term->taxonomy, $set['taxonomies'], true);
     }
 
-    private static function target_url(array $target)
+    public static function target_url(array $target)
     {
         if ($target['kind'] === 'post') {
             return get_post_status($target['id']) === 'publish' ? (string) get_permalink($target['id']) : '';
@@ -223,7 +225,7 @@ final class MoxDOP_Connector_Showcase
         return is_wp_error($link) ? '' : (string) $link;
     }
 
-    private static function target_title(array $target)
+    public static function target_title(array $target)
     {
         if ($target['kind'] === 'post') {
             return wp_strip_all_tags((string) get_the_title($target['id']));
@@ -300,6 +302,13 @@ final class MoxDOP_Connector_Showcase
         return (int) $id;
     }
 
+    /** The question page's index state from what it shows now (MoxDOP's questions and the admin's own answers). */
+    public static function refresh_index($qa_id)
+    {
+        $key = (string) get_post_meta($qa_id, self::TARGET_META, true);
+        self::set_index($qa_id, $key !== '' ? self::merged_items($qa_id, $key) : []);
+    }
+
     /** Fewer than INDEX_AT answered questions: noindex for Rank Math, Yoast, core robots and sitemaps. */
     private static function set_index($post_id, array $items)
     {
@@ -365,7 +374,7 @@ final class MoxDOP_Connector_Showcase
         $targets = [];
         foreach (self::targets() as $target) {
             $qa = self::qa_post($target, true);
-            $items = $qa ? get_post_meta($qa, self::ITEMS_META, true) : [];
+            $items = $qa ? self::merged_items($qa, self::key($target)) : [];
             $lang = $target['kind'] === 'post' && function_exists('pll_get_post_language') ? (string) pll_get_post_language($target['id']) : '';
             $targets[] = [
                 'key' => self::key($target), 'kind' => $target['kind'], 'id' => $target['id'],
@@ -423,13 +432,25 @@ final class MoxDOP_Connector_Showcase
                 $before = get_post_meta($qa, self::ITEMS_META, true);
                 if (wp_json_encode($before) !== wp_json_encode($items)) {
                     update_post_meta($qa, self::ITEMS_META, $items);
-                    self::set_index($qa, $items);
+                    self::refresh_index($qa);
                     $purge[] = (string) get_permalink($qa);
                     $purge[] = self::target_url($target);
                 }
                 $out['notified'] += self::notify_askers($items, (string) get_permalink($qa));
                 $out['pages']++;
                 $out['questions'] += count($items);
+            }
+        }
+        // Questions taken off the site in MoxDOP (Marka ayarları › Kaldır) that the site admin had answered here.
+        foreach (array_slice((array) ($body['qa_hidden'] ?? []), 0, 500) as $local) {
+            $local = (int) $local;
+            if ($local > 0 && get_post_type($local) === self::QUESTION_TYPE && get_post_meta($local, '_moxdop_q_status', true) === 'local') {
+                update_post_meta($local, '_moxdop_q_status', 'hidden');
+                $qa = self::qa_post(self::parse_key((string) get_post_meta($local, '_moxdop_q_target', true)) ?: ['kind' => 'post', 'id' => 0]);
+                if ($qa) {
+                    self::refresh_index($qa);
+                    $purge[] = (string) get_permalink($qa);
+                }
             }
         }
         if (in_array('*', $purge, true)) {
@@ -502,23 +523,30 @@ final class MoxDOP_Connector_Showcase
             if (! $post instanceof WP_Post || $post->post_type !== self::QUESTION_TYPE) {
                 continue;
             }
-            update_post_meta($local, '_moxdop_q_status', 'answered');
-            $email = (string) get_post_meta($local, '_moxdop_q_email', true);
-            if ($email === '' || get_post_meta($local, '_moxdop_q_notified', true)) {
-                continue;
+            // Answered or taken down by the site admin: their state stays.
+            if (! in_array(get_post_meta($local, '_moxdop_q_status', true), ['local', 'hidden'], true)) {
+                update_post_meta($local, '_moxdop_q_status', 'answered');
             }
-            update_post_meta($local, '_moxdop_q_notified', gmdate('c'));
-            $body = "Merhaba,\n\nSitemizde sorduğunuz soru yanıtlandı.\n\nSorunuz: ".$item['q']."\n\nCevabımız: ".$item['a']
-                ."\n\nTüm sorular ve cevaplar: ".$qa_url."\n\n".get_bloginfo('name');
-            if (wp_mail($email, 'Sorunuz yanıtlandı · '.get_bloginfo('name'), $body)) {
-                $sent++;
-            }
+            $sent += self::notify_asker($local, (string) $item['q'], (string) $item['a'], $qa_url) ? 1 : 0;
         }
 
         return $sent;
     }
 
-    private static function purge_urls(array $urls)
+    /** One e-mail per question, in the admin's wording (MoxDOP › Görünüm ve metinler), through the site's own mail. */
+    public static function notify_asker($question_id, $question, $answer, $qa_url)
+    {
+        $email = (string) get_post_meta($question_id, '_moxdop_q_email', true);
+        if ($email === '' || ! is_email($email) || get_post_meta($question_id, '_moxdop_q_notified', true)) {
+            return false;
+        }
+        update_post_meta($question_id, '_moxdop_q_notified', gmdate('c'));
+        $vars = ['soru' => $question, 'cevap' => $answer, 'link' => $qa_url, 'site' => wp_specialchars_decode((string) get_bloginfo('name'), ENT_QUOTES)];
+
+        return (bool) wp_mail($email, self::plain('mail_subject', $vars), self::plain('mail_body', $vars));
+    }
+
+    public static function purge_urls(array $urls)
     {
         foreach ($urls as $url) {
             $id = url_to_postid($url);
@@ -657,7 +685,8 @@ final class MoxDOP_Connector_Showcase
             $body = "Sitenizde yeni bir soru var.\n\nSayfa: ".$title."\n".$url."\n\nSoru: ".$question
                 ."\n\nAd: ".(get_post_meta($id, '_moxdop_q_name', true) ?: '—')."\nE-posta: ".(get_post_meta($id, '_moxdop_q_email', true) ?: '—')
                 ."\nTelefon: ".(get_post_meta($id, '_moxdop_q_phone', true) ?: '—')
-                ."\n\nCevap MoxDOP'ta hazırlanır; onaylanınca sitede adsız yayınlanır.\nTüm sorular: ".admin_url('edit.php?post_type='.self::QUESTION_TYPE);
+                ."\n\nCevabı hemen kendin yazabilirsin: ".MoxDOP_Connector_Admin_UI::url(MoxDOP_Connector_Showcase_Admin::QUESTIONS)
+                ."\nYazmazsan cevap MoxDOP'ta hazırlanır ve onaylanınca sitede adsız yayınlanır.";
             $headers = is_email((string) get_post_meta($id, '_moxdop_q_email', true)) ? ['Reply-To: '.get_post_meta($id, '_moxdop_q_email', true)] : [];
             wp_mail($to, 'Yeni soru: '.$title, $body, $headers);
         }
@@ -670,7 +699,7 @@ final class MoxDOP_Connector_Showcase
         $in = (array) $request->get_json_params();
         $qa = (int) ($in['page'] ?? 0);
         $item = sanitize_key((string) ($in['item'] ?? ''));
-        $items = $qa > 0 && get_post_type($qa) === self::QA_TYPE ? get_post_meta($qa, self::ITEMS_META, true) : [];
+        $items = $qa > 0 && get_post_type($qa) === self::QA_TYPE ? self::merged_items($qa, (string) get_post_meta($qa, self::TARGET_META, true)) : [];
         $known = is_array($items) && $item !== '' && in_array($item, array_column($items, 'id'), true);
         if (! $known) {
             return new WP_Error('moxdop_qa_vote', 'Bu cevap bulunamadı.', ['status' => 404]);
@@ -688,6 +717,176 @@ final class MoxDOP_Connector_Showcase
         update_post_meta($qa, self::VOTES_META, $votes);
 
         return ['ok' => true, 'counted' => true, 'yes' => (int) $row['yes']];
+    }
+
+    /* ------------------------------------------------------------------ texts and look (MoxDOP › Görünüm ve metinler) */
+
+    /**
+     * Every fixed text a visitor sees, by group: key => [label, default]. "*kelime*" in a title marks that word with the
+     * accent colour; {n}, {sayfa}, {puan}, {soru}, {cevap}, {link}, {site} are filled in.
+     *
+     * @return array<string, array<string, array{0: string, 1: string}>>
+     */
+    public static function text_groups()
+    {
+        return [
+            'Soru bölümü' => [
+                'qa_title' => ['Başlık', 'Sizden gelen *sorular*'],
+                'qa_count' => ['Sayaç', '{n} soru yanıtlandı'],
+                'qa_sub' => ['Başlık altı', 'Sorular genellikle 1 gün içinde yanıtlanır'],
+                'ask_bar' => ['Soru sorma çubuğu', '{sayfa} hakkında aklınıza takılanı sorun…'],
+                'ask_button' => ['Soru sor butonu', 'Soru sor'],
+                'all_button' => ['Tümünü göster butonu', 'Tümünü göster ({n})'],
+                'qa_page_button' => ['Soru sayfası butonu', 'Soru sayfasına git'],
+                'empty' => ['Henüz soru yokken', 'Henüz yanıtlanmış soru yok. İlk soruyu siz sorun.'],
+                'privacy' => ['Gizlilik notu', 'Adınız ve iletişim bilgileriniz sitede hiçbir zaman görünmez.'],
+            ],
+            'Soru kartı' => [
+                'asked_site' => ['Ziyaretçi sorusu etiketi', 'Bir ziyaretçi sordu'],
+                'asked_data' => ['Sık sorulan soru etiketi', 'Sık sorulan soru'],
+                'more' => ['Devamı', 'Devamını oku'],
+                'less' => ['Daha az', 'Daha az göster'],
+                'detail' => ['Ayrıntı bağlantısı', 'Ayrıntılı bilgi'],
+                'vote_question' => ['Oylama sorusu', 'İşe yaradı mı?'],
+                'vote_yes' => ['Evet', 'Evet'],
+                'vote_no' => ['Hayır', 'Hayır'],
+                'vote_count' => ['Oy sayısı', '{n} kişi işe yaradı dedi'],
+                'vote_thanks' => ['Oy verince', 'Teşekkürler, geri bildiriminiz alındı.'],
+            ],
+            'Soru formu' => [
+                'f_question' => ['Soru alanı', 'Sorunuz'],
+                'f_name' => ['Ad alanı', 'Adınız'],
+                'f_name_hint' => ['Ad alanı notu', 'yayınlanmaz'],
+                'f_email' => ['E-posta alanı', 'E-posta'],
+                'f_email_hint' => ['E-posta notu', 'cevabı haber veririz'],
+                'f_phone' => ['Telefon alanı', 'Telefon'],
+                'f_phone_hint' => ['Telefon notu', 'isteğe bağlı'],
+                'consent' => ['Onay kutusu', 'Aydınlatma metnini okudum. Sorumun adım olmadan sitede yayınlanabileceğini biliyorum.'],
+                'f_submit' => ['Gönder butonu', 'Soruyu gönder'],
+                'sent' => ['Gönderince', 'Sorunuz bize ulaştı. En geç 1 gün içinde yanıtlanır ve bu sayfada adınız olmadan yayınlanır. E-posta bıraktıysanız cevap gelince haber veririz.'],
+                'pending' => ['Cevap beklerken', 'Cevap bekleniyor. En geç 1 gün içinde yanıtlanır.'],
+            ],
+            'Soru sayfası' => [
+                'page_lead' => ['Giriş cümlesi', '{sayfa} hakkında sorulan sorular ve cevapları. Sizin sorunuz burada yoksa hemen sorun.'],
+                'search' => ['Arama kutusu', 'Sorularda ara'],
+                'back' => ['Geri dön bağlantısı', '{sayfa} sayfasına dön'],
+            ],
+            'Yorumlar' => [
+                'rev_title' => ['Başlık', 'Google *yorumları*'],
+                'rev_badge' => ['Puan rozeti', 'Google’da {puan} · {n} yorum'],
+                'rev_more' => ['Daha fazla butonu', 'Daha fazla yorum göster'],
+                'rev_reply' => ['İşletme yanıtı', 'İşletmenin yanıtı'],
+            ],
+            'Soruyu sorana giden e-posta' => [
+                'mail_subject' => ['Konu', 'Sorunuz yanıtlandı · {site}'],
+                'mail_body' => ['Metin', "Merhaba,\n\nSitemizde sorduğunuz soru yanıtlandı.\n\nSorunuz: {soru}\n\nCevabımız: {cevap}\n\nTüm sorular ve cevaplar: {link}\n\n{site}"],
+            ],
+        ];
+    }
+
+    /** A visitor text: the admin's own wording, else the default; placeholders filled in (plain text). */
+    public static function text($key, array $vars = [])
+    {
+        static $saved = null;
+        if ($saved === null) {
+            $saved = get_option(self::TEXTS_OPTION, []);
+            $saved = is_array($saved) ? $saved : [];
+        }
+        $value = trim((string) ($saved[$key] ?? ''));
+        if ($value === '') {
+            foreach (self::text_groups() as $fields) {
+                if (isset($fields[$key])) {
+                    $value = $fields[$key][1];
+                    break;
+                }
+            }
+        }
+        $replace = [];
+        foreach ($vars as $name => $var) {
+            $replace['{'.$name.'}'] = (string) $var;
+        }
+
+        return strtr($value, $replace);
+    }
+
+    /** A title with its "*marked*" word in the accent colour (escaped). */
+    public static function title($key, array $vars = [])
+    {
+        return (string) preg_replace('/\*([^*]+)\*/u', '<mark>$1</mark>', esc_html(self::text($key, $vars)));
+    }
+
+    /** Plain text without the "*" marks (mail, aria labels). */
+    private static function plain($key, array $vars = [])
+    {
+        return str_replace('*', '', self::text($key, $vars));
+    }
+
+    /**
+     * Look: who answers (name, line under it, photo), the accent colour and the font. Empty fields follow the site:
+     * the site name, the Elementor kit's primary colour and font.
+     *
+     * @return array{name: string, role: string, photo: string, accent: string, ink: string, font: string}
+     */
+    public static function look()
+    {
+        static $look = null;
+        if ($look !== null) {
+            return $look;
+        }
+        $saved = get_option(self::LOOK_OPTION, []);
+        $saved = is_array($saved) ? $saved : [];
+        $kit = self::elementor_kit();
+        $accent = sanitize_hex_color((string) ($saved['accent'] ?? '')) ?: ($kit['color'] ?: '#fdcf3c');
+        $photo = (int) ($saved['photo'] ?? 0) > 0 ? (string) wp_get_attachment_image_url((int) $saved['photo'], 'thumbnail') : '';
+        $font = trim((string) ($saved['font'] ?? ''));
+
+        $look = [
+            'name' => trim((string) ($saved['name'] ?? '')) !== '' ? trim((string) $saved['name']) : wp_specialchars_decode((string) get_bloginfo('name'), ENT_QUOTES),
+            'role' => trim((string) ($saved['role'] ?? '')) !== '' ? trim((string) $saved['role']) : 'Uzman ekibimiz',
+            'photo' => $photo,
+            'accent' => $accent,
+            'ink' => self::ink($accent),
+            'font' => preg_replace('/[^\p{L}\p{N} ,\'"_-]/u', '', $font !== '' ? $font : $kit['font']),
+        ];
+
+        return $look;
+    }
+
+    /** The active Elementor kit's primary colour and body font ('' when there is none). @return array{color: string, font: string} */
+    private static function elementor_kit()
+    {
+        $kit = (int) get_option('elementor_active_kit');
+        $settings = $kit > 0 ? get_post_meta($kit, '_elementor_page_settings', true) : [];
+        $settings = is_array($settings) ? $settings : [];
+        $color = '';
+        foreach ((array) ($settings['system_colors'] ?? []) as $row) {
+            if (($row['_id'] ?? '') === 'primary') {
+                $color = (string) sanitize_hex_color((string) ($row['color'] ?? ''));
+            }
+        }
+        $font = '';
+        foreach ((array) ($settings['system_typography'] ?? []) as $row) {
+            if (($row['_id'] ?? '') === 'text' && ! empty($row['typography_font_family'])) {
+                $font = (string) $row['typography_font_family'];
+            }
+        }
+
+        return ['color' => $color, 'font' => $font];
+    }
+
+    /** Near-black or white, whichever reads on the accent. */
+    private static function ink($hex)
+    {
+        $hex = ltrim((string) $hex, '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        }
+        if (strlen($hex) !== 6) {
+            return '#141416';
+        }
+        $l = (0.299 * hexdec(substr($hex, 0, 2)) + 0.587 * hexdec(substr($hex, 2, 2)) + 0.114 * hexdec(substr($hex, 4, 2))) / 255;
+
+        return $l > 0.62 ? '#141416' : '#ffffff';
     }
 
     /* ------------------------------------------------------------------ what visitors see */
@@ -724,6 +923,12 @@ final class MoxDOP_Connector_Showcase
         return self::render_reviews(max(1, min(60, (int) $atts['sayi'])), $atts['gorunum'] === 'rozet' ? 'badge' : 'list');
     }
 
+    /** 1.29.0: a question page uses the theme's page template, so no "Written by", post navigation or "More posts". */
+    public function page_template($templates)
+    {
+        return is_singular(self::QA_TYPE) ? array_merge(['page.php'], (array) $templates) : $templates;
+    }
+
     public function page_content($content)
     {
         if (! is_singular(self::QA_TYPE) || ! in_the_loop() || ! is_main_query()) {
@@ -734,12 +939,64 @@ final class MoxDOP_Connector_Showcase
         return $target ? self::render_questions($target, 0, true) : $content;
     }
 
+    /**
+     * Visitor questions the site admin answered here (MoxDOP › Gelen sorular): they show at once and win over the
+     * version MoxDOP sent for the same question; a question the admin took down never shows.
+     *
+     * @return array{answered: array<int, array<string, mixed>>, hidden: list<int>}
+     */
+    private static function local_answers($key)
+    {
+        $out = ['answered' => [], 'hidden' => []];
+        $ids = get_posts(['post_type' => self::QUESTION_TYPE, 'post_status' => 'private', 'numberposts' => 500, 'fields' => 'ids', 'lang' => '', 'suppress_filters' => true,
+            'meta_query' => [['key' => '_moxdop_q_target', 'value' => $key], ['key' => '_moxdop_q_status', 'value' => ['local', 'hidden'], 'compare' => 'IN']]]);
+        foreach ($ids as $id) {
+            if (get_post_meta($id, '_moxdop_q_status', true) === 'hidden') {
+                $out['hidden'][] = (int) $id;
+
+                continue;
+            }
+            $answer = (string) get_post_meta($id, '_moxdop_q_answer', true);
+            if ($answer === '') {
+                continue;
+            }
+            $question = (string) get_post_meta($id, '_moxdop_q_public', true);
+            $out['answered'][(int) $id] = ['id' => 'l'.(int) $id, 'q' => $question !== '' ? $question : (string) get_post_field('post_content', $id), 'a' => $answer,
+                'date' => (string) get_the_date('Y-m-d', $id), 'source' => 'site', 'link_url' => '', 'link_title' => '', 'local_id' => (int) $id];
+        }
+
+        return $out;
+    }
+
+    /** MoxDOP's questions of a page with the admin's own answers merged in. @return list<array<string, mixed>> */
+    public static function merged_items($qa_id, $key)
+    {
+        $items = $qa_id ? get_post_meta($qa_id, self::ITEMS_META, true) : [];
+        $items = is_array($items) ? $items : [];
+        $local = self::local_answers($key);
+        $out = [];
+        foreach ($items as $item) {
+            $id = (int) ($item['local_id'] ?? 0);
+            if ($id > 0 && in_array($id, $local['hidden'], true)) {
+                continue;
+            }
+            if ($id > 0 && isset($local['answered'][$id])) {
+                $item['q'] = $local['answered'][$id]['q'];
+                $item['a'] = $local['answered'][$id]['a'];
+                unset($local['answered'][$id]);
+            }
+            $out[] = $item;
+        }
+
+        // Answered here and not back from MoxDOP yet: newest first, before MoxDOP's list.
+        return array_merge(array_reverse(array_values($local['answered'])), $out);
+    }
+
     /** @return list<array<string, mixed>> published questions of a target, most helpful first (MoxDOP's order on ties) */
     private static function items(array $target, &$qa_id)
     {
         $qa_id = self::assigned($target) ? self::qa_post($target, true) : 0;
-        $items = $qa_id ? get_post_meta($qa_id, self::ITEMS_META, true) : [];
-        $items = is_array($items) ? $items : [];
+        $items = $qa_id ? self::merged_items($qa_id, self::key($target)) : [];
         $votes = $qa_id ? get_post_meta($qa_id, self::VOTES_META, true) : [];
         $votes = is_array($votes) ? $votes : [];
         foreach ($items as $i => $item) {
@@ -766,75 +1023,102 @@ final class MoxDOP_Connector_Showcase
         }
         $total = count($items);
         $shown = $limit > 0 ? array_slice($items, 0, $limit) : $items;
-        $title = self::target_title($target);
+        $page = self::target_title($target);
         $qa_url = (string) get_permalink($qa_id);
+        $eyebrow = trim(($total > 0 ? self::text('qa_count', ['n' => $total]).' · ' : '').self::text('qa_sub'), ' ·');
         ob_start();
         echo self::assets();
         echo '<section class="mxs mxs-qa'.($full ? ' mxs-full' : '').'" data-target="'.esc_attr(self::key($target)).'" data-page="'.(int) $qa_id.'">';
-        if ($full) {
-            echo '<p class="mxs-lead">'.esc_html($title).' hakkında sorulan sorular ve cevapları. Sizin sorunuz burada yoksa hemen sorun; en geç 1 gün içinde yanıtlıyoruz.</p>';
-            if ($total > 6) {
-                echo '<label class="mxs-search"><span class="screen-reader-text">Sorularda ara</span><input type="search" placeholder="Sorularda ara" data-mxs-search></label>';
-            }
-        } else {
-            echo '<div class="mxs-head"><h2 class="mxs-title">Sizden gelen sorular</h2><p class="mxs-sub">'
-                .($total > 0 ? (int) $total.' soru yanıtlandı · ' : '').'Sorular genellikle 1 gün içinde yanıtlanır</p></div>';
+        echo '<header class="mxs-head">';
+        if ($eyebrow !== '') {
+            echo '<span class="mxs-eyebrow"><i class="mxs-live" aria-hidden="true"></i>'.esc_html($eyebrow).'</span>';
         }
-        echo self::ask_form($target, $full);
+        if ($full) {
+            echo '<p class="mxs-lead">'.esc_html(self::text('page_lead', ['sayfa' => $page])).'</p>';
+        } else {
+            echo '<h2 class="mxs-title">'.self::title('qa_title', ['sayfa' => $page]).'</h2>';
+        }
+        echo '</header>';
+        if ($full && $total > 6) {
+            echo '<label class="mxs-search"><span class="mxs-sr">'.esc_html(self::text('search')).'</span><input type="search" placeholder="'.esc_attr(self::text('search')).'" data-mxs-search></label>';
+        }
+        echo self::ask_form($target, $page);
         echo '<div class="mxs-grid'.($full ? ' mxs-list' : '').'" data-mxs-list>';
         echo '<div class="mxs-pending" data-mxs-pending hidden></div>';
         foreach ($shown as $item) {
-            echo self::question_card($item, $qa_id, $full);
+            echo self::question_card($item, $qa_id);
         }
         echo '</div>';
         if ($total === 0) {
-            echo '<p class="mxs-empty">Henüz yanıtlanmış soru yok. İlk soruyu siz sorun.</p>';
+            echo '<p class="mxs-empty">'.esc_html(self::text('empty')).'</p>';
         }
+        echo '<footer class="mxs-foot">';
         if (! $full) {
-            echo '<div class="mxs-actions"><a class="mxs-btn" href="'.esc_url($qa_url).'">'.($total > count($shown) ? 'Tümünü göster ('.(int) $total.')' : 'Soru sayfasına git').'</a></div>';
-        } elseif ($target['kind'] === 'post' || $target['kind'] === 'term') {
-            echo '<p class="mxs-back"><a href="'.esc_url(self::target_url($target)).'">'.esc_html($title).' sayfasına dön</a></p>';
+            echo '<a class="mxs-btn mxs-dark" href="'.esc_url($qa_url).'">'.esc_html($total > count($shown) ? self::text('all_button', ['n' => $total]) : self::text('qa_page_button')).' <span aria-hidden="true">→</span></a>';
+        } else {
+            echo '<a class="mxs-btn" href="'.esc_url(self::target_url($target)).'"><span aria-hidden="true">←</span> '.esc_html(self::text('back', ['sayfa' => $page])).'</a>';
         }
-        echo '<p class="mxs-privacy">Adınız ve iletişim bilgileriniz sitede hiçbir zaman görünmez.</p>';
+        echo '<p class="mxs-privacy">'.esc_html(self::text('privacy')).'</p></footer>';
         echo '</section>';
 
         return (string) ob_get_clean();
     }
 
-    private static function question_card(array $item, $qa_id, $full)
+    /** The answerer's photo, or their initial on the accent colour. */
+    private static function avatar()
     {
-        $who = $item['source'] === 'site' ? ['Bir ziyaretçi sordu', 'Sitede soruldu'] : ['Sık sorulan soru', 'Ziyaretçilerimizin sık sorduğu'];
-        $html = '<article class="mxs-card" data-mxs-item>';
-        $html .= '<div class="mxs-who"><span class="mxs-avatar" aria-hidden="true">?</span><span><b>'.esc_html($who[0]).'</b><small>'.esc_html($who[1]).'</small></span></div>';
-        $html .= '<h3 class="mxs-q">'.esc_html($item['q']).'</h3>';
-        $html .= '<div class="mxs-a'.($full ? '' : ' mxs-clamp').'"><p>'.nl2br(esc_html($item['a'])).'</p>'
-            .($full ? '' : '<button type="button" class="mxs-more" data-mxs-more>Daha fazlasını göster</button>').'</div>';
-        if ($item['link_url'] !== '') {
-            $html .= '<a class="mxs-link" href="'.esc_url($item['link_url']).'">Ayrıntılı bilgi: '.esc_html($item['link_title'] !== '' ? $item['link_title'] : $item['link_url']).' →</a>';
+        $look = self::look();
+        if ($look['photo'] !== '') {
+            return '<img class="mxs-avatar" src="'.esc_url($look['photo']).'" alt="" loading="lazy" width="40" height="40">';
         }
-        $html .= '<div class="mxs-vote" data-mxs-vote="'.esc_attr($item['id']).'" data-page="'.(int) $qa_id.'"><span>İşe yaradı mı?</span>'
-            .'<button type="button" data-yes="1">Evet</button><button type="button" data-yes="0">Hayır</button>'
-            .($item['yes'] > 0 ? '<span class="mxs-count">· '.(int) $item['yes'].' kişi işe yaradı dedi</span>' : '').'</div>';
+
+        return '<span class="mxs-avatar mxs-initial" aria-hidden="true">'.esc_html(mb_strtoupper(mb_substr($look['name'], 0, 1))).'</span>';
+    }
+
+    private static function question_card(array $item, $qa_id)
+    {
+        $look = self::look();
+        $date = self::month((string) ($item['date'] ?? ''));
+        $html = '<article class="mxs-item" data-mxs-item>';
+        $html .= '<div class="mxs-meta"><span class="mxs-chip">'.esc_html(self::text($item['source'] === 'site' ? 'asked_site' : 'asked_data')).'</span>'.($date !== '' ? '<span>'.esc_html($date).'</span>' : '').'</div>';
+        $html .= '<h3 class="mxs-q">'.esc_html($item['q']).'</h3>';
+        $html .= '<div class="mxs-answer"><div class="mxs-by">'.self::avatar().'<span><b>'.esc_html($look['name']).'</b><small>'.esc_html($look['role']).'</small></span></div>';
+        $html .= '<div class="mxs-a mxs-clamp"><p>'.nl2br(esc_html($item['a'])).'</p></div><button type="button" class="mxs-more" data-mxs-more hidden>'.esc_html(self::text('more')).'</button>';
+        if ($item['link_url'] !== '') {
+            $html .= '<a class="mxs-link" href="'.esc_url($item['link_url']).'">'.esc_html(self::text('detail')).': '.esc_html($item['link_title'] !== '' ? $item['link_title'] : $item['link_url']).' <span aria-hidden="true">→</span></a>';
+        }
+        $html .= '</div>';
+        $html .= '<div class="mxs-vote" data-mxs-vote="'.esc_attr($item['id']).'" data-page="'.(int) $qa_id.'"><span>'.esc_html(self::text('vote_question')).'</span>'
+            .'<button type="button" data-yes="1">'.esc_html(self::text('vote_yes')).'</button><button type="button" data-yes="0">'.esc_html(self::text('vote_no')).'</button>'
+            .($item['yes'] > 0 ? '<span class="mxs-count">'.esc_html(self::text('vote_count', ['n' => (int) $item['yes']])).'</span>' : '').'</div>';
 
         return $html.'</article>';
     }
 
-    private static function ask_form(array $target, $open)
+    private static function ask_form(array $target, $page)
     {
         $id = 'mxs-'.substr(md5(self::key($target).wp_rand()), 0, 8);
+        $hint = static function ($key) {
+            $text = self::text($key);
+
+            return $text !== '' ? ' <small>('.esc_html($text).')</small>' : '';
+        };
+        $privacy = (int) get_option('wp_page_for_privacy_policy');
+        $saved = get_option(self::LOOK_OPTION, []);
+        $privacy = (int) ($saved['privacy_page'] ?? 0) > 0 ? (int) $saved['privacy_page'] : $privacy;
+        $privacy_url = $privacy > 0 && get_post_status($privacy) === 'publish' ? (string) get_permalink($privacy) : '';
         $html = '<div class="mxs-ask">';
-        if (! $open) {
-            $html .= '<button type="button" class="mxs-askbar" data-mxs-open="'.esc_attr($id).'"><span>'.esc_html(self::target_title($target)).' hakkında aklınıza takılanı sorun…</span><span class="mxs-btn mxs-primary">Soru sor</span></button>';
-        }
-        $html .= '<form class="mxs-form" id="'.esc_attr($id).'" data-mxs-form'.($open ? '' : ' hidden').' novalidate>'
+        $html .= '<button type="button" class="mxs-askbar" data-mxs-open="'.esc_attr($id).'" aria-controls="'.esc_attr($id).'"><span class="mxs-askicon" aria-hidden="true">?</span><span class="mxs-asktext">'.esc_html(self::text('ask_bar', ['sayfa' => $page])).'</span><span class="mxs-btn mxs-primary">'.esc_html(self::text('ask_button')).'</span></button>';
+        $html .= '<form class="mxs-form" id="'.esc_attr($id).'" data-mxs-form hidden novalidate>'
             .'<input type="hidden" name="target" value="'.esc_attr(self::key($target)).'"><input type="hidden" name="token" value="'.esc_attr(self::form_token()).'">'
             .'<div class="mxs-hp" aria-hidden="true"><label>Web siteniz<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>'
-            .'<label class="mxs-field"><span>Sorunuz</span><textarea name="question" required maxlength="1000" rows="4"></textarea></label>'
-            .'<div class="mxs-two"><label class="mxs-field"><span>Adınız <small>(yayınlanmaz)</small></span><input type="text" name="name" autocomplete="name"></label>'
-            .'<label class="mxs-field"><span>E-posta <small>(cevabı haber veririz)</small></span><input type="email" name="email" autocomplete="email"></label></div>'
-            .'<label class="mxs-field"><span>Telefon <small>(isteğe bağlı)</small></span><input type="tel" name="phone" autocomplete="tel"></label>'
-            .'<label class="mxs-consent"><input type="checkbox" name="consent" value="1"> Aydınlatma metnini okudum. Sorumun adım olmadan sitede yayınlanabileceğini biliyorum.</label>'
-            .'<p class="mxs-error" role="alert" hidden></p><button type="submit" class="mxs-btn mxs-primary">Soruyu gönder</button></form>';
+            .'<label class="mxs-field"><span>'.esc_html(self::text('f_question')).'</span><textarea name="question" required maxlength="1000" rows="4"></textarea></label>'
+            .'<div class="mxs-two"><label class="mxs-field"><span>'.esc_html(self::text('f_name')).$hint('f_name_hint').'</span><input type="text" name="name" autocomplete="name"></label>'
+            .'<label class="mxs-field"><span>'.esc_html(self::text('f_email')).$hint('f_email_hint').'</span><input type="email" name="email" autocomplete="email"></label></div>'
+            .'<label class="mxs-field"><span>'.esc_html(self::text('f_phone')).$hint('f_phone_hint').'</span><input type="tel" name="phone" autocomplete="tel"></label>'
+            .'<label class="mxs-consent"><input type="checkbox" name="consent" value="1"> <span>'.esc_html(self::text('consent'))
+            .($privacy_url !== '' ? ' <a href="'.esc_url($privacy_url).'" target="_blank" rel="noopener">'.esc_html(get_the_title($privacy)).'</a>' : '').'</span></label>'
+            .'<p class="mxs-error" role="alert" hidden></p><div class="mxs-formfoot"><button type="submit" class="mxs-btn mxs-primary">'.esc_html(self::text('f_submit')).'</button></div></form>';
 
         return $html.'</div>';
     }
@@ -847,26 +1131,30 @@ final class MoxDOP_Connector_Showcase
         }
         $rating = number_format_i18n((float) $data['rating'], 1);
         $badge = '<a class="mxs-badge" href="'.esc_url((string) $data['url']).'" target="_blank" rel="noopener">'
-            .'<span class="mxs-g" aria-hidden="true">G</span><span>Google’da <b>'.esc_html($rating).'</b> <span class="mxs-stars" aria-hidden="true">'.self::stars((int) round((float) $data['rating'])).'</span> · '.(int) $data['count'].' yorum</span></a>';
+            .'<span class="mxs-g" aria-hidden="true">G</span><span class="mxs-stars" aria-hidden="true">'.self::stars((int) round((float) $data['rating'])).'</span>'
+            .'<span>'.esc_html(self::text('rev_badge', ['puan' => $rating, 'n' => (int) $data['count']])).'</span></a>';
         if ($mode === 'badge') {
             return self::assets().'<div class="mxs mxs-rev">'.$badge.'</div>';
         }
         $items = (array) ($data['items'] ?? []);
         ob_start();
         echo self::assets();
-        echo '<section class="mxs mxs-rev"><div class="mxs-head mxs-rev-head"><h2 class="mxs-title">Google yorumları</h2>'.$badge.'</div><div class="mxs-grid mxs-rev-grid" data-mxs-reviews data-step="'.(int) $limit.'">';
+        echo '<section class="mxs mxs-rev"><header class="mxs-head mxs-rev-head">'.$badge.'<h2 class="mxs-title">'.self::title('rev_title').'</h2></header>';
+        echo '<div class="mxs-grid mxs-rev-grid" data-mxs-reviews data-step="'.(int) $limit.'">';
         foreach ($items as $i => $item) {
             $initial = mb_strtoupper(mb_substr((string) $item['name'], 0, 1));
-            echo '<article class="mxs-card"'.($i >= $limit ? ' hidden' : '').'><div class="mxs-who"><span class="mxs-avatar" aria-hidden="true">'.esc_html($initial !== '' ? $initial : '★').'</span><span><b>'.esc_html((string) $item['name']).'</b><small>'
-                .esc_html(trim(self::month((string) $item['date']).((string) $item['place'] !== '' && count((array) $data['places']) > 1 ? ' · '.$item['place'] : ''))).'</small></span></div>'
-                .'<div class="mxs-stars" aria-label="'.(int) $item['stars'].' yıldız">'.self::stars((int) $item['stars']).'</div>'
-                .'<div class="mxs-a mxs-clamp"><p>'.nl2br(esc_html((string) $item['text'])).'</p><button type="button" class="mxs-more" data-mxs-more>Daha fazlasını göster</button></div>'
-                .((string) $item['reply'] !== '' ? '<details class="mxs-reply"><summary>İşletmenin yanıtı</summary><p>'.nl2br(esc_html((string) $item['reply'])).'</p></details>' : '')
+            $place = (string) $item['place'] !== '' && count((array) $data['places']) > 1 ? ' · '.$item['place'] : '';
+            echo '<article class="mxs-item"'.($i >= $limit ? ' hidden' : '').'>'
+                .'<div class="mxs-stars" aria-label="'.(int) $item['stars'].' / 5">'.self::stars((int) $item['stars']).'</div>'
+                .'<div class="mxs-a mxs-clamp"><p>'.nl2br(esc_html((string) $item['text'])).'</p></div><button type="button" class="mxs-more" data-mxs-more hidden>'.esc_html(self::text('more')).'</button>'
+                .((string) $item['reply'] !== '' ? '<details class="mxs-reply"><summary>'.esc_html(self::text('rev_reply')).'</summary><p>'.nl2br(esc_html((string) $item['reply'])).'</p></details>' : '')
+                .'<div class="mxs-by"><span class="mxs-avatar mxs-soft" aria-hidden="true">'.esc_html($initial !== '' ? $initial : '★').'</span><span><b>'.esc_html((string) $item['name']).'</b><small>'
+                .esc_html(trim(self::month((string) $item['date']).$place, ' ·')).'</small></span></div>'
                 .'</article>';
         }
         echo '</div>';
         if (count($items) > $limit) {
-            echo '<div class="mxs-actions"><button type="button" class="mxs-btn" data-mxs-reviews-more>Daha fazla yorum göster</button></div>';
+            echo '<footer class="mxs-foot"><button type="button" class="mxs-btn mxs-dark" data-mxs-reviews-more>'.esc_html(self::text('rev_more')).'</button></footer>';
         }
         echo '</section>';
 
@@ -875,7 +1163,7 @@ final class MoxDOP_Connector_Showcase
 
     private static function stars($n)
     {
-        return str_repeat('★', max(0, min(5, $n))).str_repeat('☆', 5 - max(0, min(5, $n)));
+        return str_repeat('★', max(0, min(5, $n))).'<span class="mxs-off">'.str_repeat('★', 5 - max(0, min(5, $n))).'</span>';
     }
 
     private static function month($date)
@@ -889,72 +1177,99 @@ final class MoxDOP_Connector_Showcase
         return $months[(int) gmdate('n', $time) - 1].' '.gmdate('Y', $time);
     }
 
-    /** One style and script per page, printed with the first block. Colours and fonts come from the site (Elementor globals). */
+    /**
+     * One style and script per page, printed with the first block. The MoxDOP panel's language (near-black text, one
+     * accent colour, soft cards that lift, pill buttons, a marked word in the title); the accent and font follow
+     * MoxDOP › Görünüm ve metinler, else the site's Elementor kit.
+     */
     private static function assets()
     {
         if (self::$assets_printed) {
             return '';
         }
         self::$assets_printed = true;
-        $ask = wp_json_encode(rest_url('moxdop/v1/showcase/ask'));
-        $vote = wp_json_encode(rest_url('moxdop/v1/showcase/vote'));
-        $css = '.mxs{--mxs-accent:var(--e-global-color-primary,#0f7c80);--mxs-text:inherit;--mxs-muted:rgba(0,0,0,.6);--mxs-line:rgba(0,0,0,.12);--mxs-soft:rgba(0,0,0,.04);color:var(--mxs-text);font:inherit}'
-            .'.mxs *{box-sizing:border-box}.mxs [hidden]{display:none!important}'
-            .'.mxs-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 20px;margin-bottom:20px}'
-            .'.mxs-title{margin:0;font-size:1.6em;line-height:1.2}.mxs-sub,.mxs-lead{margin:4px 0 0;color:var(--mxs-muted)}'
-            .'.mxs-askbar{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;padding:8px 8px 8px 20px;border:1px solid var(--mxs-line);border-radius:999px;cursor:pointer;margin:6px 0 24px}'
-            .'.mxs-askbar>span:first-child{flex:1;min-width:0;color:var(--mxs-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-            .'.mxs-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 20px;border:1px solid currentColor;border-radius:10px;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}'
-            .'.mxs-primary{background:var(--mxs-accent);border-color:var(--mxs-accent);color:#fff;border-radius:999px}'
-            .'.mxs-form{display:grid;gap:12px;margin:0 0 28px;padding:20px;border:1px solid var(--mxs-line);border-radius:16px}'
-            .'.mxs-field{display:grid;gap:6px;font-weight:600;font-size:.92em}.mxs-field small{font-weight:400;color:var(--mxs-muted)}'
-            .'.mxs-field input,.mxs-field textarea{width:100%;padding:11px 13px;border:1px solid var(--mxs-line);border-radius:10px;font:inherit;font-weight:400;background:transparent;color:inherit}'
-            .'.mxs-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:560px){.mxs-two{grid-template-columns:1fr}}'
-            .'.mxs-consent{display:flex;gap:8px;align-items:flex-start;font-size:.88em;color:var(--mxs-muted)}.mxs-consent input{margin-top:4px;accent-color:var(--mxs-accent)}'
-            .'.mxs-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}.mxs-error{color:#c0392b;margin:0;font-size:.9em}'
-            .'.mxs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 64px;align-items:start}@media(max-width:760px){.mxs-grid{grid-template-columns:1fr;gap:30px}}'
-            .'.mxs-rev-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 36px}@media(max-width:960px){.mxs-rev-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.mxs-rev-grid{grid-template-columns:1fr}}'
-            .'.mxs-list{grid-template-columns:1fr;gap:0}.mxs-list .mxs-card{padding:24px 0;border-bottom:1px solid var(--mxs-line)}'
-            .'.mxs-card{display:grid;gap:8px;min-width:0;align-content:start}.mxs-who{display:flex;gap:12px;align-items:center}'
-            .'.mxs-who b{display:block;font-weight:600}.mxs-who small{display:block;color:var(--mxs-muted);font-size:.88em}'
-            .'.mxs-avatar{width:42px;height:42px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--mxs-soft);color:var(--mxs-muted);font-weight:700}'
-            .'.mxs-q{margin:4px 0 0;font-size:1.1em;line-height:1.35}.mxs-a{display:grid;gap:4px;padding-left:12px;border-left:2px solid var(--mxs-line)}.mxs-a p{margin:0}'
-            .'.mxs-clamp p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}'
-            .'.mxs-more{all:unset;cursor:pointer;font-weight:600;text-decoration:underline;font-size:.92em;justify-self:start}'
-            .'.mxs-link{font-weight:600;font-size:.94em;color:var(--mxs-accent);text-decoration:none}.mxs-link:hover{text-decoration:underline}'
-            .'.mxs-vote{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.88em;color:var(--mxs-muted)}'
-            .'.mxs-vote button{font:inherit;font-weight:600;padding:4px 12px;border:1px solid var(--mxs-line);border-radius:999px;background:transparent;color:inherit;cursor:pointer}'
-            .'.mxs-thanks{color:#1d7a46;font-weight:600}.mxs-pending .mxs-q{opacity:.7}.mxs-wait{padding:10px 14px;border-radius:10px;background:#fdf3e2;color:#9a5c00;font-weight:600;font-size:.92em}'
-            .'.mxs-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}.mxs-privacy,.mxs-empty,.mxs-back{color:var(--mxs-muted);font-size:.88em;margin:16px 0 0}'
-            .'.mxs-search input{width:100%;padding:12px 14px;border:1px solid var(--mxs-line);border-radius:12px;font:inherit;margin-bottom:18px}'
-            .'.mxs-badge{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border:1px solid var(--mxs-line);border-radius:999px;color:inherit;text-decoration:none}'
-            .'.mxs-g{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#4285f4;font-weight:800;border:1px solid var(--mxs-line)}'
-            .'.mxs-stars{color:#f5a623;letter-spacing:1px}.mxs-reply{font-size:.92em;color:var(--mxs-muted)}.mxs-reply summary{cursor:pointer;font-weight:600}';
-        $js = '(function(){var A='.$ask.',V='.$vote.';function k(t){return "mxs_q_"+t}'
+        $look = self::look();
+        $font = $look['font'] !== '' ? '"'.str_replace('"', '', $look['font']).'",' : '';
+        $js_texts = wp_json_encode(['ask' => rest_url('moxdop/v1/showcase/ask'), 'vote' => rest_url('moxdop/v1/showcase/vote'), 'sent' => self::text('sent'),
+            'pending' => self::text('pending'), 'thanks' => self::text('vote_thanks'), 'more' => self::text('more'), 'less' => self::text('less')]);
+        $css = '.mxs{--mxs-accent:'.esc_attr($look['accent']).';--mxs-ink:'.esc_attr($look['ink']).';--mxs-text:#191918;--mxs-muted:#787774;--mxs-line:#ebebe9;--mxs-soft:#f6f6f3;'
+            .'--mxs-font:'.$font.'Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;'
+            .'color:var(--mxs-text);font-family:var(--mxs-font);font-size:16px;line-height:1.6;font-weight:400;letter-spacing:normal;-webkit-font-smoothing:antialiased;text-align:left}'
+            .'.mxs *{box-sizing:border-box;font-family:inherit}.mxs [hidden]{display:none!important}.mxs-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}'
+            .'.mxs mark{background:var(--mxs-accent);color:var(--mxs-ink);border-radius:.32em;padding:0 .22em;-webkit-box-decoration-break:clone;box-decoration-break:clone}'
+            .'.mxs .mxs-head{display:grid;gap:12px;justify-items:start;margin:0 0 22px}'
+            .'.mxs .mxs-eyebrow{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:3px 13px;border:1px solid var(--mxs-line);border-radius:999px;background:#fff;color:#5f5e5b;font-size:13px;line-height:1.4;box-shadow:0 1px 2px rgba(20,20,20,.04)}'
+            .'.mxs .mxs-live{width:7px;height:7px;border-radius:50%;background:#22a35a;box-shadow:0 0 0 3px rgba(34,163,90,.16);flex:none}'
+            .'.mxs .mxs-title{margin:0;padding:0;font-family:inherit;font-size:clamp(26px,3.2vw,36px);line-height:1.2;font-weight:650;letter-spacing:-.03em;color:var(--mxs-text);text-transform:none}'
+            .'.mxs .mxs-lead{margin:0;max-width:70ch;color:var(--mxs-muted);font-size:17px}'
+            .'.mxs .mxs-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 20px;border:1px solid #d9d9d6;border-radius:12px;background:#fff;color:var(--mxs-text);font:inherit;font-size:15px;font-weight:600;line-height:1.2;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s,filter .15s;box-shadow:0 1px 2px rgba(20,20,20,.05)}'
+            .'.mxs .mxs-btn:hover{transform:translateY(-1px);box-shadow:0 10px 30px -12px rgba(20,20,40,.25)}'
+            .'.mxs .mxs-primary{background:var(--mxs-accent);border-color:transparent;color:var(--mxs-ink);box-shadow:0 2px 8px color-mix(in srgb,var(--mxs-accent) 40%,transparent)}.mxs .mxs-primary:hover{filter:brightness(.97)}'
+            .'.mxs .mxs-dark{background:#191918;border-color:#191918;color:#fff}'
+            .'.mxs .mxs-ask{margin:0 0 26px}'
+            .'.mxs .mxs-askbar{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;padding:7px 7px 7px 10px;border:1px solid var(--mxs-line);border-radius:18px;background:#fff;cursor:pointer;box-shadow:0 1px 2px rgba(20,20,20,.04);transition:box-shadow .15s,border-color .15s}'
+            .'.mxs .mxs-askbar:hover,.mxs .mxs-askbar:focus-visible{border-color:#d9d9d6;box-shadow:0 10px 30px -14px rgba(20,20,40,.25)}'
+            .'.mxs .mxs-askicon{width:34px;height:34px;flex:none;border-radius:10px;background:var(--mxs-soft);display:grid;place-items:center;font-weight:700;color:var(--mxs-muted)}'
+            .'.mxs .mxs-asktext{flex:1;min-width:0;color:var(--mxs-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}'
+            .'.mxs .mxs-form{display:grid;gap:14px;margin:12px 0 0;padding:22px;border:1px solid var(--mxs-line);border-radius:20px;background:#fff;box-shadow:0 10px 30px -18px rgba(20,20,40,.2)}'
+            .'.mxs .mxs-field{display:grid;gap:6px;font-weight:600;font-size:14px;margin:0}.mxs .mxs-field small{font-weight:400;color:var(--mxs-muted)}'
+            .'.mxs .mxs-field input,.mxs .mxs-field textarea{width:100%;margin:0;padding:11px 14px;border:1px solid #d9d9d6;border-radius:12px;font:inherit;font-size:15px;font-weight:400;background:#fff;color:var(--mxs-text);box-shadow:none}'
+            .'.mxs .mxs-field input:focus,.mxs .mxs-field textarea:focus{outline:0;border-color:#191918;box-shadow:0 0 0 3px rgba(25,25,24,.08)}'
+            .'.mxs .mxs-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:600px){.mxs .mxs-two{grid-template-columns:1fr}}'
+            .'.mxs .mxs-consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--mxs-muted);margin:0}.mxs .mxs-consent input{margin-top:3px;accent-color:#191918;flex:none}.mxs .mxs-consent a{color:inherit;text-decoration:underline}'
+            .'.mxs .mxs-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}.mxs .mxs-error{color:#b42318;margin:0;font-size:14px}.mxs .mxs-formfoot{display:flex;justify-content:flex-end}'
+            .'.mxs .mxs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}@media(max-width:820px){.mxs .mxs-grid{grid-template-columns:1fr}}'
+            .'.mxs .mxs-list{grid-template-columns:1fr;max-width:860px}.mxs .mxs-rev-grid{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:1000px){.mxs .mxs-rev-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:640px){.mxs .mxs-rev-grid{grid-template-columns:1fr}}'
+            .'.mxs .mxs-item{display:grid;gap:12px;min-width:0;padding:20px;border-radius:22px;background:var(--mxs-soft);border:1px solid transparent;transition:transform .15s,box-shadow .15s}'
+            .'.mxs .mxs-item:hover{transform:translateY(-2px);box-shadow:0 10px 30px -12px rgba(20,20,40,.18)}'
+            .'.mxs .mxs-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--mxs-muted)}'
+            .'.mxs .mxs-chip{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:7px;background:#fff;color:#454441;font-weight:600;font-size:12px;box-shadow:0 1px 2px rgba(20,20,20,.05)}'
+            .'.mxs .mxs-q{margin:0;padding:0;font-family:inherit;font-size:19px;line-height:1.35;font-weight:650;letter-spacing:-.015em;color:var(--mxs-text);text-transform:none}'
+            .'.mxs .mxs-answer{display:grid;gap:10px;padding:16px;border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(20,20,20,.04)}'
+            .'.mxs .mxs-by{display:flex;align-items:center;gap:11px;min-width:0}.mxs .mxs-by b{display:block;font-weight:650;font-size:14px;line-height:1.3}.mxs .mxs-by small{display:block;color:var(--mxs-muted);font-size:13px;line-height:1.3}'
+            .'.mxs .mxs-avatar{width:40px;height:40px;flex:none;border-radius:12px;object-fit:cover;display:grid;place-items:center;font-weight:700;font-size:16px;margin:0}'
+            .'.mxs .mxs-initial{background:var(--mxs-accent);color:var(--mxs-ink)}.mxs .mxs-soft{background:#fff;color:var(--mxs-muted);box-shadow:0 1px 2px rgba(20,20,20,.06)}'
+            .'.mxs .mxs-a p{margin:0;color:#2f2f2d;font-size:15.5px;line-height:1.65}.mxs .mxs-clamp p{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}'
+            .'.mxs .mxs-more{all:unset;cursor:pointer;font-weight:600;font-size:14px;color:var(--mxs-text);text-decoration:underline;text-underline-offset:3px;justify-self:start}'
+            .'.mxs .mxs-link{font-weight:600;font-size:14px;color:var(--mxs-text);text-decoration:none;border-top:1px solid var(--mxs-line);padding-top:10px}.mxs .mxs-link:hover{text-decoration:underline}'
+            .'.mxs .mxs-vote{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--mxs-muted)}'
+            .'.mxs .mxs-vote button{font:inherit;font-weight:600;font-size:13px;height:30px;padding:0 13px;border:1px solid var(--mxs-line);border-radius:999px;background:#fff;color:var(--mxs-text);cursor:pointer;line-height:1}'
+            .'.mxs .mxs-vote button:hover{border-color:#191918}.mxs .mxs-count{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:7px;background:#eaf6ee;color:#14532d;font-weight:600;font-size:12px}'
+            .'.mxs .mxs-thanks{color:#14532d;font-weight:600}.mxs .mxs-pending{display:contents}.mxs .mxs-pending .mxs-item{background:#fff;border:1px dashed #d9d9d6}'
+            .'.mxs .mxs-wait{display:inline-flex;align-self:start;padding:6px 12px;border-radius:9px;background:color-mix(in srgb,var(--mxs-accent) 18%,#fff);color:#454441;font-weight:600;font-size:13px}'
+            .'.mxs .mxs-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin-top:26px}'
+            .'.mxs .mxs-privacy,.mxs .mxs-empty{color:var(--mxs-muted);font-size:13px;margin:0}.mxs .mxs-empty{padding:22px;border-radius:20px;background:var(--mxs-soft);margin-top:4px}'
+            .'.mxs .mxs-search{display:block;margin:0 0 16px;max-width:860px}.mxs .mxs-search input{width:100%;height:46px;padding:0 18px;border:1px solid var(--mxs-line);border-radius:14px;font:inherit;font-size:15px;background:#fff;color:var(--mxs-text)}'
+            .'.mxs .mxs-badge{display:inline-flex;align-items:center;gap:10px;min-height:38px;padding:5px 14px 5px 6px;border:1px solid var(--mxs-line);border-radius:999px;background:#fff;color:var(--mxs-text);text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 1px 2px rgba(20,20,20,.04)}'
+            .'.mxs .mxs-g{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#4285f4;font-weight:800;border:1px solid var(--mxs-line)}'
+            .'.mxs .mxs-stars{color:#f5a623;letter-spacing:1px;font-size:15px}.mxs .mxs-off{color:#d9d9d6}'
+            .'.mxs .mxs-reply{font-size:14px;color:var(--mxs-muted);background:#fff;border-radius:12px;padding:10px 14px}.mxs .mxs-reply summary{cursor:pointer;font-weight:600;color:var(--mxs-text)}.mxs .mxs-reply p{margin:8px 0 0}';
+        $js = 'var T='.$js_texts.';function k(t){return "mxs_q_"+t}'
+            .'function clamp(){document.querySelectorAll(".mxs .mxs-clamp").forEach(function(a){var p=a.querySelector("p"),m=a.parentNode.querySelector("[data-mxs-more]");if(m&&p&&p.scrollHeight>p.clientHeight+2)m.hidden=false})}'
             .'function pend(s){var b=s.querySelector("[data-mxs-pending]");if(!b)return;var l=[];try{l=JSON.parse(localStorage.getItem(k(s.dataset.target))||"[]")}catch(e){}'
-            .'l=l.filter(function(x){return Date.now()-x.t<2592e6});if(!l.length)return;b.hidden=false;b.className="mxs-pending";b.innerHTML="";'
-            .'l.forEach(function(x){var a=document.createElement("article");a.className="mxs-card";var h=document.createElement("h3");h.className="mxs-q";h.textContent=x.q;'
-            .'var w=document.createElement("div");w.className="mxs-wait";w.textContent="Cevap bekleniyor. En geç 1 gün içinde yanıtlanır.";a.appendChild(h);a.appendChild(w);b.appendChild(a)})}'
-            .'document.querySelectorAll(".mxs-qa").forEach(pend);'
-            .'document.addEventListener("click",function(e){var o=e.target.closest("[data-mxs-open]");if(o){var f=document.getElementById(o.dataset.mxsOpen);f.hidden=!f.hidden;if(!f.hidden)f.querySelector("textarea").focus();return}'
-            .'var m=e.target.closest("[data-mxs-more]");if(m){var a=m.closest(".mxs-a");a.classList.toggle("mxs-clamp");m.textContent=a.classList.contains("mxs-clamp")?"Daha fazlasını göster":"Daha az göster";return}'
+            .'l=l.filter(function(x){return Date.now()-x.t<2592e6});if(!l.length)return;b.hidden=false;b.innerHTML="";'
+            .'l.forEach(function(x){var a=document.createElement("article");a.className="mxs-item";var h=document.createElement("h3");h.className="mxs-q";h.textContent=x.q;'
+            .'var w=document.createElement("div");w.className="mxs-wait";w.textContent=T.pending;a.appendChild(h);a.appendChild(w);b.appendChild(a)})}'
+            .'document.querySelectorAll(".mxs-qa").forEach(pend);clamp();'
+            .'document.addEventListener("click",function(e){var o=e.target.closest("[data-mxs-open]");if(o){var f=document.getElementById(o.dataset.mxsOpen);f.hidden=!f.hidden;o.setAttribute("aria-expanded",!f.hidden);if(!f.hidden)f.querySelector("textarea").focus();return}'
+            .'var m=e.target.closest("[data-mxs-more]");if(m){var a=m.parentNode.querySelector(".mxs-a");a.classList.toggle("mxs-clamp");m.textContent=a.classList.contains("mxs-clamp")?T.more:T.less;return}'
             .'var r=e.target.closest("[data-mxs-reviews-more]");if(r){var g=r.closest(".mxs-rev").querySelector("[data-mxs-reviews]"),n=+g.dataset.step||6,h=g.querySelectorAll("article[hidden]");'
-            .'for(var i=0;i<h.length&&i<n;i++)h[i].hidden=false;if(h.length<=n)r.remove();return}'
+            .'for(var i=0;i<h.length&&i<n;i++)h[i].hidden=false;if(h.length<=n)r.remove();clamp();return}'
             .'var v=e.target.closest("[data-mxs-vote] button");if(v){var d=v.closest("[data-mxs-vote]");try{localStorage.setItem("mxs_v_"+d.dataset.page+"_"+d.dataset.mxsVote,"1")}catch(x){}'
-            .'fetch(V,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({page:+d.dataset.page,item:d.dataset.mxsVote,yes:v.dataset.yes==="1"})}).catch(function(){});'
-            .'d.innerHTML="<span class=\"mxs-thanks\">Teşekkürler, geri bildiriminiz alındı.</span>"}});'
-            .'document.querySelectorAll("[data-mxs-vote]").forEach(function(d){try{if(localStorage.getItem("mxs_v_"+d.dataset.page+"_"+d.dataset.mxsVote))d.innerHTML="<span class=\"mxs-thanks\">Geri bildiriminiz alındı.</span>"}catch(x){}});'
+            .'fetch(T.vote,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({page:+d.dataset.page,item:d.dataset.mxsVote,yes:v.dataset.yes==="1"})}).catch(function(){});'
+            .'d.innerHTML="";var t=document.createElement("span");t.className="mxs-thanks";t.textContent=T.thanks;d.appendChild(t)}});'
+            .'document.querySelectorAll("[data-mxs-vote]").forEach(function(d){try{if(localStorage.getItem("mxs_v_"+d.dataset.page+"_"+d.dataset.mxsVote)){d.innerHTML="";var t=document.createElement("span");t.className="mxs-thanks";t.textContent=T.thanks;d.appendChild(t)}}catch(x){}});'
             .'document.querySelectorAll("[data-mxs-search]").forEach(function(i){i.addEventListener("input",function(){var q=i.value.toLocaleLowerCase("tr");'
             .'i.closest(".mxs").querySelectorAll("[data-mxs-item]").forEach(function(c){c.hidden=q!==""&&c.textContent.toLocaleLowerCase("tr").indexOf(q)<0})})});'
             .'document.addEventListener("submit",function(e){var f=e.target.closest("[data-mxs-form]");if(!f)return;e.preventDefault();var er=f.querySelector(".mxs-error"),b=f.querySelector("button[type=submit]"),d={};'
             .'new FormData(f).forEach(function(v,k){d[k]=v});d.consent=f.querySelector("[name=consent]").checked;b.disabled=true;er.hidden=true;'
-            .'fetch(A,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){b.disabled=false;'
+            .'fetch(T.ask,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){b.disabled=false;'
             .'if(!x.ok){er.textContent=x.j&&x.j.message?x.j.message:"Gönderilemedi, tekrar deneyin.";er.hidden=false;return}'
             .'var s=f.closest(".mxs-qa");try{var l=JSON.parse(localStorage.getItem(k(s.dataset.target))||"[]");l.unshift({q:d.question,t:Date.now()});localStorage.setItem(k(s.dataset.target),JSON.stringify(l.slice(0,5)))}catch(z){}'
-            .'f.innerHTML="<p><b>Sorunuz bize ulaştı.</b> En geç 1 gün içinde yanıtlanır ve bu sayfada adınız olmadan yayınlanır. E-posta bıraktıysanız cevap gelince haber veririz.</p>";pend(s)})'
-            .'.catch(function(){b.disabled=false;er.textContent="Bağlantı kurulamadı, tekrar deneyin.";er.hidden=false})})})();';
+            .'f.innerHTML="";var p=document.createElement("p");p.className="mxs-wait";p.textContent=T.sent;f.appendChild(p);pend(s)})'
+            .'.catch(function(){b.disabled=false;er.textContent="Bağlantı kurulamadı, tekrar deneyin.";er.hidden=false})});';
 
-        return '<style id="moxdop-showcase-css">'.$css.'</style><script id="moxdop-showcase-js">document.addEventListener("DOMContentLoaded",function(){'.$js.'});</script>';
+        return '<style id="moxdop-showcase-css">'.$css.'</style><script id="moxdop-showcase-js">(function(){function go(){'.$js.'}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go)})();</script>';
     }
 
     /* ------------------------------------------------------------------ Elementor */
@@ -968,132 +1283,6 @@ final class MoxDOP_Connector_Showcase
         $widgets_manager->register(new MoxDOP_Connector_Showcase_Widget);
     }
 
-    /* ------------------------------------------------------------------ admin */
-
-    public function menu()
-    {
-        add_options_page('Sorular ve yorumlar', 'Sorular ve yorumlar', 'manage_options', self::PAGE, [$this, 'render_settings']);
-    }
-
-    public function save_settings()
-    {
-        check_admin_referer('moxdop_showcase_save');
-        if (! current_user_can('manage_options')) {
-            wp_die('Bu ayarı yalnız site yöneticisi değiştirir.');
-        }
-        $in = wp_unslash($_POST);
-        $types = array_keys(self::assignable_types());
-        $taxes = array_keys(self::assignable_taxonomies());
-        update_option(self::TARGETS_OPTION, [
-            'pages' => array_values(array_filter(array_map('intval', (array) ($in['pages'] ?? [])))),
-            'post_types' => array_values(array_intersect(array_map('sanitize_key', (array) ($in['post_types'] ?? [])), $types)),
-            'taxonomies' => array_values(array_intersect(array_map('sanitize_key', (array) ($in['taxonomies'] ?? [])), $taxes)),
-        ], false);
-        $email = sanitize_email((string) ($in['notify'] ?? ''));
-        update_option(self::NOTIFY_OPTION, is_email($email) ? $email : '', false);
-        $made = 0;
-        foreach (self::targets() as $target) {
-            $made += self::qa_post($target, true) ? 1 : 0;
-        }
-        wp_safe_redirect(add_query_arg(['page' => self::PAGE, 'saved' => $made], admin_url('options-general.php')));
-        exit;
-    }
-
-    /** @return array<string, string> public post types an admin can assign (not attachments, not ours) */
-    private static function assignable_types()
-    {
-        $out = [];
-        foreach (get_post_types(['public' => true], 'objects') as $type) {
-            if (! in_array($type->name, ['attachment', self::QA_TYPE, self::QUESTION_TYPE, 'elementor_library', 'e-landing-page'], true)) {
-                $out[$type->name] = $type->labels->name;
-            }
-        }
-
-        return $out;
-    }
-
-    /** @return array<string, string> */
-    private static function assignable_taxonomies()
-    {
-        $out = [];
-        foreach (get_taxonomies(['public' => true], 'objects') as $tax) {
-            if (! in_array($tax->name, ['post_format', 'elementor_library_type', 'language', 'post_translations', 'term_language', 'term_translations'], true)) {
-                $out[$tax->name] = $tax->labels->name;
-            }
-        }
-
-        return $out;
-    }
-
-    public function render_settings()
-    {
-        if (! current_user_can('manage_options')) {
-            return;
-        }
-        $set = self::assignment();
-        $enabled = (bool) get_option(self::ENABLED_OPTION);
-        echo '<div class="wrap"><h1>Sorular ve yorumlar</h1>';
-        if (isset($_GET['saved'])) {
-            echo '<div class="notice notice-success"><p>Kaydedildi. Soru sayfası olan sayfa: '.(int) $_GET['saved'].'.</p></div>';
-        }
-        echo '<p>'.($enabled ? '<strong style="color:#1d7a46">MoxDOP\'ta açık.</strong> Yorumlar ve cevaplanan sorular MoxDOP\'tan kendiliğinden gelir.'
-            : '<strong>MoxDOP\'ta kapalı.</strong> Marka ayarlarında "Sitede yorum ve soru göster" açılınca yorumlar ve sorular gelmeye başlar.').'</p>';
-        echo '<p>Seçtiğin her sayfanın bir soru sayfası olur: <code>sayfa-adresi/'.self::SLUG.'/</code>. Bloğu sayfaya sen eklersin: Elementor\'da <strong>MoxDOP Sizden gelenler</strong> parçacığı ya da kısa kodlar <code>[moxdop_sorular]</code>, <code>[moxdop_yorumlar]</code>, <code>[moxdop_yorumlar gorunum="rozet"]</code>.</p>';
-        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="moxdop_showcase_save">';
-        wp_nonce_field('moxdop_showcase_save');
-        echo '<table class="form-table" role="presentation">';
-        echo '<tr><th scope="row">Sayfalar</th><td><select name="pages[]" multiple size="10" style="min-width:420px">';
-        foreach (get_pages(['sort_column' => 'menu_order,post_title', 'lang' => '']) as $page) {
-            echo '<option value="'.(int) $page->ID.'"'.selected(in_array((int) $page->ID, $set['pages'], true), true, false).'>'.esc_html(str_repeat('— ', count(get_post_ancestors($page))).$page->post_title).'</option>';
-        }
-        echo '</select><p class="description">Ctrl (Mac\'te Cmd) ile birden çok sayfa seç.</p></td></tr>';
-        echo '<tr><th scope="row">Yazı türleri</th><td>';
-        foreach (self::assignable_types() as $name => $label) {
-            echo '<label style="display:block"><input type="checkbox" name="post_types[]" value="'.esc_attr($name).'"'.checked(in_array($name, $set['post_types'], true), true, false).'> '.esc_html($label).' <code>'.esc_html($name).'</code></label>';
-        }
-        echo '<p class="description">Seçilen türün yayındaki her kaydı soru sayfası alır (örneğin bütün hizmetler).</p></td></tr>';
-        echo '<tr><th scope="row">Sınıflandırmalar</th><td>';
-        foreach (self::assignable_taxonomies() as $name => $label) {
-            echo '<label style="display:block"><input type="checkbox" name="taxonomies[]" value="'.esc_attr($name).'"'.checked(in_array($name, $set['taxonomies'], true), true, false).'> '.esc_html($label).' <code>'.esc_html($name).'</code></label>';
-        }
-        echo '</td></tr>';
-        echo '<tr><th scope="row"><label for="mxs-notify">Bildirim e-postası</label></th><td><input type="email" id="mxs-notify" name="notify" class="regular-text" value="'.esc_attr((string) get_option(self::NOTIFY_OPTION)).'">'
-            .'<p class="description">Yeni soru bu adrese gider (sitenin kendi e-posta / SMTP ayarıyla). Boş bırakılabilir; sorular her durumda <a href="'.esc_url(admin_url('edit.php?post_type='.self::QUESTION_TYPE)).'">Sorular</a> menüsünde ve MoxDOP\'ta görünür.</p></td></tr>';
-        echo '</table>';
-        submit_button('Kaydet');
-        echo '</form>';
-        $targets = self::targets();
-        if ($targets) {
-            echo '<h2>Soru sayfaları ('.count($targets).')</h2><table class="widefat striped" style="max-width:900px"><thead><tr><th>Sayfa</th><th>Soru sayfası</th><th>Yanıtlanan</th></tr></thead><tbody>';
-            foreach (array_slice($targets, 0, 200) as $target) {
-                $qa = self::qa_post($target);
-                $items = $qa ? get_post_meta($qa, self::ITEMS_META, true) : [];
-                $n = is_array($items) ? count($items) : 0;
-                echo '<tr><td>'.esc_html(self::target_title($target)).'</td><td>'.($qa ? '<a href="'.esc_url(get_permalink($qa)).'" target="_blank">'.esc_html(get_permalink($qa)).'</a>' : '—').'</td><td>'.(int) $n
-                    .($n < self::INDEX_AT ? ' <span style="color:#646970">(Google\'a '.self::INDEX_AT.' soruda açılır)</span>' : '').'</td></tr>';
-            }
-            echo '</tbody></table>';
-        }
-        echo '</div>';
-    }
-
-    public function question_columns($columns)
-    {
-        return ['cb' => $columns['cb'] ?? '', 'title' => 'Soru', 'mxs_page' => 'Sayfa', 'mxs_contact' => 'Soran (yayınlanmaz)', 'mxs_status' => 'Durum', 'date' => 'Tarih'];
-    }
-
-    public function question_column($column, $post_id)
-    {
-        if ($column === 'mxs_page') {
-            $url = (string) get_post_meta($post_id, '_moxdop_q_page_url', true);
-            echo $url !== '' ? '<a href="'.esc_url($url).'" target="_blank">'.esc_html((string) get_post_meta($post_id, '_moxdop_q_page_title', true)).'</a>' : '—';
-        } elseif ($column === 'mxs_contact') {
-            echo esc_html(implode(' · ', array_filter([(string) get_post_meta($post_id, '_moxdop_q_name', true), (string) get_post_meta($post_id, '_moxdop_q_email', true), (string) get_post_meta($post_id, '_moxdop_q_phone', true)]))) ?: '—';
-        } elseif ($column === 'mxs_status') {
-            echo get_post_meta($post_id, '_moxdop_q_status', true) === 'answered' ? 'Yanıtlandı, sitede' : 'MoxDOP\'ta cevap hazırlanıyor';
-        }
-    }
-
     /** Plugin removal: the data MoxDOP sent and the question pages go with it. */
     public static function uninstall()
     {
@@ -1102,7 +1291,7 @@ final class MoxDOP_Connector_Showcase
                 wp_delete_post($id, true);
             }
         }
-        foreach ([self::TARGETS_OPTION, self::NOTIFY_OPTION, self::REVIEWS_OPTION, self::ENABLED_OPTION] as $option) {
+        foreach ([self::TARGETS_OPTION, self::NOTIFY_OPTION, self::REVIEWS_OPTION, self::ENABLED_OPTION, self::TEXTS_OPTION, self::LOOK_OPTION] as $option) {
             delete_option($option);
         }
     }

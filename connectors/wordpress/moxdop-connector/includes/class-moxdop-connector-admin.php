@@ -22,20 +22,8 @@ final class MoxDOP_Connector_Admin
 
     public function menu()
     {
-        add_options_page(
-            'MoxDOP Connector',
-            'MoxDOP Connector',
-            'manage_options',
-            'moxdop-connector',
-            [$this, 'render']
-        );
-        add_management_page(
-            'MoxDOP yönlendirmeleri',
-            'MoxDOP yönlendirmeleri',
-            'manage_options',
-            'moxdop-redirects',
-            [$this, 'render_redirects']
-        );
+        MoxDOP_Connector_Admin_UI::add('moxdop-connector', 'Genel', [$this, 'render'], 0);
+        MoxDOP_Connector_Admin_UI::add('moxdop-redirects', 'Yönlendirmeler', [$this, 'render_redirects'], 50);
     }
 
     /**
@@ -50,14 +38,13 @@ final class MoxDOP_Connector_Admin
         $redirects = MoxDOP_Connector_Fixes::own_redirects();
         ksort($redirects);
         $removed = isset($_GET['moxdop_notice']) && sanitize_key(wp_unslash($_GET['moxdop_notice'])) === 'redirect_removed';
+        MoxDOP_Connector_Admin_UI::open('moxdop-redirects', 'Yönlendirmeler', 'MoxDOP\'ta onaylanan bütün 301 yönlendirmeleri burada tutulur; SEO eklentisine yazılmaz. Eski sayfa taslağa alınır, ziyaretçi ve Google yeni sayfaya gider. Bir satırı kaldırırsan o yönlendirme hemen durur.');
+        if ($removed) {
+            echo MoxDOP_Connector_Admin_UI::notice('Yönlendirme kaldırıldı.');
+        }
         ?>
-        <div class="wrap">
-            <h1>MoxDOP yönlendirmeleri</h1>
-            <p>MoxDOP'ta onaylanan bütün 301 yönlendirmeleri burada tutulur; SEO eklentisine yazılmaz. Eski sayfa taslağa alınır, ziyaretçi ve Google yeni sayfaya gider. Bir satırı kaldırırsan o yönlendirme hemen durur.</p>
-            <?php if ($removed) { ?>
-                <div class="notice notice-success"><p>Yönlendirme kaldırıldı.</p></div>
-            <?php } ?>
-            <table class="widefat striped" style="max-width: 1000px;">
+            <div class="mxa-tablewrap">
+            <table class="mxa-table">
                 <thead><tr><th>Eski adres</th><th>301 → Yeni adres</th><th></th></tr></thead>
                 <tbody>
                 <?php if ($redirects === []) { ?>
@@ -72,15 +59,16 @@ final class MoxDOP_Connector_Admin
                                 <input type="hidden" name="action" value="moxdop_connector_redirect_remove">
                                 <input type="hidden" name="from" value="<?php echo esc_attr($from); ?>">
                                 <?php wp_nonce_field('moxdop_connector_redirect_remove'); ?>
-                                <?php submit_button('Kaldır', 'small', 'submit', false); ?>
+                                <?php submit_button('Kaldır', 'secondary', 'submit', false); ?>
                             </form>
                         </td>
                     </tr>
                 <?php } ?>
                 </tbody>
             </table>
-        </div>
+            </div>
         <?php
+        MoxDOP_Connector_Admin_UI::close();
     }
 
     public function remove_redirect()
@@ -90,7 +78,7 @@ final class MoxDOP_Connector_Admin
         }
         check_admin_referer('moxdop_connector_redirect_remove');
         MoxDOP_Connector_Fixes::remove_own_redirect(isset($_POST['from']) ? sanitize_text_field(wp_unslash($_POST['from'])) : '');
-        wp_safe_redirect(add_query_arg('moxdop_notice', 'redirect_removed', admin_url('tools.php?page=moxdop-redirects')));
+        wp_safe_redirect(add_query_arg('moxdop_notice', 'redirect_removed', MoxDOP_Connector_Admin_UI::url('moxdop-redirects')));
         exit;
     }
 
@@ -102,111 +90,61 @@ final class MoxDOP_Connector_Admin
         $paired = is_array($this->secrets->read());
         $delivery = (new MoxDOP_Connector_Events)->status();
         $notice = isset($_GET['moxdop_notice']) ? sanitize_key(wp_unslash($_GET['moxdop_notice'])) : '';
-        ?>
-        <div class="wrap">
-            <h1>MoxDOP Website Connector</h1>
-            <p>This connector shares CMS inventory and health with MoxDOP. It sends content, SEO and maintenance activity with the acting user ID/name. It never sends passwords, comments, form submissions or media binaries. It can create drafts (never publishes). One-click login and approved updates below are off unless you turn them on.</p>
-            <?php if ($notice === 'paired') { ?>
-                <div class="notice notice-success"><p>Connector paired successfully.</p></div>
-            <?php } elseif ($notice === 'disconnected') { ?>
-                <div class="notice notice-success"><p>Connector disconnected and its local credential removed.</p></div>
-            <?php } elseif ($notice === 'saved') { ?>
-                <div class="notice notice-success"><p>Settings saved.</p></div>
-            <?php } elseif ($notice === 'failed') { ?>
-                <div class="notice notice-error"><p>Pairing failed. Confirm the HTTPS MoxDOP URL and one-time code, then try again.</p></div>
-            <?php } ?>
+        $app = (string) get_option('moxdop_connector_app_url');
+        MoxDOP_Connector_Admin_UI::open('moxdop-connector', $paired ? 'Site MoxDOP\'a <mark>bağlı</mark>' : 'Siteyi MoxDOP\'a <mark>bağla</mark>',
+            'Bu eklenti sitenin sayfalarını, SEO alanlarını ve sağlığını MoxDOP\'a bildirir. Şifre, yorum, form mesajı ya da dosya göndermez. Aşağıdaki izinler sen açmadıkça kapalıdır; açtığın işler de MoxDOP\'ta onaylanmadan yapılmaz.');
+        $messages = ['paired' => ['Site MoxDOP\'a bağlandı.', 'ok'], 'disconnected' => ['Bağlantı kesildi, yerel anahtar silindi.', 'ok'], 'saved' => ['Kaydedildi.', 'ok'],
+            'failed' => ['Bağlanamadı. MoxDOP adresini (https) ve tek kullanımlık kodu kontrol edip yeniden dene.', 'error']];
+        if (isset($messages[$notice])) {
+            echo MoxDOP_Connector_Admin_UI::notice($messages[$notice][0], $messages[$notice][1]);
+        }
+        $pending = (string) ($delivery['pending'] ?? '—');
+        $last = (string) ($delivery['last_ack_at'] ?? '');
+        $error = (string) ($delivery['last_error'] ?? '');
+        echo '<div class="mxa-grid">';
+        echo '<div class="mxa-soft'.($paired ? ' is-accent' : '').'"><small>Bağlantı</small><strong>'.($paired ? 'Bağlı' : 'Bağlı değil').'</strong><small>'.esc_html($app !== '' ? (string) wp_parse_url($app, PHP_URL_HOST) : ($paired ? 'MoxDOP' : 'Aşağıdan bağla')).'</small></div>';
+        echo '<div class="mxa-soft"><small>Gönderilmeyi bekleyen</small><strong>'.esc_html($pending).'</strong><small>Değişiklikler kaydedilince hemen gider</small></div>';
+        echo '<div class="mxa-soft"><small>Son aktarım</small><strong style="font-size:18px">'.esc_html($last !== '' ? wp_date('j M H:i', strtotime($last)) : 'Henüz yok').'</strong><small>'.esc_html($error !== '' ? 'Son hata: '.$error : 'Hata yok').'</small></div>';
+        echo '</div>';
 
-            <table class="widefat striped" style="max-width: 760px; margin: 18px 0;">
-                <tbody>
-                    <tr><th>Status</th><td><?php echo $paired ? 'Paired' : 'Not paired'; ?></td></tr>
-                    <tr><th>Activity queue / İşlem kuyruğu</th><td><?php echo esc_html((string) ($delivery['pending'] ?? 'Unavailable')); ?></td></tr>
-                    <tr><th>Last delivery / Son aktarım</th><td><?php echo esc_html((string) ($delivery['last_ack_at'] ?? 'Not yet delivered')); ?></td></tr>
-                    <tr><th>Delivery error / Aktarım hatası</th><td><?php echo esc_html((string) ($delivery['last_error'] ?? '—')); ?></td></tr>
-                    <tr><th>Coverage gap / Kayıt boşluğu</th><td><?php echo esc_html((string) ($delivery['gap_at'] ?? '—')); ?></td></tr>
-                    <tr><th>Scheduling</th><td>Events are sent in batches through WP-Cron. Low traffic can delay delivery; a host cron is recommended for regular delivery.</td></tr>
-                    <tr><th>Plugin version</th><td><?php echo esc_html(MOXDOP_CONNECTOR_VERSION); ?></td></tr>
-                    <tr><th>Installation ID</th><td><code><?php echo esc_html((string) get_option('moxdop_connector_installation_id')); ?></code></td></tr>
-                    <tr><th>Status endpoint</th><td><code><?php echo esc_html(rest_url('moxdop/v1/status')); ?></code></td></tr>
-                </tbody>
-            </table>
+        echo '<div class="mxa-card"><h2>'.($paired ? 'Bağlantıyı yenile' : 'Bağla').'</h2><p>MoxDOP\'ta bu web sitesi için tek kullanımlık bağlantı kodu al ve buraya yaz. Yenilerken eski bağlantı, yenisi kurulana kadar çalışmaya devam eder.</p>';
+        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="moxdop_connector_pair">';
+        wp_nonce_field('moxdop_connector_pair');
+        echo '<div class="mxa-row"><label for="moxdop_app_url">MoxDOP adresi</label><div><input class="mxa-wide" id="moxdop_app_url" name="moxdop_app_url" type="url" required placeholder="https://app.moximu.com" value="'.esc_attr($app).'"></div></div>';
+        echo '<div class="mxa-row"><label for="moxdop_pairing_code">Tek kullanımlık kod</label><div><input class="mxa-wide" id="moxdop_pairing_code" name="moxdop_pairing_code" type="text" required autocomplete="off" pattern="MXD-[0-9]+-[A-Za-z2-9]{24}" placeholder="MXD-…"></div></div>';
+        echo '<div class="mxa-actions"><button type="submit" class="button button-primary">'.($paired ? 'Bağlantıyı yenile' : 'Bağla').'</button></div></form></div>';
 
-            <h2><?php echo $paired ? 'Rotate pairing' : 'Pair this site'; ?></h2>
-            <p>Generate a one-time pairing code for this Website in MoxDOP, then enter it below. A rotation keeps the current connection active until the new pairing succeeds.</p>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width: 760px;">
-                <input type="hidden" name="action" value="moxdop_connector_pair">
-                <?php wp_nonce_field('moxdop_connector_pair'); ?>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row"><label for="moxdop_app_url">MoxDOP HTTPS URL</label></th>
-                        <td><input class="regular-text" id="moxdop_app_url" name="moxdop_app_url" type="url" required placeholder="https://app.moximu.com"></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><label for="moxdop_pairing_code">One-time pairing code</label></th>
-                        <td><input class="regular-text" id="moxdop_pairing_code" name="moxdop_pairing_code" type="text" required autocomplete="off" pattern="MXD-[0-9]+-[A-Za-z2-9]{24}"></td>
-                    </tr>
-                </table>
-                <?php submit_button($paired ? 'Rotate pairing' : 'Pair connector'); ?>
-            </form>
+        echo '<div class="mxa-card"><h2>MoxDOP\'un yapabilecekleri</h2><p>Açtığın her iş MoxDOP\'ta bir yönetici onaylamadan yapılmaz ve geri alınabilir.</p>';
+        echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="moxdop_connector_management">';
+        wp_nonce_field('moxdop_connector_management');
+        echo '<div class="mxa-row"><label for="moxdop_login_user">Tek tıkla giriş</label><div><select id="moxdop_login_user" name="moxdop_login_user"><option value="0">Kapalı</option>';
+        foreach (get_users(['role__in' => ['administrator', 'editor'], 'fields' => ['ID', 'user_login']]) as $user) {
+            echo '<option value="'.(int) $user->ID.'"'.selected(MoxDOP_Connector_Management::login_user_id(), (int) $user->ID, false).'>'.esc_html($user->user_login).'</option>';
+        }
+        echo '</select><small>MoxDOP bu kullanıcıyla tek kullanımlık, 60 saniyelik bir giriş bağlantısı açabilir. Ajans için ayrı bir hesap kullan.</small></div></div>';
+        echo '<div class="mxa-row"><span class="mxa-label">İzinler</span><div>';
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_allow_fixes', MoxDOP_Connector_Fixes::fixes_allowed(), 'SEO düzeltmeleri', 'SEO başlığı ve açıklaması, görsel alt metni, schema, 301 yönlendirme, noindex / canonical ve iç linkler.');
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_allow_content', MoxDOP_Connector_Fixes::content_allowed(), 'İçerik güncelleme', 'Sayfanın yeni sürümü önce taslak kopya olarak kaydedilir; canlı sayfa ancak ikinci onayla değişir, eski sürüm revizyonda kalır.');
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_allow_schedule', MoxDOP_Connector_Drafts::scheduling_allowed(), 'Zamanlanmış taslak', 'Tarihi seçilip onaylanan MoxDOP yazısı zamanlanmış olarak kaydedilir; kapalıyken her yazı taslak kalır.');
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_allow_updates', MoxDOP_Connector_Management::updates_allowed(), 'Onaylı güncellemeler', 'WordPress\'in sunduğu eklenti, tema ve çekirdek güncellemeleri, her biri MoxDOP\'ta onaylandıktan sonra tek tek kurulur.');
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_allow_self_update', MoxDOP_Connector_Updater::allowed(), 'Bu eklentinin güncellemesi', 'Yalnız bu eklenti, yalnız daha yeni sürüm ve yalnız bağlı MoxDOP\'tan gelen, imzası tutan paket.');
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_allow_build', MoxDOP_Connector_Builder::allowed(), 'Site kurulumu', 'ACF alanları, sayfa ve yazılar (yayında olarak da), Elementor şablonları, medya, menüler ve birkaç site ayarı. Kurulan sitede aç; tema ve eklenti dosyalarına dokunmaz.');
+        echo MoxDOP_Connector_Admin_UI::toggle('moxdop_indexnow', get_option('moxdop_connector_indexnow', '1') === '1', 'IndexNow', 'Yayınlanan ya da değişen sayfayı kaydeder kaydetmez Bing ve Yandex\'e bildirir. "Arama motorlarını engelle" açıkken ve site MoxDOP\'ta bir markaya bağlı değilken çalışmaz.');
+        echo '</div></div><div class="mxa-actions"><button type="submit" class="button button-primary">Kaydet</button></div></form></div>';
 
-            <h2>MoxDOP management / Yönetim</h2>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width: 760px;">
-                <input type="hidden" name="action" value="moxdop_connector_management">
-                <?php wp_nonce_field('moxdop_connector_management'); ?>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row"><label for="moxdop_login_user">One-click login user / Tek tık giriş kullanıcısı</label></th>
-                        <td>
-                            <select id="moxdop_login_user" name="moxdop_login_user">
-                                <option value="0">Off / Kapalı</option>
-                                <?php foreach (get_users(['role__in' => ['administrator', 'editor'], 'fields' => ['ID', 'user_login']]) as $user) { ?>
-                                    <option value="<?php echo (int) $user->ID; ?>" <?php selected(MoxDOP_Connector_Management::login_user_id(), (int) $user->ID); ?>><?php echo esc_html($user->user_login); ?></option>
-                                <?php } ?>
-                            </select>
-                            <p class="description">MoxDOP can open a single-use, 60-second login link as this user. Use a dedicated account for your agency.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Approved updates / Onaylı güncelleme</th>
-                        <td><label><input type="checkbox" name="moxdop_allow_updates" value="1" <?php checked(MoxDOP_Connector_Management::updates_allowed()); ?>> Allow MoxDOP to install plugin, theme and WordPress updates that WordPress offers, one at a time, after an admin approves each in MoxDOP.</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">SEO fixes / SEO düzeltmeleri</th>
-                        <td><label><input type="checkbox" name="moxdop_allow_fixes" value="1" <?php checked(MoxDOP_Connector_Fixes::fixes_allowed()); ?>> Allow MoxDOP to change SEO titles and descriptions, image alt texts, schema, 301 redirects, noindex / canonical and to add internal links, after an admin approves each change in MoxDOP. Every change can be undone from MoxDOP.</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Content updates / İçerik güncelleme</th>
-                        <td><label><input type="checkbox" name="moxdop_allow_content" value="1" <?php checked(MoxDOP_Connector_Fixes::content_allowed()); ?>> Allow MoxDOP to save a new version of a page as a draft copy, and to replace the live page with it only after a second approval. WordPress keeps the old version as a revision.</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Site building / Site kurulumu</th>
-                        <td><label><input type="checkbox" name="moxdop_allow_build" value="1" <?php checked(MoxDOP_Connector_Builder::allowed()); ?>> Allow MoxDOP to build this site: import ACF field groups and post types, create and update pages and posts (also published), Elementor templates, media, menus and a few site settings (title, front page, permalinks). Use it on a site you are setting up; nothing edits theme or plugin files.</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Scheduled drafts / Zamanlanmış taslak</th>
-                        <td><label><input type="checkbox" name="moxdop_allow_schedule" value="1" <?php checked(MoxDOP_Connector_Drafts::scheduling_allowed()); ?>> Allow a MoxDOP draft to be saved as scheduled (WordPress publishes it at the chosen date) when the operator picked a date and an admin approved it in MoxDOP. Off: every MoxDOP post stays a draft.</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Connector updates / Eklenti güncellemesi</th>
-                        <td><label><input type="checkbox" name="moxdop_allow_self_update" value="1" <?php checked(MoxDOP_Connector_Updater::allowed()); ?>> Allow MoxDOP to update this connector plugin (only this plugin, only newer versions, only a package from the paired MoxDOP whose hash matches), after an admin approves it in MoxDOP.</label></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">IndexNow</th>
-                        <td><label><input type="checkbox" name="moxdop_indexnow" value="1" <?php checked(get_option('moxdop_connector_indexnow', '1') === '1'); ?>> Tell Bing and Yandex (IndexNow) about published or changed pages right after a save. Off while "Discourage search engines" is on, and while the site has no brand in MoxDOP.</label></td>
-                    </tr>
-                </table>
-                <?php submit_button('Save'); ?>
-            </form>
-
-            <?php if ($paired) { ?>
-                <hr>
-                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                    <input type="hidden" name="action" value="moxdop_connector_disconnect">
-                    <?php wp_nonce_field('moxdop_connector_disconnect'); ?>
-                    <?php submit_button('Disconnect', 'delete', 'submit', false); ?>
-                </form>
-            <?php } ?>
-        </div>
-        <?php
+        echo '<div class="mxa-card"><h2>Teknik bilgiler</h2><div class="mxa-tablewrap"><table class="mxa-table"><tbody>';
+        foreach (['Eklenti sürümü' => MOXDOP_CONNECTOR_VERSION, 'Kurulum kimliği' => (string) get_option('moxdop_connector_installation_id'), 'Durum adresi' => rest_url('moxdop/v1/status'),
+            'Kayıt boşluğu' => (string) ($delivery['gap_at'] ?? '—'), 'Zamanlama' => 'Değişiklikler kaydedilince hemen gönderilir; WP-Cron yedek olarak çalışır.'] as $label => $value) {
+            echo '<tr><th style="width:200px">'.esc_html($label).'</th><td><code>'.esc_html($value).'</code></td></tr>';
+        }
+        echo '</tbody></table></div>';
+        if ($paired) {
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" onsubmit="return confirm(\'MoxDOP bağlantısı kesilsin mi?\');"><input type="hidden" name="action" value="moxdop_connector_disconnect">';
+            wp_nonce_field('moxdop_connector_disconnect');
+            echo '<div class="mxa-actions"><button type="submit" class="button mxa-danger">Bağlantıyı kes</button></div></form>';
+        }
+        echo '</div>';
+        MoxDOP_Connector_Admin_UI::close();
     }
 
     public function pair()
@@ -294,7 +232,7 @@ final class MoxDOP_Connector_Admin
 
     private function redirect($notice)
     {
-        wp_safe_redirect(add_query_arg('moxdop_notice', $notice, admin_url('options-general.php?page=moxdop-connector')));
+        wp_safe_redirect(add_query_arg('moxdop_notice', $notice, MoxDOP_Connector_Admin_UI::url('moxdop-connector')));
         exit;
     }
 }

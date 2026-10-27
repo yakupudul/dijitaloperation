@@ -46,7 +46,7 @@ final class WordPressConnectorEventsController
             'installation_id' => ['required', Rule::in([$installation])],
             'plugin_version' => ['required', 'string', 'max:32'],
             'events' => ['present', 'array', 'max:50'],
-            'events.*' => ['array:event_id,type,occurred_at,object_type,object_id,title,url,actor_id,actor_name,origin,fields,post_state,target,question'],
+            'events.*' => ['array:event_id,type,occurred_at,object_type,object_id,title,url,actor_id,actor_name,origin,fields,post_state,target,question,answer'],
             'events.*.event_id' => ['required', 'uuid', 'distinct'],
             'events.*.type' => ['required', Rule::in([
                 'content.created', 'content.updated', 'content.published', 'content.trashed',
@@ -55,6 +55,8 @@ final class WordPressConnectorEventsController
                 'maintenance.activated', 'maintenance.deactivated', 'maintenance.theme_changed', 'access.role_changed',
                 // 1.28.0: a visitor's question (Sorular ve yorumlar), without the visitor's name or contact.
                 'qa.asked',
+                // 1.29.0: a question answered or taken off in the site's own admin (MoxDOP › Gelen sorular).
+                'qa.answered', 'qa.hidden',
             ])],
             'events.*.occurred_at' => ['required', 'date', 'before_or_equal:'.now()->addMinutes(5)->toIso8601String()],
             'events.*.object_type' => ['required', 'string', 'max:64'],
@@ -75,6 +77,7 @@ final class WordPressConnectorEventsController
             'events.*.post_state.featured_media_id' => ['nullable', 'integer', 'min:0'],
             'events.*.target' => ['nullable', 'string', 'max:64'],
             'events.*.question' => ['nullable', 'string', 'max:2000'],
+            'events.*.answer' => ['nullable', 'string', 'max:4000'],
             'delivery' => ['required', 'array'],
             'delivery.pending' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'delivery.gap_at' => ['nullable', 'date'],

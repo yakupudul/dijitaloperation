@@ -27,7 +27,9 @@ final class MoxDOP_Connector_Translation_Pairing
 
     public function menu()
     {
-        add_management_page('MoxDOP Polylang', 'MoxDOP Polylang', 'manage_options', self::PAGE, [$this, 'render']);
+        if (MoxDOP_Connector_Drafts::polylang_active()) {
+            MoxDOP_Connector_Admin_UI::add(self::PAGE, 'Polylang eşleştirme', [$this, 'render'], 60);
+        }
     }
 
     /**
@@ -99,10 +101,8 @@ final class MoxDOP_Connector_Translation_Pairing
         }));
         $notice = isset($_GET['moxdop_notice']) ? sanitize_key(wp_unslash($_GET['moxdop_notice'])) : '';
         $last = get_option(self::LAST_RUN_OPTION, []);
+        MoxDOP_Connector_Admin_UI::open(self::PAGE, 'İçe aktarma sonrası <mark>Polylang</mark> eşleştirme', 'MoxDOP dışa aktarma dosyasından içe aktarılan yazıların dilini atar ve aynı makalenin dil sürümlerini çeviri olarak eşleştirir. Butona basmadan hiçbir şey değişmez.', true);
         ?>
-        <div class="wrap">
-            <h1>MoxDOP Polylang — Import sonrası eşleştir</h1>
-            <p>Posts imported from a MoxDOP export file carry a translation key. This page sets each post's Polylang language and links the language versions of one article as translations. Nothing is linked until you press the button. / MoxDOP dışa aktarma dosyasından içe aktarılan yazıların dilini atar ve aynı makalenin dil sürümlerini çeviri olarak eşleştirir.</p>
             <?php if ($notice === 'paired') { ?>
                 <div class="notice notice-success"><p><?php echo esc_html(sprintf('%d group(s) linked. / %d grup eşleştirildi.', (int) ($last['groups'] ?? 0), (int) ($last['groups'] ?? 0))); ?></p></div>
             <?php } ?>
@@ -132,11 +132,11 @@ final class MoxDOP_Connector_Translation_Pairing
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="moxdop_polylang_pair">
                     <?php wp_nonce_field('moxdop_polylang_pair'); ?>
-                    <?php submit_button(sprintf('Link %d group(s) / %d grubu eşleştir', $pending, $pending)); ?>
+                    <?php submit_button(sprintf('%d grubu eşleştir', $pending)); ?>
                 </form>
             <?php } ?>
-        </div>
         <?php
+        MoxDOP_Connector_Admin_UI::close(true);
     }
 
     public function apply()
@@ -154,7 +154,7 @@ final class MoxDOP_Connector_Translation_Pairing
             $count++;
         }
         update_option(self::LAST_RUN_OPTION, ['groups' => $count, 'at' => gmdate('c'), 'user_id' => get_current_user_id()], false);
-        wp_safe_redirect(add_query_arg('moxdop_notice', 'paired', admin_url('tools.php?page='.self::PAGE)));
+        wp_safe_redirect(add_query_arg('moxdop_notice', 'paired', MoxDOP_Connector_Admin_UI::url(self::PAGE)));
         exit;
     }
 

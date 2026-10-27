@@ -63,6 +63,7 @@ final class SiteQuestions
      */
     public function fromEvents(int $siteId, array $events): int
     {
+        $this->answeredOnSite($siteId, $events);
         $asked = array_filter($events, fn (array $e): bool => ($e['type'] ?? '') === 'qa.asked' && trim((string) ($e['question'] ?? '')) !== '');
         if ($asked === []) {
             return 0;
@@ -89,6 +90,47 @@ final class SiteQuestions
         }
 
         return $made;
+    }
+
+    /**
+     * 1.29.0: the site's admin answered (or took off) a question in MoxDOP › Gelen sorular. The answer is already live on
+     * the site, so MoxDOP records it as published and the open desk row (Claude's draft) closes; a taken-off question
+     * stays hidden and goes back to the site in qa_hidden, so a later sync never shows it again.
+     *
+     * @param  list<array<string, mixed>>  $events
+     */
+    private function answeredOnSite(int $siteId, array $events): void
+    {
+        foreach ($events as $event) {
+            $type = (string) ($event['type'] ?? '');
+            $localId = (int) ($event['object_id'] ?? 0);
+            if (! in_array($type, ['qa.answered', 'qa.hidden'], true) || $localId < 1) {
+                continue;
+            }
+            $question = SiteQuestion::query()->where('website_asset_id', $siteId)->where('local_id', $localId)->first();
+            $answer = self::clean((string) ($event['answer'] ?? ''), 1200);
+            if ($type === 'qa.answered' && $answer !== '') {
+                $site = DigitalAsset::query()->find($siteId);
+                if ($site === null || preg_match('/^(post|term):\d+$/', (string) ($event['target'] ?? '')) !== 1) {
+                    continue;
+                }
+                $question ??= new SiteQuestion(['website_asset_id' => $siteId, 'local_id' => $localId, 'brand_id' => $site->brand_id,
+                    'source' => SiteQuestion::SOURCE_SITE, 'asked_at' => $event['occurred_at'] ?? now()]);
+                $question->forceFill(['target' => (string) $event['target'], 'target_title' => mb_substr((string) ($event['title'] ?? ''), 0, 250),
+                    'target_url' => (string) ($event['url'] ?? ''), 'question' => self::clean((string) ($event['question'] ?? $question->question), 200) ?: (string) $question->question,
+                    'answer' => $answer, 'status' => SiteQuestion::PUBLISHED, 'published_at' => $event['occurred_at'] ?? now(), 'error' => null])->save();
+            } elseif ($type === 'qa.hidden' && $question !== null) {
+                $question->forceFill(['status' => SiteQuestion::HIDDEN])->save();
+            } else {
+                continue;
+            }
+            if ($question->suggestion_id !== null) {
+                Suggestion::query()->whereKey($question->suggestion_id)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED])->update([
+                    'status' => Suggestion::DISMISSED, 'resolved_at' => now(),
+                    'operator_note' => $type === 'qa.answered' ? 'Sitede elle cevaplandı.' : 'Sitede kaldırıldı.',
+                ]);
+            }
+        }
     }
 
     /** Whether an AI route can take these operations now (Claude's queue or a provider). */

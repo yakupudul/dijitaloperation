@@ -300,7 +300,7 @@ final class MoxDOP_Connector_AI
 
     public function menu()
     {
-        add_options_page('Claude / ChatGPT', 'Claude / ChatGPT', 'manage_options', self::PAGE, [$this, 'render_settings']);
+        MoxDOP_Connector_Admin_UI::add(self::PAGE, 'Claude / ChatGPT', [$this, 'render_settings'], 40);
         add_options_page('Bağlantı izni', 'Bağlantı izni', 'manage_options', self::AUTHORIZE_PAGE, [$this, 'render_authorize']);
     }
 
@@ -337,7 +337,7 @@ final class MoxDOP_Connector_AI
         $ask = self::authorize_request(wp_unslash($_GET));
         echo '<div class="wrap"><h1>Claude / ChatGPT bağlantısı</h1>';
         if (! self::enabled()) {
-            echo '<div class="notice notice-error"><p>Bu sitede bağlantı kapalı. Önce <a href="'.esc_url(admin_url('options-general.php?page='.self::PAGE)).'">Ayarlar › Claude / ChatGPT</a> ekranından bir yetki seç.</p></div></div>';
+            echo '<div class="notice notice-error"><p>Bu sitede bağlantı kapalı. Önce <a href="'.esc_url(MoxDOP_Connector_Admin_UI::url(self::PAGE)).'">MoxDOP › Claude / ChatGPT</a> ekranından bir yetki seç.</p></div></div>';
 
             return;
         }
@@ -348,7 +348,7 @@ final class MoxDOP_Connector_AI
         }
         $user = wp_get_current_user();
         echo '<p style="font-size:15px"><strong>'.esc_html($ask['client']['name']).'</strong> bu siteye bağlanmak istiyor ('.esc_html(wp_parse_url($ask['redirect_uri'], PHP_URL_HOST)).').</p>';
-        echo '<p>Yetki: <strong>'.esc_html(self::level_label(self::access())).'</strong>. İşlemler senin adınla ('.esc_html($user->display_name).') yapılır, hiçbir şey yayınlanmaz ya da silinmez; her değişiklik kayda geçer ve geri alınabilir. Bağlantıyı istediğin an Ayarlar › Claude / ChatGPT ekranından kesebilirsin.</p>';
+        echo '<p>Yetki: <strong>'.esc_html(self::level_label(self::access())).'</strong>. İşlemler senin adınla ('.esc_html($user->display_name).') yapılır, hiçbir şey yayınlanmaz ya da silinmez; her değişiklik kayda geçer ve geri alınabilir. Bağlantıyı istediğin an MoxDOP › Claude / ChatGPT ekranından kesebilirsin.</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         echo '<input type="hidden" name="action" value="moxdop_ai_authorize">';
         wp_nonce_field('moxdop_ai_authorize');
@@ -1088,12 +1088,12 @@ final class MoxDOP_Connector_AI
         }
         $notice = isset($_GET['moxdop_notice']) ? sanitize_key(wp_unslash($_GET['moxdop_notice'])) : '';
         $access = self::access();
-        echo '<div class="wrap"><h1>Claude / ChatGPT bağlantısı</h1>';
+        MoxDOP_Connector_Admin_UI::open(self::PAGE, '<mark>Claude</mark> ve ChatGPT bağlantısı', '', true);
         if ($notice !== '') {
             $messages = ['saved' => 'Kaydedildi.', 'revoked' => 'Bağlantı kesildi.', 'undone' => 'Değişiklik geri alındı.', 'changed' => 'Değer sonradan sitede değiştirilmiş; geri alınmadı.', 'failed' => 'Geri alınamadı.'];
             echo '<div class="notice notice-'.(in_array($notice, ['changed', 'failed'], true) ? 'warning' : 'success').' is-dismissible"><p>'.esc_html($messages[$notice] ?? $notice).'</p></div>';
         }
-        echo '<p style="max-width:760px">Bu siteyi Claude ya da ChatGPT\'ye doğrudan bağlar: yazıları okur, taslak yazar, seçtiğin yetkiye göre SEO alanlarını ve içeriği düzenler. Hiçbir şey yayınlanmaz ya da silinmez, tema ve eklenti dosyalarına dokunulmaz, sayfa oluşturucuyla (Elementor vb.) yapılmış sayfaların içeriği değiştirilmez. Her değişiklik aşağıda listelenir ve geri alınabilir.</p>';
+        echo '<p class="mxa-help">Bu siteyi Claude ya da ChatGPT\'ye doğrudan bağlar: yazıları okur, taslak yazar, seçtiğin yetkiye göre SEO alanlarını ve içeriği düzenler. Hiçbir şey yayınlanmaz ya da silinmez, tema ve eklenti dosyalarına dokunulmaz, sayfa oluşturucuyla (Elementor vb.) yapılmış sayfaların içeriği değiştirilmez. Her değişiklik aşağıda listelenir ve geri alınabilir.</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="moxdop_ai_settings">';
         wp_nonce_field('moxdop_ai_settings');
         echo '<h2>Yetki</h2><fieldset>';
@@ -1147,7 +1147,7 @@ final class MoxDOP_Connector_AI
             }
             echo '</tbody></table>';
         }
-        echo '</div>';
+        MoxDOP_Connector_Admin_UI::close(true);
     }
 
     public function save_settings()
@@ -1197,7 +1197,7 @@ final class MoxDOP_Connector_AI
 
     private function back($notice)
     {
-        wp_safe_redirect(add_query_arg('moxdop_notice', $notice, admin_url('options-general.php?page='.self::PAGE)));
+        wp_safe_redirect(add_query_arg('moxdop_notice', $notice, MoxDOP_Connector_Admin_UI::url(self::PAGE)));
         exit;
     }
 }

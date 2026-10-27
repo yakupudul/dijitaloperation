@@ -96,7 +96,10 @@ final class SiteShowcase
         foreach ($targets as $target) {
             $qa[$target['key']] = $this->items($siteId, $target['key']);
         }
-        $result = $this->client->showcaseApply($connection, ['enabled' => true, 'reviews' => $this->reviews($brand), 'qa' => (object) $qa]);
+        // 1.29.0: visitor questions taken off in MoxDOP stay off the site even when they were answered there by hand.
+        $hidden = SiteQuestion::query()->where('website_asset_id', $siteId)->where('status', SiteQuestion::HIDDEN)->whereNotNull('local_id')
+            ->latest('id')->limit(500)->pluck('local_id')->map(fn ($id): int => (int) $id)->all();
+        $result = $this->client->showcaseApply($connection, ['enabled' => true, 'reviews' => $this->reviews($brand), 'qa' => (object) $qa, 'qa_hidden' => $hidden]);
 
         return ['sent' => true, 'result' => $result, 'targets' => $targets];
     }
