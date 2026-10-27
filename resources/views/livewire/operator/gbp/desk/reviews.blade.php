@@ -261,6 +261,9 @@
                                     <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $review['reviewer'] }}</span>
                                     <span class="text-[13px] tracking-[0.06em]" aria-label="{{ $review['rating'] }} yıldız">@if ($review['rating'] !== null)<span @class(['text-warning-500 dark:text-warning-400' => $low, 'text-gray-700 dark:text-gray-300' => ! $low])>{{ str_repeat('★', $review['rating']) }}</span><span class="text-gray-300 dark:text-gray-600">{{ str_repeat('★', 5 - $review['rating']) }}</span>@else<span class="text-gray-400">—</span>@endif</span>
                                     <span class="text-[13px] tabular-nums text-gray-500">{{ $review['date'] }}</span>
+                                    @if ($canWrite && ($review['rating'] ?? 0) >= 4 && $review['comment'] !== '')
+                                        <button type="button" wire:click="toggleSiteHidden({{ $review['id'] }})" title="Markada 'Sitede yorum ve soru göster' açıksa bu yorum sitelerde gösterilir" @class(['text-[13px] hover:underline', 'font-medium text-warning-700 dark:text-warning-400' => $review['site_hidden'], 'text-gray-400' => ! $review['site_hidden']]) data-site-hidden="{{ $review['site_hidden'] ? '1' : '0' }}">{{ $review['site_hidden'] ? 'Sitede gizli · göster' : 'Sitede gizle' }}</button>
+                                    @endif
                                     <span class="ml-auto shrink-0 text-[13px]">
                                         @if ($review['answered'])
                                             <x-ta.pill tone="ok">Yanıtlandı</x-ta.pill>

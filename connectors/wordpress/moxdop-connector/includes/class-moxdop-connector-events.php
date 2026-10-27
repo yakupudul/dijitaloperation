@@ -295,6 +295,34 @@ final class MoxDOP_Connector_Events
         ];
     }
 
+    /**
+     * 1.28.0: a visitor's question (Sorular ve yorumlar) goes to MoxDOP at once, without the name, e-mail or phone the
+     * visitor left (those stay on the site). The outbox delivers it like any other event.
+     */
+    public static function question($local_id, $target, $title, $url, $text)
+    {
+        global $wpdb;
+        if (! get_option(MoxDOP_Connector_Secrets::OPTION) || get_option('moxdop_connector_outbox_version') !== '1') {
+            return;
+        }
+        $event = [
+            'event_id' => wp_generate_uuid4(), 'type' => 'qa.asked', 'occurred_at' => gmdate('c'),
+            'object_type' => 'moxdop_question', 'object_id' => (string) (int) $local_id,
+            'title' => mb_substr(wp_strip_all_tags((string) $title), 0, 200), 'url' => substr((string) $url, 0, 2048),
+            'actor_id' => '0', 'actor_name' => '', 'origin' => 'wordpress_automation', 'fields' => ['question'],
+            'target' => substr((string) $target, 0, 64), 'question' => mb_substr((string) $text, 0, 2000),
+        ];
+        if ($wpdb->insert($wpdb->prefix.'moxdop_outbox', ['event_id' => $event['event_id'], 'payload' => wp_json_encode($event), 'created_at' => gmdate('Y-m-d H:i:s')]) === false) {
+            update_option('moxdop_connector_events_gap_at', gmdate('c'), false);
+
+            return;
+        }
+        update_option(self::WAITING_OPTION, time(), true);
+        if (! wp_next_scheduled(self::NOW_HOOK)) {
+            wp_schedule_single_event(time() + 5, self::NOW_HOOK);
+        }
+    }
+
     public function persist()
     {
         global $wpdb;

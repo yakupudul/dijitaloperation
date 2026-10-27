@@ -112,6 +112,7 @@ final class MoxDOP_Connector_REST_Controller
         (new MoxDOP_Connector_Posts($this->auth))->register_routes(self::NAMESPACE);
         // 1.26.0: MoxDOP uses the Claude / ChatGPT tools within the level the site admin chose.
         (new MoxDOP_Connector_AI)->register_signed_routes(self::NAMESPACE, $this->auth);
+        (new MoxDOP_Connector_Showcase)->register_signed_routes(self::NAMESPACE, $this->auth);
     }
 
     /** Wraps a plain result in the signed envelope; errors pass through unchanged. */

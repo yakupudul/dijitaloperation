@@ -25,6 +25,7 @@ use App\Jobs\ReviewRepairRowsJob;
 use App\Jobs\Site\PrepareTranslationFixJob;
 use App\Jobs\Site\PullClarityJob;
 use App\Jobs\Site\SyncContentPostsJob;
+use App\Jobs\Site\SyncSiteShowcaseJob;
 use App\Models\AiLiveOperation;
 use App\Models\AiTask;
 use App\Models\Brand;
@@ -90,6 +91,8 @@ use App\Services\Site\ContentPosts;
 use App\Services\Site\ContentTopics;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
+use App\Services\Site\Showcase\SiteQuestions;
+use App\Services\Site\Showcase\SiteShowcase;
 use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
@@ -1661,3 +1664,25 @@ Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
 // A backup extraction cut off without its failure hook (worker killed, server restarted) is started again.
 Schedule::call(fn () => app(WhatsAppBackupImporter::class)->recoverStalled())
     ->everyFiveMinutes()->name('whatsapp-backup-watchdog')->withoutOverlapping(10);
+
+// Sorular ve yorumlar: every site of a brand with "Sitede yorum ve soru göster" on gets the day's Google reviews and its
+// published questions; assigned pages with room get their questions asked; visitor questions whose answer could not be
+// written are asked again.
+Artisan::command('moxdop:showcase:daily', function (): void {
+    $showcase = app(SiteShowcase::class);
+    $sites = 0;
+    Brand::query()->where('showcase_enabled', true)->orderBy('id')->each(function (Brand $brand) use ($showcase, &$sites): void {
+        foreach ($showcase->siteIds($brand) as $siteId) {
+            SyncSiteShowcaseJob::dispatch($siteId);
+            $sites++;
+        }
+    });
+    $retried = app(SiteQuestions::class)->retry();
+    $this->info($sites.' site sıraya alındı · '.$retried.' soru yeniden soruldu.');
+})->purpose('Send reviews and questions to the sites of brands with the showcase on.');
+
+Schedule::command('moxdop:showcase:daily')
+    ->dailyAt('05:20')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->name('showcase-daily');

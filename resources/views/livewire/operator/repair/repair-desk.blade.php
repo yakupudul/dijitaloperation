@@ -13,7 +13,8 @@
         RepairDesk::LANE_REVIEW => 'Birleştirme, sayfa metni, teknik düzeltme gibi işler. Eski ve yeni yan yana, değişen kelimeler renkli. Sayfa metni tek tek onaylanır.',
         RepairDesk::LANE_MANUAL => 'Sistemin henüz yapamadığı işler. "Yaptım" deyince bir hafta gizlenir; gece denetimi sorun kalmadıysa kapatır.',
     ];
-    $editLabel = ['seo_title' => 'Başlığı düzelt', 'meta_description' => 'Açıklamayı düzelt', 'description' => 'Metni düzelt'];
+    $editLabel = ['seo_title' => 'Başlığı düzelt', 'meta_description' => 'Açıklamayı düzelt', 'description' => 'Metni düzelt', 'question' => 'Soruyu düzelt', 'answer' => 'Cevabı düzelt'];
+    $editPrefix = ['seo_title' => 'Başlık: ', 'meta_description' => 'Açıklama: ', 'question' => 'Soru: ', 'answer' => 'Cevap: '];
     $words = function (array $parts, string $tone): string {
         return collect($parts)->map(fn (array $p): string => $p[1] ? '<mark class="rounded px-0.5 '.$tone.'">'.e($p[0]).'</mark>' : e($p[0]))->implode('');
     };
@@ -250,7 +251,7 @@
                                                     @if ($isAdmin && $row['editable'] !== [])
                                                         <p class="flex flex-wrap gap-3">
                                                             @foreach ($row['editable'] as $field)
-                                                                <button type="button" wire:click="startEdit({{ $row['id'] }}, '{{ $field }}', @js((string) ($field === 'description' ? ($row['after'][0] ?? '') : \Illuminate\Support\Str::after(collect($row['after'])->first(fn ($l) => str_starts_with($l, $field === 'seo_title' ? 'Başlık: ' : 'Açıklama: ')) ?? '', ': '))))" class="font-medium text-gray-700 hover:underline dark:text-gray-300">{{ $editLabel[$field] ?? 'Düzelt' }}</button>
+                                                                <button type="button" wire:click="startEdit({{ $row['id'] }}, '{{ $field }}', @js((string) ($field === 'description' ? ($row['after'][0] ?? '') : \Illuminate\Support\Str::after(collect($row['after'])->first(fn ($l) => str_starts_with($l, $editPrefix[$field] ?? 'Açıklama: ')) ?? '', ': '))))" class="font-medium text-gray-700 hover:underline dark:text-gray-300">{{ $editLabel[$field] ?? 'Düzelt' }}</button>
                                                             @endforeach
                                                         </p>
                                                     @endif

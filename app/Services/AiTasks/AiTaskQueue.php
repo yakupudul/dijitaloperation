@@ -83,6 +83,8 @@ final class AiTaskQueue
         AiRouteKeys::GBP_POST_FROM_PAGE,
         AiRouteKeys::GBP_SERVICES_COMPARE,
         AiRouteKeys::GBP_REVIEW_REPLY,
+        AiRouteKeys::SITE_QA_ANSWER,
+        AiRouteKeys::SITE_QA_WRITE,
         AiRouteKeys::GOOGLE_ADS_AD_TEXTS,
         AiRouteKeys::GOOGLE_ADS_SEARCH_TERMS,
         AiRouteKeys::GOOGLE_ADS_STRUCTURE,

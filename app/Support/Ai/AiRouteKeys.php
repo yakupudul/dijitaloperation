@@ -59,6 +59,12 @@ final class AiRouteKeys
 
     public const string GBP_REVIEW_REPLY = 'gbp.review_reply';
 
+    /** Sorular ve yorumlar (2026-10-27): a visitor's question on the site → verdict, cleaned question, short answer. */
+    public const string SITE_QA_ANSWER = 'site.qa_answer';
+
+    /** Sorular ve yorumlar: a page's decision questions from its search demand and topic map, with short answers. */
+    public const string SITE_QA_WRITE = 'site.qa_write';
+
     /** Faz 7: brand offerings vs Business Profile categories / services → missing services + category notes (one call). */
     public const string GBP_SERVICES_COMPARE = 'gbp.services_compare';
 

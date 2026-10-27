@@ -17,6 +17,6 @@ class GbpReview extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['reviewer' => 'array', 'review_reply' => 'array', 'raw_payload' => 'array', 'create_time' => 'datetime', 'update_time' => 'datetime', 'collected_at' => 'datetime'];
+        return ['reviewer' => 'array', 'review_reply' => 'array', 'raw_payload' => 'array', 'create_time' => 'datetime', 'update_time' => 'datetime', 'collected_at' => 'datetime', 'site_hidden' => 'boolean'];
     }
 }

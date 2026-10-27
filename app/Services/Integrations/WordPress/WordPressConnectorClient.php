@@ -290,6 +290,29 @@ final class WordPressConnectorClient
     }
 
     /**
+     * 1.28.0 Sorular ve yorumlar: whether the brand switch reached the site and the pages the site admin assigned
+     * (key "post:12" / "term:4", title, url, qa_url = the page's question page, published = questions on it).
+     *
+     * @return array<string, mixed>
+     */
+    public function showcaseState(CoreConnection $connection): array
+    {
+        return $this->get($connection, null, '/moxdop/v1/showcase', [], 60);
+    }
+
+    /**
+     * 1.28.0: the brand switch (`enabled`), the Google reviews (`reviews`) and the published questions per page
+     * (`qa`, page key => list); `enabled` = false removes them from the site.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function showcaseApply(CoreConnection $connection, array $data): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/showcase', $data, 120);
+    }
+
+    /**
      * 1.4.1: the plugin downloads the ZIP from the signed link, checks its SHA-256 and installs over itself.
      *
      * @return array<string, mixed>

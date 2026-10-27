@@ -9,6 +9,7 @@ use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsChecks;
 use App\Services\Repair\RepairDesk;
 use App\Services\Repair\WebHealthAudit;
+use App\Services\Site\Showcase\SiteQuestions;
 use App\Services\Site\SiteSuggestionTypes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -150,6 +151,7 @@ final class OpenWork
             $type === 'brand_gap' => 'Kurulum eksiği',
             $type === 'brand_audit' => 'Şef denetimi',
             $type === BrandDataAudit::TYPE => RepairDesk::KINDS[RepairDesk::BRAND_DATA],
+            $type === SiteQuestions::TYPE => RepairDesk::KINDS[RepairDesk::SITE_QA],
             $type === 'ads_negative' => RepairDesk::KINDS[RepairDesk::ADS_NEGATIVE],
             $type === 'gbp_description' => RepairDesk::KINDS[RepairDesk::GBP_DESCRIPTION],
             $type === GoogleAdsChanges::TYPE => RepairDesk::KINDS[RepairDesk::ADS_CHANGE],

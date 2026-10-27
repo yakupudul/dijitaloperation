@@ -23,7 +23,7 @@ use Illuminate\Support\Collection;
  */
 final class RepairAutopilot
 {
-    public const array KINDS = [RepairDesk::SITE_FIELDS, RepairDesk::IMAGE_ALT, RepairDesk::GBP_DESCRIPTION, RepairDesk::GBP_FIELDS, RepairDesk::WEB_FIX, RepairDesk::BRAND_DATA];
+    public const array KINDS = [RepairDesk::SITE_FIELDS, RepairDesk::IMAGE_ALT, RepairDesk::GBP_DESCRIPTION, RepairDesk::GBP_FIELDS, RepairDesk::WEB_FIX, RepairDesk::BRAND_DATA, RepairDesk::SITE_QA];
 
     public const string KEY = 'repair_review';
 

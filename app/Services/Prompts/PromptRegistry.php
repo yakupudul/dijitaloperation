@@ -29,7 +29,7 @@ final class PromptRegistry
     /** Operations that write for a brand from its epikriz, and those that check what was written against it. */
     public const array EPICRISIS_WRITERS = [
         AiRouteKeys::SITE_WRITE_ARTICLE, AiRouteKeys::SITE_WEEKLY_CONTENT, AiRouteKeys::CONTENT_BRIEF, AiRouteKeys::CONTENT_TOPIC_MAP, AiRouteKeys::GBP_POST_QUEUE,
-        AiRouteKeys::GBP_BRANCH_PAGE, AiRouteKeys::GBP_REVIEW_REPLY, AiRouteKeys::GBP_DESCRIPTION, AiRouteKeys::GBP_POST_FROM_PAGE, AiRouteKeys::GBP_PROFILE_PLAN,
+        AiRouteKeys::GBP_BRANCH_PAGE, AiRouteKeys::GBP_REVIEW_REPLY, AiRouteKeys::SITE_QA_ANSWER, AiRouteKeys::SITE_QA_WRITE, AiRouteKeys::GBP_DESCRIPTION, AiRouteKeys::GBP_POST_FROM_PAGE, AiRouteKeys::GBP_PROFILE_PLAN,
         AiRouteKeys::GOOGLE_ADS_AD_TEXTS, AiRouteKeys::GOOGLE_ADS_STRUCTURE, AiRouteKeys::META_CREATIVES, AiRouteKeys::META_STRATEGY_PLAN,
     ];
 

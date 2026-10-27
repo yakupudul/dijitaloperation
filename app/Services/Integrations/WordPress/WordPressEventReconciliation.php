@@ -140,7 +140,8 @@ final class WordPressEventReconciliation
             } catch (Throwable $error) {
                 report($error);
             }
-            $events = $events->reject(fn ($event): bool => WordPressPageSync::isTemplateChange($event))->values();
+            // A visitor's question (Sorular ve yorumlar, 1.28.0) changes no page: never a reason for a refresh.
+            $events = $events->reject(fn ($event): bool => WordPressPageSync::isTemplateChange($event) || $event->type === 'qa.asked')->values();
             $watermarkId = (int) (DB::table('website_connector_events')->where('connection_id', $connection->id)
                 ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->pluck('id')->max() ?? $state->reconciled_event_id);
             if (! $full && ($events->isEmpty() || $events->every(fn ($event) => $event->type === 'access.role_changed'))) {

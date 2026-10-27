@@ -224,7 +224,7 @@ final class ReviewDesk
                 ->orWhereRaw('lower(cast(reviewer as text)) like ?', ['%'.$search.'%'])));
         $total = (clone $query)->count();
         $rows = $query->when($sort === 'eski', fn ($q) => $q->orderBy('create_time'), fn ($q) => $q->orderByDesc('create_time'))->orderBy('id')
-            ->limit($limit)->get(['id', 'external_resource_id', 'reviewer', 'star_rating', 'comment', 'create_time', 'review_reply']);
+            ->limit($limit)->get(['id', 'external_resource_id', 'reviewer', 'star_rating', 'comment', 'create_time', 'review_reply', 'site_hidden']);
         $ids = $rows->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $drafts = $ids === [] ? collect() : AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->whereIn('subject_id', $ids)
             ->where('status', '!=', AiProduction::STATUS_DISCARDED)->orderBy('version')->get()->keyBy('subject_id');
@@ -256,6 +256,8 @@ final class ReviewDesk
                 'draft' => $drafts->has((int) $row->id) ? (string) data_get($drafts[(int) $row->id]->content, 'reply') : null,
                 'draft_state' => $answered ? null : ($states[(int) $row->id] ?? null),
                 'action' => $actions[(int) $row->id] ?? null,
+                // Sorular ve yorumlar: left out of what goes to the brand's sites.
+                'site_hidden' => (bool) ($row->site_hidden ?? false),
             ];
         })->values()->all();
 

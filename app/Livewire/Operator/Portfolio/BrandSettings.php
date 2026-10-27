@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Portfolio;
 
 use App\Enums\OfferingStatus;
 use App\Jobs\ExtractBrandServicesJob;
+use App\Jobs\Site\SyncSiteShowcaseJob;
 use App\Livewire\Concerns\AdminOnly;
 use App\Models\Brand;
 use App\Models\BrandOffering;
@@ -13,11 +14,13 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\ServiceCategory;
+use App\Models\SiteQuestion;
 use App\Models\User;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Catalog\BrandCommercialContextService;
 use App\Services\Compliance\ForbiddenTermsLibrary;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
@@ -27,6 +30,8 @@ use App\Services\Ownership\OwnershipTransferService;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Portfolio\BrandServiceExtractor;
 use App\Services\Portfolio\UnassignedWebsites;
+use App\Services\Site\Showcase\SiteQuestions;
+use App\Services\Site\Showcase\SiteShowcase;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
@@ -40,7 +45,8 @@ use Throwable;
 /**
  * Marka › Ayarlar › Marka bilgileri (`part` = info): sector (the brand's one sector; assets inherit it), service areas
  * (one list, "fiziksel şube"), services — the one place they are edited: ★ = ana (`priority = main`), add, remove, the
- * hub page each is mapped to, "Sayfalardan hizmet çıkar" and its proposals — and the brand's forbidden phrases.
+ * hub page each is mapped to, "Sayfalardan hizmet çıkar" and its proposals — the brand's forbidden phrases and
+ * "Sitede yorum ve soru göster" (Sorular ve yorumlar: Google reviews and page questions on the brand's WordPress sites).
  * Dijital varlıklar (`part` = assets): the brand's assets with bind / unbind / move through the ownership guard and the
  * transfer service. Goals and constraints are edited once, in İş bağlamı (BrandShow).
  */
@@ -244,6 +250,29 @@ final class BrandSettings extends Component
         $this->message = 'Markaya özel yasaklı ifadeler kaydedildi.';
     }
 
+    /** Sorular ve yorumlar on / off: every paired site gets it (or loses it) on the next write. */
+    public function toggleShowcase(SiteShowcase $showcase): void
+    {
+        $this->admin();
+        $brand = $this->brand();
+        $brand->forceFill(['showcase_enabled' => ! $brand->showcase_enabled])->save();
+        $sites = $showcase->connections($brand)->filter(fn ($c): bool => SiteShowcase::supports($c));
+        foreach ($sites as $connection) {
+            SyncSiteShowcaseJob::dispatch((int) $connection->digital_asset_id);
+        }
+        $this->message = $brand->showcase_enabled
+            ? 'Açıldı: yorumlar ve onaylanan sorular '.$sites->count().' siteye gidiyor. Sayfaları eklentinin Ayarlar › Sorular ve yorumlar ekranında seç.'
+            : 'Kapatıldı: yorumlar ve sorular sitelerden kaldırılıyor.';
+    }
+
+    /** Kaldır: a published question leaves the site. */
+    public function unpublishQuestion(int $questionId, SiteQuestions $questions): void
+    {
+        $this->admin();
+        $questions->unpublish($this->brandId, $questionId);
+        $this->message = 'Soru siteden kaldırılıyor.';
+    }
+
     public function bind(OwnershipGuard $guard, UnassignedWebsites $websites): void
     {
         $actor = $this->admin();
@@ -307,7 +336,7 @@ final class BrandSettings extends Component
         }
     }
 
-    public function render(BrandAccountCandidates $candidates, UnassignedWebsites $websites): View
+    public function render(BrandAccountCandidates $candidates, UnassignedWebsites $websites, SiteShowcase $showcase): View
     {
         $brand = $this->brand();
         $assets = $brand->digitalAssets()->orderBy('type')->orderBy('name')->get();
@@ -336,7 +365,29 @@ final class BrandSettings extends Component
                 ->merge($websites->list()->mapWithKeys(fn (DigitalAsset $s): array => ['w:'.$s->id => 'Web sitesi · '.$s->domain]))->all() : [],
             'brands' => $isAdmin ? Brand::query()->whereKeyNot($brand->id)->orderBy('name')->pluck('name', 'id')->all() : [],
             'isAdmin' => $isAdmin,
+            'showcase' => $this->part === 'info' ? $this->showcase($brand, $showcase) : null,
         ]);
+    }
+
+    /**
+     * Sorular ve yorumlar: the switch, the paired sites (connector version), the reviews that go and the questions.
+     *
+     * @return array<string, mixed>
+     */
+    private function showcase(Brand $brand, SiteShowcase $showcase): array
+    {
+        $sites = $showcase->connections($brand)->map(fn ($c): array => ['id' => (int) $c->digital_asset_id, 'name' => (string) ($c->digitalAsset?->domain ?: $c->digitalAsset?->name),
+            'version' => (string) data_get($c->config, 'plugin_version', '?'), 'ok' => SiteShowcase::supports($c)])->values()->all();
+        $questions = SiteQuestion::query()->where('brand_id', $brand->id);
+        $health = collect(app(SectorPackRegistry::class)->forBrand($brand))->contains(fn ($pack): bool => $pack->id() === 'health');
+
+        return [
+            'on' => (bool) $brand->showcase_enabled, 'sites' => $sites, 'health' => $health,
+            'reviews' => $brand->showcase_enabled ? count($showcase->reviews($brand)['items']) : null,
+            'waiting' => (clone $questions)->where('status', SiteQuestion::READY)->count(),
+            'published' => (clone $questions)->where('status', SiteQuestion::PUBLISHED)->orderByDesc('published_at')->limit(30)->get(['id', 'question', 'target_title', 'target_url', 'source']),
+            'publishedCount' => (clone $questions)->where('status', SiteQuestion::PUBLISHED)->count(),
+        ];
     }
 
     private function brand(): Brand

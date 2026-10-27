@@ -48,6 +48,22 @@ final class AdvisorServiceProvider extends ServiceProvider
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SITE_QA_ANSWER,
+            'name' => 'Site Question Answer',
+            'module' => 'advisor',
+            'description' => 'Sorular ve yorumlar: a question a visitor asked on the brand\'s site (name and contact never sent) is sorted (publish, private, spam), cleaned of personal details and answered in 1–3 sentences from the brand\'s verified record. Waits on the Onarım masası; nothing reaches the site without approval.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SITE_QA_WRITE,
+            'name' => 'Site Questions From Demand',
+            'module' => 'advisor',
+            'description' => 'Sorular ve yorumlar: for an assigned page, the decision questions people ask before buying its service (the page\'s search queries and the site\'s topic map) with short answers from the brand\'s verified record. Wait on the Onarım masası.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::GBP_SERVICES_COMPARE,
             'name' => 'Business Profile Services Compare',
             'module' => 'gbp',

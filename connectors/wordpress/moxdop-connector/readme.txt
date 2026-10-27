@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.27.0
+Stable tag: 1.28.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,13 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.28.0 =
+* Sorular ve yorumlar (Settings › Sorular ve yorumlar): choose pages, post types and taxonomies; each gets a question page at <page>/sorular/ (a real post, so SEO plugins, sitemaps and Polylang see it; noindex until 3 answered questions).
+* Elementor widget "MoxDOP Sizden gelenler" (questions, Google reviews or the rating badge) and shortcodes [moxdop_sorular], [moxdop_yorumlar], [moxdop_yorumlar gorunum="rozet"]. Nothing is inserted into pages automatically.
+* Ask form: honeypot, 3-second minimum, 3 questions an hour per visitor, no links. Questions are kept under WordPress › Sorular, mailed to the chosen address through the site's own mail settings and sent to MoxDOP without the visitor's name or contact. The asker sees the question in their own browser until it is answered and gets an e-mail then.
+* "İşe yaradı mı?" anonymous votes; the most helpful answers come first.
+* MoxDOP sends the published questions and the brand's Google reviews (signed GET/POST /showcase); switching the brand off removes them, removing the plugin removes everything.
 
 = 1.27.0 =
 * Claude / ChatGPT connection, "Tam yetki" level: publishing and scheduling (Akıllı tarih days too), trash (undoable, never a permanent delete), the site builder's operations (pages, posts, custom posts, ACF, Elementor pages and templates, media, menus, site and Elementor kit settings), technical SEO (301, noindex, canonical, schema, llms.txt), plugins from the WordPress.org directory only (search, install, activate, deactivate, update), theme and core updates, plugin settings (secrets masked; a few options that could lock the site refused), ready professional setups (Rank Math, Yoast, LiteSpeed Cache, Autoptimize, Cache Enabler), setup guides, cache purge and a site check.

@@ -36,6 +36,7 @@ final class KomutaReader
         RepairDesk::GBP_DESCRIPTION => 'İşletme profili açıklamaları',
         RepairDesk::GBP_FIELDS => 'İşletme profili bilgileri',
         RepairDesk::BRAND_DATA => 'Marka bilgisi düzeltmeleri',
+        RepairDesk::SITE_QA => 'Sitedeki sorular ve cevapları',
     ];
 
     /** Group icon family (the Akış icons). */

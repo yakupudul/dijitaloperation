@@ -21,6 +21,7 @@ use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ImageAlts;
+use App\Services\Site\Showcase\SiteQuestions;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\PageTraffic;
 use App\Services\Work\WorkBatches;
@@ -70,6 +71,9 @@ final class RepairDesk
 
     public const string BRAND_DATA = 'brand_data';
 
+    /** Sorular ve yorumlar: a question with its answer for an assigned page of a site (SiteQuestions). */
+    public const string SITE_QA = 'site_qa';
+
     public const array KINDS = [
         self::SITE_FIELDS => 'Başlık, açıklama, iç link, schema',
         self::SITE_CONTENT => 'Sayfa metni',
@@ -82,6 +86,7 @@ final class RepairDesk
         self::WEB_FIX => 'Site teknik düzeltmesi',
         self::WEB_TASK => 'Senin yapacağın (sitede elle)',
         self::BRAND_DATA => 'Marka bilgisi (yer ve hizmet)',
+        self::SITE_QA => 'Sitedeki soru-cevap',
     ];
 
     public const string LOW = 'low';
@@ -769,6 +774,7 @@ final class RepairDesk
                         self::WEB_FIX => app(WebHealthAudit::class)->send($user, $suggestion),
                         self::WEB_TASK => app(WebHealthAudit::class)->markDone($user, $suggestion),
                         self::BRAND_DATA => app(BrandDataAudit::class)->apply($user, $suggestion),
+                        self::SITE_QA => app(SiteQuestions::class)->approve($suggestion, $user),
                     };
                     $result['applied']++;
                 } catch (Throwable $error) {
@@ -928,6 +934,7 @@ final class RepairDesk
     {
         $ids = $this->rows()->whereIn('id', array_map('intval', $ids))->pluck('id')->all();
         self::forgetSummary();
+        SiteQuestions::dismissed(array_map('intval', $ids));
 
         return Suggestion::query()->whereIn('id', $ids)->update([
             'status' => Suggestion::DISMISSED, 'resolved_by' => $user->id, 'resolved_at' => now(),
@@ -952,6 +959,8 @@ final class RepairDesk
         $action = (array) $suggestion->action;
         if ($row['kind'] === self::GBP_DESCRIPTION) {
             $action['proposed'] = mb_substr($value, 0, 750);
+        } elseif ($row['kind'] === self::SITE_QA) {
+            $action[$field] = mb_substr(preg_replace('/\s+/u', ' ', strip_tags($value)) ?? '', 0, $field === 'question' ? 200 : 1200);
         } else {
             data_set($action, 'proposal.new.'.$field, $value);
         }
@@ -978,6 +987,7 @@ final class RepairDesk
             $base()->where('channel', GoogleAdsSuggestions::CHANNEL)->where('action_type', GoogleAdsChanges::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', WebHealthAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
             $base()->where('action_type', BrandDataAudit::TYPE)->where('status', '!=', Suggestion::APPROVED),
+            $base()->where('action_type', SiteQuestions::TYPE)->where('status', '!=', Suggestion::APPROVED),
         ]);
         $this->overflow = [];
         $this->queryOf = [];
@@ -1067,6 +1077,11 @@ final class RepairDesk
             BrandDataAudit::TYPE => filled($action['op'] ?? null) ? $base + ['kind' => self::BRAND_DATA,
                 'risk' => in_array($action['risk'] ?? null, [self::LOW, self::MEDIUM], true) ? $action['risk'] : self::MEDIUM,
                 'target' => 'Marka › Ayarlar', 'before' => [(string) ($action['before'] ?? '—')], 'after' => [(string) ($action['after'] ?? '')]] : null,
+            SiteQuestions::TYPE => filled($action['answer'] ?? null) ? $base + ['kind' => self::SITE_QA, 'risk' => self::MEDIUM,
+                'target' => (string) ($action['target_url'] ?? ''), 'before' => [],
+                'after' => array_values(array_filter(['Soru: '.($action['question'] ?? ''), 'Cevap: '.$action['answer'],
+                    filled($action['link_url'] ?? null) ? 'Ayrıntılı bilgi: '.$action['link_url'] : null])),
+                'editable' => ['question', 'answer'], 'asset_id' => isset($action['site_id']) ? (int) $action['site_id'] : null] : null,
             default => $this->siteRow($s, $base, $action),
         };
 

@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Operator\Gbp\Desk;
 
+use App\Jobs\Site\SyncSiteShowcaseJob;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
+use App\Models\GbpReview;
 use App\Models\GbpReviewApproval;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Gbp\Desk\GbpDesk;
@@ -12,6 +14,7 @@ use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
+use App\Services\Site\Showcase\SiteShowcase;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -244,6 +247,22 @@ final class ReviewsPage extends Component
         abort_unless($this->canWrite(), 403);
         $flags->close($reviewId, $status);
         $this->flagging = null;
+    }
+
+    /** Sorular ve yorumlar: "Sitede gizle / göster" (the brand's sites get the change on the next write). */
+    public function toggleSiteHidden(int $reviewId, ReviewDesk $desk): void
+    {
+        abort_unless($this->canWrite(), 403);
+        $review = collect($this->reviews($desk))->firstWhere('id', $reviewId) ?? abort(404);
+        $hidden = ! $review['site_hidden'];
+        GbpReview::query()->whereKey($reviewId)->update(['site_hidden' => $hidden]);
+        $brand = DigitalAsset::query()->find((int) $review['asset_id'])?->brand;
+        if ($brand !== null && $brand->showcase_enabled) {
+            foreach (app(SiteShowcase::class)->siteIds($brand) as $siteId) {
+                SyncSiteShowcaseJob::dispatch($siteId);
+            }
+        }
+        $this->say($hidden ? 'Yorum sitelerde gösterilmeyecek.' : 'Yorum sitelerde gösterilebilir.');
     }
 
     public function setStatus(string $status): void

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Models\CoreConnection;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Site\ContentPosts;
+use App\Services\Site\Showcase\SiteQuestions;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -45,13 +46,15 @@ final class WordPressConnectorEventsController
             'installation_id' => ['required', Rule::in([$installation])],
             'plugin_version' => ['required', 'string', 'max:32'],
             'events' => ['present', 'array', 'max:50'],
-            'events.*' => ['array:event_id,type,occurred_at,object_type,object_id,title,url,actor_id,actor_name,origin,fields,post_state'],
+            'events.*' => ['array:event_id,type,occurred_at,object_type,object_id,title,url,actor_id,actor_name,origin,fields,post_state,target,question'],
             'events.*.event_id' => ['required', 'uuid', 'distinct'],
             'events.*.type' => ['required', Rule::in([
                 'content.created', 'content.updated', 'content.published', 'content.trashed',
                 'content.unpublished', 'content.deleted', 'content.fields_updated', 'seo.updated',
                 'settings.updated', 'maintenance.update_completed', 'maintenance.update_failed',
                 'maintenance.activated', 'maintenance.deactivated', 'maintenance.theme_changed', 'access.role_changed',
+                // 1.28.0: a visitor's question (Sorular ve yorumlar), without the visitor's name or contact.
+                'qa.asked',
             ])],
             'events.*.occurred_at' => ['required', 'date', 'before_or_equal:'.now()->addMinutes(5)->toIso8601String()],
             'events.*.object_type' => ['required', 'string', 'max:64'],
@@ -70,6 +73,8 @@ final class WordPressConnectorEventsController
             'events.*.post_state.date_gmt' => ['nullable', 'date'],
             'events.*.post_state.link' => ['nullable', 'string', 'max:2048'],
             'events.*.post_state.featured_media_id' => ['nullable', 'integer', 'min:0'],
+            'events.*.target' => ['nullable', 'string', 'max:64'],
+            'events.*.question' => ['nullable', 'string', 'max:2000'],
             'delivery' => ['required', 'array'],
             'delivery.pending' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'delivery.gap_at' => ['nullable', 'date'],
@@ -118,6 +123,7 @@ final class WordPressConnectorEventsController
             // A MoxDOP post published / moved to draft / trashed on the site moves between Taslakta and Yayında at once, and
             // the page data refresh starts on the next minute's tick instead of waiting (a site in its error pause waits).
             ContentPosts::applyEvents((int) $connection->digital_asset_id, $stored);
+            app(SiteQuestions::class)->fromEvents((int) $connection->digital_asset_id, $stored);
             if (collect($stored)->contains(fn (array $event): bool => str_starts_with($event['type'], 'content.') || str_starts_with($event['type'], 'seo.') || $event['type'] === 'settings.updated')) {
                 DB::table('website_connector_delivery')->where('connection_id', $connection->id)->whereNull('collection_run_id')
                     ->where(fn ($q) => $q->whereNull('next_reconcile_at')->orWhere('next_reconcile_at', '<=', now()->addMinutes(15)))

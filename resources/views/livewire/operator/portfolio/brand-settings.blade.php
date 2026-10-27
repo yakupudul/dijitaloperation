@@ -146,6 +146,54 @@
                 <button type="button" wire:click="saveForbidden" class="btn mt-2">Kaydet</button>
             </div>
         </section>
+
+        {{-- Sorular ve yorumlar: Google reviews and the questions of assigned pages on the brand's WordPress sites --}}
+        <section data-section="showcase">
+            <div class="section-head">
+                <h2 class="section-title">Sitede yorum ve soru göster</h2>
+                @if ($isAdmin)
+                    <button type="button" wire:click="toggleShowcase" @if ($showcase['on']) wire:confirm="Kapatılsın mı? Yorumlar ve sorular sitelerden kaldırılır." @endif
+                        @class(['ml-auto', 'btn' => $showcase['on'], 'btn-dark' => ! $showcase['on']]) data-showcase-toggle>{{ $showcase['on'] ? 'Kapat' : 'Aç' }}</button>
+                @endif
+            </div>
+            <p class="-mt-1 mb-3 text-[13px] text-gray-500">Açıkken Google yorumları (4–5 yıldızlı, fiyat ve iletişim bilgisi içermeyen) ve onayladığın sorular markanın sitelerine her gün gider. Nerede görüneceğini sen seçersin: eklentinin Ayarlar › Sorular ve yorumlar ekranında sayfaları işaretle, sayfaya "MoxDOP Sizden gelenler" widget'ını ya da [moxdop_sorular] / [moxdop_yorumlar] kısa kodunu koy.</p>
+            <div class="card divide-y divide-gray-200 dark:divide-gray-800" data-showcase="{{ $showcase['on'] ? 'on' : 'off' }}">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-[13px]">
+                    <span class="inline-flex items-center gap-1.5 font-medium text-gray-900 dark:text-white"><span @class(['h-1.5 w-1.5 rounded-full', 'bg-success-500' => $showcase['on'], 'bg-gray-400' => ! $showcase['on']]) aria-hidden="true"></span>{{ $showcase['on'] ? 'Açık' : 'Kapalı' }}</span>
+                    @if ($showcase['reviews'] !== null)<span class="text-gray-500">{{ $showcase['reviews'] }} yorum gidiyor</span>@endif
+                    <span class="text-gray-500">{{ $showcase['publishedCount'] }} soru yayında</span>
+                    @if ($showcase['waiting'] > 0)<a href="{{ route('operator.repair') }}" wire:navigate class="link-neutral">{{ $showcase['waiting'] }} cevap Onarım masasında</a>@endif
+                </div>
+                @if ($showcase['health'])
+                    <p class="px-4 py-3 text-[13px] text-warning-700 dark:text-warning-400" data-showcase-health>Sağlık markası: tanıtım yönetmeliği hasta yorumlarının tanıtımda kullanılmasını yasaklıyor. Yorumları sitede göstermek senin kararın; istemediğin yorumu İşletme Profili › Yorumlar ekranında "Sitede gizle" ile çıkar.</p>
+                @endif
+                @forelse ($showcase['sites'] as $site)
+                    <p class="flex items-center gap-2 px-4 py-2.5 text-[13px]" wire:key="showcase-site-{{ $site['id'] }}">
+                        <span class="min-w-0 flex-1 truncate text-gray-900 dark:text-white">{{ $site['name'] }}</span>
+                        @if ($site['ok'])
+                            <span class="text-gray-500">eklenti {{ $site['version'] }}</span>
+                        @else
+                            <a href="{{ route('operator.website', ['assetId' => $site['id']]) }}" wire:navigate class="text-warning-700 hover:underline dark:text-warning-400">eklenti {{ $site['version'] }}, {{ \App\Services\Site\Showcase\SiteShowcase::MIN_VERSION }} sürümüne güncelle</a>
+                        @endif
+                    </p>
+                @empty
+                    <p class="px-4 py-2.5 text-[13px] text-gray-500">Markanın MoxDOP eklentisi bağlı WordPress sitesi yok.</p>
+                @endforelse
+            </div>
+            @if ($showcase['published']->isNotEmpty())
+                <ul class="card mt-3" data-showcase-questions>
+                    @foreach ($showcase['published'] as $question)
+                        <li class="card-row" wire:key="showcase-q-{{ $question->id }}">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm text-gray-900 dark:text-white">{{ $question->question }}</p>
+                                <p class="mt-0.5 truncate text-[13px] text-gray-500">{{ $question->target_title ?: $question->target_url }} · {{ $question->source === 'site' ? 'ziyaretçi sordu' : 'aramalardan' }}</p>
+                            </div>
+                            @if ($isAdmin)<button type="button" wire:click="unpublishQuestion({{ $question->id }})" wire:confirm="Soru siteden kaldırılsın mı?" class="btn-quiet h-7! shrink-0 px-2!">Kaldır</button>@endif
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
     @else
         {{-- Bağlantılar: bind / unbind / move --}}
         <section data-section="assets">
