@@ -8,6 +8,7 @@ use App\Services\Compliance\ComplianceAuditor;
 use App\Services\Compliance\ComplianceChecker;
 use App\Services\Compliance\ComplianceRuleKinds;
 use App\Services\Compliance\SectorPackRegistry;
+use App\Services\SeoTasks\SeoText;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -123,6 +124,88 @@ final class ContentComplianceGate
         }
 
         return implode('; ', array_slice(array_values($parts), 0, 8)).(count($parts) > 8 ? ' …' : '');
+    }
+
+    /**
+     * Kural temizliği (yakup 2026-10-27: "kurala takılanı sistem düzeltsin"): the last step after the writer's own fix.
+     * Every sentence of the body that holds a blocking phrase is dropped (a heading or list item left empty goes too);
+     * in the title, SEO fields and excerpt only the phrase itself goes. Nothing is added, so nothing can be invented.
+     *
+     * @param  array<string, mixed>  $article  title, slug, meta_title, meta_description, excerpt, html
+     * @param  list<array<string, mixed>>  $violations
+     * @return array<string, mixed>
+     */
+    public static function scrub(array $article, array $violations): array
+    {
+        $fields = ['title' => 'title', 'meta_title' => 'meta_title', 'meta_description' => 'meta_description', 'excerpt' => 'excerpt', 'slug' => 'title', 'body' => 'html'];
+        foreach (self::blocking($violations) as $v) {
+            $phrase = trim((string) ($v['matched'] ?? ''));
+            $key = $fields[$v['field'] ?? ''] ?? null;
+            if ($phrase === '' || $key === null || ! is_string($article[$key] ?? null)) {
+                continue;
+            }
+            $article[$key] = match ($key) {
+                'html' => self::dropSentences($article[$key], $phrase),
+                'meta_description', 'excerpt' => self::dropTextSentences($article[$key], $phrase),
+                default => self::dropPhrase($article[$key], $phrase),
+            };
+            if (($v['field'] ?? '') === 'slug' || $key === 'title') {
+                $article['slug'] = SeoText::slugify((string) $article['title']);
+            }
+        }
+
+        return $article;
+    }
+
+    /** The phrase removed from a one-line field, spaces and dangling punctuation tidied. */
+    private static function dropPhrase(string $text, string $phrase): string
+    {
+        $out = (string) preg_replace('/'.preg_quote($phrase, '/').'/iu', ' ', $text);
+        $out = (string) preg_replace(['/\s+([,.;:!?])/u', '/\s{2,}/u'], ['$1', ' '], $out);
+
+        $out = trim($out, " \t\n,;:-–");
+
+        return mb_strtoupper(mb_substr($out, 0, 1)).mb_substr($out, 1);
+    }
+
+    /** Plain text (meta description, excerpt): the sentences that hold the phrase go. */
+    private static function dropTextSentences(string $text, string $phrase): string
+    {
+        $parts = preg_split('/(?<=[.!?…])\s+/u', trim($text)) ?: [$text];
+
+        return implode(' ', array_filter($parts, fn (string $p): bool => mb_stripos($p, $phrase) === false));
+    }
+
+    /** Every sentence of the HTML's text that holds the phrase is dropped; elements left empty go too. */
+    private static function dropSentences(string $html, string $phrase): string
+    {
+        $has = fn (string $text): bool => mb_stripos(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'), $phrase) !== false;
+        // A phrase inside or across inline tags (<strong>en iyi</strong> klinik) is not one sentence of plain text: its block goes.
+        $html = (string) preg_replace_callback('/<(p|li|h[2-6])\b[^>]*>(.*?)<\/\1>/isu', function (array $m) use ($has): string {
+            if (! $has(strip_tags($m[2])) || ! str_contains($m[2], '<')) {
+                return $m[0];
+            }
+            preg_match_all('/<(strong|em|b|i|a|span)\b[^>]*>(.*?)<\/\1>/isu', $m[2], $inline);
+            $inInline = array_filter($inline[2], fn (string $t): bool => $has(strip_tags($t))) !== [];
+            $inPlain = array_filter(preg_split('/<[^>]+>/u', $m[2]) ?: [], $has) !== [];
+
+            return $inInline || ! $inPlain ? '' : $m[0];
+        }, $html);
+        $out = (string) preg_replace_callback('/>([^<]+)</u', function (array $m) use ($phrase): string {
+            if (mb_stripos(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'), $phrase) === false) {
+                return $m[0];
+            }
+            $parts = preg_split('/(?<=[.!?…])\s+/u', $m[1]) ?: [$m[1]];
+            $kept = array_filter($parts, fn (string $p): bool => mb_stripos(html_entity_decode($p, ENT_QUOTES | ENT_HTML5, 'UTF-8'), $phrase) === false);
+
+            return '>'.implode(' ', $kept).'<';
+        }, '<x>'.$html.'</x>');
+        $out = substr($out, 3, -4);
+        for ($i = 0; $i < 3; $i++) {
+            $out = (string) preg_replace('/<(p|li|h[2-6]|strong|em|b|i|span|a|ul|ol)\b[^>]*>\s*<\/\1>/iu', '', $out);
+        }
+
+        return trim($out);
     }
 
     /**

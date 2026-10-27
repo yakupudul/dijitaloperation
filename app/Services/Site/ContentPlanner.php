@@ -1275,12 +1275,25 @@ final class ContentPlanner
         if (is_array($action['brief'] ?? null)) {
             $input['brief'] = $action['brief'];
         }
+        // Otomatik düzeltme (yakup 2026-10-27): a held or blocked article is corrected, not written from scratch: the
+        // writer gets its own text back and changes only what the check (plan.previous_check) or the rules (fix) name.
+        if (is_array($action['revise_from'] ?? null)) {
+            $input['revise_from'] = array_intersect_key((array) $action['revise_from'], array_flip(['title', 'meta_title', 'meta_description', 'excerpt', 'html']));
+            $evidence->addNumbersFrom(['revise' => strip_tags((string) ($action['revise_from']['html'] ?? '')).' '.($action['revise_from']['title'] ?? '')]);
+            $rules = filled($action['revise_from']['title'] ?? null) && filled($action['revise_from']['html'] ?? null)
+                ? ContentComplianceGate::forPrompt(app(ContentComplianceGate::class)->violations($brand, ArticleDraft::fromArray(['reference' => 'revise-'.$suggestion->id] + (array) $action['revise_from'])))
+                : [];
+            if ($rules !== []) {
+                $input['fix'] = $rules;
+            }
+        }
         // A rewrite (ContentAutopilot::rework) asks under new names: an answered call of an earlier round is never reused.
         $checkRound = (int) ($action['check_rewrites'] ?? 0);
-        $slot = 'article-'.$suggestion->id.($round > 0 ? '-r'.$round : '').($checkRound > 0 ? '-c'.$checkRound : '');
+        $blockRound = (int) ($action['block_fixes'] ?? 0);
+        $slot = 'article-'.$suggestion->id.($round > 0 ? '-r'.$round : '').($checkRound > 0 ? '-c'.$checkRound : '').($blockRound > 0 ? '-b'.$blockRound : '');
         $outcome = $this->writeWithFix($input, $evidence, $action, $cluster, $brand, $language, 'suggestion-'.$suggestion->id, $slot);
         $firstWords = $outcome['status'] === 'ready' ? ContentFormat::words((string) $outcome['article']['html']) : 0;
-        if ($outcome['status'] === 'ready' && $outcome['attempts'] === 1 && ContentFormat::tooShort($firstWords, $format)) {
+        if ($outcome['status'] === 'ready' && $outcome['attempts'] === 1 && ! isset($outcome['scrubbed']) && ContentFormat::tooShort($firstWords, $format)) {
             // Too thin for its subject: written once more with the length it needs (one extra write at most); the first
             // one stays when the second is not longer or fails a rule.
             $input['fix'] = [['field' => 'html', 'phrase' => '', 'rule' => 'length', 'instruction' => 'The article has '.ContentFormat::words((string) $outcome['article']['html'])
@@ -1296,6 +1309,7 @@ final class ContentPlanner
             return array_intersect_key($outcome, ['status' => 1, 'message' => 1]);
         }
         $article = $outcome['article'];
+        unset($action['revise_from'], $action['revise_tries']);
         $action['article_format'] = ['type' => $format['label'], 'intent' => $format['intent'], 'words_min' => $format['words'][0], 'words_max' => $format['words'][1],
             'words' => ContentFormat::words((string) $article['html'])];
         if ($outcome['status'] === 'blocked') {
@@ -1315,12 +1329,12 @@ final class ContentPlanner
         $others = array_values(array_diff($others, $translate));
         unset($action['translations'], $action['translations_blocked']);
         $suggestion->forceFill(['action' => array_merge($action, ['article' => $article,
-            'article_note' => match (true) {
+            'article_note' => trim((isset($outcome['scrubbed']) ? 'Sektör kuralına takılan cümleler metinden çıkarıldı. ' : '').match (true) {
                 $translate !== [] => 'Sitenin diğer dillerine ('.implode(', ', array_map('strtoupper', $translate)).') bu yazının çevirisi hazırlanıyor.'
                     .($others !== [] ? ' '.implode(', ', array_map('strtoupper', $others)).' sayfaları Google\'da neredeyse hiç görünmediği için o dile çevrilmiyor.' : ''),
                 $others !== [] => 'Sitede başka dil de var ('.implode(', ', array_map('strtoupper', $others)).'); o dilin sayfaları Google\'da neredeyse hiç görünmediği için çevrilmedi. Onarım masası › Diğer işler › içerik kutusundan elle çevrilebilir.',
                 default => null,
-            }])])->save();
+            }) ?: null])])->save();
         // yakup, 2026-10-07: other languages get no ideas of their own; the written article is translated into them.
         foreach ($translate as $other) {
             SiteOperations::dispatch((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id, 'language' => $other]);
@@ -1370,25 +1384,64 @@ final class ContentPlanner
     }
 
     /**
-     * At most two writes: when the first one breaks a sector rule, the second gets the offending phrases to rewrite.
-     * Each call is named ($slot + attempt) so a run that waits for Claude gets the same answer back even when the
-     * site's pages or notes changed meanwhile.
+     * At most two writes: when the first one breaks a sector rule (or copies another brand's page), the second gets the
+     * offending phrases (passages) to rewrite. What a rule still blocks after that is removed by rule (the sentence that
+     * holds it; yakup 2026-10-27: "kurala takılanı sistem düzeltsin"), so only a text that is empty without it stays
+     * blocked. Each call is named ($slot + attempt) so a run that waits for Claude gets the same answer back even when
+     * the site's pages or notes changed meanwhile.
      *
      * @param  array<string, mixed>  $input
      * @param  array<string, mixed>  $action
-     * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>, attempts: int}
+     * @return array{status: string, message?: string, article?: array<string, mixed>, violations: list<array<string, mixed>>, attempts: int, scrubbed?: int}
      */
     private function writeWithFix(array $input, SiteEvidence $evidence, array $action, ?Cluster $cluster, Brand $brand, string $language, string $reference, string $slot): array
     {
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             $outcome = $this->writeOnce($input, $evidence, $action, $cluster, $brand, $language, $reference, $slot.'-'.$attempt);
-            if ($outcome['status'] !== 'blocked' || $outcome['violations'] === [] || $attempt === 2) {
+            if ($outcome['status'] !== 'blocked' || $attempt === 2) {
                 break;
             }
-            $input['fix'] = ContentComplianceGate::forPrompt($outcome['violations']);
+            if ($outcome['violations'] !== []) {
+                $input['fix'] = ContentComplianceGate::forPrompt($outcome['violations']);
+            } elseif (! empty($outcome['copy'])) {
+                $input['fix'] = [['field' => 'html', 'phrase' => '', 'rule' => 'copy',
+                    'instruction' => (string) $outcome['message'].' Write those passages again fully in your own words and structure; keep the facts.']];
+            } else {
+                break;
+            }
+        }
+        if ($outcome['status'] === 'blocked' && $outcome['violations'] !== [] && is_array($outcome['article'] ?? null)) {
+            $outcome = $this->scrubbed($outcome, $brand, $cluster) ?? $outcome;
         }
 
         return $outcome + ['attempts' => $attempt];
+    }
+
+    /**
+     * The blocked article with every blocking phrase removed by rule (up to three passes), when it then passes the
+     * gate and still has a body; null when it does not.
+     *
+     * @param  array{status: string, message?: string, article: array<string, mixed>, violations: list<array<string, mixed>>}  $outcome
+     * @return array{status: string, article: array<string, mixed>, violations: list<array<string, mixed>>, scrubbed: int}|null
+     */
+    private function scrubbed(array $outcome, Brand $brand, ?Cluster $cluster): ?array
+    {
+        $article = $outcome['article'];
+        $violations = $outcome['violations'];
+        $removed = 0;
+        for ($pass = 0; $pass < 3 && $violations !== []; $pass++) {
+            $removed += count($violations);
+            $article = ContentComplianceGate::scrub($article, $violations);
+            if (trim(strip_tags((string) ($article['html'] ?? ''))) === '' || trim((string) ($article['title'] ?? '')) === '') {
+                return null;
+            }
+            $violations = ContentComplianceGate::blocking(app(ContentComplianceGate::class)->violations($brand, ArticleDraft::fromArray($article)));
+        }
+        if ($violations !== [] || mb_strlen(trim((string) ($article['title'] ?? ''))) < 5 || ContentFormat::words((string) ($article['html'] ?? '')) < 80) {
+            return null;
+        }
+
+        return ['status' => 'ready', 'article' => $article, 'violations' => [], 'scrubbed' => $removed];
     }
 
     /** Pages of a language the site needs before a lack of impressions counts as no demand. */
@@ -1515,7 +1568,7 @@ final class ContentPlanner
         }
         $copy = $cluster !== null ? CopyCheck::check($html, ClusterBenchmarks::otherBrandTexts((int) $cluster->id, (int) $brand->id)) : ['ok' => true];
         if (! $copy['ok']) {
-            return ['status' => 'blocked', 'message' => CopyCheck::message($copy), 'article' => $article, 'violations' => []];
+            return ['status' => 'blocked', 'message' => CopyCheck::message($copy), 'article' => $article, 'violations' => [], 'copy' => true];
         }
 
         return ['status' => 'ready', 'article' => $article, 'violations' => []];

@@ -24,7 +24,7 @@
                 </div>
                 <button type="button" wire:click="closeReading" aria-label="Kapat" class="h-8 w-8 rounded-lg text-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">×</button>
             </header>
-            @if ($article['blocked'])<p class="tone-critical mx-5 mt-4 rounded-lg p-2.5 text-xs">Uyum kuralına takıldı; gönderilemez. «Yeniden yaz» ile yeniden yazdırabilirsin: {{ $article['blocked'] }}</p>@endif
+            @if ($article['blocked'])<p class="tone-critical mx-5 mt-4 rounded-lg p-2.5 text-xs">@if ($article['fixing'] ?? false)Uyum kuralına takıldı; Claude kurala uyduruyor, bitince kendiliğinden gönderime hazır olur: @else Uyum kuralına takıldı; Claude düzeltemedi, gönderilemez: @endif{{ $article['blocked'] }}</p>@endif
             @if ($article['warnings'])<p class="tone-look mx-5 mt-4 rounded-lg p-2.5 text-xs">{{ $article['warnings'] }}</p>@endif
             @if (! empty($article['seo']))
                 <div class="tone-look mx-5 mt-4 rounded-lg p-2.5 text-xs" data-article-seo>

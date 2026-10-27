@@ -75,12 +75,13 @@
                                 @if ($item['rank'] <= 1 && $step === 'yazilacak')<x-ta.pill tone="critical">Acil</x-ta.pill>@endif
                                 <span class="{{ $chip }}" @if ($step === 'yazilacak' && $item['score'] > 0) title="Öncelik puanı {{ $item['score'] }}: {{ $item['score_line'] }}" data-score="{{ $item['score'] }}" @endif>{{ $item['kind'] }}</span>
                                 @if ($item['translations'] !== [])<span class="{{ $chip }}">{{ strtoupper($item['language']) }}@foreach ($item['translations'] as $t) + {{ strtoupper($t) }}@endforeach</span>@endif
-                                @if ($item['blocked'])<x-ta.pill tone="critical">Kurala takıldı</x-ta.pill>@endif
-                                @if ($step === 'okunacak' && $item['sendable'])@include('livewire.operator.work.partials.content-check', ['item' => $item])@endif
+                                @if ($item['blocked'])@if ($item['fixing'])<x-ta.pill tone="live" :title="$item['blocked']" data-check="fixing">Claude kurala uyduruyor</x-ta.pill>@else<x-ta.pill tone="critical">Kurala takıldı</x-ta.pill>@endif @endif
+                                @if ($step === 'okunacak' && ! $item['blocked'] && ($item['sendable'] || $item['fixing']))@include('livewire.operator.work.partials.content-check', ['item' => $item])@endif
                                 @if ($item['writing'])<x-ta.pill tone="live" data-writing>{{ $step === 'yazilacak' ? 'yazılıyor…' : 'çeviri yazılıyor…' }}</x-ta.pill>@endif
                             </div>
                             <p class="mt-1 font-medium leading-snug text-gray-900 dark:text-white">{{ $item['title'] }}</p>
                             @include('livewire.operator.work.partials.content-target', ['item' => $item])
+                            @if ($item['blocked'] && ! $item['fixing'])<p class="mt-0.5 text-xs text-warning-700 dark:text-warning-400" data-blocked-reason>Claude düzeltemedi: {{ \App\Services\Work\ContentBoard::plainReason($item['blocked']) }}.</p>@endif
                             @if ($step === 'yazilacak' && ($item['cluster'] || $item['reason']))
                                 <details class="mt-0.5 text-xs text-gray-500" data-why>
                                     <summary class="cursor-pointer list-none text-gray-500 hover:text-gray-900 dark:hover:text-white">Neden?</summary>
@@ -100,9 +101,8 @@
                                 @endif
                             @elseif ($step === 'okunacak')
                                 @if ($item['translating'] !== [])<span class="text-xs text-gray-500" data-translating="{{ $item['id'] }}">{{ implode(', ', array_map('strtoupper', $item['translating'])) }} çevirisi hazırlanıyor…</span>@endif
-                                @if ($item['blocked'] || in_array($item['check']['verdict'] ?? null, ['wrong', 'unsure'], true))<button type="button" wire:click="writeContent({{ $item['id'] }})" class="{{ $ghost }}" data-rewrite="{{ $item['id'] }}">Yeniden yaz</button>@endif
                                 <button type="button" wire:click="read({{ $item['id'] }})" class="{{ $ghost }}" data-read="{{ $item['id'] }}">Oku</button>
-                                @if ($item['sendable'] && $item['translating'] === [])
+                                @if ($item['sendable'] && ! $item['fixing'] && $item['translating'] === [])
                                     <button type="button" wire:click="sendContent({{ $item['id'] }})" wire:confirm="Yazı çevirileriyle WordPress'e taslak olarak gönderilsin mi? Geri alınabilir." class="{{ ($item['check']['verdict'] ?? null) === 'ok' ? 'btn-dark' : $btn }}" data-send="{{ $item['id'] }}">{{ in_array($item['check']['verdict'] ?? null, ['wrong', 'unsure'], true) ? 'Yine de gönder' : 'Siteye gönder' }}</button>
                                 @endif
                             @else

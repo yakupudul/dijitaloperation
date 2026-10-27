@@ -70,8 +70,20 @@ final class ContentAutopilot
     /** The writing round of the cluster-map rules (2026-10-15): dated articles written before it are written again once. */
     public const int REWRITE_ROUND = 1;
 
-    /** An article the check holds back is written again this many times before it waits for the operator. */
-    public const int CHECK_REWRITES = 2;
+    /**
+     * An article the check holds back is corrected (its own text, revised with the check's reason) this many times before
+     * it waits for the operator with a plain reason (yakup 2026-10-27: "kontrole takılanı Claude düzeltsin").
+     */
+    public const int CHECK_FIXES = 3;
+
+    /** An article a sector rule blocked is written again (with the rule's phrases and a final rule clean-up) this many times. */
+    public const int BLOCK_FIXES = 2;
+
+    /** An AI check that could not run (no answer, error) is asked again after this long. */
+    public const int RECHECK_MINUTES = 60;
+
+    /** A write still "running" after this long is taken as lost. */
+    public const int BUSY_HOURS = 3;
 
     public function __construct(private readonly SiteSuggestions $suggestions, private readonly ContentScore $scorer) {}
 
@@ -411,6 +423,7 @@ final class ContentAutopilot
     public function review(DigitalAsset $site): array
     {
         $brand = Brand::query()->with('sectorCategory')->find($site->brand_id);
+        $this->heal($site);
         $reviewed = 0;
         $waiting = 0;
         foreach (self::written($site) as $suggestion) {
@@ -435,35 +448,169 @@ final class ContentAutopilot
             $fresh = $suggestion->fresh();
             $fresh->forceFill(['action' => array_replace_recursive((array) $fresh->action, ['autopilot' => ['review' => $verdict]])])->save();
             $reviewed++;
-            $this->rewriteAfterCheck($fresh->fresh(), $verdict);
+            $this->fixAfterCheck($fresh->fresh(), $verdict);
         }
 
         return ['status' => 'ready', 'reviewed' => $reviewed, 'waiting' => $waiting];
     }
 
     /**
-     * Aşama 8 (2026-10-22): an article the check holds back ("wrong") is written again with the check's reason, at most
-     * CHECK_REWRITES times; only one that fails again stays held for the operator (with the last reason).
+     * Otomatik düzeltme (yakup 2026-10-27: "kontrole ve kurala takılanlar otomatik düzeltilsin, neden yeniden yaz butonu
+     * çıkıyor?"). Every round of the site's content job first heals what is stuck:
+     *  - a check that could not run (no AI answer) is asked again after RECHECK_MINUTES;
+     *  - an article the check held back is revised with the check's reason (fixAfterCheck), CHECK_FIXES times at most;
+     *  - an article a sector rule blocked is written again from its blocked draft with the offending phrases (the writer
+     *    then removes what is still left by rule), BLOCK_FIXES times at most;
+     *  - a revision whose write was lost (no article, nothing running) is started again, or the last text comes back.
+     * Only what is still wrong after that waits for the operator, with the reason in plain words.
      *
-     * @param  array{verdict: string, reason: string}  $verdict
+     * @return array{fixing: int, rechecked: int}
      */
-    private function rewriteAfterCheck(Suggestion $suggestion, array $verdict): void
+    public function heal(DigitalAsset $site): array
+    {
+        $out = ['fixing' => 0, 'rechecked' => 0];
+        $ideas = self::ideas($site)->where('status', Suggestion::APPROVED)->whereNull('action->article_write_id')->get();
+        foreach ($ideas as $suggestion) {
+            $action = (array) $suggestion->action;
+            if (! self::fixing($suggestion) || self::busy($suggestion, $site)) {
+                continue;
+            }
+            $review = data_get($action, 'autopilot.review');
+            if (is_array($action['revise_from'] ?? null) && ! is_array($action['article'] ?? null) && ! isset($action['article_blocked'])) {
+                $out['fixing'] += $this->resumeRevision($suggestion);
+
+                continue;
+            }
+            if (is_array($review) && ! empty($review['retry']) && self::sendable($suggestion)
+                && CarbonImmutable::parse((string) ($review['at'] ?? now()->toIso8601String()))->lt(now()->subMinutes(self::RECHECK_MINUTES))) {
+                $action['autopilot'] = array_diff_key((array) $action['autopilot'], ['review' => true]);
+                $suggestion->forceFill(['action' => $action])->save();
+                $out['rechecked']++;
+
+                continue;
+            }
+            if (is_array($review) && self::sendable($suggestion) && $this->fixAfterCheck($suggestion, $review)) {
+                $out['fixing']++;
+
+                continue;
+            }
+            if (is_string($action['article_blocked'] ?? null) && (int) ($action['block_fixes'] ?? 0) < self::BLOCK_FIXES) {
+                $draft = $action['article_blocked_draft'] ?? null;
+                $action['block_fixes'] = (int) ($action['block_fixes'] ?? 0) + 1;
+                $action['check_feedback'] = mb_substr((string) $action['article_blocked'], 0, 400);
+                if (is_array($draft)) {
+                    $action['revise_from'] = self::revisable($draft);
+                }
+                $suggestion->forceFill(['action' => $action])->save();
+                SiteOperations::dispatch((int) $site->id, SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id]);
+                $out['fixing']++;
+            }
+        }
+
+        return $out;
+    }
+
+    /** The article (or one of its translations) is being written right now. */
+    private static function busy(Suggestion $suggestion, DigitalAsset $site): bool
+    {
+        foreach ([null, ...ContentPlanner::siteLanguages($site)] as $language) {
+            $status = SiteOperations::status((int) $site->id, SiteOperations::WRITE_ARTICLE, array_filter(['suggestion_id' => (int) $suggestion->id, 'language' => $language]));
+            // A write that has said nothing for BUSY_HOURS was lost (a worker restart): it no longer holds the article.
+            if (in_array($status['status'] ?? null, ['running', 'queued'], true)
+                && CarbonImmutable::parse((string) ($status['at'] ?? now()->toIso8601String()))->gt(now()->subHours(self::BUSY_HOURS))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** A revision whose write ended without an article: tried again while rounds are left, else the last text comes back held. */
+    private function resumeRevision(Suggestion $suggestion): int
     {
         $action = (array) $suggestion->action;
-        $rounds = (int) ($action['check_rewrites'] ?? 0);
-        if ($verdict['verdict'] !== 'wrong' || $rounds >= self::CHECK_REWRITES || isset($action['article_write_id']) || ! is_array($action['article'] ?? null)) {
-            return;
+        $tries = (int) ($action['revise_tries'] ?? 0);
+        if ($tries < 2) {
+            $action['revise_tries'] = $tries + 1;
+            $suggestion->forceFill(['action' => $action])->save();
+            SiteOperations::dispatch((int) $action['site_id'], SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id]);
+
+            return 1;
         }
-        unset($action['article'], $action['translations'], $action['translations_blocked'], $action['article_seo'], $action['article_warnings'], $action['article_note'],
-            $action['article_format'], $action['article_score']);
+        $action['article'] = $action['revise_from'];
+        unset($action['revise_from'], $action['revise_tries']);
+        $action['check_fixes'] = self::CHECK_FIXES;
+        $action['autopilot'] = array_merge((array) ($action['autopilot'] ?? []), ['review' => ['verdict' => 'unsure', 'at' => now()->toIso8601String(),
+            'reason' => 'Claude düzeltmeyi yazamadı: '.mb_substr((string) ($action['check_feedback'] ?? ''), 0, 160)]]);
+        $suggestion->forceFill(['action' => $action])->save();
+
+        return 0;
+    }
+
+    /** @param  array<string, mixed>  $article  @return array<string, mixed> the fields the writer revises */
+    public static function revisable(array $article): array
+    {
+        return array_intersect_key($article, array_flip(['title', 'slug', 'meta_title', 'meta_description', 'excerpt', 'html', 'language']));
+    }
+
+    /**
+     * An article the check holds back ("wrong", or "unsure" from the AI's own reading) is corrected with the check's
+     * reason, CHECK_FIXES times at most: the writer gets its own text back (`revise_from`) and changes only what the
+     * reason names (removes the unsupported claim, adds the missing part). A held translation is translated again from
+     * the source. A check that could not run is not a reason to rewrite (it is asked again).
+     *
+     * @param  array<string, mixed>  $verdict
+     */
+    private function fixAfterCheck(Suggestion $suggestion, array $verdict): bool
+    {
+        $action = (array) $suggestion->action;
+        $fixes = (int) ($action['check_fixes'] ?? 0);
+        if (! in_array($verdict['verdict'] ?? null, ['wrong', 'unsure'], true) || ! empty($verdict['retry']) || $fixes >= self::CHECK_FIXES
+            || isset($action['article_write_id']) || ! is_array($action['article'] ?? null)) {
+            return false;
+        }
+        $reason = (string) ($verdict['reason'] ?? '');
+        $action['check_fixes'] = $fixes + 1;
+        $action['check_feedback'] = mb_substr($reason, 0, 400);
         $action['autopilot'] = array_diff_key((array) ($action['autopilot'] ?? []), array_flip(['review', 'written_seen_at']));
         if ($action['autopilot'] === []) {
             unset($action['autopilot']);
         }
-        $action['check_rewrites'] = $rounds + 1;
-        $action['check_feedback'] = mb_substr($verdict['reason'], 0, 400);
+        if (preg_match('/^Çeviri \(([A-Z]{2,3})\)/u', $reason, $m) === 1 && is_array($action['translations'][strtolower($m[1])] ?? null)) {
+            $language = strtolower($m[1]);
+            unset($action['translations'][$language]);
+            $suggestion->forceFill(['action' => $action])->save();
+            SiteOperations::dispatch((int) $action['site_id'], SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id, 'language' => $language]);
+
+            return true;
+        }
+        $action['revise_from'] = self::revisable((array) $action['article']);
+        unset($action['article'], $action['translations'], $action['translations_blocked'], $action['article_seo'], $action['article_warnings'], $action['article_note'],
+            $action['article_format'], $action['article_score'], $action['revise_tries']);
+        $action['check_rewrites'] = (int) ($action['check_rewrites'] ?? 0) + 1;
         $suggestion->forceFill(['action' => $action])->save();
         SiteOperations::dispatch((int) $action['site_id'], SiteOperations::WRITE_ARTICLE, ['suggestion_id' => (int) $suggestion->id]);
+
+        return true;
+    }
+
+    /** Still being corrected by Claude (shown instead of a "Yeniden yaz" button). */
+    public static function fixing(Suggestion $suggestion): bool
+    {
+        $action = (array) $suggestion->action;
+        if (isset($action['article_write_id'])) {
+            return false;
+        }
+        if (is_array($action['revise_from'] ?? null) && ! is_array($action['article'] ?? null)) {
+            return true;
+        }
+        if (is_string($action['article_blocked'] ?? null)) {
+            return (int) ($action['block_fixes'] ?? 0) < self::BLOCK_FIXES;
+        }
+        $review = data_get($action, 'autopilot.review');
+
+        return is_array($review) && in_array($review['verdict'] ?? null, ['wrong', 'unsure'], true)
+            && (! empty($review['retry']) || (int) ($action['check_fixes'] ?? 0) < self::CHECK_FIXES);
     }
 
     /** Every other language of the site is written (or blocked), or the wait is over. */
@@ -485,7 +632,7 @@ final class ContentAutopilot
         return CarbonImmutable::parse((string) $seen)->lt(now()->subHours(self::TRANSLATION_WAIT_HOURS));
     }
 
-    /** @return array{verdict: string, reason: string, at: string}|null null while Claude (MCP) has not answered */
+    /** @return array{verdict: string, reason: string, at: string, retry?: bool}|null null while Claude (MCP) has not answered; retry: the check itself did not run */
     private function verdict(Suggestion $suggestion, DigitalAsset $site, ?Brand $brand): ?array
     {
         $action = (array) $suggestion->action;
@@ -539,7 +686,7 @@ final class ContentAutopilot
             return null;
         }
         if ($result['status'] !== 'ready') {
-            return ['verdict' => 'unsure', 'reason' => mb_substr((string) ($result['message'] ?? 'AI kontrolü yapılamadı.'), 0, 200), 'at' => $at];
+            return ['verdict' => 'unsure', 'reason' => mb_substr((string) ($result['message'] ?? 'AI kontrolü yapılamadı.'), 0, 200), 'at' => $at, 'retry' => true];
         }
         $answers = collect((array) ($result['data']['items'] ?? []))->filter(fn ($i): bool => is_array($i) && is_int($i['id'] ?? null))->keyBy('id');
         foreach (array_keys($items) as $id) {
@@ -548,7 +695,8 @@ final class ContentAutopilot
                 $label = $id === 0 ? 'Yazı' : 'Çeviri ('.strtoupper((string) $items[$id]['language']).')';
 
                 return ['verdict' => in_array($answer['verdict'] ?? null, ['wrong', 'unsure'], true) ? (string) $answer['verdict'] : 'unsure',
-                    'reason' => $label.': '.mb_substr(trim((string) ($answer['reason'] ?? 'AI yanıt vermedi.')), 0, 180), 'at' => $at];
+                    'reason' => $label.': '.mb_substr(trim((string) ($answer['reason'] ?? 'AI yanıt vermedi.')), 0, 180), 'at' => $at]
+                    + ($answers->has($id) ? [] : ['retry' => true]);
             }
         }
 
@@ -600,12 +748,12 @@ final class ContentAutopilot
                 && (data_get($s->action, 'autopilot.week') === $monday || self::sendable($s)))->count();
     }
 
-    /** @return Collection<int, Suggestion> dated articles the check held back (shown with their reason) */
+    /** @return Collection<int, Suggestion> dated articles the check held back and Claude could not correct (shown with their reason) */
     public function held(?int $brandId = null): Collection
     {
         return Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
             ->whereNotNull('action->autopilot')->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))->get()
-            ->filter(fn (Suggestion $s): bool => in_array(data_get($s->action, 'autopilot.review.verdict'), ['wrong', 'unsure'], true) && self::sendable($s))->values();
+            ->filter(fn (Suggestion $s): bool => in_array(data_get($s->action, 'autopilot.review.verdict'), ['wrong', 'unsure'], true) && self::sendable($s) && ! self::fixing($s))->values();
     }
 
     /**

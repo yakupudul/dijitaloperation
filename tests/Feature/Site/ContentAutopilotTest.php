@@ -122,9 +122,9 @@ final class ContentAutopilotTest extends SiteTestCase
     public function test_review_passes_only_ok_articles_and_the_send_dates_the_drafts(): void
     {
         $passed = $this->idea('İmplant sonrası beslenme', ['article' => self::article('İmplant sonrası beslenme'), 'autopilot' => ['date' => '2026-10-12']], Suggestion::APPROVED);
-        // Both were already written again twice after failing the check (Aşama 8), so they stay held now.
-        $wrong = $this->idea('Zirkonyum ömrü', ['article' => self::article('Zirkonyum ömrü'), 'autopilot' => ['date' => '2026-10-14'], 'check_rewrites' => 2], Suggestion::APPROVED);
-        $warned = $this->idea('Uyarılı yazı', ['article' => self::article('Uyarılı yazı'), 'article_warnings' => 'Yasaklı ifade: garanti', 'autopilot' => ['date' => '2026-10-10'], 'check_rewrites' => 2], Suggestion::APPROVED);
+        // Both were already corrected three times after failing the check (2026-10-27), so they stay held now.
+        $wrong = $this->idea('Zirkonyum ömrü', ['article' => self::article('Zirkonyum ömrü'), 'autopilot' => ['date' => '2026-10-14'], 'check_fixes' => ContentAutopilot::CHECK_FIXES], Suggestion::APPROVED);
+        $warned = $this->idea('Uyarılı yazı', ['article' => self::article('Uyarılı yazı'), 'article_warnings' => 'Yasaklı ifade: garanti', 'autopilot' => ['date' => '2026-10-10'], 'check_fixes' => ContentAutopilot::CHECK_FIXES], Suggestion::APPROVED);
         $future = $this->idea('Yarının yazısı', ['article' => self::article('Yarının yazısı'), 'autopilot' => ['date' => '2026-10-15']], Suggestion::APPROVED);
         $prompts = [];
         ContentReviewAgent::fake(function (string $prompt) use (&$prompts): array {
@@ -167,9 +167,10 @@ final class ContentAutopilotTest extends SiteTestCase
     public function test_articles_the_operator_wrote_are_checked_too_and_one_click_sends_them_as_plain_drafts(): void
     {
         $manual = $this->idea('Diş taşı temizliği ne sıklıkla yapılmalı', ['article' => self::article('Diş taşı temizliği ne sıklıkla yapılmalı')], Suggestion::APPROVED);
-        $held = $this->idea('Beyazlatma kalıcı mı', ['article' => self::article('Beyazlatma kalıcı mı')], Suggestion::APPROVED);
+        // Already corrected three times by Claude, and a rule block whose rounds are used: both wait with their reason.
+        $held = $this->idea('Beyazlatma kalıcı mı', ['article' => self::article('Beyazlatma kalıcı mı'), 'check_fixes' => ContentAutopilot::CHECK_FIXES], Suggestion::APPROVED);
         $update = $this->idea('İmplant sayfasını güçlendir', ['kind' => 'update', 'article' => self::article('İmplant sayfasını güçlendir')], Suggestion::APPROVED);
-        $blocked = $this->idea('Garantili implant', ['article' => self::article('Garantili implant'), 'article_blocked' => 'Sektör kuralı'], Suggestion::APPROVED);
+        $blocked = $this->idea('Garantili implant', ['article' => self::article('Garantili implant'), 'article_blocked' => 'Sektör kuralı', 'block_fixes' => ContentAutopilot::BLOCK_FIXES], Suggestion::APPROVED);
         ContentReviewAgent::fake(fn (string $prompt): array => ['items' => [['id' => 0, 'verdict' => str_contains($prompt, 'Beyazlatma') ? 'unsure' : 'ok', 'reason' => 'Uygun.']]]);
 
         $autopilot = app(ContentAutopilot::class);
@@ -190,7 +191,7 @@ final class ContentAutopilotTest extends SiteTestCase
 
         Queue::fake();
         Livewire::actingAs($this->admin)->test(WorkPage::class)->call('setStep', 'okunacak')
-            ->assertSee('Gönderime hazır')->assertSeeHtml('data-send-all-content')->assertSee('Claude kontrol etti')->assertSee('Kontrolde takıldı')->assertSee('Yine de gönder')
+            ->assertSee('Gönderime hazır')->assertSeeHtml('data-send-all-content')->assertSee('Claude kontrol etti')->assertSee('Claude düzeltemedi')->assertSee('Yine de gönder')->assertDontSeeHtml('data-rewrite')
             ->call('sendAllContent');
         Queue::assertPushed(SendReadyContentJob::class, fn ($job): bool => $job->siteId === null);
         $this->assertStringContainsString('1 yazı', $board->sendAll($this->admin, null, (int) $this->site->id));
@@ -286,7 +287,8 @@ final class ContentAutopilotTest extends SiteTestCase
     {
         Queue::fake();
         $this->idea('İmplant sonrası beslenme', ['article' => self::article('İmplant sonrası beslenme'), 'autopilot' => ['date' => '2026-10-12', 'review' => ['verdict' => 'ok', 'reason' => 'Uygun.']]], Suggestion::APPROVED);
-        $this->idea('Zirkonyum ömrü', ['article' => self::article('Zirkonyum ömrü'), 'autopilot' => ['date' => '2026-10-12', 'review' => ['verdict' => 'wrong', 'reason' => 'Kaynakta olmayan süre.']]], Suggestion::APPROVED);
+        // Claude already corrected it three times: it is held with its reason.
+        $this->idea('Zirkonyum ömrü', ['article' => self::article('Zirkonyum ömrü'), 'check_fixes' => ContentAutopilot::CHECK_FIXES, 'autopilot' => ['date' => '2026-10-12', 'review' => ['verdict' => 'wrong', 'reason' => 'Kaynakta olmayan süre.']]], Suggestion::APPROVED);
 
         Livewire::test(DailySendStrip::class)->assertSee('1 yazı')->assertSee('1 iş kontrolde kaldı')
             ->set('showHeld', true)->assertSee('Kaynakta olmayan süre.')

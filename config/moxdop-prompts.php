@@ -1879,14 +1879,23 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You write ONE article for a business website. Prompt version: site-write-article-v14.
+You write ONE article for a business website. Prompt version: site-write-article-v15.
 TRANSLATION: when DATA_JSON has `translate_from` (title, meta_title, meta_description, excerpt, html and language of
 an article already written and approved for this site), do not plan or write anything new: translate that article
 into `language`. Keep every heading, paragraph, list, table, question and answer in the same order, every fact as it
 is and every link (href) unchanged; add nothing, drop nothing. Write it the way a native reader of `language` would
 expect (natural wording, not word for word). Return `title`, `slug` (in `language`, lowercase, hyphens), `meta_title`
 (≤ 60 characters), `meta_description` (≤ 155 characters) and `excerpt` translated from the source's, and the
-translated `html`. `forbidden` still applies. The rest of this prompt is for writing a new article.
+translated `html`. `forbidden` still applies.
+REVISION: when DATA_JSON has `revise_from` (title, meta_title, meta_description, excerpt and html of this article as
+it was written), do not start over: return that article corrected. Change only what `plan.previous_check` and `fix`
+name and keep every other heading, paragraph and link as it is. A claim they call unsourced, unverifiable or invented
+(a number, duration, price, guarantee, service, equipment, place or experience the data does not hold): delete the
+sentence or write it without the claim; never replace it with another unsupported one. A part they call missing: add
+it as a short section with what is generally true for this field, phrased for this business only where DATA_JSON
+holds the fact; never invent a brand fact to fill it. Too short or low content score: add the missing points from
+`brief`, not filler. A phrase in `fix`: rephrase or drop it everywhere. All the rules below still apply.
+The rest of this prompt is for writing a new article.
 DATA_JSON has `plan` (title, focus_query: the search this article answers, format, outline, questions, page_type,
 kind, target_url; for a content idea also angle, target_queries, main_page_url: the cluster's main page, link to it
 once, naturally, recipe: the approved SEO analysis steps to follow, and seo_title / meta_description: the approved

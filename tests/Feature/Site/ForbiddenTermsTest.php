@@ -175,5 +175,14 @@ final class ForbiddenTermsTest extends SiteTestCase
         $this->assertSame('<p>Yine en iyi klinik.</p>', $action['article_blocked_draft']['html']);
         Livewire::test(ContentTab::class, ['assetId' => $this->site->id])->set('openId', $suggestion->id)
             ->assertSee('Uyum kuralına takıldı')->assertSeeHtml('data-blocked-draft')->assertSeeHtml('<mark')->assertDontSee('WordPress’e taslak gönder');
+
+        // yakup 2026-10-27: a long article that still holds the phrase after both writes loses only those sentences, and is ready.
+        $body = '<h2>Süreç</h2><p>'.str_repeat('İmplant tedavisi hekim muayenesiyle başlar ve adım adım ilerler. ', 20).'</p>';
+        $answers = [$body.'<p>Burası en iyi klinik. Randevu alabilirsiniz.</p>', $body.'<p>Yine en iyi klinik. Randevu alabilirsiniz.</p>'];
+        $this->assertSame('ready', app(ContentPlanner::class)->writeArticle($suggestion->fresh())['status']);
+        $action = (array) $suggestion->fresh()->action;
+        $this->assertSame($body.'<p>Randevu alabilirsiniz.</p>', $action['article']['html']);
+        $this->assertStringContainsString('Sektör kuralına takılan cümleler metinden çıkarıldı.', (string) $action['article_note']);
+        $this->assertArrayNotHasKey('article_blocked', $action);
     }
 }

@@ -9,6 +9,7 @@ use App\Livewire\Operator\Komuta\KomutaPage;
 use App\Livewire\Operator\Work\ContentWeekPlanCard;
 use App\Models\ContentSiteState;
 use App\Models\Suggestion;
+use App\Services\ExternalWrites\ContentComplianceGate;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Work\ArticleCoverage;
@@ -56,7 +57,7 @@ final class ContentEngineTest extends SiteTestCase
         $this->assertNull(ArticleCoverage::score('<p>x</p>', ['must_cover' => []]), 'no brief, no score');
     }
 
-    public function test_an_article_under_seventy_is_written_again_with_what_it_missed_and_held_after_the_second_time(): void
+    public function test_an_article_under_seventy_is_corrected_from_its_own_text_and_held_after_the_third_time(): void
     {
         Queue::fake();
         $article = ['title' => 'İmplant sonrası beslenme', 'html' => '<p>İlk 24 saat soğuk gıdalar yenir, yumuşak beslenme.</p>', 'language' => 'tr'];
@@ -65,13 +66,15 @@ final class ContentEngineTest extends SiteTestCase
         app(ContentAutopilot::class)->review($this->site);
 
         $action = $idea->fresh()->action;
-        $this->assertArrayNotHasKey('article', $action, 'the article is written again');
-        $this->assertSame(1, $action['check_rewrites']);
+        $this->assertArrayNotHasKey('article', $action, 'the article is corrected');
+        $this->assertSame('<p>İlk 24 saat soğuk gıdalar yenir, yumuşak beslenme.</p>', $action['revise_from']['html'], 'from its own text');
+        $this->assertSame(1, $action['check_fixes']);
         $this->assertStringContainsString('İçerik puanı 23/100', $action['check_feedback']);
         $this->assertSame('2026-10-19', $action['autopilot']['date'], 'it keeps its day');
+        $this->assertTrue(ContentAutopilot::fixing($idea->fresh()), 'the card says Claude is fixing it');
         Queue::assertPushed(RunSiteOperationJob::class, 1);
 
-        // The writer reads the check's reason.
+        // The writer reads the check's reason and its own text.
         $this->enableAi();
         ContentBriefAgent::fake([self::BRIEF + ['top_results' => [], 'outline' => ['Giriş']]]);
         $sent = [];
@@ -83,19 +86,80 @@ final class ContentEngineTest extends SiteTestCase
         });
         app(ContentPlanner::class)->writeArticle($idea->fresh());
         $this->assertStringContainsString('İçerik puanı 23/100', (string) data_get($sent, '0.plan.previous_check'));
+        $this->assertSame($article['html'], data_get($sent, '0.revise_from.html'));
+        $this->assertArrayNotHasKey('revise_from', $idea->fresh()->action, 'the corrected article replaces it');
 
-        // Still under 70 twice more: written once more, then held for the operator with the reason.
+        // Still under 70: corrected twice more, then held for the operator with the reason.
         app(ContentAutopilot::class)->review($this->site);
-        $this->assertSame(2, $idea->fresh()->action['check_rewrites']);
+        $this->assertSame(2, $idea->fresh()->action['check_fixes']);
+        foreach ([3, 3] as $expected) {
+            $action = $idea->fresh()->action;
+            unset($action['revise_from']);
+            $action['article'] = $article;
+            $idea->forceFill(['action' => $action])->save();
+            app(ContentAutopilot::class)->review($this->site);
+            $this->assertSame($expected, $idea->fresh()->action['check_fixes']);
+        }
         $action = $idea->fresh()->action;
-        $action['article'] = $article;
-        $idea->forceFill(['action' => $action])->save();
-        app(ContentAutopilot::class)->review($this->site);
-        $action = $idea->fresh()->action;
-        $this->assertSame(2, $action['check_rewrites']);
         $this->assertSame('wrong', $action['autopilot']['review']['verdict']);
         $this->assertSame(23, $action['article_score']);
+        $this->assertFalse(ContentAutopilot::fixing($idea->fresh()));
+        $this->assertSame([$idea->id], app(ContentAutopilot::class)->held()->pluck('id')->all());
         $this->assertSame([], app(ContentAutopilot::class)->ready()->pluck('id')->all(), 'never sent by the one click');
+    }
+
+    public function test_a_check_that_did_not_run_is_asked_again_not_rewritten(): void
+    {
+        Queue::fake();
+        $article = ['title' => 'Diş taşı', 'html' => '<p>Diş taşı temizliği.</p>', 'language' => 'tr'];
+        $idea = $this->idea('Diş taşı', ['article' => $article, 'autopilot' => ['date' => '2026-10-19',
+            'review' => ['verdict' => 'unsure', 'reason' => 'AI kontrolü yapılamadı.', 'at' => now()->subHours(2)->toIso8601String(), 'retry' => true]]], Suggestion::APPROVED);
+
+        $this->assertTrue(ContentAutopilot::fixing($idea->fresh()));
+        app(ContentAutopilot::class)->heal($this->site);
+
+        $action = $idea->fresh()->action;
+        $this->assertArrayNotHasKey('review', $action['autopilot'], 'checked again on the next round');
+        $this->assertSame($article, $action['article'], 'the text stays');
+        Queue::assertNothingPushed();
+    }
+
+    public function test_a_rule_blocked_article_is_written_again_from_its_draft(): void
+    {
+        Queue::fake();
+        $draft = ['title' => 'Zirkonyum kaplama', 'html' => '<p>Zirkonyum dayanıklıdır.</p>', 'language' => 'tr'];
+        $idea = $this->idea('Zirkonyum kaplama', ['article_blocked' => 'Metin: «garanti» (Sonuç garantisi)', 'article_blocked_draft' => $draft], Suggestion::APPROVED);
+
+        $this->assertTrue(ContentAutopilot::fixing($idea->fresh()));
+        app(ContentAutopilot::class)->heal($this->site);
+
+        $action = $idea->fresh()->action;
+        $this->assertSame(1, $action['block_fixes']);
+        $this->assertSame($draft['html'], $action['revise_from']['html']);
+        $this->assertStringContainsString('garanti', $action['check_feedback']);
+        Queue::assertPushed(RunSiteOperationJob::class, 1);
+
+        // Blocked again after its rounds (the write clears its revision): it waits with the reason.
+        unset($action['revise_from']);
+        $action['block_fixes'] = ContentAutopilot::BLOCK_FIXES;
+        $idea->forceFill(['action' => $action])->save();
+        $this->assertFalse(ContentAutopilot::fixing($idea->fresh()), 'after its rounds it waits with the reason');
+    }
+
+    public function test_the_rule_clean_up_drops_only_the_sentences_that_hold_the_phrase(): void
+    {
+        $article = ['title' => 'En iyi zirkonyum kaplama', 'slug' => 'en-iyi-zirkonyum-kaplama', 'meta_description' => 'Garanti verilir. Zirkonyum doğal görünür.',
+            'html' => '<h2>Zirkonyum</h2><p>Zirkonyum doğal görünür. Ömür boyu garanti verilir. Bakımı kolaydır.</p><ul><li><strong>Garanti</strong> şartı</li><li>Renk seçimi</li></ul>'];
+        $violations = [
+            ['field' => 'title', 'matched' => 'en iyi', 'blocking' => true], ['field' => 'body', 'matched' => 'garanti', 'blocking' => true],
+            ['field' => 'meta_description', 'matched' => 'Garanti', 'blocking' => true], ['field' => 'body', 'matched' => 'doğal', 'blocking' => false],
+        ];
+        $clean = ContentComplianceGate::scrub($article, $violations);
+
+        $this->assertSame('Zirkonyum kaplama', $clean['title']);
+        $this->assertSame('zirkonyum-kaplama', $clean['slug']);
+        $this->assertSame('<h2>Zirkonyum</h2><p>Zirkonyum doğal görünür. Bakımı kolaydır.</p><ul><li>Renk seçimi</li></ul>', $clean['html'], 'a warning-only phrase stays');
+        $this->assertSame('Zirkonyum doğal görünür.', $clean['meta_description']);
     }
 
     public function test_monday_proposes_the_week_and_one_click_approves_it_a_dropped_row_is_replaced(): void

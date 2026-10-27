@@ -324,6 +324,14 @@ final class ContentBoard
             : 'Yazı '.$when->format('d.m.Y H:i').' tarihinde yayınlanmak üzere planlanıyor (geri alınabilir).';
     }
 
+    /** A check or rule reason as one plain sentence for the card: no "Yazı:" label, no "yeniden üretin" advice, no closing dot. */
+    public static function plainReason(string $reason): string
+    {
+        $reason = (string) preg_replace(['/^Yazı:\s*/u', '/\s*—\s*yeniden üretin\.?$/u'], '', trim($reason));
+
+        return rtrim($reason, ' .');
+    }
+
     /** @return array<string, mixed>|null the article to read: source and translations */
     public function article(int $id): ?array
     {
@@ -333,7 +341,7 @@ final class ContentBoard
             return null;
         }
         $action = (array) $suggestion->action;
-        if (! is_array($action['article'] ?? null) && ! is_array($action['article_blocked_draft'] ?? null)) {
+        if (! is_array($action['article'] ?? null) && ! is_array($action['article_blocked_draft'] ?? null) && ! is_array($action['revise_from'] ?? null)) {
             return null;
         }
 
@@ -349,7 +357,8 @@ final class ContentBoard
             'missing' => $site !== null && is_array($action['article'] ?? null) && ($action['kind'] ?? null) !== 'update' ? array_values(array_diff(ContentPlanner::siteLanguages($site), $written)) : [],
             'writing' => in_array($status['status'] ?? null, ['running', 'queued'], true)
                 || ($site !== null && self::translating($suggestion, $site, array_diff(ContentPlanner::siteLanguages($site), $written)) !== []),
-            'article' => $action['article'] ?? null, 'blocked' => $action['article_blocked'] ?? null, 'blocked_draft' => $action['article_blocked_draft'] ?? null,
+            'article' => $action['article'] ?? $action['revise_from'] ?? null, 'blocked' => $action['article_blocked'] ?? null,
+            'fixing' => ContentAutopilot::fixing($suggestion), 'blocked_draft' => $action['article_blocked_draft'] ?? null,
             'warnings' => $action['article_warnings'] ?? null, 'seo' => array_key_exists('article_seo', $action) ? array_values(array_filter((array) $action['article_seo'], 'is_string')) : null, 'translations' => array_filter((array) ($action['translations'] ?? []), 'is_array'),
             'translations_blocked' => (array) ($action['translations_blocked'] ?? []), 'sent' => (array) ($action['sent_languages'] ?? []),
             // The featured image: the operator's pick (or none), else the best of the site's own media.
@@ -410,7 +419,7 @@ final class ContentBoard
     private function item(Suggestion $s, DigitalAsset $site, array $siteLanguages, ?array $scored = null, array $posts = [], array $states = []): array
     {
         $action = (array) $s->action;
-        $hasArticle = is_array($action['article'] ?? null);
+        $hasArticle = is_array($action['article'] ?? null) || is_array($action['revise_from'] ?? null);
         $sent = isset($action['article_write_id']) || $s->status === Suggestion::APPLIED;
         $language = self::sourceLanguage($s, $site);
         $translations = array_keys(array_filter((array) ($action['translations'] ?? []), 'is_array'));
@@ -447,6 +456,8 @@ final class ContentBoard
             // Claude's check of the written article (yakup 2026-10-20: every article is checked; reading it is optional).
             'check' => is_array(data_get($action, 'autopilot.review')) ? ['verdict' => (string) data_get($action, 'autopilot.review.verdict'), 'reason' => (string) data_get($action, 'autopilot.review.reason')] : null,
             'sendable' => ! $sent && ContentAutopilot::sendable($s),
+            // Otomatik düzeltme (yakup 2026-10-27): a held or blocked article is corrected by Claude; no "Yeniden yaz".
+            'fixing' => ! $sent && ContentAutopilot::fixing($s),
         ];
         if (! empty($action['page_update'])) {
             // A strengthened page: its new version waits as a draft copy of the page until "Sayfaya uygula" puts it live.
