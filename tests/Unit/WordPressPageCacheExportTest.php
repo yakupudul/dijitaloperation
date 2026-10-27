@@ -105,7 +105,28 @@ final class WordPressPageCacheExportTest extends TestCase
         $this->assertStringContainsString("add_filter('bulk_actions-edit-post'", $box);
         $this->assertStringContainsString("check_admin_referer('moxdop_smart_date_bulk')", $box);
         $this->assertStringContainsString('const BULK_MAX = 20;', $box);
+        $this->assertStringContainsString("'İleriye zamanla'", $box, 'the bulk screen can line drafts up ahead');
+        $this->assertStringContainsString('İleri tarih (zamanlanır)', $box, 'the box always offers days ahead');
         $this->assertStringNotContainsString('wp_remote_', $box);
+    }
+
+    #[Test]
+    public function the_claude_and_chatgpt_connection_is_off_by_default_and_signs_in_with_pkce(): void
+    {
+        $root = dirname(__DIR__, 2).'/connectors/wordpress/moxdop-connector';
+        $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
+        $this->assertStringContainsString('(new MoxDOP_Connector_AI)->register();', $plugin);
+        $ai = (string) file_get_contents($root.'/includes/class-moxdop-connector-ai.php');
+        $this->assertStringContainsString("get_option(self::ACCESS_OPTION, 'off')", $ai, 'off until a site admin picks a level');
+        $this->assertStringContainsString("hash_equals((string) \$code['challenge'], \$challenge)", $ai, 'PKCE S256 is checked');
+        $this->assertStringContainsString('delete_transient($key);', $ai, 'a code works once');
+        $this->assertStringContainsString("'claude.ai', 'claude.com', 'anthropic.com', 'chatgpt.com', 'openai.com'", $ai, 'only Claude and ChatGPT may register');
+        $this->assertStringContainsString("hash('sha256', \$access)", $ai, 'keys are stored hashed');
+        $this->assertStringContainsString("user_can(\$user, 'manage_options')", $ai);
+        $this->assertStringNotContainsString("'post_status' => 'publish'", $ai, 'nothing is published over the connection');
+        $this->assertStringNotContainsString('wp_delete_post', $ai);
+        $fixes = (string) file_get_contents($root.'/includes/class-moxdop-connector-fixes.php');
+        $this->assertStringContainsString('public function undo_change($id)', $fixes);
     }
 
     #[Test]
@@ -117,9 +138,9 @@ final class WordPressPageCacheExportTest extends TestCase
             $this->assertSame(0, $code, $file.': '.implode("\n", $output));
         }
         $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.24.0')", $plugin);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.26.0')", $plugin);
         $this->assertStringContainsString('class-moxdop-connector-page-cache.php', $plugin);
-        $this->assertStringContainsString('Stable tag: 1.24.0', (string) file_get_contents($root.'/readme.txt'));
+        $this->assertStringContainsString('Stable tag: 1.26.0', (string) file_get_contents($root.'/readme.txt'));
 
         $controller = (string) file_get_contents($root.'/includes/class-moxdop-connector-rest-controller.php');
         $this->assertStringContainsString("'/page-cache'", $controller);

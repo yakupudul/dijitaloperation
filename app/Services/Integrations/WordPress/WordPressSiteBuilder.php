@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
+use App\Services\Site\BrandlessSites;
 
 /**
  * Connector 1.8.0 site building for Claude (MCP). A site is built only while both switches are on: "Site building" in
@@ -60,6 +61,13 @@ final class WordPressSiteBuilder
                 'plugin_version' => data_get($connection->config, 'plugin_version'),
                 'mode' => self::mode($connection),
                 'plugin_allows_build' => in_array('build', (array) data_get($connection->config, 'capabilities', []), true),
+                // edit-site: what the plugin settings let MoxDOP change on this site (a brandless site gets no edits).
+                'edit' => [
+                    'fixes' => in_array('fixes', (array) data_get($connection->config, 'capabilities', []), true),
+                    'content' => in_array('content', (array) data_get($connection->config, 'capabilities', []), true),
+                    'drafts' => in_array('drafts', (array) data_get($connection->config, 'capabilities', []), true),
+                    'serviced' => $connection->digitalAsset !== null && BrandlessSites::serviced($connection->digitalAsset),
+                ],
                 'ready' => $state === null,
                 'reason' => $state,
                 // Host refuses MoxDOP, the site fetches its work itself: when it last asked, refusals, waiting work.
