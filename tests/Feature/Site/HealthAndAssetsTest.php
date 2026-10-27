@@ -112,7 +112,7 @@ final class HealthAndAssetsTest extends TestCase
             ->assertSee('6.5.2 → 6.6.1')->assertSee('Eklenti: SEO Eklentisi')->assertSee('2.0 → 2.1')->assertDontSee('Eklenti: Güncel')
             ->assertSee('2 kritik sorun')->assertSee('Erişilemiyor')->assertSee('HTTP 503')
             ->assertSee('Bitiş tarihi girilmedi')->assertSee("WordPress'e giriş", false)
-            ->assertSeeHtml(route('operator.integrations.wordpress-login', ['site' => $this->site->id]))
+            ->assertSeeHtml(route('operator.integrations.wordpress-login', ['site' => $this->site->id], false).'?expires=')
             ->set('hostingDate', now()->addDays(11)->toDateString())->call('saveHosting')->assertHasNoErrors()
             ->assertSee(now()->addDays(11)->format('d.m.Y'))->assertSee('11 gün kaldı · elle girildi');
         $this->assertSame(now()->addDays(11)->toDateString(), substr((string) $this->site->fresh()->getAttribute('hosting_expires_on'), 0, 10));
