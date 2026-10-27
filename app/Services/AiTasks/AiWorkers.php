@@ -51,8 +51,20 @@ final class AiWorkers
 
     public const array DEFAULT_MODELS = [self::CLAUDE_API => 'claude-sonnet-5-5', self::OPENAI_API => 'gpt-5.4-mini'];
 
-    /** An MCP worker that has not asked for work this long while work waits is taken as gone (quota, connection). */
+    /** Without routine times: an MCP worker that has not asked for work this long while work waits is taken as gone. */
     public const int SILENT_MINUTES = 90;
+
+    /**
+     * Routine times (Istanbul) each MCP worker comes at; one that did not come to its last round is taken as gone
+     * (quota used up, routine stopped) until it comes again. yakup 2026-10-27: Claude :27, ChatGPT 30 minutes later.
+     */
+    public const array DEFAULT_ROUNDS = [
+        self::CLAUDE_MCP => ['08:27', '12:27', '16:27', '21:27'],
+        self::CHATGPT_MCP => ['08:57', '12:57', '16:57', '21:57'],
+    ];
+
+    /** A round counts as missed this long after its time (a routine may start a few minutes late). */
+    public const int ROUND_GRACE_MINUTES = 20;
 
     /** A taken task stays with its worker this long before a backup may take it. */
     public const int RESERVE_MINUTES = 120;
@@ -65,8 +77,6 @@ final class AiWorkers
     private const string SEEN = 'ai-worker-seen:';
 
     private const string ERROR = 'ai-worker-error:';
-
-    private const string GONE = 'ai-worker-gone:';
 
     public static function label(string $doneBy): string
     {
@@ -81,7 +91,7 @@ final class AiWorkers
     }
 
     /**
-     * @return array{order: list<string>, paused: array<string, string>, api: array<string, array{enabled: bool, model: string, daily_try: float, monthly_try: float}>, usd_try: float}
+     * @return array{order: list<string>, paused: array<string, string>, api: array<string, array{enabled: bool, model: string, daily_try: float, monthly_try: float}>, usd_try: float, rounds: array<string, list<string>>}
      */
     public function settings(): array
     {
@@ -108,6 +118,8 @@ final class AiWorkers
             'paused' => array_filter((array) ($stored['paused'] ?? []), fn ($until): bool => is_string($until) && Carbon::parse($until)->isFuture()),
             'api' => $api,
             'usd_try' => (float) ($stored['usd_try'] ?? 0) > 0 ? (float) $stored['usd_try'] : self::DEFAULT_USD_TRY,
+            'rounds' => array_map(fn (string $worker): array => is_array($stored['rounds'][$worker] ?? null) ? self::cleanTimes($stored['rounds'][$worker]) : self::DEFAULT_ROUNDS[$worker],
+                array_combine(self::MCP, self::MCP)),
         ];
     }
 
@@ -165,6 +177,70 @@ final class AiWorkers
         }
     }
 
+    /** @param  list<string>  $times  HH:MM in Istanbul time; empty = judge by 90 minutes of silence instead */
+    public function setRounds(string $worker, array $times): void
+    {
+        if (! self::isMcp($worker)) {
+            return;
+        }
+        $rounds = $this->settings()['rounds'];
+        $rounds[$worker] = self::cleanTimes($times);
+        $this->update(['rounds' => $rounds]);
+    }
+
+    /** @return list<string> valid HH:MM times, sorted */
+    public static function cleanTimes(array $times): array
+    {
+        $clean = [];
+        foreach ($times as $time) {
+            if (is_string($time) && preg_match('/^([01]?\d|2[0-3])[:.]([0-5]\d)$/', trim($time), $m)) {
+                $clean[] = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+            }
+        }
+        $clean = array_values(array_unique($clean));
+        sort($clean);
+
+        return $clean;
+    }
+
+    /** The worker's last routine round that should have happened by now (its time plus the grace), or null without times. */
+    public function lastRound(string $worker): ?Carbon
+    {
+        $times = $this->settings()['rounds'][$worker] ?? [];
+        $now = now('Europe/Istanbul');
+        $last = null;
+        foreach ([0, 1] as $daysBack) {
+            foreach ($times as $time) {
+                [$h, $m] = array_map('intval', explode(':', $time));
+                $at = $now->copy()->subDays($daysBack)->setTime($h, $m);
+                if ($at->copy()->addMinutes(self::ROUND_GRACE_MINUTES)->lte($now) && ($last === null || $at->gt($last))) {
+                    $last = $at;
+                }
+            }
+        }
+
+        return $last;
+    }
+
+    /** The worker's next routine round, or null without times. */
+    public function nextRound(string $worker): ?Carbon
+    {
+        $times = $this->settings()['rounds'][$worker] ?? [];
+        $now = now('Europe/Istanbul');
+        $next = null;
+        foreach ([0, 1] as $daysAhead) {
+            foreach ($times as $time) {
+                [$h, $m] = array_map('intval', explode(':', $time));
+                $at = $now->copy()->addDays($daysAhead)->setTime($h, $m);
+                if ($at->gt($now) && ($next === null || $at->lt($next))) {
+                    $next = $at;
+                }
+            }
+        }
+
+        return $next;
+    }
+
     public function setUsdTry(float $rate): void
     {
         if ($rate > 0) {
@@ -217,7 +293,6 @@ final class AiWorkers
     public function markSeen(string $worker): void
     {
         Cache::forever(self::SEEN.$worker, now()->toIso8601String());
-        Cache::forget(self::GONE.$worker);
     }
 
     public function seenAt(string $worker): ?Carbon
@@ -277,16 +352,18 @@ final class AiWorkers
         }
         if (self::isMcp($worker)) {
             $seen = $this->lastSeen($worker);
-            // Once judged gone it stays gone until it comes again (a backup that took the waiting work must not hand
-            // the queue back to a worker that is still away).
-            $gone = Cache::get(self::GONE.$worker);
-            if (is_string($gone) && ($seen === null || $seen->lt(Carbon::parse($gone)))) {
-                return 'Gelmiyor: '.Carbon::parse($gone)->timezone('Europe/Istanbul')->format('d.m H:i').'\'den beri iş almaya gelmedi (kota bitmiş ya da bağlantı kopmuş olabilir)';
+            // With routine times: gone when it did not come to its last round (between rounds it is simply waiting
+            // for the next one), and it stays gone until it comes again.
+            $round = $this->lastRound($worker);
+            if ($round !== null) {
+                if ($seen === null || $seen->lt($round->copy()->subMinutes(10))) {
+                    return 'Gelmiyor: '.$round->format('d.m H:i').' turuna gelmedi (kota bitmiş ya da rutin çalışmamış olabilir)';
+                }
+
+                return null;
             }
             $waiting = $this->oldestWaitingMinutes();
             if ($waiting !== null && $waiting >= self::SILENT_MINUTES && ($seen === null || $seen->lt(now()->subMinutes(self::SILENT_MINUTES)))) {
-                Cache::forever(self::GONE.$worker, now()->toIso8601String());
-
                 return 'Gelmiyor: iş bekliyor ama '.self::SILENT_MINUTES.' dakikadır uğramadı (kota bitmiş ya da bağlantı kopmuş olabilir)';
             }
 
@@ -414,6 +491,8 @@ final class AiWorkers
             'done_7d' => $hasColumns ? $doneQuery(now()->subDays(7))->count() : 0,
             'error' => $this->lastError($worker),
             'paused_until' => $settings['paused'][$worker] ?? null,
+            'rounds' => $settings['rounds'][$worker] ?? [],
+            'next_round' => self::isMcp($worker) ? $this->nextRound($worker) : null,
             'api' => $settings['api'][$worker] ?? null,
             'spend_today' => self::isMcp($worker) ? null : $this->spendTry($worker, now('Europe/Istanbul')->startOfDay()),
             'spend_month' => self::isMcp($worker) ? null : $this->spendTry($worker, now('Europe/Istanbul')->startOfMonth()),

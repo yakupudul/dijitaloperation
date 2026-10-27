@@ -28,7 +28,7 @@
     <section x-data="{ dragging: null }">
         <div class="section-head">
             <h2 class="section-title">Sıra <span class="section-count">{{ count($rows) }}</span></h2>
-            <p class="text-xs text-gray-500">Sürükle ya da oklarla sırala. Asıl sağlayıcı iş bekliyorken {{ \App\Services\AiTasks\AiWorkers::SILENT_MINUTES }} dakika gelmezse sıradaki devralır; aldığı işler 2 saat ona ayrılır.</p>
+            <p class="text-xs text-gray-500">Sürükle ya da oklarla sırala. Asıl sağlayıcı rutin saatindeki turuna gelmezse sıradaki devralır; aldığı işler 2 saat ona ayrılır.</p>
         </div>
         <ol class="card" data-ai-worker-list>
             @foreach ($rows as $index => $row)
@@ -45,7 +45,8 @@
                             </p>
                             <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">
                                 @if ($row['reason']){{ $row['reason'] }} · @endif
-                                Son {{ $row['mcp'] ? 'geliş' : 'tur' }} {{ $at($row['seen_at']) }} · son 24 saatte {{ $row['done_24h'] }} iş · 7 günde {{ $row['done_7d'] }}
+                                Son {{ $row['mcp'] ? 'geliş' : 'tur' }} {{ $at($row['seen_at']) }} ·
+                                @if ($row['mcp'] && $row['next_round']) sıradaki tur {{ $row['next_round']->format('H:i') }} · @endif son 24 saatte {{ $row['done_24h'] }} iş · 7 günde {{ $row['done_7d'] }}
                                 @if (! $row['mcp']) · bugün {{ number_format((float) $row['spend_today'], 2, ',', '.') }} TL · bu ay {{ number_format((float) $row['spend_month'], 2, ',', '.') }} TL @endif
                             </p>
                             @if ($row['error'])
@@ -62,6 +63,12 @@
                     </div>
 
                     @if ($row['mcp'])
+                        <form wire:submit="saveRounds('{{ $row['key'] }}')" class="ml-0 flex flex-wrap items-center gap-2 text-[13px] text-gray-600 sm:ml-11" data-ai-worker-rounds>
+                            Rutin saatleri
+                            <input type="text" wire:model="rounds.{{ $row['key'] }}" placeholder="08:27, 12:27, 16:27, 21:27" aria-label="Rutin saatleri" class="{{ $field }} h-8! min-w-0 flex-1 sm:max-w-72">
+                            <button type="submit" class="btn h-8! px-2.5! text-xs!">Kaydet</button>
+                            @if ($saved === 'rounds-'.$row['key'])<span class="text-xs text-gray-500">Kaydedildi</span>@endif
+                        </form>
                         <div class="ml-0 space-y-1 sm:ml-11" data-ai-worker-connections>
                             @forelse ($row['tokens'] as $token)
                                 <div class="flex flex-wrap items-center gap-2 text-[13px]" wire:key="token-{{ $token->id }}">

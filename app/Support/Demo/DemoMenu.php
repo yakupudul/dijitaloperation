@@ -68,6 +68,7 @@ final class DemoMenu
                     $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets'),
                 ]),
                 $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
+                    $child($tr ? 'AI sağlayıcıları' : 'AI providers', 'operator.settings.ai-workers'),
                     $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations'),
                     $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards'),
                     $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services'),
