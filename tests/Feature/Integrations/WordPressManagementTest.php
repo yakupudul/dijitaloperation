@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Integrations;
 
+use App\Http\Controllers\Operator\WordPressLoginController;
 use App\Enums\CustomerStatus;
 use App\Livewire\Operator\Integrations\WordPressSitesPage;
 use App\Models\Brand;
@@ -114,6 +115,20 @@ final class WordPressManagementTest extends TestCase
         $this->post(route('operator.integrations.wordpress-login', ['site' => $this->site->id]))->assertRedirect(route('operator.integrations.wordpress-sites'))
             ->assertSessionHas('wp_error');
         Livewire::test(WordPressSitesPage::class)->assertSee('Atlas Site')->assertSee('WP paneline gir')->assertSee('2 bekleyen güncelleme');
+    }
+
+    public function test_login_also_works_as_a_signed_get_when_a_phone_app_reopens_the_form_tab(): void
+    {
+        $this->actingAs($this->admin);
+        $url = WordPressLoginController::url($this->site->id, 'post.php?post=12&action=edit');
+        $this->get(route('operator.integrations.wordpress-login', ['site' => $this->site->id]))->assertForbidden();
+        $this->get($url.'x')->assertForbidden();
+        $this->get($url)->assertRedirect('https://example.com/?moxdop_login=abc');
+        $this->assertSame('post.php?post=12&action=edit', end($this->sent)[2]['target'] ?? null, 'the signed query keeps the screen');
+        $this->post(WordPressLoginController::url($this->site->id))->assertRedirect('https://example.com/?moxdop_login=abc');
+
+        $this->actingAs($this->member);
+        $this->get(WordPressLoginController::url($this->site->id))->assertForbidden();
     }
 
     public function test_login_opens_the_requested_admin_screen_and_falls_back_to_wp_admin(): void

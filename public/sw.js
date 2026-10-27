@@ -17,11 +17,20 @@ self.addEventListener('push', (event) => {
         } catch (error) {
             // Offline or signed out: show the generic line, the click opens Genel işler.
         }
+        // An app-like notification: the Moximu mark as the large icon, a one-colour silhouette for the status bar
+        // (Android paints the badge white, so a full-colour square showed as a blank block), the time, and
+        // critical ones stay until opened.
+        const critical = data.severity === 'critical';
         await self.registration.showNotification(data.title, {
             body: data.body,
             tag: data.tag,
-            icon: '/images/app/icon-192.png',
-            badge: '/images/app/icon-192.png',
+            icon: '/images/app/icon-192.png?v=2',
+            badge: '/images/app/badge-96.png?v=2',
+            timestamp: data.at ? Date.parse(data.at) || Date.now() : Date.now(),
+            renotify: true,
+            requireInteraction: critical,
+            vibrate: critical ? [200, 100, 200, 100, 200] : [120, 60, 120],
+            actions: [{ action: 'open', title: 'Aç' }, { action: 'dismiss', title: 'Kapat' }],
             data: { url: data.url },
         });
     })());
@@ -29,6 +38,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    if (event.action === 'dismiss') {
+        return;
+    }
     const url = new URL((event.notification.data && event.notification.data.url) || '/work', self.location.origin).href;
     event.waitUntil((async () => {
         // The page reads this on load too: phones (iOS above all) often reopen the app on its home page and ignore

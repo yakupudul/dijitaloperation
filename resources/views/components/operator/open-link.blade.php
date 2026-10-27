@@ -15,7 +15,7 @@
 @endphp
 @if (is_array($link))
     @if ($isLogin)
-        <form method="POST" action="{{ route('operator.integrations.wordpress-login', ['site' => $link['login']['site']]) }}" target="_blank" {{ $attributes->merge(['class' => $variant === 'menu' ? 'block' : 'inline-flex']) }} data-open-link="{{ $link['key'] }}">
+        <form method="POST" action="{{ \App\Http\Controllers\Operator\WordPressLoginController::url((int) $link['login']['site'], $link['login']['to']) }}" target="_blank" {{ $attributes->merge(['class' => $variant === 'menu' ? 'block' : 'inline-flex']) }} data-open-link="{{ $link['key'] }}">
             @csrf
             <input type="hidden" name="to" value="{{ $link['login']['to'] }}">
             <button type="submit" class="{{ $class }}" title="{{ $link['hint'] }}"><span class="min-w-0 truncate">{{ $text }}</span><span aria-hidden="true" class="shrink-0 text-gray-400">↗</span></button>

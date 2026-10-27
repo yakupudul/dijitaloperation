@@ -9,11 +9,13 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#f4f4f2">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="apple-touch-icon" href="/images/app/icon-192.png">
+    <link rel="apple-touch-icon" href="/images/app/apple-touch-icon.png?v=2">
 
     <title>{{ $title ?? __('operator.product.operator') }} | {{ $operatorBranding['portal_name'] ?? 'MoxDOP' }}</title>
     @if (! empty($operatorBranding['favicon_url']))
         <link rel="icon" href="{{ $operatorBranding['favicon_url'] }}" />
+    @else
+        <link rel="icon" type="image/png" href="/images/app/favicon-64.png?v=2" />
     @endif
 
     @vite(['resources/css/operator.css', 'resources/js/operator.js'])

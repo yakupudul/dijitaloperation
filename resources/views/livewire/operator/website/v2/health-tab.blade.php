@@ -11,7 +11,7 @@
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <button type="button" wire:click="checkNow" class="btn flex-1 sm:flex-none">SSL / alan adı kontrol et</button>
             @if ($wordpress && $isAdmin)
-                <form method="POST" action="{{ route('operator.integrations.wordpress-login', ['site' => $site->id]) }}" target="_blank" class="flex-1 sm:flex-none" data-wp-login>
+                <form method="POST" action="{{ \App\Http\Controllers\Operator\WordPressLoginController::url($site->id) }}" target="_blank" class="flex-1 sm:flex-none" data-wp-login>
                     @csrf
                     <button type="submit" class="btn w-full">WordPress'e giriş</button>
                 </form>

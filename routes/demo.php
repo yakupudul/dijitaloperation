@@ -226,5 +226,5 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
         Route::livewire('/integrations/website-duplicates', WebsiteDuplicatesPage::class)->name('operator.integrations.website-duplicates');
-        Route::post('/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
+        Route::match(['GET', 'POST'], '/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
     });

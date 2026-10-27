@@ -52,11 +52,12 @@ final class PushController extends Controller
     public function latest(): JsonResponse
     {
         $row = DB::table('push_notifications')->where('channel', 'browser')->where('created_at', '>=', now()->subMinutes(self::LATEST_MINUTES))
-            ->orderByDesc('id')->first(['id', 'title', 'body', 'url', 'severity']);
+            ->orderByDesc('id')->first(['id', 'title', 'body', 'url', 'severity', 'created_at']);
 
         return response()->json($row === null
             ? ['title' => 'MoxDOP', 'body' => 'Yeni önemli iş var.', 'url' => route('operator.work'), 'tag' => 'moxdop']
-            : ['title' => $row->title, 'body' => $row->body, 'url' => $row->url ?: route('operator.work'), 'tag' => 'moxdop-'.$row->id]);
+            : ['title' => $row->title, 'body' => $row->body, 'url' => $row->url ?: route('operator.work'), 'tag' => 'moxdop-'.$row->id,
+                'severity' => (string) $row->severity, 'at' => \Illuminate\Support\Carbon::parse($row->created_at)->toIso8601String()]);
     }
 
     public function test(Request $request, PushNotifier $notifier): JsonResponse

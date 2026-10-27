@@ -1,14 +1,19 @@
 {
+    "id": "/work",
     "name": "MoxDOP",
     "short_name": "MoxDOP",
+    "description": "Moximu ajans operasyon paneli",
     "start_url": "/work",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#465fff",
+    "background_color": "#fdcf3c",
+    "theme_color": "#fdcf3c",
     "lang": "tr",
     "icons": [
-        { "src": "/images/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-        { "src": "/images/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+        { "src": "/images/app/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/images/app/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/images/app/icon-maskable-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "/images/app/icon-maskable-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+        { "src": "/images/app/badge-96.png?v=2", "sizes": "96x96", "type": "image/png", "purpose": "monochrome" }
     ]
 }

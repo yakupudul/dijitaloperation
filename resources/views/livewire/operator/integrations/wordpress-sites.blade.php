@@ -75,7 +75,7 @@
                             @if ($row['managed'])
                                 <button type="button" wire:click="refreshHealth({{ $site->id }})" class="btn-quiet">Sağlığı yenile</button>
                                 @if ($isAdmin && ($h['login_enabled'] ?? false))
-                                    <form method="post" action="{{ route('operator.integrations.wordpress-login', ['site' => $site->id]) }}" target="_blank">@csrf<button type="submit" class="btn-quiet">WP paneline gir</button></form>
+                                    <form method="post" action="{{ \App\Http\Controllers\Operator\WordPressLoginController::url($site->id) }}" target="_blank">@csrf<button type="submit" class="btn-quiet">WP paneline gir</button></form>
                                 @endif
                             @endif
                             @if ($isAdmin && $row['connector_update']['available'])
