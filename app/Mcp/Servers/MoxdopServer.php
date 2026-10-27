@@ -7,6 +7,7 @@ use App\Mcp\Tools\ChannelData;
 use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\CorrectResult;
+use App\Mcp\Tools\EditSite;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GbpEvidence;
 use App\Mcp\Tools\GetBrand;
@@ -30,6 +31,7 @@ use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SaveStrategy;
 use App\Mcp\Tools\ScreenChecks;
 use App\Mcp\Tools\SiteBuilds;
+use App\Mcp\Tools\SiteWrites;
 use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SubmitResults;
 use App\Mcp\Tools\SystemHealth;
@@ -45,12 +47,13 @@ use Laravel\Mcp\Server\Attributes\Version;
  * DATA_JSON input, output schema), does it, and submits a result MoxDOP checks against the schema before the asking
  * job continues. Claude also reads brands (the rule-built brand file), keeps its own notes, starts drafts for approved
  * titles, reads system health and screen checks, and works the Geliştirme havuzu (proposes changes of MoxDOP itself, codes
- * the approved ones, verifies them after deploy). The only writes to a site are the site-building tools (list-sites,
- * inspect-site, build-site, site-builds), and only on a site where an Admin switched "Claude site kurulumu" on and the site admin
- * enabled "Site building" in the plugin. Nothing here writes to an ad account.
+ * the approved ones, verifies them after deploy). Writes to a site: the site-building tools (list-sites, inspect-site,
+ * build-site, site-builds), only where an Admin switched "Claude site kurulumu" on and the site admin enabled "Site
+ * building" in the plugin; and edit-site (SEO fields, alt texts, internal links, draft copies, new drafts) on brand sites,
+ * through the same logged, undoable write path as an approved Onarım masası row. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.9.0')]
+#[Version('1.10.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -105,6 +108,16 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - `content-queue` lists approved titles without a draft; `request-article` starts writing one (the task then comes
   through the queue). Only operator-approved titles are written. Sending a draft to WordPress is always the
   operator's click in MoxDOP; you never publish.
+
+## Siteyi düzenleme (a brand's live WordPress site)
+- When the operator asks you to change something on a brand's site ("Avrupadent'in implant sayfasının başlığını düzelt",
+  "şu yazıya iç link ekle", "bu sayfanın yeni halini hazırla"): `list-sites` → the site_id and `edit` (what the plugin
+  allows), `read-site ids=[…]` or `section=content` to find the post id and read it, then `edit-site`.
+- `edit-site changes=[…]` writes SEO title / description, alt text, schema, noindex, canonical or an internal link at once;
+  `content` puts a page's new version next to it as a WordPress draft copy; `draft` makes a new draft. Nothing is
+  published. Then `site-writes ids=[action_id]` for the result; `edit-site undo=action_id` puts a write back.
+- Only what the operator asked, only facts from the site, the brand file or the operator. A site without a brand
+  gets nothing. A missing `edit` permission → tell the operator which plugin setting to switch on.
 
 ## Site kurulumu (building a WordPress site)
 - Only when the operator asks you to build or change a site (CPT / ACF fields, pages, Elementor header or footer,
@@ -176,5 +189,7 @@ class MoxdopServer extends Server
         BuildSite::class,
         ReadSite::class,
         SiteBuilds::class,
+        EditSite::class,
+        SiteWrites::class,
     ];
 }

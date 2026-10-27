@@ -124,28 +124,69 @@ final class MoxDOP_Connector_Fixes
     {
         $body = json_decode((string) $request->get_body(), true);
         $ids = is_array($body) && is_array($body['change_ids'] ?? null) ? array_slice(array_map('strval', $body['change_ids']), 0, 200) : [];
-        $log = $this->log();
         $results = [];
         foreach ($ids as $id) {
-            $entry = $log[$id] ?? null;
-            if (! is_array($entry) || ! empty($entry['undone'])) {
-                $results[] = ['change_id' => $id, 'ok' => false, 'error' => 'unknown or already undone'];
-
-                continue;
-            }
-            $current = $this->read($entry['type'], $entry['target']);
-            if ($this->fingerprint($current) !== $entry['after_hash']) {
-                $results[] = ['change_id' => $id, 'ok' => false, 'error' => 'changed_since'];
-
-                continue;
-            }
-            $this->write($entry['type'], $entry['target'], $this->previous($id, $entry));
-            $log[$id]['undone'] = gmdate('c');
-            $results[] = ['change_id' => $id, 'ok' => true];
+            $results[] = $this->undo_change($id);
         }
-        update_option(self::LOG_OPTION, $log, false);
 
         return $this->auth->envelope(['schema_version' => 1, 'results' => $results], $request);
+    }
+
+    /* ------------------------------------------- 1.26.0: used by the Claude / ChatGPT connection (AI class) */
+
+    /** One change of the /fixes kinds, logged and undoable like MoxDOP's own (the caller checked the permission). */
+    public function apply_change(array $change)
+    {
+        return $this->apply_one($change);
+    }
+
+    /** A post's new title and content; WordPress keeps a revision and the change log can put the old one back. */
+    public function apply_content($post_id, $title, $content, $reference)
+    {
+        $target = ['post_id' => (int) $post_id];
+        $before = $this->read('content', $target);
+        $value = ['title' => $title === null ? $before['title'] : sanitize_text_field((string) $title), 'content' => $content === null ? $before['content'] : wp_kses_post((string) $content)];
+        if ($value === $before) {
+            return ['ok' => true, 'unchanged' => true];
+        }
+        $written = $this->write('content', $target, $value);
+        if (is_wp_error($written)) {
+            return ['ok' => false, 'error' => $written->get_error_message()];
+        }
+        if (get_post_status($post_id) === 'publish') {
+            MoxDOP_Connector_IndexNow::queue((string) get_permalink($post_id));
+            (new MoxDOP_Connector_Events)->send_soon();
+        }
+
+        return ['ok' => true, 'change_id' => $this->remember('content', $target, $before, $this->read('content', $target), sanitize_text_field((string) $reference))];
+    }
+
+    /** @return array{change_id: string, ok: bool, error?: string} */
+    public function undo_change($id)
+    {
+        $id = (string) $id;
+        $log = $this->log();
+        $entry = $log[$id] ?? null;
+        if (! is_array($entry) || ! empty($entry['undone'])) {
+            return ['change_id' => $id, 'ok' => false, 'error' => 'unknown or already undone'];
+        }
+        $current = $this->read($entry['type'], $entry['target']);
+        if ($this->fingerprint($current) !== $entry['after_hash']) {
+            return ['change_id' => $id, 'ok' => false, 'error' => 'changed_since'];
+        }
+        $this->write($entry['type'], $entry['target'], $this->previous($id, $entry));
+        $log[$id]['undone'] = gmdate('c');
+        update_option(self::LOG_OPTION, $log, false);
+
+        return ['change_id' => $id, 'ok' => true];
+    }
+
+    /** @return array<string, mixed>|null the change log entry (type, target, at, reference, undone) */
+    public function change_entry($id)
+    {
+        $log = $this->log();
+
+        return isset($log[(string) $id]) && is_array($log[(string) $id]) ? $log[(string) $id] : null;
     }
 
     /** @return array{ok: bool, change_id?: string, before?: mixed, after?: mixed, error?: string} */

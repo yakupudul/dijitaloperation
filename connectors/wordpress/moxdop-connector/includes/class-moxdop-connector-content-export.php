@@ -101,6 +101,14 @@ final class MoxDOP_Connector_Content_Export
         return strpos($content, '<!-- wp:') !== false ? 'gutenberg' : 'classic';
     }
 
+    /** 1.26.0: the rendered content of one post (the Claude / ChatGPT connection reads builder pages this way). */
+    public static function rendered(WP_Post $post)
+    {
+        self::prepare_builders();
+
+        return self::render($post);
+    }
+
     /** @return array{0: string, 1: string} rendered content and builder */
     private static function render(WP_Post $post)
     {

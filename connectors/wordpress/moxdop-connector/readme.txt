@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.25.0
+Stable tag: 1.26.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.26.0 =
+* Claude / ChatGPT connection (Settings › Claude / ChatGPT, off by default): the site is an MCP server a site admin adds to Claude (custom connector) or ChatGPT (developer mode connector) with one address. Sign-in is OAuth 2.1 with PKCE: only Claude and ChatGPT redirect addresses can register, the admin approves on a wp-admin screen, keys are stored hashed and "Bağlantıyı kes" removes them. Levels: read (posts, pages, SEO fields, media), draft (also new drafts and draft edits) or edit (also SEO title / description, alt texts, internal links and classic / block editor content). Nothing is published or deleted, builder pages are read only, every write is listed on the settings page and can be undone.
 
 = 1.25.0 =
 * Akıllı tarih schedules ahead: the editor box always lists the next free Monday, Wednesday and Friday ahead under the free past days ("İleri tarih (zamanlanır)"), not only once the last 60 days are full. The bulk screen has a second mode, "İleriye zamanla", that gives each selected draft a different free publishing day ahead (09:00–11:30); WordPress publishes them on their day. Days are looked up 90 days ahead.
