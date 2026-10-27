@@ -121,6 +121,18 @@ final class MoxDOP_Connector_Builder
         if ($operations === [] || count($operations) > self::MAX_OPERATIONS) {
             return new WP_Error('moxdop_invalid_body', 'operations[] (1-'.self::MAX_OPERATIONS.') is required.', ['status' => 400]);
         }
+
+        return $this->auth->envelope(['schema_version' => 1, 'results' => $this->run_operations($operations)], $request);
+    }
+
+    /**
+     * 1.26.0: the operations in order, one result each (with change_id when undoable). The caller checked the
+     * permission: the REST route above, or the Claude / ChatGPT connection at its full level.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function run_operations(array $operations)
+    {
         $results = [];
         foreach ($operations as $operation) {
             $this->undo = [];
@@ -137,7 +149,13 @@ final class MoxDOP_Connector_Builder
             $this->log($result);
         }
 
-        return $this->auth->envelope(['schema_version' => 1, 'results' => $results], $request);
+        return $results;
+    }
+
+    /** 1.26.0: GET /build's description of the site, for the Claude / ChatGPT connection. */
+    public function describe_site()
+    {
+        return $this->describe();
     }
 
     /**
@@ -151,7 +169,13 @@ final class MoxDOP_Connector_Builder
         }
         $body = json_decode((string) $request->get_body(), true);
         $ids = is_array($body) && is_array($body['change_ids'] ?? null) ? array_slice(array_map('strval', $body['change_ids']), 0, 100) : [];
-        $force = is_array($body) && ! empty($body['force']);
+
+        return $this->auth->envelope(['schema_version' => 1, 'results' => $this->undo_changes($ids, is_array($body) && ! empty($body['force']))], $request);
+    }
+
+    /** @return list<array<string, mixed>> one result per change_id, undone in the given order */
+    public function undo_changes(array $ids, $force = false)
+    {
         $restored = [];
         $results = [];
         foreach ($ids as $id) {
@@ -190,7 +214,7 @@ final class MoxDOP_Connector_Builder
             $this->log(['op' => 'undo', 'ref' => $id, 'ok' => $errors === [], 'error' => $errors === [] ? null : implode('; ', $errors)]);
         }
 
-        return $this->auth->envelope(['schema_version' => 1, 'results' => $results], $request);
+        return $results;
     }
 
     /** @return true|string */

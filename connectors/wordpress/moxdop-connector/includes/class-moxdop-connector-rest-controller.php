@@ -110,6 +110,8 @@ final class MoxDOP_Connector_REST_Controller
         ]);
         // 1.14.0: status and admin-approved date of the posts MoxDOP made.
         (new MoxDOP_Connector_Posts($this->auth))->register_routes(self::NAMESPACE);
+        // 1.26.0: MoxDOP uses the Claude / ChatGPT tools within the level the site admin chose.
+        (new MoxDOP_Connector_AI)->register_signed_routes(self::NAMESPACE, $this->auth);
     }
 
     /** Wraps a plain result in the signed envelope; errors pass through unchanged. */

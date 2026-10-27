@@ -76,6 +76,36 @@ final class WordPressSiteBuilder
         })->values()->all();
     }
 
+    /** site-tool: tools that change nothing, allowed on a brandless site too. */
+    public const READ_TOOLS = ['list', 'site_info', 'list_content', 'get_content', 'list_media', 'list_changes', 'inspect_site', 'list_plugins', 'search_plugins',
+        'plugin_settings', 'setup_guide', 'site_check', 'list_comments', 'list_form_messages'];
+
+    /**
+     * site-tool: one tool of the site's Claude / ChatGPT connection (connector ≥ 1.26.0), within the level the site
+     * admin chose in Settings › Claude / ChatGPT. A brandless site gets only the read tools (BrandlessSites).
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    public function tool(int $siteId, string $tool, array $arguments): array
+    {
+        $connection = $this->siteConnection($siteId);
+        $version = (string) data_get($connection->config, 'plugin_version', '0.0.0');
+        if (version_compare($version, '1.26.0', '<')) {
+            throw new RuntimeException('Eklenti '.$version.'; bu araç için en az 1.26.0 gerekli. Web siteleri ekranından eklentiyi güncelle.');
+        }
+        if (! in_array($tool, self::READ_TOOLS, true) && ($connection->digitalAsset === null || ! BrandlessSites::serviced($connection->digitalAsset))) {
+            throw new RuntimeException(BrandlessSites::REASON);
+        }
+
+        $answer = $this->client->aiTool($connection, $tool, $arguments);
+        if ((bool) ($answer['isError'] ?? false)) {
+            throw new RuntimeException((string) data_get($answer, 'content.0.text', 'Site bu işlemi yapmadı.'));
+        }
+
+        return is_array($answer['structuredContent'] ?? null) ? $answer['structuredContent'] : collect($answer)->except(['schema_version', 'content'])->all();
+    }
+
     /** @return array<string, mixed> */
     public function inspect(int $siteId): array
     {

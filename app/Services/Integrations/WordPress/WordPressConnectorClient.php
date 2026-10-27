@@ -279,6 +279,17 @@ final class WordPressConnectorClient
     }
 
     /**
+     * 1.26.0: one tool of the site's Claude / ChatGPT connection (`list` = the tools the site admin's level allows).
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    public function aiTool(CoreConnection $connection, string $tool, array $arguments): array
+    {
+        return $this->write($connection, 'POST', '/moxdop/v1/ai/tool', ['tool' => $tool, 'arguments' => (object) $arguments], (int) config('moxdop-wordpress.ai_tool_timeout_seconds', 180));
+    }
+
+    /**
      * 1.4.1: the plugin downloads the ZIP from the signed link, checks its SHA-256 and installs over itself.
      *
      * @return array<string, mixed>

@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\EditSite;
 use App\Mcp\Tools\ListSites;
+use App\Mcp\Tools\SiteTool;
 use App\Mcp\Tools\SiteWrites;
 use App\Models\Brand;
 use App\Models\CoreConnection;
@@ -62,6 +63,9 @@ final class McpEditSiteTest extends TestCase
             $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
             $data = match (true) {
                 str_ends_with($request->url(), '/fixes/undo') => ['schema_version' => 1, 'results' => array_map(fn (string $id): array => ['change_id' => $id, 'ok' => true], $body['change_ids'])],
+                str_ends_with($request->url(), '/ai/tool') => $body['tool'] === 'boom'
+                    ? ['schema_version' => 1, 'content' => [['type' => 'text', 'text' => 'Bu değişiklik siteyi bozdu ve geri alındı']], 'isError' => true]
+                    : ['schema_version' => 1, 'content' => [['type' => 'text', 'text' => '{}']], 'structuredContent' => ['tool' => $body['tool'], 'arguments' => $body['arguments']], 'isError' => false],
                 str_ends_with($request->url(), '/fixes') => ['schema_version' => 1, 'results' => array_map(fn (array $c): array => ['ok' => true, 'type' => $c['type'], 'change_id' => 'chg-'.$c['type'], 'before' => 'eski'], $body['changes'])],
                 default => ['schema_version' => 1, 'plugin_version' => '1.26.0', 'capabilities' => ['drafts', 'fixes', 'content']],
             };
@@ -104,5 +108,21 @@ final class McpEditSiteTest extends TestCase
         MoxdopServer::tool(EditSite::class, ['site_id' => $this->site->id, 'changes' => [['type' => 'seo_title', 'object_id' => 1, 'value' => 'x']]])->assertHasErrors();
         $this->assertSame(0, ExternalWriteAction::query()->count());
         $this->assertFalse(collect($this->sent)->contains(fn (array $s): bool => str_ends_with($s[1], '/fixes')));
+    }
+
+    public function test_site_tool_runs_the_sites_own_tools_and_a_brandless_site_gets_only_reads(): void
+    {
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'apply_setup', 'arguments' => ['name' => 'rank_math']])
+            ->assertOk()->assertSee('"tool":"apply_setup"', false)->assertSee('rank_math');
+        $sent = collect($this->sent)->last();
+        $this->assertStringEndsWith('/moxdop/v1/ai/tool', $sent[1]);
+        $this->assertSame(['tool' => 'apply_setup', 'arguments' => ['name' => 'rank_math']], $sent[2]);
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'boom'])->assertHasErrors(['siteyi bozdu']);
+
+        $this->site->forceFill(['brand_id' => null])->save();
+        $count = count($this->sent);
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'install_plugin', 'arguments' => ['slug' => 'autoptimize']])->assertHasErrors();
+        $this->assertCount($count, $this->sent, 'no write reaches a brandless site');
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'site_info'])->assertOk();
     }
 }

@@ -127,6 +127,13 @@ final class WordPressPageCacheExportTest extends TestCase
         $this->assertStringNotContainsString('wp_delete_post', $ai);
         $fixes = (string) file_get_contents($root.'/includes/class-moxdop-connector-fixes.php');
         $this->assertStringContainsString('public function undo_change($id)', $fixes);
+        $full = (string) file_get_contents($root.'/includes/class-moxdop-connector-ai-full.php');
+        $this->assertStringContainsString("!== 'downloads.wordpress.org'", $full, 'plugins only from WordPress.org');
+        $this->assertStringContainsString("'siteurl', 'home', 'admin_email'", $full, 'options that could lock the site are refused');
+        $this->assertStringContainsString('$undo();', $full, 'a change that broke the site is put back');
+        $this->assertStringNotContainsString('delete_plugins(', $full, 'plugins are never deleted');
+        $this->assertStringNotContainsString('wp_delete_post(', $full, 'nothing is deleted for good');
+        $this->assertStringContainsString("'permission_callback' => [\$auth, 'authorize']", $ai, 'MoxDOP\'s call is signed');
     }
 
     #[Test]
@@ -138,9 +145,9 @@ final class WordPressPageCacheExportTest extends TestCase
             $this->assertSame(0, $code, $file.': '.implode("\n", $output));
         }
         $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.26.0')", $plugin);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.27.0')", $plugin);
         $this->assertStringContainsString('class-moxdop-connector-page-cache.php', $plugin);
-        $this->assertStringContainsString('Stable tag: 1.26.0', (string) file_get_contents($root.'/readme.txt'));
+        $this->assertStringContainsString('Stable tag: 1.27.0', (string) file_get_contents($root.'/readme.txt'));
 
         $controller = (string) file_get_contents($root.'/includes/class-moxdop-connector-rest-controller.php');
         $this->assertStringContainsString("'/page-cache'", $controller);

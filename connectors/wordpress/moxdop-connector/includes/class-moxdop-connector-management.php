@@ -144,8 +144,15 @@ final class MoxDOP_Connector_Management
             return new WP_Error('moxdop_updates_disabled', 'Approved updates are disabled on this site.', ['status' => 403]);
         }
         $body = json_decode((string) $request->get_body(), true);
-        $type = is_array($body) ? (string) ($body['type'] ?? '') : '';
-        $item = is_array($body) ? (string) ($body['item'] ?? '') : '';
+
+        return $this->run_update(is_array($body) ? (string) ($body['type'] ?? '') : '', is_array($body) ? (string) ($body['item'] ?? '') : '');
+    }
+
+    /** 1.26.0: one offered update (plugin file, theme stylesheet or core); the caller checked the permission. */
+    public function run_update($type, $item)
+    {
+        $type = (string) $type;
+        $item = (string) $item;
         if (! in_array($type, ['plugin', 'theme', 'core'], true) || ($type !== 'core' && ($item === '' || strlen($item) > 200))) {
             return new WP_Error('moxdop_invalid_update', 'Update type and item are required.', ['status' => 400]);
         }

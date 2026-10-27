@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.26.0
+Stable tag: 1.27.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,12 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.27.0 =
+* Claude / ChatGPT connection, "Tam yetki" level: publishing and scheduling (Akıllı tarih days too), trash (undoable, never a permanent delete), the site builder's operations (pages, posts, custom posts, ACF, Elementor pages and templates, media, menus, site and Elementor kit settings), technical SEO (301, noindex, canonical, schema, llms.txt), plugins from the WordPress.org directory only (search, install, activate, deactivate, update), theme and core updates, plugin settings (secrets masked; a few options that could lock the site refused), ready professional setups (Rank Math, Yoast, LiteSpeed Cache, Autoptimize, Cache Enabler), setup guides, cache purge and a site check.
+* Site guard: a plugin activation, a setting, a setup or a settings build is followed by a site check; when the home page breaks, the change is put back at once.
+* Comments (read, reply, approve / hold / spam) and stored form messages (Flamingo, Elementor Pro) behind their own personal-data switch.
+* MoxDOP can use the same tools (signed POST /ai/tool) within the level the site admin chose.
 
 = 1.26.0 =
 * Claude / ChatGPT connection (Settings › Claude / ChatGPT, off by default): the site is an MCP server a site admin adds to Claude (custom connector) or ChatGPT (developer mode connector) with one address. Sign-in is OAuth 2.1 with PKCE: only Claude and ChatGPT redirect addresses can register, the admin approves on a wp-admin screen, keys are stored hashed and "Bağlantıyı kes" removes them. Levels: read (posts, pages, SEO fields, media), draft (also new drafts and draft edits) or edit (also SEO title / description, alt texts, internal links and classic / block editor content). Nothing is published or deleted, builder pages are read only, every write is listed on the settings page and can be undone.

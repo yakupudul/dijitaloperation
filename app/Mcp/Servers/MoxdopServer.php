@@ -31,6 +31,7 @@ use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SaveStrategy;
 use App\Mcp\Tools\ScreenChecks;
 use App\Mcp\Tools\SiteBuilds;
+use App\Mcp\Tools\SiteTool;
 use App\Mcp\Tools\SiteWrites;
 use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SubmitResults;
@@ -53,7 +54,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * through the same logged, undoable write path as an approved Onarım masası row. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.10.0')]
+#[Version('1.11.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -118,6 +119,11 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   published. Then `site-writes ids=[action_id]` for the result; `edit-site undo=action_id` puts a write back.
 - Only what the operator asked, only facts from the site, the brand file or the operator. A site without a brand
   gets nothing. A missing `edit` permission → tell the operator which plugin setting to switch on.
+- Everything else on a site (publish or schedule, trash, Elementor pages, menus, ACF, 301 / noindex / schema, site
+  settings, installing and setting up plugins: SEO, cache, images; updates, cache purge, speed check, comments):
+  `site-tool site_id=… tool=list` shows what that site's admin allowed (WordPress › Ayarlar › Claude / ChatGPT), then
+  `site-tool tool=<name> arguments={…}`. For plugin setups read `setup_guide` and `plugin_settings` first, prefer
+  `apply_setup`, then `site_check`. A change that breaks the site is put back by the site itself; say so.
 
 ## Site kurulumu (building a WordPress site)
 - Only when the operator asks you to build or change a site (CPT / ACF fields, pages, Elementor header or footer,
@@ -191,5 +197,6 @@ class MoxdopServer extends Server
         SiteBuilds::class,
         EditSite::class,
         SiteWrites::class,
+        SiteTool::class,
     ];
 }
