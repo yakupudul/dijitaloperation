@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.24.0
+Stable tag: 1.25.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.25.0 =
+* Akıllı tarih schedules ahead: the editor box always lists the next free Monday, Wednesday and Friday ahead under the free past days ("İleri tarih (zamanlanır)"), not only once the last 60 days are full. The bulk screen has a second mode, "İleriye zamanla", that gives each selected draft a different free publishing day ahead (09:00–11:30); WordPress publishes them on their day. Days are looked up 90 days ahead.
 
 = 1.24.0 =
 * 301s never chain: a redirect whose target already redirects is refused, and redirects that pointed at the old address now point at the new one (MoxDOP's list and Rank Math).

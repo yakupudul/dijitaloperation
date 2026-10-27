@@ -15,13 +15,16 @@ defined('ABSPATH') || exit;
  * Posts › Bulk actions › "MoxDOP · Akıllı tarihle yayınla" does the same for up to 20 drafts at once: a confirmation
  * screen gives each a different free day (nearest first; a translation shares its post's day), the person can change a
  * row and one click publishes them all with their dates.
+ * 1.25.0: the days ahead are always offered too, not only once the last 60 days are full: the box lists the free past
+ * days and, under them, the next free Monday, Wednesday and Friday ahead ("zamanlanır"); the bulk screen has a second
+ * mode, "İleriye zamanla", that gives each draft the next free publishing day ahead, so a week's posts can be lined up.
  * Off with the `moxdop_connector_smart_date` filter.
  */
 final class MoxDOP_Connector_Smart_Date
 {
     const DAYS_BACK = 60;
 
-    const DAYS_AHEAD = 60;
+    const DAYS_AHEAD = 90;
 
     const SHOWN = 6;
 
@@ -103,10 +106,12 @@ final class MoxDOP_Connector_Smart_Date
      * The selected drafts grouped by language group: a post and its selected translations share one day (the group's
      * first post decides it), each group a different free day, nearest to today first.
      *
+     * In 'future' mode only days ahead are given; otherwise past days first and, when they run out, days ahead.
+     *
      * @param  int[]  $ids
      * @return array{rows: array<int, array{post: WP_Post, members: WP_Post[], slots: array<int, array{date: string, label: string, past: bool}>, warnings: string[]}>, skipped: WP_Post[]}
      */
-    public static function plan($ids, $now = null)
+    public static function plan($ids, $now = null, $mode = 'past')
     {
         $rows = [];
         $skipped = [];
@@ -138,7 +143,7 @@ final class MoxDOP_Connector_Smart_Date
             }
             $grouped[$id] = $id;
             $language = self::language($id);
-            $all = self::slots($id, $now, isset($used[$language]) ? array_keys($used[$language]) : [], 30);
+            $all = self::slots($id, $now, isset($used[$language]) ? array_keys($used[$language]) : [], 30, $mode === 'future' ? 'future' : 'all');
             if ($all !== []) {
                 $used[$language][substr($all[0]['date'], 0, 10)] = true;
             }
@@ -154,8 +159,15 @@ final class MoxDOP_Connector_Smart_Date
             wp_die('Yetki yok.');
         }
         $ids = array_filter(array_map('intval', explode(',', isset($_GET['ids']) ? sanitize_text_field(wp_unslash($_GET['ids'])) : '')));
-        $plan = self::plan($ids);
+        $mode = isset($_GET['mode']) && $_GET['mode'] === 'future' ? 'future' : 'past';
+        $plan = self::plan($ids, null, $mode);
         echo '<div class="wrap"><h1>Akıllı tarihle yayınla</h1>';
+        $link = static function ($to, $text) use ($ids, $mode) {
+            $url = add_query_arg(['page' => self::PAGE, 'ids' => implode(',', $ids), 'mode' => $to], admin_url('edit.php'));
+
+            return $to === $mode ? '<span class="button button-primary" aria-current="true">'.esc_html($text).'</span>' : '<a class="button" href="'.esc_url($url).'">'.esc_html($text).'</a>';
+        };
+        echo '<p>'.$link('past', 'Geçmiş boş günleri doldur').' '.$link('future', 'İleriye zamanla').'</p>';
         if (count($ids) > self::BULK_MAX) {
             echo '<div class="notice notice-warning"><p>Bir seferde en fazla '.(int) self::BULK_MAX.' yazı; ilk '.(int) self::BULK_MAX.' yazı alındı.</p></div>';
         }
@@ -164,7 +176,10 @@ final class MoxDOP_Connector_Smart_Date
 
             return;
         }
-        echo '<p>Her yazı son '.(int) self::DAYS_BACK.' günün farklı bir boş Pazartesi, Çarşamba ya da Cuma gününü alır, bugüne en yakın olandan başlayarak; boş gün kalmazsa ileriye zamanlanır. Satırdaki tarihi değiştirebilirsin. Seçtiğin çeviriler yazısıyla aynı tarihi alır, seçmediğin henüz yayında olmayan çeviriler de.</p>';
+        echo '<p>'.($mode === 'future'
+            ? 'Her yazı sıradaki farklı bir boş Pazartesi, Çarşamba ya da Cuma gününe zamanlanır, en yakın günden başlayarak; o gün 09:00–11:30 arasında kendiliğinden yayına girer.'
+            : 'Her yazı son '.(int) self::DAYS_BACK.' günün farklı bir boş Pazartesi, Çarşamba ya da Cuma gününü alır, bugüne en yakın olandan başlayarak; boş gün kalmazsa ileriye zamanlanır.')
+            .' Satırdaki tarihi değiştirebilirsin, listede ileri tarihler de var. Seçtiğin çeviriler yazısıyla aynı tarihi alır, seçmediğin henüz yayında olmayan çeviriler de.</p>';
         echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         echo '<input type="hidden" name="action" value="moxdop_smart_date_bulk">';
         wp_nonce_field('moxdop_smart_date_bulk');
@@ -250,11 +265,12 @@ final class MoxDOP_Connector_Smart_Date
     }
 
     /**
-     * Free publishing days for the post: past ones (nearest first) then, when none, the next ones ahead.
+     * Free publishing days for the post: past ones (nearest first), then the next ones ahead (1.25.0: always, up to
+     * $count each). $which 'future' gives only the days ahead.
      *
      * @return array<int, array{date: string, label: string, past: bool}>
      */
-    public static function slots($post_id, $now = null, $skip = [], $count = self::SHOWN)
+    public static function slots($post_id, $now = null, $skip = [], $count = self::SHOWN, $which = 'all')
     {
         $tz = wp_timezone();
         $today = (new DateTimeImmutable('@'.($now ?? time())))->setTimezone($tz)->setTime(0, 0);
@@ -262,7 +278,7 @@ final class MoxDOP_Connector_Smart_Date
         $weekdays = self::weekdays();
         $current = (new DateTimeImmutable('@'.($now ?? time())))->setTimezone($tz)->format('Y-m-d\TH:i:s');
         $out = [];
-        for ($i = 0; $i <= self::DAYS_BACK && count($out) < $count; $i++) {
+        for ($i = 0; $which !== 'future' && $i <= self::DAYS_BACK && count($out) < $count; $i++) {
             $day = $today->modify('-'.$i.' days');
             if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')])) {
                 $slot = self::slot($post_id, $day, true, $now);
@@ -272,13 +288,13 @@ final class MoxDOP_Connector_Smart_Date
                 }
             }
         }
-        if ($out === []) {
-            for ($i = 0; $i <= self::DAYS_AHEAD && count($out) < $count; $i++) {
-                $day = $today->modify('+'.$i.' days');
-                $slot = self::slot($post_id, $day, false, $now);
-                if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')]) && $slot['date'] > $current) {
-                    $out[] = $slot;
-                }
+        $ahead = 0;
+        for ($i = 0; $i <= self::DAYS_AHEAD && $ahead < $count; $i++) {
+            $day = $today->modify('+'.$i.' days');
+            $slot = self::slot($post_id, $day, false, $now);
+            if (in_array((int) $day->format('N'), $weekdays, true) && ! isset($taken[$day->format('Y-m-d')]) && $slot['date'] > $current) {
+                $out[] = $slot;
+                $ahead++;
             }
         }
 
@@ -362,17 +378,27 @@ final class MoxDOP_Connector_Smart_Date
     {
         $slots = self::slots($post->ID);
         if ($slots === []) {
-            echo '<p>Önümüzdeki '.(int) self::DAYS_AHEAD.' günde boş yayın günü yok.</p>';
+            echo '<p>Son '.(int) self::DAYS_BACK.' günde ve önümüzdeki '.(int) self::DAYS_AHEAD.' günde boş yayın günü yok.</p>';
 
             return;
         }
         $warnings = self::warnings($post);
         echo '<p style="margin-top:0">'.($slots[0]['past']
             ? 'Son '.(int) self::DAYS_BACK.' günün boş Pazartesi, Çarşamba ve Cuma günleri, bugüne en yakın olandan başlayarak.'
-            : 'Son '.(int) self::DAYS_BACK.' günde boş yayın günü kalmadı; sıradaki boş günler.').'</p>';
+            : 'Son '.(int) self::DAYS_BACK.' günde boş yayın günü kalmadı; sıradaki boş günler.').' İleriye zamanlamak için listeden “İleri tarih” günlerinden birini seç.</p>';
         echo '<p><label for="moxdop-smart-date-slot" class="screen-reader-text">Yayın tarihi</label><select id="moxdop-smart-date-slot" style="width:100%">';
-        foreach ($slots as $slot) {
-            echo '<option value="'.esc_attr($slot['date']).'" data-past="'.($slot['past'] ? '1' : '0').'">'.esc_html($slot['label']).'</option>';
+        foreach (['Geçmiş boş günler' => true, 'İleri tarih (zamanlanır)' => false] as $group => $past) {
+            $in = array_filter($slots, static function ($slot) use ($past) {
+                return $slot['past'] === $past;
+            });
+            if ($in === []) {
+                continue;
+            }
+            echo '<optgroup label="'.esc_attr($group).'">';
+            foreach ($in as $slot) {
+                echo '<option value="'.esc_attr($slot['date']).'" data-past="'.($slot['past'] ? '1' : '0').'">'.esc_html($slot['label']).'</option>';
+            }
+            echo '</optgroup>';
         }
         echo '</select></p>';
         if ($warnings !== [] && $slots[0]['past']) {
