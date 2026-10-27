@@ -248,7 +248,7 @@ final class AiOperationsPage extends Component
             'open' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(),
             'done' => AiTask::query()->whereIn('status', [AiTask::DONE, AiTask::CONSUMED])->where('completed_at', '>=', $week)->count(),
             'failed' => AiTask::query()->where('status', AiTask::FAILED)->where('created_at', '>=', $week)->count(),
-            'recent' => AiTask::query()->with('brand:id,name')->latest('id')->limit(10)->get(['id', 'operation', 'brand_id', 'subject', 'status', 'error', 'created_at']),
+            'recent' => AiTask::query()->with('brand:id,name')->latest('id')->limit(10)->get(['id', 'operation', 'brand_id', 'subject', 'status', 'error', 'created_at', ...(SchemaState::hasColumn('ai_tasks', 'done_by') ? ['done_by'] : [])]),
         ];
     }
 

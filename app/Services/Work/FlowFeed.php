@@ -9,6 +9,7 @@ use App\Models\Brand;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Models\WorkBatch;
+use App\Services\AiTasks\AiWorkers;
 use App\Services\Repair\RepairDesk;
 use App\Support\Ai\AiOperationLabels;
 use App\Support\Operator\OperatorClock;
@@ -280,8 +281,8 @@ final class FlowFeed
     private function taskRows(Carbon|\DateTimeInterface $since, Collection $brands): array
     {
         $rows = AiTask::query()->where(fn ($q) => $q->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->orWhere('completed_at', '>=', $since))
-            ->selectRaw('operation, brand_id, status, count(*) as n, max(coalesce(completed_at, claimed_at, created_at)) as last_at, max(subject) as subject')
-            ->groupBy('operation', 'brand_id', 'status')->get()->groupBy(fn ($r): string => $r->operation.'|'.(int) $r->brand_id);
+            ->selectRaw('operation, brand_id, status, '.self::doneBySelect().' count(*) as n, max(coalesce(completed_at, claimed_at, created_at)) as last_at, max(subject) as subject')
+            ->groupBy(...self::doneByGroup())->get()->groupBy(fn ($r): string => $r->operation.'|'.(int) $r->brand_id);
 
         return $rows->map(function (Collection $group) use ($brands): array {
             $first = $group->first();
@@ -304,7 +305,7 @@ final class FlowFeed
                 'key' => 'ai:'.$first->operation.'|'.(int) $first->brand_id,
                 'kind' => WorkStage::kindOfOperation((string) $first->operation),
                 'title' => $label.($subject !== '' ? ': '.Str::limit($subject, 80) : ''),
-                'who' => trim(($first->brand_id !== null ? ($brands[$first->brand_id] ?? 'Marka').' · ' : '').'Claude'),
+                'who' => trim(($first->brand_id !== null ? ($brands[$first->brand_id] ?? 'Marka').' · ' : '').self::workersOf($group)),
                 'total' => $total,
                 'ok' => $ok,
                 'err' => $failed,
@@ -435,6 +436,27 @@ final class FlowFeed
         return ['items' => $items->values()->all(), 'more' => max(0, $total - $list->count())];
     }
 
+    /** Who did a group's work ("Claude MCP", "ChatGPT MCP + Claude API · model"); "AI" while nothing is answered yet. */
+    private static function workersOf(Collection $group): string
+    {
+        // Answers from before 2026-10-27 carry no worker: they were all Claude's.
+        $labels = $group->map(fn ($row): ?string => $row->done_by ?? (in_array($row->status, [AiTask::DONE, AiTask::CONSUMED, AiTask::FAILED], true) ? AiWorkers::CLAUDE_MCP : null))
+            ->filter()->unique()->map(fn ($by): string => AiWorkers::label((string) $by))->values();
+
+        return $labels->isEmpty() ? 'AI' : $labels->implode(' + ');
+    }
+
+    private static function doneBySelect(): string
+    {
+        return SchemaState::hasColumn('ai_tasks', 'done_by') ? 'done_by,' : '';
+    }
+
+    /** @return list<string> */
+    private static function doneByGroup(): array
+    {
+        return ['operation', 'brand_id', 'status', ...(SchemaState::hasColumn('ai_tasks', 'done_by') ? ['done_by'] : [])];
+    }
+
     /**
      * @param  Collection<int, string>  $brands
      * @return array{items: list<array<string, mixed>>, more: int}
@@ -448,7 +470,7 @@ final class FlowFeed
             ->where(fn ($q) => $q->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->orWhere('completed_at', '>=', $since));
         $total = (clone $query)->count();
         $tasks = $query->orderByRaw("case status when 'failed' then 0 when 'claimed' then 1 when 'pending' then 2 else 3 end")->orderByDesc('id')
-            ->limit(self::DETAIL)->get(['id', 'brand_id', 'subject', 'status', 'output', 'error']);
+            ->limit(self::DETAIL)->get(['id', 'brand_id', 'subject', 'status', 'output', 'error', ...(SchemaState::hasColumn('ai_tasks', 'done_by') ? ['done_by'] : [])]);
 
         return ['items' => $tasks->map(fn (AiTask $task): array => [
             'id' => 't'.$task->id,
@@ -456,9 +478,9 @@ final class FlowFeed
             'subject' => (string) ($task->subject ?? AiOperationLabels::for($operation)),
             'line' => match ($task->status) {
                 AiTask::FAILED => Str::limit(RepairDesk::plainError((string) $task->error), 140),
-                AiTask::PENDING => 'Claude\'un sırasında',
-                AiTask::CLAIMED => 'Claude yazıyor',
-                default => (string) (LiveFeed::preview($task->output) ?? 'Bitti'),
+                AiTask::PENDING => 'AI sırasında',
+                AiTask::CLAIMED => 'AI yazıyor',
+                default => trim(($task->doneByLabel() !== null ? $task->doneByLabel().' · ' : '').(LiveFeed::preview($task->output) ?? 'Bitti')),
             },
             'state' => match ($task->status) {
                 AiTask::FAILED => 'err',

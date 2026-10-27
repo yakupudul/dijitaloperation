@@ -16,6 +16,7 @@ use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
 use App\Events\FindingEvaluationCompleted;
 use App\Jobs\Ads\RefreshAdServiceStatsJob;
+use App\Jobs\Ai\DrainAiQueueWithApiJob;
 use App\Jobs\ApproveKomutaGroupJob;
 use App\Jobs\ApproveRepairRowsJob;
 use App\Jobs\Async\CollectLiveBoundDataJob;
@@ -468,6 +469,7 @@ class AppServiceProvider extends ServiceProvider
             PublicDiscoveryJob::class => 'heavy',
             ResourceCollectionJob::class => 'collection',
             RebuildWebsiteProjectionJob::class => 'background',
+            DrainAiQueueWithApiJob::class => 'background',
             RefreshAdServiceStatsJob::class => 'background',
             GenerateContentIdeasJob::class => 'content',
             PrepareBranchPageJob::class => 'content',

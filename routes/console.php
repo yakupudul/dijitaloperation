@@ -2,6 +2,7 @@
 
 use App\Ai\Agents\BrandDataReviewAgent;
 use App\Enums\Collection\CollectionRunStatus;
+use App\Jobs\Ai\DrainAiQueueWithApiJob;
 use App\Jobs\Assistant\UptimeCheckJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\Brand\RunBrandEpicrisisJob;
@@ -721,6 +722,12 @@ Schedule::command('queue:prune-failed --hours=720')
     ->dailyAt('07:25')
     ->withoutOverlapping(60)
     ->name('failed-jobs-prune');
+
+// AI sağlayıcıları (yakup, 2026-10-27): when the Ayarlar › AI order puts Claude API / ChatGPT API first among the
+// workers that are alive, the server answers queue tasks itself; otherwise the round does nothing.
+Schedule::job(DrainAiQueueWithApiJob::class)
+    ->everyFiveMinutes()
+    ->name('ai-queue-api-round');
 
 // Veri merkezi: the row counts of every source (full table counts) are counted hourly on the background queue; the
 // screen reads them from the cache. An erase counts again at once.

@@ -113,7 +113,7 @@
                             @foreach ($mcpTasks['recent'] as $task)
                                 <li class="card-row flex-wrap justify-between gap-y-1 py-3!">
                                     <span class="min-w-0 text-sm text-gray-900 dark:text-white">{{ \App\Support\Ai\AiOperationLabels::for($task->operation) }} <span class="text-[13px] text-gray-500">{{ $task->subject ?? $task->brand?->name ?? '—' }}</span></span>
-                                    <x-ta.pill :tone="$task->status === \App\Models\AiTask::FAILED ? 'critical' : 'info'" :title="$task->error">{{ \App\Models\AiTask::STATUS_LABELS[$task->status] ?? $task->status }}, {{ $task->created_at?->diffForHumans() }}</x-ta.pill>
+                                    <x-ta.pill :tone="$task->status === \App\Models\AiTask::FAILED ? 'critical' : 'info'" :title="$task->error">{{ \App\Models\AiTask::STATUS_LABELS[$task->status] ?? $task->status }}@if ($task->doneByLabel()) · {{ $task->doneByLabel() }}@endif, {{ $task->created_at?->diffForHumans() }}</x-ta.pill>
                                 </li>
                             @endforeach
                         </ul>

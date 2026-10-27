@@ -9,6 +9,7 @@ use App\Services\Mcp\McpKeys;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\SchemaState;
 use DateTimeInterface;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Illuminate\Support\Facades\DB;
@@ -349,9 +350,11 @@ final class AiTaskQueue
      * Claude's answer: checked against the task's schema; stored when valid, and the asking job is dispatched again
      * once nothing else of its run waits.
      *
+     * $by names who answered ("chatgpt_mcp", "claude_api:model"); without it the MCP caller of the request.
+     *
      * @return list<string> validation errors (empty = stored)
      */
-    public function submit(AiTask $task, mixed $output): array
+    public function submit(AiTask $task, mixed $output, ?string $by = null, ?float $costUsd = null): array
     {
         if (! $task->isOpen()) {
             return ['Bu iş artık açık değil (durum: '.$task->status.').'];
@@ -362,29 +365,47 @@ final class AiTaskQueue
 
             return $errors;
         }
-        $task->forceFill(['status' => AiTask::DONE, 'output' => $output, 'error' => null, 'completed_at' => now()])->save();
+        $task->forceFill(['status' => AiTask::DONE, 'output' => $output, 'error' => null, 'completed_at' => now()] + self::doneBy($by, $costUsd))->save();
         $this->resumeWhenAnswered($task);
 
         return [];
     }
 
     /** Claude could not do the task: the run continues with an error for this call (the operator sees it). */
-    public function fail(AiTask $task, string $reason): bool
+    public function fail(AiTask $task, string $reason, ?string $by = null): bool
     {
         if (! $task->isOpen()) {
             return false;
         }
-        $task->forceFill(['status' => AiTask::FAILED, 'error' => mb_substr($reason, 0, 2000), 'completed_at' => now()])->save();
+        $task->forceFill(['status' => AiTask::FAILED, 'error' => mb_substr($reason, 0, 2000), 'completed_at' => now()] + self::doneBy($by))->save();
         $this->resumeWhenAnswered($task);
 
         return true;
     }
 
-    public function claim(AiTask $task): void
+    /**
+     * The worker takes the task: an untaken one, or another worker's after its two hours (it is then this one's for two
+     * hours). Its own taken task is served again unchanged.
+     */
+    public function claim(AiTask $task, ?string $worker = null): void
     {
-        if ($task->status === AiTask::PENDING) {
-            $task->forceFill(['status' => AiTask::CLAIMED, 'claimed_at' => now()])->save();
+        $worker ??= McpCaller::current()->worker;
+        $hasColumn = SchemaState::hasColumn('ai_tasks', 'claimed_by');
+        $takenByOther = $task->status === AiTask::CLAIMED && $hasColumn && ($task->claimed_by ?? AiWorkers::CLAUDE_MCP) !== $worker;
+        if ($task->status === AiTask::PENDING || $takenByOther) {
+            $task->forceFill(['status' => AiTask::CLAIMED, 'claimed_at' => now()] + ($hasColumn ? ['claimed_by' => $worker] : []))->save();
         }
+    }
+
+    /** @return array<string, mixed> who answered, for the task row (the request's MCP caller when $by is null) */
+    private static function doneBy(?string $by, ?float $costUsd = null): array
+    {
+        if (! SchemaState::hasColumn('ai_tasks', 'done_by')) {
+            return [];
+        }
+        $caller = McpCaller::current();
+
+        return ['done_by' => $by ?? $caller->worker, 'done_by_token_id' => $by === null ? $caller->tokenId : null, 'cost_usd' => $costUsd];
     }
 
     /** @return array<string, mixed> */

@@ -7,6 +7,7 @@ use App\Models\AiTask;
 use App\Models\Brand;
 use App\Support\Ai\AiOperationLabels;
 use App\Support\Operator\OperatorClock;
+use App\Support\SchemaState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -65,12 +66,12 @@ final class LiveFeed extends Component
     {
         $tasks = AiTask::query()->whereIn('status', [AiTask::DONE, AiTask::CONSUMED, AiTask::FAILED])->whereNotNull('completed_at')
             ->orderByDesc('completed_at')->orderByDesc('id')->limit(self::STREAM)
-            ->get(['id', 'operation', 'brand_id', 'subject', 'status', 'output', 'error', 'completed_at'])
+            ->get(['id', 'operation', 'brand_id', 'subject', 'status', 'output', 'error', 'completed_at', ...(SchemaState::hasColumn('ai_tasks', 'done_by') ? ['done_by'] : [])])
             ->map(fn (AiTask $task): array => [
                 'key' => 'task-'.$task->id,
                 'at' => $task->completed_at,
                 'ok' => $task->status !== AiTask::FAILED,
-                'who' => 'Claude',
+                'who' => $task->doneByLabel() ?? 'AI',
                 'label' => AiOperationLabels::for($task->operation),
                 'brand_id' => $task->brand_id,
                 'subject' => $task->subject,
