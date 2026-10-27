@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Settings;
 
 use App\Models\McpToken;
+use App\Services\AiTasks\AiWorkers;
 use App\Services\Mcp\McpKeys;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -23,6 +24,9 @@ final class McpKeysPage extends Component
 
     public string $scope = McpToken::READ;
 
+    /** Which assistant uses the key (Claude MCP / ChatGPT MCP): the AI queue order on Ayarlar › AI goes by it. */
+    public string $provider = AiWorkers::CLAUDE_MCP;
+
     /** The key just made: shown once, gone on the next page load. */
     public ?string $newKey = null;
 
@@ -34,8 +38,8 @@ final class McpKeysPage extends Component
     public function create(): void
     {
         $this->authorizeAdmin();
-        $this->validate(['name' => ['required', 'string', 'max:80'], 'scope' => ['required', 'in:read,write']]);
-        $this->newKey = McpKeys::issue($this->name, $this->scope, auth()->id());
+        $this->validate(['name' => ['required', 'string', 'max:80'], 'scope' => ['required', 'in:read,write'], 'provider' => ['required', 'in:'.implode(',', AiWorkers::MCP)]]);
+        $this->newKey = McpKeys::issue($this->name, $this->scope, auth()->id(), $this->provider);
         $this->reset('name');
     }
 

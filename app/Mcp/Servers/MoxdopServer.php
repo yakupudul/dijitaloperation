@@ -82,6 +82,8 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   profile actions, keywords, reviews). Check `last_day` before drawing a conclusion.
 
 ## AI task queue (routine work)
+0. Several AI workers (Claude, ChatGPT, APIs) share this queue in the operator's order. When `list-tasks` or
+   `get-tasks` answers `your_turn: false`, another worker has the queue now: end the round at once, doing nothing.
 1. `list-tasks` → `by_operation` shows how many wait per operation, in the order to work them (writing and repair
    checks first, then WhatsApp / review replies, then bulk). Work one operation at a time, in that order, with
    `get-tasks operation=… limit=25`: its `instructions` and `schemas` come once, keyed by hash; each task names its

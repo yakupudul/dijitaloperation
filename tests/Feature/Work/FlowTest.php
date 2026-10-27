@@ -150,7 +150,7 @@ final class FlowTest extends SiteTestCase
         $this->assertSame('run', $row['state']);
         $this->assertSame('icerik', $row['kind']);
         $this->assertSame([3, 1], [$row['total'], $row['ok']]);
-        $this->assertSame('Panorama Ankara · Claude', $row['who']);
+        $this->assertSame('Panorama Ankara · Claude MCP', $row['who']);
         $this->assertSame(['queue' => 1, 'run' => 1], array_intersect_key(app(FlowFeed::class)->counts(), ['queue' => 0, 'run' => 0]));
     }
 

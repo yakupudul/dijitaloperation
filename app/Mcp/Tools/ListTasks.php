@@ -4,6 +4,8 @@ namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
 use App\Services\AiTasks\AiTaskPriority;
+use App\Services\AiTasks\AiWorkers;
+use App\Services\AiTasks\McpCaller;
 use App\Support\Ai\AiOperationLabels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Carbon;
@@ -13,7 +15,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
-#[Description('Lists AI tasks waiting for Claude (most urgent first: writing and repair checks, then WhatsApp / review replies, then bulk work; oldest first inside): id, operation, brand, subject, status, plus `by_operation` (waiting count per operation in the order to work them, for get-tasks) and `oldest_waiting_hours`. Optional filters: operation key, brand_id.')]
+#[Description('Lists AI tasks waiting for Claude (most urgent first: writing and repair checks, then WhatsApp / review replies, then bulk work; oldest first inside): id, operation, brand, subject, status, plus `by_operation` (waiting count per operation in the order to work them, for get-tasks) and `oldest_waiting_hours`. Optional filters: operation key, brand_id. Lists only tasks you may take (another worker\'s taken task stays its own for two hours). When `your_turn` is false another AI worker (Ayarlar › AI order) has the queue now: stop the round without doing anything.')]
 #[IsReadOnly]
 class ListTasks extends Tool
 {
@@ -23,17 +25,28 @@ class ListTasks extends Tool
             'operation' => ['nullable', 'string', 'max:80'],
             'brand_id' => ['nullable', 'integer'],
         ]);
-        $tasks = AiTask::query()->with('brand:id,name')->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
+        $caller = McpCaller::current();
+        $workers = app(AiWorkers::class);
+        if ($caller->writes()) {
+            $workers->markSeen($caller->worker);
+            if (! $workers->mayWork($caller->worker)) {
+                return Response::json(['your_turn' => false, 'message' => $workers->standDownMessage($caller->worker),
+                    'waiting' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(), 'by_operation' => (object) [], 'tasks' => []]);
+            }
+        }
+        $open = fn () => AiWorkers::servable(AiTask::query(), $caller->worker)->reorder();
+        $tasks = AiWorkers::servable(AiTask::query()->with('brand:id,name'), $caller->worker)->reorder()
             ->when($validated['operation'] ?? null, fn ($q, string $operation) => $q->where('operation', $operation))
             ->when($validated['brand_id'] ?? null, fn ($q, int $brandId) => $q->where('brand_id', $brandId))
             ->orderByRaw(AiTaskPriority::orderSql())->orderBy('id')->limit((int) config('moxdop-mcp.list_limit', 20))->get();
         $oldest = AiTask::query()->where('status', AiTask::PENDING)->min('created_at');
 
         return Response::json([
-            'waiting' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(),
+            'your_turn' => true,
+            'waiting' => $open()->count(),
             'oldest_waiting_hours' => $oldest !== null ? (int) floor(Carbon::parse((string) $oldest)->diffInMinutes(now()) / 60) : null,
             // Work order: writing / repair checks first, then people waiting (WhatsApp, reviews), then bulk; oldest first inside.
-            'by_operation' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
+            'by_operation' => $open()
                 ->selectRaw('operation, count(*) as waiting, min(created_at) as oldest')->groupBy('operation')->get()
                 ->sortBy(fn ($row): array => [AiTaskPriority::tier((string) $row->operation), (string) $row->oldest, (string) $row->operation])
                 ->mapWithKeys(fn ($row): array => [(string) $row->operation => (int) $row->waiting])->all(),

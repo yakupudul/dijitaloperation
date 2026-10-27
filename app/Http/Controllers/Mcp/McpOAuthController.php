@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mcp;
 use App\Http\Controllers\Controller;
 use App\Models\McpOAuthClient;
 use App\Models\McpToken;
+use App\Services\AiTasks\AiWorkers;
 use App\Services\Mcp\McpKeys;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -27,7 +28,10 @@ final class McpOAuthController extends Controller
     private const int CODE_MINUTES = 10;
 
     /** Callback hosts a client may register (claude.ai / claude.com connectors; Claude Code on the operator's machine). */
-    private const array REDIRECT_HOSTS = ['claude.ai', 'claude.com'];
+    private const array REDIRECT_HOSTS = ['claude.ai', 'claude.com', ...self::CHATGPT_HOSTS];
+
+    /** ChatGPT connectors (developer mode; yakup 2026-10-27 "ChatGPT'yi yedek bağla"): their key works as ChatGPT MCP. */
+    private const array CHATGPT_HOSTS = ['chatgpt.com', 'chat.openai.com'];
 
     private const array LOCAL_HOSTS = ['localhost', '127.0.0.1'];
 
@@ -68,7 +72,7 @@ final class McpOAuthController extends Controller
         }
         foreach ($uris as $uri) {
             if (! is_string($uri) || ! self::allowedRedirect($uri)) {
-                return $this->oauthError('invalid_redirect_uri', 'Only claude.ai, claude.com or local callbacks may connect.', 400);
+                return $this->oauthError('invalid_redirect_uri', 'Only claude.ai, claude.com, chatgpt.com or local callbacks may connect.', 400);
             }
         }
 
@@ -128,6 +132,7 @@ final class McpOAuthController extends Controller
             'scope' => $request->input('scope') === McpToken::READ ? McpToken::READ : McpToken::WRITE,
             'user_id' => auth()->id(),
             'name' => $client->name,
+            'provider' => self::workerFor($redirect),
         ], now()->addMinutes(self::CODE_MINUTES));
 
         return redirect()->away($this->withQuery($redirect, array_filter(['code' => $code, 'state' => $state], fn ($value): bool => $value !== null)));
@@ -150,7 +155,7 @@ final class McpOAuthController extends Controller
             return $this->oauthError('invalid_grant', 'The code is invalid, used or expired.', 400);
         }
 
-        $key = McpKeys::issue($grant['name'].' (bağlantı)', $grant['scope'], $grant['user_id']);
+        $key = McpKeys::issue($grant['name'].' (bağlantı)', $grant['scope'], $grant['user_id'], (string) ($grant['provider'] ?? AiWorkers::CLAUDE_MCP));
 
         return response()->json(['access_token' => $key, 'token_type' => 'Bearer', 'scope' => $grant['scope']])
             ->header('Cache-Control', 'no-store');
@@ -164,6 +169,12 @@ final class McpOAuthController extends Controller
     private static function issuer(): string
     {
         return rtrim(url('/'), '/');
+    }
+
+    /** Which AI worker a connection is: ChatGPT when it comes back to chatgpt.com, Claude otherwise. */
+    public static function workerFor(string $redirect): string
+    {
+        return in_array(strtolower((string) parse_url($redirect, PHP_URL_HOST)), self::CHATGPT_HOSTS, true) ? AiWorkers::CHATGPT_MCP : AiWorkers::CLAUDE_MCP;
     }
 
     private static function allowedRedirect(string $uri): bool
@@ -185,7 +196,7 @@ final class McpOAuthController extends Controller
         $client = McpOAuthClient::query()->where('client_id', (string) $request->input('client_id'))->first();
         $redirect = (string) $request->input('redirect_uri');
         $error = match (true) {
-            $client === null => 'Bu uygulama MoxDOP\'a kayıtlı değil. claude.ai\'de bağlayıcıyı silip yeniden ekle.',
+            $client === null => 'Bu uygulama MoxDOP\'a kayıtlı değil. Claude ya da ChatGPT\'de bağlayıcıyı silip yeniden ekle.',
             ! in_array($redirect, $client->redirect_uris ?? [], true) => 'Dönüş adresi kayıtlı adresle uyuşmuyor.',
             $request->input('response_type') !== 'code' => 'Desteklenmeyen istek türü.',
             $request->input('code_challenge_method') !== 'S256' || trim((string) $request->input('code_challenge')) === '' => 'Güvenli bağlantı (PKCE) bilgisi eksik.',

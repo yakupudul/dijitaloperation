@@ -68,6 +68,7 @@ class AgencySetting extends Model
             'backup_remote_password' => 'encrypted',
             'ai_openai_free_quota' => 'boolean',
             'ai_openai_admin_key' => 'encrypted',
+            'ai_workers' => 'array',
             'ai_openai_audit' => 'array',
         ];
     }

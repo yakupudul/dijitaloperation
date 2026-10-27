@@ -5,6 +5,9 @@ namespace App\Services\Mcp;
 use App\Mcp\Servers\MoxdopServer;
 use App\Models\AgencySetting;
 use App\Models\McpToken;
+use App\Services\AiTasks\AiWorkers;
+use App\Services\AiTasks\McpCaller;
+use App\Support\SchemaState;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
@@ -23,12 +26,13 @@ final class McpKeys
     private const array EXTRA_READ_TOOLS = ['get-brand', 'get-page', 'task-result'];
 
     /** A new key: returns the plain text, which is never stored or shown again. */
-    public static function issue(string $name, string $scope, ?int $userId): string
+    public static function issue(string $name, string $scope, ?int $userId, string $provider = AiWorkers::CLAUDE_MCP): string
     {
         $plain = self::PREFIX.Str::random(48);
         McpToken::query()->create([
             'name' => Str::limit(trim($name) !== '' ? trim($name) : 'MCP anahtarı', 80, ''),
             'scope' => $scope === McpToken::WRITE ? McpToken::WRITE : McpToken::READ,
+            ...(SchemaState::hasColumn('mcp_tokens', 'provider') ? ['provider' => AiWorkers::isMcp($provider) ? $provider : AiWorkers::CLAUDE_MCP] : []),
             'token_hash' => hash('sha256', $plain),
             'last_four' => substr($plain, -4),
             'created_by' => $userId,
@@ -74,11 +78,17 @@ final class McpKeys
     /** The scope of a given bearer key (read / write), or null when it is not a valid key. */
     public static function scopeOf(string $given): ?string
     {
+        return self::callerOf($given)?->scope;
+    }
+
+    /** Who a given bearer key is (worker, key id, scope), or null when it is not a valid key. */
+    public static function callerOf(string $given): ?McpCaller
+    {
         if ($given === '') {
             return null;
         }
         if (self::envKeyOn() && hash_equals(trim((string) config('moxdop-mcp.token')), $given)) {
-            return McpToken::WRITE;
+            return new McpCaller(AiWorkers::CLAUDE_MCP, null, McpToken::WRITE);
         }
         if (! str_starts_with($given, self::PREFIX)) {
             return null;
@@ -95,7 +105,7 @@ final class McpKeys
             $token->forceFill(['last_used_at' => now()])->saveQuietly();
         }
 
-        return (string) $token->scope;
+        return new McpCaller(AiWorkers::isMcp((string) ($token->provider ?? '')) ? (string) $token->provider : AiWorkers::CLAUDE_MCP, (int) $token->id, (string) $token->scope);
     }
 
     /** @return list<string> tool names a read key may call */

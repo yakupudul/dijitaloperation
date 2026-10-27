@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 
 /** One MCP key made in the panel; only its sha256 hash and last four characters are kept. */
-#[Fillable(['name', 'scope', 'token_hash', 'last_four', 'created_by', 'last_used_at', 'revoked_at'])]
+#[Fillable(['name', 'scope', 'provider', 'token_hash', 'last_four', 'created_by', 'last_used_at', 'revoked_at'])]
 #[Hidden(['token_hash'])]
 class McpToken extends Model
 {

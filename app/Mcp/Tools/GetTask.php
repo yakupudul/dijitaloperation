@@ -4,6 +4,8 @@ namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\AiTasks\AiWorkers;
+use App\Services\AiTasks\McpCaller;
 use App\Support\Ai\AiOperationLabels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -26,7 +28,16 @@ class GetTask extends Tool
         if (! $task->isOpen()) {
             return Response::error('Bu görev artık açık değil (durum: '.$task->status.').');
         }
-        $this->queue->claim($task);
+        $caller = McpCaller::current();
+        $workers = app(AiWorkers::class);
+        $workers->markSeen($caller->worker);
+        if (! $workers->mayWork($caller->worker)) {
+            return Response::error($workers->standDownMessage($caller->worker));
+        }
+        if (! AiWorkers::servable(AiTask::query()->whereKey($task->id), $caller->worker)->exists()) {
+            return Response::error('Bu görevi başka bir AI sağlayıcısı aldı; iki saat ona ayrılmış. Başka bir görevle devam et.');
+        }
+        $this->queue->claim($task, $caller->worker);
 
         return Response::json([
             'id' => $task->id,

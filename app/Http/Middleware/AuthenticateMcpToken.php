@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\McpToken;
+use App\Services\AiTasks\McpCaller;
 use App\Services\Mcp\McpKeys;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,10 +19,13 @@ final class AuthenticateMcpToken
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $scope = McpKeys::scopeOf((string) $request->bearerToken());
-        if ($scope === null) {
+        $caller = McpKeys::callerOf((string) $request->bearerToken());
+        if ($caller === null) {
             return response()->json(['error' => 'unauthorized'], 401);
         }
+        // Who works the queue in this request (Claude MCP / ChatGPT MCP): the queue tools gate and record by it.
+        app()->instance(McpCaller::class, $caller);
+        $scope = $caller->scope;
 
         if ($scope === McpToken::READ && ($blocked = $this->blockedCall($request)) !== null) {
             return response()->json([

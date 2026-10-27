@@ -4,6 +4,8 @@ namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\AiTasks\AiWorkers;
+use App\Services\AiTasks\McpCaller;
 use App\Support\Ai\AiOperationLabels;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -16,7 +18,7 @@ use Laravel\Mcp\Server\Tool;
  * are sent once per distinct text (keyed by a short hash); tasks only carry their hash, so a batch of 40 triage tasks
  * reads the long prompt once instead of 40 times. Hashes the caller already holds (`known`) are not sent again.
  */
-#[Description('Reads and claims up to 50 waiting tasks of ONE operation at once (oldest first). Instructions and output schemas come once in `instructions` / `schemas` keyed by hash; each task carries instructions_hash, schema_hash, input and last_errors. Pass hashes you already have in `known` to skip them. Answer with submit-results.')]
+#[Description('Reads and claims up to 50 waiting tasks of ONE operation at once (oldest first). Instructions and output schemas come once in `instructions` / `schemas` keyed by hash; each task carries instructions_hash, schema_hash, input and last_errors. Pass hashes you already have in `known` to skip them. Answer with submit-results. When `your_turn` is false another AI worker has the queue now: stop the round without doing anything.')]
 class GetTasks extends Tool
 {
     public function __construct(private readonly AiTaskQueue $queue) {}
@@ -31,7 +33,13 @@ class GetTasks extends Tool
             'known.*' => ['string', 'max:64'],
         ]);
         $known = array_flip($validated['known'] ?? []);
-        $tasks = AiTask::query()->with('brand:id,name')->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])
+        $caller = McpCaller::current();
+        $workers = app(AiWorkers::class);
+        $workers->markSeen($caller->worker);
+        if (! $workers->mayWork($caller->worker)) {
+            return Response::json(['your_turn' => false, 'message' => $workers->standDownMessage($caller->worker), 'tasks' => []]);
+        }
+        $tasks = AiWorkers::servable(AiTask::query()->with('brand:id,name'), $caller->worker)
             ->where('operation', $validated['operation'])
             ->when($validated['brand_id'] ?? null, fn ($q, int $brandId) => $q->where('brand_id', $brandId))
             ->orderBy('id')->limit((int) ($validated['limit'] ?? 25))->get();
@@ -40,7 +48,7 @@ class GetTasks extends Tool
         $schemas = [];
         $rows = [];
         foreach ($tasks as $task) {
-            $this->queue->claim($task);
+            $this->queue->claim($task, $caller->worker);
             $instructionsHash = self::hash((string) $task->instructions);
             $schemaHash = self::hash((string) json_encode($task->output_schema));
             if (! isset($known[$instructionsHash])) {
@@ -61,6 +69,7 @@ class GetTasks extends Tool
         }
 
         return Response::json([
+            'your_turn' => true,
             'operation' => $validated['operation'],
             'label' => AiOperationLabels::for($validated['operation']),
             'still_waiting' => AiTask::query()->where('operation', $validated['operation'])->where('status', AiTask::PENDING)->count(),

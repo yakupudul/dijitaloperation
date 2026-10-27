@@ -503,17 +503,18 @@
     @elseif ($section === 'ai')
         <section>
             <div class="section-head"><h2 class="section-title">{{ __('operator.settings.ai.overview') }}</h2></div>
-            {{-- Only Claude is used (2026-10-19, owner decision): every AI step runs on the Claude MCP queue; the
-                 other providers are hidden here and on Entegrasyonlar (their pages and code stay). --}}
+            {{-- AI sağlayıcıları (yakup, 2026-10-27): Claude MCP, ChatGPT MCP, Claude API and ChatGPT API drain the queue in
+                 the order set on their own page; the first alive one works. --}}
+            @php($aiActive = app(\App\Services\AiTasks\AiWorkers::class)->active())
             <div class="card">
-                <div class="card-row flex-wrap sm:flex-nowrap">
-                    <span class="row-icon font-semibold text-gray-700" aria-hidden="true">C</span>
+                <div class="card-row flex-wrap sm:flex-nowrap" data-ai-workers-link>
+                    <span class="row-icon font-semibold text-gray-700" aria-hidden="true">AI</span>
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">Anthropic (Claude)</p>
-                        <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $settings['ai']['note'] }}</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">AI sağlayıcıları</p>
+                        <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Claude ve ChatGPT (MCP ve API) sırası, durumları ve rutin yönergeleri.</p>
                     </div>
-                    <span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $settings['ai']['anthropic'] }}</span>
-                    <a href="{{ route('operator.integrations.ai', ['provider' => 'anthropic']) }}" class="btn w-full sm:w-auto">Anthropic</a>
+                    <span class="text-[13px] text-gray-500 dark:text-gray-400">{{ $aiActive !== null ? 'Şu an çalışan: '.\App\Services\AiTasks\AiWorkers::LABELS[$aiActive] : 'Çalışan sağlayıcı yok' }}</span>
+                    <a href="{{ route('operator.settings.ai-workers') }}" class="btn w-full sm:w-auto">AI sağlayıcıları</a>
                 </div>
                 <div class="card-row flex-wrap sm:flex-nowrap">
                     <div class="min-w-0 flex-1">

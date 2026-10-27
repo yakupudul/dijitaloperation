@@ -26,6 +26,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('gbp_review_approvals', function (Blueprint $table): void {
+            $table->dropIndex(['digital_asset_id']);
+        });
+        Schema::table('gbp_review_approvals', function (Blueprint $table): void {
             $table->dropColumn(['live', 'digital_asset_id']);
         });
     }

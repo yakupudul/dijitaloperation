@@ -4,6 +4,8 @@ namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\AiTasks\AiWorkers;
+use App\Services\AiTasks\McpCaller;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -21,6 +23,7 @@ class SubmitResults extends Tool
 
     public function handle(Request $request): Response
     {
+        app(AiWorkers::class)->markSeen(McpCaller::current()->worker);
         $validated = $request->validate([
             'results' => ['required', 'array', 'min:1', 'max:50'],
             'results.*.id' => ['required', 'integer'],

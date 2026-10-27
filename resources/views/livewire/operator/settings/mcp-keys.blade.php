@@ -5,7 +5,7 @@
 <div class="space-y-10">
     <header class="min-w-0">
         <h1 class="page-title">MCP anahtarları</h1>
-        <p class="page-sub">Claude MoxDOP'a bu anahtarlarla bağlanır; okuma anahtarı yalnız okur, yazma anahtarı kuyruk işlerini de yapar.</p>
+        <p class="page-sub">Claude ve ChatGPT MoxDOP'a bu anahtarlarla bağlanır (sıra ve durum: <a href="{{ route('operator.settings.ai-workers') }}" wire:navigate class="link-neutral">AI sağlayıcıları</a>); okuma anahtarı yalnız okur, yazma anahtarı kuyruk işlerini de yapar.</p>
         <p class="mt-1 text-xs text-gray-500" data-oauth-hint>claude.ai bağlayıcısı anahtar istemez: {{ $serverUrl }} adresini ekleyip Bağlan'a bas, açılan MoxDOP ekranında onayla; anahtar burada kendiliğinden görünür.</p>
     </header>
 
@@ -24,6 +24,10 @@
     <section class="card -mt-4" data-create-key>
         <div class="flex flex-wrap items-center gap-2 p-4">
             <input type="text" wire:model="name" placeholder="Nerede kullanılacak? (ör. claude.ai bağlayıcısı)" aria-label="Ad" class="{{ $field }} min-w-0 flex-1 sm:min-w-60">
+            <select wire:model="provider" aria-label="Kim kullanacak" class="{{ $field }} w-full sm:w-auto">
+                <option value="claude_mcp">Claude</option>
+                <option value="chatgpt_mcp">ChatGPT</option>
+            </select>
             <select wire:model="scope" aria-label="Yetki" class="{{ $field }} w-full sm:w-auto">
                 <option value="read">Yalnız okuma</option>
                 <option value="write">Okuma ve yazma</option>
@@ -53,7 +57,7 @@
                 @endif
                 @forelse ($keys as $key)
                     <tr wire:key="key-{{ $key->id }}">
-                        <td><span class="block font-medium text-gray-900 dark:text-white">{{ $key->name }}</span><span class="block text-xs text-gray-500">…{{ $key->last_four }} · {{ $key->created_at?->timezone('Europe/Istanbul')->format('d.m.Y') }}</span></td>
+                        <td><span class="block font-medium text-gray-900 dark:text-white">{{ $key->name }}</span><span class="block text-xs text-gray-500">{{ \App\Services\AiTasks\AiWorkers::LABELS[$key->provider ?? 'claude_mcp'] ?? 'Claude MCP' }} · …{{ $key->last_four }} · {{ $key->created_at?->timezone('Europe/Istanbul')->format('d.m.Y') }}</span></td>
                         <td><x-ta.pill :tone="$key->scope === 'write' ? 'look' : 'ok'">{{ $key->scope === 'write' ? 'Okuma ve yazma' : 'Yalnız okuma' }}</x-ta.pill></td>
                         <td class="hidden whitespace-nowrap text-xs tabular-nums text-gray-500 sm:table-cell">{{ $key->last_used_at?->timezone('Europe/Istanbul')->format('d.m H:i') ?? 'Hiç' }}</td>
                         <td class="text-right">
