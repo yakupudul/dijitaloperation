@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppBackupLine;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
+use App\Services\WhatsApp\Backup\WhatsAppBackupSpreadsheet;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,8 +23,8 @@ final class WhatsAppBackupController
 {
     public function begin(Request $request, WhatsAppBackupImporter $importer): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'size' => ['required', 'integer', 'min:1'], 'line' => ['nullable', 'integer']]);
-        $import = $importer->begin($request->user(), $data['name'], (int) $data['size'], isset($data['line']) ? (int) $data['line'] : null);
+        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'size' => ['required', 'integer', 'min:1'], 'line' => ['nullable', 'integer'], 'excel' => ['nullable', 'boolean']]);
+        $import = $importer->begin($request->user(), $data['name'], (int) $data['size'], isset($data['line']) ? (int) $data['line'] : null, (bool) ($data['excel'] ?? false));
 
         return response()->json(['id' => $import->id, 'chunk' => WhatsAppBackupImporter::CHUNK_BYTES]);
     }
@@ -70,6 +71,20 @@ final class WhatsAppBackupController
             'Content-Type' => 'text/plain; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="'.$name.'"',
             'Cache-Control' => 'no-store, private',
         ]);
+    }
+
+    /** "Excel indir" of one uploaded backup: only the chats inside that file. */
+    public function excel(Request $request, string $import, WhatsAppConnection $connection): BinaryFileResponse
+    {
+        $connection->authorize($request->user());
+        $row = WhatsAppBackupImport::query()->where('status', 'completed')->findOrFail($import);
+        $path = WhatsAppBackupSpreadsheet::open($row);
+        abort_if($path === null, 404);
+        $name = Str::slug((string) preg_replace('/\.crypt\d+$/i', '', $row->file_name)) ?: 'yedek';
+        $file = 'whatsapp-'.($row->line?->name ? Str::slug($row->line->name).'-' : '').$name.'-'.($row->finished_at?->timezone('Europe/Istanbul')->format('Y-m-d-Hi') ?? 'excel').'.xlsx';
+
+        return response()->download($path, $file, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'no-store, private'])
+            ->deleteFileAfterSend();
     }
 
     private function line(Request $request): ?WhatsAppBackupLine

@@ -64,7 +64,8 @@ final class WhatsAppBackupImportTest extends TestCase
     protected function tearDown(): void
     {
         $kept = [WhatsAppBackupImport::keptPath(null), ...WhatsAppBackupLine::query()->pluck('id')->map(fn (int $id): string => WhatsAppBackupImport::keptPath($id))->all()];
-        foreach ([...$this->files, ...$kept, ...WhatsAppBackupImport::query()->get()->map->path()->all()] as $file) {
+        $excels = WhatsAppBackupImport::query()->get()->map->excelPath()->all();
+        foreach ([...$this->files, ...$kept, ...$excels, ...WhatsAppBackupImport::query()->get()->map->path()->all()] as $file) {
             @unlink($file);
         }
         parent::tearDown();
@@ -431,6 +432,44 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertSame(['905321112233'], WhatsAppConversation::query()->pluck('contact_id')->all());
         $this->assertFileDoesNotExist(WhatsAppBackupImport::keptPath($line->id));
         $this->assertSame(1, WhatsAppMessage::query()->count());
+    }
+
+    public function test_each_backup_gets_its_own_excel_and_an_excel_only_upload_never_touches_the_inbox(): void
+    {
+        Queue::fake();
+        $inboxImport = $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Firma A']]]])));
+        $mainKey = $this->key;
+
+        // Another business's backup, Excel only, with its own key.
+        $this->key = bin2hex(random_bytes(32));
+        $content = $this->backup([['905551112233', 's.whatsapp.net', [['B1', 0, '2026-09-03 10:00', 0, 'Firma B'], ['B2', 1, '2026-09-03 10:05', 0, 'Cevap']]]]);
+        $id = $this->actingAs($this->admin)->postJson(route('operator.whatsapp.backup'), ['name' => 'msgstore.db.crypt15', 'size' => strlen($content), 'excel' => true])->assertOk()->json('id');
+        $this->piece($id, 0, $content)->assertOk()->assertJson(['complete' => true, 'extracting' => false]);
+        $excel = WhatsAppBackupImport::query()->findOrFail($id);
+        $this->assertSame(['excel', 'uploaded'], [$excel->mode, $excel->status]);
+        Livewire::test(Inbox::class)->set('tab', 'setup')->assertSee('Yedekten Excel al')
+            ->call('extractExcel', '')->assertHasErrors('backup_key.excel')
+            ->call('extractExcel', $this->key)->assertHasNoErrors();
+        app(WhatsAppBackupImporter::class)->run($id);
+
+        $this->assertSame('completed', $excel->fresh()->status);
+        $this->assertSame(['905321112233'], WhatsAppConversation::query()->pluck('contact_id')->all());
+        $this->assertSame($mainKey, app(WhatsAppBackupImporter::class)->savedKey());
+        $this->assertFileExists($excel->excelPath());
+        $this->assertStringNotContainsString('Firma B', (string) file_get_contents($excel->excelPath()));
+
+        $sheets = $this->sheets($this->get(route('operator.whatsapp.backup.excel', ['import' => $id]))->assertOk());
+        $this->assertSame(['Numara', 'Tarih', 'Yön', 'Tür', 'Mesaj'], $sheets['Mesajlar'][0]);
+        $this->assertSame([['+905551112233', '2026-09-03 10:00', 'Gelen', 'Metin', 'Firma B'], ['+905551112233', '2026-09-03 10:05', 'Giden', 'Metin', 'Cevap']], array_slice($sheets['Mesajlar'], 1));
+        $this->assertSame(['+905551112233', '2026-09-03 10:05', '2026-09-03 10:00', 2], $sheets['Görüşmeler'][1]);
+        $own = $this->sheets($this->get(route('operator.whatsapp.backup.excel', ['import' => $inboxImport->id]))->assertOk());
+        $this->assertSame(['+905321112233'], array_column(array_slice($own['Mesajlar'], 1), 0));
+
+        Livewire::test(Inbox::class)->set('tab', 'setup')->assertSee('Yalnız Excel')->assertSee('Gelen kutusu yedeği')
+            ->call('deleteBackupExcel', $id);
+        $this->assertNull(WhatsAppBackupImport::query()->find($id));
+        $this->assertFileDoesNotExist($excel->excelPath());
+        $this->get(route('operator.whatsapp.backup.excel', ['import' => $id]))->assertNotFound();
     }
 
     public function test_cevap_uret_drafts_every_recent_chat_waiting_for_an_answer(): void

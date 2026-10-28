@@ -29,12 +29,12 @@
                 return data;
             }
         },
-        async upload(input, line = null) {
+        async upload(input, line = null, excel = false) {
             const file = input.files[0];
             if (!file || this.uploading) return;
-            this.uploading = true; this.uploadingLine = line; this.message = ''; this.progress = 0;
+            this.uploading = true; this.uploadingLine = excel ? 'excel' : line; this.message = ''; this.progress = 0;
             try {
-                const started = await this.send(this.urls.begin, JSON.stringify({ name: file.name, size: file.size, line }), 'application/json');
+                const started = await this.send(this.urls.begin, JSON.stringify({ name: file.name, size: file.size, line, excel }), 'application/json');
                 const url = this.urls.chunk.replace('00000000-0000-0000-0000-000000000000', started.id);
                 let offset = 0, answer = {};
                 while (offset < file.size) {
@@ -42,7 +42,7 @@
                     offset = answer.expected_offset ?? answer.received;
                     this.progress = Math.floor(offset * 100 / file.size);
                 }
-                this.message = answer.extracting ? 'Yüklendi; kayıtlı anahtarla çıkarılıyor.' : 'Yüklendi. Şimdi 64 haneli anahtarı girip Çıkar\'a basın.';
+                this.message = excel ? 'Yüklendi. Şimdi bu yedeğin 64 haneli anahtarını girip Excel hazırla\'ya basın.' : answer.extracting ? 'Yüklendi; kayıtlı anahtarla çıkarılıyor.' : 'Yüklendi. Şimdi 64 haneli anahtarı girip Çıkar\'a basın.';
                 input.value = '';
                 await $wire.$refresh();
             } catch (error) { this.message = error.message; }
@@ -71,6 +71,12 @@
             if (this.extracting) return;
             this.extracting = true;
             try { if (await $wire.extractBackup(input.value, line)) input.value = ''; }
+            finally { this.extracting = false; }
+        },
+        async extractExcel(input) {
+            if (this.extracting) return;
+            this.extracting = true;
+            try { if (await $wire.extractExcel(input.value)) input.value = ''; }
             finally { this.extracting = false; }
         },
         async reveal(line = null) {

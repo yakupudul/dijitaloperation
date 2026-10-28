@@ -56,7 +56,7 @@ final class WhatsAppBackupImporter
 
     public function __construct(private WhatsAppConnection $connection, private WhatsAppBackupReader $reader) {}
 
-    public function begin(User $user, string $fileName, int $size, ?int $lineId = null): WhatsAppBackupImport
+    public function begin(User $user, string $fileName, int $size, ?int $lineId = null, bool $excel = false): WhatsAppBackupImport
     {
         $this->connection->authorize($user);
         if ($lineId !== null && ! WhatsAppBackupLine::query()->whereKey($lineId)->exists()) {
@@ -75,17 +75,19 @@ final class WhatsAppBackupImporter
 
         $this->recoverStalled();
 
-        return DB::transaction(function () use ($user, $name, $size, $lineId): WhatsAppBackupImport {
+        $lineId = $excel ? null : $lineId;
+
+        return DB::transaction(function () use ($user, $name, $size, $lineId, $excel): WhatsAppBackupImport {
             if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages(['backup' => 'Önceki yedek şu an çıkarılıyor; bitince yeni dosya yükleyebilirsiniz.']);
             }
             // One file at a time per backup: an unfinished or unused earlier upload is dropped.
-            foreach (self::forLine(WhatsAppBackupImport::query(), $lineId)->whereIn('status', ['uploading', 'uploaded'])->get() as $old) {
+            foreach (self::forLine(WhatsAppBackupImport::query(), $lineId, $excel)->whereIn('status', ['uploading', 'uploaded'])->get() as $old) {
                 $this->discard($old);
             }
             File::ensureDirectoryExists(dirname((new WhatsAppBackupImport)->forceFill(['id' => 'x'])->path()), 0700);
             $import = WhatsAppBackupImport::query()->create([
-                'user_id' => $user->id, 'line_id' => $lineId, 'status' => 'uploading', 'file_name' => mb_substr($name, 0, 255), 'size' => $size,
+                'user_id' => $user->id, 'line_id' => $lineId, 'mode' => $excel ? 'excel' : 'inbox', 'status' => 'uploading', 'file_name' => mb_substr($name, 0, 255), 'size' => $size,
             ]);
             File::put($import->path(), '');
 
@@ -118,7 +120,7 @@ final class WhatsAppBackupImporter
             return $import;
         });
         // With a saved key the operator only uploads: extraction starts as soon as the last piece arrives.
-        if ($import->status === 'uploaded' && $this->savedKey($import->line_id) !== null) {
+        if ($import->status === 'uploaded' && ! $import->excelOnly() && $this->savedKey($import->line_id) !== null) {
             $this->extract($user, null, $import->line_id);
         }
 
@@ -129,17 +131,18 @@ final class WhatsAppBackupImporter
      * "Çıkar": the uploaded file is opened in the background. An empty key uses the key saved by the last successful
      * extraction, so later backups need only the file.
      */
-    public function extract(User $user, ?string $key = null, ?int $lineId = null): WhatsAppBackupImport
+    public function extract(User $user, ?string $key = null, ?int $lineId = null, bool $excel = false): WhatsAppBackupImport
     {
         $this->connection->authorize($user);
-        $hex = trim((string) $key) === '' ? $this->savedKey($lineId) : WhatsAppBackupReader::normaliseKey((string) $key);
+        // An Excel-only upload is opened with the key typed for it: each business's backup has its own.
+        $hex = trim((string) $key) === '' ? ($excel ? null : $this->savedKey($lineId)) : WhatsAppBackupReader::normaliseKey((string) $key);
         if ($hex === null) {
-            throw ValidationException::withMessages(['backup_key' => trim((string) $key) === ''
+            throw ValidationException::withMessages(['backup_key' => trim((string) $key) === '' && $excel ? 'Bu yedeğin 64 haneli anahtarını girin.' : (trim((string) $key) === ''
                 ? 'Bu ilk yedek: 64 haneli anahtarı girin. Doğru anahtar kaydedilir, sonraki yedeklerde sorulmaz.'
-                : 'Anahtar 64 karakter olmalı (0-9 ve a-f). Boşluklar sorun değil.']);
+                : 'Anahtar 64 karakter olmalı (0-9 ve a-f). Boşluklar sorun değil.')]);
         }
-        $import = DB::transaction(function () use ($hex, $lineId): WhatsAppBackupImport {
-            $import = self::forLine(WhatsAppBackupImport::query(), $lineId)->where('status', 'uploaded')->latest()->lockForUpdate()->first();
+        $import = DB::transaction(function () use ($hex, $lineId, $excel): WhatsAppBackupImport {
+            $import = self::forLine(WhatsAppBackupImport::query(), $excel ? null : $lineId, $excel)->where('status', 'uploaded')->latest()->lockForUpdate()->first();
             if ($import === null || ! is_file($import->path())) {
                 throw ValidationException::withMessages(['backup' => 'Önce yedek dosyasını yükleyin.']);
             }
@@ -203,7 +206,7 @@ final class WhatsAppBackupImporter
 
     private function revive(WhatsAppBackupImport $import, bool $newAttempt, ?int $userId = null, ?string $note = null): void
     {
-        $key = filled($import->backup_key) ? (string) $import->backup_key : $this->savedKey($import->line_id);
+        $key = filled($import->backup_key) ? (string) $import->backup_key : ($import->excelOnly() ? null : $this->savedKey($import->line_id));
         $reason = $import->status === 'running' || $newAttempt ? 'yarıda kesildi' : 'kuyrukta başlamadı';
         $failure = match (true) {
             ! is_file($import->path()) => 'Çıkarma '.$reason.' ve yedek dosyası sunucuda artık yok. Dosyayı yeniden yükleyin.',
@@ -330,9 +333,20 @@ final class WhatsAppBackupImporter
      * @param  Builder<WhatsAppBackupImport>  $query
      * @return Builder<WhatsAppBackupImport>
      */
-    public static function forLine(Builder $query, ?int $lineId): Builder
+    public static function forLine(Builder $query, ?int $lineId, bool $excel = false): Builder
     {
-        return $lineId === null ? $query->whereNull('line_id') : $query->where('line_id', $lineId);
+        return $lineId === null ? $query->whereNull('line_id')->where('mode', $excel ? 'excel' : 'inbox') : $query->where('line_id', $lineId);
+    }
+
+    /** "Sil" on a backup's Excel: the file goes; an Excel-only upload goes with it. */
+    public function deleteExcel(User $user, string $id): void
+    {
+        $this->connection->authorize($user);
+        $import = WhatsAppBackupImport::query()->findOrFail($id);
+        File::delete($import->excelPath());
+        if ($import->excelOnly()) {
+            $this->discard($import);
+        }
     }
 
     /** The background extraction. A wrong key keeps the file so another key can be tried without uploading again. */
@@ -354,7 +368,9 @@ final class WhatsAppBackupImporter
             $key = (string) $import->backup_key;
             $this->reader->decrypt($import->path(), $key, $database);
             $import->update(['backup_key' => null, 'stats' => ['phase' => 'import']]);
-            if ($import->line_id !== null) {
+            if ($import->excelOnly()) {
+                // The key is not kept: the next Excel may be another business's backup.
+            } elseif ($import->line_id !== null) {
                 WhatsAppBackupLine::query()->whereKey($import->line_id)->first()?->update(['backup_key' => $key]);
             } else {
                 $this->updateConfig(fn (array $config): array => [...$config, 'backup_key' => Crypt::encryptString($key)]);
@@ -365,14 +381,23 @@ final class WhatsAppBackupImporter
 
                 return;
             }
-            $stats = $this->import($import, $database);
+            $sheet = new WhatsAppBackupSpreadsheet;
+            try {
+                $stats = $this->import($import, $database, $sheet);
+                $sheet->save($import);
+            } catch (Throwable $exception) {
+                $sheet->discard();
+                throw $exception;
+            }
             $import->update(['status' => 'completed', 'stats' => $stats, 'finished_at' => now(), 'error' => null, 'backup_key' => null]);
-            // The extracted file replaces the line's previously kept one, so the screen can show and hand it back.
-            $kept = WhatsAppBackupImport::keptPath($import->line_id);
-            File::ensureDirectoryExists(dirname($kept), 0700);
-            File::move($import->path(), $kept);
+            if (! $import->excelOnly()) {
+                // The extracted file replaces the line's previously kept one, so the screen can show and hand it back.
+                $kept = WhatsAppBackupImport::keptPath($import->line_id);
+                File::ensureDirectoryExists(dirname($kept), 0700);
+                File::move($import->path(), $kept);
+            }
             $this->discardFiles($import);
-            if ($import->line_id === null) {
+            if ($import->line_id === null && ! $import->excelOnly()) {
                 app(WhatsAppBrain::class)->learnAfterFirstImport($import->user_id);
             }
         } catch (WhatsAppBackupKeyException $exception) {
@@ -390,8 +415,11 @@ final class WhatsAppBackupImporter
     /**
      * @return array{chats: int, new_chats: int, messages: int, new_messages: int, skipped_groups: int, snapshot_at: ?string}
      */
-    public function import(WhatsAppBackupImport $import, string $database): array
+    public function import(WhatsAppBackupImport $import, string $database, ?WhatsAppBackupSpreadsheet $sheet = null): array
     {
+        if ($import->excelOnly()) {
+            return $this->sheetOnly($import, $database, $sheet);
+        }
         $line = $import->line_id === null ? null : WhatsAppBackupLine::query()->find($import->line_id);
         if ($import->line_id !== null && $line === null) {
             throw new RuntimeException('Yedek silinmiş.');
@@ -406,6 +434,7 @@ final class WhatsAppBackupImporter
         $skipped = null;
         foreach ($this->reader->chats($database, $skipped) as $chat) {
             [$created, $added] = $this->store($integration, $phoneLine, $chat['contact'], $chat['messages']);
+            $sheet?->add($chat['contact'], $chat['messages']);
             $stats['chats']++;
             $stats['new_chats'] += $created ? 1 : 0;
             $stats['messages'] += count($chat['messages']);
@@ -429,6 +458,31 @@ final class WhatsAppBackupImporter
             }
             $row->update(['config' => $config]);
         });
+
+        return $stats;
+    }
+
+    /**
+     * "Yedekten Excel al": the backup is only read into its Excel; nothing is stored in the inbox.
+     *
+     * @return array{chats: int, new_chats: int, messages: int, new_messages: int, skipped_groups: int, snapshot_at: ?string}
+     */
+    private function sheetOnly(WhatsAppBackupImport $import, string $database, ?WhatsAppBackupSpreadsheet $sheet): array
+    {
+        $stats = ['chats' => 0, 'new_chats' => 0, 'messages' => 0, 'new_messages' => 0, 'skipped_groups' => 0, 'snapshot_at' => null];
+        $latest = 0;
+        $skipped = null;
+        foreach ($this->reader->chats($database, $skipped) as $chat) {
+            $sheet?->add($chat['contact'], $chat['messages']);
+            $stats['chats']++;
+            $stats['messages'] += count($chat['messages']);
+            $latest = max($latest, ...array_column($chat['messages'], 'at'));
+            if ($stats['chats'] % 25 === 0) {
+                $import->update(['stats' => [...$stats, 'phase' => 'import']]);
+            }
+        }
+        $stats['skipped_groups'] = (int) ($skipped['groups'] ?? 0);
+        $stats['snapshot_at'] = $latest > 0 ? CarbonImmutable::createFromTimestampMsUTC($latest)->toIso8601String() : null;
 
         return $stats;
     }
@@ -488,6 +542,7 @@ final class WhatsAppBackupImporter
     public function discard(WhatsAppBackupImport $import): void
     {
         $this->discardFiles($import);
+        File::delete($import->excelPath());
         $import->delete();
     }
 

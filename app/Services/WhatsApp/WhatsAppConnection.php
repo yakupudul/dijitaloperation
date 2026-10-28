@@ -167,7 +167,7 @@ final class WhatsAppConnection
             WhatsAppConversation::query()->where('integration_id', $integration->id)->delete();
             WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)->delete();
             // The inbox's own backup goes with its chats; extra backups (lines) are kept.
-            foreach (WhatsAppBackupImport::query()->whereNull('line_id')->get() as $import) {
+            foreach (WhatsAppBackupImport::query()->whereNull('line_id')->where('mode', 'inbox')->get() as $import) {
                 app(WhatsAppBackupImporter::class)->discard($import);
             }
             File::delete(WhatsAppBackupImport::keptPath(null));

@@ -17,7 +17,7 @@
                 <a href="{{ route('operator.whatsapp.backup.file', $loadedParams) }}" class="btn" data-wa-backup-file-download>Dosyayı indir</a>
             @endif
             @if($loadedChats > 0)
-                <a href="{{ route('operator.whatsapp.export', $loadedParams) }}" class="btn" data-wa-backup-excel>Excel indir</a>
+                <a href="{{ route('operator.whatsapp.export', $loadedParams) }}" class="btn" data-wa-backup-excel>{{ $loadedLine === null ? 'Tüm görüşmeler (Excel)' : 'Excel indir' }}</a>
             @endif
         </div>
     </div>

@@ -55,6 +55,18 @@ class WhatsAppBackupImport extends Model
         return storage_path('app/private/whatsapp-backups/'.$this->id.'.crypt15');
     }
 
+    /** Only its Excel was wanted: the chats were not stored. */
+    public function excelOnly(): bool
+    {
+        return $this->mode === 'excel';
+    }
+
+    /** This upload's own Excel (encrypted), written while it was extracted. */
+    public function excelPath(): string
+    {
+        return storage_path('app/private/whatsapp-backups/excel/'.$this->id.'.xlsx.enc');
+    }
+
     /** The last extracted backup file of a line (null: the inbox's own), kept so the operator can see and download it. */
     public static function keptPath(?int $lineId): string
     {

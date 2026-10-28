@@ -6,6 +6,7 @@
     $progressMinutes = $progressSince ? (int) $progressSince->diffInMinutes(now()) : 0;
     $progressTitle = match (true) {
         $backupImport->status === 'queued' => 'Çıkarma sırada bekliyor ('.$progressMinutes.' dk)'.(($backupQueueAhead ?? 0) > 0 ? '; önünde '.$backupQueueAhead.' arka plan işi var' : ''),
+        $progressPhase === 'import' && $backupImport->excelOnly() => 'Excel hazırlanıyor: '.($progressStats['chats'] ?? 0).' görüşme, '.($progressStats['messages'] ?? 0).' mesaj',
         $progressPhase === 'import' => 'Görüşmeler aktarılıyor: '.($progressStats['chats'] ?? 0).' görüşme, '.($progressStats['new_messages'] ?? 0).' yeni mesaj',
         default => 'Yedek açılıyor (şifre çözülüyor), '.$progressMinutes.' dk',
     };
@@ -15,7 +16,7 @@
         <span class="mt-1.5 h-2 w-2 shrink-0 animate-pulse rounded-full bg-warning-500" aria-hidden="true"></span>
         <div class="min-w-0 flex-1">
             <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $progressTitle }}</p>
-            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $backupImport->file_name }}, {{ number_format(($backupImport->size ?? 0) / 1048576, 1, ',', '.') }} MB, {{ $backupImport->status === 'running' ? 'başladı' : 'sıraya alındı' }} {{ $progressSince?->timezone('Europe/Istanbul')->format('H:i') ?? '—' }}@if($backupImport->attempt > 1), {{ $backupImport->attempt }}. deneme @endif. Bitince yeni mesajlar listeye eklenir; sayfayı açık tutmanız gerekmez.</p>
+            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $backupImport->file_name }}, {{ number_format(($backupImport->size ?? 0) / 1048576, 1, ',', '.') }} MB, {{ $backupImport->status === 'running' ? 'başladı' : 'sıraya alındı' }} {{ $progressSince?->timezone('Europe/Istanbul')->format('H:i') ?? '—' }}@if($backupImport->attempt > 1), {{ $backupImport->attempt }}. deneme @endif. {{ $backupImport->excelOnly() ? 'Bitince Excel bu kartta indirilmeye hazır olur' : 'Bitince yeni mesajlar listeye eklenir' }}; sayfayı açık tutmanız gerekmez.</p>
             @if($backupImport->error)
                 <p class="mt-1 text-[13px] text-warning-800 dark:text-warning-300" data-wa-backup-note>{{ $backupImport->error }}</p>
             @endif
