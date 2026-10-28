@@ -203,14 +203,16 @@ class Inbox extends Component
     public function importContacts(string $vcard, WhatsAppConnection $connection, WhatsAppContactNames $names, ?int $line = null): void
     {
         $this->resetValidation();
-        $integration = $line === null ? $connection->integration() : WhatsAppBackupLine::archive();
         $connection->authorize(auth()->user());
+        $row = $line === null ? null : WhatsAppBackupLine::query()->find($line);
+        $integration = $connection->integration();
         if ($integration === null || ! str_contains(strtoupper($vcard), 'BEGIN:VCARD')) {
             $this->addError('contacts', 'Bu dosya rehber dosyası (.vcf) değil. Telefonda Kişiler › Dışa aktar ile .vcf dosyası oluşturun.');
 
             return;
         }
-        $result = $names->apply($integration, $vcard);
+        // A row's address book names only that row's chats; without a row, the whole inbox.
+        $result = $names->apply($integration, $vcard, $row?->conversations());
         $this->notice = $result['matched'] > 0
             ? $result['contacts'].' rehber numarasından '.$result['matched'].' görüşmeye isim yazıldı.'
             : $result['contacts'].' rehber numarası okundu ama görüşmelerdeki numaralarla eşleşen olmadı.';
@@ -249,62 +251,28 @@ class Inbox extends Component
     /** Drops an uploaded backup that will not be extracted. */
     public function discardBackup(WhatsAppBackupImporter $importer, ?int $line = null): void
     {
-        foreach (WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), $line)->whereIn('status', ['uploading', 'uploaded', 'failed'])->get() as $import) {
+        foreach (WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), $line ?? WhatsAppBackupLine::shown()?->id)->whereIn('status', ['uploading', 'uploaded', 'failed'])->get() as $import) {
             $importer->discard($import);
         }
         $this->notice = 'Yüklenen yedek silindi.';
     }
 
-    /** "Yedekten gelenleri temizle": the inbox is emptied of backup chats so one backup can fill it alone. */
-    public function clearBackupInbox(WhatsAppBackupImporter $importer): void
+    /** "Görüşmelerde göster": the inbox shows this row's chats (null: no backup in the inbox); nothing is deleted. */
+    public function showBackupInInbox(?int $line, WhatsAppBackupImporter $importer): void
     {
         $this->resetValidation();
         try {
-            $removed = $importer->clearInbox(auth()->user());
+            $importer->activate(auth()->user(), $line);
         } catch (ValidationException $exception) {
-            $this->addError('backup', $exception->errors()['backup'][0] ?? 'Temizlenemedi.');
+            $this->addError('backup', $exception->errors()['backup'][0] ?? 'Değiştirilemedi.');
 
             return;
         }
         $this->conversation = null;
-        $this->notice = $removed.' görüşme silindi. Şimdi istediğiniz yedeği seçip kendi anahtarıyla çıkarın; gelen kutusunda yalnız o olur.';
+        $this->notice = $line === null ? 'Gelen kutusunda artık yedek görüşmesi görünmüyor; yedekler silinmedi.' : 'Gelen kutusunda artık bu yedeğin görüşmeleri var. Beyin bu görüşmelerden yeniden öğreniyor.';
     }
 
-    /** "Yedekten Excel al" › "Excel hazırla": the uploaded file is read into its own Excel with the key typed for it. */
-    public function extractExcel(string $key, WhatsAppBackupImporter $importer): bool
-    {
-        $this->resetValidation();
-        try {
-            $importer->extract(auth()->user(), $key, null, true);
-        } catch (ValidationException $exception) {
-            foreach ($exception->errors() as $field => $messages) {
-                $this->addError($field.'.excel', $messages[0]);
-            }
-
-            return false;
-        }
-        $this->notice = 'Excel hazırlanıyor. Büyük yedekler birkaç dakika sürer; bu sayfa kendiliğinden yenilenir.';
-
-        return true;
-    }
-
-    /** Drops an Excel-only upload that will not be read. */
-    public function discardExcelUpload(WhatsAppBackupImporter $importer): void
-    {
-        foreach (WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null, true)->whereIn('status', ['uploading', 'uploaded', 'failed'])->get() as $import) {
-            $importer->discard($import);
-        }
-        $this->notice = 'Yüklenen yedek silindi.';
-    }
-
-    /** "Sil" on a backup's Excel in the list. */
-    public function deleteBackupExcel(string $id, WhatsAppBackupImporter $importer): void
-    {
-        $importer->deleteExcel(auth()->user(), $id);
-        $this->notice = 'Excel silindi.';
-    }
-
-    /** "Başka yedek ekle": a named extra backup; its file and key are added on its card. */
+    /** "Yedek ekle": a named row; its file and key are added on the row. */
     public function createBackupLine(string $name, WhatsAppBackupImporter $importer): bool
     {
         $this->resetValidation();
@@ -320,7 +288,7 @@ class Inbox extends Component
         return true;
     }
 
-    /** "Yedeği sil": an extra backup with its chats, file and key; the inbox's own backup is not touched. */
+    /** "Sil": a row with its chats, file and key. */
     public function deleteBackupLine(int $line, WhatsAppBackupImporter $importer): void
     {
         $this->resetValidation();
@@ -756,22 +724,18 @@ class Inbox extends Component
     }
 
     /**
-     * The extra backups for their cards: latest upload, last extracted file, key and number of chats.
+     * The backup rows: latest upload, last extracted file, key and number of chats; the row shown in the inbox first.
      *
      * @return list<array{line: WhatsAppBackupLine, import: ?WhatsAppBackupImport, current: array{import: ?WhatsAppBackupImport, file_kept: bool}, key_hint: ?string, conversations: int}>
      */
     private function backupLines(WhatsAppBackupImporter $importer): array
     {
-        $archive = WhatsAppBackupLine::archiveId();
-        $counts = $archive === null ? collect() : WhatsAppConversation::query()->where('integration_id', $archive)
-            ->selectRaw('phone_number_id, count(*) as total')->groupBy('phone_number_id')->pluck('total', 'phone_number_id');
-
-        return WhatsAppBackupLine::query()->orderBy('id')->get()->map(fn (WhatsAppBackupLine $line): array => [
+        return WhatsAppBackupLine::query()->orderByDesc('active')->orderBy('id')->get()->map(fn (WhatsAppBackupLine $line): array => [
             'line' => $line,
             'import' => $line->imports()->whereIn('status', ['queued', 'running'])->latest()->first() ?? $line->imports()->latest()->first(),
             'current' => $importer->current($line->id),
             'key_hint' => self::keyHint($importer->savedKey($line->id)),
-            'conversations' => (int) ($counts[$line->conversationLine()] ?? 0),
+            'conversations' => $line->conversations()->count(),
         ])->all();
     }
 
@@ -785,9 +749,10 @@ class Inbox extends Component
             // An extraction cut off without its failure hook would otherwise show "çıkarılıyor" for good.
             $importer->recoverStalled();
         }
-        // The inbox's own backup; a running extraction first: a completed one created in the same second must not hide it.
-        $backupImport = WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null)->whereIn('status', ['queued', 'running'])->latest()->first()
-            ?? WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null)->latest()->first();
+        // The row shown in the inbox; a running extraction first: a completed one created in the same second must not hide it.
+        $shownLine = WhatsAppBackupLine::shown()?->id;
+        $backupImport = $shownLine === null ? null : (WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), $shownLine)->whereIn('status', ['queued', 'running'])->latest()->first()
+            ?? WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), $shownLine)->latest()->first());
         $rows = ($integration ? $this->filtered($integration->id, $this->filter) : (clone $query))->when(trim($this->q) !== '', function ($builder): void {
             $builder->where(function ($nested): void {
                 $term = '%'.mb_substr(trim($this->q), 0, 100).'%';
@@ -814,14 +779,7 @@ class Inbox extends Component
             'backupImport' => $backupImport,
             'backupQueueAhead' => $backupImport?->status === 'queued' ? $this->heavyQueueSize() : null,
             'awaitingReply' => $integration ? min($this->awaitingReply($integration->id)->count(), self::BULK_LIMIT) : 0,
-            'backupKeySaved' => filled(data_get($integration?->config, 'backup_key')),
-            'backupKeyHint' => self::keyHint($importer->savedKey()),
-            'backupCurrent' => $importer->current(null),
             'backupLines' => $this->backupLines($importer),
-            'excelImport' => WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null, true)->whereIn('status', ['queued', 'running'])->latest()->first()
-                ?? WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null, true)->latest()->first(),
-            'backupExcels' => WhatsAppBackupImport::query()->with('line:id,name')->where('status', 'completed')->latest('finished_at')->limit(30)->get()
-                ->filter(fn (WhatsAppBackupImport $import): bool => is_file($import->excelPath()))->values(),
             'anyBackupBusy' => WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->exists(),
             'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
             'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,

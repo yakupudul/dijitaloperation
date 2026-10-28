@@ -181,9 +181,8 @@
     @elseif($activeTab === 'brain')
         <div class="-mt-4">@include('livewire.operator.whatsapp.brain')</div>
     @else
-        <div class="-mt-4">@include('livewire.operator.whatsapp.backup-excel')</div>
+        <div class="-mt-4">@include('livewire.operator.whatsapp.backup')</div>
         @if($state !== 'connected')
-            <div>@include('livewire.operator.whatsapp.backup')</div>
             {{-- The live Meta connection waits (yakup, 2026-10-05); kept one click away. --}}
             <details class="group/meta" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
                 <summary class="card flex cursor-pointer list-none items-center gap-3.5 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
@@ -198,6 +197,5 @@
         @else
             <p class="-mt-4 text-sm text-gray-500">Numara Meta ile bağlı; mesajlar anında gelir. Bağlantı ayarları için sağ üstteki Ayarlar'ı açın.</p>
         @endif
-        @include('livewire.operator.whatsapp.backup-lines')
     @endif
 </div>

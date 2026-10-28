@@ -4,6 +4,7 @@ namespace App\Services\WhatsApp;
 
 use App\Models\CoreIntegration;
 use App\Models\WhatsAppConversation;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Names for the numbers: the phone backup has no contact names (WhatsApp keeps them outside the backup), so the
@@ -15,14 +16,15 @@ final class WhatsAppContactNames
     public const MAX_NAME = 120;
 
     /**
+     * @param  Builder<WhatsAppConversation>|null  $scope  only these chats (one backup row); none: the integration's
      * @return array{contacts: int, matched: int}
      */
-    public function apply(CoreIntegration $integration, string $vcard): array
+    public function apply(CoreIntegration $integration, string $vcard, ?Builder $scope = null): array
     {
         $names = $this->parse($vcard);
         $matched = 0;
         foreach (array_chunk(array_keys($names), 500) as $numbers) {
-            $rows = WhatsAppConversation::query()->where('integration_id', $integration->id)
+            $rows = ($scope !== null ? clone $scope : WhatsAppConversation::query()->where('integration_id', $integration->id))
                 ->whereIn('contact_id', array_map('strval', $numbers))->get(['id', 'contact_id', 'contact_name']);
             foreach ($rows as $row) {
                 $name = $names[$row->contact_id];

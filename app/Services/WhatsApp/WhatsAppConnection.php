@@ -5,7 +5,6 @@ namespace App\Services\WhatsApp;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
-use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
@@ -15,7 +14,6 @@ use App\Support\Permissions;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -162,15 +160,11 @@ final class WhatsAppConnection
                 'app_id' => '', 'signup_config_id' => '', 'settings_revision' => (string) Str::uuid(), 'reset_at' => now()->toIso8601String()]]);
             $integration->credentials()->where('credential_type', CoreIntegrationCredential::TYPE_PROVIDER)->delete();
             WhatsAppSignupAttempt::query()->where('integration_id', $integration->id)->delete();
-            $conversations = WhatsAppConversation::query()->where('integration_id', $integration->id)->select('id');
-            WhatsAppMessage::query()->whereIn('conversation_id', $conversations)->delete();
-            WhatsAppConversation::query()->where('integration_id', $integration->id)->delete();
+            // The live line's chats go; the backups (rows on the WhatsApp screen) keep theirs.
+            $live = WhatsAppConversation::query()->where('integration_id', $integration->id)->where('phone_number_id', '!=', WhatsAppBackupImporter::LINE);
+            WhatsAppMessage::query()->whereIn('conversation_id', (clone $live)->select('id'))->delete();
+            $live->delete();
             WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)->delete();
-            // The inbox's own backup goes with its chats; extra backups (lines) are kept.
-            foreach (WhatsAppBackupImport::query()->whereNull('line_id')->where('mode', 'inbox')->get() as $import) {
-                app(WhatsAppBackupImporter::class)->discard($import);
-            }
-            File::delete(WhatsAppBackupImport::keptPath(null));
         });
     }
 

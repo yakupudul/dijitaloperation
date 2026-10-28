@@ -49,13 +49,13 @@ final class WhatsAppBackupController
     public function file(Request $request, WhatsAppConnection $connection, WhatsAppBackupImporter $importer): BinaryFileResponse
     {
         $connection->authorize($request->user());
-        $line = $this->line($request);
+        $line = $this->line($request) ?? WhatsAppBackupLine::shown();
         $current = $importer->current($line?->id);
         abort_unless($current['file_kept'], 404);
         $date = $current['import']->finished_at?->timezone('Europe/Istanbul')->format('Y-m-d');
         $name = ($line !== null ? Str::slug($line->name).'-' : '').($date !== null ? $date.'-' : '').'msgstore.db.crypt15';
 
-        return response()->download(WhatsAppBackupImport::keptPath($line?->id), $name, ['Content-Type' => 'application/octet-stream']);
+        return response()->download(WhatsAppBackupImport::keptPath($current['import']->line_id), $name, ['Content-Type' => 'application/octet-stream']);
     }
 
     /** "Anahtarı indir": the saved 64-digit key as a text file (never logged, never cached). */

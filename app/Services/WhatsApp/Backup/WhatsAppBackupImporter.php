@@ -59,9 +59,6 @@ final class WhatsAppBackupImporter
     public function begin(User $user, string $fileName, int $size, ?int $lineId = null, bool $excel = false): WhatsAppBackupImport
     {
         $this->connection->authorize($user);
-        if ($lineId !== null && ! WhatsAppBackupLine::query()->whereKey($lineId)->exists()) {
-            throw ValidationException::withMessages(['backup' => 'Bu yedek artık yok; sayfayı yenileyin.']);
-        }
         $name = trim($fileName);
         if (preg_match('/\.crypt1[0-4]$/i', $name) === 1) {
             throw ValidationException::withMessages(['backup' => 'Bu yedek eski biçimde ('.strtolower((string) strrchr($name, '.')).'); açmak için 64 haneli anahtar değil telefondaki anahtar dosyası gerekir. Telefonda WhatsApp Business › Ayarlar › Sohbetler › Sohbet yedeği › Uçtan uca şifreli yedek bölümünden 64 haneli anahtarla yeni bir yedek alın ve msgstore.db.crypt15 dosyasını yükleyin.']);
@@ -75,7 +72,7 @@ final class WhatsAppBackupImporter
 
         $this->recoverStalled();
 
-        $lineId = $excel ? null : $lineId;
+        $lineId = $excel ? null : $this->line($lineId, true)?->id;
 
         return DB::transaction(function () use ($user, $name, $size, $lineId, $excel): WhatsAppBackupImport {
             if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->lockForUpdate()->exists()) {
@@ -141,8 +138,9 @@ final class WhatsAppBackupImporter
                 ? 'Bu ilk yedek: 64 haneli anahtarı girin. Doğru anahtar kaydedilir, sonraki yedeklerde sorulmaz.'
                 : 'Anahtar 64 karakter olmalı (0-9 ve a-f). Boşluklar sorun değil.')]);
         }
+        $lineId = $excel ? null : $this->line($lineId)?->id;
         $import = DB::transaction(function () use ($hex, $lineId, $excel): WhatsAppBackupImport {
-            $import = self::forLine(WhatsAppBackupImport::query(), $excel ? null : $lineId, $excel)->where('status', 'uploaded')->latest()->lockForUpdate()->first();
+            $import = self::forLine(WhatsAppBackupImport::query(), $lineId, $excel)->where('status', 'uploaded')->latest()->lockForUpdate()->first();
             if ($import === null || ! is_file($import->path())) {
                 throw ValidationException::withMessages(['backup' => 'Önce yedek dosyasını yükleyin.']);
             }
@@ -239,24 +237,13 @@ final class WhatsAppBackupImporter
         }
     }
 
-    /**
-     * The key of the last successful extraction, or null: the inbox's own is stored encrypted on the integration, an
-     * extra backup's on its line.
-     */
+    /** The key of a row's last successful extraction (none given: the row shown in the inbox), or null. */
     public function savedKey(?int $lineId = null): ?string
     {
         try {
-            if ($lineId !== null) {
-                $plain = WhatsAppBackupLine::query()->find($lineId)?->backup_key;
+            $plain = ($lineId !== null ? WhatsAppBackupLine::query()->find($lineId) : WhatsAppBackupLine::shown())?->backup_key;
 
-                return is_string($plain) && $plain !== '' ? WhatsAppBackupReader::normaliseKey($plain) : null;
-            }
-            $stored = data_get($this->connection->integration()?->config, 'backup_key');
-            if (! is_string($stored) || $stored === '') {
-                return null;
-            }
-
-            return WhatsAppBackupReader::normaliseKey(Crypt::decryptString($stored));
+            return is_string($plain) && $plain !== '' ? WhatsAppBackupReader::normaliseKey($plain) : null;
         } catch (Throwable) {
             return null;
         }
@@ -266,57 +253,88 @@ final class WhatsAppBackupImporter
     public function forgetKey(User $user, ?int $lineId = null): void
     {
         $this->connection->authorize($user);
-        if ($lineId !== null) {
-            WhatsAppBackupLine::query()->whereKey($lineId)->update(['backup_key' => null]);
-
-            return;
-        }
-        $this->updateConfig(function (array $config): array {
-            unset($config['backup_key']);
-
-            return $config;
-        });
+        $this->line($lineId)?->update(['backup_key' => null]);
     }
 
     /**
-     * "Yedekten gelenleri temizle": the inbox's chats that came from backups go, with the backup's files, its key and
-     * what the brain learned from them, so the next backup uploaded fills the inbox alone (yakup, 2026-10-28: two
-     * businesses' backups had been merged). Live Meta chats, extra backups and the operator's instructions stay.
+     * The row an action is for: the one given, else the one shown in the inbox. An upload with neither starts a
+     * shown row of its own, as the single backup did before rows existed.
      */
-    public function clearInbox(User $user): int
+    private function line(?int $lineId, bool $create = false): ?WhatsAppBackupLine
     {
-        $this->connection->authorize($user);
-        if (self::forLine(WhatsAppBackupImport::query(), null)->whereIn('status', ['queued', 'running'])->exists()) {
-            throw ValidationException::withMessages(['backup' => 'Yedek şu an çıkarılıyor; bitince temizleyebilirsiniz.']);
+        if ($lineId !== null) {
+            return WhatsAppBackupLine::query()->find($lineId)
+                ?? throw ValidationException::withMessages(['backup' => 'Bu yedek artık yok; sayfayı yenileyin.']);
         }
-        $integration = $this->connection->integration();
-        $removed = 0;
-        DB::transaction(function () use ($integration, &$removed): void {
-            if ($integration !== null) {
-                $chats = WhatsAppConversation::query()->where('integration_id', $integration->id)->where('phone_number_id', self::LINE);
-                $removed = (clone $chats)->count();
-                WhatsAppMessage::query()->whereIn('conversation_id', (clone $chats)->select('id'))->delete();
-                $chats->delete();
-            }
-            foreach (self::forLine(WhatsAppBackupImport::query(), null)->get() as $import) {
-                $this->discard($import);
-            }
-            File::delete(WhatsAppBackupImport::keptPath(null));
-        });
-        if ($integration !== null) {
-            $this->updateConfig(function (array $config): array {
-                foreach (['backup_key', 'backup_snapshot_at', 'backup_imported_at', 'brain', 'brain_status', 'brain_error'] as $key) {
-                    unset($config[$key]);
-                }
-
-                return $config;
-            });
+        $shown = WhatsAppBackupLine::shown();
+        if ($shown !== null || ! $create) {
+            return $shown;
         }
+        $line = WhatsAppBackupLine::query()->create(['name' => $this->freeName('WhatsApp yedeği')]);
+        $this->show($line);
 
-        return $removed;
+        return $line->fresh();
     }
 
-    /** "Başka yedek ekle": a new, empty extra backup the operator then uploads a file and a key to. */
+    private function freeName(string $base): string
+    {
+        for ($n = 1; ; $n++) {
+            $name = $n === 1 ? $base : $base.' '.$n;
+            if (! WhatsAppBackupLine::query()->where('name', $name)->exists()) {
+                return $name;
+            }
+        }
+    }
+
+    /**
+     * "Görüşmelerde göster": this row's chats move into the inbox and the row shown so far goes back beside it (null:
+     * no backup in the inbox). Nothing is deleted; the brain learns again from the chats now shown.
+     */
+    public function activate(User $user, ?int $lineId): void
+    {
+        $this->connection->authorize($user);
+        if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->exists()) {
+            throw ValidationException::withMessages(['backup' => 'Bir yedek şu an çıkarılıyor; bitince değiştirebilirsiniz.']);
+        }
+        $line = $lineId === null ? null : WhatsAppBackupLine::query()->findOrFail($lineId);
+        if ($line?->active || ($line === null && WhatsAppBackupLine::shown() === null)) {
+            return;
+        }
+        $this->show($line);
+        if ($line !== null) {
+            app(WhatsAppBrain::class)->learnAfterFirstImport($user->id);
+        }
+    }
+
+    private function show(?WhatsAppBackupLine $line): void
+    {
+        $inbox = CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
+            'name' => 'WhatsApp Business', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => [],
+        ]);
+        $archive = WhatsAppBackupLine::archive();
+        DB::transaction(function () use ($line, $inbox, $archive): void {
+            foreach (WhatsAppBackupLine::query()->where('active', true)->lockForUpdate()->get() as $old) {
+                WhatsAppConversation::query()->where('integration_id', $inbox->id)->where('phone_number_id', self::LINE)
+                    ->update(['integration_id' => $archive->id, 'phone_number_id' => $old->conversationLine(), 'updated_at' => now()]);
+                $old->update(['active' => false]);
+            }
+            if ($line !== null) {
+                WhatsAppConversation::query()->where('integration_id', $archive->id)->where('phone_number_id', $line->conversationLine())
+                    ->update(['integration_id' => $inbox->id, 'phone_number_id' => self::LINE, 'updated_at' => now()]);
+                $line->update(['active' => true]);
+            }
+            $snapshot = $line === null ? null : $line->imports()->where('status', 'completed')->get()->pluck('stats.snapshot_at')->filter()->max();
+            $row = CoreIntegration::query()->lockForUpdate()->findOrFail($inbox->id);
+            $config = $row->config ?? [];
+            // What the brain learned belongs to the chats shown before.
+            foreach (['brain', 'brain_status', 'brain_error', 'backup_snapshot_at', 'backup_key'] as $key) {
+                unset($config[$key]);
+            }
+            $row->update(['config' => $snapshot !== null ? [...$config, 'backup_snapshot_at' => $snapshot] : $config]);
+        });
+    }
+
+    /** "Yedek ekle": a new, empty row the operator then uploads a file and its key to. */
     public function createLine(User $user, string $name): WhatsAppBackupLine
     {
         $this->connection->authorize($user);
@@ -331,7 +349,7 @@ final class WhatsAppBackupImporter
         return WhatsAppBackupLine::query()->create(['name' => $name]);
     }
 
-    /** "Yedeği sil": an extra backup with its chats, files and key. The inbox's own backup is never removed here. */
+    /** "Sil": a row with its chats, files and key; a row shown in the inbox leaves the inbox without backup chats. */
     public function deleteLine(User $user, int $lineId): void
     {
         $this->connection->authorize($user);
@@ -339,13 +357,13 @@ final class WhatsAppBackupImporter
         if ($line->imports()->whereIn('status', ['queued', 'running'])->exists()) {
             throw ValidationException::withMessages(['backup' => 'Bu yedek şu an çıkarılıyor; bitince silebilirsiniz.']);
         }
+        if ($line->active) {
+            $this->show(null);
+            $line->refresh();
+        }
         DB::transaction(function () use ($line): void {
-            $archive = WhatsAppBackupLine::archiveId();
-            if ($archive !== null) {
-                $conversations = WhatsAppConversation::query()->where('integration_id', $archive)->where('phone_number_id', $line->conversationLine())->select('id');
-                WhatsAppMessage::query()->whereIn('conversation_id', $conversations)->delete();
-                WhatsAppConversation::query()->where('integration_id', $archive)->where('phone_number_id', $line->conversationLine())->delete();
-            }
+            WhatsAppMessage::query()->whereIn('conversation_id', $line->conversations()->select('id'))->delete();
+            $line->conversations()->delete();
             foreach ($line->imports()->get() as $import) {
                 $this->discard($import);
             }
@@ -362,6 +380,7 @@ final class WhatsAppBackupImporter
      */
     public function current(?int $lineId): array
     {
+        $lineId ??= WhatsAppBackupLine::shown()?->id;
         $import = self::forLine(WhatsAppBackupImport::query(), $lineId)->where('status', 'completed')->latest('finished_at')->latest()->first();
 
         return ['import' => $import, 'file_kept' => $import !== null && is_file(WhatsAppBackupImport::keptPath($lineId))];
@@ -406,12 +425,9 @@ final class WhatsAppBackupImporter
             $key = (string) $import->backup_key;
             $this->reader->decrypt($import->path(), $key, $database);
             $import->update(['backup_key' => null, 'stats' => ['phase' => 'import']]);
-            if ($import->excelOnly()) {
-                // The key is not kept: the next Excel may be another business's backup.
-            } elseif ($import->line_id !== null) {
-                WhatsAppBackupLine::query()->whereKey($import->line_id)->first()?->update(['backup_key' => $key]);
-            } else {
-                $this->updateConfig(fn (array $config): array => [...$config, 'backup_key' => Crypt::encryptString($key)]);
+            if (! $import->excelOnly()) {
+                // An Excel-only upload keeps no key: the next one may be another business's backup.
+                ($import->line_id !== null ? WhatsAppBackupLine::query()->find($import->line_id) : WhatsAppBackupLine::shown())?->update(['backup_key' => $key]);
             }
             if (! WhatsAppBackupReader::canReadDatabase()) {
                 // The key worked and is saved: the file stays so "Çıkar" can run again once the server can read SQLite.
@@ -435,7 +451,7 @@ final class WhatsAppBackupImporter
                 File::move($import->path(), $kept);
             }
             $this->discardFiles($import);
-            if ($import->line_id === null && ! $import->excelOnly()) {
+            if (! $import->excelOnly() && ($import->line_id === null || WhatsAppBackupLine::query()->whereKey($import->line_id)->value('active'))) {
                 app(WhatsAppBrain::class)->learnAfterFirstImport($import->user_id);
             }
         } catch (WhatsAppBackupKeyException $exception) {
@@ -458,15 +474,15 @@ final class WhatsAppBackupImporter
         if ($import->excelOnly()) {
             return $this->sheetOnly($import, $database, $sheet);
         }
-        $line = $import->line_id === null ? null : WhatsAppBackupLine::query()->find($import->line_id);
-        if ($import->line_id !== null && $line === null) {
+        $line = $import->line_id === null ? WhatsAppBackupLine::shown() : WhatsAppBackupLine::query()->find($import->line_id);
+        if ($line === null) {
             throw new RuntimeException('Yedek silinmiş.');
         }
-        // An extra backup's chats stay apart from the inbox, the brain and the reply drafts.
-        $integration = $line !== null ? WhatsAppBackupLine::archive() : CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
+        // Only the row shown in the inbox lands there; the others stay apart from the inbox, the brain and the drafts.
+        $integration = ! $line->active ? WhatsAppBackupLine::archive() : CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
             'name' => 'WhatsApp Business', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => [],
         ]);
-        $phoneLine = $line?->conversationLine() ?? self::LINE;
+        $phoneLine = $line->active ? self::LINE : $line->conversationLine();
         $stats = ['chats' => 0, 'new_chats' => 0, 'messages' => 0, 'new_messages' => 0, 'skipped_groups' => 0, 'snapshot_at' => null];
         $latest = 0;
         $skipped = null;
@@ -484,7 +500,7 @@ final class WhatsAppBackupImporter
         }
         $stats['skipped_groups'] = (int) ($skipped['groups'] ?? 0);
         $stats['snapshot_at'] = $latest > 0 ? CarbonImmutable::createFromTimestampMsUTC($latest)->toIso8601String() : null;
-        if ($line !== null) {
+        if (! $line->active) {
             return $stats;
         }
         DB::transaction(function () use ($integration, $stats): void {

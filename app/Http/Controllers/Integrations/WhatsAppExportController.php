@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 /**
  * "Excel'e aktar" on the WhatsApp screen: every conversation (or the open one with ?conversation=) as an .xlsx with a
  * "Mesajlar" sheet (one row per message, oldest first within each chat) and a "Görüşmeler" summary sheet. With ?line=
- * the chats of that extra backup instead of the inbox's.
+ * the chats of that backup row only, wherever they sit.
  */
 final class WhatsAppExportController
 {
@@ -31,11 +31,10 @@ final class WhatsAppExportController
     {
         $connection->authorize($request->user());
         $line = ($request->integer('line') ?: null) === null ? null : WhatsAppBackupLine::query()->findOrFail($request->integer('line'));
-        $integrationId = $line !== null ? WhatsAppBackupLine::archiveId() : $connection->integration()?->id;
-        abort_if($integrationId === null, 404);
+        $integrationId = $connection->integration()?->id;
+        abort_if($line === null && $integrationId === null, 404);
         $only = $request->integer('conversation') ?: null;
-        $conversations = WhatsAppConversation::query()->where('integration_id', $integrationId)
-            ->when($line !== null, fn ($query) => $query->where('phone_number_id', $line->conversationLine()))
+        $conversations = ($line !== null ? $line->conversations() : WhatsAppConversation::query()->where('integration_id', $integrationId))
             ->when($only, fn ($query) => $query->whereKey($only))
             ->orderByDesc('last_message_at')->orderByDesc('id')->get();
         abort_if($only !== null && $conversations->isEmpty(), 404);
