@@ -278,6 +278,44 @@ final class WhatsAppBackupImporter
         });
     }
 
+    /**
+     * "Yedekten gelenleri temizle": the inbox's chats that came from backups go, with the backup's files, its key and
+     * what the brain learned from them, so the next backup uploaded fills the inbox alone (yakup, 2026-10-28: two
+     * businesses' backups had been merged). Live Meta chats, extra backups and the operator's instructions stay.
+     */
+    public function clearInbox(User $user): int
+    {
+        $this->connection->authorize($user);
+        if (self::forLine(WhatsAppBackupImport::query(), null)->whereIn('status', ['queued', 'running'])->exists()) {
+            throw ValidationException::withMessages(['backup' => 'Yedek şu an çıkarılıyor; bitince temizleyebilirsiniz.']);
+        }
+        $integration = $this->connection->integration();
+        $removed = 0;
+        DB::transaction(function () use ($integration, &$removed): void {
+            if ($integration !== null) {
+                $chats = WhatsAppConversation::query()->where('integration_id', $integration->id)->where('phone_number_id', self::LINE);
+                $removed = (clone $chats)->count();
+                WhatsAppMessage::query()->whereIn('conversation_id', (clone $chats)->select('id'))->delete();
+                $chats->delete();
+            }
+            foreach (self::forLine(WhatsAppBackupImport::query(), null)->get() as $import) {
+                $this->discard($import);
+            }
+            File::delete(WhatsAppBackupImport::keptPath(null));
+        });
+        if ($integration !== null) {
+            $this->updateConfig(function (array $config): array {
+                foreach (['backup_key', 'backup_snapshot_at', 'backup_imported_at', 'brain', 'brain_status', 'brain_error'] as $key) {
+                    unset($config[$key]);
+                }
+
+                return $config;
+            });
+        }
+
+        return $removed;
+    }
+
     /** "Başka yedek ekle": a new, empty extra backup the operator then uploads a file and a key to. */
     public function createLine(User $user, string $name): WhatsAppBackupLine
     {

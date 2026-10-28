@@ -65,6 +65,16 @@
 
         @include('livewire.operator.whatsapp.backup-loaded', ['loadedLine' => null, 'loadedCurrent' => $backupCurrent, 'loadedKeyHint' => $backupKeyHint, 'loadedChats' => $backupConversations])
 
+        @if($hasBackup && ! $importBusy)
+            <div class="card-row flex-wrap items-start sm:flex-nowrap" data-wa-backup-clear>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Gelen kutusunda yalnız bir yedek olsun</p>
+                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Farklı firmaların yedekleri karıştıysa önce yedekten gelen görüşmeleri temizleyin, sonra istediğiniz yedeği kendi anahtarıyla yükleyin. Kayıtlı anahtar ve beynin öğrendikleri de silinir; talimatlarınız kalır.</p>
+                </div>
+                <button type="button" wire:click="clearBackupInbox" wire:confirm="Yedekten gelen {{ $backupConversations }} görüşme, kayıtlı anahtar ve beynin öğrendikleri silinsin mi? Bu geri alınamaz." class="btn w-full sm:w-auto">Yedekten gelenleri temizle</button>
+            </div>
+        @endif
+
         @if($hasBackup)
             <div class="card-row flex-wrap items-start sm:flex-nowrap" data-wa-contacts>
                 <div class="min-w-0 flex-1">

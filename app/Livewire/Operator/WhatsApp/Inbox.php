@@ -255,6 +255,21 @@ class Inbox extends Component
         $this->notice = 'Yüklenen yedek silindi.';
     }
 
+    /** "Yedekten gelenleri temizle": the inbox is emptied of backup chats so one backup can fill it alone. */
+    public function clearBackupInbox(WhatsAppBackupImporter $importer): void
+    {
+        $this->resetValidation();
+        try {
+            $removed = $importer->clearInbox(auth()->user());
+        } catch (ValidationException $exception) {
+            $this->addError('backup', $exception->errors()['backup'][0] ?? 'Temizlenemedi.');
+
+            return;
+        }
+        $this->conversation = null;
+        $this->notice = $removed.' görüşme silindi. Şimdi istediğiniz yedeği seçip kendi anahtarıyla çıkarın; gelen kutusunda yalnız o olur.';
+    }
+
     /** "Yedekten Excel al" › "Excel hazırla": the uploaded file is read into its own Excel with the key typed for it. */
     public function extractExcel(string $key, WhatsAppBackupImporter $importer): bool
     {

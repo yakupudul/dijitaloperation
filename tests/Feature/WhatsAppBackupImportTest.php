@@ -472,6 +472,32 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->get(route('operator.whatsapp.backup.excel', ['import' => $id]))->assertNotFound();
     }
 
+    public function test_clearing_the_inbox_leaves_room_for_one_backup_alone(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Firma A']]]])));
+        // Another business's backup with the same key was merged in, as had happened.
+        app(WhatsAppBackupImporter::class)->run($this->upload($this->backup([['905551112233', 's.whatsapp.net', [['B1', 0, '2026-09-03 10:00', 0, 'Firma B']]]]))->id);
+        $this->assertSame(2, WhatsAppConversation::query()->count());
+        $integration = app(WhatsAppConnection::class)->integration();
+        $integration->update(['config' => [...$integration->config, 'brain' => ['summary' => 'x'], 'brain_status' => 'ready', 'business_context' => 'Talimat']]);
+
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('clearBackupInbox')->assertHasNoErrors();
+        $this->assertSame(0, WhatsAppConversation::query()->count());
+        $this->assertSame(0, WhatsAppMessage::query()->count());
+        $this->assertNull(app(WhatsAppBackupImporter::class)->savedKey());
+        $config = app(WhatsAppConnection::class)->integration()->config;
+        $this->assertArrayNotHasKey('brain', $config);
+        $this->assertSame('Talimat', $config['business_context']);
+
+        $this->key = bin2hex(random_bytes(32));
+        $wanted = $this->upload($this->backup([['905551112233', 's.whatsapp.net', [['B1', 0, '2026-09-03 10:00', 0, 'Firma B']]]]));
+        $this->assertSame('uploaded', $wanted->status);
+        $this->extract($wanted);
+        $this->assertSame(['905551112233'], WhatsAppConversation::query()->pluck('contact_id')->all());
+    }
+
     public function test_cevap_uret_drafts_every_recent_chat_waiting_for_an_answer(): void
     {
         Queue::fake();
