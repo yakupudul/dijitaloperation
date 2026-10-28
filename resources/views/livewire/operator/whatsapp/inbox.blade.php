@@ -49,7 +49,7 @@
     $showReconnect = $state === 'connected' && $signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)
         && ($attemptBusy || $signupAttempt->updated_at->greaterThan(now()->subDay()));
     $suggestionBusy = $selected && in_array($selected->suggestion_status, ['requested', 'running'], true);
-    $backgroundBusy = in_array($backupImport?->status, ['queued', 'running'], true) || in_array($config['brain_status'] ?? null, ['queued', 'running'], true);
+    $backgroundBusy = $anyBackupBusy || in_array($config['brain_status'] ?? null, ['queued', 'running'], true);
 @endphp
 <div class="space-y-10">
     {{-- Separate keyed pollers: changing one element's poll interval would leave the old timer running. --}}
@@ -197,5 +197,6 @@
         @else
             <p class="-mt-4 text-sm text-gray-500">Numara Meta ile bağlı; mesajlar anında gelir. Bağlantı ayarları için sağ üstteki Ayarlar'ı açın.</p>
         @endif
+        @include('livewire.operator.whatsapp.backup-lines')
     @endif
 </div>

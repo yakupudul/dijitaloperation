@@ -13,6 +13,7 @@ use App\Models\AiTask;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Models\WhatsAppBackupImport;
+use App\Models\WhatsAppBackupLine;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\AiTasks\AiTaskQueue;
@@ -62,7 +63,8 @@ final class WhatsAppBackupImportTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach ([...$this->files, ...WhatsAppBackupImport::query()->get()->map->path()->all()] as $file) {
+        $kept = [WhatsAppBackupImport::keptPath(null), ...WhatsAppBackupLine::query()->pluck('id')->map(fn (int $id): string => WhatsAppBackupImport::keptPath($id))->all()];
+        foreach ([...$this->files, ...$kept, ...WhatsAppBackupImport::query()->get()->map->path()->all()] as $file) {
             @unlink($file);
         }
         parent::tearDown();
@@ -354,6 +356,83 @@ final class WhatsAppBackupImportTest extends TestCase
         Queue::assertPushed(ExtractWhatsAppBackup::class, 1);
     }
 
+    public function test_the_loaded_backup_file_and_key_can_be_seen_and_downloaded(): void
+    {
+        Queue::fake();
+        $content = $this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Selam']]]]);
+        $this->extract($this->upload($content));
+        $this->assertFileEquals(WhatsAppBackupImport::keptPath(null), $this->tempFile($content));
+
+        $this->actingAs($this->admin);
+        $screen = Livewire::test(Inbox::class)->set('tab', 'setup')
+            ->assertSee('Yüklü yedek')->assertSee('Dosyayı indir')->assertSee('Excel indir')->assertSee('… '.substr($this->key, -4))
+            ->assertDontSee($this->key)->assertDontSee(substr($this->key, 0, 8));
+        $this->assertSame(implode(' ', str_split($this->key, 4)), $screen->instance()->revealBackupKey(app(WhatsAppBackupImporter::class), app(WhatsAppConnection::class)));
+
+        $key = $this->get(route('operator.whatsapp.backup.key'))->assertOk();
+        $this->assertSame($this->key, str_replace([' ', "\n"], '', (string) $key->getContent()));
+        $this->assertStringContainsString('no-store', (string) $key->headers->get('cache-control'));
+        $file = $this->get(route('operator.whatsapp.backup.file'))->assertOk();
+        $this->assertSame($content, (string) file_get_contents($file->baseResponse->getFile()->getPathname()));
+
+        // A backup extracted before files were kept: its details show, the download says it is not there.
+        @unlink(WhatsAppBackupImport::keptPath(null));
+        Livewire::test(Inbox::class)->set('tab', 'setup')->assertSee('sunucuda tutulmamış')->assertDontSee('Dosyayı indir');
+        $this->get(route('operator.whatsapp.backup.file'))->assertNotFound();
+    }
+
+    public function test_another_backup_with_its_own_key_is_kept_apart_and_exports_on_its_own(): void
+    {
+        Queue::fake();
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Ana hat']]]])));
+        $mainKey = $this->key;
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('createBackupLine', '0532 hattı')->assertHasNoErrors()
+            ->call('createBackupLine', '0532 hattı')->assertHasErrors('line_name');
+        $line = WhatsAppBackupLine::query()->sole();
+
+        $this->key = bin2hex(random_bytes(32));
+        $other = $this->upload($this->backup([['905551112233', 's.whatsapp.net', [['B1', 0, '2026-09-03 10:00', 0, 'Diğer hat'], ['B2', 1, '2026-09-03 10:05', 0, 'Cevap']]]]), line: $line->id);
+        $this->assertSame([$line->id, 'uploaded'], [$other->line_id, $other->status]);
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('extractBackup', '', $line->id)->assertHasErrors('backup_key.'.$line->id)
+            ->call('extractBackup', $this->key, $line->id)->assertHasNoErrors();
+        app(WhatsAppBackupImporter::class)->run($other->id);
+
+        $this->assertSame('completed', $other->fresh()->status);
+        $this->assertSame($mainKey, app(WhatsAppBackupImporter::class)->savedKey());
+        $this->assertSame($this->key, app(WhatsAppBackupImporter::class)->savedKey($line->id));
+        $this->assertStringNotContainsString($this->key, (string) $line->fresh()->getRawOriginal('backup_key'));
+        $this->assertFileExists(WhatsAppBackupImport::keptPath($line->id));
+        $this->assertFileExists(WhatsAppBackupImport::keptPath(null));
+        $inbox = app(WhatsAppConnection::class)->integration();
+        $this->assertSame(['905321112233'], WhatsAppConversation::query()->where('integration_id', $inbox->id)->pluck('contact_id')->all());
+        $this->assertSame(['905551112233'], WhatsAppConversation::query()->where('phone_number_id', $line->conversationLine())->pluck('contact_id')->all());
+        Livewire::test(Inbox::class)->assertDontSee('+905551112233');
+        Livewire::test(Inbox::class)->set('tab', 'setup')->assertSee('0532 hattı')->assertSee('1 görüşme')->assertSee('… '.substr($this->key, -4));
+
+        $sheets = $this->sheets($this->get(route('operator.whatsapp.export', ['line' => $line->id]))->assertOk());
+        $this->assertSame(['+905551112233', '+905551112233'], array_column(array_slice($sheets['Mesajlar'], 1), 1));
+        $this->assertSame(['+905321112233'], array_column(array_slice($this->sheets($this->get(route('operator.whatsapp.export')))['Mesajlar'], 1), 1));
+        $this->assertSame($this->key, str_replace([' ', "\n"], '', (string) $this->get(route('operator.whatsapp.backup.key', ['line' => $line->id]))->getContent()));
+
+        // A newer backup of the same phone needs only the file; the inbox's key is not used for it.
+        $next = $this->upload($this->backup([['905551112233', 's.whatsapp.net', [['B1', 0, '2026-09-03 10:00', 0, 'Diğer hat'], ['B3', 0, '2026-09-04 10:00', 0, 'Yeni']]]]), line: $line->id);
+        Queue::assertPushed(ExtractWhatsAppBackup::class, fn (ExtractWhatsAppBackup $job): bool => $job->importId === $next->id);
+        app(WhatsAppBackupImporter::class)->run($next->id);
+        $this->assertSame(3, WhatsAppMessage::query()->whereIn('conversation_id', WhatsAppConversation::query()->where('phone_number_id', $line->conversationLine())->select('id'))->count());
+
+        // Resetting the inbox leaves the extra backup; deleting the extra backup leaves the inbox.
+        app(WhatsAppConnection::class)->reset($this->admin);
+        $this->assertSame(1, WhatsAppConversation::query()->where('phone_number_id', $line->conversationLine())->count());
+        $this->assertSame($this->key, app(WhatsAppBackupImporter::class)->savedKey($line->id));
+        $this->extract($this->upload($this->backup([['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Ana hat']]]])));
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('deleteBackupLine', $line->id);
+        $this->assertSame(0, WhatsAppBackupLine::query()->count());
+        $this->assertSame(['905321112233'], WhatsAppConversation::query()->pluck('contact_id')->all());
+        $this->assertFileDoesNotExist(WhatsAppBackupImport::keptPath($line->id));
+        $this->assertSame(1, WhatsAppMessage::query()->count());
+    }
+
     public function test_cevap_uret_drafts_every_recent_chat_waiting_for_an_answer(): void
     {
         Queue::fake();
@@ -583,15 +662,40 @@ final class WhatsAppBackupImportTest extends TestCase
         return $file.md5($file, true);
     }
 
-    private function upload(string $content, int $chunk = 4 * 1024 * 1024): WhatsAppBackupImport
+    private function upload(string $content, int $chunk = 4 * 1024 * 1024, ?int $line = null): WhatsAppBackupImport
     {
-        $id = $this->actingAs($this->admin)->postJson(route('operator.whatsapp.backup'), ['name' => 'msgstore.db.crypt15', 'size' => strlen($content)])
+        $id = $this->actingAs($this->admin)->postJson(route('operator.whatsapp.backup'), ['name' => 'msgstore.db.crypt15', 'size' => strlen($content), 'line' => $line])
             ->assertOk()->json('id');
         for ($offset = 0; $offset < strlen($content); $offset += $chunk) {
             $this->piece($id, $offset, substr($content, $offset, $chunk))->assertOk();
         }
 
         return WhatsAppBackupImport::query()->findOrFail($id);
+    }
+
+    private function tempFile(string $content): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'wa-expected');
+        $this->files[] = $path;
+        file_put_contents($path, $content);
+
+        return $path;
+    }
+
+    /** @return array<string, list<list<mixed>>> */
+    private function sheets(TestResponse $response): array
+    {
+        $reader = new XlsxReader;
+        $reader->open($response->baseResponse->getFile()->getPathname());
+        $sheets = [];
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $sheets[$sheet->getName()][] = $row->toArray();
+            }
+        }
+        $reader->close();
+
+        return $sheets;
     }
 
     private function piece(string $id, int $offset, string $bytes): TestResponse

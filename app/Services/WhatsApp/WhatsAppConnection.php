@@ -15,6 +15,7 @@ use App\Support\Permissions;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -165,9 +166,11 @@ final class WhatsAppConnection
             WhatsAppMessage::query()->whereIn('conversation_id', $conversations)->delete();
             WhatsAppConversation::query()->where('integration_id', $integration->id)->delete();
             WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)->delete();
-            foreach (WhatsAppBackupImport::query()->get() as $import) {
+            // The inbox's own backup goes with its chats; extra backups (lines) are kept.
+            foreach (WhatsAppBackupImport::query()->whereNull('line_id')->get() as $import) {
                 app(WhatsAppBackupImporter::class)->discard($import);
             }
+            File::delete(WhatsAppBackupImport::keptPath(null));
         });
     }
 

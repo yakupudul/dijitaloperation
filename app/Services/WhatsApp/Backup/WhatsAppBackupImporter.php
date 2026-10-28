@@ -6,16 +6,19 @@ use App\Jobs\WhatsApp\ExtractWhatsAppBackup;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Models\WhatsAppBackupImport;
+use App\Models\WhatsAppBackupLine;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\WhatsApp\WhatsAppBrain;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use PDOException;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
@@ -23,7 +26,9 @@ use Throwable;
  * The phone's WhatsApp Business backup as a second way into the inbox (while the Meta connection waits): the file is
  * uploaded in pieces, "Çıkar" queues the extraction with the 64-digit key, and the chats are stored as conversations
  * of the "backup" line. Uploading a newer backup later adds only the messages that are not there yet; the key that
- * worked is kept (encrypted), so a later upload is extracted without asking for it again.
+ * worked is kept (encrypted), so a later upload is extracted without asking for it again. Extra backups (other phones or
+ * numbers, WhatsAppBackupLine) go through the same steps with their own key and land on the archive integration; the
+ * last extracted file of each is kept so the operator can see and download it.
  */
 final class WhatsAppBackupImporter
 {
@@ -51,9 +56,12 @@ final class WhatsAppBackupImporter
 
     public function __construct(private WhatsAppConnection $connection, private WhatsAppBackupReader $reader) {}
 
-    public function begin(User $user, string $fileName, int $size): WhatsAppBackupImport
+    public function begin(User $user, string $fileName, int $size, ?int $lineId = null): WhatsAppBackupImport
     {
         $this->connection->authorize($user);
+        if ($lineId !== null && ! WhatsAppBackupLine::query()->whereKey($lineId)->exists()) {
+            throw ValidationException::withMessages(['backup' => 'Bu yedek artık yok; sayfayı yenileyin.']);
+        }
         $name = trim($fileName);
         if (preg_match('/\.crypt1[0-4]$/i', $name) === 1) {
             throw ValidationException::withMessages(['backup' => 'Bu yedek eski biçimde ('.strtolower((string) strrchr($name, '.')).'); açmak için 64 haneli anahtar değil telefondaki anahtar dosyası gerekir. Telefonda WhatsApp Business › Ayarlar › Sohbetler › Sohbet yedeği › Uçtan uca şifreli yedek bölümünden 64 haneli anahtarla yeni bir yedek alın ve msgstore.db.crypt15 dosyasını yükleyin.']);
@@ -67,17 +75,17 @@ final class WhatsAppBackupImporter
 
         $this->recoverStalled();
 
-        return DB::transaction(function () use ($user, $name, $size): WhatsAppBackupImport {
+        return DB::transaction(function () use ($user, $name, $size, $lineId): WhatsAppBackupImport {
             if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages(['backup' => 'Önceki yedek şu an çıkarılıyor; bitince yeni dosya yükleyebilirsiniz.']);
             }
-            // One file at a time: an unfinished or unused earlier upload is dropped.
-            foreach (WhatsAppBackupImport::query()->whereIn('status', ['uploading', 'uploaded'])->get() as $old) {
+            // One file at a time per backup: an unfinished or unused earlier upload is dropped.
+            foreach (self::forLine(WhatsAppBackupImport::query(), $lineId)->whereIn('status', ['uploading', 'uploaded'])->get() as $old) {
                 $this->discard($old);
             }
             File::ensureDirectoryExists(dirname((new WhatsAppBackupImport)->forceFill(['id' => 'x'])->path()), 0700);
             $import = WhatsAppBackupImport::query()->create([
-                'user_id' => $user->id, 'status' => 'uploading', 'file_name' => mb_substr($name, 0, 255), 'size' => $size,
+                'user_id' => $user->id, 'line_id' => $lineId, 'status' => 'uploading', 'file_name' => mb_substr($name, 0, 255), 'size' => $size,
             ]);
             File::put($import->path(), '');
 
@@ -110,8 +118,8 @@ final class WhatsAppBackupImporter
             return $import;
         });
         // With a saved key the operator only uploads: extraction starts as soon as the last piece arrives.
-        if ($import->status === 'uploaded' && $this->savedKey() !== null) {
-            $this->extract($user);
+        if ($import->status === 'uploaded' && $this->savedKey($import->line_id) !== null) {
+            $this->extract($user, null, $import->line_id);
         }
 
         return $import->fresh() ?? $import;
@@ -121,17 +129,17 @@ final class WhatsAppBackupImporter
      * "Çıkar": the uploaded file is opened in the background. An empty key uses the key saved by the last successful
      * extraction, so later backups need only the file.
      */
-    public function extract(User $user, ?string $key = null): WhatsAppBackupImport
+    public function extract(User $user, ?string $key = null, ?int $lineId = null): WhatsAppBackupImport
     {
         $this->connection->authorize($user);
-        $hex = trim((string) $key) === '' ? $this->savedKey() : WhatsAppBackupReader::normaliseKey((string) $key);
+        $hex = trim((string) $key) === '' ? $this->savedKey($lineId) : WhatsAppBackupReader::normaliseKey((string) $key);
         if ($hex === null) {
             throw ValidationException::withMessages(['backup_key' => trim((string) $key) === ''
                 ? 'Bu ilk yedek: 64 haneli anahtarı girin. Doğru anahtar kaydedilir, sonraki yedeklerde sorulmaz.'
                 : 'Anahtar 64 karakter olmalı (0-9 ve a-f). Boşluklar sorun değil.']);
         }
-        $import = DB::transaction(function () use ($hex): WhatsAppBackupImport {
-            $import = WhatsAppBackupImport::query()->where('status', 'uploaded')->latest()->lockForUpdate()->first();
+        $import = DB::transaction(function () use ($hex, $lineId): WhatsAppBackupImport {
+            $import = self::forLine(WhatsAppBackupImport::query(), $lineId)->where('status', 'uploaded')->latest()->lockForUpdate()->first();
             if ($import === null || ! is_file($import->path())) {
                 throw ValidationException::withMessages(['backup' => 'Önce yedek dosyasını yükleyin.']);
             }
@@ -195,7 +203,7 @@ final class WhatsAppBackupImporter
 
     private function revive(WhatsAppBackupImport $import, bool $newAttempt, ?int $userId = null, ?string $note = null): void
     {
-        $key = filled($import->backup_key) ? (string) $import->backup_key : $this->savedKey();
+        $key = filled($import->backup_key) ? (string) $import->backup_key : $this->savedKey($import->line_id);
         $reason = $import->status === 'running' || $newAttempt ? 'yarıda kesildi' : 'kuyrukta başlamadı';
         $failure = match (true) {
             ! is_file($import->path()) => 'Çıkarma '.$reason.' ve yedek dosyası sunucuda artık yok. Dosyayı yeniden yükleyin.',
@@ -228,14 +236,23 @@ final class WhatsAppBackupImporter
         }
     }
 
-    /** The key of the last successful extraction (stored encrypted on the integration), or null. */
-    public function savedKey(): ?string
+    /**
+     * The key of the last successful extraction, or null: the inbox's own is stored encrypted on the integration, an
+     * extra backup's on its line.
+     */
+    public function savedKey(?int $lineId = null): ?string
     {
-        $stored = data_get($this->connection->integration()?->config, 'backup_key');
-        if (! is_string($stored) || $stored === '') {
-            return null;
-        }
         try {
+            if ($lineId !== null) {
+                $plain = WhatsAppBackupLine::query()->find($lineId)?->backup_key;
+
+                return is_string($plain) && $plain !== '' ? WhatsAppBackupReader::normaliseKey($plain) : null;
+            }
+            $stored = data_get($this->connection->integration()?->config, 'backup_key');
+            if (! is_string($stored) || $stored === '') {
+                return null;
+            }
+
             return WhatsAppBackupReader::normaliseKey(Crypt::decryptString($stored));
         } catch (Throwable) {
             return null;
@@ -243,14 +260,79 @@ final class WhatsAppBackupImporter
     }
 
     /** "Kayıtlı anahtarı sil". */
-    public function forgetKey(User $user): void
+    public function forgetKey(User $user, ?int $lineId = null): void
     {
         $this->connection->authorize($user);
+        if ($lineId !== null) {
+            WhatsAppBackupLine::query()->whereKey($lineId)->update(['backup_key' => null]);
+
+            return;
+        }
         $this->updateConfig(function (array $config): array {
             unset($config['backup_key']);
 
             return $config;
         });
+    }
+
+    /** "Başka yedek ekle": a new, empty extra backup the operator then uploads a file and a key to. */
+    public function createLine(User $user, string $name): WhatsAppBackupLine
+    {
+        $this->connection->authorize($user);
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+        if (mb_strlen($name) < 2 || mb_strlen($name) > 120) {
+            throw ValidationException::withMessages(['line_name' => 'Yedeğe 2-120 karakterlik bir ad verin (örneğin numara ya da işletme adı).']);
+        }
+        if (WhatsAppBackupLine::query()->where('name', $name)->exists()) {
+            throw ValidationException::withMessages(['line_name' => 'Bu adla bir yedek zaten var.']);
+        }
+
+        return WhatsAppBackupLine::query()->create(['name' => $name]);
+    }
+
+    /** "Yedeği sil": an extra backup with its chats, files and key. The inbox's own backup is never removed here. */
+    public function deleteLine(User $user, int $lineId): void
+    {
+        $this->connection->authorize($user);
+        $line = WhatsAppBackupLine::query()->findOrFail($lineId);
+        if ($line->imports()->whereIn('status', ['queued', 'running'])->exists()) {
+            throw ValidationException::withMessages(['backup' => 'Bu yedek şu an çıkarılıyor; bitince silebilirsiniz.']);
+        }
+        DB::transaction(function () use ($line): void {
+            $archive = WhatsAppBackupLine::archiveId();
+            if ($archive !== null) {
+                $conversations = WhatsAppConversation::query()->where('integration_id', $archive)->where('phone_number_id', $line->conversationLine())->select('id');
+                WhatsAppMessage::query()->whereIn('conversation_id', $conversations)->delete();
+                WhatsAppConversation::query()->where('integration_id', $archive)->where('phone_number_id', $line->conversationLine())->delete();
+            }
+            foreach ($line->imports()->get() as $import) {
+                $this->discard($import);
+            }
+            File::delete(WhatsAppBackupImport::keptPath($line->id));
+            $line->delete();
+        });
+    }
+
+    /**
+     * The backup file and its extraction as the screen shows them: the last extracted import of the line (null: the
+     * inbox's own) and whether its file is still on the server to download.
+     *
+     * @return array{import: ?WhatsAppBackupImport, file_kept: bool}
+     */
+    public function current(?int $lineId): array
+    {
+        $import = self::forLine(WhatsAppBackupImport::query(), $lineId)->where('status', 'completed')->latest('finished_at')->latest()->first();
+
+        return ['import' => $import, 'file_kept' => $import !== null && is_file(WhatsAppBackupImport::keptPath($lineId))];
+    }
+
+    /**
+     * @param  Builder<WhatsAppBackupImport>  $query
+     * @return Builder<WhatsAppBackupImport>
+     */
+    public static function forLine(Builder $query, ?int $lineId): Builder
+    {
+        return $lineId === null ? $query->whereNull('line_id') : $query->where('line_id', $lineId);
     }
 
     /** The background extraction. A wrong key keeps the file so another key can be tried without uploading again. */
@@ -272,7 +354,11 @@ final class WhatsAppBackupImporter
             $key = (string) $import->backup_key;
             $this->reader->decrypt($import->path(), $key, $database);
             $import->update(['backup_key' => null, 'stats' => ['phase' => 'import']]);
-            $this->updateConfig(fn (array $config): array => [...$config, 'backup_key' => Crypt::encryptString($key)]);
+            if ($import->line_id !== null) {
+                WhatsAppBackupLine::query()->whereKey($import->line_id)->first()?->update(['backup_key' => $key]);
+            } else {
+                $this->updateConfig(fn (array $config): array => [...$config, 'backup_key' => Crypt::encryptString($key)]);
+            }
             if (! WhatsAppBackupReader::canReadDatabase()) {
                 // The key worked and is saved: the file stays so "Çıkar" can run again once the server can read SQLite.
                 $import->update(['status' => 'uploaded', 'stats' => null, 'error' => WhatsAppBackupReader::SQLITE_MISSING]);
@@ -281,8 +367,14 @@ final class WhatsAppBackupImporter
             }
             $stats = $this->import($import, $database);
             $import->update(['status' => 'completed', 'stats' => $stats, 'finished_at' => now(), 'error' => null, 'backup_key' => null]);
+            // The extracted file replaces the line's previously kept one, so the screen can show and hand it back.
+            $kept = WhatsAppBackupImport::keptPath($import->line_id);
+            File::ensureDirectoryExists(dirname($kept), 0700);
+            File::move($import->path(), $kept);
             $this->discardFiles($import);
-            app(WhatsAppBrain::class)->learnAfterFirstImport($import->user_id);
+            if ($import->line_id === null) {
+                app(WhatsAppBrain::class)->learnAfterFirstImport($import->user_id);
+            }
         } catch (WhatsAppBackupKeyException $exception) {
             $import->update(['status' => 'uploaded', 'backup_key' => null, 'stats' => null, 'error' => $exception->getMessage()]);
         } catch (Throwable $exception) {
@@ -300,14 +392,20 @@ final class WhatsAppBackupImporter
      */
     public function import(WhatsAppBackupImport $import, string $database): array
     {
-        $integration = CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
+        $line = $import->line_id === null ? null : WhatsAppBackupLine::query()->find($import->line_id);
+        if ($import->line_id !== null && $line === null) {
+            throw new RuntimeException('Yedek silinmiş.');
+        }
+        // An extra backup's chats stay apart from the inbox, the brain and the reply drafts.
+        $integration = $line !== null ? WhatsAppBackupLine::archive() : CoreIntegration::query()->firstOrCreate(['provider' => WhatsAppConnection::PROVIDER], [
             'name' => 'WhatsApp Business', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => [],
         ]);
+        $phoneLine = $line?->conversationLine() ?? self::LINE;
         $stats = ['chats' => 0, 'new_chats' => 0, 'messages' => 0, 'new_messages' => 0, 'skipped_groups' => 0, 'snapshot_at' => null];
         $latest = 0;
         $skipped = null;
         foreach ($this->reader->chats($database, $skipped) as $chat) {
-            [$created, $added] = $this->store($integration, $chat['contact'], $chat['messages']);
+            [$created, $added] = $this->store($integration, $phoneLine, $chat['contact'], $chat['messages']);
             $stats['chats']++;
             $stats['new_chats'] += $created ? 1 : 0;
             $stats['messages'] += count($chat['messages']);
@@ -319,6 +417,9 @@ final class WhatsAppBackupImporter
         }
         $stats['skipped_groups'] = (int) ($skipped['groups'] ?? 0);
         $stats['snapshot_at'] = $latest > 0 ? CarbonImmutable::createFromTimestampMsUTC($latest)->toIso8601String() : null;
+        if ($line !== null) {
+            return $stats;
+        }
         DB::transaction(function () use ($integration, $stats): void {
             $row = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
             $config = $row->config ?? [];
@@ -336,12 +437,12 @@ final class WhatsAppBackupImporter
      * @param  list<array{id: string, outgoing: bool, at: int, type: string, body: string}>  $messages
      * @return array{0: bool, 1: int} [conversation created, messages added]
      */
-    private function store(CoreIntegration $integration, string $contact, array $messages): array
+    private function store(CoreIntegration $integration, string $phoneLine, string $contact, array $messages): array
     {
-        return DB::transaction(function () use ($integration, $contact, $messages): array {
+        return DB::transaction(function () use ($integration, $phoneLine, $contact, $messages): array {
             // Imported chats are drafted only on the operator's "Mesaj üret" click, never automatically.
             $conversation = WhatsAppConversation::query()->firstOrCreate([
-                'integration_id' => $integration->id, 'phone_number_id' => self::LINE, 'contact_id' => $contact,
+                'integration_id' => $integration->id, 'phone_number_id' => $phoneLine, 'contact_id' => $contact,
             ], ['suggestion_status' => 'idle']);
             $created = $conversation->wasRecentlyCreated;
             $conversation = WhatsAppConversation::query()->lockForUpdate()->findOrFail($conversation->id);

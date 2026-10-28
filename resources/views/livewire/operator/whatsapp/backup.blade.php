@@ -4,81 +4,8 @@
     $importStats = $import?->stats ?? [];
     $hasBackup = $backupConversations > 0;
     $megabytes = fn (?int $bytes): string => number_format(($bytes ?? 0) / 1048576, 1, ',', '.').' MB';
-    $uploadUrls = [
-        'begin' => route('operator.whatsapp.backup'),
-        'chunk' => route('operator.whatsapp.backup.chunk', ['import' => '00000000-0000-0000-0000-000000000000']),
-    ];
 @endphp
-<section data-wa-backup
-    x-data="{
-        urls: @js($uploadUrls), progress: 0, uploading: false, message: '', extracting: false,
-        async send(url, body, type) {
-            for (let attempt = 1; ; attempt++) {
-                let response;
-                try {
-                    response = await fetch(url, { method: 'POST', credentials: 'same-origin', body,
-                        headers: { 'Content-Type': type, 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content } });
-                } catch (_) {
-                    if (attempt < 4) { await new Promise(done => setTimeout(done, attempt * 2000)); continue; }
-                    throw new Error('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip dosyayı yeniden seçin.');
-                }
-                const isJson = (response.headers.get('Content-Type') || '').includes('application/json');
-                const data = isJson ? await response.json().catch(() => ({})) : {};
-                if (response.status === 409 && data.expected_offset !== undefined) return data;
-                if (!response.ok || response.redirected || !isJson) {
-                    if ([401, 419].includes(response.status) || response.redirected) throw new Error('MoxDOP oturumunuz kapanmış. Sayfayı yenileyip giriş yapın.');
-                    if (response.status >= 500 && attempt < 4) { await new Promise(done => setTimeout(done, attempt * 2000)); continue; }
-                    const fieldError = data.errors ? Object.values(data.errors).flat()[0] : null;
-                    throw new Error(fieldError || data.message || ('Yükleme durdu (HTTP ' + response.status + ').'));
-                }
-                return data;
-            }
-        },
-        async upload() {
-            const file = this.$refs.file.files[0];
-            if (!file || this.uploading) return;
-            this.uploading = true; this.message = ''; this.progress = 0;
-            try {
-                const started = await this.send(this.urls.begin, JSON.stringify({ name: file.name, size: file.size }), 'application/json');
-                const url = this.urls.chunk.replace('00000000-0000-0000-0000-000000000000', started.id);
-                let offset = 0, answer = {};
-                while (offset < file.size) {
-                    answer = await this.send(url + '?offset=' + offset, file.slice(offset, offset + started.chunk), 'application/octet-stream');
-                    offset = answer.expected_offset ?? answer.received;
-                    this.progress = Math.floor(offset * 100 / file.size);
-                }
-                this.message = answer.extracting ? 'Yüklendi; kayıtlı anahtarla çıkarılıyor.' : 'Yüklendi. Şimdi 64 haneli anahtarı girip Çıkar\'a basın.';
-                this.$refs.file.value = '';
-                await $wire.$refresh();
-            } catch (error) { this.message = error.message; }
-            finally { this.uploading = false; }
-        },
-        async contacts(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            this.message = 'Rehber okunuyor…';
-            try {
-                // Only names and numbers leave the browser: photos, e-mails and addresses are dropped here.
-                const lines = (await file.text()).split(/\r\n|\r|\n/);
-                const kept = [];
-                let keep = false;
-                for (const line of lines) {
-                    if (/^[ \t]/.test(line) || (keep && kept.length && kept[kept.length - 1].endsWith('='))) { if (keep) kept.push(line); continue; }
-                    keep = /^(BEGIN|END|FN|N|TEL|item\d+\.TEL)[;:]/i.test(line);
-                    if (keep) kept.push(line);
-                }
-                this.message = '';
-                await $wire.importContacts(kept.join('\n'));
-            } catch (error) { this.message = 'Rehber okunamadı: ' + error.message; }
-            finally { event.target.value = ''; }
-        },
-        async extract() {
-            if (this.extracting) return;
-            this.extracting = true;
-            try { if (await $wire.extractBackup(this.$refs.key.value)) this.$refs.key.value = ''; }
-            finally { this.extracting = false; }
-        },
-    }">
+<section data-wa-backup x-data="@include('livewire.operator.whatsapp.backup-alpine')">
     <div class="section-head"><h2 class="section-title">Telefondaki yedekten yükle</h2></div>
     <div class="card">
         <div class="card-row flex-wrap items-start sm:flex-nowrap">
@@ -91,13 +18,13 @@
             </p>
             @if(! $importBusy && $import?->status !== 'uploaded')
                 <label class="btn-primary w-full cursor-pointer sm:w-auto" :class="uploading && 'pointer-events-none opacity-60'">
-                    <span x-text="uploading ? 'Yükleniyor… %' + progress : '{{ $hasBackup ? 'Yeni yedek seç' : 'Yedek dosyasını seç' }}'">{{ $hasBackup ? 'Yeni yedek seç' : 'Yedek dosyasını seç' }}</span>
-                    <input x-ref="file" type="file" class="sr-only" accept=".crypt15,.crypt14,.crypt12" @change="upload()" />
+                    <span x-text="uploading && uploadingLine === null ? 'Yükleniyor… %' + progress : '{{ $hasBackup ? 'Yeni yedek seç' : 'Yedek dosyasını seç' }}'">{{ $hasBackup ? 'Yeni yedek seç' : 'Yedek dosyasını seç' }}</span>
+                    <input type="file" class="sr-only" accept=".crypt15,.crypt14,.crypt12" @change="upload($event.target)" />
                 </label>
             @endif
         </div>
         @if(! $importBusy && $import?->status !== 'uploaded')
-            <div x-show="uploading" x-cloak class="border-t border-gray-200 px-4 py-3 dark:border-gray-800"><div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full bg-gray-900 transition-all dark:bg-white" :style="'width: ' + progress + '%'"></div></div></div>
+            <div x-show="uploading && uploadingLine === null" x-cloak class="border-t border-gray-200 px-4 py-3 dark:border-gray-800"><div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full bg-gray-900 transition-all dark:bg-white" :style="'width: ' + progress + '%'"></div></div></div>
             @if($import?->status === 'uploading')
                 <p class="card-row text-[13px] text-gray-500">Önceki yükleme yarıda kaldı (%{{ $import->size ? (int) floor($import->received_bytes * 100 / $import->size) : 0 }}); dosyayı yeniden seçin.</p>
             @endif
@@ -120,7 +47,7 @@
             @endif
 
             @if($import?->status === 'uploaded')
-                <form class="card-row flex-wrap items-start sm:flex-nowrap" data-wa-backup-status="uploaded" @submit.prevent="extract()">
+                <form class="card-row flex-wrap items-start sm:flex-nowrap" data-wa-backup-status="uploaded" @submit.prevent="extract($refs.key)">
                     <div class="min-w-0 flex-1 sm:pt-1.5">
                         <p class="text-sm text-gray-800 dark:text-gray-200"><strong class="font-medium">{{ $import->file_name }}</strong> yüklendi ({{ $megabytes($import->size) }}). <button type="button" wire:click="discardBackup" class="ml-1 text-[13px] text-gray-500 hover:text-gray-900 hover:underline dark:hover:text-white">Sil</button></p>
                         @if($import->error)
@@ -136,12 +63,7 @@
             @endif
         @endif
 
-        @if($backupKeySaved)
-            <div class="card-row flex-wrap sm:flex-nowrap" data-wa-backup-key-saved>
-                <p class="min-w-0 flex-1 text-[13px] text-gray-500 dark:text-gray-400">Anahtar kayıtlı: yeni yedekte yalnız dosyayı seçin.</p>
-                <button type="button" wire:click="forgetBackupKey" wire:confirm="Kayıtlı anahtar silinsin mi? Sonraki yedekte yeniden sorulur." class="btn-quiet">Kayıtlı anahtarı sil</button>
-            </div>
-        @endif
+        @include('livewire.operator.whatsapp.backup-loaded', ['loadedLine' => null, 'loadedCurrent' => $backupCurrent, 'loadedKeyHint' => $backupKeyHint, 'loadedChats' => $backupConversations])
 
         @if($hasBackup)
             <div class="card-row flex-wrap items-start sm:flex-nowrap" data-wa-contacts>
@@ -169,7 +91,7 @@
                     <li>Dosyayı bilgisayara alın: Dahili depolama › Android › media › com.whatsapp.w4b › WhatsApp Business › Databases › <code class="text-xs">msgstore.db.crypt15</code>.</li>
                     <li>Dosyayı yukarıdan seçin; ilk seferde yüklenince anahtarı girip <strong class="font-medium text-gray-900 dark:text-white">Çıkar</strong>'a basın. Doğru anahtar kaydedilir; sonraki yedeklerde yalnız dosyayı seçersiniz, çıkarma kendiliğinden başlar.</li>
                 </ol>
-                <p class="mt-3 text-xs text-gray-500">Dosya, çıkarma bitince sunucudan silinir; anahtar şifreli saklanır. Grup sohbetleri, fotoğraf, ses ve belgelerin içeriği alınmaz. Kişi adları bu dosyada olmadığı için numaralar görünür; müşteri kaydıyla eşleşen numara müşteriye bağlanır.</p>
+                <p class="mt-3 text-xs text-gray-500">Son çıkarılan dosya (şifreli hâliyle) ve anahtar sunucuda şifreli saklanır; yeni yedek eskisinin yerini alır. Grup sohbetleri, fotoğraf, ses ve belgelerin içeriği alınmaz. Kişi adları bu dosyada olmadığı için numaralar görünür; müşteri kaydıyla eşleşen numara müşteriye bağlanır.</p>
             </div>
         </details>
     </div>

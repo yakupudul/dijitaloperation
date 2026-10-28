@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Brand;
+use App\Models\CoreIntegration;
 use App\Models\GbpQueuedPost;
 use App\Models\Strategy;
 use App\Models\WhatsAppConversation;
@@ -12,6 +13,7 @@ use App\Services\Operations\SystemHealthReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
+use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\Work\FlowFeed;
 use App\Support\Demo\DemoMenu;
 use Illuminate\Support\Facades\Cache;
@@ -168,7 +170,8 @@ final class OperatorMenu
 
             return $models->filter(fn (Brand $brand): bool => (bool) (OperatorPortfolioPresenter::brand($brand, $signals[(int) $brand->id] ?? PortfolioSignalsReader::emptyBrand())['needs_attention'] ?? false))->count();
         });
-        $put('operator.whatsapp', 'soft', fn (): int => WhatsAppConversation::query()->whereNull('done_at')->whereNull('opted_out_at')
+        $put('operator.whatsapp', 'soft', fn (): int => WhatsAppConversation::query()
+            ->whereIn('integration_id', CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->select('id'))->whereNull('done_at')->whereNull('opted_out_at')
             ->whereNotNull('last_incoming_at')->whereColumn('last_incoming_at', '>=', 'last_message_at')
             ->where('last_message_at', '>=', now()->subDays(7))->count());
         $put('operator.integrations', 'dot', function (): bool {

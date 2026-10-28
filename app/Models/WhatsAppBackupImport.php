@@ -5,11 +5,13 @@ namespace App\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One uploaded WhatsApp Business backup: uploading → uploaded → queued → running → completed / failed. The key is
  * kept encrypted only between "Çıkar" and the end of extraction. Each queueing is one attempt; an attempt that stops
- * moving (see WhatsAppBackupImporter::recoverStalled) is started again.
+ * moving (see WhatsAppBackupImporter::recoverStalled) is started again. Without a line it is the inbox's own backup;
+ * with one, an extra backup (WhatsAppBackupLine).
  */
 class WhatsAppBackupImport extends Model
 {
@@ -43,8 +45,19 @@ class WhatsAppBackupImport extends Model
         return $at === null ? null : CarbonImmutable::instance($at);
     }
 
+    public function line(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppBackupLine::class, 'line_id');
+    }
+
     public function path(): string
     {
         return storage_path('app/private/whatsapp-backups/'.$this->id.'.crypt15');
+    }
+
+    /** The last extracted backup file of a line (null: the inbox's own), kept so the operator can see and download it. */
+    public static function keptPath(?int $lineId): string
+    {
+        return storage_path('app/private/whatsapp-backups/kept/'.($lineId === null ? 'inbox' : 'line-'.$lineId).'.crypt15');
     }
 }

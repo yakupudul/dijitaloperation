@@ -117,6 +117,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->middleware('throttle:10,1,wa-backup')->name('operator.whatsapp.backup');
     Route::post('/whatsapp/backup/{import}/chunk', [WhatsAppBackupController::class, 'chunk'])
         ->whereUuid('import')->middleware('throttle:600,1,wa-backup-chunk')->name('operator.whatsapp.backup.chunk');
+    Route::get('/whatsapp/backup/file', [WhatsAppBackupController::class, 'file'])
+        ->middleware('throttle:10,1,wa-backup-file')->name('operator.whatsapp.backup.file');
+    Route::get('/whatsapp/backup/key', [WhatsAppBackupController::class, 'key'])
+        ->middleware('throttle:10,1,wa-backup-key')->name('operator.whatsapp.backup.key');
     Route::get('/whatsapp/export', WhatsAppExportController::class)
         ->middleware('throttle:10,1,wa-export')->name('operator.whatsapp.export');
     Route::livewire('/whatsapp', WhatsAppInbox::class)

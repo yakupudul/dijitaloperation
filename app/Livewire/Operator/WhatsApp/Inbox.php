@@ -8,6 +8,7 @@ use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\WhatsAppBackupImport;
+use App\Models\WhatsAppBackupLine;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
@@ -177,15 +178,18 @@ class Inbox extends Component
             : 'Meta geçmiş mesaj aktarımını başlatmadı; nedeni aşağıda yazıyor. 24 saat dolmadan tekrar deneyebilirsiniz.';
     }
 
-    /** "Çıkar": the uploaded backup is opened with the 64-digit key in the background (the key never enters Livewire state). */
-    public function extractBackup(string $key, WhatsAppBackupImporter $importer): bool
+    /**
+     * "Çıkar": the uploaded backup is opened with the 64-digit key in the background (the key never enters Livewire
+     * state). $line: an extra backup; none for the inbox's own.
+     */
+    public function extractBackup(string $key, WhatsAppBackupImporter $importer, ?int $line = null): bool
     {
         $this->resetValidation();
         try {
-            $importer->extract(auth()->user(), $key);
+            $importer->extract(auth()->user(), $key, $line);
         } catch (ValidationException $exception) {
             foreach ($exception->errors() as $field => $messages) {
-                $this->addError($field, $messages[0]);
+                $this->addError($line === null ? $field : $field.'.'.$line, $messages[0]);
             }
 
             return false;
@@ -196,10 +200,10 @@ class Inbox extends Component
     }
 
     /** "Rehberden isimleri al": names from the phone's address book (.vcf, reduced to names and numbers in the browser). */
-    public function importContacts(string $vcard, WhatsAppConnection $connection, WhatsAppContactNames $names): void
+    public function importContacts(string $vcard, WhatsAppConnection $connection, WhatsAppContactNames $names, ?int $line = null): void
     {
         $this->resetValidation();
-        $integration = $connection->integration();
+        $integration = $line === null ? $connection->integration() : WhatsAppBackupLine::archive();
         $connection->authorize(auth()->user());
         if ($integration === null || ! str_contains(strtoupper($vcard), 'BEGIN:VCARD')) {
             $this->addError('contacts', 'Bu dosya rehber dosyası (.vcf) değil. Telefonda Kişiler › Dışa aktar ile .vcf dosyası oluşturun.');
@@ -227,19 +231,58 @@ class Inbox extends Component
     }
 
     /** Removes the saved backup key: the next backup asks for it again. */
-    public function forgetBackupKey(WhatsAppBackupImporter $importer): void
+    public function forgetBackupKey(WhatsAppBackupImporter $importer, ?int $line = null): void
     {
-        $importer->forgetKey(auth()->user());
+        $importer->forgetKey(auth()->user(), $line);
         $this->notice = 'Kayıtlı anahtar silindi; sonraki yedekte anahtar sorulur.';
     }
 
-    /** Drops an uploaded backup that will not be extracted. */
-    public function discardBackup(WhatsAppBackupImporter $importer): void
+    /** "Göster": the saved key, handed to the browser only (never kept in the component's state). */
+    public function revealBackupKey(WhatsAppBackupImporter $importer, WhatsAppConnection $connection, ?int $line = null): string
     {
-        foreach (WhatsAppBackupImport::query()->whereIn('status', ['uploading', 'uploaded', 'failed'])->get() as $import) {
+        $connection->authorize(auth()->user());
+        $key = $importer->savedKey($line);
+
+        return $key === null ? '' : implode(' ', str_split($key, 4));
+    }
+
+    /** Drops an uploaded backup that will not be extracted. */
+    public function discardBackup(WhatsAppBackupImporter $importer, ?int $line = null): void
+    {
+        foreach (WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), $line)->whereIn('status', ['uploading', 'uploaded', 'failed'])->get() as $import) {
             $importer->discard($import);
         }
         $this->notice = 'Yüklenen yedek silindi.';
+    }
+
+    /** "Başka yedek ekle": a named extra backup; its file and key are added on its card. */
+    public function createBackupLine(string $name, WhatsAppBackupImporter $importer): bool
+    {
+        $this->resetValidation();
+        try {
+            $line = $importer->createLine(auth()->user(), $name);
+        } catch (ValidationException $exception) {
+            $this->addError('line_name', $exception->errors()['line_name'][0] ?? 'Yedek eklenemedi.');
+
+            return false;
+        }
+        $this->notice = '"'.$line->name.'" eklendi. Şimdi yedek dosyasını seçin.';
+
+        return true;
+    }
+
+    /** "Yedeği sil": an extra backup with its chats, file and key; the inbox's own backup is not touched. */
+    public function deleteBackupLine(int $line, WhatsAppBackupImporter $importer): void
+    {
+        $this->resetValidation();
+        try {
+            $importer->deleteLine(auth()->user(), $line);
+        } catch (ValidationException $exception) {
+            $this->addError('backup.'.$line, $exception->errors()['backup'][0] ?? 'Silinemedi.');
+
+            return;
+        }
+        $this->notice = 'Yedek, görüşmeleri ve anahtarıyla silindi.';
     }
 
     /** "Yeniden öğren": the brain reads the chats again. */
@@ -657,19 +700,45 @@ class Inbox extends Component
         }
     }
 
+    /** The last four characters of a saved key, the rest hidden: enough to tell two keys apart. */
+    private static function keyHint(?string $key): ?string
+    {
+        return $key === null ? null : '•••• •••• … '.substr($key, -4);
+    }
+
+    /**
+     * The extra backups for their cards: latest upload, last extracted file, key and number of chats.
+     *
+     * @return list<array{line: WhatsAppBackupLine, import: ?WhatsAppBackupImport, current: array{import: ?WhatsAppBackupImport, file_kept: bool}, key_hint: ?string, conversations: int}>
+     */
+    private function backupLines(WhatsAppBackupImporter $importer): array
+    {
+        $archive = WhatsAppBackupLine::archiveId();
+        $counts = $archive === null ? collect() : WhatsAppConversation::query()->where('integration_id', $archive)
+            ->selectRaw('phone_number_id, count(*) as total')->groupBy('phone_number_id')->pluck('total', 'phone_number_id');
+
+        return WhatsAppBackupLine::query()->orderBy('id')->get()->map(fn (WhatsAppBackupLine $line): array => [
+            'line' => $line,
+            'import' => $line->imports()->whereIn('status', ['queued', 'running'])->latest()->first() ?? $line->imports()->latest()->first(),
+            'current' => $importer->current($line->id),
+            'key_hint' => self::keyHint($importer->savedKey($line->id)),
+            'conversations' => (int) ($counts[$line->conversationLine()] ?? 0),
+        ])->all();
+    }
+
     public function render(WhatsAppConnection $connection): View
     {
         $integration = $connection->integration();
         $query = WhatsAppConversation::query()->where('integration_id', $integration?->id);
         $this->updatedFilter();
-        // A running extraction first: a completed one created in the same second must not hide it.
-        $backupImport = WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->latest()->first()
-            ?? WhatsAppBackupImport::query()->latest()->first();
-        if ($backupImport?->isBusy()) {
+        $importer = app(WhatsAppBackupImporter::class);
+        if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->exists()) {
             // An extraction cut off without its failure hook would otherwise show "çıkarılıyor" for good.
-            app(WhatsAppBackupImporter::class)->recoverStalled();
-            $backupImport = $backupImport->fresh();
+            $importer->recoverStalled();
         }
+        // The inbox's own backup; a running extraction first: a completed one created in the same second must not hide it.
+        $backupImport = WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null)->whereIn('status', ['queued', 'running'])->latest()->first()
+            ?? WhatsAppBackupImporter::forLine(WhatsAppBackupImport::query(), null)->latest()->first();
         $rows = ($integration ? $this->filtered($integration->id, $this->filter) : (clone $query))->when(trim($this->q) !== '', function ($builder): void {
             $builder->where(function ($nested): void {
                 $term = '%'.mb_substr(trim($this->q), 0, 100).'%';
@@ -697,6 +766,10 @@ class Inbox extends Component
             'backupQueueAhead' => $backupImport?->status === 'queued' ? $this->heavyQueueSize() : null,
             'awaitingReply' => $integration ? min($this->awaitingReply($integration->id)->count(), self::BULK_LIMIT) : 0,
             'backupKeySaved' => filled(data_get($integration?->config, 'backup_key')),
+            'backupKeyHint' => self::keyHint($importer->savedKey()),
+            'backupCurrent' => $importer->current(null),
+            'backupLines' => $this->backupLines($importer),
+            'anyBackupBusy' => WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->exists(),
             'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
             'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,
             // The connect page only opens in the session that started the attempt.

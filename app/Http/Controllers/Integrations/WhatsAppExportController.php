@@ -3,17 +3,20 @@
 namespace App\Http\Controllers\Integrations;
 
 use App\Models\Customer;
+use App\Models\WhatsAppBackupLine;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * "Excel'e aktar" on the WhatsApp screen: every conversation (or the open one with ?conversation=) as an .xlsx with a
- * "Mesajlar" sheet (one row per message, oldest first within each chat) and a "Görüşmeler" summary sheet.
+ * "Mesajlar" sheet (one row per message, oldest first within each chat) and a "Görüşmeler" summary sheet. With ?line=
+ * the chats of that extra backup instead of the inbox's.
  */
 final class WhatsAppExportController
 {
@@ -27,10 +30,12 @@ final class WhatsAppExportController
     public function __invoke(Request $request, WhatsAppConnection $connection): BinaryFileResponse
     {
         $connection->authorize($request->user());
-        $integration = $connection->integration();
-        abort_if($integration === null, 404);
+        $line = ($request->integer('line') ?: null) === null ? null : WhatsAppBackupLine::query()->findOrFail($request->integer('line'));
+        $integrationId = $line !== null ? WhatsAppBackupLine::archiveId() : $connection->integration()?->id;
+        abort_if($integrationId === null, 404);
         $only = $request->integer('conversation') ?: null;
-        $conversations = WhatsAppConversation::query()->where('integration_id', $integration->id)
+        $conversations = WhatsAppConversation::query()->where('integration_id', $integrationId)
+            ->when($line !== null, fn ($query) => $query->where('phone_number_id', $line->conversationLine()))
             ->when($only, fn ($query) => $query->whereKey($only))
             ->orderByDesc('last_message_at')->orderByDesc('id')->get();
         abort_if($only !== null && $conversations->isEmpty(), 404);
@@ -69,7 +74,7 @@ final class WhatsAppExportController
             ]));
         }
         $writer->close();
-        $file = 'whatsapp-'.($only ? 'gorusme-'.$only : 'konusmalar').'-'.now('Europe/Istanbul')->format('Y-m-d').'.xlsx';
+        $file = 'whatsapp-'.($line !== null ? Str::slug($line->name).'-' : '').($only ? 'gorusme-'.$only : 'konusmalar').'-'.now('Europe/Istanbul')->format('Y-m-d').'.xlsx';
 
         return response()->download($path, $file, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
             ->deleteFileAfterSend();
