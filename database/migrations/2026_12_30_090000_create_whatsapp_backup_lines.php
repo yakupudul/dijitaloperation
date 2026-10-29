@@ -32,7 +32,14 @@ return new class extends Migration
     {
         if (Schema::hasColumn('whatsapp_backup_imports', 'line_id')) {
             Schema::table('whatsapp_backup_imports', function (Blueprint $table): void {
-                $table->dropConstrainedForeignId('line_id');
+                $table->dropForeign(['line_id']);
+            });
+            // SQLite cannot drop a column that still has an index.
+            Schema::table('whatsapp_backup_imports', function (Blueprint $table): void {
+                $table->dropIndex(['line_id']);
+            });
+            Schema::table('whatsapp_backup_imports', function (Blueprint $table): void {
+                $table->dropColumn('line_id');
             });
         }
         Schema::dropIfExists('whatsapp_backup_lines');
