@@ -7,6 +7,7 @@ use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\User;
+use App\Services\Site\BrandlessSites;
 use App\Support\Roles;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -16,7 +17,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
-use App\Services\Site\BrandlessSites;
 
 /**
  * Connector 1.8.0 site building for Claude (MCP). A site is built only while both switches are on: "Site building" in
@@ -82,7 +82,8 @@ final class WordPressSiteBuilder
 
     /**
      * site-tool: one tool of the site's Claude / ChatGPT connection (connector ≥ 1.26.0), within the level the site
-     * admin chose in Settings › Claude / ChatGPT. A brandless site gets only the read tools (BrandlessSites).
+     * admin chose in Settings › Claude / ChatGPT. A brandless site gets only the read tools (BrandlessSites) unless it is
+     * being built.
      *
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
@@ -94,7 +95,10 @@ final class WordPressSiteBuilder
         if (version_compare($version, '1.26.0', '<')) {
             throw new RuntimeException('Eklenti '.$version.'; bu araç için en az 1.26.0 gerekli. Web siteleri ekranından eklentiyi güncelle.');
         }
-        if (! in_array($tool, self::READ_TOOLS, true) && ($connection->digitalAsset === null || ! BrandlessSites::serviced($connection->digitalAsset))) {
+        // A brandless site being built (its "Claude site kurulumu" switch on, yakup 2026-10-29) gets the write tools
+        // too: plugins, Polylang and pages are part of the build the operator asked for; nothing automatic runs.
+        $serviced = $connection->digitalAsset !== null && BrandlessSites::serviced($connection->digitalAsset);
+        if (! in_array($tool, self::READ_TOOLS, true) && ! $serviced && $this->state($connection) !== null) {
             throw new RuntimeException(BrandlessSites::REASON);
         }
 

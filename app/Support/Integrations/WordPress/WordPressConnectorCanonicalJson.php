@@ -14,6 +14,16 @@ final class WordPressConnectorCanonicalJson
 
     private static function normalize(mixed $value): mixed
     {
+        if ($value instanceof \stdClass) {
+            // A decoded JSON object: empty stays {}, otherwise it is signed like an associative array.
+            $value = (array) $value;
+            if ($value === []) {
+                return new \stdClass;
+            }
+            ksort($value, SORT_STRING);
+
+            return (object) array_map(self::normalize(...), $value);
+        }
         if (! is_array($value)) {
             return $value;
         }

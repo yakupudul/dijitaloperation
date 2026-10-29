@@ -586,12 +586,15 @@ final class WordPressConnectorClient
             throw new RuntimeException('WordPress Connector response freshness verification failed.');
         }
 
-        $expected = hash_hmac('sha256', implode("\n", [
+        $sign = fn (mixed $data): string => hash_hmac('sha256', implode("\n", [
             (string) $serverTime,
             $responseNonce,
-            hash('sha256', $this->json->encode($decoded['data'])),
+            hash('sha256', $this->json->encode($data)),
         ]), $secret);
-        if ($provided === '' || ! hash_equals($expected, strtolower($provided))) {
+        // An empty JSON object ({} — e.g. a tool schema without properties) decodes to [] and would re-encode as [];
+        // the second try keeps objects as they were sent.
+        if ($provided === '' || (! hash_equals($sign($decoded['data']), strtolower($provided))
+            && ! hash_equals($sign(self::decodeData($body)), strtolower($provided)))) {
             throw new RuntimeException('WordPress Connector response signature verification failed.');
         }
 
@@ -606,6 +609,20 @@ final class WordPressConnectorClient
      *
      * @return array<mixed>|null
      */
+    /** The envelope's `data` with JSON objects kept as objects (stdClass), for the signature check. */
+    private static function decodeData(string $body): mixed
+    {
+        $text = preg_replace('/^(?:\xEF\xBB\xBF|\s)+/', '', $body) ?? $body;
+        $decoded = json_decode($text);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $start = strpos($text, '{"data":');
+            $end = strrpos($text, '}');
+            $decoded = $start === false || $end === false || $end < $start ? null : json_decode(substr($text, $start, $end - $start + 1));
+        }
+
+        return $decoded instanceof \stdClass ? ($decoded->data ?? null) : null;
+    }
+
     private static function decodeBody(string $body): ?array
     {
         $text = preg_replace('/^(?:\xEF\xBB\xBF|\s)+/', '', $body) ?? $body;

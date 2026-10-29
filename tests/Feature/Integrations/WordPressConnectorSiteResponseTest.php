@@ -120,6 +120,18 @@ final class WordPressConnectorSiteResponseTest extends TestCase
     }
 
     #[Test]
+    public function an_empty_json_object_in_the_signed_data_still_verifies(): void
+    {
+        // The site's tool list: a tool without inputs has "properties": {} (decoded as [] it would re-encode as []).
+        $data = self::STATUS + ['tools' => [['name' => 'site_info', 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass]]]];
+        $this->answer = fn (Request $request): string => $this->signedJson($request, $data);
+
+        $status = app(WordPressConnectorClient::class)->status($this->connection->fresh('credential'));
+
+        $this->assertSame('site_info', $status['tools'][0]['name']);
+    }
+
+    #[Test]
     public function an_answer_without_the_connectors_json_is_a_site_problem_named_with_the_site_and_how_it_starts(): void
     {
         $page = "<!DOCTYPE html>\n<html lang=\"tr\">\n<head><title>Bakım modu</title></head>\n<body>".str_repeat('Site kısa bir süre bakımda. ', 20).'</body></html>';

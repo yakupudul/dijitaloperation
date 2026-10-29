@@ -110,7 +110,7 @@ final class McpEditSiteTest extends TestCase
         $this->assertFalse(collect($this->sent)->contains(fn (array $s): bool => str_ends_with($s[1], '/fixes')));
     }
 
-    public function test_site_tool_runs_the_sites_own_tools_and_a_brandless_site_gets_only_reads(): void
+    public function test_site_tool_runs_the_sites_own_tools_and_a_brandless_site_gets_only_reads_until_it_is_built(): void
     {
         MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'apply_setup', 'arguments' => ['name' => 'rank_math']])
             ->assertOk()->assertSee('"tool":"apply_setup"', false)->assertSee('rank_math');
@@ -124,5 +124,12 @@ final class McpEditSiteTest extends TestCase
         MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'install_plugin', 'arguments' => ['slug' => 'autoptimize']])->assertHasErrors();
         $this->assertCount($count, $this->sent, 'no write reaches a brandless site');
         MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'site_info'])->assertOk();
+
+        // Being built (Claude site kurulumu on, plugin allows build): the operator's build may install plugins too.
+        $connection = CoreConnection::query()->where('digital_asset_id', $this->site->id)->firstOrFail();
+        $connection->forceFill(['config' => [...$connection->config, 'capabilities' => ['drafts', 'fixes', 'content', 'build'],
+            'claude_build' => ['enabled' => true, 'by' => $this->admin->id, 'at' => now()->toIso8601String()]]])->save();
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'install_plugin', 'arguments' => ['slug' => 'polylang']])->assertOk();
+        $this->assertSame(['tool' => 'install_plugin', 'arguments' => ['slug' => 'polylang']], collect($this->sent)->last()[2]);
     }
 }
