@@ -474,6 +474,9 @@ final class MoxDOP_Connector_Builder
                 wp_set_object_terms($post_id, array_map('sanitize_text_field', array_map('strval', (array) $names)), $taxonomy);
             }
         }
+        if (isset($operation['language'])) {
+            $warnings = array_merge($warnings, $this->language($post_id, $operation));
+        }
         if (is_array($operation['acf'] ?? null)) {
             if (! function_exists('update_field')) {
                 $warnings[] = 'ACF is not active: acf values were not saved';
@@ -584,7 +587,7 @@ final class MoxDOP_Connector_Builder
         if (is_wp_error($written)) {
             return $this->fail($written->get_error_message()) + ['id' => $id, 'ref' => $ref];
         }
-        $warnings = [];
+        $warnings = isset($operation['language']) ? $this->language($id, $operation) : [];
         if (isset($operation['conditions'])) {
             $conditions = array_values(array_filter(array_map('strval', (array) $operation['conditions']), function ($c) {
                 return (bool) preg_match('#^(include|exclude)/[a-z0-9_/\-]+$#', $c);
@@ -1093,6 +1096,30 @@ final class MoxDOP_Connector_Builder
         }
 
         return $id;
+    }
+
+    /**
+     * 1.30.0: the Polylang language of a built post or template, and (translation_of: id or ref) the post it
+     * translates, so a second language can be built with the same operations. Undo restores the old terms.
+     *
+     * @return array<int, string> warnings
+     */
+    private function language($post_id, array $operation)
+    {
+        $language = (string) $operation['language'];
+        if (! MoxDOP_Connector_Drafts::valid_language($language)) {
+            return ['language "'.$language.'" is not a Polylang language on this site'];
+        }
+        pll_set_post_language($post_id, $language);
+        if (empty($operation['translation_of'])) {
+            return [];
+        }
+        $source = $this->id_of($operation['translation_of']);
+        if (! $source || $source === (int) $post_id) {
+            return ['translation_of not found: '.wp_json_encode($operation['translation_of'])];
+        }
+
+        return MoxDOP_Connector_Drafts::link_translation($post_id, $language, $source) === [] ? ['translation link was not saved (does the source have a different language?)'] : [];
     }
 
     /** A post id, or "ref:<ref>" / a bare ref of something the builder made. */
