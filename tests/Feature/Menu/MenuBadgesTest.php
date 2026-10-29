@@ -29,14 +29,14 @@ class MenuBadgesTest extends TestCase
         $this->actingAs($admin);
     }
 
-    public function test_strategies_waiting_for_a_decision_get_a_badge(): void
+    public function test_no_badge_where_nothing_waits_and_none_for_the_removed_strategies_menu(): void
     {
         Strategy::query()->create(['title' => 'Örnek strateji', 'channel' => 'google_ads', 'status' => 'draft']);
         Strategy::query()->create(['title' => 'Uygulanan', 'channel' => 'google_ads', 'status' => 'active']);
 
         $badges = OperatorMenu::computeBadges();
 
-        $this->assertSame(['count' => 1, 'tone' => 'soft'], $badges['operator.strategies']);
+        $this->assertArrayNotHasKey('operator.strategies', $badges, 'Stratejiler is a view of the brand page now');
         $this->assertArrayNotHasKey('operator.gbp-desk', $badges, 'no badge where nothing waits');
     }
 

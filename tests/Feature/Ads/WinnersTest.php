@@ -3,8 +3,6 @@
 namespace Tests\Feature\Ads;
 
 use App\Livewire\Operator\Winners\LibrariesPage;
-use App\Livewire\Operator\Winners\ServicePage;
-use App\Livewire\Operator\Winners\WinnersPage;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
@@ -180,7 +178,7 @@ class WinnersTest extends TestCase
         $this->assertStringNotContainsString('Atlas', $panorama['line'].$panorama['solution']);
     }
 
-    public function test_screens_show_sectors_the_podium_the_ranking_and_history(): void
+    public function test_the_snapshot_keeps_history_and_the_old_screen_link_goes_to_komuta(): void
     {
         $this->race();
         $yesterday = CarbonImmutable::today('Europe/Istanbul')->subDays(8)->toDateString();
@@ -190,19 +188,8 @@ class WinnersTest extends TestCase
             'created_at' => now(), 'updated_at' => now()]);
         $this->assertSame(1, app(Winners::class)->snapshot());
 
-        $this->actingAs($this->admin)->get(route('operator.winners'))->assertOk()
-            ->assertSee('Kazananlar')->assertSee('Diş sağlığı')->assertSee('Diş İmplantı')->assertSee('3 yarışıyor')->assertSee('Lider değişti')
-            ->assertSee('Ankara')->assertSee('Türkiye geneli');
-        $this->actingAs($this->admin)->get(route('operator.winner-service', ['serviceId' => $this->serviceId]))->assertOk()
-            ->assertSee('Ankara · 3 marka yarışıyor')
-            ->assertSee('Genel sıralama')->assertSee('Atlas implant form')->assertSee('/implant-fiyatlari/')->assertSee('Beta implant arama')
-            ->assertSee('Kazananın tarifi')->assertSee('Marka adıyla gelen aramalar sayılmadı')->assertSee('Adil yarış kuralları')
-            ->assertSee('▲ 2')->assertSee('▼ 2')->assertSee('Meta liderliği Panorama Ankara markasından Atlas markasına geçti');
-        Livewire::actingAs($this->admin)->test(ServicePage::class, ['serviceId' => $this->serviceId])
-            ->set('measure', 'volume')->assertSee('64 form')->set('measure', 'bogus')->assertSet('measure', 'cost')
-            ->set('city', 'İzmir')->assertSee('Bu şehirde hiçbir kanalda eşiği geçen marka yok.');
-        Livewire::actingAs($this->admin)->test(WinnersPage::class)->set('tab', 'marka')->set('brand', (string) $this->brand->id)
-            ->assertSee('Marka gözüyle')->assertSee('Atlas implant form')->assertSee('eşiği geçmedi');
+        // The Kazananlar screens were removed 2026-10-29 (Aşama 11): the race lives in Komuta's sector cards.
+        $this->actingAs($this->admin)->get('/kazananlar')->assertRedirect('/');
     }
 
     public function test_a_market_is_a_city_and_a_brand_alone_gets_a_reference_from_other_cities(): void
@@ -228,8 +215,6 @@ class WinnersTest extends TestCase
         $this->assertSame('Gama', $izmir['alone'][0]['brand']);
         $this->assertSame(['Meta: 50 TRY / mesaj · 100 mesaj; diğer şehirlerde ortalama 40 TRY, %25 daha pahalı (1 marka).'], $izmir['alone'][0]['references']);
 
-        Livewire::actingAs($this->admin)->test(WinnersPage::class)->set('city', 'İzmir')->assertSee('Rakipsiz pazarlar')->assertSee('%25 daha pahalı')
-            ->set('city', Winners::ALL_CITIES)->assertSee('Rakipsiz pazarlar')->assertSee('3 eşikte');
         $all = $winners->overview(Winners::ALL_CITIES, '');
         $this->assertSame([1, 1], [count($all['markets']), count($all['alone'])], 'Türkiye geneli lists every city and ranks none across cities');
     }

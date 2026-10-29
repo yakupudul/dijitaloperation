@@ -93,7 +93,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame(['/settings', '/settings/ai', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/mcp', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI sağlayıcıları, AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, MCP anahtarları, Sistem, Geliştirme havuzu, Sürümler');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
 
-        $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee(route('operator.data-center', absolute: false).'"', false);
+        $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('/data-center"', false);
         $this->get(route('operator.settings.users'))->assertOk();
         $this->get(route('operator.settings.ai-operations'))->assertOk();
         $this->get(route('operator.library.queries'))->assertOk();
@@ -118,7 +118,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertStringNotContainsString('role="tablist"', $html);
         $this->assertStringContainsString('data-brand-settings-link', $html);
         preg_match_all('/role="menuitem" wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
-        $this->assertSame(['varliklar', 'karne', 'dosya'], $matches[1] ?? [], 'Dijital varlıklar, Hizmet karnesi and Epikriz open from Diğer');
+        $this->assertSame(['varliklar', 'karne', 'dosya', 'strateji'], $matches[1] ?? [], 'Dijital varlıklar, Hizmet karnesi, Epikriz and Stratejiler open from Diğer');
         $this->assertStringNotContainsString('Domain (legacy)', $html);
         $this->assertStringNotContainsString('Hosting (legacy)', $html);
     }

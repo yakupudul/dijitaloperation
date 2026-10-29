@@ -36,8 +36,8 @@
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                 <x-operator.quick-access :groups="$quickAccess" />
-                {{-- Aşama 11 (2026-10-22): Stratejiler left the menu; a brand's strategies open from its page. --}}
-                <a href="{{ route('operator.strategies', ['marka' => (int) $brand]) }}" wire:navigate class="btn h-8! px-3! text-[13px]!" data-brand-strategies>Stratejiler</a>
+                {{-- Aşama 11: the /stratejiler list left the panel; a brand's strategies are a view of its page. --}}
+                <button type="button" wire:click="setTab('strateji')" class="btn h-8! px-3! text-[13px]!" data-brand-strategies>Stratejiler</button>
                 <button type="button" wire:click="setTab('ayarlar')" class="btn h-8! px-3! text-[13px]!" data-brand-settings-link>Marka ayarları</button>
                 <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" data-brand-more>
                     <button type="button" @click="open = ! open" :aria-expanded="open" class="btn h-8! px-3! text-[13px]!">Diğer ▾</button>
@@ -83,6 +83,8 @@
         @include('livewire.operator.portfolio.partials.brand-workspace')
     @elseif ($tab === 'karne')
         <livewire:operator.workspace.brand-scorecard-tab :brand-id="(int) $brandModel->id" :key="'brand-scorecard-'.$brandModel->id" />
+    @elseif ($tab === 'strateji')
+        <livewire:operator.portfolio.brand-strategies-tab :brand-id="(int) $brandModel->id" :key="'brand-strategies-'.$brandModel->id" />
     @elseif ($tab === 'dosya')
         {{-- Epikriz: the record every AI step reads (layers, questions), then what the AI knows (Marka bilgi kartı), whether the brand looks the same everywhere (Kimlik tutarlılığı), then the file itself. --}}
         <div class="space-y-10" data-brand-file-tab>

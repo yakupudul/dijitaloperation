@@ -98,7 +98,7 @@
                 </div>
                 @if (! $season || $season['rows'] === [])
                     <div class="card">
-                        <x-ta.empty-state icon="none" title="Aylık arama hacmi yok" message="Bu sektörde aylık arama hacmi verisi yok. Hacimler ayda bir çekilir."><a href="{{ route('operator.winners') }}" wire:navigate class="btn" data-empty-action>Kazananlara git</a></x-ta.empty-state>
+                        <x-ta.empty-state icon="none" title="Aylık arama hacmi yok" message="Bu sektörde aylık arama hacmi verisi yok. Hacimler ayda bir çekilir." />
                     </div>
                 @else
                     @if ($season['note'])

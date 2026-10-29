@@ -34,7 +34,6 @@ use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
-use App\Livewire\Operator\DataCenterPage;
 use App\Livewire\Operator\Flow\FlowPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage as GbpBranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\DeskPage as GbpDeskPage;
@@ -79,13 +78,10 @@ use App\Livewire\Operator\Settings\ReleasesPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
-use App\Livewire\Operator\Strategy\StrategiesPage;
 use App\Livewire\Operator\Strategy\StrategyPage as StrategyDetailPage;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Livewire\Operator\Winners\LibrariesPage;
-use App\Livewire\Operator\Winners\ServicePage as WinnerServicePage;
-use App\Livewire\Operator\Winners\WinnersPage;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Http\Request;
@@ -169,12 +165,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/google-ads/olcum', GoogleAdsDeskMeasurementPage::class)->name('operator.google-ads-measurement');
         Route::livewire('/google-ads/hizmetler', GoogleAdsDeskServicesPage::class)->name('operator.google-ads-services');
         Route::livewire('/meta/strateji', MetaStrategyPage::class)->name('operator.meta-strategy');
-        Route::livewire('/kazananlar', WinnersPage::class)->name('operator.winners');
-        Route::livewire('/stratejiler', StrategiesPage::class)->name('operator.strategies');
+        Route::redirect('/stratejiler', '/brands');
         Route::livewire('/stratejiler/{strategyId}', StrategyDetailPage::class)->where('strategyId', '[0-9]{1,18}')->name('operator.strategy');
         Route::get('/stratejiler/{strategyId}/ads-editor.{format}', StrategyAdsEditorController::class)->where(['strategyId' => '[0-9]{1,18}', 'format' => 'csv|xlsx'])->name('operator.strategy.ads-editor');
-        Route::livewire('/kazananlar/{serviceId}', WinnerServicePage::class)->where('serviceId', '[0-9]{1,18}')->name('operator.winner-service');
         Route::livewire('/kutuphaneler', LibrariesPage::class)->name('operator.libraries');
+        // Aşama 11 (code removed 2026-10-29): Kazananlar lives in Komuta's sector cards.
+        Route::redirect('/kazananlar/{any?}', '/')->where('any', '.*');
         Route::get('/assets/meta/{assetId}/adsets', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adsets');
         Route::get('/assets/meta/{assetId}/adsets/{adSetId}', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adset');
         Route::get('/assets/meta/{assetId}/ads', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'ads')->name('operator.meta.ads');
@@ -223,7 +219,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::get('/gbp/yorumlar/pdf', GbpReviewRepliesPdfController::class)->middleware('throttle:20,1')->name('operator.gbp-review-replies-pdf');
         Route::get('/gbp/yorum-karti/{assetId}', GbpReviewCardController::class)->where('assetId', '[0-9]{1,18}')->name('operator.gbp-review-card');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
-        Route::livewire('/data-center', DataCenterPage::class)->name('operator.data-center');
+        Route::redirect('/data-center', '/integrations'); // Veri merkezi removed 2026-10-29 (Aşama 11)
         Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
         Route::livewire('/integrations/website-duplicates', WebsiteDuplicatesPage::class)->name('operator.integrations.website-duplicates');
         Route::match(['GET', 'POST'], '/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');

@@ -27,7 +27,6 @@ use App\Jobs\Async\WebsiteDiagnosisJob;
 use App\Jobs\BuildBrandSetupProposalJob;
 use App\Jobs\CollectMetaGeoResultsJob;
 use App\Jobs\DiscoverProviderResourcesJob;
-use App\Jobs\EraseSourceDataJob;
 use App\Jobs\ExecuteExternalWriteJob;
 use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Jobs\Gbp\PrepareBranchPageJob;
@@ -447,7 +446,6 @@ class AppServiceProvider extends ServiceProvider
     {
         return [
             RunScheduledDiscoveryJob::class => 'heavy',
-            EraseSourceDataJob::class => 'heavy',
             CollectMetaGeoResultsJob::class => 'heavy',
             RunLiveVerificationJob::class => 'heavy',
             RunDataConsistencyCheckJob::class => 'heavy',

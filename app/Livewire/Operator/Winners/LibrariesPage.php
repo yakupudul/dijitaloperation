@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Winners;
 
 use App\Livewire\Concerns\AdminOnly;
+use App\Models\Brand;
 use App\Services\Ads\AdLibraries;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -56,7 +57,7 @@ final class LibrariesPage extends Component
             'season' => $this->tab === 'mevsim' && $sectorId !== null ? $libraries->season($sectorId) : null,
             'map' => $this->tab === 'harita' && $sectorId !== null ? $libraries->map($sectorId) : null,
             'months' => AdLibraries::MONTHS,
-            'logos' => WinnersPage::logos(),
+            'logos' => Brand::query()->whereNotNull('logo_url')->where('logo_url', '!=', '')->pluck('logo_url', 'name')->all(),
         ]);
     }
 }

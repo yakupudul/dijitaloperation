@@ -21,6 +21,12 @@ final class StrategyBook
     /** Keyword match types as the plan writes them. */
     public const array MATCH = ['exact', 'phrase', 'broad'];
 
+    /** @return list<string> "Birleşik Krallık, Almanya" → two markets */
+    public static function splitList(string $value): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/[,\n]/', $value) ?: [])));
+    }
+
     /** @return array<string, mixed> validation rules shared by every caller */
     public static function rules(bool $creating): array
     {

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Strategy;
 
-use App\Livewire\Operator\Strategy\StrategiesPage;
+use App\Livewire\Operator\Portfolio\BrandStrategiesTab;
 use App\Livewire\Operator\Strategy\StrategyPage;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\ListStrategies;
@@ -78,10 +78,15 @@ final class StrategiesTest extends TestCase
             'markets' => ['Birleşik Krallık'], 'body' => $this->body, 'evidence' => [['label' => 'Meta', 'detail' => '240 bin TL harcama']]]);
         $book->save(['title' => 'Eski GBP planı', 'channel' => 'gbp', 'status' => 'archived', 'body' => 'Arşivdeki eski plan metni burada.']);
 
-        $this->actingAs($this->admin)->get(route('operator.strategies'))->assertOk()->assertSee('Stratejiler')
-            ->assertSee('OPC · All-on-4/6 yurt dışı')->assertDontSee('Eski GBP planı')->assertSee('Birleşik Krallık');
-        Livewire::actingAs($this->admin)->test(StrategiesPage::class)->set('status', 'archived')->assertSee('Eski GBP planı')->assertDontSee('OPC · All-on-4/6');
-        Livewire::actingAs($this->admin)->test(StrategiesPage::class)->set('channel', 'meta')->assertSee('Bu filtrede strateji yok');
+        $book->save(['title' => 'Eski OPC planı', 'brand_id' => $this->brand->id, 'channel' => 'gbp', 'status' => 'archived', 'body' => 'Arşivdeki eski OPC plan metni burada.']);
+
+        // Aşama 11: the list is a view of the brand page; the old /stratejiler link lands on Markalar.
+        $this->actingAs($this->admin)->get('/stratejiler')->assertRedirect('/brands');
+        $this->actingAs($this->admin)->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'strateji']))->assertOk()->assertSee('data-brand-strategies-tab', false);
+        Livewire::actingAs($this->admin)->test(BrandStrategiesTab::class, ['brandId' => $this->brand->id])
+            ->assertSee('OPC · All-on-4/6 yurt dışı')->assertDontSee('Eski OPC planı')->assertDontSee('Eski GBP planı')->assertSee('Birleşik Krallık')
+            ->set('status', 'archived')->assertSee('Eski OPC planı')->assertDontSee('OPC · All-on-4/6')
+            ->set('status', 'active')->assertSee('Bu filtrede strateji yok');
 
         $page = $this->actingAs($this->admin)->get(route('operator.strategy', ['strategyId' => $strategy->id]))->assertOk()
             ->assertSee('İçindekiler')->assertSee('id="bolum-1"', false)->assertSee('<div class="table-wrap"><table data-sortable="false">', false)->assertSee('Zamanlama')->assertSee('Dayanak')->assertSee('Sürümler (1)');
@@ -167,15 +172,16 @@ final class StrategiesTest extends TestCase
         MoxdopServer::tool(ListStrategies::class, ['strategy_id' => $strategy->id])->assertOk()->assertSee('"has_plan":true');
     }
 
-    public function test_a_pasted_strategy_is_stored_from_the_list(): void
+    public function test_a_pasted_strategy_is_stored_from_the_brand_page(): void
     {
-        Livewire::actingAs($this->admin)->test(StrategiesPage::class)->set('creating', true)
+        Livewire::actingAs($this->admin)->test(BrandStrategiesTab::class, ['brandId' => $this->brand->id])->set('creating', true)
             ->set('form.title', 'Dentocare Meta planı')->set('form.channel', 'meta')->set('form.markets', 'İzmir, Manisa')
             ->set('form.body', 'kısa')->call('create')->assertHasErrors('form.body')
             ->set('form.body', "## Plan\n\nİzmir ve Manisa’da form kampanyası.")->call('create')->assertHasNoErrors();
 
         $strategy = Strategy::query()->sole();
         $this->assertSame(['İzmir', 'Manisa'], $strategy->markets);
+        $this->assertSame($this->brand->id, $strategy->brand_id);
         $this->assertSame($this->admin->name, $strategy->versions()->value('author'));
     }
 }

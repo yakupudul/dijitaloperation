@@ -1,8 +1,6 @@
-{{-- Sekmeler, $current'a göre iki küme (yakup 2026-10-20: Kazananlar yalnız menüde, Meta'nın sekmesi değil): Meta reklamları + Strateji öner; Kazananlar + Metinler ve takvim. Sayfanın ilk öğesi, başlığın üstünde. --}}
+{{-- Meta reklamları sekmeleri: Meta masası, Strateji öner, Metinler ve takvim (Kazananlar ekranı 2026-10-29'da kalktı; metinler ve takvim Strateji öner'in kaydettikleriyle burada). Sayfanın ilk öğesi, başlığın üstünde. --}}
 @php
-    $tabs = in_array($current, ['operator.winners', 'operator.libraries'], true)
-        ? [['operator.winners', 'Kazananlar'], ['operator.libraries', 'Metinler ve takvim']]
-        : [['operator.meta-desk', 'Meta reklamları'], ['operator.meta-strategy', 'Strateji öner']];
+    $tabs = [['operator.meta-desk', 'Meta reklamları'], ['operator.meta-strategy', 'Strateji öner'], ['operator.libraries', 'Metinler ve takvim']];
 @endphp
 <nav class="no-scrollbar -mt-1 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
     @foreach ($tabs as [$route, $label])

@@ -42,7 +42,7 @@ final class UnassignedWebsiteTest extends TestCase
             ->set('newWebsite', 'atlasdis.com.tr')->call('addWebsite')->assertSet('messageTone', 'warning');
         $this->assertSame(1, DigitalAsset::query()->count(), 'the same host is not added twice');
 
-        foreach (['operator.integrations.website', 'operator.assets', 'operator.integrations.wordpress-sites', 'operator.data-center', 'operator.brands', 'operator.dashboard'] as $route) {
+        foreach (['operator.integrations.website', 'operator.assets', 'operator.integrations.wordpress-sites', 'operator.brands', 'operator.dashboard'] as $route) {
             $this->actingAs($this->admin)->get(route($route))->assertOk();
         }
         $this->actingAs($this->admin)->get(route('operator.integrations.website'))->assertSee('Markaya bağlı değil');

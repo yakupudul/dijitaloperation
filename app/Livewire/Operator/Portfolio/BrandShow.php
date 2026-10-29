@@ -67,13 +67,13 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** The tab row. */
-    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Epikriz', 'ayarlar' => 'Marka ayarları'];
+    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Epikriz', 'strateji' => 'Stratejiler', 'ayarlar' => 'Marka ayarları'];
 
     /** Ayarlar views. */
     public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];
 
     /** Tab => its own Livewire component. */
-    public const array COMPONENTS = ['dosya' => BrandDossierTab::class, 'karne' => BrandScorecardTab::class];
+    public const array COMPONENTS = ['dosya' => BrandDossierTab::class, 'karne' => BrandScorecardTab::class, 'strateji' => BrandStrategiesTab::class];
 
     /** Channel tab => [label, component class]: shown as a tab only when the class exists. */
     public const array CHANNEL_TABS = [

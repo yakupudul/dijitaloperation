@@ -20,7 +20,6 @@ use App\Jobs\Meta\SyncMetaSuggestionsJob;
 use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
-use App\Jobs\RefreshDataCenterSummaryJob;
 use App\Jobs\ReviewRepairRowsJob;
 use App\Jobs\Site\PrepareTranslationFixJob;
 use App\Jobs\Site\PullClarityJob;
@@ -731,12 +730,6 @@ Schedule::command('queue:prune-failed --hours=720')
 Schedule::job(DrainAiQueueWithApiJob::class)
     ->everyFiveMinutes()
     ->name('ai-queue-api-round');
-
-// Veri merkezi: the row counts of every source (full table counts) are counted hourly on the background queue; the
-// screen reads them from the cache. An erase counts again at once.
-Schedule::job(RefreshDataCenterSummaryJob::class)
-    ->hourlyAt(41)
-    ->name('data-center-summary');
 
 Artisan::command('moxdop:ownership:integrity {--fix : Disable extra / orphan bindings}', function (): void {
     $integrity = app(OwnershipIntegrity::class);

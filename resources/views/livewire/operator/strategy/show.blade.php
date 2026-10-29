@@ -19,7 +19,7 @@
     <section class="space-y-6" data-testid="strategy-header">
         <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <div class="min-w-0 flex-1 basis-[28rem]">
-                <p class="text-[13px] text-gray-500"><a href="{{ route('operator.strategies') }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">Stratejiler</a>@if ($strategy->brand) / <a href="{{ route('operator.strategies', ['marka' => $strategy->brand_id]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">{{ $strategy->brand->name }}</a>@endif</p>
+                <p class="text-[13px] text-gray-500">@if ($strategy->brand)<a href="{{ route('operator.brand', ['brand' => $strategy->brand_id]) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">{{ $strategy->brand->name }}</a> / <a href="{{ route('operator.brand', ['brand' => $strategy->brand_id, 'tab' => 'strateji']) }}" wire:navigate class="hover:text-gray-900 dark:hover:text-white">Stratejiler</a>@else Sistem geneli strateji @endif</p>
                 <h1 class="page-title mt-1">{{ $strategy->title }}</h1>
                 <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                     @include('livewire.operator.strategy.partials.status', ['status' => $strategy->status, 'label' => $strategy->statusLabel()])

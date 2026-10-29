@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
 use App\Models\GbpQueuedPost;
-use App\Models\Strategy;
 use App\Models\WhatsAppConversation;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
 use App\Services\Meta\MetaDesk;
@@ -163,7 +162,6 @@ final class OperatorMenu
         $put('operator.meta-desk', 'red', fn (): int => (int) (app(MetaDesk::class)->desk([])['kpis']['today'] ?? 0));
         $put('operator.gbp-desk', 'soft', fn (): int => GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)
             ->where('publish_on', '>=', now()->toDateString())->count());
-        $put('operator.strategies', 'soft', fn (): int => Strategy::query()->where('status', 'draft')->count());
         $put('operator.brands', 'amber', function (): int {
             $models = Brand::query()->with(['customer', 'responsibleUsers', 'digitalAssets.assetBindings', 'intelligenceContext', 'sectorCategory'])->get();
             $signals = app(PortfolioSignalsReader::class)->forBrands($models)['brands'];
