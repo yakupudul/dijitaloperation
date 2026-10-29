@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.30.0
+Stable tag: 1.30.1
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.30.1 =
+* Ready Rank Math setup also marks the setup wizard as done: before that Rank Math printed no SEO title, description or schema.
 
 = 1.30.0 =
 * Site build: post and elementor_template operations take `language` (a Polylang language slug) and `translation_of` (id or ref of the post they translate), so a second language is built and linked with the same operations.

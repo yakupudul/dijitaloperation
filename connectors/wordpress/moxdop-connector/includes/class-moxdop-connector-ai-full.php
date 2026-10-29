@@ -648,12 +648,14 @@ final class MoxDOP_Connector_AI_Full
 
         return [
             'rank_math' => ['plugin' => 'seo-by-rank-math/rank-math.php', 'merge' => true,
-                'does' => 'Rank Math: "-" title separator, organisation schema (name, logo, type), author and date archives off, empty categories noindex, attachment pages redirected to their post, images in the sitemap, no attachment / author sitemaps.',
+                'does' => 'Rank Math: "-" title separator, organisation schema (name, logo, type), author and date archives off, empty categories noindex, attachment pages redirected to their post, images in the sitemap, no attachment / author sitemaps, setup wizard marked done so the head tags are printed.',
                 'options' => [
                     'rank-math-options-general' => ['attachment_redirect_urls' => 'on', 'attachment_redirect_default' => home_url('/')],
                     'rank-math-options-titles' => array_filter(['title_separator' => '-', 'knowledgegraph_type' => $type, 'knowledgegraph_name' => $name, 'website_name' => $name,
                         'knowledgegraph_logo' => $logo, 'local_business_type' => $business, 'disable_author_archives' => 'on', 'disable_date_archives' => 'on', 'noindex_empty_taxonomies' => 'on']),
                     'rank-math-options-sitemap' => ['include_images' => 'on', 'include_featured_image' => 'on', 'pt_attachment_sitemap' => 'off', 'authors_sitemap' => 'off'],
+                    // 1.30.1: until the setup wizard is finished or skipped Rank Math prints no title, description or schema at all.
+                    'rank_math_registration_skip' => '1', 'rank_math_is_configured' => '1',
                 ]],
             'yoast' => ['plugin' => 'wordpress-seo/wp-seo.php', 'merge' => true,
                 'does' => 'Yoast: "-" separator, organisation (name, logo), author and date archives off, attachment pages redirected, XML sitemap on.',
