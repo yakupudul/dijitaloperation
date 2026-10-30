@@ -14,9 +14,14 @@ defined('ABSPATH') || exit;
  * for common SEO / cache plugins, a cache purge and a site check.
  *
  * A plugin activation, an option change and a setup are followed by a site check (home page and the given pages load
- * without a PHP error); when the site broke, the change is put back at once and the answer says why. Every write is
- * in the connection's change log and undoable (kind "ai": the steps stored under UNDO_PREFIX; "build": the builder's
- * own undo; "fix": the SEO fix log).
+ * without a PHP error); when the site broke, the change is put back at once and the answer says why. Writes are logged.
+ * Reversible tools store undo steps; permanent user and taxonomy deletion require explicit confirmation strings and
+ * report that they cannot be undone.
+ *
+ * 1.32.0: destructive tools (delete_users, delete_terms, delete_plugins) answer with a dry run unless dry_run=false;
+ * the site check runs before and after a guarded change, so a site that was already broken can be repaired; deleted
+ * terms can be restored; update_terms, delete_plugins and install_plugin upgrade=true; plugin and theme translations
+ * come with a language pack; Elementor trees are validated and guarded; a sale price is never left in an old currency.
  */
 final class MoxDOP_Connector_AI_Full
 {
@@ -61,12 +66,15 @@ final class MoxDOP_Connector_AI_Full
             ], 'required' => ['changes']],
             'list_plugins' => ['level' => 'full', 'read' => true, 'description' => 'Installed plugins (file, name, version, active, update available) and themes (active one marked), with WordPress and PHP versions and the web server.', 'props' => []],
             'search_plugins' => ['level' => 'full', 'read' => true, 'description' => 'Searches the WordPress.org plugin directory: slug, name, version, rating, active installs, last update, tested WordPress version.', 'props' => ['search' => ['type' => 'string']], 'required' => ['search']],
-            'install_plugin' => ['level' => 'full', 'read' => false, 'description' => 'Installs a plugin from the WordPress.org directory by slug (only there: no zip files) and activates it unless activate=false. A site check follows activation; a broken site deactivates it again.', 'props' => [
-                'slug' => ['type' => 'string'], 'activate' => ['type' => 'boolean'],
+            'install_plugin' => ['level' => 'full', 'read' => false, 'description' => 'Installs a plugin from the WordPress.org directory by slug (only there: no zip files) and activates it unless activate=false. A site check follows activation; a broken site deactivates it again. upgrade=true on an installed plugin brings it to the directory version even when WordPress offers no update (keeps it active; not undoable).', 'props' => [
+                'slug' => ['type' => 'string'], 'activate' => ['type' => 'boolean'], 'upgrade' => ['type' => 'boolean', 'description' => 'Installed plugin: replace it with the WordPress.org version.'],
             ], 'required' => ['slug']],
-            'set_plugin_state' => ['level' => 'full', 'read' => false, 'description' => 'Activates or deactivates an installed plugin (file from list_plugins, e.g. "autoptimize/autoptimize.php"). Activation is followed by a site check. Deleting a plugin is left to the site admin.', 'props' => [
+            'set_plugin_state' => ['level' => 'full', 'read' => false, 'description' => 'Activates or deactivates an installed plugin (file from list_plugins, e.g. "autoptimize/autoptimize.php"). Activation is followed by a site check (a page that was already broken before does not undo it). Remove an inactive plugin with delete_plugins.', 'props' => [
                 'plugin' => ['type' => 'string'], 'active' => ['type' => 'boolean'],
             ], 'required' => ['plugin', 'active']],
+            'delete_plugins' => ['level' => 'full', 'read' => false, 'destructive' => true, 'description' => 'Deletes up to 30 INACTIVE plugins (files from list_plugins); active ones and the MoxDOP connector are refused. dry_run (default true) only lists what would go; deleting needs dry_run=false and confirm="DELETE_PLUGINS". Not undoable (a WordPress.org plugin can be installed again; a premium zip cannot).', 'props' => [
+                'plugins' => ['type' => 'array', 'items' => ['type' => 'string']], 'dry_run' => ['type' => 'boolean'], 'confirm' => ['type' => 'string'],
+            ], 'required' => ['plugins']],
             'run_update' => ['level' => 'full', 'read' => false, 'description' => 'Installs an update WordPress offers: type plugin (item = plugin file), theme (item = stylesheet) or core. Not undoable; a site check follows.', 'props' => [
                 'type' => ['type' => 'string', 'enum' => ['plugin', 'theme', 'core']], 'item' => ['type' => 'string'],
             ], 'required' => ['type']],
@@ -86,6 +94,47 @@ final class MoxDOP_Connector_AI_Full
             'site_check' => ['level' => 'full', 'read' => true, 'description' => 'Loads the home page and the given paths like a visitor: status, time, size, cache and compression headers, PHP errors.', 'props' => [
                 'paths' => ['type' => 'array', 'items' => ['type' => 'string']],
             ]],
+            'list_product_prices' => ['level' => 'full', 'read' => true, 'description' => 'Lists WooCommerce products and variations with raw regular, sale and active prices, SKU, currency, status, type and parent. Use variation ids when changing variable-product prices.', 'props' => [
+                'page' => ['type' => 'integer'], 'per_page' => ['type' => 'integer', 'description' => 'Max 100 (default 50).'],
+                'include_variations' => ['type' => 'boolean', 'description' => 'Default true.'], 'search' => ['type' => 'string'],
+            ]],
+            'update_product_prices' => ['level' => 'full', 'read' => false, 'description' => 'Updates raw WooCommerce prices for up to 100 simple products or variations (a variable parent is refused: send its variation ids). Send decimal strings without a currency symbol. A product that has a sale price is refused unless sale_price is sent ("" removes it), so no price is left in an old currency; sale_price must be lower than regular_price. The active price follows WooCommerce (a scheduled sale only inside its dates) unless price is sent. Logged and undoable; variable parents are resynchronised.', 'props' => [
+                'items' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'id' => ['type' => 'integer'], 'regular_price' => ['type' => 'string'], 'sale_price' => ['type' => 'string'], 'price' => ['type' => 'string'],
+                ], 'required' => ['id', 'regular_price']]],
+            ], 'required' => ['items']],
+            'get_elementor_data' => ['level' => 'full', 'read' => true, 'description' => 'Returns the complete decoded Elementor element tree and page settings for one post, page, template or supported custom post. Read this before update_elementor_data.', 'props' => ['id' => $id], 'required' => ['id']],
+            'update_elementor_data' => ['level' => 'full', 'read' => false, 'description' => 'Replaces the complete Elementor element tree of one object while preserving its post fields. Send the full elements array from get_elementor_data (each element keeps its id, elType, settings, elements; widgets their widgetType). The tree shape is checked first; an empty tree needs allow_empty=true. The page (or the home page for a template) is checked after the write and the old tree comes back when it broke. Page settings are optional. Logged and undoable.', 'props' => [
+                'id' => $id, 'elements' => ['type' => 'array', 'items' => $obj], 'page_settings' => $obj, 'allow_empty' => ['type' => 'boolean'],
+            ], 'required' => ['id', 'elements']],
+            'list_users' => ['level' => 'private', 'read' => true, 'description' => 'Lists WordPress users with login, e-mail, roles, registration date and authored-post count. Personal data: use only for the user-requested administration task.', 'props' => [
+                'page' => ['type' => 'integer'], 'per_page' => ['type' => 'integer', 'description' => 'Max 100 (default 50).'], 'search' => ['type' => 'string'],
+            ]],
+            'delete_users' => ['level' => 'full', 'read' => false, 'destructive' => true, 'description' => 'Permanently deletes every WordPress user except the listed logins (only_roles narrows it to those roles) and reassigns their content to a kept administrator. dry_run (default true) lists who would be deleted and the count; deleting needs dry_run=false, confirm="DELETE_USERS" and expected_count equal to that count. At most limit users (default 200, max 500) go per call; the answer gives remaining and the expected_count for the next call. Cannot be undone. The acting user and the last administrator are always protected.', 'props' => [
+                'keep_logins' => ['type' => 'array', 'items' => ['type' => 'string']], 'reassign_to_login' => ['type' => 'string'], 'only_roles' => ['type' => 'array', 'items' => ['type' => 'string']],
+                'dry_run' => ['type' => 'boolean'], 'expected_count' => ['type' => 'integer'], 'confirm' => ['type' => 'string'], 'limit' => ['type' => 'integer', 'description' => 'Users deleted in this call (default 200, max 500).'],
+            ], 'required' => ['keep_logins']],
+            'list_orders' => ['level' => 'private', 'read' => true, 'description' => 'Lists WooCommerce orders across all order statuses, including HPOS stores. Personal and commercial data: use only for the requested administration task.', 'props' => [
+                'page' => ['type' => 'integer'], 'per_page' => ['type' => 'integer', 'description' => 'Max 100 (default 50).'], 'status' => ['type' => 'string'],
+            ]],
+            'trash_orders' => ['level' => 'full', 'read' => false, 'destructive' => true, 'description' => 'Moves selected WooCommerce orders, or all orders, to trash through WooCommerce CRUD (HPOS compatible). Requires confirm="TRASH_ORDERS". Logged and undoable when the order data store supports status restoration.', 'props' => [
+                'ids' => ['type' => 'array', 'items' => ['type' => 'integer']], 'all' => ['type' => 'boolean'], 'confirm' => ['type' => 'string'],
+            ], 'required' => ['confirm']],
+            'list_terms' => ['level' => 'full', 'read' => true, 'description' => 'Lists terms of a taxonomy, including empty terms. Useful for product_cat and other product taxonomies.', 'props' => [
+                'taxonomy' => ['type' => 'string'], 'page' => ['type' => 'integer'], 'per_page' => ['type' => 'integer', 'description' => 'Max 100 (default 50).'], 'search' => ['type' => 'string'],
+            ], 'required' => ['taxonomy']],
+            'delete_terms' => ['level' => 'full', 'read' => false, 'destructive' => true, 'description' => 'Deletes up to 50 taxonomy terms. By default only empty terms may be deleted; force=true allows terms still assigned to objects. The default category is protected. dry_run (default true) lists what would go; deleting needs dry_run=false and confirm="DELETE_TERMS". Each term is snapshotted: undo_change recreates it (new id) with its fields, meta, assigned objects and child terms.', 'props' => [
+                'taxonomy' => ['type' => 'string'], 'ids' => ['type' => 'array', 'items' => ['type' => 'integer']], 'force' => ['type' => 'boolean'], 'dry_run' => ['type' => 'boolean'], 'confirm' => ['type' => 'string'],
+            ], 'required' => ['taxonomy', 'ids']],
+            'update_terms' => ['level' => 'full', 'read' => false, 'description' => 'Changes up to 50 terms of one taxonomy: name, slug, description, parent (e.g. category names and URLs in a new language). A changed slug changes the term URL; the answer lists old and new URLs for seo_technical redirects. Logged and undoable.', 'props' => [
+                'taxonomy' => ['type' => 'string'], 'items' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'id' => ['type' => 'integer'], 'name' => ['type' => 'string'], 'slug' => ['type' => 'string'], 'description' => ['type' => 'string'], 'parent' => ['type' => 'integer'],
+                ], 'required' => ['id']]],
+            ], 'required' => ['taxonomy', 'items']],
+            'list_languages' => ['level' => 'full', 'read' => true, 'description' => 'Lists installed WordPress core languages, the current site locale and the plugin / theme translation files present.', 'props' => []],
+            'install_language' => ['level' => 'full', 'read' => false, 'description' => 'Downloads a WordPress core language pack such as de_DE and (translations, default true) the WordPress.org translations of the installed plugins and themes (WooCommerce, Elementor…). set_site_language=true also switches WPLANG, followed by a site check. The language switch is logged and undoable; downloaded language files remain installed.', 'props' => [
+                'locale' => ['type' => 'string'], 'set_site_language' => ['type' => 'boolean'], 'translations' => ['type' => 'boolean'],
+            ], 'required' => ['locale']],
             'list_comments' => ['level' => 'private', 'read' => true, 'description' => 'Comments with author, e-mail, text, post and status (hold = waiting). Personal data: use it only for what the user asked.', 'props' => [
                 'status' => ['type' => 'string', 'enum' => ['all', 'hold', 'approve', 'spam']], 'post_id' => ['type' => 'integer'], 'page' => ['type' => 'integer'],
             ]],
@@ -177,6 +226,95 @@ final class MoxDOP_Connector_AI_Full
                 return wp_set_comment_status((int) $step[1], (string) $step[2]) ? true : 'comment status not restored';
             case 'trash_comment':
                 return wp_trash_comment((int) $step[1]) ? true : 'reply not removed';
+            case 'product_price':
+                if (! function_exists('wc_get_product')) {
+                    return 'WooCommerce is not active';
+                }
+                $product = wc_get_product((int) $step[1]);
+                if (! $product) {
+                    return 'product not found: '.(int) $step[1];
+                }
+                $product->set_regular_price((string) $step[2]);
+                $product->set_sale_price((string) $step[3]);
+                $product->set_price((string) $step[4]);
+                $product->save();
+                if ($product->is_type('variation')) {
+                    WC_Product_Variable::sync((int) $product->get_parent_id());
+                }
+
+                return true;
+            case 'elementor_data':
+                $post_id = (int) $step[1];
+                if (! empty($step[2])) {
+                    update_post_meta($post_id, '_elementor_data', wp_slash((string) $step[3]));
+                } else {
+                    delete_post_meta($post_id, '_elementor_data');
+                }
+                if (! empty($step[4])) {
+                    update_post_meta($post_id, '_elementor_page_settings', $step[5]);
+                } else {
+                    delete_post_meta($post_id, '_elementor_page_settings');
+                }
+                if (array_key_exists(6, $step)) {
+                    if ((string) $step[6] === '') {
+                        delete_post_meta($post_id, '_elementor_edit_mode');
+                    } else {
+                        update_post_meta($post_id, '_elementor_edit_mode', (string) $step[6]);
+                    }
+                }
+                self::purge();
+
+                return true;
+            case 'order_status':
+                if (! function_exists('wc_get_order')) {
+                    return 'WooCommerce is not active';
+                }
+                $order = wc_get_order((int) $step[1]);
+                if (! $order) {
+                    return 'order not found: '.(int) $step[1];
+                }
+                if ($order->get_status() === 'trash' && method_exists($order, 'untrash')) {
+                    return $order->untrash() ? true : 'order not restored: '.(int) $step[1];
+                }
+                $order->set_status((string) $step[2]);
+                $order->save();
+
+                return true;
+            case 'term_update':
+                // [term_update, taxonomy, term_id, {name, slug, description, parent}]
+                $result = wp_update_term((int) $step[2], (string) $step[1], (array) $step[3]);
+
+                return is_wp_error($result) ? $result->get_error_message() : true;
+            case 'term_restore':
+                // [term_restore, taxonomy, {name, slug, description, parent, meta, objects}]: the term comes back with
+                // a new id, its fields, meta and the objects it was assigned to.
+                $data = (array) $step[2];
+                $taxonomy = (string) $step[1];
+                if (! taxonomy_exists($taxonomy)) {
+                    return 'taxonomy not registered: '.$taxonomy;
+                }
+                $parent = (int) ($data['parent'] ?? 0);
+                $made = wp_insert_term((string) $data['name'], $taxonomy, ['slug' => (string) $data['slug'], 'description' => (string) ($data['description'] ?? ''),
+                    'parent' => $parent && term_exists($parent, $taxonomy) ? $parent : 0]);
+                if (is_wp_error($made)) {
+                    return 'term '.$data['name'].' not restored: '.$made->get_error_message();
+                }
+                $term_id = (int) $made['term_id'];
+                foreach ((array) ($data['meta'] ?? []) as $key => $values) {
+                    foreach ((array) $values as $value) {
+                        add_term_meta($term_id, (string) $key, maybe_unserialize($value));
+                    }
+                }
+                foreach ((array) ($data['objects'] ?? []) as $object_id) {
+                    wp_add_object_terms((int) $object_id, $term_id, $taxonomy);
+                }
+                foreach ((array) ($data['children'] ?? []) as $child_id) {
+                    if (term_exists((int) $child_id, $taxonomy)) {
+                        wp_update_term((int) $child_id, $taxonomy, ['parent' => $term_id]);
+                    }
+                }
+
+                return true;
         }
 
         return 'unknown undo step';
@@ -228,24 +366,42 @@ final class MoxDOP_Connector_AI_Full
         return ['ok' => $reached ? $ok : null, 'pages' => $pages];
     }
 
-    /** Runs a change, checks the site, and undoes it when the site broke. */
+    /**
+     * Runs a change, checks the site, and undoes it when the change broke it.
+     * 1.32.0: the pages are checked before the change too. A page that was already broken is not blamed on the change,
+     * so a change that repairs a broken site (an update, an activation) is kept instead of being rolled back.
+     */
     private function guarded(callable $change, callable $undo, array $paths = [])
     {
+        $before = self::check($paths);
+        $was_broken = [];
+        foreach ($before['pages'] as $page) {
+            if (($page['ok'] ?? true) === false) {
+                $was_broken[] = (string) $page['url'];
+            }
+        }
         $result = $change();
         if (is_wp_error($result)) {
             return $result;
         }
         $check = self::check($paths);
-        if ($check['ok'] === false) {
+        $newly_broken = array_values(array_filter($check['pages'], static function ($p) use ($was_broken) {
+            return ($p['ok'] ?? true) === false && ! in_array((string) $p['url'], $was_broken, true);
+        }));
+        if ($newly_broken !== []) {
             $undo();
-            $broken = array_values(array_filter($check['pages'], static function ($p) {
+
+            return new WP_Error('broke', 'Bu değişiklik siteyi bozdu ve geri alındı: '.wp_json_encode($newly_broken[0], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        }
+        $out = ['result' => $result, 'site_check' => $check];
+        if ($was_broken !== []) {
+            $still = array_values(array_filter($check['pages'], static function ($p) {
                 return ($p['ok'] ?? true) === false;
             }));
-
-            return new WP_Error('broke', 'Bu değişiklik siteyi bozdu ve geri alındı: '.wp_json_encode($broken[0] ?? $check, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $out['note'] = $still === [] ? 'Değişiklikten önce bozuk olan sayfalar artık çalışıyor.' : 'Site bu değişiklikten önce de bozuktu; değişiklik geri alınmadı. Hâlâ bozuk: '.implode(', ', array_column($still, 'url'));
         }
 
-        return ['result' => $result, 'site_check' => $check];
+        return $out;
     }
 
     private static function admin_includes()
@@ -458,6 +614,31 @@ final class MoxDOP_Connector_AI_Full
             }
             wp_clean_plugins_cache();
             $installed = (string) $upgrader->plugin_info();
+        } elseif (! empty($args['upgrade'])) {
+            // 1.32.0: brings an installed WordPress.org plugin to the directory's version even when WordPress offers
+            // no update (stale update check, a filter hiding it). The active state is kept; a site check follows.
+            $current = (string) (get_plugins()[$installed]['Version'] ?? '');
+            if (! version_compare((string) $info->version, $current, '>')) {
+                return ['plugin' => $installed, 'version' => $current, 'unchanged' => true, 'note' => 'Zaten WordPress.org sürümünde ya da daha yenisinde.'];
+            }
+            if (! WP_Filesystem()) {
+                return new WP_Error('filesystem', 'Sunucu dosya yazmaya izin vermiyor (FTP bilgisi istiyor).');
+            }
+            $was_active = is_plugin_active($installed);
+            $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin);
+            $result = $upgrader->install($info->download_link, ['overwrite_package' => true]);
+            if (is_wp_error($result) || ! $result) {
+                return new WP_Error('install', 'Güncellenemedi: '.(is_wp_error($result) ? $result->get_error_message() : implode(' ', (array) $upgrader->skin->get_upgrade_messages())));
+            }
+            wp_clean_plugins_cache();
+            if ($was_active && ! is_plugin_active($installed)) {
+                activate_plugin($installed);
+            }
+            self::purge();
+            MoxDOP_Connector_AI::record($caller, 'install_plugin', 0, 'Eklenti güncellendi: '.wp_strip_all_tags((string) $info->name).' '.$current.' → '.$info->version);
+
+            return ['plugin' => $installed, 'name' => wp_strip_all_tags((string) $info->name), 'from_version' => $current, 'to_version' => (string) (get_plugins()[$installed]['Version'] ?? $info->version),
+                'active' => is_plugin_active($installed), 'undoable' => false, 'site_check' => self::check()];
         }
         MoxDOP_Connector_AI::record($caller, 'install_plugin', 0, 'Eklenti kuruldu: '.wp_strip_all_tags((string) $info->name).' '.$info->version);
         $out = ['plugin' => $installed, 'name' => wp_strip_all_tags((string) $info->name), 'version' => $info->version, 'active' => is_plugin_active($installed)];
@@ -511,7 +692,56 @@ final class MoxDOP_Connector_AI_Full
         $change = self::remember([['plugin', $file, false]]);
         MoxDOP_Connector_AI::record($caller, 'set_plugin_state', 0, 'Açıldı: '.$plugins[$file]['Name'], $change, 'ai');
 
-        return ['plugin' => $file, 'active' => true, 'change_id' => $change, 'site_check' => $guarded['site_check']];
+        return array_filter(['plugin' => $file, 'active' => true, 'change_id' => $change, 'site_check' => $guarded['site_check'], 'note' => $guarded['note'] ?? null], static function ($v) {
+            return $v !== null;
+        });
+    }
+
+    /** 1.32.0: deletes inactive plugins (never an active one, never the connector). Not undoable. */
+    private function tool_delete_plugins(array $args, array $caller)
+    {
+        if (! current_user_can('delete_plugins')) {
+            return new WP_Error('forbidden', 'Bu kullanıcı eklenti silemez (ya da sitede dosya değişikliği kapalı).');
+        }
+        self::admin_includes();
+        $plugins = get_plugins();
+        $files = array_values(array_unique(array_map('strval', (array) ($args['plugins'] ?? []))));
+        $ready = [];
+        $refused = [];
+        foreach (array_slice($files, 0, 30) as $file) {
+            if (! isset($plugins[$file])) {
+                $refused[] = ['plugin' => $file, 'error' => 'Kurulu değil (list_plugins ile dosya adına bak).'];
+            } elseif (strpos($file, 'moxdop-connector') === 0) {
+                $refused[] = ['plugin' => $file, 'error' => 'MoxDOP Connector kendini silmez.'];
+            } elseif (is_plugin_active($file) || is_plugin_active_for_network($file)) {
+                $refused[] = ['plugin' => $file, 'error' => 'Etkin eklenti silinmez; önce set_plugin_state ile kapat.'];
+            } else {
+                $ready[] = $file;
+            }
+        }
+        $plan = array_map(static function ($file) use ($plugins) {
+            return ['plugin' => $file, 'name' => $plugins[$file]['Name'], 'version' => $plugins[$file]['Version']];
+        }, $ready);
+        if (! array_key_exists('dry_run', $args) || ! empty($args['dry_run'])) {
+            return ['dry_run' => true, 'would_delete' => $plan, 'refused' => $refused, 'next' => 'Silmek için dry_run=false ve confirm="DELETE_PLUGINS" gönder.'];
+        }
+        if ((string) ($args['confirm'] ?? '') !== 'DELETE_PLUGINS') {
+            return new WP_Error('confirm', 'Kalıcı eklenti silme için confirm="DELETE_PLUGINS" gerekir.');
+        }
+        if ($ready === []) {
+            return ['deleted' => [], 'refused' => $refused];
+        }
+        if (! WP_Filesystem()) {
+            return new WP_Error('filesystem', 'Sunucu dosya yazmaya izin vermiyor (FTP bilgisi istiyor).');
+        }
+        $result = delete_plugins($ready);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        wp_clean_plugins_cache();
+        MoxDOP_Connector_AI::record($caller, 'delete_plugins', 0, count($ready).' eklenti silindi: '.implode(', ', array_column($plan, 'name')));
+
+        return ['deleted' => $plan, 'refused' => $refused, 'undoable' => false, 'site_check' => self::check()];
     }
 
     private function tool_run_update(array $args, array $caller)
@@ -792,6 +1022,623 @@ final class MoxDOP_Connector_AI_Full
     private function tool_site_check(array $args)
     {
         return self::check(is_array($args['paths'] ?? null) ? $args['paths'] : []);
+    }
+
+    /* ----------------------------------------------- tools: store administration */
+
+    private function tool_list_product_prices(array $args)
+    {
+        if (! function_exists('wc_get_product')) {
+            return new WP_Error('woocommerce', 'WooCommerce etkin değil.');
+        }
+        $page = max(1, (int) ($args['page'] ?? 1));
+        $per_page = max(1, min(100, (int) ($args['per_page'] ?? 50)));
+        $types = ['product'];
+        if (! array_key_exists('include_variations', $args) || ! empty($args['include_variations'])) {
+            $types[] = 'product_variation';
+        }
+        $query = new WP_Query(array_filter([
+            'post_type' => $types, 'post_status' => ['publish', 'draft', 'pending', 'private', 'future', 'trash'],
+            'posts_per_page' => $per_page, 'paged' => $page, 'orderby' => 'ID', 'order' => 'DESC', 'fields' => 'ids',
+            's' => sanitize_text_field((string) ($args['search'] ?? '')),
+        ], static function ($value) {
+            return $value !== '';
+        }));
+        $items = [];
+        foreach ($query->posts as $id) {
+            $product = wc_get_product((int) $id);
+            if (! $product) {
+                continue;
+            }
+            $items[] = ['id' => $product->get_id(), 'parent_id' => $product->get_parent_id(), 'type' => $product->get_type(), 'status' => get_post_status($product->get_id()),
+                'name' => $product->get_name(), 'sku' => $product->get_sku(), 'regular_price' => $product->get_regular_price('edit'),
+                'sale_price' => $product->get_sale_price('edit'), 'price' => $product->get_price('edit'), 'currency' => get_woocommerce_currency()];
+        }
+
+        return ['total' => (int) $query->found_posts, 'page' => $page, 'pages' => (int) $query->max_num_pages, 'items' => $items];
+    }
+
+    private function tool_update_product_prices(array $args, array $caller)
+    {
+        if (! function_exists('wc_get_product') || ! function_exists('wc_format_decimal')) {
+            return new WP_Error('woocommerce', 'WooCommerce etkin değil.');
+        }
+        $items = is_array($args['items'] ?? null) ? array_slice(array_values($args['items']), 0, 100) : [];
+        if ($items === []) {
+            return new WP_Error('invalid', 'items boş olamaz.');
+        }
+        $undo = [];
+        $results = [];
+        $parents = [];
+        foreach ($items as $item) {
+            $id = (int) ($item['id'] ?? 0);
+            $product = $id ? wc_get_product($id) : false;
+            if (! $product || ! current_user_can('edit_post', $id)) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Ürün yok ya da düzenleme yetkisi yok.'];
+                continue;
+            }
+            if ($product->is_type('variable')) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Değişken ürünün fiyatı varyasyonlarında tutulur; varyasyon id\'lerini gönder.'];
+                continue;
+            }
+            $old_sale = (string) $product->get_sale_price('edit');
+            // 1.32.0: an existing sale price is never kept silently. When prices move to another currency, a sale
+            // price left behind would stay in the old currency (e.g. 7500 TL becoming 7500 €).
+            if (! array_key_exists('sale_price', $item) && $old_sale !== '') {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Bu üründe indirimli fiyat var ('.$old_sale.'); sale_price gönder (kaldırmak için "").'];
+                continue;
+            }
+            $regular = wc_format_decimal((string) ($item['regular_price'] ?? ''));
+            $sale = array_key_exists('sale_price', $item) ? wc_format_decimal((string) $item['sale_price']) : '';
+            if ($regular === '' || (float) $regular < 0 || ($sale !== '' && (float) $sale < 0)) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Fiyatlar sıfır veya daha büyük ondalık değerler olmalı.'];
+                continue;
+            }
+            if ($sale !== '' && (float) $sale >= (float) $regular) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'İndirimli fiyat normal fiyattan küçük olmalı.'];
+                continue;
+            }
+            $undo[] = ['product_price', $id, (string) $product->get_regular_price('edit'), $old_sale, (string) $product->get_price('edit')];
+            $product->set_regular_price($regular);
+            $product->set_sale_price($sale);
+            // The active price follows WooCommerce's own rule (a scheduled sale counts only inside its dates); an
+            // explicit price is used only when sent.
+            $product->set_price(array_key_exists('price', $item) ? wc_format_decimal((string) $item['price']) : ($product->is_on_sale('edit') ? $sale : $regular));
+            $price = (string) $product->get_price('edit');
+            $product->save();
+            if ($product->is_type('variation')) {
+                $parents[] = (int) $product->get_parent_id();
+            } else {
+                wc_delete_product_transients($id);
+            }
+            $results[] = ['id' => $id, 'ok' => true, 'regular_price' => $regular, 'sale_price' => $sale, 'price' => $price];
+        }
+        foreach (array_unique(array_filter($parents)) as $parent_id) {
+            WC_Product_Variable::sync($parent_id);
+            wc_delete_product_transients($parent_id);
+        }
+        if ($undo === []) {
+            return ['results' => $results, 'change_id' => null];
+        }
+        $change = self::remember($undo);
+        MoxDOP_Connector_AI::record($caller, 'update_product_prices', 0, count($undo).' ürün fiyatı güncellendi', $change, 'ai');
+
+        return ['results' => $results, 'currency' => get_woocommerce_currency(), 'change_id' => $change];
+    }
+
+    private function tool_get_elementor_data(array $args)
+    {
+        $id = (int) ($args['id'] ?? 0);
+        $post = get_post($id);
+        if (! $post || in_array($post->post_type, ['attachment', 'revision', 'nav_menu_item'], true) || ! current_user_can('edit_post', $id)) {
+            return new WP_Error('not_found', 'İçerik yok ya da erişim yetkisi yok.');
+        }
+        $raw = (string) get_post_meta($id, '_elementor_data', true);
+        $elements = $raw === '' ? [] : json_decode($raw, true);
+        if (! is_array($elements)) {
+            return new WP_Error('invalid', 'Elementor verisi geçerli JSON değil.');
+        }
+
+        return ['id' => $id, 'post_type' => $post->post_type, 'status' => $post->post_status, 'title' => get_the_title($id),
+            'edit_mode' => (string) get_post_meta($id, '_elementor_edit_mode', true), 'elements' => $elements,
+            'page_settings' => (array) get_post_meta($id, '_elementor_page_settings', true), 'elementor_version' => (string) get_post_meta($id, '_elementor_version', true)];
+    }
+
+    private function tool_update_elementor_data(array $args, array $caller)
+    {
+        $id = (int) ($args['id'] ?? 0);
+        $post = get_post($id);
+        $elements = $args['elements'] ?? null;
+        if (! $post || ! is_array($elements) || in_array($post->post_type, ['attachment', 'revision', 'nav_menu_item'], true) || ! current_user_can('edit_post', $id)) {
+            return new WP_Error('invalid', 'İçerik yok, elements dizi değil veya düzenleme yetkisi yok.');
+        }
+        // 1.32.0: the tree is checked before it is written: a wrong shape would blank the page or break the editor.
+        $problem = self::elementor_tree_problem(array_values($elements));
+        if ($problem !== null) {
+            return new WP_Error('invalid_tree', 'Elementor ağacı geçersiz: '.$problem.' get_elementor_data çıktısını değiştirip tam ağacı gönder.');
+        }
+        if ($elements === [] && empty($args['allow_empty'])) {
+            return new WP_Error('empty', 'Boş ağaç sayfanın tüm içeriğini siler; bilerek yapılıyorsa allow_empty=true gönder.');
+        }
+        $old_data_exists = metadata_exists('post', $id, '_elementor_data');
+        $old_data = (string) get_post_meta($id, '_elementor_data', true);
+        $old_settings_exists = metadata_exists('post', $id, '_elementor_page_settings');
+        $old_settings = get_post_meta($id, '_elementor_page_settings', true);
+        $old_mode = (string) get_post_meta($id, '_elementor_edit_mode', true);
+        $json = wp_json_encode(array_values($elements), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (! is_string($json)) {
+            return new WP_Error('json', 'Elementor verisi JSON olarak kodlanamadı.');
+        }
+        $step = ['elementor_data', $id, $old_data_exists, $old_data, $old_settings_exists, $old_settings, $old_mode];
+        $settings = array_key_exists('page_settings', $args) ? (is_array($args['page_settings']) ? $args['page_settings'] : []) : null;
+        // The page itself is checked (a template is checked through the home page) and the old tree comes back when
+        // the new one breaks it.
+        $paths = [];
+        if ($post->post_status === 'publish' && is_post_type_viewable($post->post_type) && $post->post_type !== 'elementor_library') {
+            $paths[] = (string) wp_parse_url((string) get_permalink($id), PHP_URL_PATH);
+        }
+        $guarded = $this->guarded(static function () use ($id, $json, $settings) {
+            update_post_meta($id, '_elementor_data', wp_slash($json));
+            update_post_meta($id, '_elementor_edit_mode', 'builder');
+            if (defined('ELEMENTOR_VERSION')) {
+                update_post_meta($id, '_elementor_version', ELEMENTOR_VERSION);
+            }
+            if ($settings !== null) {
+                update_post_meta($id, '_elementor_page_settings', $settings);
+            }
+            wp_update_post(['ID' => $id, 'post_modified' => current_time('mysql'), 'post_modified_gmt' => current_time('mysql', true)]);
+            self::purge();
+
+            return true;
+        }, static function () use ($step) {
+            self::undo_step($step);
+        }, $paths);
+        if (is_wp_error($guarded)) {
+            return $guarded;
+        }
+        $change = self::remember([$step]);
+        MoxDOP_Connector_AI::record($caller, 'update_elementor_data', $id, 'Elementor verisi güncellendi: '.get_the_title($id), $change, 'ai');
+
+        return array_filter(['id' => $id, 'elements' => count($elements), 'edit_url' => get_edit_post_link($id, 'raw'), 'change_id' => $change,
+            'site_check' => $guarded['site_check'], 'note' => $guarded['note'] ?? null], static function ($v) {
+                return $v !== null;
+            });
+    }
+
+    /** @return string|null what is wrong with an Elementor element tree, or null when its shape is sound */
+    private static function elementor_tree_problem(array $elements, $depth = 0)
+    {
+        if ($depth > 20) {
+            return 'ağaç 20 seviyeden derin.';
+        }
+        foreach ($elements as $i => $el) {
+            if (! is_array($el)) {
+                return 'öğe '.$i.' nesne değil.';
+            }
+            if (! isset($el['id']) || ! is_string($el['id']) || $el['id'] === '') {
+                return 'öğe '.$i.' için id yok.';
+            }
+            $type = (string) ($el['elType'] ?? '');
+            if (! in_array($type, ['section', 'column', 'container', 'widget'], true)) {
+                return $el['id'].' öğesinde elType eksik ya da geçersiz.';
+            }
+            if ($type === 'widget' && empty($el['widgetType'])) {
+                return $el['id'].' widget\'ında widgetType yok.';
+            }
+            if (isset($el['settings']) && ! is_array($el['settings'])) {
+                return $el['id'].' öğesinin settings alanı nesne değil.';
+            }
+            if (isset($el['elements'])) {
+                if (! is_array($el['elements'])) {
+                    return $el['id'].' öğesinin elements alanı dizi değil.';
+                }
+                $inner = self::elementor_tree_problem(array_values($el['elements']), $depth + 1);
+                if ($inner !== null) {
+                    return $inner;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function tool_list_users(array $args)
+    {
+        $page = max(1, (int) ($args['page'] ?? 1));
+        $per_page = max(1, min(100, (int) ($args['per_page'] ?? 50)));
+        $query_args = ['number' => $per_page, 'offset' => ($page - 1) * $per_page, 'orderby' => 'ID', 'order' => 'ASC', 'count_total' => true];
+        $search = trim((string) ($args['search'] ?? ''));
+        if ($search !== '') {
+            $query_args['search'] = '*'.sanitize_text_field($search).'*';
+            $query_args['search_columns'] = ['user_login', 'user_email', 'display_name'];
+        }
+        $query = new WP_User_Query($query_args);
+        $items = [];
+        foreach ($query->get_results() as $user) {
+            $items[] = ['id' => (int) $user->ID, 'login' => $user->user_login, 'display_name' => $user->display_name, 'email' => $user->user_email,
+                'roles' => array_values($user->roles), 'registered' => $user->user_registered, 'authored_posts' => (int) count_user_posts($user->ID, 'post', true)];
+        }
+
+        return ['total' => (int) $query->get_total(), 'page' => $page, 'pages' => (int) ceil($query->get_total() / $per_page), 'users' => $items];
+    }
+
+    private function tool_delete_users(array $args, array $caller)
+    {
+        // 1.32.0: dry_run is the default: the answer lists who would go. The real delete needs dry_run=false, the
+        // confirm string and expected_count equal to that list's length, so a changed user list is not deleted blind.
+        $dry_run = ! array_key_exists('dry_run', $args) || ! empty($args['dry_run']);
+        if (! current_user_can('delete_users')) {
+            return new WP_Error('forbidden', 'Bu kullanıcının delete_users yetkisi yok.');
+        }
+        if (! $dry_run && (string) ($args['confirm'] ?? '') !== 'DELETE_USERS') {
+            return new WP_Error('confirm', 'Kalıcı kullanıcı silme için confirm="DELETE_USERS" gerekir.');
+        }
+        $keep = array_values(array_unique(array_filter(array_map('sanitize_user', (array) ($args['keep_logins'] ?? [])))));
+        $current = wp_get_current_user();
+        if ($current->exists() && ! in_array($current->user_login, $keep, true)) {
+            $keep[] = $current->user_login;
+        }
+        $reassign_login = sanitize_user((string) ($args['reassign_to_login'] ?? ($keep[0] ?? $current->user_login)));
+        $reassign = get_user_by('login', $reassign_login);
+        if (! $reassign || ! in_array($reassign->user_login, $keep, true) || ! in_array('administrator', (array) $reassign->roles, true)) {
+            return new WP_Error('reassign', 'reassign_to_login, keep_logins içindeki mevcut bir yönetici olmalı.');
+        }
+        $kept_admin = false;
+        foreach ($keep as $login) {
+            $user = get_user_by('login', $login);
+            if ($user && in_array('administrator', (array) $user->roles, true)) {
+                $kept_admin = true;
+                break;
+            }
+        }
+        if (! $kept_admin) {
+            return new WP_Error('last_admin', 'En az bir yönetici korunmalı.');
+        }
+        require_once ABSPATH.'wp-admin/includes/user.php';
+        $deleted = [];
+        $protected = [];
+        $failed = [];
+        $targets = [];
+        $roles = array_values(array_filter(array_map('sanitize_key', (array) ($args['only_roles'] ?? []))));
+        foreach (get_users(['fields' => 'all']) as $user) {
+            if (in_array($user->user_login, $keep, true) || (int) $user->ID === (int) $current->ID || (is_multisite() && is_super_admin($user->ID))) {
+                $protected[] = $user->user_login;
+                continue;
+            }
+            if ($roles !== [] && array_intersect($roles, (array) $user->roles) === []) {
+                $protected[] = $user->user_login;
+                continue;
+            }
+            $targets[] = $user;
+        }
+        if ($dry_run) {
+            return ['dry_run' => true, 'would_delete' => array_map(static function ($u) {
+                return ['id' => (int) $u->ID, 'login' => $u->user_login, 'roles' => array_values($u->roles), 'authored_posts' => (int) count_user_posts($u->ID, array_values(get_post_types(['show_ui' => true])), false)];
+            }, $targets), 'count' => count($targets), 'protected' => array_values(array_unique($protected)), 'reassign_to' => $reassign->user_login,
+                'next' => 'Silmek için dry_run=false, confirm="DELETE_USERS" ve expected_count='.count($targets).' gönder. Geri alınamaz.'];
+        }
+        if (! array_key_exists('expected_count', $args) || (int) $args['expected_count'] !== count($targets)) {
+            return new WP_Error('count', 'expected_count, silinecek kullanıcı sayısıyla ('.count($targets).') eşleşmiyor; önce dry_run ile listeye bak.');
+        }
+        // 1.32.0: a shop can hold thousands of customer accounts; deleting them in one request runs past the PHP time
+        // limit and stops half-way, so each call takes a batch and says how many remain.
+        $total = count($targets);
+        $batch = array_slice($targets, 0, max(1, min(500, (int) ($args['limit'] ?? 200))));
+        foreach ($batch as $user) {
+            if (wp_delete_user((int) $user->ID, (int) $reassign->ID)) {
+                $deleted[] = ['id' => (int) $user->ID, 'login' => $user->user_login];
+            } else {
+                $failed[] = ['id' => (int) $user->ID, 'login' => $user->user_login];
+            }
+        }
+        MoxDOP_Connector_AI::record($caller, 'delete_users', 0, count($deleted).' kullanıcı kalıcı silindi; içerik '.$reassign->user_login.' hesabına aktarıldı');
+
+        $remaining = $total - count($deleted);
+        $out = ['deleted' => $deleted, 'protected' => array_values(array_unique($protected)), 'failed' => $failed, 'reassigned_to' => $reassign->user_login, 'undoable' => false, 'remaining' => $remaining];
+        if ($remaining > 0 && $failed === []) {
+            $out['next'] = 'Kalanlar için aynı çağrıyı expected_count='.$remaining.' ile tekrarla.';
+        }
+
+        return $out;
+    }
+
+    private function tool_list_orders(array $args)
+    {
+        if (! function_exists('wc_get_orders')) {
+            return new WP_Error('woocommerce', 'WooCommerce etkin değil.');
+        }
+        $page = max(1, (int) ($args['page'] ?? 1));
+        $per_page = max(1, min(100, (int) ($args['per_page'] ?? 50)));
+        $status = trim((string) ($args['status'] ?? ''));
+        $query = ['limit' => $per_page, 'page' => $page, 'paginate' => true, 'orderby' => 'date', 'order' => 'DESC'];
+        $query['status'] = $status !== '' ? $status : array_keys(wc_get_order_statuses());
+        $result = wc_get_orders($query);
+        $items = [];
+        foreach ((array) $result->orders as $order) {
+            $items[] = ['id' => $order->get_id(), 'status' => $order->get_status(), 'date' => $order->get_date_created() ? $order->get_date_created()->date('c') : null,
+                'customer_id' => $order->get_customer_id(), 'billing_email' => $order->get_billing_email(), 'total' => $order->get_total(), 'currency' => $order->get_currency()];
+        }
+
+        return ['total' => (int) $result->total, 'page' => $page, 'pages' => (int) $result->max_num_pages, 'orders' => $items];
+    }
+
+    private function tool_trash_orders(array $args, array $caller)
+    {
+        if ((string) ($args['confirm'] ?? '') !== 'TRASH_ORDERS' || ! current_user_can('delete_shop_orders')) {
+            return new WP_Error('confirm', 'Siparişleri çöpe atmak için confirm="TRASH_ORDERS" ve sipariş silme yetkisi gerekir.');
+        }
+        if (! function_exists('wc_get_orders')) {
+            return new WP_Error('woocommerce', 'WooCommerce etkin değil.');
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($args['ids'] ?? [])))));
+        if (! empty($args['all'])) {
+            $ids = array_map('intval', wc_get_orders(['limit' => 5000, 'return' => 'ids', 'status' => array_keys(wc_get_order_statuses())]));
+        }
+        if ($ids === []) {
+            return new WP_Error('invalid', 'ids verin veya all=true kullanın.');
+        }
+        $undo = [];
+        $trashed = [];
+        $failed = [];
+        foreach (array_slice($ids, 0, 5000) as $id) {
+            $order = wc_get_order($id);
+            if (! $order) {
+                $failed[] = ['id' => $id, 'error' => 'Sipariş bulunamadı.'];
+                continue;
+            }
+            $old_status = $order->get_status();
+            if ($order->delete(false)) {
+                $undo[] = ['order_status', $id, $old_status];
+                $trashed[] = $id;
+            } else {
+                $failed[] = ['id' => $id, 'error' => 'Çöpe atılamadı.'];
+            }
+        }
+        $change = $undo === [] ? null : self::remember($undo);
+        MoxDOP_Connector_AI::record($caller, 'trash_orders', 0, count($trashed).' sipariş çöpe atıldı', $change, 'ai');
+
+        return ['trashed' => $trashed, 'failed' => $failed, 'change_id' => $change];
+    }
+
+    private function tool_list_terms(array $args)
+    {
+        $taxonomy = sanitize_key((string) ($args['taxonomy'] ?? ''));
+        if (! taxonomy_exists($taxonomy)) {
+            return new WP_Error('taxonomy', 'Taksonomi bulunamadı.');
+        }
+        $page = max(1, (int) ($args['page'] ?? 1));
+        $per_page = max(1, min(100, (int) ($args['per_page'] ?? 50)));
+        $base = ['taxonomy' => $taxonomy, 'hide_empty' => false, 'search' => sanitize_text_field((string) ($args['search'] ?? ''))];
+        $terms = get_terms($base + ['number' => $per_page, 'offset' => ($page - 1) * $per_page]);
+        if (is_wp_error($terms)) {
+            return $terms;
+        }
+        $total = wp_count_terms($base);
+
+        return ['taxonomy' => $taxonomy, 'total' => is_wp_error($total) ? count($terms) : (int) $total, 'page' => $page, 'terms' => array_map(static function ($term) {
+            return ['id' => (int) $term->term_id, 'name' => $term->name, 'slug' => $term->slug, 'count' => (int) $term->count, 'parent' => (int) $term->parent];
+        }, $terms)];
+    }
+
+    private function tool_delete_terms(array $args, array $caller)
+    {
+        $taxonomy = sanitize_key((string) ($args['taxonomy'] ?? ''));
+        if (! taxonomy_exists($taxonomy)) {
+            return new WP_Error('taxonomy', 'Taksonomi bulunamadı.');
+        }
+        $taxonomy_object = get_taxonomy($taxonomy);
+        $delete_capability = $taxonomy_object && isset($taxonomy_object->cap->delete_terms) ? $taxonomy_object->cap->delete_terms : 'manage_categories';
+        if (! current_user_can($delete_capability)) {
+            return new WP_Error('forbidden', 'Bu kullanıcı bu taksonomide terim silemez.');
+        }
+        // 1.32.0: dry_run is the default; each deleted term is snapshotted (fields, meta, assigned objects, child
+        // terms) so undo_change brings it back with a new id and its assignments.
+        $dry_run = ! array_key_exists('dry_run', $args) || ! empty($args['dry_run']);
+        if (! $dry_run && (string) ($args['confirm'] ?? '') !== 'DELETE_TERMS') {
+            return new WP_Error('confirm', 'Terim silme için confirm="DELETE_TERMS" gerekir.');
+        }
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', (array) ($args['ids'] ?? []))))), 0, 50);
+        $default_ids = [(int) get_option('default_category'), (int) get_option('default_product_cat')];
+        $deleted = [];
+        $failed = [];
+        $plan = [];
+        foreach ($ids as $id) {
+            $term = get_term($id, $taxonomy);
+            if (! $term || is_wp_error($term)) {
+                $failed[] = ['id' => $id, 'error' => 'Terim bulunamadı.'];
+                continue;
+            }
+            if (in_array($id, $default_ids, true)) {
+                $failed[] = ['id' => $id, 'error' => 'Varsayılan kategori korunur.'];
+                continue;
+            }
+            if (empty($args['force']) && (int) $term->count > 0) {
+                $failed[] = ['id' => $id, 'error' => 'Terim '.(int) $term->count.' içerikte kullanılıyor; force=true olmadan silinmez.'];
+                continue;
+            }
+            $plan[] = $term;
+        }
+        if ($dry_run) {
+            return ['dry_run' => true, 'taxonomy' => $taxonomy, 'would_delete' => array_map(static function ($t) {
+                return ['id' => (int) $t->term_id, 'name' => $t->name, 'slug' => $t->slug, 'count' => (int) $t->count];
+            }, $plan), 'refused' => $failed, 'next' => 'Silmek için dry_run=false ve confirm="DELETE_TERMS" gönder.'];
+        }
+        $undo = [];
+        foreach ($plan as $term) {
+            $id = (int) $term->term_id;
+            $snapshot = ['name' => $term->name, 'slug' => $term->slug, 'description' => $term->description, 'parent' => (int) $term->parent,
+                'meta' => array_map(static function ($values) {
+                    return array_values((array) $values);
+                }, (array) get_term_meta($id)),
+                'objects' => array_map('intval', (array) get_objects_in_term($id, $taxonomy)),
+                'children' => array_map('intval', (array) get_terms(['taxonomy' => $taxonomy, 'parent' => $id, 'hide_empty' => false, 'fields' => 'ids']))];
+            $result = wp_delete_term($id, $taxonomy);
+            if (is_wp_error($result) || ! $result) {
+                $failed[] = ['id' => $id, 'error' => is_wp_error($result) ? $result->get_error_message() : 'Silinemedi.'];
+            } else {
+                $deleted[] = ['id' => $id, 'name' => $term->name];
+                $undo[] = ['term_restore', $taxonomy, $snapshot];
+            }
+        }
+        $change = $undo === [] ? null : self::remember($undo);
+        MoxDOP_Connector_AI::record($caller, 'delete_terms', 0, count($deleted).' '.$taxonomy.' terimi silindi', $change, 'ai');
+
+        return ['taxonomy' => $taxonomy, 'deleted' => $deleted, 'failed' => $failed, 'change_id' => $change];
+    }
+
+    /** 1.32.0: renames terms (name, slug, description, parent) — e.g. Turkish category slugs on a German shop. */
+    private function tool_update_terms(array $args, array $caller)
+    {
+        $taxonomy = sanitize_key((string) ($args['taxonomy'] ?? ''));
+        if (! taxonomy_exists($taxonomy)) {
+            return new WP_Error('taxonomy', 'Taksonomi bulunamadı.');
+        }
+        $taxonomy_object = get_taxonomy($taxonomy);
+        if (! current_user_can($taxonomy_object && isset($taxonomy_object->cap->edit_terms) ? $taxonomy_object->cap->edit_terms : 'manage_categories')) {
+            return new WP_Error('forbidden', 'Bu kullanıcı bu taksonomide terim düzenleyemez.');
+        }
+        $items = is_array($args['items'] ?? null) ? array_slice(array_values($args['items']), 0, 50) : [];
+        if ($items === []) {
+            return new WP_Error('invalid', 'items boş olamaz.');
+        }
+        $undo = [];
+        $results = [];
+        $old_paths = [];
+        foreach ($items as $item) {
+            $id = (int) ($item['id'] ?? 0);
+            $term = $id ? get_term($id, $taxonomy) : null;
+            if (! $term || is_wp_error($term)) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Terim bulunamadı.'];
+                continue;
+            }
+            $fields = [];
+            foreach (['name', 'description'] as $key) {
+                if (array_key_exists($key, $item)) {
+                    $fields[$key] = (string) $item[$key];
+                }
+            }
+            if (array_key_exists('slug', $item)) {
+                $fields['slug'] = sanitize_title((string) $item['slug']);
+            }
+            if (array_key_exists('parent', $item)) {
+                $fields['parent'] = (int) $item['parent'];
+            }
+            if ($fields === []) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => 'Değişecek alan yok (name, slug, description, parent).'];
+                continue;
+            }
+            $old_link = get_term_link($term);
+            $result = wp_update_term($id, $taxonomy, $fields);
+            if (is_wp_error($result)) {
+                $results[] = ['id' => $id, 'ok' => false, 'error' => $result->get_error_message()];
+                continue;
+            }
+            $undo[] = ['term_update', $taxonomy, $id, ['name' => $term->name, 'slug' => $term->slug, 'description' => $term->description, 'parent' => (int) $term->parent]];
+            $updated = get_term($id, $taxonomy);
+            $new_link = get_term_link($updated);
+            $row = ['id' => $id, 'ok' => true, 'name' => $updated->name, 'slug' => $updated->slug];
+            if (isset($fields['slug']) && ! is_wp_error($old_link) && ! is_wp_error($new_link) && $old_link !== $new_link) {
+                $row['old_url'] = $old_link;
+                $row['new_url'] = $new_link;
+                $old_paths[] = ['from' => (string) wp_parse_url($old_link, PHP_URL_PATH), 'value' => $new_link];
+            }
+            $results[] = $row;
+        }
+        $change = $undo === [] ? null : self::remember($undo);
+        if ($change) {
+            MoxDOP_Connector_AI::record($caller, 'update_terms', 0, count($undo).' '.$taxonomy.' terimi düzenlendi', $change, 'ai');
+            self::purge();
+        }
+        $out = ['taxonomy' => $taxonomy, 'results' => $results, 'change_id' => $change];
+        if ($old_paths !== []) {
+            $out['redirect_hint'] = 'Adres değişti. Site yayındaysa eski adresleri seo_technical redirect ile yönlendir: '.wp_json_encode($old_paths, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        return $out;
+    }
+
+    private function tool_list_languages()
+    {
+        require_once ABSPATH.'wp-admin/includes/translation-install.php';
+        $installed = get_available_languages();
+        if (! in_array('en_US', $installed, true)) {
+            array_unshift($installed, 'en_US');
+        }
+        $plugin_files = [];
+        foreach (glob(WP_LANG_DIR.'/plugins/*.mo') ?: [] as $file) {
+            $plugin_files[] = basename($file, '.mo');
+        }
+        $theme_files = [];
+        foreach (glob(WP_LANG_DIR.'/themes/*.mo') ?: [] as $file) {
+            $theme_files[] = basename($file, '.mo');
+        }
+
+        return ['current' => get_locale(), 'configured' => (string) get_option('WPLANG'), 'installed' => array_values(array_unique($installed)),
+            'plugin_translations' => $plugin_files, 'theme_translations' => $theme_files];
+    }
+
+    private function tool_install_language(array $args, array $caller)
+    {
+        $locale = trim((string) ($args['locale'] ?? ''));
+        if (! preg_match('/^[a-z]{2,3}_[A-Z]{2}(?:_[a-z0-9]+)?$/', $locale) || ! current_user_can('update_core')) {
+            return new WP_Error('locale', 'Geçerli bir locale (ör. de_DE) ve çekirdek güncelleme yetkisi gerekir.');
+        }
+        require_once ABSPATH.'wp-admin/includes/translation-install.php';
+        self::admin_includes();
+        $installed = in_array($locale, get_available_languages(), true);
+        if (! $installed) {
+            $download = wp_download_language_pack($locale);
+            if (is_wp_error($download)) {
+                return $download;
+            }
+            if (! $download) {
+                return new WP_Error('download', 'Dil paketi indirilemedi.');
+            }
+        }
+        $change = null;
+        $note = null;
+        if (! empty($args['set_site_language'])) {
+            $old_exists = get_option('WPLANG', null) !== null;
+            $old = get_option('WPLANG');
+            $step = ['option', 'WPLANG', $old_exists, $old];
+            $guarded = $this->guarded(static function () use ($locale) {
+                update_option('WPLANG', $locale);
+
+                return true;
+            }, static function () use ($step) {
+                self::undo_step($step);
+            });
+            if (is_wp_error($guarded)) {
+                return $guarded;
+            }
+            $note = $guarded['note'] ?? null;
+            $change = self::remember([$step]);
+        }
+        // 1.32.0: the core pack alone leaves WooCommerce, the theme and every other plugin in their old language.
+        // WordPress asks for the translations of every installed language (not only the current one), so the
+        // plugin and theme translations WordPress.org has for this locale are fetched too (translations = false skips it).
+        $translations = null;
+        if ((! array_key_exists('translations', $args) || ! empty($args['translations'])) && in_array($locale, get_available_languages(), true) && WP_Filesystem()) {
+            wp_clean_update_cache();
+            wp_update_plugins();
+            wp_update_themes();
+            $updates = wp_get_translation_updates();
+            $translations = ['found' => count($updates), 'installed' => []];
+            if ($updates !== []) {
+                $results = (new Language_Pack_Upgrader(new Automatic_Upgrader_Skin))->bulk_upgrade($updates);
+                foreach ($updates as $i => $update) {
+                    $translations['installed'][] = ['type' => $update->type, 'slug' => $update->slug, 'language' => $update->language,
+                        'ok' => ! empty($results[$i]) && ! is_wp_error($results[$i])];
+                }
+            }
+        }
+        MoxDOP_Connector_AI::record($caller, 'install_language', 0, 'Dil paketi hazır: '.$locale.(! empty($args['set_site_language']) ? ' ve site dili değiştirildi' : '')
+            .($translations ? '; '.count($translations['installed']).' eklenti/tema çevirisi' : ''), $change, 'ai');
+
+        return array_filter(['locale' => $locale, 'installed' => true, 'site_language' => (string) get_option('WPLANG') !== '' ? (string) get_option('WPLANG') : 'en_US', 'change_id' => $change, 'translations' => $translations,
+            'note' => $note, 'site_check' => self::check()], static function ($v) {
+                return $v !== null;
+            });
     }
 
     /* --------------------------------------------------------- tools: private */

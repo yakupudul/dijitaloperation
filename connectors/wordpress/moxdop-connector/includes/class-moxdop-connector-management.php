@@ -168,6 +168,7 @@ final class MoxDOP_Connector_Management
         $before = null;
         $after = null;
         if ($type === 'plugin') {
+            wp_clean_plugins_cache(true); // 1.32.0: a fresh check, not one up to 12 hours old
             wp_update_plugins();
             $plugins = get_plugins();
             if (! isset($plugins[$item])) {
@@ -187,6 +188,7 @@ final class MoxDOP_Connector_Management
             $plugins = get_plugins();
             $after = isset($plugins[$item]) ? (string) $plugins[$item]['Version'] : null;
         } elseif ($type === 'theme') {
+            delete_site_transient('update_themes'); // 1.32.0: a fresh check
             wp_update_themes();
             $theme = wp_get_theme($item);
             $updates = get_site_transient('update_themes');

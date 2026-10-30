@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.30.1
+Stable tag: 1.32.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -15,8 +15,8 @@ themes, plugins, update availability, content and public custom post types, medi
 metadata, taxonomies, Polylang language fields, and allowlisted SEO plugin fields.
 
 Activity records include the acting WordPress user ID/display name, event type and changed field names.
-It does not expose account lists, passwords, comments, form submissions, arbitrary options, or media
-file contents.
+At private/full access, the site administrator may explicitly enable tools that expose user, order, comment and form
+data or administer WooCommerce, Elementor, languages and taxonomies. Passwords and media file contents are never exposed.
 
 Since 1.6.0 it can also export the HTML of published public pages that a page-cache plugin already stored on disk,
 so MoxDOP reads the site without making WordPress render pages. It only reads existing cache files.
@@ -84,6 +84,26 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.32.0 =
+* Site check before and after every guarded change: a page that was already broken no longer rolls back the change, so an activation or update can repair a broken site (and the answer says whether it did).
+* install_plugin upgrade=true brings an installed WordPress.org plugin to the directory version even when WordPress offers no update; run_update always asks WordPress.org afresh instead of trusting a check up to 12 hours old.
+* delete_plugins: deletes inactive plugins (never an active one or the connector), dry run first, confirm="DELETE_PLUGINS".
+* delete_users: dry run by default (list and count of who would go), only_roles, and expected_count must match before anything is deleted; at most limit users (default 200, max 500) per call, the answer says how many remain.
+* delete_terms: dry run by default; each deleted term is snapshotted and undo_change restores it with its meta, assigned objects and child terms.
+* update_terms: rename terms, change slugs, descriptions and parents (undoable); changed URLs are listed for 301 redirects.
+* update_product_prices: a product with a sale price is refused unless sale_price is sent (no sale price left in an old currency), the sale price must be lower than the regular price, a variable parent is refused (its variations hold the prices), the active price follows WooCommerce's scheduled-sale rule, simple-product transients are cleared.
+* update_elementor_data: the tree shape is validated (id, elType, widgetType, settings, elements), an empty tree needs allow_empty, the page is checked after the write and the old tree returns when it broke; undo also restores the edit mode.
+* install_language: also installs the WordPress.org translations of the installed plugins and themes (WooCommerce, Elementor…); the language switch is guarded by a site check; list_languages shows plugin / theme translation files.
+* trash_orders undo uses WooCommerce's own untrash when available.
+
+= 1.31.0 =
+* Full-access MCP tools for WooCommerce product/variation prices, including direct updates with undo and variable-product resynchronisation.
+* Complete Elementor data read/update tools with cache clearing and undo.
+* Private user and WooCommerce order listing; guarded bulk user deletion with content reassignment and guarded order trashing.
+* Taxonomy term listing and guarded permanent deletion, with default-category and in-use protections.
+* WordPress language-pack listing/installation and optional site-language switching.
+* Destructive MCP annotations now reflect permanent or bulk-delete operations.
 
 = 1.30.1 =
 * Ready Rank Math setup also marks the setup wizard as done: before that Rank Math printed no SEO title, description or schema.

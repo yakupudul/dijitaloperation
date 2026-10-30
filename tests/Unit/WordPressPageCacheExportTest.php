@@ -131,7 +131,10 @@ final class WordPressPageCacheExportTest extends TestCase
         $this->assertStringContainsString("!== 'downloads.wordpress.org'", $full, 'plugins only from WordPress.org');
         $this->assertStringContainsString("'siteurl', 'home', 'admin_email'", $full, 'options that could lock the site are refused');
         $this->assertStringContainsString('$undo();', $full, 'a change that broke the site is put back');
-        $this->assertStringNotContainsString('delete_plugins(', $full, 'plugins are never deleted');
+        $this->assertStringContainsString("'Etkin eklenti silinmez; önce set_plugin_state ile kapat.'", $full, 'only inactive plugins are deleted');
+        $this->assertStringContainsString("'DELETE_PLUGINS'", $full, 'deleting plugins needs a confirmation after a dry run');
+        $this->assertStringContainsString("'DELETE_USERS'", $full, 'deleting users needs a confirmation after a dry run');
+        $this->assertStringContainsString("min(500, (int) (\$args['limit'] ?? 200))", $full, 'users are deleted in batches that fit the PHP time limit');
         $this->assertStringNotContainsString('wp_delete_post(', $full, 'nothing is deleted for good');
         $this->assertStringContainsString("'permission_callback' => [\$auth, 'authorize']", $ai, 'MoxDOP\'s call is signed');
     }
@@ -145,9 +148,9 @@ final class WordPressPageCacheExportTest extends TestCase
             $this->assertSame(0, $code, $file.': '.implode("\n", $output));
         }
         $plugin = (string) file_get_contents($root.'/moxdop-connector.php');
-        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.30.1')", $plugin);
+        $this->assertStringContainsString("define('MOXDOP_CONNECTOR_VERSION', '1.32.0')", $plugin);
         $this->assertStringContainsString('class-moxdop-connector-page-cache.php', $plugin);
-        $this->assertStringContainsString('Stable tag: 1.30.1', (string) file_get_contents($root.'/readme.txt'));
+        $this->assertStringContainsString('Stable tag: 1.32.0', (string) file_get_contents($root.'/readme.txt'));
 
         $controller = (string) file_get_contents($root.'/includes/class-moxdop-connector-rest-controller.php');
         $this->assertStringContainsString("'/page-cache'", $controller);
