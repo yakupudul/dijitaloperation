@@ -10,6 +10,7 @@ use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\SubmitResults;
 use App\Models\AiTask;
 use App\Models\McpToken;
+use App\Services\Ai\AiCredits;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\AiTasks\ApiQueueWorker;
 use App\Services\AiTasks\McpCaller;
@@ -139,6 +140,17 @@ final class AiWorkersTest extends SiteTestCase
 
         Livewire::test(AiWorkersPage::class)->call('startRemove', $token->id)->call('confirmRemove')->set('removeName', $token->name)->call('confirmRemove');
         $this->assertNotNull($token->fresh()->revoked_at);
+    }
+
+    public function test_api_row_adds_the_provider_credit_to_the_same_counter_as_ai_operations(): void
+    {
+        app(AiCredits::class)->topUp('anthropic', 100);
+
+        Livewire::test(AiWorkersPage::class)->assertSee('Kalan kredi $100,00')->assertSee('Kredi girilmedi')
+            ->set('credit.'.AiWorkers::CLAUDE_API, '200')->call('addCredit', AiWorkers::CLAUDE_API)->assertHasNoErrors()->assertSee('Kalan kredi $300,00');
+        $this->assertSame(300.0, app(AiCredits::class)->status('anthropic')['loaded']);
+
+        Livewire::test(AiWorkersPage::class)->set('credit.'.AiWorkers::CLAUDE_API, '0')->call('addCredit', AiWorkers::CLAUDE_API)->assertHasErrors('credit.'.AiWorkers::CLAUDE_API);
     }
 
     private function as(string $worker): void

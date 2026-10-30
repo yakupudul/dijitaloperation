@@ -103,6 +103,18 @@
                             @error('api.'.$key.'.daily_try')<p class="w-full text-xs text-error-600">{{ $message }}</p>@enderror
                             @error('api.'.$key.'.monthly_try')<p class="w-full text-xs text-error-600">{{ $message }}</p>@enderror
                         </form>
+                        @php $credit = $credits[$key]; @endphp
+                        <form wire:submit="addCredit('{{ $key }}')" class="ml-0 flex flex-wrap items-center gap-2 text-[13px] text-gray-600 sm:ml-11" data-ai-worker-credit>
+                            @if ($credit['tracked'])
+                                Kalan kredi ${{ number_format((float) $credit['remaining'], 2, ',', '.') }} <span class="text-xs text-gray-500">(yüklenen ${{ number_format((float) $credit['loaded'], 2, ',', '.') }}, harcanan ${{ number_format((float) $credit['spent'], 2, ',', '.') }})</span>
+                            @else
+                                Kredi girilmedi
+                            @endif
+                            <input type="number" min="1" step="1" wire:model="credit.{{ $key }}" placeholder="Yeni kredi ($)" aria-label="Yeni kredi (USD)" class="{{ $field }} h-8! w-full sm:w-32">
+                            <button type="submit" class="btn h-8! px-2.5! text-xs!">Kredi ekle</button>
+                            @if ($saved === 'credit-'.$key)<span class="text-xs text-gray-500">Eklendi</span>@endif
+                            @error('credit.'.$key)<p class="w-full text-xs text-error-600">{{ $message }}</p>@enderror
+                        </form>
                     @endif
                 </li>
             @endforeach

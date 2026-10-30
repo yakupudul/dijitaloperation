@@ -4,6 +4,7 @@ namespace App\Livewire\Operator\Settings;
 
 use App\Models\AiTask;
 use App\Models\McpToken;
+use App\Services\Ai\AiCredits;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\Mcp\McpKeys;
 use App\Support\Roles;
@@ -27,6 +28,9 @@ final class AiWorkersPage extends Component
     public array $api = [];
 
     public string $usdTry = '';
+
+    /** @var array<string, string> USD credit to add per API worker (the credit the provider gave or that was bought) */
+    public array $credit = [];
 
     /** @var array<string, string> each MCP worker's routine times, "08:27, 12:27, …" */
     public array $rounds = [];
@@ -93,6 +97,23 @@ final class AiWorkersPage extends Component
         $row = $this->api[$worker];
         app(AiWorkers::class)->saveApi($worker, (bool) $row['enabled'], (string) $row['model'], (float) ($row['daily_try'] ?: 0), (float) ($row['monthly_try'] ?: 0));
         $this->saved = $worker;
+    }
+
+    /**
+     * "Kredi ekle" on the API row (yakup, 2026-10-30): the credit loaded at the provider (a plan's monthly API credit
+     * or a purchase) goes to the same counter as Ayarlar › AI işlemleri, so the remaining balance is right in one place.
+     */
+    public function addCredit(string $worker): void
+    {
+        $this->authorizeAdmin();
+        $provider = AiWorkers::API_PROVIDERS[$worker] ?? null;
+        if ($provider === null) {
+            return;
+        }
+        $this->validate(['credit.'.$worker => ['required', 'numeric', 'min:1', 'max:100000']], attributes: ['credit.'.$worker => 'kredi tutarı']);
+        app(AiCredits::class)->topUp($provider, (float) $this->credit[$worker], 'AI sağlayıcıları', auth()->user());
+        $this->credit[$worker] = '';
+        $this->saved = 'credit-'.$worker;
     }
 
     public function saveRounds(string $worker): void
@@ -169,6 +190,7 @@ final class AiWorkersPage extends Component
             'models' => [AiWorkers::CLAUDE_API => AiWorkers::models(AiWorkers::CLAUDE_API), AiWorkers::OPENAI_API => AiWorkers::models(AiWorkers::OPENAI_API)],
             'serverUrl' => url((string) config('moxdop-mcp.path', 'mcp/moxdop')),
             'routines' => self::routines($workers->settings()['rounds']),
+            'credits' => collect(AiWorkers::API_PROVIDERS)->map(fn (string $provider): array => app(AiCredits::class)->status($provider))->all(),
             'removing' => $this->removeId !== null ? McpToken::query()->find($this->removeId) : null,
         ]);
     }
