@@ -221,6 +221,8 @@ final class CacheFriendlyCrawlTest extends TestCase
     #[Test]
     public function html_from_the_connectors_page_cache_export_is_stored_like_a_crawled_page_and_skipped_by_the_crawl(): void
     {
+        // The fixture dates (WordPress modified 2026-11-01, cache files 2026-11-08) are read against a fixed day.
+        $this->travelTo('2026-10-30 12:00:00');
         config(['moxdop-website-intelligence.crawl.page_cache_min_queue' => 3, 'moxdop-wordpress.page_delay_seconds' => 1]);
         $connection = $this->pairConnector('1.6.0');
         foreach (['p1', 'p2', 'p3', 'p4'] as $index => $slug) {
