@@ -105,7 +105,7 @@
                     <span class="hero-label">Markaya bağlı</span>
                     <p class="hero-value">{{ $num($boundTotal) }}</p>
                 </div>
-                <a href="{{ route('operator.integrations.discovered', ['bound' => 'no']) }}" wire:navigate @class(['hero-tile transition hover:brightness-95', 'hero-tile-accent' => $availableTotal > 0])>
+                <a href="{{ route('operator.integrations.accounts', ['bound' => 'no']) }}" wire:navigate @class(['hero-tile transition hover:brightness-95', 'hero-tile-accent' => $availableTotal > 0])>
                     <span class="hero-label">Markasız hesap</span>
                     <p class="hero-value">{{ $num($availableTotal) }}</p>
                     <p @class(['mt-2 text-xs', 'text-white/60' => $availableTotal === 0])>{{ $availableTotal > 0 ? 'Markaya bağla' : 'Hepsi bir markada' }}</p>
@@ -148,7 +148,7 @@
                                 <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                                     <p><span class="text-[22px] font-semibold tracking-[-0.02em] text-gray-900 tabular-nums dark:text-white">{{ $provider['resources_discovered'] }}</span> <span class="text-[13px] text-gray-500">{{ mb_strtolower(__('operator.integrations_ui.discovered')) }}</span></p>
                                     <p class="text-[13px] text-gray-500 dark:text-gray-400"><span class="tabular-nums">{{ $provider['bound'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.bound')) }},
-                                        <a href="{{ route('operator.integrations.discovered', array_filter(['bound' => 'no', 'kind' => ($provider['id'] ?? '') === 'meta' ? 'meta_ads' : null])) }}" wire:navigate @class(['underline underline-offset-2 hover:text-gray-900 dark:hover:text-white', 'decoration-gray-300 text-gray-700 dark:text-gray-300' => (int) $provider['available'] === 0, 'font-medium text-gray-900 decoration-accent decoration-2 dark:text-white' => (int) $provider['available'] > 0]) title="Markasız hesapları gör"><span class="tabular-nums">{{ $provider['available'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.available')) }}</a></p>
+                                        <a href="{{ route('operator.integrations.accounts', array_filter(['bound' => 'no', 'kind' => ($provider['id'] ?? '') === 'meta' ? 'meta_ads' : null])) }}" wire:navigate @class(['underline underline-offset-2 hover:text-gray-900 dark:hover:text-white', 'decoration-gray-300 text-gray-700 dark:text-gray-300' => (int) $provider['available'] === 0, 'font-medium text-gray-900 decoration-accent decoration-2 dark:text-white' => (int) $provider['available'] > 0]) title="Markasız hesapları gör"><span class="tabular-nums">{{ $provider['available'] }}</span> {{ mb_strtolower(__('operator.integrations_ui.available')) }}</a></p>
                                 </div>
                             @endif
                             <p class="line-clamp-2 text-[13px] text-gray-500 dark:text-gray-400">

@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Integrations;
 
-use App\Http\Controllers\Operator\WordPressLoginController;
 use App\Enums\CustomerStatus;
-use App\Livewire\Operator\Integrations\WordPressSitesPage;
+use App\Http\Controllers\Operator\WordPressLoginController;
+use App\Livewire\Operator\Website\V2\ConnectionStepsCard;
+use App\Livewire\Operator\Website\V2\WordPressCard;
+use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Models\Brand;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
@@ -112,9 +114,11 @@ final class WordPressManagementTest extends TestCase
         $this->assertSame(1, DB::table('security_audit_events')->where('kind', 'WORDPRESS_ADMIN_LOGIN')->count());
 
         $this->loginEnabled = false;
-        $this->post(route('operator.integrations.wordpress-login', ['site' => $this->site->id]))->assertRedirect(route('operator.integrations.wordpress-sites'))
+        $this->post(route('operator.integrations.wordpress-login', ['site' => $this->site->id]))->assertRedirect(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'ayarlar']))
             ->assertSessionHas('wp_error');
-        Livewire::test(WordPressSitesPage::class)->assertSee('Atlas Site')->assertSee('WP paneline gir')->assertSee('2 bekleyen güncelleme');
+        // The old WordPress siteleri screen folded into the site's Ayarlar (2026-11-01).
+        $this->get('/integrations/wordpress-sites')->assertRedirect('/websites');
+        Livewire::test(WordPressCard::class, ['assetId' => $this->site->id])->assertSee('WP paneline gir')->assertSee('2 bekleyen güncelleme');
     }
 
     public function test_login_also_works_as_a_signed_get_when_a_phone_app_reopens_the_form_tab(): void
@@ -155,12 +159,12 @@ final class WordPressManagementTest extends TestCase
     {
         app(WordPressManagementService::class)->refreshHealth($this->site);
         $this->actingAs($this->member);
-        Livewire::test(WordPressSitesPage::class, ['open' => $this->site->id])->assertDontSee('>Güncelle<', false)
-            ->call('applyUpdate', $this->site->id, 'plugin', 'seo/seo.php', 'SEO Eklentisi')->assertForbidden();
+        Livewire::test(WordPressCard::class, ['assetId' => $this->site->id])->assertDontSee('>Güncelle<', false)
+            ->call('applyUpdate', 'plugin', 'seo/seo.php', 'SEO Eklentisi')->assertForbidden();
 
         $this->actingAs($this->admin);
-        Livewire::test(WordPressSitesPage::class, ['open' => $this->site->id])->assertSee('SEO Eklentisi')->assertSee('2.0 sürümünden 2.1 sürümüne')
-            ->call('applyUpdate', $this->site->id, 'plugin', 'seo/seo.php', 'SEO Eklentisi')->assertSee('kuyruğa alındı');
+        Livewire::test(WordPressCard::class, ['assetId' => $this->site->id])->assertSee('SEO Eklentisi')->assertSee('2.0 sürümünden 2.1 sürümüne')
+            ->call('applyUpdate', 'plugin', 'seo/seo.php', 'SEO Eklentisi')->assertSee('kuyruğa alındı');
         $action = ExternalWriteAction::query()->firstOrFail();
         $this->assertSame([ExternalWriteAction::ACTION_UPDATE_APPLY, 'succeeded', '2.1'], [$action->action, $action->status, $action->result['to_version']], (string) $action->error);
         $this->assertFalse($action->isUndoable());
@@ -169,7 +173,7 @@ final class WordPressManagementTest extends TestCase
         $this->assertSame(2, collect($this->sent)->filter(fn (array $s): bool => str_ends_with($s[1], '/health'))->count(), 'health re-read after the update');
 
         config(['moxdop-external-writes.wordpress.enabled' => false]);
-        Livewire::test(WordPressSitesPage::class)->call('applyUpdate', $this->site->id, 'core', '', 'WordPress')->assertSee('Harici yazma kapalı');
+        Livewire::test(WordPressCard::class, ['assetId' => $this->site->id])->call('applyUpdate', 'core', '', 'WordPress')->assertSee('Harici yazma kapalı');
     }
 
     public function test_connector_updates_itself_in_one_click_from_a_hash_checked_signed_link(): void
@@ -178,11 +182,11 @@ final class WordPressManagementTest extends TestCase
         $this->connection->forceFill(['config' => array_merge($this->connection->config, ['plugin_version' => '1.4.1'])])->save();
 
         $this->actingAs($this->member);
-        Livewire::test(WordPressSitesPage::class)->assertDontSee('Web sitesine gönder')->call('updateConnector', $this->site->id)->assertForbidden();
+        Livewire::test(WebsitesIndex::class)->assertDontSee('Tüm sitelere gönder')->call('updateConnector', $this->site->id)->assertForbidden();
 
         $this->actingAs($this->admin);
-        Livewire::test(WordPressSitesPage::class)->assertSee('yeni: 1.4.2')->assertSee('Tüm sitelere gönder')
-            ->call('updateConnector', $this->site->id)->assertSee('kuyruğa alındı');
+        Livewire::test(WebsitesIndex::class)->assertSee('Tüm sitelere gönder')->assertSeeHtml('data-connector-update="'.$this->site->id.'"');
+        Livewire::test(ConnectionStepsCard::class, ['assetId' => $this->site->id])->call('updateConnector')->assertSee('kuyruğa alındı');
         $action = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_CONNECTOR_UPDATE)->firstOrFail();
         $this->assertSame('succeeded', $action->status, (string) $action->error);
         $this->assertFalse($action->isUndoable());
@@ -202,15 +206,16 @@ final class WordPressManagementTest extends TestCase
         $this->get($path)->assertForbidden();
 
         // Up to date now: no button, a second request is refused.
-        Livewire::test(WordPressSitesPage::class)->assertDontSee('Web sitesine gönder')->call('updateConnector', $this->site->id)->assertSee('güncel');
+        Livewire::test(WebsitesIndex::class)->assertDontSee('Tüm sitelere gönder')->call('updateConnector', $this->site->id)->assertSee('güncel');
     }
 
     public function test_sites_below_1_4_1_are_told_to_update_by_hand_once(): void
     {
         config(['moxdop-wordpress.connector_version' => '1.4.1']);
         $this->actingAs($this->admin);
-        Livewire::test(WordPressSitesPage::class)->assertSee('bir kez elle yükle')->assertDontSee('Tüm sitelere gönder')
+        Livewire::test(WebsitesIndex::class)->assertDontSee('Tüm sitelere gönder')
             ->call('updateConnector', $this->site->id)->assertSee('bir kez elle yükle');
+        Livewire::test(WebsitesIndex::class)->call('updateAllConnectors')->assertSee('0 sitede eklenti güncellemesi kuyruğa alındı; 1 site atlandı');
         $this->assertSame(0, ExternalWriteAction::query()->count());
         $this->assertFalse(collect($this->sent)->contains(fn (array $s): bool => str_ends_with($s[1], '/self-update')));
 

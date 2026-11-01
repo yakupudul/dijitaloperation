@@ -17,7 +17,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             @if ($isAdmin)
-                <a href="{{ route('operator.integrations.discovered') }}" wire:navigate class="btn-quiet">Keşfedilen varlıklar</a>
+                <a href="{{ route('operator.integrations.accounts') }}" wire:navigate class="btn-quiet">Hesaplar</a>
             @endif
             <x-ta.button size="sm" :href="route('operator.customer.create')" wire:navigate>Müşteri ekle</x-ta.button>
         </div>

@@ -41,7 +41,7 @@ final class WordPressLoginController extends Controller
                 return redirect()->away($links->siteBase($site).'/wp-admin/'.$to);
             }
 
-            return redirect()->route('operator.integrations.wordpress-sites')->with('wp_error', (string) collect($exception->errors())->flatten()->first());
+            return redirect()->route('operator.website', ['assetId' => $site->id, 'tab' => 'ayarlar'])->with('wp_error', (string) collect($exception->errors())->flatten()->first());
         }
     }
 }

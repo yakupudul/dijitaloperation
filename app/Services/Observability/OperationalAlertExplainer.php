@@ -103,9 +103,9 @@ final class OperationalAlertExplainer
                 'title' => 'Bazı hesapların verisi güncel değil',
                 'what' => ($count > 0 ? $count.' hesap / veri kaynağında' : 'Bazı hesaplarda').' veriler zamanında yenilenmedi ya da çekilemiyor. Etkilenen hesaplar bir sonraki kontrolde (birkaç dakika içinde) burada adıyla listelenir.',
                 'why' => 'Raporlar, uyarılar ve öneriler bu hesaplarda eski veriye dayanıyor.',
-                'action' => 'Keşfedilen varlıklarda sorunlu kaynakları açın; bağlantı sorunu olanı yeniden bağlayın, diğerlerinde "Verileri yenile" ile çekimi başlatın.',
-                'link_url' => $this->route('operator.integrations.discovered'),
-                'link_label' => 'Keşfedilen varlıklarda aç',
+                'action' => 'Entegrasyonlar › Hesaplar ekranında sorunlu kaynakları açın; bağlantı sorunu olanı yeniden bağlayın, diğerlerinde "Verileri yenile" ile çekimi başlatın.',
+                'link_url' => $this->route('operator.integrations.accounts'),
+                'link_label' => 'Hesaplarda aç',
             ];
         }
 
@@ -418,7 +418,7 @@ final class OperationalAlertExplainer
         $brands = array_values(array_unique(array_filter(array_column($affected, 'brand_id'))));
         $place = count($assets) === 1
             ? ['link_url' => $this->route('operator.asset.sources', ['assetId' => $assets[0]]), 'link_label' => 'Varlığın veri kaynaklarını aç', 'asset_id' => (int) $assets[0]]
-            : ['link_url' => $this->route('operator.integrations.discovered'), 'link_label' => 'Keşfedilen varlıklarda aç'];
+            : ['link_url' => $this->route('operator.integrations.accounts'), 'link_label' => 'Hesaplarda aç'];
         if (count($brands) === 1) {
             $place['brand_id'] = (int) $brands[0];
         }

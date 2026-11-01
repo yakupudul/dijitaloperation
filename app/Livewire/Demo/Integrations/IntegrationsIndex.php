@@ -123,10 +123,10 @@ class IntegrationsIndex extends Component
         $silent = count(array_filter($health['plugins'], fn (array $p): bool => $p['silent']));
         $outdated = count(array_filter($health['plugins'], fn (array $p): bool => $p['outdated']));
         if ($silent > 0) {
-            $rows[] = ['tone' => 'warning', 'text' => $silent.' WordPress sitesinden 1 günden uzun süredir sinyal yok.', 'action' => 'WordPress siteleri', 'url' => route('operator.integrations.wordpress-sites')];
+            $rows[] = ['tone' => 'warning', 'text' => $silent.' WordPress sitesinden 1 günden uzun süredir sinyal yok.', 'action' => 'Web siteleri', 'url' => route('operator.websites')];
         }
         if ($outdated > 0) {
-            $rows[] = ['tone' => 'warning', 'text' => $outdated.' sitede WordPress eklentisi eski.', 'action' => 'WordPress siteleri', 'url' => route('operator.integrations.wordpress-sites')];
+            $rows[] = ['tone' => 'warning', 'text' => $outdated.' sitede WordPress eklentisi eski.', 'action' => 'Web siteleri', 'url' => route('operator.websites', ['durum' => 'eski'])];
         }
         if (($critical = count(array_filter($health['alerts'], fn (array $a): bool => $a['severity'] === 'critical'))) > 0) {
             $rows[] = ['tone' => 'error', 'text' => $critical.' kritik sistem uyarısı açık.', 'action' => 'Sistem Sağlığı', 'url' => $healthUrl];

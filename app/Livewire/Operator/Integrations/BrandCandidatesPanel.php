@@ -19,22 +19,19 @@ use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Throwable;
 
 /**
- * Entegrasyonlar › Keşfedilen varlıklar: every discovered account and website (bound or not), brand candidates
+ * Entegrasyonlar › Hesaplar, below the accounts table (the old Keşfedilen varlıklar screen, folded in after Aşama 6):
+ * every discovered account and website (bound or not), brand candidates
  * (BrandCandidateBuilder: deterministic grouping + one AI call per batch, sector proposal) with Onayla (customer →
  * brand with sector → assets) · Düzenle (name, sector, move a member) · Yoksay, and ownership problems with a safe
  * fix. A brandless row is bound to an existing brand from the table ("Markaya bağla"). Sector lives on the brand only.
  */
-#[Layout('operator.layouts.app')]
-#[Title('Keşfedilen varlıklar')]
-final class DiscoveredAssetsPage extends Component
+final class BrandCandidatesPanel extends Component
 {
     use WithPagination;
 
@@ -221,7 +218,7 @@ final class DiscoveredAssetsPage extends Component
             $this->sectorFor[$candidate->id] ??= $candidate->sector_id !== null ? (string) $candidate->sector_id : '';
         }
 
-        return view('livewire.operator.integrations.discovered-assets-page', [
+        return view('livewire.operator.integrations.brand-candidates-panel', [
             'rows' => $rows,
             'total' => $all->count(),
             'unbound' => $all->where('bound', false)->count(),

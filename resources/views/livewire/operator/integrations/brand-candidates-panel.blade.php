@@ -4,15 +4,8 @@
     $field = 'h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
     $small = 'h-8 rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
 @endphp
-<div class="space-y-10 dark:text-gray-200">
-    <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h1 class="page-title">Keşfedilen varlıklar</h1>
-            <p class="page-sub">{{ $total }} varlık, {{ $unbound }} markasız</p>
-        </div>
-        <a href="{{ route('operator.integrations') }}" wire:navigate class="btn-quiet">Entegrasyonlar</a>
-    </header>
-    @if($message !== '')<p role="status" class="card -mt-4 px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $message }}</p>@endif
+<div class="space-y-10 dark:text-gray-200" data-discovered-panel>
+    @if($message !== '')<p role="status" class="card px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $message }}</p>@endif
 
     <section data-brand-candidates>
         <div class="section-head items-center">
@@ -111,7 +104,7 @@
 
     <section>
         <div class="section-head items-center">
-            <h2 class="section-title">Tüm varlıklar <span class="section-count">{{ $rows->total() }}</span></h2>
+            <h2 class="section-title" title="Search Console, GA4, web siteleri ve hesaplar: {{ $total }} varlık, {{ $unbound }} markasız">Keşfedilen varlıklar <span class="section-count">{{ $rows->total() }}</span></h2>
             <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
                 <input type="search" wire:model.live.debounce.300ms="search" placeholder="Ara…" aria-label="Ara" class="{{ $field }} w-full min-w-0 basis-full sm:w-48 sm:basis-auto sm:flex-none">
                 <select wire:model.live="kind" aria-label="Tür" class="{{ $field }} min-w-0 flex-1 sm:flex-none"><option value="">Tüm türler</option>@foreach($kinds as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>

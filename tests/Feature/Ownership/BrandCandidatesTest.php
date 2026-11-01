@@ -4,7 +4,7 @@ namespace Tests\Feature\Ownership;
 
 use App\Ai\Agents\BrandCandidateAgent;
 use App\Jobs\RefreshBrandCandidatesJob;
-use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
+use App\Livewire\Operator\Integrations\BrandCandidatesPanel;
 use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandCandidate;
@@ -154,7 +154,7 @@ final class BrandCandidatesTest extends TestCase
         $candidate = $this->candidateOf($r['gsc']);
         app(BrandCandidateManager::class)->setSector($candidate, $this->dental->id);
 
-        Livewire::test(DiscoveredAssetsPage::class)
+        Livewire::test(BrandCandidatesPanel::class)
             ->assertSee('Panorama Ankara Diş Kliniği')
             ->set('customerName.'.$candidate->id, 'Panorama Sağlık A.Ş.')
             ->call('approve', $candidate->id)
@@ -211,7 +211,7 @@ final class BrandCandidatesTest extends TestCase
         $site = DigitalAsset::factory()->create(['brand_id' => null, 'type' => 'website', 'name' => 'panorama-blog.com', 'domain' => 'panorama-blog.com', 'primary_url' => 'https://panorama-blog.com/']);
         $ads = $this->make('google_ads', '5556667777', 'Panorama Ads', ['descriptive_name' => 'Panorama Ads']);
 
-        Livewire::test(DiscoveredAssetsPage::class)
+        Livewire::test(BrandCandidatesPanel::class)
             ->assertSee('Markaya bağla')
             ->call('bindToBrand', 'asset:'.$site->id)
             ->assertSee('Önce marka seçin.')
@@ -234,7 +234,7 @@ final class BrandCandidatesTest extends TestCase
         $metaMember = BrandCandidateResource::query()->where('external_resource_id', $r['metaAds']->id)->firstOrFail();
         $other = $this->candidateOf($r['other']);
 
-        Livewire::test(DiscoveredAssetsPage::class)
+        Livewire::test(BrandCandidatesPanel::class)
             ->call('edit', $panorama->id)
             ->set('moveTo.'.$metaMember->id, (string) $other->id)
             ->call('move', $metaMember->id)

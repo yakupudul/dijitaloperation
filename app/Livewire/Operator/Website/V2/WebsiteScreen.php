@@ -49,7 +49,7 @@ final class WebsiteScreen extends Component
         'sorgular' => [[AnalysisTab::class, ['fixed' => 'queries']]],
         'teknik' => [[TechnicalSeoTab::class, []], [HealthTab::class, []], [LlmsTxtCard::class, []]],
         'yapilacaklar' => [[SuggestionsTab::class, []]],
-        'ayarlar' => [[ConnectionStepsCard::class, []], [SettingsTab::class, []], [LinkedAssetsTab::class, []]],
+        'ayarlar' => [[ConnectionStepsCard::class, []], [WordPressCard::class, []], [SettingsTab::class, []], [LinkedAssetsTab::class, []]],
         'fikirler' => [[ContentIdeasTab::class, []]],
         'icerik' => [[ContentTab::class, []]],
         'hedef' => [[AnalysisTab::class, ['fixed' => 'targets']]],

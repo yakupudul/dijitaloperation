@@ -51,10 +51,8 @@ use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\AccountsPage;
 use App\Livewire\Operator\Integrations\BingIntegrationPage;
 use App\Livewire\Operator\Integrations\ConnectionHealthPage;
-use App\Livewire\Operator\Integrations\DiscoveredAssetsPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\WebsiteDuplicatesPage;
-use App\Livewire\Operator\Integrations\WordPressSitesPage;
 use App\Livewire\Operator\Komuta\KomutaPage;
 use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Library\QueryPlanWizard;
@@ -132,7 +130,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('operator.integrations.meta');
         Route::livewire('/integrations/accounts', AccountsPage::class)->name('operator.integrations.accounts');
-        Route::livewire('/integrations/discovered', DiscoveredAssetsPage::class)->name('operator.integrations.discovered');
+        Route::redirect('/integrations/discovered', '/integrations/accounts');
         Route::livewire('/integrations/connection-health', ConnectionHealthPage::class)->name('operator.integrations.connection-health');
         Route::livewire('/onarim', RepairDeskPage::class)->name('operator.repair');
         // Aşama 4 (2026-10-22): every piece of work of today, live.
@@ -220,7 +218,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::get('/gbp/yorum-karti/{assetId}', GbpReviewCardController::class)->where('assetId', '[0-9]{1,18}')->name('operator.gbp-review-card');
         Route::livewire('/settings/sector-packs', SectorPacksPage::class)->name('operator.settings.sector-packs');
         Route::redirect('/data-center', '/integrations'); // Veri merkezi removed 2026-10-29 (Aşama 11)
-        Route::livewire('/integrations/wordpress-sites', WordPressSitesPage::class)->name('operator.integrations.wordpress-sites');
+        Route::redirect('/integrations/wordpress-sites', '/websites');
         Route::livewire('/integrations/website-duplicates', WebsiteDuplicatesPage::class)->name('operator.integrations.website-duplicates');
         Route::match(['GET', 'POST'], '/integrations/wordpress-sites/{site}/login', WordPressLoginController::class)->where('site', '[0-9]{1,18}')->middleware('throttle:10,1')->name('operator.integrations.wordpress-login');
     });

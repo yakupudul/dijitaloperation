@@ -192,7 +192,7 @@ final class AiJobCatalog
                 $job instanceof AssignQueryServicesJob => route('operator.library.queries', ['service' => '__none'], false),
                 $job instanceof ClusterQueriesJob, $job instanceof ProposeQueryRulesJob => route('operator.library.queries', [], false),
                 $job instanceof RunPromptTrialJob => route('operator.settings.ai-operations', ['islem' => $job->operation], false),
-                $job instanceof RefreshBrandCandidatesJob => route('operator.integrations.discovered', [], false),
+                $job instanceof RefreshBrandCandidatesJob => route('operator.integrations.accounts', [], false),
                 $job instanceof RunSiteOperationJob, $job instanceof RefreshCompetitorsJob => route('operator.website', ['assetId' => $job->siteId], false),
                 $job instanceof RunGbpAssistantJob => route('operator.gbp', ['assetId' => $job->assetId], false),
                 $job instanceof RunGoogleAdsAssistantJob => route('operator.google-ads.overview', ['assetId' => $job->assetId], false),

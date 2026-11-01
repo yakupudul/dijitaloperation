@@ -128,7 +128,7 @@ final class OperatorAlertClarityTest extends TestCase
         $this->assertStringNotContainsString('Marka 6 ·', $message->what);
         $this->assertStringContainsString(' +2.', $message->what);
         $this->assertNotSame('', $message->why);
-        $this->assertSame(route('operator.integrations.discovered'), $message->linkUrl);
+        $this->assertSame(route('operator.integrations.accounts'), $message->linkUrl);
         $this->assertNoJargon($message->plainText().' '.$message->title);
     }
 

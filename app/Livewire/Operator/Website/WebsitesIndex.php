@@ -2,11 +2,13 @@
 
 namespace App\Livewire\Operator\Website;
 
+use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Brand\BrandScope;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Site\WebsiteConnections;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -54,6 +56,29 @@ final class WebsitesIndex extends Component
         }
     }
 
+    /** "Tüm sitelere gönder": queues the connector update on every site that can take it; the rest are counted, not failed. */
+    public function updateAllConnectors(ExternalWriteService $writes, WordPressManagementService $management): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $queued = 0;
+        $skipped = 0;
+        $siteIds = CoreConnection::query()->where('type', 'wordpress_connector')->where('enabled', true)->whereNotNull('digital_asset_id')->pluck('digital_asset_id');
+        foreach (DigitalAsset::query()->whereIn('id', $siteIds)->get() as $site) {
+            if (! $management->connectorUpdateState((int) $site->id)['available']) {
+                $skipped++;
+
+                continue;
+            }
+            try {
+                $writes->requestConnectorUpdate(auth()->user(), $site);
+                $queued++;
+            } catch (ValidationException) {
+                $skipped++;
+            }
+        }
+        $this->message = $queued.' sitede eklenti güncellemesi kuyruğa alındı'.($skipped > 0 ? '; '.$skipped.' site atlandı (güncel, eski sürüm ya da bağlı değil).' : '.');
+    }
+
     public function render(): View
     {
         $actor = auth()->user();
@@ -88,6 +113,7 @@ final class WebsitesIndex extends Component
             'open' => $this->openSuggestions($ids),
             'unassigned' => DigitalAsset::query()->where('type', 'website')->whereNull('brand_id')->count(),
             'latestConnector' => (string) config('moxdop-wordpress.connector_version'),
+            'updatable' => $all->filter(fn (DigitalAsset $s): bool => (bool) $status[$s->id]['updatable'])->count(),
             'isAdmin' => (bool) $actor->hasRole(Roles::ADMIN),
         ]);
     }

@@ -22,6 +22,19 @@
         <input type="search" wire:model.live.debounce.300ms="search" placeholder="Site, alan adı veya marka ara" aria-label="Ara" class="h-9 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 shadow-card focus:border-gray-300 focus:ring-2 focus:ring-gray-200 sm:w-64 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
     </header>
 
+    @if ($isAdmin && $updatable > 0)
+        {{-- The connector update that waits on the operator (moved here from the old WordPress siteleri screen). --}}
+        <div class="soft-card soft-accent sm:flex-row sm:items-center sm:gap-4" data-connector-update-all>
+            <span class="soft-icon" aria-hidden="true"><svg class="h-[17px] w-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
+            <p class="soft-number shrink-0">{{ $updatable }} site</p>
+            <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">MoxDOP Connector {{ $latestConnector }} hazır: {{ $updatable }} siteye gönderilebilir.</p>
+                <p class="mt-0.5 text-[13px] text-gray-600 dark:text-gray-300">Otomatik dağıtılmaz; siz onaylayıp gönderirsiniz.</p>
+            </div>
+            <button type="button" wire:click="updateAllConnectors" wire:confirm="MoxDOP Connector {{ $latestConnector }} {{ $updatable }} web sitesine gönderilsin mi?" class="btn-primary h-10! w-full px-4! text-sm! sm:w-auto">Tüm sitelere gönder</button>
+        </div>
+    @endif
+
     <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Durum" data-website-filters>
         @foreach (\App\Livewire\Operator\Website\WebsitesIndex::FILTERS as $key => $label)
             <button type="button" wire:click="setFilter('{{ $key }}')" aria-pressed="{{ $filter === $key ? 'true' : 'false' }}" class="{{ $filter === $key ? 'seg seg-active' : 'seg' }} h-8! px-3!" data-website-filter="{{ $key }}">{{ $label }} <span class="tabular-nums text-gray-500">{{ $num($counts[$key] ?? 0) }}</span></button>

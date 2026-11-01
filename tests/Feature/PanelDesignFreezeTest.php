@@ -87,13 +87,13 @@ class PanelDesignFreezeTest extends TestCase
 
     public function test_hidden_screens_are_tabs_of_their_sidebar_entry(): void
     {
-        $tabs = OperatorMenu::sectionTabs('operator.integrations.discovered');
-        $this->assertSame(['/integrations', '/integrations/accounts', '/integrations/connection-health', '/integrations/discovered', '/integrations/wordpress-sites', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20; Veri merkezi left 2026-10-22 (Aşama 11); Hesaplar added 2026-10-22 (Aşama 6)');
-        $this->assertSame([false, false, false, true, false, false], array_column($tabs, 'active'));
+        $tabs = OperatorMenu::sectionTabs('operator.integrations.accounts');
+        $this->assertSame(['/integrations', '/integrations/accounts', '/integrations/connection-health', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20; Veri merkezi left 2026-10-22 (Aşama 11); Hesaplar added 2026-10-22 (Aşama 6); Keşfedilen varlıklar and WordPress siteleri folded into Hesaplar and Web siteleri 2026-11-01');
+        $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
         $this->assertSame(['/settings', '/settings/ai', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/mcp', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI sağlayıcıları, AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, MCP anahtarları, Sistem, Geliştirme havuzu, Sürümler');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
 
-        $this->get(route('operator.integrations.discovered'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('/data-center"', false);
+        $this->get(route('operator.integrations.accounts'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('/data-center"', false);
         $this->get(route('operator.settings.users'))->assertOk();
         $this->get(route('operator.settings.ai-operations'))->assertOk();
         $this->get(route('operator.library.queries'))->assertOk();

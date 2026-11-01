@@ -4,4 +4,5 @@
         <p class="page-sub">Google Ads, Meta ve İşletme Profili hesaplarının hepsi: hangi markaya bağlı, çalışıyor mu, en son ne zaman veri geldi.</p>
     </header>
     <livewire:operator.integrations.accounts-table />
+    <livewire:operator.integrations.brand-candidates-panel />
 </div>
