@@ -4,27 +4,73 @@ defined('ABSPATH') || exit;
 /**
  * JSON-LD from the page's own sections: BreadcrumbList from "Yol", FAQPage from "Sık sorulan sorular", Service from
  * the page's "Hizmet bilgisi"; Organization on the home page. Editing a section updates the schema with it.
+ *
+ * With SEOPress: its Knowledge Graph (SEO › Social) is the Organization on the home page, under the same @id, and
+ * when its single @graph is on (SEO › Advanced) these nodes join that graph instead of a second script.
  */
+function mx_schema_org_id(): string
+{
+    return (string) apply_filters('seopress_schema_entity_id', home_url('/#organization'), 'organization');
+}
+
+/** True when SEOPress prints the Organization itself (Knowledge Graph type set, social toggle on). */
+function mx_schema_seopress_org(): bool
+{
+    if (! defined('SEOPRESS_VERSION')) {
+        return false;
+    }
+    $toggle = (array) get_option('seopress_toggle', []);
+    $type = (string) (((array) get_option('seopress_social_option_name', []))['seopress_social_knowledge_type'] ?? '');
+
+    return ($toggle['toggle-social'] ?? '') === '1' && $type !== '' && $type !== 'none';
+}
+
+function mx_schema_seopress_graph(): bool
+{
+    return defined('SEOPRESS_VERSION') && (string) (((array) get_option('seopress_advanced_option_name', []))['seopress_advanced_advanced_schema_graph'] ?? '') === '1';
+}
+
+add_filter('seopress_schemas_graph', static function ($nodes) {
+    return is_array($nodes) ? array_merge($nodes, mx_schema_nodes()) : $nodes;
+});
+
 add_action('wp_head', static function (): void {
+    if (mx_schema_seopress_graph()) {
+        return; // the nodes go out in SEOPress's single @graph (filter above)
+    }
+    $graph = mx_schema_nodes();
+    if ($graph) {
+        echo '<script type="application/ld+json">'.wp_json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES).'</script>'."\n";
+    }
+}, 20);
+
+function mx_schema_nodes(): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
     if (! function_exists('get_field') || ! is_singular()) {
-        return;
+        return $cache = [];
     }
     $id = get_queried_object_id();
     $rows = (array) (get_field('bolumler', $id) ?: []);
     $graph = [];
     $home = home_url('/');
-    $org = ['@type' => 'Organization', '@id' => $home.'#org', 'name' => 'Moximu', 'url' => $home];
+    $org = ['@type' => 'Organization', '@id' => mx_schema_org_id(), 'name' => 'Moximu', 'url' => $home, 'email' => 'info@moximu.com'];
     $phone = trim((string) get_field('telefon', 'option'));
     if ($phone !== '') {
         $org['telephone'] = $phone;
     }
-    $org['logo'] = MX_URI.'/assets/i/og.png';
+    $org['logo'] = MX_URI.'/assets/i/logo-512.png';
+    $org['image'] = MX_URI.'/assets/i/og.png';
     $org['sameAs'] = ['https://www.instagram.com/moximucom/', 'https://www.facebook.com/moximucom', 'https://www.linkedin.com/company/moximu/', 'https://www.youtube.com/@yakup-udul'];
     $address = trim((string) get_field('adres', 'option'));
     if ($address !== '') {
-        $org['address'] = ['@type' => 'PostalAddress', 'streetAddress' => $address, 'addressLocality' => 'Manisa', 'addressCountry' => 'TR'];
+        $org['address'] = ['@type' => 'PostalAddress', 'streetAddress' => $address, 'addressLocality' => 'Şehzadeler', 'addressRegion' => 'Manisa', 'postalCode' => '45010', 'addressCountry' => 'TR'];
     }
-    if (is_front_page()) {
+    $own_org = ! (is_front_page() && mx_schema_seopress_org());
+    if (is_front_page() && $own_org) {
         $graph[] = $org;
     }
     foreach ($rows as $row) {
@@ -51,7 +97,14 @@ add_action('wp_head', static function (): void {
                     continue;
                 }
                 foreach ($value as $r) {
-                    $q = wp_strip_all_tags((string) ($r['buton_yazisi'] ?? $r['baslik'] ?? ''));
+                    // v1 keeps the question in "baslik" ("buton_yazisi" is the + sign), v2 in "buton_yazisi".
+                    $q = trim(wp_strip_all_tags((string) ($r['baslik'] ?? '')));
+                    if ($q === '') {
+                        $q = trim(wp_strip_all_tags((string) ($r['buton_yazisi'] ?? '')));
+                    }
+                    if (mb_strlen($q) < 4) {
+                        continue;
+                    }
                     $a = wp_strip_all_tags((string) ($r['metin'] ?? ''));
                     if ($q !== '' && $a !== '') {
                         $qa[] = ['@type' => 'Question', 'name' => $q, 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $a]];
@@ -65,7 +118,7 @@ add_action('wp_head', static function (): void {
     }
     $service = (array) (get_field('hizmet', $id) ?: []);
     if (! empty($service['ad'])) {
-        $node = ['@type' => 'Service', 'name' => $service['ad'], 'provider' => ['@id' => $home.'#org'], 'areaServed' => 'TR',
+        $node = ['@type' => 'Service', 'name' => $service['ad'], 'provider' => ['@id' => mx_schema_org_id()], 'areaServed' => 'TR',
             'audience' => ['@type' => 'Audience', 'audienceType' => 'Klinikler ve muayenehaneler'], 'url' => get_permalink($id)];
         if (! empty($service['tur'])) {
             $node['serviceType'] = $service['tur'];
@@ -80,7 +133,7 @@ add_action('wp_head', static function (): void {
     }
     if (is_singular('post')) {
         $graph[] = ['@type' => 'BlogPosting', 'headline' => get_the_title($id), 'datePublished' => get_the_date('c', $id), 'dateModified' => get_the_modified_date('c', $id),
-            'mainEntityOfPage' => get_permalink($id), 'author' => ['@id' => $home.'#org'], 'publisher' => ['@id' => $home.'#org']];
+            'mainEntityOfPage' => get_permalink($id), 'author' => ['@id' => mx_schema_org_id()], 'publisher' => ['@id' => mx_schema_org_id()]];
         $graph[] = $org;
         $blog = (int) get_option('page_for_posts');
         $graph[] = ['@type' => 'BreadcrumbList', 'itemListElement' => [
@@ -88,7 +141,5 @@ add_action('wp_head', static function (): void {
             ['@type' => 'ListItem', 'position' => 2, 'name' => 'Rehber', 'item' => $blog ? get_permalink($blog) : home_url('/rehber/')],
             ['@type' => 'ListItem', 'position' => 3, 'name' => get_the_title($id)]]];
     }
-    if ($graph) {
-        echo '<script type="application/ld+json">'.wp_json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES).'</script>'."\n";
-    }
-}, 20);
+    return $cache = $graph;
+}
