@@ -224,6 +224,33 @@ class OverviewPage extends Component
         }
     }
 
+    /**
+     * "Hepsini ekledim": the operator pasted the account's negative list into Google Ads by hand. Every row rests for a
+     * week as done by hand; the nightly check closes it when the account shows it, or it comes back.
+     *
+     * @param  list<int|string>  $ids
+     */
+    public function markNegativesAdded(array $ids, GoogleAdsSuggestions $suggestions): void
+    {
+        $asset = $this->asset();
+        $count = 0;
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            $suggestion = $suggestions->find($asset, $id);
+            if ($suggestion->action_type === 'ads_negative' && in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK], true)) {
+                GoogleAdsSuggestions::doneByHand($suggestion, auth()->user());
+                $count++;
+            }
+        }
+        DemoState::flash($count > 0 ? $count.' negatif eklendi olarak işaretlendi; gece kontrolü Google Ads\'te sonucu görecek.' : 'İşaretlenecek negatif yok.', $count > 0 ? 'success' : 'info');
+    }
+
+    /** @param  list<int|string>  $ids  one shared list, sent in one Admin-approved write (writes on only) */
+    public function sendNegativeIds(array $ids, ExternalWriteService $writes, GoogleAdsSuggestions $suggestions): void
+    {
+        $this->selectedNegatives = array_values(array_unique(array_map('intval', $ids)));
+        $this->sendNegatives($writes, $suggestions);
+    }
+
     public function undoWrite(int $actionId, ExternalWriteService $writes): void
     {
         $action = ExternalWriteAction::query()->whereKey($actionId)->where('channel', ExternalWriteAction::CHANNEL_GOOGLE_ADS)
@@ -412,7 +439,9 @@ class OverviewPage extends Component
             'numbers' => $this->tab === 'overview' && $bound ? $screen->overview($asset, $range) : null,
             'checks' => in_array($this->tab, ['overview', 'measurement'], true) ? $suggestions->checkStates($asset) : null,
             'openCount' => $open->count(),
-            'suggestions' => $this->tab === 'todo' ? $open->reject(fn (Suggestion $s): bool => in_array($s->action_type, ['ads_campaign', 'ads_budget_split', 'ads_experiments', 'ads_rsa'], true))->values() : collect(),
+            'suggestions' => $this->tab === 'todo' ? $open->reject(fn (Suggestion $s): bool => in_array($s->action_type, ['ads_campaign', 'ads_budget_split', 'ads_experiments', 'ads_rsa', 'ads_negative'], true))->values() : collect(),
+            // Negatives as one paste-ready list per account, not one row each (yakup 2026-11-02).
+            'negatives' => GoogleAdsSuggestions::negativeLists($this->tab === 'todo' ? $open->where('action_type', 'ads_negative') : []),
             'strategy' => $this->tab === 'strategy' ? $open->filter(fn (Suggestion $s): bool => in_array($s->action_type, ['ads_campaign', 'ads_budget_split', 'ads_experiments', 'ads_rsa'], true))->values() : collect(),
             'approved' => in_array($this->tab, ['todo', 'strategy'], true) && $asset->brand_id !== null ? $suggestions->approved($asset) : collect(),
             'writes' => $this->tab === 'todo' ? $suggestions->negativeWrites($asset) : collect(),

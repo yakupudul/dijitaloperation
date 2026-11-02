@@ -31,7 +31,7 @@ final class TermsPage extends Component
 
         return view('livewire.operator.google-ads.desk.suggestions', [
             'active' => 'operator.google-ads-terms',
-            'intro' => 'Tüm hesaplarda hizmetle ilgisiz aramalara giden para. Paylaşılan listeye eklenecek negatifler onaylanınca Google Ads’e yazılır (kayıtlı, geri alınabilir); kampanya / reklam grubu negatifleri hesabın Editor dosyasına girer. Arama terimleri her pazartesi AI ile yeniden incelenir.',
+            'intro' => 'Tüm hesaplarda hizmetle ilgisiz aramalara giden para. Her hesabın negatifleri eşleme türüyle tek liste: kopyalayıp Google Ads’te gösterilen yere yapıştırın, sonra “Hepsini ekledim”. Arama terimleri her pazartesi AI ile yeniden incelenir.',
             'empty' => 'Bekleyen negatif kelime önerisi yok.',
             'items' => $desk->open($accounts, GoogleAdsDesk::TERM_TYPES),
             'accounts' => $accounts->keyBy('id'),

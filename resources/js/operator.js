@@ -349,6 +349,14 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('livewire:init', () => {
     if (window.Livewire?.hook) {
+        // A <details> the operator opened ("Kanıt", "Ayrıntı" …) has no `open` attribute in the server HTML, so every
+        // re-render (wire:poll, a click elsewhere on the page) used to morph it shut. Keep the browser's open state.
+        window.Livewire.hook('morph.updating', ({ el, toEl }) => {
+            if (el instanceof HTMLDetailsElement && toEl instanceof HTMLDetailsElement && el.open && !toEl.open) {
+                toEl.open = true;
+            }
+        });
+
         window.Livewire.hook('morph.updated', () => {
             // Only schedule here. Rendering during the morph can race with
             // Livewire deleting Apex-generated children from another node.

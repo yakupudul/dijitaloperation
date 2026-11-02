@@ -179,6 +179,28 @@ final class GoogleAdsDeskTest extends TestCase
         Livewire::actingAs($operator)->test(ChangesPage::class)->call('approve', $change->id)->assertForbidden();
     }
 
+    public function test_negatives_come_as_one_paste_ready_list_per_account_with_match_types(): void
+    {
+        [$asset] = $this->account('Bornova Hurda', '1112223333');
+        $phrase = $this->suggestion($asset, 'ads_negative', 'Negatif: «bedava»', ['text' => 'bedava', 'match_type' => 'PHRASE', 'scope' => 'shared', 'campaign' => '', 'ad_group' => '', 'blocks' => [], 'cost' => 240]);
+        $exact = $this->suggestion($asset, 'ads_negative', 'Negatif: «hurda fiyatları»', ['text' => 'hurda fiyatları', 'match_type' => 'EXACT', 'scope' => 'shared', 'campaign' => '', 'ad_group' => '', 'blocks' => [], 'cost' => 60]);
+        $campaign = $this->suggestion($asset, 'ads_negative', 'Negatif: «iş ilanı»', ['text' => 'iş ilanı', 'match_type' => 'BROAD', 'scope' => 'campaign', 'campaign' => 'Hurda', 'ad_group' => '', 'blocks' => [], 'cost' => 80]);
+
+        $lists = GoogleAdsSuggestions::negativeLists(Suggestion::query()->whereKey([$phrase->id, $exact->id, $campaign->id])->get());
+        $this->assertSame(['"bedava"', '[hurda fiyatları]'], $lists['lists'][0]['lines'], 'shared list first, Google Ads notation, costliest first');
+        $this->assertSame(['iş ilanı'], $lists['lists'][1]['lines']);
+        $this->assertSame("Campaign\tAd Group\tKeyword\tCriterion Type\nHurda\t\tiş ilanı\tCampaign Negative Broad", $lists['editor']);
+        $this->assertSame(3, $lists['count']);
+
+        Livewire::actingAs($this->admin)->test(TermsPage::class)->assertOk()->assertSee('Negatif anahtar kelime listesi')
+            ->assertSee('"bedava"')->assertSee('[hurda fiyatları]')->assertSee('Kampanya: Hurda')->assertDontSee('Seçilenleri onayla')
+            ->call('markNegativesAdded', $lists['ids'])->assertSee('3 negatif eklendi');
+        foreach ([$phrase, $exact, $campaign] as $row) {
+            $this->assertSame(Suggestion::SNOOZED, $row->fresh()->status);
+            $this->assertSame(GoogleAdsSuggestions::DONE_BY_HAND_NOTE, $row->fresh()->operator_note);
+        }
+    }
+
     public function test_measurement_and_service_tabs_render(): void
     {
         [$asset, $resource] = $this->account('Bornova Hurda', '1112223333');

@@ -268,6 +268,89 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         }
     }
 
+    /** Google Ads paste notation, as the "hariç tutulan anahtar kelime" box reads it: [x] exact, "x" phrase, x broad. */
+    public static function pasteLine(string $text, string $matchType): string
+    {
+        $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+
+        return match (strtoupper($matchType)) {
+            'EXACT' => '['.$text.']',
+            'BROAD' => $text,
+            default => '"'.$text.'"',
+        };
+    }
+
+    /**
+     * The open negative proposals of ONE account as paste-ready lists (yakup 2026-11-02: not one by one, a list per
+     * account with the match type): one list per place they go in Google Ads (the account's shared list, a campaign,
+     * an ad group), the costliest place first after the shared list. `editor` is a Google Ads Editor paste (tab
+     * separated, "Birden çok değişiklik yap") of the campaign / ad group negatives. Nothing is written to Google.
+     *
+     * @param  iterable<Suggestion>  $negatives
+     * @return array{lists: list<array{key: string, label: string, where: string, lines: list<string>, ids: list<int>, cost: float, rows: list<array{id: int, line: string, text: string, match: string, cost: float, covers: list<string>, blocks: list<string>}>}>, editor: ?string, ids: list<int>, count: int, cost: float}
+     */
+    public static function negativeLists(iterable $negatives): array
+    {
+        $lists = [];
+        $editor = [];
+        foreach ($negatives as $s) {
+            if ($s->action_type !== 'ads_negative') {
+                continue;
+            }
+            $a = (array) $s->action;
+            $text = trim((string) ($a['text'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+            $match = strtoupper((string) ($a['match_type'] ?? 'PHRASE'));
+            $scope = (string) ($a['scope'] ?? 'shared');
+            $campaign = trim((string) ($a['campaign'] ?? ''));
+            $adGroup = trim((string) ($a['ad_group'] ?? ''));
+            if ($scope === 'campaign' && $campaign !== '') {
+                [$key, $label, $where] = ['campaign:'.$campaign, 'Kampanya: '.$campaign, 'Kampanyayı açın › Anahtar kelimeler › Hariç tutulan anahtar kelimeler › + › “Kampanyaya ekle”, listeyi yapıştırın.'];
+            } elseif ($scope === 'ad_group' && $campaign !== '' && $adGroup !== '') {
+                [$key, $label, $where] = ['ad_group:'.$campaign.'|'.$adGroup, 'Reklam grubu: '.$campaign.' › '.$adGroup, 'Reklam grubunu açın › Anahtar kelimeler › Hariç tutulan anahtar kelimeler › + › “Reklam grubuna ekle”, listeyi yapıştırın.'];
+            } else {
+                [$key, $label, $where] = ['shared', 'Paylaşılan liste (hesap geneli)', 'Araçlar › Paylaşılan kitaplık › Hariç tutulan anahtar kelime listeleri › hesabın listesi › + , listeyi yapıştırın (liste kampanyalara uygulanmış olmalı).'];
+            }
+            $line = self::pasteLine($text, $match);
+            $lists[$key] ??= ['key' => $key, 'label' => $label, 'where' => $where, 'lines' => [], 'ids' => [], 'cost' => 0.0, 'rows' => []];
+            $covers = [];
+            foreach ((array) ($s->evidence ?? []) as $row) {
+                if (is_array($row) && filled($row['terim'] ?? null)) {
+                    $covers[] = (string) $row['terim'];
+                }
+            }
+            $cost = (float) ($a['cost'] ?? 0);
+            $lists[$key]['ids'][] = (int) $s->id;
+            $lists[$key]['cost'] += $cost;
+            $lists[$key]['rows'][] = ['id' => (int) $s->id, 'line' => $line, 'text' => $text, 'match' => $match, 'cost' => $cost,
+                'covers' => $covers, 'blocks' => array_values(array_map('strval', (array) ($a['blocks'] ?? [])))];
+            if (! in_array($line, $lists[$key]['lines'], true)) {
+                $lists[$key]['lines'][] = $line;
+                if ($key !== 'shared') {
+                    $type = ['EXACT' => 'Exact', 'BROAD' => 'Broad'][$match] ?? 'Phrase';
+                    $editor[] = implode("\t", [$campaign, $scope === 'ad_group' ? $adGroup : '', str_replace("\t", ' ', $text),
+                        ($scope === 'campaign' ? 'Campaign Negative ' : 'Negative ').$type]);
+                }
+            }
+        }
+        foreach ($lists as &$list) {
+            usort($list['rows'], fn (array $x, array $y): int => $y['cost'] <=> $x['cost']);
+        }
+        unset($list);
+        uasort($lists, fn (array $x, array $y): int => [$x['key'] !== 'shared', -$x['cost']] <=> [$y['key'] !== 'shared', -$y['cost']]);
+        $lists = array_values($lists);
+
+        return [
+            'lists' => $lists,
+            'editor' => $editor === [] ? null : implode("\n", ["Campaign\tAd Group\tKeyword\tCriterion Type", ...$editor]),
+            'ids' => array_merge(...array_map(fn (array $l): array => $l['ids'], $lists ?: [['ids' => []]])),
+            'count' => array_sum(array_map(fn (array $l): int => count($l['lines']), $lists)),
+            'cost' => array_sum(array_map(fn (array $l): float => $l['cost'], $lists)),
+        ];
+    }
+
     /** Paste line of the shared-list writer: [x] exact, "x" phrase (a single-word broad negative is sent as phrase). */
     public static function line(string $text, string $matchType): string
     {

@@ -70,6 +70,27 @@ trait DeskScope
         $this->say('7 gün ertelendi.');
     }
 
+    /**
+     * "Hepsini ekledim" on an account's negative list: pasted into Google Ads by hand, every row rests a week as done
+     * by hand and the nightly check closes it when the account shows it.
+     *
+     * @param  list<int|string>  $ids
+     */
+    public function markNegativesAdded(array $ids): void
+    {
+        $this->authorizeAdmin();
+        $count = 0;
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            $suggestion = $this->suggestion($id);
+            if ($suggestion->action_type === 'ads_negative' && in_array($suggestion->status, [Suggestion::OPEN, Suggestion::RECHECK], true)) {
+                GoogleAdsSuggestions::doneByHand($suggestion, auth()->user());
+                $count++;
+            }
+        }
+        $this->selected = array_values(array_diff($this->selected, array_map('intval', $ids)));
+        $this->say($count > 0 ? $count.' negatif eklendi olarak işaretlendi; gece kontrolü Google Ads’te sonucu görecek.' : 'İşaretlenecek negatif yok.', $count > 0 ? 'success' : 'info');
+    }
+
     /** @param  list<int>  $ids */
     private function decide(array $ids): void
     {

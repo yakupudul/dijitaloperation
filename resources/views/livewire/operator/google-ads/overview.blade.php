@@ -149,22 +149,23 @@
                         <button type="button" wire:click="reviewTerms" wire:loading.attr="disabled" @disabled(! $operational || ! $bound || ($termsState['status'] ?? null) === 'running') class="{{ $btn }}">Arama terimlerini incele</button>
                         <x-operator.ai-prompt-info operation="google_ads.search_terms" />
                     </span>
-                    @if ($canWrite && $selectedNegatives !== [])
-                        <button type="button" x-on:click="if (confirm('Seçilen negatifler Google Ads paylaşılan listesine eklensin mi? Sonradan geri alınabilir.')) $wire.sendNegatives()" class="{{ $primary }}">Seçilenleri gönder ({{ count($selectedNegatives) }})</button>
-                    @endif
                 </div>
             </div>
             @unless ($operational)<p class="mb-2 text-xs text-gray-500">Marka operasyonel değil; AI kapalı.</p>@endunless
             @if ($line = $stateLine($termsState))
                 <p class="mb-2 text-xs {{ $line[0] }}" @if ($line[2]) wire:poll.5s @endif>Arama terimleri: {{ $line[1] }}</p>
             @endif
-            <div class="card">
-                @forelse ($suggestions as $s)
-                    @include('livewire.operator.google-ads.partials.suggestion', ['s' => $s])
-                @empty
-                    <x-ta.empty-state size="sm" title="Açık öneri yok." />
-                @endforelse
-            </div>
+            @include('livewire.operator.google-ads.partials.negative-list', ['neg' => $negatives, 'canAct' => true, 'doneMethod' => 'markNegativesAdded',
+                'dismissMethod' => 'dismissSuggestion', 'sendShared' => $canWrite && \App\Services\ExternalWrites\ExternalWriteService::adsWritesOn()])
+            @if ($suggestions->isNotEmpty() || $negatives['lists'] === [])
+                <div class="card">
+                    @forelse ($suggestions as $s)
+                        @include('livewire.operator.google-ads.partials.suggestion', ['s' => $s])
+                    @empty
+                        <x-ta.empty-state size="sm" title="Açık öneri yok." />
+                    @endforelse
+                </div>
+            @endif
         </section>
 
         @include('livewire.operator.google-ads.partials.approved')

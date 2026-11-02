@@ -27,7 +27,7 @@
     };
 @endphp
 <div class="space-y-10 dark:text-gray-200" data-google-ads-tab="{{ $active }}">
-    @include('livewire.operator.google-ads.desk.header', ['active' => $active, 'intro' => $intro, 'sub' => $sub, 'bulk' => $items->isNotEmpty() && $isAdmin ? ['count' => $items->count()] : null])
+    @include('livewire.operator.google-ads.desk.header', ['active' => $active, 'intro' => $intro, 'sub' => $sub, 'bulk' => $items->isNotEmpty() && $isAdmin && $active !== 'operator.google-ads-terms' ? ['count' => $items->count()] : null])
 
     @if ($editor !== [])
         <section data-testid="google-ads-editor-waiting">
@@ -52,6 +52,17 @@
             <div class="section-head">
                 <h2 class="section-title flex min-w-0 items-center gap-2"><x-ta.brand-avatar :name="(string) $brandName" :logo="$accounts[$brandItems->first()->target_id]?->brand?->logo_url" size="sm" /><span class="min-w-0 break-words">{{ $brandName }}</span> <span class="section-count">{{ $brandItems->count() }}</span></h2>
             </div>
+            @php $brandNegatives = $brandItems->where('action_type', 'ads_negative'); @endphp
+            {{-- Negatives: one paste-ready list per account with the match type, not one row each (yakup 2026-11-02). --}}
+            @foreach ($brandNegatives->groupBy('target_id') as $accountId => $accountNegatives)
+                @if ($brandNegatives->pluck('target_id')->unique()->count() > 1)
+                    <p class="mb-1 text-xs text-gray-500">Hesap: {{ $accounts[$accountId]?->name ?? $accountId }} · <a href="{{ route('operator.google-ads.overview', ['assetId' => $accountId, 'tab' => 'todo']) }}" wire:navigate class="link-neutral">Hesapta aç</a></p>
+                @endif
+                @include('livewire.operator.google-ads.partials.negative-list', ['neg' => \App\Services\GoogleAds\GoogleAdsSuggestions::negativeLists($accountNegatives),
+                    'canAct' => $isAdmin, 'doneMethod' => 'markNegativesAdded', 'dismissMethod' => 'dismiss', 'cur' => 'TRY'])
+            @endforeach
+            @php $brandItems = $brandItems->where('action_type', '!=', 'ads_negative'); @endphp
+            @if ($brandItems->isNotEmpty())
             <ul class="card">
                 @foreach ($brandItems as $s)
                     @php $a = (array) $s->action; @endphp
@@ -104,6 +115,7 @@
                     </li>
                 @endforeach
             </ul>
+            @endif
         </section>
     @empty
         <div class="card"><x-ta.empty-state size="sm" :title="$empty" data-testid="google-ads-empty" /></div>

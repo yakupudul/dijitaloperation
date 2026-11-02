@@ -392,7 +392,7 @@ final class GoogleAdsScreenTest extends TestCase
         $this->assertSame(['ücretsiz implant', 'implant fiyatları ankara'], array_keys($verdicts));
         $this->assertSame('', $verdicts['implant fiyatları ankara']['service'], 'a service outside the offerings is not shown');
         $page->call('setTab', 'terms')->assertSee('Uygunsuz')->assertSee('Diş İmplantı')->assertSee('İmplant Ankara')
-            ->call('setTab', 'todo')->assertSee('Negatif: «ücretsiz» (sıralı)')->assertDontSee('«ankara»');
+            ->call('setTab', 'todo')->assertSee('Negatif anahtar kelime listesi')->assertSee('"ücretsiz"')->assertDontSee('«ankara»');
     }
 
     public function test_selected_terms_are_reviewed_without_touching_other_negatives(): void
