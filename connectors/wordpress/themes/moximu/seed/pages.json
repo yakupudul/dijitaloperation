@@ -2065,6 +2065,20 @@
 "seed": "portfoy-suada-gasimova-mobil.webp",
 "alt": "Dr. Suada Gasimova web sitesi, telefon görünümü"
 }
+},
+{
+"ad": "OPC Klinik",
+"tur": "Diş kliniği · İstanbul, Kadıköy",
+"adres": "https://opcklinik.com/",
+"metin": "Kadıköy diş kliniği; tedavi sayfaları ve yurt dışı hastalar için İngilizce, Almanca, İtalyanca dil seçenekleri.",
+"gorsel": {
+"seed": "portfoy-opc-klinik-v2.webp",
+"alt": "OPC Klinik web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-opc-klinik-v2-mobil.webp",
+"alt": "OPC Klinik web sitesi, telefon görünümü"
+}
 }
 ]
 },
