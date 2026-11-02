@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.33.0
+Stable tag: 1.34.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -77,13 +77,16 @@ Daily inventory reconciliation complements activity delivery.
   pages / posts / custom posts (created or updated by `ref`, also published, with ACF values, Elementor data,
   featured image, terms and SEO title / description), Elementor library templates with display conditions (Pro),
   media from an https URL or base64, navigation menus with a theme location, and site title, tagline, front page,
-  posts page, permalinks and Elementor post types. Theme and plugin files are never edited. Every operation that
+  posts page, permalinks and Elementor post types. The builder never edits theme or plugin files (theme files go through the full-level theme tools, 1.34.0). Every operation that
   changed something returns a `change_id`; `POST /build/undo` puts it back (restores the previous fields, meta, terms,
   menu items, settings or ACF item, and trashes what was made), refusing values changed on the site since unless forced.
 
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.34.0 =
+* Full level: theme files. list_themes, list_theme_files, read_theme_file; write_theme_files writes, adds and deletes files of any installed theme or makes a new one (PHP syntax-checked first, old files backed up in wp-content/moxdop-backups, undoable, the active theme is site-checked and rolled back when it broke); switch_theme (guarded, undoable); delete_theme (inactive only, confirm="DELETE_THEME", undoable).
 
 = 1.33.0 =
 * Site build "theme": installs a theme MoxDOP keeps in its own repository, downloaded only from the paired MoxDOP host behind a short-lived signed link and checked against its SHA-256; activation can be undone (the previous theme comes back).

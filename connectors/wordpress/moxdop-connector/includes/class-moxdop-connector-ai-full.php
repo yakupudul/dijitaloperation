@@ -25,6 +25,8 @@ defined('ABSPATH') || exit;
  */
 final class MoxDOP_Connector_AI_Full
 {
+    use MoxDOP_Connector_AI_Themes;
+
     /** Options a change could lock the site with; plugins and themes are switched with their own tools. */
     const BLOCKED_OPTIONS = [
         'siteurl', 'home', 'admin_email', 'new_admin_email', 'users_can_register', 'default_role', 'active_plugins', 'template', 'stylesheet',
@@ -147,7 +149,7 @@ final class MoxDOP_Connector_AI_Full
             'list_form_messages' => ['level' => 'private', 'read' => true, 'description' => 'The latest form messages the site stores (Flamingo for Contact Form 7, Elementor Pro form submissions). Personal data: use it only for what the user asked.', 'props' => [
                 'limit' => ['type' => 'integer', 'description' => 'Max 50 (default 20).'],
             ]],
-        ];
+        ] + self::theme_definitions();
     }
 
     public static function owns($name)
@@ -193,6 +195,10 @@ final class MoxDOP_Connector_AI_Full
     /** @return true|string */
     private static function undo_step(array $step)
     {
+        $theme = self::undo_theme_step($step);
+        if ($theme !== null) {
+            return $theme;
+        }
         switch ($step[0] ?? '') {
             case 'status':
                 $result = wp_update_post(['ID' => (int) $step[1], 'post_status' => (string) $step[2], 'post_date' => (string) $step[3], 'post_date_gmt' => (string) $step[4], 'edit_date' => true], true);
