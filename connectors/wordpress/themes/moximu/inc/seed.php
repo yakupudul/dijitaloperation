@@ -85,7 +85,12 @@ function mx_seed_run(): void
             }
             $current = get_field('bolumler', $id, false);
             $stored = (string) get_post_meta($id, '_mx_seed_hash', true);
-            if (($stored !== '' && $stored === mx_seed_hash($current)) || mx_seed_empty($current)) {
+            // Never seeded by this theme: anything in the field came from an earlier build, not a person working
+            // with this theme. Keep a copy, then seed.
+            if ($stored === '' && ! mx_seed_empty($current) && get_post_meta($id, '_mx_seed_backup', true) === '') {
+                update_post_meta($id, '_mx_seed_backup', wp_slash(wp_json_encode($current)));
+            }
+            if ($stored === '' || $stored === mx_seed_hash($current) || mx_seed_empty($current)) {
                 update_field('field_mx_bolumler', mx_seed_media($page['rows']), $id);
                 update_post_meta($id, '_mx_seed_hash', mx_seed_hash(get_field('bolumler', $id, false)));
                 if (! empty($page['service']) && get_post_type($id) === 'page' && empty(get_field('hizmet', $id)['ad'] ?? '')) {
