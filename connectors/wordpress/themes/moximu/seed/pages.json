@@ -21321,5 +21321,117 @@
 "thumb_alt": "Google yorumlarına nasıl cevap verilir?",
 "seo_title": "Klinikler Google yorumlarına nasıl cevap verir?",
 "seo_desc": "Klinikler için Google yorum cevapları: olumlu ve olumsuz yoruma örnek cevaplar, hasta mahremiyeti, şablon cevapların zararı ve yorum isteme düzeni."
+},
+{
+"key": "p-klinik-seo-ne-kadar-surede-sonuc-verir",
+"path": "/rehber/klinik-seo-ne-kadar-surede-sonuc-verir/",
+"type": "post",
+"title": "Klinik SEO ne kadar sürede sonuç verir?",
+"excerpt": "İlk hareket 4-8 haftada, kalıcı artış 4-6 ayda görülür. Süreyi kısaltan ve uzatan şeyler, iki klinikten gerçek örnekle.",
+"content": "<p class=\"lp-art-lead\">\"SEO'ya başlarsak ne zaman hasta gelir?\" sorusunun dürüst cevabı bir tarih değil, bir sıradır. Önce Google sitenizi yeniden okur, sonra gösterimler artar, en son tıklama ve hasta talebi gelir. Bu sıra çoğu klinikte birkaç ay sürer.</p>\n<h2>Üç aşama</h2>\n<ol class=\"lp-art-ol\">\n<li><b>İlk 4-8 hafta: düzeltme.</b> Başlıklar, tedavi sayfaları, Google kartı ve site hızı düzeltilir. Search Console'da gösterim sayısı kıpırdamaya başlar; tıklama henüz azdır.</li>\n<li><b>2-4. ay: görünürlük.</b> Tedavi ve ilçe aramalarında ilk iki sayfaya çıkan sayfa sayısı artar. \"Çankaya implant\", \"Bornova diş kliniği\" gibi aramalardan ilk tıklamalar gelir.</li>\n<li><b>4-6. ay ve sonrası: talep.</b> İlk sayfadaki aramalar formlara, aramalara ve WhatsApp mesajlarına döner. Artış bu noktadan sonra her ay üst üste biner.</li>\n</ol>\n<p>Bu süreler ortalamadır, söz değildir. Rekabetin yoğun olduğu büyük şehirlerde ve yeni açılmış sitelerde daha uzun sürebilir.</p>\n<h2>Süreyi kısaltan şeyler</h2>\n<ul class=\"lp-art-list\">\n<li><b>Eksiksiz bir Google kartı.</b> Kategori, hizmetler, fotoğraflar ve düzenli yorumlar haritada daha hızlı sonuç verir; haritadaki ilk üç sonuç çoğu zaman sitenin önünde görünür.</li>\n<li><b>Her tedaviye ayrı sayfa.</b> Tek bir \"Hizmetlerimiz\" sayfası hiçbir tedavi aramasında öne çıkamaz.</li>\n<li><b>Hızlı ve telefona uygun site.</b> Telefonda iki saniyede açılmayan sayfa, sıralamada da hastanın gözünde de geride kalır.</li>\n<li><b>Düzenli içerik.</b> Hastaların sorduğu sorulara verilen kısa ve doğru cevaplar, yeni aramalarda görünmenin en ucuz yoludur.</li>\n</ul>\n<h2>Süreyi uzatan şeyler</h2>\n<ul class=\"lp-art-list\">\n<li>Site adresinin değişmesi ve eski adreslerin yönlendirilmemesi.</li>\n<li>Aynı tedavinin birkaç sayfada birbirine rakip olacak şekilde anlatılması.</li>\n<li>Başka sitelerden kopyalanmış tedavi metinleri.</li>\n<li>Çalışmanın iki ay yapılıp bırakılması. SEO bir defalık kurulum değil, haftalık bakımdır.</li>\n</ul>\n<h2>İki klinikten örnek</h2>\n<div class=\"lp-art-two\"><div><b>Panorama Ankara, diş kliniği</b><p>Tedavi ve ilçe sayfaları ile eksiksiz Google kartı. Organik tıklama +%349, Google gösterimi +%551 (Search Console ve GA4, Ekim 2025 → Ekim 2026).</p></div><div><b>Dentocare Klinik, diş kliniği</b><p>Yeni site, tedavi ve şehir sayfaları, haftalık içerik. Organik tıklama +%534, site ziyaretçisi +%830 (Search Console ve GA4, Aralık 2025 → Ekim 2026).</p></div></div>\n<p>İki klinikte de ilk aylardaki artış küçüktü; büyük kısmı çalışmanın ikinci yarısında geldi. Ayrıntılar <a href=\"/sonuclar/\">sonuçlar</a> sayfasında.</p>\n<h2>Beklerken ne yapılmalı</h2>\n<p>SEO'nun olgunlaşmasını beklerken hasta akışı durmamalı. Bu dönemde Google Ads ile tedavi aramalarında hemen görünmek, Google kartını haftalık güncellemek ve gelen her talebi aynı gün aramak gerekir. Reklam ilk ayları taşır, SEO ilerledikçe reklam bütçesi daha pahalı aramalara odaklanır.</p>",
+"cats": [
+"seo"
+],
+"date": "2026-09-15 10:00:00",
+"thumb": "rehber-klinik-seo-ne-kadar-surede-sonuc-verir.jpg",
+"thumb_alt": "Klinik SEO ne kadar sürede sonuç verir?",
+"seo_title": "Klinik SEO ne kadar sürede sonuç verir?",
+"seo_desc": "Klinik SEO çalışmasında ilk hareket, kalıcı artış ve hasta talebi ne zaman gelir? Süreyi belirleyen etkenler ve iki klinikten gerçek sonuçlar."
+},
+{
+"key": "p-klinik-icin-seo-mu-google-ads-mi",
+"path": "/rehber/klinik-icin-seo-mu-google-ads-mi/",
+"type": "post",
+"title": "Klinik için SEO mu, Google Ads mi?",
+"excerpt": "Reklam bugün hasta getirir, SEO aylar içinde birikir. Hangisiyle başlanmalı, bütçe nasıl bölünmeli?",
+"content": "<p class=\"lp-art-lead\">İkisi aynı aramada görünmenin iki yoludur. Google Ads, para ödediğiniz sürece bugün görünür. SEO, emek verdiğiniz sürece birikir ve ödeme durunca kaybolmaz. Soru \"hangisi\" değil, \"hangisi önce ve ne kadar\" sorusudur.</p>\n<h2>Kısa karşılaştırma</h2>\n<div class=\"lp-art-two\"><div><b>Google Ads</b><p>İlk hafta talep getirir. Her tıklama ücretlidir. Bütçe durunca görünürlük de durur. Hangi aramanın hasta getirdiği hızlı öğrenilir.</p></div><div><b>SEO</b><p>Sonuç aylar içinde gelir. Tıklama başına ödeme yoktur. Çalışma birikir; iyi bir tedavi sayfası yıllarca hasta getirebilir.</p></div></div>\n<h2>Hangisiyle başlamalı</h2>\n<ul class=\"lp-art-list\">\n<li><b>Yeni açılan klinik:</b> Google kartı ve reklamla başlayın. Site ve tedavi sayfaları aynı anda kurulur, SEO arkadan gelir.</li>\n<li><b>Yıllardır açık ama sitesi zayıf klinik:</b> Önce site ve tedavi sayfaları. Zayıf sayfaya giden reklam pahalıya gelir.</li>\n<li><b>İyi sırada çıkan klinik:</b> Reklamı yalnız SEO'da zayıf olduğunuz tedavi ve ilçelere verin.</li>\n</ul>\n<h2>Birlikte nasıl çalışırlar</h2>\n<p>Reklam, SEO'ya veri verir. Reklamda hangi aramanın forma döndüğü birkaç haftada görülür; o aramalar için tedavi sayfası güçlendirilir. SEO da reklamı ucuzlatır: kaliteli bir tedavi sayfası Google'ın reklam kalite puanını yükseltir, tıklama fiyatı düşer.</p>\n<p>Haritadaki Google kartı ikisinin ortasındadır. \"Yakınımdaki diş kliniği\" aramasında haritadaki ilk üç sonuç, reklamsız da çok tıklanır. Kart her iki çalışmada da ilk sıradadır.</p>\n<h2>Bütçe nasıl bölünür</h2>\n<p>Tek bir doğru oran yoktur, ama mantık şudur: ilk aylarda reklam payı büyük olur, SEO'dan gelen talep arttıkça reklam yalnız SEO'nun yetişmediği aramalara kayar. Reklam bütçesi doğrudan Google'a, kliniğin kartından ödenir; SEO ve yönetim ücreti ayrı tutulur. Kendi rakamlarınızla bakmak için <a href=\"/araclar/reklam-butcesi/\">reklam bütçesi planlayıcı</a>yı kullanabilirsiniz.</p>\n<h2>Hangisinin işe yaradığını nasıl anlarsınız</h2>\n<p>İkisinde de ölçü aynıdır: tıklama değil, talep. Form, arama ve WhatsApp mesajları kaynağıyla birlikte sayılır; her hafta reklamdan ve organik aramadan kaç talep geldiği yan yana görülür. Ölçülmeyen kanal hakkında karar verilmez.</p>",
+"cats": [
+"seo",
+"google-ads"
+],
+"date": "2026-09-08 10:00:00",
+"thumb": "rehber-klinik-icin-seo-mu-google-ads-mi.jpg",
+"thumb_alt": "Klinik için SEO mu, Google Ads mi?",
+"seo_title": "Klinik için SEO mu, Google Ads mi daha doğru?",
+"seo_desc": "Klinikler için SEO ve Google Ads karşılaştırması: hangisi ne zaman sonuç verir, hangisiyle başlanmalı, ikisi birlikte nasıl çalışır ve bütçe nasıl bölünür."
+},
+{
+"key": "p-klinik-sitesinde-temel-seo-ayarlari",
+"path": "/rehber/klinik-sitesinde-temel-seo-ayarlari/",
+"type": "post",
+"title": "Klinik sitesinde temel SEO ayarları",
+"excerpt": "Site var ama Google’da görünmüyorsa sorun çoğu zaman içerik değil ayardır. On maddelik kontrol listesi.",
+"content": "<p class=\"lp-art-lead\">Klinik sitelerinde en sık gördüğümüz sorun, iyi yazılmış tedavi sayfalarının bir ayar yüzünden Google'a hiç ulaşmamasıdır. İçeriğe para harcamadan önce bu on maddeyi kontrol edin.</p>\n<h2>On maddelik kontrol listesi</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Search Console bağlı mı?</b> Kliniğin kendi Google hesabıyla. Hangi aramada göründüğünüzü ve hangi sayfanın dizinde olmadığını yalnız burası söyler.</li>\n<li><b>Arama motorları engelli mi?</b> WordPress'te \"arama motorlarını engelle\" kutusu yanlışlıkla işaretli kalabilir. Bu kutu işaretliyse site hiç görünmez.</li>\n<li><b>Site haritası gönderildi mi?</b> Tüm tedavi sayfaları site haritasında olmalı ve harita Search Console'a eklenmelidir.</li>\n<li><b>Her sayfanın başlığı farklı mı?</b> \"Anasayfa\" ya da yalnız klinik adı değil; \"Bornova implant tedavisi · Klinik adı\" gibi tedavi ve yer içeren başlık.</li>\n<li><b>Açıklamalar yazılı mı?</b> Arama sonucunda başlığın altında görünen iki satır. Boş bırakılırsa Google sayfadan rastgele bir cümle seçer.</li>\n<li><b>Tek adres mi?</b> Site http ve https, www'lu ve www'suz olarak dört ayrı adreste açılmamalı; hepsi tek adrese yönlenmeli.</li>\n<li><b>Telefonda hızlı mı?</b> Büyük görseller ve gereksiz eklentiler sayfayı yavaşlatır. Hedef, telefonda iki saniye civarında açılış.</li>\n<li><b>Yapılandırılmış veri var mı?</b> Klinik adı, adresi, telefonu, çalışma saatleri ve hekimler Google'ın okuyacağı biçimde sayfada bulunmalı.</li>\n<li><b>Görsellerin açıklaması var mı?</b> Her görselin ne gösterdiğini anlatan kısa bir açıklama (alt metin). Hem erişilebilirlik hem görsel arama için.</li>\n<li><b>Kırık bağlantı ve eski adres var mı?</b> Silinen ya da adresi değişen sayfalar yeni sayfaya yönlendirilmeli; 404 veren sayfa hem hastayı hem Google'ı kaybettirir.</li>\n</ol>\n<h2>Ayarlar neden önce gelir</h2>\n<p>Bu maddeler bir defa doğru yapılır ve sonra her içeriğin işe yaramasını sağlar. Ayarlar eksikken yazılan her yazı, açılmayan bir kapının önüne bırakılmış gibidir. Tersi de geçerlidir: ayarlar tamam ama tedavi sayfası yoksa Google'ın göstereceği bir şey yoktur.</p>\n<h2>Ne kadar sürer</h2>\n<p>Çoğu klinik sitesinde bu liste birkaç gün içinde tamamlanır. Etkisi, Google sayfaları yeniden okudukça birkaç hafta içinde Search Console'da görülür. Sitenizin bu listeden kaç madde geçtiğini görmek için <a href=\"/ucretsiz-klinik-analizi/\">ücretsiz klinik analizi</a> isteyebilirsiniz.</p>",
+"cats": [
+"seo",
+"web-sitesi"
+],
+"date": "2026-09-01 10:00:00",
+"thumb": "rehber-klinik-sitesinde-temel-seo-ayarlari.jpg",
+"thumb_alt": "Klinik sitesinde temel SEO ayarları",
+"seo_title": "Klinik sitesinde temel SEO ayarları kontrol listesi",
+"seo_desc": "Klinik web sitesi Google’da görünmüyorsa önce temel SEO ayarlarına bakın: Search Console, site haritası, başlıklar, noindex, hız, yapılandırılmış veri. 10 maddelik liste."
+},
+{
+"key": "p-google-ads-danismani-ne-yapar",
+"path": "/rehber/google-ads-danismani-ne-yapar/",
+"type": "post",
+"title": "Google Ads danışmanı klinik için ne yapar?",
+"excerpt": "Haftalık işler, aylık kararlar ve danışmanın yapmaması gerekenler. Klinik sahibi olarak neyi sormalısınız?",
+"content": "<p class=\"lp-art-lead\">Google Ads hesabını açmak on dakika sürer. Hesabın hasta getirmesi ise her hafta yapılan küçük işlere bağlıdır. İyi bir danışman reklamı kurup bırakmaz; her hafta neye para gittiğine bakar ve size tek bir rakamla döner: bir hasta talebi kaça geldi.</p>\n<h2>Her hafta yapılanlar</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Arama terimleri okunur.</b> \"Diş hekimi maaşı\", \"implant nedir\" gibi hasta getirmeyen aramalar negatif listeye eklenir.</li>\n<li><b>Talepler sayılır.</b> Form, arama ve WhatsApp ayrı ayrı; hangi reklam ve hangi tedavi sayfasından geldikleriyle.</li>\n<li><b>Bütçe kaydırılır.</b> Talebi ucuza getiren tedavi ve ilçeye pay artırılır, pahalıya getirene azaltılır. Toplam bütçe sizin onayınız olmadan artırılmaz.</li>\n<li><b>Reklam metinleri denenir.</b> Sağlık reklamı kurallarına uygun iki üç farklı metin yarışır, zayıf olan kapatılır.</li>\n</ol>\n<h2>Her ay verilen kararlar</h2>\n<ul class=\"lp-art-list\">\n<li>Hangi tedaviye yeni kampanya açılacağı, hangisinin durdurulacağı.</li>\n<li>Reklamın gittiği tedavi sayfasında neyin düzeltileceği.</li>\n<li>Gelecek ayın bütçe önerisi ve gerekçesi.</li>\n</ul>\n<h2>Danışmanın yapmaması gerekenler</h2>\n<div class=\"lp-art-two\"><div class=\"bad\"><b>Yapmamalı</b><p>Hesabı kendi adına açmak. Bütçeyi kendi faturasına gömmek. \"Tıklama arttı\" diye rapor vermek. Garanti vermek. Hekim adı ya da önce-sonra görseliyle kurallara aykırı reklam yazmak.</p></div><div><b>Yapmalı</b><p>Hesabı klinik adına açıp yönetici olarak eklenmek. Bütçenin Google'a doğrudan sizin kartınızdan ödenmesini sağlamak. Talep sayısı ve talep maliyetiyle rapor vermek.</p></div></div>\n<h2>Seçerken sorulacak beş soru</h2>\n<ol class=\"lp-art-ol\">\n<li>Hesap kimin adına açılacak, ayrılırsam bende kalacak mı?</li>\n<li>Bir talebin kaça geldiğini nasıl ölçeceksiniz?</li>\n<li>Arama terimlerine ne sıklıkla bakıyorsunuz?</li>\n<li>Reklam hangi sayfaya gidecek, o sayfa hazır mı?</li>\n<li>Raporda hangi rakamlar olacak?</li>\n</ol>\n<p>Bütçe tarafını ayrıca <a href=\"/rehber/google-ads-butcesi-nasil-belirlenir/\">Google Ads bütçesi nasıl belirlenir?</a> rehberinde anlattık.</p>",
+"cats": [
+"google-ads"
+],
+"date": "2026-08-25 10:00:00",
+"thumb": "rehber-google-ads-danismani-ne-yapar.jpg",
+"thumb_alt": "Google Ads danışmanı klinik için ne yapar?",
+"seo_title": "Google Ads danışmanı klinik için ne yapar, ne yapmaz?",
+"seo_desc": "Klinik Google Ads danışmanlığında haftalık yapılan işler, ölçüm, arama terimleri, bütçe kararları ve danışmanın yapmaması gerekenler. Seçerken sorulacak sorular."
+},
+{
+"key": "p-klinik-web-sitesi-ne-zaman-yenilenmeli",
+"path": "/rehber/klinik-web-sitesi-ne-zaman-yenilenmeli/",
+"type": "post",
+"title": "Klinik web sitesi ne zaman yenilenmeli?",
+"excerpt": "Eski görünmesi tek başına yenileme sebebi değildir. Yenilemenin gerçek işaretleri ve yenilerken kaybetmemeniz gerekenler.",
+"content": "<p class=\"lp-art-lead\">\"Sitemiz eski görünüyor\" yenileme için zayıf bir sebeptir. Güçlü sebep şudur: site hasta getirmiyor ya da getirdiğini ölçemiyorsunuz. Aşağıdaki işaretlerden üçü sizde varsa yenileme zamanı gelmiştir.</p>\n<h2>Yedi işaret</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Telefonda yavaş.</b> Ziyaretçilerinizin çoğu telefondan gelir. Sayfa üç saniyeden geç açılıyorsa hastaların bir kısmı beklemeden geri döner.</li>\n<li><b>Tek bir \"Hizmetlerimiz\" sayfası var.</b> İmplant arayan hasta implant sayfası bulamazsa Google da sizi o aramada göstermez.</li>\n<li><b>WhatsApp ve arama düğmesi görünmüyor.</b> Hasta telefonda tek dokunuşla yazamıyorsa formu doldurmaz, başka kliniğe geçer.</li>\n<li><b>Fiyat, hekim ve belge bilgisi yok.</b> Hasta karar vermek için kimin tedavi edeceğini ve yaklaşık ne ödeyeceğini görmek ister.</li>\n<li><b>Talepler ölçülmüyor.</b> Hangi sayfanın, hangi reklamın hasta getirdiği bilinmiyorsa reklam bütçesi tahminle harcanır.</li>\n<li><b>Siteyi siz güncelleyemiyorsunuz.</b> Yeni hekim, yeni tedavi ya da kampanya için her seferinde birine yazmak gerekiyorsa site geride kalır.</li>\n<li><b>Mevzuata uymayan içerik var.</b> Önce-sonra görselleri, garanti ifadeleri, hasta yorumlarının reklam gibi kullanılması sağlık reklamı kurallarına takılabilir.</li>\n</ol>\n<h2>Yenilerken kaybetmeyin</h2>\n<p>Yeni site, eski sitenin Google'da biriktirdiği değeri silmemelidir. Bunun için:</p>\n<ul class=\"lp-art-list\">\n<li>Eski sitenin tüm adresleri listelenir; her biri yeni sitedeki en yakın sayfaya kalıcı (301) yönlendirilir.</li>\n<li>Arama trafiği getiren sayfaların metni ve başlığı korunur ya da güçlendirilir.</li>\n<li>Search Console, Analytics ve reklam ölçümü yeni sitede ilk gün çalışır.</li>\n<li>Yayına alındıktan sonraki dört hafta, 404 veren adresler ve sıralama her hafta kontrol edilir.</li>\n</ul>\n<h2>Yenileme mi, onarım mı</h2>\n<p>Her zaman sıfırdan site gerekmez. Altyapı sağlamsa hız, tedavi sayfaları ve WhatsApp düğmesi mevcut sitede düzeltilebilir. Karar için önce bir analiz yapılır: neyin onarılabileceği, neyin yeniden yapılması gerektiği. Sitenizi bu yedi işarete göre görmek için <a href=\"/ucretsiz-klinik-analizi/\">ücretsiz klinik analizi</a> isteyin; örnek siteler için <a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">klinik web sitesi örnekleri</a> sayfasına bakabilirsiniz.</p>",
+"cats": [
+"web-sitesi"
+],
+"date": "2026-08-18 10:00:00",
+"thumb": "rehber-klinik-web-sitesi-ne-zaman-yenilenmeli.jpg",
+"thumb_alt": "Klinik web sitesi ne zaman yenilenmeli?",
+"seo_title": "Klinik web sitesi ne zaman yenilenmeli? 7 işaret",
+"seo_desc": "Klinik web sitesini yenileme zamanının yedi işareti: telefonda yavaşlık, tek hizmet sayfası, WhatsApp eksikliği, ölçümsüzlük. Yenilerken Google sıralaması nasıl korunur?"
+},
+{
+"key": "p-klinik-seo-nasil-olculur",
+"path": "/rehber/klinik-seo-nasil-olculur/",
+"type": "post",
+"title": "Klinik SEO çalışması nasıl ölçülür?",
+"excerpt": "Sıralama tek başına bir şey söylemez. Gösterim, tıklama ve talep; hangi rakama ne zaman bakılır?",
+"content": "<p class=\"lp-art-lead\">\"Birinci sıradayız\" cümlesi tek başına bir şey anlatmaz. Hangi aramada, hangi şehirde, kaç kişinin aradığı bir kelimede? Klinik SEO'su dört rakamla ölçülür ve bu rakamlar her ay aynı dönemle karşılaştırılır.</p>\n<h2>Dört rakam</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Gösterim.</b> Siteniz Google sonuçlarında kaç kez göründü. Search Console'dan okunur. İlk ayların en erken hareket eden rakamıdır.</li>\n<li><b>Organik tıklama.</b> Görünen sonuçlara kaç kez tıklandı. Gösterim artıp tıklama artmıyorsa başlık ve açıklamalar zayıftır.</li>\n<li><b>Tedavi sayfası ziyareti.</b> Ziyaretçiler ana sayfada mı kalıyor, tedavi sayfalarına mı ulaşıyor? Analytics'ten okunur.</li>\n<li><b>Hasta talebi.</b> Organik aramadan gelen form, arama ve WhatsApp mesajı. Asıl ölçü budur; diğer üçü bu rakamın öncüsüdür.</li>\n</ol>\n<h2>Hangi dönemle karşılaştırılır</h2>\n<p>Klinik aramaları mevsime göre değişir. Bu yüzden Ekim ayı Eylül'le değil, geçen yılın Ekim'iyle karşılaştırılır. Kısa dönemde hafta hafta bakılır ama karar aylık eğilimle verilir.</p>\n<h2>Gerçek örnek</h2>\n<div class=\"lp-art-two\"><div><b>Panorama Ankara</b><p>Organik tıklama +%349, Google gösterimi +%551. Kaynak Search Console ve GA4, dönem Ekim 2025 → Ekim 2026.</p></div><div><b>Dentocare Klinik</b><p>Organik tıklama +%534, site ziyaretçisi +%830. Kaynak Search Console ve GA4, dönem Aralık 2025 → Ekim 2026.</p></div></div>\n<p>Her sonuçta kaynak ve dönem yazılıdır; kaynağı ve dönemi yazılmayan yüzde, karşılaştırılamaz.</p>\n<h2>Trafik neden talebe dönmez</h2>\n<ul class=\"lp-art-list\">\n<li>Gelen aramalar hasta araması değildir (\"diş ağrısına ne iyi gelir\" gibi bilgi aramaları).</li>\n<li>Tedavi sayfasında fiyat aralığı, hekim ve WhatsApp düğmesi yoktur.</li>\n<li>Sayfa telefonda yavaştır ya da form uzundur.</li>\n<li>Talepler ölçülmüyordur; gelen hasta \"internetten\" diye kaydedilir ama hangi sayfadan geldiği bilinmez.</li>\n</ul>\n<h2>Raporda ne görmelisiniz</h2>\n<p>Tek sayfalık bir özet yeter: bu ayın dört rakamı, geçen yılın aynı ayı, en çok talep getiren üç sayfa ve gelecek ay yapılacak işler. Örneğini <a href=\"/ornek-haftalik-rapor/\">örnek haftalık özet</a> sayfasında görebilirsiniz.</p>",
+"cats": [
+"seo"
+],
+"date": "2026-08-11 10:00:00",
+"thumb": "rehber-klinik-seo-nasil-olculur.jpg",
+"thumb_alt": "Klinik SEO çalışması nasıl ölçülür?",
+"seo_title": "Klinik SEO çalışması nasıl ölçülür? 4 rakam",
+"seo_desc": "Klinik SEO çalışmasını ölçmek için bakılacak dört rakam: gösterim, tıklama, tedavi sayfası ziyareti ve hasta talebi. Search Console ve Analytics ile nasıl okunur?"
+},
+{
+"key": "tsite-haritasi",
+"path": "/site-haritasi/",
+"title": "Site haritası",
+"excerpt": "Sitedeki tüm sayfalar ve rehber yazıları tek listede.",
+"content": "[mx_site_haritasi]",
+"seo_title": "Site haritası · Moximu",
+"seo_desc": "Moximu sitesindeki tüm sayfalar ve rehber yazıları: hizmetler, fiyatlar, klinik türleri, şehirler, sağlık turizmi, sonuçlar ve yasal metinler.",
+"order": "0",
+"meta": {
+"_mx_ust_yazi": "Moximu",
+"_mx_sayfa_sonu": "yok"
+}
 }
 ]

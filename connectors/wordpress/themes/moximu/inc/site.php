@@ -229,6 +229,40 @@ add_shortcode('mx_alt_sayfalar', static function ($atts): string {
     return $out.'</div>';
 });
 
+// [mx_site_haritasi] — every published page as a tree, then the guides. Pages marked noindex and the thank-you page are left out.
+add_shortcode('mx_site_haritasi', static function (): string {
+    $skip = static fn (WP_Post $p): bool => get_post_meta($p->ID, '_mx_noindex', true) === '1' || in_array($p->post_name, ['tesekkurler', 'rehber-yazisi-sablonu', 'site-haritasi'], true);
+    $pages = get_pages(['sort_column' => 'menu_order,post_title', 'post_status' => 'publish']);
+    $kids = [];
+    foreach ($pages as $p) {
+        if (! $skip($p)) {
+            $kids[(int) $p->post_parent][] = $p;
+        }
+    }
+    $tree = static function (int $parent) use (&$tree, $kids): string {
+        if (empty($kids[$parent])) {
+            return '';
+        }
+        $out = '<ul>';
+        foreach ($kids[$parent] as $p) {
+            $out .= '<li><a href="'.esc_url(get_permalink($p)).'">'.esc_html(get_the_title($p)).'</a>'.$tree((int) $p->ID).'</li>';
+        }
+
+        return $out.'</ul>';
+    };
+    $out = '<div class="mx-sitemap"><div><h2>Sayfalar</h2>'.$tree(0).'</div>';
+    $posts = get_posts(['post_type' => 'post', 'post_status' => 'publish', 'posts_per_page' => 200, 'no_found_rows' => true]);
+    if ($posts) {
+        $out .= '<div><h2>Rehber</h2><ul>';
+        foreach ($posts as $p) {
+            $out .= '<li><a href="'.esc_url(get_permalink($p)).'">'.esc_html(get_the_title($p)).'</a></li>';
+        }
+        $out .= '</ul></div>';
+    }
+
+    return $out.'</div>';
+});
+
 // [mx_logolar] — the client logo wall from Moximu ayarları › Müşteri logoları.
 add_shortcode('mx_logolar', static function (): string {
     $rows = mx_rows(function_exists('get_field') ? get_field('musteri_logolari', 'option') : []);
