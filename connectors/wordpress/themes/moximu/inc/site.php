@@ -392,3 +392,21 @@ add_action('wp_footer', static function (): void {
 <script>(function(){var b=document.getElementById("mx-consent");if(!b)return;function show(){b.hidden=!1}if(!/(?:^|; )mx_consent=/.test(document.cookie))show();b.addEventListener("click",function(e){var c=e.target.getAttribute("data-c");if(!c)return;document.cookie="mx_consent="+c+";path=/;max-age=31536000;SameSite=Lax";var g=c==="all"?"granted":"denied";if(window.gtag)gtag("consent","update",{ad_storage:g,ad_user_data:g,ad_personalization:g,analytics_storage:g});if(c==="all"&&window.mxConsentRun)mxConsentRun();b.hidden=!0});document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest('a[href$="#cerez-tercihleri"]');if(a){e.preventDefault();show()}})})();</script>
 <?php
 }, 50);
+
+/*
+ * A client's featured image is its logo (a wide strip); shared on Facebook, LinkedIn or X it would be cropped badly.
+ * Unless a share image is chosen in the post's SEOPress box, case pages share the site's 1200×630 image.
+ */
+add_filter('get_post_metadata', static function ($value, $object_id, $meta_key, $single) {
+    if (! in_array($meta_key, ['_seopress_social_fb_img', '_seopress_social_twitter_img'], true) || is_admin() || get_post_type($object_id) !== 'musteri') {
+        return $value;
+    }
+    global $wpdb;
+    $own = (string) $wpdb->get_var($wpdb->prepare("SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s LIMIT 1", $object_id, $meta_key));
+    if ($own !== '') {
+        return $value;
+    }
+    $url = MX_URI.'/assets/i/og.png';
+
+    return $single ? $url : [$url];
+}, 10, 4);
