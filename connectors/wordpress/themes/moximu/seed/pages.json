@@ -1693,6 +1693,20 @@
 }
 },
 {
+"ad": "Dentocare Klinik",
+"tur": "Diş kliniği · İzmir",
+"adres": "https://dentocareklinik.com/",
+"metin": "Yeni site, tedavi sayfaları ve haftalık içerik.",
+"gorsel": {
+"seed": "portfoy-dentocare.webp",
+"alt": "Dentocare Klinik web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-dentocare-mobil.webp",
+"alt": "Dentocare Klinik web sitesi, telefon görünümü"
+}
+},
+{
 "ad": "Buşra Nur Özger",
 "tur": "Obezite ve estetik cerrahi",
 "adres": "https://busranurozger.com/",
