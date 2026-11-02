@@ -40,3 +40,12 @@ a:hover>.mx-mi .mx-ico,.mx-card:hover .mx-ico,.mx-mm-g a:active .mx-ico{backgrou
 /* iOS: tek parmakla kaydırma. html ve body kaydırma kabı olmasın, zincirleme kaydırma kapanmasın. */html,body{overscroll-behavior-y:auto!important}html,body:not([style*=overflow]){overflow-y:visible!important;overflow-x:visible!important}@supports (overflow:clip){html,body:not([style*=overflow]){overflow-x:clip!important}}@supports not (overflow:clip){body:not([style*=overflow]){overflow-x:hidden!important}}
 .mx-off,.mx-off *,.mx-off :before,.mx-off :after{animation-play-state:paused!important}.mxprog{width:100%!important;transform:scaleX(0);transform-origin:0 50%;will-change:transform}
 .mxbar .dot,.lp-dot{position:relative;animation:none!important}.mxbar .dot:after,.lp-dot:after{content:"";position:absolute;inset:0;border-radius:50%;background:#fdcf3c;animation:mxpulse 2.2s ease-out infinite}@keyframes mxpulse{0%{transform:scale(1);opacity:.55}70%,to{transform:scale(3);opacity:0}}
+.svcard .tx{position:relative;overflow:hidden;isolation:isolate;align-content:start}.svcard .tx>*{position:relative}
+.svcard .tx:before,.svcard .tx:after{content:"";position:absolute;z-index:-1;width:380px;height:380px;left:-170px;bottom:-190px;border-radius:50%;pointer-events:none;transition:transform 1.4s cubic-bezier(.2,.8,.2,1),opacity .6s}
+.svcard .tx:before{background:repeating-conic-gradient(from 0deg,#dcebe6 0 1.2deg,#f5faf8 1.2deg 3deg);-webkit-mask:radial-gradient(circle,#000 0 52%,transparent 71%);mask:radial-gradient(circle,#000 0 52%,transparent 71%);opacity:.9}
+.svcard .tx:after{border:2px solid transparent;border-top-color:#fdcf3c;border-right-color:#fdcf3c;transform:rotate(-20deg) scale(.8);opacity:.9}
+.svcard:hover .tx:before{transform:rotate(30deg) scale(1.06)}.svcard:hover .tx:after{transform:rotate(70deg) scale(.8)}
+.svcard .tx h3{font-size:26px!important;line-height:1.2!important;font-weight:500;letter-spacing:-.02em;color:#032421}
+.svcard .tx p.kid{font-size:16px!important;line-height:1.55!important;color:#3d4a55!important;max-width:30ch}
+@media (max-width:768px){.svcard .tx{padding:30px 24px 110px!important}.svcard .tx:before,.svcard .tx:after{width:300px;height:300px;left:auto;right:-130px;bottom:-170px}.svcard .tx h3{font-size:23px!important}}
+@media (prefers-reduced-motion:reduce){.svcard .tx:before,.svcard .tx:after{transition:none}}
