@@ -5499,6 +5499,81 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_isaret": {
+     "key": "layout_mx_isaret",
+     "name": "isaret",
+     "label": "Logo hikâyesi (dört daire)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_isr_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_isr_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_isr_metin",
+       "name": "metin",
+       "label": "Giriş metni",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_isr_liste",
+       "name": "liste",
+       "label": "Daireler",
+       "type": "repeater",
+       "instructions": "İlk dört satır sırayla sol üst, sağ üst, sol alt, sağ alt daire. Beşinci satır sarı çizgi.",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_isr_l_b",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_isr_l_m",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_isr_metin2",
+       "name": "metin_2",
+       "label": "Alt metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_isr_not",
+       "name": "kucuk_not",
+       "label": "Logo altı küçük not",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
     }
    }
   }

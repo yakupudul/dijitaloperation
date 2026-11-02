@@ -14920,6 +14920,36 @@
 ]
 },
 {
+"acf_fc_layout": "isaret",
+"yazi": "İşaretimiz",
+"baslik": "Dört daire, <mark>tek çizgi</mark>.",
+"metin": "Logomuzdaki dört daire, hastanın kliniğinizi bulduğu dört yer. Onları birleştiren sarı çizgi M harfini çiziyor; bizim işimiz de bu: dört kanalı ayrı ayrı değil, tek elden ve tek planla yürütmek.",
+"liste": [
+{
+"baslik": "Web sitesi",
+"metin": "Hastanın sizi tanıdığı, tedaviyi okuyup karar verdiği yer."
+},
+{
+"baslik": "Google İşletme Profili",
+"metin": "“Yakınımdaki klinik” diye arayanın ilk gördüğü yer."
+},
+{
+"baslik": "Google Ads",
+"metin": "Tedaviyi arayan kişinin karşısına tam o anda çıktığınız yer."
+},
+{
+"baslik": "Instagram ve Facebook",
+"metin": "Henüz arama yapmamış hastaya sizin ulaştığınız yer."
+},
+{
+"baslik": "Sarı çizgi",
+"metin": "Dördünü aynı ekip yönetir; biri değişince diğerleri de buna göre ayarlanır."
+}
+],
+"metin_2": "Dairelerin içindeki ışık bir saat gibi döner. Bizim için her hafta bir tur demek: ölçeriz, düzeltiriz, size tek sayfalık bir özet göndeririz.",
+"kucuk_not": "Moximu işareti: dört kanal, tek plan"
+},
+{
 "acf_fc_layout": "kurucu",
 "yazi": "Kurucu",
 "baslik": "Kliniğinizle konuşan, <mark>işi yapan</mark> kişidir.",
