@@ -67,7 +67,7 @@ function mx_schema_nodes(): array
     $org['sameAs'] = ['https://www.instagram.com/moximucom/', 'https://www.facebook.com/moximucom', 'https://www.linkedin.com/company/moximu/', 'https://www.youtube.com/@yakup-udul'];
     $address = trim((string) get_field('adres', 'option'));
     if ($address !== '') {
-        $org['address'] = ['@type' => 'PostalAddress', 'streetAddress' => $address, 'addressLocality' => 'Şehzadeler', 'addressRegion' => 'Manisa', 'postalCode' => '45010', 'addressCountry' => 'TR'];
+        $org['address'] = ['@type' => 'PostalAddress', 'streetAddress' => trim((string) preg_replace('/,\s*\d{5}\b.*$/u', '', $address)), 'addressLocality' => 'Şehzadeler', 'addressRegion' => 'Manisa', 'postalCode' => '45010', 'addressCountry' => 'TR'];
     }
     $own_org = ! (is_front_page() && mx_schema_seopress_org());
     if (is_front_page() && $own_org) {
