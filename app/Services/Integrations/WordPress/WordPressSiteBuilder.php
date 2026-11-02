@@ -7,6 +7,7 @@ use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\User;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Site\BrandlessSites;
 use App\Support\Roles;
 use Illuminate\Support\Carbon;
@@ -200,6 +201,7 @@ final class WordPressSiteBuilder
     {
         $connection = $this->connection($siteId);
         $awaiting = self::mode($connection) === self::MODE_APPROVAL;
+        $this->ensureThemeSupport($connection, $operations, $awaiting);
         $config = (array) $connection->config;
         $config['claude_build']['used_at'] = now()->toIso8601String();
         $connection->forceFill(['config' => $config])->save();
@@ -223,6 +225,34 @@ final class WordPressSiteBuilder
         $action->forceFill(['status' => $result['status'], 'result' => $result, 'finished_at' => now(), 'error' => null])->save();
 
         return ['action_id' => $action->id, 'status' => $result['status'], 'results' => $result['results']];
+    }
+
+    /**
+     * A theme operation needs connector 1.33.0. In direct mode the Admin who switched building on already allowed
+     * writes to this site, so the connector update it needs is queued in their name (the usual signed self-update);
+     * the build is refused until the site reports the new version.
+     *
+     * @param  list<array<string, mixed>>  $operations
+     */
+    private function ensureThemeSupport(CoreConnection $connection, array $operations, bool $awaiting): void
+    {
+        $theme = array_filter($operations, fn (array $operation): bool => ($operation['op'] ?? null) === 'theme');
+        $version = (string) data_get($connection->config, 'plugin_version', '0.0.0');
+        if ($theme === [] || version_compare($version, '1.33.0', '>=')) {
+            return;
+        }
+        $message = 'Tema kurmak için sitedeki MoxDOP Connector en az 1.33.0 olmalı (şu an '.$version.').';
+        $user = User::query()->find((int) data_get($connection->config, 'claude_build.by'));
+        if ($awaiting || $user === null || $connection->digitalAsset === null) {
+            throw new RuntimeException($message.' Eklentiyi MoxDOP\'tan güncelleyin.');
+        }
+        try {
+            app(ExternalWriteService::class)->requestConnectorUpdate($user, $connection->digitalAsset);
+        } catch (Throwable $exception) {
+            throw new RuntimeException($message.' Güncelleme başlatılamadı: '.$exception->getMessage());
+        }
+
+        throw new RuntimeException($message.' Güncelleme başlatıldı; birkaç dakika sonra tekrar deneyin.');
     }
 
     /**

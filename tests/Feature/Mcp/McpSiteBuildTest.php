@@ -25,6 +25,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use MoxDop\Website\Discovery\PublicUrlSafety;
@@ -90,8 +91,24 @@ final class McpSiteBuildTest extends TestCase
         });
     }
 
+    public function test_a_theme_operation_on_an_old_connector_queues_the_connector_update_and_sends_nothing(): void
+    {
+        Queue::fake();
+        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['plugin_version' => '1.30.0'])])->save();
+        $this->actingAs($this->admin);
+        Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])->set('selectedAssetId', $this->site->id)->call('setBuildMode', 'direct');
+
+        MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'theme', 'slug' => 'moximu', 'activate' => true]]])
+            ->assertHasErrors(['Güncelleme başlatıldı']);
+
+        $this->assertSame([], array_filter($this->sent, fn (array $sent): bool => $sent[0] === 'POST'));
+        $update = ExternalWriteAction::query()->sole();
+        $this->assertSame([ExternalWriteAction::ACTION_CONNECTOR_UPDATE, '1.30.0'], [$update->action, $update->request_payload['from']]);
+    }
+
     public function test_a_theme_operation_sends_a_signed_package_link_with_its_hash_and_the_link_serves_that_zip(): void
     {
+        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['plugin_version' => '1.33.0'])])->save();
         $this->actingAs($this->admin);
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])->set('selectedAssetId', $this->site->id)->call('setBuildMode', 'direct');
 
