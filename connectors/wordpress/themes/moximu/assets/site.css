@@ -168,3 +168,4 @@ button[type=button].iitvAu:active{transform:scale(.98)}
 @media (max-width:900px){.mx .hxv-feed{bottom:auto;top:14px;right:14px;left:14px;width:auto}.hxv-dash{width:auto}}
 .mx .hxv-feed{bottom:auto;top:84px}
 @media (max-width:900px){.mx .hxv-feed{top:14px}}
+@media (min-width:901px){.mx .hxv-feed{right:16px;top:96px}}

@@ -111,9 +111,12 @@ function mx_seed_run(): void
             if (! empty($page['service']) && empty(get_field('hizmet', $id)['ad'] ?? '')) {
                 update_field('field_mx_h_grp', $page['service'], $id);
             }
-            foreach (['_seopress_titles_title' => $page['seo_title'] ?? '', '_seopress_titles_desc' => $page['seo_desc'] ?? '',
-                '_mx_seo_title' => $page['seo_title'] ?? '', '_mx_seo_desc' => $page['seo_desc'] ?? ''] as $meta => $value) {
-                if ($value !== '' && (string) get_post_meta($id, $meta, true) === '') {
+            // A title/description still holding an earlier seed text (seed/seo_prev.json) is replaced; one a person wrote is kept.
+            $prev = mx_seed_seo_prev()[$page['key']] ?? [];
+            foreach (['_seopress_titles_title' => 'seo_title', '_seopress_titles_desc' => 'seo_desc', '_mx_seo_title' => 'seo_title', '_mx_seo_desc' => 'seo_desc'] as $meta => $field) {
+                $value = (string) ($page[$field] ?? '');
+                $now = (string) get_post_meta($id, $meta, true);
+                if ($value !== '' && $now !== $value && ($now === '' || in_array($now, (array) ($prev[$field] ?? []), true))) {
                     update_post_meta($id, $meta, $value);
                 }
             }
@@ -261,6 +264,17 @@ function mx_seed_create(array $page): int
 }
 
 /** Title, excerpt and body from the seed, kept up to date until a person edits them (hash check). */
+function mx_seed_seo_prev(): array
+{
+    static $prev = null;
+    if ($prev === null) {
+        $file = MX_DIR.'/seed/seo_prev.json';
+        $prev = is_file($file) ? (json_decode((string) file_get_contents($file), true) ?: []) : [];
+    }
+
+    return $prev;
+}
+
 function mx_seed_text(int $id, array $page): void
 {
     if (! isset($page['content']) && ! isset($page['excerpt'])) {

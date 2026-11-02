@@ -323,14 +323,14 @@ add_shortcode('mx_arac', static function ($atts): string {
 </form>
 <?php elseif ($type === 'skor') : ?>
 <form class="mx-tool mx-check" data-tool="kart" onsubmit="return false">
-<?php foreach (['Her tedavinin sitede ayrı sayfası var', 'Site telefonda 3 saniyenin altında açılıyor', 'Her sayfada arama ve WhatsApp düğmesi görünüyor', 'Form iki üç alandan oluşuyor ve kliniğe anında düşüyor', 'Google kartında hizmetler, saatler ve fotoğraflar güncel', 'Son ayın yorumlarının hepsi cevaplanmış', 'Reklam hesapları kliniğin adına', 'Form, arama ve WhatsApp ayrı ölçülüyor', 'Reklam arama terimleri her hafta gözden geçiriliyor', 'Bir talebin kaça geldiğini biliyorsunuz', 'Gelen talepler aynı gün aranıyor', 'Her ay tek sayfalık bir rapor alıyorsunuz'] as $i => $item) : ?>
+<?php foreach (['Her tedavinin sitede ayrı sayfası var', 'Site telefonda 3 saniyenin altında açılıyor', 'Her sayfada arama ve WhatsApp düğmesi görünüyor', 'Form iki üç alandan oluşuyor ve kliniğe anında düşüyor', 'Google İşletme Profilinde hizmetler, saatler ve fotoğraflar güncel', 'Son ayın yorumlarının hepsi cevaplanmış', 'Reklam hesapları kliniğin adına', 'Form, arama ve WhatsApp ayrı ölçülüyor', 'Reklam arama terimleri her hafta gözden geçiriliyor', 'Bir talebin kaça geldiğini biliyorsunuz', 'Gelen talepler aynı gün aranıyor', 'Her ay tek sayfalık bir rapor alıyorsunuz'] as $i => $item) : ?>
 <label class="mx-chk"><input name="k<?= (int) $i ?>" type="checkbox"> <?= esc_html($item) ?></label>
 <?php endforeach; ?>
 <output><span>Puanınız <b data-out="puan">0 / 12</b></span><span data-out="yorum">Kutuları işaretleyin.</span></output>
 </form>
 <?php else : ?>
 <form class="mx-tool mx-check" data-tool="kart" onsubmit="return false">
-<?php foreach (['Kart adı tabeladaki adla aynı', 'Birincil kategori doğru (ör. Diş kliniği)', 'Hizmet listesi tek tek girilmiş', 'Çalışma saatleri ve tatil günleri güncel', 'Telefon ve web sitesi bağlantısı doğru', 'Son 30 günde en az 2 yeni fotoğraf', 'Son 7 günde bir gönderi', 'Tüm yorumlar cevaplanmış', 'Son 30 günde yeni yorum gelmiş', 'Aynı adreste ikinci kart yok', 'Soru-cevap bölümü dolu', 'Site, tedavi sayfasına bağlı (ana sayfaya değil)'] as $i => $item) : ?>
+<?php foreach (['Profil adı tabeladaki adla aynı', 'Birincil kategori doğru (ör. Diş kliniği)', 'Hizmet listesi tek tek girilmiş', 'Çalışma saatleri ve tatil günleri güncel', 'Telefon ve web sitesi bağlantısı doğru', 'Son 30 günde en az 2 yeni fotoğraf', 'Son 7 günde bir gönderi', 'Tüm yorumlar cevaplanmış', 'Son 30 günde yeni yorum gelmiş', 'Aynı adreste ikinci profil yok', 'Soru-cevap bölümü dolu', 'Site, tedavi sayfasına bağlı (ana sayfaya değil)'] as $i => $item) : ?>
 <label class="mx-chk"><input name="k<?= (int) $i ?>" type="checkbox"> <?= esc_html($item) ?></label>
 <?php endforeach; ?>
 <output><span>Kart puanı <b data-out="puan">0 / 12</b></span><span data-out="yorum">Kutuları işaretleyin.</span></output>
@@ -353,7 +353,7 @@ function mx_tool_js(): string
 function run(form){var t=form.getAttribute('data-tool'),q=function(n){return form.querySelector('[name="'+n+'"]')},o=function(n,v){var e=form.querySelector('[data-out="'+n+'"]');if(e)e.textContent=v};
 if(t==='talep'){var h=num(q('harcama')),l=num(q('talep')),r=num(q('oran'))/100,a=num(q('tutar'));var rv=l*r;o('cpl',l?f(h/l)+' ₺':'–');o('cpa',rv?f(h/rv)+' ₺':'–');o('randevu',f(rv));o('ciro',f(rv*a)+' ₺')}
 if(t==='butce'){var p=num(q('hasta')),r2=num(q('oran'))/100,c=num(q('cpl'))*parseFloat(q('kanal').value);var need=r2?Math.ceil(p/r2):0;o('talep',f(need));o('butce',f(need*c)+' ₺');o('gunluk',f(need*c/30.4)+' ₺')}
-if(t==='kart'){var b=form.querySelectorAll('input[type=checkbox]'),n=0;b.forEach(function(x){if(x.checked)n++});o('puan',n+' / '+b.length);o('yorum',n>=11?'İyi durumda; haftalık düzeni sürdürün.':n>=7?'Eksikler var; işaretsiz maddeler bu hafta kapanabilir.':'Temel eksikler var; ücretsiz analizde birlikte bakalım.')}}
+if(t==='kart'){var b=form.querySelectorAll('input[type=checkbox]'),n=0;b.forEach(function(x){if(x.checked)n++});o('puan',n+' / '+b.length);o('yorum',n>=11?'İyi durumda; haftalık düzeni sürdürün.':n>=7?'Eksikler var; işaretsiz maddeler bu hafta kapanabilir.':'Temel eksikler var; ücretsiz analizde birlikte ele alalım.')}}
 document.querySelectorAll('.mx-tool').forEach(function(form){form.addEventListener('input',function(){run(form)});form.addEventListener('change',function(){run(form)});run(form)})})();
 JS;
 }

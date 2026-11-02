@@ -38,7 +38,7 @@
 {
 "baglanti": "/hizmetlerimiz/google-isletme-profili/",
 "metin": "Google İşletme Profili",
-"metin_2": "\"Yakınımdaki diş kliniği\" aramasında ilk üç kart."
+"metin_2": "\"Yakınımdaki diş kliniği\" aramasında haritadaki ilk üç sıra."
 },
 {
 "baglanti": "/hizmetlerimiz/google-ads/",
@@ -53,7 +53,7 @@
 {
 "baglanti": "/fiyatlar/yerel-klinik-paketi/",
 "metin": "Yerel klinik paketi",
-"metin_2": "Dört kanal tek fiyatla: site, kart, Google ve Instagram."
+"metin_2": "Dört kanal tek fiyatla: site, İşletme Profili, Google ve Instagram."
 },
 {
 "baglanti": "/fiyatlar/saglik-turizmi-paketi/",
@@ -69,7 +69,7 @@
 {
 "baglanti": "/kurumlar/klinikler/",
 "metin": "Klinikler ve poliklinikler",
-"metin_2": "Her branşta site, kart ve reklam."
+"metin_2": "Her branşta site, İşletme Profili ve reklam."
 },
 {
 "baglanti": "/kurumlar/muayenehaneler/",
@@ -197,7 +197,7 @@
 {
 "baglanti": "/sonuclar/panorama-ankara/",
 "metin": "Panorama Ankara",
-"metin_2": "Diş kliniği: tedavi × ilçe sayfaları ve Google kartı."
+"metin_2": "Diş kliniği: tedavi × ilçe sayfaları ve Google İşletme Profili."
 },
 {
 "baglanti": "/sonuclar/dentocare-klinik/",
@@ -237,8 +237,8 @@
 },
 {
 "baglanti": "/araclar/google-karti-kontrol/",
-"metin": "Google kartı kontrol listesi",
-"metin_2": "12 maddede kartınızın puanı."
+"metin": "İşletme Profili kontrol listesi",
+"metin_2": "12 maddede İşletme Profilinizin puanı."
 },
 {
 "baglanti": "/degerlendirme/",
@@ -259,7 +259,7 @@
 {
 "baglanti": "/rehber/konu/gbp/",
 "metin": "Google İşletme Profili",
-"metin_2": "Harita kartı, yorumlar, gönderiler."
+"metin_2": "İşletme Profili, yorumlar, gönderiler."
 },
 {
 "baglanti": "/rehber/konu/google-ads/",
@@ -298,7 +298,7 @@
 {
 "baglanti": "/hizmetlerimiz/google-isletme-profili/",
 "metin": "Google İşletme Profili",
-"metin_2": "\"Yakınımdaki diş kliniği\" aramasında ilk üç kart."
+"metin_2": "\"Yakınımdaki diş kliniği\" aramasında haritadaki ilk üç sıra."
 },
 {
 "baglanti": "/hizmetlerimiz/google-ads/",
@@ -313,7 +313,7 @@
 {
 "baglanti": "/fiyatlar/yerel-klinik-paketi/",
 "metin": "Yerel klinik paketi",
-"metin_2": "Dört kanal tek fiyatla: site, kart, Google ve Instagram."
+"metin_2": "Dört kanal tek fiyatla: site, İşletme Profili, Google ve Instagram."
 },
 {
 "baglanti": "/fiyatlar/saglik-turizmi-paketi/",
@@ -330,7 +330,7 @@
 "alt": "Klinik resepsiyonu"
 },
 "metin": "Kliniğiniz dört hafta içinde Google'da nasıl bulunur?",
-"metin_2": "Site, Google kartı, Google ve Instagram reklamları; dördünü biz kurar, biz bakarız.",
+"metin_2": "Site, Google İşletme Profili, Google ve Instagram reklamları; tamamını biz kurar ve yönetiriz.",
 "baglanti_3": "/nasil-calisir/",
 "yazi_4": "Nasıl çalışır",
 "liste_4": [
@@ -365,7 +365,7 @@
 {
 "baglanti": "/hizmetlerimiz/google-isletme-profili/",
 "metin": "Google İşletme Profili",
-"metin_2": "\"Yakınımdaki diş kliniği\" aramasında ilk üç kart."
+"metin_2": "\"Yakınımdaki diş kliniği\" aramasında haritadaki ilk üç sıra."
 },
 {
 "baglanti": "/hizmetlerimiz/google-ads/",
@@ -380,7 +380,7 @@
 {
 "baglanti": "/fiyatlar/yerel-klinik-paketi/",
 "metin": "Yerel klinik paketi",
-"metin_2": "Dört kanal tek fiyatla: site, kart, Google ve Instagram."
+"metin_2": "Dört kanal tek fiyatla: site, İşletme Profili, Google ve Instagram."
 },
 {
 "baglanti": "/fiyatlar/saglik-turizmi-paketi/",
@@ -397,7 +397,7 @@
 "alt": "Klinik resepsiyonu"
 },
 "metin_3": "Kliniğiniz dört hafta içinde Google'da nasıl bulunur?",
-"metin_4": "Site, Google kartı, Google ve Instagram reklamları; dördünü biz kurar, biz bakarız.",
+"metin_4": "Site, Google İşletme Profili, Google ve Instagram reklamları; tamamını biz kurar ve yönetiriz.",
 "baglanti_4": "/nasil-calisir/",
 "yazi_5": "Nasıl çalışır"
 },
@@ -441,7 +441,7 @@
 },
 "alt": {
 "yazi": "WhatsApp her saat · telefon hafta içi 09:00–18:00",
-"metin": "Sorunuz mu var?<br/> <strong>Yazın, konuşalım.</strong>",
+"metin": "Sorularınız için<br/> <strong>bize ulaşın.</strong>",
 "baglanti": "/iletisim/",
 "yazi_2": "Görüşme planlayın",
 "yazi_3": "0538 861 02 88",
@@ -484,7 +484,7 @@
 },
 {
 "baglanti": "/rehber/yerel-seo-kart-mi-site-mi/",
-"baglanti_yaz": "Yerel SEO: kart mı site mi?"
+"baglanti_yaz": "Yerel SEO: İşletme Profili mi, site mi?"
 },
 {
 "baglanti": "/rehber/saglik-turizmi-reklami/",
@@ -648,7 +648,7 @@
 },
 {
 "baglanti": "/araclar/google-karti-kontrol/",
-"baglanti_yaz": "Google kartı kontrol listesi"
+"baglanti_yaz": "İşletme Profili kontrol listesi"
 }
 ],
 "alt_baslik_7": "Sonuçlar",
