@@ -108,6 +108,7 @@ function mx_sections(?int $post_id = null): bool
     if (! is_array($rows) || $rows === []) {
         return false;
     }
+    $GLOBALS['mx_drawn'] = true;
     foreach ($rows as $index => $d) {
         $GLOBALS['mx_section_index'] = $index;
         $layout = sanitize_key((string) ($d['acf_fc_layout'] ?? ''));

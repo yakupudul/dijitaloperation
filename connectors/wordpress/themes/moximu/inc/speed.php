@@ -90,6 +90,16 @@ add_action('template_redirect', static function (): void {
         if (! str_contains($html, '</body>')) {
             return $html;
         }
+        if (! empty($GLOBALS['mx_drawn'])) {
+            // The page is drawn by this theme: the old Elementor site's CSS/JS (kept in WPCode for pages not moved
+            // yet) and its Google Fonts link would only restyle it.
+            $html = preg_replace([
+                '#<style id="mox-site-b">.*?</style>#s',
+                '#<script id="mx-(?:site|maps|prices)"[^>]*>.*?</script>#s',
+                '#<link rel="preconnect" href="https://fonts\.(?:googleapis|gstatic)\.com"[^>]*>#',
+                '#<link rel="stylesheet" href="https://fonts\.googleapis\.com/[^"]*"[^>]*>#',
+            ], '', $html);
+        }
         $count = 0;
         $html = preg_replace_callback('#<script(?![^>]*\btype=["\']?(?:application/(?:ld\+)?json|speculationrules))([^>]*)>(.*?)</script>#is', static function (array $m) use (&$count): string {
             if (! preg_match('#googletagmanager\.com|connect\.facebook\.net|clarity\.ms|bzrcdn\.openai\.com#i', $m[1].$m[2])) {
