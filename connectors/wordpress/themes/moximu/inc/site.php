@@ -348,8 +348,7 @@ function mx_bulten_handle(): void
     set_transient($key, (int) get_transient($key) + 1, HOUR_IN_SECONDS);
     $clinic = mb_substr(sanitize_text_field(wp_unslash((string) ($_POST['klinik'] ?? ''))), 0, 120);
     wp_insert_post(['post_type' => 'mx_talep', 'post_status' => 'private', 'post_title' => 'Bülten: '.$mail, 'post_content' => "E-posta: $mail\nKlinik: $clinic\nTür: Bülten"]);
-    $to = function_exists('get_field') ? (string) get_field('talep_eposta', 'option') : '';
-    wp_mail($to !== '' ? $to : (string) get_option('admin_email'), 'Yeni bülten kaydı: '.$mail, "E-posta: $mail\nKlinik: $clinic");
+    mx_send_mail('Yeni bülten kaydı: '.$mail, "E-posta: $mail\nKlinik: $clinic");
     wp_send_json_success(['message' => 'Kaydınız alındı. İlk e-posta ayın ilk haftası gelir.']);
 }
 add_action('wp_ajax_mx_bulten', 'mx_bulten_handle');

@@ -13,6 +13,30 @@ add_action('init', static function (): void {
     ]);
 });
 
+/**
+ * Sends a form mail without ever breaking the form: a host without mail() (or a failing SMTP plugin) throws an Error
+ * that wp_mail does not catch. The request is already stored as an "Analiz talebi"; the last mail problem is kept in
+ * the option mx_mail_last_error so it can be read from the panel.
+ */
+function mx_send_mail(string $subject, string $body): bool
+{
+    $to = function_exists('get_field') ? (string) get_field('talep_eposta', 'option') : '';
+    $to = $to !== '' ? $to : (string) get_option('admin_email');
+    $failed = static function ($error): void {
+        update_option('mx_mail_last_error', gmdate('c').' '.(is_wp_error($error) ? $error->get_error_message() : (string) $error), false);
+    };
+    add_action('wp_mail_failed', $failed);
+    try {
+        $sent = wp_mail($to, $subject, $body);
+    } catch (Throwable $error) {
+        $failed(get_class($error).': '.$error->getMessage());
+        $sent = false;
+    }
+    remove_action('wp_mail_failed', $failed);
+
+    return (bool) $sent;
+}
+
 function mx_analiz_handle(): void
 {
     $field = static fn (string $k, int $max = 120): string => mb_substr(trim(sanitize_text_field(wp_unslash((string) ($_POST[$k] ?? '')))), 0, $max);
@@ -39,8 +63,7 @@ function mx_analiz_handle(): void
         $body .= $label.': '.$value."\n";
     }
     wp_insert_post(['post_type' => 'mx_talep', 'post_status' => 'private', 'post_title' => $data['Klinik'].' · '.$data['Şehir'], 'post_content' => $body]);
-    $to = function_exists('get_field') ? (string) get_field('talep_eposta', 'option') : '';
-    wp_mail($to !== '' ? $to : (string) get_option('admin_email'), 'Yeni ücretsiz analiz talebi: '.$data['Klinik'], $body);
+    mx_send_mail('Yeni ücretsiz analiz talebi: '.$data['Klinik'], $body);
     wp_send_json_success(['message' => 'Teşekkürler. 24 saat içinde dönüyoruz.']);
 }
 add_action('wp_ajax_mx_analiz', 'mx_analiz_handle');
