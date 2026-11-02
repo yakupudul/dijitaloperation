@@ -716,7 +716,10 @@
 "ad": "Avrupadent"
 },
 {
-"logo": null,
+"logo": {
+"seed": "burcin-oncul.svg",
+"alt": "Dr. Burçin Öncül"
+},
 "ad": "Dr. Burçin Öncül"
 },
 {
@@ -762,7 +765,10 @@
 "ad": "DiyetPartner"
 },
 {
-"logo": null,
+"logo": {
+"seed": "burcu-kisa.webp",
+"alt": "Prof. Dr. Burcu Kısa"
+},
 "ad": "Prof. Dr. Burcu Kısa"
 },
 {
@@ -871,7 +877,10 @@
 "ad": "Psikolog Füsun Göknar"
 },
 {
-"logo": null,
+"logo": {
+"seed": "suada-gasimova.svg",
+"alt": "Dr. Suada Gasimova"
+},
 "ad": "Dr. Suada Gasimova"
 },
 {
