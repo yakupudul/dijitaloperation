@@ -31,6 +31,6 @@ defined('ABSPATH') || exit;
 <h2 id="hatalar"><?= mx_h(($d['baslik_8'] ?? null)) ?></h2>
 <ol class="lp-art-ol"><?php foreach (mx_rows(($d['liste_5'] ?? null)) as $i1 => $r1): ?><li><?= mx_h(($r1['madde'] ?? null)) ?></li><?php endforeach; ?></ol>
 <p><?= mx_h(($d['metin_9'] ?? null)) ?></p>
-<div class="lp-author"><img alt="" src="<?= MX_URI ?>/assets/i/mark-loop.svg"/><div><?= mx_h(($d['yazi_10'] ?? null)) ?></div></div>
+<div class="lp-author"><img alt="" src="<?= MX_URI ?>/assets/i/mark-static.svg"/><div><?= mx_h(($d['yazi_10'] ?? null)) ?></div></div>
 </article>
 </div></div></section>

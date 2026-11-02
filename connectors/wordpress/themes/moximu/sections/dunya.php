@@ -3,7 +3,7 @@
 defined('ABSPATH') || exit;
 ?>
 <section class="mx mxworld" id="saglik-turizmi"><div class="wrap">
-<div><span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-loop.svg"/><?= mx_h(($d['yazi'] ?? null)) ?></span>
+<div><span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-static.svg"/><?= mx_h(($d['yazi'] ?? null)) ?></span>
 <h2><?= mx_h(($d['baslik'] ?? null)) ?></h2>
 <p class="lead"><?= mx_h(($d['metin'] ?? null)) ?></p>
 <ul><?php foreach (mx_rows(($d['liste'] ?? null)) as $i1 => $r1): ?><li><?= mx_h(($r1['madde'] ?? null)) ?></li><?php endforeach; ?></ul>

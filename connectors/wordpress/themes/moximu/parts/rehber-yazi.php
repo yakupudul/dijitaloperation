@@ -25,6 +25,6 @@ $html = preg_replace_callback('~<h2([^>]*)>(.*?)</h2>~is', static function (arra
 <article class="lp-art-body">
 <?= $html // already filtered by the_content ?>
 <div class="lp-art-cta"><div><?= mx_h($d['yazi_6'] ?? '') ?></div><a class="btn" href="<?= mx_url($d['baglanti_2'] ?? '/ucretsiz-klinik-analizi/') ?>"><?= mx_h($d['baglanti_yaz_2'] ?? 'Ücretsiz analiz') ?></a></div>
-<div class="lp-author"><img alt="" src="<?= MX_URI ?>/assets/i/mark-loop.svg"/><div><?= mx_h($d['yazi_10'] ?? '') ?></div></div>
+<div class="lp-author"><img alt="" src="<?= MX_URI ?>/assets/i/mark-static.svg"/><div><?= mx_h($d['yazi_10'] ?? '') ?></div></div>
 </article>
 </div></div></section>

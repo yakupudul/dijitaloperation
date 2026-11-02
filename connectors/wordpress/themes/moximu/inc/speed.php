@@ -79,8 +79,8 @@ add_action('wp_print_footer_scripts', 'mx_trim_queue', 1);
 add_action('wp_footer', 'mx_trim_queue', 9999);
 
 /*
- * Tag Manager, Meta Pixel and Clarity stay, but start after the page has loaded (or at the first tap / scroll), so
- * they never hold up the first paint. Every tag still fires on every visit.
+ * Tag Manager, Meta Pixel and Clarity stay, but start when the browser is idle about 4 s after load (or at the first click /
+ * key press). Never at the first touch or scroll, so their script work never lands inside a swipe. Every tag still fires.
  */
 add_action('template_redirect', static function (): void {
     if (is_admin() || is_feed() || wp_doing_ajax() || isset($_GET['elementor-preview']) || is_customize_preview()) {
@@ -114,7 +114,7 @@ add_action('template_redirect', static function (): void {
             return $html;
         }
         // Scripts marked data-consent (Clarity, Meta pixel) wait for the cookie banner's "Kabul et".
-        $loader = '<script>(function(){var d=!1;function run(all){document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){if(o.hasAttribute("data-consent")&&!all)return;var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}function r(){if(d)return;d=!0;run(/(?:^|; )mx_consent=all/.test(document.cookie))}window.mxConsentRun=function(){if(d)run(!0)};["pointerdown","keydown","scroll","touchstart"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(function(){(window.requestIdleCallback||setTimeout)(r)},7000)})})();</script>';
+        $loader = '<script>(function(){var d=!1;function run(all){document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){if(o.hasAttribute("data-consent")&&!all)return;var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}function r(){if(d)return;d=!0;run(/(?:^|; )mx_consent=all/.test(document.cookie))}window.mxConsentRun=function(){if(d)run(!0)};["click","keydown"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(function(){(window.requestIdleCallback||setTimeout)(r,{timeout:4000})},4000)})})();</script>';
 
         return str_replace('</body>', $loader.'</body>', $html);
     });

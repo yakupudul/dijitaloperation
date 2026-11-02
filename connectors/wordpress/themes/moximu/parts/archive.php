@@ -18,7 +18,7 @@ $cats = get_categories(['hide_empty' => true, 'exclude' => [(int) get_option('de
 ?>
 <nav aria-label="breadcrumb" class="mx lp-bc"><div class="wrap"><a href="<?= esc_url(home_url('/')) ?>">Ana sayfa</a> › <?php if (! is_home()) : ?><a href="<?= esc_url($blog_url) ?>">Rehber</a> › <?php endif; ?><span><?= esc_html($title) ?></span></div></nav>
 <section class="mx lp-art-hero mx-page-hero"><div class="wrap"><div class="lp-art-head">
-<span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-loop.svg"/>Rehber</span><h1><?= esc_html($title) ?></h1>
+<span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-static.svg"/>Rehber</span><h1><?= esc_html($title) ?></h1>
 <?php if ($lead !== '') : ?><p class="lead"><?= esc_html($lead) ?></p><?php endif; ?>
 <?php if ($cats) : ?><div class="mx-chips"><a class="<?= $current ? '' : 'on' ?>" href="<?= esc_url($blog_url) ?>">Tümü</a><?php foreach ($cats as $cat) : ?><a class="<?= $current === $cat->term_id ? 'on' : '' ?>" href="<?= esc_url(get_category_link($cat)) ?>"><?= esc_html($cat->name) ?></a><?php endforeach; ?></div><?php endif; ?>
 </div></div></section>
