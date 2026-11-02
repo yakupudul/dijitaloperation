@@ -1,0 +1,4 @@
+{"key":"group_mx_genel","title":"İletişim bilgileri","menu_order":-1,"fields":[
+ {"key":"field_mx_g_telefon","name":"telefon","label":"Telefon (yapısal veri)","type":"text","default_value":"+90 538 861 02 88"},
+ {"key":"field_mx_g_eposta","name":"talep_eposta","label":"Analiz talepleri hangi e-postaya gelsin","type":"email","instructions":"Boşsa sitenin yönetici e-postası."}
+],"location":[[{"param":"options_page","operator":"==","value":"moximu-ayarlar"}]],"active":true}

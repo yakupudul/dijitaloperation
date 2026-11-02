@@ -1,0 +1,6 @@
+{"key":"group_mx_hizmet","title":"Hizmet bilgisi (Google için)","fields":[
+ {"key":"field_mx_h_grp","name":"hizmet","label":"Hizmet","type":"group","layout":"row","instructions":"Doluysa sayfa Google'a hizmet olarak tanıtılır (yapısal veri).","sub_fields":[
+  {"key":"field_mx_h_ad","name":"ad","label":"Hizmet adı","type":"text"},
+  {"key":"field_mx_h_tur","name":"tur","label":"Hizmet türü","type":"text"},
+  {"key":"field_mx_h_fiyat","name":"fiyat","label":"Başlangıç fiyatı (₺, aylık ya da tek sefer)","type":"text"}]}
+],"location":[[{"param":"post_type","operator":"==","value":"page"}]],"position":"side","active":true}

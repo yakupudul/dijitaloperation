@@ -1,0 +1,5315 @@
+{
+ "key": "group_mx_sayfa",
+ "title": "Sayfa bölümleri",
+ "fields": [
+  {
+   "key": "field_mx_bolumler",
+   "name": "bolumler",
+   "label": "Sayfa bölümleri",
+   "type": "flexible_content",
+   "button_label": "Bölüm ekle",
+   "layouts": {
+    "layout_mx_adimlar": {
+     "key": "layout_mx_adimlar",
+     "name": "adimlar",
+     "label": "Adımlar",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_787d0f27c9d5",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Klinik SEO, Yerel klinik paketi, Google kartı, Google Ads, Meta reklam, Klinik web sitesi",
+        "v2": "Düzen 2 · Vaka"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_1300b6f6f405",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c927f5ec92e0",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_9bfc24889006",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a5dc2271337f",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1cdba4822dc0",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_647b981db0b7",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_10186f73816c",
+         "name": "kalin_yazi",
+         "label": "Kalın yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_ce9133de2dce",
+         "name": "alt_baslik",
+         "label": "Alt başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_11d75d341ec4",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_alt_menu": {
+     "key": "layout_mx_alt_menu",
+     "name": "alt_menu",
+     "label": "Sayfa içi menü",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_603a9d92c03f",
+       "name": "kalin_yazi",
+       "label": "Kalın yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_77d5cb27056a",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ana_giris": {
+     "key": "layout_mx_ana_giris",
+     "name": "ana_giris",
+     "label": "Ana sayfa girişi",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_98497df017a9",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_40b247089896",
+       "name": "gorsel_2",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_2cea77701acd",
+       "name": "gorsel_3",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_de5f4adbc39e",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_510ffe610e4e",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_674e7c48329e",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_6593e4e7750f",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_631d4f2dcae2",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a1e3b8aa106b",
+       "name": "gorsel_4",
+       "label": "Görsel",
+       "type": "image",
+       "instructions": "",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_16bbf8ee4e5f",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1f59870930e0",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2101bc3f4920",
+       "name": "kucuk_not",
+       "label": "Küçük not",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_720566bbb1f5",
+       "name": "gorsel_5",
+       "label": "Görsel",
+       "type": "image",
+       "instructions": "",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_e09e9ec3a3bc",
+       "name": "gorsel_6",
+       "label": "Görsel",
+       "type": "image",
+       "instructions": "",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_4ed4234563f3",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_604ef74e1ea9",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_e1ee9bcc1396",
+       "name": "gorsel_7",
+       "label": "Görsel",
+       "type": "image",
+       "instructions": "",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_101f9b4a28c3",
+       "name": "yazi_8",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5dfb0adfe9c3",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_23d79b0047fd",
+         "name": "logo",
+         "label": "Logo",
+         "type": "image",
+         "return_format": "id",
+         "preview_size": "thumbnail",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_731f789c42c8",
+         "name": "ad",
+         "label": "Ad",
+         "type": "text"
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ana_hizmetler": {
+     "key": "layout_mx_ana_hizmetler",
+     "name": "ana_hizmetler",
+     "label": "Ana sayfa hizmetler",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_50fe9f51c6ad",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b8a7d72664ac",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b8ce45186501",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3389cef8286b",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a84cbb311308",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c2feb01124c9",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_e5b6413a361c",
+       "name": "alt_baslik",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6018669f6877",
+       "name": "metin_2",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6271e6f72a8d",
+       "name": "baglanti_2",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_be84b56d2481",
+       "name": "baglanti_yaz_2",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_faab5581ca2b",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_7acdf9377f30",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2f85cddae633",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_4b216d40b39e",
+       "name": "alt_baslik_2",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_44c802e6044f",
+       "name": "metin_3",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_aea29e005dc1",
+       "name": "baglanti_3",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_58ee8e5dc819",
+       "name": "baglanti_yaz_3",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_434d9810fb2b",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d0f9571ad9c0",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_62db3f0568e1",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_568eb04703bc",
+       "name": "yazi_8",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d934ba3b351d",
+       "name": "yazi_9",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d3e97c9c797e",
+       "name": "yazi_10",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_93740ae278ad",
+       "name": "alt_baslik_3",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_af187162d747",
+       "name": "metin_4",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_9a548028dba0",
+       "name": "baglanti_4",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5e9a85685191",
+       "name": "baglanti_yaz_4",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bb554061a180",
+       "name": "yazi_11",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7e2db686073c",
+       "name": "yazi_12",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d9aa4e708d37",
+       "name": "yazi_13",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bf2aab8ef2af",
+       "name": "yazi_14",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7d65fc9f1e6d",
+       "name": "yazi_15",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_73795675b52e",
+       "name": "yazi_16",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c86437a8e730",
+       "name": "alt_baslik_4",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1e4b47ac71bc",
+       "name": "metin_5",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_4b3d52f8b0e9",
+       "name": "baglanti_5",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_dba101a71a1a",
+       "name": "baglanti_yaz_5",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1e43caafc4b7",
+       "name": "yazi_17",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3b6e3ddcce59",
+       "name": "gorsel_2",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_c11a71b7f0da",
+       "name": "etiket",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_db41581f7f00",
+       "name": "etiket_2",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_e01ee8311bea",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7bc8de92b7a1",
+       "name": "yazi_18",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_8dbf93499653",
+       "name": "yazi_19",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_analiz": {
+     "key": "layout_mx_analiz",
+     "name": "analiz",
+     "label": "Ücretsiz analiz formu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_ef259be82994",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Ana sayfa",
+        "v2": "Düzen 2 · Klinik SEO, Yerel klinik paketi, Google kartı, Google Ads, Meta reklam, Klinik web sitesi, Diş klinikleri, Şehir, Vaka, Fiyatlar, Rehber yazısı, Hakkımızda"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_ae9d80c010bc",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "instructions": "",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_e9009de4b847",
+       "name": "alt_baslik",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_abd1370626b0",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2233846a0ab3",
+       "name": "etiket",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ad168c0f4821",
+       "name": "etiket_2",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_0760433eaade",
+       "name": "etiket_3",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ec784e8f5972",
+       "name": "etiket_4",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3372efe13b79",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_af44329c3f9b",
+       "name": "etiket_5",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f2594b7d8d10",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_dunya": {
+     "key": "layout_mx_dunya",
+     "name": "dunya",
+     "label": "Dünya haritası",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_b967d2c985ac",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5f585177b0ba",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5cdf7d81ca96",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_23d83d08e398",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_9bf6181600be",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_46b6e89ac8dc",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_192aea61348e",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_4a3ea0fcca81",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_durum": {
+     "key": "layout_mx_durum",
+     "name": "durum",
+     "label": "Başlangıç durumu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_de3514f6386e",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f8d71c930735",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_fd17fd11ca39",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_28105a9ee469",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_383d8b571887",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_e53ce67c806b",
+         "name": "alt_baslik",
+         "label": "Alt başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_46328d803d7f",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_fiyat": {
+     "key": "layout_mx_fiyat",
+     "name": "fiyat",
+     "label": "Fiyat",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_0cffe22e7971",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Klinik SEO, Google kartı, Google Ads, Meta reklam",
+        "v2": "Düzen 2 · Yerel klinik paketi, Klinik web sitesi, Diş klinikleri",
+        "v3": "Düzen 3 · Şehir",
+        "v4": "Düzen 4 · Fiyatlar"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_bf167a80cf07",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c7a49324c778",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bc1f8717af0c",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_e7e908ee5795",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2c78cb77319a",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a91a55a8658f",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_b0bcdf719399",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_531477900b50",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d67dd210bf0d",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_eb2a6cc81ae3",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_388d5b04dcf7",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_8b7e0b00d548",
+       "name": "metin_2",
+       "label": "Metin",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v4"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_603f4c837d28",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_d1b4f4b6bcf2",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_197a1938efda",
+       "name": "metin_3",
+       "label": "Metin",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_5da0fa760799",
+       "name": "baglanti_2",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_9177cb798e54",
+       "name": "baglanti_yaz_2",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_3adf16031abe",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_a8af84014dac",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_ae744165150d",
+         "name": "yazi_2",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_ff5aa98eedb0",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_8f01a38e54a6",
+         "name": "baglanti",
+         "label": "Bağlantı adresi",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_adc302da504e",
+         "name": "baglanti_yaz",
+         "label": "Bağlantı yazısı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v2"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_e0476b6eb4ee",
+       "name": "liste_2_v4",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_5b81a8fde62c",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_b230fe28257b",
+         "name": "yazi_2",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_c89f48676a73",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_8a5e50a83757",
+         "name": "liste",
+         "label": "Liste",
+         "type": "repeater",
+         "instructions": "",
+         "layout": "block",
+         "button_label": "Satır ekle",
+         "collapsed": "",
+         "sub_fields": [
+          {
+           "key": "field_mx_1b5b43d233a3",
+           "name": "madde",
+           "label": "Madde",
+           "type": "text",
+           "instructions": ""
+          }
+         ]
+        },
+        {
+         "key": "field_mx_d25c75b05edb",
+         "name": "baglanti",
+         "label": "Bağlantı adresi",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_a4fee02be953",
+         "name": "baglanti_yaz",
+         "label": "Bağlantı yazısı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_0cffe22e7971",
+          "operator": "==",
+          "value": "v4"
+         }
+        ]
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_giris": {
+     "key": "layout_mx_giris",
+     "name": "giris",
+     "label": "Giriş (hero)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_7de2d41bb323",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Klinik SEO",
+        "v2": "Düzen 2 · Yerel klinik paketi",
+        "v3": "Düzen 3 · Google kartı",
+        "v4": "Düzen 4 · Google Ads",
+        "v5": "Düzen 5 · Meta reklam",
+        "v6": "Düzen 6 · Klinik web sitesi",
+        "v7": "Düzen 7 · Diş klinikleri",
+        "v8": "Düzen 8 · Şehir",
+        "v9": "Düzen 9 · Fiyatlar",
+        "v10": "Düzen 10 · Hakkımızda"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_2b11b0a11aac",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_cc0b7875d6ab",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f2e2d70f1004",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_6c1758cc3d9d",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7601ce234ed9",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_86774f7c8ed7",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_9119f5f71f84",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_65ec1d907ed5",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_9ac64110792b",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_1985d29fe532",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ac2486bda3ca",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_194948990863",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ab2023f0c2f6",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c8bffea509e0",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v9"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_b4c4a3b1e9d0",
+       "name": "yazi_8",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v9"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_5d4bcfdfe049",
+       "name": "yazi_9",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_9457e84e8eec",
+       "name": "yazi_10",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_4180ddc2e367",
+       "name": "yazi_11",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_1baa75516858",
+       "name": "yazi_12",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_7a5052c95a14",
+       "name": "yazi_13",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v1"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_1e8aaec3405c",
+       "name": "gorsel_2",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v6"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_7ef19c08c27d",
+       "name": "etiket",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v5"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_431e21950e80",
+       "name": "etiket_2",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v5"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_ed29c65eb3fa",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v5"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_7497266f8e19",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_9b019e975756",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_7de2d41bb323",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_harita": {
+     "key": "layout_mx_harita",
+     "name": "harita",
+     "label": "Türkiye haritası",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_4eb66bf88177",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Ana sayfa",
+        "v2": "Düzen 2 · Klinik SEO, Yerel klinik paketi, Google kartı, Google Ads, Meta reklam"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_aefcfc392940",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_07e4846d0fd3",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5b28f37616ab",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_17df3f0f47cf",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_35ff32f8533a",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_bf836c86d9a0",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5faf379c9b90",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_06e15afdd348",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_hikaye": {
+     "key": "layout_mx_hikaye",
+     "name": "hikaye",
+     "label": "Hikâye",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_d0abc2a78436",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6eb373f0f80e",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3940c1a59394",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_9e663774214a",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_5312c306c14c",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_fc23dcb05bad",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ilceler": {
+     "key": "layout_mx_ilceler",
+     "name": "ilceler",
+     "label": "İlçeler",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_957d1467fd8f",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bfb73247fa5f",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_dd9f88f78315",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_02c518086f3a",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_1e755915dfae",
+       "name": "metin_2",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ilgili": {
+     "key": "layout_mx_ilgili",
+     "name": "ilgili",
+     "label": "İlgili rehberler",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_f7e7204663e3",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_94dc6737b27b",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6b7c7832c9fe",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_kalemler": {
+     "key": "layout_mx_kalemler",
+     "name": "kalemler",
+     "label": "Dört iş kalemi",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_73f48a5e1c0b",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Klinik SEO",
+        "v2": "Düzen 2 · Yerel klinik paketi",
+        "v3": "Düzen 3 · Google kartı",
+        "v4": "Düzen 4 · Google Ads",
+        "v5": "Düzen 5 · Meta reklam",
+        "v6": "Düzen 6 · Klinik web sitesi",
+        "v7": "Düzen 7 · Diş klinikleri",
+        "v8": "Düzen 8 · Şehir",
+        "v9": "Düzen 9 · Vaka",
+        "v10": "Düzen 10 · Hakkımızda"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_fa9b42da99a8",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a3c26a5727b7",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_39a265a7440b",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_80524fdaf75d",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1b3b2cee6b68",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_83739606aba3",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_cf94ec72c40c",
+       "name": "alt_baslik",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3546ee630f9b",
+       "name": "metin_2",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_af54a3df1ac4",
+       "name": "metin_3",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a1470c151a35",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_984d37ee3c25",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_e2759aeef94e",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_d74ce6c7928f",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_49ad727b44dc",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3e7978bf934d",
+       "name": "alt_baslik_2",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_fa6b831bae5b",
+       "name": "metin_4",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_aab2aff301a3",
+       "name": "metin_5",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_0939c04da996",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c467113e2739",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_3c2ecacef013",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_40fb49eeead8",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_47fb5f8dd79b",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a1c0c92784ca",
+       "name": "alt_baslik_3",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7a4de6013653",
+       "name": "metin_6",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f3a044698aea",
+       "name": "metin_7",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a7866c962d79",
+       "name": "yazi_8",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_8a04f068688a",
+       "name": "yazi_9",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_21ec8eea8806",
+       "name": "yazi_10",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_902ba464911e",
+       "name": "yazi_11",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b572136e0a40",
+       "name": "yazi_12",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_8f91396648be",
+       "name": "yazi_13",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_27692c517c1e",
+       "name": "alt_baslik_4",
+       "label": "Alt başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_9d888ec3839f",
+       "name": "metin_8",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_4b91ed95c924",
+       "name": "metin_9",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_501149141966",
+       "name": "yazi_14",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3a44cad9d88a",
+       "name": "liste_3",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_223c70e37a13",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_3cdea3349901",
+       "name": "yazi_15",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v10"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_3c5d003dbaaa",
+       "name": "yazi_16",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_6e0f654189b2",
+       "name": "yazi_17",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v4"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_b62e03b3bd5f",
+       "name": "yazi_18",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_28a35d02ab41",
+       "name": "gorsel_2",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_a262be155869",
+       "name": "etiket",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_07f522a8b48b",
+       "name": "etiket_2",
+       "label": "Etiket",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_5dbde1308715",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_bf24879247c5",
+       "name": "yazi_19",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_2c06a7ccdd49",
+       "name": "yazi_20",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v7"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_8455f97babb8",
+       "name": "liste_v4",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_3dc161af4c82",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v4"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_4126b36bf1d9",
+       "name": "liste_2_v4",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_2ee10fbd08db",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v4"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_9fe239543268",
+       "name": "liste_v5",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_34763d53acd3",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v5"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_b666410283b0",
+       "name": "liste_v6",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_d239099a67e9",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_c5b46bd951a7",
+       "name": "liste_2_v6",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_d8eb9a972532",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v6"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_7b04c579e83a",
+       "name": "liste_v8",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_1e1cf0aaebe8",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_f0d26cd9ee8e",
+       "name": "yazi_21",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v8"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_45df281a8dec",
+       "name": "liste_v9",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_8c22e1f7178e",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_9c4d34502e11",
+       "name": "liste_2_v9",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_ca5701855ed1",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_73f48a5e1c0b",
+          "operator": "==",
+          "value": "v9"
+         }
+        ]
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_karsilastirma": {
+     "key": "layout_mx_karsilastirma",
+     "name": "karsilastirma",
+     "label": "Karşılaştırma",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_bb1a880f8049",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_af8a8e6c3b62",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b8050c11a9b7",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_0c37b2785223",
+         "name": "hucre_baslig",
+         "label": "Hücre başlığı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_4f99e9abcb3e",
+       "name": "hucre",
+       "label": "Hücre",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bff67d16015d",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_3724fdea051e",
+         "name": "hucre",
+         "label": "Hücre",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_320b6dd869a1",
+       "name": "liste_3",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_79aea9b0437e",
+         "name": "hucre",
+         "label": "Hücre",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_7b18a86123ee",
+       "name": "hucre_2",
+       "label": "Hücre",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f6af316abb29",
+       "name": "liste_4",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_6826c45aa1d7",
+         "name": "hucre",
+         "label": "Hücre",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_3495aea4272d",
+         "name": "liste",
+         "label": "Liste",
+         "type": "repeater",
+         "instructions": "",
+         "layout": "block",
+         "button_label": "Satır ekle",
+         "collapsed": "",
+         "sub_fields": [
+          {
+           "key": "field_mx_f0db4db72da6",
+           "name": "hucre",
+           "label": "Hücre",
+           "type": "text",
+           "instructions": ""
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_klinikler": {
+     "key": "layout_mx_klinikler",
+     "name": "klinikler",
+     "label": "Klinik duvarı",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_12eb9381db7d",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Diş klinikleri",
+        "v2": "Düzen 2 · Şehir"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_b25f0e271ce1",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_58ee88a3bed5",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5e08b651b584",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_e3a91b73d337",
+         "name": "gorsel",
+         "label": "Görsel",
+         "type": "image",
+         "instructions": "",
+         "return_format": "id",
+         "preview_size": "thumbnail",
+         "library": "all"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_771a4f323a60",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_logolar": {
+     "key": "layout_mx_logolar",
+     "name": "logolar",
+     "label": "Müşteri logoları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_b47956959a24",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7ab244834d15",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_836345fbc3be",
+         "name": "logo",
+         "label": "Logo",
+         "type": "image",
+         "return_format": "id",
+         "preview_size": "thumbnail",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_80df7719b4c4",
+         "name": "ad",
+         "label": "Ad",
+         "type": "text"
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_mobil_cta": {
+     "key": "layout_mx_mobil_cta",
+     "name": "mobil_cta",
+     "label": "Mobil arama çubuğu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_0bb29289c285",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c38b60c601a0",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_971fe2f4937b",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_neden": {
+     "key": "layout_mx_neden",
+     "name": "neden",
+     "label": "Neden",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_3da9e565ae23",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Klinik SEO, Yerel klinik paketi, Google kartı, Google Ads, Meta reklam, Klinik web sitesi, Şehir",
+        "v2": "Düzen 2 · Diş klinikleri",
+        "v3": "Düzen 3 · Fiyatlar",
+        "v4": "Düzen 4 · Hakkımızda"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_f3f26ba090e8",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d75d062c643f",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1e8a2808ca62",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_42ba0c0120af",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bac53b42d20e",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_69aa9250fec7",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_47d0e05ba087",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_009bf9b159ec",
+         "name": "alt_baslik",
+         "label": "Alt başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_0134385d7c32",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_once_sonra": {
+     "key": "layout_mx_once_sonra",
+     "name": "once_sonra",
+     "label": "Önce / sonra",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_d752db0eb9bf",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Klinik SEO",
+        "v2": "Düzen 2 · Google kartı",
+        "v3": "Düzen 3 · Google Ads",
+        "v4": "Düzen 4 · Klinik web sitesi"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_86e0f1c7dca8",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_9caa8ea81dc8",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a8da1d537ff7",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5253c81d079f",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_e2734bdd13bf",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_136622266463",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b85f7e355400",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_eb8c21b55596",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_4fd956fd5faa",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c9c74ffabaf5",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2de7d5fb2e98",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f9c3b214dbe8",
+       "name": "yazi_8",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_339fd64cea1b",
+       "name": "yazi_9",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6935254b906a",
+       "name": "yazi_10",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_67160b1778bf",
+       "name": "yazi_11",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v1"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_29731df2546b",
+       "name": "kalin_yazi",
+       "label": "Kalın yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_407553a8caad",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_e3a3217f6565",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v2"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v3"
+         }
+        ],
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v4"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_6f226779d8a4",
+       "name": "liste_3",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_997189bfb8bf",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v2"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_754514b3e659",
+       "name": "yazi_12",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_47ce5aa0c5b7",
+       "name": "yazi_13",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_0fb12e7b4fce",
+       "name": "yazi_14",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": "",
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_d752db0eb9bf",
+          "operator": "==",
+          "value": "v3"
+         }
+        ]
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_rakamlar": {
+     "key": "layout_mx_rakamlar",
+     "name": "rakamlar",
+     "label": "Rakamlar",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_f1a65d177add",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ac27b2682785",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_49aeda7dd004",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_e176dae0d21d",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_db8c195c3a6b",
+         "name": "buton_yazisi",
+         "label": "Buton yazısı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_8a9c27176dfd",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_sayilar": {
+     "key": "layout_mx_sayilar",
+     "name": "sayilar",
+     "label": "Sayılar",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_c99c0a1927e9",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_4be611f3e171",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6163c568fd75",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_d181594e3612",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_sonuc": {
+     "key": "layout_mx_sonuc",
+     "name": "sonuc",
+     "label": "Sonuç yüzdeleri",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_6ba3832cf14d",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6e0cadb86dfe",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2993a1a2da74",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_05f0099206d2",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_110d1bc2b981",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_60bee499348d",
+       "name": "metin_2",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_sonuclar": {
+     "key": "layout_mx_sonuclar",
+     "name": "sonuclar",
+     "label": "Sonuçlar kartları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_0502c09aba43",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Ana sayfa, Klinik SEO, Yerel klinik paketi, Google kartı, Google Ads, Meta reklam, Klinik web sitesi, Diş klinikleri",
+        "v2": "Düzen 2 · Şehir, Vaka, Fiyatlar, Rehber yazısı, Hakkımızda"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_bf1902525d91",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1c72898ca828",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_820e232ef8b4",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_165d407dbd39",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_df912c883297",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5fc4571a959b",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_f1b100c7e18c",
+         "name": "gorsel",
+         "label": "Görsel",
+         "type": "image",
+         "instructions": "",
+         "return_format": "id",
+         "preview_size": "thumbnail",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_c0b0c4014937",
+         "name": "kucuk_not",
+         "label": "Küçük not",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_f7c1392a9299",
+         "name": "liste",
+         "label": "Liste",
+         "type": "repeater",
+         "instructions": "",
+         "layout": "block",
+         "button_label": "Satır ekle",
+         "collapsed": "",
+         "sub_fields": [
+          {
+           "key": "field_mx_2c15e336582f",
+           "name": "yazi",
+           "label": "Yazı",
+           "type": "text",
+           "instructions": ""
+          }
+         ]
+        },
+        {
+         "key": "field_mx_5dec0fc70276",
+         "name": "alt_baslik",
+         "label": "Alt başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_08757399405c",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        },
+        {
+         "key": "field_mx_4b5c1f9d6c8d",
+         "name": "vurgu",
+         "label": "Vurgu",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_b38b615b102c",
+         "name": "baglanti",
+         "label": "Bağlantı adresi",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_66922a610c27",
+         "name": "baglanti_yaz",
+         "label": "Bağlantı yazısı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_sss": {
+     "key": "layout_mx_sss",
+     "name": "sss",
+     "label": "Sık sorulan sorular",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_759c88219a16",
+       "name": "tasarim",
+       "label": "Düzen",
+       "type": "select",
+       "ui": 0,
+       "return_format": "value",
+       "choices": {
+        "v1": "Düzen 1 · Ana sayfa",
+        "v2": "Düzen 2 · Klinik SEO, Yerel klinik paketi, Google kartı, Google Ads, Meta reklam, Klinik web sitesi, Diş klinikleri, Şehir, Vaka, Fiyatlar, Rehber yazısı, Hakkımızda"
+       },
+       "default_value": "v1",
+       "instructions": "Bölümün görünümü. Alanlar seçilen düzene göre açılır."
+      },
+      {
+       "key": "field_mx_a88cffd18d71",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_023f90156071",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_f80f9dc2a173",
+         "name": "buton_yazisi",
+         "label": "Buton yazısı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_a18803663503",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_4f6e12fb66a8",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_759c88219a16",
+          "operator": "==",
+          "value": "v1"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_d1766e9e0fc0",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_6053fdf42634",
+         "name": "buton_yazisi",
+         "label": "Buton yazısı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_fd4f4646f10d",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_aaa42837f823",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_759c88219a16",
+          "operator": "==",
+          "value": "v1"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_73063aca329d",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7bf39148e52d",
+       "name": "liste_v2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_8aac487723a7",
+         "name": "buton_yazisi",
+         "label": "Buton yazısı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_7fd465e1a2d4",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_759c88219a16",
+          "operator": "==",
+          "value": "v2"
+         }
+        ]
+       ]
+      },
+      {
+       "key": "field_mx_0f83cd66aab4",
+       "name": "liste_2_v2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_ceb59e50fc4b",
+         "name": "buton_yazisi",
+         "label": "Buton yazısı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_10b8bd93a36e",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ],
+       "conditional_logic": [
+        [
+         {
+          "field": "field_mx_759c88219a16",
+          "operator": "==",
+          "value": "v2"
+         }
+        ]
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_tedavi": {
+     "key": "layout_mx_tedavi",
+     "name": "tedavi",
+     "label": "Tedaviye göre",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_a424772e2f68",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_df2219fa543b",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7e383094f2bd",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_2259453f2885",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_cdf9c06ea327",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_5de5fefaec2c",
+         "name": "alt_baslik",
+         "label": "Alt başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_6aea0725aa97",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_a24b56d70467",
+         "name": "liste",
+         "label": "Liste",
+         "type": "repeater",
+         "instructions": "",
+         "layout": "block",
+         "button_label": "Satır ekle",
+         "collapsed": "",
+         "sub_fields": [
+          {
+           "key": "field_mx_a37c092e4db4",
+           "name": "madde",
+           "label": "Madde",
+           "type": "text",
+           "instructions": ""
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_tek_hizmet": {
+     "key": "layout_mx_tek_hizmet",
+     "name": "tek_hizmet",
+     "label": "Tek hizmet fiyatları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_0d3e8beec0bf",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6a2924d36324",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_da44baf80ae6",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5b0746604e0f",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_vaka_giris": {
+     "key": "layout_mx_vaka_giris",
+     "name": "vaka_giris",
+     "label": "Vaka girişi",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_c7e44e7bbc51",
+       "name": "gorsel",
+       "label": "Görsel",
+       "type": "image",
+       "instructions": "",
+       "return_format": "id",
+       "preview_size": "thumbnail",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_b15feec91901",
+       "name": "kucuk_not",
+       "label": "Küçük not",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c8d87356a694",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3367760e4b58",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_4ec718dd35e6",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_3ab994b2bd0e",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_166a8543a8cc",
+       "name": "vurgu",
+       "label": "Vurgu",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bc0644a3db5e",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2a8c3c5670d7",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_aca8bddbaa4b",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_db23cd9f6b7a",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_d499160d48e3",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_9c66ac400edb",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_yazi": {
+     "key": "layout_mx_yazi",
+     "name": "yazi",
+     "label": "Yazı",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_a5f626df0d37",
+       "name": "kalin_yazi",
+       "label": "Kalın yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_30d34ea283c8",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_096c14be58dc",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3d1a2895cc80",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_886237e74e3a",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_112c3114654b",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3909507d0b65",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_ebcb1832acc2",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_c3860367972a",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ca9326068d76",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_77da3066ad1e",
+       "name": "liste_2",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_5adc997bb424",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_7f029810b699",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_0f4d56b14425",
+       "name": "baslik_2",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_acc315733907",
+       "name": "liste_3",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_5237e7bd3558",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_268d5826327f",
+       "name": "yazi_5",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_285d6758afd8",
+       "name": "baslik_3",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_34b46772edd9",
+       "name": "metin_2",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_adbb6509515d",
+       "name": "liste_4",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_d7854bb9a97d",
+         "name": "madde",
+         "label": "Madde",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_e67ddbad8166",
+       "name": "baslik_4",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_6a7933e57a35",
+       "name": "metin_3",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_9a57047955a4",
+       "name": "baslik_5",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2f2df398121f",
+       "name": "metin_4",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_f483c2a292aa",
+       "name": "kalin_yazi_2",
+       "label": "Kalın yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_9a18c5403318",
+       "name": "metin_5",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f6bcd6aa2d6e",
+       "name": "kalin_yazi_3",
+       "label": "Kalın yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_55299530b4c2",
+       "name": "metin_6",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_3db86d1fb79a",
+       "name": "yazi_6",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_f288df03c899",
+       "name": "baglanti_2",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ebe452202d62",
+       "name": "baglanti_yaz_2",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c15f1a3228e3",
+       "name": "baslik_6",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_1600994f2066",
+       "name": "metin_7",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_a863a288d613",
+       "name": "baslik_7",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ba384668ee44",
+       "name": "metin_8",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_ccec4b4a23c8",
+       "name": "yazi_7",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_73dae848a658",
+       "name": "yazi_8",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ee49fe40bd84",
+       "name": "yazi_9",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_3b03de216b97",
+       "name": "baslik_8",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_7aa86887e90b",
+       "name": "liste_5",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_de7cd8b0f746",
+         "name": "madde",
+         "label": "Madde",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_38bcc7e3b425",
+       "name": "metin_9",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_2db40f7bee97",
+       "name": "yazi_10",
+       "label": "Yazı",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_yazi_giris": {
+     "key": "layout_mx_yazi_giris",
+     "name": "yazi_giris",
+     "label": "Yazı girişi",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_75cb428e0d60",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_a4a20d8d93ed",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_5886f6899f98",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_acd6ca77d55b",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f30c4e99259e",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_c3290773de79",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_yol": {
+     "key": "layout_mx_yol",
+     "name": "yol",
+     "label": "Yol (breadcrumb)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_cd8b309695a1",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_yorum_ozet": {
+     "key": "layout_mx_yorum_ozet",
+     "name": "yorum_ozet",
+     "label": "Google puanı",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_75a526755dcc",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_48c7951eb43f",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_0b4b2ab80d0e",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_c7b14358030b",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_yorumlar": {
+     "key": "layout_mx_yorumlar",
+     "name": "yorumlar",
+     "label": "Google yorumları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_6952bfadbe17",
+       "name": "yazi",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_f4519cd97751",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b973c1594013",
+       "name": "metin",
+       "label": "Metin",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_b55bbfeeed0a",
+       "name": "yazi_2",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_4e16f9ac3769",
+       "name": "yazi_3",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_57af4d926e90",
+       "name": "yazi_4",
+       "label": "Yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_bcd73aaa9058",
+       "name": "baglanti",
+       "label": "Bağlantı adresi",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_704987d83ce3",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_61fe442001b6",
+       "name": "liste",
+       "label": "Liste",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_f27bc422f1da",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_1b6fe7ae5d63",
+         "name": "yazi_2",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_74434594b767",
+         "name": "yazi_3",
+         "label": "Yazı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_ad93f89fa36a",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_32e4a91dcb7d",
+         "name": "kucuk_not",
+         "label": "Küçük not",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    }
+   }
+  }
+ ],
+ "location": [
+  [
+   {
+    "param": "post_type",
+    "operator": "==",
+    "value": "page"
+   }
+  ],
+  [
+   {
+    "param": "post_type",
+    "operator": "==",
+    "value": "musteri"
+   }
+  ]
+ ],
+ "position": "acf_after_title",
+ "style": "seamless",
+ "hide_on_screen": [
+  "the_content"
+ ],
+ "active": true
+}
