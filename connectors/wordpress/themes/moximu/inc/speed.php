@@ -50,3 +50,61 @@ add_action('wp_default_scripts', static function ($scripts): void {
         $scripts->registered['jquery']->deps = array_diff($scripts->registered['jquery']->deps, ['jquery-migrate']);
     }
 });
+
+/*
+ * Plugins left over from the Elementor site (Elementor, Dynamic Content, Search & Filter, …) still enqueue their files
+ * on every page. A page drawn by this theme needs none of them: on the front end only the theme's own files load.
+ */
+function mx_keep_handle(string $handle): bool
+{
+    return $handle === 'moximu' || str_starts_with($handle, 'moximu-') || (is_admin_bar_showing() && in_array($handle, ['admin-bar', 'dashicons', 'hoverintent-js', 'hoverIntent'], true));
+}
+
+function mx_trim_queue(): void
+{
+    if (is_admin() || isset($_GET['elementor-preview']) || is_customize_preview()) {
+        return;
+    }
+    foreach ([wp_styles(), wp_scripts()] as $deps) {
+        foreach ((array) $deps->queue as $handle) {
+            if (! mx_keep_handle($handle)) {
+                $deps->dequeue($handle);
+            }
+        }
+    }
+}
+add_action('wp_print_styles', 'mx_trim_queue', 9999);
+add_action('wp_print_scripts', 'mx_trim_queue', 9999);
+add_action('wp_print_footer_scripts', 'mx_trim_queue', 1);
+add_action('wp_footer', 'mx_trim_queue', 9999);
+
+/*
+ * Tag Manager, Meta Pixel and Clarity stay, but start after the page has loaded (or at the first tap / scroll), so
+ * they never hold up the first paint. Every tag still fires on every visit.
+ */
+add_action('template_redirect', static function (): void {
+    if (is_admin() || is_feed() || wp_doing_ajax() || isset($_GET['elementor-preview']) || is_customize_preview()) {
+        return;
+    }
+    ob_start(static function (string $html): string {
+        if (! str_contains($html, '</body>')) {
+            return $html;
+        }
+        $count = 0;
+        $html = preg_replace_callback('#<script(?![^>]*\btype=["\']?(?:application/(?:ld\+)?json|speculationrules))([^>]*)>(.*?)</script>#is', static function (array $m) use (&$count): string {
+            if (! preg_match('#googletagmanager\.com|connect\.facebook\.net|clarity\.ms|bzrcdn\.openai\.com#i', $m[1].$m[2])) {
+                return $m[0];
+            }
+            $count++;
+            $attrs = preg_replace('#\s(type|defer|async)(=("[^"]*"|\'[^\']*\'|\S+))?#i', '', $m[1]);
+
+            return '<script type="text/mx-later"'.$attrs.'>'.$m[2].'</script>';
+        }, $html);
+        if ($count === 0) {
+            return $html;
+        }
+        $loader = '<script>(function(){var d=!1;function r(){if(d)return;d=!0;document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}["pointerdown","keydown","scroll","touchstart"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(r,2500)})})();</script>';
+
+        return str_replace('</body>', $loader.'</body>', $html);
+    });
+});
