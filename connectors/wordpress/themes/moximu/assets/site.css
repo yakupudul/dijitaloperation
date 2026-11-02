@@ -49,3 +49,13 @@ a:hover>.mx-mi .mx-ico,.mx-card:hover .mx-ico,.mx-mm-g a:active .mx-ico{backgrou
 .svcard .tx p.kid{font-size:16px!important;line-height:1.55!important;color:#3d4a55!important;max-width:30ch}
 @media (max-width:768px){.svcard .tx{padding:30px 24px 110px!important}.svcard .tx:before,.svcard .tx:after{width:300px;height:300px;left:auto;right:-130px;bottom:-170px}.svcard .tx h3{font-size:23px!important}}
 @media (prefers-reduced-motion:reduce){.svcard .tx:before,.svcard .tx:after{transition:none}}
+header a.mxcta,a.mxcta,a.mxcta:visited{color:#fff!important}
+.mxlogo-m{width:34px!important;height:34px!important;border-radius:8px}.mxlogo-w{height:20px!important;width:auto!important}.mxlogo{gap:10px}html.mx-scrolled header .iWhvJG .mxlogo-m{width:32px!important;height:32px!important}header .iWhvJG .mxlogo-m{transition:none}.mxlogo.big .mxlogo-m{width:44px!important;height:44px!important;border-radius:10px}.mxlogo.big .mxlogo-w{height:26px!important}
+@media (max-width:1180px){.mxlogo-m{width:32px!important;height:32px!important}.mxlogo-w{height:19px!important}}
+a.mxwa svg{color:#1f8f55}.mxph-m.mxwa{background:#145c59}.mxph-m.mxwa svg{color:#fff}
+.lp-wa,.mx .btn.lp-wa{display:inline-flex!important;align-items:center;gap:10px}.lp-wa svg{width:19px;height:19px;flex:none}
+.lp-mcta .wa{color:#fff;background:#145c59}.lp-mcta .go{color:#032421!important;background:#fff!important;border:1px solid #d7e3df}
+.mx-wa-btn{display:inline-flex!important;align-items:center;gap:8px}.mx-wa-btn svg{width:18px;height:18px}
+.lp-mcta{grid-template-columns:1.3fr 1fr!important}
+span:has(>.mxlogo){overflow:visible!important;width:auto!important;max-width:none!important}.mxlogo .mxlogo-w{max-width:none!important}
+.lp-mcta{grid-template-columns:1fr 1.25fr!important}.lp-mcta a{font-size:14px!important;white-space:nowrap;padding:0 8px;overflow:hidden;text-overflow:ellipsis}

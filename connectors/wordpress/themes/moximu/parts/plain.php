@@ -58,7 +58,7 @@ if ($sales && ! in_array('sayilar', $after, true)) {
 <section class="mx lp-art-hero mx-page-hero<?= $sales ? ' is-sales' : '' ?>" id="yazi"><div class="wrap">
 <div class="lp-art-head"><span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-static.svg"/><?= esc_html($eyebrow) ?></span><h1><?php the_title(); ?></h1>
 <?php if (has_excerpt()) : ?><p class="lead"><?= esc_html(get_the_excerpt()) ?></p><?php endif; ?>
-<?php if ($sales) : ?><div class="mx-page-cta"><a class="btn" href="<?= esc_url(home_url('/ucretsiz-klinik-analizi/')) ?>">Ücretsiz klinik analizi</a><a class="btn outline" href="tel:+905388610288">0538 861 02 88</a></div>
+<?php if ($sales) : ?><div class="mx-page-cta"><a class="btn lp-wa" href="<?= esc_url(mx_wa_url()) ?>" rel="noopener" target="_blank"><?= mx_wa_icon() ?>WhatsApp'tan yazın</a><a class="btn outline" href="<?= esc_url(home_url('/ucretsiz-klinik-analizi/')) ?>">Ücretsiz klinik analizi</a></div>
 <div class="mx-page-trust"><span><b>4,9</b> Google puanı</span><span><b>500+</b> web sitesi</span><span><b>50+</b> klinik</span><span><b>24 saatte</b> ilk rapor</span></div><?php endif; ?>
 </div></div></section>
 <section class="mx lp-art mx-page" id="icerik"><div class="wrap"><div class="<?= $with_toc ? 'lp-art-g' : 'mx-page-one' ?>">

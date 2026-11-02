@@ -484,3 +484,16 @@ add_shortcode('mx_harita', static function (): string {
         .'<small>Hafta içi 09:00–18:00</small><button type="button" class="btn" data-map="'.esc_attr($src).'">Haritayı gösterin</button>'
         .'<a href="https://www.google.com/maps/search/?api=1&amp;query='.rawurlencode($q).'" rel="noopener" target="_blank">Google Haritalar\'da açın ↗</a></div></div>';
 });
+
+// Favicon from the Moximu mark (theme files), unless a Site Icon is set in WordPress.
+add_action('wp_head', static function (): void {
+    if (has_site_icon()) {
+        return;
+    }
+    $f = MX_URI.'/assets/i/fav/';
+    echo '<link rel="icon" href="'.esc_url($f.'favicon.ico').'" sizes="any"/>'
+        .'<link rel="icon" type="image/png" sizes="32x32" href="'.esc_url($f.'favicon-32.png').'"/>'
+        .'<link rel="icon" type="image/png" sizes="192x192" href="'.esc_url($f.'favicon-192.png').'"/>'
+        .'<link rel="apple-touch-icon" href="'.esc_url($f.'favicon-180.png').'"/>'
+        .'<meta name="theme-color" content="#fdcf3c"/>'."\n";
+}, 2);
