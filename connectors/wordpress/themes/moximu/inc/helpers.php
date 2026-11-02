@@ -139,6 +139,8 @@ function mx_menu_icon(string $url): string
 {
     $paths = [
         'hizmet' => '<path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>',
+        'turizm' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+        'kurum' => '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-5h6v5M12 8v4M10 10h4"/>',
         'klinik' => '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/>',
         'sehir' => '<path d="M12 21s7-6 7-11.5a7 7 0 1 0-14 0C5 15 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
         'sonuc' => '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',

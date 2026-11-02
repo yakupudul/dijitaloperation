@@ -63,9 +63,29 @@
 ]
 },
 {
-"metin": "Klinik tipleri",
-"baglanti": "/klinik/",
+"metin": "Kimler için",
+"baglanti": "/kurumlar/",
 "alt": [
+{
+"baglanti": "/kurumlar/klinikler/",
+"metin": "Klinikler ve poliklinikler",
+"metin_2": "Her branşta site, kart ve reklam."
+},
+{
+"baglanti": "/kurumlar/muayenehaneler/",
+"metin": "Muayenehaneler",
+"metin_2": "Hekim adı ve tedavi aramaları."
+},
+{
+"baglanti": "/kurumlar/hastaneler/",
+"metin": "Hastaneler ve tıp merkezleri",
+"metin_2": "Bölüm ve şube bazlı düzen."
+},
+{
+"baglanti": "/kurumlar/saglik-turizmi-acenteleri/",
+"metin": "Sağlık turizmi acenteleri",
+"metin_2": "Ülke bazlı reklam ve karşılama."
+},
 {
 "baglanti": "/klinik/dis-klinigi/",
 "metin": "Diş klinikleri",
@@ -82,34 +102,9 @@
 "metin_2": "Lazer, dolgu ve cilt bakımı aramaları."
 },
 {
-"baglanti": "/klinik/sac-ekimi/",
-"metin": "Saç ekimi",
-"metin_2": "FUE ve DHI, yurt içi ve yurt dışı."
-},
-{
-"baglanti": "/klinik/fizyoterapi/",
-"metin": "Fizyoterapi",
-"metin_2": "Bel fıtığı, skolyoz, spor yaralanması."
-},
-{
-"baglanti": "/klinik/diyetisyen/",
-"metin": "Diyetisyen",
-"metin_2": "Online ve yüz yüze diyet aramaları."
-},
-{
-"baglanti": "/klinik/psikolog/",
-"metin": "Psikolog ve psikiyatri",
-"metin_2": "Mahremiyete uygun sayfa ve randevu."
-},
-{
-"baglanti": "/klinik/sunnet/",
-"metin": "Sünnet",
-"metin_2": "Aileye süreci anlatan sayfalar."
-},
-{
-"baglanti": "/klinik/saglik-turizmi/",
-"metin": "Sağlık turizmi",
-"metin_2": "Yurt dışından hasta, ülke bazlı reklam."
+"baglanti": "/klinik/",
+"metin": "Tüm branşlar",
+"metin_2": "Saç ekimi, fizyoterapi, diyetisyen, psikolog ve diğerleri."
 }
 ]
 },
@@ -146,6 +141,52 @@
 "baglanti": "/sehirler/bursa/",
 "metin": "Bursa",
 "metin_2": "Nilüfer, Osmangazi, Yıldırım ve tüm ilçeler."
+}
+]
+},
+{
+"metin": "Sağlık turizmi",
+"baglanti": "/saglik-turizmi/",
+"alt": [
+{
+"baglanti": "/saglik-turizmi/almanya/",
+"metin": "Almanya",
+"metin_2": "Almanca sayfalar, Köln, Berlin, Hamburg."
+},
+{
+"baglanti": "/saglik-turizmi/ingiltere/",
+"metin": "İngiltere",
+"metin_2": "İngilizce sayfalar, Londra, Manchester."
+},
+{
+"baglanti": "/saglik-turizmi/hollanda/",
+"metin": "Hollanda",
+"metin_2": "Hollandaca sayfalar, Amsterdam, Rotterdam."
+},
+{
+"baglanti": "/saglik-turizmi/belcika/",
+"metin": "Belçika",
+"metin_2": "Fransızca ve Hollandaca, Brüksel, Antwerpen."
+},
+{
+"baglanti": "/saglik-turizmi/fransa/",
+"metin": "Fransa",
+"metin_2": "Fransızca sayfalar, Paris, Lyon, Strasbourg."
+},
+{
+"baglanti": "/saglik-turizmi/avusturya/",
+"metin": "Avusturya",
+"metin_2": "Almanca sayfalar, Viyana, Graz."
+},
+{
+"baglanti": "/saglik-turizmi/isvicre/",
+"metin": "İsviçre",
+"metin_2": "Almanca ve Fransızca, Zürih, Cenevre."
+},
+{
+"baglanti": "/saglik-turizmi/",
+"metin": "Tüm ülkeler",
+"metin_2": "Bulgaristan, ABD ve yetki belgesi rehberi."
 }
 ]
 },
@@ -499,6 +540,18 @@
 {
 "baglanti": "/calisma-sartlari/",
 "baglanti_yaz": "Çalışma şartları"
+},
+{
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/ornekler/",
+"baglanti_yaz": "Web sitesi örnekleri"
+},
+{
+"baglanti": "/ornek-haftalik-rapor/",
+"baglanti_yaz": "Örnek haftalık özet"
+},
+{
+"baglanti": "/mevzuata-uyum/",
+"baglanti_yaz": "Mevzuata uyum"
 }
 ],
 "alt_baslik_4": "Klinik tipleri",
@@ -538,6 +591,22 @@
 {
 "baglanti": "/klinik/saglik-turizmi/",
 "baglanti_yaz": "Sağlık turizmi"
+},
+{
+"baglanti": "/kurumlar/muayenehaneler/",
+"baglanti_yaz": "Muayenehaneler"
+},
+{
+"baglanti": "/kurumlar/hastaneler/",
+"baglanti_yaz": "Hastaneler ve tıp merkezleri"
+},
+{
+"baglanti": "/kurumlar/saglik-turizmi-acenteleri/",
+"baglanti_yaz": "Sağlık turizmi acenteleri"
+},
+{
+"baglanti": "/saglik-turizmi/",
+"baglanti_yaz": "Sağlık turizmi: ülkeler"
 }
 ],
 "alt_baslik_5": "Şehirler",

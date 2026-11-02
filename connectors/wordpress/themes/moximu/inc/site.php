@@ -410,3 +410,77 @@ add_filter('get_post_metadata', static function ($value, $object_id, $meta_key, 
 
     return $single ? $url : [$url];
 }, 10, 4);
+
+/** Portfolio cards: the live site in a browser frame (scrolls on hover) with its phone view on top. */
+function mx_portfolio_grid(array $items): string
+{
+    if (! $items) {
+        return '';
+    }
+    $out = '<div class="mx-pf-g">';
+    foreach ($items as $row) {
+        $name = trim(wp_strip_all_tags((string) ($row['ad'] ?? '')));
+        $url = trim((string) ($row['adres'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $host = $url !== '' ? preg_replace('~^www\.~', '', (string) wp_parse_url($url, PHP_URL_HOST)) : '';
+        $desk = mx_img_src($row['gorsel'] ?? null);
+        $phone = mx_img_src($row['gorsel_2'] ?? null);
+        $tag = $url !== '' ? 'a' : 'div';
+        $link = $url !== '' ? ' href="'.esc_url($url).'" rel="noopener" target="_blank" aria-label="'.esc_attr($name.' sitesini yeni sekmede açın').'"' : '';
+        $out .= '<article class="mx-pf-i"><'.$tag.' class="mx-pf-v"'.$link.'>'
+            .'<span class="mx-pf-br"><span class="mx-pf-bar"><i></i><i></i><i></i><em>'.esc_html($host).'</em></span>'
+            .'<span class="mx-pf-scr">'.($desk !== '' ? '<img alt="'.esc_attr($name.' web sitesi, masaüstü görünüm').'" decoding="async" loading="lazy" src="'.$desk.'"/>' : '').'</span></span>'
+            .($phone !== '' ? '<span class="mx-pf-ph"><img alt="'.esc_attr($name.' web sitesi, telefon görünümü').'" decoding="async" loading="lazy" src="'.$phone.'"/></span>' : '')
+            .'</'.$tag.'><div class="mx-pf-t">'
+            .(! empty($row['tur']) ? '<span class="mx-pf-k">'.esc_html((string) $row['tur']).'</span>' : '')
+            .'<h3>'.esc_html($name).'</h3>'
+            .(! empty($row['metin']) ? '<p>'.esc_html((string) $row['metin']).'</p>' : '')
+            .($url !== '' ? '<a class="mx-pf-go" href="'.esc_url($url).'" rel="noopener" target="_blank">'.esc_html($host).' ↗</a>' : '')
+            .'</div></article>';
+    }
+
+    return $out.'</div>';
+}
+
+// [mx_portfoy] — every site from the portfolio section of the web site service page (one list, two places).
+add_shortcode('mx_portfoy', static function (): string {
+    $page = get_page_by_path('hizmetlerimiz/klinik-web-sitesi');
+    if (! $page || ! function_exists('get_field')) {
+        return '';
+    }
+    foreach ((array) get_field('bolumler', $page->ID) as $row) {
+        if (($row['acf_fc_layout'] ?? '') === 'portfoy') {
+            return mx_portfolio_grid(mx_rows($row['liste'] ?? null));
+        }
+    }
+
+    return '';
+});
+
+// [mx_video id="YouTube id" baslik="…"] — a light video card: thumbnail first, the player (youtube-nocookie) only on click.
+add_shortcode('mx_video', static function ($atts): string {
+    $atts = shortcode_atts(['id' => '', 'baslik' => '', 'sure' => ''], (array) $atts);
+    $id = preg_replace('/[^\w-]/', '', (string) $atts['id']);
+    if ($id === '') {
+        return '';
+    }
+    $title = (string) $atts['baslik'];
+
+    return '<figure class="mx-yt"><button type="button" data-yt="'.esc_attr($id).'" aria-label="'.esc_attr(($title !== '' ? $title.' · ' : '').'videoyu oynatın').'">'
+        .'<img alt="" decoding="async" loading="lazy" src="https://i.ytimg.com/vi/'.esc_attr($id).'/hqdefault.jpg"/>'
+        .'<span class="mx-yt-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span></button>'
+        .($title !== '' ? '<figcaption>'.esc_html($title).($atts['sure'] !== '' ? ' <span>'.esc_html((string) $atts['sure']).'</span>' : '').'</figcaption>' : '')
+        .'</figure>';
+});
+
+// [mx_harita] — the office on a map; Google Maps loads only when the visitor asks for it (no third-party request before).
+add_shortcode('mx_harita', static function (): string {
+    $q = 'Moximu, Gazi Osman Paşa Cd. No:44, Şehzadeler, Manisa';
+    $src = 'https://www.google.com/maps?q='.rawurlencode($q).'&z=16&output=embed';
+
+    return '<div class="mx-map"><div class="mx-map-card"><b>Moximu</b><span>1. Anafartalar, Gazi Osman Paşa Cd. No:44<br/>45010 Şehzadeler / Manisa</span>'
+        .'<small>Hafta içi 09:00–18:00</small><button type="button" class="btn" data-map="'.esc_attr($src).'">Haritayı gösterin</button>'
+        .'<a href="https://www.google.com/maps/search/?api=1&amp;query='.rawurlencode($q).'" rel="noopener" target="_blank">Google Haritalar\'da açın ↗</a></div></div>';
+});

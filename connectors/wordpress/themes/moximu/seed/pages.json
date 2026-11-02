@@ -1563,7 +1563,7 @@
 {
 "acf_fc_layout": "alt_menu",
 "kalin_yazi": "Klinik web sitesi",
-"yazi": "<a href=\"#ne-yapiyoruz\">Sitede ne var</a><a href=\"#once-sonra\">Önce / sonra</a><a href=\"#takvim\">4 hafta</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+"yazi": "<a href=\"#ornekler\">Örnekler</a><a href=\"#ne-yapiyoruz\">Sitede ne var</a><a href=\"#once-sonra\">Önce / sonra</a><a href=\"#takvim\">4 hafta</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
 },
 {
 "acf_fc_layout": "mobil_cta",
@@ -1654,6 +1654,101 @@
 ],
 "yazi_13": "<span class=\"ic st\"></span><span class=\"nt\">Haftalık tarama: sorun yok</span><small>pazartesi</small>",
 "yazi_14": "Her hafta <b>tarama</b>"
+},
+{
+"acf_fc_layout": "portfoy",
+"yazi": "Yaptığımız siteler",
+"baslik": "Yayında olan <mark>klinik siteleri</mark>.",
+"metin": "Bugün yayında olan ve bakımını sürdürdüğümüz sitelerden bazıları. Üstüne gelin, sayfa kayar; tıklayın, siteyi açın.",
+"adet": 6,
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/ornekler/",
+"baglanti_yaz": "Tüm örnekler →",
+"liste": [
+{
+"ad": "Avrupadent",
+"tur": "Diş kliniği · 19 şube",
+"adres": "https://avrupadent.com.tr/",
+"metin": "Çok şubeli diş kurumu; şube, hekim ve tedavi sayfaları birbirine bağlı.",
+"gorsel": {
+"seed": "portfoy-avrupadent.webp",
+"alt": "Avrupadent web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-avrupadent-mobil.webp",
+"alt": "Avrupadent web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Panorama Ankara",
+"tur": "Diş kliniği · Ankara",
+"adres": "https://www.panoramaankara.com/",
+"metin": "Tedavi × ilçe sayfaları; Çankaya ve çevresi için yerel arama düzeni.",
+"gorsel": {
+"seed": "portfoy-panorama-ankara.webp",
+"alt": "Panorama Ankara web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-panorama-ankara-mobil.webp",
+"alt": "Panorama Ankara web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Buşra Nur Özger",
+"tur": "Obezite ve estetik cerrahi",
+"adres": "https://busranurozger.com/",
+"metin": "Türkçe, İngilizce ve Almanca; yurt dışı hasta için konsültasyon akışı.",
+"gorsel": {
+"seed": "portfoy-busra-nur-ozger.webp",
+"alt": "Buşra Nur Özger web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-busra-nur-ozger-mobil.webp",
+"alt": "Buşra Nur Özger web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Demiderm Polikliniği",
+"tur": "Dermatoloji ve medikal estetik · İzmir",
+"adres": "https://demiderm.com.tr/",
+"metin": "Tedavi sayfaları ve çok dilli yapı.",
+"gorsel": {
+"seed": "portfoy-demiderm.webp",
+"alt": "Demiderm Polikliniği web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-demiderm-mobil.webp",
+"alt": "Demiderm Polikliniği web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Prof. Dr. Burcu Kısa",
+"tur": "Kadın hastalıkları ve doğum · Ankara",
+"adres": "https://burcukisa.com/",
+"metin": "Hekim sitesi; muayene, gebelik takibi ve tedavi sayfaları.",
+"gorsel": {
+"seed": "portfoy-burcu-kisa.webp",
+"alt": "Prof. Dr. Burcu Kısa web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-burcu-kisa-mobil.webp",
+"alt": "Prof. Dr. Burcu Kısa web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Dr. Suada Gasimova",
+"tur": "Medikal estetik · İstanbul",
+"adres": "https://drsuadagasimova.com/",
+"metin": "Hekim sitesi; uygulama sayfaları ve WhatsApp randevu.",
+"gorsel": {
+"seed": "portfoy-suada-gasimova.webp",
+"alt": "Dr. Suada Gasimova web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-suada-gasimova-mobil.webp",
+"alt": "Dr. Suada Gasimova web sitesi, telefon görünümü"
+}
+}
+]
 },
 {
 "acf_fc_layout": "once_sonra",
@@ -14457,7 +14552,7 @@
 {
 "acf_fc_layout": "alt_menu",
 "kalin_yazi": "Hakkımızda",
-"yazi": "<a href=\"#hikaye\">Hikâye</a><a href=\"#calisma\">Çalışma şekli</a><a href=\"#ilkeler\">İlkeler</a><a href=\"#rakamlar\">Rakamlar</a><a href=\"#klinikler\">Klinikler</a><a href=\"#sss\">SSS</a>"
+"yazi": "<a href=\"#hikaye\">Hikâye</a><a href=\"#kurucu\">Kurucu</a><a href=\"#calisma\">Çalışma şekli</a><a href=\"#ilkeler\">İlkeler</a><a href=\"#rakamlar\">Rakamlar</a><a href=\"#klinikler\">Klinikler</a><a href=\"#sss\">SSS</a>"
 },
 {
 "acf_fc_layout": "mobil_cta",
@@ -14489,6 +14584,43 @@
 },
 {
 "madde": "<b>Bugün</b><span>Yalnız klinikler. Dört kanal, haftalık düzen, yüzdeyle rapor.</span>"
+}
+]
+},
+{
+"acf_fc_layout": "kurucu",
+"yazi": "Kurucu",
+"baslik": "Kliniğinizle konuşan, <mark>işi yapan</mark> kişidir.",
+"gorsel": {
+"seed": "yakup-udul.webp",
+"alt": "Yakup Udül, Moximu kurucusu"
+},
+"ad": "Yakup Udül",
+"unvan": "Kurucu, Moximu",
+"alinti": "“Bir web sitesinin iyi görünmesinden önce doğru kurulması gerekir. Klinikte doğru kurulum, hastanın aradığını bulup aramasıdır.”",
+"liste": [
+{
+"metin": "2014'ten bu yana web sitesi kuruyorum; 500'den fazla projede payım oldu. Klinik sitelerinde gördüğüm şey hep aynıydı: güzel bir site tek başına hasta getirmiyor, Google kartı, reklam ve hızlı cevapla birlikte çalışınca getiriyor."
+},
+{
+"metin": "Moximu'yu Manisa'da bu yüzden kliniklere odakladım. Bugün diş, estetik, dermatoloji, kadın doğum ve sağlık turizmi alanında klinik ve hekimlerle çalışıyoruz; hepsinde aynı haftalık düzen, aynı tek sayfa rapor."
+},
+{
+"metin": "Bize yazdığınızda aracı bir hesap yöneticisi değil, işi kuran kişi cevap verir. YouTube kanalımda da web sitesi, SEO ve yapay zekâ araçlarını anlatıyorum."
+}
+],
+"liste_2": [
+{
+"yazi": "YouTube kanalı ↗",
+"baglanti": "https://www.youtube.com/@yakup-udul"
+},
+{
+"yazi": "LinkedIn ↗",
+"baglanti": "https://www.linkedin.com/company/moximu"
+},
+{
+"yazi": "Ofisimiz ve iletişim",
+"baglanti": "/iletisim/"
 }
 ]
 },
@@ -15321,6 +15453,4673 @@
 }
 },
 {
+"key": "kurumlar",
+"path": "/kurumlar/",
+"title": "Kimlerle çalışıyoruz",
+"excerpt": "Klinikler, muayenehaneler, hastaneler ve sağlık turizmi acenteleri. Her kurum türü için ayrı düzen, aynı haftalık çalışma şekli.",
+"content": "<p>Tek hekimli muayenehane ile on dokuz şubeli bir diş kurumu aynı şekilde yönetilmez. Muayenehanede hasta hekimin adını arar; büyük kurumda her bölüm ve her şube ayrı yarışır; sağlık turizmi acentesinde her ülke ayrı dil ve ayrı bütçe ister. Aşağıdaki sayfalar her kurum türü için neyi, hangi sırayla kurduğumuzu anlatır.</p>\n[mx_alt_sayfalar]\n<h2>Hangisi size uyar?</h2>\n<table><thead><tr><th>Durumunuz</th><th>Başlangıç</th></tr></thead><tbody>\n<tr><td>Tek hekim, kendi muayenehanem</td><td><a href=\"/kurumlar/muayenehaneler/\">Muayenehaneler</a></td></tr>\n<tr><td>Birkaç hekimli klinik ya da poliklinik</td><td><a href=\"/kurumlar/klinikler/\">Klinikler ve poliklinikler</a></td></tr>\n<tr><td>Çok bölümlü ya da çok şubeli kurum</td><td><a href=\"/kurumlar/hastaneler/\">Hastaneler ve tıp merkezleri</a></td></tr>\n<tr><td>Yurt dışından hasta getiriyorum</td><td><a href=\"/kurumlar/saglik-turizmi-acenteleri/\">Sağlık turizmi acenteleri</a> ve <a href=\"/saglik-turizmi/\">sağlık turizmi</a></td></tr>\n</tbody></table>\n<p>Branşa göre ayrıntı için <a href=\"/klinik/\">klinik türleri</a>, şehre göre ayrıntı için <a href=\"/sehirler/\">şehirler</a> sayfasına bakın.</p>",
+"seo_title": "Kimlerle çalışıyoruz · Klinik, muayenehane, hastane · Moximu",
+"seo_desc": "Klinikler, muayenehaneler, hastaneler ve sağlık turizmi acenteleri için dijital pazarlama. Her kurum türü için ayrı düzen.",
+"order": 0,
+"meta": {
+"_mx_ust_yazi": "Kurumlar",
+"_mx_sayfa_sonu": "sonuclar,yorum_ozet,analiz"
+}
+},
+{
+"key": "kurum-klinikler",
+"path": "/kurumlar/klinikler/",
+"seo_title": "Klinik ve poliklinikler için dijital pazarlama · Moximu",
+"seo_desc": "Klinik ve poliklinikler için web sitesi, Google kartı, Google Ads ve Instagram reklamı. Her branş için ayrı plan, aylık tek sayfa rapor.",
+"service": {
+"ad": "Klinik ve poliklinik dijital pazarlama",
+"tur": "Dijital pazarlama",
+"fiyat": "30000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/kurumlar/\">Kimlerle çalışıyoruz</a> › <span>Klinikler ve poliklinikler</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v7",
+"yazi": "Klinikler ve poliklinikler",
+"baslik": "Kliniğiniz <mark>her kanalda</mark> aynı düzende.",
+"metin": "Diş, estetik, dermatoloji ve diğer branşlarda klinik ve poliklinikler için site, Google kartı ve reklam. Her ay tek sayfa rapor.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-dis-hekimi-hasta.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"karşıyaka diş kliniği\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Harita sonuçları · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Karşıyaka</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>İlk 3</b><span>harita kartı hedefi</span>",
+"yazi_11": "<b>24 saat</b><span>yorum cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Klinikler ve poliklinikler",
+"yazi": "<a href=\"#klinikler\">Referanslar</a><a href=\"#hasta-yolu\">Ne kuruyoruz</a><a href=\"#tedaviler\">Kapsam</a><a href=\"#kurallar\">Kurallar</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "klinikler",
+"tasarim": "v1",
+"yazi": "Klinikler ve poliklinikler",
+"baslik": "Birlikte çalıştığımız <mark>klinikler</mark>.",
+"liste": [
+{
+"gorsel": {
+"seed": "avrupadent.png",
+"alt": "Avrupadent"
+}
+},
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+}
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare"
+}
+},
+{
+"gorsel": {
+"seed": "demiderm.png",
+"alt": "Demiderm"
+}
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "BNÖ"
+}
+},
+{
+"gorsel": {
+"seed": "brain-clinic.png",
+"alt": "Brain Clinic"
+}
+},
+{
+"gorsel": {
+"seed": "zesu.png",
+"alt": "Zesu Estetik"
+}
+},
+{
+"gorsel": {
+"seed": "fizyomy.png",
+"alt": "Fizyomy"
+}
+},
+{
+"gorsel": {
+"seed": "dent-cayyolu.png",
+"alt": "Dent Çayyolu"
+}
+}
+],
+"yazi_2": "Diş, estetik, dermatoloji, psikoloji ve fizyoterapi klinikleri. Logolar kliniklerin izniyle."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v7",
+"yazi": "Ne kuruyoruz",
+"baslik": "Dört kanal, <mark>tek plan</mark>.",
+"metin": "Site, Google kartı, Google reklamı ve Instagram aynı tedavi listesinden beslenir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Tedavi sayfaları",
+"metin_2": "\"İmplant fiyatı\" ayrı sayfa ister.",
+"metin_3": "Her tedaviye sayfa: süreç, seans, fiyat aralığı, hekim ve sık sorulanlar.",
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"izmir implant fiyatı\"></span><i class=\"caret\"></i>",
+"yazi_4": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_5": "İmplant Tedavisi İzmir | Süreç ve Fiyat Aralığı",
+"yazi_6": "Karşıyaka'da klinik. İmplant süreci, seans sayısı, fiyat aralığı ve sık sorulanlar.",
+"yazi_7": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
+"yazi_8": "Tedavi × ilçe <b>kelimeleri</b>",
+"yazi_9": "02",
+"alt_baslik_2": "Google kartı",
+"metin_4": "Hasta önce haritaya bakar.",
+"metin_5": "Haftalık gönderi, 24 saatte yorum cevabı, doğru kategori ve hizmet listesi.",
+"yazi_10": "<span class=\"lp-gi\">G</span>diş kliniği karşıyaka",
+"yazi_11": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_12": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_13": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_14": "Harita sırası <b>3 → 1</b>",
+"yazi_15": "03",
+"alt_baslik_3": "Tedavi bazlı reklam",
+"metin_6": "Bütçe en çok talep getiren tedaviye.",
+"metin_7": "Google Ads ve Instagram reklamı; boşa giden aramalar her hafta temizlenir.",
+"gorsel": {
+"seed": "klinik-web-sitesi-ornek.jpg",
+"alt": ""
+},
+"liste": [
+{
+"madde": "İmplant"
+},
+{
+"madde": "Zirkonyum"
+},
+{
+"madde": "Ortodonti"
+},
+{
+"madde": "Açılış 1,6 sn"
+}
+],
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_17": "04",
+"alt_baslik_4": "Form ve WhatsApp",
+"metin_8": "Talep anında kliniğe düşer.",
+"metin_9": "İki alanlı form, tek tıkla WhatsApp; aranmayan hasta listesi haftalık.",
+"yazi_18": "<i></i>Klinik adı · Sponsorlu",
+"gorsel_2": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_19": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Karşıyaka</span>",
+"yazi_20": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "tedavi",
+"yazi": "Branşa göre",
+"baslik": "Her branşın <mark>kendi hastası</mark> var.",
+"metin": "Aynı düzen her branşa uyarlanır; kelime listesi, sayfalar ve reklam dili branşa göre yazılır.",
+"liste": [
+{
+"yazi": "01",
+"alt_baslik": "Diş klinikleri",
+"metin": "İmplant, zirkonyum, ortodonti; fiyat ve ilçe aranır.",
+"liste": [
+{
+"madde": "Tedavi × ilçe sayfaları"
+},
+{
+"madde": "Google kartı"
+},
+{
+"madde": "Arama reklamı"
+}
+]
+},
+{
+"yazi": "02",
+"alt_baslik": "Estetik ve dermatoloji",
+"metin": "Karar uzun sürer; Instagram belirleyici.",
+"liste": [
+{
+"madde": "Instagram form reklamı"
+},
+{
+"madde": "Hekim sayfası"
+},
+{
+"madde": "Tekrar hedefleme"
+}
+]
+},
+{
+"yazi": "03",
+"alt_baslik": "Psikolog ve psikiyatri",
+"metin": "Gizlilik ve randevu kolaylığı aranır.",
+"liste": [
+{
+"madde": "Online randevu akışı"
+},
+{
+"madde": "Bilgi yazıları"
+},
+{
+"madde": "Sade reklam dili"
+}
+]
+},
+{
+"yazi": "04",
+"alt_baslik": "Fizyoterapi ve diyetisyen",
+"metin": "Yakınlık ve seans planı önemli.",
+"liste": [
+{
+"madde": "İlçe sayfaları"
+},
+{
+"madde": "Paket anlatımı"
+},
+{
+"madde": "WhatsApp randevu"
+}
+]
+}
+]
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v2",
+"yazi": "Kurallar",
+"baslik": "Klinik reklamı <mark>kuralla</mark> yapılır.",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni mesaj: implant · İngiltere</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yorum cevaplandı: 5 ★</span><small>4 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni tedavi sayfası yayında</span><small>çarşamba</small>",
+"liste": [
+{
+"alt_baslik": "Öncesi/sonrası ve hasta fotoğrafı yok",
+"metin": "Klinik, ekip ve ortam görseliyle çalışılır."
+},
+{
+"alt_baslik": "Üstünlük ve sonuç iddiası yok",
+"metin": "\"En iyi\", \"garantili\" gibi ifadeler kullanılmaz."
+},
+{
+"alt_baslik": "Hesaplar kliniğin adına",
+"metin": "Google, Meta ve alan adı kliniğin hesabında açılır."
+},
+{
+"alt_baslik": "Bütçe yalnız sizin onayınızla artar",
+"metin": "Reklam bütçesini klinik belirler; her ay yazılı öneri gelir."
+}
+]
+},
+{
+"acf_fc_layout": "sonuclar",
+"tasarim": "v1",
+"yazi": "Sonuçlar",
+"yazi_2": "Birlikte büyüyen klinikler.",
+"yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Panorama Ankara",
+"metin": "Tedavi sayfaları ve her gün Google kartı bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Dentocare Klinik",
+"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Estetik kliniği · İstanbul",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>Form sayısı</span>"
+},
+{
+"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+}
+],
+"alt_baslik": "Buşra Nur Özger",
+"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "Vakayı okuyun →"
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v3",
+"yazi": "Fiyat",
+"baslik": "Açık <mark>fiyat</mark>, altı ay.",
+"yazi_2": "Yerel klinik paketi",
+"yazi_3": "30.000 ₺<span>/ay</span>",
+"metin": "Kart, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "İlçe bazlı Google kartı"
+},
+{
+"madde": "Tedavi × ilçe sayfaları ve SEO"
+},
+{
+"madde": "Google Ads, yalnız Ankara"
+},
+{
+"madde": "Instagram form ve WhatsApp reklamları"
+},
+{
+"madde": "Aylık tek sayfa rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_4": "Yalnız Google kartı",
+"yazi_5": "6.000 ₺<span>/ay · şube</span>",
+"metin_2": "Kart kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
+"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
+"baglanti_yaz_2": "Kart yönetimi →",
+"yazi_6": "Çok şubeli klinikler",
+"yazi_7": "Görüşmeye bağlı",
+"metin_3": "Şube sayısına göre fiyat; her şube için ayrı kart ve rapor."
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Klinikler için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Hangi branşlarla çalışıyorsunuz?",
+"metin": "Diş, estetik, dermatoloji, saç ekimi, fizyoterapi, diyetisyen, psikolog, sünnet ve kadın doğum başta olmak üzere tüm branşlarla."
+},
+{
+"buton_yazisi": "Mevcut sitemizi değiştirmek zorunda mıyız?",
+"metin": "Hayır. Önce mevcut site incelenir; tedavi sayfaları eklenerek de ilerlenebilir."
+},
+{
+"buton_yazisi": "Raporu kim okuyor?",
+"metin": "Klinik sahibi. Ayda bir tek sayfa: talep, talep maliyeti, kanal ve bir sonraki ayın kararı."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Çok şubeliyiz, ne değişir?",
+"metin": "Her şube için ayrı Google kartı, ayrı ilçe sayfası ve şube bazlı rapor kurulur."
+},
+{
+"buton_yazisi": "Sözleşme süresi ne kadar?",
+"metin": "Altı ay. Sonunda devam ya da bırakma kararı sizde; hesaplar ve site sizde kalır."
+},
+{
+"buton_yazisi": "Yurt dışından da hasta alıyoruz.",
+"metin": "Sağlık turizmi paketiyle ülke bazlı reklam ve dil sayfaları eklenir."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Klinikler ve poliklinikler",
+"order": 1,
+"excerpt": "Diş, estetik, dermatoloji ve diğer branşlarda klinik ve poliklinikler için site, Google kartı ve reklam. Her ay tek sayfa rapor."
+},
+{
+"key": "kurum-muayenehaneler",
+"path": "/kurumlar/muayenehaneler/",
+"seo_title": "Muayenehaneler için dijital pazarlama · Moximu",
+"seo_desc": "Muayenehanesini yöneten hekimler için hekim sitesi, Google kartı, Google ve Instagram reklamı. Sade düzen, aylık tek sayfa rapor.",
+"service": {
+"ad": "Muayenehane dijital pazarlama",
+"tur": "Dijital pazarlama",
+"fiyat": "30000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/kurumlar/\">Kimlerle çalışıyoruz</a> › <span>Muayenehaneler</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v7",
+"yazi": "Muayenehaneler",
+"baslik": "Hekim adınız <mark>Google'da</mark> doğru görünsün.",
+"metin": "Kendi muayenehanesini yöneten hekimler için hekim sitesi, Google kartı ve sade reklam düzeni. Hastaya ayırdığınız vakit azalmaz.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-dis-hekimi-hasta.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"kadın doğum uzmanı çankaya\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Harita sonuçları · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni randevu isteği · Çankaya</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>İlk 3</b><span>harita kartı hedefi</span>",
+"yazi_11": "<b>24 saat</b><span>yorum cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Muayenehaneler",
+"yazi": "<a href=\"#klinikler\">Referanslar</a><a href=\"#hasta-yolu\">Ne kuruyoruz</a><a href=\"#tedaviler\">Kapsam</a><a href=\"#kurallar\">Kurallar</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "klinikler",
+"tasarim": "v1",
+"yazi": "Muayenehaneler",
+"baslik": "Birlikte çalıştığımız <mark>hekimler</mark>.",
+"liste": [
+{
+"gorsel": {
+"seed": "emre-gunes.png",
+"alt": "Dt. Emre Güneş"
+}
+},
+{
+"gorsel": {
+"seed": "dr-nuri.png",
+"alt": "Dr. Nuri"
+}
+},
+{
+"gorsel": {
+"seed": "fusun-goknar.png",
+"alt": "Psikolog Füsun Göknar"
+}
+},
+{
+"gorsel": {
+"seed": "seyma-islek.png",
+"alt": "Dyt. Şeyma İşlek Yüksel"
+}
+},
+{
+"gorsel": {
+"seed": "fzt-bunyamin.png",
+"alt": "Fizyoterapist Bünyamin Aydın"
+}
+},
+{
+"gorsel": {
+"seed": "merve-curba.png",
+"alt": "Prof. Dr. Merve Çurba"
+}
+},
+{
+"gorsel": {
+"seed": "yalcin-gursoy.png",
+"alt": "Dr. Yalçın Gürsoy"
+}
+},
+{
+"gorsel": {
+"seed": "zeliha-bektas.png",
+"alt": "Dr. Zeliha Bektaş"
+}
+},
+{
+"gorsel": {
+"seed": "kemal-uslu.png",
+"alt": "Dr. Kemal Uslu"
+}
+}
+],
+"yazi_2": "Diş hekimi, kadın doğum, psikolog, diyetisyen ve fizyoterapist muayenehaneleri."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v7",
+"yazi": "Ne kuruyoruz",
+"baslik": "Hekim için <mark>dört parça</mark>.",
+"metin": "Muayenehanede hasta hekimi arar; düzen hekimin adı üzerine kurulur.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Hekim sitesi",
+"metin_2": "Hasta önce hekimi okur.",
+"metin_3": "Özgeçmiş, uzmanlık, belgeler, tedavi sayfaları ve randevu akışı.",
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"çankaya kadın doğum uzmanı\"></span><i class=\"caret\"></i>",
+"yazi_4": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_5": "Kadın Doğum Uzmanı Çankaya | Muayene ve Randevu",
+"yazi_6": "Çankaya'da muayenehane. Gebelik takibi, jinekolojik muayene ve randevu bilgisi.",
+"yazi_7": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
+"yazi_8": "Hekim adı + <b>tedavi</b>",
+"yazi_9": "02",
+"alt_baslik_2": "Google kartı",
+"metin_4": "\"Dr. adı\" araması kartla başlar.",
+"metin_5": "Doğru kategori, çalışma saatleri, haftalık gönderi ve yorum cevapları.",
+"yazi_10": "<span class=\"lp-gi\">G</span>kadın doğum uzmanı",
+"yazi_11": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_12": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_13": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_14": "Harita sırası <b>3 → 1</b>",
+"yazi_15": "03",
+"alt_baslik_3": "Sade reklam",
+"metin_6": "Küçük bütçe, yakın hasta.",
+"metin_7": "Yalnız muayenehanenin ilçesinde ve en çok aranan tedavide reklam.",
+"gorsel": {
+"seed": "klinik-web-sitesi-ornek.jpg",
+"alt": ""
+},
+"liste": [
+{
+"madde": "Hekim özgeçmişi"
+},
+{
+"madde": "Tedavi sayfaları"
+},
+{
+"madde": "Randevu"
+},
+{
+"madde": "Açılış 1,4 sn"
+}
+],
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,4\">0,0</b> sn",
+"yazi_17": "04",
+"alt_baslik_4": "Randevu akışı",
+"metin_8": "Sekreter yoksa WhatsApp.",
+"metin_9": "Form ve WhatsApp mesajı doğrudan telefonunuza; hazır cevaplar kurulur.",
+"yazi_18": "<i></i>Klinik adı · Sponsorlu",
+"gorsel_2": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_19": "<b>WhatsApp · yeni mesaj</b><span>\"Muayene için randevu\" · Çankaya</span>",
+"yazi_20": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "tedavi",
+"yazi": "Kapsam",
+"baslik": "Muayenehane için <mark>yeterli olan</mark>.",
+"metin": "Büyük klinik düzeni muayenehaneye ağır gelir. Yalnız hasta getiren parçalar kurulur.",
+"liste": [
+{
+"yazi": "01",
+"alt_baslik": "Hekim adı araması",
+"metin": "Hasta tavsiye üzerine adınızı arar.",
+"liste": [
+{
+"madde": "Hekim sitesi"
+},
+{
+"madde": "Google kartı"
+},
+{
+"madde": "Yorum cevapları"
+}
+]
+},
+{
+"yazi": "02",
+"alt_baslik": "Tedavi araması",
+"metin": "\"İlçe + tedavi\" araması yeni hasta getirir.",
+"liste": [
+{
+"madde": "Tedavi sayfaları"
+},
+{
+"madde": "İlçe sayfası"
+},
+{
+"madde": "Arama reklamı"
+}
+]
+},
+{
+"yazi": "03",
+"alt_baslik": "Güven",
+"metin": "Diploma, deneyim ve yorumlar.",
+"liste": [
+{
+"madde": "Belgeler"
+},
+{
+"madde": "Google puanı"
+},
+{
+"madde": "Bilgi yazıları"
+}
+]
+},
+{
+"yazi": "04",
+"alt_baslik": "Vakit",
+"metin": "Hekim hastaya bakar.",
+"liste": [
+{
+"madde": "Haftalık yazılı özet"
+},
+{
+"madde": "Aylık tek sayfa rapor"
+},
+{
+"madde": "Hazır WhatsApp cevapları"
+}
+]
+}
+]
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v2",
+"yazi": "Kurallar",
+"baslik": "Hekim tanıtımı <mark>sade</mark> olur.",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni mesaj: implant · İngiltere</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yorum cevaplandı: 5 ★</span><small>4 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni tedavi sayfası yayında</span><small>çarşamba</small>",
+"liste": [
+{
+"alt_baslik": "Hasta fotoğrafı ve öncesi/sonrası yok",
+"metin": "Muayenehane, hekim ve ortam görselleri kullanılır."
+},
+{
+"alt_baslik": "Unvan belgeyle yazılır",
+"metin": "Uzmanlık ve akademik unvan belgede ne yazıyorsa o."
+},
+{
+"alt_baslik": "Hesaplar hekimin adına",
+"metin": "Alan adı, Google ve Meta hesapları sizde kalır."
+},
+{
+"alt_baslik": "Sizden istenen az",
+"metin": "Gelen talebin aynı gün aranması ve ayda bir fotoğraf."
+}
+]
+},
+{
+"acf_fc_layout": "sonuclar",
+"tasarim": "v1",
+"yazi": "Sonuçlar",
+"yazi_2": "Birlikte büyüyen klinikler.",
+"yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Panorama Ankara",
+"metin": "Tedavi sayfaları ve her gün Google kartı bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Dentocare Klinik",
+"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Estetik kliniği · İstanbul",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>Form sayısı</span>"
+},
+{
+"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+}
+],
+"alt_baslik": "Buşra Nur Özger",
+"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "Vakayı okuyun →"
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v3",
+"yazi": "Fiyat",
+"baslik": "Muayenehane için <mark>sade paket</mark>.",
+"yazi_2": "Yerel klinik paketi",
+"yazi_3": "30.000 ₺<span>/ay</span>",
+"metin": "Hekim sitesi bakımı, Google kartı, Google Ads ve Instagram reklamı. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Hekim ve tedavi sayfaları, SEO"
+},
+{
+"madde": "Google kartı ve yorum cevapları"
+},
+{
+"madde": "Google Ads, yalnız sizin ilçeniz"
+},
+{
+"madde": "Instagram form ve WhatsApp reklamları"
+},
+{
+"madde": "Aylık tek sayfa rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_4": "Yalnız Google kartı",
+"yazi_5": "6.000 ₺<span>/ay · şube</span>",
+"metin_2": "Kart kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
+"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
+"baglanti_yaz_2": "Kart yönetimi →",
+"yazi_6": "Çok şubeli klinikler",
+"yazi_7": "Görüşmeye bağlı",
+"metin_3": "Şube sayısına göre fiyat; her şube için ayrı kart ve rapor."
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Muayenehaneler için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Tek hekimim, bu düzen bana fazla mı?",
+"metin": "Hayır; muayenehane için yalnız hekim sitesi, Google kartı ve küçük bütçeli reklam kurulur."
+},
+{
+"buton_yazisi": "Sekreterim yok, mesajlara kim bakar?",
+"metin": "Mesajlar size gelir; hazır cevaplar ve sık sorulanlar kurulur, cevap süresi kısalır."
+},
+{
+"buton_yazisi": "Sadece Google kartı alabilir miyim?",
+"metin": "Evet; Google kartı ayrı hizmet olarak da verilir."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Sitem var ama eski.",
+"metin": "Önce incelenir; hız ve tedavi sayfaları eklenerek düzeltilebilir ya da yenisi kurulur."
+},
+{
+"buton_yazisi": "Hastanede de çalışıyorum.",
+"metin": "Muayenehane ve hastane bilgileri ayrı tutulur; Google kartı yalnız muayenehane adresine açılır."
+},
+{
+"buton_yazisi": "Sonuç ne zaman görülür?",
+"metin": "Kart ve sayfa etkisi iki üç ayda birikir; her ay yazılı kayıt verilir."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Muayenehaneler",
+"order": 2,
+"excerpt": "Kendi muayenehanesini yöneten hekimler için hekim sitesi, Google kartı ve sade reklam düzeni. Hastaya ayırdığınız vakit azalmaz."
+},
+{
+"key": "kurum-hastaneler",
+"path": "/kurumlar/hastaneler/",
+"seo_title": "Hastaneler ve tıp merkezleri için dijital pazarlama · Moximu",
+"seo_desc": "Çok bölümlü ve çok şubeli sağlık kurumları için bölüm sayfaları, şube bazlı Google kartı, bölüm bazlı reklam ve rapor.",
+"service": {
+"ad": "Hastane ve tıp merkezi dijital pazarlama",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/kurumlar/\">Kimlerle çalışıyoruz</a> › <span>Hastaneler ve tıp merkezleri</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v7",
+"yazi": "Hastaneler ve tıp merkezleri",
+"baslik": "Her bölüm, her şube <mark>ayrı görünsün</mark>.",
+"metin": "Çok bölümlü ve çok şubeli kurumlar için bölüm sayfaları, şube kartları ve bölüm bazlı reklam. Rapor bölüm ve şube ayrımıyla.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-dis-hekimi-hasta.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"gaziemir diş hastanesi\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Harita sonuçları · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni talep: implant · Gaziemir şubesi</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>İlk 3</b><span>harita kartı hedefi</span>",
+"yazi_11": "<b>24 saat</b><span>yorum cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Hastaneler ve tıp merkezleri",
+"yazi": "<a href=\"#klinikler\">Referanslar</a><a href=\"#hasta-yolu\">Ne kuruyoruz</a><a href=\"#tedaviler\">Kapsam</a><a href=\"#kurallar\">Kurallar</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "klinikler",
+"tasarim": "v1",
+"yazi": "Hastaneler ve tıp merkezleri",
+"baslik": "Çok şubeli <mark>kurumlar</mark>.",
+"liste": [
+{
+"gorsel": {
+"seed": "avrupadent.png",
+"alt": "Avrupadent"
+}
+},
+{
+"gorsel": {
+"seed": "panorama-global.png",
+"alt": "Panorama Ankara Global"
+}
+},
+{
+"gorsel": {
+"seed": "demiderm.png",
+"alt": "Demiderm"
+}
+},
+{
+"gorsel": {
+"seed": "dtm.png",
+"alt": "Dental Tasarım Merkezi"
+}
+},
+{
+"gorsel": {
+"seed": "opc.svg",
+"alt": "OPC Klinik"
+}
+},
+{
+"gorsel": {
+"seed": "liva-clinic.png",
+"alt": "Liva Clinic"
+}
+}
+],
+"yazi_2": "Çok şubeli diş kurumları, poliklinikler ve yurt dışından hasta alan merkezler."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v7",
+"yazi": "Ne kuruyoruz",
+"baslik": "Bölüm × şube <mark>düzeni</mark>.",
+"metin": "Büyük kurumda her bölüm ayrı arar, her şube ayrı yarışır.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Bölüm ve hekim sayfaları",
+"metin_2": "Her bölümün kendi sayfası.",
+"metin_3": "Bölüm, hekim, tedavi ve şube sayfaları birbirine bağlı; arama motoru ve hasta için tek yapı.",
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"diş hastanesi izmir\"></span><i class=\"caret\"></i>",
+"yazi_4": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_5": "Diş Hastanesi İzmir | Bölümler ve Şubeler",
+"yazi_6": "İzmir'de şubeler. Bölümler, hekimler, tedavi süreçleri ve randevu bilgisi.",
+"yazi_7": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
+"yazi_8": "Bölüm × şube <b>kelimeleri</b>",
+"yazi_9": "02",
+"alt_baslik_2": "Şube kartları",
+"metin_4": "Her şube ayrı Google kartı.",
+"metin_5": "Şube başına kart, gönderi, yorum cevabı ve şube bazlı rapor.",
+"yazi_10": "<span class=\"lp-gi\">G</span>diş hastanesi",
+"yazi_11": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_12": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_13": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_14": "Harita sırası <b>3 → 1</b>",
+"yazi_15": "03",
+"alt_baslik_3": "Bölüm bazlı reklam",
+"metin_6": "Bütçe bölümler arasında paylaşılır.",
+"metin_7": "Her bölüm ayrı kampanya; bütçe her ay talep maliyetine göre dağıtılır.",
+"gorsel": {
+"seed": "klinik-web-sitesi-ornek.jpg",
+"alt": ""
+},
+"liste": [
+{
+"madde": "Bölümler"
+},
+{
+"madde": "Hekimler"
+},
+{
+"madde": "Şubeler"
+},
+{
+"madde": "Açılış 1,8 sn"
+}
+],
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,8\">0,0</b> sn",
+"yazi_17": "04",
+"alt_baslik_4": "Çağrı merkezi akışı",
+"metin_8": "Talep doğru şubeye düşer.",
+"metin_9": "Form ve WhatsApp talepleri şube ve bölümle etiketlenir; haftalık aranmayan liste.",
+"yazi_18": "<i></i>Klinik adı · Sponsorlu",
+"gorsel_2": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_19": "<b>Yeni talep · Gaziemir</b><span>\"İmplant için randevu\" · bölüm: ağız ve diş</span>",
+"yazi_20": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "tedavi",
+"yazi": "Kapsam",
+"baslik": "Büyük kurumda <mark>dört iş</mark> birlikte yürür.",
+"metin": "Bölüm, şube, dil ve raporlama aynı plan üzerinde yönetilir.",
+"liste": [
+{
+"yazi": "01",
+"alt_baslik": "Bölümler",
+"metin": "Her bölüm ayrı kelime listesi ve sayfa.",
+"liste": [
+{
+"madde": "Bölüm sayfaları"
+},
+{
+"madde": "Hekim sayfaları"
+},
+{
+"madde": "Bölüm kampanyası"
+}
+]
+},
+{
+"yazi": "02",
+"alt_baslik": "Şubeler",
+"metin": "Her şube kendi ilçesinde yarışır.",
+"liste": [
+{
+"madde": "Şube kartı"
+},
+{
+"madde": "Şube sayfası"
+},
+{
+"madde": "Şube raporu"
+}
+]
+},
+{
+"yazi": "03",
+"alt_baslik": "Yurt dışı hasta",
+"metin": "Uluslararası hasta birimi için.",
+"liste": [
+{
+"madde": "Dil sayfaları"
+},
+{
+"madde": "Ülke bazlı reklam"
+},
+{
+"madde": "WhatsApp karşılama"
+}
+]
+},
+{
+"yazi": "04",
+"alt_baslik": "Yönetim raporu",
+"metin": "Bölüm ve şube karşılaştırması.",
+"liste": [
+{
+"madde": "Aylık tek sayfa"
+},
+{
+"madde": "Talep maliyeti"
+},
+{
+"madde": "Bir sonraki ayın kararı"
+}
+]
+}
+]
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v2",
+"yazi": "Kurallar",
+"baslik": "Kurumsal tanıtım <mark>kuralla</mark> yapılır.",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni mesaj: implant · İngiltere</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yorum cevaplandı: 5 ★</span><small>4 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni tedavi sayfası yayında</span><small>çarşamba</small>",
+"liste": [
+{
+"alt_baslik": "Hasta fotoğrafı ve öncesi/sonrası yok",
+"metin": "Kurum, ekip, cihaz ve ortam görselleri kullanılır."
+},
+{
+"alt_baslik": "Bölüm bilgisi belgeyle",
+"metin": "Ruhsatta olmayan bölüm ve hizmet yazılmaz."
+},
+{
+"alt_baslik": "Hesaplar kurumun adına",
+"metin": "Alan adı, Google ve Meta hesapları kurumda kalır."
+},
+{
+"alt_baslik": "Bütçe yalnız onayla artar",
+"metin": "Bölüm bütçeleri her ay yazılı öneriyle güncellenir."
+}
+]
+},
+{
+"acf_fc_layout": "sonuclar",
+"tasarim": "v1",
+"yazi": "Sonuçlar",
+"yazi_2": "Birlikte büyüyen klinikler.",
+"yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Panorama Ankara",
+"metin": "Tedavi sayfaları ve her gün Google kartı bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Dentocare Klinik",
+"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Estetik kliniği · İstanbul",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>Form sayısı</span>"
+},
+{
+"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+}
+],
+"alt_baslik": "Buşra Nur Özger",
+"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "Vakayı okuyun →"
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v3",
+"yazi": "Fiyat",
+"baslik": "Şube ve bölüm sayısına <mark>göre fiyat</mark>.",
+"yazi_2": "Hastane ve tıp merkezi",
+"yazi_3": "Görüşmeye bağlı",
+"metin": "Bölüm ve şube sayısına göre yazılı teklif. Reklam bütçesi ayrıdır, kurumun kartından ödenir.",
+"liste": [
+{
+"madde": "Bölüm ve hekim sayfaları, SEO"
+},
+{
+"madde": "Her şube için Google kartı"
+},
+{
+"madde": "Bölüm bazlı Google Ads"
+},
+{
+"madde": "Yurt dışı hasta için dil sayfaları"
+},
+{
+"madde": "Bölüm ve şube bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_4": "Yalnız Google kartı",
+"yazi_5": "6.000 ₺<span>/ay · şube</span>",
+"metin_2": "Kart kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
+"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
+"baglanti_yaz_2": "Kart yönetimi →",
+"yazi_6": "Tek bölüm ile başlamak",
+"yazi_7": "30.000 ₺<span>/ay</span>",
+"metin_3": "Önce tek bölüm (örneğin diş ya da estetik) ile başlanır, sonra diğerlerine geçilir."
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Hastaneler ve tıp merkezleri için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Kaç şubeye kadar çalışıyorsunuz?",
+"metin": "Sınır yok; Avrupadent gibi çok şubeli kurumlarla çalışıyoruz. Her şube ayrı kart ve rapor alır."
+},
+{
+"buton_yazisi": "Kurum içi pazarlama ekibimiz var.",
+"metin": "Ekiple birlikte çalışılır; hesaplar kurumda kalır, iş bölümü yazılı yapılır."
+},
+{
+"buton_yazisi": "Uluslararası hasta birimimiz var.",
+"metin": "Dil sayfaları, ülke bazlı reklam ve WhatsApp karşılama birim için ayrıca kurulur."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Fiyat nasıl belirleniyor?",
+"metin": "Bölüm ve şube sayısına göre yazılı teklif verilir; önce tek bölümle başlanabilir."
+},
+{
+"buton_yazisi": "Raporlar kime gidiyor?",
+"metin": "Yönetime aylık tek sayfa; bölüm ve şube detayı ekte."
+},
+{
+"buton_yazisi": "Web sitemiz başka firmada.",
+"metin": "Site başka firmada kalabilir; tedavi ve bölüm sayfaları için içerik ve SEO planı verilir."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Hastaneler ve tıp merkezleri",
+"order": 3,
+"excerpt": "Çok bölümlü ve çok şubeli kurumlar için bölüm sayfaları, şube kartları ve bölüm bazlı reklam. Rapor bölüm ve şube ayrımıyla."
+},
+{
+"key": "kurum-acenteler",
+"path": "/kurumlar/saglik-turizmi-acenteleri/",
+"seo_title": "Sağlık turizmi acenteleri için dijital pazarlama · Moximu",
+"seo_desc": "Sağlık turizmi acenteleri ve aracı kurumlar için ülke bazlı Google ve Meta reklamı, dil sayfaları, WhatsApp karşılama ve ülke bazında rapor.",
+"service": {
+"ad": "Sağlık turizmi acentesi dijital pazarlama",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/kurumlar/\">Kimlerle çalışıyoruz</a> › <span>Sağlık turizmi acenteleri</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v7",
+"yazi": "Sağlık turizmi acenteleri",
+"baslik": "Yurt dışından <mark>doğru hasta</mark>, doğru klinikle.",
+"metin": "Yurt dışından hasta getiren acenteler ve aracı kurumlar için ülke bazlı reklam, dil sayfaları ve hasta karşılama düzeni.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-dis-hekimi-hasta.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"hair transplant turkey\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Harita sonuçları · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: saç ekimi · Almanya</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>İlk 3</b><span>harita kartı hedefi</span>",
+"yazi_11": "<b>24 saat</b><span>yorum cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Sağlık turizmi acenteleri",
+"yazi": "<a href=\"#klinikler\">Referanslar</a><a href=\"#hasta-yolu\">Ne kuruyoruz</a><a href=\"#tedaviler\">Kapsam</a><a href=\"#kurallar\">Kurallar</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "klinikler",
+"tasarim": "v1",
+"yazi": "Sağlık turizmi acenteleri",
+"baslik": "Birlikte çalıştığımız <mark>kurumlar</mark>.",
+"liste": [
+{
+"gorsel": {
+"seed": "turkey-care-you.png",
+"alt": "Turkey Care You"
+}
+},
+{
+"gorsel": {
+"seed": "turkey-health-station.png",
+"alt": "Turkey Health Station"
+}
+},
+{
+"gorsel": {
+"seed": "allforclinics.png",
+"alt": "All For Clinics"
+}
+},
+{
+"gorsel": {
+"seed": "liva-clinic.png",
+"alt": "Liva Clinic"
+}
+},
+{
+"gorsel": {
+"seed": "haar-in-turkiye.png",
+"alt": "Haar in Türkiye"
+}
+},
+{
+"gorsel": {
+"seed": "dental-city.png",
+"alt": "Dental City Turkey"
+}
+}
+],
+"yazi_2": "Yurt dışından hasta getiren acenteler ve klinikler. Hasta fotoğrafı ve öncesi/sonrası kullanılmaz."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v7",
+"yazi": "Ne kuruyoruz",
+"baslik": "Ülke ülke <mark>hasta akışı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Ülke bazlı reklam",
+"metin_2": "Almanya ile İngiltere aynı kampanyada olmaz.",
+"metin_3": "Google ve Meta kampanyaları ülke ülke; bütçe talep maliyetine göre her ay yeniden dağıtılır.",
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"haartransplantation türkei\"></span><i class=\"caret\"></i>",
+"yazi_4": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_5": "Haartransplantation in der Türkei | Ablauf",
+"yazi_6": "Ablauf, Aufenthalt, Transfer und häufige Fragen. Senden Sie Fotos für eine kostenlose Einschätzung.",
+"yazi_7": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
+"yazi_8": "Ülke × tedavi <b>kelimeleri</b>",
+"yazi_9": "02",
+"alt_baslik_2": "Dil sayfaları",
+"metin_4": "Hasta kendi dilinde okur.",
+"metin_5": "Tedavi, süreç, konaklama ve transfer sayfaları İngilizce, Almanca ve gerekirse diğer dillerde.",
+"yazi_10": "<span class=\"lp-gi\">G</span>hair clinic istanbul",
+"yazi_11": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_12": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_13": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_14": "Harita sırası <b>3 → 1</b>",
+"yazi_15": "03",
+"alt_baslik_3": "Karşılama düzeni",
+"metin_6": "İlk cevap ilk saatte.",
+"metin_7": "WhatsApp hazır cevapları, röntgen ve fotoğraf isteme sırası, koordinatör takibi.",
+"gorsel": {
+"seed": "klinik-web-sitesi-ornek.jpg",
+"alt": ""
+},
+"liste": [
+{
+"madde": "Saç ekimi (DE, EN)"
+},
+{
+"madde": "Behandlungsablauf"
+},
+{
+"madde": "Hotel & Transfer"
+},
+{
+"madde": "Açılış 1,6 sn"
+}
+],
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_17": "04",
+"alt_baslik_4": "Ülke bazında rapor",
+"metin_8": "Hangi ülke ucuza hasta getiriyor?",
+"metin_9": "Her ay ülke, tedavi ve kanal bazında talep ve talep maliyeti.",
+"yazi_18": "<i></i>Klinik adı · Sponsorlu",
+"gorsel_2": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_19": "<b>WhatsApp · yeni form</b><span>\"Haartransplantation, Fotos anbei\" · Almanya</span>",
+"yazi_20": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "tedavi",
+"yazi": "Kapsam",
+"baslik": "Acentenin <mark>dört işi</mark>.",
+"metin": "Hasta bulmak, ikna etmek, karşılamak ve doğru kliniğe yönlendirmek.",
+"liste": [
+{
+"yazi": "01",
+"alt_baslik": "Hasta bulmak",
+"metin": "Ülke ve tedavi araması.",
+"liste": [
+{
+"madde": "Google Ads"
+},
+{
+"madde": "Instagram ve Facebook form"
+},
+{
+"madde": "Ülke bütçesi"
+}
+]
+},
+{
+"yazi": "02",
+"alt_baslik": "İkna etmek",
+"metin": "Süreç ve toplam bedel anlatımı.",
+"liste": [
+{
+"madde": "Dil sayfaları"
+},
+{
+"madde": "Paket anlatımı"
+},
+{
+"madde": "Sık sorulanlar"
+}
+]
+},
+{
+"yazi": "03",
+"alt_baslik": "Karşılamak",
+"metin": "Saat farkı ve dil.",
+"liste": [
+{
+"madde": "WhatsApp şablonları"
+},
+{
+"madde": "Ön değerlendirme sırası"
+},
+{
+"madde": "Koordinatör takibi"
+}
+]
+},
+{
+"yazi": "04",
+"alt_baslik": "Ölçmek",
+"metin": "Hangi ülke, hangi tedavi?",
+"liste": [
+{
+"madde": "Ülke raporu"
+},
+{
+"madde": "Tedavi raporu"
+},
+{
+"madde": "Aylık karar"
+}
+]
+}
+]
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v2",
+"yazi": "Kurallar",
+"baslik": "Sağlık turizminde <mark>yetki ve kural</mark>.",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni mesaj: implant · İngiltere</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yorum cevaplandı: 5 ★</span><small>4 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni tedavi sayfası yayında</span><small>çarşamba</small>",
+"liste": [
+{
+"alt_baslik": "Yetki belgesi görünür",
+"metin": "Sağlık turizmi yetki belgesi ve TÜRSAB bilgisi sitede yer alır."
+},
+{
+"alt_baslik": "Öncesi/sonrası ve hasta fotoğrafı yok",
+"metin": "Google ve Meta politikaları yurt dışı reklamında da geçerli."
+},
+{
+"alt_baslik": "Garanti ve indirim dili yok",
+"metin": "Süreç, toplam bedel aralığı ve hizmet kapsamı anlatılır."
+},
+{
+"alt_baslik": "Hesaplar acentenin adına",
+"metin": "Reklam hesapları ve alan adı acentede kalır."
+}
+]
+},
+{
+"acf_fc_layout": "sonuclar",
+"tasarim": "v1",
+"yazi": "Sonuçlar",
+"yazi_2": "Birlikte büyüyen klinikler.",
+"yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Panorama Ankara",
+"metin": "Tedavi sayfaları ve her gün Google kartı bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Dentocare Klinik",
+"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Estetik kliniği · İstanbul",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>Form sayısı</span>"
+},
+{
+"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+}
+],
+"alt_baslik": "Buşra Nur Özger",
+"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "Vakayı okuyun →"
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Acenteler için <mark>aynı paket</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Sağlık turizmi acenteleri için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Hangi ülkelere reklam veriyorsunuz?",
+"metin": "Almanya, İngiltere, Hollanda, Belçika, Fransa, Avusturya, İsviçre, Bulgaristan ve ABD başta olmak üzere hasta alınan ülkelere."
+},
+{
+"buton_yazisi": "Birden çok klinikle çalışıyoruz.",
+"metin": "Talepler tedavi ve ülkeyle etiketlenir; hangi kliniğe yönlendirileceği sizin kararınızdır."
+},
+{
+"buton_yazisi": "Yetki belgemiz yok, ne yapmalıyız?",
+"metin": "Yetki belgesi süreci için rehberimizi okuyun; reklam belge alındıktan sonra açılır."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Mesajlara kim cevap veriyor?",
+"metin": "Acentenin koordinatörü. Biz şablonları, dil cevaplarını ve takip sırasını kurarız."
+},
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Ülke sayısı ve tedaviye göre analizde yazılı önerilir; bütçe acentenin kartından ödenir."
+},
+{
+"buton_yazisi": "Hangi dillerde sayfa hazırlıyorsunuz?",
+"metin": "İngilizce ve Almanca başta; Fransızca, Hollandaca ve diğer diller ihtiyaca göre."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Sağlık turizmi acenteleri",
+"order": 4,
+"excerpt": "Yurt dışından hasta getiren acenteler ve aracı kurumlar için ülke bazlı reklam, dil sayfaları ve hasta karşılama düzeni."
+},
+{
+"key": "saglik-turizmi",
+"path": "/saglik-turizmi/",
+"title": "Sağlık turizmi",
+"excerpt": "Yurt dışından hasta alan klinik, hastane ve acenteler için ülke bazlı reklam, dil sayfaları ve karşılama düzeni. Hangi ülkeden hasta geldiğini kendi kayıtlarımızdan biliyoruz.",
+"content": "<p>Birlikte çalıştığımız klinikler son iki ayda dokuz ülkeden düzenli form aldı. Her ülke ayrı dilde, ayrı fiyat beklentisiyle ve ayrı reklam maliyetiyle arar. Aşağıdaki sayfalar her ülke için neyi kurduğumuzu anlatır. Hasta fotoğrafı, öncesi/sonrası ve garanti dili hiçbirinde kullanılmaz.</p>\n<h2>Ülkeler</h2>\n[mx_alt_sayfalar]\n<p>Polonya, Romanya, İsveç ve Danimarka için de kampanya kurduk; talep geldikçe bu ülkelerin sayfaları da eklenecek.</p>\n<h2>Hangi ülke, hangi dil, hangi arama?</h2>\n<table><thead><tr><th>Ülke</th><th>Sayfa dili</th><th>Örnek arama</th></tr></thead><tbody>\n<tr><td><a href=\"/saglik-turizmi/almanya/\">Almanya</a></td><td>Almanca</td><td><code>zahnimplantate türkei kosten</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/ingiltere/\">İngiltere</a></td><td>İngilizce</td><td><code>dental implants turkey cost</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/hollanda/\">Hollanda</a></td><td>Hollandaca ve İngilizce</td><td><code>tandimplantaat turkije prijs</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/belcika/\">Belçika</a></td><td>Fransızca ve Hollandaca</td><td><code>implant dentaire turquie prix</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/fransa/\">Fransa</a></td><td>Fransızca</td><td><code>implant dentaire turquie avis</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/avusturya/\">Avusturya</a></td><td>Almanca</td><td><code>zahnimplantate türkei erfahrungen</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/isvicre/\">İsviçre</a></td><td>Almanca ve Fransızca</td><td><code>zahnimplantat türkei schweiz</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/bulgaristan/\">Bulgaristan</a></td><td>Bulgarca ve Türkçe</td><td><code>зъбни импланти турция</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/abd/\">ABD</a></td><td>İngilizce</td><td><code>hair transplant turkey cost</code></td></tr>\n</tbody></table>\n<h2>Kurulum dört haftada</h2>\n<ol>\n<li><b>1. hafta:</b> ülke ve tedavi listesi, yetki belgesi ve hekim bilgileri, hesapların kurumun adına açılması.</li>\n<li><b>2. hafta:</b> dil sayfaları (tedavi, süreç, konaklama, transfer, SSS) ve WhatsApp şablonları.</li>\n<li><b>3. hafta:</b> ülke bazlı Google ve Meta kampanyaları, form ve ölçüm.</li>\n<li><b>4. hafta:</b> ilk ülke karşılaştırması; bütçe en ucuza form getiren ülkeye kayar, toplam bütçe yalnız sizin onayınızla değişir.</li>\n</ol>\n<h2>Kimler için?</h2>\n<ul>\n<li><a href=\"/klinik/saglik-turizmi/\">Yurt dışından hasta alan klinikler</a></li>\n<li><a href=\"/kurumlar/hastaneler/\">Uluslararası hasta birimi olan hastaneler</a></li>\n<li><a href=\"/kurumlar/saglik-turizmi-acenteleri/\">Sağlık turizmi acenteleri ve aracı kurumlar</a></li>\n</ul>\n<h2>Başlamadan önce</h2>\n<ul>\n<li><a href=\"/saglik-turizmi/yetki-belgesi/\">Sağlık turizmi yetki belgesi rehberi</a></li>\n<li><a href=\"/rehber/saglik-turizmi-reklami/\">Sağlık turizmi reklamı: yurt dışından hasta nasıl gelir?</a></li>\n<li><a href=\"/fiyatlar/saglik-turizmi-paketi/\">Sağlık turizmi paketi ve fiyatı</a></li>\n</ul>",
+"seo_title": "Sağlık turizmi reklamı: ülke ülke hasta akışı · Moximu",
+"seo_desc": "Almanya, İngiltere, Hollanda, Belçika, Fransa, Avusturya, İsviçre, Bulgaristan ve ABD'den hasta için ülke bazlı reklam ve dil sayfaları.",
+"order": 0,
+"meta": {
+"_mx_ust_yazi": "Sağlık turizmi",
+"_mx_sayfa_sonu": "dunya,sonuclar,yorum_ozet,analiz"
+}
+},
+{
+"key": "ulke-almanya",
+"path": "/saglik-turizmi/almanya/",
+"seo_title": "Almanya'dan hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "Almanya'dan hasta almak isteyen klinikler için Almanca sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "Almanya sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>Almanya</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "Almanya için sağlık turizmi reklamı",
+"baslik": "Almanya'dan hasta <mark>sizi bulsun</mark>.",
+"metin": "Almanca sayfalar, Almanya'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"zahnimplantate türkei kosten\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · Almanya · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Köln</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Almanya",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "Almanya'da talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Berlin</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Köln</b><span>implant · saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Düsseldorf</b><span>zirkonyum · estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Frankfurt</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Hamburg</b><span>saç ekimi · implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>München</b><span>implant · estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Stuttgart</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Duisburg</b><span>implant · protez</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Dortmund</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Essen</b><span>zirkonyum · implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Hannover</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Nürnberg</b><span>implant</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "Almanya için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Almanca sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>zahnimplantate türkei kosten",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "Almanya sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "Almanya'ya özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"zahnimplantate türkei kosten\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Zahnimplantate in der Türkei | Ablauf",
+"yazi_15": "Behandlung, Aufenthalt und Transfer. Senden Sie Ihr Röntgenbild für eine kostenlose Einschätzung.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>Almanya</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Köln</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden Almanya farklı",
+"baslik": "Almanya hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Köln</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Almanca sayfa şart",
+"metin": "Türkçe bilen hasta da sayfayı Almanca okur; tedavi ve süreç sayfaları Almanca yazılır."
+},
+{
+"alt_baslik": "Hastanın cebinden çıkan pay yüksek",
+"metin": "İmplant ve protezde sigortanın karşılamadığı pay büyük; hasta toplam bedeli karşılaştırır."
+},
+{
+"alt_baslik": "Tatil dönemine göre plan",
+"metin": "Yaz ve yılbaşı tatillerinden önce talep artar; bütçe takvime göre kaydırılır."
+},
+{
+"alt_baslik": "Büyük ülke, şehir ayrımı",
+"metin": "Kuzey Ren-Vestfalya ile Bavyera aynı maliyette hasta getirmez; şehir bazlı bakılır."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Almanya için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Almanya için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Almanya'da hangi tedaviler en çok aranıyor?",
+"metin": "İmplant, zirkonyum kaplama, saç ekimi ve estetik cerrahi. Liste kliniğin tedavilerine göre daraltılır."
+},
+{
+"buton_yazisi": "Almanca sayfaları kim yazıyor?",
+"metin": "Biz yazarız; klinik onaylar. Tıbbi bilgi hekimden alınır, metin hasta diliyle yazılır."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Almanya",
+"order": 1,
+"excerpt": "Almanya'dan hasta almak isteyen klinik ve acenteler için Almanca sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-ingiltere",
+"path": "/saglik-turizmi/ingiltere/",
+"seo_title": "İngiltere'den hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "İngiltere'den hasta almak isteyen klinikler için İngilizce sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "İngiltere sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>İngiltere</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "İngiltere için sağlık turizmi reklamı",
+"baslik": "İngiltere'den hasta <mark>sizi bulsun</mark>.",
+"metin": "İngilizce sayfalar, İngiltere'ye özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"dental implants turkey cost\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · İngiltere · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Manchester</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "İngiltere",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "İngiltere'de talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>London</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Manchester</b><span>implant · saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Birmingham</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Leeds</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Liverpool</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Glasgow</b><span>implant · estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Bristol</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Sheffield</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Newcastle</b><span>saç ekimi · implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Edinburgh</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Leicester</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Nottingham</b><span>zirkonyum</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "İngiltere için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "İngilizce sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>dental implants turkey cost",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "İngiltere sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "İngiltere'ye özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"dental implants turkey cost\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Dental Implants in Turkey | Process",
+"yazi_15": "Treatment, stay and transfer explained. Send your x-ray for a free assessment.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>İngiltere</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Manchester</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden İngiltere farklı",
+"baslik": "İngiltere hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Manchester</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Toplam paket fiyatı sorulur",
+"metin": "Hasta tedavi, otel ve transferin toplamını sterlin olarak sorar; sayfa buna cevap verir."
+},
+{
+"alt_baslik": "Güven sorusu yüksek",
+"metin": "Hasta klinik, hekim ve belgeleri ayrıntılı okur; hekim sayfaları ve süreç anlatımı öne çıkar."
+},
+{
+"alt_baslik": "Kısa uçuş, kısa kalış",
+"metin": "Birkaç günlük kalışla planlanan tedaviler öne çıkarılır; ikinci seans tarihi baştan yazılır."
+},
+{
+"alt_baslik": "Form maliyeti düşük ülke",
+"metin": "Son iki ayda en ucuz form gelen ülkelerden; bütçe önceliği verilir."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "İngiltere için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "İngiltere için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "İngiltere'den gelen hasta neyi sorar?",
+"metin": "Toplam fiyatı, kalış süresini, hekimi ve tedavi sonrası kontrolü."
+},
+{
+"buton_yazisi": "Reklamlar hangi dilde?",
+"metin": "İngilizce; sayfalar ve WhatsApp cevapları da İngilizce."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "İngiltere",
+"order": 2,
+"excerpt": "İngiltere'den hasta almak isteyen klinik ve acenteler için İngilizce sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-hollanda",
+"path": "/saglik-turizmi/hollanda/",
+"seo_title": "Hollanda'dan hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "Hollanda'dan hasta almak isteyen klinikler için Hollandaca ve İngilizce sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "Hollanda sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>Hollanda</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "Hollanda için sağlık turizmi reklamı",
+"baslik": "Hollanda'dan hasta <mark>sizi bulsun</mark>.",
+"metin": "Hollandaca ve İngilizce sayfalar, Hollanda'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"tandimplantaat turkije prijs\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · Hollanda · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: zirkonyum · Rotterdam</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Hollanda",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "Hollanda'da talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Amsterdam</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Rotterdam</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Den Haag</b><span>zirkonyum · saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Utrecht</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Eindhoven</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Tilburg</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Groningen</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Almere</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Breda</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Nijmegen</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Arnhem</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Zaandam</b><span>implant</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "Hollanda için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Hollandaca ve İngilizce sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>tandimplantaat turkije prijs",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "Hollanda sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "Hollanda'ya özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"tandimplantaat turkije prijs\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Tandimplantaten in Turkije | Werkwijze",
+"yazi_15": "Behandeling, verblijf en transfer uitgelegd. Stuur uw röntgenfoto voor een gratis beoordeling.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>Hollanda</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>zirkonyum · Rotterdam</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden Hollanda farklı",
+"baslik": "Hollanda hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: zirkonyum · Rotterdam</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Yetişkin diş tedavisi büyük ölçüde hastaya kalır",
+"metin": "Hasta tedavi ve kalış toplamını karşılaştırır; fiyat aralığı açık yazılır."
+},
+{
+"alt_baslik": "İki dilde sayfa",
+"metin": "Hollandaca sayfa güven verir; İngilizce sayfa yedek olarak kalır."
+},
+{
+"alt_baslik": "Tıklama oranı yüksek",
+"metin": "Son iki ayda reklama ilgi en yüksek ülkelerden; içerik ve form buna göre kurulur."
+},
+{
+"alt_baslik": "Kısa uçuş",
+"metin": "Hafta sonu ile birleşen kısa kalış planları öne çıkar."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Hollanda için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Hollanda için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Hollandaca sayfa gerekli mi?",
+"metin": "Gerekli değil ama form oranını artırır; önce en çok aranan tedaviler Hollandaca yazılır."
+},
+{
+"buton_yazisi": "Hollanda için ayrı bütçe mi?",
+"metin": "Evet; her ülke ayrı kampanya ve ayrı bütçedir."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Hollanda",
+"order": 3,
+"excerpt": "Hollanda'dan hasta almak isteyen klinik ve acenteler için Hollandaca ve İngilizce sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-belcika",
+"path": "/saglik-turizmi/belcika/",
+"seo_title": "Belçika'dan hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "Belçika'dan hasta almak isteyen klinikler için Fransızca ve Hollandaca sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "Belçika sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>Belçika</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "Belçika için sağlık turizmi reklamı",
+"baslik": "Belçika'dan hasta <mark>sizi bulsun</mark>.",
+"metin": "Fransızca ve Hollandaca sayfalar, Belçika'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"implant dentaire turquie prix\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · Belçika · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Brüksel</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Belçika",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "Belçika'da talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Brüksel</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Antwerpen</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Gent</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Liège</b><span>implant · saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Charleroi</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Brugge</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Leuven</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Namur</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Genk</b><span>implant · protez</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Mechelen</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Hasselt</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Aalst</b><span>saç ekimi</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "Belçika için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Fransızca ve Hollandaca sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>implant dentaire turquie prix",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "Belçika sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "Belçika'ya özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"implant dentaire turquie prix\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Implants dentaires en Turquie | Déroulement",
+"yazi_15": "Traitement, séjour et transfert. Envoyez votre radio pour une évaluation gratuite.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>Belçika</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Brüksel</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden Belçika farklı",
+"baslik": "Belçika hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Brüksel</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "İki dil, iki kampanya",
+"metin": "Valonya Fransızca, Flandre Hollandaca arar; reklam ve sayfa dile göre ayrılır."
+},
+{
+"alt_baslik": "Küçük ülke, yoğun şehirler",
+"metin": "Brüksel, Antwerpen ve Liège çevresi talebin çoğunu getirir."
+},
+{
+"alt_baslik": "Kısa uçuş",
+"metin": "Kısa kalışlı tedaviler ve ikinci seans planı baştan yazılır."
+},
+{
+"alt_baslik": "Komşu ülkelerle ortak dil",
+"metin": "Fransızca sayfalar Fransa ve İsviçre için de kullanılır."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Belçika için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Belçika için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Belçika için hangi dilde sayfa?",
+"metin": "Fransızca ve Hollandaca; önce en çok talep gelen dilde başlanır."
+},
+{
+"buton_yazisi": "Fransa ile aynı kampanya olur mu?",
+"metin": "Hayır; ülke ayrı kampanyadır, sayfalar ortak kullanılabilir."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Belçika",
+"order": 4,
+"excerpt": "Belçika'dan hasta almak isteyen klinik ve acenteler için Fransızca ve Hollandaca sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-fransa",
+"path": "/saglik-turizmi/fransa/",
+"seo_title": "Fransa'dan hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "Fransa'dan hasta almak isteyen klinikler için Fransızca sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "Fransa sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>Fransa</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "Fransa için sağlık turizmi reklamı",
+"baslik": "Fransa'dan hasta <mark>sizi bulsun</mark>.",
+"metin": "Fransızca sayfalar, Fransa'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"implant dentaire turquie avis\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · Fransa · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: zirkonyum · Lyon</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Fransa",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "Fransa'da talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Paris</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Lyon</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Marseille</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Strasbourg</b><span>implant · saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Lille</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Toulouse</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Nice</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Bordeaux</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Nantes</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Montpellier</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Mulhouse</b><span>implant · protez</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Grenoble</b><span>zirkonyum</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "Fransa için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Fransızca sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>implant dentaire turquie avis",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "Fransa sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "Fransa'ya özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"implant dentaire turquie avis\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Implants dentaires en Turquie | Prix et étapes",
+"yazi_15": "Étapes du traitement, séjour et transfert. Envoyez votre radio pour un devis.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>Fransa</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>zirkonyum · Lyon</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden Fransa farklı",
+"baslik": "Fransa hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: zirkonyum · Lyon</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Fransızca tam sayfa",
+"metin": "Fransız hasta İngilizce sayfada kalmaz; tedavi, süreç ve SSS Fransızca yazılır."
+},
+{
+"alt_baslik": "Yorum ve hekim güveni",
+"metin": "\"Avis\" araması yaygın; Google yorumları ve hekim sayfası belirleyici."
+},
+{
+"alt_baslik": "Doğu bölgeleri öne çıkar",
+"metin": "Strasbourg ve Mulhouse çevresinde Türkçe bilen hasta yoğun."
+},
+{
+"alt_baslik": "Ortak Fransızca sayfa",
+"metin": "Belçika ve İsviçre'nin Fransızca bölgeleri aynı sayfaları kullanır."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Fransa için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Fransa için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Fransızca WhatsApp cevabı kim verir?",
+"metin": "Kliniğin koordinatörü; biz Fransızca hazır cevap şablonlarını kurarız."
+},
+{
+"buton_yazisi": "Fransa'da hangi tedavi öne çıkıyor?",
+"metin": "İmplant, zirkonyum ve saç ekimi; kliniğin tedavilerine göre daraltılır."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Fransa",
+"order": 5,
+"excerpt": "Fransa'dan hasta almak isteyen klinik ve acenteler için Fransızca sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-avusturya",
+"path": "/saglik-turizmi/avusturya/",
+"seo_title": "Avusturya'dan hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "Avusturya'dan hasta almak isteyen klinikler için Almanca sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "Avusturya sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>Avusturya</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "Avusturya için sağlık turizmi reklamı",
+"baslik": "Avusturya'dan hasta <mark>sizi bulsun</mark>.",
+"metin": "Almanca sayfalar, Avusturya'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"zahnimplantate türkei erfahrungen\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · Avusturya · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Wien</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Avusturya",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "Avusturya'da talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Wien</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Graz</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Linz</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Salzburg</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Innsbruck</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Klagenfurt</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Villach</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Wels</b><span>implant · protez</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>St. Pölten</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Dornbirn</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Bregenz</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Steyr</b><span>zirkonyum</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "Avusturya için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Almanca sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>zahnimplantate türkei erfahrungen",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "Avusturya sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "Avusturya'ya özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"zahnimplantate türkei erfahrungen\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Zahnimplantate in der Türkei | Ablauf",
+"yazi_15": "Behandlung, Aufenthalt und Transfer. Röntgenbild senden, kostenlose Einschätzung.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>Avusturya</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Wien</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden Avusturya farklı",
+"baslik": "Avusturya hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Wien</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Almanca sayfalar ortak",
+"metin": "Almanya için yazılan sayfalar Avusturya'da da kullanılır; reklam ayrı kurulur."
+},
+{
+"alt_baslik": "Viyana ağırlıklı",
+"metin": "Talebin büyük kısmı Viyana ve çevresinden gelir."
+},
+{
+"alt_baslik": "Form maliyeti dengeli",
+"metin": "Son iki ayda Almanya'dan daha düşük maliyetle form geldi."
+},
+{
+"alt_baslik": "\"Erfahrungen\" araması",
+"metin": "Hasta deneyim arar; Google yorumları ve süreç anlatımı öne çıkar."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Avusturya için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Avusturya için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Avusturya için ayrı site mi gerekir?",
+"metin": "Hayır; Almanca sayfalar ortak, kampanya ve bütçe ayrıdır."
+},
+{
+"buton_yazisi": "Bütçe nasıl paylaşılır?",
+"metin": "Her pazartesi form maliyetine bakılır; ucuz ülkeye kaydırılır, toplam bütçe sizin onayınızla değişir."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Avusturya",
+"order": 6,
+"excerpt": "Avusturya'dan hasta almak isteyen klinik ve acenteler için Almanca sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-isvicre",
+"path": "/saglik-turizmi/isvicre/",
+"seo_title": "İsviçre'den hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "İsviçre'den hasta almak isteyen klinikler için Almanca ve Fransızca sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "İsviçre sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>İsviçre</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "İsviçre için sağlık turizmi reklamı",
+"baslik": "İsviçre'den hasta <mark>sizi bulsun</mark>.",
+"metin": "Almanca ve Fransızca sayfalar, İsviçre'ye özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"zahnimplantat türkei schweiz\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · İsviçre · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Zürih</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "İsviçre",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "İsviçre'de talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Zürih</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Basel</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Bern</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Cenevre</b><span>implant · estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Lozan</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Winterthur</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Luzern</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>St. Gallen</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Lugano</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Biel</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Thun</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Aarau</b><span>zirkonyum</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "İsviçre için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Almanca ve Fransızca sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>zahnimplantat türkei schweiz",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "İsviçre sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "İsviçre'ye özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"zahnimplantat türkei schweiz\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Zahnimplantate in der Türkei | Für Patienten aus der Schweiz",
+"yazi_15": "Ablauf, Aufenthalt, Transfer. Röntgenbild senden für eine Einschätzung.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>İsviçre</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Zürih</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden İsviçre farklı",
+"baslik": "İsviçre hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Zürih</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Fiyat farkı en büyük ülkelerden",
+"metin": "Hasta toplam bedeli kendi ülkesindeki fiyatla karşılaştırır."
+},
+{
+"alt_baslik": "Tıklama pahalı",
+"metin": "Bütçe küçük tutulur, yalnız en çok form getiren tedavide reklam açılır."
+},
+{
+"alt_baslik": "İki dil",
+"metin": "Almanca ve Fransızca bölgeler ayrı reklam grubu alır."
+},
+{
+"alt_baslik": "Kalite sorusu",
+"metin": "Hekim, malzeme markası ve garanti belgesi sorulur; sayfada açıkça yazılır."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "İsviçre için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "İsviçre için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "İsviçre'ye reklam pahalı değil mi?",
+"metin": "Tıklama pahalıdır; bu yüzden küçük bütçe ve dar tedavi listesiyle başlanır."
+},
+{
+"buton_yazisi": "Hangi dilde?",
+"metin": "Almanca ve Fransızca; sayfalar Almanya ve Fransa ile ortak kullanılır."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "İsviçre",
+"order": 7,
+"excerpt": "İsviçre'den hasta almak isteyen klinik ve acenteler için Almanca ve Fransızca sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-bulgaristan",
+"path": "/saglik-turizmi/bulgaristan/",
+"seo_title": "Bulgaristan'dan hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "Bulgaristan'dan hasta almak isteyen klinikler için Bulgarca ve Türkçe sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "Bulgaristan sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>Bulgaristan</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "Bulgaristan için sağlık turizmi reklamı",
+"baslik": "Bulgaristan'dan hasta <mark>sizi bulsun</mark>.",
+"metin": "Bulgarca ve Türkçe sayfalar, Bulgaristan'a özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"зъбни импланти турция\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · Bulgaristan · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Kırcaali</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Bulgaristan",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "Bulgaristan'da talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>Sofya</b><span>implant · zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Filibe</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Varna</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Burgaz</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Ruse</b><span>implant · protez</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Eski Zağra</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Kırcaali</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Hasköy</b><span>implant · protez</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Şumnu</b><span>zirkonyum</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Plevne</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Dobriç</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Razgrad</b><span>protez</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "Bulgaristan için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Bulgarca ve Türkçe sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>зъбни импланти турция",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "Bulgaristan sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "Bulgaristan'a özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"зъбни импланти турция\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Зъбни импланти в Турция | Процес",
+"yazi_15": "Лечение, престой и трансфер. Изпратете рентгенова снимка за безплатна оценка.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>Bulgaristan</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Kırcaali</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden Bulgaristan farklı",
+"baslik": "Bulgaristan hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: implant · Kırcaali</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Karayoluyla gelen hasta",
+"metin": "Yakınlık nedeniyle kısa sürede, çoğu zaman araçla gelinir; yol ve konaklama bilgisi yazılır."
+},
+{
+"alt_baslik": "İki dil",
+"metin": "Bulgarca reklam ve Türkçe konuşan bölgeler için Türkçe sayfa birlikte kurulur."
+},
+{
+"alt_baslik": "Gösterim ucuz",
+"metin": "Reklam geniş kitleye düşük maliyetle ulaşır; form kalitesi her hafta kontrol edilir."
+},
+{
+"alt_baslik": "Hızlı karar",
+"metin": "Hasta kısa sürede gelebildiği için WhatsApp cevabı ilk saatte verilir."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "Bulgaristan için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Bulgaristan için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "Bulgaristan için Bulgarca sayfa gerekli mi?",
+"metin": "Evet; Türkçe bilen hasta için Türkçe sayfa da eklenir."
+},
+{
+"buton_yazisi": "Form kalitesi nasıl kontrol ediliyor?",
+"metin": "Her hafta aranan, cevap veren ve randevu alan form oranına bakılır."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "Bulgaristan",
+"order": 8,
+"excerpt": "Bulgaristan'dan hasta almak isteyen klinik ve acenteler için Bulgarca ve Türkçe sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "ulke-abd",
+"path": "/saglik-turizmi/abd/",
+"seo_title": "ABD'den hasta için sağlık turizmi reklamı · Moximu",
+"seo_desc": "ABD'den hasta almak isteyen klinikler için İngilizce sayfalar, ülke bazlı Google ve Instagram reklamı ve WhatsApp karşılama.",
+"service": {
+"ad": "ABD sağlık turizmi reklamı",
+"tur": "Dijital pazarlama",
+"fiyat": "60000"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/saglik-turizmi/\">Sağlık turizmi</a> › <span>ABD</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v8",
+"yazi": "ABD için sağlık turizmi reklamı",
+"baslik": "ABD'den hasta <mark>sizi bulsun</mark>.",
+"metin": "İngilizce sayfalar, ABD'ye özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
+}
+],
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": ""
+},
+"yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"hair transplant turkey cost\"></span><i class=\"lp-caret\"></i>",
+"yazi_4": "Arama sonuçları · ABD · <em>örnek</em>",
+"yazi_5": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_6": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_7": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: saç ekimi · New Jersey</span><small>az önce</small>",
+"yazi_9": "<span class=\"lp-dot\"></span>Kurulum sonrası takip · <em>örnek</em>",
+"yazi_10": "<b>Ülke ülke</b><span>ayrı kampanya</span>",
+"yazi_11": "<b>İlk saat</b><span>WhatsApp cevabı</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "ABD",
+"yazi": "<a href=\"#ilceler\">Şehirler</a><a href=\"#ne-yapiyoruz\">Ne yapıyoruz</a><a href=\"#fiyat\">Fiyat</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ilceler",
+"yazi": "Şehirler",
+"baslik": "Hangi şehirden, <mark>hangi tedavi</mark>?",
+"metin": "ABD'de talep birkaç şehirde toplanır. Reklam ve sayfa planı buna göre yazılır.",
+"yazi_2": "<a href=\"/ucretsiz-klinik-analizi/\"><b>New York</b><span>saç ekimi · implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>New Jersey</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Los Angeles</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Chicago</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Houston</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Miami</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Dallas</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Boston</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Washington</b><span>implant</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Atlanta</b><span>estetik</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>San Francisco</b><span>saç ekimi</span></a><a href=\"/ucretsiz-klinik-analizi/\"><b>Seattle</b><span>implant</span></a>",
+"metin_2": "Şehir başına öne çıkan tedaviler · örnek. Plan analizde kliniğin tedavilerine göre yazılır."
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v8",
+"yazi": "ABD için ne yapıyoruz",
+"baslik": "Dört iş, <mark>tek ülke planı</mark>.",
+"metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "İngilizce sayfalar",
+"metin_2": "Hasta kendi dilinde okur.",
+"metin_3": "Tedavi, süreç, konaklama, transfer ve sık sorulanlar; hekim bilgisiyle.",
+"yazi_3": "<span class=\"lp-gi\">G</span>hair transplant turkey cost",
+"yazi_4": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84)</span>",
+"yazi_5": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51)</span>",
+"yazi_6": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312)</span>",
+"yazi_7": "Google puanı <b>görünür</b>",
+"yazi_8": "02",
+"alt_baslik_2": "Tedavi sayfaları",
+"metin_4": "Her tedavi ayrı arama.",
+"metin_5": "İmplant, zirkonyum, saç ekimi ve estetik için ayrı sayfa ve ayrı reklam grubu.",
+"yazi_9": "<i></i>kliniginiz.com",
+"liste_v8": [
+{
+"yazi": "<span>implant</span><span>zirkonyum</span><span>gulus-tasarimi</span><span>all-on-4</span>"
+},
+{
+"yazi": "<span>sac-ekimi</span><span>rinoplasti</span><span>otel-transfer</span><span>sss</span>"
+}
+],
+"yazi_10": "ABD sayfa planı · <b>örnek</b>",
+"yazi_11": "03",
+"alt_baslik_3": "ABD'ye özel reklam",
+"metin_6": "Bütçe yalnız bu ülkede.",
+"metin_7": "Google ve Meta kampanyaları ülke bazında; bütçe her pazartesi form maliyetine göre.",
+"yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"hair transplant turkey cost\"></span><i class=\"caret\"></i>",
+"yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_14": "Hair Transplant in Turkey | Process & Stay",
+"yazi_15": "Procedure, hotel and transfer explained. Send photos for a free assessment.",
+"yazi_16": "<span>Process</span><span>Prices</span><span>WhatsApp</span>",
+"yazi_17": "Yalnız <b>ABD</b>",
+"yazi_18": "04",
+"alt_baslik_4": "WhatsApp karşılama",
+"metin_8": "İlk cevap ilk saatte.",
+"metin_9": "Röntgen ve fotoğraf isteme, ön değerlendirme sırası, hazır cevaplar.",
+"yazi_19": "<i></i>Klinik adı · Sponsorlu",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_20": "<b>WhatsApp · yeni form</b><span>saç ekimi · New Jersey</span>",
+"yazi_21": "Form → WhatsApp <b>anında</b>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Neden ABD farklı",
+"baslik": "ABD hastası <mark>neye bakar</mark>?",
+"gorsel": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"yazi_2": "<span class=\"ic\"></span><span class=\"nt\">Yeni form: saç ekimi · New Jersey</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic st\"></span><span class=\"nt\">Yeni 5 ★ yorum</span><small>3 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni dil sayfası yayında</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Uzun uçuş, uzun kalış",
+"metin": "Tedavi tek seyahatte bitecek şekilde planlanır; kalış süresi baştan yazılır."
+},
+{
+"alt_baslik": "Saat farkı",
+"metin": "Form gece gelir; WhatsApp karşılama şablonları ve sabah ilk iş aranma sırası kurulur."
+},
+{
+"alt_baslik": "Saç ekimi ve estetik öne çıkar",
+"metin": "Diş tedavisinden çok saç ekimi ve estetik cerrahi aranır."
+},
+{
+"alt_baslik": "Tıklama pahalı",
+"metin": "Eyalet ve şehir bazlı daraltılır; bütçe yalnız form getiren bölgelere."
+}
+]
+},
+{
+"acf_fc_layout": "fiyat",
+"tasarim": "v2",
+"yazi": "Fiyat",
+"baslik": "ABD için <mark>sağlık turizmi paketi</mark>.",
+"yazi_2": "Sağlık turizmi paketi",
+"yazi_3": "60.000 ₺<span>/ay</span>",
+"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
+"liste": [
+{
+"madde": "Çok dilli tedavi ve süreç sayfaları"
+},
+{
+"madde": "Ülke bazlı Google Ads kampanyaları"
+},
+{
+"madde": "Instagram ve Facebook form reklamları"
+},
+{
+"madde": "WhatsApp karşılama ve koordinatör düzeni"
+},
+{
+"madde": "Google İşletme Profili bakımı"
+},
+{
+"madde": "Ülke bazında aylık rapor"
+}
+],
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz analizle başlayın",
+"liste_2": [
+{
+"yazi": "Türkiye içindeki hasta için",
+"yazi_2": "30.000 ₺<span>/ay</span>",
+"metin": "Site, Google kartı, Google ve Instagram reklamı.",
+"baglanti": "/fiyatlar/yerel-klinik-paketi/",
+"baglanti_yaz": "Yerel klinik paketi →"
+},
+{
+"yazi": "Sitesi olmayan klinikler",
+"yazi_2": "45.000 ₺<span> tek sefer</span>",
+"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz": "Klinik web sitesi →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "ABD için en çok sorulanlar",
+"liste_v2": [
+{
+"buton_yazisi": "ABD'den hasta gerçekten geliyor mu?",
+"metin": "Evet; özellikle saç ekimi ve estetik için. Uzun kalış ve toplam bedel net yazılmalıdır."
+},
+{
+"buton_yazisi": "Saat farkı nasıl yönetiliyor?",
+"metin": "Gece gelen formlara otomatik ilk cevap gider; koordinatör sabah ilk iş arar."
+},
+{
+"buton_yazisi": "Yetki belgesi gerekli mi?",
+"metin": "Yurt dışından hasta kabul eden kurumlar ve aracılar için sağlık turizmi yetki belgesi gerekir. Ayrıntılar yetki belgesi rehberimizde."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
+"metin": "Tedaviye ve şehir sayısına göre analizde yazılı önerilir; bütçe kliniğin kartından ödenir."
+},
+{
+"buton_yazisi": "Sonuç garantisi var mı?",
+"metin": "Hayır. Her hafta ülke bazında form maliyeti ve aylık tek sayfa rapor verilir."
+},
+{
+"buton_yazisi": "Diğer ülkelere de açılabilir mi?",
+"metin": "Evet; her ülke ayrı kampanya olarak eklenir, sayfalar dil ortaksa paylaşılır."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"title": "ABD",
+"order": 9,
+"excerpt": "ABD'den hasta almak isteyen klinik ve acenteler için İngilizce sayfalar, ülke bazlı reklam ve WhatsApp karşılama."
+},
+{
+"key": "yetki-belgesi",
+"path": "/saglik-turizmi/yetki-belgesi/",
+"title": "Sağlık turizmi yetki belgesi rehberi",
+"order": 20,
+"excerpt": "Yurt dışından hasta kabul eden sağlık kuruluşları ve aracı kuruluşlar için yetki belgesi, reklam öncesi kontrol listesi ve sitede bulunması gerekenler.",
+"content": "<p>Bu sayfa hukuki görüş değildir; yurt dışı hasta reklamına başlamadan önce kliniklerle birlikte kontrol ettiğimiz maddelerin özetidir. Güncel şartlar için Sağlık Bakanlığı'nın duyurularına ve hukuk danışmanınıza başvurun.</p>\n<h2>Yetki belgesi nedir?</h2>\n<p>Türkiye'de yurt dışından hasta kabul eden sağlık kuruluşları ile bu hastaları kuruluşa yönlendiren aracı kuruluşlar, Uluslararası Sağlık Turizmi ve Turistin Sağlığı Hakkında Yönetmelik kapsamında Sağlık Bakanlığı'ndan uluslararası sağlık turizmi yetki belgesi almakla yükümlüdür. Aracı kuruluşların ayrıca TÜRSAB üyesi bir seyahat acentesi olması aranır.</p>\n<h2>Kimler için gerekli?</h2>\n<table><thead><tr><th>Kurum</th><th>Ne gerekir?</th></tr></thead><tbody>\n<tr><td>Hastane, tıp merkezi, poliklinik, diş kurumu</td><td>Sağlık kuruluşu olarak yetki belgesi</td></tr>\n<tr><td>Hasta yönlendiren acente</td><td>Seyahat acentesi belgesi ve aracı kuruluş yetki belgesi</td></tr>\n<tr><td>Muayenehane</td><td>Durumu ayrıca değerlendirilir; hukuk danışmanına sorulmalı</td></tr>\n</tbody></table>\n<h2>Başvurudan önce hazırlananlar</h2>\n<ul>\n<li>Kuruluşun ruhsatı ve faaliyet izin belgeleri</li>\n<li>Yabancı dil bilen personel ve hasta koordinatörü bilgisi</li>\n<li>Yabancı hastalar için fiyat tarifesi ve bilgilendirme belgeleri</li>\n<li>Hasta hakları ve şikâyet süreci için yazılı düzen</li>\n<li>Mesleki sorumluluk sigortası</li>\n</ul>\n<h2>Reklam öncesi kontrol listesi</h2>\n<ul>\n<li>Yetki belgesi numarası sitede ve iletişim sayfasında yazılı mı?</li>\n<li>Hekim adları, uzmanlıkları ve diplomaları sayfalarda var mı?</li>\n<li>Fiyat bilgisi \"aralık\" olarak mı veriliyor, kampanya dili var mı?</li>\n<li>Hasta fotoğrafı, öncesi/sonrası ve garanti ifadesi kaldırıldı mı?</li>\n<li>KVKK aydınlatma metni hastanın dilinde mi?</li>\n<li>Google ve Meta hesapları kurumun adına mı açıldı?</li>\n</ul>\n<h2>Sitede bulunması gerekenler</h2>\n<ol>\n<li>Kurumun tam unvanı, adresi ve yetki belgesi bilgisi</li>\n<li>Her tedavi için hastanın dilinde süreç sayfası</li>\n<li>Konaklama, transfer ve tercüman hizmetinin kapsamı</li>\n<li>Tedavi sonrası kontrol ve şikâyet süreci</li>\n<li>Hastanın dilinde gizlilik ve çerez metinleri</li>\n</ol>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Belge olmadan reklam açılabilir mi?</summary><p>Biz açmıyoruz. Önce belge süreci tamamlanır, sonra kampanyalar kurulur; o süre dil sayfaları ve Google kartıyla değerlendirilir.</p></details>\n<details><summary>Belge başvurusunu siz mi yapıyorsunuz?</summary><p>Hayır; başvuru kurumun kendisi tarafından yapılır. Biz site ve reklam tarafında gerekenleri hazırlarız.</p></details>\n<details><summary>Hangi ülkelerden hasta geliyor?</summary><p>Birlikte çalıştığımız kliniklerde son iki ayda Almanya, Bulgaristan, İngiltere, ABD, Fransa, Hollanda, Belçika, Avusturya ve İsviçre öne çıktı. Ayrıntı için <a href=\"/saglik-turizmi/\">sağlık turizmi</a> sayfasına bakın.</p></details>",
+"seo_title": "Sağlık turizmi yetki belgesi: reklam öncesi kontrol listesi",
+"seo_desc": "Yurt dışından hasta kabul eden klinik ve acenteler için yetki belgesi özeti, reklam öncesi kontrol listesi ve sitede bulunması gerekenler.",
+"meta": {
+"_mx_ust_yazi": "Sağlık turizmi",
+"_mx_sayfa_sonu": "yorum_ozet,analiz"
+}
+},
+{
+"key": "ornek-rapor",
+"path": "/ornek-haftalik-rapor/",
+"title": "Örnek haftalık özet",
+"order": 0,
+"excerpt": "Her pazartesi kliniğe giden yazılı özetin örneği: geçen hafta ne oldu, ne yapıldı, bu hafta ne yapılacak, sizden ne bekleniyor.",
+"content": "<p>Her pazartesi sabahı kliniğe kısa bir yazılı özet gider; ayın ilk haftasında buna tek sayfalık aylık rapor eklenir. Aşağıdaki örnek gerçek bir özetin biçimidir; rakamlar örnektir. Yüzdeler bir önceki haftaya göredir.</p>\n<div class=\"mx-rp\"><div class=\"mx-rp-h\"><div><b>Haftalık özet · Diş kliniği, İzmir</b><br/><span>27 Ekim – 2 Kasım · Google Ads, Meta, Google kartı, site</span></div><em>örnek</em></div><div class=\"mx-rp-k\"><div><small>Talep (form, WhatsApp, arama)</small><b>+%12</b><i>geçen haftaya göre</i></div><div><small>Talep maliyeti</small><b>−%8</b><i>geçen haftaya göre</i></div><div><small>Google kartı görüntülenme</small><b>+%5</b><i>geçen haftaya göre</i></div><div><small>Siteye Google'dan gelen</small><b>+%9</b><i>geçen haftaya göre</i></div></div><div class=\"mx-rp-b\"><section><h4>Geçen hafta yapılanlar</h4><ul><li>İki yeni tedavi sayfası yayına alındı: şeffaf plak, gülüş tasarımı.</li><li>Google kartında altı yorum cevaplandı, bir haftalık gönderi paylaşıldı.</li><li>Google Ads'te talep getirmeyen on dört arama negatif listeye eklendi.</li><li>Instagram'da en ucuz form getiren kitleye bütçe kaydırıldı; toplam bütçe değişmedi.</li><li>Sitede bir kırık bağlantı onarıldı, mobil açılış 1,6 saniye.</li></ul></section><section class=\"todo\"><h4>Bu hafta</h4><ul><li>İmplant sayfasına hekim videosu eklenecek.</li><li>Karşıyaka için ilçe sayfası yazılacak.</li><li>Pahalılaşan bir reklam grubu durdurulacak.</li></ul><h4>Sizden beklenen</h4><ul><li>Aranmayan iki talep var; bugün aranması.</li><li>Ay sonuna kadar klinik içinden yeni fotoğraf.</li></ul></section></div><div class=\"mx-rp-f\">Kaynaklar: Google Ads, Meta, Google İşletme Profili, Search Console, GA4 · Ham rakamlar yalnız kliniğe gider.</div></div>\n<h2>Haftalık özette ne var?</h2>\n<ul>\n<li><b>Dört gösterge:</b> talep, talep maliyeti, Google kartı ve siteye Google'dan gelen ziyaret. Fazlası yok.</li>\n<li><b>Yapılanlar:</b> geçen hafta sitede, kartta ve reklamda yapılan her iş tek satırla.</li>\n<li><b>Bu hafta:</b> planlanan işler ve onay gereken değişiklikler.</li>\n<li><b>Sizden beklenen:</b> genellikle tek madde; çoğu zaman aranmayan talepler.</li>\n</ul>\n<h2>Aylık tek sayfa rapor</h2>\n<p>Ayın ilk haftasında gelir. Kanal kanal talep ve talep maliyeti, en çok talep getiren tedaviler, bir önceki aya göre değişim ve bir sonraki ayın kararı yazılıdır. Reklam bütçesini artırma önerisi varsa gerekçesiyle yazılır; toplam bütçe yalnız sizin onayınızla değişir.</p>\n<h2>Verinin sahibi kim?</h2>\n<p>Reklam hesapları, Google kartı, Search Console ve Analytics kliniğin adına açılır; rapordaki her rakam bu hesaplardan gelir. Ayrılsanız da hesaplar ve geçmiş veriler sizde kalır. Sitemizde yalnız yüzde değişimler yayımlanır, ham rakamlar yayımlanmaz.</p>",
+"seo_title": "Örnek haftalık özet: kliniğe her pazartesi ne gider?",
+"seo_desc": "Kliniğe her pazartesi giden yazılı özetin örneği: dört gösterge, yapılan işler, bu haftanın planı ve sizden beklenen. Aylık tek sayfa rapor da ayın ilk haftasında.",
+"meta": {
+"_mx_ust_yazi": "Çalışma şekli",
+"_mx_sayfa_sonu": "yorum_ozet,analiz"
+}
+},
+{
+"key": "mevzuata-uyum",
+"path": "/mevzuata-uyum/",
+"title": "Mevzuata uyum",
+"order": 0,
+"excerpt": "Sağlık reklamında hangi kurallara uyduğumuz, her içerikte neyi kontrol ettiğimiz ve hesapların, verilerin kime ait olduğu.",
+"content": "<p>Sağlık hizmetinin tanıtımı Türkiye'de yönetmelikle, Google ve Meta'da ayrıca reklam politikalarıyla sınırlıdır. Bir klinik sitesi ya da reklamı bu kurallara takılırsa zarar kliniğe döner: reklam hesabı kapanır, kart askıya alınır, il sağlık müdürlüğünden yazı gelir. Bu yüzden her içerik yayından önce aşağıdaki listeden geçer.</p>\n<h2>Her içerikte kontrol ettiklerimiz</h2>\n<table><thead><tr><th>Kontrol</th><th>Uygulama</th></tr></thead><tbody>\n<tr><td>Hasta görseli</td><td>Öncesi/sonrası ve hasta fotoğrafı kullanılmaz; klinik, ekip ve cihaz görselleri kullanılır.</td></tr>\n<tr><td>Üstünlük ve sonuç iddiası</td><td>\"En iyi\", \"garantili\", \"ağrısız\" gibi ifadeler yazılmaz.</td></tr>\n<tr><td>Ticari teşvik</td><td>İndirim, kampanya ve hediye dili kullanılmaz; fiyat aralığı bilgi olarak verilir.</td></tr>\n<tr><td>Unvan ve uzmanlık</td><td>Belgede ne yazıyorsa o; belge görmeden unvan yazılmaz.</td></tr>\n<tr><td>Yorumlar</td><td>Yorum satın alınmaz, karşılığında teşvik verilmez; yorumlar reklamda kullanılmaz.</td></tr>\n<tr><td>Kişisel veri</td><td>Formlar KVKK aydınlatma metniyle; çerezler onaydan önce çalışmaz.</td></tr>\n<tr><td>Hedefleme</td><td>Sağlık durumuna göre kişi hedeflenmez; metin kişiye değil tedaviye hitap eder.</td></tr>\n</tbody></table>\n<h2>Yurt içi ve yurt dışı ayrımı</h2>\n<p>Yurt içinde bilgilendirme odaklı içerik, Google kartı ve SEO öne çıkar. Yurt dışından hasta alan kurumlarda reklam, <a href=\"/saglik-turizmi/yetki-belgesi/\">sağlık turizmi yetki belgesi</a> ve ilgili ülkenin kurallarıyla birlikte kurulur.</p>\n<h2>Hesaplar ve veri kimin?</h2>\n<ul>\n<li>Alan adı, hosting, Google Ads, Meta, Google kartı, Search Console ve Analytics kliniğin adına açılır.</li>\n<li>Reklam bütçesi kliniğin kartından ödenir; toplam bütçe yalnız kliniğin onayıyla değişir.</li>\n<li>Kliniğin ham rakamları yayımlanmaz; sonuçlar yüzde değişim olarak, izinle paylaşılır.</li>\n<li>Ayrılan kliniğe hesaplar ve geçmiş veriler eksiksiz bırakılır.</li>\n</ul>\n<h2>Kaynaklar</h2>\n<ul>\n<li><a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı özeti</a></li>\n<li><a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Yönetmelik: klinik reklamında ne yazılır?</a></li>\n<li><a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a></li>\n</ul>\n<p>Bu sayfa hukuki görüş değildir. Şüpheli bir durumda kliniğinizin bağlı olduğu meslek odasına ve hukuk danışmanınıza sorun.</p>",
+"seo_title": "Mevzuata uyum: klinik reklamında uyduğumuz kurallar · Moximu",
+"seo_desc": "Sağlık reklamında uyduğumuz kurallar: hasta görseli, iddia, teşvik, unvan, yorum ve kişisel veri kontrolleri; hesapların ve verinin kliniğe ait olması.",
+"meta": {
+"_mx_ust_yazi": "Güven",
+"_mx_sayfa_sonu": "yorum_ozet,analiz"
+}
+},
+{
+"key": "vaka-bno",
+"path": "/sonuclar/busra-nur-ozger/",
+"seo_title": "Buşra Nur Özger vakası: yurt dışı form maliyeti −%21 · Moximu",
+"seo_desc": "Obezite ve estetik cerrahi kliniği: ülke bazlı Meta form kampanyalarıyla yurt dışı form maliyeti yüzde 21 düştü, form sayısı yüzde 8 arttı.",
+"service": {},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/sonuclar/\">Sonuçlar</a> › <span>Buşra Nur Özger</span>"
+},
+{
+"acf_fc_layout": "vaka_giris",
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Obezite ve estetik cerrahi · Sağlık turizmi paketi",
+"baslik": "Buşra Nur Özger: yurt dışı form maliyeti <mark>−%21</mark>.",
+"metin": "İngiltere, ABD, Almanya, Hollanda, Belçika ve Avusturya için ayrı form kampanyaları; her pazartesi ülke ve tedavi bazında bütçe kararı.",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>form sayısı</span>"
+},
+{
+"yazi": "<b>−%31</b><span>İngiltere'de form maliyeti, ortalamaya göre</span>"
+}
+],
+"vurgu": "Meta Ads · Eylül → Ekim 2026 · yalnız yurt dışı form kampanyaları",
+"yazi": "<span class=\"lp-dot\"></span>Meta · ülke bazında form maliyeti <em>örnek</em>",
+"liste_2": [
+{
+"yazi": "<span>İngiltere</span><i style=\"--w:92%\"></i><b data-cycle-rank=\"\">1</b>"
+},
+{
+"yazi": "<span>ABD</span><i style=\"--w:84%\"></i><b>2</b>"
+},
+{
+"yazi": "<span>Hollanda</span><i style=\"--w:78%\"></i><b>3</b>"
+},
+{
+"yazi": "<span>Belçika</span><i style=\"--w:66%\"></i><b>4</b>"
+},
+{
+"yazi": "<span>Almanya</span><i style=\"--w:58%\"></i><b>5</b>"
+}
+],
+"yazi_2": "<span class=\"ic st\"></span><span class=\"nt\">Bütçe en ucuz ülkeye kaydırıldı · İngiltere</span><small>pazartesi</small>",
+"yazi_3": "<b>6 ülke</b><span>ayrı kampanya</span>",
+"yazi_4": "<b>3 dil</b><span>TR · EN · DE</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Buşra Nur Özger",
+"yazi": "<a href=\"#durum\">Başlangıç</a><a href=\"#yaptiklarimiz\">Ne yaptık</a><a href=\"#sonuc\">Sonuç</a><a href=\"#zaman\">Zaman çizelgesi</a><a href=\"#diger\">Diğer vakalar</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Benzer sonuç için analiz"
+},
+{
+"acf_fc_layout": "durum",
+"yazi": "Başlangıç durumu",
+"baslik": "Altı ülke, üç tedavi, <mark>tek bütçe</mark>.",
+"metin": "Yurt dışından hasta almak, her ülke ve tedavi için ayrı bir maliyet demek.",
+"liste": [
+{
+"yazi": "01",
+"alt_baslik": "Ülke farkı",
+"metin": "Aynı reklam İngiltere ile Almanya'da farklı maliyetle form getirir."
+},
+{
+"yazi": "02",
+"alt_baslik": "Tedavi farkı",
+"metin": "Obezite sonrası estetik, anne estetiği ve meme estetiği ayrı kitlelere hitap eder."
+},
+{
+"yazi": "03",
+"alt_baslik": "Dil",
+"metin": "Hasta formu kendi dilinde doldurmak ister; gurbetçi hasta Türkçe."
+},
+{
+"yazi": "04",
+"alt_baslik": "Karar sıklığı",
+"metin": "Bütçe haftalık bakılmazsa pahalı ülkede harcanır."
+}
+]
+},
+{
+"acf_fc_layout": "kalemler",
+"tasarim": "v9",
+"yazi": "Ne yaptık",
+"baslik": "Ülke × tedavi, <mark>her hafta</mark>.",
+"metin": "Her ülke ve tedavi ayrı kampanya; her pazartesi form maliyetine göre bütçe kaydırma.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Benzer sonuç için analiz",
+"yazi_2": "01",
+"alt_baslik": "Ülke bazlı kampanyalar",
+"metin_2": "İngiltere, ABD ve dört AB ülkesi.",
+"metin_3": "Her ülke ayrı bütçe; Türkçe bilen hasta için ayrı Türkçe form.",
+"yazi_3": "<i></i>panorama…com",
+"liste_v9": [
+{
+"yazi": "<span>ingiltere</span><span>abd</span><span>almanya</span><span>hollanda</span>"
+},
+{
+"yazi": "<span>belcika</span><span>avusturya</span><span>tr-form</span><span>en-form</span>"
+}
+],
+"yazi_4": "Ülke kampanyaları · <b>yayında</b>",
+"yazi_5": "02",
+"alt_baslik_2": "Tedaviye göre reklam",
+"metin_4": "Obezite sonrası estetik öne alındı.",
+"metin_5": "En ucuza form getiren tedavi her ülkede ayrı reklam setiyle anlatıldı.",
+"yazi_6": "<b>Panorama Ankara</b><span>4,9 ★ (312) · Diş kliniği</span>",
+"yazi_7": "<span>İmplant</span><span>Zirkonyum</span><span>Şeffaf plak</span><span>Beyazlatma</span>",
+"liste_2_v9": [
+{
+"madde": "Birincil kategori düzeltildi"
+},
+{
+"madde": "Hizmet listesi eklendi"
+},
+{
+"madde": "Fotoğraf düzeni kuruldu"
+},
+{
+"madde": "Cevapsız yorum kalmadı"
+}
+],
+"yazi_8": "Kart <b>eksiksiz</b>",
+"yazi_9": "03",
+"alt_baslik_3": "Aramada üst sıralar",
+"metin_6": "Tedavi + ilçe aramasında organik sonuç.",
+"metin_7": "Sayfa başlıkları ve iç linkler aramaya göre yazıldı; reklam değil, organik sonuç.",
+"yazi_10": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"çankaya implant\"></span><i class=\"caret\"></i>",
+"yazi_11": "Organik <span>· panorama…com</span>",
+"yazi_12": "Çankaya İmplant Tedavisi | Panorama Ankara",
+"yazi_13": "Çankaya'da implant süreci, fiyat aralığı ve sık sorulanlar. WhatsApp ile randevu.",
+"yazi_14": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
+"yazi_15": "Organik <b>sonuç</b>",
+"yazi_16": "04",
+"alt_baslik_4": "Aylık rapor",
+"metin_8": "Her ay Google'ın verisiyle tek sayfa.",
+"metin_9": "Hangi sayfa tıklama getiriyor, hangi kelime yükseliyor; sonraki ayın işi buna göre.",
+"yazi_17": "<span class=\"lp-dot\"></span>Organik tıklama · aylık endeks <em>örnek</em>",
+"yazi_18": "Başlangıç ayına göre endeks · Search Console · 12 ay",
+"yazi_19": "Başlangıç ayı <b>= 100</b>"
+},
+{
+"acf_fc_layout": "sonuc",
+"yazi": "Sonuç",
+"baslik": "Yüzdeler Meta'nın <mark>kendi verisinden</mark>.",
+"metin": "Ham rakam yayımlamıyoruz; dönem ve kaynak her kutuda yazar.",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>form maliyeti</span><small>Meta Ads · Eylül → Ekim 2026</small>"
+},
+{
+"yazi": "<b>+%8</b><span>form sayısı</span><small>Meta Ads · aynı dönem</small>"
+},
+{
+"yazi": "<b>−%31</b><span>İngiltere form maliyeti</span><small>tüm ülkelerin ortalamasına göre</small>"
+},
+{
+"yazi": "<b>−%28</b><span>ABD form maliyeti</span><small>tüm ülkelerin ortalamasına göre</small>"
+},
+{
+"yazi": "<b>−%57</b><span>obezite sonrası estetik, İngiltere</span><small>form maliyeti, ortalamaya göre</small>"
+},
+{
+"yazi": "<b>6</b><span>ülke, ayrı kampanya</span><small>Eylül → Ekim 2026</small>"
+}
+],
+"metin_2": "Sonuç şehre, tedaviye ve bütçeye bağlıdır; garanti değil, kayıttır."
+},
+{
+"acf_fc_layout": "adimlar",
+"tasarim": "v2",
+"yazi": "Zaman çizelgesi",
+"baslik": "Her pazartesi <mark>bir karar</mark>.",
+"metin": "Ülke ve tedavi ayrıldıktan sonra karar her hafta form maliyetine göre verildi.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"liste": [
+{
+"kalin_yazi": "1. hafta",
+"alt_baslik": "Ayrıştırma",
+"metin": "Ülke ve tedavi bazında yeni kampanyalar; Türkçe ve İngilizce formlar."
+},
+{
+"kalin_yazi": "2–4. hafta",
+"alt_baslik": "Ülke tablosu",
+"metin": "Her pazartesi ülke × tedavi form maliyeti; pahalı setler kısıldı."
+},
+{
+"kalin_yazi": "5–8. hafta",
+"alt_baslik": "Türkçe formlar",
+"metin": "Almanya ve komşu ülkelerde Türkçe bilen hasta için ayrı kampanyalar."
+},
+{
+"kalin_yazi": "Sürüyor",
+"alt_baslik": "Haftalık düzen",
+"metin": "Her pazartesi ülke tablosu; toplam bütçe kliniğin onayıyla."
+}
+]
+},
+{
+"acf_fc_layout": "sonuclar",
+"tasarim": "v2",
+"yazi": "Sonuçlar",
+"yazi_2": "Diğer klinikler",
+"yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Panorama Ankara",
+"metin": "Tedavi sayfaları ve her gün Google kartı bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Dentocare Klinik",
+"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Estetik kliniği · İstanbul",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>Form sayısı</span>"
+},
+{
+"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+}
+],
+"alt_baslik": "Buşra Nur Özger",
+"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "Vakayı okuyun →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v2",
+"baslik": "Vaka hakkında sorular",
+"liste_v2": [
+{
+"buton_yazisi": "Bu sonuçlar her klinikte alınır mı?",
+"metin": "Hayır. Yüzdeler şehre, tedaviye, rekabete ve bütçeye göre değişir. Garanti vermeyiz; her ay Google'ın verisiyle kayıt veririz."
+},
+{
+"buton_yazisi": "Rakamları neden yüzde olarak veriyorsunuz?",
+"metin": "Kliniğin ham verisi kliniğe aittir. Yüzde, büyümeyi gösterir; rakip ve hasta için ham rakam açıklamayız."
+},
+{
+"buton_yazisi": "Hangi veriden hesaplanıyor?",
+"metin": "Meta reklam hesabının kendi raporundan; yalnız yurt dışına açılan form kampanyaları sayıldı."
+}
+],
+"liste_2_v2": [
+{
+"buton_yazisi": "Klinik adıyla yayımlama izni var mı?",
+"metin": "Evet, vaka sayfaları kliniğin bilgisi dahilinde yayımlanır. İstemeyen klinik adsız anlatılır."
+},
+{
+"buton_yazisi": "Benzer bir çalışma için ne gerekir?",
+"metin": "Site, kart ve reklam hesaplarına erişim; ilk 24 saatte analiz ve yazılı plan."
+}
+],
+"metin": "Tüm sorular"
+}
+],
+"type": "musteri",
+"title": "Buşra Nur Özger",
+"order": 3,
+"thumb": "bno.png",
+"thumb_alt": "Buşra Nur Özger",
+"excerpt": "Ülke bazlı Meta form kampanyalarıyla yurt dışından gelen form maliyeti bir ayda −%21, form sayısı +%8.",
+"meta": {
+"_mx_kart_etiket": "Obezite ve estetik cerrahi · yurt dışı hasta"
+}
+},
+{
 "key": "rehber",
 "path": "/rehber-yazisi-sablonu/",
 "seo_title": "Diş kliniği için Google kartı kurulum rehberi · Moximu",
@@ -15697,7 +20496,7 @@
 "path": "/referanslar/",
 "title": "Referanslar",
 "excerpt": "Diş kliniklerinden sağlık turizmine, birlikte çalıştığımız ve çalıştığımız klinikler.",
-"content": "<p>12 yılda 50'den fazla klinik ve muayenehaneyle çalıştık. Aşağıda logosunu kullanmamıza izin veren kliniklerin bir kısmı var.</p>\n[mx_logolar]\n<h2>Klinik türlerine göre</h2>\n<table><thead><tr><th>Tür</th><th>Klinikler</th></tr></thead><tbody>\n<tr><td><a href=\"/klinik/dis-klinigi/\">Diş</a></td><td>Avrupadent, Panorama Ankara, Dentocare Klinik, Dental City Turkey, Adadent, Dent Çayyolu, Dental Tasarım Merkezi, Dt. Emre Güneş, Dr. Nuri</td></tr>\n<tr><td><a href=\"/klinik/estetik-klinigi/\">Estetik ve plastik cerrahi</a></td><td>Buşra Nur Özger, Zesu Estetik, Estesecret's Clinics</td></tr>\n<tr><td><a href=\"/klinik/dermatoloji/\">Dermatoloji</a></td><td>Demiderm</td></tr>\n<tr><td><a href=\"/klinik/sac-ekimi/\">Saç ekimi</a></td><td>Haar in Türkiye</td></tr>\n<tr><td><a href=\"/klinik/fizyoterapi/\">Fizyoterapi</a></td><td>Fizyomy, Fizyoterapist Bünyamin Aydın, Medicafoot</td></tr>\n<tr><td><a href=\"/klinik/diyetisyen/\">Diyetisyen</a></td><td>DiyetPartner, Dyt. Şeyma İşlek Yüksel</td></tr>\n<tr><td><a href=\"/klinik/psikolog/\">Psikolog</a></td><td>Brain Clinic, Psikolog Füsun Göknar</td></tr>\n<tr><td><a href=\"/klinik/sunnet/\">Sünnet</a></td><td>Mutlu Sünnet</td></tr>\n<tr><td><a href=\"/klinik/saglik-turizmi/\">Sağlık turizmi</a></td><td>Liva Clinic, Turkey Care You, Turkey Health Station, Dental City Turkey, All For Clinics</td></tr>\n</tbody></table>\n<h2>Ayrıca bakın</h2><ul><li><a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">Klinik web sitesi örnekleri</a></li><li><a href=\"/yorumlar/\">Google yorumları</a></li><li><a href=\"/sonuclar/\">Sonuçlar</a> Yüzde artışlar, dönem ve kaynakla.</li></ul>",
+"content": "<p>12 yılda 50'den fazla klinik ve muayenehaneyle çalıştık. Aşağıda logosunu kullanmamıza izin veren kliniklerin bir kısmı var.</p>\n[mx_logolar]\n<h2>Vaka hikâyeleri</h2>\n<p>Başlangıç durumu, yapılanlar ve yüzde sonuçlar; kaynak ve dönem her sonuçta yazılı.</p>\n[mx_alt_sayfalar tur=\"musteri\"]\n<h2>Yaptığımız siteler</h2>\n[mx_portfoy]\n<h2>Klinik türlerine göre</h2>\n<table><thead><tr><th>Tür</th><th>Klinikler</th></tr></thead><tbody>\n<tr><td><a href=\"/klinik/dis-klinigi/\">Diş</a></td><td>Avrupadent, Panorama Ankara, Dentocare Klinik, Dental City Turkey, Adadent, Dent Çayyolu, Dental Tasarım Merkezi, Dt. Emre Güneş, Dr. Nuri</td></tr>\n<tr><td><a href=\"/klinik/estetik-klinigi/\">Estetik ve plastik cerrahi</a></td><td>Buşra Nur Özger, Zesu Estetik, Estesecret's Clinics</td></tr>\n<tr><td><a href=\"/klinik/dermatoloji/\">Dermatoloji</a></td><td>Demiderm</td></tr>\n<tr><td><a href=\"/klinik/sac-ekimi/\">Saç ekimi</a></td><td>Haar in Türkiye</td></tr>\n<tr><td><a href=\"/klinik/fizyoterapi/\">Fizyoterapi</a></td><td>Fizyomy, Fizyoterapist Bünyamin Aydın, Medicafoot</td></tr>\n<tr><td><a href=\"/klinik/diyetisyen/\">Diyetisyen</a></td><td>DiyetPartner, Dyt. Şeyma İşlek Yüksel</td></tr>\n<tr><td><a href=\"/klinik/psikolog/\">Psikolog</a></td><td>Brain Clinic, Psikolog Füsun Göknar</td></tr>\n<tr><td><a href=\"/klinik/sunnet/\">Sünnet</a></td><td>Mutlu Sünnet</td></tr>\n<tr><td><a href=\"/klinik/saglik-turizmi/\">Sağlık turizmi</a></td><td>Liva Clinic, Turkey Care You, Turkey Health Station, Dental City Turkey, All For Clinics</td></tr>\n</tbody></table>\n<h2>Ayrıca bakın</h2><ul><li><a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">Klinik web sitesi örnekleri</a></li><li><a href=\"/yorumlar/\">Google yorumları</a></li><li><a href=\"/sonuclar/\">Sonuçlar</a> Yüzde artışlar, dönem ve kaynakla.</li></ul>",
 "seo_title": "Referanslar: birlikte çalıştığımız klinikler · Moximu",
 "seo_desc": "Moximu'nun referansları: diş klinikleri, estetik ve dermatoloji, fizyoterapi, diyetisyen, psikolog, sünnet ve sağlık turizmi klinikleri.",
 "order": 0,
@@ -15776,8 +20575,8 @@
 "key": "tyoutube",
 "path": "/youtube/",
 "title": "YouTube",
-"excerpt": "Klinik pazarlaması üzerine kısa videolar: Google kartı, reklam bütçesi, site ve sağlık reklamı kuralları.",
-"content": "<p>Rehberdeki konuları kısa videolarla da anlatıyoruz. Kanal: <a href=\"https://www.youtube.com/@yakup-udul\" rel=\"noopener\" target=\"_blank\">youtube.com/@yakup-udul</a>.</p>\n<h2>Konular</h2>\n<table><thead><tr><th>Konu</th><th>İlgili rehber</th></tr></thead><tbody>\n<tr><td>Google kartı kurulumu</td><td><a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google kartı kurulum rehberi</a></td></tr>\n<tr><td>Reklam bütçesi</td><td><a href=\"/rehber/google-ads-butcesi-nasil-belirlenir/\">Google Ads bütçesi nasıl belirlenir?</a></td></tr>\n<tr><td>Kart mı, site mi?</td><td><a href=\"/rehber/yerel-seo-kart-mi-site-mi/\">Yerel SEO: kart mı site mi?</a></td></tr>\n<tr><td>Formlar neden gelmez?</td><td><a href=\"/rehber/hasta-formu-neden-gelmez/\">Hasta formu neden gelmez?</a></td></tr>\n<tr><td>Sağlık reklamı kuralları</td><td><a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Klinik reklamında ne yazılır?</a></td></tr>\n</tbody></table>",
+"excerpt": "Web sitesi, SEO ve yapay zekâ araçlarını kısa videolarla anlatıyoruz. Kanal: youtube.com/@yakup-udul.",
+"content": "<p>Kanalda Yakup Udül web sitesi, SEO ve yapay zekâ araçlarını uygulamalı anlatıyor. Videolar tıklayınca yüklenir; o ana kadar YouTube'a bağlantı kurulmaz. Kanal: <a href=\"https://www.youtube.com/@yakup-udul\" rel=\"noopener\" target=\"_blank\">youtube.com/@yakup-udul</a>.</p>\n<h2>Öne çıkan videolar</h2>\n<div class=\"mx-ytg\">\n[mx_video id=\"-LGSbh7Cr6Q\" baslik=\"Yapay zekâ markanızı neden önermiyor? AEO ve GEO\"]\n[mx_video id=\"Umep7cp4ZzY\" baslik=\"Claude ile premium 3D web sitesi yaptırmak\"]\n[mx_video id=\"zu1QWp5Op5o\" baslik=\"Sadece ekran görüntüsüyle WordPress tasarımı\"]\n[mx_video id=\"qbJGu9wRpgI\" baslik=\"WordPress CPT nedir?\"]\n</div>\n<h2>Rehberde yazıyla</h2>\n<table><thead><tr><th>Konu</th><th>İlgili rehber</th></tr></thead><tbody>\n<tr><td>Google kartı kurulumu</td><td><a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google kartı kurulum rehberi</a></td></tr>\n<tr><td>Reklam bütçesi</td><td><a href=\"/rehber/google-ads-butcesi-nasil-belirlenir/\">Google Ads bütçesi nasıl belirlenir?</a></td></tr>\n<tr><td>Kart mı, site mi?</td><td><a href=\"/rehber/yerel-seo-kart-mi-site-mi/\">Yerel SEO: kart mı site mi?</a></td></tr>\n<tr><td>Formlar neden gelmez?</td><td><a href=\"/rehber/hasta-formu-neden-gelmez/\">Hasta formu neden gelmez?</a></td></tr>\n<tr><td>Sağlık reklamı kuralları</td><td><a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Klinik reklamında ne yazılır?</a></td></tr>\n</tbody></table>",
 "seo_title": "YouTube: klinik pazarlama videoları · Moximu",
 "seo_desc": "Yakup Udul'un YouTube kanalında klinikler için Google kartı, Google Ads, Instagram reklamı ve web sitesi üzerine kısa videolar.",
 "order": 0,
@@ -15803,8 +20602,8 @@
 "key": "tiletisim",
 "path": "/iletisim/",
 "title": "İletişim",
-"excerpt": "Hafta içi 09:00–18:00 telefon ve WhatsApp. Yazdığınız her mesaja aynı gün dönüyoruz.",
-"content": "<table><tbody>\n<tr><th>Telefon</th><td>[mx_telefon]</td></tr>\n<tr><th>WhatsApp</th><td>[mx_whatsapp]</td></tr>\n<tr><th>E-posta</th><td>[mx_eposta]</td></tr>\n<tr><th>Adres</th><td>1. Anafartalar, Gazi Osman Paşa Cd. No:44, 45010 Şehzadeler/Manisa</td></tr>\n<tr><th>Çalışma saatleri</th><td>Hafta içi 09:00–18:00</td></tr>\n</tbody></table>\n<p><a href=\"https://www.google.com/maps/search/?api=1&amp;query=Moximu+Gazi+Osman+Pa%C5%9Fa+Cd.+No%3A44+%C5%9Eehzadeler+Manisa\" rel=\"noopener\" target=\"_blank\">Haritada açın →</a></p>\n<h2>En hızlı yol</h2>\n<p>Kliniğinizin adını ve şehrini aşağıdaki forma yazın. 24 saat içinde tek sayfalık analiz gelir; uygunsa telefonda konuşuruz.</p>\n<h2>Diğer yollar</h2><ul><li><a href=\"/referans-programi/\">Referans programı</a> Tanıdığınız bir kliniği önerin.</li><li><a href=\"/is-ortakligi/\">İş ortaklığı</a> Ajanslar ve danışmanlar için.</li><li><a href=\"/erisilebilirlik/\">Erişilebilirlik</a></li></ul>",
+"excerpt": "Telefonla hafta içi 09:00–18:00 arasında ulaşabilirsiniz; WhatsApp'tan dilediğiniz saatte yazabilirsiniz. Yazdığınız her mesaja aynı gün dönüyoruz.",
+"content": "<table><tbody>\n<tr><th>Telefon</th><td>[mx_telefon]</td></tr>\n<tr><th>WhatsApp</th><td>[mx_whatsapp]</td></tr>\n<tr><th>E-posta</th><td>[mx_eposta]</td></tr>\n<tr><th>Adres</th><td>1. Anafartalar, Gazi Osman Paşa Cd. No:44, 45010 Şehzadeler/Manisa</td></tr>\n<tr><th>Çalışma saatleri</th><td>Telefon hafta içi 09:00–18:00; WhatsApp'tan dilediğiniz saatte yazabilirsiniz</td></tr>\n</tbody></table>\n<h2>Ofisimiz</h2>\n<p>Manisa Şehzadeler'deyiz. İzmir ve Manisa'daki kliniklere yerinde de geliyoruz; diğer şehirlerde iş uzaktan yürür.</p>\n[mx_harita]\n<h2>En hızlı yol</h2>\n<p>Kliniğinizin adını ve şehrini aşağıdaki forma yazın. 24 saat içinde tek sayfalık analiz gelir; uygunsa telefonda konuşuruz.</p>\n<h2>Diğer yollar</h2><ul><li><a href=\"/referans-programi/\">Referans programı</a> Tanıdığınız bir kliniği önerin.</li><li><a href=\"/is-ortakligi/\">İş ortaklığı</a> Ajanslar ve danışmanlar için.</li><li><a href=\"/erisilebilirlik/\">Erişilebilirlik</a></li></ul>",
 "seo_title": "İletişim · Moximu, Manisa",
 "seo_desc": "Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz klinik analizi için klinik adı yeter.",
 "order": 0,
@@ -16039,8 +20838,8 @@
 "key": "thizmetlerimiz-klinik-web-sitesi-ornekler",
 "path": "/hizmetlerimiz/klinik-web-sitesi/ornekler/",
 "title": "Klinik web sitesi örnekleri",
-"excerpt": "Kurduğumuz ve bakımını yaptığımız klinik sitelerinden bir seçki. Her biri tedavi sayfaları, hızlı açılış ve form + WhatsApp düzeniyle çalışıyor.",
-"content": "<p>12 yılda 500'den fazla web sitesi kurduk; 50'den fazlası klinik ve muayenehane sitesi. Aşağıdakiler bugün yayında olan ve bakımını sürdürdüğümüz sitelerden bir kısmıdır. Her biri kliniğin kendi alan adında, kliniğin hesabında durur.</p>\n<h2>Diş klinikleri</h2>\n<ul>\n<li><a href=\"https://avrupadent.com.tr\" rel=\"noopener\" target=\"_blank\">Avrupadent</a>: çok şubeli diş kliniği, şube ve tedavi sayfaları</li>\n<li><a href=\"https://www.panoramaankara.com/\" rel=\"noopener\" target=\"_blank\">Panorama Ankara</a>: tedavi × ilçe sayfaları</li>\n<li><a href=\"https://dentocareklinik.com/\" rel=\"noopener\" target=\"_blank\">Dentocare Klinik</a>: tedavi sayfaları ve haftalık içerik</li>\n<li><a href=\"https://opcklinik.com\" rel=\"noopener\" target=\"_blank\">OPC Klinik</a></li>\n</ul>\n<h2>Hekim ve poliklinik siteleri</h2>\n<ul>\n<li><a href=\"https://demiderm.com.tr/\" rel=\"noopener\" target=\"_blank\">Demiderm Polikliniği</a>: dermatoloji ve medikal estetik</li>\n<li><a href=\"https://burcukisa.com/\" rel=\"noopener\" target=\"_blank\">Prof. Dr. Burcu Kısa</a>: kadın hastalıkları ve doğum</li>\n<li><a href=\"https://burcinoncul.com.tr/\" rel=\"noopener\" target=\"_blank\">Dr. Dt. Burçin Öncül</a></li>\n<li><a href=\"https://drsuadagasimova.com/\" rel=\"noopener\" target=\"_blank\">Dr. Suada Gasimova</a></li>\n</ul>\n<h2>Bir klinik sitesinde ne olmalı</h2>\n<ul>\n<li>Her tedaviye ayrı sayfa: ne yapılır, kaç seans, fiyat aralığı, hekim, sık sorulanlar.</li>\n<li>Telefonda iki saniyenin altında açılış; Google hız ölçümünde yeşil.</li>\n<li>Her sayfada görünür arama ve WhatsApp düğmesi; iki alanlı form.</li>\n<li>Hekim sayfaları, diploma ve klinik belgeleri.</li>\n<li>Öncesi/sonrası ve hasta fotoğrafı olmadan, klinik ve ekip görselleriyle tasarım.</li>\n</ul>\n<p>Kendi siteniz için fiyat ve süre <a href=\"/hizmetlerimiz/klinik-web-sitesi/\">klinik web sitesi</a> sayfasında.</p>",
+"excerpt": "Bugün yayında olan ve bakımını sürdürdüğümüz klinik ve hekim sitelerinden bazıları; masaüstü ve telefon görünümüyle.",
+"content": "<p>12 yılda 500'den fazla web sitesi kurduk; 50'den fazlası klinik ve muayenehane sitesi. Aşağıdakiler bugün yayında olan ve bakımını sürdürdüğümüz sitelerden bazılarıdır. Her biri kliniğin kendi alan adında ve kliniğin hesabında durur. Görüntünün üstüne gelin, sayfa aşağı kayar; tıklayın, site yeni sekmede açılır.</p>\n[mx_portfoy]\n<h2>Bir klinik sitesinde ne olmalı</h2>\n<ul>\n<li>Her tedaviye ayrı sayfa: ne yapılır, kaç seans, fiyat aralığı, hekim, sık sorulanlar.</li>\n<li>Telefonda iki saniyenin altında açılış; Google hız ölçümünde yeşil.</li>\n<li>Her sayfada görünür arama ve WhatsApp düğmesi; iki alanlı form.</li>\n<li>Hekim sayfaları, diploma ve klinik belgeleri.</li>\n<li>Öncesi/sonrası ve hasta fotoğrafı olmadan, klinik ve ekip görselleriyle tasarım.</li>\n</ul>\n<p>Kendi siteniz için fiyat ve süre <a href=\"/hizmetlerimiz/klinik-web-sitesi/\">klinik web sitesi</a> sayfasında.</p>",
 "seo_title": "Klinik web sitesi örnekleri · Moximu",
 "seo_desc": "Diş, dermatoloji, kadın doğum ve sağlık turizmi kliniklerine kurduğumuz web sitelerinden örnekler. Tedavi sayfaları, hız ve form düzeni.",
 "order": 0,

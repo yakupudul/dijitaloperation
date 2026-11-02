@@ -5286,6 +5286,219 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_portfoy": {
+     "key": "layout_mx_portfoy",
+     "name": "portfoy",
+     "label": "Web sitesi portföyü",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_pf_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_pf_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_pf_metin",
+       "name": "metin",
+       "label": "Metin",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_pf_adet",
+       "name": "adet",
+       "label": "Gösterilecek site sayısı",
+       "type": "number",
+       "instructions": "Boş bırakılırsa hepsi gösterilir.",
+       "min": 1,
+       "max": 60
+      },
+      {
+       "key": "field_mx_pf_link",
+       "name": "baglanti",
+       "label": "Bağlantı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_pf_linky",
+       "name": "baglanti_yaz",
+       "label": "Bağlantı yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_pf_liste",
+       "name": "liste",
+       "label": "Siteler",
+       "type": "repeater",
+       "instructions": "Masaüstü görseli 1440 px genişlikte uzun ekran görüntüsü, mobil görseli 390 px genişlikte telefon ekranı.",
+       "layout": "block",
+       "button_label": "Site ekle",
+       "collapsed": "field_mx_pf_ad",
+       "sub_fields": [
+        {
+         "key": "field_mx_pf_ad",
+         "name": "ad",
+         "label": "Klinik adı",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_pf_tur",
+         "name": "tur",
+         "label": "Tür",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_pf_adres",
+         "name": "adres",
+         "label": "Site adresi",
+         "type": "url"
+        },
+        {
+         "key": "field_mx_pf_msg",
+         "name": "metin",
+         "label": "Kısa not",
+         "type": "textarea",
+         "rows": 2,
+         "new_lines": ""
+        },
+        {
+         "key": "field_mx_pf_img",
+         "name": "gorsel",
+         "label": "Masaüstü ekran görüntüsü",
+         "type": "image",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_pf_img2",
+         "name": "gorsel_2",
+         "label": "Mobil ekran görüntüsü",
+         "type": "image",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_kurucu": {
+     "key": "layout_mx_kurucu",
+     "name": "kurucu",
+     "label": "Kurucu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_kr_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_kr_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_kr_gorsel",
+       "name": "gorsel",
+       "label": "Fotoğraf",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "medium",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_kr_gorsel2",
+       "name": "gorsel_2",
+       "label": "İkinci fotoğraf",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "medium",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_kr_ad",
+       "name": "ad",
+       "label": "Ad",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_kr_unvan",
+       "name": "unvan",
+       "label": "Unvan",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_kr_alinti",
+       "name": "alinti",
+       "label": "Alıntı",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_kr_liste",
+       "name": "liste",
+       "label": "Paragraflar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Paragraf ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_kr_p",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_kr_link",
+       "name": "liste_2",
+       "label": "Bağlantılar",
+       "type": "repeater",
+       "layout": "table",
+       "button_label": "Bağlantı ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_kr_lt",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_kr_lu",
+         "name": "baglanti",
+         "label": "Adres",
+         "type": "text"
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
     }
    }
   }
