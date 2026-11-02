@@ -764,7 +764,7 @@
 ],
 "yazi_2": "<a class=\"btn\" href=\"/fiyatlar/saglik-turizmi-paketi/\">Sağlık turizmi paketi →</a><small>60.000 ₺/ay'dan başlar</small>",
 "yazi_3": "<span class=\"dot\"></span><b>İzmir</b> · Diş hastanesi",
-"yazi_4": "En ucuz form bu hafta: <b>—</b> <i>· örnek</i>"
+"yazi_4": "Bu hafta en ucuz form: <b>Almanya</b> <i>· örnek</i>"
 },
 {
 "acf_fc_layout": "rakamlar",
@@ -794,50 +794,7 @@
 "yazi_4": "50 Google yorumu",
 "baglanti": "https://www.google.com/maps/search/Moximu+Manisa",
 "baglanti_yaz": "Google'da görün ↗",
-"liste": [
-{
-"yazi": "K",
-"yazi_2": "<b>Google yorumu 1</b><small>Klinik · 5 ★</small>",
-"yazi_3": "★★★★★",
-"metin": "Yorum metni Google İşletme Profili'nden aynen alınacak; burada yer tutucu.",
-"kucuk_not": "Google · 2026"
-},
-{
-"yazi": "A",
-"yazi_2": "<b>Google yorumu 2</b><small>Klinik · 5 ★</small>",
-"yazi_3": "★★★★★",
-"metin": "Yorum metni Google İşletme Profili'nden aynen alınacak; burada yer tutucu.",
-"kucuk_not": "Google · 2026"
-},
-{
-"yazi": "M",
-"yazi_2": "<b>Google yorumu 3</b><small>Klinik · 5 ★</small>",
-"yazi_3": "★★★★★",
-"metin": "Yorum metni Google İşletme Profili'nden aynen alınacak; burada yer tutucu.",
-"kucuk_not": "Google · 2026"
-},
-{
-"yazi": "D",
-"yazi_2": "<b>Google yorumu 4</b><small>Klinik · 5 ★</small>",
-"yazi_3": "★★★★★",
-"metin": "Yorum metni Google İşletme Profili'nden aynen alınacak; burada yer tutucu.",
-"kucuk_not": "Google · 2026"
-},
-{
-"yazi": "P",
-"yazi_2": "<b>Google yorumu 5</b><small>Klinik · 5 ★</small>",
-"yazi_3": "★★★★★",
-"metin": "Yorum metni Google İşletme Profili'nden aynen alınacak; burada yer tutucu.",
-"kucuk_not": "Google · 2026"
-},
-{
-"yazi": "B",
-"yazi_2": "<b>Google yorumu 6</b><small>Klinik · 5 ★</small>",
-"yazi_3": "★★★★★",
-"metin": "Yorum metni Google İşletme Profili'nden aynen alınacak; burada yer tutucu.",
-"kucuk_not": "Google · 2026"
-}
-]
+"liste": []
 },
 {
 "acf_fc_layout": "analiz",
