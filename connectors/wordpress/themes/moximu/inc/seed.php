@@ -126,10 +126,15 @@ function mx_seed_run(): void
                     update_post_meta($id, $meta, $value);
                 }
             }
-            if (! empty($page['thumb']) && ! has_post_thumbnail($id)) {
-                $media = mx_seed_image((string) $page['thumb'], (string) ($page['thumb_alt'] ?? ''));
-                if ($media) {
-                    set_post_thumbnail($id, $media);
+            if (! empty($page['thumb'])) {
+                // Set the seed image when there is none, or when the current one is an older seed image (not one a person chose).
+                $now = (int) get_post_thumbnail_id($id);
+                $seeded = array_map('intval', array_values((array) get_option('mx_seed_media', [])));
+                if (! $now || in_array($now, $seeded, true)) {
+                    $media = mx_seed_image((string) $page['thumb'], (string) ($page['thumb_alt'] ?? ''));
+                    if ($media && $media !== $now) {
+                        set_post_thumbnail($id, $media);
+                    }
                 }
             }
             $state['done'][$key] = 1;

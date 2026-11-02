@@ -6,6 +6,6 @@ if (count($related) < 3) {
 }
 if ($related) : ?>
 <section class="mx lp-relsec" id="ilgili"><div class="wrap"><span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-loop.svg"/><?= mx_h($d['yazi'] ?? 'İlgili rehberler') ?></span><h2><?= mx_h($d['baslik'] ?? '') ?></h2><div class="lp-rel-g">
-<?php foreach ($related as $post_item) : ?><a class="lp-rel" href="<?= esc_url(get_permalink($post_item)) ?>"><span class="lp-rel-k">Rehber</span><b><?= esc_html(get_the_title($post_item)) ?></b><span><?= esc_html(wp_trim_words(get_the_excerpt($post_item), 16)) ?></span></a><?php endforeach; ?>
+<?php foreach ($related as $post_item) : ?><a class="lp-rel" href="<?= esc_url(get_permalink($post_item)) ?>"><?php if (has_post_thumbnail($post_item)) : ?><span class="lp-rel-img"><?= get_the_post_thumbnail($post_item, 'medium_large', ['alt' => '', 'loading' => 'lazy', 'sizes' => '(max-width: 760px) 100vw, 380px']) ?></span><?php endif; ?><span class="lp-rel-k">Rehber</span><b><?= esc_html(get_the_title($post_item)) ?></b><span><?= esc_html(wp_trim_words(get_the_excerpt($post_item), 16)) ?></span></a><?php endforeach; ?>
 </div></div></section>
 <?php endif;

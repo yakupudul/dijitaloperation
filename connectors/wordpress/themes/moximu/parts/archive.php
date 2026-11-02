@@ -25,7 +25,7 @@ $cats = get_categories(['hide_empty' => true, 'exclude' => [(int) get_option('de
 <section class="mx lp-relsec mx-page"><div class="wrap">
 <?php if (have_posts()) : ?><div class="lp-rel-g mx-rel-all">
 <?php while (have_posts()) : the_post(); $c = get_the_category(); ?>
-<a class="lp-rel" href="<?php the_permalink(); ?>"><span class="lp-rel-k"><?= esc_html($c ? $c[0]->name : 'Rehber') ?></span><b><?php the_title(); ?></b><span><?= esc_html(wp_trim_words(get_the_excerpt(), 20)) ?></span></a>
+<a class="lp-rel" href="<?php the_permalink(); ?>"><?php if (has_post_thumbnail()) : ?><span class="lp-rel-img"><?php the_post_thumbnail('medium_large', ['alt' => '', 'loading' => 'lazy', 'sizes' => '(max-width: 760px) 100vw, 380px']); ?></span><?php endif; ?><span class="lp-rel-k"><?= esc_html($c ? $c[0]->name : 'Rehber') ?></span><b><?php the_title(); ?></b><span><?= esc_html(wp_trim_words(get_the_excerpt(), 20)) ?></span></a>
 <?php endwhile; ?>
 </div>
 <?php the_posts_pagination(['mid_size' => 1, 'prev_text' => '← Önceki', 'next_text' => 'Sonraki →']); ?>
