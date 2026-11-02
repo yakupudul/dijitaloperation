@@ -5,6 +5,7 @@ use App\Http\Controllers\Integrations\WordPressConnectorCommandsController;
 use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
 use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
+use App\Http\Controllers\Integrations\WordPressThemeReleaseController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/connectors/wordpress/pair', WordPressConnectorPairController::class)
@@ -25,6 +26,12 @@ Route::get('/connectors/wordpress/releases/{file}', WordPressConnectorReleaseCon
     ->middleware(['signed', 'throttle:30,1'])
     ->where('file', 'moxdop-wordpress-connector-[0-9.]+-[a-f0-9]{16}\.zip')
     ->name('api.connectors.wordpress.release');
+
+// 1.33.0: short-lived signed link to one theme ZIP built from this repository, fetched during a site build.
+Route::get('/connectors/wordpress/themes/{file}', WordPressThemeReleaseController::class)
+    ->middleware(['signed', 'throttle:30,1'])
+    ->where('file', '[a-z0-9][a-z0-9-]{1,40}-[a-f0-9]{16}\.zip')
+    ->name('api.connectors.wordpress.theme');
 
 Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])
     ->middleware('throttle:30,1')->name('api.whatsapp.webhook');

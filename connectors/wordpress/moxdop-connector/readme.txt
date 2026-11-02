@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.32.0
+Stable tag: 1.33.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,10 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.33.0 =
+* Site build "theme": installs a theme MoxDOP keeps in its own repository, downloaded only from the paired MoxDOP host behind a short-lived signed link and checked against its SHA-256; activation can be undone (the previous theme comes back).
+* Site build media: SVG files are cleaned (no scripts, event handlers, external links or entities) and then accepted for site building.
 
 = 1.32.0 =
 * Site check before and after every guarded change: a page that was already broken no longer rolls back the change, so an activation or update can repair a broken site (and the answer says whether it did).

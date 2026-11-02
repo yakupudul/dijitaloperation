@@ -19,7 +19,8 @@ Site kurulumu: up to 25 operations on a WordPress site, in order. In the site's 
 - {op:"menu", name, items:[{title, ref | post_id | url, children:[…]}], location}: replaces the menu's items; location from inspect-site theme.menu_locations.
 - {op:"settings", values:{blogname, blogdescription, show_on_front, page_on_front, page_for_posts, permalink_structure, elementor_cpt_support, elementor_kit: {Elementor Site Settings keys merged into the active kit, e.g. system_colors, custom_colors, system_typography, body/h1–h6 typography, button colors, container_width; connector ≥ 1.11.2}}.
 - {op:"trash", ref}: removes something a build made.
-Read inspect-site first. Theme and plugin files are never touched.
+- {op:"theme", slug, activate:true|false}: installs (or updates) a theme kept in the MoxDOP repository under connectors/wordpress/themes/<slug> and optionally switches it on; undo switches back (connector ≥ 1.33.0). Use it only when the operator asked for a custom theme on that site.
+Read inspect-site first. Plugin files and other themes are never touched.
 TEXT)]
 class BuildSite extends Tool
 {
@@ -31,7 +32,7 @@ class BuildSite extends Tool
             'site_id' => ['required', 'integer'],
             'operations' => ['required', 'array', 'min:1', 'max:25'],
             'operations.*' => ['array'],
-            'operations.*.op' => ['required', 'string', 'in:acf_import,post,elementor_template,media,menu,settings,trash'],
+            'operations.*.op' => ['required', 'string', 'in:acf_import,post,elementor_template,media,menu,settings,trash,theme'],
         ]);
         try {
             return Response::json($this->builder->build((int) $validated['site_id'], array_values($request->get('operations'))));

@@ -233,7 +233,7 @@ final class WordPressSiteBuilder
     public function apply(ExternalWriteAction $action): array
     {
         $connection = $this->connection((int) $action->digital_asset_id);
-        $operations = array_map(self::loadFileData(...), (array) data_get($action->request_payload, 'operations', []));
+        $operations = array_map(self::resolveTheme(...), array_map(self::loadFileData(...), (array) data_get($action->request_payload, 'operations', [])));
         try {
             $results = array_values((array) ($this->client->build($connection, $operations)['results'] ?? []));
         } finally {
@@ -354,11 +354,13 @@ final class WordPressSiteBuilder
                     'menu' => 'Menü',
                     'settings' => 'Site ayarları',
                     'trash' => 'Çöpe taşı',
+                    'theme' => 'Tema',
                     default => $op,
                 },
                 'target' => (string) match ($op) {
                     'acf_import' => implode(', ', array_map(fn (mixed $item): string => (string) (data_get($item, 'title') ?: data_get($item, 'key')), array_slice(isset($operation['items']['key']) ? [$operation['items']] : (array) ($operation['items'] ?? []), 0, 6))),
                     'menu' => ($operation['name'] ?? '').(isset($operation['location']) ? ' → '.$operation['location'] : ''),
+                    'theme' => ($operation['slug'] ?? '').(! empty($operation['activate']) ? ' (etkin)' : ''),
                     'settings' => implode(', ', array_keys((array) ($operation['values'] ?? []))),
                     'elementor_template' => ($operation['title'] ?? data_get($operation, 'template.title') ?? '').' · '.($operation['ref'] ?? ''),
                     default => trim(($operation['title'] ?? $operation['filename'] ?? '').' · '.($operation['ref'] ?? ''), ' ·'),
@@ -559,6 +561,28 @@ final class WordPressSiteBuilder
         }
 
         return $operation;
+    }
+
+    /**
+     * 1.33.0: a "theme" operation names a theme kept in this repository; the site gets a signed link to its ZIP and
+     * the hash, built at send time.
+     *
+     * @param  array<string, mixed>  $operation
+     * @return array<string, mixed>
+     */
+    private static function resolveTheme(array $operation): array
+    {
+        if (($operation['op'] ?? null) !== 'theme') {
+            return $operation;
+        }
+        $slug = (string) ($operation['slug'] ?? '');
+        if (! WordPressThemePackage::exists($slug)) {
+            throw new RuntimeException('Tema bulunamadı: '.$slug);
+        }
+        $release = app(WordPressThemePackage::class)->release($slug);
+
+        return ['op' => 'theme', 'slug' => $slug, 'activate' => (bool) ($operation['activate'] ?? false),
+            'package_url' => $release['url'], 'sha256' => $release['sha256']];
     }
 
     private static function deleteFiles(ExternalWriteAction $action): void

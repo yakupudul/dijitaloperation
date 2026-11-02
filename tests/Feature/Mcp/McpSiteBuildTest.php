@@ -90,6 +90,27 @@ final class McpSiteBuildTest extends TestCase
         });
     }
 
+    public function test_a_theme_operation_sends_a_signed_package_link_with_its_hash_and_the_link_serves_that_zip(): void
+    {
+        $this->actingAs($this->admin);
+        Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])->set('selectedAssetId', $this->site->id)->call('setBuildMode', 'direct');
+
+        MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'theme', 'slug' => 'moximu', 'activate' => true]]])->assertOk();
+
+        $body = collect($this->sent)->first(fn (array $sent): bool => $sent[0] === 'POST')[2];
+        $operation = $body['operations'][0];
+        $this->assertSame(['theme', 'moximu', true], [$operation['op'], $operation['slug'], $operation['activate']]);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $operation['sha256']);
+        $this->assertStringContainsString('/connectors/wordpress/themes/moximu-'.substr($operation['sha256'], 0, 16).'.zip', $operation['package_url']);
+
+        $download = $this->get($operation['package_url']);
+        $download->assertOk();
+        $this->assertSame($operation['sha256'], hash_file('sha256', $download->baseResponse->getFile()->getPathname()));
+        $this->get(strtok($operation['package_url'], '?'))->assertForbidden();
+
+        MoxdopServer::tool(BuildSite::class, ['site_id' => $this->site->id, 'operations' => [['op' => 'theme', 'slug' => 'no-such-theme']]])->assertHasErrors();
+    }
+
     public function test_nothing_is_sent_while_the_moxdop_switch_is_off(): void
     {
         MoxdopServer::tool(ListSites::class, [])->assertOk()->assertSee('Claude site kurulumu');

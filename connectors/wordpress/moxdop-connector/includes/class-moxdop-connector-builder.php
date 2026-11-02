@@ -279,6 +279,14 @@ final class MoxDOP_Connector_Builder
                 $this->clear_elementor_css($step[1]);
 
                 return true;
+            case 'switch_theme':
+                $theme = wp_get_theme((string) $step[1]);
+                if (! $theme->exists()) {
+                    return 'theme '.$step[1].' is gone';
+                }
+                switch_theme((string) $step[1]);
+
+                return true;
             case 'acf_restore':
                 $restored = function_exists('acf_import_internal_post_type') ? acf_import_internal_post_type($step[2], $step[1]) : acf_import_field_group($step[2]);
                 if (in_array($step[1], ['acf-post-type', 'acf-taxonomy'], true)) {
@@ -321,9 +329,11 @@ final class MoxDOP_Connector_Builder
                 return $this->settings($operation);
             case 'trash':
                 return $this->trash($operation);
+            case 'theme':
+                return $this->theme($operation);
         }
 
-        return $this->fail('unknown op (acf_import, post, elementor_template, media, menu, settings, trash)');
+        return $this->fail('unknown op (acf_import, post, elementor_template, media, menu, settings, trash, theme)');
     }
 
     /** ACF export JSON: the same steps as ACF › Tools › Import (an item with a known key is updated in place). */
@@ -653,7 +663,32 @@ final class MoxDOP_Connector_Builder
 
                 return $this->fail('file is larger than 10 MB');
             }
+            $svg = strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'svg';
+            if ($svg) {
+                $clean = self::clean_svg((string) file_get_contents($tmp));
+                if ($clean === null) {
+                    @unlink($tmp);
+
+                    return $this->fail('svg could not be read');
+                }
+                file_put_contents($tmp, $clean);
+                $allow = function ($mimes) {
+                    $mimes['svg'] = 'image/svg+xml';
+
+                    return $mimes;
+                };
+                $check = function ($data, $file, $filename) {
+                    return strtolower(pathinfo((string) $filename, PATHINFO_EXTENSION)) === 'svg'
+                        ? ['ext' => 'svg', 'type' => 'image/svg+xml', 'proper_filename' => false] : $data;
+                };
+                add_filter('upload_mimes', $allow, 99);
+                add_filter('wp_check_filetype_and_ext', $check, 99, 3);
+            }
             $id = media_handle_sideload(['name' => $name, 'tmp_name' => $tmp], 0, isset($operation['title']) ? sanitize_text_field((string) $operation['title']) : null);
+            if ($svg) {
+                remove_filter('upload_mimes', $allow, 99);
+                remove_filter('wp_check_filetype_and_ext', $check, 99);
+            }
             if (is_wp_error($id)) {
                 @unlink($tmp);
 
@@ -673,6 +708,112 @@ final class MoxDOP_Connector_Builder
         }
 
         return ['ok' => true, 'ref' => $ref, 'id' => $existing, 'url' => (string) wp_get_attachment_url($existing), 'created' => $created];
+    }
+
+    /**
+     * An SVG with everything that can run removed: scripts, foreignObject, event attributes,
+     * links that leave the file, and external style imports. Null when it is not an SVG.
+     */
+    public static function clean_svg(string $xml): ?string
+    {
+        if ($xml === '' || stripos($xml, '<!ENTITY') !== false) {
+            return null;
+        }
+        $doc = new \DOMDocument;
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $doc->loadXML($xml, LIBXML_NONET);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (! $loaded || ! $doc->documentElement || strtolower($doc->documentElement->localName) !== 'svg') {
+            return null;
+        }
+        $xpath = new \DOMXPath($doc);
+        foreach (iterator_to_array($xpath->query('//*')) as $node) {
+            $tag = strtolower($node->localName);
+            if (in_array($tag, ['script', 'foreignobject', 'iframe', 'embed', 'object', 'handler', 'listener'], true)) {
+                $node->parentNode->removeChild($node);
+                continue;
+            }
+            foreach (iterator_to_array($node->attributes) as $attr) {
+                $an = strtolower($attr->localName);
+                $value = strtolower(preg_replace('/\s+/', '', (string) $attr->value));
+                if (strpos($an, 'on') === 0
+                    || (in_array($an, ['href', 'src'], true) && $value !== '' && $value[0] !== '#' && strpos($value, 'data:image/') !== 0)
+                    || strpos($value, 'javascript:') !== false) {
+                    $node->removeAttributeNode($attr);
+                }
+            }
+            if ($tag === 'style') {
+                $node->textContent = preg_replace('/@import[^;]*;?|expression\s*\(|javascript:/i', '', (string) $node->textContent);
+            }
+        }
+        foreach (iterator_to_array($xpath->query('//processing-instruction()')) as $pi) {
+            $pi->parentNode->removeChild($pi);
+        }
+
+        return $doc->saveXML($doc->documentElement);
+    }
+
+    /**
+     * 1.33.0: a theme built by MoxDOP from its own repository. MoxDOP sends a short-lived link on the paired MoxDOP
+     * host and the SHA-256 of the ZIP; the theme is installed (over an older copy of the same slug) and, when asked,
+     * switched on. Undo switches back to the theme that was active before. Only the paired host, only a hash match.
+     */
+    private function theme(array $operation)
+    {
+        $slug = (string) ($operation['slug'] ?? '');
+        $url = (string) ($operation['package_url'] ?? '');
+        $sha = strtolower((string) ($operation['sha256'] ?? ''));
+        if (! preg_match('/^[a-z0-9][a-z0-9-]{1,40}$/', $slug) || ! preg_match('/^[a-f0-9]{64}$/', $sha) || strlen($url) > 2048) {
+            return $this->fail('slug, package_url and sha256 are required');
+        }
+        $app = (string) get_option('moxdop_connector_app_url');
+        if (wp_parse_url($url, PHP_URL_SCHEME) !== 'https' || wp_parse_url($url, PHP_URL_HOST) !== wp_parse_url($app, PHP_URL_HOST)) {
+            return $this->fail('the theme package must come from the paired MoxDOP host');
+        }
+        require_once ABSPATH.'wp-admin/includes/file.php';
+        require_once ABSPATH.'wp-admin/includes/misc.php';
+        require_once ABSPATH.'wp-admin/includes/theme.php';
+        require_once ABSPATH.'wp-admin/includes/class-wp-upgrader.php';
+        if (! WP_Filesystem()) {
+            return $this->fail('WordPress cannot write files without FTP credentials on this host');
+        }
+        $file = download_url($url, 60);
+        if (is_wp_error($file)) {
+            return $this->fail('download failed: '.$file->get_error_message());
+        }
+        if (! hash_equals($sha, (string) hash_file('sha256', $file))) {
+            wp_delete_file($file);
+
+            return $this->fail('the package hash does not match');
+        }
+        $zip = class_exists('ZipArchive') ? new ZipArchive : null;
+        if ($zip && $zip->open($file) === true) {
+            $top = explode('/', (string) $zip->getNameIndex(0))[0];
+            $zip->close();
+            if ($top !== $slug) {
+                wp_delete_file($file);
+
+                return $this->fail('the package folder is not '.$slug);
+            }
+        }
+        $skin = new Automatic_Upgrader_Skin;
+        $result = (new Theme_Upgrader($skin))->install($file, ['overwrite_package' => true, 'clear_update_cache' => true]);
+        wp_delete_file($file);
+        $theme = wp_get_theme($slug);
+        if (is_wp_error($result) || ! $result || ! $theme->exists()) {
+            return $this->fail('install failed: '.(is_wp_error($result) ? $result->get_error_message() : implode(' ', array_map('wp_strip_all_tags', (array) $skin->get_upgrade_messages()))));
+        }
+        $previous = get_stylesheet();
+        if (! empty($operation['activate']) && $previous !== $slug) {
+            switch_theme($slug);
+            $this->undo[] = ['switch_theme', $previous];
+        }
+        if (function_exists('wp_clean_themes_cache')) {
+            wp_clean_themes_cache();
+        }
+
+        return ['ok' => true, 'slug' => $slug, 'version' => (string) $theme->get('Version'), 'active' => get_stylesheet() === $slug, 'previous' => $previous];
     }
 
     /** A navigation menu; its items are replaced by the given ones. */
