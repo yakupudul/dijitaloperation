@@ -53,9 +53,8 @@ function mx_seed_run(): void
             }
         } else {
             $hash_key = 'mx_seed_hash_opt_'.$name;
-            $current = mx_seed_hash(get_field($name, 'option', false));
             $stored = (string) get_option($hash_key);
-            if ($stored === $current || mx_seed_empty(get_field($name, 'option', false))) {
+            if (mx_seed_same(get_field($name, 'option', false), $stored) || mx_seed_empty(get_field($name, 'option', false))) {
                 update_field($name, mx_seed_media($values), 'option');
                 update_option($hash_key, mx_seed_hash(get_field($name, 'option', false)), false);
                 $state['log'][] = 'ayar: '.$name;
@@ -101,7 +100,7 @@ function mx_seed_run(): void
                 if ($stored === '' && ! mx_seed_empty($current) && get_post_meta($id, '_mx_seed_backup', true) === '') {
                     update_post_meta($id, '_mx_seed_backup', wp_slash(wp_json_encode($current)));
                 }
-                if ($stored === '' || $stored === mx_seed_hash($current) || mx_seed_empty($current)) {
+                if ($stored === '' || mx_seed_same($current, $stored) || mx_seed_empty($current)) {
                     update_field('field_mx_bolumler', mx_seed_media($page['rows']), $id);
                     update_post_meta($id, '_mx_seed_hash', mx_seed_hash(get_field('bolumler', $id, false)));
                     $state['log'][] = 'sayfa: '.$page['path'];
@@ -152,9 +151,46 @@ function mx_seed_run(): void
     delete_transient('mx_seed_lock');
 }
 
+/** Canonical hash: whole-number strings as ints (ACF returns "5" after a reload, 5 in the request that wrote it). */
 function mx_seed_hash($value): string
 {
-    return md5((string) wp_json_encode($value));
+    return md5((string) wp_json_encode(mx_seed_canon(mx_seed_strip_new($value))));
+}
+
+function mx_seed_canon($value)
+{
+    if (is_array($value)) {
+        return array_map('mx_seed_canon', $value);
+    }
+
+    return is_string($value) && preg_match('/^-?(0|[1-9][0-9]{0,8})$/', $value) ? (int) $value : $value;
+}
+
+/**
+ * Fields added in a later theme version show up empty in values seeded before them,
+ * which would change the hash and make the seed look hand-edited. Compare without them too.
+ */
+const MX_SEED_NEW_KEYS = ['field_mx_0844aed91299_alt'];
+
+function mx_seed_strip_new($value)
+{
+    if (! is_array($value)) {
+        return $value;
+    }
+    $out = [];
+    foreach ($value as $k => $v) {
+        if (in_array($k, MX_SEED_NEW_KEYS, true) && mx_seed_empty($v)) {
+            continue;
+        }
+        $out[$k] = mx_seed_strip_new($v);
+    }
+
+    return $out;
+}
+
+function mx_seed_same($value, string $stored): bool
+{
+    return $stored !== '' && ($stored === mx_seed_hash($value) || $stored === md5((string) wp_json_encode($value)));
 }
 
 function mx_seed_empty($value): bool

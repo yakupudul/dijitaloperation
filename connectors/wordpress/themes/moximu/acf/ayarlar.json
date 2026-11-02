@@ -108,6 +108,38 @@
        "name": "baglanti",
        "label": "Bağlantı",
        "type": "text"
+      },
+      {
+       "key": "field_mx_0844aed91299_alt",
+       "label": "Sağda açılan bağlantılar",
+       "name": "alt",
+       "type": "repeater",
+       "layout": "table",
+       "button_label": "Bağlantı ekle",
+       "instructions": "Bu sekmenin üzerine gelince sağda görünen liste. Boşsa hizmet listesi görünür.",
+       "sub_fields": [
+        {
+         "key": "field_mx_0844_alt_bg",
+         "label": "Bağlantı",
+         "name": "baglanti",
+         "type": "text",
+         "parent": "field_mx_0844aed91299_alt"
+        },
+        {
+         "key": "field_mx_0844_alt_m1",
+         "label": "Başlık",
+         "name": "metin",
+         "type": "text",
+         "parent": "field_mx_0844aed91299_alt"
+        },
+        {
+         "key": "field_mx_0844_alt_m2",
+         "label": "Kısa açıklama",
+         "name": "metin_2",
+         "type": "text",
+         "parent": "field_mx_0844aed91299_alt"
+        }
+       ]
       }
      ]
     },
