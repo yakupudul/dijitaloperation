@@ -133,3 +133,25 @@ function mx_ray_logos(): string
 
     return (string) wp_json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
+
+/** Line icon for a mega menu group, chosen by the group's link (falls back to a dot). */
+function mx_menu_icon(string $url): string
+{
+    $paths = [
+        'hizmet' => '<path d="m12 3 9 4.5-9 4.5-9-4.5z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>',
+        'klinik' => '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/>',
+        'sehir' => '<path d="M12 21s7-6 7-11.5a7 7 0 1 0-14 0C5 15 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+        'sonuc' => '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+        'arac' => '<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8.5 6.5h7M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h7"/>',
+        'rehber' => '<path d="M3 5h6a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H3z"/><path d="M21 5h-6a3 3 0 0 0-3 3v12a2.5 2.5 0 0 1 2.5-2.5H21z"/>',
+    ];
+    $inner = '<circle cx="12" cy="12" r="3"/>';
+    foreach ($paths as $key => $svg) {
+        if (str_contains($url, $key)) {
+            $inner = $svg;
+            break;
+        }
+    }
+
+    return '<svg class="mx-ic" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'.$inner.'</svg>';
+}
