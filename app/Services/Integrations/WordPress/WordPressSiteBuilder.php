@@ -79,7 +79,10 @@ final class WordPressSiteBuilder
 
     /** site-tool: tools that change nothing, allowed on a brandless site too. */
     public const READ_TOOLS = ['list', 'site_info', 'list_content', 'get_content', 'list_media', 'list_changes', 'inspect_site', 'list_plugins', 'search_plugins',
-        'plugin_settings', 'setup_guide', 'site_check', 'list_comments', 'list_form_messages'];
+        'plugin_settings', 'setup_guide', 'site_check', 'list_comments', 'list_form_messages', 'list_themes', 'list_theme_files', 'read_theme_file'];
+
+    /** Connector 1.34.0 theme file tools. */
+    public const THEME_FILE_TOOLS = ['list_themes', 'list_theme_files', 'read_theme_file', 'write_theme_files', 'switch_theme', 'delete_theme'];
 
     /**
      * site-tool: one tool of the site's Claude / ChatGPT connection (connector ≥ 1.26.0), within the level the site
@@ -101,6 +104,23 @@ final class WordPressSiteBuilder
         $serviced = $connection->digitalAsset !== null && BrandlessSites::serviced($connection->digitalAsset);
         if (! in_array($tool, self::READ_TOOLS, true) && ! $serviced && $this->state($connection) !== null) {
             throw new RuntimeException(BrandlessSites::REASON);
+        }
+
+        // Theme file tools came with connector 1.34.0 (yakup 2026-11-02): an older site gets the signed self-update
+        // queued in the name of the Admin who switched building on, as for a theme build.
+        if (in_array($tool, self::THEME_FILE_TOOLS, true) && version_compare($version, '1.34.0', '<')) {
+            $message = 'Tema dosyası araçları için sitedeki MoxDOP Connector en az 1.34.0 olmalı (şu an '.$version.').';
+            $user = User::query()->find((int) data_get($connection->config, 'claude_build.by'));
+            if ($user === null || $connection->digitalAsset === null) {
+                throw new RuntimeException($message.' Eklentiyi Web siteleri ekranından güncelleyin.');
+            }
+            try {
+                app(ExternalWriteService::class)->requestConnectorUpdate($user, $connection->digitalAsset);
+            } catch (Throwable $exception) {
+                throw new RuntimeException($message.' Güncelleme başlatılamadı: '.$exception->getMessage());
+            }
+
+            throw new RuntimeException($message.' Güncelleme başlatıldı; birkaç dakika sonra tekrar deneyin.');
         }
 
         $answer = $this->client->aiTool($connection, $tool, $arguments);
