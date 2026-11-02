@@ -78,7 +78,7 @@ function mx_img_wh($value, bool $dimensions = true): string
     }
     $srcset = wp_get_attachment_image_srcset($id, 'full');
     if ($srcset) {
-        $out .= 'srcset="'.esc_attr($srcset).'" sizes="(max-width: 768px) 100vw, 50vw" ';
+        $out .= 'srcset="'.esc_attr($srcset).'" sizes="(max-width: 768px) 80vw, 40vw" ';
     }
 
     return $out;

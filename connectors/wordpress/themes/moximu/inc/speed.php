@@ -39,7 +39,7 @@ add_action('wp_enqueue_scripts', static function (): void {
 }, 100);
 
 add_action('wp_head', static function (): void {
-    foreach (['inter-latin', 'inter-latin-ext'] as $font) {
+    foreach (['inter-latin', 'inter-tr'] as $font) {
         echo '<link rel="preload" href="'.esc_url(MX_URI.'/assets/fonts/'.$font.'.woff2').'" as="font" type="font/woff2" crossorigin>'."\n";
     }
 }, 1);
@@ -114,8 +114,124 @@ add_action('template_redirect', static function (): void {
             return $html;
         }
         // Scripts marked data-consent (Clarity, Meta pixel) wait for the cookie banner's "Kabul et".
-        $loader = '<script>(function(){var d=!1;function run(all){document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){if(o.hasAttribute("data-consent")&&!all)return;var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}function r(){if(d)return;d=!0;run(/(?:^|; )mx_consent=all/.test(document.cookie))}window.mxConsentRun=function(){if(d)run(!0)};["pointerdown","keydown","scroll","touchstart"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(r,2500)})})();</script>';
+        $loader = '<script>(function(){var d=!1;function run(all){document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){if(o.hasAttribute("data-consent")&&!all)return;var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}function r(){if(d)return;d=!0;run(/(?:^|; )mx_consent=all/.test(document.cookie))}window.mxConsentRun=function(){if(d)run(!0)};["pointerdown","keydown","scroll","touchstart"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(function(){(window.requestIdleCallback||setTimeout)(r)},7000)})})();</script>';
 
         return str_replace('</body>', $loader.'</body>', $html);
     });
 });
+
+/*
+ * Mobile speed (yakup 2026-11-02 "olabilecek en iyi hıza çıkar"): every image after the first few in the page (header
+ * logo and hero) loads lazily and decodes off the main thread. Images that already say how to load are left alone.
+ */
+function mx_lazy_images(string $html): string
+{
+    $seen = 0;
+
+    return (string) preg_replace_callback('~<img\b[^>]*>~i', static function (array $m) use (&$seen): string {
+        $tag = $m[0];
+        $seen++;
+        if (stripos($tag, ' decoding=') === false) {
+            $tag = substr($tag, 0, 4).' decoding="async"'.substr($tag, 4);
+        }
+        if ($seen <= 8 || stripos($tag, ' loading=') !== false || stripos($tag, 'fetchpriority') !== false) {
+            return $tag;
+        }
+
+        return substr($tag, 0, 4).' loading="lazy"'.substr($tag, 4);
+    }, $html);
+}
+
+add_action('template_redirect', static function (): void {
+    if (is_admin() || wp_doing_ajax() || is_feed() || (defined('REST_REQUEST') && REST_REQUEST) || isset($_GET['elementor-preview'])) {
+        return;
+    }
+    ob_start(static fn (string $html): string => stripos($html, '<html') !== false ? mx_webp_swap(mx_lazy_images($html)) : $html);
+}, 1);
+
+/*
+ * WebP for uploaded JPG/PNG files: next to each upload a "<file>.webp" copy is made with GD (a few per request, after
+ * the page is sent), and pages point at the copy once it exists. Without GD WebP support nothing changes.
+ */
+function mx_webp_dirs(): array
+{
+    static $dirs = null;
+    if ($dirs === null) {
+        $up = wp_get_upload_dir();
+        $dirs = [(string) $up['baseurl'], (string) $up['basedir']];
+    }
+
+    return $dirs;
+}
+
+function mx_webp_swap(string $html): string
+{
+    if (! function_exists('imagewebp')) {
+        return $html;
+    }
+    [$baseurl, $basedir] = mx_webp_dirs();
+    $missing = [];
+    $html = (string) preg_replace_callback('~'.preg_quote($baseurl, '~').'(/[^"\'\s,)]+?\.(?:png|jpe?g))(?=["\'\s,)])~i', static function (array $m) use ($baseurl, $basedir, &$missing): string {
+        $file = $basedir.$m[1];
+        if (is_file($file.'.webp')) {
+            return $baseurl.$m[1].'.webp';
+        }
+        if (is_file($file)) {
+            $missing[$file] = true;
+        }
+
+        return $m[0];
+    }, $html);
+    if ($missing) {
+        $GLOBALS['mx_webp_todo'] = array_keys($missing);
+    }
+
+    return $html;
+}
+
+function mx_webp_make(string $file): void
+{
+    $type = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    $img = $type === 'png' ? @imagecreatefrompng($file) : @imagecreatefromjpeg($file);
+    if (! $img) {
+        @touch($file.'.webp.skip');
+
+        return;
+    }
+    if ($type === 'png') {
+        imagepalettetotruecolor($img);
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+    }
+    $tmp = $file.'.webp.tmp';
+    if (@imagewebp($img, $tmp, $type === 'png' ? 85 : 78) && filesize($tmp) > 0 && filesize($tmp) < filesize($file)) {
+        @rename($tmp, $file.'.webp');
+    } else {
+        @unlink($tmp);
+        @touch($file.'.webp.skip');
+    }
+    imagedestroy($img);
+}
+
+add_action('shutdown', static function (): void {
+    $todo = $GLOBALS['mx_webp_todo'] ?? [];
+    if (! $todo || get_transient('mx_webp_lock')) {
+        return;
+    }
+    set_transient('mx_webp_lock', 1, 30);
+    if (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    } elseif (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    $start = microtime(true);
+    foreach ($todo as $file) {
+        if (microtime(true) - $start > 8) {
+            break;
+        }
+        if (! is_file($file.'.webp') && ! is_file($file.'.webp.skip')) {
+            mx_webp_make($file);
+        }
+    }
+    delete_transient('mx_webp_lock');
+}, 999);

@@ -147,7 +147,7 @@ add_action('save_post', static function (int $post_id): void {
 
 /*
  * Tracking codes from Moximu ayarları › Takip kodları. They are printed as normal tags; speed.php turns them into
- * "start after the first tap or 2.5 s" scripts, so they never slow the first paint.
+ * "start after the first tap or 7 s" scripts, so they never slow the first paint.
  */
 add_action('wp_head', static function (): void {
     if (! function_exists('get_field') || is_user_logged_in()) {
