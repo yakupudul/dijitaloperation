@@ -179,7 +179,8 @@ function mx_shared_row(string $layout): array
     if (isset($cache[$layout])) {
         return $cache[$layout];
     }
-    $ids = array_filter([(int) get_option('page_on_front'), (int) get_option('mx_shared_source')]);
+    $about = get_page_by_path('hakkimizda');
+    $ids = array_filter([(int) get_option('page_on_front'), (int) get_option('mx_shared_source'), $about ? (int) $about->ID : 0]);
     foreach ($ids as $id) {
         foreach ((array) (function_exists('get_field') ? get_field('bolumler', $id) : []) as $row) {
             if (($row['acf_fc_layout'] ?? '') === $layout) {

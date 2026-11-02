@@ -46,11 +46,20 @@ $html = preg_replace_callback('~<h2([^>]*)>(.*?)</h2>~is', static function (arra
 $with_toc = count($toc) >= 3;
 $after = get_post_meta($id, '_mx_sayfa_sonu', true);
 $after = is_string($after) && $after !== '' ? array_filter(array_map('trim', explode(',', $after))) : ['yorum_ozet', 'analiz'];
+// Legal and utility pages ("Sayfa sonu: yok") stay quiet; every other text page gets the sales hero and the numbers band.
+$sales = ! in_array('yok', $after, true);
+if ($sales && ! in_array('sayilar', $after, true)) {
+    $after = array_values($after);
+    $at = array_search('analiz', $after, true);
+    array_splice($after, $at === false ? count($after) : (int) $at, 0, ['sayilar']);
+}
 ?>
 <nav aria-label="breadcrumb" class="mx lp-bc"><div class="wrap"><a href="<?= esc_url(home_url('/')) ?>">Ana sayfa</a> › <?= $crumbs ? implode(' › ', $crumbs).' › ' : '' ?><span><?php the_title(); ?></span></div></nav>
-<section class="mx lp-art-hero mx-page-hero" id="yazi"><div class="wrap">
+<section class="mx lp-art-hero mx-page-hero<?= $sales ? ' is-sales' : '' ?>" id="yazi"><div class="wrap">
 <div class="lp-art-head"><span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-loop.svg"/><?= esc_html($eyebrow) ?></span><h1><?php the_title(); ?></h1>
 <?php if (has_excerpt()) : ?><p class="lead"><?= esc_html(get_the_excerpt()) ?></p><?php endif; ?>
+<?php if ($sales) : ?><div class="mx-page-cta"><a class="btn" href="<?= esc_url(home_url('/ucretsiz-klinik-analizi/')) ?>">Ücretsiz klinik analizi</a><a class="btn outline" href="tel:+905388610288">0538 861 02 88</a></div>
+<div class="mx-page-trust"><span><b>4,9</b> Google puanı</span><span><b>500+</b> web sitesi</span><span><b>50+</b> klinik</span><span><b>24 saatte</b> ilk rapor</span></div><?php endif; ?>
 </div></div></section>
 <section class="mx lp-art mx-page" id="icerik"><div class="wrap"><div class="<?= $with_toc ? 'lp-art-g' : 'mx-page-one' ?>">
 <?php if ($with_toc) : ?><aside class="lp-toc"><b>Bu sayfada</b><nav><?php foreach ($toc as [$slug, $text]) : ?><a href="#<?= esc_attr($slug) ?>"><?= esc_html($text) ?></a><?php endforeach; ?></nav><a class="btn" href="<?= esc_url(home_url('/ucretsiz-klinik-analizi/')) ?>">Ücretsiz klinik analizi</a></aside><?php endif; ?>
@@ -58,7 +67,7 @@ $after = is_string($after) && $after !== '' ? array_filter(array_map('trim', exp
 </div></div></section>
 <?php
 foreach ($after as $layout) {
-    if (in_array($layout, ['sonuclar', 'yorum_ozet', 'analiz'], true)) {
+    if (in_array($layout, ['sonuclar', 'yorum_ozet', 'analiz', 'sayilar'], true)) {
         mx_shared_section($layout);
     }
 }
