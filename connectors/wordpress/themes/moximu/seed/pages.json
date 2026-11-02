@@ -2,8 +2,8 @@
 {
 "key": "home",
 "path": "/",
-"seo_title": "Moximu ana sayfa",
-"seo_desc": "",
+"seo_title": "Moximu · Kliniklere dijital pazarlama ve web sitesi",
+"seo_desc": "Klinikler için web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı. 12 yılda 500+ web sitesi, 50+ klinik. Ücretsiz klinik analizi isteyin.",
 "service": {},
 "rows": [
 {
@@ -968,7 +968,7 @@
 "key": "websitesi",
 "path": "/hizmetlerimiz/klinik-web-sitesi/",
 "seo_title": "Klinik web sitesi · Moximu",
-"seo_desc": "Klinikler için web sitesi kurulumu: tedavi × şehir sayfaları, hekim sayfaları, form ve WhatsApp akışı, telefonda 2 saniyede açılış. 4 haftada yayında, 45.000 ₺ tek sefer.",
+"seo_desc": "Klinikler için web sitesi: tedavi × şehir sayfaları, hekim sayfaları, form ve WhatsApp akışı, telefonda 2 saniyede açılış. 4 haftada yayında, 45.000 ₺.",
 "service": {
 "ad": "Klinik web sitesi kurulumu",
 "tur": "Web sitesi tasarımı ve kurulumu",
@@ -1949,7 +1949,7 @@
 "key": "seo",
 "path": "/hizmetlerimiz/klinik-seo/",
 "seo_title": "Klinik SEO hizmeti · Moximu",
-"seo_desc": "Klinik SEO hizmeti: tedavi sayfaları, teknik düzeltme, Google İşletme Profili ve haftalık içerikle 'ankara implant' gibi aramalarda ilk sayfa. Gerçek Search Console verisiyle aylık rapor.",
+"seo_desc": "Klinik SEO: tedavi sayfaları, teknik düzeltme, Google kartı ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor.",
 "service": {
 "ad": "Klinik SEO hizmeti",
 "tur": "Arama motoru optimizasyonu",
@@ -2937,7 +2937,7 @@
 "key": "gbp",
 "path": "/hizmetlerimiz/google-isletme-profili/",
 "seo_title": "Klinik Google İşletme Profili yönetimi · Moximu",
-"seo_desc": "Klinikler için Google İşletme Profili (harita kaydı) yönetimi: kurulum, askı kurtarma, yorum cevapları, haftalık gönderi ve aylık Google verisiyle rapor. 6.000 ₺/ay şube başına.",
+"seo_desc": "Klinikler için Google İşletme Profili yönetimi: kurulum, askı kurtarma, yorum cevapları, haftalık gönderi ve aylık rapor. Şube başına 6.000 ₺/ay.",
 "service": {
 "ad": "Google İşletme Profili yönetimi",
 "tur": "Yerel SEO ve harita kaydı yönetimi",
@@ -3932,7 +3932,7 @@
 "key": "ads",
 "path": "/hizmetlerimiz/google-ads/",
 "seo_title": "Klinik Google Ads yönetimi · Moximu",
-"seo_desc": "Klinikler için Google Ads yönetimi: tedavi × şehir kelimeleri, negatif liste, kalite puanı odaklı açılış sayfası, form ve telefon ölçümü. 10.000 ₺/ay + bütçe, haftalık rapor.",
+"seo_desc": "Klinikler için Google Ads: tedavi × şehir kelimeleri, negatif liste, kalite puanı yüksek açılış sayfası, form ve telefon ölçümü. 10.000 ₺/ay + bütçe.",
 "service": {
 "ad": "Klinik Google Ads yönetimi",
 "tur": "Arama reklamı yönetimi",
@@ -4917,7 +4917,7 @@
 "key": "meta",
 "path": "/hizmetlerimiz/instagram-facebook-reklamlari/",
 "seo_title": "Klinik Instagram ve Facebook reklamı · Moximu",
-"seo_desc": "Klinikler için Meta (Instagram, Facebook) reklam yönetimi: form ve WhatsApp kampanyaları, yaş grubuna göre bütçe, sağlık kurallarına uygun görsel, haftalık rapor. 10.000 ₺/ay + bütçe.",
+"seo_desc": "Klinikler için Instagram ve Facebook reklamı: form ve WhatsApp kampanyaları, sağlık kurallarına uygun görsel, haftalık rapor. 10.000 ₺/ay + bütçe.",
 "service": {
 "ad": "Klinik Meta reklam yönetimi",
 "tur": "Sosyal medya reklam yönetimi",
@@ -5848,7 +5848,7 @@
 "key": "fiyat",
 "path": "/fiyatlar/",
 "seo_title": "Fiyatlar · Moximu",
-"seo_desc": "Yerel klinik paketi 30.000 ₺/ay, sağlık turizmi 60.000 ₺/ay, klinik web sitesi 45.000 ₺. Tek hizmet fiyatları, karşılaştırma tablosu ve nelerin dahil olduğu. KDV hariç.",
+"seo_desc": "Yerel klinik paketi 30.000 ₺/ay, sağlık turizmi 60.000 ₺/ay, klinik web sitesi 45.000 ₺. Tek hizmet fiyatları ve karşılaştırma tablosu. KDV hariç.",
 "service": {},
 "rows": [
 {
@@ -6238,7 +6238,7 @@
 "key": "paket",
 "path": "/fiyatlar/yerel-klinik-paketi/",
 "seo_title": "Yerel klinik paketi · Moximu",
-"seo_desc": "Klinikler için dijital pazarlama paketi: web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı tek pakette, 30.000 ₺/ay. 24 saatte ücretsiz klinik analizi.",
+"seo_desc": "Web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı tek pakette: 30.000 ₺/ay. 24 saatte ücretsiz klinik analizi.",
 "service": {
 "ad": "Klinik dijital pazarlama paketi",
 "tur": "Dijital pazarlama",
@@ -7184,7 +7184,7 @@
 "key": "paket-turizm",
 "path": "/fiyatlar/saglik-turizmi-paketi/",
 "seo_title": "Sağlık turizmi paketi · Moximu",
-"seo_desc": "Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google kartı ve aylık rapor: 60.000 ₺/ay. 24 saatte ücretsiz analiz.",
+"seo_desc": "Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google kartı ve aylık rapor: 60.000 ₺/ay.",
 "service": {
 "ad": "Sağlık turizmi dijital pazarlama paketi",
 "tur": "Dijital pazarlama",
@@ -8147,7 +8147,7 @@
 "key": "dis",
 "path": "/klinik/dis-klinigi/",
 "seo_title": "Diş klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "Diş klinikleri için dijital pazarlama: tedavi × ilçe sayfaları, Google kartı, implant ve zirkonyum reklamları, Instagram form reklamı, hasta kabul akışı. 9 diş kliniğiyle çalışıyoruz; sonuçlar yüzde olarak.",
+"seo_desc": "Diş klinikleri için dijital pazarlama: tedavi × ilçe sayfaları, Google kartı, implant ve zirkonyum reklamları, Instagram form reklamı, hasta kabul akışı.",
 "service": {
 "ad": "Diş kliniği dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -10828,7 +10828,7 @@
 {
 "key": "k-psikolog",
 "path": "/klinik/psikolog/",
-"seo_title": "Psikolog ve psikiyatri klinikleri için dijital pazarlama · Moximu",
+"seo_title": "Psikolog ve psikiyatri kliniği pazarlaması · Moximu",
 "seo_desc": "Online terapi, çift terapisi ve çocuk psikoloğu aramalarında görünürlük; mahremiyete uygun sayfalar ve sakin bir randevu. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Psikolog ve psikiyatri klinikleri dijital pazarlama",
@@ -13709,7 +13709,7 @@
 "key": "vaka",
 "path": "/sonuclar/panorama-ankara/",
 "seo_title": "Panorama Ankara vakası · Moximu",
-"seo_desc": "Panorama Ankara diş kliniği için tedavi × ilçe sayfaları ve Google kartı: organik tıklama +%349, Google gösterimi +%551, site ziyaretçisi +%73. Dönem ve kaynak her sonuçta.",
+"seo_desc": "Panorama Ankara diş kliniği: tedavi × ilçe sayfaları ve Google kartıyla organik tıklama yüzde 349, Google gösterimi yüzde 551 arttı. Dönem ve kaynak her sonuçta.",
 "service": {},
 "rows": [
 {
@@ -14066,7 +14066,7 @@
 "key": "vaka-dentocare",
 "path": "/sonuclar/dentocare-klinik/",
 "seo_title": "Dentocare Klinik vakası · Moximu",
-"seo_desc": "Dentocare Klinik (İzmir) için yeni site, tedavi × şehir sayfaları ve haftalık içerik: organik tıklama +%534, Google gösterimi +%627, site ziyaretçisi +%830. Kaynak Search Console ve GA4.",
+"seo_desc": "Dentocare Klinik (İzmir): yeni site, tedavi × şehir sayfaları ve haftalık içerikle organik tıklama yüzde 534, site ziyaretçisi yüzde 830 arttı. Kaynak GSC ve GA4.",
 "service": {},
 "rows": [
 {
@@ -14414,7 +14414,7 @@
 "key": "hakkimizda",
 "path": "/hakkimizda/",
 "seo_title": "Hakkımızda · Moximu",
-"seo_desc": "Moximu: 12 yılda 500'den fazla web sitesi, 50'den fazla klinik deneyimi. Yalnız klinikler için Google kartı, SEO, Google Ads ve Instagram reklamı; haftalık düzen, aylık tek sayfa rapor.",
+"seo_desc": "Moximu: 12 yılda 500'den fazla web sitesi, 50'den fazla klinik deneyimi. Yalnız kliniklere Google kartı, SEO, Google Ads ve Instagram reklamı.",
 "service": {},
 "rows": [
 {
@@ -15324,7 +15324,7 @@
 "key": "rehber",
 "path": "/rehber-yazisi-sablonu/",
 "seo_title": "Diş kliniği için Google kartı kurulum rehberi · Moximu",
-"seo_desc": "Diş kliniği için Google İşletme Profili kurulum rehberi: kategori ve ad, hizmet listesi, fotoğraf düzeni, yorum isteme ve cevap, haftalık gönderi, ölçüm ve en sık dört hata.",
+"seo_desc": "Diş kliniği için Google İşletme Profili kurulumu: kategori ve ad, hizmetler, fotoğraflar, yorumlar, haftalık gönderi, ölçüm ve en sık dört hata.",
 "service": {},
 "rows": [
 {
@@ -16063,7 +16063,7 @@
 "thumb": "klinik-resepsiyon.jpg",
 "thumb_alt": "",
 "seo_title": "Diş kliniği için Google kartı kurulum rehberi · Moximu",
-"seo_desc": "Diş kliniği için Google İşletme Profili kurulum rehberi: kategori ve ad, hizmet listesi, fotoğraf düzeni, yorum isteme ve cevap, haftalık gönderi, ölçüm ve en sık dört hata."
+"seo_desc": "Diş kliniği için Google İşletme Profili kurulumu: kategori ve ad, hizmetler, fotoğraflar, yorumlar, haftalık gönderi, ölçüm ve en sık dört hata."
 },
 {
 "key": "p-google-ads-butcesi-nasil-belirlenir",
@@ -16079,7 +16079,7 @@
 "thumb": "klinik-tedavi-odasi.jpg",
 "thumb_alt": "",
 "seo_title": "Klinik için Google Ads bütçesi nasıl belirlenir?",
-"seo_desc": "Klinikler için Google Ads bütçesi hesaplama: hedef hasta sayısından geriye gidiş, talep maliyeti, dönüşüm oranı, ilk ay ölçüm ve bütçenin ilçe ve tedaviye dağılımı."
+"seo_desc": "Klinik Google Ads bütçesi: hedef hasta sayısından geriye hesap, talep maliyeti, dönüşüm oranı, ilk ay ölçüm ve bütçenin ilçe ve tedaviye dağılımı."
 },
 {
 "key": "p-yerel-seo-kart-mi-site-mi",
@@ -16095,7 +16095,7 @@
 "thumb": "klinik-web-sitesi-ornek.jpg",
 "thumb_alt": "",
 "seo_title": "Yerel SEO: Google kartı mı, web sitesi mi önce?",
-"seo_desc": "Klinikler için yerel SEO: Google İşletme Profili kartı ile web sitesinin hangi aramalarda öne çıktığı, hangisine önce emek verilmesi gerektiği ve ikisinin birbirini nasıl beslediği."
+"seo_desc": "Klinikler için yerel SEO: Google kartı ile web sitesi hangi aramalarda öne çıkar, hangisine önce emek verilmeli ve ikisi birbirini nasıl besler."
 },
 {
 "key": "p-saglik-turizmi-reklami",
