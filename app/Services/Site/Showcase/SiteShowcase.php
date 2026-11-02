@@ -135,6 +135,9 @@ final class SiteShowcase
         $count = 0;
         foreach ($assets as $asset) {
             $snap = $snapshots[$asset->id] ?? null;
+            if ($snap !== null && ($snap['reviews'] === null || $snap['rating'] === null)) {
+                [$snap['rating'], $snap['reviews']] = self::lastKnownTotals((int) $snap['resource_id']);
+            }
             if ($snap === null || ($snap['reviews'] ?? 0) < 1) {
                 continue;
             }
@@ -157,6 +160,25 @@ final class SiteShowcase
         $first = array_values($places)[0] ?? null;
 
         return ['rating' => $count > 0 ? round($sum / $count, 1) : 0.0, 'count' => $count, 'url' => (string) ($first['url'] ?? ''), 'places' => array_values($places), 'items' => $items];
+    }
+
+    /**
+     * Google's rating and review count when the latest snapshot has none (its review read failed or was skipped): the
+     * last snapshot that has them, else the reviews MoxDOP stored for the profile.
+     *
+     * @return array{0: ?float, 1: ?int}
+     */
+    private static function lastKnownTotals(int $resourceId): array
+    {
+        $row = DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceId)->whereNotNull('total_review_count')
+            ->orderByDesc('captured_at')->orderByDesc('id')->first(['average_rating', 'total_review_count']);
+        if ($row !== null && (int) $row->total_review_count > 0) {
+            return [$row->average_rating !== null ? round((float) $row->average_rating, 1) : null, (int) $row->total_review_count];
+        }
+        $stars = DB::table('gbp_reviews')->where('external_resource_id', $resourceId)->pluck('star_rating')
+            ->map(fn ($s): int => self::STARS[strtoupper((string) $s)] ?? 0)->filter()->values();
+
+        return $stars->isEmpty() ? [null, null] : [round($stars->avg(), 1), $stars->count()];
     }
 
     /** A review a site may show: it has text, and no price, phone number, e-mail or link. */

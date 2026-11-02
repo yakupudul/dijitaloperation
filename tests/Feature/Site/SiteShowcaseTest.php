@@ -168,6 +168,25 @@ final class SiteShowcaseTest extends SiteTestCase
         $this->assertSame(['enabled' => false], end($sent));
     }
 
+    public function test_rating_and_count_fall_back_when_the_latest_snapshot_has_none(): void
+    {
+        $this->review('FIVE', 'Çok ilgili bir ekip.', 'Ayşe Yılmaz');
+        [$assetId, $resourceId] = $this->location;
+        DB::table('gbp_location_snapshots')->insert(['digital_asset_id' => $assetId, 'external_resource_id' => $resourceId, 'run_id' => 2, 'location_name' => 'locations/'.$assetId,
+            'title' => 'Panorama Çankaya', 'maps_uri' => 'https://maps.google.com/?cid=1', 'average_rating' => null, 'total_review_count' => null, 'captured_at' => now()->addMinute(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $reviews = app(SiteShowcase::class)->reviews($this->brand);
+        $this->assertSame(120, $reviews['count'], 'the last snapshot that has Google totals');
+        $this->assertSame(4.8, $reviews['rating']);
+        $this->assertCount(1, $reviews['items']);
+
+        DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceId)->update(['average_rating' => null, 'total_review_count' => null]);
+        $this->review('FOUR', 'Güzel bir deneyimdi.', 'Mehmet Kaya');
+        $reviews = app(SiteShowcase::class)->reviews($this->brand);
+        $this->assertSame(2, $reviews['count'], 'no snapshot has totals: the stored reviews are counted');
+        $this->assertSame(4.5, $reviews['rating']);
+    }
+
     public function test_a_review_is_shown_only_without_price_contact_or_link(): void
     {
         $this->assertTrue(SiteShowcase::showable('Harika bir deneyimdi, herkese tavsiye ederim.'));
