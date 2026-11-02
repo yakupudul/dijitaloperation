@@ -608,7 +608,7 @@
 "seed": "klinik-web-sitesi-ornek.jpg",
 "alt": ""
 },
-"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_4": "02",
 "alt_baslik_2": "Google İşletme Profili",
 "metin_3": "“Yakınımdaki diş kliniği” aramasında ilk üç kartı hedefleriz; kartınıza her gün bakarız.",
@@ -919,7 +919,354 @@
 "meta": {
 "_mx_ust_yazi": "Kliniklere dijital pazarlama",
 "_mx_sayfa_sonu": "sonuclar,yorum_ozet,analiz"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <span>Hizmetler</span>"
+},
+{
+"acf_fc_layout": "giris",
+"tasarim": "v10",
+"yazi": "Hizmetler",
+"baslik": "Hasta sizi <mark>dört yerde</mark> arar. Dördünü biz kurarız.",
+"metin": "Google'da tedavi adı, haritadaki kartlar, Instagram reklamı ve sonunda sitenizdeki tedavi sayfası. Biri eksik kalınca diğerlerinin getirdiği hasta yolda kaybolur; Moximu dördünü tek düzende kurar.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "0538 861 02 88",
+"liste": [
+{
+"madde": "<b>4,9</b> Google puanı"
+},
+{
+"madde": "<b>500+</b> web sitesi"
+},
+{
+"madde": "<b>24 saat</b>te ilk rapor"
 }
+],
+"gorsel": {
+"seed": "klinik-tedavi-ani.jpg",
+"alt": "Diş kliniğinde tedavi anı"
+},
+"yazi_3": "Bu hafta",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Site · yeni tedavi sayfası yayında</span><small>Pzt</small>",
+"yazi_5": "<span class=\"ic st\"></span><span class=\"nt\">Google kartı · yorum 24 saatte cevaplandı</span><small>Sal</small>",
+"yazi_6": "<span class=\"ic\"></span><span class=\"nt\">Google Ads · boşa giden aramalar kapatıldı</span><small>Çar</small>",
+"yazi_7": "<span class=\"ic cal\"></span><span class=\"nt\">Instagram · form WhatsApp'a düştü</span><small>Per</small>",
+"yazi_8": "<span class=\"lp-dot\"></span>Dört hizmet · tek haftalık düzen · örnek akış",
+"yazi_9": "<b>4,9</b><span>Google puanı</span>",
+"yazi_10": "<b>50+</b><span>klinik</span>"
+},
+{
+"acf_fc_layout": "alt_menu",
+"kalin_yazi": "Hizmetler",
+"yazi": "<a href=\"#hizmetler\">Hizmetler</a><a href=\"#neden\">Hangisi lazım?</a><a href=\"#rakamlar\">Rakamlar</a><a href=\"#sonuclar\">Sonuçlar</a><a href=\"#sss\">SSS</a>"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+},
+{
+"acf_fc_layout": "ana_hizmetler",
+"yazi": "Hizmetler",
+"baslik": "Dört şey kurarız. <mark>Dördü de</mark> sizin adınıza.",
+"metin": "Hastanın sizi gördüğü dört yer; dördünü biz kurar, biz bakarız.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"yazi_2": "01",
+"alt_baslik": "Klinik web sitesi",
+"metin_2": "Her tedaviye ayrı sayfa, telefonda iki saniyede açılır.",
+"baglanti_2": "/hizmetlerimiz/klinik-web-sitesi/",
+"baglanti_yaz_2": "Klinik web sitesi →",
+"gorsel": {
+"seed": "klinik-web-sitesi-ornek.jpg",
+"alt": ""
+},
+"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
+"yazi_4": "02",
+"alt_baslik_2": "Google İşletme Profili",
+"metin_3": "“Yakınımdaki diş kliniği” aramasında ilk üç kartı hedefleriz; kartınıza her gün bakarız.",
+"baglanti_3": "/hizmetlerimiz/google-isletme-profili/",
+"baglanti_yaz_3": "Google kartı bakımı →",
+"yazi_5": "<i class=\"si\"></i>yakınımdaki diş kliniği",
+"yazi_6": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
+"yazi_7": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
+"yazi_8": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
+"yazi_9": "Harita sırası <b>3 → 1</b>",
+"yazi_10": "03",
+"alt_baslik_3": "Google Ads",
+"metin_4": "Hasta “implant fiyatı” yazdığında ilk sırada görünmek için reklamı biz kurar, her hafta ayarlarız.",
+"baglanti_4": "/hizmetlerimiz/google-ads/",
+"baglanti_yaz_4": "Google Ads yönetimi →",
+"yazi_11": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_12": "İzmir İmplant Tedavisi | Aynı Gün Muayene",
+"yazi_13": "Alsancak’ta 12 yıllık klinik. İmplant, zirkonyum, estetik. Ücretsiz muayene.",
+"yazi_14": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
+"yazi_15": "Bir talep <b>995 ₺</b> · Ekim 2026",
+"yazi_16": "04",
+"alt_baslik_4": "Instagram ve Facebook reklamları",
+"metin_5": "İki soruluk form, anında WhatsApp’ınıza düşer.",
+"baglanti_5": "/hizmetlerimiz/instagram-facebook-reklamlari/",
+"baglanti_yaz_5": "Instagram reklamları →",
+"yazi_17": "<i></i>Klinik adı · Sponsorlu",
+"gorsel_2": {
+"seed": "klinik-tedavi-odasi.jpg",
+"alt": ""
+},
+"etiket": "Hangi tedavi?",
+"etiket_2": "Telefon",
+"buton_yazisi": "Ücretsiz muayene isteyin",
+"yazi_18": "<b>WhatsApp · yeni form</b><span>“İmplant için randevu istiyorum” · İzmir</span>",
+"yazi_19": "<span>WhatsApp hasta kabul, haftalık bakım, yazı planı ve aylık rapor her pakette.</span><a class=\"btn outline\" href=\"/hizmetlerimiz/\">Tüm hizmetler →</a>"
+},
+{
+"acf_fc_layout": "neden",
+"tasarim": "v1",
+"yazi": "Nereden başlamalı",
+"baslik": "Hangisi <mark>bana lazım</mark>?",
+"gorsel": {
+"seed": "klinik-resepsiyon.jpg",
+"alt": "Klinik resepsiyonu"
+},
+"yazi_2": "<span class=\"ic st\"></span><span class=\"nt\">Yorum cevaplandı: 5 ★</span><small>az önce</small>",
+"yazi_3": "<span class=\"ic\"></span><span class=\"nt\">Yol tarifi tıklaması · komşu ilçe</span><small>2 dk</small>",
+"yazi_4": "<span class=\"ic cal\"></span><span class=\"nt\">Yeni yazı yayında · perşembe</span><small>dün</small>",
+"liste": [
+{
+"alt_baslik": "Tedavi sayfanız yoksa: web sitesi",
+"metin": "Reklam ve SEO hastayı ana sayfaya değil tedavi sayfasına gönderir. Her tedavinin ayrı sayfası yoksa önce site."
+},
+{
+"alt_baslik": "Haritada ilk üçte değilseniz: Google kartı",
+"metin": "\"Yakınımdaki\" aramalarında kart siteden önce görünür. En ucuz kazanç genellikle buradadır."
+},
+{
+"alt_baslik": "Bu ay hasta lazımsa: reklam",
+"metin": "Google Ads arayan hastayı, Instagram reklamı henüz aramayanı yakalar. İkisi de ilk haftadan çalışır."
+},
+{
+"alt_baslik": "Kalıcı trafik istiyorsanız: SEO",
+"metin": "Reklam bitince durmayan ziyaret. Sırayı ücretsiz analizde yazılı olarak veririz."
+}
+]
+},
+{
+"acf_fc_layout": "sayilar",
+"yazi": "Rakamlar",
+"baslik": "Sayılarla <mark>Moximu</mark>.",
+"liste": [
+{
+"yazi": "<b class=\"cnt\" data-to=\"500\">500</b><span>web sitesi, 12 yılda</span>"
+},
+{
+"yazi": "<b class=\"cnt\" data-to=\"50\">50</b><span>klinik deneyimi</span>"
+},
+{
+"yazi": "<b class=\"cnt\" data-to=\"12\">12</b><span>yıl</span>"
+},
+{
+"yazi": "<b class=\"cnt\" data-to=\"24\">24</b><span>saatte ilk rapor</span>"
+}
+]
+},
+{
+"acf_fc_layout": "sonuclar",
+"tasarim": "v1",
+"yazi": "Sonuçlar",
+"yazi_2": "Birlikte büyüyen klinikler.",
+"yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Panorama Ankara",
+"metin": "Tedavi sayfaları ve her gün Google kartı bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+},
+{
+"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+}
+],
+"alt_baslik": "Dentocare Klinik",
+"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun →"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"kucuk_not": "Estetik kliniği · İstanbul",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>Form sayısı</span>"
+},
+{
+"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+}
+],
+"alt_baslik": "Buşra Nur Özger",
+"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026",
+"baglanti": "/sonuclar/",
+"baglanti_yaz": "Vakayı okuyun →"
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Klinikler Google'da yazıyor; metinler aynen alınır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz analiz için<br/>klinik adı yeter.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Phone",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v1",
+"baslik": "Klinik sahiplerinin <br/>en çok sorduğu sorular",
+"liste": [
+{
+"buton_yazisi": "+",
+"baslik": "Reklam ve Google hesapları kimin adına açılır?",
+"metin": "Sizin adınıza. Moximu yönetici olarak eklenir; ayrıldığınızda tüm geçmiş ve veriler sizde kalır."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Mevcut web sitemle çalışır mısınız?",
+"metin": "Evet. Önce mevcut siteyi inceleriz; eksik hizmet sayfaları ve hız sorunları düzeltilir. Yeni site yalnız gerektiğinde önerilir."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Hasta fotoğrafı veya öncesi/sonrası kullanıyor musunuz?",
+"metin": "Yalnız yazılı izinle ve yönetmeliğe uygun biçimde. İzin yoksa kullanmayız."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Ne kadar sürede sonuç görürüm?",
+"metin": "İlk talepler reklamlar açıldıktan sonra ilk iki haftada gelir. Google kartı ve organik sıralama 2–4 ayda oturur."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Benim ne yapmam gerekir?",
+"metin": "Gelen talebi aynı gün aramanız, haftada bir içerik planına bakmanız, ayda bir fotoğraf göndermeniz."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Sözleşme süresi ve ödeme nasıl?",
+"metin": "6 ay taahhüt, aylık fatura. Reklam bütçesi Google ve Meta'ya sizin kartınızdan ödenir; yönetim ücreti ayrıdır."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Fiyatlar ne kadar?",
+"metin": "Yerel Klinik Paketi 30.000 ₺/ay'dan, Sağlık Turizmi Paketi 60.000 ₺/ay'dan başlar. Klinik web sitesi 45.000 ₺ tek sefer. Kesin rakam ücretsiz analizden sonra yazılı gelir."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Ücretsiz klinik analizi nedir?",
+"metin": "Klinik adı ve şehir yeter; 24 saat içinde tek sayfalık rapor: site, Google kartı ve reklam hesabında ne eksik, ilk 30 günde ne yapılır. Bağlayıcı değil."
+}
+],
+"liste_2": [
+{
+"buton_yazisi": "+",
+"baslik": "Hangi şehirlerde çalışıyorsunuz?",
+"metin": "Türkiye'nin her şehrinde. Moximu Manisa'da; İzmir ve Manisa'ya yerinde geliriz."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Sağlık dışı sektörle çalışıyor musunuz?",
+"metin": "Hayır. Moximu yalnız kliniklerle çalışır."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Raporu nasıl alırım?",
+"metin": "Her ayın ilk haftası tek sayfa: kaç talep geldi, bir talep kaça mal oldu, bir sonraki ayın kararı."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Hekim adıyla reklam verilebilir mi?",
+"metin": "Hekim adı bilgilendirme olarak kullanılabilir; tedavi vaadiyle birlikte kullanılmaz. Her metin yönetmelik listesinden geçer."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Toplantı yapıyor musunuz?",
+"metin": "Hayır. İlk görüşme telefon ya da WhatsApp, 20 dakika. Sonrası her hafta yazılı rapor."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Reklam bütçesini siz mi artırıyorsunuz?",
+"metin": "Hayır. Bütçe sizden habersiz asla artmaz; her değişiklik yazılı önerilir, siz onaylarsınız."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Başka ajanstan geçersem ne olur?",
+"metin": "Erişimleri devralırız, çalışan kampanyaları kapatmayız. İlk hafta inceleme, ikinci hafta değişiklikler."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Kaç klinikle çalışıyorsunuz?",
+"metin": "Şu an aylık abonelikle 12 marka, dokuzu klinik; bugüne kadar 50’den fazla klinikle çalıştık. Aynı anda sınırlı sayıda klinik alırız; işi tek kişi yürütür."
+}
+],
+"metin": "Tüm sorular"
+}
+]
 },
 {
 "key": "websitesi",
@@ -2651,7 +2998,7 @@
 "madde": "Klinik schema'sı eklendi"
 }
 ],
-"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_4": "02",
 "alt_baslik_2": "Tedavi sayfaları",
 "metin_4": "Her tedavi ve her şehir için ayrı sayfa.",
@@ -4656,7 +5003,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_7": "Kalite puanı <b class=\"cnt\" data-to=\"9\">0</b>/10",
+"yazi_7": "Kalite puanı <b class=\"cnt\" data-to=\"9\">9</b>/10",
 "yazi_8": "03",
 "alt_baslik_3": "Teklif ve bütçe",
 "metin_6": "Bütçe şehre ve saate göre dağıtılır.",
@@ -6938,7 +7285,7 @@
 "madde": "Haftalık tarama"
 }
 ],
-"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_4": "02",
 "alt_baslik_2": "Google İşletme Profili",
 "metin_4": "\"Yakınımdaki diş kliniği\" aramasında ilk üç kart.",
@@ -7884,7 +8231,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_4": "02",
 "alt_baslik_2": "Google İşletme Profili",
 "metin_4": "Yabancı hasta da gelmeden önce kartınıza bakar.",
@@ -8387,7 +8734,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form veya WhatsApp",
 "metin_8": "İki tıkla form, tek tıkla WhatsApp.",
@@ -8832,7 +9179,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form ve WhatsApp",
 "metin_8": "İki alanlı form, tek tıkla WhatsApp.",
@@ -9265,7 +9612,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form veya WhatsApp",
 "metin_8": "İki tıkla form, tek tıkla WhatsApp.",
@@ -9698,7 +10045,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "WhatsApp karşılama",
 "metin_8": "İlk cevap hastanın dilinde, ilk saatte.",
@@ -10143,7 +10490,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form veya WhatsApp",
 "metin_8": "İlk değerlendirme randevusu.",
@@ -10582,7 +10929,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form veya WhatsApp",
 "metin_8": "İlk görüşme randevusu.",
@@ -11021,7 +11368,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form veya WhatsApp",
 "metin_8": "Kısa form, isteğe bağlı mesaj.",
@@ -11454,7 +11801,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form veya WhatsApp",
 "metin_8": "Ön görüşme randevusu.",
@@ -11911,7 +12258,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "WhatsApp karşılama",
 "metin_8": "İlk cevap ilk saatte, hastanın dilinde.",
@@ -14711,16 +15058,16 @@
 "baslik": "Sayılarla <mark>Moximu</mark>.",
 "liste": [
 {
-"yazi": "<b class=\"cnt\" data-to=\"500\">0</b><span>web sitesi, 12 yılda</span>"
+"yazi": "<b class=\"cnt\" data-to=\"500\">500</b><span>web sitesi, 12 yılda</span>"
 },
 {
-"yazi": "<b class=\"cnt\" data-to=\"50\">0</b><span>klinik deneyimi</span>"
+"yazi": "<b class=\"cnt\" data-to=\"50\">50</b><span>klinik deneyimi</span>"
 },
 {
-"yazi": "<b class=\"cnt\" data-to=\"12\">0</b><span>yıl</span>"
+"yazi": "<b class=\"cnt\" data-to=\"12\">12</b><span>yıl</span>"
 },
 {
-"yazi": "<b class=\"cnt\" data-to=\"24\">0</b><span>saatte ilk rapor</span>"
+"yazi": "<b class=\"cnt\" data-to=\"24\">24</b><span>saatte ilk rapor</span>"
 }
 ]
 },
@@ -15609,7 +15956,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Form ve WhatsApp",
 "metin_8": "Talep anında kliniğe düşer.",
@@ -16079,7 +16426,7 @@
 "madde": "Açılış 1,4 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,4\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,4\">1,4</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Randevu akışı",
 "metin_8": "Sekreter yoksa WhatsApp.",
@@ -16531,7 +16878,7 @@
 "madde": "Açılış 1,8 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,8\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,8\">1,8</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Çağrı merkezi akışı",
 "metin_8": "Talep doğru şubeye düşer.",
@@ -16983,7 +17330,7 @@
 "madde": "Açılış 1,6 sn"
 }
 ],
-"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">0,0</b> sn",
+"yazi_16": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
 "yazi_17": "04",
 "alt_baslik_4": "Ülke bazında rapor",
 "metin_8": "Hangi ülke ucuza hasta getiriyor?",
