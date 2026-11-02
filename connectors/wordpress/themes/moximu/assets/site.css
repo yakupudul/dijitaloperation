@@ -91,11 +91,7 @@ a.koASjV{display:inline-flex!important;width:20px;height:20px}a.koASjV>span{widt
 @media (max-width:900px){.mxsign{padding:56px 0}.mxsign-g{grid-template-columns:1fr;gap:36px}.mxsign-tile{max-width:300px}.mxsign-lead{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.mxsign-line path{animation:none;stroke-dashoffset:0}.mxsign-n{animation:none;transform:none}}
 
-/* Logo motifi, hizmet kartları: numaranın yanında logonun dört dairesi; kartın kanalı olan daire dolu (01 sol üst … 04 sağ alt). */
-.svcard .tx .mxnum{position:relative;overflow:visible}
-.svcard .tx .mxnum:after{content:"";position:absolute;left:calc(100% + 10px);top:50%;width:24px;height:24px;margin-top:-12px;border-radius:6px;background:radial-gradient(circle at 27% 27%,var(--q1,#d5e4e0) 0 5.2px,transparent 5.7px),radial-gradient(circle at 73% 27%,var(--q2,#d5e4e0) 0 5.2px,transparent 5.7px),radial-gradient(circle at 27% 73%,var(--q3,#d5e4e0) 0 5.2px,transparent 5.7px),radial-gradient(circle at 73% 73%,var(--q4,#d5e4e0) 0 5.2px,transparent 5.7px),#fdcf3c;transition:transform .3s}
-.svcgrid>.svcard:nth-child(1) .mxnum{--q1:#155552}.svcgrid>.svcard:nth-child(2) .mxnum{--q2:#155552}.svcgrid>.svcard:nth-child(3) .mxnum{--q3:#155552}.svcgrid>.svcard:nth-child(4) .mxnum{--q4:#155552}
-.svcard:hover .tx .mxnum:after{transform:rotate(90deg)}
+
 
 /* Logo motifi, ana sayfa girişi: dört fotoğraf logonun dört dairesi gibi yuvarlak; ortadaki sarı karo işaretin kendisi. */
 .mx .pgrid2>div:not([class]){display:grid;place-items:center;background:none!important;border-radius:0!important;overflow:visible!important;box-shadow:none!important}
@@ -106,3 +102,69 @@ a.koASjV{display:inline-flex!important;width:20px;height:20px}a.koASjV>span{widt
 .mx-sitemap{display:grid;grid-template-columns:1.4fr 1fr;gap:48px}.mx-sitemap h2{font-size:22px!important;margin:0 0 14px}.mx-sitemap ul{list-style:none;margin:0;padding:0}.mx-sitemap ul ul{margin:6px 0 10px 16px;padding-left:14px;border-left:1px solid #e3ebe8}.mx-sitemap li{padding:4px 0;font-size:15px}.mx-sitemap a{color:#0f1b2d;text-decoration:none}.mx-sitemap a:hover{color:#155552;text-decoration:underline}
 @media (max-width:760px){.mx-sitemap{grid-template-columns:1fr;gap:28px}}
 .mx-sitemap a{text-decoration:none!important;color:#0f1b2d!important}.mx-sitemap a:hover{text-decoration:underline!important;color:#155552!important}
+.kCAXPK .bCGekD{transition:transform .25s}.kCAXPK.mx-open .bCGekD{transform:rotate(45deg)}.kCAXPK.mx-open{background:#fff;border-color:#cfe0dc;box-shadow:0 10px 30px -20px rgba(21,85,82,.5)}
+
+/* Düğmesi olan kartın tamamı tıklanır (site.js mx-clk) */
+.mx-clk{cursor:pointer}@media (hover:hover){.mx-clk:hover{transform:translateY(-2px)}}.mx-clk{transition:transform .25s,box-shadow .25s}
+
+/* Analiz formu: etkileşim belirgin, ülke kodu seçilir, gönderim açıkça görünür */
+.mx-fbadge{display:inline-flex;align-items:center;gap:10px;font:600 14px/1 Inter,system-ui,sans-serif;color:#0f1b2d}.mx-fbadge img{width:32px;height:32px;border-radius:8px}
+.cMwGjD input,.mx-tel{transition:border-color .2s,box-shadow .2s,background .2s}
+.cMwGjD input:hover,.mx-tel:hover{border-color:#9fbdb6!important}
+.cMwGjD input:focus,.cMwGjD input:focus-visible{outline:none!important;border-color:#155552!important;box-shadow:0 0 0 4px rgba(21,85,82,.14)!important;background:#fff!important}
+.cMwGjD input:focus+label,.cMwGjD input:not(:placeholder-shown)+label{color:#155552!important}
+.mx-tel{position:relative;display:flex;align-items:stretch;height:46px;border:1px solid #e3e8ef;border-radius:8px;background:#fff;overflow:hidden}
+.mx-tel:focus-within{border-color:#155552;box-shadow:0 0 0 4px rgba(21,85,82,.14)}
+.mx-tel-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mx-tel select{flex:0 0 96px;border:0;border-right:1px solid #e3e8ec;background:#f6f8f8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23155552' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 10px center;padding:0 24px 0 12px;font:500 14px Inter,system-ui,sans-serif;color:#0f1b2d;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none}
+.mx-tel input{flex:1;min-width:0;border:0;padding:0 12px;font:500 16px Inter,system-ui,sans-serif;color:#0f1b2d;background:transparent;outline:none}
+.mx-bad input,.mx-bad.mx-tel,.cMwGjD.mx-bad input{border-color:#d64545!important;box-shadow:0 0 0 4px rgba(214,69,69,.12)!important}
+.iRWFG.mx-bad label{color:#c23b3b!important}
+.mx-form-msg{margin:0 0 10px;font-size:14px;color:#155552;min-height:0}.mx-form-msg.err{color:#c23b3b;font-weight:500}
+button.mx-busy{position:relative;color:transparent!important;pointer-events:none}button.mx-busy img{opacity:0}
+button.mx-busy:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:mxrot .7s linear infinite}
+button[type=button].iitvAu:active{transform:scale(.98)}
+.mx-sent>*:not(.mx-form-ok){display:none!important}
+.mx-form-ok{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:28px;border-radius:16px;background:#f2f8f6;border:1px solid #cfe0dc;animation:mxOkIn .45s cubic-bezier(.2,.9,.3,1.1) both;outline:none}
+.mx-form-ok b{font-size:22px;font-weight:600;color:#0f1b2d}.mx-form-ok p{margin:0;font-size:15px;color:#3b4250;line-height:1.55}.mx-form-ok .mx-ok-s{color:#6b7280;font-size:14px}
+.mx-ok-ic{width:48px;height:48px;border-radius:50%;background:#155552;display:grid;place-items:center;margin-bottom:6px}.mx-ok-ic svg{width:24px;height:24px;fill:none;stroke:#fdcf3c;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:24;stroke-dashoffset:24;animation:mxOkDraw .5s .25s ease forwards}
+.mx-ok-wa{margin-top:8px;display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:10px;background:#155552;color:#fff!important;font-weight:600;font-size:15px;text-decoration:none}
+@keyframes mxOkIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes mxOkDraw{to{stroke-dashoffset:0}}
+
+/* Ana sayfa girişi, sağ taraf: tek klinik fotoğrafı + üstünde haftalık özet kartı (Surfe/ikas düzeni) */
+.mx .hxv{position:relative;height:540px;min-width:0}
+.hxv-ph{position:absolute;top:0;right:0;width:82%;height:470px;margin:0;border-radius:28px;overflow:hidden;background:#e9efed}
+.hxv-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.hxv-ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,32,31,0) 55%,rgba(8,32,31,.28))}
+.hxv-dash{position:absolute;left:0;bottom:0;width:340px;padding:18px;border-radius:20px;background:#fff;border:1px solid rgba(15,27,45,.06);box-shadow:0 1px 2px rgba(15,27,45,.06),0 24px 60px -24px rgba(15,27,45,.35);font-family:Inter,system-ui,sans-serif;color:#0f1b2d}
+.hxv-dh{display:flex;align-items:center;gap:10px;margin-bottom:14px}.hxv-dh b{display:block;font-size:14px;font-weight:600}.hxv-dh small{display:block;font-size:12px;color:#6b7280;margin-top:2px}
+.hxv-lg img{display:block;width:28px;height:28px;border-radius:7px}
+.hxv-pill{margin-left:auto;font-size:11px;font-weight:500;color:#6b7280;background:#f2f4f5;border-radius:99px;padding:4px 9px}
+.hxv-kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hxv-kpi>div{background:#f7f9f8;border-radius:12px;padding:10px 12px}
+.hxv-kpi small{display:block;font-size:11.5px;color:#6b7280}.hxv-kpi b{display:inline-block;font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:4px}
+.hxv-kpi em{font-style:normal;font-size:11.5px;font-weight:600;color:#15803d;margin-left:6px}.hxv-kpi em.dn{color:#15803d}
+.hxv-sp{display:block;width:100%;height:56px;margin:12px 0 8px}
+.hxv-sp .ln{stroke-dasharray:1;stroke-dashoffset:1;animation:mxsignDraw 1.8s .3s cubic-bezier(.6,0,.2,1) forwards}
+.hxv-ch{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.hxv-ch li{display:grid;grid-template-columns:96px 1fr 26px;align-items:center;gap:10px;font-size:12px;color:#3b4250}
+.hxv-ch i{display:block;height:6px;border-radius:3px;background:#eef2f1;position:relative;overflow:hidden}
+.hxv-ch i:after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);border-radius:3px;background:#155552;transform-origin:left;transform:scaleX(0);animation:hxvBar .9s cubic-bezier(.2,.8,.2,1) .5s forwards}
+.hxv-ch li:first-child i:after{background:#fdcf3c}
+.hxv-ch b{text-align:right;font-weight:600;color:#0f1b2d}
+@keyframes hxvBar{to{transform:scaleX(1)}}
+.mx .hxv-feed{position:absolute;top:26px;right:-14px;width:280px;display:grid;gap:8px}
+.mx .hxv-feed .notif{box-shadow:0 1px 2px rgba(15,27,45,.06),0 18px 40px -20px rgba(15,27,45,.4);border-color:rgba(15,27,45,.06)}
+.mx .hxv-feed .notif:nth-child(2){margin-left:28px;opacity:.96}
+.hxv-rate{position:absolute;right:18px;bottom:88px;display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:12px;background:rgba(255,255,255,.96);box-shadow:0 18px 40px -20px rgba(15,27,45,.45);font:500 12px Inter,system-ui,sans-serif;color:#3b4250}
+.hxv-rate .g{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid #e5e7eb;font-weight:700;font-size:11px;color:#4285f4}
+.hxv-rate b{font-size:14px;color:#0f1b2d}.hxv-rate .st{color:#f5b301;letter-spacing:1px}
+@media (max-width:1100px){.mx .hxv-feed{right:0;width:250px}}
+@media (max-width:900px){.mx .hxv{height:auto;padding-bottom:0;margin-top:8px}.hxv-ph{position:relative;width:100%;height:280px;border-radius:22px}.hxv-dash{position:relative;width:auto;margin:-72px 14px 0;padding:16px}.mx .hxv-feed{top:14px;right:14px;left:14px;width:auto}.mx .hxv-feed .notif:nth-child(2){display:none}.hxv-rate{display:none}}
+@media (prefers-reduced-motion:reduce){.hxv-sp .ln{animation:none;stroke-dashoffset:0}.hxv-ch i:after{animation:none;transform:none}}
+.hxv-dash{width:360px}
+.mx .hxv-feed{width:300px}.mx .hxv-feed .notif{white-space:nowrap}.mx .hxv-feed .notif .nt{overflow:hidden;text-overflow:ellipsis}
+.hxv-rate{right:auto;bottom:auto;top:22px;left:calc(18% + 18px)}
+.mx .hxv-feed{top:auto;bottom:104px;right:-18px}
+@media (max-width:900px){.mx .hxv-feed{bottom:auto;top:14px;right:14px;left:14px;width:auto}.hxv-dash{width:auto}}
+.mx .hxv-feed{bottom:auto;top:84px}
+@media (max-width:900px){.mx .hxv-feed{top:14px}}
