@@ -308,8 +308,16 @@ function mx_seed_site(): void
         }
     }
     update_option('mx_site_setup', 1);
-    flush_rewrite_rules(false);
+    // Taxonomies registered this request still carry the old category base: rebuild the rules on the next request.
+    update_option('mx_flush_rewrite', 1);
 }
+
+add_action('init', static function (): void {
+    if (get_option('mx_flush_rewrite')) {
+        delete_option('mx_flush_rewrite');
+        flush_rewrite_rules(false);
+    }
+}, 100);
 
 function mx_seed_post_id_by_slug(string $slug): int
 {
