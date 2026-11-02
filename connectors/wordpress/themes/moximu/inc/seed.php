@@ -309,11 +309,12 @@ function mx_seed_site(): void
     }
     update_option('mx_site_setup', 1);
     // Taxonomies registered this request still carry the old category base: rebuild the rules on the next request.
+    $GLOBALS['mx_flush_set_now'] = true;
     update_option('mx_flush_rewrite', 1);
 }
 
 add_action('init', static function (): void {
-    if (get_option('mx_flush_rewrite')) {
+    if (empty($GLOBALS['mx_flush_set_now']) && get_option('mx_flush_rewrite')) {
         delete_option('mx_flush_rewrite');
         flush_rewrite_rules(false);
     }
