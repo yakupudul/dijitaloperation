@@ -157,3 +157,46 @@ function mx_menu_icon(string $url): string
 
     return '<svg class="mx-ic" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'.$inner.'</svg>';
 }
+
+/**
+ * Small line icon for a service / menu card, picked from its link and title (no setting needed).
+ * Used by the mega menu, the mobile menu and the [mx_alt_sayfalar] cards.
+ */
+function mx_svc_icon(string $url, string $title = ''): string
+{
+    $k = mb_strtolower($url.' '.$title);
+    $paths = [
+        'web-sitesi|web sitesi' => '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18"/><circle cx="6.5" cy="6.5" r=".6"/><path d="M7 13h6M7 16h4"/>',
+        'seo' => '<circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/><path d="m8 12 2-2 1.5 1.5L14 9"/>',
+        'isletme-profili|işletme profili|harita|yakın' => '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/>',
+        'google-ads|google ads' => '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2"/>',
+        'instagram|facebook|meta' => '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.8"/><circle cx="17" cy="7" r=".7"/>',
+        'saglik-turizmi|sağlık turizmi|ulke|ülke' => '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 3.6 5.4 3.6 8.5s-1 5.9-3.6 8.5c-2.6-2.6-3.6-5.4-3.6-8.5s1-5.9 3.6-8.5z"/>',
+        'paket' => '<path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/>',
+        'dis-klinik|diş klinik|dis-hekim|diş hekim|implant' => '<path d="M7.5 3.5c-2.2 0-3.8 1.8-3.8 4.3 0 2.3 1 3.6 1.6 5.6.7 2.4.9 7.1 2.6 7.1 1.6 0 1.4-4.6 4.1-4.6s2.5 4.6 4.1 4.6c1.7 0 1.9-4.7 2.6-7.1.6-2 1.6-3.3 1.6-5.6 0-2.5-1.6-4.3-3.8-4.3-1.9 0-2.8 1.2-4.5 1.2S9.4 3.5 7.5 3.5z"/>',
+        'dermatoloji' => '<path d="M12 3.5s6 6.6 6 10.8a6 6 0 0 1-12 0C6 10.1 12 3.5 12 3.5z"/><path d="M9.5 14.5a2.6 2.6 0 0 0 2.5 2.4"/>',
+        'sac-ekimi|saç ekimi' => '<path d="M6 20c0-7 2-12 6-16M12 20c0-6 1-11 4-15M18 20c0-5-.5-9-2-12M4 20h16"/>',
+        'fizyoterapi|fizik tedavi' => '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+        'diyet' => '<path d="M12 7c-4.5-2-8 .7-8 5.2C4 17 7 20.5 9.3 20.5c1.2 0 1.6-.6 2.7-.6s1.5.6 2.7.6C17 20.5 20 17 20 12.2 20 7.7 16.5 5 12 7z"/><path d="M12 7c0-2 1-3.5 3-4"/>',
+        'psikolog|psikiyatri' => '<path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4 19.5l1.4-4.6A7.5 7.5 0 1 1 20 11.5z"/><path d="M9 11.5h.01M12 11.5h.01M15 11.5h.01"/>',
+        'sunnet|sünnet|cocuk|çocuk' => '<path d="M12 3.5 19 6v5.5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6z"/><path d="m9 12 2 2 4-4"/>',
+        'hastane|tip-merkez|tıp merkez' => '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
+        'muayenehane' => '<path d="M6 3.5v5a4 4 0 0 0 8 0v-5"/><path d="M10 12.5v2a5 5 0 0 0 10 0V13"/><circle cx="20" cy="11" r="2"/>',
+        'estetik' => '<path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
+        'sehir|şehir|izmir|ankara|istanbul|antalya|manisa|bursa' => '<path d="M4 21V9l5-3v15M9 21V4l7 4v13M16 21v-8l4 2v6M3 21h18"/>',
+        'sonuc|sonuç|vaka' => '<path d="M4 19h16"/><path d="m5 15 4-4 3 3 6-7"/><path d="M14 7h4v4"/>',
+        'hesaplayıcı|hesaplayici|kontrol|araç|arac' => '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8 7h8M8 12h2M14 12h2M8 16h2M14 16h2"/>',
+        'rehber|blog' => '<path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/>',
+    ];
+    $svg = '<path d="M12 3.5 14 10l6.5 2-6.5 2-2 6.5-2-6.5L3.5 12 10 10z"/>';
+    foreach ($paths as $keys => $p) {
+        foreach (explode('|', $keys) as $needle) {
+            if (str_contains($k, $needle)) {
+                $svg = $p;
+                break 2;
+            }
+        }
+    }
+
+    return '<span class="mx-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'.$svg.'</svg></span>';
+}

@@ -222,8 +222,8 @@ add_shortcode('mx_alt_sayfalar', static function ($atts): string {
             continue;
         }
         $label = trim((string) get_post_meta($item->ID, '_mx_kart_etiket', true));
-        $out .= '<a class="mx-card" href="'.esc_url(get_permalink($item)).'">'.($label !== '' ? '<span class="mx-card-k">'.esc_html($label).'</span>' : '')
-            .'<b>'.esc_html(get_the_title($item)).'</b><span>'.esc_html(wp_trim_words($item->post_excerpt !== '' ? $item->post_excerpt : wp_strip_all_tags(strip_shortcodes($item->post_content)), 22)).'</span><i>İncele →</i></a>';
+        $out .= '<a class="mx-card" href="'.esc_url(get_permalink($item)).'">'.mx_svc_icon((string) get_permalink($item), get_the_title($item)).($label !== '' ? '<span class="mx-card-k">'.esc_html($label).'</span>' : '')
+            .'<b>'.esc_html(get_the_title($item)).'</b><span>'.esc_html(wp_trim_words($item->post_excerpt !== '' ? $item->post_excerpt : wp_strip_all_tags(strip_shortcodes($item->post_content)), 22)).'</span><i>İncele <em>→</em></i></a>';
     }
 
     return $out.'</div>';

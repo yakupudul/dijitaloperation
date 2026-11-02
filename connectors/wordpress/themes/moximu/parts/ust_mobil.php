@@ -15,7 +15,7 @@ $wa = 'https://wa.me/'.ltrim($tel, '+');
 $cta_url = mx_url(($m['baglanti_2'] ?? null)) ?: home_url('/ucretsiz-klinik-analizi/');
 $cta = trim(wp_strip_all_tags((string) ($m['yazi_3'] ?? ''))) ?: 'Ücretsiz klinik analizi';
 ?>
-<div aria-hidden="true" aria-label="Mobil menü" aria-modal="true" class="sc-18e319-0 kauKoP" id="mobile-navigation-menu" inert="" role="dialog"><nav aria-label="Mobile navigation" class="sc-18e319-1 gUqVKX"><a aria-label="Moximu ana sayfa" href="<?= mx_url(($d['baglanti'] ?? null)) ?: esc_url(home_url('/')) ?>"><span class="mxlogo"><img alt="" class="mxlogo-m" src="<?= MX_URI ?>/assets/i/mark-animated.svg" onerror="this.onerror=null;this.src=this.src.replace('mark-animated','mark-loop')"/><img alt="Moximu" class="mxlogo-w" src="<?= MX_URI ?>/assets/i/wm-logo.png"/></span></a><button aria-label="Close mobile menu" class="sc-18e319-3 bhVIpe" type="button"><img alt="" aria-hidden="true" decoding="async" height="24" loading="lazy" src="<?= MX_URI ?>/assets/i/ee636d803a.svg" width="24"/></button></nav>
+<div aria-hidden="true" aria-label="Mobil menü" aria-modal="true" class="sc-18e319-0 kauKoP" id="mobile-navigation-menu" inert="" role="dialog"><nav aria-label="Mobile navigation" class="sc-18e319-1 gUqVKX"><a aria-label="Moximu ana sayfa" href="<?= esc_url(home_url('/')) ?>"><span class="mxlogo"><img alt="" class="mxlogo-m" src="<?= MX_URI ?>/assets/i/mark-animated.svg" onerror="this.onerror=null;this.src=this.src.replace('mark-animated','mark-loop')"/><img alt="Moximu" class="mxlogo-w" src="<?= MX_URI ?>/assets/i/wm-logo.png"/></span></a><button aria-label="Close mobile menu" class="sc-18e319-3 bhVIpe" type="button"><img alt="" aria-hidden="true" decoding="async" height="24" loading="lazy" src="<?= MX_URI ?>/assets/i/ee636d803a.svg" width="24"/></button></nav>
 <div class="mx-mm">
 <?php foreach ($tabs as $t => $tab) :
     $items = mx_rows(($tab['alt'] ?? null)) ?: ($t === 0 ? $def : []);
@@ -25,7 +25,7 @@ $cta = trim(wp_strip_all_tags((string) ($m['yazi_3'] ?? ''))) ?: 'Ücretsiz klin
     } ?>
 <details class="mx-mm-g"><summary><?= esc_html($name) ?><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></summary><ul>
 <?php foreach ($items as $it) : $label = trim(wp_strip_all_tags((string) ($it['metin'] ?? ''))); if ($label === '') { continue; } ?>
-<li><a href="<?= mx_url(($it['baglanti'] ?? null)) ?>"><?= esc_html($label) ?></a></li>
+<li><a href="<?= mx_url(($it['baglanti'] ?? null)) ?>"><?= mx_svc_icon((string) ($it['baglanti'] ?? ''), $label) ?><?= esc_html($label) ?></a></li>
 <?php endforeach; ?>
 <?php if (! empty($tab['baglanti'])) : ?><li class="mx-mm-all"><a href="<?= mx_url($tab['baglanti']) ?>">Tümünü gör →</a></li><?php endif; ?>
 </ul></details>
