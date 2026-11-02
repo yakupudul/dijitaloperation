@@ -125,9 +125,13 @@
                 @endif
                 <button type="button" wire:click="closeReading" class="{{ $ghost }}">Kapat</button>
                 @if ($article['article'] !== null && ! $sentAll)
-                    <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="{{ implode(', ', array_map('strtoupper', array_keys($versions))) }} WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}" data-send="{{ $article['id'] }}">{{ ($article['kind'] ?? null) === 'Güncelleme' ? 'Sayfanın yeni sürümü: ' : '' }}WordPress'e taslak gönder{{ count($versions) > 1 ? ' ('.implode(' + ', array_map('strtoupper', array_keys($versions))).')' : '' }}</button>
+                    @if (($article['kind'] ?? null) === 'Güncelleme')
+                        <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="Canlıdaki sayfanın başlığı ve metni bu yeni sürümle değişsin mi? WordPress'te ayrı taslak oluşmaz. Geri alınabilir." class="{{ $btn }}" data-send="{{ $article['id'] }}">Sayfaya uygula</button>
+                    @else
+                        <button type="button" wire:click="sendContent({{ $article['id'] }})" wire:confirm="{{ implode(', ', array_map('strtoupper', array_keys($versions))) }} WordPress'e taslak olarak gönderilsin mi?" class="{{ $btn }}" data-send="{{ $article['id'] }}">WordPress'e taslak gönder{{ count($versions) > 1 ? ' ('.implode(' + ', array_map('strtoupper', array_keys($versions))).')' : '' }}</button>
+                    @endif
                 @elseif ($sentAll)
-                    <span class="text-xs text-success-700 dark:text-success-400">WordPress'e taslak olarak gönderildi.</span>
+                    <span class="text-xs text-success-700 dark:text-success-400">{{ ($article['kind'] ?? null) === 'Güncelleme' ? 'Canlı sayfaya gönderildi.' : 'WordPress\'e taslak olarak gönderildi.' }}</span>
                 @endif
             </footer>
         </div>

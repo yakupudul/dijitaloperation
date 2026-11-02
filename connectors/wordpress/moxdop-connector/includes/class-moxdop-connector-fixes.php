@@ -473,6 +473,14 @@ final class MoxDOP_Connector_Fixes
                 return $result;
             }
         }
+        if ($target['post_id'] > 0) {
+            // 1.35.0: the drafts list says this page was merged into another one (not a new draft to publish).
+            if ($to !== '') {
+                update_post_meta($target['post_id'], '_moxdop_merged_to', esc_url_raw($to));
+            } else {
+                delete_post_meta($target['post_id'], '_moxdop_merged_to');
+            }
+        }
         $this->purge($target);
 
         return true;
@@ -944,10 +952,32 @@ final class MoxDOP_Connector_Fixes
             return new WP_Error('moxdop_content_disabled', 'Content updates are disabled on this site.', ['status' => 403]);
         }
         $body = json_decode((string) $request->get_body(), true);
-        $copy = get_post(absint(is_array($body) ? ($body['draft_id'] ?? 0) : 0));
-        $original_id = $copy ? (int) get_post_meta($copy->ID, '_moxdop_update_of', true) : 0;
+        $result = $this->apply_update_copy(get_post(absint(is_array($body) ? ($body['draft_id'] ?? 0) : 0)), 'content-apply');
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return $this->auth->envelope(['schema_version' => 1, 'ok' => true] + $result, $request);
+    }
+
+    /**
+     * 1.35.0: the copy goes onto its live page (MoxDOP's approval, or "Canlı sayfaya uygula" in the editor). A copy
+     * already applied answers with the same change again, so MoxDOP's later "Sayfaya uygula" does not fail.
+     *
+     * @return array{post_id: int, change_id: string, url: string}|WP_Error
+     */
+    public function apply_update_copy($copy, $reference)
+    {
+        $original_id = $copy instanceof WP_Post ? (int) get_post_meta($copy->ID, '_moxdop_update_of', true) : 0;
         $original = $original_id > 0 ? get_post($original_id) : null;
-        if (! $copy || ! $original || $copy->post_status !== 'draft') {
+        if (! $copy instanceof WP_Post || ! $original) {
+            return new WP_Error('moxdop_not_found', 'No MoxDOP update draft with this id.', ['status' => 404]);
+        }
+        $applied = (string) get_post_meta($copy->ID, '_moxdop_applied_change', true);
+        if ($applied !== '' && $copy->post_status === 'trash') {
+            return ['post_id' => (int) $original->ID, 'change_id' => $applied, 'url' => (string) get_permalink($original->ID)];
+        }
+        if ($copy->post_status !== 'draft') {
             return new WP_Error('moxdop_not_found', 'No MoxDOP update draft with this id.', ['status' => 404]);
         }
         $before = ['title' => $original->post_title, 'content' => $original->post_content];
@@ -955,10 +985,11 @@ final class MoxDOP_Connector_Fixes
         if (is_wp_error($result)) {
             return new WP_Error('moxdop_apply_failed', $result->get_error_message(), ['status' => 500]);
         }
+        $id = $this->remember('content', ['post_id' => $original->ID], $before, $this->read('content', ['post_id' => $original->ID]), $reference);
+        update_post_meta($copy->ID, '_moxdop_applied_change', $id);
         wp_trash_post($copy->ID);
-        $id = $this->remember('content', ['post_id' => $original->ID], $before, $this->read('content', ['post_id' => $original->ID]), 'content-apply');
 
-        return $this->auth->envelope(['schema_version' => 1, 'ok' => true, 'post_id' => (int) $original->ID, 'change_id' => $id, 'url' => get_permalink($original->ID)], $request);
+        return ['post_id' => (int) $original->ID, 'change_id' => $id, 'url' => (string) get_permalink($original->ID)];
     }
 
     /* ------------------------------------------------------------ front end */

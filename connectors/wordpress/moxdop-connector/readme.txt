@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.34.0
+Stable tag: 1.35.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,10 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.35.0 =
+* Drafts MoxDOP made say what they are in Posts / Pages: "MoxDOP · Yeni yazı", "MoxDOP · Çeviri (EN)", "MoxDOP · Güncelleme → page" (a new version of a live page) and "MoxDOP · 301 ile birleştirildi"; list views "MoxDOP güncellemeleri" and "MoxDOP yeni yazıları".
+* An update copy is never published as a second page: Publish keeps it a draft; the editor offers "Canlı sayfaya uygula" (the live page takes its title and text, undoable from MoxDOP). /content-drafts/apply answers again for a copy already applied.
 
 = 1.34.0 =
 * Full level: theme files. list_themes, list_theme_files, read_theme_file; write_theme_files writes, adds and deletes files of any installed theme or makes a new one (PHP syntax-checked first, old files backed up in wp-content/moxdop-backups, undoable, the active theme is site-checked and rolled back when it broke); switch_theme (guarded, undoable); delete_theme (inactive only, confirm="DELETE_THEME", undoable).

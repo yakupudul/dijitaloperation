@@ -227,9 +227,9 @@ final class OverlapAutopilot
         $hasBody = filled(data_get($suggestion->action, 'proposal.new.html'));
         $this->changes->approve($suggestion, $user);
         $fresh = $suggestion->fresh() ?? $suggestion;
-        $this->state($fresh, $hasBody ? 'publishing' : 'live', $hasBody ? 'SEO alanları gönderildi; metin WordPress\'te taslak kopya, go_live ile canlıya alınır.' : 'SEO alanları siteye gönderildi.', ['by' => (int) $user->id]);
+        $this->state($fresh, $hasBody ? 'publishing' : 'live', $hasBody ? 'SEO alanları gönderildi; metin WordPress kopyayı alınca canlı sayfaya kendiliğinden yazılır.' : 'SEO alanları siteye gönderildi.', ['by' => (int) $user->id]);
 
-        return $hasBody ? 'Gönderildi; metin WordPress\'te taslak kopya (go_live ile canlıya alınır).' : 'SEO alanları siteye gönderildi.';
+        return $hasBody ? 'Gönderildi; metin WordPress kopyayı alınca canlı sayfaya kendiliğinden yazılır.' : 'SEO alanları siteye gönderildi.';
     }
 
     /**

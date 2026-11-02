@@ -27,6 +27,7 @@ use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ContentPlanner;
+use App\Services\Site\ContentUpdateGoLive;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -892,6 +893,8 @@ final class ExternalWriteService
         if ($action->action === ExternalWriteAction::ACTION_CONTENT_DRAFT && $action->suggestion_id !== null) {
             // A broken translation's fix approved on the desk goes live once its draft copy is in WordPress.
             app(BrokenTranslations::class)->draftFinished($action);
+            // A new version of an existing page goes live as soon as its copy is in WordPress (no second draft to sort).
+            app(ContentUpdateGoLive::class)->draftFinished($action);
         }
         if ($action->action === ExternalWriteAction::ACTION_NEGATIVE_LIST_ADD) {
             // Shared-list negatives become "Uygulandı" only once Google accepted them.

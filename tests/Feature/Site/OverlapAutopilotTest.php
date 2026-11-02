@@ -9,12 +9,15 @@ use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\OverlapAct;
 use App\Models\AiTask;
 use App\Models\BrandClusterPage;
+use App\Models\CoreConnection;
+use App\Models\CoreConnectionCredential;
 use App\Models\ExternalWriteAction;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\ClusterOverlaps;
+use App\Services\Site\ContentUpdateGoLive;
 use App\Services\Site\OverlapAutopilot;
 use App\Support\Ai\AiRouteKeys;
 use Illuminate\Support\Facades\Queue;
@@ -162,6 +165,24 @@ final class OverlapAutopilotTest extends SiteTestCase
         $done = $autopilot->act([$this->overlap->id], 'submit_rewrite', $this->admin, ['seo_title' => 'Karşıyaka İmplant Tedavisi', 'meta_description' => 'Karşıyaka şubemizde implant tedavisi.',
             'internal_links' => [['anchor' => 'implant tedavisi', 'url' => 'https://panorama.com.tr/implant/']], 'note' => 'Yalnız SEO alanları.']);
         $this->assertStringContainsString('kontrollerden geçti', $done[$this->overlap->id]);
+    }
+
+    public function test_a_sent_rewrite_goes_live_as_soon_as_wordpress_has_its_copy(): void
+    {
+        Queue::fake();
+        $connection = CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
+            'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.14.0']]);
+        CoreConnectionCredential::factory()->create(['connection_id' => $connection->id, 'encrypted_payload' => ['client_id' => 'c', 'shared_secret' => str_repeat('s', 43)]]);
+        $this->overlap->forceFill(['status' => Suggestion::APPROVED, 'applied_at' => now(),
+            'action' => array_merge((array) $this->overlap->action, ['writes' => [1], 'rewrite' => ['state' => 'publishing']])])->save();
+        $draft = ExternalWriteAction::query()->create(['channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_CONTENT_DRAFT,
+            'digital_asset_id' => $this->site->id, 'brand_id' => $this->brand->id, 'suggestion_id' => $this->overlap->id, 'status' => 'succeeded',
+            'result' => ['post_id' => 77, 'status' => 'succeeded'], 'request_payload' => ['object_id' => 12, 'html' => '<p>x</p>'], 'requested_by' => $this->admin->id]);
+
+        app(ContentUpdateGoLive::class)->draftFinished($draft);
+
+        $this->assertSame(77, ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_CONTENT_APPLY)->sole()->request_payload['draft_id']);
+        $this->assertSame([Suggestion::APPLIED, 'live'], [$this->overlap->fresh()->status, data_get($this->overlap->fresh()->action, 'rewrite.state')]);
     }
 
     public function test_keep_closes_a_wrong_proposal(): void

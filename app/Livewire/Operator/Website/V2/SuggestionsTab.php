@@ -437,7 +437,7 @@ final class SuggestionsTab extends Component
                         'confirm' => 'Bu konunun ana sayfası «'.$pageName.'» olsun mu? Yalnız MoxDOP içinde değişir, siteye bir şey yazılmaz.'],
                     data_get($action, 'rewrite.state') === 'preparing' => ['label' => 'Yeni metin yazılıyor…', 'call' => '', 'confirm' => null],
                     data_get($action, 'rewrite.state') === 'ready' => ['label' => 'Yeni metni siteye gönder', 'call' => "overlap({$s->id}, 'publish')",
-                        'confirm' => 'Yeni metin siteye gönderilsin mi? Başlık ve açıklama hemen, sayfa metni önce taslak olarak gider. Geri alınabilir.'],
+                        'confirm' => 'Yeni metin canlı sayfaya yazılsın mı? Başlık, açıklama ve sayfa metni birlikte değişir; WordPress\'te ayrı taslak kalmaz. Geri alınabilir.'],
                     data_get($action, 'rewrite.state') === 'publishing' => ['label' => 'Canlıya al', 'call' => "overlap({$s->id}, 'go_live')", 'confirm' => 'Taslaktaki yeni metin canlıya alınsın mı? Geri alınabilir.'],
                     default => ['label' => 'Metni ayır', 'call' => "overlap({$s->id}, 'rewrite')", 'confirm' => null],
                 };

@@ -460,14 +460,16 @@ final class ContentBoard
             'fixing' => ! $sent && ContentAutopilot::fixing($s),
         ];
         if (! empty($action['page_update'])) {
-            // A strengthened page: its new version waits as a draft copy of the page until "Sayfaya uygula" puts it live.
+            // A strengthened page: its new version goes live by itself once WordPress has the copy (ContentUpdateGoLive);
+            // copies sent before 2026-11-02 still wait for "Sayfaya uygula".
             $applied = isset($action['page_apply_write_id']);
+            $canApply = ! $applied && ExternalWriteAction::query()->whereKey((int) $action['article_write_id'])->where('status', 'succeeded')->where('updated_at', '<', now()->subMinutes(10))->exists();
             $item = array_merge($item, [
                 'step' => $applied ? 'yayinda' : 'taslakta', 'post_status' => $applied ? 'publish' : 'draft', 'can_date' => false, 'missing_languages' => [], 'unsent' => [],
-                'post_line' => $applied ? 'Sayfaya uygulandı' : 'Sayfanın yeni sürümü WordPress\'te taslak; canlıdaki sayfa henüz değişmedi',
+                'post_line' => $applied ? 'Sayfaya uygulandı' : ($canApply ? 'Yeni sürüm WordPress\'te bekliyor; canlıdaki sayfa henüz değişmedi' : 'Canlı sayfaya uygulanıyor'),
                 'post_date' => $applied ? CarbonImmutable::parse($s->applied_at ?? now())->timezone('Europe/Istanbul') : null,
                 'link' => $applied ? $item['target_url'] : null,
-                'can_apply' => ! $applied && ExternalWriteAction::query()->whereKey((int) $action['article_write_id'])->where('status', 'succeeded')->exists(),
+                'can_apply' => $canApply,
             ]);
         }
 
