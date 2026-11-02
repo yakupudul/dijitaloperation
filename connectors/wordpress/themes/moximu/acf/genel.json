@@ -1,4 +1,63 @@
-{"key":"group_mx_genel","title":"İletişim bilgileri","menu_order":-1,"fields":[
- {"key":"field_mx_g_telefon","name":"telefon","label":"Telefon (yapısal veri)","type":"text","default_value":"+90 538 861 02 88"},
- {"key":"field_mx_g_eposta","name":"talep_eposta","label":"Analiz talepleri hangi e-postaya gelsin","type":"email","instructions":"Boşsa sitenin yönetici e-postası."}
-],"location":[[{"param":"options_page","operator":"==","value":"moximu-ayarlar"}]],"active":true}
+{
+ "key": "group_mx_genel",
+ "title": "İletişim bilgileri",
+ "menu_order": -1,
+ "fields": [
+  {
+   "key": "field_mx_g_telefon",
+   "name": "telefon",
+   "label": "Telefon (yapısal veri)",
+   "type": "text",
+   "default_value": "+90 538 861 02 88"
+  },
+  {
+   "key": "field_mx_g_eposta",
+   "name": "talep_eposta",
+   "label": "Analiz talepleri hangi e-postaya gelsin",
+   "type": "email",
+   "instructions": "Boşsa sitenin yönetici e-postası."
+  },
+  {
+   "key": "field_mx_g_adres",
+   "name": "adres",
+   "label": "Adres (yapısal veri)",
+   "type": "text",
+   "default_value": "1. Anafartalar, Gazi Osman Paşa Cd. No:44, 45010 Şehzadeler/Manisa"
+  },
+  {
+   "key": "field_mx_g_tab",
+   "name": "",
+   "label": "Takip kodları",
+   "type": "tab"
+  },
+  {
+   "key": "field_mx_g_gtm",
+   "name": "gtm_id",
+   "label": "Google Etiket Yöneticisi kimliği",
+   "type": "text",
+   "instructions": "Örn. GTM-XXXXXXX. Sayfa açıldıktan sonra başlar; giriş yapmış yöneticiye yüklenmez."
+  },
+  {
+   "key": "field_mx_g_clarity",
+   "name": "clarity_id",
+   "label": "Microsoft Clarity proje kimliği",
+   "type": "text"
+  },
+  {
+   "key": "field_mx_g_pixel",
+   "name": "meta_pixel_id",
+   "label": "Meta piksel kimliği",
+   "type": "text"
+  }
+ ],
+ "location": [
+  [
+   {
+    "param": "options_page",
+    "operator": "==",
+    "value": "moximu-ayarlar"
+   }
+  ]
+ ],
+ "active": true
+}

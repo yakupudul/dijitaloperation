@@ -18,6 +18,12 @@ add_action('wp_head', static function (): void {
     if ($phone !== '') {
         $org['telephone'] = $phone;
     }
+    $org['logo'] = MX_URI.'/assets/i/og.png';
+    $org['sameAs'] = ['https://www.instagram.com/moximucom/', 'https://www.facebook.com/moximucom', 'https://www.linkedin.com/company/moximu/', 'https://www.youtube.com/@yakup-udul'];
+    $address = trim((string) get_field('adres', 'option'));
+    if ($address !== '') {
+        $org['address'] = ['@type' => 'PostalAddress', 'streetAddress' => $address, 'addressLocality' => 'Manisa', 'addressCountry' => 'TR'];
+    }
     if (is_front_page()) {
         $graph[] = $org;
     }

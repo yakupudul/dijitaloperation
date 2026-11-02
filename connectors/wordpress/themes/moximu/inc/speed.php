@@ -113,7 +113,8 @@ add_action('template_redirect', static function (): void {
         if ($count === 0) {
             return $html;
         }
-        $loader = '<script>(function(){var d=!1;function r(){if(d)return;d=!0;document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}["pointerdown","keydown","scroll","touchstart"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(r,2500)})})();</script>';
+        // Scripts marked data-consent (Clarity, Meta pixel) wait for the cookie banner's "Kabul et".
+        $loader = '<script>(function(){var d=!1;function run(all){document.querySelectorAll(\'script[type="text/mx-later"]\').forEach(function(o){if(o.hasAttribute("data-consent")&&!all)return;var s=document.createElement("script");for(var i=0;i<o.attributes.length;i++){var a=o.attributes[i];if(a.name!=="type")s.setAttribute(a.name,a.value)}s.text=o.text;o.parentNode.replaceChild(s,o)})}function r(){if(d)return;d=!0;run(/(?:^|; )mx_consent=all/.test(document.cookie))}window.mxConsentRun=function(){if(d)run(!0)};["pointerdown","keydown","scroll","touchstart"].forEach(function(e){addEventListener(e,r,{once:!0,passive:!0})});addEventListener("load",function(){setTimeout(r,2500)})})();</script>';
 
         return str_replace('</body>', $loader.'</body>', $html);
     });

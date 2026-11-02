@@ -1,0 +1,14 @@
+{
+ "kalici_baglanti": "/rehber/%postname%/",
+ "kategori_tabani": "rehber/konu",
+ "ayarlar": {"blogname": "Moximu", "blogdescription": "Kliniklerin dijital pazarlama ajansı", "timezone_string": "Europe/Istanbul", "date_format": "j F Y", "WPLANG": "tr_TR", "posts_per_page": 12, "default_comment_status": "closed", "default_ping_status": "closed"},
+ "varsayilan_kategori": {"ad": "Genel", "slug": "genel"},
+ "kategoriler": [
+  {"ad": "SEO", "slug": "seo", "aciklama": "Klinik siteleri için arama motoru optimizasyonu: tedavi sayfaları, teknik düzeltme, içerik."},
+  {"ad": "Google Ads", "slug": "google-ads", "aciklama": "Klinikler için Google arama reklamı: bütçe, kelime, ölçüm ve sağlık reklamı kuralları."},
+  {"ad": "Meta reklam", "slug": "meta", "aciklama": "Instagram ve Facebook reklamı: form, WhatsApp ve hedefleme."},
+  {"ad": "Google İşletme Profili", "slug": "gbp", "aciklama": "Haritadaki klinik kartı: kurulum, yorum, fotoğraf ve gönderi."},
+  {"ad": "Web sitesi", "slug": "web-sitesi", "aciklama": "Klinik web sitesi: tedavi sayfaları, hız, form ve hasta kabul akışı."},
+  {"ad": "Mevzuat", "slug": "mevzuat", "aciklama": "Sağlık reklamında yazılabilenler ve yasaklar."}
+ ]
+}

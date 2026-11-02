@@ -14,6 +14,7 @@ require MX_DIR.'/inc/speed.php';
 require MX_DIR.'/inc/fields.php';
 require MX_DIR.'/inc/schema.php';
 require MX_DIR.'/inc/analiz.php';
+require MX_DIR.'/inc/site.php';
 require MX_DIR.'/inc/seed.php';
 
 add_action('after_setup_theme', static function (): void {

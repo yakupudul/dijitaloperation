@@ -102,6 +102,12 @@
        "label": "Metin",
        "type": "text",
        "instructions": ""
+      },
+      {
+       "key": "field_mx_0844aed91299_bg",
+       "name": "baglanti",
+       "label": "Bağlantı",
+       "type": "text"
       }
      ]
     },
@@ -202,6 +208,12 @@
        "label": "Metin",
        "type": "text",
        "instructions": ""
+      },
+      {
+       "key": "field_mx_2807dc042a3d_bg",
+       "name": "baglanti",
+       "label": "Bağlantı",
+       "type": "text"
       }
      ]
     },
@@ -325,6 +337,12 @@
        "label": "Metin",
        "type": "text",
        "instructions": ""
+      },
+      {
+       "key": "field_mx_178fcd6ef98d_bg",
+       "name": "baglanti",
+       "label": "Bağlantı",
+       "type": "text"
       }
      ]
     },
