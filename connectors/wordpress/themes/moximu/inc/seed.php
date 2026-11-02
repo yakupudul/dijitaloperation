@@ -73,6 +73,11 @@ function mx_seed_run(): void
                 break;
             }
             $id = mx_seed_post_id($page['path']);
+            if (! $id && $page['key'] === 'rehber') {
+                // The article template: a private page whose sections frame every guide post (single.php).
+                $id = (int) wp_insert_post(['post_type' => 'page', 'post_status' => 'private', 'post_title' => 'Rehber yazısı şablonu',
+                    'post_name' => 'rehber-yazisi-sablonu', 'post_content' => 'Rehber yazılarının çevresindeki bölümler (yazının kendisi her yazıdan gelir).']);
+            }
             if (! $id) {
                 $state['log'][] = 'sayfa yok: '.$page['path'];
                 $state['done'][$key] = 1;

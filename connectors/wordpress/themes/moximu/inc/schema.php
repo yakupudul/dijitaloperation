@@ -72,6 +72,16 @@ add_action('wp_head', static function (): void {
             $graph[] = $org;
         }
     }
+    if (is_singular('post')) {
+        $graph[] = ['@type' => 'BlogPosting', 'headline' => get_the_title($id), 'datePublished' => get_the_date('c', $id), 'dateModified' => get_the_modified_date('c', $id),
+            'mainEntityOfPage' => get_permalink($id), 'author' => ['@id' => $home.'#org'], 'publisher' => ['@id' => $home.'#org']];
+        $graph[] = $org;
+        $blog = (int) get_option('page_for_posts');
+        $graph[] = ['@type' => 'BreadcrumbList', 'itemListElement' => [
+            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Ana sayfa', 'item' => $home],
+            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Rehber', 'item' => $blog ? get_permalink($blog) : home_url('/rehber/')],
+            ['@type' => 'ListItem', 'position' => 3, 'name' => get_the_title($id)]]];
+    }
     if ($graph) {
         echo '<script type="application/ld+json">'.wp_json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES).'</script>'."\n";
     }

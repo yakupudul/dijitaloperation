@@ -39,7 +39,9 @@ add_action('wp_enqueue_scripts', static function (): void {
 }, 100);
 
 add_action('wp_head', static function (): void {
-    echo '<link rel="preload" href="'.esc_url(MX_URI.'/assets/fonts/inter-latin.woff2').'" as="font" type="font/woff2" crossorigin>'."\n";
+    foreach (['inter-latin', 'inter-latin-ext'] as $font) {
+        echo '<link rel="preload" href="'.esc_url(MX_URI.'/assets/fonts/'.$font.'.woff2').'" as="font" type="font/woff2" crossorigin>'."\n";
+    }
 }, 1);
 
 // A theme with its own sections has no use for jQuery Migrate on the front end.
