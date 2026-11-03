@@ -309,7 +309,8 @@ final class ChangeApplier
         $reference = 'suggestion-'.$suggestion->id;
         $new = (array) ($proposal['new'] ?? []);
         $changes = [];
-        foreach (['seo_title' => 'seo_title', 'meta_description' => 'seo_description'] as $field => $type) {
+        // excerpt: the post's WordPress Excerpt (Özet) field, connector ≥ 1.36.0 (only pages it reports get one proposed).
+        foreach (['seo_title' => 'seo_title', 'meta_description' => 'seo_description', 'excerpt' => 'excerpt'] as $field => $type) {
             if (filled($new[$field] ?? null)) {
                 $changes[] = ['type' => $type, 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-'.$type, 'value' => (string) $new[$field]];
             }

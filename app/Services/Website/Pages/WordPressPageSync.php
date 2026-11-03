@@ -13,7 +13,8 @@ use Throwable;
  * WordPress Connector → `pages` (primary source for WordPress sites). Every published post / page in any language
  * becomes one row: URL, post id / type, Polylang language, title and meta description from the SEO plugin (Yoast,
  * Rank Math, SEOPress), where the title came from (`title_source`: seo field or post title), canonical, main content
- * text + H1–H3 from the rendered content, word count, indexability (noindex → false) and the WordPress modified time.
+ * text + H1–H3 from the rendered content, word count, indexability (noindex → false), the WordPress modified time and
+ * (connector ≥ 1.36.0) the post's own Excerpt field.
  * Plugin events update or delete just that page; a template (theme) change marks every page changed without refetching.
  */
 final class WordPressPageSync
@@ -55,6 +56,7 @@ final class WordPressPageSync
                 unset($fields['title_source']);
                 $stats[$this->pages->upsert($siteId, $fields)]++;
                 $this->markTitleSource($siteId, $postId, $titleSource);
+                $this->markExcerpt($siteId, $postId, $record);
             } catch (Throwable $error) {
                 // One broken post must not stop the inventory.
                 Log::warning('pages.wordpress.sync_failed', ['site' => $siteId, 'post' => $postId, 'error' => $error->getMessage()]);
@@ -233,6 +235,23 @@ final class WordPressPageSync
         }
         DB::table('pages')->where('website_asset_id', $siteId)->where('wp_post_id', $postId)
             ->where(fn ($q) => $q->whereNull('title_source')->orWhere('title_source', '!=', $source))->update(['title_source' => $source]);
+    }
+
+    /**
+     * The post's own Excerpt (Özet) field, connector ≥ 1.36.0: '' when none was written. Kept beside the page version
+     * (not part of the content hash, so an excerpt edit does not send the page to a new analysis); an older plugin that
+     * does not report it leaves what is stored.
+     *
+     * @param  array<string, mixed>  $record
+     */
+    private function markExcerpt(int $siteId, int $postId, array $record): void
+    {
+        if (! array_key_exists('excerpt', $record) || ! (is_string($record['excerpt']) || $record['excerpt'] === null)) {
+            return;
+        }
+        $excerpt = mb_substr(trim(html_entity_decode((string) $record['excerpt'], ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 2000);
+        DB::table('pages')->where('website_asset_id', $siteId)->where('wp_post_id', $postId)
+            ->where(fn ($q) => $q->whereNull('excerpt')->orWhere('excerpt', '!=', $excerpt))->update(['excerpt' => $excerpt, 'updated_at' => now()]);
     }
 
     private function storedPostTitle(int $siteId, int $postId): ?string

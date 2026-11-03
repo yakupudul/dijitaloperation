@@ -43,6 +43,7 @@ class GetPage extends Tool
             'url' => (string) $page->url,
             'title' => $page->title,
             'meta_description' => $page->meta_description,
+            'excerpt' => $page->excerpt,
             'h1' => $page->h1,
             'category' => $page->category,
             'language' => $page->language,

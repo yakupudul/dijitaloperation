@@ -521,6 +521,8 @@ final class MoxDOP_Connector_REST_Controller
                 'slug' => $post->post_name,
                 'permalink' => get_permalink($post),
                 'title' => get_the_title($post),
+                // 1.36.0: the post's own Excerpt field (empty when none was written; WordPress then makes one from the text).
+                'excerpt' => (string) $post->post_excerpt,
                 'published_at' => get_post_datetime($post, 'date', 'gmt') ? get_post_datetime($post, 'date', 'gmt')->format('c') : null,
                 'modified_at' => get_post_datetime($post, 'modified', 'gmt') ? get_post_datetime($post, 'modified', 'gmt')->format('c') : null,
                 'parent_id' => $post->post_parent ? (string) $post->post_parent : null,

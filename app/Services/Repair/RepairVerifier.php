@@ -101,7 +101,7 @@ final class RepairVerifier
             return null;
         }
         $results = [];
-        $fields = array_filter(['title' => $new['seo_title'] ?? null, 'meta_description' => $new['meta_description'] ?? null, 'canonical' => $new['canonical'] ?? null],
+        $fields = array_filter(['title' => $new['seo_title'] ?? null, 'meta_description' => $new['meta_description'] ?? null, 'canonical' => $new['canonical'] ?? null, 'excerpt' => $new['excerpt'] ?? null],
             fn (mixed $v): bool => is_string($v) && filled($v));
         if ($fields !== [] && $page->updated_at !== null && $page->updated_at->gt($suggestion->applied_at)) {
             $results[] = collect($fields)->every(fn (string $value, string $column): bool => self::normalize($page->{$column}) === self::normalize($value));

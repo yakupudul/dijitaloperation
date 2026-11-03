@@ -67,6 +67,25 @@ final class PagesFromWordPressTest extends TestCase
         $this->assertSame(2, Page::query()->count(), 'drafts and builder templates are not pages');
     }
 
+    public function test_the_excerpt_is_stored_beside_the_page_without_a_new_analysis(): void
+    {
+        $sync = $this->sync();
+        $record = $this->wpPost(30, 'https://klinik.example/dolgu/', 'Dolgu', '<p>Dolgu tedavisi.</p>');
+        $sync->syncContent($this->site->id, [$record]);
+        $this->assertNull(Page::query()->sole()->excerpt, 'a connector before 1.36.0 does not report it');
+
+        $page = Page::query()->sole();
+        $page->forceFill(['analyzed_at' => now()])->save();
+        $sync->syncContent($this->site->id, [$record + ['excerpt' => '']]);
+        $this->assertSame('', $page->fresh()->excerpt, 'no excerpt written on the site');
+
+        $this->assertSame(['created' => 0, 'updated' => 0, 'unchanged' => 1, 'deleted' => 0],
+            $sync->syncContent($this->site->id, [$record + ['excerpt' => 'Dolgu tedavisinin adımları &amp; süresi.']]));
+        $page->refresh();
+        $this->assertSame('Dolgu tedavisinin adımları & süresi.', $page->excerpt);
+        $this->assertNotNull($page->analyzed_at, 'an excerpt edit is not a new page version');
+    }
+
     public function test_same_content_is_not_rewritten_and_a_change_resets_analysis(): void
     {
         $sync = $this->sync();

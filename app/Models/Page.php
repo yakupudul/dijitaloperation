@@ -31,6 +31,7 @@ class Page extends Model
         'language',
         'title',
         'meta_description',
+        'excerpt',
         'canonical',
         'h1',
         'headings',
@@ -54,7 +55,7 @@ class Page extends Model
      * @var list<string>
      */
     public const array LIST_COLUMNS = ['id', 'website_asset_id', 'url', 'url_hash', 'path', 'category', 'category_locked', 'category_source', 'language', 'title',
-        'title_source', 'meta_description', 'canonical', 'h1', 'content_summary', 'content_hash', 'word_count', 'wp_post_id', 'wp_post_type', 'is_indexable',
+        'title_source', 'meta_description', 'excerpt', 'canonical', 'h1', 'content_summary', 'content_hash', 'word_count', 'wp_post_id', 'wp_post_type', 'is_indexable',
         'changed_at', 'analyzed_at', 'created_at', 'updated_at'];
 
     protected function casts(): array

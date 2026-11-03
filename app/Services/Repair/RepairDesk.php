@@ -531,7 +531,7 @@ final class RepairDesk
     public const array CHANGE_LABELS = [
         'seo_title' => 'başlık', 'seo_description' => 'açıklama', 'canonical' => 'asıl adres (canonical)', 'noindex' => 'dizin ayarı',
         'alt_text' => 'görsel alt metni', 'schema' => 'yapılandırılmış veri', 'redirect' => 'yönlendirme', 'merge_redirect' => 'sayfayı birleştirme (yönlendirme)',
-        'internal_link' => 'iç link', 'llms_txt' => 'llms.txt', 'content' => 'sayfa metni',
+        'internal_link' => 'iç link', 'llms_txt' => 'llms.txt', 'content' => 'sayfa metni', 'excerpt' => 'özet',
     ];
 
     /** The site's short English reasons, in words the operator can act on. */
@@ -1166,7 +1166,7 @@ final class RepairDesk
         $before = [];
         $after = [];
         $editable = [];
-        foreach (['seo_title' => 'Başlık', 'meta_description' => 'Açıklama'] as $field => $label) {
+        foreach (['seo_title' => 'Başlık', 'meta_description' => 'Açıklama', 'excerpt' => 'Özet'] as $field => $label) {
             if (filled($new[$field] ?? null)) {
                 $before[] = $label.': '.((string) ($current[$field] ?? '') ?: '—');
                 $after[] = $label.': '.$new[$field];

@@ -34,6 +34,10 @@ use Throwable;
  * pages get no brand services, a thin page's text comes from the stored crawl, and a value that shares fewer than two
  * content words with the page's title / H1 / URL is refused. A row whose values fail 3 times is blocked with the reason
  * instead of being re-sent every hour.
+ *
+ * yakup, 2026-11-02: the same call writes the page's WordPress Excerpt (Özet) when the audit found it missing or the
+ * same as another page's, checked by the same rules (SiteAudit::EXCERPT_MIN–EXCERPT_MAX characters, not another page's
+ * excerpt, about this page, no invented number, sector phrases).
  */
 final class SeoFieldsBatch
 {
@@ -95,7 +99,7 @@ final class SeoFieldsBatch
                 'id' => (int) $s->id, 'url' => (string) $s->page->url, 'language' => (string) ($s->page->language ?: 'tr'),
                 'category' => (string) ($s->page->category ?: 'diger'),
                 'seo_title' => (string) $s->page->title, 'title_source' => $s->page->title_source === 'post' ? 'post' : 'seo',
-                'meta_description' => (string) $s->page->meta_description, 'h1' => (string) $s->page->h1,
+                'meta_description' => (string) $s->page->meta_description, 'excerpt' => (string) $s->page->excerpt, 'h1' => (string) $s->page->h1,
                 'text' => mb_substr($texts[(int) $s->id], 0, 700), 'fix' => self::fix($s), 'queries' => $queries[(string) $s->page->url] ?? [],
             ])->all(),
         ], 240, 'batch-'.md5(implode(',', $suggestions->pluck('id')->all())));
@@ -107,6 +111,8 @@ final class SeoFieldsBatch
             ->map(fn ($t): string => SeoText::fold((string) $t))->filter()->flip()->all();
         $siteDescriptions = Page::query()->where('website_asset_id', $site->id)->whereNotIn('id', $suggestions->pluck('page_id'))->pluck('meta_description')
             ->map(fn ($t): string => SeoText::fold((string) $t))->filter()->flip()->all();
+        $siteExcerpts = Page::query()->where('website_asset_id', $site->id)->whereNotIn('id', $suggestions->pluck('page_id'))->whereNotNull('excerpt')->pluck('excerpt')
+            ->map(fn ($t): string => SeoText::fold((string) $t))->filter()->flip()->all();
         $compliance = BriefCompliance::forBrand($brand);
         $forbidden = ForbiddenTerms::forBrand($brand);
         $answers = collect((array) ($result['data']['pages'] ?? []))->filter(fn ($p): bool => is_array($p) && is_int($p['id'] ?? null))->keyBy('id');
@@ -115,7 +121,7 @@ final class SeoFieldsBatch
         foreach ($suggestions as $suggestion) {
             $answer = $answers->get($suggestion->id);
             [$new, $refused] = $answer === null ? [[], ['AI bu sayfa için değer vermedi']]
-                : $this->checked($suggestion, (array) $answer, $texts[(int) $suggestion->id], $siteTitles, $siteDescriptions, $compliance, $forbidden, $names);
+                : $this->checked($suggestion, (array) $answer, $texts[(int) $suggestion->id], $siteTitles, $siteDescriptions, $siteExcerpts, $compliance, $forbidden, $names);
             if ($new === []) {
                 $this->recordFailure($suggestion, $refused);
 
@@ -126,7 +132,7 @@ final class SeoFieldsBatch
             unset($action['proposal_blocked'], $action['proposal_warnings'], $action['proposal_attempts'], $action['proposal_error']);
             $action['proposal'] = [
                 'kind' => 'fields',
-                'current' => array_filter(['seo_title' => $page->title, 'meta_description' => $page->meta_description], fn ($v): bool => $v !== null),
+                'current' => array_filter(['seo_title' => $page->title, 'meta_description' => $page->meta_description, 'excerpt' => isset($new['excerpt']) ? $page->excerpt : null], fn ($v): bool => $v !== null),
                 'new' => $new, 'note' => '', 'prepared_at' => now()->toIso8601String(), 'prompt_version_id' => $result['prompt_version_id'], 'batch' => true,
             ];
             $suggestion->forceFill(['action' => $action])->save();
@@ -250,7 +256,7 @@ final class SeoFieldsBatch
                     $brandId = (int) $suggestion->brand_id;
                     $names[$brandId] ??= ['brand' => self::words((string) $suggestion->brand?->name),
                         'areas' => self::words(implode(' ', BrandPack::areaNames($suggestion->brand, 10)))];
-                    $fails = collect(['seo_title', 'meta_description'])->contains(fn (string $field): bool => filled($new[$field] ?? null)
+                    $fails = collect(['seo_title', 'meta_description', 'excerpt'])->contains(fn (string $field): bool => filled($new[$field] ?? null)
                         && ! self::grounded($suggestion->page, (string) $new[$field], $names[$brandId]));
                     if ($fails) {
                         unset($action['proposal'], $action['proposal_warnings'], $action['proposal_attempts'], $action['proposal_error']);
@@ -286,7 +292,7 @@ final class SeoFieldsBatch
         $out = [];
         foreach ($codes as $code) {
             [$field, $why] = array_pad(explode(':', (string) $code, 2), 2, 'improve');
-            if (in_array($field, ['seo_title', 'meta_description'], true)) {
+            if (in_array($field, ['seo_title', 'meta_description', 'excerpt'], true)) {
                 $out[$field] = $why;
             }
         }
@@ -300,10 +306,11 @@ final class SeoFieldsBatch
      * @param  array<string, mixed>  $answer
      * @param  array<string, int>  $siteTitles
      * @param  array<string, int>  $siteDescriptions
+     * @param  array<string, int>  $siteExcerpts
      * @param  array{brand: list<string>, areas: list<string>}  $names  folded words of the brand name and its areas
      * @return array{0: array<string, string>, 1: list<string>}
      */
-    private function checked(Suggestion $suggestion, array $answer, string $text, array &$siteTitles, array &$siteDescriptions, BriefCompliance $compliance, ForbiddenTerms $forbidden, array $names): array
+    private function checked(Suggestion $suggestion, array $answer, string $text, array &$siteTitles, array &$siteDescriptions, array &$siteExcerpts, BriefCompliance $compliance, ForbiddenTerms $forbidden, array $names): array
     {
         $page = $suggestion->page;
         $evidence = new SiteEvidence([(string) $page->url]);
@@ -314,19 +321,25 @@ final class SeoFieldsBatch
         $fix = self::fix($suggestion);
         $new = [];
         $refused = [];
-        $limits = ['seo_title' => [SiteAudit::TITLE_MIN, SiteAudit::TITLE_MAX], 'meta_description' => [SiteAudit::DESCRIPTION_MIN, SiteAudit::DESCRIPTION_MAX]];
-        $labels = ['seo_title' => 'başlık', 'meta_description' => 'açıklama'];
+        $limits = ['seo_title' => [SiteAudit::TITLE_MIN, SiteAudit::TITLE_MAX], 'meta_description' => [SiteAudit::DESCRIPTION_MIN, SiteAudit::DESCRIPTION_MAX],
+            'excerpt' => [SiteAudit::EXCERPT_MIN, SiteAudit::EXCERPT_MAX]];
+        $labels = ['seo_title' => 'başlık', 'meta_description' => 'açıklama', 'excerpt' => 'özet'];
+        $current = ['seo_title' => (string) $page->title, 'meta_description' => (string) $page->meta_description, 'excerpt' => (string) $page->excerpt];
         foreach ($limits as $field => [$min, $max]) {
             if (! isset($fix[$field])) {
                 continue;
             }
             $value = trim((string) ($answer[$field] ?? ''));
             $folded = SeoText::fold($value);
-            $taken = $field === 'seo_title' ? $siteTitles : $siteDescriptions;
+            $taken = match ($field) {
+                'seo_title' => $siteTitles,
+                'meta_description' => $siteDescriptions,
+                default => $siteExcerpts,
+            };
             $problem = match (true) {
                 $value === '' => 'boş',
                 mb_strlen($value) < $min || mb_strlen($value) > $max => 'uzunluk '.mb_strlen($value).' karakter',
-                isset($taken[$folded]), $value === trim((string) ($field === 'seo_title' ? $page->title : $page->meta_description)) => 'başka sayfayla ya da eskisiyle aynı',
+                isset($taken[$folded]), $value === trim($current[$field]) => 'başka sayfayla ya da eskisiyle aynı',
                 ! self::grounded($page, $value, $names) => 'sayfanın konusuyla örtüşmüyor',
                 ! $evidence->grounded($value) => 'sayfada olmayan sayı ya da iddia',
                 ! $compliance->isCompliant($value) || $forbidden->blocking($value) !== [] => 'yasaklı ya da uyumsuz ifade',
@@ -339,11 +352,11 @@ final class SeoFieldsBatch
                 continue;
             }
             $new[$field] = $value;
-            if ($field === 'seo_title') {
-                $siteTitles[$folded] = 1;
-            } else {
-                $siteDescriptions[$folded] = 1;
-            }
+            match ($field) {
+                'seo_title' => $siteTitles[$folded] = 1,
+                'meta_description' => $siteDescriptions[$folded] = 1,
+                default => $siteExcerpts[$folded] = 1,
+            };
         }
 
         return [$new, $refused];

@@ -33,6 +33,12 @@ use Throwable;
  * WordPress by-products (pagination such as /page/2/, tag / author archives — SeoText::isCrawlablePage) are not checked
  * at all. Such pages are not junk and get no noindex / delete advice; they are simply not worth a title fix. Their
  * waiting rows close as "auto dismissed" and come back by themselves when the page starts being seen.
+ *
+ * Özet (yakup, 2026-11-02): the WordPress Excerpt field is checked in the same row where it is shown: a blog post (archive
+ * and related-post lists, RSS, the SEO plugin's %%excerpt%% fallback) and a page of a post type whose other pages on
+ * this site mostly carry one (the theme uses it, e.g. as the page lead). Missing there, or the same as on another page,
+ * is a problem of priority 4 (5 without impressions); it is not a ranking factor, so it never outranks a title or
+ * description. Pages whose connector does not report the field yet (null, plugin < 1.36.0) are not checked.
  */
 final class SiteAudit
 {
@@ -45,6 +51,15 @@ final class SiteAudit
     public const int DESCRIPTION_MIN = 70;
 
     public const int DESCRIPTION_MAX = 160;
+
+    public const int EXCERPT_MIN = 100;
+
+    public const int EXCERPT_MAX = 160;
+
+    /** A post type "uses" excerpts on a site when at least this many of its pages, and EXCERPT_SHARE of them, have one. */
+    public const int EXCERPT_USED_MIN = 3;
+
+    public const float EXCERPT_SHARE = 0.5;
 
     /** Search Console look-back of the "is this page seen" test, in days. */
     public const int IMPRESSION_DAYS = 90;
@@ -89,7 +104,7 @@ final class SiteAudit
     public function audit(DigitalAsset $site): array
     {
         $pages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->whereNotNull('wp_post_id')
-            ->get(['id', 'website_asset_id', 'url', 'path', 'language', 'category', 'title', 'title_source', 'meta_description', 'canonical', 'is_indexable', 'wp_post_id', 'content_hash']);
+            ->get(['id', 'website_asset_id', 'url', 'path', 'language', 'category', 'title', 'title_source', 'meta_description', 'excerpt', 'canonical', 'is_indexable', 'wp_post_id', 'wp_post_type', 'content_hash']);
         // Pagination and archive by-products share their title on purpose; they are not pages to fix (nor junk).
         $byProducts = $pages->reject(fn (Page $p): bool => SeoText::isCrawlablePage((string) $p->url))->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $pages = $pages->filter(fn (Page $p): bool => SeoText::isCrawlablePage((string) $p->url))->values();
@@ -101,6 +116,8 @@ final class SiteAudit
         $impressions = $this->impressions($site);
         $titleCounts = $this->counts($pages, fn (Page $p): string => trim((string) $p->title));
         $descriptionCounts = $this->counts($pages, fn (Page $p): string => $descriptions[(int) $p->id]);
+        $excerptCounts = $this->counts($pages, fn (Page $p): string => trim((string) $p->excerpt));
+        $excerptTypes = self::excerptTypes($pages);
 
         // A service / location page is key only when the brand maps it to a service or a topic: bulk-generated /kw/ pages
         // the categorizer also calls "lokasyon" follow the impression rule (Arısoy 3,323 rows on unseen pages, audit 4).
@@ -113,6 +130,9 @@ final class SiteAudit
         foreach ($pages as $page) {
             $description = $descriptions[(int) $page->id];
             $problems = $this->problems($page, $description, $titleCounts, $descriptionCounts);
+            if (($excerpt = self::excerptProblem($page, $excerptCounts, $excerptTypes)) !== null) {
+                $problems[] = $excerpt;
+            }
             if ($problems === []) {
                 continue;
             }
@@ -160,6 +180,49 @@ final class SiteAudit
         }
 
         return array_fill_keys(array_map('intval', array_filter($ids)), true);
+    }
+
+    /**
+     * Post types whose excerpt is shown on this site: blog posts always; another type when most of its pages on the site
+     * (at least EXCERPT_USED_MIN) already carry one.
+     *
+     * @param  Collection<int, Page>  $pages
+     * @return array<string, true>
+     */
+    public static function excerptTypes(Collection $pages): array
+    {
+        $types = ['post' => true];
+        foreach ($pages->filter(fn (Page $p): bool => $p->excerpt !== null)->groupBy(fn (Page $p): string => (string) $p->wp_post_type) as $type => $group) {
+            $filled = $group->filter(fn (Page $p): bool => trim((string) $p->excerpt) !== '')->count();
+            if ($type !== '' && $filled >= self::EXCERPT_USED_MIN && $filled >= $group->count() * self::EXCERPT_SHARE) {
+                $types[$type] = true;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * The page's excerpt problem, or null: not reported (old connector), a post type whose excerpt the site does not use,
+     * or a fine excerpt.
+     *
+     * @param  array<string, int>  $excerptCounts
+     * @param  array<string, true>  $excerptTypes
+     * @return array{field: string, code: string, text: string}|null
+     */
+    public static function excerptProblem(Page $page, array $excerptCounts, array $excerptTypes): ?array
+    {
+        if ($page->excerpt === null || ! isset($excerptTypes[(string) $page->wp_post_type])) {
+            return null;
+        }
+        $excerpt = trim((string) $page->excerpt);
+        $count = $excerptCounts[self::key($page, $excerpt)] ?? 0;
+
+        return match (true) {
+            $excerpt === '' => ['field' => 'excerpt', 'code' => 'missing', 'text' => 'Özet yok'],
+            $count > 1 => ['field' => 'excerpt', 'code' => 'duplicate', 'text' => 'Özet '.$count.' sayfada aynı'],
+            default => null,
+        };
     }
 
     /**
@@ -219,6 +282,7 @@ final class SiteAudit
             [$field, $code] = is_string($problem) ? array_pad(explode(':', $problem, 2), 2, '') : [$problem['field'], $problem['code']];
             $severe = in_array($code, ['missing', 'duplicate'], true);
             $priorities[] = match (true) {
+                $field === 'excerpt' => $seen ? 4 : 5,
                 $field === 'seo_title' && $severe => ($impressions !== null && $impressions > 0) || in_array((string) $category, self::KEY_CATEGORIES, true) ? 1 : 2,
                 $field === 'seo_title' => 4,
                 ! $seen => 5,
@@ -291,10 +355,13 @@ final class SiteAudit
     private function upsert(DigitalAsset $site, Page $page, string $description, array $problems, int $priority, ?Suggestion $existing): bool
     {
         $codes = array_map(fn (array $p): string => $p['field'].':'.$p['code'], $problems);
-        $material = hash('sha256', implode('|', $codes).'|'.SeoText::fold((string) $page->title).'|'.SeoText::fold($description));
+        $material = hash('sha256', implode('|', $codes).'|'.SeoText::fold((string) $page->title).'|'.SeoText::fold($description)
+            .(in_array('excerpt', array_column($problems, 'field'), true) ? '|'.SeoText::fold((string) $page->excerpt) : ''));
         $reason = implode('; ', array_column($problems, 'text')).'.';
+        $fields = array_unique(array_column($problems, 'field'));
+        $what = $fields === ['excerpt'] ? 'Özeti yaz' : (in_array('excerpt', $fields, true) ? 'Başlık, açıklama ve özeti düzelt' : 'Başlık ve açıklamayı düzelt');
         $values = [
-            'channel' => 'search', 'decision_key' => 'repair.'.self::TYPE, 'title' => mb_substr('Başlık ve açıklamayı düzelt: '.($page->path ?: $page->url), 0, 160),
+            'channel' => 'search', 'decision_key' => 'repair.'.self::TYPE, 'title' => mb_substr($what.': '.($page->path ?: $page->url), 0, 160),
             'reason' => mb_substr($reason, 0, 240), 'priority' => $priority, 'action_type' => self::TYPE, 'target_type' => 'page', 'target_id' => $page->id,
             'page_id' => $page->id, 'material_hash' => $material, 'last_seen_at' => now(),
             'evidence' => [['kind' => 'quote', 'value' => mb_substr((string) $page->title, 0, 200) ?: 'başlık yok', 'source' => (string) $page->url]],

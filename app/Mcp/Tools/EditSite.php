@@ -17,7 +17,7 @@ use Throwable;
 
 #[Description(<<<'TEXT'
 Siteyi düzenleme: changes a brand's WordPress site in the Admin's name, only when the operator asked for it in this conversation. Goes through the same write path as an approved Onarım masası row: logged on Akış and in the site's log, undoable, the connector keeps the previous value. One of:
-- changes: up to 100 fixes on existing posts / pages / images, each {type, object_id, value}: seo_title (≤ 60 chars), seo_description (≤ 155), alt_text (object_id = media id), noindex (true/false), canonical (URL on the site), schema (JSON-LD object), internal_link (value {anchor, url}: the first plain-text anchor in the post becomes a link to a page of the same site). Needs "SEO fixes" on in the plugin (list-sites edit.fixes).
+- changes: up to 100 fixes on existing posts / pages / images, each {type, object_id, value}: seo_title (≤ 60 chars), seo_description (≤ 155), excerpt (the post's WordPress Excerpt / Özet, 110–160 chars; connector ≥ 1.36.0), alt_text (object_id = media id), noindex (true/false), canonical (URL on the site), schema (JSON-LD object), internal_link (value {anchor, url}: the first plain-text anchor in the post becomes a link to a page of the same site). Needs "SEO fixes" on in the plugin (list-sites edit.fixes).
 - content: {object_id, title?, html}: a new version of an existing page; it lands as a WordPress draft copy next to the live page (the live page is untouched until the operator puts it live). Keep every fact, image, list and form. Needs "Content updates" (edit.content).
 - draft: {title, content_html, post_type: post|page, excerpt}: a new draft post or page, never published. Needs drafts (edit.drafts).
 - undo: an action_id from site-writes: puts that write back.
@@ -30,7 +30,7 @@ class EditSite extends Tool
         $validated = $request->validate([
             'site_id' => ['required', 'integer'],
             'changes' => ['nullable', 'array', 'max:100'],
-            'changes.*.type' => ['required_with:changes', 'string', 'in:seo_title,seo_description,alt_text,noindex,canonical,schema,internal_link'],
+            'changes.*.type' => ['required_with:changes', 'string', 'in:seo_title,seo_description,excerpt,alt_text,noindex,canonical,schema,internal_link'],
             'changes.*.object_id' => ['required_with:changes', 'integer', 'min:1'],
             'content' => ['nullable', 'array'],
             'content.object_id' => ['required_with:content', 'integer', 'min:1'],
@@ -98,7 +98,7 @@ class EditSite extends Tool
         return [
             'site_id' => $schema->integer()->description('site_id from list-sites.')->required(),
             'changes' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
-                'type' => $row->string()->enum(['seo_title', 'seo_description', 'alt_text', 'noindex', 'canonical', 'schema', 'internal_link'])->required(),
+                'type' => $row->string()->enum(['seo_title', 'seo_description', 'excerpt', 'alt_text', 'noindex', 'canonical', 'schema', 'internal_link'])->required(),
                 'object_id' => $row->integer()->description('WordPress post / page id (media id for alt_text).')->required(),
                 'value' => $row->string()->description('The new value; internal_link: {anchor, url}; schema: JSON-LD object; noindex: true / false.'),
             ]))->description('Fixes on existing content (see the tool description).'),

@@ -38,7 +38,7 @@ final class ResultCorrections
 {
     public const array ARTICLE_FIELDS = ['title', 'meta_title', 'meta_description', 'excerpt', 'html'];
 
-    public const array PROPOSAL_FIELDS = ['seo_title', 'meta_description'];
+    public const array PROPOSAL_FIELDS = ['seo_title', 'meta_description', 'excerpt'];
 
     public const string TARGET_SUGGESTION = 'suggestion';
 

@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.35.0
+Stable tag: 1.36.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,10 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.36.0 =
+* Content snapshot carries each post's Excerpt (Özet) field.
+* SEO fixes: new change type `excerpt` writes a post's Excerpt (logged, WordPress revision, undoable like the other fixes).
 
 = 1.35.0 =
 * Drafts MoxDOP made say what they are in Posts / Pages: "MoxDOP · Yeni yazı", "MoxDOP · Çeviri (EN)", "MoxDOP · Güncelleme → page" (a new version of a live page) and "MoxDOP · 301 ile birleştirildi"; list views "MoxDOP güncellemeleri" and "MoxDOP yeni yazıları".

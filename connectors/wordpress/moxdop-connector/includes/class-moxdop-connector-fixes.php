@@ -243,6 +243,7 @@ final class MoxDOP_Connector_Fixes
             case 'noindex':
             case 'canonical':
             case 'internal_link':
+            case 'excerpt':
                 return $post_id > 0 && get_post($post_id) ? ['post_id' => $post_id] : null;
             case 'alt_text':
                 return $post_id > 0 && get_post_type($post_id) === 'attachment' ? ['post_id' => $post_id] : null;
@@ -282,6 +283,9 @@ final class MoxDOP_Connector_Fixes
                 return mb_substr(sanitize_textarea_field((string) $value), 0, 320);
             case 'alt_text':
                 return mb_substr(sanitize_text_field((string) $value), 0, 250);
+            case 'excerpt':
+                // 1.36.0: the post's Excerpt (Özet) field.
+                return mb_substr(sanitize_textarea_field((string) $value), 0, 600);
             case 'noindex':
                 return (bool) $value;
             case 'canonical':
@@ -363,6 +367,8 @@ final class MoxDOP_Connector_Fixes
                 return $this->redirect_target($target);
             case 'internal_link':
                 return (string) get_post_field('post_content', $target['post_id'], 'raw');
+            case 'excerpt':
+                return (string) get_post_field('post_excerpt', $target['post_id'], 'raw');
             case 'merge_redirect':
                 return ['to' => $this->redirect_target($target), 'status' => $target['post_id'] > 0 ? (string) get_post_status($target['post_id']) : ''];
             case 'content':
@@ -417,6 +423,11 @@ final class MoxDOP_Connector_Fixes
             case 'internal_link':
                 // wp_update_post keeps a WordPress revision of the previous content.
                 $result = wp_update_post(['ID' => $target['post_id'], 'post_content' => wp_slash((string) $value)], true);
+
+                return is_wp_error($result) ? $result : true;
+            case 'excerpt':
+                // wp_update_post keeps a revision; the change log puts the old excerpt back on undo.
+                $result = wp_update_post(['ID' => $target['post_id'], 'post_excerpt' => wp_slash((string) $value)], true);
 
                 return is_wp_error($result) ? $result : true;
             case 'content':
