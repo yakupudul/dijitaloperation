@@ -62,7 +62,8 @@ function mx_keep_handle(string $handle): bool
 
 function mx_trim_queue(): void
 {
-    if (is_admin() || isset($_GET['elementor-preview']) || is_customize_preview()) {
+    // wp-login.php is not is_admin(); its own styles and scripts must stay or the login form loses its CSS and JS.
+    if (is_admin() || did_action('login_init') || ($GLOBALS['pagenow'] ?? '') === 'wp-login.php' || isset($_GET['elementor-preview']) || is_customize_preview()) {
         return;
     }
     foreach ([wp_styles(), wp_scripts()] as $deps) {
