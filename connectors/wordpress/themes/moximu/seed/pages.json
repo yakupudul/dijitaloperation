@@ -669,11 +669,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Sonuçlarla ölçülen iş birlikleri.",
 "yazi_3": "Google ve Meta verilerinden yüzde değişimler; her sonuçta kaynak ve dönem belirtilir.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -695,7 +695,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -718,7 +718,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -741,7 +741,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -961,7 +961,7 @@
 {
 "acf_fc_layout": "alt_menu",
 "kalin_yazi": "Hizmetler",
-"yazi": "<a href=\"#hizmetler\">Hizmetler</a><a href=\"#neden\">Hangi hizmet?</a><a href=\"#rakamlar\">Rakamlar</a><a href=\"#sonuclar\">Sonuçlar</a><a href=\"#sss\">SSS</a>"
+"yazi": "<a href=\"#hizmetler\">Hizmetler</a><a href=\"#neden\">Hangi hizmet?</a><a href=\"#rakamlar\">Rakamlar</a><a href=\"#sonuclar\">Referanslar</a><a href=\"#sss\">SSS</a>"
 },
 {
 "acf_fc_layout": "mobil_cta",
@@ -1075,11 +1075,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -1101,7 +1101,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -1124,7 +1124,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -1147,7 +1147,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -2188,11 +2188,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -2214,7 +2214,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -2237,7 +2237,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -2260,7 +2260,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -3189,11 +3189,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -3215,7 +3215,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -3238,7 +3238,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -3261,7 +3261,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -4195,11 +4195,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -4221,7 +4221,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -4244,7 +4244,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -4267,7 +4267,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -5188,11 +5188,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -5214,7 +5214,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -5237,7 +5237,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -5260,7 +5260,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -6123,11 +6123,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -6149,7 +6149,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -6172,7 +6172,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -6195,7 +6195,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -6554,11 +6554,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v2",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -6580,7 +6580,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -6603,7 +6603,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -6626,7 +6626,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -7452,11 +7452,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -7478,7 +7478,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -7501,7 +7501,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -7524,7 +7524,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -8398,11 +8398,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -8424,7 +8424,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -8447,7 +8447,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -8470,7 +8470,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -8902,11 +8902,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -8928,7 +8928,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -8951,7 +8951,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -8974,7 +8974,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -9355,11 +9355,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -9381,7 +9381,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -9404,7 +9404,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -9427,7 +9427,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -9792,11 +9792,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -9818,7 +9818,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -9841,7 +9841,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -9864,7 +9864,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -10225,11 +10225,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -10251,7 +10251,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -10274,7 +10274,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -10297,7 +10297,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -10674,11 +10674,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -10700,7 +10700,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -10723,7 +10723,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -10746,7 +10746,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -11117,11 +11117,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -11143,7 +11143,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -11166,7 +11166,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -11189,7 +11189,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -11560,11 +11560,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -11586,7 +11586,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -11609,7 +11609,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -11632,7 +11632,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -11997,11 +11997,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -12023,7 +12023,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -12046,7 +12046,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -12069,7 +12069,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -12454,11 +12454,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -12480,7 +12480,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -12503,7 +12503,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -12526,7 +12526,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -14183,29 +14183,15 @@
 "excerpt": "Nilüfer'den Osmangazi'ye ilçe bazlı Google İşletme Profili, tedavi sayfaları ve reklam. Bütçe ilçeye ve tedaviye göre dağılır."
 },
 {
-"key": "tsonuclar",
-"path": "/sonuclar/",
-"title": "Sonuçlar",
-"excerpt": "Birlikte çalıştığımız kliniklerin Google ve Meta hesaplarından yüzde artışlar. Dönem ve kaynak her kartta yazılı.",
-"content": "<p>Sonuçları ham rakam olarak değil, başlangıç ayına göre yüzde değişim olarak yazarız; her kliniğin büyüklüğü farklıdır. Her yüzdenin kaynağı (Search Console, GA4, Google Ads, Meta) ve dönemi profilin altında yazılıdır. Sonuç garantisi vermeyiz; aşağıdakiler ölçülen geçmiştir.</p>\n<h2>Vaka çalışmaları</h2>\n[mx_alt_sayfalar tur=\"musteri\"]\n<h2>Birlikte çalıştığımız klinikler</h2>\n[mx_logolar]\n<p>Diğer referanslar ve klinik türlerine göre liste <a href=\"/referanslar/\">referanslar</a> sayfasında.</p>",
-"seo_title": "Sonuçlar: kliniklerin yüzde artışları · Moximu",
-"seo_desc": "Moximu ile çalışan kliniklerin Search Console, GA4 ve reklam hesaplarından ölçülen yüzde artışlar: organik tıklama, Google gösterimi, site ziyaretçisi.",
-"order": 4,
-"meta": {
-"_mx_ust_yazi": "Sonuçlar",
-"_mx_sayfa_sonu": "sonuclar,yorum_ozet,analiz"
-}
-},
-{
 "key": "vaka",
-"path": "/sonuclar/panorama-ankara/",
+"path": "/referanslar/panorama-ankara/",
 "seo_title": "Panorama Ankara vakası · Moximu",
 "seo_desc": "Panorama Ankara diş kliniği: tedavi × ilçe sayfaları ve Google İşletme Profiliyle organik tıklama yüzde 349, Google gösterimi yüzde 551 arttı. Dönem ve kaynak her sonuçta.",
 "service": {},
 "rows": [
 {
 "acf_fc_layout": "yol",
-"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/sonuclar/\">Sonuçlar</a> › <span>Panorama Ankara</span>"
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/referanslar/\">Referanslar</a> › <span>Panorama Ankara</span>"
 },
 {
 "acf_fc_layout": "vaka_giris",
@@ -14411,11 +14397,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v2",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Diğer klinikler",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -14437,7 +14423,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -14460,7 +14446,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -14483,7 +14469,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -14555,14 +14541,14 @@
 },
 {
 "key": "vaka-dentocare",
-"path": "/sonuclar/dentocare-klinik/",
+"path": "/referanslar/dentocare-klinik/",
 "seo_title": "Dentocare Klinik vakası · Moximu",
 "seo_desc": "Dentocare Klinik (İzmir): yeni site, tedavi × şehir sayfaları ve haftalık içerikle organik tıklama yüzde 534, site ziyaretçisi yüzde 830 arttı. Kaynak GSC ve GA4.",
 "service": {},
 "rows": [
 {
 "acf_fc_layout": "yol",
-"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/sonuclar/\">Sonuçlar</a> › <span>Dentocare Klinik</span>"
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/referanslar/\">Referanslar</a> › <span>Dentocare Klinik</span>"
 },
 {
 "acf_fc_layout": "vaka_giris",
@@ -14759,11 +14745,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v2",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Diğer klinikler",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -14785,7 +14771,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -14808,7 +14794,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -14831,7 +14817,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -14986,32 +14972,28 @@
 {
 "acf_fc_layout": "isaret",
 "yazi": "İşaretimiz",
-"baslik": "Dört daire, <mark>tek çizgi</mark>.",
-"metin": "Logomuzdaki dört daire, hastanın kliniğinizi bulduğu dört yer. Onları birleştiren sarı çizgi M harfini çiziyor; bizim işimiz de bu: dört kanalı ayrı ayrı değil, tek elden ve tek planla yürütmek.",
+"baslik": "Sırayla kurulur, <mark>birlikte</mark> çalışır.",
+"metin": "Logomuz her açılışta aynı sırayla çizilir. Bu sıra, bir klinikle çalışmaya başladığımızda izlediğimiz yöntemin kendisidir.",
 "liste": [
 {
-"baslik": "Web sitesi",
-"metin": "Hastanın sizi tanıdığı, tedaviyi okuyup karar verdiği yer."
+"baslik": "Daireler tek tek belirir",
+"metin": "Kanallar aynı anda açılmaz. Önce web sitesi ve Google İşletme Profili hazırlanır; reklam bu temelin üzerine kurulur."
 },
 {
-"baslik": "Google İşletme Profili",
-"metin": "“Yakınımdaki klinik” diye arayanın ilk gördüğü yer."
+"baslik": "Her dairenin ışığı tam tur döner",
+"metin": "Bir kanal, ölçümü doğrulanmadan tamamlanmış sayılmaz. Telefon, form ve WhatsApp dönüşümleri kurulmadan reklam bütçesi artırılmaz."
 },
 {
-"baslik": "Google Ads",
-"metin": "Tedaviyi arayan kişinin karşısına tam o anda çıktığınız yer."
+"baslik": "Sarı çizgi en son çekilir",
+"metin": "Dört kanal tek planda birleşir. Aramalardan öğrenilen reklam metnine, reklamdan öğrenilen site içeriğine yansır."
 },
 {
-"baslik": "Instagram ve Facebook",
-"metin": "Henüz arama yapmamış hastaya sizin ulaştığınız yer."
-},
-{
-"baslik": "Sarı çizgi",
-"metin": "Dördünü aynı ekip yönetir; biri değişince diğerleri de buna göre ayarlanır."
+"baslik": "Hareket baştan başlar",
+"metin": "Her ay aynı döngü tekrarlanır: ölçüm, düzeltme ve tek sayfalık rapor."
 }
 ],
-"metin_2": "Dairelerin içindeki ışık bir saat gibi döner. Bizim için her hafta bir tur demek: ölçeriz, düzeltiriz, size tek sayfalık bir özet göndeririz.",
-"kucuk_not": "Moximu işareti: dört kanal, tek plan"
+"metin_2": "",
+"kucuk_not": "Moximu işareti · açılış hareketi"
 },
 {
 "acf_fc_layout": "kurucu",
@@ -15730,11 +15712,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v2",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -15756,7 +15738,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -15779,7 +15761,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -15802,7 +15784,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -15852,7 +15834,7 @@
 "liste_2_v2": [
 {
 "buton_yazisi": "Referans görebilir miyiz?",
-"metin": "Evet. Sonuçlar sayfasında klinik logosu ve yüzde artışlarla vakalar var; Google yorumlarımız açık."
+"metin": "Evet. Referanslar sayfasında klinik logosu ve yüzde artışlarla vakalar var; Google yorumlarımız açık."
 },
 {
 "buton_yazisi": "Yalnız klinik mi?",
@@ -16186,11 +16168,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -16212,7 +16194,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -16235,7 +16217,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -16258,7 +16240,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -16656,11 +16638,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -16682,7 +16664,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -16705,7 +16687,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -16728,7 +16710,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -17108,11 +17090,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -17134,7 +17116,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -17157,7 +17139,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -17180,7 +17162,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -17560,11 +17542,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v1",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Referans kliniklerimiz.",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -17586,7 +17568,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -17609,7 +17591,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -17632,7 +17614,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -20190,14 +20172,14 @@
 },
 {
 "key": "vaka-bno",
-"path": "/sonuclar/busra-nur-ozger/",
+"path": "/referanslar/busra-nur-ozger/",
 "seo_title": "Buşra Nur Özger vakası: yurt dışı form maliyeti −%21 · Moximu",
 "seo_desc": "Obezite ve estetik cerrahi kliniği: ülke bazlı Meta form kampanyalarıyla yurt dışı form maliyeti yüzde 21 düştü, form sayısı yüzde 8 arttı.",
 "service": {},
 "rows": [
 {
 "acf_fc_layout": "yol",
-"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/sonuclar/\">Sonuçlar</a> › <span>Buşra Nur Özger</span>"
+"yazi": "<a href=\"/\">Ana sayfa</a> › <a href=\"/referanslar/\">Referanslar</a> › <span>Buşra Nur Özger</span>"
 },
 {
 "acf_fc_layout": "vaka_giris",
@@ -20403,11 +20385,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v2",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Diğer klinikler",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -20429,7 +20411,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -20452,7 +20434,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -20475,7 +20457,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -20681,11 +20663,11 @@
 {
 "acf_fc_layout": "sonuclar",
 "tasarim": "v2",
-"yazi": "Sonuçlar",
+"yazi": "Referanslar",
 "yazi_2": "Birlikte büyüyen klinikler",
 "yazi_3": "Google ve Meta hesaplarından yüzde artışlar; dönem ve kaynak her kartta.",
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm sonuçlar</span>",
+"baglanti": "/referanslar/",
+"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
 "liste": [
 {
 "gorsel": {
@@ -20707,7 +20689,7 @@
 "alt_baslik": "Panorama Ankara",
 "metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
 "vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -20730,7 +20712,7 @@
 "alt_baslik": "Dentocare Klinik",
 "metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
 "vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Vakayı okuyun →"
 },
 {
@@ -20753,7 +20735,7 @@
 "alt_baslik": "Buşra Nur Özger",
 "metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
 "vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Vakayı okuyun →"
 }
 ]
@@ -20922,14 +20904,873 @@
 "path": "/referanslar/",
 "title": "Referanslar",
 "excerpt": "Diş kliniklerinden sağlık turizmine, birlikte çalıştığımız ve çalıştığımız klinikler.",
-"content": "<p>12 yılda 50'den fazla klinik ve muayenehaneyle çalıştık. Aşağıda logosunu kullanmamıza izin veren kliniklerin bir kısmı var.</p>\n[mx_logolar]\n<h2>Vaka hikâyeleri</h2>\n<p>Başlangıç durumu, yapılanlar ve yüzde sonuçlar; kaynak ve dönem her sonuçta yazılı.</p>\n[mx_alt_sayfalar tur=\"musteri\"]\n<h2>Yaptığımız siteler</h2>\n[mx_portfoy]\n<h2>Klinik türlerine göre</h2>\n<table><thead><tr><th>Tür</th><th>Klinikler</th></tr></thead><tbody>\n<tr><td><a href=\"/klinik/dis-klinigi/\">Diş</a></td><td>Avrupadent, Panorama Ankara, Dentocare Klinik, Dental City Turkey, Adadent, Dent Çayyolu, Dental Tasarım Merkezi, Dt. Emre Güneş, Dr. Nuri</td></tr>\n<tr><td><a href=\"/klinik/estetik-klinigi/\">Estetik ve plastik cerrahi</a></td><td>Buşra Nur Özger, Zesu Estetik, Estesecret's Clinics</td></tr>\n<tr><td><a href=\"/klinik/dermatoloji/\">Dermatoloji</a></td><td>Demiderm</td></tr>\n<tr><td><a href=\"/klinik/sac-ekimi/\">Saç ekimi</a></td><td>Haar in Türkiye</td></tr>\n<tr><td><a href=\"/klinik/fizyoterapi/\">Fizyoterapi</a></td><td>Fizyomy, Fizyoterapist Bünyamin Aydın, Medicafoot</td></tr>\n<tr><td><a href=\"/klinik/diyetisyen/\">Diyetisyen</a></td><td>DiyetPartner, Dyt. Şeyma İşlek Yüksel</td></tr>\n<tr><td><a href=\"/klinik/psikolog/\">Psikolog</a></td><td>Brain Clinic, Psikolog Füsun Göknar</td></tr>\n<tr><td><a href=\"/klinik/sunnet/\">Sünnet</a></td><td>Mutlu Sünnet</td></tr>\n<tr><td><a href=\"/klinik/saglik-turizmi/\">Sağlık turizmi</a></td><td>Liva Clinic, Turkey Care You, Turkey Health Station, Dental City Turkey, All For Clinics</td></tr>\n</tbody></table>\n<h2>Ayrıca bakın</h2><ul><li><a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">Klinik web sitesi örnekleri</a></li><li><a href=\"/yorumlar/\">Google yorumları</a></li><li><a href=\"/sonuclar/\">Sonuçlar</a> Yüzde artışlar, dönem ve kaynakla.</li></ul>",
+"content": "<p>12 yılda 50'den fazla klinik ve muayenehaneyle çalıştık. Aşağıda logosunu kullanmamıza izin veren kliniklerin bir kısmı var.</p>\n[mx_logolar]\n<h2>Vaka hikâyeleri</h2>\n<p>Başlangıç durumu, yapılanlar ve yüzde sonuçlar; kaynak ve dönem her sonuçta yazılı.</p>\n[mx_alt_sayfalar tur=\"musteri\"]\n<h2>Yaptığımız siteler</h2>\n[mx_portfoy]\n<h2>Klinik türlerine göre</h2>\n<table><thead><tr><th>Tür</th><th>Klinikler</th></tr></thead><tbody>\n<tr><td><a href=\"/klinik/dis-klinigi/\">Diş</a></td><td>Avrupadent, Panorama Ankara, Dentocare Klinik, Dental City Turkey, Adadent, Dent Çayyolu, Dental Tasarım Merkezi, Dt. Emre Güneş, Dr. Nuri</td></tr>\n<tr><td><a href=\"/klinik/estetik-klinigi/\">Estetik ve plastik cerrahi</a></td><td>Buşra Nur Özger, Zesu Estetik, Estesecret's Clinics</td></tr>\n<tr><td><a href=\"/klinik/dermatoloji/\">Dermatoloji</a></td><td>Demiderm</td></tr>\n<tr><td><a href=\"/klinik/sac-ekimi/\">Saç ekimi</a></td><td>Haar in Türkiye</td></tr>\n<tr><td><a href=\"/klinik/fizyoterapi/\">Fizyoterapi</a></td><td>Fizyomy, Fizyoterapist Bünyamin Aydın, Medicafoot</td></tr>\n<tr><td><a href=\"/klinik/diyetisyen/\">Diyetisyen</a></td><td>DiyetPartner, Dyt. Şeyma İşlek Yüksel</td></tr>\n<tr><td><a href=\"/klinik/psikolog/\">Psikolog</a></td><td>Brain Clinic, Psikolog Füsun Göknar</td></tr>\n<tr><td><a href=\"/klinik/sunnet/\">Sünnet</a></td><td>Mutlu Sünnet</td></tr>\n<tr><td><a href=\"/klinik/saglik-turizmi/\">Sağlık turizmi</a></td><td>Liva Clinic, Turkey Care You, Turkey Health Station, Dental City Turkey, All For Clinics</td></tr>\n</tbody></table>\n<h2>Ayrıca bakın</h2><ul><li><a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">Klinik web sitesi örnekleri</a></li><li><a href=\"/yorumlar/\">Google yorumları</a></li><li><a href=\"/referanslar/\">Referanslar</a> Yüzde artışlar, dönem ve kaynakla.</li></ul>",
 "seo_title": "Referanslar: birlikte çalıştığımız klinikler · Moximu",
 "seo_desc": "Moximu'nun referansları: diş klinikleri, estetik ve dermatoloji, fizyoterapi, diyetisyen, psikolog, sünnet ve sağlık turizmi klinikleri.",
 "order": 0,
 "meta": {
-"_mx_ust_yazi": "Sonuçlar",
+"_mx_ust_yazi": "Referanslar",
 "_mx_sayfa_sonu": "yorum_ozet,analiz"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <span>Referanslar</span>"
+},
+{
+"acf_fc_layout": "ref_giris",
+"yazi": "Referanslar",
+"baslik": "Birlikte çalıştığımız <mark>klinikler ve hekimler</mark>.",
+"metin": "Diş kliniklerinden sağlık turizmine, 12 yılda 50'den fazla klinik ve hekimle çalıştık. Sonuçlar her kliniğin kendi Google ve Meta hesaplarından ölçülür; dönem ve kaynak her kartta yazılıdır.",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi",
+"liste": [
+{
+"yazi": "<b>50+</b><span>klinik ve hekim</span>"
+},
+{
+"yazi": "<b>500+</b><span>web sitesi, 12 yılda</span>"
+},
+{
+"yazi": "<b>10</b><span>branş: diş, estetik, dermatoloji ve diğerleri</span>"
+},
+{
+"yazi": "<b>4,9</b><span>Google puanı, 50 yorum</span>"
 }
+],
+"liste_2": [
+{
+"logo": {
+"seed": "avrupadent.png",
+"alt": "Avrupadent"
+},
+"ad": "Avrupadent"
+},
+{
+"logo": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ad": "Panorama Ankara"
+},
+{
+"logo": {
+"seed": "dentocare.png",
+"alt": "Dentocare"
+},
+"ad": "Dentocare"
+},
+{
+"logo": {
+"seed": "demiderm.png",
+"alt": "Demiderm"
+},
+"ad": "Demiderm"
+},
+{
+"logo": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ad": "Buşra Nur Özger"
+},
+{
+"logo": {
+"seed": "opc.svg",
+"alt": "OPC Klinik"
+},
+"ad": "OPC Klinik"
+},
+{
+"logo": {
+"seed": "dental-city.png",
+"alt": "Dental City Turkey"
+},
+"ad": "Dental City Turkey"
+},
+{
+"logo": {
+"seed": "brain-clinic.png",
+"alt": "Brain Clinic"
+},
+"ad": "Brain Clinic"
+},
+{
+"logo": {
+"seed": "liva-clinic.png",
+"alt": "Liva Clinic"
+},
+"ad": "Liva Clinic"
+},
+{
+"logo": {
+"seed": "haar-in-turkiye.png",
+"alt": "Haar in Türkiye"
+},
+"ad": "Haar in Türkiye"
+},
+{
+"logo": {
+"seed": "estesecrets.png",
+"alt": "Estesecret's Clinics"
+},
+"ad": "Estesecret's Clinics"
+},
+{
+"logo": {
+"seed": "adadent.png",
+"alt": "Adadent"
+},
+"ad": "Adadent"
+},
+{
+"logo": {
+"seed": "dent-cayyolu.png",
+"alt": "Dent Çayyolu"
+},
+"ad": "Dent Çayyolu"
+},
+{
+"logo": {
+"seed": "dtm.png",
+"alt": "Dental Tasarım Merkezi"
+},
+"ad": "Dental Tasarım Merkezi"
+},
+{
+"logo": {
+"seed": "diyetpartner.png",
+"alt": "DiyetPartner"
+},
+"ad": "DiyetPartner"
+},
+{
+"logo": {
+"seed": "fizyomy.png",
+"alt": "Fizyomy"
+},
+"ad": "Fizyomy"
+},
+{
+"logo": {
+"seed": "mutlu-sunnet.png",
+"alt": "Mutlu Sünnet"
+},
+"ad": "Mutlu Sünnet"
+},
+{
+"logo": {
+"seed": "turkey-care-you.png",
+"alt": "Turkey Care You"
+},
+"ad": "Turkey Care You"
+},
+{
+"logo": {
+"seed": "evamed.png",
+"alt": "Evamed"
+},
+"ad": "Evamed"
+},
+{
+"logo": {
+"seed": "medicafoot.png",
+"alt": "Medicafoot"
+},
+"ad": "Medicafoot"
+},
+{
+"logo": {
+"seed": "zesu.png",
+"alt": "Zesu Estetik"
+},
+"ad": "Zesu Estetik"
+},
+{
+"logo": {
+"seed": "burcin-oncul.svg",
+"alt": "Dr. Burçin Öncül"
+},
+"ad": "Dr. Burçin Öncül"
+},
+{
+"logo": {
+"seed": "burcu-kisa.webp",
+"alt": "Prof. Dr. Burcu Kısa"
+},
+"ad": "Prof. Dr. Burcu Kısa"
+},
+{
+"logo": {
+"seed": "turkey-health-station.png",
+"alt": "Turkey Health Station"
+},
+"ad": "Turkey Health Station"
+}
+],
+"kucuk_not": ""
+},
+{
+"acf_fc_layout": "ref_vakalar",
+"yazi": "Vaka çalışmaları",
+"baslik": "Ölçülen sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Rakamları ham değer olarak değil, başlangıç dönemine göre yüzde değişim olarak paylaşırız; ham veri kliniğe aittir. Sonuç garantisi vermeyiz, aşağıdakiler ölçülmüş geçmiştir.",
+"yazi_2": "Diğer ölçülen sonuçlar",
+"liste": [
+{
+"gorsel": {
+"seed": "klinik-dis-hekimi-hasta.jpg",
+"alt": ""
+},
+"logo": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ad": "Panorama Ankara",
+"kucuk_not": "Diş kliniği · Ankara",
+"liste": [
+{
+"yazi": "<b>+%349</b><span>organik tıklama</span>"
+},
+{
+"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+},
+{
+"yazi": "<b>+%73</b><span>site ziyaretçisi</span>"
+}
+],
+"metin": "Tedavi ve ilçe sayfaları, her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen tıklama dört buçuk katına çıktı.",
+"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/",
+"baglanti_yaz": "Vakayı okuyun"
+},
+{
+"gorsel": null,
+"logo": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ad": "Dentocare Klinik",
+"kucuk_not": "Diş kliniği · İzmir",
+"liste": [
+{
+"yazi": "<b>+%534</b><span>organik tıklama</span>"
+},
+{
+"yazi": "<b>+%830</b><span>site ziyaretçisi</span>"
+}
+],
+"metin": "Yeni site, tedavi ve şehir sayfaları, haftalık içerik.",
+"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/",
+"baglanti_yaz": "Vakayı okuyun"
+},
+{
+"gorsel": null,
+"logo": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ad": "Buşra Nur Özger",
+"kucuk_not": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"liste": [
+{
+"yazi": "<b>−%21</b><span>form maliyeti</span>"
+},
+{
+"yazi": "<b>+%8</b><span>form sayısı</span>"
+}
+],
+"metin": "Altı ülke için ayrı form kampanyaları; her pazartesi ülke bazında bütçe kararı.",
+"vurgu": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/",
+"baglanti_yaz": "Vakayı okuyun"
+},
+{
+"gorsel": null,
+"logo": {
+"seed": "demiderm.png",
+"alt": "Demiderm"
+},
+"ad": "Demiderm",
+"kucuk_not": "Dermatoloji",
+"liste": [
+{
+"yazi": "<b>+%114</b><span>organik tıklama</span>"
+},
+{
+"yazi": "<b>+%383</b><span>Google gösterimi</span>"
+}
+],
+"metin": "",
+"vurgu": "Search Console · Aralık 2025 → Ekim 2026",
+"baglanti": "",
+"baglanti_yaz": ""
+},
+{
+"gorsel": null,
+"logo": {
+"seed": "avrupadent.png",
+"alt": "Avrupadent"
+},
+"ad": "Avrupadent",
+"kucuk_not": "Diş kliniği",
+"liste": [
+{
+"yazi": "<b>+%94</b><span>Google gösterimi</span>"
+}
+],
+"metin": "",
+"vurgu": "Search Console · Ekim 2025 → Ekim 2026",
+"baglanti": "",
+"baglanti_yaz": ""
+},
+{
+"gorsel": null,
+"logo": {
+"seed": "burcin-oncul.svg",
+"alt": "Dr. Burçin Öncül"
+},
+"ad": "Dr. Burçin Öncül",
+"kucuk_not": "Diş hekimi",
+"liste": [
+{
+"yazi": "<b>+%46</b><span>organik tıklama</span>"
+},
+{
+"yazi": "<b>+%60</b><span>Google gösterimi</span>"
+}
+],
+"metin": "",
+"vurgu": "Search Console · Ağustos → Ekim 2026",
+"baglanti": "",
+"baglanti_yaz": ""
+}
+]
+},
+{
+"acf_fc_layout": "ref_liste",
+"yazi": "Klinik türüne göre",
+"baslik": "Branşlara göre <mark>referanslar</mark>.",
+"metin": "Her branşın mevzuatı ve hasta yolculuğu farklıdır. Bir tür seçin, o alanda çalıştığımız klinikleri görün.",
+"liste": [
+{
+"logo": {
+"seed": "avrupadent.png",
+"alt": "Avrupadent"
+},
+"ad": "Avrupadent",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ad": "Panorama Ankara",
+"tur": "Diş kliniği",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"logo": {
+"seed": "dentocare.png",
+"alt": "Dentocare"
+},
+"ad": "Dentocare",
+"tur": "Diş kliniği",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"logo": {
+"seed": "burcin-oncul.svg",
+"alt": "Dr. Burçin Öncül"
+},
+"ad": "Dr. Burçin Öncül",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "opc.svg",
+"alt": "OPC Klinik"
+},
+"ad": "OPC Klinik",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "adadent.png",
+"alt": "Adadent"
+},
+"ad": "Adadent",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "dent-cayyolu.png",
+"alt": "Dent Çayyolu"
+},
+"ad": "Dent Çayyolu",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "dtm.png",
+"alt": "Dental Tasarım Merkezi"
+},
+"ad": "Dental Tasarım Merkezi",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "emre-gunes.png",
+"alt": "Dt. Emre Güneş"
+},
+"ad": "Dt. Emre Güneş",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "dr-nuri.png",
+"alt": "Dr. Nuri"
+},
+"ad": "Dr. Nuri",
+"tur": "Diş kliniği",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ad": "Buşra Nur Özger",
+"tur": "Estetik cerrahi",
+"baglanti": "/referanslar/busra-nur-ozger/"
+},
+{
+"logo": {
+"seed": "zesu.png",
+"alt": "Zesu Estetik"
+},
+"ad": "Zesu Estetik",
+"tur": "Estetik cerrahi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "estesecrets.png",
+"alt": "Estesecret's Clinics"
+},
+"ad": "Estesecret's Clinics",
+"tur": "Estetik cerrahi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "demiderm.png",
+"alt": "Demiderm"
+},
+"ad": "Demiderm",
+"tur": "Dermatoloji",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "burcu-kisa.webp",
+"alt": "Prof. Dr. Burcu Kısa"
+},
+"ad": "Prof. Dr. Burcu Kısa",
+"tur": "Kadın doğum",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "haar-in-turkiye.png",
+"alt": "Haar in Türkiye"
+},
+"ad": "Haar in Türkiye",
+"tur": "Saç ekimi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "fizyomy.png",
+"alt": "Fizyomy"
+},
+"ad": "Fizyomy",
+"tur": "Fizyoterapi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "fzt-bunyamin.png",
+"alt": "Fizyoterapist Bünyamin Aydın"
+},
+"ad": "Fizyoterapist Bünyamin Aydın",
+"tur": "Fizyoterapi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "medicafoot.png",
+"alt": "Medicafoot"
+},
+"ad": "Medicafoot",
+"tur": "Fizyoterapi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "diyetpartner.png",
+"alt": "DiyetPartner"
+},
+"ad": "DiyetPartner",
+"tur": "Diyetisyen",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "seyma-islek.png",
+"alt": "Dyt. Şeyma İşlek Yüksel"
+},
+"ad": "Dyt. Şeyma İşlek Yüksel",
+"tur": "Diyetisyen",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "brain-clinic.png",
+"alt": "Brain Clinic"
+},
+"ad": "Brain Clinic",
+"tur": "Psikolog",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "fusun-goknar.png",
+"alt": "Psikolog Füsun Göknar"
+},
+"ad": "Psikolog Füsun Göknar",
+"tur": "Psikolog",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "mutlu-sunnet.png",
+"alt": "Mutlu Sünnet"
+},
+"ad": "Mutlu Sünnet",
+"tur": "Sünnet",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "dental-city.png",
+"alt": "Dental City Turkey"
+},
+"ad": "Dental City Turkey",
+"tur": "Sağlık turizmi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "panorama-global.png",
+"alt": "Panorama Ankara Global"
+},
+"ad": "Panorama Ankara Global",
+"tur": "Sağlık turizmi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "liva-clinic.png",
+"alt": "Liva Clinic"
+},
+"ad": "Liva Clinic",
+"tur": "Sağlık turizmi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "turkey-care-you.png",
+"alt": "Turkey Care You"
+},
+"ad": "Turkey Care You",
+"tur": "Sağlık turizmi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "turkey-health-station.png",
+"alt": "Turkey Health Station"
+},
+"ad": "Turkey Health Station",
+"tur": "Sağlık turizmi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "allforclinics.png",
+"alt": "All For Clinics"
+},
+"ad": "All For Clinics",
+"tur": "Sağlık turizmi",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "kemal-uslu.png",
+"alt": "Dr. Kemal Uslu"
+},
+"ad": "Dr. Kemal Uslu",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "mkozcan.png",
+"alt": "Dr. Mustafa Kemal Özcan"
+},
+"ad": "Dr. Mustafa Kemal Özcan",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "evamed.png",
+"alt": "Evamed"
+},
+"ad": "Evamed",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "yalcin-gursoy.png",
+"alt": "Dr. Yalçın Gürsoy"
+},
+"ad": "Dr. Yalçın Gürsoy",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "merve-curba.png",
+"alt": "Prof. Dr. Merve Çurba"
+},
+"ad": "Prof. Dr. Merve Çurba",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "zeliha-bektas.png",
+"alt": "Dr. Zeliha Bektaş"
+},
+"ad": "Dr. Zeliha Bektaş",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "furkan-sengoz.png",
+"alt": "Dr. Furkan Şengöz"
+},
+"ad": "Dr. Furkan Şengöz",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "mustafa-eraslan.png",
+"alt": "Dr. Mustafa Eraslan"
+},
+"ad": "Dr. Mustafa Eraslan",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "didem-ozkan.png",
+"alt": "Didem Özkan"
+},
+"ad": "Didem Özkan",
+"tur": "Diğer branşlar",
+"baglanti": ""
+},
+{
+"logo": {
+"seed": "suada-gasimova.svg",
+"alt": "Dr. Suada Gasimova"
+},
+"ad": "Dr. Suada Gasimova",
+"tur": "Diğer branşlar",
+"baglanti": ""
+}
+],
+"kucuk_not": ""
+},
+{
+"acf_fc_layout": "portfoy",
+"yazi": "Yaptığımız siteler",
+"baslik": "Yayında olan <mark>klinik siteleri</mark>.",
+"metin": "Bugün yayında olan ve bakımını sürdürdüğümüz sitelerden bazıları. Üstüne gelin, sayfa kayar; tıklayın, siteyi açın.",
+"adet": 6,
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/ornekler/",
+"baglanti_yaz": "Tüm örnekler →",
+"liste": [
+{
+"ad": "Avrupadent",
+"tur": "Diş kliniği · 19 şube",
+"adres": "https://avrupadent.com.tr/",
+"metin": "Çok şubeli diş kurumu; şube, hekim ve tedavi sayfaları birbirine bağlı.",
+"gorsel": {
+"seed": "portfoy-avrupadent.webp",
+"alt": "Avrupadent web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-avrupadent-mobil.webp",
+"alt": "Avrupadent web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Panorama Ankara",
+"tur": "Diş kliniği · Ankara",
+"adres": "https://www.panoramaankara.com/",
+"metin": "Tedavi × ilçe sayfaları; Çankaya ve çevresi için yerel arama düzeni.",
+"gorsel": {
+"seed": "portfoy-panorama-ankara.webp",
+"alt": "Panorama Ankara web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-panorama-ankara-mobil.webp",
+"alt": "Panorama Ankara web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Dentocare Klinik",
+"tur": "Diş kliniği · İzmir",
+"adres": "https://dentocareklinik.com/",
+"metin": "Yeni site, tedavi sayfaları ve haftalık içerik.",
+"gorsel": {
+"seed": "portfoy-dentocare.webp",
+"alt": "Dentocare Klinik web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-dentocare-mobil.webp",
+"alt": "Dentocare Klinik web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Buşra Nur Özger",
+"tur": "Obezite ve estetik cerrahi",
+"adres": "https://busranurozger.com/",
+"metin": "Türkçe, İngilizce ve Almanca; yurt dışı hasta için konsültasyon akışı.",
+"gorsel": {
+"seed": "portfoy-busra-nur-ozger.webp",
+"alt": "Buşra Nur Özger web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-busra-nur-ozger-mobil.webp",
+"alt": "Buşra Nur Özger web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Demiderm Polikliniği",
+"tur": "Dermatoloji ve medikal estetik · İzmir",
+"adres": "https://demiderm.com.tr/",
+"metin": "Tedavi sayfaları ve çok dilli yapı.",
+"gorsel": {
+"seed": "portfoy-demiderm.webp",
+"alt": "Demiderm Polikliniği web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-demiderm-mobil.webp",
+"alt": "Demiderm Polikliniği web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Prof. Dr. Burcu Kısa",
+"tur": "Kadın hastalıkları ve doğum · Ankara",
+"adres": "https://burcukisa.com/",
+"metin": "Hekim sitesi; muayene, gebelik takibi ve tedavi sayfaları.",
+"gorsel": {
+"seed": "portfoy-burcu-kisa.webp",
+"alt": "Prof. Dr. Burcu Kısa web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-burcu-kisa-mobil.webp",
+"alt": "Prof. Dr. Burcu Kısa web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "Dr. Suada Gasimova",
+"tur": "Medikal estetik · İstanbul",
+"adres": "https://drsuadagasimova.com/",
+"metin": "Hekim sitesi; uygulama sayfaları ve WhatsApp randevu.",
+"gorsel": {
+"seed": "portfoy-suada-gasimova.webp",
+"alt": "Dr. Suada Gasimova web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-suada-gasimova-mobil.webp",
+"alt": "Dr. Suada Gasimova web sitesi, telefon görünümü"
+}
+},
+{
+"ad": "OPC Klinik",
+"tur": "Diş kliniği · İstanbul, Kadıköy",
+"adres": "https://opcklinik.com/",
+"metin": "Kadıköy diş kliniği; tedavi sayfaları ve yurt dışı hastalar için İngilizce, Almanca, İtalyanca dil seçenekleri.",
+"gorsel": {
+"seed": "portfoy-opc-klinik-v2.webp",
+"alt": "OPC Klinik web sitesi, masaüstü görünüm"
+},
+"gorsel_2": {
+"seed": "portfoy-opc-klinik-v2-mobil.webp",
+"alt": "OPC Klinik web sitesi, telefon görünümü"
+}
+}
+]
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Google İşletme Profilimizdeki yorumlar, değiştirilmeden yayınlanır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "analiz",
+"tasarim": "v2",
+"gorsel": {
+"seed": "9d6ee90592.webp",
+"alt": "cs"
+},
+"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
+"yazi": "24 saat içinde rapor",
+"etiket": "Klinik adı",
+"etiket_2": "Klinik adı",
+"etiket_3": "Şehir",
+"etiket_4": "E-posta",
+"yazi_2": "Telefon",
+"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"yazi_3": "Analizi isteyin"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+}
+]
 },
 {
 "key": "tyorumlar",
@@ -20941,7 +21782,7 @@
 "seo_desc": "Moximu'nun Google İşletme Profili yorumları: 4,9 puan. Müşterilerin Google'da yazdığı yorumlar ve tüm yorumların bağlantısı.",
 "order": 0,
 "meta": {
-"_mx_ust_yazi": "Sonuçlar",
+"_mx_ust_yazi": "Referanslar",
 "_mx_sayfa_sonu": "analiz"
 }
 },
@@ -21050,14 +21891,136 @@
 "meta": {
 "_mx_ust_yazi": "24 saatte rapor",
 "_mx_sayfa_sonu": "analiz"
+},
+"rows": [
+{
+"acf_fc_layout": "yol",
+"yazi": "<a href=\"/\">Ana sayfa</a> › <span>Ücretsiz klinik analizi</span>"
+},
+{
+"acf_fc_layout": "analiz_giris",
+"yazi": "Ücretsiz · 24 saat içinde",
+"baslik": "Kliniğinizin dijital <mark>durum analizi</mark>.",
+"metin": "Web siteniz, Google İşletme Profiliniz ve reklamlarınız tek raporda incelenir: hasta hangi adımda kayboluyor, ilk 30 günde neler yapılmalı.",
+"liste": [
+{
+"madde": "Klinik adı ve şehir yeterli; şifre istemiyoruz."
+},
+{
+"madde": "Rapor 24 saat içinde e-posta ya da WhatsApp ile gelir."
+},
+{
+"madde": "Ücretsizdir ve bağlayıcı değildir; teklif yalnız isterseniz hazırlanır."
 }
+],
+"yazi_2": "Raporu, kliniğinizle görüşecek kişi hazırlar; arada bir satış temsilcisi yoktur.",
+"alt_baslik": "Analiz talebi",
+"yazi_3": "Bilgilerinizi bırakın, raporunuzu hazırlayalım.",
+"etiket": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
+"buton_yazisi": "Ücretsiz analizi isteyin",
+"yazi_4": "Hemen konuşmak isterseniz:"
+},
+{
+"acf_fc_layout": "analiz_rapor",
+"yazi": "Rapor örneği",
+"baslik": "Tek raporda <mark>dört başlık</mark>.",
+"metin": "Rapor teknik terimlerle değil, hasta gözünden yazılır. Her bulgunun yanında neden önemli olduğu ve öncelik sırası yer alır.",
+"liste": [
+{
+"baslik": "Web sitesi",
+"metin": "Telefonda açılış hızı, tedavi sayfaları, form ve WhatsApp düğmesi, Google'da görünen başlıklar."
+},
+{
+"baslik": "Google İşletme Profili",
+"metin": "Kategori, eksik alanlar, yorum yanıtları, askı riski ve ilçenizdeki harita sıralaması."
+},
+{
+"baslik": "Reklam ve ölçüm",
+"metin": "Reklam hesabınız varsa sayılmayan dönüşümler ve boşa giden aramalar; yoksa şehrinize göre başlangıç bütçesi."
+},
+{
+"baslik": "İlk 30 gün",
+"metin": "Bulguların hangi sırayla düzeltileceği; haftalara bölünmüş uygulama planı."
+}
+],
+"kucuk_not": "Görseldeki klinik ve değerler örnektir."
+},
+{
+"acf_fc_layout": "analiz_surec",
+"yazi": "Süreç",
+"baslik": "Formdan rapora <mark>üç adım</mark>.",
+"liste": [
+{
+"yazi": "Bugün",
+"baslik": "Formu gönderin",
+"metin": "Klinik adı, şehir ve telefon yeterli. Talebiniz doğrudan bize ulaşır."
+},
+{
+"yazi": "24 saat içinde",
+"baslik": "Raporunuz gelir",
+"metin": "Tek sayfalık rapor e-posta ya da WhatsApp ile gönderilir."
+},
+{
+"yazi": "İsterseniz",
+"baslik": "Birlikte değerlendirelim",
+"metin": "Raporu telefonda birlikte okuruz. Uygun görürseniz yazılı teklif aynı gün gelir; görmezseniz rapor sizde kalır."
+}
+]
+},
+{
+"acf_fc_layout": "sss",
+"tasarim": "v1",
+"baslik": "Analiz hakkında sorular",
+"liste": [
+{
+"buton_yazisi": "+",
+"baslik": "Analiz gerçekten ücretsiz mi?",
+"metin": "Evet. Rapor için ücret alınmaz ve sizi herhangi bir sözleşmeye bağlamaz."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Hesap şifrelerimi vermem gerekir mi?",
+"metin": "Hayır. Analiz herkese açık verilerle yapılır: web siteniz, Google İşletme Profiliniz ve arama sonuçları. Reklam hesabınıza daha ayrıntılı bakılmasını isterseniz yalnız okuma yetkisi yeterlidir."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Rapor ne zaman gelir?",
+"metin": "Talebinizden sonraki 24 saat içinde, e-posta ya da WhatsApp ile."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Hangi kliniklere analiz yapıyorsunuz?",
+"metin": "Diş, estetik, dermatoloji, kadın doğum, fizyoterapi, diyetisyen, psikolog ve sağlık turizmi kliniklerine; Türkiye'nin her şehrinden."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Rapordaki önerileri kendim uygulayabilir miyim?",
+"metin": "Evet. Rapor, kimin yapacağından bağımsız olarak sırayla ne yapılması gerektiğini yazar."
+}
+],
+"metin": "Tüm sorular"
+},
+{
+"acf_fc_layout": "yorum_ozet",
+"yazi": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu</span>",
+"metin": "Google İşletme Profilimizdeki yorumlar, değiştirilmeden yayınlanır.",
+"baglanti": "https://www.google.com/maps/search/Moximu",
+"baglanti_yaz": "Yorumları Google'da okuyun"
+},
+{
+"acf_fc_layout": "mobil_cta",
+"yazi": "Ara",
+"baglanti": "/ucretsiz-klinik-analizi/",
+"baglanti_yaz": "Ücretsiz klinik analizi"
+}
+]
 },
 {
 "key": "ttesekkurler",
 "path": "/tesekkurler/",
 "title": "Teşekkürler",
 "excerpt": "Talebiniz bize ulaştı. 24 saat içinde dönüyoruz.",
-"content": "<p>Hafta içi 09:00–18:00 arasında gelen talepler aynı gün, diğerleri ertesi iş günü cevaplanır. Acele ederseniz WhatsApp'tan yazın: [mx_whatsapp].</p>\n<p>Bu arada: <a href=\"/sonuclar/\">sonuçlar</a> · <a href=\"/fiyatlar/\">fiyatlar</a> · <a href=\"/rehber/\">rehber</a></p>",
+"content": "<p>Hafta içi 09:00–18:00 arasında gelen talepler aynı gün, diğerleri ertesi iş günü cevaplanır. Acele ederseniz WhatsApp'tan yazın: [mx_whatsapp].</p>\n<p>Bu arada: <a href=\"/referanslar/\">sonuçlar</a> · <a href=\"/fiyatlar/\">fiyatlar</a> · <a href=\"/rehber/\">rehber</a></p>",
 "seo_title": "",
 "seo_desc": "",
 "order": 0,
@@ -21392,7 +22355,7 @@
 "type": "post",
 "title": "Klinik SEO ne kadar sürede sonuç verir?",
 "excerpt": "İlk hareket 4-8 haftada, kalıcı artış 4-6 ayda görülür. Süreyi kısaltan ve uzatan şeyler, iki klinikten gerçek örnekle.",
-"content": "<p class=\"lp-art-lead\">\"SEO'ya başlarsak ne zaman hasta gelir?\" sorusunun dürüst cevabı bir tarih değil, bir sıradır. Önce Google sitenizi yeniden okur, sonra gösterimler artar, en son tıklama ve hasta talebi gelir. Bu sıra çoğu klinikte birkaç ay sürer.</p>\n<h2>Üç aşama</h2>\n<ol class=\"lp-art-ol\">\n<li><b>İlk 4-8 hafta: düzeltme.</b> Başlıklar, tedavi sayfaları, Google İşletme Profili ve site hızı düzeltilir. Search Console'da gösterim sayısı kıpırdamaya başlar; tıklama henüz azdır.</li>\n<li><b>2-4. ay: görünürlük.</b> Tedavi ve ilçe aramalarında ilk iki sayfaya çıkan sayfa sayısı artar. \"Çankaya implant\", \"Bornova diş kliniği\" gibi aramalardan ilk tıklamalar gelir.</li>\n<li><b>4-6. ay ve sonrası: talep.</b> İlk sayfadaki aramalar formlara, aramalara ve WhatsApp mesajlarına döner. Artış bu noktadan sonra her ay üst üste biner.</li>\n</ol>\n<p>Bu süreler ortalamadır, söz değildir. Rekabetin yoğun olduğu büyük şehirlerde ve yeni açılmış sitelerde daha uzun sürebilir.</p>\n<h2>Süreyi kısaltan şeyler</h2>\n<ul class=\"lp-art-list\">\n<li><b>Eksiksiz bir Google İşletme Profili.</b> Kategori, hizmetler, fotoğraflar ve düzenli yorumlar haritada daha hızlı sonuç verir; haritadaki ilk üç sonuç çoğu zaman sitenin önünde görünür.</li>\n<li><b>Her tedaviye ayrı sayfa.</b> Tek bir \"Hizmetlerimiz\" sayfası hiçbir tedavi aramasında öne çıkamaz.</li>\n<li><b>Hızlı ve telefona uygun site.</b> Telefonda iki saniyede açılmayan sayfa, sıralamada da hastanın gözünde de geride kalır.</li>\n<li><b>Düzenli içerik.</b> Hastaların sorduğu sorulara verilen kısa ve doğru cevaplar, yeni aramalarda görünmenin en ucuz yoludur.</li>\n</ul>\n<h2>Süreyi uzatan şeyler</h2>\n<ul class=\"lp-art-list\">\n<li>Site adresinin değişmesi ve eski adreslerin yönlendirilmemesi.</li>\n<li>Aynı tedavinin birkaç sayfada birbirine rakip olacak şekilde anlatılması.</li>\n<li>Başka sitelerden kopyalanmış tedavi metinleri.</li>\n<li>Çalışmanın iki ay yapılıp bırakılması. SEO bir defalık kurulum değil, haftalık bakımdır.</li>\n</ul>\n<h2>İki klinikten örnek</h2>\n<div class=\"lp-art-two\"><div><b>Panorama Ankara, diş kliniği</b><p>Tedavi ve ilçe sayfaları ile eksiksiz Google İşletme Profili. Organik tıklama +%349, Google gösterimi +%551 (Search Console ve GA4, Ekim 2025 → Ekim 2026).</p></div><div><b>Dentocare Klinik, diş kliniği</b><p>Yeni site, tedavi ve şehir sayfaları, haftalık içerik. Organik tıklama +%534, site ziyaretçisi +%830 (Search Console ve GA4, Aralık 2025 → Ekim 2026).</p></div></div>\n<p>İki klinikte de ilk aylardaki artış küçüktü; büyük kısmı çalışmanın ikinci yarısında geldi. Ayrıntılar <a href=\"/sonuclar/\">sonuçlar</a> sayfasında.</p>\n<h2>Beklerken ne yapılmalı</h2>\n<p>SEO'nun olgunlaşmasını beklerken hasta akışı durmamalı. Bu dönemde Google Ads ile tedavi aramalarında hemen görünmek, Google İşletme Profilini haftalık güncellemek ve gelen her talebi aynı gün aramak gerekir. Reklam ilk ayları taşır, SEO ilerledikçe reklam bütçesi daha pahalı aramalara odaklanır.</p>",
+"content": "<p class=\"lp-art-lead\">\"SEO'ya başlarsak ne zaman hasta gelir?\" sorusunun dürüst cevabı bir tarih değil, bir sıradır. Önce Google sitenizi yeniden okur, sonra gösterimler artar, en son tıklama ve hasta talebi gelir. Bu sıra çoğu klinikte birkaç ay sürer.</p>\n<h2>Üç aşama</h2>\n<ol class=\"lp-art-ol\">\n<li><b>İlk 4-8 hafta: düzeltme.</b> Başlıklar, tedavi sayfaları, Google İşletme Profili ve site hızı düzeltilir. Search Console'da gösterim sayısı kıpırdamaya başlar; tıklama henüz azdır.</li>\n<li><b>2-4. ay: görünürlük.</b> Tedavi ve ilçe aramalarında ilk iki sayfaya çıkan sayfa sayısı artar. \"Çankaya implant\", \"Bornova diş kliniği\" gibi aramalardan ilk tıklamalar gelir.</li>\n<li><b>4-6. ay ve sonrası: talep.</b> İlk sayfadaki aramalar formlara, aramalara ve WhatsApp mesajlarına döner. Artış bu noktadan sonra her ay üst üste biner.</li>\n</ol>\n<p>Bu süreler ortalamadır, söz değildir. Rekabetin yoğun olduğu büyük şehirlerde ve yeni açılmış sitelerde daha uzun sürebilir.</p>\n<h2>Süreyi kısaltan şeyler</h2>\n<ul class=\"lp-art-list\">\n<li><b>Eksiksiz bir Google İşletme Profili.</b> Kategori, hizmetler, fotoğraflar ve düzenli yorumlar haritada daha hızlı sonuç verir; haritadaki ilk üç sonuç çoğu zaman sitenin önünde görünür.</li>\n<li><b>Her tedaviye ayrı sayfa.</b> Tek bir \"Hizmetlerimiz\" sayfası hiçbir tedavi aramasında öne çıkamaz.</li>\n<li><b>Hızlı ve telefona uygun site.</b> Telefonda iki saniyede açılmayan sayfa, sıralamada da hastanın gözünde de geride kalır.</li>\n<li><b>Düzenli içerik.</b> Hastaların sorduğu sorulara verilen kısa ve doğru cevaplar, yeni aramalarda görünmenin en ucuz yoludur.</li>\n</ul>\n<h2>Süreyi uzatan şeyler</h2>\n<ul class=\"lp-art-list\">\n<li>Site adresinin değişmesi ve eski adreslerin yönlendirilmemesi.</li>\n<li>Aynı tedavinin birkaç sayfada birbirine rakip olacak şekilde anlatılması.</li>\n<li>Başka sitelerden kopyalanmış tedavi metinleri.</li>\n<li>Çalışmanın iki ay yapılıp bırakılması. SEO bir defalık kurulum değil, haftalık bakımdır.</li>\n</ul>\n<h2>İki klinikten örnek</h2>\n<div class=\"lp-art-two\"><div><b>Panorama Ankara, diş kliniği</b><p>Tedavi ve ilçe sayfaları ile eksiksiz Google İşletme Profili. Organik tıklama +%349, Google gösterimi +%551 (Search Console ve GA4, Ekim 2025 → Ekim 2026).</p></div><div><b>Dentocare Klinik, diş kliniği</b><p>Yeni site, tedavi ve şehir sayfaları, haftalık içerik. Organik tıklama +%534, site ziyaretçisi +%830 (Search Console ve GA4, Aralık 2025 → Ekim 2026).</p></div></div>\n<p>İki klinikte de ilk aylardaki artış küçüktü; büyük kısmı çalışmanın ikinci yarısında geldi. Ayrıntılar <a href=\"/referanslar/\">sonuçlar</a> sayfasında.</p>\n<h2>Beklerken ne yapılmalı</h2>\n<p>SEO'nun olgunlaşmasını beklerken hasta akışı durmamalı. Bu dönemde Google Ads ile tedavi aramalarında hemen görünmek, Google İşletme Profilini haftalık güncellemek ve gelen her talebi aynı gün aramak gerekir. Reklam ilk ayları taşır, SEO ilerledikçe reklam bütçesi daha pahalı aramalara odaklanır.</p>",
 "cats": [
 "seo"
 ],

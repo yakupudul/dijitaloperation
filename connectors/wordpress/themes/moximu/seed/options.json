@@ -11,7 +11,7 @@
 "madde": "<a href=\"/fiyatlar/\" role=\"menuitem\">Fiyatlar</a>"
 },
 {
-"madde": "<a href=\"/sonuclar/\" role=\"menuitem\">Sonuçlar</a>"
+"madde": "<a href=\"/referanslar/\" role=\"menuitem\">Referanslar</a>"
 },
 {
 "madde": "<a href=\"/hakkimizda/\" role=\"menuitem\">Hakkımızda</a>"
@@ -191,21 +191,21 @@
 ]
 },
 {
-"metin": "Sonuçlar",
-"baglanti": "/sonuclar/",
+"metin": "Referanslar",
+"baglanti": "/referanslar/",
 "alt": [
 {
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "metin": "Panorama Ankara",
 "metin_2": "Diş kliniği: tedavi × ilçe sayfaları ve Google İşletme Profili."
 },
 {
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "metin": "Dentocare Klinik",
 "metin_2": "Diş kliniği: yeni site ve haftalık içerik."
 },
 {
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "metin": "Tüm sonuçlar",
 "metin_2": "Kliniklerin yüzde artışları, kaynağıyla."
 },
@@ -339,8 +339,8 @@
 "baglanti": "/klinik/"
 },
 {
-"metin": "Sonuçlar",
-"baglanti": "/sonuclar/"
+"metin": "Referanslar",
+"baglanti": "/referanslar/"
 },
 {
 "metin": "Araçlar",
@@ -414,8 +414,8 @@
 "baglanti": "/klinik/"
 },
 {
-"metin": "Sonuçlar",
-"baglanti": "/sonuclar/"
+"metin": "Referanslar",
+"baglanti": "/referanslar/"
 },
 {
 "metin": "Araçlar",
@@ -427,7 +427,7 @@
 }
 ],
 "madde": "<a class=\"menu-item-link\" href=\"/fiyatlar/\"><span class=\"sc-18e319-8 etBbWA\">Fiyatlar</span></a>",
-"madde_2": "<a class=\"menu-item-link\" href=\"/sonuclar/\"><span class=\"sc-18e319-8 etBbWA\">Sonuçlar</span></a>",
+"madde_2": "<a class=\"menu-item-link\" href=\"/referanslar/\"><span class=\"sc-18e319-8 etBbWA\">Referanslar</span></a>",
 "baglanti_2": "/ucretsiz-klinik-analizi/",
 "yazi_2": "<span class=\"sc-18e319-14 hfkzxy\">Ücretsiz klinik analizi</span><span class=\"sc-18e319-15 khGrDi\">Klinik adı ve şehir yeter</span>",
 "yazi_3": "Ücretsiz analiz",
@@ -518,8 +518,8 @@
 "baglanti_yaz": "Nasıl çalışır"
 },
 {
-"baglanti": "/sonuclar/",
-"baglanti_yaz": "Sonuçlar"
+"baglanti": "/referanslar/",
+"baglanti_yaz": "Referanslar"
 },
 {
 "baglanti": "/fiyatlar/",
@@ -651,18 +651,18 @@
 "baglanti_yaz": "İşletme Profili kontrol listesi"
 }
 ],
-"alt_baslik_7": "Sonuçlar",
+"alt_baslik_7": "Referanslar",
 "liste_7": [
 {
-"baglanti": "/sonuclar/panorama-ankara/",
+"baglanti": "/referanslar/panorama-ankara/",
 "baglanti_yaz": "Panorama Ankara: organik tıklama +%349"
 },
 {
-"baglanti": "/sonuclar/dentocare-klinik/",
+"baglanti": "/referanslar/dentocare-klinik/",
 "baglanti_yaz": "Dentocare Klinik: organik tıklama +%534"
 },
 {
-"baglanti": "/sonuclar/",
+"baglanti": "/referanslar/",
 "baglanti_yaz": "Buşra Nur Özger: form maliyeti −%21"
 }
 ],

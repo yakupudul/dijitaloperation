@@ -7,14 +7,33 @@ defined('ABSPATH') || exit;
  * the newsletter form.
  */
 
-// Clients: one record per clinic; a record with sections is its case page at /sonuclar/<slug>/.
+// Clients: one record per clinic; a record with sections is its case page at /referanslar/<slug>/.
 add_action('init', static function (): void {
     register_post_type('musteri', [
         'labels' => ['name' => 'Müşteriler', 'singular_name' => 'Müşteri', 'add_new_item' => 'Yeni müşteri', 'edit_item' => 'Müşteriyi düzenle', 'menu_name' => 'Müşteriler'],
         'public' => true, 'show_in_rest' => true, 'has_archive' => false, 'menu_icon' => 'dashicons-groups', 'menu_position' => 21,
-        'supports' => ['title', 'excerpt', 'thumbnail', 'page-attributes'], 'rewrite' => ['slug' => 'sonuclar', 'with_front' => false],
+        'supports' => ['title', 'excerpt', 'thumbnail', 'page-attributes'], 'rewrite' => ['slug' => 'referanslar', 'with_front' => false],
     ]);
     add_post_type_support('page', 'excerpt');
+});
+
+// Case pages moved from /sonuclar/ to /referanslar/ (0.4.0): rebuild the rules once and send old links to the new address.
+add_action('init', static function (): void {
+    if (get_option('mx_case_base') !== 'referanslar') {
+        flush_rewrite_rules(false);
+        update_option('mx_case_base', 'referanslar');
+    }
+}, 101);
+add_action('template_redirect', static function (): void {
+    if (! is_404()) {
+        return;
+    }
+    $path = (string) wp_parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $base = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
+    if (preg_match('#^'.preg_quote(rtrim($base, '/'), '#').'/sonuclar(/.*)?$#', $path, $m)) {
+        wp_safe_redirect(home_url('/referanslar'.($m[1] ?? '/')), 301);
+        exit;
+    }
 });
 
 /** True when an SEO plugin prints title, description and canonical itself. */

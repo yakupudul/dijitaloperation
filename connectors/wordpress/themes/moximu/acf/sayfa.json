@@ -5503,7 +5503,7 @@
     "layout_mx_isaret": {
      "key": "layout_mx_isaret",
      "name": "isaret",
-     "label": "Logo hikâyesi (dört daire)",
+     "label": "Logo hikâyesi (açılış hareketi)",
      "display": "block",
      "sub_fields": [
       {
@@ -5532,9 +5532,9 @@
       {
        "key": "field_mx_isr_liste",
        "name": "liste",
-       "label": "Daireler",
+       "label": "Hareketin aşamaları",
        "type": "repeater",
-       "instructions": "İlk dört satır sırayla sol üst, sağ üst, sol alt, sağ alt daire. Beşinci satır sarı çizgi.",
+       "instructions": "Dört satır: daireler belirir, ışık tam tur döner, sarı çizgi çekilir, hareket baştan başlar.",
        "layout": "block",
        "button_label": "Satır ekle",
        "collapsed": "",
@@ -5570,6 +5570,545 @@
        "label": "Logo altı küçük not",
        "type": "text",
        "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ref_giris": {
+     "key": "layout_mx_ref_giris",
+     "name": "ref_giris",
+     "label": "Referanslar girişi (rakamlar + logo duvarı)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_rfg_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_rfg_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_rfg_metin",
+       "name": "metin",
+       "label": "Giriş metni",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_rfg_bag",
+       "name": "baglanti",
+       "label": "Düğme bağlantısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_rfg_bagy",
+       "name": "baglanti_yaz",
+       "label": "Düğme yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_rfg_liste",
+       "name": "liste",
+       "label": "Rakam kartları",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_rfg_l_y",
+         "name": "yazi",
+         "label": "Kart",
+         "type": "text",
+         "instructions": "<b>50+</b><span>açıklama</span>"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_rfg_logo",
+       "name": "liste_2",
+       "label": "Logo duvarı",
+       "type": "repeater",
+       "instructions": "Logosu olmayan klinik adıyla yazılır.",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_rfg_lg_l",
+         "name": "logo",
+         "label": "Logo",
+         "type": "image",
+         "instructions": "",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_rfg_lg_a",
+         "name": "ad",
+         "label": "Ad",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_rfg_not",
+       "name": "kucuk_not",
+       "label": "Alt not",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ref_vakalar": {
+     "key": "layout_mx_ref_vakalar",
+     "name": "ref_vakalar",
+     "label": "Referanslar: öne çıkan vakalar",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_rfv_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_rfv_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_rfv_metin",
+       "name": "metin",
+       "label": "Giriş metni",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_rfv_y2",
+       "name": "yazi_2",
+       "label": "Alt grup başlığı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_rfv_liste",
+       "name": "liste",
+       "label": "Vakalar",
+       "type": "repeater",
+       "instructions": "İlk satır büyük kart, sonraki iki satır yanında; kalanlar koyu sonuç kartı.",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_rfv_l_g",
+         "name": "gorsel",
+         "label": "Arka plan görseli (yalnız ilk satır, stok klinik fotoğrafı)",
+         "type": "image",
+         "instructions": "",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_rfv_l_lo",
+         "name": "logo",
+         "label": "Logo",
+         "type": "image",
+         "instructions": "",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_rfv_l_ad",
+         "name": "ad",
+         "label": "Klinik adı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_rfv_l_n",
+         "name": "kucuk_not",
+         "label": "Tür · şehir",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_rfv_l_k",
+         "name": "liste",
+         "label": "Yüzde sonuçlar",
+         "type": "repeater",
+         "instructions": "",
+         "layout": "block",
+         "button_label": "Satır ekle",
+         "collapsed": "",
+         "sub_fields": [
+          {
+           "key": "field_mx_rfv_l_k_y",
+           "name": "yazi",
+           "label": "Sonuç",
+           "type": "text",
+           "instructions": "<b>+%349</b><span>organik tıklama</span>"
+          }
+         ]
+        },
+        {
+         "key": "field_mx_rfv_l_m",
+         "name": "metin",
+         "label": "Kısa metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 2,
+         "new_lines": ""
+        },
+        {
+         "key": "field_mx_rfv_l_v",
+         "name": "vurgu",
+         "label": "Kaynak ve dönem",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_rfv_l_b",
+         "name": "baglanti",
+         "label": "Vaka bağlantısı",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_rfv_l_by",
+         "name": "baglanti_yaz",
+         "label": "Bağlantı yazısı",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ref_liste": {
+     "key": "layout_mx_ref_liste",
+     "name": "ref_liste",
+     "label": "Referanslar: klinik türüne göre",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_rfl_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_rfl_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_rfl_metin",
+       "name": "metin",
+       "label": "Giriş metni",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_rfl_liste",
+       "name": "liste",
+       "label": "Klinikler",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_rfl_l_lo",
+         "name": "logo",
+         "label": "Logo",
+         "type": "image",
+         "instructions": "",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_rfl_l_ad",
+         "name": "ad",
+         "label": "Ad",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_rfl_l_t",
+         "name": "tur",
+         "label": "Tür (süzgeç adı)",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_rfl_l_b",
+         "name": "baglanti",
+         "label": "Vaka bağlantısı (varsa)",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_rfl_not",
+       "name": "kucuk_not",
+       "label": "Alt not",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_analiz_giris": {
+     "key": "layout_mx_analiz_giris",
+     "name": "analiz_giris",
+     "label": "Ücretsiz analiz girişi (form)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_ang_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ang_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_ang_metin",
+       "name": "metin",
+       "label": "Giriş metni",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_ang_liste",
+       "name": "liste",
+       "label": "Güvence maddeleri",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_ang_l_m",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_ang_y2",
+       "name": "yazi_2",
+       "label": "Alt not (kim hazırlar)",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ang_ab",
+       "name": "alt_baslik",
+       "label": "Form başlığı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ang_y3",
+       "name": "yazi_3",
+       "label": "Form alt yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ang_et",
+       "name": "etiket",
+       "label": "KVKK onay metni",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ang_bt",
+       "name": "buton_yazisi",
+       "label": "Düğme yazısı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ang_y4",
+       "name": "yazi_4",
+       "label": "Form altı yazı (WhatsApp öncesi)",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_analiz_rapor": {
+     "key": "layout_mx_analiz_rapor",
+     "name": "analiz_rapor",
+     "label": "Ücretsiz analiz: örnek rapor",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_anr_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_anr_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_anr_metin",
+       "name": "metin",
+       "label": "Giriş metni",
+       "type": "textarea",
+       "instructions": "",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_anr_liste",
+       "name": "liste",
+       "label": "Açıklamalar (4 satır)",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_anr_l_b",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_anr_l_m",
+         "name": "metin",
+         "label": "Metin",
+         "type": "text",
+         "instructions": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_anr_not",
+       "name": "kucuk_not",
+       "label": "Alt not",
+       "type": "text",
+       "instructions": ""
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_analiz_surec": {
+     "key": "layout_mx_analiz_surec",
+     "name": "analiz_surec",
+     "label": "Ücretsiz analiz: süreç",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_ans_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_ans_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_ans_liste",
+       "name": "liste",
+       "label": "Adımlar",
+       "type": "repeater",
+       "instructions": "",
+       "layout": "block",
+       "button_label": "Satır ekle",
+       "collapsed": "",
+       "sub_fields": [
+        {
+         "key": "field_mx_ans_l_y",
+         "name": "yazi",
+         "label": "Zaman",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_ans_l_b",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "instructions": ""
+        },
+        {
+         "key": "field_mx_ans_l_m",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "instructions": "",
+         "rows": 2,
+         "new_lines": ""
+        }
+       ]
       }
      ],
      "min": "",

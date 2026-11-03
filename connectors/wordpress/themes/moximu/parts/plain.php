@@ -13,7 +13,7 @@ foreach (array_reverse(get_post_ancestors($id)) as $ancestor) {
     $crumbs[] = '<a href="'.esc_url(get_permalink($ancestor)).'">'.esc_html(get_the_title($ancestor)).'</a>';
 }
 if (get_post_type($id) === 'musteri') {
-    $hub = get_page_by_path('sonuclar');
+    $hub = get_page_by_path('referanslar');
     if ($hub) {
         $crumbs[] = '<a href="'.esc_url(get_permalink($hub)).'">'.esc_html(get_the_title($hub)).'</a>';
     }
