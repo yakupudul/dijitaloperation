@@ -444,3 +444,23 @@ main>.lp-bc:has(+.rf-hero),main>.lp-bc:has(+.an-hero){background:#fbfaf6}
 .mxkmp-m{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mx .px-card.main .btn{background:#fdcf3c!important;border-color:#fdcf3c!important;color:#0f1b2d!important}
 .mxkmp-x{display:none}@media (min-width:641px){.mxkmp-m{overflow:visible}}
+/* 0.5.1 kampanya şeridi: koyu zemin, ortalı mesaj, sayaç kutuları, beyaz hap buton */
+.mxkmp{background:#032421;color:#e6f0ee;font-size:14px;line-height:20px;isolation:isolate}
+.mxkmp:before{content:"";position:absolute;inset:-60% auto -60% -10%;width:520px;transform:none;animation:mxkg 9s ease-in-out infinite alternate;background:radial-gradient(closest-side,rgba(253,207,60,.28),rgba(253,207,60,0));z-index:-1;pointer-events:none}
+.mxkmp:after{content:"";position:absolute;inset:-80% -6% -80% auto;width:420px;background:radial-gradient(closest-side,rgba(64,170,150,.28),rgba(64,170,150,0));z-index:-1;pointer-events:none}
+@keyframes mxkg{to{transform:translateX(70vw)}}
+.mxkmp .in{justify-content:center;gap:16px;padding:9px 20px;max-width:1240px}
+.mxkmp-i{flex:none;width:22px;height:22px}
+.mxkmp-t{gap:10px}
+.mxkmp-t b{background:none;padding:0;border-radius:0;color:#fdcf3c;font-size:14px;font-weight:600}
+.mxkmp-m{color:#fff;font-weight:500}
+.mxkmp-cd{margin-left:6px;display:flex;gap:5px;color:inherit}
+.mxkmp-cd i{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:38px;height:36px;padding:0 4px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-style:normal}
+.mxkmp-cd b{font-size:15px;line-height:16px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums}
+.mxkmp-cd small{font-size:9px;line-height:11px;color:#9fbdb7;letter-spacing:.02em}
+.mxkmp-go{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:999px;background:#fff;color:#0f1b2d;font-size:13px;font-weight:600;transition:background .2s}
+.mxkmp:hover .mxkmp-go{background:#fdcf3c}
+@media (max-width:900px){.mxkmp-i{display:none}.mxkmp-t b{display:none}}
+@media (max-width:640px){.mxkmp .in{flex-wrap:nowrap;gap:8px;padding:8px 12px}.mxkmp-t{width:auto;min-width:0;flex:1}.mxkmp-m{font-size:12.5px;line-height:16px;white-space:normal;overflow:visible;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.mxkmp-cd{margin:0;gap:3px}.mxkmp-cd i{min-width:30px;height:32px;border-radius:7px}.mxkmp-cd b{font-size:13px}.mxkmp-cd small{font-size:8px}.mxkmp-cd i:last-child{display:none}.mxkmp-go{display:none}}
+@media (prefers-reduced-motion:reduce){.mxkmp:before{animation:none}}
