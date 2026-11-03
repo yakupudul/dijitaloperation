@@ -235,3 +235,15 @@ add_action('shutdown', static function (): void {
     }
     delete_transient('mx_webp_lock');
 }, 999);
+
+/*
+ * Sitemaps: Chrome shows a red warning bar on XML files that use an XSL stylesheet (browsers are dropping XSLT).
+ * Search engines never read the stylesheet, so the sitemap is served as plain XML.
+ */
+add_action('init', static function (): void {
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+    if (! preg_match('#sitemaps?[a-z0-9_-]*\.xml(?:\?|$)#i', $uri)) {
+        return;
+    }
+    ob_start(static fn (string $xml): string => (string) preg_replace('#<\?xml-stylesheet[^>]*\?>\s*#i', '', $xml));
+}, 0);
