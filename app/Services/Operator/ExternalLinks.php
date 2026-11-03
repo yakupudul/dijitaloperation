@@ -190,6 +190,15 @@ final class ExternalLinks
             'https://search.google.com/search-console?resource_id='.rawurlencode($property));
     }
 
+    /** @return ExternalLink|null the property's Links report (Backlinkler: its export is uploaded by hand, it has no API) */
+    public function searchConsoleLinks(string $property): ?array
+    {
+        $property = trim($property);
+
+        return $property === '' ? null : $this->link('search_console:'.$property.':links', 'Search Console › Bağlantılar', 'Bağlantılar raporunu Search Console’da aç',
+            'https://search.google.com/search-console/links?resource_id='.rawurlencode($property));
+    }
+
     /** @return ExternalLink|null one page's search performance in Search Console */
     public function searchConsolePage(string $property, string $pageUrl): ?array
     {

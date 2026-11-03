@@ -54,8 +54,19 @@
             </div>
 
             @if ($serp?->status === 'error')
-                <p class="border-t border-gray-200 px-4 py-2.5 text-xs text-error-600 dark:border-gray-800">SERP alınamadı: {{ \Illuminate\Support\Str::limit((string) $serp->error, 120) }}</p>
+                <p class="border-t border-gray-200 px-4 py-2.5 text-xs text-error-600 dark:border-gray-800">Sonuç alınamadı: {{ \Illuminate\Support\Str::limit((string) $serp->error, 160) }}</p>
             @endif
+
+            {{-- No paid SERP (Backlink Faz 0): the operator searches Google and pastes the first ten addresses. --}}
+            <details class="border-t border-gray-200 px-4 py-2.5 dark:border-gray-800" data-paste @if (! $serp || ! $serp->results) open @endif>
+                <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-300">Google'da ara, ilk 10 sonucu yapıştır @if ($row['manual'])<span class="text-gray-400">· son yapıştırma {{ $row['manual'] }}</span>@endif</summary>
+                <div class="mt-2 space-y-2">
+                    <a href="https://www.google.com/search?q={{ rawurlencode($row['query']) }}&hl={{ $row['language'] }}&gl=tr&num=10" target="_blank" rel="noopener noreferrer" class="{{ $ghost }}" data-action="google">„{{ $row['query'] }}" Google'da aç ↗</a>
+                    <textarea wire:model="pasted.{{ $row['cluster']->id }}" rows="4" placeholder="Sonuç sayfasını seçip kopyala ya da adresleri alt alta yapıştır (reklamlar hariç)" aria-label="Google sonuçları"
+                              class="block w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 focus:border-gray-300 focus:ring-2 focus:ring-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
+                    <button type="button" wire:click="pasteResults({{ $row['cluster']->id }})" @disabled(! $operational) class="{{ $ghost }}" data-action="paste">Sonuçları kaydet</button>
+                </div>
+            </details>
 
             @if ($serp && $serp->results)
                 <div class="min-w-0 overflow-x-auto border-t border-gray-200 dark:border-gray-800">

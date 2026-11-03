@@ -64,15 +64,16 @@ final class BacklinksTest extends TestCase
     public function test_upload_through_the_tab_and_manual_rows(): void
     {
         $file = UploadedFile::fake()->createWithContent('links.csv', "Linking page,Target page\nhttps://blog.example/yazi,https://panorama.example/\n");
+        $sites = UploadedFile::fake()->createWithContent('siteler.csv', "Linking site,Linked pages\nsektor.example,3\n");
 
         Livewire::test(BacklinksTab::class, ['assetId' => $this->site->id])
-            ->set('export', $file)->call('importExport')->assertHasNoErrors()->assertSet('message', '1 yeni · 0 güncellendi · 0 atlandı')
+            ->set('exports', [$file, $sites])->call('importExport')->assertHasNoErrors()->assertSet('message', '2 yeni · 0 güncellendi · 0 atlandı')
             ->assertSee('https://blog.example/yazi')
             ->set('linkUrl', 'https://dernek.example/uyeler')->call('addBacklink')->assertHasNoErrors()->assertSee('dernek.example/uyeler')
             ->set('sourceName', 'Ankara Diş Hekimleri Odası')->set('sourceUrl', 'https://oda.example/uyeler')->call('addSource')->assertHasNoErrors()
             ->assertSee('Ankara Diş Hekimleri Odası')->assertSee('teyit gerekli')
             ->set('sourceUrl', 'https://oda.example/baska')->set('sourceName', 'Aynı')->call('addSource')->assertHasErrors('sourceUrl');
-        $this->assertSame(['gsc_import', 'manual'], Backlink::query()->orderBy('id')->pluck('source')->all());
+        $this->assertSame(['gsc_import', 'gsc_import', 'manual'], Backlink::query()->orderBy('id')->pluck('source')->all());
     }
 
     public function test_potential_sources_keep_a_fee_only_with_an_evidence_url_on_the_same_site(): void

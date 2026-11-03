@@ -17,6 +17,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
+use App\Services\Intel\SerpResults;
 use App\Services\Prompts\PromptRegistry;
 use App\Services\Site\Competitors\CompetitorAnalyzer;
 use App\Services\Site\Competitors\CompetitorRefresher;
@@ -292,6 +293,25 @@ final class CompetitorsTest extends TestCase
             ->call('refreshCompetitors')->assertSet('message', 'Rakipler güncelleniyor.');
         Queue::assertPushed(AnalyzeCompetitorClusterJob::class);
         Queue::assertPushed(RefreshCompetitorsJob::class);
+    }
+
+    public function test_a_top_ten_pasted_from_google_is_kept_and_the_refresh_reads_it_without_a_paid_call(): void
+    {
+        Queue::fake();
+        Http::fake();
+        $cluster = $this->cluster('İmplant merkezi', 'implant merkezi', 'commercial');
+
+        Livewire::test(CompetitorsTab::class, ['assetId' => $this->site->id])
+            ->assertSee('ankara implant merkezi')->assertSeeHtml('google.com/search?q=ankara%20implant%20merkezi')
+            ->set('pasted.'.$cluster->id, 'yalnız metin, adres yok')->call('pasteResults', $cluster->id)->assertHasErrors('pasted')
+            ->set('pasted.'.$cluster->id, "https://rakip-a.example.com/implant/\nwww.doktortakvimi.com › ankara › implant")->call('pasteResults', $cluster->id)
+            ->assertHasNoErrors()->assertSet('message', '2 sonuç kaydedildi; rakipler güncelleniyor.')->assertSee('son yapıştırma');
+        Queue::assertPushed(RefreshCompetitorsJob::class);
+
+        $top = app(SerpResults::class)->topTen('ankara implant merkezi', 1012782, 'tr', (string) config('moxdop-site.competitors.device', 'mobile'));
+        $this->assertTrue($top['cached']);
+        $this->assertSame(['https://rakip-a.example.com/implant/', 'https://www.doktortakvimi.com/ankara/implant'], array_column($top['results'], 'url'));
+        Http::assertNothingSent();
     }
 
     private function serpWithPages(int $clusterId): BrandClusterSerp

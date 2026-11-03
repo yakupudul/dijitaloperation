@@ -17,15 +17,28 @@
         <div class="section-head justify-between gap-y-2">
             <div class="flex min-w-0 flex-wrap items-baseline gap-x-3">
                 <h2 class="section-title">Bağlantı verenler</h2>
-                <span class="text-[13px] tabular-nums text-gray-500 dark:text-gray-400">{{ $backlinks->total() }} bağlantı, {{ $domains }} site</span>
+                <span class="text-[13px] tabular-nums text-gray-500 dark:text-gray-400">{{ $domains }} site bağlantı veriyor · son 30 gün {{ $recent['new'] }} yeni site, {{ $recent['lost'] }} kaybolan bağlantı</span>
             </div>
             <form wire:submit="importExport" class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
-                <input type="file" wire:model="export" accept=".csv,.xlsx,text/csv" aria-label="Search Console dışa aktarımı"
+                @if ($gscLinks)<a href="{{ $gscLinks['url'] }}" target="_blank" rel="noopener noreferrer" class="{{ $btn }}" title="{{ $gscLinks['hint'] }}" data-action="gsc-links">Search Console › Bağlantılar ↗</a>@endif
+                <input type="file" wire:model="exports" multiple accept=".csv,.xlsx,text/csv" aria-label="Search Console dışa aktarımları"
                        class="min-w-0 flex-1 text-[13px] text-gray-600 file:mr-2 file:h-8 file:rounded-lg file:border file:border-gray-200 file:bg-white file:px-2.5 file:text-[13px] file:text-gray-700 sm:flex-none dark:text-gray-300 dark:file:border-gray-700 dark:file:bg-gray-900 dark:file:text-gray-200">
                 <button type="submit" class="{{ $btn }}">GSC içe aktar</button>
             </form>
         </div>
-        @error('export')<p class="mb-2 text-[13px] text-error-600">{{ $message }}</p>@enderror
+        <p class="mb-2 text-[13px] text-gray-500 dark:text-gray-400" data-bing-links>
+            @if ($bing === null)
+                Bing Webmaster'da bu site yok; Bing'e eklenince bağlantılar her pazar kendiliğinden okunur (Bing › Siteler › Search Console'dan içe aktar).
+            @elseif ($bing->links_error)
+                <span class="text-error-600">Bing bağlantıları okunamadı: {{ $bing->links_error }}</span>
+            @elseif ($bing->links_collected_at)
+                Bing bağlantıları her pazar okunur · son okuma {{ \Carbon\CarbonImmutable::parse($bing->links_collected_at)->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}. Google'ın listesi için Bağlantılar dosyalarını birlikte yükleyebilirsin.
+            @else
+                Bing bağlantıları ilk pazar okunacak. Google'ın listesi için Bağlantılar dosyalarını (birden çok) yükleyebilirsin.
+            @endif
+        </p>
+        @error('exports')<p class="mb-2 text-[13px] text-error-600">{{ $message }}</p>@enderror
+        @error('exports.*')<p class="mb-2 text-[13px] text-error-600">{{ $message }}</p>@enderror
 
         <div class="card">
             <form wire:submit="addBacklink" class="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50/70 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
@@ -36,17 +49,18 @@
                 @error('linkTarget')<span class="text-[13px] text-error-600">{{ $message }}</span>@enderror
             </form>
             @if ($backlinks->isEmpty())
-                <p class="px-4 py-5 text-[13px] text-gray-500 dark:text-gray-400">Search Console › Bağlantılar › Dışa aktar (CSV / XLSX) dosyasını yükleyin.</p>
+                <p class="px-4 py-5 text-[13px] text-gray-500 dark:text-gray-400">Henüz bağlantı yok. Bing her pazar okur; Search Console › Bağlantılar › Dışa aktar (CSV / XLSX) dosyalarını da yükleyebilirsin.</p>
             @else
             <div class="overflow-x-auto">
             <table class="data-table">
-                <thead><tr><th>Kaynak</th><th>Hedef</th><th class="w-28">İlk görülme</th><th class="w-24">Geldiği yer</th><th class="w-10"><span class="sr-only">Sil</span></th></tr></thead>
+                <thead><tr><th>Kaynak</th><th>Hedef</th><th>Bağlantı metni</th><th class="w-28">İlk görülme</th><th class="w-24">Geldiği yer</th><th class="w-10"><span class="sr-only">Sil</span></th></tr></thead>
                 <tbody>
                     @foreach ($backlinks as $link)
-                        <tr wire:key="bl-{{ $link->id }}">
+                        <tr wire:key="bl-{{ $link->id }}" @class(['opacity-60' => $link->status === 'kaldirildi'])>
                             <td class="min-w-[16rem] [overflow-wrap:anywhere]">@if ($link->source_url)<a href="{{ $link->source_url }}" target="_blank" rel="noopener noreferrer" class="link-neutral">{{ \Illuminate\Support\Str::limit($link->source_url, 70) }}</a>@else {{ $link->source_domain }} @endif</td>
                             <td class="min-w-[10rem] text-[13px] text-gray-500 [overflow-wrap:anywhere]">{{ $link->target_url ? \App\Services\SeoTasks\SeoText::urlPath($link->target_url) : '—' }}</td>
-                            <td class="whitespace-nowrap text-[13px] tabular-nums">{{ $link->first_seen?->format('d.m.Y') ?? '—' }}</td>
+                            <td class="min-w-[8rem] text-[13px] text-gray-500 [overflow-wrap:anywhere]">{{ $link->anchor ? \Illuminate\Support\Str::limit($link->anchor, 60) : '—' }}</td>
+                            <td class="whitespace-nowrap text-[13px] tabular-nums">{{ $link->first_seen?->format('d.m.Y') ?? '—' }}@if ($link->status === 'kaldirildi')<span class="block text-xs text-error-600">kayboldu {{ $link->lost_at?->format('d.m.Y') }}</span>@endif</td>
                             <td class="whitespace-nowrap text-[13px]">{{ \App\Models\Backlink::SOURCES[$link->source] ?? $link->source }}</td>
                             <td><button type="button" wire:click="removeBacklink({{ $link->id }})" class="{{ $remove }}" aria-label="Sil">×</button></td>
                         </tr>

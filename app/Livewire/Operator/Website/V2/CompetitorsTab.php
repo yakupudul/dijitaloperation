@@ -8,6 +8,7 @@ use App\Livewire\Operator\Website\V2\Concerns\WebsiteTab;
 use App\Models\BrandClusterSerp;
 use App\Models\CompetitorPage;
 use App\Models\Suggestion;
+use App\Services\Intel\SerpResults;
 use App\Services\Site\Competitors\CompetitorAnalyzer;
 use App\Services\Site\Competitors\CompetitorPageStore;
 use App\Services\Site\Competitors\CompetitorRefresher;
@@ -16,15 +17,19 @@ use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestions;
 use App\Support\ServiceScope;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
  * SEO Yapılacaklar › Rakipler: per approved brand cluster — representative query, our rank, the top-10 (sıra, domain,
  * tür), "Analiz et" and the competitor suggestions with Onayla / Reddet, "AI ile yap" (our page exists; the new version
  * is shown in Öneriler) or "Yeni içerik olarak ekle" → "Taslak hazırla" (no page: İçerik plan item + AI draft).
- * "Rakipleri güncelle" queues the refresh (operational brands only); the screen reads only `brand_cluster_serps`,
+ * "Rakipleri güncelle" queues the refresh (operational brands only); "Google'da ara, ilk 10 sonucu yapıştır" keeps a
+ * pasted top-10 so the refresh needs no paid SERP. The screen reads only `brand_cluster_serps`, `serp_results` (paste date),
  * `competitor_pages` and `suggestions`.
  */
 final class CompetitorsTab extends Component
@@ -33,6 +38,9 @@ final class CompetitorsTab extends Component
 
     /** @var array<int|string, string> suggestion id => dismiss reason */
     public array $reasons = [];
+
+    /** @var array<int|string, string> cluster id => Google results the operator pasted */
+    public array $pasted = [];
 
     public function refreshCompetitors(): void
     {
@@ -46,6 +54,34 @@ final class CompetitorsTab extends Component
         CompetitorRefresher::markRunning((int) $site->id);
         RefreshCompetitorsJob::dispatch((int) $site->id);
         $this->message = 'Rakipler güncelleniyor.';
+    }
+
+    /**
+     * The first ten Google results of one cluster's search, pasted by the operator (Backlink Faz 0: no paid SERP): kept
+     * like a fetched top-10 for 120 days, then the refresh classifies them, fills competitor pages and Anılma fırsatları.
+     */
+    public function pasteResults(int $clusterId, CompetitorTargets $targets, SerpResults $serp): void
+    {
+        $this->actor();
+        $this->resetErrorBag('pasted');
+        $site = $this->site();
+        if (! $this->operational($site)) {
+            $this->message = ServiceScope::NOT_SERVED;
+
+            return;
+        }
+        $target = collect($targets->forSite($site))->first(fn (array $t): bool => (int) $t['cluster']->id === $clusterId);
+        if ($target === null) {
+            throw ValidationException::withMessages(['pasted' => 'Bu küme bu sitenin aramalarında yok.']);
+        }
+        $kept = $serp->storeManual($target['query'], $target['location_code'], $target['language_code'], $target['device'], (string) ($this->pasted[$clusterId] ?? ''));
+        if ($kept === 0) {
+            throw ValidationException::withMessages(['pasted' => 'Yapıştırılan metinde site adresi bulunamadı.']);
+        }
+        unset($this->pasted[$clusterId]);
+        CompetitorRefresher::markRunning((int) $site->id);
+        RefreshCompetitorsJob::dispatch((int) $site->id);
+        $this->message = $kept.' sonuç kaydedildi; rakipler güncelleniyor.';
     }
 
     public function analyze(int $serpId): void
@@ -119,6 +155,10 @@ final class CompetitorsTab extends Component
             ->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::RECHECK])->whereJsonContains('evidence->website_asset_id', (int) $site->id)
             ->orderBy('priority')->orderBy('id')->get()->groupBy('cluster_id');
         $refresh = Cache::get(CompetitorRefresher::statusKey((int) $site->id));
+        $siteTargets = $brand !== null ? collect($targets->forSite($site))->keyBy(fn (array $t): int => (int) $t['cluster']->id) : collect();
+        $manual = $siteTargets->isEmpty() ? collect() : DB::table('serp_results')->where('source', SerpResults::MANUAL)
+            ->whereIn('query_hash', $siteTargets->map(fn (array $t): string => hash('sha256', SerpResults::normalize($t['query'])))->values()->all())
+            ->pluck('fetched_at', 'query_hash');
         $analyzing = $serps->mapWithKeys(fn (BrandClusterSerp $s): array => [$s->cluster_id => Cache::get(CompetitorAnalyzer::statusKey((int) $s->id))])->filter()->all();
         $running = ($refresh['status'] ?? null) === 'running' || collect($analyzing)->contains(fn ($s): bool => ($s['status'] ?? null) === 'running');
 
@@ -131,6 +171,9 @@ final class CompetitorsTab extends Component
                 'serp' => $serps->get($cluster->id),
                 'suggestions' => $suggestions->get($cluster->id, collect()),
                 'analyze' => $analyzing[$cluster->id] ?? null,
+                'language' => (string) ($siteTargets->get($cluster->id)['language_code'] ?? 'tr'),
+                'manual' => ($at = $manual->get(hash('sha256', SerpResults::normalize((string) ($siteTargets->get($cluster->id)['query'] ?? ''))))) !== null
+                    ? CarbonImmutable::parse($at)->timezone('Europe/Istanbul')->format('d.m.Y') : null,
             ])->all(),
             'missing' => $missing,
             'refresh' => $refresh,

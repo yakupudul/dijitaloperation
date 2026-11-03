@@ -81,6 +81,7 @@ use App\Services\Operations\ServerStatusReader;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
+use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
@@ -1129,6 +1130,19 @@ Artisan::command('moxdop:bing:collect', function (BingWebmasterSync $sync): void
     $this->info(sprintf('Bing: %d site, %d eşleşti, %d satır, %d hata.', $match['sites'], $match['matched'], $out['rows'], $out['failed']));
 })->purpose('Match Bing Webmaster sites to websites and read their search queries.');
 
+// Backlink Faz 0 (yakup 2026-10-26): who links to each site, from Bing Webmaster every week (Google's Links report has
+// no API). New links are added, the ones Bing no longer lists are marked kaldırıldı.
+Artisan::command('moxdop:bing:backlinks {--site= : Website asset id}', function (BingBacklinkSync $sync): void {
+    if (! BingWebmasterClient::configured()) {
+        $this->info('Bing anahtarı yok; atlandı.');
+
+        return;
+    }
+    $site = $this->option('site');
+    $out = $sync->collect(is_numeric($site) ? (int) $site : null);
+    $this->info(sprintf('Bing bağlantıları: %d site, %d bağlantı, %d yeni, %d kaybolan, %d hata.', $out['sites'], $out['links'], $out['new'], $out['lost'], $out['failed']));
+})->purpose('Read the sites\' inbound links from Bing Webmaster into Bağlantı verenler.');
+
 // Anılma fırsatları (yakup, 2026-10-07): directories / news sites Google shows for the brands' own searches become link
 // sources (Rakipler SERPs, rules only). The competitor refresh does it too; this weekly round covers every brand.
 Artisan::command('moxdop:mentions:sync', function (SerpMentionSources $mentions): void {
@@ -1150,6 +1164,12 @@ Schedule::command('moxdop:bing:collect')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('bing-collect');
+
+Schedule::command('moxdop:bing:backlinks')
+    ->weeklyOn(0, '06:35')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(180)
+    ->name('bing-backlinks');
 
 Schedule::command('moxdop:content:weekly-titles')
     ->twiceDaily(9, 15, 17)

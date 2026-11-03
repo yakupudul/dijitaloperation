@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * Bing Webmaster Tools API (JSON), read only: the verified sites of the key's Bing user and each site's search
- * queries. The agency API key (Bing Webmaster › Ayarlar › API erişimi) is stored encrypted in agency settings.
+ * Bing Webmaster Tools API (JSON), read only: the verified sites of the key's Bing user, each site's search queries and
+ * its inbound links (Backlink Faz 0: Google's Links report has no API, Bing's has). The agency API key (Bing Webmaster › Ayarlar › API erişimi) is stored encrypted in agency settings.
  */
 final class BingWebmasterClient
 {
@@ -57,6 +57,43 @@ final class BingWebmasterClient
         return $out;
     }
 
+    /**
+     * One page of the site's pages that other sites link to, with how many links each has (GetLinkCounts).
+     *
+     * @return array{links: list<array{url: string, count: int}>, pages: int}
+     */
+    public function linkCounts(string $siteUrl, int $page = 0): array
+    {
+        $data = $this->object('GetLinkCounts', ['siteUrl' => $siteUrl, 'page' => (string) $page]);
+        $links = [];
+        foreach ((array) ($data['Links'] ?? []) as $row) {
+            if (is_array($row) && is_string($row['Url'] ?? null) && trim($row['Url']) !== '') {
+                $links[] = ['url' => trim($row['Url']), 'count' => max(0, (int) ($row['Count'] ?? 0))];
+            }
+        }
+
+        return ['links' => $links, 'pages' => max(0, (int) ($data['TotalPages'] ?? 0))];
+    }
+
+    /**
+     * One page of the outside pages linking to one of the site's pages, with the link text (GetUrlLinks).
+     *
+     * @return array{links: list<array{url: string, anchor: ?string}>, pages: int}
+     */
+    public function urlLinks(string $siteUrl, string $link, int $page = 0): array
+    {
+        $data = $this->object('GetUrlLinks', ['siteUrl' => $siteUrl, 'link' => $link, 'page' => (string) $page]);
+        $links = [];
+        foreach ((array) ($data['Details'] ?? []) as $row) {
+            if (is_array($row) && is_string($row['Url'] ?? null) && trim($row['Url']) !== '') {
+                $anchor = trim((string) ($row['AnchorText'] ?? ''));
+                $links[] = ['url' => trim($row['Url']), 'anchor' => $anchor !== '' ? mb_substr($anchor, 0, 500) : null];
+            }
+        }
+
+        return ['links' => $links, 'pages' => max(0, (int) ($data['TotalPages'] ?? 0))];
+    }
+
     /** "/Date(1696118400000-0700)/" (WCF JSON) → day, or null. */
     public static function date(mixed $value): ?CarbonImmutable
     {
@@ -73,6 +110,27 @@ final class BingWebmasterClient
      */
     private function get(string $method, array $query, ?string $key = null): array
     {
+        $data = $this->call($method, $query, $key);
+
+        return is_array($data) ? array_values($data) : [];
+    }
+
+    /**
+     * A method answering one object ("d": {...}) instead of a list.
+     *
+     * @param  array<string, string>  $query
+     * @return array<string, mixed>
+     */
+    private function object(string $method, array $query): array
+    {
+        $data = $this->call($method, $query);
+
+        return is_array($data) ? $data : [];
+    }
+
+    /** @param  array<string, string>  $query */
+    private function call(string $method, array $query, ?string $key = null): mixed
+    {
         $key ??= self::apiKey();
         if ($key === null) {
             throw new RuntimeException('Bing Webmaster API anahtarı girilmedi.');
@@ -84,8 +142,7 @@ final class BingWebmasterClient
         if (! $response->successful()) {
             throw new RuntimeException('Bing Webmaster yanıt vermedi (HTTP '.$response->status().').');
         }
-        $data = $response->json('d');
 
-        return is_array($data) ? array_values($data) : [];
+        return $response->json('d');
     }
 }

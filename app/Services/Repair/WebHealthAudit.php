@@ -55,6 +55,7 @@ final class WebHealthAudit
         'conversion' => 'Dönüşüm yolu',
         'aeo' => 'AI cevap motorları',
         'doorway' => 'Kapı sayfası',
+        'host' => 'Ana adres',
     ];
 
     /** Answer-engine crawlers a robots.txt must not shut out (Aşama 7: AEO). */
@@ -176,6 +177,7 @@ final class WebHealthAudit
                     'bloat' => $this->bloat($site, $brand),
                     'conversion' => $this->conversion($site, $brand),
                     'aeo' => $this->aeo($site),
+                    'host' => $this->hostVariants($site, $brand),
                     // Kapı sayfaları are read by Claude (DoorwayCheck), which opens and closes their rows itself.
                     'doorway' => null,
                 };
@@ -1004,6 +1006,115 @@ final class WebHealthAudit
         }
 
         return array_values(array_unique(array_map(fn ($t): string => mb_strtolower((string) $t), (array) data_get($this->json($row->metadata), 'types', []))));
+    }
+
+    /**
+     * Ana adres (Backlink Faz 0, 2026-11-03): Google shows the site under another scheme / www form than its address
+     * (http://www.… next to https://…) and that form does not 301 to the address, so links and rankings are split
+     * between two copies. Read from the last 28 days of Search Console pages; each such form is opened (redirects
+     * followed by hand, at most 4) and only a form that serves the page itself, redirects temporarily or ends elsewhere
+     * is reported. A form that cannot be reached is left for the next night.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function hostVariants(DigitalAsset $site, Brand $brand): ?array
+    {
+        $ids = SiteScope::resourceIds($brand, 'search_console');
+        $origin = mb_strtolower($this->origin($site));
+        $primaryHost = (string) parse_url($origin, PHP_URL_HOST);
+        if ($ids === [] || $primaryHost === '' || ! str_starts_with($origin, 'http')) {
+            return null;
+        }
+        $key = $this->host($site);
+        $variants = [];
+        $any = false;
+        DB::table('gsc_query_page_daily')->whereIn('external_resource_id', $ids)->where('search_type', 'web')
+            ->where('reporting_date', '>=', now()->subDays(28)->toDateString())->groupBy('page')
+            ->selectRaw('page, sum(clicks) as clicks, sum(impressions) as impressions')->get()
+            ->each(function (object $row) use (&$variants, &$any, $key, $origin): void {
+                $page = (string) $row->page;
+                if (! str_starts_with(SeoText::urlKey($page), $key)) {
+                    return;
+                }
+                $any = true;
+                $scheme = mb_strtolower((string) parse_url($page, PHP_URL_SCHEME));
+                $host = mb_strtolower((string) parse_url($page, PHP_URL_HOST));
+                $form = $scheme.'://'.$host;
+                if ($host === '' || $form === $origin || (int) $row->impressions <= 0) {
+                    return;
+                }
+                $variants[$form] ??= ['clicks' => 0, 'impressions' => 0];
+                $variants[$form]['clicks'] += (int) $row->clicks;
+                $variants[$form]['impressions'] += (int) $row->impressions;
+            });
+        if (! $any) {
+            return null;
+        }
+        uasort($variants, fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
+        $problems = [];
+        $clicks = 0;
+        foreach (array_slice($variants, 0, 4, true) as $form => $numbers) {
+            $result = $this->redirectsTo($form.'/', $origin);
+            if ($result === null) {
+                continue;
+            }
+            $problems[] = sprintf('%s → %s · son 28 günde %d tıklama, %d gösterim', $form, $result, $numbers['clicks'], $numbers['impressions']);
+            $clicks += $numbers['clicks'];
+        }
+        if ($problems === []) {
+            return [];
+        }
+
+        return [['key' => 'host', 'priority' => 2, 'target' => $origin, 'title' => sprintf('Site birden çok adreste açılıyor (%d adres)', count($problems)),
+            'reason' => sprintf('Google siteyi %s dışında başka adreslerle de gösteriyor (son 28 günde %d tıklama). Bu adresler ana adrese kalıcı (301) yönlenmediği için dış bağlantıların ve sıralamanın gücü iki kopyaya bölünüyor.', $origin, $clicks),
+            'before' => $problems,
+            'after' => [
+                'WordPress › Ayarlar › Genel: "WordPress adresi" ve "Site adresi" '.$origin.' olmalı.',
+                'Hosting dosya yöneticisinde sitenin .htaccess dosyasında "# BEGIN WordPress" satırının üstüne şunu ekle (ya da hostinge ilet):',
+                '<IfModule mod_rewrite.c>', 'RewriteEngine On',
+                ...(str_starts_with($origin, 'https://') ? ['RewriteCond %{HTTPS} off [OR]'] : []),
+                'RewriteCond %{HTTP_HOST} !^'.str_replace('.', '\\.', $primaryHost).'$ [NC]',
+                'RewriteRule ^(.*)$ '.$origin.'/$1 [L,R=301]', '</IfModule>',
+                'Site Cloudflare arkasındaysa aynı yönlendirmeyi Cloudflare › Kurallar › Yönlendirme kuralları bölümünde yap.',
+                'Sonra eski adresi aç, ana adrese geçtiğini kontrol et; gece denetimi bu işi kapatır.',
+            ]]];
+    }
+
+    /**
+     * Where a site form ends: null when it reaches $origin through permanent redirects only (or cannot be reached),
+     * else what is wrong in words ("açılıyor, ana adrese yönlenmiyor", "geçici yönlendirme (302)", "başka adrese gidiyor").
+     */
+    private function redirectsTo(string $url, string $origin): ?string
+    {
+        for ($hop = 0; $hop < 4; $hop++) {
+            try {
+                $response = Http::timeout(8)->connectTimeout(5)->withoutRedirecting()
+                    ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP address check)'])->get($url);
+            } catch (Throwable) {
+                return null;
+            }
+            $status = $response->status();
+            $form = mb_strtolower((string) parse_url($url, PHP_URL_SCHEME)).'://'.mb_strtolower((string) parse_url($url, PHP_URL_HOST));
+            if ($form === $origin) {
+                return $hop === 0 ? 'açılıyor, ana adrese yönlenmiyor' : null;
+            }
+            if ($status >= 200 && $status < 300) {
+                return $status.' ile açılıyor, ana adrese yönlenmiyor';
+            }
+            if (! in_array($status, [301, 302, 303, 307, 308], true)) {
+                return $status >= 500 ? null : 'yanıt '.$status;
+            }
+            if (! in_array($status, [301, 308], true)) {
+                return 'geçici yönlendirme ('.$status.'), kalıcı (301) olmalı';
+            }
+            $location = trim($response->header('Location'));
+            if ($location === '') {
+                return 'boş yönlendirme';
+            }
+            $url = str_starts_with($location, '/') ? $form.$location : $location;
+        }
+
+        return 'yönlendirme zinciri ana adrese ulaşmıyor';
     }
 
     /** @return list<array<string, mixed>>|null */

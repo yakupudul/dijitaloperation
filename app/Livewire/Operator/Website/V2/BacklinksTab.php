@@ -9,12 +9,14 @@ use App\Livewire\Operator\Website\V2\Concerns\WebsiteTab;
 use App\Models\Backlink;
 use App\Models\BacklinkSource;
 use App\Models\Brand;
+use App\Services\Operator\ExternalLinks;
 use App\Services\Site\Backlinks\BacklinkImporter;
 use App\Services\Site\Backlinks\BacklinkSourceProposer;
 use App\Services\Site\SiteDomains;
 use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -23,7 +25,7 @@ use Livewire\WithPagination;
 use Throwable;
 
 /**
- * SEO Yapılacaklar › Backlinkler: "Bağlantı verenler" (Search Console Links export import, manual) and "Potansiyel
+ * SEO Yapılacaklar › Backlinkler: "Bağlantı verenler" (Bing Webmaster weekly, Search Console Links exports, manual) and "Potansiyel
  * kaynaklar" (AI by sector + areas, manual) with five statuses: henüz tespit edilmedi · başvuru / iletişim yapıldı
  * (operator) · kullanıcı eklediğini bildirdi (operator enters the link URL) · sayfada doğrulandı · daha sonra kaldırıldı
  * (the last two by the verifier).
@@ -35,8 +37,8 @@ final class BacklinksTab extends Component
     use WithFileUploads;
     use WithPagination;
 
-    /** @var TemporaryUploadedFile|null */
-    public $export = null;
+    /** @var list<TemporaryUploadedFile> Search Console Links exports (several at once: linking sites, latest links …) */
+    public array $exports = [];
 
     public string $linkUrl = '';
 
@@ -53,14 +55,27 @@ final class BacklinksTab extends Component
     {
         $this->actor();
         $brand = $this->brand();
-        $this->validate(['export' => ['required', 'file', 'max:10240', 'mimes:csv,txt,xlsx']], [], ['export' => 'dosya']);
-        try {
-            $stats = $importer->import($brand, $this->export->getRealPath(), (string) $this->export->getClientOriginalName());
-        } catch (Throwable $error) {
-            throw ValidationException::withMessages(['export' => $error->getMessage()]);
+        $this->validate(['exports' => ['required', 'array', 'min:1', 'max:10'], 'exports.*' => ['file', 'max:10240', 'mimes:csv,txt,xlsx']], [], ['exports' => 'dosya', 'exports.*' => 'dosya']);
+        $total = ['imported' => 0, 'updated' => 0, 'skipped' => 0];
+        $errors = [];
+        foreach ($this->exports as $file) {
+            $name = (string) $file->getClientOriginalName();
+            try {
+                $stats = $importer->import($brand, $file->getRealPath(), $name);
+            } catch (Throwable $error) {
+                $errors[] = $name.': '.$error->getMessage();
+
+                continue;
+            }
+            foreach ($total as $key => $count) {
+                $total[$key] = $count + $stats[$key];
+            }
         }
-        $this->reset('export');
-        $this->message = $stats['imported'].' yeni · '.$stats['updated'].' güncellendi · '.$stats['skipped'].' atlandı';
+        $this->reset('exports');
+        if ($errors !== [] && $total === ['imported' => 0, 'updated' => 0, 'skipped' => 0]) {
+            throw ValidationException::withMessages(['exports' => implode(' · ', $errors)]);
+        }
+        $this->message = $total['imported'].' yeni · '.$total['updated'].' güncellendi · '.$total['skipped'].' atlandı'.($errors !== [] ? ' · okunamayan: '.implode(' · ', $errors) : '');
     }
 
     public function addBacklink(): void
@@ -143,17 +158,26 @@ final class BacklinksTab extends Component
         BacklinkSource::query()->where('brand_id', $this->brand()->id)->whereKey($id)->delete();
     }
 
-    public function render(): View
+    public function render(ExternalLinks $links): View
     {
         $site = $this->site();
         $brand = $site->brand;
+        $property = $links->searchConsolePropertyFor((int) $site->id);
+        $bing = DB::table('bing_sites')->where('digital_asset_id', $site->id)->first(['verified', 'links_collected_at', 'links_error']);
         $proposal = $brand !== null ? Cache::get(BacklinkSourceProposer::statusKey((int) $brand->id)) : null;
 
         return view('livewire.operator.website.v2.backlinks-tab', [
             'site' => $site,
             'operational' => $this->operational($site),
-            'backlinks' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->orderByDesc('first_seen')->orderBy('source_domain')->paginate(50, pageName: 'links'),
-            'domains' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->distinct()->count('source_domain'),
+            'backlinks' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->orderByRaw("CASE WHEN status = 'aktif' THEN 0 ELSE 1 END")
+                ->orderByDesc('first_seen')->orderBy('source_domain')->paginate(50, pageName: 'links'),
+            'domains' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->where('status', 'aktif')->distinct()->count('source_domain'),
+            'recent' => [
+                'new' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->where('first_seen', '>=', now()->subDays(30)->toDateString())->distinct()->count('source_domain'),
+                'lost' => Backlink::query()->where('brand_id', $brand?->id ?? 0)->where('status', 'kaldirildi')->where('lost_at', '>=', now()->subDays(30)->toDateString())->count(),
+            ],
+            'gscLinks' => $property !== null ? $links->searchConsoleLinks($property) : null,
+            'bing' => $bing,
             'sources' => BacklinkSource::query()->where('brand_id', $brand?->id ?? 0)
                 ->orderByRaw("CASE status WHEN 'dogrulandi' THEN 0 WHEN 'verildi' THEN 1 WHEN 'basvuru' THEN 2 WHEN 'kaldirildi' THEN 3 ELSE 4 END")->orderBy('name')->paginate(50, pageName: 'sources'),
             'proposal' => $proposal,

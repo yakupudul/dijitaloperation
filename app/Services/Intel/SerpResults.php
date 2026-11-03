@@ -3,19 +3,35 @@
 namespace App\Services\Intel;
 
 use App\Services\Integrations\DataForSeo\DataForSeoApiClient;
+use App\Services\Site\SiteDomains;
 use App\Support\ServiceScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * DataForSEO top-10 organic SERP for one (query, location, language, device), cached 30 days in `serp_results`.
- * A cache hit makes no provider call; a miss makes one paid live call (spend guard + monthly cap apply, cost recorded
- * in dataforseo_tasks). Nothing is paid for a passive customer's brand.
+ * Top-10 organic SERP for one (query, location, language, device), kept in `serp_results`: a DataForSEO one for 30
+ * days, one the operator pasted from Google (source manual, Backlink Faz 0: no paid call needed) for 120 days. A kept
+ * one makes no provider call; a miss makes one paid live call only while a DataForSEO connection exists (spend guard +
+ * monthly cap apply, cost recorded in dataforseo_tasks). Nothing is paid for a passive customer's brand.
  */
 final class SerpResults
 {
     public const int CACHE_DAYS = 30;
+
+    /** A pasted top-10 holds a quarter (yakup 2026-10-25: competitors are looked at quarterly). */
+    public const int MANUAL_DAYS = 120;
+
+    public const string MANUAL = 'manual';
+
+    /** Most results kept from one paste. */
+    public const int MANUAL_MAX = 10;
+
+    /** Endings a pasted address may have ("Dr.Ahmet" in a title is not a site). */
+    private const string TLDS = 'com|net|org|tr|info|biz|io|co|me|uk|de|eu|nl|fr|it|es|ru|az|us|ca|au|app|dev|site|online|xyz|health|clinic|dental|shop|store|tv|edu|gov|ai';
+
+    /** Search engines and their own hosts: never a result. */
+    private const string SKIP_HOSTS = '/(^|\.)(google\.[a-z.]+|googleusercontent\.com|gstatic\.com|bing\.com|yandex\.[a-z.]+|webcache\.googleusercontent\.com)$/';
 
     public const array DEVICES = ['desktop', 'mobile'];
 
@@ -39,13 +55,14 @@ final class SerpResults
         }
         $key = ['query_hash' => hash('sha256', $query), 'location_code' => $locationCode, 'language_code' => $languageCode, 'device' => $device];
         $cached = DB::table('serp_results')->where($key)->first();
-        if (! $refresh && $cached !== null && CarbonImmutable::parse($cached->fetched_at)->greaterThan(now()->subDays(self::CACHE_DAYS))) {
+        $days = ($cached->source ?? null) === self::MANUAL ? self::MANUAL_DAYS : self::CACHE_DAYS;
+        if (! $refresh && $cached !== null && CarbonImmutable::parse($cached->fetched_at)->greaterThan(now()->subDays($days))) {
             return $this->shape($cached, true);
         }
         if ($brandId !== null && ! app(ServiceScope::class)->isBrandOperational($brandId)) {
             throw new RuntimeException(ServiceScope::NOT_SERVED);
         }
-        $integration = $this->integrations->active() ?? throw new RuntimeException('DataForSEO bağlantısı yok.');
+        $integration = $this->integrations->active() ?? throw new RuntimeException('Bu aramanın sonuçları yok: Google\'da arayıp ilk 10 adresi yapıştırın.');
         $response = $this->client->postSerpGoogleOrganicLiveAdvanced($integration, [[
             'keyword' => $query, 'location_code' => $locationCode, 'language_code' => $languageCode,
             'device' => $device, 'depth' => 10,
@@ -62,6 +79,7 @@ final class SerpResults
             'query' => mb_substr($query, 0, 500),
             'results' => json_encode($results, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'cost_usd' => round($cost, 5),
+            'source' => 'dataforseo',
             'fetched_at' => now(),
             'updated_at' => now(),
             'created_at' => $cached->created_at ?? now(),
@@ -99,6 +117,71 @@ final class SerpResults
                 'title' => filled($item['title'] ?? null) ? (string) $item['title'] : null,
                 'type' => $type,
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * A top-10 the operator copied from Google (the addresses, or the whole results text): stored like a fetched one
+     * (source manual), so the competitor refresh and Anılma fırsatları read it without a paid call.
+     *
+     * @return int how many results were kept
+     */
+    public function storeManual(string $query, int $locationCode, string $languageCode, string $device, string $pasted): int
+    {
+        $query = self::normalize($query);
+        $results = self::parsePasted($pasted);
+        if ($query === '' || $results === []) {
+            return 0;
+        }
+        $key = ['query_hash' => hash('sha256', $query), 'location_code' => $locationCode, 'language_code' => mb_strtolower(trim($languageCode)),
+            'device' => in_array($device, self::DEVICES, true) ? $device : 'desktop'];
+        $cached = DB::table('serp_results')->where($key)->first();
+        DB::table('serp_results')->updateOrInsert($key, [
+            'query' => mb_substr($query, 0, 500),
+            'results' => json_encode($results, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'cost_usd' => 0,
+            'source' => self::MANUAL,
+            'fetched_at' => now(),
+            'updated_at' => now(),
+            'created_at' => $cached->created_at ?? now(),
+        ]);
+
+        return count($results);
+    }
+
+    /**
+     * Results from pasted Google text, in order: full addresses (https://…) and Google's shown form ("example.com › hizmet
+     * › implant"); search engine hosts and repeats are dropped, at most 10.
+     *
+     * @return list<array{rank: int, url: string, domain: string, title: ?string, type: string}>
+     */
+    public static function parsePasted(string $text): array
+    {
+        preg_match_all('#(?:(https?)://)?((?:[a-z0-9\x{00C0}-\x{024F}](?:[a-z0-9\x{00C0}-\x{024F}-]*[a-z0-9\x{00C0}-\x{024F}])?\.)+(?:'.self::TLDS.'))(?![a-z0-9-])((?:/[^\s"<>]*)|(?:\s+›\s+[^\s›]+(?:\s+›\s+[^\s›]+)*))?#iu', $text, $matches, PREG_SET_ORDER);
+        $out = [];
+        $seen = [];
+        foreach ($matches as $match) {
+            $host = mb_strtolower($match[2]);
+            if (preg_match(self::SKIP_HOSTS, $host) === 1 || preg_match('/\.(png|jpe?g|gif|svg|webp|css|js|php|html?)$/', $host) === 1) {
+                continue;
+            }
+            $tail = (string) ($match[3] ?? '');
+            $path = str_starts_with($tail, '/') ? rtrim($tail, '.,;)') : (trim($tail) !== '' ? '/'.implode('/', array_map('trim', array_slice(explode('›', $tail), 1))) : '/');
+            if (preg_match('#/.*(\.\.\.|…)#u', $path) === 1) {
+                $path = '/'; // Google shortens long shown paths ("› blog › …"): only the site is certain
+            }
+            $url = ($match[1] !== '' ? mb_strtolower($match[1]) : 'https').'://'.$host.$path;
+            $id = SiteDomains::host($url).'|'.rtrim($path, '/');
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $out[] = ['rank' => count($out) + 1, 'url' => $url, 'domain' => $host, 'title' => null, 'type' => 'organic'];
+            if (count($out) >= self::MANUAL_MAX) {
+                break;
+            }
         }
 
         return $out;

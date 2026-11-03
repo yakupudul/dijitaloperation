@@ -6,11 +6,13 @@ use App\Models\Backlink;
 use App\Models\BacklinkSource;
 use App\Models\Brand;
 use App\Models\BrandClusterSerp;
+use App\Services\Intel\SerpResults;
 use App\Services\Site\SiteDomains;
 
 /**
  * Anılma fırsatları (yakup, 2026-10-07, AI görünürlüğü 5. madde): directories and news sites that Google already shows
- * in the top 10 for the brand's own cluster searches (stored Rakipler SERPs, classes "dizin" / "haber") are the places
+ * in the top 10 for the brand's own cluster searches (stored Rakipler SERPs, classes "dizin" / "haber"; since Backlink
+ * Faz 0 mostly the top-10s the operator pastes from Google, kept a quarter) are the places
  * search engines and AI assistants read about this kind of business. Each one the brand is not on yet becomes a link
  * source (origin "serp", status "yok") with the searches it shows up for; the operator applies, MoxDOP writes nowhere.
  * Rules only, no AI. Social networks, video and encyclopedias are left out (nothing to apply to).
@@ -31,7 +33,7 @@ final class SerpMentionSources
     {
         $own = SiteDomains::ownDomains($brand);
         $seen = [];
-        BrandClusterSerp::query()->where('brand_id', $brand->id)->where('status', 'ready')->where('fetched_at', '>=', now()->subDays(60))
+        BrandClusterSerp::query()->where('brand_id', $brand->id)->where('status', 'ready')->where('fetched_at', '>=', now()->subDays(SerpResults::MANUAL_DAYS))
             ->get(['query', 'results'])
             ->each(function (BrandClusterSerp $serp) use (&$seen, $own): void {
                 foreach ((array) $serp->results as $result) {
