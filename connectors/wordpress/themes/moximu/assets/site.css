@@ -357,3 +357,4 @@ main>.lp-bc:has(+.rf-hero),main>.lp-bc:has(+.an-hero){background:#fbfaf6}
 @media (max-width:900px){.lp-bc+.rf-hero,.lp-bc+.an-hero{padding-top:28px}}
 .mx .mk-t .mk-lead{margin:18px 0 26px}.mx .mk-t h2{margin-top:12px}.mk-l line{stroke-width:7}
 .rf-big small,.rf-sm small,.rf-card small{text-decoration:none;border:0}
+.mx .sec .wrap:before,.mx .sec .wrap:after{display:none!important}
