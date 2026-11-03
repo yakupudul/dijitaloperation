@@ -64,6 +64,16 @@ function mx_seed_run(): void
         }
         $state['done']['opt:'.$name] = 1;
     }
+    if ($finished && empty($state['done']['trash'])) {
+        // Posts the seed created by mistake (seed/trash.json lists their slugs) go to the trash, never deleted for good.
+        foreach ((array) json_decode((string) @file_get_contents(MX_DIR.'/seed/trash.json'), true) as $slug) {
+            foreach (get_posts(['name' => (string) $slug, 'post_type' => ['post', 'page'], 'post_status' => 'any', 'numberposts' => 5]) as $post) {
+                wp_trash_post($post->ID);
+                $state['log'][] = 'çöpe: '.$slug;
+            }
+        }
+        $state['done']['trash'] = 1;
+    }
     if ($finished) {
         foreach (json_decode((string) file_get_contents(MX_DIR.'/seed/pages.json'), true) ?: [] as $page) {
             $key = 'page:'.$page['key'];

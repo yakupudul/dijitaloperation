@@ -1,12 +1,21 @@
 {
 "thizmetlerimiz": {
 "seo_desc": [
-"Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Hangisinin size önce lazım olduğunu ücretsiz analizde yazarız."
+"Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Hangisinin size önce lazım olduğunu ücretsiz analizde yazarız.",
+"Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz."
+],
+"seo_title": [
+"Klinik dijital pazarlama hizmetleri · Moximu"
 ]
 },
 "seo": {
 "seo_desc": [
-"Klinik SEO: tedavi sayfaları, teknik düzeltme, Google kartı ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor."
+"Klinik SEO: tedavi sayfaları, teknik düzeltme, Google kartı ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor.",
+"Klinik SEO: tedavi sayfaları, teknik düzeltme, Google İşletme Profili ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor.",
+"Klinikler ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, Google İşletme Profili, haftalık içerik. Search Console verisiyle aylık rapor; 12.000 ₺/ay."
+],
+"seo_title": [
+"Klinik SEO hizmeti · Moximu"
 ]
 },
 "paket-turizm": {
@@ -16,22 +25,35 @@
 },
 "dis": {
 "seo_desc": [
-"Diş klinikleri için dijital pazarlama: tedavi × ilçe sayfaları, Google kartı, implant ve zirkonyum reklamları, Instagram form reklamı, hasta kabul akışı."
+"Diş klinikleri için dijital pazarlama: tedavi × ilçe sayfaları, Google kartı, implant ve zirkonyum reklamları, Instagram form reklamı, hasta kabul akışı.",
+"Diş klinikleri için dijital pazarlama: tedavi × ilçe sayfaları, Google İşletme Profili, implant ve zirkonyum reklamları, Instagram form reklamı, hasta kabul akışı."
+],
+"seo_title": [
+"Diş klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "k-dermatoloji": {
 "seo_desc": [
 "Lazer epilasyon, dolgu ve cilt bakımı aramalarında önde: tedavi sayfaları, Google kartı, reklam ve randevu. Sonuçlar yüzde olarak."
+],
+"seo_title": [
+"Dermatoloji klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "k-fizyoterapi": {
 "seo_desc": [
 "Bel fıtığı, skolyoz ve spor yaralanması aramalarında önde: tedavi sayfaları, Google kartı, reklam ve seans. Sonuçlar yüzde olarak."
+],
+"seo_title": [
+"Fizyoterapi klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "k-diyetisyen": {
 "seo_desc": [
 "Online ve yüz yüze diyet aramalarında görünürlük: hizmet sayfaları, Google kartı, Instagram reklamı ve randevu. Sonuçlar yüzde olarak."
+],
+"seo_title": [
+"Diyetisyenler için dijital pazarlama · Moximu"
 ]
 },
 "k-sunnet": {
@@ -47,31 +69,53 @@
 "sehir": {
 "seo_desc": [
 "Ankara'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Çankaya, Keçiören, Çayyolu ve tüm ilçeler."
+],
+"seo_title": [
+"Ankara klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "s-izmir": {
 "seo_desc": [
 "İzmir'deki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Bornova, Karşıyaka, Buca ve tüm ilçeler."
+],
+"seo_title": [
+"İzmir klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "s-istanbul": {
 "seo_desc": [
-"İstanbul'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Kadıköy, Beşiktaş, Ataşehir ve tüm ilçeler."
+"İstanbul'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Kadıköy, Beşiktaş, Ataşehir ve tüm ilçeler.",
+"İstanbul'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Kadıköy, Beşiktaş, Ataşehir ve tüm ilçeler."
+],
+"seo_title": [
+"İstanbul klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "s-antalya": {
 "seo_desc": [
-"Antalya'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Muratpaşa, Konyaaltı, Kepez ve tüm ilçeler."
+"Antalya'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Muratpaşa, Konyaaltı, Kepez ve tüm ilçeler.",
+"Antalya'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Muratpaşa, Konyaaltı, Kepez ve tüm ilçeler."
+],
+"seo_title": [
+"Antalya klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "s-manisa": {
 "seo_desc": [
-"Manisa'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Şehzadeler, Yunusemre, Turgutlu ve tüm ilçeler."
+"Manisa'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Şehzadeler, Yunusemre, Turgutlu ve tüm ilçeler.",
+"Manisa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Şehzadeler, Yunusemre, Turgutlu ve tüm ilçeler."
+],
+"seo_title": [
+"Manisa klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "s-bursa": {
 "seo_desc": [
-"Bursa'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Nilüfer, Osmangazi, Yıldırım ve tüm ilçeler."
+"Bursa'daki klinikler için ilçe bazlı Google kartı, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Nilüfer, Osmangazi, Yıldırım ve tüm ilçeler.",
+"Bursa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Nilüfer, Osmangazi, Yıldırım ve tüm ilçeler."
+],
+"seo_title": [
+"Bursa klinikleri için dijital pazarlama · Moximu"
 ]
 },
 "vaka": {
@@ -92,11 +136,19 @@
 "kurum-muayenehaneler": {
 "seo_desc": [
 "Muayenehanesini yöneten hekimler için hekim sitesi, Google kartı, Google ve Instagram reklamı. Sade düzen, aylık tek sayfa rapor."
+],
+"seo_title": [
+"Muayenehaneler için dijital pazarlama · Moximu"
 ]
 },
 "kurum-hastaneler": {
 "seo_desc": [
-"Çok bölümlü ve çok şubeli sağlık kurumları için bölüm sayfaları, şube bazlı Google kartı, bölüm bazlı reklam ve rapor."
+"Çok bölümlü ve çok şubeli sağlık kurumları için bölüm sayfaları, şube bazlı Google kartı, bölüm bazlı reklam ve rapor.",
+"Çok bölümlü ve çok şubeli sağlık kurumları için bölüm sayfaları, şube bazlı Google İşletme Profili, bölüm bazlı reklam ve rapor.",
+"Hastaneler ve tıp merkezleri için dijital pazarlama: hastane web sitesi tasarımı, bölüm sayfaları, hastane SEO, şube bazlı Google İşletme Profili ve bölüm bazlı rapor."
+],
+"seo_title": [
+"Hastaneler ve tıp merkezleri için dijital pazarlama · Moximu"
 ]
 },
 "rehber": {
@@ -111,7 +163,11 @@
 },
 "thekimler": {
 "seo_desc": [
-"Hekimler için kişisel web sitesi, Google kartı ve içerik: adınızla yapılan aramalarda doğru bilgi, hekim onaylı metinler, sağlık reklamı kurallarına uygun yayın."
+"Hekimler için kişisel web sitesi, Google kartı ve içerik: adınızla yapılan aramalarda doğru bilgi, hekim onaylı metinler, sağlık reklamı kurallarına uygun yayın.",
+"Hekimler için kişisel web sitesi, Google İşletme Profili ve içerik: adınızla yapılan aramalarda doğru bilgi, hekim onaylı metinler, sağlık reklamı kurallarına uygun yayın."
+],
+"seo_title": [
+"Hekimler için dijital pazarlama ve web sitesi · Moximu"
 ]
 },
 "tdegerlendirme": {
@@ -137,6 +193,85 @@
 "p-dis-klinigi-icin-google-karti-kurulum-rehberi": {
 "seo_title": [
 "Diş kliniği için Google kartı kurulum rehberi · Moximu"
+]
+},
+"home": {
+"seo_title": [
+"Moximu · Kliniklere dijital pazarlama ve web sitesi"
+],
+"seo_desc": [
+"Klinikler için web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı. 12 yılda 500+ web sitesi, 50+ klinik. Ücretsiz klinik analizi isteyin.",
+"Klinikler ve doktorlar için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Sağlık reklamı kurallarına uygun, aylık raporlu. Ücretsiz analiz."
+]
+},
+"websitesi": {
+"seo_title": [
+"Klinik web sitesi · Moximu"
+],
+"seo_desc": [
+"Klinikler için web sitesi: tedavi × şehir sayfaları, hekim sayfaları, form ve WhatsApp akışı, telefonda 2 saniyede açılış. 4 haftada yayında, 45.000 ₺."
+]
+},
+"gbp": {
+"seo_title": [
+"Klinik Google İşletme Profili yönetimi · Moximu"
+]
+},
+"ads": {
+"seo_title": [
+"Klinik Google Ads yönetimi · Moximu"
+]
+},
+"meta": {
+"seo_title": [
+"Klinik Instagram ve Facebook reklamı · Moximu"
+]
+},
+"fiyat": {
+"seo_title": [
+"Fiyatlar · Moximu"
+]
+},
+"tfiyatlar-tek-hizmet": {
+"seo_title": [
+"Tek hizmet fiyatları: SEO, Google Ads, Meta · Moximu"
+]
+},
+"k-estetik-klinigi": {
+"seo_title": [
+"Estetik klinikleri için dijital pazarlama · Moximu"
+]
+},
+"k-sac-ekimi": {
+"seo_title": [
+"Saç ekimi klinikleri için dijital pazarlama · Moximu"
+]
+},
+"k-psikolog": {
+"seo_title": [
+"Psikolog ve psikiyatri kliniği pazarlaması · Moximu"
+]
+},
+"k-saglik-turizmi": {
+"seo_title": [
+"Sağlık turizmi klinikleri için dijital pazarlama · Moximu"
+],
+"seo_desc": [
+"Almanya, İngiltere ve Hollanda'dan gelen hasta için ülke bazlı reklam, çok dilli sayfalar ve WhatsApp karşılama. Sonuçlar yüzde olarak.",
+"Sağlık turizmi dijital pazarlaması: ülke bazlı Google ve Meta reklamı, çok dilli web sitesi, sağlık turizmi SEO ve WhatsApp karşılama. Yurt dışından hasta bulma için tek plan."
+]
+},
+"saglik-turizmi": {
+"seo_title": [
+"Sağlık turizmi reklamı: ülke ülke hasta akışı · Moximu"
+]
+},
+"tsaglik-reklam-mevzuati": {
+"seo_title": [
+"Sağlık reklamı mevzuatı: kliniklerde yasaklar"
+],
+"seo_desc": [
+"Klinik reklamında yazılabilenler ve yasaklar: öncesi/sonrası, hasta görseli, \"en iyi\", garanti, indirim dili; Google ve Meta sağlık reklamı politikaları."
 ]
 }
 }

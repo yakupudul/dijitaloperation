@@ -2,8 +2,8 @@
 {
 "key": "home",
 "path": "/",
-"seo_title": "Moximu · Kliniklere dijital pazarlama ve web sitesi",
-"seo_desc": "Klinikler için web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı. 12 yılda 500+ web sitesi, 50+ klinik. Ücretsiz klinik analizi isteyin.",
+"seo_title": "Klinik dijital pazarlama ve sağlık reklam ajansı · Moximu",
+"seo_desc": "Klinikler ve doktorlar için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Sağlık reklamı kurallarına uygun, aylık raporlu.",
 "service": {},
 "rows": [
 {
@@ -625,8 +625,8 @@
 "baglanti_4": "/hizmetlerimiz/google-ads/",
 "baglanti_yaz_4": "Google Ads yönetimi →",
 "yazi_11": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_12": "İzmir İmplant Tedavisi | Aynı Gün Muayene",
-"yazi_13": "Alsancak’ta 12 yıllık klinik. İmplant, zirkonyum, estetik. Ücretsiz muayene.",
+"yazi_12": "İzmir İmplant Tedavisi | Klinik Adı",
+"yazi_13": "Alsancak’ta implant, zirkonyum ve ortodonti. Hekim kadrosu ve çalışma saatleri.",
 "yazi_14": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_15": "Bir talep <b>995 ₺</b> · Ekim 2026",
 "yazi_16": "04",
@@ -641,7 +641,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_18": "<b>WhatsApp · yeni form</b><span>“İmplant için randevu istiyorum” · İzmir</span>",
 "yazi_19": "<span>WhatsApp hasta kabul, haftalık bakım, yazı planı ve aylık rapor her pakette.</span><a class=\"btn outline\" href=\"/hizmetlerimiz/\">Tüm hizmetler →</a>"
 },
@@ -913,8 +913,8 @@
 "title": "Hizmetler",
 "excerpt": "Web sitesi, Google İşletme Profili, Google reklamı ve Instagram reklamı. Dördünü birlikte kurarız, her hafta aynı düzenle yönetiriz.",
 "content": "<p>Hasta kliniğinizi dört yerden bulur: Google'da tedavi adını yazarak, haritadaki işletme profillerinden, Instagram'da gördüğü bir reklamdan ve sonunda sitenizdeki tedavi sayfasından. Bu dört parça birbirine bağlıdır; biri eksik kalınca diğerlerinin getirdiği hasta yolda kaybolur. Moximu bu dördünü tek düzen olarak kurar.</p>\n<h2>Hizmetler</h2>\n[mx_alt_sayfalar]\n<h2>Kliniğinize uygun hizmet hangisi?</h2>\n<p>Üç soru çoğu kliniğin sırasını belirler:</p>\n<ol>\n<li><strong>Sitenizde her tedavinin ayrı sayfası var mı?</strong> Yoksa önce <a href=\"/hizmetlerimiz/klinik-web-sitesi/\">klinik web sitesi</a>. Reklam ve SEO, ana sayfaya değil tedavi sayfasına hasta gönderir.</li>\n<li><strong>\"Yakınımdaki\" aramalarında haritadaki ilk üç profilde mısınız?</strong> Değilseniz <a href=\"/hizmetlerimiz/google-isletme-profili/\">Google İşletme Profili</a> bakımı, maliyeti en düşük kazanımdır.</li>\n<li><strong>Hedefiniz kısa vadeli hasta talebi mi, yoksa altı ay sonrası mı?</strong> Bu ay için <a href=\"/hizmetlerimiz/google-ads/\">Google Ads</a> ve <a href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\">Instagram reklamı</a>; kalıcı trafik için <a href=\"/hizmetlerimiz/klinik-seo/\">klinik SEO</a>.</li>\n</ol>\n<p>Çoğu klinik dördüne de ihtiyaç duyar; bu yüzden <a href=\"/fiyatlar/yerel-klinik-paketi/\">yerel klinik paketi</a> dördünü tek ücrette toplar. Hangi sırayla başlanacağını ücretsiz analizde yazılı olarak veririz.</p>\n<h2>Her hizmette aynı olanlar</h2>\n<ul>\n<li>Hesaplar kliniğin adına açılır; Moximu yönetici olarak eklenir.</li>\n<li>Reklam bütçesi klinik tarafından doğrudan Google ve Meta'ya ödenir; onayınız olmadan artmaz.</li>\n<li>Her pazartesi yapılanların kısa özeti, her ayın ilk haftası tek sayfa rapor.</li>\n<li>Metinler sağlık reklamı kurallarına göre yazılır: öncesi/sonrası, hasta fotoğrafı, \"en iyi\" ve garanti dili yok.</li>\n</ul>",
-"seo_title": "Klinik dijital pazarlama hizmetleri · Moximu",
-"seo_desc": "Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz.",
+"seo_title": "Klinik ve doktorlar için dijital pazarlama hizmetleri · Moximu",
+"seo_desc": "Klinik ve doktorlar için web sitesi tasarımı, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz.",
 "order": 1,
 "meta": {
 "_mx_ust_yazi": "Kliniklere dijital pazarlama",
@@ -928,7 +928,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v10",
-"yazi": "Hizmetler",
+"yazi": "Klinik dijital pazarlama hizmetleri",
 "baslik": "Hastanın kliniğinize ulaştığı <mark>dört kanal</mark>, tek yönetim.",
 "metin": "Hastalar kliniğinizi Google aramalarında, haritada, sosyal medyada ve web sitenizde bulur. Bu kanallardan biri eksik kaldığında diğerlerinin etkisi de azalır. Moximu dört kanalı tek bir plan altında kurar ve yönetir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -1002,8 +1002,8 @@
 "baglanti_4": "/hizmetlerimiz/google-ads/",
 "baglanti_yaz_4": "Google Ads yönetimi →",
 "yazi_11": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_12": "İzmir İmplant Tedavisi | Aynı Gün Muayene",
-"yazi_13": "Alsancak’ta 12 yıllık klinik. İmplant, zirkonyum, estetik. Ücretsiz muayene.",
+"yazi_12": "İzmir İmplant Tedavisi | Klinik Adı",
+"yazi_13": "Alsancak’ta implant, zirkonyum ve ortodonti. Hekim kadrosu ve çalışma saatleri.",
 "yazi_14": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_15": "Bir talep <b>995 ₺</b> · Ekim 2026",
 "yazi_16": "04",
@@ -1018,7 +1018,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_18": "<b>WhatsApp · yeni form</b><span>“İmplant için randevu istiyorum” · İzmir</span>",
 "yazi_19": "<span>WhatsApp hasta kabul, haftalık bakım, yazı planı ve aylık rapor her pakette.</span><a class=\"btn outline\" href=\"/hizmetlerimiz/\">Tüm hizmetler →</a>"
 },
@@ -1271,8 +1271,8 @@
 {
 "key": "websitesi",
 "path": "/hizmetlerimiz/klinik-web-sitesi/",
-"seo_title": "Klinik web sitesi · Moximu",
-"seo_desc": "Klinikler için web sitesi: tedavi × şehir sayfaları, hekim sayfaları, form ve WhatsApp akışı, telefonda 2 saniyede açılış. 4 haftada yayında, 45.000 ₺.",
+"seo_title": "Klinik ve doktor web sitesi tasarımı · Moximu",
+"seo_desc": "Klinik ve doktor web sitesi tasarımı: her tedaviye ayrı sayfa, hekim profilleri, WhatsApp ve form, telefonda hızlı açılış. 4 haftada yayında, 45.000 ₺ tek sefer.",
 "service": {
 "ad": "Klinik web sitesi kurulumu",
 "tur": "Web sitesi tasarımı ve kurulumu",
@@ -1286,7 +1286,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v6",
-"yazi": "Klinik web sitesi",
+"yazi": "Klinik ve doktor web sitesi tasarımı",
 "baslik": "Hasta kazanımı için tasarlanmış <mark>klinik web siteleri</mark>.",
 "metin": "Her tedavi için ayrı sayfa, hekim profilleri, mobilde hızlı açılış ve görünür iletişim seçenekleri. Siteniz dört hafta içinde yayına alınır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -2349,6 +2349,10 @@
 {
 "buton_yazisi": "Mevcut sitemiz var, baştan mı yapılır?",
 "metin": "Her zaman değil. Ücretsiz denetimde hız, tedavi sayfaları ve form eksiklerini inceleriz; iyileştirme yeterliyse siteyi yeniden yapmayız."
+},
+{
+"buton_yazisi": "Doktor web sitesi nasıl olmalı?",
+"metin": "Hasta önce tedaviyi, sonra hekimi ve son olarak iletişim yolunu arar. Bu nedenle her tedavinin ayrı sayfası, hekimin eğitim ve uzmanlık bilgisi, klinik adresi ve yol tarifi, telefonda hızlı açılış ve görünür WhatsApp, telefon ve form seçenekleri bulunmalıdır. Öncesi/sonrası görseli, \"en iyi\" ve garanti ifadesi kullanılmaz."
 }
 ],
 "liste_2_v2": [
@@ -2363,6 +2367,10 @@
 {
 "buton_yazisi": "Yabancı hasta için çok dilli olur mu?",
 "metin": "Evet. Sağlık turizmi paketinde İngilizce, Almanca ve Rusça gibi diller ayrı sayfalarla kurulur; ülke bazlı reklam açılış sayfaları hazır gelir."
+},
+{
+"buton_yazisi": "Doktor web sitesi fiyatları neye göre değişir?",
+"metin": "Fiyatı sayfa sayısı, dil sayısı ve bağlantılar belirler. Moximu'da klinik ve doktor web sitesi 45.000 ₺ tek seferdir (KDV hariç); tedavi sayfaları, hekim profilleri, form, WhatsApp ve ölçüm kurulumu dahildir. Paketle çalışan kliniklerde bakım paket kapsamındadır."
 }
 ],
 "metin": "Tüm sorular"
@@ -2375,8 +2383,8 @@
 {
 "key": "seo",
 "path": "/hizmetlerimiz/klinik-seo/",
-"seo_title": "Klinik SEO hizmeti · Moximu",
-"seo_desc": "Klinik SEO: tedavi sayfaları, teknik düzeltme, Google İşletme Profili ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor.",
+"seo_title": "Klinik SEO hizmeti: doktor ve klinikler için SEO · Moximu",
+"seo_desc": "Klinik ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, Google İşletme Profili, haftalık içerik ve aylık rapor. 12.000 ₺/ay.",
 "service": {
 "ad": "Klinik SEO hizmeti",
 "tur": "Arama motoru optimizasyonu",
@@ -2390,7 +2398,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v1",
-"yazi": "Klinik SEO hizmeti",
+"yazi": "Klinik ve doktor SEO hizmeti",
 "baslik": "Tedavi aramalarında <mark>kalıcı görünürlük</mark>.",
 "metin": "Kliniğinizin tedavi ve bölge aramalarında reklam bütçesine bağlı kalmadan üst sıralarda yer alması için yürütülen SEO çalışması. Sonuçlar her ay Search Console verileriyle raporlanır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -3337,6 +3345,10 @@
 {
 "buton_yazisi": "Sıralama garantisi veriyor musunuz?",
 "metin": "Hayır; Google kimseye garanti vermez, veren ajanstan uzak durun. Biz hangi kelimede kaçıncı sıradayız ve kaç tıklama geldi, her ay Search Console verisiyle gösteririz."
+},
+{
+"buton_yazisi": "Doktor ve diş hekimi SEO çalışması nasıl yapılır?",
+"metin": "Hastanın yazdığı aramadan başlanır: \"implant fiyatları Çankaya\", \"dermatolog Bornova\" gibi tedavi ve bölge aramaları. Her aramaya karşılık gelen bir sayfa yazılır, teknik hatalar kapatılır, Google İşletme Profili ve site aynı bilgiyle bağlanır. Sonuç Search Console'daki gösterim ve tıklama ile her ay ölçülür."
 }
 ],
 "liste_2_v2": [
@@ -3351,6 +3363,10 @@
 {
 "buton_yazisi": "Sadece SEO alabilir miyim?",
 "metin": "Evet, 12.000 ₺/ay. Yerel klinik paketi içinde Google İşletme Profili ve reklamlarla birlikte daha hızlı sonuç verir."
+},
+{
+"buton_yazisi": "Klinik SEO fiyatları ne kadar?",
+"metin": "Moximu'da klinik SEO 12.000 ₺/ay'dır (KDV hariç). Yerel klinik paketinde (30.000 ₺/ay) SEO; web sitesi bakımı, Google İşletme Profili ve reklam yönetimiyle birlikte yer alır. Çalışma süresi en az altı aydır, çünkü SEO etkisi aylar içinde birikir."
 }
 ],
 "metin": "Tüm sorular"
@@ -3363,7 +3379,7 @@
 {
 "key": "gbp",
 "path": "/hizmetlerimiz/google-isletme-profili/",
-"seo_title": "Klinik Google İşletme Profili yönetimi · Moximu",
+"seo_title": "Klinikler için Google İşletme Profili yönetimi · Moximu",
 "seo_desc": "Klinikler için Google İşletme Profili yönetimi: kurulum, askı kurtarma, yorum cevapları, haftalık gönderi ve aylık rapor. Şube başına 6.000 ₺/ay.",
 "service": {
 "ad": "Google İşletme Profili yönetimi",
@@ -4332,6 +4348,10 @@
 {
 "buton_yazisi": "Yorumları siz mi yazıyorsunuz?",
 "metin": "Hayır; sahte yorum Google kurallarına ve sağlık mevzuatına aykırıdır. Biz hastadan yorum isteme düzenini kurar, gelen yorumlara cevap taslağı yazarız; cevabı siz onaylarsınız."
+},
+{
+"buton_yazisi": "Klinik için Google İşletme Profili nasıl açılır?",
+"metin": "business.google.com üzerinden klinik adı tabeladaki haliyle girilir, birincil kategori seçilir (ör. Diş kliniği), adres, telefon ve web sitesi eklenir. Ardından Google'ın istediği yöntemle doğrulama yapılır. Doğrulamadan sonra hizmet listesi, çalışma saatleri ve fotoğraflar eksiksiz tamamlanmalıdır."
 }
 ],
 "liste_2_v2": [
@@ -4346,6 +4366,10 @@
 {
 "buton_yazisi": "Sadece İşletme Profili yönetimi alabilir miyim?",
 "metin": "Evet, 6.000 ₺/ay şube başına. Yerel klinik paketi içinde site ve reklamlarla birlikte daha hızlı sonuç verir."
+},
+{
+"buton_yazisi": "Google Haritalar'da klinik nasıl üst sıralara çıkar?",
+"metin": "Google haritada yakınlık, alaka ve bilinirliğe bakar. Eksiksiz profil, doğru kategori, düzenli fotoğraf ve gönderi, yanıtlanmış yorumlar ve sitedeki ad, adres, telefonun profille birebir aynı olması sıralamayı destekler. Yakınlık değiştirilemez; diğerleri düzenli çalışmayla güçlenir."
 }
 ],
 "metin": "Tüm sorular"
@@ -4358,7 +4382,7 @@
 {
 "key": "ads",
 "path": "/hizmetlerimiz/google-ads/",
-"seo_title": "Klinik Google Ads yönetimi · Moximu",
+"seo_title": "Klinik ve doktorlar için Google Ads yönetimi · Moximu",
 "seo_desc": "Klinikler için Google Ads: tedavi × şehir kelimeleri, negatif liste, kalite puanı yüksek açılış sayfası, form ve telefon ölçümü. 10.000 ₺/ay + bütçe.",
 "service": {
 "ad": "Klinik Google Ads yönetimi",
@@ -4373,7 +4397,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v4",
-"yazi": "Klinikler için Google Ads",
+"yazi": "Klinik ve doktorlar için Google Ads",
 "baslik": "Talep başına <mark>ölçülen</mark> Google Ads yönetimi.",
 "metin": "Tedavi arayan hastaya, yalnızca hizmet verdiğiniz bölgede ve doğru anda ulaşın. Kampanya performansı, hasta talebi ve talep maliyeti her hafta raporlanır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -4396,8 +4420,8 @@
 },
 "yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"izmir implant fiyatı\"></span><i class=\"lp-caret\"></i>",
 "yazi_4": "<b>Sponsorlu</b> · kliniginiz.com/implant-izmir",
-"yazi_5": "İzmir İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_6": "Alsancak'ta 12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_5": "İzmir İmplant Tedavisi | Klinik Adı",
+"yazi_6": "Alsancak'ta implant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_7": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span><span>WhatsApp</span>",
 "yazi_8": "<span class=\"ic\"></span><span class=\"nt\">Yeni talep: implant · Bornova</span><small>az önce</small>",
 "yazi_9": "<span class=\"lp-dot\"></span>Google Ads · Özel Demiderm Polikliniği · Şubat → Ekim 2026",
@@ -5077,8 +5101,8 @@
 }
 ],
 "yazi_2": "Sponsorlu · kliniginiz.com/implant-bornova",
-"yazi_3": "Bornova İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_4": "Bornova'da 12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar. WhatsApp ile randevu.",
+"yazi_3": "Bornova İmplant Tedavisi | Klinik Adı",
+"yazi_4": "Bornova'da implant süreci, fiyat aralığı ve sık sorulanlar. WhatsApp ile randevu.",
 "yazi_5": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span><span>WhatsApp</span>",
 "kalin_yazi": "Negatif liste",
 "yazi_6": "<span>ücretsiz</span><span>maaş</span><span>nasıl yapılır</span>",
@@ -5317,6 +5341,10 @@
 {
 "buton_yazisi": "Reklam metninde neler yazılamaz?",
 "metin": "\"En iyi\", \"garanti\", indirim ve kampanya dili, öncesi/sonrası görseli ve hasta ifadesi sağlık reklamında kullanılamaz. Metinler Google politikası ve mevzuata göre yazılır."
+},
+{
+"buton_yazisi": "Doktor ve klinikler Google Ads kullanabilir mi?",
+"metin": "Türkiye'de sağlık hizmetlerinin tanıtımı yönetmelikle sınırlıdır; Google'ın da kendi sağlık reklamı politikaları vardır. Bu nedenle kurgu kliniğin durumuna göre belirlenir: yurt dışından hasta alan kurumlarda ülke bazlı kampanyalar, yurt içinde ise bilgilendirme odaklı içerik ve uygun açılış sayfaları öne çıkar. Ayrıntılar <a href=\"/saglik-reklam-mevzuati/\">sağlık reklamı mevzuatı</a> sayfasındadır."
 }
 ],
 "liste_2_v2": [
@@ -5343,7 +5371,7 @@
 {
 "key": "meta",
 "path": "/hizmetlerimiz/instagram-facebook-reklamlari/",
-"seo_title": "Klinik Instagram ve Facebook reklamı · Moximu",
+"seo_title": "Klinik Instagram ve Facebook reklam yönetimi · Moximu",
 "seo_desc": "Klinikler için Instagram ve Facebook reklamı: form ve WhatsApp kampanyaları, sağlık kurallarına uygun görsel, haftalık rapor. 10.000 ₺/ay + bütçe.",
 "service": {
 "ad": "Klinik Meta reklam yönetimi",
@@ -5989,7 +6017,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_9": "<b>WhatsApp · yeni form</b><span>\"Beyazlatma için randevu\" · Bornova</span>",
 "yazi_10": "Form → WhatsApp <b>anında</b>",
 "yazi_11": "03",
@@ -6262,6 +6290,10 @@
 {
 "buton_yazisi": "Sadece Meta reklamı alabilir miyim?",
 "metin": "Evet, 10.000 ₺/ay yönetim ücreti artı reklam bütçesi. Yerel klinik paketi içinde Google İşletme Profili ve site ile birlikte talep daha ucuza gelir."
+},
+{
+"buton_yazisi": "Klinik sosyal medya yönetimi de yapıyor musunuz?",
+"metin": "Odağımız Instagram ve Facebook reklam yönetimidir: reklam görselleri ve metinleri, form ve WhatsApp kampanyaları, haftalık bütçe kararları. Düzenli organik paylaşım ihtiyacı varsa ücretsiz analizde birlikte değerlendiririz."
 }
 ],
 "metin": "Tüm sorular"
@@ -6274,7 +6306,7 @@
 {
 "key": "fiyat",
 "path": "/fiyatlar/",
-"seo_title": "Fiyatlar · Moximu",
+"seo_title": "Klinik dijital pazarlama fiyatları 2026 · Moximu",
 "seo_desc": "Yerel klinik paketi 30.000 ₺/ay, sağlık turizmi 60.000 ₺/ay, klinik web sitesi 45.000 ₺. Tek hizmet fiyatları ve karşılaştırma tablosu. KDV hariç.",
 "service": {},
 "rows": [
@@ -7315,8 +7347,8 @@
 "metin_7": "Kelime, negatif liste, açılış sayfası, ölçüm.",
 "yazi_11": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"izmir implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_12": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_13": "İzmir İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_14": "Alsancak'ta 12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_13": "İzmir İmplant Tedavisi | Klinik Adı",
+"yazi_14": "Alsancak'ta implant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_15": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_16": "Talep başına <b>ölçülü</b>",
 "yazi_17": "04",
@@ -7330,7 +7362,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu istiyorum\" · İzmir</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -8573,8 +8605,8 @@
 {
 "key": "dis",
 "path": "/klinik/dis-klinigi/",
-"seo_title": "Diş klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "Diş klinikleri için dijital pazarlama: tedavi × ilçe sayfaları, Google İşletme Profili, implant ve zirkonyum reklamları, Instagram form reklamı, hasta kabul akışı.",
+"seo_title": "Diş kliniği reklam ajansı ve dijital pazarlama · Moximu",
+"seo_desc": "Diş kliniği ve diş hekimleri için dijital pazarlama: diş kliniği web sitesi, SEO, Google İşletme Profili, implant ve zirkonyum kampanyaları, hasta kabul akışı.",
 "service": {
 "ad": "Diş kliniği dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -8588,7 +8620,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v7",
-"yazi": "Diş klinikleri için dijital pazarlama",
+"yazi": "Diş kliniği dijital pazarlama ve reklam",
 "baslik": "Diş kliniğiniz için <mark>sürdürülebilir hasta kazanımı</mark>.",
 "metin": "İmplant, zirkonyum ve ortodonti aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve hasta kabul akışı. Dokuz diş kliniğiyle çalışıyoruz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -8713,8 +8745,8 @@
 "metin_3": "Genel \"diş kliniği\" değil; tedavi ve ilçe. Reklam ve SEO bu kelimelerle kurulur.",
 "yazi_3": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"çankaya implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_4": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_5": "Çankaya İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_6": "Çankaya'da 12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_5": "Çankaya İmplant Tedavisi | Klinik Adı",
+"yazi_6": "Çankaya'da implant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_7": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_8": "Tedavi × ilçe <b>kelimeleri</b>",
 "yazi_9": "02",
@@ -8760,7 +8792,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Çankaya</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -8789,7 +8821,7 @@
 {
 "yazi": "02",
 "alt_baslik": "Zirkonyum ve estetik",
-"metin": "Görsel ağırlıklı; Instagram form reklamı burada en iyi çalışır.",
+"metin": "Görsel ağırlıklı branşlarda Instagram form reklamı öne çıkar.",
 "liste": [
 {
 "madde": "Klinik görseliyle Instagram reklamı"
@@ -9034,6 +9066,10 @@
 {
 "buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
 "metin": "İlçe ve tedaviye göre analizde öneririz; bütçe doğrudan Google ve Meta'ya, klinik tarafından ödenir ve onay olmadan artmaz."
+},
+{
+"buton_yazisi": "Diş hekimi reklam yasağı neleri kapsar?",
+"metin": "Diş hekimleri ve diş klinikleri de sağlık hizmetlerindeki tanıtım kurallarına tabidir: öncesi/sonrası görseli, \"en iyi\", garanti ve indirim dili kullanılamaz. Tedavi bilgisi, hekim bilgisi, adres ve çalışma saatleri ise yazılabilir. Özet <a href=\"/saglik-reklam-mevzuati/\">sağlık reklamı mevzuatı</a> sayfasındadır; şüpheli durumda odanıza danışın."
 }
 ],
 "liste_2_v2": [
@@ -9048,6 +9084,10 @@
 {
 "buton_yazisi": "Yurt dışından hasta almak istiyoruz.",
 "metin": "Ayrı paket: çok dilli site, ülke bazlı kampanya ve koordinatör eğitimi, 60.000 ₺/ay. Yerel paketle birlikte de alınabilir."
+},
+{
+"buton_yazisi": "Diş kliniği web sitesi ve SEO birlikte mi yürür?",
+"metin": "Evet. İmplant, zirkonyum, ortodonti gibi her tedavi için ayrı sayfa olmadan SEO çalışacak zemin oluşmaz. Diş kliniği web sitesi bu sayfalarla kurulur, SEO ve Google İşletme Profili aynı sayfalara bağlanır."
 }
 ],
 "metin": "Tüm sorular"
@@ -9060,7 +9100,7 @@
 {
 "key": "k-estetik-klinigi",
 "path": "/klinik/estetik-klinigi/",
-"seo_title": "Estetik klinikleri için dijital pazarlama · Moximu",
+"seo_title": "Estetik klinik reklamı ve SEO · Moximu",
 "seo_desc": "Burun estetiği, liposuction ve meme estetiği aramalarında görünürlük; Instagram form reklamı, bilgi sayfaları ve hasta kabul. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Estetik klinikleri dijital pazarlama",
@@ -9075,7 +9115,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v7",
-"yazi": "Estetik klinikleri için dijital pazarlama",
+"yazi": "Estetik klinik dijital pazarlama ve SEO",
 "baslik": "Estetik kliniğiniz için <mark>doğru hasta profili</mark>.",
 "metin": "Burun estetiği, liposuction ve meme estetiği aramalarında görünürlük; Instagram form reklamı, bilgi sayfaları ve hasta kabul akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -9205,7 +9245,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Burun estetiği için bilgi\" · Kadıköy</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -9479,6 +9519,10 @@
 {
 "buton_yazisi": "Instagram reklamı reddediliyor.",
 "metin": "Sağlık reklamında kişiye hitap eden (\"Burnunuzdan memnun değil misiniz?\") ve vücut odaklı görseller reddedilir. Metinleri süreci anlatacak şekilde yeniden yazarız."
+},
+{
+"buton_yazisi": "Estetik klinik SEO çalışması nasıl yapılır?",
+"metin": "Her operasyon için ayrı bilgi sayfası yazılır: süreç, iyileşme, sık sorulan sorular. Sayfalar hastanın aradığı ifadelerle eşleştirilir, hekim bilgisi ve klinik adresi her sayfada tutarlı verilir. Öncesi/sonrası ve hasta görseli kullanılmaz."
 }
 ],
 "liste_2_v2": [
@@ -9505,7 +9549,7 @@
 {
 "key": "k-dermatoloji",
 "path": "/klinik/dermatoloji/",
-"seo_title": "Dermatoloji klinikleri için dijital pazarlama · Moximu",
+"seo_title": "Dermatoloji kliniği dijital pazarlama ve SEO · Moximu",
 "seo_desc": "Lazer epilasyon, dolgu ve cilt bakımı aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve randevu. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Dermatoloji klinikleri dijital pazarlama",
@@ -9638,7 +9682,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Lazer epilasyon için randevu\" · Bornova</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -9938,7 +9982,7 @@
 {
 "key": "k-sac-ekimi",
 "path": "/klinik/sac-ekimi/",
-"seo_title": "Saç ekimi klinikleri için dijital pazarlama · Moximu",
+"seo_title": "Saç ekimi reklam ajansı ve SEO · Moximu",
 "seo_desc": "FUE ve DHI aramalarında görünürlük, çok dilli bilgi sayfaları, Instagram form reklamı ve WhatsApp karşılama. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Saç ekimi klinikleri dijital pazarlama",
@@ -9953,7 +9997,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v7",
-"yazi": "Saç ekimi klinikleri için dijital pazarlama",
+"yazi": "Saç ekimi dijital pazarlama ve reklam",
 "baslik": "Saç ekimi kliniğiniz için <mark>yurt içi ve yurt dışı</mark> hasta kazanımı.",
 "metin": "FUE ve DHI aramalarında görünürlük, çok dilli bilgi sayfaları, Instagram form reklamı ve WhatsApp karşılama düzeni.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -10071,7 +10115,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Hair transplant info\" · Almanya</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -10345,6 +10389,10 @@
 {
 "buton_yazisi": "Mesajlara kim cevap veriyor?",
 "metin": "Kliniğin koordinatörü. Biz hazır cevapları, dil şablonlarını ve sırayı kurarız; mesajlar bize gelmez."
+},
+{
+"buton_yazisi": "Saç ekimi reklamında nelere dikkat edilir?",
+"metin": "Yurt içinde sağlık tanıtım kuralları geçerlidir; öncesi/sonrası görseli ve garanti ifadesi kullanılmaz. Yurt dışı hastaya yönelik kampanyalar ülke bazında kurulur ve sağlık turizmi yetki belgesiyle birlikte değerlendirilir. Ayrıntılar <a href=\"/saglik-reklam-mevzuati/\">sağlık reklamı mevzuatı</a> sayfasındadır."
 }
 ],
 "liste_2_v2": [
@@ -10371,7 +10419,7 @@
 {
 "key": "k-fizyoterapi",
 "path": "/klinik/fizyoterapi/",
-"seo_title": "Fizyoterapi klinikleri için dijital pazarlama · Moximu",
+"seo_title": "Fizyoterapi merkezi dijital pazarlama ve SEO · Moximu",
 "seo_desc": "Bel fıtığı, skolyoz ve spor yaralanması aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve seans. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Fizyoterapi klinikleri dijital pazarlama",
@@ -10516,7 +10564,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Bel fıtığı için randevu\" · Çankaya</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -10790,6 +10838,10 @@
 {
 "buton_yazisi": "Tek fizyoterapistiz, uygun mu?",
 "metin": "Evet. Tek kişilik merkezlerde İşletme Profili ve iki üç şikâyet sayfası çoğu zaman yeterli talebi getirir."
+},
+{
+"buton_yazisi": "Fizyoterapi merkezi reklamı nasıl yapılır?",
+"metin": "Fizyoterapi merkezleri de sağlık tanıtım kurallarına tabidir. Bel fıtığı, skolyoz gibi tedavi başlıkları bilgilendirme sayfalarıyla anlatılır; sonuç vaadi ve hasta görseli kullanılmaz. Görünürlük ağırlıkla SEO ve Google İşletme Profili üzerinden sağlanır."
 }
 ],
 "liste_2_v2": [
@@ -10816,7 +10868,7 @@
 {
 "key": "k-diyetisyen",
 "path": "/klinik/diyetisyen/",
-"seo_title": "Diyetisyenler için dijital pazarlama · Moximu",
+"seo_title": "Diyetisyen web sitesi, reklam ve SEO · Moximu",
 "seo_desc": "Online ve yüz yüze diyet aramalarında görünürlük: hizmet sayfaları, Google İşletme Profili, Instagram reklamı ve randevu. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Diyetisyenler dijital pazarlama",
@@ -10831,7 +10883,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v7",
-"yazi": "Diyetisyenler için dijital pazarlama",
+"yazi": "Diyetisyen dijital pazarlama ve web sitesi",
 "baslik": "Diyetisyen danışmanlığınız için <mark>düzenli danışan akışı</mark>.",
 "metin": "Online ve yüz yüze diyet aramalarında görünürlük: hizmet sayfaları, Google İşletme Profili, Instagram reklamı ve randevu akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -10955,7 +11007,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Online diyet için bilgi\" · Kadıköy</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -11229,6 +11281,10 @@
 {
 "buton_yazisi": "Instagram yeterli değil mi?",
 "metin": "Instagram tanıtır; Google ise arayan danışanı getirir. İkisi birlikte talep maliyetini düşürür."
+},
+{
+"buton_yazisi": "Diyetisyen reklamında yasaklar neler?",
+"metin": "Danışan öncesi/sonrası fotoğrafı, kilo verme vaadi ve garanti ifadesi kullanılmaz. Hizmet türleri (online diyet, sporcu beslenmesi gibi), eğitim bilgisi ve randevu yolları bilgilendirme diliyle anlatılabilir. Özet <a href=\"/saglik-reklam-mevzuati/\">sağlık reklamı mevzuatı</a> sayfasındadır."
 }
 ],
 "liste_2_v2": [
@@ -11255,7 +11311,7 @@
 {
 "key": "k-psikolog",
 "path": "/klinik/psikolog/",
-"seo_title": "Psikolog ve psikiyatri kliniği pazarlaması · Moximu",
+"seo_title": "Psikolog web sitesi, SEO ve dijital pazarlama · Moximu",
 "seo_desc": "Online terapi, çift terapisi ve çocuk psikoloğu aramalarında görünürlük; mahremiyete uygun sayfalar ve sakin bir randevu. Sonuçlar yüzde olarak.",
 "service": {
 "ad": "Psikolog ve psikiyatri klinikleri dijital pazarlama",
@@ -11270,7 +11326,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v7",
-"yazi": "Psikolog ve psikiyatri klinikleri için dijital pazarlama",
+"yazi": "Psikolog dijital pazarlama ve web sitesi",
 "baslik": "Psikolojik danışmanlıkta <mark>güven odaklı</mark> dijital iletişim.",
 "metin": "Online terapi, çift terapisi ve çocuk psikoloğu aramalarında görünürlük; mahremiyete uygun sayfalar ve sakin bir randevu akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -11394,7 +11450,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Çift terapisi için randevu\" · Beşiktaş</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -11668,6 +11724,10 @@
 {
 "buton_yazisi": "Online terapi için reklam verebilir miyiz?",
 "metin": "Evet; Türkiye geneli arama reklamı ve online süreç sayfasıyla."
+},
+{
+"buton_yazisi": "Psikolog reklamı nasıl yapılır?",
+"metin": "Psikolog ve klinik psikologlar için tanıtım; uzmanlık alanı, eğitim, seans türleri ve randevu bilgisiyle sınırlı, bilgilendirme odaklı bir dille yapılır. Danışan yorumu, sonuç vaadi ve kişiye hitap eden metin kullanılmaz. Ağırlık psikolog web sitesi, SEO ve Google İşletme Profili üzerindedir."
 }
 ],
 "liste_2_v2": [
@@ -11827,7 +11887,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Sünnet için ön görüşme\" · Bornova</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -12127,8 +12187,8 @@
 {
 "key": "k-saglik-turizmi",
 "path": "/klinik/saglik-turizmi/",
-"seo_title": "Sağlık turizmi klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "Almanya, İngiltere ve Hollanda'dan gelen hasta için ülke bazlı reklam, çok dilli sayfalar ve WhatsApp karşılama. Sonuçlar yüzde olarak.",
+"seo_title": "Sağlık turizmi dijital pazarlama ajansı · Moximu",
+"seo_desc": "Sağlık turizmi dijital pazarlaması: ülke bazlı Google ve Meta reklamı, çok dilli web sitesi, SEO ve WhatsApp karşılama ile yurt dışından hasta bulma.",
 "service": {
 "ad": "Sağlık turizmi klinikleri dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -12142,7 +12202,7 @@
 {
 "acf_fc_layout": "giris",
 "tasarim": "v7",
-"yazi": "Sağlık turizmi klinikleri için dijital pazarlama",
+"yazi": "Sağlık turizmi dijital pazarlama",
 "baslik": "Yurt dışından <mark>planlı hasta</mark> kazanımı.",
 "metin": "Almanya, İngiltere ve Hollanda'dan gelen hasta için ülke bazlı reklam, çok dilli sayfalar ve WhatsApp karşılama düzeni.",
 "baglanti": "/ucretsiz-klinik-analizi/",
@@ -12284,7 +12344,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Implant info, x-ray attached\" · İngiltere</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -12558,6 +12618,10 @@
 {
 "buton_yazisi": "Mesajlara kim cevap veriyor?",
 "metin": "Kliniğin koordinatörü. Biz hazır cevapları, dil şablonlarını ve ön değerlendirme sırasını kurarız."
+},
+{
+"buton_yazisi": "Sağlık turizminde yurt dışından hasta nasıl bulunur?",
+"metin": "Hedef ülke ve tedavi seçilir, o dilde açılış sayfaları yazılır, ülke bazlı Google ve Meta kampanyaları açılır ve gelen talepler aynı gün WhatsApp'tan karşılanır. Bütçe her hafta form maliyeti en düşük ülke ve tedaviye kaydırılır. Reklam öncesinde yetki belgesi kontrol edilir."
 }
 ],
 "liste_2_v2": [
@@ -12597,7 +12661,7 @@
 {
 "key": "sehir",
 "path": "/sehirler/ankara/",
-"seo_title": "Ankara klinikleri için dijital pazarlama · Moximu",
+"seo_title": "Ankara klinik dijital pazarlama ve SEO · Moximu",
 "seo_desc": "Ankara'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Çankaya, Keçiören, Çayyolu ve tüm ilçeler.",
 "service": {
 "ad": "Ankara klinik dijital pazarlama",
@@ -12699,8 +12763,8 @@
 "metin_7": "Komşu ilçeler ayrı kampanya; \"ücretsiz\", \"maaş\" gibi kelimeler negatif listede.",
 "yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"ankara implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_14": "Ankara İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_15": "Çankaya'da 12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_14": "Ankara İmplant Tedavisi | Klinik Adı",
+"yazi_15": "Çankaya'da implant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_16": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_17": "Yalnız <b>Ankara</b>",
 "yazi_18": "04",
@@ -12714,7 +12778,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Çankaya</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -12851,7 +12915,7 @@
 {
 "key": "s-izmir",
 "path": "/sehirler/izmir/",
-"seo_title": "İzmir klinikleri için dijital pazarlama · Moximu",
+"seo_title": "İzmir klinik dijital pazarlama ve sağlık reklam ajansı · Moximu",
 "seo_desc": "İzmir'deki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Bornova, Karşıyaka, Buca ve tüm ilçeler.",
 "service": {
 "ad": "İzmir klinik dijital pazarlama",
@@ -12953,8 +13017,8 @@
 "metin_7": "Komşu ilçeler ayrı kampanya; \"ücretsiz\", \"maaş\" gibi kelimeler negatif listede.",
 "yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"izmir implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_14": "İzmir İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_15": "12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_14": "İzmir İmplant Tedavisi | Klinik Adı",
+"yazi_15": "İmplant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_16": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_17": "Yalnız <b>İzmir</b>",
 "yazi_18": "04",
@@ -12968,7 +13032,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Bornova</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -13105,8 +13169,8 @@
 {
 "key": "s-istanbul",
 "path": "/sehirler/istanbul/",
-"seo_title": "İstanbul klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "İstanbul'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Kadıköy, Beşiktaş, Ataşehir ve tüm ilçeler.",
+"seo_title": "İstanbul klinik dijital pazarlama ve SEO · Moximu",
+"seo_desc": "İstanbul'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi sayfaları, Google Ads ve Instagram reklamı. Kadıköy, Beşiktaş, Ataşehir.",
 "service": {
 "ad": "İstanbul klinik dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -13207,8 +13271,8 @@
 "metin_7": "Komşu ilçeler ayrı kampanya; \"ücretsiz\", \"maaş\" gibi kelimeler negatif listede.",
 "yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"istanbul implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_14": "İstanbul İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_15": "12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_14": "İstanbul İmplant Tedavisi | Klinik Adı",
+"yazi_15": "İmplant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_16": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_17": "Yalnız <b>İstanbul</b>",
 "yazi_18": "04",
@@ -13222,7 +13286,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Kadıköy</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -13359,8 +13423,8 @@
 {
 "key": "s-antalya",
 "path": "/sehirler/antalya/",
-"seo_title": "Antalya klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "Antalya'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Muratpaşa, Konyaaltı, Kepez ve tüm ilçeler.",
+"seo_title": "Antalya sağlık turizmi reklam ajansı ve klinik pazarlama · Moximu",
+"seo_desc": "Antalya'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi sayfaları, Google Ads ve Instagram reklamı. Muratpaşa, Konyaaltı, Kepez.",
 "service": {
 "ad": "Antalya klinik dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -13461,8 +13525,8 @@
 "metin_7": "Komşu ilçeler ayrı kampanya; \"ücretsiz\", \"maaş\" gibi kelimeler negatif listede.",
 "yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"antalya implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_14": "Antalya İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_15": "12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_14": "Antalya İmplant Tedavisi | Klinik Adı",
+"yazi_15": "İmplant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_16": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_17": "Yalnız <b>Antalya</b>",
 "yazi_18": "04",
@@ -13476,7 +13540,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Muratpaşa</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -13613,8 +13677,8 @@
 {
 "key": "s-manisa",
 "path": "/sehirler/manisa/",
-"seo_title": "Manisa klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "Manisa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Şehzadeler, Yunusemre, Turgutlu ve tüm ilçeler.",
+"seo_title": "Manisa klinik dijital pazarlama ve web tasarım · Moximu",
+"seo_desc": "Manisa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi sayfaları, Google Ads ve Instagram reklamı. Şehzadeler, Yunusemre, Turgutlu.",
 "service": {
 "ad": "Manisa klinik dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -13715,8 +13779,8 @@
 "metin_7": "Komşu ilçeler ayrı kampanya; \"ücretsiz\", \"maaş\" gibi kelimeler negatif listede.",
 "yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"manisa implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_14": "Manisa İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_15": "12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_14": "Manisa İmplant Tedavisi | Klinik Adı",
+"yazi_15": "İmplant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_16": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_17": "Yalnız <b>Manisa</b>",
 "yazi_18": "04",
@@ -13730,7 +13794,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Şehzadeler</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -13867,8 +13931,8 @@
 {
 "key": "s-bursa",
 "path": "/sehirler/bursa/",
-"seo_title": "Bursa klinikleri için dijital pazarlama · Moximu",
-"seo_desc": "Bursa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Nilüfer, Osmangazi, Yıldırım ve tüm ilçeler.",
+"seo_title": "Bursa klinik dijital pazarlama ve SEO · Moximu",
+"seo_desc": "Bursa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi sayfaları, Google Ads ve Instagram reklamı. Nilüfer, Osmangazi, Yıldırım.",
 "service": {
 "ad": "Bursa klinik dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -13969,8 +14033,8 @@
 "metin_7": "Komşu ilçeler ayrı kampanya; \"ücretsiz\", \"maaş\" gibi kelimeler negatif listede.",
 "yazi_12": "<span class=\"lp-gi\">G</span><span class=\"type\" data-text=\"bursa implant fiyatı\"></span><i class=\"caret\"></i>",
 "yazi_13": "Sponsorlu <span>· kliniginiz.com</span>",
-"yazi_14": "Bursa İmplant Tedavisi | Aynı Hafta Muayene",
-"yazi_15": "12 yıllık klinik. İmplant süreci, fiyat aralığı ve sık sorulanlar.",
+"yazi_14": "Bursa İmplant Tedavisi | Klinik Adı",
+"yazi_15": "İmplant süreci, fiyat aralığı ve sık sorulanlar.",
 "yazi_16": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
 "yazi_17": "Yalnız <b>Bursa</b>",
 "yazi_18": "04",
@@ -13984,7 +14048,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Nilüfer</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -16012,7 +16076,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"İmplant için randevu\" · Karşıyaka</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -16301,7 +16365,7 @@
 {
 "key": "kurum-muayenehaneler",
 "path": "/kurumlar/muayenehaneler/",
-"seo_title": "Muayenehaneler için dijital pazarlama · Moximu",
+"seo_title": "Doktor ve muayenehaneler için dijital pazarlama · Moximu",
 "seo_desc": "Muayenehanesini yöneten hekimler için hekim sitesi, Google İşletme Profili, Google ve Instagram reklamı. Sade düzen, aylık tek sayfa rapor.",
 "service": {
 "ad": "Muayenehane dijital pazarlama",
@@ -16482,7 +16546,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni mesaj</b><span>\"Muayene için randevu\" · Çankaya</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -16771,8 +16835,8 @@
 {
 "key": "kurum-hastaneler",
 "path": "/kurumlar/hastaneler/",
-"seo_title": "Hastaneler ve tıp merkezleri için dijital pazarlama · Moximu",
-"seo_desc": "Çok bölümlü ve çok şubeli sağlık kurumları için bölüm sayfaları, şube bazlı Google İşletme Profili, bölüm bazlı reklam ve rapor.",
+"seo_title": "Hastane reklam ajansı, web sitesi ve SEO · Moximu",
+"seo_desc": "Hastane ve tıp merkezleri için dijital pazarlama: hastane web sitesi tasarımı, bölüm sayfaları, hastane SEO, şube bazlı İşletme Profili ve rapor.",
 "service": {
 "ad": "Hastane ve tıp merkezi dijital pazarlama",
 "tur": "Dijital pazarlama",
@@ -16934,7 +16998,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>Yeni talep · Gaziemir</b><span>\"İmplant için randevu\" · bölüm: ağız ve diş</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -17386,7 +17450,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_19": "<b>WhatsApp · yeni form</b><span>\"Haartransplantation, Fotos anbei\" · Almanya</span>",
 "yazi_20": "Form → WhatsApp <b>anında</b>"
 },
@@ -17689,7 +17753,7 @@
 "title": "Sağlık turizmi",
 "excerpt": "Yurt dışından hasta alan klinik, hastane ve acenteler için ülke bazlı reklam, dil sayfaları ve karşılama düzeni. Hangi ülkeden hasta geldiğini kendi kayıtlarımızdan biliyoruz.",
 "content": "<p>Birlikte çalıştığımız klinikler son iki ayda dokuz ülkeden düzenli form aldı. Her ülke ayrı dilde, ayrı fiyat beklentisiyle ve ayrı reklam maliyetiyle arar. Aşağıdaki sayfalar her ülke için neyi kurduğumuzu anlatır. Hasta fotoğrafı, öncesi/sonrası ve garanti dili hiçbirinde kullanılmaz.</p>\n<h2>Ülkeler</h2>\n[mx_alt_sayfalar]\n<p>Polonya, Romanya, İsveç ve Danimarka için de kampanya kurduk; talep geldikçe bu ülkelerin sayfaları da eklenecek.</p>\n<h2>Hangi ülke, hangi dil, hangi arama?</h2>\n<table><thead><tr><th>Ülke</th><th>Sayfa dili</th><th>Örnek arama</th></tr></thead><tbody>\n<tr><td><a href=\"/saglik-turizmi/almanya/\">Almanya</a></td><td>Almanca</td><td><code>zahnimplantate türkei kosten</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/ingiltere/\">İngiltere</a></td><td>İngilizce</td><td><code>dental implants turkey cost</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/hollanda/\">Hollanda</a></td><td>Hollandaca ve İngilizce</td><td><code>tandimplantaat turkije prijs</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/belcika/\">Belçika</a></td><td>Fransızca ve Hollandaca</td><td><code>implant dentaire turquie prix</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/fransa/\">Fransa</a></td><td>Fransızca</td><td><code>implant dentaire turquie avis</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/avusturya/\">Avusturya</a></td><td>Almanca</td><td><code>zahnimplantate türkei erfahrungen</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/isvicre/\">İsviçre</a></td><td>Almanca ve Fransızca</td><td><code>zahnimplantat türkei schweiz</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/bulgaristan/\">Bulgaristan</a></td><td>Bulgarca ve Türkçe</td><td><code>зъбни импланти турция</code></td></tr>\n<tr><td><a href=\"/saglik-turizmi/abd/\">ABD</a></td><td>İngilizce</td><td><code>hair transplant turkey cost</code></td></tr>\n</tbody></table>\n<h2>Kurulum dört haftada</h2>\n<ol>\n<li><b>1. hafta:</b> ülke ve tedavi listesi, yetki belgesi ve hekim bilgileri, hesapların kurumun adına açılması.</li>\n<li><b>2. hafta:</b> dil sayfaları (tedavi, süreç, konaklama, transfer, SSS) ve WhatsApp şablonları.</li>\n<li><b>3. hafta:</b> ülke bazlı Google ve Meta kampanyaları, form ve ölçüm.</li>\n<li><b>4. hafta:</b> ilk ülke karşılaştırması; bütçe en ucuza form getiren ülkeye kayar, toplam bütçe yalnız sizin onayınızla değişir.</li>\n</ol>\n<h2>Kimler için?</h2>\n<ul>\n<li><a href=\"/klinik/saglik-turizmi/\">Yurt dışından hasta alan klinikler</a></li>\n<li><a href=\"/kurumlar/hastaneler/\">Uluslararası hasta birimi olan hastaneler</a></li>\n<li><a href=\"/kurumlar/saglik-turizmi-acenteleri/\">Sağlık turizmi acenteleri ve aracı kurumlar</a></li>\n</ul>\n<h2>Başlamadan önce</h2>\n<ul>\n<li><a href=\"/saglik-turizmi/yetki-belgesi/\">Sağlık turizmi yetki belgesi rehberi</a></li>\n<li><a href=\"/rehber/saglik-turizmi-reklami/\">Sağlık turizmi reklamı: yurt dışından hasta nasıl gelir?</a></li>\n<li><a href=\"/fiyatlar/saglik-turizmi-paketi/\">Sağlık turizmi paketi ve fiyatı</a></li>\n</ul>",
-"seo_title": "Sağlık turizmi reklamı: ülke ülke hasta akışı · Moximu",
+"seo_title": "Sağlık turizmi reklam ajansı: ülke bazlı hasta kazanımı · Moximu",
 "seo_desc": "Almanya, İngiltere, Hollanda, Belçika, Fransa, Avusturya, İsviçre, Bulgaristan ve ABD'den hasta için ülke bazlı reklam ve dil sayfaları.",
 "order": 0,
 "meta": {
@@ -17817,7 +17881,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Köln</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -18082,7 +18146,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Manchester</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -18347,7 +18411,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>zirkonyum · Rotterdam</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -18612,7 +18676,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Brüksel</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -18877,7 +18941,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>zirkonyum · Lyon</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -19142,7 +19206,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Wien</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -19407,7 +19471,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Zürih</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -19672,7 +19736,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>implant · Kırcaali</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -19937,7 +20001,7 @@
 },
 "etiket": "Hangi tedavi?",
 "etiket_2": "Telefon",
-"buton_yazisi": "Ücretsiz muayene isteyin",
+"buton_yazisi": "Bilgi ve randevu",
 "yazi_20": "<b>WhatsApp · yeni form</b><span>saç ekimi · New Jersey</span>",
 "yazi_21": "Form → WhatsApp <b>anında</b>"
 },
@@ -20833,8 +20897,8 @@
 "title": "Hekimler için",
 "excerpt": "Muayenehanesi olan ya da klinikte çalışan hekim için: adınızla aranınca sizi anlatan bir sayfa, doğru Google İşletme Profili ve kurallara uygun içerik.",
 "content": "<p>Hasta çoğu zaman önce hekimin adını arar. Karşısına eski bir rehber sitesi, yanlış telefonlu bir harita kaydı ya da hiç bilgi çıkmaması güven kaybettirir. Hekim için ilk iş, adıyla yapılan aramayı düzeltmektir.</p>\n<h2>Ne kurarız</h2>\n<ul>\n<li><strong>Hekim sayfası ya da kişisel site.</strong> Eğitim, uzmanlık alanı, yaptığı tedaviler, muayenehane adresi ve randevu yolu.</li>\n<li><strong>Google İşletme Profili.</strong> Hekim adına ya da muayenehane adına; doğru kategori, saat, telefon ve fotoğraf.</li>\n<li><strong>Tedavi sayfaları.</strong> Hastanın sorduğu sorulara hekimin diliyle cevap; her metin hekim onayından geçer.</li>\n<li><strong>Yorum düzeni.</strong> Tedavi sonrası tek dokunuşla yorum bağlantısı; her yoruma 24 saat içinde cevap.</li>\n</ul>\n<h2>Kurallar</h2>\n<p>Hekim tanıtımında öncesi/sonrası, hasta görseli, \"en iyi\" ve garanti dili kullanılmaz. Ünvan ve uzmanlık belgeyle neyse o yazılır. Ayrıntı <a href=\"/saglik-reklam-mevzuati/\">sağlık reklam mevzuatı</a> sayfasında.</p>",
-"seo_title": "Hekimler için dijital pazarlama ve web sitesi · Moximu",
-"seo_desc": "Hekimler için kişisel web sitesi, Google İşletme Profili ve içerik: adınızla yapılan aramalarda doğru bilgi, hekim onaylı metinler, sağlık reklamı kurallarına uygun yayın.",
+"seo_title": "Doktor web sitesi ve dijital pazarlama · Moximu",
+"seo_desc": "Doktorlar için kişisel web sitesi, Google İşletme Profili ve içerik: adınızla yapılan aramalarda doğru bilgi, hekim onaylı ve mevzuata uygun metinler.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Roller"
@@ -20912,9 +20976,9 @@
 "path": "/saglik-reklam-mevzuati/",
 "title": "Sağlık reklamı mevzuatı",
 "excerpt": "Klinik reklamında neler yazılabilir, neler yazılamaz? Türkiye'deki kurallar ile Google ve Meta'nın sağlık politikalarının kısa özeti.",
-"content": "<p>Bu sayfa hukuki görüş değildir; her klinikte uyguladığımız kuralların özetidir. Şüpheli bir durumda kliniğinizin bağlı olduğu meslek odasına ve hukuk danışmanınıza sorun.</p>\n<h2>Kullanmadığımız ifade ve görseller</h2>\n<ul>\n<li>Öncesi/sonrası fotoğrafları ve hasta görselleri</li>\n<li>\"En iyi\", \"en ucuz\", \"bir numara\", \"garantili\" gibi üstünlük ve sonuç iddiaları</li>\n<li>İndirim, kampanya, \"ücretsiz muayene\" gibi ticari teşvik dili</li>\n<li>Hasta yorumlarının reklamda kullanılması ve yorum karşılığında teşvik</li>\n<li>Belgesi olmayan uzmanlık ve ünvanlar</li>\n</ul>\n<h2>Yazılabilenler</h2>\n<ul>\n<li>Tedavinin ne olduğu, nasıl yapıldığı, kaç seans sürdüğü</li>\n<li>Hekimin adı, uzmanlığı, eğitimi; klinik adresi ve çalışma saatleri</li>\n<li>Klinik ortamı, ekip ve cihaz görselleri</li>\n<li>Sık sorulan sorulara bilgi amaçlı cevaplar</li>\n</ul>\n<h2>Google ve Meta politikaları</h2>\n<p>Google, bazı tedavilerde reklamı sınırlar ve sağlık reklamlarında hassas hedeflemeye izin vermez. Meta, sağlık durumuna göre kişi hedeflemeyi ve kişinin sağlık durumunu ima eden metinleri (\"Diş ağrınız mı var?\") reddeder. Bu yüzden reklam metinleri tedaviyi anlatır, kişiye hitap etmez.</p>\n<h2>Yerel reklam ve yurt dışı</h2>\n<p>Türkiye'de sağlık hizmetlerinin tanıtımı yönetmelikle sınırlıdır. Bu nedenle yurt içindeki işlerde bilgilendirme odaklı içerik, Google İşletme Profili ve SEO öne çıkar; yurt dışından hasta alan kliniklerde ülke bazlı reklam kendi kuralları içinde kurulur. Her kliniğin durumu ayrı değerlendirilir.</p>\n<h2>Yorum toplama</h2>\n<p>Yorum istemek serbesttir; yorum satın almak, karşılığında indirim veya hediye vermek Google kurallarına aykırıdır ve profilin askıya alınmasına yol açabilir.</p>",
-"seo_title": "Sağlık reklamı mevzuatı: kliniklerde yasaklar",
-"seo_desc": "Klinik reklamında yazılabilenler ve yasaklar: öncesi/sonrası, hasta görseli, \"en iyi\", garanti, indirim dili; Google ve Meta sağlık reklamı politikaları.",
+"content": "<p>Bu sayfa hukuki görüş değildir; her klinikte uyguladığımız kuralların özetidir. Şüpheli bir durumda kliniğinizin bağlı olduğu meslek odasına ve hukuk danışmanınıza sorun.</p>\n<h2>Doktor reklamı yasak mı?</h2>\n<p>Türkiye'de sağlık hizmetlerinde reklam yasaktır; izin verilen, kurallara uygun tanıtım ve bilgilendirmedir. Çerçeveyi 12 Kasım 2025 tarihli Resmî Gazete'de yayımlanan <em>Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik</em> çizer. Hekimin adı, uzmanlığı, eğitimi, verdiği hizmetler, adres ve iletişim bilgisi duyurulabilir; talep yaratmaya yönelik yönlendirici, karşılaştırmalı veya teşvik içeren anlatım kullanılamaz.</p>\n<h2>Diş hekimi, psikolog, diyetisyen ve fizyoterapistler için de geçerli mi?</h2>\n<p>Evet. Kurallar sağlık meslek mensuplarının tamamını ve sağlık hizmeti sunulan yerleri kapsar: diş hekimleri ve diş klinikleri, psikolog ve klinik psikologlar, diyetisyenler, fizyoterapistler, estetik ve saç ekimi merkezleri, özel hastaneler ve tıp merkezleri. Mesleğe özgü ek kurallar için bağlı olduğunuz meslek kuruluşunun duyurularını da takip edin.</p>\n<h2>Sosyal medyada neler paylaşılabilir?</h2>\n<p>Bilgilendirici içerik, hekim ve klinik tanıtımı, çalışma saatleri ve iletişim bilgisi paylaşılabilir. Hasta görüntüsü, öncesi/sonrası karşılaştırması, hasta teşekkür mesajı veya yorumunun tanıtımda kullanılması, indirim ve kampanya duyurusu ise kullanılmaz. Ücretli sponsorlu paylaşımlar da aynı kurallara tabidir.</p>\n<h2>Kurallara uyulmazsa ne olur?</h2>\n<p>Denetimi il sağlık müdürlükleri yapar; aykırılıkta idari yaptırım uygulanabilir. Bunun yanında Google ve Meta, politikalarına aykırı reklamları reddeder, tekrar eden ihlallerde reklam hesabını kapatabilir. Tutar ve süreler değişebildiği için güncel metni Resmî Gazete'den kontrol edin.</p>\n<h2>Yurt dışındaki hastaya tanıtım nasıl yapılır?</h2>\n<p>Yurt dışından hasta kabul eden kurumlar sağlık turizmi yetki belgesiyle çalışır; tanıtım, hedef ülkenin kuralları ve Google/Meta politikalarıyla birlikte kurulur. Ayrıntılar için <a href=\"/saglik-turizmi/yetki-belgesi/\">sağlık turizmi yetki belgesi</a> sayfasına bakın.</p>\n<h2>Kullanmadığımız ifade ve görseller</h2>\n<ul>\n<li>Öncesi/sonrası fotoğrafları ve hasta görselleri</li>\n<li>\"En iyi\", \"en ucuz\", \"bir numara\", \"garantili\" gibi üstünlük ve sonuç iddiaları</li>\n<li>İndirim, kampanya, \"ücretsiz muayene\" gibi ticari teşvik dili</li>\n<li>Hasta yorumlarının reklamda kullanılması ve yorum karşılığında teşvik</li>\n<li>Belgesi olmayan uzmanlık ve ünvanlar</li>\n</ul>\n<h2>Yazılabilenler</h2>\n<ul>\n<li>Tedavinin ne olduğu, nasıl yapıldığı, kaç seans sürdüğü</li>\n<li>Hekimin adı, uzmanlığı, eğitimi; klinik adresi ve çalışma saatleri</li>\n<li>Klinik ortamı, ekip ve cihaz görselleri</li>\n<li>Sık sorulan sorulara bilgi amaçlı cevaplar</li>\n</ul>\n<h2>Google ve Meta politikaları</h2>\n<p>Google, bazı tedavilerde reklamı sınırlar ve sağlık reklamlarında hassas hedeflemeye izin vermez. Meta, sağlık durumuna göre kişi hedeflemeyi ve kişinin sağlık durumunu ima eden metinleri (\"Diş ağrınız mı var?\") reddeder. Bu yüzden reklam metinleri tedaviyi anlatır, kişiye hitap etmez.</p>\n<h2>Yerel reklam ve yurt dışı</h2>\n<p>Türkiye'de sağlık hizmetlerinin tanıtımı yönetmelikle sınırlıdır. Bu nedenle yurt içindeki işlerde bilgilendirme odaklı içerik, Google İşletme Profili ve SEO öne çıkar; yurt dışından hasta alan kliniklerde ülke bazlı reklam kendi kuralları içinde kurulur. Her kliniğin durumu ayrı değerlendirilir.</p>\n<h2>Yorum toplama</h2>\n<p>Yorum istemek serbesttir; yorum satın almak, karşılığında indirim veya hediye vermek Google kurallarına aykırıdır ve profilin askıya alınmasına yol açabilir.</p>",
+"seo_title": "Sağlıkta reklam yasağı: doktor reklamı yasak mı? (2026)",
+"seo_desc": "Doktor, diş hekimi, psikolog, diyetisyen ve hastaneler için sağlıkta reklam yasağı: neler yasak, neler yazılabilir, sosyal medyada nelere dikkat edilir. 2025 yönetmeliğine göre özet.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Kaynaklar"
@@ -20938,7 +21002,7 @@
 "path": "/youtube/",
 "title": "YouTube",
 "excerpt": "Web sitesi, SEO ve yapay zekâ araçlarını kısa videolarla anlatıyoruz. Kanal: youtube.com/@yakup-udul.",
-"content": "<p>Kanalda Yakup Udül web sitesi, SEO ve yapay zekâ araçlarını uygulamalı anlatıyor. Videolar tıklayınca yüklenir; o ana kadar YouTube'a bağlantı kurulmaz. Kanal: <a href=\"https://www.youtube.com/@yakup-udul\" rel=\"noopener\" target=\"_blank\">youtube.com/@yakup-udul</a>.</p>\n<h2>Öne çıkan videolar</h2>\n<div class=\"mx-ytg\">\n[mx_video id=\"-LGSbh7Cr6Q\" baslik=\"Yapay zekâ markanızı neden önermiyor? AEO ve GEO\"]\n[mx_video id=\"Umep7cp4ZzY\" baslik=\"Claude ile premium 3D web sitesi yaptırmak\"]\n[mx_video id=\"zu1QWp5Op5o\" baslik=\"Sadece ekran görüntüsüyle WordPress tasarımı\"]\n[mx_video id=\"qbJGu9wRpgI\" baslik=\"WordPress CPT nedir?\"]\n</div>\n<h2>Rehberde yazıyla</h2>\n<table><thead><tr><th>Konu</th><th>İlgili rehber</th></tr></thead><tbody>\n<tr><td>Google İşletme Profili kurulumu</td><td><a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a></td></tr>\n<tr><td>Reklam bütçesi</td><td><a href=\"/rehber/google-ads-butcesi-nasil-belirlenir/\">Google Ads bütçesi nasıl belirlenir?</a></td></tr>\n<tr><td>İşletme Profili mı, site mi?</td><td><a href=\"/rehber/yerel-seo-kart-mi-site-mi/\">Yerel SEO: İşletme Profili mı site mi?</a></td></tr>\n<tr><td>Formlar neden gelmez?</td><td><a href=\"/rehber/hasta-formu-neden-gelmez/\">Hasta formu neden gelmez?</a></td></tr>\n<tr><td>Sağlık reklamı kuralları</td><td><a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Klinik reklamında ne yazılır?</a></td></tr>\n</tbody></table>",
+"content": "<p>Kanalda Yakup Udül web sitesi, SEO ve yapay zekâ araçlarını uygulamalı anlatıyor. Videolar tıklayınca yüklenir; o ana kadar YouTube'a bağlantı kurulmaz. Kanal: <a href=\"https://www.youtube.com/@yakup-udul\" rel=\"noopener\" target=\"_blank\">youtube.com/@yakup-udul</a>.</p>\n<h2>Öne çıkan videolar</h2>\n<div class=\"mx-ytg\">\n[mx_video id=\"-LGSbh7Cr6Q\" baslik=\"Yapay zekâ markanızı neden önermiyor? AEO ve GEO\"]\n[mx_video id=\"Umep7cp4ZzY\" baslik=\"Claude ile premium 3D web sitesi yaptırmak\"]\n[mx_video id=\"zu1QWp5Op5o\" baslik=\"Sadece ekran görüntüsüyle WordPress tasarımı\"]\n[mx_video id=\"qbJGu9wRpgI\" baslik=\"WordPress CPT nedir?\"]\n</div>\n<h2>Rehberde yazıyla</h2>\n<table><thead><tr><th>Konu</th><th>İlgili rehber</th></tr></thead><tbody>\n<tr><td>Google İşletme Profili kurulumu</td><td><a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a></td></tr>\n<tr><td>Reklam bütçesi</td><td><a href=\"/rehber/google-ads-butcesi-nasil-belirlenir/\">Google Ads bütçesi nasıl belirlenir?</a></td></tr>\n<tr><td>İşletme Profili mi, site mi?</td><td><a href=\"/rehber/yerel-seo-kart-mi-site-mi/\">Yerel SEO: İşletme Profili mı site mi?</a></td></tr>\n<tr><td>Formlar neden gelmez?</td><td><a href=\"/rehber/hasta-formu-neden-gelmez/\">Hasta formu neden gelmez?</a></td></tr>\n<tr><td>Sağlık reklamı kuralları</td><td><a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Klinik reklamında ne yazılır?</a></td></tr>\n</tbody></table>",
 "seo_title": "YouTube: klinik pazarlama videoları · Moximu",
 "seo_desc": "Yakup Udul'un YouTube kanalında klinikler için Google İşletme Profili, Google Ads, Instagram reklamı ve web sitesi üzerine kısa videolar.",
 "order": 0,
@@ -21132,7 +21196,7 @@
 "title": "Tek hizmet fiyatları",
 "excerpt": "Paketin tamamına ihtiyacınız yoksa hizmetleri tek tek de alabilirsiniz. Fiyatlar aylık, KDV hariç; reklam bütçesi ayrıdır.",
 "content": "<p>Hizmetler birbirini destekler; bu yüzden çoğu kliniğe <a href=\"/fiyatlar/yerel-klinik-paketi/\">yerel klinik paketi</a>ni öneririz. Yalnız bir kanala ihtiyacınız varsa ya da diğerlerini kendi ekibiniz yürütüyorsa, hizmetleri tek tek de alabilirsiniz.</p>\n<h2>Aylık fiyatlar</h2>\n<table><thead><tr><th>Hizmet</th><th>Aylık</th><th>Dahil olanlar</th></tr></thead><tbody>\n<tr><td><a href=\"/hizmetlerimiz/klinik-seo/\">Klinik SEO</a></td><td>12.000 ₺</td><td>Tedavi sayfaları, teknik düzeltme, haftalık yazı, Search Console raporu</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/google-isletme-profili/\">Google İşletme Profili</a></td><td>6.000 ₺ (şube başına)</td><td>Haftalık gönderi, yorum cevapları, fotoğraf, askı takibi</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/google-ads/\">Google Ads</a></td><td>10.000 ₺ + bütçe</td><td>Kelime ve negatif liste, haftalık arama terimi temizliği, ölçüm</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\">Instagram ve Facebook reklamı</a></td><td>10.000 ₺ + bütçe</td><td>Form ve WhatsApp kampanyaları, görsel, haftalık bütçe kaydırma</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/klinik-web-sitesi/\">Klinik web sitesi</a></td><td>45.000 ₺ tek sefer</td><td>Tedavi sayfaları, hız, form ve WhatsApp; dört haftada yayında</td></tr>\n</tbody></table>\n<p>Fiyatlar KDV hariçtir. Reklam bütçesi ücrete dahil değildir; klinik tarafından doğrudan Google ve Meta'ya ödenir.</p>\n<h2>Ne zaman paket daha mantıklı</h2>\n<p>İki veya daha fazla hizmet alacaksanız paket çoğu zaman daha uygundur: dört kanal, site bakımı ve aylık rapor 30.000 ₺/ay. Ayrıntılı karşılaştırma <a href=\"/fiyatlar/\">fiyatlar</a> sayfasında.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Sözleşme süresi tek hizmette de 6 ay mı?</summary><p>Evet. Reklam ve SEO'nun etkisi ilk aylarda birikir; 6 ay sonunda devam ya da bırakma kararı sizdedir.</p></details>\n<details><summary>Sonradan pakete geçebilir miyim?</summary><p>Evet, ayın 1'inden itibaren. Ödediğiniz tek hizmet ücreti o ayın paket ücretinden düşülür.</p></details>",
-"seo_title": "Tek hizmet fiyatları: SEO, Google Ads, Meta · Moximu",
+"seo_title": "SEO, Google Ads ve web sitesi fiyatları 2026 · Moximu",
 "seo_desc": "Klinikler için tek hizmet fiyatları: SEO 12.000 ₺/ay, Google İşletme Profili 6.000 ₺/ay, Google Ads 10.000 ₺/ay, Meta reklam 10.000 ₺/ay. KDV hariç.",
 "order": 3,
 "meta": {
@@ -21244,9 +21308,9 @@
 },
 {
 "key": "p-yerel-seo-İşletme Profili-mi-site-mi",
-"path": "/rehber/yerel-seo-İşletme Profili-mi-site-mi/",
+"path": "/rehber/yerel-seo-kart-mi-site-mi/",
 "type": "post",
-"title": "Yerel SEO: İşletme Profili mı, site mi?",
+"title": "Yerel SEO: İşletme Profili mi, site mi?",
 "excerpt": "\"Yakınımdaki\" aramalarında haritadaki İşletme Profili, tedavi aramalarında site öne çıkar. Hangisine önce emek verilmeli?",
 "content": "<p class=\"lp-art-lead\">Klinik sahiplerinin en sık sorduğu sorulardan biri: \"Google İşletme Profilimi mi düzelteyim, siteme mi yatırım yapayım?\" Cevap, hastanın ne yazdığına bağlıdır. İkisi farklı aramalarda öne çıkar ve birbirini destekler.</p>\n<h2>Profilin kazandığı aramalar</h2>\n<p>\"Yakınımdaki diş kliniği\", \"dermatolog\", \"fizik tedavi merkezi\" gibi kısa ve yer belirten aramalarda Google önce harita paketini gösterir. Hasta üç profili karşılaştırır: puan, yorum sayısı, mesafe, açık mı kapalı mı. Bu aramalarda sitenin sırası çoğu zaman ikinci plandadır.</p>\n<p>İşletme Profili için yapılacaklar kısa bir listedir: doğru kategori, eksiksiz hizmet listesi, güncel saatler, düzenli fotoğraf, haftalık gönderi ve her yoruma cevap. Ayrıntılı sıra <a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a>nde.</p>\n<h2>Sitenin kazandığı aramalar</h2>\n<p>\"İmplant fiyatı izmir\", \"zirkonyum kaç seans\", \"lazer epilasyon kaç seans\" gibi uzun ve tedavi soran aramalarda Google, soruyu en iyi cevaplayan sayfayı öne çıkarır. Bu aramalar daha az yapılır ama karar aşamasındaki hastadan gelir.</p>\n<p>Bu aramalarda kazanmanın yolu her tedaviye ayrı sayfadır: ne yapılır, kaç seans sürer, fiyat aralığı nedir, hangi hekim yapar, sık sorulanlar. Tek sayfada tüm tedavileri listeleyen site bu aramalarda görünmez.</p>\n<h2>İkisi birbirini nasıl günceller</h2>\n<ul class=\"lp-art-list\">\n<li>Profilin \"web sitesi\" bağlantısı ana sayfaya değil, kliniğin en çok aranan tedavisinin sayfasına verilebilir.</li>\n<li>Sitedeki adres, telefon ve klinik adı İşletme Profiliyle birebir aynı olmalıdır; Google tutarsızlığı güvensizlik sayar.</li>\n<li>Profilde yazılan haftalık gönderi, sitedeki yeni sayfaya bağlanır; iki taraf da canlı görünür.</li>\n<li>Sitedeki yorum bölümü, profilin yorumlarını gösterebilir; hasta iki yerde de aynı puanı görür.</li>\n</ul>\n<h2>Önce hangisi</h2>\n<p>Bütçe ve zaman kısıtlıysa sıra şudur: önce İşletme Profili, çünkü ücretsizdir ve haftalar içinde etkisi görünür. Sonra en çok aranan iki üç tedavinin sayfası. Reklam ancak bu ikisi hazır olduğunda açılır; yoksa reklamın getirdiği hasta zayıf bir sayfaya iner.</p>\n<p>Kliniğinizin hangi aramalarda İşletme Profiliyle, hangilerinde siteyle kaybettiğini görmek isterseniz ücretsiz analizde ilçe ilçe yazarız.</p>",
 "cats": [
@@ -21254,7 +21318,7 @@
 ],
 "date": "2026-10-20 10:00:00",
 "thumb": "rehber-yerel-seo-kart-mi-site-mi.jpg",
-"thumb_alt": "Yerel SEO: İşletme Profili mı, site mi?",
+"thumb_alt": "Yerel SEO: İşletme Profili mi, site mi?",
 "seo_title": "Yerel SEO: Google İşletme Profili mı, web sitesi mi önce?",
 "seo_desc": "Klinikler için yerel SEO: Google İşletme Profili ile web sitesi hangi aramalarda öne çıkar, hangisine önce emek verilmeli ve ikisi birbirini nasıl günceller."
 },
