@@ -10,6 +10,7 @@ define('MX_URI', get_template_directory_uri());
 define('MX_VER', (string) wp_get_theme(get_template())->get('Version'));
 
 require MX_DIR.'/inc/helpers.php';
+require MX_DIR.'/inc/fiyat.php';
 require MX_DIR.'/inc/speed.php';
 require MX_DIR.'/inc/fields.php';
 require MX_DIR.'/inc/schema.php';

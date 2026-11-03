@@ -988,5 +988,26 @@
 },
 "ad": "Zesu Estetik"
 }
-]
+],
+"fiyatlar": {
+"seo": 12000,
+"harita": 6000,
+"paket": 14000,
+"ads": 9000,
+"ads_paket": 6000,
+"meta": 9000,
+"meta_paket": 6000,
+"web": 30000,
+"web_dil": 8000,
+"seo_dil": 4000
+},
+"kampanya": {
+"aktif": 1,
+"bitis": "2026-11-30 23:59:00",
+"etiket": "Kasım kampanyası",
+"baslik": "6 aylık planda klinik web siteniz hediye",
+"metin": "{kampanya:tarih}'a kadar başlayan kliniklere; web sitesinin değeri {fiyat:web}.",
+"baglanti": "/fiyatlar/#paketler",
+"buton": "Planları inceleyin"
+}
 }

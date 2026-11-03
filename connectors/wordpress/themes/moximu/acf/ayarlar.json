@@ -922,6 +922,197 @@
      "type": "text"
     }
    ]
+  },
+  {
+   "key": "field_mx_opt_fiyatlar",
+   "name": "fiyatlar",
+   "label": "Fiyatlar (KDV hariç, ₺)",
+   "type": "group",
+   "layout": "block",
+   "instructions": "Sitedeki bütün fiyatlar buradan gelir. 4 kanallı paket = SEO + İşletme Profili paketi + iki reklamın paketle fiyatı; çizili fiyatlar tek tek fiyatların toplamıdır.",
+   "sub_fields": [
+    {
+     "key": "field_mx_opt_f_seo",
+     "name": "seo",
+     "label": "Klinik SEO (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_harita",
+     "name": "harita",
+     "label": "Google İşletme Profili, şube başına (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_paket",
+     "name": "paket",
+     "label": "SEO + İşletme Profili paketi (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_ads",
+     "name": "ads",
+     "label": "Google Ads yönetimi, tek başına (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_ads_paket",
+     "name": "ads_paket",
+     "label": "Google Ads yönetimi, paketle (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_meta",
+     "name": "meta",
+     "label": "Meta reklam yönetimi, tek başına (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_meta_paket",
+     "name": "meta_paket",
+     "label": "Meta reklam yönetimi, paketle (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_web",
+     "name": "web",
+     "label": "Klinik web sitesi, tek dil (tek sefer)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_web_dil",
+     "name": "web_dil",
+     "label": "Web sitesi ek dil (tek sefer)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    },
+    {
+     "key": "field_mx_opt_f_seo_dil",
+     "name": "seo_dil",
+     "label": "SEO ek dil (aylık)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
+    }
+   ]
+  },
+  {
+   "key": "field_mx_opt_kampanya",
+   "name": "kampanya",
+   "label": "Kampanya (üst şerit ve fiyat bölümü)",
+   "type": "group",
+   "layout": "block",
+   "sub_fields": [
+    {
+     "key": "field_mx_opt_k_aktif",
+     "name": "aktif",
+     "label": "Kampanya açık",
+     "type": "true_false",
+     "ui": 1,
+     "wrapper": {
+      "width": "25"
+     }
+    },
+    {
+     "key": "field_mx_opt_k_bitis",
+     "name": "bitis",
+     "label": "Bitiş",
+     "type": "date_time_picker",
+     "display_format": "d.m.Y H:i",
+     "return_format": "Y-m-d H:i:s",
+     "first_day": 1,
+     "wrapper": {
+      "width": "25"
+     },
+     "instructions": "Bu saatten sonra şerit ve geri sayım kendiliğinden kalkar."
+    },
+    {
+     "key": "field_mx_opt_k_etiket",
+     "name": "etiket",
+     "label": "Etiket",
+     "type": "text",
+     "wrapper": {
+      "width": "50"
+     }
+    },
+    {
+     "key": "field_mx_opt_k_baslik",
+     "name": "baslik",
+     "label": "Başlık",
+     "type": "text"
+    },
+    {
+     "key": "field_mx_opt_k_metin",
+     "name": "metin",
+     "label": "Kısa açıklama",
+     "type": "text"
+    },
+    {
+     "key": "field_mx_opt_k_baglanti",
+     "name": "baglanti",
+     "label": "Bağlantı",
+     "type": "text",
+     "wrapper": {
+      "width": "50"
+     }
+    },
+    {
+     "key": "field_mx_opt_k_buton",
+     "name": "buton",
+     "label": "Bağlantı yazısı",
+     "type": "text",
+     "wrapper": {
+      "width": "50"
+     }
+    }
+   ]
   }
  ],
  "location": [

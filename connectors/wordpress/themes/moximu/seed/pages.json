@@ -662,7 +662,7 @@
 "madde": "Komşu illerden gelen hasta için yol tarifi ve WhatsApp aynı sayfada."
 }
 ],
-"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/yerel-klinik-paketi/\">Yerel klinik paketi →</a><small>30.000 ₺/ay'dan başlar</small>",
+"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/yerel-klinik-paketi/\">Yerel klinik paketi →</a><small>{fiyat:seo}/ay'dan başlar</small>",
 "yazi_3": "<span class=\"dot\"></span><b>İzmir</b> · Diş kliniği",
 "yazi_4": "Bu hafta <b>14 talep</b> <i>· örnek</i>"
 },
@@ -762,7 +762,7 @@
 "madde": "Pahalılaşan ülke durdurulur, bütçe ucuz ülkeye gider; siz onaylarsınız."
 }
 ],
-"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/saglik-turizmi-paketi/\">Sağlık turizmi paketi →</a><small>60.000 ₺/ay'dan başlar</small>",
+"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/saglik-turizmi-paketi/\">Sağlık turizmi paketi →</a><small>Fiyat ülke sayısına göre belirlenir</small>",
 "yazi_3": "<span class=\"dot\"></span><b>İzmir</b> · Diş hastanesi",
 "yazi_4": "Bu hafta en ucuz form: <b>Almanya</b> <i>· örnek</i>"
 },
@@ -846,12 +846,12 @@
 {
 "buton_yazisi": "+",
 "baslik": "Sözleşme süresi ve ödeme nasıl?",
-"metin": "6 ay taahhüt, aylık fatura. Reklam bütçesi Google ve Meta'ya sizin tarafınızdan ödenir; yönetim ücreti ayrıdır."
+"metin": "Hizmet bedeli aylık faturalandırılır; 6 aylık planda klinik web sitesi hediye edilir. Reklam bütçesi Google ve Meta'ya sizin tarafınızdan ödenir; yönetim ücreti ayrıdır."
 },
 {
 "buton_yazisi": "+",
 "baslik": "Fiyatlar ne kadar?",
-"metin": "Yerel Klinik Paketi 30.000 ₺/ay'dan, Sağlık Turizmi Paketi 60.000 ₺/ay'dan başlar. Klinik web sitesi 45.000 ₺ tek sefer. Kesin rakam ücretsiz analizden sonra yazılı gelir."
+"metin": "Klinik SEO aylık {fiyat:seo}; SEO ve Google İşletme Profili birlikte aylık {fiyat:paket}; dört kanallı yerel klinik paketi aylık {fiyat:yerel}. Fiyatlar KDV hariçtir ve 6 aylık planda klinik web sitesi hediye edilir. Sağlık turizmi fiyatı görüşmeye bağlıdır."
 },
 {
 "buton_yazisi": "+",
@@ -1209,12 +1209,12 @@
 {
 "buton_yazisi": "+",
 "baslik": "Sözleşme süresi ve ödeme nasıl?",
-"metin": "6 ay taahhüt, aylık fatura. Reklam bütçesi Google ve Meta'ya sizin tarafınızdan ödenir; yönetim ücreti ayrıdır."
+"metin": "Hizmet bedeli aylık faturalandırılır; 6 aylık planda klinik web sitesi hediye edilir. Reklam bütçesi Google ve Meta'ya sizin tarafınızdan ödenir; yönetim ücreti ayrıdır."
 },
 {
 "buton_yazisi": "+",
 "baslik": "Fiyatlar ne kadar?",
-"metin": "Yerel Klinik Paketi 30.000 ₺/ay'dan, Sağlık Turizmi Paketi 60.000 ₺/ay'dan başlar. Klinik web sitesi 45.000 ₺ tek sefer. Kesin rakam ücretsiz analizden sonra yazılı gelir."
+"metin": "Klinik SEO aylık {fiyat:seo}; SEO ve Google İşletme Profili birlikte aylık {fiyat:paket}; dört kanallı yerel klinik paketi aylık {fiyat:yerel}. Fiyatlar KDV hariçtir ve 6 aylık planda klinik web sitesi hediye edilir. Sağlık turizmi fiyatı görüşmeye bağlıdır."
 },
 {
 "buton_yazisi": "+",
@@ -1272,7 +1272,7 @@
 "key": "websitesi",
 "path": "/hizmetlerimiz/klinik-web-sitesi/",
 "seo_title": "Klinik ve doktor web sitesi tasarımı · Moximu",
-"seo_desc": "Klinik ve doktor web sitesi tasarımı: her tedaviye ayrı sayfa, hekim profilleri, WhatsApp ve form, telefonda hızlı açılış. 4 haftada yayında, 45.000 ₺ tek sefer.",
+"seo_desc": "Klinik ve doktor web sitesi tasarımı: her tedaviye ayrı sayfa, hekim profilleri, WhatsApp ve form, hızlı açılış. Tek dil 30.000 ₺; 6 aylık planda hediye.",
 "service": {
 "ad": "Klinik web sitesi kurulumu",
 "tur": "Web sitesi tasarımı ve kurulumu",
@@ -2266,48 +2266,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Tek seferlik kurulum, <mark>bakım paket kapsamında</mark>.",
-"yazi_2": "Klinik web sitesi kurulumu",
-"yazi_3": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi ve hekim sayfaları, form ve WhatsApp akışı, hız ve güvenlik; dört haftada yayında. Yerel klinik paketiyle alınır.",
-"liste": [
-{
-"madde": "Site haritası ve tedavi × şehir sayfa planı"
-},
-{
-"madde": "Prototip onayı, sonra WordPress + Elementor"
-},
-{
-"madde": "Tedavi, hekim ve klinik sayfaları yazılı"
-},
-{
-"madde": "Form, WhatsApp, tıkla-ara, reklam açılış sayfaları"
-},
-{
-"madde": "Search Console ve Google İşletme Profili bağlantısı"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yerel klinik paketi · bakım dahil",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Haftalık bakım, yeni tedavi sayfaları, SEO, İşletme Profili ve reklamlar.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Paketi inceleyin →"
-},
-{
-"yazi": "Mevcut site denetimi",
-"yazi_2": "Ücretsiz<span> · 24 saatte</span>",
-"metin": "Hız, tedavi sayfası ve form eksikleri tek sayfada; yeniden yapmak gerekmiyorsa söyleriz.",
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Denetim isteyin →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "web",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -2370,7 +2334,7 @@
 },
 {
 "buton_yazisi": "Doktor web sitesi fiyatları neye göre değişir?",
-"metin": "Fiyatı sayfa sayısı, dil sayısı ve bağlantılar belirler. Moximu'da klinik ve doktor web sitesi 45.000 ₺ tek seferdir (KDV hariç); tedavi sayfaları, hekim profilleri, form, WhatsApp ve ölçüm kurulumu dahildir. Paketle çalışan kliniklerde bakım paket kapsamındadır."
+"metin": "Fiyatı sayfa sayısı, dil sayısı ve bağlantılar belirler. Moximu'da klinik ve doktor web sitesi tek dil için {fiyat:web} tek seferdir (KDV hariç), her ek dil +{fiyat:web_dil}; 6 aylık planla başlayan kliniklere hediye edilir; tedavi sayfaları, hekim profilleri, form, WhatsApp ve ölçüm kurulumu dahildir. Paketle çalışan kliniklerde bakım paket kapsamındadır."
 }
 ],
 "metin": "Tüm sorular"
@@ -2384,7 +2348,7 @@
 "key": "seo",
 "path": "/hizmetlerimiz/klinik-seo/",
 "seo_title": "Klinik SEO hizmeti: doktor ve klinikler için SEO · Moximu",
-"seo_desc": "Klinik ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, Google İşletme Profili, haftalık içerik ve aylık rapor. 12.000 ₺/ay.",
+"seo_desc": "Klinik ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, haftalık içerik ve aylık rapor. Aylık 12.000 ₺ + KDV.",
 "service": {
 "ad": "Klinik SEO hizmeti",
 "tur": "Arama motoru optimizasyonu",
@@ -3267,43 +3231,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v1",
-"yazi": "Fiyat",
-"baslik": "Tek hizmet olarak veya <mark>paket kapsamında</mark>.",
-"yazi_2": "Yerel klinik paketi · SEO dahil",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "SEO, İşletme Profili ve reklamlarla birlikte en hızlı sonuç verir. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Teknik düzeltme ve haftalık tarama"
-},
-{
-"madde": "Tedavi × şehir sayfaları"
-},
-{
-"madde": "Google İşletme Profili yönetimi"
-},
-{
-"madde": "Haftalık içerik, hekim onaylı"
-},
-{
-"madde": "Google Ads ve Instagram form reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"yazi_4": "Yalnız SEO",
-"yazi_5": "12.000 ₺<span>/ay</span>",
-"metin_2": "Teknik düzeltme, tedavi sayfaları, Google İşletme Profili, haftalık içerik, aylık rapor.",
-"yazi_6": "Sitesi olmayan klinikler",
-"yazi_7": "45.000 ₺<span> tek sefer</span>",
-"metin_3": "SEO'ya hazır klinik sitesi; tedavi sayfaları kurulu gelir.",
-"baglanti_2": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz_2": "Klinik web sitesi →"
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "seo",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -3358,15 +3291,15 @@
 },
 {
 "buton_yazisi": "Sitemiz WordPress değil, olur mu?",
-"metin": "Teknik düzeltmeler çoğu altyapıda yapılabilir. İçerik ve tedavi sayfaları için erişim yoksa site kurulumu (45.000 ₺ tek sefer) öneririz."
+"metin": "Teknik düzeltmeler çoğu altyapıda yapılabilir. İçerik ve tedavi sayfaları için erişim yoksa site kurulumu ({fiyat:web} tek sefer; 6 aylık planda hediye) öneririz."
 },
 {
 "buton_yazisi": "Sadece SEO alabilir miyim?",
-"metin": "Evet, 12.000 ₺/ay. Yerel klinik paketi içinde Google İşletme Profili ve reklamlarla birlikte daha hızlı sonuç verir."
+"metin": "Evet, aylık {fiyat:seo}. Google İşletme Profili ile birlikte alındığında ikisi aylık {fiyat:paket} olur."
 },
 {
 "buton_yazisi": "Klinik SEO fiyatları ne kadar?",
-"metin": "Moximu'da klinik SEO 12.000 ₺/ay'dır (KDV hariç). Yerel klinik paketinde (30.000 ₺/ay) SEO; web sitesi bakımı, Google İşletme Profili ve reklam yönetimiyle birlikte yer alır. Çalışma süresi en az altı aydır, çünkü SEO etkisi aylar içinde birikir."
+"metin": "Moximu'da klinik SEO aylık {fiyat:seo}'dir (KDV hariç); her ek dil aylık +{fiyat:seo_dil}. Google İşletme Profili ile birlikte aylık {fiyat:paket}, iki reklam kanalıyla birlikte dört kanallı paket aylık {fiyat:yerel}. SEO etkisi aylar içinde birikir; 6 aylık planda klinik web sitesi hediye edilir."
 }
 ],
 "metin": "Tüm sorular"
@@ -3380,7 +3313,7 @@
 "key": "gbp",
 "path": "/hizmetlerimiz/google-isletme-profili/",
 "seo_title": "Klinikler için Google İşletme Profili yönetimi · Moximu",
-"seo_desc": "Klinikler için Google İşletme Profili yönetimi: kurulum, askı kurtarma, yorum cevapları, haftalık gönderi ve aylık rapor. Şube başına 6.000 ₺/ay.",
+"seo_desc": "Klinikler için Google İşletme Profili yönetimi: kurulum, askı kurtarma, yorum cevapları, haftalık gönderi ve aylık rapor. Şube başına aylık 6.000 ₺.",
 "service": {
 "ad": "Google İşletme Profili yönetimi",
 "tur": "Yerel SEO ve harita kaydı yönetimi",
@@ -4273,40 +4206,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v1",
-"yazi": "Fiyat",
-"baslik": "Tek hizmet olarak veya <mark>paket kapsamında</mark>.",
-"yazi_2": "Yerel klinik paketi · İşletme Profili yönetimi dahil",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Reklamdan gelen hasta İşletme Profilinizi de inceler. Dört kanal tek düzende; reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İşletme Profili kurulumu ve haftalık bakım"
-},
-{
-"madde": "Yorum cevapları 24 saatte"
-},
-{
-"madde": "Tedavi sayfaları ve SEO"
-},
-{
-"madde": "Google Ads ve Instagram form reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"yazi_4": "Yalnız İşletme Profili yönetimi",
-"yazi_5": "6.000 ₺<span>/ay · şube başına</span>",
-"metin_2": "Kurulum, haftalık gönderi, yorum cevapları, aylık rapor.",
-"yazi_6": "Askıya alınan profili kurtarma",
-"yazi_7": "Görüşmeye<span> bağlı</span>",
-"metin_3": "Askı, çift kayıt veya sahiplik sorunu için başvuru ve takip.",
-"baglanti_2": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz_2": "Ücretsiz İşletme Profili analizi →"
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "harita",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -4365,7 +4270,7 @@
 },
 {
 "buton_yazisi": "Sadece İşletme Profili yönetimi alabilir miyim?",
-"metin": "Evet, 6.000 ₺/ay şube başına. Yerel klinik paketi içinde site ve reklamlarla birlikte daha hızlı sonuç verir."
+"metin": "Evet, şube başına aylık {fiyat:harita}. Klinik SEO ile birlikte alındığında ikisi aylık {fiyat:paket} olur."
 },
 {
 "buton_yazisi": "Google Haritalar'da klinik nasıl üst sıralara çıkar?",
@@ -4383,7 +4288,7 @@
 "key": "ads",
 "path": "/hizmetlerimiz/google-ads/",
 "seo_title": "Klinik ve doktorlar için Google Ads yönetimi · Moximu",
-"seo_desc": "Klinikler için Google Ads: tedavi × şehir kelimeleri, negatif liste, kalite puanı yüksek açılış sayfası, form ve telefon ölçümü. 10.000 ₺/ay + bütçe.",
+"seo_desc": "Klinikler için Google Ads: tedavi ve şehir kelimeleri, negatif liste, açılış sayfası, form ve telefon ölçümü. Aylık 9.000 ₺, SEO ile 6.000 ₺.",
 "service": {
 "ad": "Klinik Google Ads yönetimi",
 "tur": "Arama reklamı yönetimi",
@@ -5266,40 +5171,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v1",
-"yazi": "Fiyat",
-"baslik": "Tek hizmet olarak veya <mark>paket kapsamında</mark>.",
-"yazi_2": "Yerel klinik paketi · Google Ads dahil",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Reklamdan gelen hasta profilinize ve sitenize de bakar. Reklam bütçesi ayrıdır, doğrudan Google'a ödenir.",
-"liste": [
-{
-"madde": "Google Ads kurulumu ve haftalık yönetim"
-},
-{
-"madde": "Açılış sayfaları ve kalite puanı"
-},
-{
-"madde": "Google İşletme Profili ve SEO"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Haftalık talep özeti, aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"yazi_4": "Yalnız Google Ads yönetimi",
-"yazi_5": "10.000 ₺<span>/ay + reklam bütçesi</span>",
-"metin_2": "Kurulum, kelime ve negatif yönetimi, açılış sayfası, ölçüm, rapor.",
-"yazi_6": "Mevcut hesap denetimi",
-"yazi_7": "Ücretsiz<span> · 24 saatte</span>",
-"metin_3": "Boşa giden kelimeler ve ölçüm eksikleri tek sayfada.",
-"baglanti_2": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz_2": "Denetim isteyin →"
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "ads",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -5354,11 +5231,11 @@
 },
 {
 "buton_yazisi": "Sitemiz yok, reklam verebilir miyiz?",
-"metin": "Reklam için kelimeyle uyumlu bir açılış sayfası gerekir. Sitesi olmayan klinikler için kurulum 45.000 ₺ tek seferdir; tedavi sayfaları hazır gelir."
+"metin": "Reklam için kelimeyle uyumlu bir açılış sayfası gerekir. Sitesi olmayan klinikler için kurulum {fiyat:web} tek seferdir; 6 aylık planda hediye edilir ve tedavi sayfaları hazır gelir."
 },
 {
 "buton_yazisi": "Sadece Google Ads alabilir miyim?",
-"metin": "Evet, 10.000 ₺/ay yönetim ücreti artı reklam bütçesi. Yerel klinik paketi içinde İşletme Profili ve SEO ile birlikte talep daha ucuza gelir."
+"metin": "Evet, aylık {fiyat:ads} yönetim ücreti artı reklam bütçesi. Klinik SEO ile birlikte alındığında yönetim ücreti aylık {fiyat:ads_paket} olur."
 }
 ],
 "metin": "Tüm sorular"
@@ -5372,7 +5249,7 @@
 "key": "meta",
 "path": "/hizmetlerimiz/instagram-facebook-reklamlari/",
 "seo_title": "Klinik Instagram ve Facebook reklam yönetimi · Moximu",
-"seo_desc": "Klinikler için Instagram ve Facebook reklamı: form ve WhatsApp kampanyaları, sağlık kurallarına uygun görsel, haftalık rapor. 10.000 ₺/ay + bütçe.",
+"seo_desc": "Klinikler için Instagram ve Facebook reklamı: form ve WhatsApp kampanyaları, mevzuata uygun görsel, rapor. Aylık 9.000 ₺, SEO ile 6.000 ₺.",
 "service": {
 "ad": "Klinik Meta reklam yönetimi",
 "tur": "Sosyal medya reklam yönetimi",
@@ -6201,40 +6078,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v1",
-"yazi": "Fiyat",
-"baslik": "Tek hizmet olarak veya <mark>paket kapsamında</mark>.",
-"yazi_2": "Yerel klinik paketi · Meta reklamı dahil",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Instagram'dan gelen hasta Google'da adınızı aratır, profilinize bakar. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp reklamları ve cevap düzeni"
-},
-{
-"madde": "Google Ads, İşletme Profili yönetimi ve SEO"
-},
-{
-"madde": "Haftalık görsel ve metin"
-},
-{
-"madde": "Haftalık talep özeti, aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"yazi_4": "Yalnız Meta reklam yönetimi",
-"yazi_5": "10.000 ₺<span>/ay + reklam bütçesi</span>",
-"metin_2": "Kurulum, hedefleme, form ve WhatsApp kampanyaları, haftalık görsel, rapor.",
-"yazi_6": "Mevcut hesap denetimi",
-"yazi_7": "Ücretsiz<span> · 24 saatte</span>",
-"metin_3": "Kitle maliyetleri ve form akışındaki kayıp tek sayfada.",
-"baglanti_2": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz_2": "Denetim isteyin →"
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "meta",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -6289,7 +6138,7 @@
 },
 {
 "buton_yazisi": "Sadece Meta reklamı alabilir miyim?",
-"metin": "Evet, 10.000 ₺/ay yönetim ücreti artı reklam bütçesi. Yerel klinik paketi içinde Google İşletme Profili ve site ile birlikte talep daha ucuza gelir."
+"metin": "Evet, aylık {fiyat:meta} yönetim ücreti artı reklam bütçesi. Klinik SEO ile birlikte alındığında yönetim ücreti aylık {fiyat:meta_paket} olur."
 },
 {
 "buton_yazisi": "Klinik sosyal medya yönetimi de yapıyor musunuz?",
@@ -6307,7 +6156,7 @@
 "key": "fiyat",
 "path": "/fiyatlar/",
 "seo_title": "Klinik dijital pazarlama fiyatları 2026 · Moximu",
-"seo_desc": "Yerel klinik paketi 30.000 ₺/ay, sağlık turizmi 60.000 ₺/ay, klinik web sitesi 45.000 ₺. Tek hizmet fiyatları ve karşılaştırma tablosu. KDV hariç.",
+"seo_desc": "Klinik SEO aylık 12.000 ₺, SEO ve Google İşletme Profili aylık 14.000 ₺, dört kanallı paket aylık 26.000 ₺. 6 aylık planda web sitesi hediye. KDV hariç.",
 "service": {},
 "rows": [
 {
@@ -6341,7 +6190,7 @@
 "yazi_3": "<span class=\"lp-dot\"></span>Aylık özet · <em>örnek</em>",
 "liste_2": [
 {
-"yazi": "<span>Yerel klinik paketi</span><b>30.000 ₺</b>"
+"yazi": "<span>SEO + İşletme Profili</span><b>{fiyat:paket}</b>"
 },
 {
 "yazi": "<span>Reklam bütçesi · klinik tarafından</span><b>Google ve Meta'ya</b>"
@@ -6354,12 +6203,12 @@
 "yazi_5": "<span class=\"ic st\"></span><span class=\"nt\">Aylık rapor gönderildi</span><small>ay başı</small>",
 "yazi_6": "<span class=\"lp-dot\"></span>Fiyatlar 2026 · KDV hariç · çok şube ve referans indirimi görüşmeye bağlı",
 "yazi_7": "<b>24 saat</b><span>ilk rapor</span>",
-"yazi_8": "<b>6 ay</b><span>ilk sözleşme</span>"
+"yazi_8": "<b>Aylık</b><span>faturalandırma</span>"
 },
 {
 "acf_fc_layout": "alt_menu",
 "kalin_yazi": "Fiyatlar",
-"yazi": "<a href=\"#paketler\">Paketler</a><a href=\"#tek-hizmet\">Tek hizmet</a><a href=\"#karsilastirma\">Karşılaştırma</a><a href=\"#dahil\">Neler dahil</a><a href=\"#sss\">SSS</a>"
+"yazi": "<a href=\"#paketler\">Planlar</a><a href=\"#tek-hizmet\">Ekler</a><a href=\"#karsilastirma\">Karşılaştırma</a><a href=\"#dahil\">Neler dahil</a><a href=\"#sss\">SSS</a>"
 },
 {
 "acf_fc_layout": "mobil_cta",
@@ -6368,128 +6217,89 @@
 "baglanti_yaz": "Teklif isteyin"
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v4",
-"yazi": "Paketler",
-"baslik": "Üç paket, <mark>net fiyat</mark>.",
-"metin": "Paket fiyatına kurulum dahildir. Reklam bütçesi ayrıdır ve onayınız olmadan artmaz.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin_2": "Türkiye'deki hasta için. Dört kanal birlikte; reklam bütçesi ayrı.",
-"liste": [
-{
-"madde": "Google İşletme Profili yönetimi"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads yönetimi"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Haftalık içerik, hekim onaylı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"liste_2_v4": [
-{
-"yazi": "Sağlık turizmi paketi",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Yurt dışından hasta için. Çok dilli site, ülke bazlı kampanya.",
-"liste": [
-{
-"madde": "İngilizce ve hedef dil sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads ve Meta"
-},
-{
-"madde": "Koordinatör için WhatsApp akışı"
-},
-{
-"madde": "Aylık ülke raporu"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Teklif isteyin"
-},
-{
-"yazi": "Klinik web sitesi",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları kurulu, SEO'ya hazır klinik sitesi.",
-"liste": [
-{
-"madde": "Tedavi × ilçe sayfa yapısı"
-},
-{
-"madde": "Hekim ve klinik sayfaları"
-},
-{
-"madde": "Randevu ve WhatsApp akışı"
-},
-{
-"madde": "Paketle alınırsa bakımı dahil"
-}
-],
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Siteyi görün"
-}
-]
-},
-{
-"acf_fc_layout": "tek_hizmet",
-"yazi": "Tek hizmet",
-"baslik": "Yalnızca <mark>tek bir kanal</mark> mı gerekiyor?",
-"metin": "Her hizmet tek başına alınabilir. Paket, dört kanalın toplamından ucuzdur.",
-"yazi_2": "<a class=\"lp-srow\" href=\"/hizmetlerimiz/klinik-seo/\"><b>Klinik SEO</b><span>Teknik düzeltme, tedavi sayfaları, haftalık içerik, aylık rapor.</span><em>12.000 ₺<small>/ay</small></em><i>→</i></a><a class=\"lp-srow\" href=\"/hizmetlerimiz/google-isletme-profili/\"><b>Google İşletme Profili</b><span>İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.</span><em>6.000 ₺<small>/ay · şube</small></em><i>→</i></a><a class=\"lp-srow\" href=\"/hizmetlerimiz/google-ads/\"><b>Google Ads yönetimi</b><span>Kelime, negatif liste, açılış sayfası, haftalık bütçe düzeni.</span><em>10.000 ₺<small>/ay + bütçe</small></em><i>→</i></a><a class=\"lp-srow\" href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\"><b>Instagram ve Facebook</b><span>Form ve WhatsApp reklamları, görsel, haftalık kitle düzeni.</span><em>10.000 ₺<small>/ay + bütçe</small></em><i>→</i></a><a class=\"lp-srow\" href=\"/hizmetlerimiz/klinik-web-sitesi/\"><b>Klinik web sitesi</b><span>Tedavi sayfaları kurulu, bir yıl teknik bakım.</span><em>45.000 ₺<small>tek sefer</small></em><i>→</i></a>"
+"acf_fc_layout": "planlar",
+"yazi": "Planlar",
+"baslik": "Kliniğinize uygun <mark>planı</mark> seçin.",
+"metin": "Aylık çalışılır, kurulum ücreti yoktur. 6 aylık planla başlayan kliniklere klinik web sitesi hediye.",
+"odak": "paket",
+"kimlik": "paketler"
 },
 {
 "acf_fc_layout": "karsilastirma",
 "yazi": "Karşılaştırma",
-"baslik": "Kliniğinize <mark>uygun paket</mark>.",
+"baslik": "Planlar <mark>yan yana</mark>.",
 "liste": [
 {
-"hucre_baslig": "Yerel paket<b>30.000 ₺/ay</b>"
+"hucre_baslig": "Klinik SEO<b>{fiyat:seo}/ay</b>"
 },
 {
-"hucre_baslig": "Sağlık turizmi<b>60.000 ₺/ay</b>"
+"hucre_baslig": "SEO + İşletme Profili<b>{fiyat:paket}/ay</b>"
 },
 {
-"hucre_baslig": "Tek hizmet<b>6.000 ₺'den</b>"
+"hucre_baslig": "Yerel klinik paketi<b>{fiyat:yerel}/ay</b>"
 }
 ],
-"hucre": "Google İşletme Profili yönetimi",
-"liste_2": [
-{
-"hucre": "Tedavi × ilçe sayfaları"
-},
-{
-"hucre": "Google Ads yönetimi"
-},
-{
-"hucre": "Instagram ve WhatsApp reklamları"
-},
-{
-"hucre": "Haftalık içerik"
-}
-],
-"liste_3": [
-{
-"hucre": "Çok dilli sayfalar"
-},
-{
-"hucre": "Ülke bazlı kampanya"
-}
-],
+"hucre": "Tedavi × ilçe sayfaları ve SEO",
+"liste_2": [],
+"liste_3": [],
 "hucre_2": "Aylık tek sayfa rapor",
 "liste_4": [
+{
+"hucre": "Google İşletme Profili yönetimi",
+"liste": [
+{
+"hucre": "<i class=\"n\"></i>"
+},
+{
+"hucre": "<i class=\"y\"></i>"
+},
+{
+"hucre": "<i class=\"y\"></i>"
+}
+]
+},
+{
+"hucre": "Google Ads yönetimi",
+"liste": [
+{
+"hucre": "<small>+{fiyat:ads_paket}</small>"
+},
+{
+"hucre": "<small>+{fiyat:ads_paket}</small>"
+},
+{
+"hucre": "<i class=\"y\"></i>"
+}
+]
+},
+{
+"hucre": "Instagram ve Facebook reklamı",
+"liste": [
+{
+"hucre": "<small>+{fiyat:meta_paket}</small>"
+},
+{
+"hucre": "<small>+{fiyat:meta_paket}</small>"
+},
+{
+"hucre": "<i class=\"y\"></i>"
+}
+]
+},
+{
+"hucre": "6 aylık planda web sitesi",
+"liste": [
+{
+"hucre": "<small>hediye</small>"
+},
+{
+"hucre": "<small>hediye</small>"
+},
+{
+"hucre": "<small>hediye</small>"
+}
+]
+},
 {
 "hucre": "Reklam bütçesi",
 "liste": [
@@ -6501,20 +6311,6 @@
 },
 {
 "hucre": "<small>ayrı, klinik tarafından</small>"
-}
-]
-},
-{
-"hucre": "İlk sözleşme",
-"liste": [
-{
-"hucre": "<small>6 ay</small>"
-},
-{
-"hucre": "<small>6 ay</small>"
-},
-{
-"hucre": "<small>yok</small>"
 }
 ]
 }
@@ -6546,8 +6342,8 @@
 "metin": "Reklam hesabı, İşletme Profili ve site kliniğindir; ayrılsanız da sizde kalır."
 },
 {
-"alt_baslik": "Aylık fatura, altı ay",
-"metin": "İlk sözleşme altı ay; sonrası aylık. KDV hariç."
+"alt_baslik": "Aylık fatura",
+"metin": "Hizmet bedeli aylık; KDV hariç. 6 aylık planda web sitesi hediye."
 }
 ]
 },
@@ -6670,7 +6466,7 @@
 },
 {
 "buton_yazisi": "Sözleşme süresi ne kadar?",
-"metin": "İlk sözleşme altı aydır; sonrası aylıktır. Site tek seferlik iştir."
+"metin": "Hizmet bedeli aylık faturalandırılır. 6 aylık plan seçilirse dönem başında tek fatura kesilir ve klinik web sitesi hediye edilir."
 }
 ],
 "liste_2_v2": [
@@ -6697,7 +6493,7 @@
 "key": "paket",
 "path": "/fiyatlar/yerel-klinik-paketi/",
 "seo_title": "Yerel klinik paketi · Moximu",
-"seo_desc": "Web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı tek pakette: 30.000 ₺/ay. 24 saatte ücretsiz klinik analizi.",
+"seo_desc": "SEO, Google İşletme Profili, Google Ads ve Instagram reklamı tek pakette: aylık 26.000 ₺ + KDV. 6 aylık planda klinik web sitesi hediye.",
 "service": {
 "ad": "Klinik dijital pazarlama paketi",
 "tur": "Dijital pazarlama",
@@ -7312,7 +7108,7 @@
 "yazi_2": "01",
 "alt_baslik": "Klinik web sitesi",
 "metin_2": "Her tedaviye ayrı sayfa, telefonda 2 saniyede açılır.",
-"metin_3": "Kurulum 45.000 ₺ tek sefer; bakımı pakette.",
+"metin_3": "Site {fiyat:web} tek sefer; 6 aylık planda hediye.",
 "gorsel": {
 "seed": "klinik-web-sitesi-ornek.jpg",
 "alt": ""
@@ -7530,51 +7326,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Tek fiyat, <mark>dört kanal</mark>.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Yönetim ücreti. Reklam bütçesi ayrıdır, doğrudan Google ve Meta'ya ödenir.",
-"liste": [
-{
-"madde": "Klinik web sitesi bakımı ve yeni tedavi sayfaları"
-},
-{
-"madde": "SEO ve haftalık içerik"
-},
-{
-"madde": "Google İşletme Profili yönetimi"
-},
-{
-"madde": "Google Ads yönetimi"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Sağlık turizmi paketi",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı reklam, yabancı hasta akışı.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Kurulum paketle birlikte; tedavi sayfaları hazır gelir.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "yerel",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -7607,11 +7364,11 @@
 "liste_v2": [
 {
 "buton_yazisi": "Reklam bütçesi pakete dahil mi?",
-"metin": "Hayır. 30.000 ₺ yönetim ücretidir; reklam bütçesi doğrudan Google ve Meta'ya, sizin tarafınızdan ödenir. Bütçeyi ilk analizde birlikte belirleriz."
+"metin": "Hayır. Aylık {fiyat:yerel} yönetim ücretidir; reklam bütçesi doğrudan Google ve Meta'ya, sizin tarafınızdan ödenir. Bütçeyi ilk analizde birlikte belirleriz."
 },
 {
 "buton_yazisi": "Sözleşme süresi var mı?",
-"metin": "Sözleşme 6 aydır, ücret aylık faturalanır. İlk ay kurulum olduğu için sonuç ikinci aydan itibaren görünür; erken ayrılırsanız kalan ayların ücreti istenmez, hesaplar ve site sizde kalır."
+"metin": "Ücret aylık faturalanır. İlk ay kurulum olduğu için sonuç ikinci aydan itibaren görünür. 6 aylık planla başlayan kliniklere web sitesi hediye edilir; hesaplar ve site her durumda sizde kalır."
 },
 {
 "buton_yazisi": "Hesaplar kimin adına açılır?",
@@ -7621,7 +7378,7 @@
 "liste_2_v2": [
 {
 "buton_yazisi": "Sitemiz zaten var, yeniden mi yapılacak?",
-"metin": "Hayır. Mevcut siteye tedavi sayfaları ve WhatsApp formu eklenir. Sitesi olmayan klinikler için kurulum 45.000 ₺ tek seferdir."
+"metin": "Hayır. Mevcut siteye tedavi sayfaları ve WhatsApp formu eklenir. Sitesi olmayan klinikler için kurulum {fiyat:web} tek seferdir; 6 aylık planda hediye edilir."
 },
 {
 "buton_yazisi": "Ne zaman ilk talep gelir?",
@@ -7629,7 +7386,7 @@
 },
 {
 "buton_yazisi": "Sağlık turizmi için de geçerli mi?",
-"metin": "Yurt dışından hasta için ayrı bir paket var: ülke ülke kampanya ve çok dilli site, 60.000 ₺/ay."
+"metin": "Yurt dışından hasta için ayrı bir paket var: ülke ülke kampanya ve çok dilli site. Fiyatı ülke ve dil sayısına göre görüşmeye bağlıdır."
 }
 ],
 "metin": "Tüm sorular"
@@ -7643,7 +7400,7 @@
 "key": "paket-turizm",
 "path": "/fiyatlar/saglik-turizmi-paketi/",
 "seo_title": "Sağlık turizmi paketi · Moximu",
-"seo_desc": "Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google İşletme Profili ve aylık rapor: 60.000 ₺/ay.",
+"seo_desc": "Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google İşletme Profili ve aylık rapor. Fiyat görüşmeye bağlı.",
 "service": {
 "ad": "Sağlık turizmi dijital pazarlama paketi",
 "tur": "Dijital pazarlama",
@@ -8476,54 +8233,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Yurt dışı için <mark>tek fiyat</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Yönetim ücreti. Reklam bütçesi ayrıdır, doğrudan Google ve Meta'ya ödenir.",
-"liste": [
-{
-"madde": "Çok dilli site ve ülke açılış sayfaları"
-},
-{
-"madde": "SEO ve haftalık İngilizce içerik"
-},
-{
-"madde": "Google İşletme Profili yönetimi"
-},
-{
-"madde": "Google Ads ülke bazlı kampanyalar"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp hazır cevapları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yerel klinik paketi",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Türkiye içindeki hasta için site, İşletme Profili ve reklam.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Çok şubeli klinikler",
-"yazi_2": "Görüşmeye bağlı",
-"metin": "Şube ve ülke sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor.",
-"baglanti": "/fiyatlar/cok-subeli/",
-"baglanti_yaz": "Çok şubeli fiyat →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -8556,11 +8271,11 @@
 "liste_v2": [
 {
 "buton_yazisi": "Reklam bütçesi pakete dahil mi?",
-"metin": "Hayır. 60.000 ₺ yönetim ücretidir; reklam bütçesi doğrudan Google ve Meta'ya, sizin tarafınızdan ödenir. Ülke ve bütçeyi ilk analizde birlikte belirleriz."
+"metin": "Hayır. Paket ücreti yalnız yönetim ücretidir; reklam bütçesi doğrudan Google ve Meta'ya, sizin tarafınızdan ödenir. Ülke ve bütçeyi ilk analizde birlikte belirleriz."
 },
 {
 "buton_yazisi": "Sözleşme süresi var mı?",
-"metin": "Sözleşme 6 aydır, ücret aylık faturalanır. Erken ayrılırsanız kalan ayların ücreti istenmez; hesaplar ve site sizde kalır."
+"metin": "Ücret aylık faturalanır. 6 aylık planla başlayan kliniklere web sitesi hediye edilir; hesaplar ve site her durumda sizde kalır."
 },
 {
 "buton_yazisi": "Hangi ülkelere reklam verilir?",
@@ -8586,7 +8301,7 @@
 ],
 "title": "Sağlık turizmi paketi",
 "order": 2,
-"excerpt": "Yurt dışından hasta için çok dilli site, ülke bazlı Google ve Meta reklamı, WhatsApp hazır cevapları; 60.000 ₺/ay."
+"excerpt": "Yurt dışından hasta için çok dilli site, ülke bazlı Google ve Meta reklamı, WhatsApp hazır cevapları; fiyat ülke sayısına göre belirlenir."
 },
 {
 "key": "tklinik",
@@ -8980,51 +8695,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Diş kliniği için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: implant, zirkonyum, ortodonti grupları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Form + WhatsApp hasta kabul akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -9083,7 +8759,7 @@
 },
 {
 "buton_yazisi": "Yurt dışından hasta almak istiyoruz.",
-"metin": "Ayrı paket: çok dilli site, ülke bazlı kampanya ve koordinatör eğitimi, 60.000 ₺/ay. Yerel paketle birlikte de alınabilir."
+"metin": "Ayrı paket: çok dilli site, ülke bazlı kampanya ve koordinatör eğitimi; fiyat ülke sayısına göre görüşmeye bağlıdır. Yerel paketle birlikte de alınabilir."
 },
 {
 "buton_yazisi": "Diş kliniği web sitesi ve SEO birlikte mi yürür?",
@@ -9433,51 +9109,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Estetik kliniği için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Tedavi sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: burun, vücut, meme estetiği grupları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Form + WhatsApp hasta kabul akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -9532,7 +9169,7 @@
 },
 {
 "buton_yazisi": "Yurt dışından hasta almak istiyoruz.",
-"metin": "Ayrı paket: çok dilli sayfalar, ülke bazlı kampanya ve koordinatör düzeni, 60.000 ₺/ay."
+"metin": "Ayrı paket: çok dilli sayfalar, ülke bazlı kampanya ve koordinatör düzeni; fiyat ülke sayısına göre görüşmeye bağlıdır."
 },
 {
 "buton_yazisi": "Reklam bütçesi ne kadar olmalı?",
@@ -9870,51 +9507,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Dermatoloji kliniği için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: epilasyon, dolgu, cilt grupları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Form + WhatsApp randevu akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -10303,51 +9901,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Saç ekimi için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -10752,51 +10311,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Fizyoterapi merkezi için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Şikâyet × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: fıtık, skolyoz, spor grupları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Form + WhatsApp randevu akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -11195,51 +10715,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Diyetisyen için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Hizmet sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: online diyet, kilo yönetimi grupları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "Form + WhatsApp randevu akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -11638,51 +11119,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Psikolog için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Hizmet sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: bireysel, çift, online terapi grupları"
-},
-{
-"madde": "Instagram ve Facebook reklamları"
-},
-{
-"madde": "Form + WhatsApp randevu akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -12075,51 +11517,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Sünnet merkezi için <mark>tek paket</mark>, dört kanal.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Tedavi sayfaları, Google İşletme Profili, arama ve Instagram reklamı, hasta kabul akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Yöntem sayfaları ve SEO"
-},
-{
-"madde": "Google İşletme Profili haftalık bakım"
-},
-{
-"madde": "Google Ads: yöntem ve şehir grupları"
-},
-{
-"madde": "Instagram ve Facebook reklamları"
-},
-{
-"madde": "Form + WhatsApp randevu akışı"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Yurt dışından hasta alan diş klinikleri",
-"yazi_2": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli site, ülke bazlı kampanya, koordinatör eğitimi.",
-"baglanti": "/fiyatlar/saglik-turizmi-paketi/",
-"baglanti_yaz": "Sağlık turizmi paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -12532,51 +11935,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Sağlık turizmi için <mark>ayrı paket</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -12814,40 +12178,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Ankara için <mark>paket ve fiyatlar</mark>.",
-"yazi_2": "Yerel klinik paketi · Ankara",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız Ankara"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -13068,40 +12404,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "İzmir için <mark>paket ve fiyatlar</mark>.",
-"yazi_2": "Yerel klinik paketi · İzmir",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız İzmir"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -13322,40 +12630,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "İstanbul için <mark>paket ve fiyatlar</mark>.",
-"yazi_2": "Yerel klinik paketi · İstanbul",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız İstanbul"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -13576,40 +12856,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Antalya için <mark>paket ve fiyatlar</mark>.",
-"yazi_2": "Yerel klinik paketi · Antalya",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız Antalya"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -13830,40 +13082,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Manisa için <mark>paket ve fiyatlar</mark>.",
-"yazi_2": "Yerel klinik paketi · Manisa",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız Manisa"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -14084,40 +13308,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Bursa için <mark>paket ve fiyatlar</mark>.",
-"yazi_2": "Yerel klinik paketi · Bursa",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız Bursa"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -16246,40 +15442,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Şeffaf fiyat, <mark>altı aylık</mark> çalışma.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "İşletme Profili, tedavi × ilçe sayfaları, Google Ads ve Instagram reklamları. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "İlçe bazlı Google İşletme Profili"
-},
-{
-"madde": "Tedavi × ilçe sayfaları ve SEO"
-},
-{
-"madde": "Google Ads, yalnız Ankara"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -16330,7 +15498,7 @@
 },
 {
 "buton_yazisi": "Sözleşme süresi ne kadar?",
-"metin": "Altı ay. Sonunda devam ya da bırakma kararı sizde; hesaplar ve site sizde kalır."
+"metin": "Hizmet aylık faturalandırılır; 6 aylık planda klinik web sitesi hediye edilir. Hesaplar ve site her durumda sizde kalır."
 },
 {
 "buton_yazisi": "Yurt dışından da hasta alıyoruz.",
@@ -16716,40 +15884,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Muayenehane için <mark>sade paket</mark>.",
-"yazi_2": "Yerel klinik paketi",
-"yazi_3": "30.000 ₺<span>/ay</span>",
-"metin": "Hekim sitesi bakımı, Google İşletme Profili, Google Ads ve Instagram reklamı. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Hekim ve tedavi sayfaları, SEO"
-},
-{
-"madde": "Google İşletme Profili ve yorum cevapları"
-},
-{
-"madde": "Google Ads, yalnız sizin ilçeniz"
-},
-{
-"madde": "Instagram form ve WhatsApp reklamları"
-},
-{
-"madde": "Aylık tek sayfa rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Çok şubeli klinikler",
-"yazi_7": "Görüşmeye bağlı",
-"metin_3": "Şube sayısına göre fiyat; her şube için ayrı İşletme Profili ve rapor."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -17168,40 +16308,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v3",
-"yazi": "Fiyat",
-"baslik": "Şube ve bölüm sayısına <mark>göre fiyat</mark>.",
-"yazi_2": "Hastane ve tıp merkezi",
-"yazi_3": "Görüşmeye bağlı",
-"metin": "Bölüm ve şube sayısına göre yazılı teklif. Reklam bütçesi ayrıdır, kurumun kartından ödenir.",
-"liste": [
-{
-"madde": "Bölüm ve hekim sayfaları, SEO"
-},
-{
-"madde": "Her şube için Google İşletme Profili"
-},
-{
-"madde": "Bölüm bazlı Google Ads"
-},
-{
-"madde": "Yurt dışı hasta için dil sayfaları"
-},
-{
-"madde": "Bölüm ve şube bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_4": "Yalnız Google İşletme Profili",
-"yazi_5": "6.000 ₺<span>/ay · şube</span>",
-"metin_2": "İşletme Profili kurulumu, haftalık gönderi, yorum cevapları, aylık rapor.",
-"baglanti_2": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_2": "İşletme Profili yönetimi →",
-"yazi_6": "Tek bölüm ile başlamak",
-"yazi_7": "30.000 ₺<span>/ay</span>",
-"metin_3": "Önce tek bölüm (örneğin diş ya da estetik) ile başlanır, sonra diğerlerine geçilir."
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "paket",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -17620,51 +16732,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Acenteler için <mark>aynı paket</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -17899,51 +16972,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Almanya için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -18164,51 +17198,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "İngiltere için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -18429,51 +17424,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Hollanda için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -18694,51 +17650,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Belçika için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -18959,51 +17876,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Fransa için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -19224,51 +18102,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Avusturya için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -19489,51 +18328,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "İsviçre için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -19754,51 +18554,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "Bulgaristan için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -20019,51 +18780,12 @@
 ]
 },
 {
-"acf_fc_layout": "fiyat",
-"tasarim": "v2",
-"yazi": "Fiyat",
-"baslik": "ABD için <mark>sağlık turizmi paketi</mark>.",
-"yazi_2": "Sağlık turizmi paketi",
-"yazi_3": "60.000 ₺<span>/ay</span>",
-"metin": "Çok dilli sayfalar, ülke bazlı reklam ve yabancı hasta akışı; aylık tek sayfa rapor. Reklam bütçesi ayrıdır.",
-"liste": [
-{
-"madde": "Çok dilli tedavi ve süreç sayfaları"
-},
-{
-"madde": "Ülke bazlı Google Ads kampanyaları"
-},
-{
-"madde": "Instagram ve Facebook form reklamları"
-},
-{
-"madde": "WhatsApp karşılama ve koordinatör düzeni"
-},
-{
-"madde": "Google İşletme Profili bakımı"
-},
-{
-"madde": "Ülke bazında aylık rapor"
-}
-],
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz analizle başlayın",
-"liste_2": [
-{
-"yazi": "Türkiye içindeki hasta için",
-"yazi_2": "30.000 ₺<span>/ay</span>",
-"metin": "Site, Google İşletme Profili, Google ve Instagram reklamı.",
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"baglanti_yaz": "Yerel klinik paketi →"
-},
-{
-"yazi": "Sitesi olmayan klinikler",
-"yazi_2": "45.000 ₺<span> tek sefer</span>",
-"metin": "Tedavi sayfaları hazır klinik sitesi; dört haftada yayında.",
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz": "Klinik web sitesi →"
-}
-]
+"acf_fc_layout": "planlar",
+"yazi": "Fiyatlar",
+"baslik": "Açık fiyat, <mark>net kapsam</mark>.",
+"metin": "Hizmet bedeli aylık faturalandırılır; reklam bütçesi ayrıdır. 6 aylık planda klinik web siteniz hediye.",
+"odak": "turizm",
+"kimlik": "fiyat"
 },
 {
 "acf_fc_layout": "yorum_ozet",
@@ -20812,7 +19534,7 @@
 "path": "/moximu-ve-freelancer/",
 "title": "Moximu mu, freelancer mı?",
 "excerpt": "Freelancer genelde tek bir işte iyidir; klinik ise dört kanalın birlikte çalışmasına ihtiyaç duyar. Fark süreklilikte ve ölçümde.",
-"content": "<p>Her klinik için doğru seçenek aynı değildir. Aşağıdaki tablo farkları olduğu gibi yazar; hangi durumda diğer seçeneğin daha iyi olduğunu da.</p>\n<h2>Karşılaştırma</h2>\n<table><thead><tr><th>Ölçüt</th><th>Freelancer</th><th>Moximu</th></tr></thead><tbody>\n<tr><td>Kapsam</td><td>Genelde tek iş: site ya da reklam ya da sosyal medya</td><td>Site, Google İşletme Profili, Google ve Instagram reklamı birlikte</td></tr>\n<tr><td>Süreklilik</td><td>Proje bitince iş biter; bakım belirsiz</td><td>Haftalık bakım, her gün aynı düzen</td></tr>\n<tr><td>Sağlık reklamı bilgisi</td><td>Değişken</td><td>Yalnız klinik; kurallar her metinde</td></tr>\n<tr><td>Hesap sahipliği</td><td>Çoğu zaman freelancerın hesabında</td><td>Kliniğin adına</td></tr>\n<tr><td>Rapor</td><td>Çoğu zaman yok ya da ekran görüntüsü</td><td>Ayın ilk haftası tek sayfa</td></tr>\n<tr><td>Fiyat</td><td>Daha düşük</td><td>Paket 30.000 ₺/ay'dan</td></tr>\n</tbody></table>\n<h2>Freelancer ne zaman yeter</h2>\n<p>Yalnız bir site kurdurmak istiyorsanız ve bakımını kendiniz yapacaksanız, ya da tek bir kanalı kısa süre denemek istiyorsanız iyi bir freelancer yeterlidir.</p>\n<h2>Moximu ne zaman daha iyi</h2>\n<p>Her ay düzenli hasta talebi istiyorsanız, dört kanalın birbirini beslemesini ve her ay ne olduğunu yazılı görmek istiyorsanız.</p>",
+"content": "<p>Her klinik için doğru seçenek aynı değildir. Aşağıdaki tablo farkları olduğu gibi yazar; hangi durumda diğer seçeneğin daha iyi olduğunu da.</p>\n<h2>Karşılaştırma</h2>\n<table><thead><tr><th>Ölçüt</th><th>Freelancer</th><th>Moximu</th></tr></thead><tbody>\n<tr><td>Kapsam</td><td>Genelde tek iş: site ya da reklam ya da sosyal medya</td><td>Site, Google İşletme Profili, Google ve Instagram reklamı birlikte</td></tr>\n<tr><td>Süreklilik</td><td>Proje bitince iş biter; bakım belirsiz</td><td>Haftalık bakım, her gün aynı düzen</td></tr>\n<tr><td>Sağlık reklamı bilgisi</td><td>Değişken</td><td>Yalnız klinik; kurallar her metinde</td></tr>\n<tr><td>Hesap sahipliği</td><td>Çoğu zaman freelancerın hesabında</td><td>Kliniğin adına</td></tr>\n<tr><td>Rapor</td><td>Çoğu zaman yok ya da ekran görüntüsü</td><td>Ayın ilk haftası tek sayfa</td></tr>\n<tr><td>Fiyat</td><td>Daha düşük</td><td>Aylık {fiyat:seo}'den</td></tr>\n</tbody></table>\n<h2>Freelancer ne zaman yeter</h2>\n<p>Yalnız bir site kurdurmak istiyorsanız ve bakımını kendiniz yapacaksanız, ya da tek bir kanalı kısa süre denemek istiyorsanız iyi bir freelancer yeterlidir.</p>\n<h2>Moximu ne zaman daha iyi</h2>\n<p>Her ay düzenli hasta talebi istiyorsanız, dört kanalın birbirini beslemesini ve her ay ne olduğunu yazılı görmek istiyorsanız.</p>",
 "seo_title": "Moximu mu freelancer mı? Klinikler için karşılaştırma",
 "seo_desc": "Klinik pazarlamasında freelancer ile Moximu karşılaştırması: kapsam, süreklilik, hesap sahipliği, rapor ve fiyat. Hangi durumda freelancer yeter?",
 "order": 0,
@@ -20865,7 +19587,7 @@
 "path": "/klinik-sahipleri/",
 "title": "Klinik sahipleri için",
 "excerpt": "Klinik sahibinin sorusu tektir: bu ay kaç hasta geldi ve kaça geldi. Raporumuz tıklamayı değil talebi ve maliyeti yazar.",
-"content": "<p>Reklama her ay para ödüyorsunuz; karşılığında ne geldiğini bilmek istersiniz. Çoğu rapor erişim ve tıklama anlatır. Biz talebi, bir talebin maliyetini ve bir sonraki ayın kararını yazarız.</p>\n<h2>Duyduğumuz dört dert</h2>\n<table><thead><tr><th>Dert</th><th>Moximu'da</th></tr></thead><tbody>\n<tr><td>\"Tıklama arttı\" deniyor, hasta gelmiyor.</td><td>Rapor talep, maliyet ve kanal yazar; tek sayfa.</td></tr>\n<tr><td>Reklam faturası her ay büyüyor, kim artırdı belli değil.</td><td>Toplam bütçe yalnız sizin onayınızla artar.</td></tr>\n<tr><td>Hesaplar ajansın adına; ayrılınca her şey gidiyor.</td><td>Hepsi kliniğin adına, Moximu yönetici.</td></tr>\n<tr><td>Her hafta görüşme, hastaya vakit kalmıyor.</td><td>Haftada bir yazılı özet; gerektiğinde telefon.</td></tr>\n</tbody></table>\n<h2>Sizden istediklerimiz</h2>\n<ul>\n<li>Gelen talebin aynı gün aranması</li>\n<li>Ayda bir klinik fotoğrafı ve kısa video</li>\n<li>Haftalık plana bir bakış</li>\n</ul>\n<h2>Size verdiklerimiz</h2>\n<ul>\n<li>Her pazartesi ne yapıldığının özeti</li>\n<li>Her ayın ilk haftası tek sayfa rapor ve bir sonraki ayın kararı</li>\n<li>Altı ay sonunda devam ya da bırakma kararı sizde; hesaplar ve site sizde kalır</li>\n</ul>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Hekim olarak reklamla uğraşmak istemiyorum.</summary><p>Uğraşmazsınız. Haftada bir kısa özet, ayda bir tek sayfa rapor. Sizden beklenen, gelen talebin aynı gün aranmasıdır.</p></details>\n<details><summary>Çok ajans değiştirdim.</summary><p>Hesaplar sizin adınıza olduğu için geçişte veri kaybolmaz. İlk hafta hesap temizliği yapılır ve yazılı plan gelir.</p></details>",
+"content": "<p>Reklama her ay para ödüyorsunuz; karşılığında ne geldiğini bilmek istersiniz. Çoğu rapor erişim ve tıklama anlatır. Biz talebi, bir talebin maliyetini ve bir sonraki ayın kararını yazarız.</p>\n<h2>Duyduğumuz dört dert</h2>\n<table><thead><tr><th>Dert</th><th>Moximu'da</th></tr></thead><tbody>\n<tr><td>\"Tıklama arttı\" deniyor, hasta gelmiyor.</td><td>Rapor talep, maliyet ve kanal yazar; tek sayfa.</td></tr>\n<tr><td>Reklam faturası her ay büyüyor, kim artırdı belli değil.</td><td>Toplam bütçe yalnız sizin onayınızla artar.</td></tr>\n<tr><td>Hesaplar ajansın adına; ayrılınca her şey gidiyor.</td><td>Hepsi kliniğin adına, Moximu yönetici.</td></tr>\n<tr><td>Her hafta görüşme, hastaya vakit kalmıyor.</td><td>Haftada bir yazılı özet; gerektiğinde telefon.</td></tr>\n</tbody></table>\n<h2>Sizden istediklerimiz</h2>\n<ul>\n<li>Gelen talebin aynı gün aranması</li>\n<li>Ayda bir klinik fotoğrafı ve kısa video</li>\n<li>Haftalık plana bir bakış</li>\n</ul>\n<h2>Size verdiklerimiz</h2>\n<ul>\n<li>Her pazartesi ne yapıldığının özeti</li>\n<li>Her ayın ilk haftası tek sayfa rapor ve bir sonraki ayın kararı</li>\n<li>Hesaplar ve site kliniğin adına; her durumda sizde kalır</li>\n</ul>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Hekim olarak reklamla uğraşmak istemiyorum.</summary><p>Uğraşmazsınız. Haftada bir kısa özet, ayda bir tek sayfa rapor. Sizden beklenen, gelen talebin aynı gün aranmasıdır.</p></details>\n<details><summary>Çok ajans değiştirdim.</summary><p>Hesaplar sizin adınıza olduğu için geçişte veri kaybolmaz. İlk hafta hesap temizliği yapılır ve yazılı plan gelir.</p></details>",
 "seo_title": "Klinik sahipleri için dijital pazarlama · Moximu",
 "seo_desc": "Klinik sahipleri için: talep ve maliyet yazan tek sayfa rapor, kliniğin adına açılan hesaplar, onaysız artmayan bütçe ve haftada tek yazılı özet.",
 "order": 0,
@@ -21791,7 +20513,7 @@
 "path": "/sss/",
 "title": "Sık sorulan sorular",
 "excerpt": "Fiyat, süre, hesaplar, sözleşme, reklam ve rapor. Cevabını bulamadığınız soruyu WhatsApp'tan sorun; aynı gün cevaplanır.",
-"content": "<h2>Başlangıç</h2>\n<details><summary>Ücretsiz klinik analizi nedir?</summary><p>Kliniğinizin adı ve şehri yeter. 24 saat içinde tek sayfalık rapor gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır. Ücretsizdir, bağlayıcı değildir.</p></details>\n<details><summary>İlk görüşme nasıl olur?</summary><p>Telefon ya da WhatsApp görüşmesi, yaklaşık 20 dakika. Analiz raporunu birlikte okuruz; uygunsa yazılı teklif aynı gün gelir.</p></details>\n<details><summary>Ne kadar sürede başlarız?</summary><p>Teklif onayından sonraki hafta hesap erişimleri alınır; reklamlar üçüncü hafta açılır.</p></details>\n<details><summary>Sağlık dışı işletmelerle çalışıyor musunuz?</summary><p>Yeni işlerde hayır; Moximu yalnız klinik ve muayenehanelerle çalışır.</p></details>\n<details><summary>Hangi şehirlerde çalışıyorsunuz?</summary><p>Türkiye'nin her şehrinde. Moximu Manisa'dadır; İzmir ve Manisa'ya yerinde de geliriz.</p></details>\n<h2>Paketler ve fiyat</h2>\n<details><summary>Paketler nelerdir?</summary><p>Yerel klinik paketi 30.000 ₺/ay, sağlık turizmi paketi 60.000 ₺/ay, klinik web sitesi 45.000 ₺ tek sefer. Fiyatlar KDV hariçtir.</p></details>\n<details><summary>Reklam bütçesi dahil mi?</summary><p>Hayır. Reklam bütçesi doğrudan Google ve Meta'ya, klinik tarafından ödenir.</p></details>\n<details><summary>Hizmetleri tek tek alabilir miyim?</summary><p>Evet. SEO, Google İşletme Profili, Google Ads ve Meta reklamı tek tek de alınabilir; fiyatlar <a href=\"/fiyatlar/tek-hizmet/\">tek hizmet</a> sayfasında. İki ve daha fazla hizmette paket çoğu zaman daha uygundur.</p></details>\n<details><summary>Fiyat artar mı?</summary><p>Her ocak TÜFE oranında güncellenir; sözleşmede yazılıdır.</p></details>\n<details><summary>Çok şubemiz var.</summary><p>Her şube ayrı İşletme Profili ve ayrı reklam bölgesi alır; fiyat şube sayısına göre görüşmeye bağlıdır. Ayrıntı <a href=\"/fiyatlar/cok-subeli/\">çok şubeli klinikler</a> sayfasında.</p></details>\n<h2>Sözleşme ve hesaplar</h2>\n<details><summary>Sözleşme süresi ne kadar?</summary><p>6 ay. Her ayın 1'inde fatura, 15'ine kadar ödeme.</p></details>\n<details><summary>Hesaplar kimin adına?</summary><p>Sizin. Google Ads, İşletme Profili, Meta, alan adı ve site kliniğin adına açılır; Moximu yönetici olarak eklenir.</p></details>\n<details><summary>Ayrılırsam ne olur?</summary><p>Hesaplar, site ve veriler sizde kalır; hiçbir şey kapanmaz. Kaldırılan tek şey Moximu'nun yönetici erişimidir.</p></details>\n<details><summary>Mevcut ajansımdan geçiş nasıl olur?</summary><p>Hesap erişimleri sizden alınır; ilk hafta hesap temizliği, ikinci hafta yeni yapı. Geçmiş veri kaybolmaz.</p></details>\n<details><summary>Hasta verilerini görüyor musunuz?</summary><p>Hayır. Hasta verisi ve mesaj içeriği Moximu'ya gelmez; raporda yalnız sayılar yer alır.</p></details>\n<h2>Reklam</h2>\n<details><summary>Bütçeyi siz mi artırıyorsunuz?</summary><p>Hayır. Toplam bütçe onayınız olmadan artmaz; biz bütçeyi hizmet ve ilçe arasında kaydırırız.</p></details>\n<details><summary>Instagram mı, Google mı?</summary><p>İkisi farklı hastayı getirir: Google arayan hastayı, Instagram görüp düşünen hastayı. Bütçe her hafta talep maliyetine göre kayar.</p></details>\n<details><summary>Mevzuata nasıl uyuyorsunuz?</summary><p>Öncesi/sonrası, hasta görseli, \"en iyi\", garanti ve indirim dili kullanılmaz; tedavi metinleri hekim onayından geçer. Ayrıntı <a href=\"/saglik-reklam-mevzuati/\">sağlık reklam mevzuatı</a> sayfasında.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk talepler genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ay ister. Sonuç garantisi verilmez.</p></details>\n<h2>Site ve Google İşletme Profili</h2>\n<details><summary>Mevcut sitemi yenileyebilir misiniz?</summary><p>Evet. Mevcut tasarımdan başlar, adım adım iyileştiririz. Sıfırdan site yalnız siz isterseniz kurulur.</p></details>\n<details><summary>Hangi altyapı?</summary><p>WordPress. Site, alan adı ve sunucu sizin adınıza; şifreler sizde.</p></details>\n<details><summary>Google İşletme Profilim askıya alındı.</summary><p>Çoğu zaman ad ya da adres kuralı yüzündendir; tabela fotoğrafı ve belgeyle itiraz edilir, süreci biz yürütürüz.</p></details>\n<details><summary>Yorum toplamak için ne yapıyorsunuz?</summary><p>Tedavi sonrası WhatsApp'tan tek dokunuşla yorum bağlantısı gönderilir. Yorum satın alınmaz.</p></details>\n<h2>Rapor ve iletişim</h2>\n<details><summary>Rapor ne zaman gelir?</summary><p>Her ayın ilk haftası tek sayfa: talep, bir talebin maliyeti, kanal, hizmet, geçen aya fark ve bu ayın kararı.</p></details>\n<details><summary>Size nasıl ulaşırım?</summary><p>WhatsApp’tan her saat yazabilirsiniz; telefon hafta içi 09:00–18:00: [mx_telefon]. Site kapandı ya da hesap askıya alındı gibi acil durumlara aynı gün dönülür.</p></details>\n<h2>Daha fazlası</h2><ul><li><a href=\"/sozluk/\">Klinik pazarlama sözlüğü</a> Terimlerin kısa açıklamaları.</li><li><a href=\"/ajans-secerken/\">Ajans seçerken sorulacak 12 soru</a></li><li><a href=\"/degerlendirme/\">Klinik dijital değerlendirme</a> 12 soruluk öz değerlendirme.</li><li><a href=\"/youtube/\">YouTube videoları</a></li><li><a href=\"/bulten/\">Bülten</a> Ayda bir e-posta.</li></ul>",
+"content": "<h2>Başlangıç</h2>\n<details><summary>Ücretsiz klinik analizi nedir?</summary><p>Kliniğinizin adı ve şehri yeter. 24 saat içinde tek sayfalık rapor gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır. Ücretsizdir, bağlayıcı değildir.</p></details>\n<details><summary>İlk görüşme nasıl olur?</summary><p>Telefon ya da WhatsApp görüşmesi, yaklaşık 20 dakika. Analiz raporunu birlikte okuruz; uygunsa yazılı teklif aynı gün gelir.</p></details>\n<details><summary>Ne kadar sürede başlarız?</summary><p>Teklif onayından sonraki hafta hesap erişimleri alınır; reklamlar üçüncü hafta açılır.</p></details>\n<details><summary>Sağlık dışı işletmelerle çalışıyor musunuz?</summary><p>Yeni işlerde hayır; Moximu yalnız klinik ve muayenehanelerle çalışır.</p></details>\n<details><summary>Hangi şehirlerde çalışıyorsunuz?</summary><p>Türkiye'nin her şehrinde. Moximu Manisa'dadır; İzmir ve Manisa'ya yerinde de geliriz.</p></details>\n<h2>Paketler ve fiyat</h2>\n<details><summary>Paketler nelerdir?</summary><p>Klinik SEO aylık {fiyat:seo}; SEO ve Google İşletme Profili birlikte aylık {fiyat:paket}; dört kanallı yerel klinik paketi aylık {fiyat:yerel}. Klinik web sitesi {fiyat:web} tek sefer, 6 aylık planda hediye. Sağlık turizmi görüşmeye bağlıdır. Fiyatlar KDV hariçtir.</p></details>\n<details><summary>Reklam bütçesi dahil mi?</summary><p>Hayır. Reklam bütçesi doğrudan Google ve Meta'ya, klinik tarafından ödenir.</p></details>\n<details><summary>Hizmetleri tek tek alabilir miyim?</summary><p>Evet. SEO, Google İşletme Profili, Google Ads ve Meta reklamı tek tek de alınabilir; fiyatlar <a href=\"/fiyatlar/tek-hizmet/\">tek hizmet</a> sayfasında. İki ve daha fazla hizmette paket çoğu zaman daha uygundur.</p></details>\n<details><summary>Fiyat artar mı?</summary><p>Her ocak TÜFE oranında güncellenir; sözleşmede yazılıdır.</p></details>\n<details><summary>Çok şubemiz var.</summary><p>Her şube ayrı İşletme Profili ve ayrı reklam bölgesi alır; fiyat şube sayısına göre görüşmeye bağlıdır. Ayrıntı <a href=\"/fiyatlar/cok-subeli/\">çok şubeli klinikler</a> sayfasında.</p></details>\n<h2>Sözleşme ve hesaplar</h2>\n<details><summary>Nasıl faturalandırılır?</summary><p>Aylık: her ayın 1'inde fatura, 15'ine kadar ödeme. 6 aylık plan seçilirse dönem başında tek fatura kesilir ve klinik web sitesi hediye edilir.</p></details>\n<details><summary>Hesaplar kimin adına?</summary><p>Sizin. Google Ads, İşletme Profili, Meta, alan adı ve site kliniğin adına açılır; Moximu yönetici olarak eklenir.</p></details>\n<details><summary>Ayrılırsam ne olur?</summary><p>Hesaplar, site ve veriler sizde kalır; hiçbir şey kapanmaz. Kaldırılan tek şey Moximu'nun yönetici erişimidir.</p></details>\n<details><summary>Mevcut ajansımdan geçiş nasıl olur?</summary><p>Hesap erişimleri sizden alınır; ilk hafta hesap temizliği, ikinci hafta yeni yapı. Geçmiş veri kaybolmaz.</p></details>\n<details><summary>Hasta verilerini görüyor musunuz?</summary><p>Hayır. Hasta verisi ve mesaj içeriği Moximu'ya gelmez; raporda yalnız sayılar yer alır.</p></details>\n<h2>Reklam</h2>\n<details><summary>Bütçeyi siz mi artırıyorsunuz?</summary><p>Hayır. Toplam bütçe onayınız olmadan artmaz; biz bütçeyi hizmet ve ilçe arasında kaydırırız.</p></details>\n<details><summary>Instagram mı, Google mı?</summary><p>İkisi farklı hastayı getirir: Google arayan hastayı, Instagram görüp düşünen hastayı. Bütçe her hafta talep maliyetine göre kayar.</p></details>\n<details><summary>Mevzuata nasıl uyuyorsunuz?</summary><p>Öncesi/sonrası, hasta görseli, \"en iyi\", garanti ve indirim dili kullanılmaz; tedavi metinleri hekim onayından geçer. Ayrıntı <a href=\"/saglik-reklam-mevzuati/\">sağlık reklam mevzuatı</a> sayfasında.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk talepler genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ay ister. Sonuç garantisi verilmez.</p></details>\n<h2>Site ve Google İşletme Profili</h2>\n<details><summary>Mevcut sitemi yenileyebilir misiniz?</summary><p>Evet. Mevcut tasarımdan başlar, adım adım iyileştiririz. Sıfırdan site yalnız siz isterseniz kurulur.</p></details>\n<details><summary>Hangi altyapı?</summary><p>WordPress. Site, alan adı ve sunucu sizin adınıza; şifreler sizde.</p></details>\n<details><summary>Google İşletme Profilim askıya alındı.</summary><p>Çoğu zaman ad ya da adres kuralı yüzündendir; tabela fotoğrafı ve belgeyle itiraz edilir, süreci biz yürütürüz.</p></details>\n<details><summary>Yorum toplamak için ne yapıyorsunuz?</summary><p>Tedavi sonrası WhatsApp'tan tek dokunuşla yorum bağlantısı gönderilir. Yorum satın alınmaz.</p></details>\n<h2>Rapor ve iletişim</h2>\n<details><summary>Rapor ne zaman gelir?</summary><p>Her ayın ilk haftası tek sayfa: talep, bir talebin maliyeti, kanal, hizmet, geçen aya fark ve bu ayın kararı.</p></details>\n<details><summary>Size nasıl ulaşırım?</summary><p>WhatsApp’tan her saat yazabilirsiniz; telefon hafta içi 09:00–18:00: [mx_telefon]. Site kapandı ya da hesap askıya alındı gibi acil durumlara aynı gün dönülür.</p></details>\n<h2>Daha fazlası</h2><ul><li><a href=\"/sozluk/\">Klinik pazarlama sözlüğü</a> Terimlerin kısa açıklamaları.</li><li><a href=\"/ajans-secerken/\">Ajans seçerken sorulacak 12 soru</a></li><li><a href=\"/degerlendirme/\">Klinik dijital değerlendirme</a> 12 soruluk öz değerlendirme.</li><li><a href=\"/youtube/\">YouTube videoları</a></li><li><a href=\"/bulten/\">Bülten</a> Ayda bir e-posta.</li></ul>",
 "seo_title": "Sık sorulan sorular · Moximu",
 "seo_desc": "Moximu hakkında sık sorulan sorular: paketler ve fiyat, reklam bütçesi, sözleşme süresi, hesapların kimin adına olduğu, rapor ve sağlık reklamı kuralları.",
 "order": 0,
@@ -22117,7 +20839,7 @@
 "path": "/hizmet-sozlesmesi/",
 "title": "Hizmet sözleşmesi",
 "excerpt": "Teklifle birlikte imzaya sunulan sözleşmenin genel hükümleri.",
-"content": "<p>Teklifle birlikte imzaya sunulan sözleşmenin genel hükümleridir; teklifte yazan kapsam ve ücret bu metni tamamlar. Hizmet sağlayıcı: Yakup Udul – Moximu (“Moximu”), Manisa, Türkiye; e-posta [mx_eposta], telefon [mx_telefon]. Son güncelleme: 31 Ekim 2026.</p>\n<h2>1. Taraflar ve konu</h2>\n<p>Hizmet sağlayıcı Moximu; müşteri teklifte adı yazan klinik ya da sağlık kuruluşudur. Konu, teklifte seçilen paket kapsamında dijital pazarlama hizmetlerinin verilmesidir.</p>\n<h2>2. Kapsam</h2>\n<p>Seçilen paketin içeriği teklifte ve Çalışma şartları sayfasında yazılıdır. Kapsam dışı işler (şube ve dil ekleri, çekim, baskı) ayrı teklifle yapılır.</p>\n<h2>3. Süre</h2>\n<p>Sözleşme 6 aydır; sürenin sonunda taraflardan biri yazılı bildirimde bulunmazsa aynı şartlarla 6 ay uzar. Müşteri her ayın sonunda yazılı bildirimle sözleşmeyi sona erdirebilir; kalan ayların ücreti istenmez.</p>\n<h2>4. Ücret ve ödeme</h2>\n<p>Aylık yönetim ücreti her ayın 1’inde fatura edilir ve 15’ine kadar ödenir. Ödeme gecikmesinde hizmet durur; hesap ve site kapatılmaz. Her ocak TÜFE oranında güncellenir. Reklam bütçesi ücrete dahil değildir ve platformlara müşterinin ödeme aracıyla ödenir.</p>\n<h2>5. Hesaplar ve fikri haklar</h2>\n<p>Reklam hesapları, işletme profili, alan adı, sunucu ve site müşterinin adınadır. Moximu yönetici erişimiyle çalışır; sözleşme sonunda erişim kaldırılır. Site ve içeriklerin kullanım hakkı müşteriye aittir; Moximu çalışmayı referans olarak gösterebilir, rakam paylaşımı için ayrıca izin alır.</p>\n<h2>6. Tarafların yükümlülükleri</h2>\n<ul>\n<li>Moximu: teklifteki kapsamı takvime uygun yürütmek, haftalık özet ve aylık rapor vermek, mevzuata uygun içerik üretmek.</li>\n<li>Müşteri: erişimleri vermek, hizmet bilgilerini doğru iletmek, hekim onayı gereken metinlere dönüş yapmak, gelen talepleri cevaplamak, ödemeleri zamanında yapmak.</li>\n</ul>\n<h2>7. Mevzuat ve sorumluluk</h2>\n<p>İçerikler sağlık tanıtım yönetmeliğine uygun hazırlanır; müşterinin aykırı içerik talebi yerine getirilmez. Yayınlanan içeriğin reklam veren sıfatıyla sorumluluğu müşteriye, yazım ve uygulama hatası Moximu’ya aittir. Moximu hasta sayısı ya da sabit maliyet garantisi vermez.</p>\n<h2>8. Veri ve gizlilik</h2>\n<p>Taraflar birbirlerinin ticari bilgilerini gizli tutar. Moximu hasta verisi işlemez; müşteri hesaplarındaki kişisel veriler müşterinin veri sorumluluğundadır. Ayrıntı KVKK aydınlatma metninde.</p>\n<h2>9. Fesih</h2>\n<p>Taraflar 30 gün önceden yazılı bildirimle feshedebilir. Ağır ihlalde (ödeme yapılmaması, erişimin kaldırılması, mevzuata aykırı talep) derhâl fesih mümkündür. Fesihte Moximu erişimleri bırakır, belgeleri teslim eder.</p>\n<h2>10. Uyuşmazlık</h2>\n<p>Türk hukuku uygulanır; Manisa mahkemeleri ve icra daireleri yetkilidir. Yazışmalar e-posta ve WhatsApp üzerinden geçerlidir.</p>",
+"content": "<p>Teklifle birlikte imzaya sunulan sözleşmenin genel hükümleridir; teklifte yazan kapsam ve ücret bu metni tamamlar. Hizmet sağlayıcı: Yakup Udul – Moximu (“Moximu”), Manisa, Türkiye; e-posta [mx_eposta], telefon [mx_telefon]. Son güncelleme: 31 Ekim 2026.</p>\n<h2>1. Taraflar ve konu</h2>\n<p>Hizmet sağlayıcı Moximu; müşteri teklifte adı yazan klinik ya da sağlık kuruluşudur. Konu, teklifte seçilen paket kapsamında dijital pazarlama hizmetlerinin verilmesidir.</p>\n<h2>2. Kapsam</h2>\n<p>Seçilen paketin içeriği teklifte ve Çalışma şartları sayfasında yazılıdır. Kapsam dışı işler (şube ve dil ekleri, çekim, baskı) ayrı teklifle yapılır.</p>\n<h2>3. Süre</h2>\n<p>Sözleşme aylık olarak yürür; taraflardan biri yazılı bildirimde bulunmadıkça her ay aynı şartlarla devam eder ve her ayın sonunda yazılı bildirimle sona erdirilebilir. 6 aylık plan seçildiğinde altı aylık hizmet bedeli dönem başında tek faturayla ödenir ve klinik web sitesi bu plana hediye olarak yapılır.</p>\n<h2>4. Ücret ve ödeme</h2>\n<p>Aylık yönetim ücreti her ayın 1’inde fatura edilir ve 15’ine kadar ödenir. Ödeme gecikmesinde hizmet durur; hesap ve site kapatılmaz. Her ocak TÜFE oranında güncellenir. Reklam bütçesi ücrete dahil değildir ve platformlara müşterinin ödeme aracıyla ödenir.</p>\n<h2>5. Hesaplar ve fikri haklar</h2>\n<p>Reklam hesapları, işletme profili, alan adı, sunucu ve site müşterinin adınadır. Moximu yönetici erişimiyle çalışır; sözleşme sonunda erişim kaldırılır. Site ve içeriklerin kullanım hakkı müşteriye aittir; Moximu çalışmayı referans olarak gösterebilir, rakam paylaşımı için ayrıca izin alır.</p>\n<h2>6. Tarafların yükümlülükleri</h2>\n<ul>\n<li>Moximu: teklifteki kapsamı takvime uygun yürütmek, haftalık özet ve aylık rapor vermek, mevzuata uygun içerik üretmek.</li>\n<li>Müşteri: erişimleri vermek, hizmet bilgilerini doğru iletmek, hekim onayı gereken metinlere dönüş yapmak, gelen talepleri cevaplamak, ödemeleri zamanında yapmak.</li>\n</ul>\n<h2>7. Mevzuat ve sorumluluk</h2>\n<p>İçerikler sağlık tanıtım yönetmeliğine uygun hazırlanır; müşterinin aykırı içerik talebi yerine getirilmez. Yayınlanan içeriğin reklam veren sıfatıyla sorumluluğu müşteriye, yazım ve uygulama hatası Moximu’ya aittir. Moximu hasta sayısı ya da sabit maliyet garantisi vermez.</p>\n<h2>8. Veri ve gizlilik</h2>\n<p>Taraflar birbirlerinin ticari bilgilerini gizli tutar. Moximu hasta verisi işlemez; müşteri hesaplarındaki kişisel veriler müşterinin veri sorumluluğundadır. Ayrıntı KVKK aydınlatma metninde.</p>\n<h2>9. Fesih</h2>\n<p>Taraflar 30 gün önceden yazılı bildirimle feshedebilir. Ağır ihlalde (ödeme yapılmaması, erişimin kaldırılması, mevzuata aykırı talep) derhâl fesih mümkündür. Fesihte Moximu erişimleri bırakır, belgeleri teslim eder.</p>\n<h2>10. Uyuşmazlık</h2>\n<p>Türk hukuku uygulanır; Manisa mahkemeleri ve icra daireleri yetkilidir. Yazışmalar e-posta ve WhatsApp üzerinden geçerlidir.</p>",
 "seo_title": "Hizmet sözleşmesi · Moximu",
 "seo_desc": "Teklifle birlikte imzaya sunulan sözleşmenin genel hükümleri.",
 "order": 0,
@@ -22131,7 +20853,7 @@
 "path": "/calisma-sartlari/",
 "title": "Çalışma şartları",
 "excerpt": "Teklifle birlikte gelen sözleşmenin özeti. Sürpriz madde yok; okuyup imzalamadan önce buradan bilirsiniz.",
-"content": "<h2>1. Süre ve başlangıç</h2>\n<p>Sözleşme 6 aydır; teklif onayıyla başlar. 6. ayın sonunda yazılı bildirimle sona erer ya da aynı şartlarla devam eder. Erken fesihte kalan ayların ücreti istenmez; hesaplar ve site olduğu gibi klinikte kalır.</p>\n<h2>2. Ücret ve fatura</h2>\n<p>Yönetim ücreti her ayın 1’inde fatura edilir, 15’ine kadar ödenir. Gecikmede hizmet durur, veri ve hesaplar kapanmaz. Her ocak TÜFE oranında güncelleme yapılır. Reklam bütçesi ücrete dahil değildir; doğrudan Google ve Meta’ya, klinik tarafından ödenir.</p>\n<h2>3. Hesaplar ve sahiplik</h2>\n<p>Google Ads, Google İşletme Profili, Meta Business, alan adı, sunucu ve web sitesi kliniğin adına açılır ya da kliniğin adına taşınır. Moximu yönetici olarak eklenir; sözleşme bitince erişim kaldırılır. Şifre paylaşılmaz, erişim verilir.</p>\n<h2>4. Kapsam</h2>\n<ul>\n<li>Yerel Klinik Paketi: Google arama reklamı, Meta form reklamı, İşletme Profili bakımı, haftalık yazı ve gönderi, site bakımı, WhatsApp hazır cevap düzeni, aylık rapor.</li>\n<li>Sağlık Turizmi Paketi: yukarıdakiler İngilizce ve ülke bazlı; İngilizce site ve ülke açılış sayfaları.</li>\n<li>Klinik Web Sitesi: 4 haftada kurulum; yalnız bir paketle birlikte.</li>\n<li>Kapsam dışı: şube ve dil ekleri (ayrı teklif), fotoğraf ve video çekimi, baskı ve açık hava, sağlık dışı işler.</li>\n</ul>\n<h2>5. Sizden beklenenler</h2>\n<ul>\n<li>Hesap erişimlerinin ilk hafta verilmesi</li>\n<li>Hizmet listesi ve fiyat aralıkları</li>\n<li>Gelen talebin aynı gün aranması</li>\n<li>Ayda bir klinik fotoğrafı; hekim onayı gereken metinlere bir hafta içinde dönüş</li>\n</ul>\n<h2>6. Mevzuat ve içerik</h2>\n<p>Metinler sağlık tanıtım yönetmeliğine göre yazılır; öncesi/sonrası, hasta görseli, “en iyi”, garanti, indirim dili kullanılmaz. Klinik yönetmeliğe aykırı içerik isterse Moximu yayınlamaz. Yayınlanan içeriğin hukuki sorumluluğu reklam veren klinikte, yazım hatası Moximu’dadır.</p>\n<h2>7. Veri</h2>\n<p>Hasta sağlık verisi, yazışma içeriği ve kişi bazlı veri Moximu’ya aktarılmaz; raporda yalnız sayılar yer alır. Form verisi kliniğin hesaplarında kalır. Ayrıntı KVKK aydınlatma metninde.</p>\n<h2>8. Rapor ve iletişim</h2>\n<p>Her ayın ilk haftası tek sayfa rapor. Haftada bir yazılı özet. İletişim WhatsApp ve telefon, hafta içi 09:00–18:00; acil durum (site kapalı, hesap askıda) aynı gün.</p>\n<h2>9. Garanti</h2>\n<p>Hasta sayısı ya da sabit talep başına maliyet garantisi verilmez. Ölçülen talep, maliyet ve sıra her ay yazılır; işe yaramayan kapatılır ve söylenir.</p>\n<h2>Sık sorulan sorular</h2>\n<p>Net cevaplar, satış cümlesi yok.</p>\n<details><summary>Sözleşmeyi önceden görebilir miyim?</summary><p>Evet; teklifle birlikte gelir, bu sayfanın maddeleriyle aynıdır.</p></details>\n<details><summary>Erken ayrılırsam ceza var mı?</summary><p>Yok. Kalan ayların ücreti istenmez; hesaplar ve site sizde kalır.</p></details>\n<details><summary>Reklam bütçesini sizin üzerinden ödeyebilir miyim?</summary><p>Hayır; bütçe klinik tarafından doğrudan Google ve Meta’ya gider. Fatura onlardan size gelir.</p></details>",
+"content": "<h2>1. Süre ve başlangıç</h2>\n<p>Çalışma teklif onayıyla başlar ve aylık olarak devam eder; her ayın sonunda yazılı bildirimle sona erdirilebilir. 6 aylık plan seçildiğinde altı aylık bedel dönem başında tek faturayla ödenir ve klinik web sitesi hediye edilir. Hesaplar ve site her durumda olduğu gibi klinikte kalır.</p>\n<h2>2. Ücret ve fatura</h2>\n<p>Yönetim ücreti her ayın 1’inde fatura edilir, 15’ine kadar ödenir. Gecikmede hizmet durur, veri ve hesaplar kapanmaz. Her ocak TÜFE oranında güncelleme yapılır. Reklam bütçesi ücrete dahil değildir; doğrudan Google ve Meta’ya, klinik tarafından ödenir.</p>\n<h2>3. Hesaplar ve sahiplik</h2>\n<p>Google Ads, Google İşletme Profili, Meta Business, alan adı, sunucu ve web sitesi kliniğin adına açılır ya da kliniğin adına taşınır. Moximu yönetici olarak eklenir; sözleşme bitince erişim kaldırılır. Şifre paylaşılmaz, erişim verilir.</p>\n<h2>4. Kapsam</h2>\n<ul>\n<li>Yerel Klinik Paketi: Google arama reklamı, Meta form reklamı, İşletme Profili bakımı, haftalık yazı ve gönderi, site bakımı, WhatsApp hazır cevap düzeni, aylık rapor.</li>\n<li>Sağlık Turizmi Paketi: yukarıdakiler İngilizce ve ülke bazlı; İngilizce site ve ülke açılış sayfaları.</li>\n<li>Klinik Web Sitesi: 4 haftada kurulum; yalnız bir paketle birlikte.</li>\n<li>Kapsam dışı: şube ve dil ekleri (ayrı teklif), fotoğraf ve video çekimi, baskı ve açık hava, sağlık dışı işler.</li>\n</ul>\n<h2>5. Sizden beklenenler</h2>\n<ul>\n<li>Hesap erişimlerinin ilk hafta verilmesi</li>\n<li>Hizmet listesi ve fiyat aralıkları</li>\n<li>Gelen talebin aynı gün aranması</li>\n<li>Ayda bir klinik fotoğrafı; hekim onayı gereken metinlere bir hafta içinde dönüş</li>\n</ul>\n<h2>6. Mevzuat ve içerik</h2>\n<p>Metinler sağlık tanıtım yönetmeliğine göre yazılır; öncesi/sonrası, hasta görseli, “en iyi”, garanti, indirim dili kullanılmaz. Klinik yönetmeliğe aykırı içerik isterse Moximu yayınlamaz. Yayınlanan içeriğin hukuki sorumluluğu reklam veren klinikte, yazım hatası Moximu’dadır.</p>\n<h2>7. Veri</h2>\n<p>Hasta sağlık verisi, yazışma içeriği ve kişi bazlı veri Moximu’ya aktarılmaz; raporda yalnız sayılar yer alır. Form verisi kliniğin hesaplarında kalır. Ayrıntı KVKK aydınlatma metninde.</p>\n<h2>8. Rapor ve iletişim</h2>\n<p>Her ayın ilk haftası tek sayfa rapor. Haftada bir yazılı özet. İletişim WhatsApp ve telefon, hafta içi 09:00–18:00; acil durum (site kapalı, hesap askıda) aynı gün.</p>\n<h2>9. Garanti</h2>\n<p>Hasta sayısı ya da sabit talep başına maliyet garantisi verilmez. Ölçülen talep, maliyet ve sıra her ay yazılır; işe yaramayan kapatılır ve söylenir.</p>\n<h2>Sık sorulan sorular</h2>\n<p>Net cevaplar, satış cümlesi yok.</p>\n<details><summary>Sözleşmeyi önceden görebilir miyim?</summary><p>Evet; teklifle birlikte gelir, bu sayfanın maddeleriyle aynıdır.</p></details>\n<details><summary>Erken ayrılırsam ceza var mı?</summary><p>Yok. Kalan ayların ücreti istenmez; hesaplar ve site sizde kalır.</p></details>\n<details><summary>Reklam bütçesini sizin üzerinden ödeyebilir miyim?</summary><p>Hayır; bütçe klinik tarafından doğrudan Google ve Meta’ya gider. Fatura onlardan size gelir.</p></details>",
 "seo_title": "Çalışma şartları · Moximu",
 "seo_desc": "Teklifle birlikte gelen sözleşmenin özeti. Sürpriz madde yok; okuyup imzalamadan önce buradan bilirsiniz.",
 "order": 0,
@@ -22158,9 +20880,9 @@
 "path": "/fiyatlar/tek-hizmet/",
 "title": "Tek hizmet fiyatları",
 "excerpt": "Paketin tamamına ihtiyacınız yoksa hizmetleri tek tek de alabilirsiniz. Fiyatlar aylık, KDV hariç; reklam bütçesi ayrıdır.",
-"content": "<p>Hizmetler birbirini destekler; bu yüzden çoğu kliniğe <a href=\"/fiyatlar/yerel-klinik-paketi/\">yerel klinik paketi</a>ni öneririz. Yalnız bir kanala ihtiyacınız varsa ya da diğerlerini kendi ekibiniz yürütüyorsa, hizmetleri tek tek de alabilirsiniz.</p>\n<h2>Aylık fiyatlar</h2>\n<table><thead><tr><th>Hizmet</th><th>Aylık</th><th>Dahil olanlar</th></tr></thead><tbody>\n<tr><td><a href=\"/hizmetlerimiz/klinik-seo/\">Klinik SEO</a></td><td>12.000 ₺</td><td>Tedavi sayfaları, teknik düzeltme, haftalık yazı, Search Console raporu</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/google-isletme-profili/\">Google İşletme Profili</a></td><td>6.000 ₺ (şube başına)</td><td>Haftalık gönderi, yorum cevapları, fotoğraf, askı takibi</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/google-ads/\">Google Ads</a></td><td>10.000 ₺ + bütçe</td><td>Kelime ve negatif liste, haftalık arama terimi temizliği, ölçüm</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\">Instagram ve Facebook reklamı</a></td><td>10.000 ₺ + bütçe</td><td>Form ve WhatsApp kampanyaları, görsel, haftalık bütçe kaydırma</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/klinik-web-sitesi/\">Klinik web sitesi</a></td><td>45.000 ₺ tek sefer</td><td>Tedavi sayfaları, hız, form ve WhatsApp; dört haftada yayında</td></tr>\n</tbody></table>\n<p>Fiyatlar KDV hariçtir. Reklam bütçesi ücrete dahil değildir; klinik tarafından doğrudan Google ve Meta'ya ödenir.</p>\n<h2>Ne zaman paket daha mantıklı</h2>\n<p>İki veya daha fazla hizmet alacaksanız paket çoğu zaman daha uygundur: dört kanal, site bakımı ve aylık rapor 30.000 ₺/ay. Ayrıntılı karşılaştırma <a href=\"/fiyatlar/\">fiyatlar</a> sayfasında.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Sözleşme süresi tek hizmette de 6 ay mı?</summary><p>Evet. Reklam ve SEO'nun etkisi ilk aylarda birikir; 6 ay sonunda devam ya da bırakma kararı sizdedir.</p></details>\n<details><summary>Sonradan pakete geçebilir miyim?</summary><p>Evet, ayın 1'inden itibaren. Ödediğiniz tek hizmet ücreti o ayın paket ücretinden düşülür.</p></details>",
+"content": "<p>Hizmetler birbirini destekler; bu yüzden çoğu kliniğe <a href=\"/fiyatlar/yerel-klinik-paketi/\">yerel klinik paketi</a>ni öneririz. Yalnız bir kanala ihtiyacınız varsa ya da diğerlerini kendi ekibiniz yürütüyorsa, hizmetleri tek tek de alabilirsiniz.</p>\n<h2>Aylık fiyatlar</h2>\n<table><thead><tr><th>Hizmet</th><th>Aylık</th><th>Dahil olanlar</th></tr></thead><tbody>\n<tr><td><a href=\"/hizmetlerimiz/klinik-seo/\">Klinik SEO</a></td><td>{fiyat:seo}</td><td>Tedavi sayfaları, teknik düzeltme, haftalık yazı, Search Console raporu</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/google-isletme-profili/\">Google İşletme Profili</a></td><td>{fiyat:harita} (şube başına)</td><td>Haftalık gönderi, yorum cevapları, fotoğraf, askı takibi</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/google-ads/\">Google Ads</a></td><td>{fiyat:ads} + bütçe; SEO ile {fiyat:ads_paket}</td><td>Kelime ve negatif liste, haftalık arama terimi temizliği, ölçüm</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\">Instagram ve Facebook reklamı</a></td><td>{fiyat:meta} + bütçe; SEO ile {fiyat:meta_paket}</td><td>Form ve WhatsApp kampanyaları, görsel, haftalık bütçe kaydırma</td></tr>\n<tr><td><a href=\"/hizmetlerimiz/klinik-web-sitesi/\">Klinik web sitesi</a></td><td>{fiyat:web} tek sefer; ek dil +{fiyat:web_dil}; 6 aylık planda hediye</td><td>Tedavi sayfaları, hız, form ve WhatsApp; dört haftada yayında</td></tr>\n</tbody></table>\n<p>Fiyatlar KDV hariçtir. Reklam bütçesi ücrete dahil değildir; klinik tarafından doğrudan Google ve Meta'ya ödenir.</p>\n<h2>Ne zaman paket daha mantıklı</h2>\n<p>İki veya daha fazla hizmet alacaksanız paket daha uygundur: SEO ve İşletme Profili birlikte aylık {fiyat:paket}, dört kanal birlikte aylık {fiyat:yerel}. Ayrıntılı karşılaştırma <a href=\"/fiyatlar/\">fiyatlar</a> sayfasında.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Web sitesi hediyesi tek hizmette de geçerli mi?</summary><p>Klinik SEO içeren 6 aylık planlarda geçerlidir. Reklam yönetimi tek başına alındığında site {fiyat:web} tek seferdir.</p></details>\n<details><summary>Sonradan pakete geçebilir miyim?</summary><p>Evet, ayın 1'inden itibaren. Ödediğiniz tek hizmet ücreti o ayın paket ücretinden düşülür.</p></details>",
 "seo_title": "SEO, Google Ads ve web sitesi fiyatları 2026 · Moximu",
-"seo_desc": "Klinikler için tek hizmet fiyatları: SEO 12.000 ₺/ay, Google İşletme Profili 6.000 ₺/ay, Google Ads 10.000 ₺/ay, Meta reklam 10.000 ₺/ay. KDV hariç.",
+"seo_desc": "Klinikler için tek hizmet fiyatları: SEO 12.000 ₺/ay, Google İşletme Profili 6.000 ₺/ay, Google Ads ve Meta reklam 9.000 ₺/ay. KDV hariç.",
 "order": 3,
 "meta": {
 "_mx_ust_yazi": "Fiyatlar",

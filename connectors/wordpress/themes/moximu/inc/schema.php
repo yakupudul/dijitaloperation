@@ -40,7 +40,7 @@ add_action('wp_head', static function (): void {
     }
     $graph = mx_schema_nodes();
     if ($graph) {
-        echo '<script type="application/ld+json">'.wp_json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES).'</script>'."\n";
+        echo '<script type="application/ld+json">'.mx_fiyat_tokens((string) wp_json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)).'</script>'."\n";
     }
 }, 20);
 
@@ -105,7 +105,7 @@ function mx_schema_nodes(): array
                     if (mb_strlen($q) < 4) {
                         continue;
                     }
-                    $a = wp_strip_all_tags((string) ($r['metin'] ?? ''));
+                    $a = mx_fiyat_tokens(wp_strip_all_tags((string) ($r['metin'] ?? '')));
                     if ($q !== '' && $a !== '') {
                         $qa[] = ['@type' => 'Question', 'name' => $q, 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $a]];
                     }

@@ -11,6 +11,9 @@ function mx_h($value): string
     if ($value === '') {
         return '';
     }
+    if (strpos($value, '{') !== false && function_exists('mx_fiyat_tokens')) {
+        $value = mx_fiyat_tokens($value);
+    }
     if (strpos($value, '="/') !== false) {
         $home = esc_url(home_url('/'));
         $value = preg_replace('~\b(href|src)="/(?!/)~', '$1="'.$home, $value);

@@ -6113,6 +6113,64 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_planlar": {
+     "key": "layout_mx_planlar",
+     "name": "planlar",
+     "label": "Planlar ve fiyatlar (fiyatlar Moximu ayarları › Fiyatlar'dan)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_pl_yazi",
+       "name": "yazi",
+       "label": "Üst yazı",
+       "type": "text",
+       "instructions": ""
+      },
+      {
+       "key": "field_mx_pl_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_pl_metin",
+       "name": "metin",
+       "label": "Kısa açıklama",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": "",
+       "instructions": "Fiyat yazmak için {fiyat:seo}, {fiyat:paket} gibi kısaltmalar kullanılabilir."
+      },
+      {
+       "key": "field_mx_pl_odak",
+       "name": "odak",
+       "label": "Öne çıkan",
+       "type": "select",
+       "choices": {
+        "paket": "SEO + İşletme Profili",
+        "seo": "Klinik SEO",
+        "yerel": "Yerel klinik paketi",
+        "web": "Web sitesi",
+        "harita": "İşletme Profili (tek)",
+        "ads": "Google Ads",
+        "meta": "Instagram ve Facebook",
+        "dil": "Ek dil",
+        "turizm": "Sağlık turizmi"
+       },
+       "default_value": "paket"
+      },
+      {
+       "key": "field_mx_pl_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Boşsa #fiyat"
+      }
+     ],
+     "min": "",
+     "max": ""
     }
    }
   }

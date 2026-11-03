@@ -12,7 +12,8 @@
 "seo_desc": [
 "Klinik SEO: tedavi sayfaları, teknik düzeltme, Google kartı ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor.",
 "Klinik SEO: tedavi sayfaları, teknik düzeltme, Google İşletme Profili ve haftalık içerikle tedavi aramalarında üst sıralar. Search Console verisiyle aylık rapor.",
-"Klinikler ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, Google İşletme Profili, haftalık içerik. Search Console verisiyle aylık rapor; 12.000 ₺/ay."
+"Klinikler ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, Google İşletme Profili, haftalık içerik. Search Console verisiyle aylık rapor; 12.000 ₺/ay.",
+"Klinik ve doktorlar için SEO: tedavi ve ilçe sayfaları, teknik düzeltme, Google İşletme Profili, haftalık içerik ve aylık rapor. 12.000 ₺/ay."
 ],
 "seo_title": [
 "Klinik SEO hizmeti · Moximu"
@@ -20,7 +21,8 @@
 },
 "paket-turizm": {
 "seo_desc": [
-"Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google kartı ve aylık rapor: 60.000 ₺/ay."
+"Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google kartı ve aylık rapor: 60.000 ₺/ay.",
+"Yurt dışından hasta alan klinikler için çok dilli site, ülke bazlı Google Ads ve Meta reklamı, Google İşletme Profili ve aylık rapor: 60.000 ₺/ay."
 ]
 },
 "dis": {
@@ -209,32 +211,48 @@
 "Klinik web sitesi · Moximu"
 ],
 "seo_desc": [
-"Klinikler için web sitesi: tedavi × şehir sayfaları, hekim sayfaları, form ve WhatsApp akışı, telefonda 2 saniyede açılış. 4 haftada yayında, 45.000 ₺."
+"Klinikler için web sitesi: tedavi × şehir sayfaları, hekim sayfaları, form ve WhatsApp akışı, telefonda 2 saniyede açılış. 4 haftada yayında, 45.000 ₺.",
+"Klinik ve doktor web sitesi tasarımı: her tedaviye ayrı sayfa, hekim profilleri, WhatsApp ve form, telefonda hızlı açılış. 4 haftada yayında, 45.000 ₺ tek sefer."
 ]
 },
 "gbp": {
 "seo_title": [
 "Klinik Google İşletme Profili yönetimi · Moximu"
+],
+"seo_desc": [
+"Klinikler için Google İşletme Profili yönetimi: kurulum, askı kurtarma, yorum cevapları, haftalık gönderi ve aylık rapor. Şube başına 6.000 ₺/ay."
 ]
 },
 "ads": {
 "seo_title": [
 "Klinik Google Ads yönetimi · Moximu"
+],
+"seo_desc": [
+"Klinikler için Google Ads: tedavi × şehir kelimeleri, negatif liste, kalite puanı yüksek açılış sayfası, form ve telefon ölçümü. 10.000 ₺/ay + bütçe."
 ]
 },
 "meta": {
 "seo_title": [
 "Klinik Instagram ve Facebook reklamı · Moximu"
+],
+"seo_desc": [
+"Klinikler için Instagram ve Facebook reklamı: form ve WhatsApp kampanyaları, sağlık kurallarına uygun görsel, haftalık rapor. 10.000 ₺/ay + bütçe."
 ]
 },
 "fiyat": {
 "seo_title": [
 "Fiyatlar · Moximu"
+],
+"seo_desc": [
+"Yerel klinik paketi 30.000 ₺/ay, sağlık turizmi 60.000 ₺/ay, klinik web sitesi 45.000 ₺. Tek hizmet fiyatları ve karşılaştırma tablosu. KDV hariç."
 ]
 },
 "tfiyatlar-tek-hizmet": {
 "seo_title": [
 "Tek hizmet fiyatları: SEO, Google Ads, Meta · Moximu"
+],
+"seo_desc": [
+"Klinikler için tek hizmet fiyatları: SEO 12.000 ₺/ay, Google İşletme Profili 6.000 ₺/ay, Google Ads 10.000 ₺/ay, Meta reklam 10.000 ₺/ay. KDV hariç."
 ]
 },
 "k-estetik-klinigi": {
@@ -272,6 +290,11 @@
 ],
 "seo_desc": [
 "Klinik reklamında yazılabilenler ve yasaklar: öncesi/sonrası, hasta görseli, \"en iyi\", garanti, indirim dili; Google ve Meta sağlık reklamı politikaları."
+]
+},
+"paket": {
+"seo_desc": [
+"Web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı tek pakette: 30.000 ₺/ay. 24 saatte ücretsiz klinik analizi."
 ]
 }
 }
