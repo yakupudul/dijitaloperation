@@ -10,6 +10,7 @@ use App\Models\Query;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiBudget;
+use App\Services\AiTasks\AiWorkers;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Operations\AutoDeployStatus;
@@ -19,6 +20,7 @@ use App\Services\Operations\SystemHealthReader;
 use App\Services\Queries\QueryAutopilot;
 use App\Services\Queries\QueryFinish;
 use App\Services\Repair\RepairDesk;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -26,7 +28,7 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), what fills the biggest stores (storage_detail, nightly: link edges per site and age, WordPress objects by type, raw copies by data set) the tables read by full scans (scan_hotspots: where an index is missing), where the panel spends its time over the last 24 hours (request_timings: per page or Livewire component requests, total / average / slowest ms, queries per request; "lazy:" rows are relations still loaded one row at a time; heavy_requests: the most repeated query shapes of pages that ran 300+ queries), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do, approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons, and the Onarım masası writes of the last 24 hours (desk_writes, with rows still queued for approval). Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
+#[Description('Reads how the system is doing, from stored state only: server memory, swap, disks (bytes total/used/free) and load, software health lines (release, deploy, 24h errors and failed jobs, migrations, scheduler, workers, debug, caches, database size), the largest tables (partitions and indexes counted under the parent), what fills the biggest stores (storage_detail, nightly: link edges per site and age, WordPress objects by type, raw copies by data set) the tables read by full scans (scan_hotspots: where an index is missing), where the panel spends its time over the last 24 hours (request_timings: per page or Livewire component requests, total / average / slowest ms, queries per request; "lazy:" rows are relations still loaded one row at a time; heavy_requests: the most repeated query shapes of pages that ran 300+ queries), deployed release, the last automatic deploy check (with the failing tests when it stopped), scheduler and stopped workers, queue waits, top application errors of the last 7 days (class, file:line, count), open alerts grouped like the Hata merkezi (you = needs the operator, code = software error, auto = heals by itself), connection health per brand (connections: what the system repairs nightly vs what needs the operator), AI tasks you could not do, the AI workers of Ayarlar › AI sağlayıcıları (ai_workers: order, who works, why the others do not, last provider error), approved external writes / automatic Business Profile posts that failed in the last 3 days with their reasons, and the Onarım masası writes of the last 24 hours (desk_writes, with rows still queued for approval). Use it to find bugs to report or fix and improvements to propose; it changes nothing.')]
 #[IsReadOnly]
 class SystemHealth extends Tool
 {
@@ -94,6 +96,7 @@ class SystemHealth extends Tool
         $out['failed_writes'] = $this->failedWrites();
         $out['desk_writes'] = $this->deskWrites();
         $out['ai_money'] = app(AiBudget::class)->moneyState();
+        $out['ai_workers'] = $this->aiWorkers();
         $out['ai_tasks_waiting'] = AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count();
         try {
             $out['queries'] = $this->queries();
@@ -103,6 +106,34 @@ class SystemHealth extends Tool
         }
 
         return Response::json($out);
+    }
+
+    /**
+     * Ayarlar › AI sağlayıcıları as the panel sees it now: the order, who works, why the others do not (paused, key,
+     * credit, limit, the provider's last error) and what each did; the error before the last resume is kept too.
+     *
+     * @return array<string, mixed>
+     */
+    private function aiWorkers(): array
+    {
+        try {
+            $workers = app(AiWorkers::class);
+            $rows = array_map(function (string $worker) use ($workers): array {
+                $row = $workers->status($worker);
+
+                return ['key' => $row['key'], 'position' => $row['position'], 'state' => $row['state'], 'reason' => $row['reason'],
+                    'connected' => $row['connected'], 'error' => $row['error'], 'paused_until' => $row['paused_until'],
+                    'seen_at' => $row['seen_at']?->toIso8601String(), 'last_done_at' => $row['last_done_at']?->toIso8601String(),
+                    'done_24h' => $row['done_24h'], 'done_7d' => $row['done_7d'], 'api' => $row['api'],
+                    'spend_today_try' => $row['spend_today'], 'spend_month_try' => $row['spend_month']];
+            }, $workers->order());
+
+            return ['active' => $workers->active(), 'workers' => $rows, 'previous_error' => Cache::get('ai-worker-error-previous:'.AiWorkers::CLAUDE_API)];
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return ['error' => mb_substr($exception->getMessage(), 0, 300)];
+        }
     }
 
     /**

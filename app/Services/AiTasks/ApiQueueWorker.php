@@ -166,10 +166,13 @@ final class ApiQueueWorker
         if ($response->successful()) {
             return $response;
         }
-        $message = mb_strtolower((string) ($response->json('error.message') ?? $response->body()));
+        $said = mb_substr(trim((string) ($response->json('error.message') ?? $response->body())), 0, 160);
+        $message = mb_strtolower($said);
+        // The provider's own words go with the reason, so the AI page shows which key, credit or account it meant.
+        $detail = ' ('.$response->status().($said !== '' ? ': '.$said : '').')';
         throw match (true) {
-            in_array($response->status(), [401, 403], true) => new ApiWorkerStop('Anahtar geçersiz ya da yetkisiz.', 360),
-            $response->status() === 402 || str_contains($message, 'credit') || str_contains($message, 'quota') || str_contains($message, 'billing') => new ApiWorkerStop('Kredi ya da kota bitti.', 360),
+            in_array($response->status(), [401, 403], true) => new ApiWorkerStop('Anahtar geçersiz ya da yetkisiz'.$detail, 360),
+            $response->status() === 402 || str_contains($message, 'credit') || str_contains($message, 'quota') || str_contains($message, 'billing') => new ApiWorkerStop('Kredi ya da kota bitti'.$detail, 360),
             $response->status() === 429 => new ApiWorkerStop('Hız sınırına takıldı.', 15),
             $response->status() >= 500 => new ApiWorkerStop('Sağlayıcı geçici hata verdi ('.$response->status().').', 10),
             default => new ApiWorkerStop('İstek reddedildi ('.$response->status().'): '.mb_substr((string) ($response->json('error.message') ?? ''), 0, 120), 30),
