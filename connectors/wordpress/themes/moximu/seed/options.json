@@ -8,13 +8,16 @@
 "yazi": "Hizmetler",
 "liste": [
 {
+"madde": "<a href=\"/klinik/\" role=\"menuitem\">Branşlar</a>"
+},
+{
+"madde": "<a href=\"/nasil-calisir/\" role=\"menuitem\">Nasıl çalışırız</a>"
+},
+{
 "madde": "<a href=\"/fiyatlar/\" role=\"menuitem\">Fiyatlar</a>"
 },
 {
 "madde": "<a href=\"/referanslar/\" role=\"menuitem\">Referanslar</a>"
-},
-{
-"madde": "<a href=\"/hakkimizda/\" role=\"menuitem\">Hakkımızda</a>"
 }
 ],
 "yazi_2": "0538 861 02 88",
@@ -26,34 +29,34 @@
 "baglanti": "/hizmetlerimiz/",
 "alt": [
 {
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"metin": "Klinik web sitesi",
-"metin_2": "Her tedaviye ayrı sayfa, telefonda iki saniyede açılır."
-},
-{
 "baglanti": "/hizmetlerimiz/klinik-seo/",
 "metin": "Klinik SEO",
 "metin_2": "Tedavi ve ilçe aramalarında Google'da üst sıralar."
 },
 {
 "baglanti": "/hizmetlerimiz/google-isletme-profili/",
-"metin": "Google İşletme Profili",
-"metin_2": "\"Yakınımdaki diş kliniği\" aramasında haritadaki ilk üç sıra."
+"metin": "Google Harita Kaydı ve İşletme Profili",
+"metin_2": "Haritada görünürlük, gönderi ve yorum cevapları."
+},
+{
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"metin": "Klinik Web Sitesi",
+"metin_2": "Siteniz yoksa kurarız, eskiyse yenileriz."
 },
 {
 "baglanti": "/hizmetlerimiz/google-ads/",
-"metin": "Google Ads",
-"metin_2": "Hasta \"implant fiyatı\" yazdığında en üstte siz."
+"metin": "Google Ads Danışmanlığı",
+"metin_2": "Arama reklamlarının kurulumu ve yönetimi."
 },
 {
 "baglanti": "/hizmetlerimiz/instagram-facebook-reklamlari/",
-"metin": "Instagram ve Facebook reklamları",
-"metin_2": "İki soruluk form, anında WhatsApp'ınıza düşer."
+"metin": "Instagram ve Facebook Reklamları",
+"metin_2": "Meta reklamları; yurt dışı hasta için ülke bazlı."
 },
 {
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"metin": "Yerel klinik paketi",
-"metin_2": "Dört kanal tek fiyatla: site, İşletme Profili, Google ve Instagram."
+"baglanti": "/#maliyet",
+"metin": "Yeni açılan klinik paketi",
+"metin_2": "Site, harita kaydı ve SEO ile açılıştan itibaren."
 },
 {
 "baglanti": "/fiyatlar/saglik-turizmi-paketi/",
@@ -63,84 +66,58 @@
 ]
 },
 {
-"metin": "Kimler için",
-"baglanti": "/kurumlar/",
+"metin": "Branşlar",
+"baglanti": "/klinik/",
 "alt": [
 {
-"baglanti": "/kurumlar/klinikler/",
-"metin": "Klinikler ve poliklinikler",
-"metin_2": "Her branşta site, İşletme Profili ve reklam."
-},
-{
-"baglanti": "/kurumlar/muayenehaneler/",
-"metin": "Muayenehaneler",
-"metin_2": "Hekim adı ve tedavi aramaları."
-},
-{
-"baglanti": "/kurumlar/hastaneler/",
-"metin": "Hastaneler ve tıp merkezleri",
-"metin_2": "Bölüm ve şube bazlı düzen."
-},
-{
-"baglanti": "/kurumlar/saglik-turizmi-acenteleri/",
-"metin": "Sağlık turizmi acenteleri",
-"metin_2": "Ülke bazlı reklam ve karşılama."
+"baglanti": "/klinik/dis-klinigi/seo/",
+"metin": "Diş Kliniği SEO Hizmeti",
+"metin_2": "İmplant, zirkonyum ve ilçe aramalarında üst sıralar."
 },
 {
 "baglanti": "/klinik/dis-klinigi/",
-"metin": "Diş klinikleri",
-"metin_2": "İmplant, zirkonyum ve ortodonti aramaları."
+"metin": "Diş kliniği",
+"metin_2": "Web sitesi, SEO, harita kaydı ve tanıtım kuralları."
+},
+{
+"baglanti": "/kurumlar/muayenehaneler/",
+"metin": "Doktor ve muayenehane",
+"metin_2": "Hekim adı ve uzmanlık aramaları."
 },
 {
 "baglanti": "/klinik/estetik-klinigi/",
-"metin": "Estetik klinikleri",
-"metin_2": "Burun, meme ve liposuction aramaları."
+"metin": "Estetik ve plastik cerrahi",
+"metin_2": "İşlem adı aramaları, yurt dışı hasta."
+},
+{
+"baglanti": "/klinik/sac-ekimi/",
+"metin": "Saç ekimi",
+"metin_2": "Teknik adı aramaları, yurt dışı başvurular."
+},
+{
+"baglanti": "/klinik/psikolog/",
+"metin": "Psikolog",
+"metin_2": "Uzmanlık alanı ve online görüşme."
+},
+{
+"baglanti": "/klinik/diyetisyen/",
+"metin": "Diyetisyen",
+"metin_2": "Program adı ve ilçe aramaları."
 },
 {
 "baglanti": "/klinik/dermatoloji/",
 "metin": "Dermatoloji",
-"metin_2": "Lazer, dolgu ve cilt bakımı aramaları."
+"metin_2": "Lazer, cilt bakımı ve hastalık adı aramaları."
 },
 {
-"baglanti": "/klinik/",
-"metin": "Tüm branşlar",
-"metin_2": "Saç ekimi, fizyoterapi, diyetisyen, psikolog ve diğerleri."
-}
-]
+"baglanti": "/klinik/fizyoterapi/",
+"metin": "Fizyoterapi",
+"metin_2": "Tedavi yöntemi ve ilçe aramaları."
 },
 {
-"metin": "Şehirler",
-"baglanti": "/sehirler/",
-"alt": [
-{
-"baglanti": "/sehirler/izmir/",
-"metin": "İzmir",
-"metin_2": "Bornova, Karşıyaka, Buca ve tüm ilçeler."
-},
-{
-"baglanti": "/sehirler/ankara/",
-"metin": "Ankara",
-"metin_2": "Çankaya, Keçiören, Çayyolu ve tüm ilçeler."
-},
-{
-"baglanti": "/sehirler/istanbul/",
-"metin": "İstanbul",
-"metin_2": "Kadıköy, Beşiktaş, Ataşehir ve tüm ilçeler."
-},
-{
-"baglanti": "/sehirler/antalya/",
-"metin": "Antalya",
-"metin_2": "Muratpaşa, Konyaaltı, Kepez ve tüm ilçeler."
-},
-{
-"baglanti": "/sehirler/manisa/",
-"metin": "Manisa",
-"metin_2": "Şehzadeler, Yunusemre, Turgutlu ve tüm ilçeler."
-},
-{
-"baglanti": "/sehirler/bursa/",
-"metin": "Bursa",
-"metin_2": "Nilüfer, Osmangazi, Yıldırım ve tüm ilçeler."
+"baglanti": "/kurumlar/hastaneler/",
+"metin": "Hastane ve tıp merkezi",
+"metin_2": "Bölüm, hekim ve şube düzeni."
 }
 ]
 },
@@ -191,59 +168,64 @@
 ]
 },
 {
+"metin": "Nasıl çalışırız",
+"baglanti": "/nasil-calisir/",
+"alt": [
+{
+"baglanti": "/nasil-calisir/#surec",
+"metin": "Süreç ve ilk 90 gün",
+"metin_2": "Başlangıçtan değerlendirmeye adım adım."
+},
+{
+"baglanti": "/nasil-calisir/#takip",
+"metin": "Raporlama ve takip",
+"metin_2": "Aylık rapor ve haftalık özet."
+},
+{
+"baglanti": "/nasil-calisir/#istek",
+"metin": "İstek ve iletişim",
+"metin_2": "İstekler en geç 6 saatte yanıtlanır."
+},
+{
+"baglanti": "/nasil-calisir/#kurallar",
+"metin": "Sağlık tanıtım kuralları",
+"metin_2": "Neyi yazar, neyi yazmayız."
+},
+{
+"baglanti": "/#sss",
+"metin": "Sık sorulan sorular",
+"metin_2": "Hekimlerin en çok sorduğu sorular."
+}
+]
+},
+{
 "metin": "Referanslar",
 "baglanti": "/referanslar/",
 "alt": [
 {
 "baglanti": "/referanslar/panorama-ankara/",
 "metin": "Panorama Ankara",
-"metin_2": "Diş kliniği: tedavi × ilçe sayfaları ve Google İşletme Profili."
+"metin_2": "Diş kliniği · +%349 organik tıklama."
 },
 {
 "baglanti": "/referanslar/dentocare-klinik/",
 "metin": "Dentocare Klinik",
-"metin_2": "Diş kliniği: yeni site ve haftalık içerik."
+"metin_2": "Diş kliniği · +%534 organik tıklama."
+},
+{
+"baglanti": "/referanslar/busra-nur-ozger/",
+"metin": "Buşra Nur Özger",
+"metin_2": "Sağlık turizmi · −%21 form maliyeti."
 },
 {
 "baglanti": "/referanslar/",
-"metin": "Tüm sonuçlar",
-"metin_2": "Kliniklerin yüzde artışları, kaynağıyla."
-},
-{
-"baglanti": "/referanslar/",
-"metin": "Referanslar",
-"metin_2": "Birlikte çalıştığımız klinikler."
+"metin": "Tüm referanslar",
+"metin_2": "Branşa göre ölçülmüş sonuçlar."
 },
 {
 "baglanti": "/yorumlar/",
 "metin": "Google yorumları",
-"metin_2": "Müşterilerimizin Google yorumları."
-}
-]
-},
-{
-"metin": "Araçlar",
-"baglanti": "/araclar/",
-"alt": [
-{
-"baglanti": "/araclar/talep-maliyeti/",
-"metin": "Talep maliyeti hesaplayıcı",
-"metin_2": "Bir hasta talebi size kaça geliyor?"
-},
-{
-"baglanti": "/araclar/reklam-butcesi/",
-"metin": "Reklam bütçesi planlayıcı",
-"metin_2": "Hedef hasta sayısından aylık bütçe."
-},
-{
-"baglanti": "/araclar/google-karti-kontrol/",
-"metin": "İşletme Profili kontrol listesi",
-"metin_2": "12 maddede İşletme Profilinizin puanı."
-},
-{
-"baglanti": "/degerlendirme/",
-"metin": "Klinik dijital değerlendirme",
-"metin_2": "12 soruda kliniğinizin durumu."
+"metin_2": "4,9 puan, 50 yorum."
 }
 ]
 },
@@ -286,34 +268,34 @@
 ],
 "liste_3": [
 {
-"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
-"metin": "Klinik web sitesi",
-"metin_2": "Her tedaviye ayrı sayfa, telefonda iki saniyede açılır."
-},
-{
 "baglanti": "/hizmetlerimiz/klinik-seo/",
 "metin": "Klinik SEO",
 "metin_2": "Tedavi ve ilçe aramalarında Google'da üst sıralar."
 },
 {
 "baglanti": "/hizmetlerimiz/google-isletme-profili/",
-"metin": "Google İşletme Profili",
-"metin_2": "\"Yakınımdaki diş kliniği\" aramasında haritadaki ilk üç sıra."
+"metin": "Google Harita Kaydı ve İşletme Profili",
+"metin_2": "Haritada görünürlük, gönderi ve yorum cevapları."
+},
+{
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/",
+"metin": "Klinik Web Sitesi",
+"metin_2": "Siteniz yoksa kurarız, eskiyse yenileriz."
 },
 {
 "baglanti": "/hizmetlerimiz/google-ads/",
-"metin": "Google Ads",
-"metin_2": "Hasta \"implant fiyatı\" yazdığında en üstte siz."
+"metin": "Google Ads Danışmanlığı",
+"metin_2": "Arama reklamlarının kurulumu ve yönetimi."
 },
 {
 "baglanti": "/hizmetlerimiz/instagram-facebook-reklamlari/",
-"metin": "Instagram ve Facebook reklamları",
-"metin_2": "İki soruluk form, anında WhatsApp'ınıza düşer."
+"metin": "Instagram ve Facebook Reklamları",
+"metin_2": "Meta reklamları; yurt dışı hasta için ülke bazlı."
 },
 {
-"baglanti": "/fiyatlar/yerel-klinik-paketi/",
-"metin": "Yerel klinik paketi",
-"metin_2": "Dört kanal tek fiyatla: site, İşletme Profili, Google ve Instagram."
+"baglanti": "/#maliyet",
+"metin": "Yeni açılan klinik paketi",
+"metin_2": "Site, harita kaydı ve SEO ile açılıştan itibaren."
 },
 {
 "baglanti": "/fiyatlar/saglik-turizmi-paketi/",
@@ -329,10 +311,10 @@
 "seed": "klinik-resepsiyon.jpg",
 "alt": "Klinik resepsiyonu"
 },
-"metin": "Kliniğiniz dört hafta içinde Google'da nasıl bulunur?",
-"metin_2": "Site, Google İşletme Profili, Google ve Instagram reklamları; tamamını biz kurar ve yönetiriz.",
+"metin": "İlk 90 gün nasıl ilerler?",
+"metin_2": "Ön değerlendirmeden ilk rapora kadar her adım ve sizden istenenler.",
 "baglanti_3": "/nasil-calisir/",
-"yazi_4": "Nasıl çalışır",
+"yazi_4": "Nasıl çalışırız",
 "liste_4": [
 {
 "metin": "Klinik tipleri",

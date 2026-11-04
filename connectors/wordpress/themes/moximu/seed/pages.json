@@ -21,8 +21,8 @@
 "alt": ""
 },
 "yazi": "50’den fazla klinik ve hekimle çalışıyoruz",
-"baslik": "Klinikler için <mark>ölçülebilir</mark> dijital büyüme.",
-"metin": "Hasta sayınızı artırmak için SEO, Google İşletme Profili, Google ve Meta reklamlarını tek planda yürütürüz. Web siteniz yoksa kurar, zayıfsa yenileriz; sonuçlar her ay raporlanır.",
+"baslik": "Kliniklere <mark>hasta</mark> kazandırıyoruz.",
+"metin": "Klinik SEO, Google harita kaydı, Google Ads ve Instagram reklamlarıyla hastanın sizi bulmasını sağlarız. Web siteniz yoksa kurarız, eskiyse yenileriz.",
 "yazi_2": "<a class=\"btn white lp-wa\" href=\"https://wa.me/905388610288?text=Merhaba%2C%20klini%C4%9Fim%20i%C3%A7in%20bilgi%20almak%20istiyorum.\" target=\"_blank\" rel=\"noopener\">WhatsApp’tan yazın</a><a class=\"btn outline w\" href=\"/ucretsiz-klinik-analizi/\">Ücretsiz ön değerlendirme</a>",
 "yazi_3": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu · 12 yıl · 500+ web sitesi</span>",
 "gorsel_4": {
@@ -593,158 +593,218 @@
 ]
 },
 {
-"acf_fc_layout": "ana_hizmetler",
-"yazi": "Hizmetler",
-"baslik": "SEO merkezde, <mark>dört kanal</mark> birlikte.",
-"metin": "Hastanın sizi aradığı yerden başlarız: Google aramaları ve harita. Web sitesi ve reklam bu görünürlüğü destekler.",
-"baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz ön değerlendirme",
-"yazi_2": "03",
-"alt_baslik": "Klinik web sitesi",
-"metin_2": "Tedavi odaklı sayfa yapısı, mobilde hızlı açılış ve ölçülebilir randevu akışı.",
-"baglanti_2": "/hizmetlerimiz/klinik-web-sitesi/",
-"baglanti_yaz_2": "Klinik web sitesi →",
-"gorsel": {
-"seed": "klinik-web-sitesi-ornek.jpg",
-"alt": ""
-},
-"yazi_3": "Açılış <b class=\"cnt\" data-to=\"1,6\">1,6</b> sn",
-"yazi_4": "02",
-"alt_baslik_2": "Google İşletme Profili",
-"metin_3": "Yerel aramalarda görünürlük için profil optimizasyonu, düzenli içerik ve yorum yönetimi.",
-"baglanti_3": "/hizmetlerimiz/google-isletme-profili/",
-"baglanti_yaz_3": "Google İşletme Profili →",
-"yazi_5": "<i class=\"si\"></i>yakınımdaki diş kliniği",
-"yazi_6": "<b>Başka klinik</b><em>1</em><span>4,6 ★ (84) · 2,8 km</span>",
-"yazi_7": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
-"yazi_8": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
-"yazi_9": "Harita sırası <b>3 → 1</b>",
-"yazi_10": "01",
-"alt_baslik_3": "Klinik SEO",
-"metin_4": "Tedavi ve ilçe aramalarında organik üst sıralar: teknik düzeltme, tedavi sayfaları, hekim onaylı içerik.",
-"baglanti_4": "/hizmetlerimiz/klinik-seo/",
-"baglanti_yaz_4": "Klinik SEO →",
-"yazi_11": "kliniginiz.com <span>› implant-izmir</span>",
-"yazi_12": "İzmir İmplant Tedavisi | Klinik Adı",
-"yazi_13": "Alsancak’ta implant, zirkonyum ve ortodonti. Hekim kadrosu ve çalışma saatleri.",
-"yazi_14": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
-"yazi_15": "Organik tıklama <b>+%349</b> · Panorama Ankara",
-"yazi_16": "04",
-"alt_baslik_4": "Mevzuata uygun reklam",
-"metin_5": "Google ve Instagram reklamları sağlık tanıtım kurallarına uygun, bilgilendirici metinle; yurt dışı hasta için ülke bazlı kampanya.",
-"baglanti_5": "/hizmetlerimiz/google-ads/",
-"baglanti_yaz_5": "Reklam yönetimi →",
-"yazi_17": "<i></i>Klinik adı · Sponsorlu",
-"gorsel_2": {
-"seed": "klinik-tedavi-odasi.jpg",
-"alt": ""
-},
-"etiket": "Hangi tedavi?",
-"etiket_2": "Telefon",
-"buton_yazisi": "Bilgi ve randevu",
-"yazi_18": "<b>WhatsApp · yeni form</b><span>“İmplant için randevu istiyorum” · İzmir</span>",
-"yazi_19": "<span>Aylık rapor, haftalık bakım ve hekim onaylı içerik planı her planda.</span><a class=\"btn outline\" href=\"/hizmetlerimiz/\">Tüm hizmetler →</a>"
-},
-{
-"acf_fc_layout": "harita",
-"tasarim": "v1",
-"yazi": "Yerel görünürlük",
-"baslik": "Bölgenizdeki hastaya <mark>aramada ve haritada</mark> ulaşın.",
-"metin": "Tedavi ve ilçe sayfaları bölgenizdeki aramalara göre yazılır; Google İşletme Profili ilçenizde öne çıkarılır. Reklam açılırsa yalnız hizmet verdiğiniz il ve ilçelerde yayınlanır.",
+"acf_fc_layout": "np_kartlar",
+"ust": "Hizmetler",
+"baslik": "Hasta sizi nerede arıyorsa, <mark>orada görünürsünüz</mark>.",
+"metin": "Beş hizmet, tek plan. İhtiyacınız olanı seçersiniz; fiyatlar açık, KDV hariç.",
 "liste": [
 {
-"madde": "“Bornova implant” gibi aramalar için ilçe ve tedavi sayfaları."
+"baslik": "Klinik SEO",
+"metin": "Hastanız tedavi ve ilçe adıyla aradığında Google'da üst sıralar: teknik düzeltme, tedavi sayfaları, hekim onaylı içerik.",
+"etiket": "",
+"fiyat_ust": "Aylık",
+"fiyat": "{fiyat:seo} + KDV",
+"baglanti": "/hizmetlerimiz/klinik-seo/"
 },
 {
-"madde": "“Yakınımdaki diş kliniği” aramasında profiliniz bölgenizde önde olur."
+"baslik": "Google Harita Kaydı ve İşletme Profili",
+"metin": "\"Yakınımdaki diş kliniği\" aramasında haritada görünürlük: kayıt, doğrulama, haftalık gönderi, yorum cevapları.",
+"etiket": "SEO ile birlikte toplam {fiyat:paket}",
+"fiyat_ust": "Aylık",
+"fiyat": "{fiyat:harita} + KDV",
+"baglanti": "/hizmetlerimiz/google-isletme-profili/"
 },
 {
-"madde": "Reklam açılırsa bütçe hedef bölgenin dışına harcanmaz."
+"baslik": "Klinik Web Sitesi",
+"metin": "Tedavi ve hekim sayfaları hazır, telefonda hızlı açılan site. Siteniz yoksa kurarız, eskiyse yenileriz.",
+"etiket": "6 aylık planda hediye",
+"fiyat_ust": "Tek sefer",
+"fiyat": "{fiyat:web} + KDV",
+"baglanti": "/hizmetlerimiz/klinik-web-sitesi/"
+},
+{
+"baslik": "Google Ads Danışmanlığı",
+"metin": "Google arama reklamlarınızın kurulumu ve yönetimi. Metinler sağlık tanıtım kurallarına göre hazırlanır; bütçe onayınız olmadan değişmez.",
+"etiket": "SEO ile aylık {fiyat:ads_paket}",
+"fiyat_ust": "Aylık",
+"fiyat": "{fiyat:ads} + KDV",
+"baglanti": "/hizmetlerimiz/google-ads/"
+},
+{
+"baslik": "Instagram ve Facebook Reklamları",
+"metin": "Meta reklamlarının kurulumu ve yönetimi. Yurt dışından hasta için ülke bazlı form kampanyaları.",
+"etiket": "SEO ile aylık {fiyat:meta_paket}",
+"fiyat_ust": "Aylık",
+"fiyat": "{fiyat:meta} + KDV",
+"baglanti": "/hizmetlerimiz/instagram-facebook-reklamlari/"
 }
 ],
-"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/\">Planları inceleyin →</a><small>{fiyat:seo}/ay'dan başlar</small>",
-"yazi_3": "<span class=\"dot\"></span><b>İzmir</b> · Diş kliniği",
-"yazi_4": "Bu hafta <b>14 talep</b> <i>· örnek</i>"
+"alt_not": "Sosyal medya hesaplarınızın içerik yönetimini yapmıyoruz; Instagram ve Facebook'ta reklam yönetiyoruz. Reklam bütçesi ücrete dahil değildir, doğrudan Google ve Meta'ya ödenir.",
+"arka": 0,
+"kimlik": "hizmetler"
 },
 {
-"acf_fc_layout": "sonuclar",
-"tasarim": "v1",
-"yazi": "Referanslar",
-"yazi_2": "Sonuçlarla ölçülen iş birlikleri.",
-"yazi_3": "Google ve Meta verilerinden yüzde değişimler; her sonuçta kaynak ve dönem belirtilir.",
-"baglanti": "/referanslar/",
-"baglanti_yaz": "<span class=\"sc-292c0895-0 bYEZyN\">Tüm referanslar</span>",
+"acf_fc_layout": "np_branslar",
+"ust": "Branşlar",
+"baslik": "Branşınızın hastası <mark>nasıl arıyorsa</mark> öyle çalışırız.",
+"metin": "Diş kliniğinin hastası implant ve ilçe yazar, psikoloğun danışanı uzmanlık alanı yazar. Sayfalar, içerik ve kurallar branşa göre hazırlanır.",
 "liste": [
 {
-"gorsel": {
-"seed": "panorama.png",
-"alt": "Panorama Ankara"
-},
-"kucuk_not": "Diş kliniği · Ankara",
-"liste": [
-{
-"yazi": "<b>+%349</b><span>Organik tıklama</span>"
+"baslik": "Diş kliniği",
+"baglanti": "/klinik/dis-klinigi/",
+"metin": "İmplant, zirkonyum, ortodonti ve ilçe aramaları.",
+"linkler": "Diş kliniği SEO | /klinik/dis-klinigi/seo/\nWeb sitesi | /hizmetlerimiz/klinik-web-sitesi/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
-"yazi": "<b>+%551</b><span>Google gösterimi</span>"
+"baslik": "Doktor ve muayenehane",
+"baglanti": "/kurumlar/muayenehaneler/",
+"metin": "Hekim adı ve uzmanlık aramaları.",
+"linkler": "Muayenehaneler | /kurumlar/muayenehaneler/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
-"yazi": "<b>+%73</b><span>Site ziyaretçisi</span>"
+"baslik": "Estetik ve plastik cerrahi",
+"baglanti": "/klinik/estetik-klinigi/",
+"metin": "İşlem adı ve şehir aramaları; yurt dışı hasta.",
+"linkler": "Branş sayfası | /klinik/estetik-klinigi/\nSağlık turizmi | /saglik-turizmi/"
+},
+{
+"baslik": "Saç ekimi",
+"baglanti": "/klinik/sac-ekimi/",
+"metin": "Teknik adı aramaları ve yurt dışı başvurular.",
+"linkler": "Branş sayfası | /klinik/sac-ekimi/\nSağlık turizmi | /saglik-turizmi/"
+},
+{
+"baslik": "Dermatoloji",
+"baglanti": "/klinik/dermatoloji/",
+"metin": "Lazer, cilt bakımı ve hastalık adı aramaları.",
+"linkler": "Branş sayfası | /klinik/dermatoloji/\nReklam kuralları | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Psikolog",
+"baglanti": "/klinik/psikolog/",
+"metin": "Uzmanlık alanı ve online görüşme aramaları.",
+"linkler": "Branş sayfası | /klinik/psikolog/\nReklam kuralları | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Diyetisyen",
+"baglanti": "/klinik/diyetisyen/",
+"metin": "Program adı ve ilçe aramaları.",
+"linkler": "Branş sayfası | /klinik/diyetisyen/\nReklam kuralları | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Fizyoterapi",
+"baglanti": "/klinik/fizyoterapi/",
+"metin": "Tedavi yöntemi ve ilçe aramaları.",
+"linkler": "Branş sayfası | /klinik/fizyoterapi/\nReklam kuralları | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Hastane ve tıp merkezi",
+"baglanti": "/kurumlar/hastaneler/",
+"metin": "Bölüm, hekim ve şube bazlı düzen.",
+"linkler": "Hastaneler | /kurumlar/hastaneler/\nReklam kuralları | /saglik-reklam-mevzuati/"
 }
 ],
-"alt_baslik": "Panorama Ankara",
-"metin": "Tedavi sayfaları ve her gün Google İşletme Profili bakımı. Bir yılda Google'dan gelen hasta trafiği dört buçuk katına çıktı.",
-"vurgu": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
-"baglanti": "/referanslar/panorama-ankara/",
-"baglanti_yaz": "Vakayı okuyun →"
+"arka": 1,
+"kimlik": "branslar"
 },
 {
-"gorsel": {
-"seed": "dentocare.png",
-"alt": "Dentocare Klinik"
-},
-"kucuk_not": "Diş kliniği · İzmir",
+"acf_fc_layout": "np_ilkeler",
+"ust": "Nasıl sunuyoruz",
+"baslik": "Beş ilke, <mark>her klinikte aynı</mark>.",
+"metin": "Hizmetin adı ne olursa olsun çalışma şekli değişmez. Ne yapıldığını, kimin onayıyla yapıldığını her zaman bilirsiniz.",
+"buton_yazisi": "Nasıl çalışırız",
+"buton_link": "/nasil-calisir/",
 "liste": [
 {
-"yazi": "<b>+%534</b><span>Organik tıklama</span>"
+"baslik": "Doğrudan muhatap",
+"metin": "Kliniğinizle görüşen kişi, işi yürüten kişidir. Aracı hesap yöneticisi yoktur."
 },
 {
-"yazi": "<b>+%627</b><span>Google gösterimi</span>"
+"baslik": "Branşa özel içerik, hekim onayıyla",
+"metin": "Tedavi sayfaları ve yazılar branşınıza göre hazırlanır; onayınız olmadan yayımlanmaz."
 },
 {
-"yazi": "<b>+%830</b><span>Site ziyaretçisi</span>"
+"baslik": "Sağlık tanıtım kurallarına uygun dil",
+"metin": "Garanti, önce-sonra ve fiyat ilanı kullanılmaz. Her metin kurallara göre yazılır."
+},
+{
+"baslik": "Hesaplar sizin adınıza",
+"metin": "Google, Meta, Search Console ve Analytics hesapları kliniğin adına açılır."
+},
+{
+"baslik": "Bütçe sizin kontrolünüzde",
+"metin": "Reklam bütçesi doğrudan Google ve Meta'ya ödenir; onayınız olmadan değişmez."
 }
 ],
-"alt_baslik": "Dentocare Klinik",
-"metin": "Yeni site, tedavi × şehir sayfaları ve haftalık içerik; Google'dan gelen hasta trafiği on ayda altı katına çıktı.",
-"vurgu": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
-"baglanti": "/referanslar/dentocare-klinik/",
-"baglanti_yaz": "Vakayı okuyun →"
+"arka": 0,
+"kimlik": "nasil"
 },
 {
-"gorsel": {
-"seed": "bno.png",
-"alt": "Buşra Nur Özger"
-},
-"kucuk_not": "Estetik kliniği · İstanbul",
+"acf_fc_layout": "np_takip",
+"ust": "Takip ve istekler",
+"baslik": "Ne yapıldığını <mark>her ay görürsünüz</mark>.",
+"metin": "",
 "liste": [
 {
-"yazi": "<b>−%21</b><span>Form maliyeti</span>"
+"ikon": "📄",
+"baslik": "Aylık rapor",
+"metin": "Tek sayfa: gelen arama, WhatsApp, form ve yol tarifi; Google sıralamaları, yorumlar ve o ay yapılan işler."
 },
 {
-"yazi": "<b>+%8</b><span>Form sayısı</span>"
+"ikon": "💬",
+"baslik": "Haftalık kısa özet",
+"metin": "Her hafta WhatsApp'tan üç satır: ne yapıldı, ne bekliyor, onayınız gereken ne var."
 },
 {
-"yazi": "<b>−%24</b><span>En verimli kitlede form maliyeti</span>"
+"ikon": "⏱",
+"baslik": "İstekleriniz en geç 6 saatte yanıtlanır",
+"metin": "WhatsApp hattından yazarsınız. Her istek bir iş olarak kaydedilir ve <strong>aylık raporda \"istekleriniz ve yapılanlar\"</strong> bölümünde görünür."
 }
 ],
-"alt_baslik": "Buşra Nur Özger",
-"metin": "Meta reklamında bütçe her hafta en verimli kitleye kaydı; form maliyeti bir ayda beşte bir düştü.",
-"vurgu": "Meta Ads · Eylül → Ekim 2026",
-"baglanti": "/referanslar/",
-"baglanti_yaz": "Vakayı okuyun →"
+"arka": 1,
+"kimlik": "takip",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_alt": "Örnek Diş Kliniği",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9",
+"rapor_isler": "\"implant karşıyaka\" aramasında 4. sıraya çıkıldı\n3 tedavi sayfası yayımlandı (hekim onaylı)\n12 Google yorumu cevaplandı\nİsteğiniz: kampanya görseli değişti"
+},
+{
+"acf_fc_layout": "np_surec",
+"ust": "Süreç",
+"baslik": "İlk 90 gün <mark>adım adım</mark>.",
+"metin": "Başlamadan önce neyin, ne zaman yapılacağını bilirsiniz.",
+"liste": [
+{
+"ust": "1. GÜN",
+"baslik": "Ücretsiz ön değerlendirme",
+"metin": "Site, harita kaydı ve reklam hesabınızdan 2–3 öncelikli bulgu, WhatsApp'tan."
+},
+{
+"ust": "1. HAFTA",
+"baslik": "Plan ve başlangıç",
+"metin": "Hizmetler ve aylık tutar netleşir; hesaplara erişim alınır."
+},
+{
+"ust": "İLK 30 GÜN",
+"baslik": "Kurulum",
+"metin": "Teknik düzeltmeler, harita kaydı, ölçüm kurulumu, ilk tedavi sayfaları."
+},
+{
+"ust": "30–90. GÜN",
+"baslik": "Düzenli çalışma",
+"metin": "Haftalık içerik ve gönderi, yorum cevapları, aylık rapor."
+},
+{
+"ust": "90. GÜN",
+"baslik": "Değerlendirme",
+"metin": "Ne işe yaradı, ne değişecek; sonraki üç ayın planı."
 }
-]
+],
+"gerek_baslik": "Başlarken sizden istenenler",
+"gerek_metin": "Google ve Meta hesap erişimleri · logo · klinik ve hekim fotoğrafları · hekim özgeçmişleri · tedavi listesi",
+"arka": 0,
+"kimlik": "surec"
 },
 {
 "acf_fc_layout": "dunya",
@@ -767,22 +827,96 @@
 "yazi_4": "Bu hafta en ucuz form: <b>Almanya</b> <i>· örnek</i>"
 },
 {
-"acf_fc_layout": "rakamlar",
-"yazi": "Rakamlarla Moximu",
-"baslik": "2014’ten bu yana kliniklerin <mark>dijital çözüm ortağı</mark>.",
-"buton_yazisi": "<b>500+</b><span>web sitesi yayına alındı</span>",
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Rakamları başlangıç dönemine göre yüzde değişim olarak paylaşırız. Sonuç garantisi vermeyiz; aşağıdakiler ölçülmüş geçmiştir.",
 "liste": [
 {
-"buton_yazisi": "<b>50+</b><span>klinik ile çalışıldı</span>"
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
 },
 {
-"buton_yazisi": "<b>12 yıl</b><span>dijital pazarlama deneyimi</span>"
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
 },
 {
-"buton_yazisi": "<b>4,9</b><span>Google puanı · 50 yorum</span>"
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
 }
 ],
-"metin": "Logolar, Moximu ile çalışan klinik ve hekimlere aittir."
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referanslar-ozet"
+},
+{
+"acf_fc_layout": "np_maliyet",
+"ust": "Maliyet",
+"baslik": "Kliniğinize <mark>aylık kaça</mark> mal olur?",
+"metin": "Hizmetleri seçin, toplamı görün. Paket avantajı ve 6 aylık planın hediyesi kendiliğinden düşer.",
+"alt_not": "",
+"arka": 0,
+"kimlik": "maliyet"
+},
+{
+"acf_fc_layout": "np_kurucu",
+"ust": "Kurucu",
+"baslik": "Kliniğinizle görüşen kişi, <mark>işi yürüten</mark> kişidir.",
+"gorsel": {
+"seed": "yakup-udul.webp",
+"alt": "Yakup Udül, Moximu kurucusu"
+},
+"liste": [
+{
+"metin": "2014'ten bu yana web sitesi kuruyorum; 500'den fazla projede payım oldu. Klinik sitelerinde gördüğüm şey hep aynıydı: güzel bir site tek başına hasta getirmiyor, Google İşletme Profili, reklam ve hızlı cevapla birlikte çalışınca getiriyor."
+}
+],
+"ad": "Yakup Udül",
+"unvan": "Kurucu, Moximu",
+"rakamlar": [
+{
+"rakam": "12 yıl",
+"yazi": "web sitesi ve SEO"
+},
+{
+"rakam": "500+",
+"yazi": "web sitesi"
+},
+{
+"rakam": "50+",
+"yazi": "klinik ve hekim"
+},
+{
+"rakam": "4,9",
+"yazi": "50 Google yorumu"
+}
+],
+"buton_yazisi": "Hakkımızda",
+"buton_link": "/hakkimizda/",
+"arka": 1,
+"kimlik": "kurucu"
 },
 {
 "acf_fc_layout": "yorumlar",
@@ -797,111 +931,53 @@
 "liste": []
 },
 {
-"acf_fc_layout": "analiz",
-"tasarim": "v1",
-"gorsel": {
-"seed": "9d6ee90592.webp",
-"alt": "cs"
-},
-"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
-"yazi": "24 saatte öncelikli bulgular",
-"etiket": "Klinik adı",
-"etiket_2": "Klinik adı",
-"etiket_3": "Şehir",
-"etiket_4": "E-posta",
-"yazi_2": "Telefon",
-"etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Değerlendirme isteyin"
-},
-{
-"acf_fc_layout": "sss",
-"tasarim": "v1",
-"baslik": "Sık sorulan sorular",
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Hekimlerin <mark>en çok sorduğu</mark> sorular.",
 "liste": [
 {
-"buton_yazisi": "+",
-"baslik": "Reklam ve Google hesapları kimin adına açılır?",
-"metin": "Sizin adınıza. Moximu yönetici olarak eklenir; ayrıldığınızda tüm geçmiş ve veriler sizde kalır."
+"baslik": "Doktor reklamı yasak mı?",
+"metin": "Sağlık hizmetlerinin tanıtımı, Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Garanti, önce-sonra görseli, fiyat ve kampanya duyurusu gibi ifadeler kullanılmaz. Hazırladığımız her sayfa ve reklam metni bu kurallara göre yazılır; branşınıza özel ayrıntı branş sayfasındadır."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Mevcut web sitemle çalışır mısınız?",
-"metin": "Evet. Önce mevcut siteyi inceleriz; eksik hizmet sayfaları ve hız sorunları düzeltilir. Yeni site yalnız gerektiğinde önerilir."
+"baslik": "Klinik SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Google harita kaydı ve organik sıralamalar genellikle 2–4 ayda yerleşir. Her ay neyin değiştiğini raporda görürsünüz."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Hasta fotoğrafı veya öncesi/sonrası kullanıyor musunuz?",
-"metin": "Yalnız yazılı izinle ve yönetmeliğe uygun biçimde. İzin yoksa kullanmayız."
+"baslik": "Google'da ilk sıra garantisi veriyor musunuz?",
+"metin": "Hayır. Google sıralamasını kimse garanti edemez. Ne yaptığımızı ve sonucun ne olduğunu her ay rapora yazarız."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Ne kadar sürede sonuç görürüm?",
-"metin": "İlk talepler reklamlar açıldıktan sonra ilk iki haftada gelir. Google İşletme Profili ve organik sıralama 2–4 ayda yerleşir."
+"baslik": "Reklam bütçesi ücrete dahil mi?",
+"metin": "Hayır. Reklam bütçesi doğrudan Google ve Meta'ya, sizin hesabınızdan ödenir. Bizim ücretimiz yalnız yönetim ücretidir."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Benim ne yapmam gerekir?",
-"metin": "Gelen talebi aynı gün aramanız, haftada bir içerik planına bakmanız, ayda bir fotoğraf göndermeniz."
+"baslik": "Hesaplar ve web sitesi kimin adına?",
+"metin": "Kliniğin adına. Google, Meta, Search Console ve Analytics hesapları sizin adınıza açılır; Moximu yönetici olarak eklenir."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Sözleşme süresi ve ödeme nasıl?",
-"metin": "Hizmet bedeli aylık faturalandırılır; 6 aylık planda klinik web sitesi hediye edilir. Reklam bütçesi Google ve Meta'ya sizin tarafınızdan ödenir; yönetim ücreti ayrıdır."
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız, hekim onayı olmadan yayımlanmaz. İçerikler branşınıza ve hastalarınızın Google'da yazdığı ifadelere göre planlanır."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Fiyatlar ne kadar?",
-"metin": "Klinik SEO aylık {fiyat:seo}; SEO ve Google İşletme Profili birlikte aylık {fiyat:paket}; dört kanallı yerel klinik paketi aylık {fiyat:yerel}. Fiyatlar KDV hariçtir ve 6 aylık planda klinik web sitesi hediye edilir. Sağlık turizmi fiyatı görüşmeye bağlıdır."
+"baslik": "DoktorTakvimi profilim varken web sitesine ihtiyacım var mı?",
+"metin": "DoktorTakvimi bir randevu platformudur; hasta orada başka hekimleri de görür. Kendi siteniz ve Google harita kaydınız hastayı doğrudan size getirir. İkisi birlikte kullanılabilir."
 },
 {
-"buton_yazisi": "+",
-"baslik": "Ücretsiz ön değerlendirme nedir?",
-"metin": "Klinik adı ve şehir yeterlidir. 24 saat içinde 2-3 öncelikli bulgu hazırlanır: site, Google İşletme Profili ve reklam hesabındaki eksikler ile ilk 30 günün planı. Bağlayıcı değildir."
+"baslik": "Sözleşme süresi var mı?",
+"metin": "Hizmet aylık faturalandırılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir."
+},
+{
+"baslik": "İsteklerimi nasıl iletirim?",
+"metin": "WhatsApp hattından yazarsınız; en geç 6 saat içinde yanıtlanır. Her istek kayda alınır ve aylık raporda görünür."
+},
+{
+"baslik": "Sosyal medya hesabımı yönetiyor musunuz?",
+"metin": "Hayır. Instagram ve Facebook'ta yalnız reklam kampanyalarını yönetiyoruz; hesabınızın günlük paylaşımlarını yapmıyoruz."
 }
 ],
-"liste_2": [
-{
-"buton_yazisi": "+",
-"baslik": "Hangi şehirlerde çalışıyorsunuz?",
-"metin": "Türkiye'nin her şehrinde. Moximu Manisa'da; İzmir ve Manisa'ya yerinde geliriz."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Sağlık dışı sektörle çalışıyor musunuz?",
-"metin": "Hayır. Moximu yalnız kliniklerle çalışır."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Raporu nasıl alırım?",
-"metin": "Her ayın ilk haftası tek sayfa: kaç talep geldi, bir talep kaça mal oldu, bir sonraki ayın kararı."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Hekim adıyla reklam verilebilir mi?",
-"metin": "Hekim adı bilgilendirme olarak kullanılabilir; tedavi vaadiyle birlikte kullanılmaz. Her metin yönetmelik listesinden geçer."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Toplantı yapıyor musunuz?",
-"metin": "Hayır. İlk görüşme telefon ya da WhatsApp, 20 dakika. Sonrası her hafta yazılı rapor."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Reklam bütçesini siz mi artırıyorsunuz?",
-"metin": "Hayır. Bütçe sizden habersiz asla artmaz; her değişiklik yazılı önerilir, siz onaylarsınız."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Başka ajanstan geçersem ne olur?",
-"metin": "Erişimleri devralırız, çalışan kampanyaları kapatmayız. İlk hafta inceleme, ikinci hafta değişiklikler."
-},
-{
-"buton_yazisi": "+",
-"baslik": "Kaç klinikle çalışıyorsunuz?",
-"metin": "Şu an aylık abonelikle 12 marka, dokuzu klinik; bugüne kadar 50’den fazla klinikle çalıştık. Aynı anda sınırlı sayıda klinik alırız; işi tek kişi yürütür."
-}
-],
-"metin": "Tüm sorular"
+"arka": 0,
+"kimlik": "sss"
 }
 ],
 "title": "Ana sayfa",
@@ -8772,6 +8848,172 @@
 "title": "Diş klinikleri",
 "order": 1,
 "excerpt": "İmplant, zirkonyum ve ortodonti aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve hasta kabul akışı. Dokuz diş kliniğiyle çalışıyoruz."
+},
+{
+"key": "dis-seo",
+"path": "/klinik/dis-klinigi/seo/",
+"title": "Diş Kliniği SEO Hizmeti",
+"order": "0",
+"excerpt": "Diş kliniği SEO hizmeti: implant, zirkonyum, ortodonti gibi tedavi ve ilçe aramalarında Google'da üst sıralar için teknik, içerik ve harita çalışması.",
+"seo_title": "Diş Kliniği SEO Hizmeti · Diş Hekimi SEO · Moximu",
+"seo_desc": "Diş kliniği SEO hizmeti: implant, zirkonyum, ortodonti ve ilçe aramalarında Google'da üst sıralar. Hekim onaylı içerik, aylık rapor. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Diş Kliniği SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Diş Kliniği <mark>SEO Hizmeti</mark>",
+"metin": "Diş kliniği SEO hizmeti, hastanız implant, zirkonyum, ortodonti gibi tedavileri ilçe adıyla aradığında kliniğinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Diş hekimi SEO\nTedavi × ilçe sayfaları\nHekim onaylı içerik\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20di%C5%9F%20klini%C4%9Fim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Diş hastası Google'a <mark>tedavi ve semt</mark> yazar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; kliniğinize özel liste ön değerlendirmede çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Tedavi + ilçe | implant karşıyaka, zirkonyum kaplama bornova | Tedavi × ilçe sayfası\nYakındaki klinik | yakınımdaki diş kliniği, acil diş hekimi | Google harita kaydı\nTedavi sorusu | implant kaç günde yapılır, şeffaf plak kimlere uygun | Bilgilendirici rehber yazısı\nHekim adı | dt. ad soyad, diş hekimi ad soyad yorumları | Hekim sayfası ve harita kaydı\nFiyat araştırması | implant fiyatları, zirkonyum fiyatı | Tedavi sayfası (fiyat yazılmaz, tedaviyi etkileyen etkenler anlatılır)",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Diş kliniği SEO'sunda <mark>altı iş</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, diş kliniği yapılandırılmış verisi, Search Console kurulumu.\n<b>Tedavi × ilçe sayfaları:</b> implant, zirkonyum, ortodonti, beyazlatma, kanal tedavisi; hastalarınızın geldiği ilçelerle.\n<b>Haftalık içerik:</b> hastanın sorduğu sorulara cevap veren yazılar; hekim onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> site ve harita kaydı aynı tedavi ve adres bilgisini taşır.\n<b>Yapay zekâ aramaları:</b> ChatGPT ve Google'ın yapay zekâ özetlerinde kliniğinizin bilgilerinin doğru görünmesi.\n<b>Aylık rapor:</b> sıralamalar, gelen arama, WhatsApp ve form; yapılan işler listesi.",
+"kutu_baslik": "Diş hekimliğinde tanıtım sınırı",
+"kutu_maddeler": "Tedavi sayfaları bilgilendirme amacıyla yazılır.\nFiyat, indirim ve kampanya duyurusu yapılmaz.\nÖnce-sonra görseli ve \"ağrısız\", \"garantili\" gibi ifadeler kullanılmaz.\nHekim bilgileri unvan ve uzmanlıkla doğru yazılır.",
+"kutu_not": "Ayrıntı: <a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Klinik reklamında ne yazılır? →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi tedavi aramasında kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 0,
+"kimlik": "rapor",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_alt": "Örnek Diş Kliniği",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9",
+"rapor_isler": "\"implant karşıyaka\" aramasında 4. sıraya çıkıldı\n3 tedavi sayfası yayımlandı (hekim onaylı)\n12 Google yorumu cevaplandı\nİsteğiniz: kampanya görseli değişti"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Diş kliniği referansları",
+"baslik": "Diş kliniklerinde <mark>ölçülmüş</mark> sonuçlar.",
+"metin": "",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "avrupadent.png",
+"alt": "Avrupadent"
+},
+"ust": "Diş kliniği",
+"rakam": "+%94",
+"birim": "Google gösterimi",
+"kaynak": "Search Console · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Diş kliniği SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nTedavi × ilçe sayfaları\nHaftalık hekim onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Diş kliniği SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Diş kliniği SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Tedavi ve ilçe aramalarındaki sıralamalar genellikle 2–4 ayda yerleşir; rekabetin yoğun olduğu ilçelerde daha uzun sürebilir."
+},
+{
+"baslik": "İmplant fiyatı sitede yazılabilir mi?",
+"metin": "Tedavi sayfalarında fiyat yazmayız; sağlık tanıtım kuralları fiyat ve kampanya duyurusunu sınırlar. Bunun yerine tedavinin süresini ve maliyeti etkileyen etkenleri anlatırız."
+},
+{
+"baslik": "Diş hekimi SEO ile diş kliniği SEO'su farklı mı?",
+"metin": "Muayenehanede hekimin adı ve uzmanlığı öne çıkar; çok hekimli klinikte tedavi ve ilçe sayfaları ağırlıktadır. Çalışma planı buna göre kurulur."
+},
+{
+"baslik": "Mevcut web sitemle çalışır mısınız?",
+"metin": "Evet. Önce mevcut siteyi inceleriz; eksik tedavi sayfaları ve hız sorunları düzeltilir. Yeni site yalnız gerektiğinde önerilir."
+},
+{
+"baslik": "Kaç ilçe için sayfa hazırlanır?",
+"metin": "Hastalarınızın geldiği ilçelere göre belirlenir; ön değerlendirmede birlikte seçilir ve aylık raporda hangi ilçeden arama geldiği izlenir."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Diş kliniği için diğer sayfalar",
+"baglanti": "/klinik/dis-klinigi/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Diş klinikleri | /klinik/dis-klinigi/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/\nKlinik reklamında ne yazılır? | /rehber/klinik-reklaminda-ne-yazilir/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "k-estetik-klinigi",
@@ -19508,13 +19750,163 @@
 "title": "Nasıl çalışır",
 "excerpt": "Ücretsiz ön değerlendirmeden aylık rapora beş adım; sonra her hafta aynı ritim. Hangi gün ne yapıldığını bilirsiniz.",
 "content": "<p>Moximu bir ajans kadrosu değil, bir çalışma düzenidir. İş, haftanın belli günlerine bağlıdır; siz hangi gün ne yapıldığını bilirsiniz, uzun sunumlara zaman ayırmazsınız.</p>\n<h2>Beş adım</h2>\n<ol>\n<li><strong>Ücretsiz ön değerlendirme.</strong> Klinik adı ve şehir yeter. 24 saat içinde 2-3 öncelikli bulgu WhatsApp'tan gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır.</li>\n<li><strong>Telefon görüşmesi ve teklif.</strong> Raporu telefonda ya da WhatsApp'ta birlikte okuruz, yaklaşık 20 dakika. Uygunsa yazılı teklif aynı gün gelir.</li>\n<li><strong>Kurulum, ilk 30 gün.</strong> Hesap erişimleri alınır, hesaplar temizlenir, reklamlar üçüncü hafta açılır, Google İşletme Profili düzenlenir, tedavi sayfaları yazılır.</li>\n<li><strong>Her hafta aynı düzen.</strong> Pazartesi arama terimleri ve bütçe, çarşamba yazı ve gönderi, cuma Google İşletme Profili: yorum, fotoğraf, gönderi.</li>\n<li><strong>Aylık rapor.</strong> Her ayın ilk haftası tek sayfa: kaç talep geldi, bir talep kaça geldi, hangi kanal ve hizmet, geçen aya fark, bu ayın kararı.</li>\n</ol>\n<h2>İlk dört hafta</h2>\n<table><thead><tr><th>Hafta</th><th>Yapılan</th></tr></thead><tbody>\n<tr><td>1. hafta</td><td>Erişimler, hizmet listesi ve fiyat aralıkları, hesap temizliği, ölçüm kontrolü.</td></tr>\n<tr><td>2. hafta</td><td>Arama reklamı ve form reklamı yayında; Google İşletme Profili düzenlenir.</td></tr>\n<tr><td>3. hafta</td><td>Tedavi sayfaları, WhatsApp hazır cevapları, ilk boşa giden aramaların kapatılması.</td></tr>\n<tr><td>4. hafta</td><td>İlk rapor ve bütçe kararı: neyin devam edeceği, neyin kapanacağı.</td></tr>\n</tbody></table>\n<h2>Kim ne yapar</h2>\n<h3>Moximu</h3>\n<p>Site, reklam, yazı, Google İşletme Profili ve ölçüm. Haftalık bakım ve aylık rapor. Yorum cevapları ve içerik taslakları.</p>\n<h3>Klinik</h3>\n<p>Gelen talebi aynı gün arar. Haftalık içerik planına bakar. Ayda bir klinik fotoğrafı ve kısa video gönderir. Hekim onayı gereken metinlere bir hafta içinde döner.</p>\n<h3>Hiç yapılmayanlar</h3>\n<p>Hasta fotoğrafı, öncesi/sonrası, garanti cümlesi. Bütçeyi haber vermeden artırmak. Hesapları Moximu adına açmak.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Düzenli görüşme var mı?</summary><p>İş yazılı yürür: her pazartesi kısa özet, ayın ilk haftası rapor. Gerektiğinde telefonla konuşuruz; zamanınız hastaya kalır.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk form talepleri genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ayda birikir. Sonuç garantisi vermeyiz, her ay ölçüp yazarız.</p></details>\n<details><summary>İçeriği kim onaylar?</summary><p>Haftalık plan size yazılı gelir; itiraz etmediğiniz içerik yayınlanır. Hekim onayı gereken metinler onay gelene kadar bekler.</p></details>\n<details><summary>Hesaplar kimin adına açılır?</summary><p>Sizin adınıza. Google Ads, İşletme Profili, Meta ve alan adı kliniğin hesabında kalır; Moximu yönetici olarak eklenir.</p></details>",
-"seo_title": "Nasıl çalışır: analizden aylık rapora · Moximu",
-"seo_desc": "Moximu ile çalışma düzeni: ücretsiz ön değerlendirme, telefon görüşmesi ve teklif, ilk 30 günde kurulum, her hafta aynı ritim ve ayın ilk haftası tek sayfa rapor.",
+"seo_title": "Nasıl çalışırız: süreç, aylık rapor ve istekler · Moximu",
+"seo_desc": "Moximu ile çalışma süreci: ücretsiz ön değerlendirme, ilk 30 günde kurulum, haftalık özet, aylık rapor; istekler en geç 6 saatte yanıtlanır, hesaplar klinik adına.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Çalışma düzeni",
 "_mx_sayfa_sonu": "sonuclar,yorum_ozet,analiz"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Nasıl çalışırız: başlangıçtan <mark>aylık rapora</mark>.",
+"metin": "Önce ücretsiz ön değerlendirme yaparız, ardından plan ve fiyat netleşir. İlk 30 günde kurulum tamamlanır; sonra her hafta kısa özet, her ay tek sayfa rapor alırsınız. İstekleriniz en geç 6 saatte yanıtlanır.",
+"etiketler": "Aylık çalışma\nHesaplar klinik adına\nHekim onaylı içerik\nSağlık tanıtım kurallarına uygun",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20klini%C4%9Fim%20i%C3%A7in%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_surec",
+"ust": "Süreç",
+"baslik": "İlk 90 gün <mark>adım adım</mark>.",
+"metin": "Başlamadan önce neyin, ne zaman yapılacağını bilirsiniz.",
+"liste": [
+{
+"ust": "1. GÜN",
+"baslik": "Ücretsiz ön değerlendirme",
+"metin": "Site, harita kaydı ve reklam hesabınızdan 2–3 öncelikli bulgu, WhatsApp'tan."
+},
+{
+"ust": "1. HAFTA",
+"baslik": "Plan ve başlangıç",
+"metin": "Hizmetler ve aylık tutar netleşir; hesaplara erişim alınır."
+},
+{
+"ust": "İLK 30 GÜN",
+"baslik": "Kurulum",
+"metin": "Teknik düzeltmeler, harita kaydı, ölçüm kurulumu, ilk tedavi sayfaları."
+},
+{
+"ust": "30–90. GÜN",
+"baslik": "Düzenli çalışma",
+"metin": "Haftalık içerik ve gönderi, yorum cevapları, aylık rapor."
+},
+{
+"ust": "90. GÜN",
+"baslik": "Değerlendirme",
+"metin": "Ne işe yaradı, ne değişecek; sonraki üç ayın planı."
 }
+],
+"gerek_baslik": "Başlarken sizden istenenler",
+"gerek_metin": "Google ve Meta hesap erişimleri · logo · klinik ve hekim fotoğrafları · hekim özgeçmişleri · tedavi listesi",
+"arka": 1,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip ve istekler",
+"baslik": "Ne yapıldığını <mark>her ay görürsünüz</mark>.",
+"metin": "",
+"liste": [
+{
+"ikon": "📄",
+"baslik": "Aylık rapor",
+"metin": "Tek sayfa: gelen arama, WhatsApp, form ve yol tarifi; Google sıralamaları, yorumlar ve o ay yapılan işler."
+},
+{
+"ikon": "💬",
+"baslik": "Haftalık kısa özet",
+"metin": "Her hafta WhatsApp'tan üç satır: ne yapıldı, ne bekliyor, onayınız gereken ne var."
+},
+{
+"ikon": "⏱",
+"baslik": "İstekleriniz en geç 6 saatte yanıtlanır",
+"metin": "WhatsApp hattından yazarsınız. Her istek bir iş olarak kaydedilir ve <strong>aylık raporda \"istekleriniz ve yapılanlar\"</strong> bölümünde görünür."
+}
+],
+"arka": 0,
+"kimlik": "takip",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_alt": "Örnek Diş Kliniği",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9",
+"rapor_isler": "\"implant karşıyaka\" aramasında 4. sıraya çıkıldı\n3 tedavi sayfası yayımlandı (hekim onaylı)\n12 Google yorumu cevaplandı\nİsteğiniz: kampanya görseli değişti"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İstek ve iletişim",
+"baslik": "Bir isteğiniz olduğunda <mark>ne olur</mark>?",
+"metin": "Tek kanal WhatsApp hattıdır. Telefonla görüşme hafta içi 09:00–18:00 arasında yapılır.",
+"liste": [
+{
+"baslik": "Yazarsınız",
+"metin": "Metin, fotoğraf, yeni hekim, kampanya, değişiklik: WhatsApp hattından iletirsiniz."
+},
+{
+"baslik": "En geç 6 saatte yanıt",
+"metin": "İsteğin ne zaman yapılacağı yazılı olarak bildirilir."
+},
+{
+"baslik": "İş olarak kaydedilir",
+"metin": "Onay gerektiren bir şeyse (metin, görsel, bütçe) önce size gönderilir."
+},
+{
+"baslik": "Raporda görünür",
+"metin": "Aylık raporun \"istekleriniz ve yapılanlar\" bölümünde tarihleriyle yer alır."
+}
+],
+"arka": 1,
+"kimlik": "istek"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Sağlık tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Tedavinin ne olduğu, kimlere uygulandığı, süreci\nHekimin uzmanlığı, eğitimi, deneyimi\nKlinik adresi, çalışma saatleri, ulaşım\nHastanın sık sorduğu sorular ve bilgilendirici yazılar",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Sonuç garantisi, \"en iyi\", \"tek\" gibi üstünlük ifadeleri\nÖnce-sonra görselleri ve hasta fotoğrafları\nFiyat, indirim ve kampanya duyuruları\nHasta yorumlarının tanıtım amaçlı kullanımı",
+"alt_not": "Ayrıntı branşa göre değişir; her branş sayfasında o branşın kuralları ayrıca yazılır. Bu bölüm hukuki görüş değildir. <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_ilkeler",
+"ust": "Nasıl sunuyoruz",
+"baslik": "Beş ilke, <mark>her klinikte aynı</mark>.",
+"metin": "Hizmetin adı ne olursa olsun çalışma şekli değişmez. Ne yapıldığını, kimin onayıyla yapıldığını her zaman bilirsiniz.",
+"buton_yazisi": "Fiyatları görün",
+"buton_link": "/#maliyet",
+"liste": [
+{
+"baslik": "Doğrudan muhatap",
+"metin": "Kliniğinizle görüşen kişi, işi yürüten kişidir. Aracı hesap yöneticisi yoktur."
+},
+{
+"baslik": "Branşa özel içerik, hekim onayıyla",
+"metin": "Tedavi sayfaları ve yazılar branşınıza göre hazırlanır; onayınız olmadan yayımlanmaz."
+},
+{
+"baslik": "Sağlık tanıtım kurallarına uygun dil",
+"metin": "Garanti, önce-sonra ve fiyat ilanı kullanılmaz. Her metin kurallara göre yazılır."
+},
+{
+"baslik": "Hesaplar sizin adınıza",
+"metin": "Google, Meta, Search Console ve Analytics hesapları kliniğin adına açılır."
+},
+{
+"baslik": "Bütçe sizin kontrolünüzde",
+"metin": "Reklam bütçesi doğrudan Google ve Meta'ya ödenir; onayınız olmadan değişmez."
+}
+],
+"arka": 0,
+"kimlik": "nasil"
+}
+]
 },
 {
 "key": "tmoximu-ve-ajans",

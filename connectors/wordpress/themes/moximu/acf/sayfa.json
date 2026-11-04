@@ -6237,6 +6237,1240 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_np_giris": {
+     "key": "layout_mx_np_giris",
+     "name": "np_giris",
+     "label": "Hekim · Alt sayfa girişi (H1 + kısa cevap)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_giris_baslik",
+       "name": "baslik",
+       "label": "Sayfa başlığı (H1)",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_giris_metin",
+       "name": "metin",
+       "label": "Kısa cevap",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Sorunun 2-3 cümlelik net cevabı; fiyat {fiyat:seo} gibi yazılır."
+      },
+      {
+       "key": "field_mx_np_giris_etiketler",
+       "name": "etiketler",
+       "label": "Etiketler",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_giris_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_giris_buton_link",
+       "name": "buton_link",
+       "label": "Buton bağlantısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_giris_buton_2_yazisi",
+       "name": "buton_2_yazisi",
+       "label": "İkinci buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_giris_buton_2_link",
+       "name": "buton_2_link",
+       "label": "İkinci buton bağlantısı",
+       "type": "text"
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_kartlar": {
+     "key": "layout_mx_np_kartlar",
+     "name": "np_kartlar",
+     "label": "Hekim · Hizmet kartları (fiyatlı)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_kartlar_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_kartlar_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_kartlar_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_kartlar_liste",
+       "name": "liste",
+       "label": "Kartlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Kart ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_kartlar_liste_baslik",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_kartlar_liste_metin",
+         "name": "metin",
+         "label": "Açıklama",
+         "type": "textarea",
+         "rows": 3,
+         "new_lines": ""
+        },
+        {
+         "key": "field_mx_np_kartlar_liste_etiket",
+         "name": "etiket",
+         "label": "Etiket",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_kartlar_liste_fiyat_ust",
+         "name": "fiyat_ust",
+         "label": "Fiyat üstü yazı",
+         "type": "text",
+         "instructions": "Aylık / Tek sefer"
+        },
+        {
+         "key": "field_mx_np_kartlar_liste_fiyat",
+         "name": "fiyat",
+         "label": "Fiyat",
+         "type": "text",
+         "instructions": "{fiyat:seo} + KDV gibi"
+        },
+        {
+         "key": "field_mx_np_kartlar_liste_baglanti",
+         "name": "baglanti",
+         "label": "Bağlantı",
+         "type": "text"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_kartlar_alt_not",
+       "name": "alt_not",
+       "label": "Alt not",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_kartlar_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_kartlar_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_branslar": {
+     "key": "layout_mx_np_branslar",
+     "name": "np_branslar",
+     "label": "Hekim · Branş kutuları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_branslar_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_branslar_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_branslar_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_branslar_liste",
+       "name": "liste",
+       "label": "Branşlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Branş ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_branslar_liste_baslik",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_branslar_liste_baglanti",
+         "name": "baglanti",
+         "label": "Bağlantı",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_branslar_liste_metin",
+         "name": "metin",
+         "label": "Kısa açıklama",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_branslar_liste_linkler",
+         "name": "linkler",
+         "label": "Alt bağlantılar",
+         "type": "textarea",
+         "rows": 3,
+         "new_lines": "",
+         "instructions": "Her satır: Yazı | /adres/"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_branslar_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_branslar_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_ilkeler": {
+     "key": "layout_mx_np_ilkeler",
+     "name": "np_ilkeler",
+     "label": "Hekim · Koyu kutu: ilkeler",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_ilkeler_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_ilkeler_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_ilkeler_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_ilkeler_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_ilkeler_buton_link",
+       "name": "buton_link",
+       "label": "Buton bağlantısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_ilkeler_liste",
+       "name": "liste",
+       "label": "İlkeler",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "İlke ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_ilkeler_liste_baslik",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_ilkeler_liste_metin",
+         "name": "metin",
+         "label": "Açıklama",
+         "type": "textarea",
+         "rows": 2,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_ilkeler_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_ilkeler_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_takip": {
+     "key": "layout_mx_np_takip",
+     "name": "np_takip",
+     "label": "Hekim · Örnek rapor + takip adımları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_takip_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_takip_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_takip_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_takip_liste",
+       "name": "liste",
+       "label": "Adımlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Adım ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_takip_liste_ikon",
+         "name": "ikon",
+         "label": "İkon (emoji)",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_takip_liste_baslik",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_takip_liste_metin",
+         "name": "metin",
+         "label": "Açıklama",
+         "type": "textarea",
+         "rows": 2,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_takip_rapor_baslik",
+       "name": "rapor_baslik",
+       "label": "Rapor başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_takip_rapor_alt",
+       "name": "rapor_alt",
+       "label": "Rapor alt yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_takip_rapor_kpi",
+       "name": "rapor_kpi",
+       "label": "Rapor rakamları",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır: Etiket | Değer | Alt yazı"
+      },
+      {
+       "key": "field_mx_np_takip_rapor_dagilim",
+       "name": "rapor_dagilim",
+       "label": "Kanal dağılımı",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır: Kanal | yüzde (sayı)"
+      },
+      {
+       "key": "field_mx_np_takip_rapor_isler",
+       "name": "rapor_isler",
+       "label": "Yapılan işler",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_takip_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_takip_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_surec": {
+     "key": "layout_mx_np_surec",
+     "name": "np_surec",
+     "label": "Hekim · Süreç çizelgesi",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_surec_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_surec_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_surec_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_surec_liste",
+       "name": "liste",
+       "label": "Adımlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Adım ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_surec_liste_ust",
+         "name": "ust",
+         "label": "Zaman",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_surec_liste_baslik",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_surec_liste_metin",
+         "name": "metin",
+         "label": "Açıklama",
+         "type": "textarea",
+         "rows": 2,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_surec_gerek_baslik",
+       "name": "gerek_baslik",
+       "label": "Şerit başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_surec_gerek_metin",
+       "name": "gerek_metin",
+       "label": "Şerit metni",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_surec_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_surec_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_adimlar": {
+     "key": "layout_mx_np_adimlar",
+     "name": "np_adimlar",
+     "label": "Hekim · Başlık + kutuda numaralı adımlar",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_adimlar_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_adimlar_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_adimlar_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_adimlar_liste",
+       "name": "liste",
+       "label": "Adımlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Adım ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_adimlar_liste_baslik",
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_adimlar_liste_metin",
+         "name": "metin",
+         "label": "Açıklama",
+         "type": "textarea",
+         "rows": 2,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_adimlar_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_adimlar_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_ikili": {
+     "key": "layout_mx_np_ikili",
+     "name": "np_ikili",
+     "label": "Hekim · İki kutu: yaparız / yapmayız",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_ikili_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_ikili_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_ikili_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_ikili_sol_baslik",
+       "name": "sol_baslik",
+       "label": "Sol kutu başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_ikili_sol_liste",
+       "name": "sol_liste",
+       "label": "Sol maddeler",
+       "type": "textarea",
+       "rows": 4,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_ikili_sag_baslik",
+       "name": "sag_baslik",
+       "label": "Sağ kutu başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_ikili_sag_liste",
+       "name": "sag_liste",
+       "label": "Sağ maddeler",
+       "type": "textarea",
+       "rows": 4,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_ikili_alt_not",
+       "name": "alt_not",
+       "label": "Alt not",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_ikili_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_ikili_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_tablo": {
+     "key": "layout_mx_np_tablo",
+     "name": "np_tablo",
+     "label": "Hekim · Tablo",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_tablo_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_tablo_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_tablo_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_tablo_sutunlar",
+       "name": "sutunlar",
+       "label": "Sütun başlıkları",
+       "type": "text",
+       "instructions": "a | b | c"
+      },
+      {
+       "key": "field_mx_np_tablo_satirlar",
+       "name": "satirlar",
+       "label": "Satırlar",
+       "type": "textarea",
+       "rows": 6,
+       "new_lines": "",
+       "instructions": "Her satır: a | b | c"
+      },
+      {
+       "key": "field_mx_np_tablo_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_tablo_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_maddeler": {
+     "key": "layout_mx_np_maddeler",
+     "name": "np_maddeler",
+     "label": "Hekim · Maddeler + koyu bilgi kutusu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_maddeler_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_maddeler_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_maddeler_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_maddeler_maddeler",
+       "name": "maddeler",
+       "label": "Maddeler",
+       "type": "textarea",
+       "rows": 6,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_maddeler_kutu_baslik",
+       "name": "kutu_baslik",
+       "label": "Kutu başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_maddeler_kutu_maddeler",
+       "name": "kutu_maddeler",
+       "label": "Kutu maddeleri",
+       "type": "textarea",
+       "rows": 4,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_maddeler_kutu_not",
+       "name": "kutu_not",
+       "label": "Kutu notu",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_maddeler_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_maddeler_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_referans": {
+     "key": "layout_mx_np_referans",
+     "name": "np_referans",
+     "label": "Hekim · Ölçülmüş sonuç kartları",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_referans_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_referans_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_referans_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_referans_liste",
+       "name": "liste",
+       "label": "Kartlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Kart ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_referans_liste_gorsel",
+         "name": "gorsel",
+         "label": "Logo",
+         "type": "image",
+         "return_format": "id",
+         "preview_size": "medium",
+         "library": "all"
+        },
+        {
+         "key": "field_mx_np_referans_liste_ust",
+         "name": "ust",
+         "label": "Branş · şehir",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_referans_liste_rakam",
+         "name": "rakam",
+         "label": "Değişim",
+         "type": "text",
+         "instructions": "+%349"
+        },
+        {
+         "key": "field_mx_np_referans_liste_birim",
+         "name": "birim",
+         "label": "Ölçü",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_referans_liste_kaynak",
+         "name": "kaynak",
+         "label": "Kaynak ve dönem",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_referans_liste_baglanti",
+         "name": "baglanti",
+         "label": "Bağlantı",
+         "type": "text"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_referans_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Alt bağlantı yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_referans_buton_link",
+       "name": "buton_link",
+       "label": "Alt bağlantı adresi",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_referans_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_referans_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_maliyet": {
+     "key": "layout_mx_np_maliyet",
+     "name": "np_maliyet",
+     "label": "Hekim · Maliyet hesaplayıcı",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_maliyet_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_maliyet_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_maliyet_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_maliyet_alt_not",
+       "name": "alt_not",
+       "label": "Alt not",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_maliyet_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_maliyet_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_fiyat": {
+     "key": "layout_mx_np_fiyat",
+     "name": "np_fiyat",
+     "label": "Hekim · Fiyat kutusu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_fiyat_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_fiyat_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_fiyat_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_np_fiyat_fiyat",
+       "name": "fiyat",
+       "label": "Fiyat",
+       "type": "text",
+       "instructions": "{fiyat:seo}"
+      },
+      {
+       "key": "field_mx_np_fiyat_fiyat_alt",
+       "name": "fiyat_alt",
+       "label": "Fiyat yanı yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_fiyat_not",
+       "name": "not",
+       "label": "Not",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_fiyat_maddeler",
+       "name": "maddeler",
+       "label": "Maddeler",
+       "type": "textarea",
+       "rows": 4,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_np_fiyat_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_fiyat_buton_link",
+       "name": "buton_link",
+       "label": "Buton bağlantısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_fiyat_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_fiyat_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_kurucu": {
+     "key": "layout_mx_np_kurucu",
+     "name": "np_kurucu",
+     "label": "Hekim · Kurucu (rakamlı)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_kurucu_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_kurucu_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_kurucu_gorsel",
+       "name": "gorsel",
+       "label": "Fotoğraf",
+       "type": "image",
+       "return_format": "id",
+       "preview_size": "medium",
+       "library": "all"
+      },
+      {
+       "key": "field_mx_np_kurucu_liste",
+       "name": "liste",
+       "label": "Paragraflar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Paragraf ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_kurucu_liste_metin",
+         "name": "metin",
+         "label": "Metin",
+         "type": "textarea",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_kurucu_ad",
+       "name": "ad",
+       "label": "Ad",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_kurucu_unvan",
+       "name": "unvan",
+       "label": "Unvan",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_kurucu_rakamlar",
+       "name": "rakamlar",
+       "label": "Rakamlar",
+       "type": "repeater",
+       "layout": "table",
+       "button_label": "Rakam ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_kurucu_rakamlar_rakam",
+         "name": "rakam",
+         "label": "Rakam",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_kurucu_rakamlar_yazi",
+         "name": "yazi",
+         "label": "Yazı",
+         "type": "text"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_kurucu_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Alt bağlantı yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_kurucu_buton_link",
+       "name": "buton_link",
+       "label": "Alt bağlantı adresi",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_kurucu_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_kurucu_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_np_sss": {
+     "key": "layout_mx_np_sss",
+     "name": "np_sss",
+     "label": "Hekim · Sık sorulan sorular (açılır)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_np_sss_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_np_sss_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_np_sss_liste",
+       "name": "liste",
+       "label": "Sorular",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Soru ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_np_sss_liste_baslik",
+         "name": "baslik",
+         "label": "Soru",
+         "type": "text"
+        },
+        {
+         "key": "field_mx_np_sss_liste_metin",
+         "name": "metin",
+         "label": "Cevap",
+         "type": "textarea",
+         "rows": 3,
+         "new_lines": ""
+        }
+       ]
+      },
+      {
+       "key": "field_mx_np_sss_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_np_sss_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text",
+       "instructions": "Örn. maliyet → /#maliyet ile bu bölüme gidilir."
+      }
+     ],
+     "min": "",
+     "max": ""
     }
    }
   }

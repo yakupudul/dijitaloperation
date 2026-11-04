@@ -90,7 +90,15 @@ function mx_schema_nodes(): array
                 $graph[] = ['@type' => 'BreadcrumbList', 'itemListElement' => $items];
             }
         }
-        if ($layout === 'sss') {
+        if ($layout === 'np_giris') {
+            $items = [['@type' => 'ListItem', 'position' => 1, 'name' => 'Ana sayfa', 'item' => $home]];
+            foreach (array_reverse(get_post_ancestors($id)) as $ancestor) {
+                $items[] = ['@type' => 'ListItem', 'position' => count($items) + 1, 'name' => get_the_title($ancestor), 'item' => get_permalink($ancestor)];
+            }
+            $items[] = ['@type' => 'ListItem', 'position' => count($items) + 1, 'name' => get_the_title($id)];
+            $graph[] = ['@type' => 'BreadcrumbList', 'itemListElement' => $items];
+        }
+        if ($layout === 'sss' || $layout === 'np_sss') {
             $qa = [];
             foreach ($row as $name => $value) {
                 if (! str_starts_with((string) $name, 'liste') || ! is_array($value)) {

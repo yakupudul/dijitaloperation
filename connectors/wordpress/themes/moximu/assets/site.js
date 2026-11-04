@@ -25,3 +25,24 @@ try{document.addEventListener("click",function(e){var b=e.target.closest&&e.targ
 document.addEventListener("click",function(e){var c=e.target.closest(".kCAXPK");if(!c||e.target.closest("a"))return;var b=c.querySelector('button[aria-controls^="faq-"]'),r=c.querySelector('[role=region]');if(!b||!r)return;e.preventDefault();e.stopImmediatePropagation();var o="true"!==b.getAttribute("aria-expanded");document.querySelectorAll(".kCAXPK").forEach(function(x){if(x===c)return;var bb=x.querySelector('button[aria-controls^="faq-"]'),rr=x.querySelector("[role=region]");bb&&bb.setAttribute("aria-expanded","false");rr&&(rr.className="sc-fWuLJ exdBGJ");x.classList.remove("mx-open")});b.setAttribute("aria-expanded",o);r.className="sc-fWuLJ "+(o?"kwLyMu":"exdBGJ");c.classList.toggle("mx-open",o)},!0);
 /* mx: içinde tek bir bağlantı olan kartın tamamı o bağlantıya gider; ziyaretçi düğmeyi aramaz */
 !function(){var sel='[class*="card"],.lp-pcard,.mxsign-l li,.mxrev-card,.portfoy li,[class*="kart"]';document.querySelectorAll(sel).forEach(function(c){if(c.tagName==="A"||c.closest("a")||c.querySelector("form,input,button:not([aria-hidden])"))return;var ls=[].slice.call(c.querySelectorAll("a[href]")).filter(function(a){return a.getAttribute("href")&&a.getAttribute("href")!=="#"});var u={};ls.forEach(function(a){u[a.href]=1});if(Object.keys(u).length!==1)return;if(c.parentElement&&c.parentElement.closest(".mx-clk"))return;var a=ls[0];c.classList.add("mx-clk");c.addEventListener("click",function(e){if(e.target.closest("a,button,input,select,textarea,label"))return;if(window.getSelection&&String(window.getSelection()).length)return;if(e.metaKey||e.ctrlKey||a.target==="_blank")window.open(a.href,"_blank","noopener");else location.href=a.href})})}();
+
+/* np-calc */
+(function(){var c=document.querySelector('[data-calc]');if(!c)return;var six=false,P=JSON.parse(c.getAttribute('data-p')||'{}'),W=(c.getAttribute('data-wa')||'https://wa.me/905388610288?text=x').split('?text=')[0];
+var f=function(n){return n.toLocaleString('tr-TR')+' ₺'};
+function run(){var s={};c.querySelectorAll('input').forEach(function(i){s[i.value]=i.checked});var L=[],m=0,list=0;
+if(s.seo&&s.harita){L.push(['Klinik SEO + harita kaydı',P.paket]);m+=P.paket;list+=P.seo+P.harita}else{if(s.seo){L.push(['Klinik SEO',P.seo]);m+=P.seo;list+=P.seo}if(s.harita){L.push(['Harita kaydı',P.harita]);m+=P.harita;list+=P.harita}}
+['ads','meta'].forEach(function(k){if(s[k]){var v=s.seo?P[k+'_p']:P[k];L.push([k=='ads'?'Google Ads Danışmanlığı':'Instagram ve Facebook Reklamları',v]);m+=v;list+=P[k]}});
+var h='';L.forEach(function(l){h+='<li><span>'+l[0]+'</span><span>'+f(l[1])+'/ay</span></li>'});
+if(list>m)h+='<li class="d"><span>Paket avantajı</span><span>−'+f(list-m)+'/ay</span></li>';
+var note='Reklam bütçesi ayrıdır, doğrudan Google ve Meta\'ya ödenir.';
+if(s.web){if(six&&m>0){h+='<li class="d"><span>Klinik web sitesi</span><span><s>'+f(P.web)+'</s> hediye</span></li>'}else{h+='<li><span>Klinik web sitesi (tek sefer)</span><span>'+f(P.web)+'</span></li>';if(m>0)note='6 aylık planı seçerseniz web sitesi hediye. '+note}}
+if(six&&m>0)note='6 aylık plan dönem başında tek faturayla başlar: '+f(m*6)+' + KDV. '+note;
+c.querySelector('[data-lines]').innerHTML=h||'<li><span>Hizmet seçin</span><span></span></li>';
+c.querySelector('[data-tot]').innerHTML=f(m)+' <em>+ KDV</em>';c.querySelector('[data-note]').textContent=note;
+var names=L.map(function(l){return l[0]});if(s.web)names.push('web sitesi');
+c.querySelector('[data-send]').href=W+'?text='+encodeURIComponent('Merhaba, kliniğim için şu planla ilgileniyorum: '+names.join(', ')+(six?' (6 aylık plan)':' (aylık)')+'. Aylık toplam '+f(m)+' + KDV.')}
+c.querySelectorAll('input').forEach(function(i){i.addEventListener('change',function(){c.querySelectorAll('.np-pre button').forEach(function(b){b.classList.remove('on')});run()})});
+function setSix(v){six=v;c.querySelectorAll('.np-sw button').forEach(function(b){b.classList.toggle('on',(b.dataset.six==='1')===v)});run()}
+c.querySelectorAll('.np-sw button').forEach(function(b){b.addEventListener('click',function(){setSix(b.dataset.six==='1')})});
+c.querySelectorAll('.np-pre button').forEach(function(b){b.addEventListener('click',function(){var k=b.dataset.pre.split(',');c.querySelectorAll('input').forEach(function(i){i.checked=k.indexOf(i.value)>-1});c.querySelectorAll('.np-pre button').forEach(function(o){o.classList.toggle('on',o===b)});if(b.dataset.six)six=true;setSix(six)})});
+run()})();

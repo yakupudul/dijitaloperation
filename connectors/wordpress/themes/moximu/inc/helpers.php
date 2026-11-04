@@ -214,3 +214,47 @@ function mx_wa_icon(): string
 {
     return '<svg aria-hidden="true" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.3.8 3.2.7a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg>';
 }
+
+/** "Hekim gözünden" bölümleri (np_*): satır satır yazılan alanlar ve "Yazı | /adres/" çiftleri. */
+function mx_np_lines($value): array
+{
+    $value = is_string($value) ? $value : '';
+
+    return array_values(array_filter(array_map('trim', preg_split('~\R~u', $value) ?: []), static fn ($l) => $l !== ''));
+}
+
+function mx_np_pair(string $line): array
+{
+    return array_map('trim', explode('|', $line));
+}
+
+/** Section opening tag of an np_* block: light beige background when "arka" is ticked, anchor from "kimlik". */
+function mx_np_open(array $d, string $id, string $extra = ''): string
+{
+    $id = sanitize_title((string) ($d['kimlik'] ?? '')) ?: $id;
+
+    return '<section class="mx np'.(! empty($d['arka']) ? ' alt' : '').($extra !== '' ? ' '.$extra : '').'" id="'.esc_attr($id).'"><div class="wrap">';
+}
+
+/** Eyebrow + heading + text of an np_* block. */
+function mx_np_head(array $d, bool $center = false, string $tag = 'h2'): string
+{
+    $out = '<div class="np-h'.($center ? ' c' : '').'">';
+    if (! empty($d['ust'])) {
+        $out .= '<span class="eyebrow">'.mx_h($d['ust']).'</span>';
+    }
+    if (! empty($d['baslik'])) {
+        $out .= '<'.$tag.'>'.mx_h($d['baslik']).'</'.$tag.'>';
+    }
+    if (! empty($d['metin'])) {
+        $out .= '<p>'.mx_h($d['metin']).'</p>';
+    }
+
+    return $out.'</div>';
+}
+
+/** A link that leaves the site opens in a new tab. */
+function mx_np_target(string $url): string
+{
+    return str_starts_with($url, 'http') && ! str_contains($url, (string) wp_parse_url(home_url(), PHP_URL_HOST)) ? ' target="_blank" rel="noopener"' : '';
+}
