@@ -42,6 +42,8 @@ final class DemoMenu
                 $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
                 // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
                 $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
+                // Satış (2026-11-04): prospects, today's messages, customers' requests, results.
+                $item($tr ? 'Satış' : 'Sales', 'operator.sales', 'prospects', [], ['operator.sales.lead']),
             ]),
             $group($tr ? 'Kanallar' : 'Channels', [
                 $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),

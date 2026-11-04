@@ -16,6 +16,7 @@ use App\Models\WhatsAppWebhookReceipt;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Operator\AgencySettingService;
+use App\Services\Sales\PhoneBackupSync;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppBrain;
 use App\Services\WhatsApp\WhatsAppConnection;
@@ -53,6 +54,9 @@ class Inbox extends Component
     /** Conversation list filter: open | waiting | ready | done | all. */
     #[Url]
     public string $filter = 'open';
+
+    /** @var array<int, string> the phone-sync password just issued, shown once (line id => password) */
+    public array $phoneSyncShown = [];
 
     public string $app_id = '';
 
@@ -721,6 +725,19 @@ class Inbox extends Component
     private static function keyHint(?string $key): ?string
     {
         return $key === null ? null : '•••• •••• … '.substr($key, -4);
+    }
+
+    /** "Telefon bağlantısı": a new WebDAV password for this backup row, shown once (the old one stops working). */
+    public function issuePhoneSync(int $line, PhoneBackupSync $sync): void
+    {
+        $row = WhatsAppBackupLine::query()->findOrFail($line);
+        $this->phoneSyncShown = [$row->id => $sync->issue(auth()->user(), $row)];
+    }
+
+    public function revokePhoneSync(int $line, PhoneBackupSync $sync): void
+    {
+        $sync->revoke(auth()->user(), WhatsAppBackupLine::query()->findOrFail($line));
+        $this->phoneSyncShown = [];
     }
 
     /**

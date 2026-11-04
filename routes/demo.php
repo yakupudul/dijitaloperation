@@ -68,6 +68,8 @@ use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\PortfolioPage;
 use App\Livewire\Operator\Repair\RepairDeskPage;
+use App\Livewire\Operator\Sales\LeadCardPage;
+use App\Livewire\Operator\Sales\SalesPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\AiWorkersPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
@@ -204,6 +206,9 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');
         Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');
         Route::livewire('/icerik', WorkPage::class)->name('operator.content');
+        // Satış (2026-11-04): every prospect on one card; Bugün = whose next step is today, the text ready.
+        Route::livewire('/satis', SalesPage::class)->name('operator.sales');
+        Route::livewire('/satis/{lead}', LeadCardPage::class)->where('lead', '[0-9]{1,18}')->name('operator.sales.lead');
         // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.
         Route::get('/work', fn (Request $request) => redirect()->route('operator.repair', array_filter([
             'bolum' => 'diger', 'marka' => $request->query('marka'), 'sekme' => $request->query('sekme'), 'durum' => $request->query('durum'), 'adim' => $request->query('adim'),

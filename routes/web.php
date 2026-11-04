@@ -15,6 +15,7 @@ use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Public\GbpReviewApprovalController;
+use App\Http\Controllers\Sales\ShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
@@ -48,6 +49,11 @@ Route::middleware(['web', 'auth'])->group(function (): void {
 });
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
+// Satış (2026-11-04): the phone's share sheet (PWA share_target) drops a chat export, a site link or a number here.
+Route::middleware(['web', 'auth'])->group(function (): void {
+    Route::post('/paylas', ShareController::class)->middleware('throttle:30,1')->name('operator.share');
+    Route::get('/paylas', fn () => redirect()->route('operator.sales'));
+});
 Route::middleware(['web', 'auth'])->prefix('push')->name('push.')->group(function (): void {
     Route::get('/key', [PushController::class, 'key'])->name('key');
     Route::post('/subscribe', [PushController::class, 'subscribe'])->middleware('throttle:20,1')->name('subscribe');

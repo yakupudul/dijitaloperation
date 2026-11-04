@@ -46,6 +46,7 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
+use App\Services\Assistant\PushNotifier;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\Brand\BrandAudit;
@@ -81,6 +82,7 @@ use App\Services\Operations\ServerStatusReader;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
+use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\BrandlessSites;
@@ -1699,3 +1701,14 @@ Schedule::command('moxdop:showcase:daily')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('showcase-daily');
+
+// Satış (2026-11-04): a 10:00 push with how many prospects to write to today (Bugün on the Satış screen); the phone shows it.
+Schedule::call(function (): void {
+    $count = app(SalesLeads::class)->due()->count();
+    if ($count > 0) {
+        app(PushNotifier::class)->send(
+            'sales-due:'.now('Europe/Istanbul')->toDateString(), 'Bugün '.$count.' kişiye yazacaksın',
+            'Metinler hazır: Satış › Bugün. WhatsApp\'ta aç, gönder, "Gönderdim" de.', 'high', route('operator.sales'), 20, true,
+        );
+    }
+})->dailyAt('10:00')->timezone('Europe/Istanbul')->name('sales-morning-push')->withoutOverlapping(10);

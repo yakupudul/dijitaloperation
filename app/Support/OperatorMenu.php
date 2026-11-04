@@ -12,6 +12,7 @@ use App\Services\Operations\SystemHealthReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
+use App\Services\Sales\SalesLeads;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\Work\FlowFeed;
 use App\Support\Demo\DemoMenu;
@@ -172,6 +173,8 @@ final class OperatorMenu
             ->whereIn('integration_id', CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->select('id'))->whereNull('done_at')->whereNull('opted_out_at')
             ->whereNotNull('last_incoming_at')->whereColumn('last_incoming_at', '>=', 'last_message_at')
             ->where('last_message_at', '>=', now()->subDays(7))->count());
+        // Satış (2026-11-04): how many prospects to write to today.
+        $put('operator.sales', 'soft', fn (): int => app(SalesLeads::class)->due()->count());
         $put('operator.integrations', 'dot', function (): bool {
             $health = app(SystemHealthReader::class)->read();
             foreach ($health['integrations'] as $integration) {

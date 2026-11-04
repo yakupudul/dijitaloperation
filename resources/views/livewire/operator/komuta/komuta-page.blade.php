@@ -53,6 +53,10 @@
         <livewire:operator.repair.daily-send-strip lazy />
     </div>
 
+    <div class="mt-5">
+        <livewire:operator.sales.today-card lazy />
+    </div>
+
     @if ($message !== '')
         <p class="mt-5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-komuta-message>{{ $message }} <a href="{{ route('operator.flow') }}" wire:navigate class="link-neutral">Akışta izle</a></p>
     @endif

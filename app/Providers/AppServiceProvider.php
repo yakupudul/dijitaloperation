@@ -119,6 +119,7 @@ use App\Services\Operator\ExternalLinks;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
 use App\Services\Prompts\PromptRegistry;
+use App\Services\Sales\SalesLeads;
 use App\Services\ServiceScope\CommercialServiceContextProvider;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\ServiceScope\CustomerServiceScopeService;
@@ -340,6 +341,7 @@ class AppServiceProvider extends ServiceProvider
         $this->trackLiveAiOperations();
         ProductionArchive::boot();
         WhatsAppContactLinker::boot();
+        SalesLeads::boot();
         $this->app->make(AiRouteRegistry::class)->register([
             'key' => WhatsAppBrainAgent::ROUTE,
             'name' => 'WhatsApp Brain',

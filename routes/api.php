@@ -6,6 +6,7 @@ use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
 use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
 use App\Http\Controllers\Integrations\WordPressThemeReleaseController;
+use App\Http\Controllers\Sales\PhoneBackupController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/connectors/wordpress/pair', WordPressConnectorPairController::class)
@@ -37,3 +38,7 @@ Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])
     ->middleware('throttle:30,1')->name('api.whatsapp.webhook');
 Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
     ->middleware('throttle:300,1')->name('api.whatsapp.receive');
+
+// Telefon bağlantısı (2026-11-04): a tiny WebDAV folder the phone (FolderSync) puts its WhatsApp backup on every morning.
+Route::match(['OPTIONS', 'GET', 'HEAD', 'PUT', 'PROPFIND', 'MKCOL', 'DELETE', 'MOVE', 'LOCK', 'UNLOCK'], '/telefon-yedek/{path?}', PhoneBackupController::class)
+    ->where('path', '.*')->middleware('throttle:120,1,phone-backup')->name('api.phone-backup');

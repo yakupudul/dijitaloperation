@@ -60,6 +60,8 @@ class PanelDesignFreezeTest extends TestCase
             'operator.flow',
             'operator.repair',
             'operator.content',
+            // Satış added 2026-11-04 (yakup: a sales area inside MoxDOP).
+            'operator.sales',
             'operator.gbp-desk',
             'operator.google-ads-desk',
             'operator.meta-desk',

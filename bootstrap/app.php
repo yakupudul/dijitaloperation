@@ -38,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
             );
         }
 
+        // The phone's share sheet posts /paylas without a CSRF token; the session login still guards it.
+        $middleware->validateCsrfTokens(except: ['paylas']);
         $middleware->web(append: [
             // Panel audit D4: a password change signs out the user's other sessions (Auth::logoutOtherDevices).
             AuthenticateSession::class,

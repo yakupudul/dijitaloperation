@@ -101,6 +101,7 @@
                         </label>
                     </div>
                 @endif
+                @include('livewire.operator.whatsapp.backup-phone-sync', ['syncLine' => $line, 'syncKeyHint' => $lineKeyHint])
                 @error('backup.'.$line->id)<p role="alert" class="card-row text-sm text-error-600">{{ $message }}</p>@enderror
             </div>
         @endforeach
