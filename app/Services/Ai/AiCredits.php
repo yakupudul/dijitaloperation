@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\User;
+use App\Services\AiTasks\AiWorkers;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,11 @@ final class AiCredits
         $loaded = (float) (clone $topups)->sum('amount_usd');
         $spent = SchemaState::hasTable('ai_usage_records')
             ? (float) DB::table('ai_usage_records')->where('provider', $provider)->where('created_at', '>=', $since)->sum('cost_usd') : 0.0;
+        // The AI queue's API worker (Ayarlar › AI sağlayıcıları) records its cost on the task, not as a usage record.
+        $worker = array_search($provider, AiWorkers::API_PROVIDERS, true);
+        if (is_string($worker) && SchemaState::hasColumn('ai_tasks', 'done_by')) {
+            $spent += (float) DB::table('ai_tasks')->where('done_by', 'like', $worker.':%')->where('completed_at', '>=', $since)->sum('cost_usd');
+        }
         $remaining = round($loaded - $spent, 4);
 
         return ['provider' => $provider, 'label' => self::label($provider), 'tracked' => true, 'loaded' => round($loaded, 2), 'spent' => round($spent, 4),

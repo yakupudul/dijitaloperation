@@ -111,6 +111,9 @@ final class AiWorkersTest extends SiteTestCase
         if (! $workers->connected(AiWorkers::CLAUDE_API)) {
             $this->markTestSkipped('No Claude API key can be set in this environment.');
         }
+        $this->travel(-1)->minutes();
+        app(AiCredits::class)->topUp('anthropic', 10);
+        $this->travelBack();
         $task = $this->task(1);
         Http::fake(['*/messages' => Http::response(['content' => [['type' => 'text', 'text' => '{"label":"implant"}']],
             'usage' => ['input_tokens' => 1000, 'output_tokens' => 100]])]);
@@ -123,6 +126,7 @@ final class AiWorkersTest extends SiteTestCase
         $this->assertSame('claude_api:claude-haiku-5-5', $task->done_by);
         $this->assertSame('Claude API · claude-haiku-5-5', $task->doneByLabel());
         $this->assertGreaterThan(0, $task->cost_usd);
+        $this->assertEqualsWithDelta((float) $task->cost_usd, app(AiCredits::class)->status('anthropic')['spent'], 0.0001);
         // Claude 5.5 refuses a forced tool_choice: the schema goes as structured outputs, no tool is forced.
         Http::assertSent(fn ($request): bool => $request['output_config']['format']['type'] === 'json_schema'
             && $request['output_config']['format']['schema']['properties'] === self::SCHEMA['properties'] && ! isset($request['tool_choice']));
