@@ -4,8 +4,9 @@ namespace App\Livewire\Operator\Sales;
 
 use App\Models\SalesLead;
 use App\Services\Sales\ProspectSiteCheck;
-use App\Services\Sales\SalesDrafts;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\SalesReplyWriter;
+use App\Services\Sales\SalesShare;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -41,11 +42,16 @@ final class LeadCardPage extends Component
 
     public string $message = '';
 
+    /** "Sohbeti yapıştır": text copied from WhatsApp, and an optional word to Claude ("telefonda fiyat sordu"…). */
+    public string $paste = '';
+
+    public string $pasteNote = '';
+
     public function mount(string $lead): void
     {
         $row = SalesLead::query()->findOrFail((int) $lead);
         $this->leadId = $row->id;
-        $this->draft = filled($row->draft) ? (string) $row->draft : SalesDrafts::forLead($row);
+        $this->draft = (string) $row->draft;
         $this->nextStep = (string) $row->next_step;
         $this->nextStepAt = $row->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
         $this->message = (string) session('sales_notice', '');
@@ -98,12 +104,61 @@ final class LeadCardPage extends Component
         $this->say('Metin kaydedildi.');
     }
 
-    public function refreshDraft(): void
+    /** "Yeniden yaz" / "Yaz": Claude writes the next message now; the page waits (10-30 s). */
+    public function writeNow(SalesReplyWriter $writer): void
     {
+        $this->resetErrorBag('draft');
+        if ((int) ini_get('max_execution_time') > 0) {
+            @set_time_limit(150); // web only: the CLI (queue, tests) has no limit and must keep none
+        }
+        $this->afterWrite($writer->write($this->leadId, 50));
+    }
+
+    /** "Sohbeti yapıştır": the chat lands on this card, then Claude answers at once. */
+    public function pasteChat(SalesShare $share, SalesLeads $leads, SalesReplyWriter $writer): void
+    {
+        $this->resetErrorBag('paste');
+        $text = trim($this->paste);
+        $note = trim($this->pasteNote);
+        if ($text === '' && $note === '') {
+            $this->addError('paste', 'Sohbeti ya da Claude\'a notunu yaz.');
+
+            return;
+        }
         $lead = $this->lead();
-        $this->draft = SalesDrafts::forLead($lead);
-        $lead->forceFill(['draft' => $this->draft])->save();
-        $this->say('Metin bulgulara ve adıma göre yeniden yazıldı.');
+        if ($text !== '') {
+            $result = $share->importChat(mb_substr($text, 0, 400_000), '', auth()->user(), $lead);
+            if (! str_contains($result['notice'], 'mesaj karta işlendi')) {
+                $this->addError('paste', $result['notice']);
+
+                return;
+            }
+        }
+        if ($note !== '') {
+            $leads->event($lead->fresh(), 'note', mb_substr($note, 0, 4000), meta: ['by' => auth()->id(), 'for_ai' => true]);
+        }
+        $this->paste = '';
+        $this->pasteNote = '';
+        if ((int) ini_get('max_execution_time') > 0) {
+            @set_time_limit(150); // web only: the CLI (queue, tests) has no limit and must keep none
+        }
+        $this->afterWrite($writer->write($lead->id, 50));
+    }
+
+    private function afterWrite(bool $ok): void
+    {
+        $fresh = $this->lead();
+        $this->draft = (string) $fresh->draft;
+        $this->nextStep = (string) $fresh->next_step;
+        $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
+        if (! $ok) {
+            $this->addError('draft', (string) ($fresh->draft_note ?: 'Yazılamadı.'));
+
+            return;
+        }
+        $this->say($fresh->draft_send_on !== null && $fresh->draft_send_on->toDateString() > now('Europe/Istanbul')->toDateString()
+            ? 'Claude yazdı; bugün değil, '.$fresh->draft_send_on->locale('tr')->translatedFormat('j F l').' gönderilmeli.'
+            : 'Claude yazdı; metin hazır.');
     }
 
     public function markSent(SalesLeads $leads): void
@@ -112,7 +167,7 @@ final class LeadCardPage extends Component
         $text = trim($this->draft);
         $leads->markSent($lead, $text !== '' ? $text : null, auth()->user());
         $fresh = $lead->fresh();
-        $this->draft = SalesDrafts::forLead($fresh);
+        $this->draft = '';
         $this->nextStep = (string) $fresh->next_step;
         $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
         $this->say('Gönderildi olarak işlendi. Sonraki adım: '.$fresh->next_step.' · '.$fresh->next_step_at?->timezone('Europe/Istanbul')->format('d.m.Y'));
@@ -193,15 +248,18 @@ final class LeadCardPage extends Component
         if (! $this->editing) {
             $this->form = $this->formFrom($lead);
         }
-        if (in_array($lead->findings_status, ['ready', 'failed'], true) && trim($this->draft) === '') {
-            $this->draft = SalesDrafts::forLead($lead);
+        // A text written in the background (after the site scan or a new message) shows up while the page polls.
+        if ($lead->draft_status === 'ready' && trim($this->draft) === '' && filled($lead->draft)) {
+            $this->draft = (string) $lead->draft;
         }
-        $waText = trim($this->draft) !== '' ? trim($this->draft) : SalesDrafts::forLead($lead);
+        $waText = trim($this->draft);
 
         return view('livewire.operator.sales.lead-card-page', [
             'lead' => $lead,
             'timeline' => $leads->timeline($lead),
-            'waUrl' => $lead->waNumber() !== null ? 'https://wa.me/'.$lead->waNumber().'?text='.rawurlencode($waText) : null,
+            'waUrl' => $lead->waNumber() !== null ? 'https://wa.me/'.$lead->waNumber().($waText !== '' ? '?text='.rawurlencode($waText) : '') : null,
+            'drafting' => in_array($lead->draft_status, ['queued', 'running'], true),
+            'scan' => is_array($lead->site_scan) ? $lead->site_scan : null,
             'findings' => array_values(array_filter((array) ($lead->findings ?? []), 'is_array')),
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),

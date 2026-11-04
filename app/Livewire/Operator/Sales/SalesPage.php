@@ -8,8 +8,9 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
-use App\Services\Sales\SalesDrafts;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\SalesReplyWriter;
+use App\Services\Sales\SalesShare;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -45,6 +46,12 @@ final class SalesPage extends Component
     public array $form = ['name' => '', 'clinic' => '', 'city' => '', 'phone' => '', 'website' => '', 'source' => 'phone', 'note' => ''];
 
     public string $message = '';
+
+    public bool $pasting = false;
+
+    public string $paste = '';
+
+    public string $pasteNote = '';
 
     public function mount(): void
     {
@@ -82,9 +89,45 @@ final class SalesPage extends Component
     public function markSent(int $id, SalesLeads $leads): void
     {
         $lead = SalesLead::query()->findOrFail($id);
-        $text = filled($lead->draft) ? (string) $lead->draft : SalesDrafts::forLead($lead);
-        $leads->markSent($lead, $text, auth()->user());
+        $leads->markSent($lead, filled($lead->draft) ? (string) $lead->draft : null, auth()->user());
         $this->say($lead->title().': gönderildi olarak işlendi; sonraki adım '.$lead->next_step_at?->timezone('Europe/Istanbul')->format('d.m.Y').'.');
+    }
+
+    /** "Sohbeti yapıştır": a chat copied from WhatsApp opens (or finds) the card and Claude answers at once. */
+    public function pasteChat(SalesShare $share, SalesLeads $leads, SalesReplyWriter $writer): void
+    {
+        $this->resetErrorBag('paste');
+        if (trim($this->paste) === '') {
+            $this->addError('paste', 'Sohbeti yapıştır.');
+
+            return;
+        }
+        $result = $share->importChat(mb_substr(trim($this->paste), 0, 400_000), '', auth()->user());
+        $lead = $result['lead'];
+        if ($lead === null || ! str_contains($result['notice'], 'mesaj karta işlendi')) {
+            $this->addError('paste', $result['notice']);
+
+            return;
+        }
+        if (trim($this->pasteNote) !== '') {
+            $leads->event($lead, 'note', mb_substr(trim($this->pasteNote), 0, 4000), meta: ['by' => auth()->id(), 'for_ai' => true]);
+        }
+        if ((int) ini_get('max_execution_time') > 0) {
+            @set_time_limit(150); // web only: the CLI (queue, tests) has no limit and must keep none
+        }
+        $ok = $writer->write($lead->id, 50);
+        $this->paste = '';
+        $this->pasteNote = '';
+        session()->flash('sales_notice', $result['notice'].($ok ? ' Claude cevabı yazdı.' : ' Claude yazamadı; kartta "Yeniden yaz" ile dene.'));
+        $this->redirectRoute('operator.sales.lead', ['lead' => $lead->id], navigate: true);
+    }
+
+    /** "Yaz" on a Bugün row without a text: Claude writes it in the background. */
+    public function draftFor(int $id): void
+    {
+        $lead = SalesLead::query()->findOrFail($id);
+        SalesReplyWriter::queue($lead);
+        $this->say($lead->title().': Claude yazıyor, birkaç saniye içinde burada.');
     }
 
     /** "Bugün değil": the step moves to tomorrow morning. */

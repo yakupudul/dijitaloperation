@@ -70,9 +70,20 @@ final class SalesShare
     /** @return array{lead: ?SalesLead, notice: string} */
     private function chat(string $content, string $fileName, ?User $user): array
     {
+        return $this->importChat($content, $fileName, $user);
+    }
+
+    /**
+     * A WhatsApp conversation (an exported file or text copied from WhatsApp Web / the phone) onto a card: the given
+     * card, else the card with the contact's phone or name, else a new one. Messages already on the card are skipped.
+     *
+     * @return array{lead: ?SalesLead, notice: string}
+     */
+    public function importChat(string $content, string $fileName, ?User $user, ?SalesLead $into = null): array
+    {
         $parsed = WhatsAppChatExport::parse($content, $fileName);
         if ($parsed['messages'] === []) {
-            return ['lead' => null, 'notice' => 'Dosyada WhatsApp mesajı okunamadı. Sohbeti "medya olmadan" dışa aktarıp yeniden paylaş.'];
+            return ['lead' => $into, 'notice' => 'Metinde WhatsApp mesajı okunamadı. Mesajları tarih ve saatleriyle birlikte kopyala ("[22:35, 30.10.2026] Ad: mesaj" biçiminde).'];
         }
         $own = WhatsAppChatExport::ownSender($parsed['messages'], $parsed['contact'], array_filter([
             (string) (AgencySetting::query()->value('agency_name') ?? ''), (string) ($user?->name ?? ''), 'Moximu', 'Yakup Udul', 'Siz', 'You',
@@ -87,9 +98,17 @@ final class SalesShare
                 }
             }
         }
-        $lead = $contact !== null ? SalesLead::query()->whereRaw('lower(name) = ?', [mb_strtolower($contact)])->orderByDesc('id')->first() : null;
+        // A contact saved without a name shows as its number ("+90 533 500 03 25"): that is the card's phone.
+        $contactPhone = $contact !== null && preg_match('/^\+?[\d\s().-]{10,20}$/', $contact) ? $contact : null;
+        $lead = $into
+            ?? ($contactPhone !== null ? $this->leads->match(SalesLeads::phoneKey($contactPhone), null) : null)
+            ?? ($contact !== null ? SalesLead::query()->whereRaw('lower(name) = ?', [mb_strtolower($contact)])->orderByDesc('id')->first() : null);
         if ($lead === null) {
-            $lead = $this->leads->quickAdd(['name' => $contact ?? 'WhatsApp sohbeti', 'source' => 'whatsapp'], $user);
+            $lead = $this->leads->quickAdd($contactPhone !== null ? ['phone' => $contactPhone, 'source' => 'whatsapp'] : ['name' => $contact ?? 'WhatsApp sohbeti', 'source' => 'whatsapp'], $user);
+        }
+        if ($contactPhone !== null && ! filled($lead->phone)) {
+            $lead->phone = $contactPhone;
+            $lead->phone_key = SalesLeads::phoneKey($contactPhone);
         }
         $added = 0;
         $lastIn = $lead->last_incoming_at;
@@ -109,6 +128,20 @@ final class SalesShare
         }
         $lead->last_incoming_at = $lastIn;
         $lead->last_contact_at = $lastOut;
+        // A site named in the chat lands on the card and is read at once (the next text then uses its numbers).
+        $siteFound = false;
+        if ($lead->website_host === null) {
+            foreach ($parsed['messages'] as $message) {
+                $link = $this->firstUrl((string) $message['body']);
+                $host = $link !== null ? SalesLeads::host($link) : null;
+                if ($host !== null && preg_match('/\.(com|net|org|tr|de|nl|uk|eu|info|clinic|health|dental|dentist|doctor|med|io|co)$/i', $host) && ! preg_match('/(^|\.)(moximu\.com|wa\.me|whatsapp\.com|google\.[a-z.]+|goo\.gl|g\.page|instagram\.com|facebook\.com|youtube\.com|youtu\.be|tiktok\.com|linkedin\.com|doktortakvimi\.com|maps\.app\.goo\.gl)$/i', $host)) {
+                    $lead->website = preg_match('#^https?://#i', $link) ? $link : 'https://'.$link;
+                    $lead->website_host = $host;
+                    $siteFound = true;
+                    break;
+                }
+            }
+        }
         if ($outgoing > 0 && $lead->stage === 'new') {
             $lead->stage = 'contacted';
             $lead->followup_step = max($lead->followup_step, 1);
@@ -122,7 +155,10 @@ final class SalesShare
             }
         }
         $lead->save();
-        $this->leads->event($lead, 'share', 'Sohbet dosyası paylaşıldı: '.$added.' yeni mesaj ('.$fileName.').');
+        if ($siteFound) {
+            ProspectSiteCheck::queue($lead);
+        }
+        $this->leads->event($lead, 'share', ($fileName !== '' ? 'Sohbet dosyası paylaşıldı' : 'Sohbet yapıştırıldı').': '.$added.' yeni mesaj'.($fileName !== '' ? ' ('.$fileName.')' : '').'.');
 
         return ['lead' => $lead, 'notice' => $added.' mesaj karta işlendi.'.($own === null ? ' Hangi mesajların senin olduğu anlaşılamadı; Ayarlar › Genel\'deki ajans adı dosyadaki gönderen adıyla aynı olmalı.' : '')];
     }

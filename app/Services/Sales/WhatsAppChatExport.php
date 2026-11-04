@@ -21,8 +21,16 @@ final class WhatsAppChatExport
         $messages = [];
         $current = null;
         $pattern = '/^\[?(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:[ap]\.?m\.?|ÖÖ|ÖS)?\]?\s*(?:-\s*)?([^:]{1,80}?):\s(.*)$/u';
+        // Copied from WhatsApp Web / desktop: "[22:35, 30.10.2026] Name: text" (time first).
+        $copied = '/^\[(\d{1,2}):(\d{2})(?::(\d{2}))?,\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})\]\s*([^:]{1,80}?):\s?(.*)$/u';
         foreach (explode("\n", $text) as $line) {
-            if (preg_match($pattern, $line, $m)) {
+            $m = null;
+            if (preg_match($copied, $line, $c)) {
+                $m = [$c[0], $c[4], $c[5], $c[6], $c[1], $c[2], $c[3], $c[7], $c[8]];
+            } elseif (preg_match($pattern, $line, $p)) {
+                $m = $p;
+            }
+            if ($m !== null) {
                 if ($current !== null) {
                     $messages[] = $current;
                 }
@@ -68,7 +76,8 @@ final class WhatsAppChatExport
         $senders = array_count_values(array_column($messages, 'sender'));
         foreach (array_keys($senders) as $sender) {
             foreach ($ownNames as $own) {
-                if ($own !== '' && mb_strtolower(trim($own)) === mb_strtolower($sender)) {
+                $own = mb_strtolower(trim($own));
+                if ($own !== '' && ($own === mb_strtolower($sender) || (mb_strlen($own) >= 5 && str_contains(mb_strtolower($sender), $own)))) {
                     return $sender;
                 }
             }

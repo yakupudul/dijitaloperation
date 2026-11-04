@@ -35,7 +35,7 @@ class SalesLead extends Model
         return [
             'next_step_at' => 'datetime', 'last_contact_at' => 'datetime', 'last_incoming_at' => 'datetime',
             'won_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
-            'followup_step' => 'integer',
+            'followup_step' => 'integer', 'site_scan' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime',
         ];
     }
 

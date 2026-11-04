@@ -77,12 +77,25 @@
                     @error('nextStepAt')<p class="mt-1 text-sm text-error-600">{{ $message }}</p>@enderror
 
                     <div class="mt-5 flex flex-wrap items-center justify-between gap-2">
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Hazır metin</h3>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Gönderilecek mesaj <span class="ml-1 text-xs font-normal text-gray-500">Claude yazar, sen düzeltirsin</span></h3>
                         <div class="flex items-center gap-1">
-                            <button type="button" wire:click="refreshDraft" wire:loading.attr="disabled" class="btn-quiet h-7" title="Bulgulara ve aşamaya göre yeniden yazar">Yeniden yaz</button>
+                            <button type="button" wire:click="writeNow" wire:loading.attr="disabled" wire:target="writeNow,pasteChat" class="btn-quiet h-7" data-lead-write>
+                                <span wire:loading.remove wire:target="writeNow">{{ filled($lead->draft) ? 'Yeniden yaz' : 'Claude yazsın' }}</span>
+                                <span wire:loading wire:target="writeNow">Claude yazıyor… (10-30 sn)</span>
+                            </button>
                             <button type="button" wire:click="saveDraft" wire:loading.attr="disabled" class="btn-quiet h-7">Metni kaydet</button>
                         </div>
                     </div>
+                    @if ($drafting)
+                        <p class="mt-2 text-sm text-gray-500" wire:poll.4s data-lead-drafting>Claude sohbeti ve siteyi okuyup yazıyor…</p>
+                    @endif
+                    @error('draft')<p class="mt-2 text-sm text-error-600">{{ $message }}</p>@enderror
+                    @if ($lead->draft_status === 'ready' && (filled($lead->draft_note) || $lead->draft_send_on !== null))
+                        <div class="mt-2 rounded-lg bg-accent-soft px-3 py-2 text-[13px] text-accent-ink" data-lead-ai-note>
+                            @if ($lead->draft_send_on !== null)<span class="font-medium">Gönderme günü: {{ $lead->draft_send_on->toDateString() <= $today ? 'bugün' : $lead->draft_send_on->locale('tr')->isoFormat('D MMMM dddd') }}.</span>@endif
+                            @if (filled($lead->draft_note)) Claude'un notu: {{ $lead->draft_note }}@endif
+                        </div>
+                    @endif
                     <textarea wire:model="draft" rows="8" class="mt-2 {{ $area }}" data-lead-draft aria-label="Gönderilecek metin"></textarea>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         @if ($waUrl !== null)
@@ -94,13 +107,35 @@
                         <button type="button" wire:click="markSent" wire:loading.attr="disabled" class="btn-dark" data-lead-sent>Gönderdim</button>
                         <span class="text-xs text-gray-500">"Gönderdim" metni zaman çizelgesine yazar, takibi kurar.</span>
                     </div>
-                    <p class="mt-2 text-xs text-gray-500">Kural: 1 bulgu, 1 sonuç, 1 fiyat, 1 soru. En fazla 5 cümle. Ücretsiz iş, video, toplantı yok. Asgari süre yazılmaz.</p>
+                    @if (filled($lead->draft_summary))
+                        <p class="mt-2 text-xs text-gray-500" data-lead-summary>Durum: {{ $lead->draft_summary }}</p>
+                    @endif
                 @else
                     <p class="mt-2 text-sm text-gray-500">
                         @if ($lead->stage === 'won')Müşteri oldu{{ $lead->won_at ? ' · '.$lead->won_at->timezone('Europe/Istanbul')->format('d.m.Y') : '' }}.@else Kapandı{{ $lead->lost_at ? ' · '.$lead->lost_at->timezone('Europe/Istanbul')->format('d.m.Y') : '' }} · {{ SalesLead::LOST_REASONS[$lead->lost_reason] ?? '' }}@endif
                         <button type="button" wire:click="setStage('new')" class="link-neutral ml-1">Yeniden aç</button>
                     </p>
                 @endif
+            </section>
+
+            {{-- Sohbeti yapıştır: WhatsApp'tan kopyalanan sohbet karta işlenir, Claude hemen cevabı yazar. --}}
+            <section class="card p-4" data-lead-paste x-data="{ open: {{ $errors->has('paste') ? 'true' : 'false' }} }">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Sohbeti yapıştır</h2>
+                        <p class="text-[13px] text-gray-500">WhatsApp'ta mesajları seç, kopyala, buraya yapıştır; Claude son mesaja cevabı yazar.</p>
+                    </div>
+                    <button type="button" x-on:click="open = ! open" class="btn h-8" x-text="open ? 'Kapat' : 'Yapıştır'">Yapıştır</button>
+                </div>
+                <form wire:submit="pasteChat" x-show="open" x-cloak class="mt-3 space-y-2">
+                    <textarea wire:model="paste" rows="6" class="{{ $area }}" placeholder="[22:35, 30.10.2026] Yaşar Özdemir: Fiyata KDV dahil mi?" aria-label="Sohbet"></textarea>
+                    <input wire:model="pasteNote" type="text" class="{{ $input }}" placeholder="Claude'a not (isteğe bağlı): telefonda konuştuk, fiyatı uygun buldu…" aria-label="Claude'a not" />
+                    @error('paste')<p class="text-sm text-error-600">{{ $message }}</p>@enderror
+                    <button type="submit" class="btn-dark" wire:loading.attr="disabled" wire:target="pasteChat,writeNow">
+                        <span wire:loading.remove wire:target="pasteChat">Karta işle ve cevabı yaz</span>
+                        <span wire:loading wire:target="pasteChat">Claude yazıyor… (10-30 sn)</span>
+                    </button>
+                </form>
             </section>
 
             {{-- Not / arama --}}
@@ -187,6 +222,29 @@
                         @endforeach
                     </ul>
                     <p class="mt-3 text-xs text-gray-500">{{ $lead->findings_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }} · kendi okumamız, tahmin değil.</p>
+                @endif
+                @if ($scan !== null && ($scan['pages_read'] ?? 0) > 0)
+                    @php
+                        $read = (int) $scan['pages_read'];
+                        $rows = array_filter([
+                            'Okunan sayfa' => $read.(($scan['pages_in_sitemap'] ?? 0) > $read ? ' / '.$scan['pages_in_sitemap'] : ''),
+                            'Başlığında şehir yok' => $lead->city ? ($scan['titles_without_city'] ?? null) : null,
+                            'Açıklaması boş' => $scan['descriptions_missing'] ?? null,
+                            'Başlığı yok / çok uzun' => isset($scan['titles_missing']) ? ($scan['titles_missing'].' / '.($scan['titles_too_long'] ?? 0)) : null,
+                            'Ana başlığı (H1) yok' => $scan['h1_missing'] ?? null,
+                            'Aynı başlığı taşıyan' => ($n = array_sum(array_column((array) ($scan['duplicate_titles'] ?? []), 'pages'))) > 0 ? $n.' sayfa' : null,
+                            'Tek dokunuşla arama' => isset($scan['pages_with_tap_to_call']) ? $scan['pages_with_tap_to_call'].' sayfada' : null,
+                            'WhatsApp butonu' => isset($scan['pages_with_whatsapp_button']) ? $scan['pages_with_whatsapp_button'].' sayfada' : null,
+                            'Randevu platformu' => implode(', ', (array) ($scan['booking_platform_links'] ?? [])) ?: null,
+                            'Diller' => implode(', ', array_unique(array_merge((array) ($scan['page_languages'] ?? []), (array) ($scan['hreflang_languages'] ?? []), (array) ($scan['language_subdomains'] ?? [])))) ?: null,
+                        ], fn ($v) => $v !== null && $v !== '');
+                    @endphp
+                    <dl class="mt-4 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-t border-gray-200 pt-3 text-[13px] dark:border-gray-800" data-lead-scan>
+                        @foreach ($rows as $label => $value)
+                            <dt class="text-gray-500">{{ $label }}</dt><dd class="text-right tabular-nums text-gray-800 dark:text-gray-200">{{ $value }}</dd>
+                        @endforeach
+                    </dl>
+                    <p class="mt-2 text-xs text-gray-500">Sitenin tüm sayfalarından sayım; Claude mesajda bu sayıları kullanır.</p>
                 @endif
             </section>
 

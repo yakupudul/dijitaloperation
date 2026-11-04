@@ -1702,6 +1702,10 @@ Schedule::command('moxdop:showcase:daily')
     ->withoutOverlapping(30)
     ->name('showcase-daily');
 
+// Satış (2026-11-04): at 08:30 Claude writes the text of every card due today, so Bugün opens with the messages ready.
+Schedule::call(fn () => app(SalesLeads::class)->draftDue())
+    ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-morning-drafts')->withoutOverlapping(30);
+
 // Satış (2026-11-04): a 10:00 push with how many prospects to write to today (Bugün on the Satış screen); the phone shows it.
 Schedule::call(function (): void {
     $count = app(SalesLeads::class)->due()->count();

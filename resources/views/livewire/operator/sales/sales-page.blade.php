@@ -1,7 +1,6 @@
 @php
     use App\Livewire\Operator\Sales\SalesPage;
     use App\Models\SalesLead;
-    use App\Services\Sales\SalesDrafts;
 
     $n = fn (int $v): string => number_format($v, 0, ',', '.');
     $input = 'h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white';
@@ -19,6 +18,7 @@
             @if ($isAdmin)
                 <button type="button" wire:click="scan" wire:loading.attr="disabled" class="btn-quiet" title="Kartı olmayan her WhatsApp görüşmesine kart açar">Konuşmaları tara</button>
             @endif
+            <button type="button" wire:click="$toggle('pasting')" class="btn" data-sales-paste-toggle>Sohbet yapıştır</button>
             <button type="button" wire:click="$toggle('adding')" class="btn-primary" data-sales-add>+ Aday ekle</button>
         </div>
     </header>
@@ -47,6 +47,22 @@
         </form>
     @endif
 
+    @if ($pasting)
+        <form wire:submit="pasteChat" class="card mt-6 space-y-2 p-4" data-sales-paste>
+            <p class="text-sm text-gray-700 dark:text-gray-300">WhatsApp'ta sohbetin mesajlarını seç, kopyala, buraya yapıştır. Kart bulunur ya da açılır, Claude son mesaja cevabı hemen yazar.</p>
+            <textarea wire:model="paste" rows="7" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm leading-relaxed placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white" placeholder="[22:35, 30.10.2026] Yaşar Özdemir: Fiyata KDV dahil mi?" aria-label="Sohbet"></textarea>
+            <input wire:model="pasteNote" type="text" class="{{ $input }}" placeholder="Claude'a not (isteğe bağlı): telefonda konuştuk, fiyatı uygun buldu…" aria-label="Claude'a not" />
+            @error('paste')<p class="text-sm text-error-600">{{ $message }}</p>@enderror
+            <div class="flex items-center gap-2">
+                <button type="submit" class="btn-dark" wire:loading.attr="disabled" wire:target="pasteChat">
+                    <span wire:loading.remove wire:target="pasteChat">Karta işle ve cevabı yaz</span>
+                    <span wire:loading wire:target="pasteChat">Claude yazıyor… (10-30 sn)</span>
+                </button>
+                <button type="button" wire:click="$set('pasting', false)" class="btn-quiet">Vazgeç</button>
+            </div>
+        </form>
+    @endif
+
     <div class="mt-7 flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Satış sekmeleri">
         @foreach (SalesPage::TABS as $key => $label)
             @php $count = match ($key) { 'bugun' => $dueCount, 'adaylar' => $openCount, 'istekler' => $requests->count(), default => null }; @endphp
@@ -64,12 +80,13 @@
         <section class="mt-5" data-sales-today>
             <div class="section-head">
                 <h2 class="section-title">Bugün yazacakların <span class="section-count">{{ $n($dueCount) }}</span></h2>
-                <p class="text-sm text-gray-500">Metin hazır: WhatsApp'ta aç, gönder, "Gönderdim" de. Sonraki adım kendiliğinden kurulur (2 · 7 · 21 gün).</p>
+                <p class="text-sm text-gray-500">Metni Claude sohbeti ve siteyi okuyarak yazdı: WhatsApp'ta aç, gerekirse düzelt, gönder, "Gönderdim" de. Düzelttiklerin bir sonrakine örnek olur.</p>
             </div>
             <div class="card">
                 @forelse ($due as $lead)
                     @php
-                        $text = filled($lead->draft) ? (string) $lead->draft : SalesDrafts::forLead($lead);
+                        $text = (string) $lead->draft;
+                        $drafting = in_array($lead->draft_status, ['queued', 'running'], true);
                         $wa = $lead->waNumber();
                         $overdue = $lead->next_step_at !== null && $lead->next_step_at->timezone('Europe/Istanbul')->toDateString() < $today;
                     @endphp
@@ -87,14 +104,23 @@
                             </div>
                             <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }}">{{ $lead->next_step ?: 'Adım' }}</span>
                         </div>
-                        <pre class="mt-3 max-w-[80ch] whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 font-sans text-[13px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-sales-draft>{{ $text }}</pre>
+                        @if ($text !== '')
+                            <pre class="mt-3 max-w-[80ch] whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 font-sans text-[13px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-sales-draft>{{ $text }}</pre>
+                            @if (filled($lead->draft_note))<p class="mt-1.5 max-w-[80ch] text-xs text-gray-500">Claude'un notu: {{ $lead->draft_note }}</p>@endif
+                        @elseif ($drafting)
+                            <p class="mt-3 text-sm text-gray-500" wire:poll.5s>Claude sohbeti ve siteyi okuyup yazıyor…</p>
+                        @else
+                            <p class="mt-3 text-sm text-gray-500">{{ $lead->draft_status === 'failed' ? ($lead->draft_note ?: 'Yazılamadı.') : 'Metin henüz yazılmadı.' }}
+                                <button type="button" wire:click="draftFor({{ $lead->id }})" class="link-neutral ml-1" data-sales-write>Claude yazsın</button></p>
+                        @endif
                         <div class="mt-3 flex flex-wrap items-center gap-2">
-                            @if ($wa !== null)
+                            @if ($text === '')
+                            @elseif ($wa !== null)
                                 <a href="https://wa.me/{{ $wa }}?text={{ rawurlencode($text) }}" target="_blank" rel="noopener" class="btn-primary" data-sales-wa>WhatsApp'ta aç ↗</a>
                             @else
                                 <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="btn" title="Telefon yok; karta yaz">Telefon ekle</a>
                             @endif
-                            <button type="button" x-data x-on:click="navigator.clipboard?.writeText($el.closest('[data-sales-due]').querySelector('[data-sales-draft]').innerText); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="btn">Kopyala</button>
+                            @if ($text !== '')<button type="button" x-data x-on:click="navigator.clipboard?.writeText($el.closest('[data-sales-due]').querySelector('[data-sales-draft]').innerText); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="btn">Kopyala</button>@endif
                             <button type="button" wire:click="markSent({{ $lead->id }})" wire:loading.attr="disabled" class="btn-dark" data-sales-sent>Gönderdim</button>
                             <button type="button" wire:click="snooze({{ $lead->id }})" wire:loading.attr="disabled" class="btn-quiet">Yarına</button>
                             <button type="button" wire:click="setStage({{ $lead->id }}, 'lost')" wire:confirm="{{ $lead->title() }} kaybedildi olarak kapansın mı?" class="btn-quiet text-gray-400">Kapat</button>

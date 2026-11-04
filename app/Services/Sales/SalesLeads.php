@@ -60,6 +60,11 @@ final class SalesLeads
         return WhatsAppContactLinker::key($phone);
     }
 
+    private static function normalise(string $text): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
+    }
+
     public static function host(?string $url): ?string
     {
         $url = trim((string) $url);
@@ -204,6 +209,25 @@ final class SalesLeads
         }
         $this->readConversation($lead, $conversation, false);
         $lead->save();
+        // They wrote: Claude answers in the background (unless the operator is already editing a text of their own).
+        if ($lead->isOpen() && $lead->last_incoming_at !== null && ($lead->last_contact_at === null || $lead->last_incoming_at->gt($lead->last_contact_at))
+            && ($lead->draft_at === null || $lead->last_incoming_at->gt($lead->draft_at))
+            && ! in_array($lead->draft_status, ['queued', 'running'], true)
+            && (! filled($lead->draft) || $lead->draft === $lead->draft_ai)) {
+            SalesReplyWriter::queue($lead);
+        }
+    }
+
+    /** The morning round: every card due today without a text gets one, so Bugün opens with the messages written. */
+    public function draftDue(int $limit = 20): int
+    {
+        $count = 0;
+        foreach ($this->due()->whereNull('draft')->where(fn ($q) => $q->whereNull('draft_status')->orWhere('draft_status', 'failed'))->limit($limit)->get() as $lead) {
+            SalesReplyWriter::queue($lead);
+            $count++;
+        }
+
+        return $count;
     }
 
     private function readConversation(SalesLead $lead, WhatsAppConversation $conversation, bool $created): void
@@ -364,9 +388,11 @@ final class SalesLeads
             $lead->stage = 'priced';
         }
         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::afterOurMessage($lead->followup_step);
-        $lead->draft = null;
+        // What yakup changed in the AI's text is how he writes: the next drafts read his recent edited messages.
+        $edited = $text !== null && filled($lead->draft_ai) && self::normalise($text) !== self::normalise((string) $lead->draft_ai);
+        $lead->forceFill(['draft' => null, 'draft_ai' => null, 'draft_status' => null, 'draft_note' => null, 'draft_send_on' => null]);
         $lead->save();
-        $this->event($lead, 'message_out', $text, meta: ['by' => $user?->id, 'manual' => true]);
+        $this->event($lead, 'message_out', $text, meta: ['by' => $user?->id, 'manual' => true, 'edited' => $edited]);
     }
 
     /** The operator sets the next step by hand (what and when). */

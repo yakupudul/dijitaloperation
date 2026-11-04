@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * "Bulgu çıkar": a quick look at a prospect's home page — the few things a clinic owner understands at once (no
+ * "Bulgu çıkar": a quick look at a prospect's home page (and, through ProspectSiteScan, every page of its sitemap) — the few things a clinic owner understands at once (no
  * https, slow, no phone to tap, no WhatsApp, no measurement, a booking platform instead of their own form…). Each
  * finding carries the sentence for the WhatsApp text (title, consequence, fix). Nothing is written anywhere; the
  * page is fetched once.
@@ -38,13 +38,20 @@ final class ProspectSiteCheck
         $lead->forceFill(['findings_status' => 'running'])->save();
         try {
             $findings = $this->check($url);
-            $lead->forceFill(['findings' => $findings, 'findings_status' => 'ready', 'findings_at' => now()])->save();
+            try {
+                $scan = app(ProspectSiteScan::class)->scan($url, $lead->city);
+            } catch (Throwable $exception) {
+                report($exception);
+                $scan = null;
+            }
+            $lead->forceFill(['findings' => $findings, 'site_scan' => $scan, 'findings_status' => 'ready', 'findings_at' => now()])->save();
             app(SalesLeads::class)->event($lead, 'finding', $findings === []
                 ? 'Site kontrolü: belirgin bir sorun bulunmadı.'
                 : 'Site kontrolü: '.count($findings).' bulgu. '.implode(' · ', array_map(fn (array $f): string => $f['title'], $findings)),
                 meta: ['count' => count($findings)]);
-            if (! filled($lead->draft)) {
-                $lead->forceFill(['draft' => SalesDrafts::forLead($lead)])->save();
+            // The site is read: the next message is written again with the numbers (unless the operator is editing one).
+            if ($lead->isOpen() && $lead->draft_status !== 'queued' && (! filled($lead->draft) || $lead->draft === $lead->draft_ai)) {
+                SalesReplyWriter::queue($lead);
             }
         } catch (Throwable $exception) {
             // Not a finding to send: a site that blocks robots or did not answer us (geo-block, WAF, timeout) is usually

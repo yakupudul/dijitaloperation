@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Ai\Agents\SalesReplyAgent;
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Ai\Gateway\CachingAnthropicGateway;
@@ -361,6 +362,19 @@ class AppServiceProvider extends ServiceProvider
                 'provider' => AiProviderCatalog::OPENAI,
                 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
             ]],
+        ]);
+
+        // Satış (2026-11-04): the next WhatsApp message to a prospect, from the whole conversation and the site scan.
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => SalesReplyAgent::ROUTE,
+            'name' => 'Satış mesajı',
+            'module' => 'sales',
+            'description' => 'The next WhatsApp message to a prospect (conversation, site scan, operator note, approved examples); copy only, MoxDOP never sends.',
+            'default_steps' => [
+                // yakup 2026-11-04: Claude API at once (no queue), the strongest model; ChatGPT only when Claude fails.
+                ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => 'claude-opus-5-5'],
+                ['provider' => AiProviderCatalog::OPENAI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
+            ],
         ]);
 
         Gate::before(function ($user, string $ability): ?bool {

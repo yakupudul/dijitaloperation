@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Ai\Agents\SalesReplyAgent;
 use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Livewire\Operator\WhatsApp\Inbox;
 use App\Models\AgencySetting;
+use App\Models\CoreIntegration;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\User;
@@ -15,8 +17,8 @@ use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\PhoneBackupSync;
-use App\Services\Sales\SalesDrafts;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\WhatsAppChatExport;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Roles;
@@ -77,19 +79,10 @@ class SalesLeadsTest extends TestCase
         $this->assertSame('905321112233', $lead->waNumber());
         $this->assertTrue($lead->events()->where('kind', 'note')->exists());
 
-        // A cold first message: numbered problems, no price (yakup 2026-11-03).
-        $text = SalesDrafts::forLead($lead);
-        $this->assertStringContainsString('Hocam merhaba', $text);
-        $this->assertStringContainsString('Google İşletme Profilinizi', $text);
-        $this->assertStringContainsString('1. *', $text);
-        $this->assertStringNotContainsString('12.000', $text);
-        $this->assertStringNotContainsString('en az 6 ay', $text);
-
-        // They answered on WhatsApp: one finding, the price, a yes/no close, at most five sentences.
-        $lead->forceFill(['source' => 'whatsapp', 'last_incoming_at' => now()])->save();
-        $hot = SalesDrafts::forLead($lead->fresh());
-        $this->assertStringContainsString('Aylık 12.000 TL + KDV', $hot);
-        $this->assertLessThanOrEqual(5, preg_match_all('/[.?!](\s|$)/u', $hot));
+        // No Claude connection in this test: no template text either; the card says why.
+        $this->assertNull($lead->draft);
+        $this->assertSame('failed', $lead->draft_status);
+        $this->assertNotNull($lead->site_scan);
 
         // Same phone again: no second card.
         app(SalesLeads::class)->quickAdd(['phone' => '+90 532 111 22 33', 'clinic' => 'Örnek Klinik'], $this->admin);
@@ -206,13 +199,100 @@ class SalesLeadsTest extends TestCase
         $blocked = SalesLead::query()->where('website_host', 'kapali.com')->firstOrFail();
         $this->assertSame('failed', $blocked->findings_status);
         $this->assertSame([], $blocked->findings);
-        $this->assertStringNotContainsString('403', SalesDrafts::forLead($blocked));
         $this->assertStringContainsString('botlara kapalı (403)', (string) $blocked->events()->where('kind', 'finding')->value('body'));
         $blocked->delete();
 
         // Plain text with nothing in it: back to Satış with the text as a quick-add note.
         $this->post('/paylas', ['text' => 'bir not'])->assertRedirect(route('operator.sales'))->assertSessionHas('sales_quick', 'bir not');
         $this->assertSame(1, SalesLead::query()->count());
+    }
+
+    public function test_claude_writes_the_first_message_from_the_site_scan_right_after_the_site_is_read(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        SalesReplyAgent::fake([[
+            'action' => 'reply', 'reply' => "Ayşe Hocam merhaba, web sitenizi (ornekklinik.com) inceledik.\n\n1. *Sitenizde tek dokunuşla arama yok*\n\nBaşlamak ister misiniz?",
+            'send_on' => '2026-11-04', 'note' => 'İlk mesaj; fiyat yazılmadı.', 'summary' => 'Soğuk aday, site okundu.',
+        ]]);
+        Http::fake([
+            'https://ornekklinik.com' => Http::response($this->siteHtml()),
+            'https://ornekklinik.com/sitemap.xml' => Http::response('<urlset><url><loc>https://ornekklinik.com/</loc></url><url><loc>https://ornekklinik.com/implant</loc></url></urlset>'),
+            'https://ornekklinik.com/' => Http::response($this->siteHtml()),
+            'https://ornekklinik.com/implant' => Http::response('<html lang="tr"><head><title>İmplant Tedavisi</title></head><body><h1>İmplant</h1><a href="tel:+902320000000">Ara</a></body></html>'),
+            '*' => Http::response('', 404),
+        ]);
+
+        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Dr. Ayşe Yılmaz', 'city' => 'İzmir', 'phone' => '0532 111 22 33', 'website' => 'ornekklinik.com', 'source' => 'phone'], $this->admin)->fresh();
+
+        $this->assertSame('ready', $lead->draft_status);
+        $this->assertStringStartsWith('Ayşe Hocam merhaba', (string) $lead->draft);
+        $this->assertSame($lead->draft, $lead->draft_ai);
+        $this->assertSame('İlk mesaj; fiyat yazılmadı.', $lead->draft_note);
+        $this->assertSame(2, $lead->site_scan['pages_read']);
+        $this->assertSame(1, $lead->site_scan['pages_with_tap_to_call']);
+        $this->assertSame(2, $lead->site_scan['titles_without_city']);
+        SalesReplyAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, '"pages_read":2') && str_contains((string) $prompt->prompt, 'Dr. Ayşe Yılmaz'));
+
+        // Sent after an edit: the edited text is kept as yakup's own example for the next ones.
+        $this->actingAs($this->admin);
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])->set('draft', 'Ayşe Hocam merhaba, kendi yazdığım metin.')->call('markSent')->assertHasNoErrors();
+        $lead = $lead->fresh();
+        $this->assertNull($lead->draft);
+        $this->assertNull($lead->draft_status);
+        $this->assertTrue((bool) $lead->events()->where('kind', 'message_out')->latest('id')->first()->meta['edited']);
+    }
+
+    public function test_a_chat_pasted_on_the_card_is_read_and_claude_answers_at_once_or_says_to_wait(): void
+    {
+        Http::fake(['*' => Http::response('', 404)]);
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        SalesReplyAgent::fake([[
+            'action' => 'reply', 'reply' => "Yaşar Hocam, fiyatlarımıza KDV dahil değildir.\n\nBaşlayalım mı?",
+            'send_on' => '2026-11-04', 'note' => 'KDV sorusuna cevap.', 'summary' => 'Fiyat konuşuldu, KDV sordu.',
+        ], [
+            'action' => 'wait', 'reply' => 'Yaşar Hocam merhaba, ilk ay planını hazırladık. Başlayalım mı?',
+            'send_on' => '2026-11-06', 'note' => 'Son mesaj bizden; 2 gün bekle.', 'summary' => 'Cevap bekleniyor.',
+        ]]);
+        $this->actingAs($this->admin);
+        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Yaşar Özdemir', 'city' => 'Antalya', 'phone' => '0533 500 03 25'], $this->admin);
+
+        $chat = "[22:30, 30.10.2026] Moximu Dijital Pazarlama ve Web Yazılım: Aylık 14.000 TL + KDV.\n[22:35, 30.10.2026] Yaşar Özdemir: Fiyata KDV dahil mi?";
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])
+            ->set('paste', $chat)->set('pasteNote', 'Telefonda iyi geçti')->call('pasteChat')
+            ->assertHasNoErrors()->assertSet('draft', "Yaşar Hocam, fiyatlarımıza KDV dahil değildir.\n\nBaşlayalım mı?");
+        $lead = $lead->fresh();
+        $this->assertSame(2, $lead->events()->whereIn('kind', ['message_in', 'message_out'])->count());
+        $this->assertContains('Telefonda iyi geçti', $lead->events()->where('kind', 'note')->pluck('body')->all());
+        // What Claude reads: the pasted chat and the operator's word.
+        $payload = json_encode(app(SalesReplyWriter::class)->payload($lead), JSON_UNESCAPED_UNICODE);
+        $this->assertStringContainsString('Fiyata KDV dahil mi?', $payload);
+        $this->assertStringContainsString('Telefonda iyi geçti', $payload);
+        $this->assertStringContainsString('14.000', $payload);
+
+        // "Yeniden yaz" when the last word is ours: the text waits for its day.
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])->call('writeNow')->assertHasNoErrors();
+        $lead = $lead->fresh();
+        $this->assertSame('2026-11-06', $lead->draft_send_on->toDateString());
+        $this->assertSame('2026-11-06', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
+    }
+
+    public function test_a_chat_pasted_on_the_sales_page_finds_the_card_by_the_contacts_number(): void
+    {
+        Http::fake(['*' => Http::response('', 404)]);
+        $this->actingAs($this->admin);
+        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Dr. Yaşar', 'phone' => '0533 500 03 25'], $this->admin);
+
+        Livewire::test(SalesPage::class)
+            ->set('paste', "[10:00, 01.11.2026] +90 533 500 03 25: Merhaba, sitemiz yasarozdemir.com\n[10:05, 01.11.2026] Moximu: Merhaba Hocam")
+            ->call('pasteChat')->assertHasNoErrors()->assertRedirect(route('operator.sales.lead', ['lead' => $lead->id]));
+
+        $lead = $lead->fresh();
+        $this->assertSame(1, SalesLead::query()->count());
+        $this->assertSame('yasarozdemir.com', $lead->website_host);
+        $this->assertSame(2, $lead->events()->whereIn('kind', ['message_in', 'message_out'])->count());
+        $this->assertSame('failed', $lead->draft_status, 'no Claude connection here: the card says so instead of a template');
     }
 
     public function test_the_chat_export_parser_reads_android_and_iphone_lines(): void
@@ -271,10 +351,10 @@ class SalesLeadsTest extends TestCase
         $leads = app(SalesLeads::class);
         $lead = $leads->quickAdd(['name' => 'Gözde Zeyrek', 'clinic' => 'Zeyrek Diş', 'city' => 'Ankara', 'phone' => '0534 000 11 22'], $this->admin);
 
-        $this->get('/satis')->assertOk()->assertSee('Gözde Zeyrek')->assertSee('wa.me/905340001122', false);
+        $this->get('/satis')->assertOk()->assertSee('Gözde Zeyrek')->assertSee('Claude yazsın');
         $this->get('/satis?sekme=adaylar')->assertOk()->assertSee('Zeyrek Diş');
         $this->get('/satis?sekme=sonuclar')->assertOk()->assertSee('Aylık gelir');
-        $this->get('/satis/'.$lead->id)->assertOk()->assertSee('Sonraki adım')->assertSee('Hazır metin');
+        $this->get('/satis/'.$lead->id)->assertOk()->assertSee('Sonraki adım')->assertSee('Gönderilecek mesaj')->assertSee('Sohbeti yapıştır');
         $this->get('/')->assertOk()->assertSee('Satış');
 
         Livewire::test(SalesPage::class)->call('markSent', $lead->id)->assertHasNoErrors();
