@@ -169,6 +169,73 @@ find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' -o -name '*.[0-9].log' 
 note "loglar: /var/log ${LOG_BEFORE:-?} MB → $(du -sm /var/log 2>/dev/null | cut -f1) MB (journal en çok 300 MB, 14 günden eski dönmüş loglar silindi)"
 
 # ---------------------------------------------------------------------------------------------------------------
+# 5. Telefon bağlantısı (2026-11-04): the phone (FolderSync) PUTs its WhatsApp backup (hundreds of MB) on
+#    /api/telefon-yedek/. The site's client_max_body_size (32M) must not apply there, and nginx checks the limit again
+#    after an internal redirect, so this location hands the request to PHP-FPM itself. The server block is found with
+#    nginx -T (the file whose root is this app's public/ or whose server_name is app.moximu.com); the block is written
+#    once (marker telefon-yedek-v2, an older try_files version is replaced), checked with nginx -t, undone on failure.
+# ---------------------------------------------------------------------------------------------------------------
+phone_backup_nginx() {
+  command -v nginx >/dev/null 2>&1 || { note "nginx telefon yedeği: nginx bulunamadı; atlandı"; return; }
+  local files conf pass backup found=0
+  files="$(nginx -T 2>/dev/null | sed -n 's/^# configuration file \(.*\):$/\1/p' | sort -u)"
+  for conf in $files; do
+    [[ -f "$conf" ]] || continue
+    grep -Eq "^[[:space:]]*root[[:space:]]+\"?${ROOT}/public/?\"?;|^[[:space:]]*server_name[^;]*app\.moximu\.com" "$conf" || continue
+    grep -Eq '^[[:space:]]*location[[:space:]]+/[[:space:]]*\{' "$conf" || continue
+    found=1
+    if grep -Fq "telefon-yedek-v2" "$conf"; then
+      note "nginx telefon yedeği: ${conf} içinde 2G sınırı zaten var"
+      continue
+    fi
+    pass="$(grep -Eo '^[[:space:]]*fastcgi_pass[[:space:]]+[^;]+;' "$conf" | head -n1 | sed 's/^[[:space:]]*//')"
+    if [[ -z "$pass" ]]; then
+      local sock
+      sock="$(ls -1 /run/php/php*-fpm.sock 2>/dev/null | sort -V | tail -n1)"
+      [[ -n "$sock" ]] && pass="fastcgi_pass unix:${sock};"
+    fi
+    if [[ -z "$pass" ]]; then
+      note "nginx telefon yedeği: ${conf} içinde fastcgi_pass ve php-fpm soketi bulunamadı; atlandı"
+      continue
+    fi
+    backup="$(mktemp /tmp/moxdop-nginx.XXXXXX)"
+    cp "$conf" "$backup"
+    PASS="$pass" awk 'BEGIN { done = 0; skip = 0 }
+      /Telefon bağlantısı: the phone puts its WhatsApp backup here/ { next }
+      /^[[:space:]]*location[[:space:]]+(\^~[[:space:]]+)?\/api\/telefon-yedek\/[[:space:]]*\{/ { skip = 1; next }
+      skip == 1 { if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) { skip = 2 } ; next }
+      skip == 2 && /^[[:space:]]*$/ { skip = 0; next }
+      { skip = 0 }
+      /^[[:space:]]*location[[:space:]]+\/[[:space:]]*\{/ && !done {
+        print "    # telefon-yedek-v2: the phone puts its WhatsApp backup here (added by deploy/staging/tune-server.sh)."
+        print "    location ^~ /api/telefon-yedek/ {"
+        print "        client_max_body_size 2G;"
+        print "        client_body_timeout 600s;"
+        print "        include fastcgi_params;"
+        print "        fastcgi_param SCRIPT_FILENAME $realpath_root/index.php;"
+        print "        fastcgi_param SCRIPT_NAME /index.php;"
+        print "        fastcgi_read_timeout 600s;"
+        print "        fastcgi_hide_header X-Powered-By;"
+        print "        " ENVIRON["PASS"]
+        print "    }"
+        print ""
+        done = 1
+      }
+      { print }' "$backup" > "$conf"
+    if nginx -t >/dev/null 2>&1; then
+      systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || nginx -s reload 2>/dev/null || true
+      note "nginx telefon yedeği: /api/telefon-yedek/ için 2G sınırı ${conf} dosyasına yazıldı"
+    else
+      cp "$backup" "$conf"
+      note "nginx telefon yedeği: nginx -t hata verdi ($(nginx -t 2>&1 | grep -m1 -i emerg | cut -c1-160)); ${conf} geri alındı"
+    fi
+    rm -f "$backup"
+  done
+  [[ $found -eq 1 ]] || note "nginx telefon yedeği: bu uygulamanın sunucu bloğu bulunamadı (dosyalar: $(echo $files | cut -c1-200))"
+}
+phone_backup_nginx
+
+# ---------------------------------------------------------------------------------------------------------------
 mkdir -p "$(dirname "$REPORT")"
 {
   printf '{"at":"%s","memory_mb":%s,"lines":[' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${MEM_MB}"
