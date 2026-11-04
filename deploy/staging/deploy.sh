@@ -268,6 +268,44 @@ fi
 echo "deploy/staging: restart cron scheduler"
 as_root systemctl restart cron 2>/dev/null || as_root service cron restart 2>/dev/null || true
 
+# Telefon bağlantısı (2026-11-04): the phone PUTs its WhatsApp backup (hundreds of MB) on /api/telefon-yedek/; the
+# site's client_max_body_size must not apply there. The location is added once to this app's nginx server block
+# (the file whose root is this app's public/), checked with nginx -t and reloaded; a failed check puts the file back.
+# Never fatal: a deploy must not stop over nginx.
+echo "deploy/staging: nginx body limit for /api/telefon-yedek/"
+ensure_phone_backup_location() {
+  local conf backup
+  for conf in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf; do
+    [[ -f "$conf" ]] || continue
+    grep -Fq "telefon-yedek" "$conf" && continue
+    grep -Eq "^[[:space:]]*root[[:space:]]+${ROOT}/public;" "$conf" || continue
+    grep -Eq '^[[:space:]]*location[[:space:]]+/[[:space:]]*\{' "$conf" || continue
+    backup="$(mktemp /tmp/moxdop-nginx.XXXXXX)"
+    cp "$conf" "$backup"
+    awk 'BEGIN { done = 0 }
+      /^[[:space:]]*location[[:space:]]+\/[[:space:]]*\{/ && !done {
+        print "    # Telefon bağlantısı: the phone puts its WhatsApp backup here (added by deploy/staging/deploy.sh)."
+        print "    location /api/telefon-yedek/ {"
+        print "        client_max_body_size 2G;"
+        print "        client_body_timeout 600s;"
+        print "        try_files $uri /index.php?$query_string;"
+        print "    }"
+        print ""
+        done = 1
+      }
+      { print }' "$backup" > "$conf"
+    if as_root nginx -t >/dev/null 2>&1; then
+      as_root systemctl reload nginx 2>/dev/null || as_root service nginx reload 2>/dev/null || true
+      echo "deploy/staging: nginx: /api/telefon-yedek/ location added to ${conf}"
+    else
+      cp "$backup" "$conf"
+      echo "deploy/staging: WARNING — nginx -t failed after adding /api/telefon-yedek/ to ${conf}; file restored" >&2
+    fi
+    rm -f "$backup"
+  done
+}
+ensure_phone_backup_location || echo "deploy/staging: WARNING — nginx body limit step skipped" >&2
+
 echo "deploy/staging: recover stranded collection DB state"
 php artisan moxdop:collection:redispatch-stale --force --no-interaction || exit 1
 
