@@ -112,7 +112,7 @@ final class AiWorkersTest extends SiteTestCase
             $this->markTestSkipped('No Claude API key can be set in this environment.');
         }
         $task = $this->task(1);
-        Http::fake(['*/messages' => Http::response(['content' => [['type' => 'tool_use', 'name' => 'cevap', 'input' => ['label' => 'implant']]],
+        Http::fake(['*/messages' => Http::response(['content' => [['type' => 'text', 'text' => '{"label":"implant"}']],
             'usage' => ['input_tokens' => 1000, 'output_tokens' => 100]])]);
 
         $this->assertSame(AiWorkers::CLAUDE_API, $workers->active());
@@ -123,7 +123,39 @@ final class AiWorkersTest extends SiteTestCase
         $this->assertSame('claude_api:claude-haiku-5-5', $task->done_by);
         $this->assertSame('Claude API · claude-haiku-5-5', $task->doneByLabel());
         $this->assertGreaterThan(0, $task->cost_usd);
-        Http::assertSent(fn ($request): bool => $request['tool_choice']['name'] === 'cevap' && $request['tools'][0]['input_schema'] === self::SCHEMA);
+        // Claude 5.5 refuses a forced tool_choice: the schema goes as structured outputs, no tool is forced.
+        Http::assertSent(fn ($request): bool => $request['output_config']['format']['type'] === 'json_schema'
+            && $request['output_config']['format']['schema']['properties'] === self::SCHEMA['properties'] && ! isset($request['tool_choice']));
+    }
+
+    public function test_claude_api_falls_back_to_the_answer_tool_on_auto_when_the_schema_is_rejected(): void
+    {
+        config(['moxdop-mcp.token' => '', 'moxdop.anthropic.api_key' => 'sk-test', 'services.anthropic.api_key' => 'sk-test']);
+        McpToken::query()->update(['revoked_at' => now()]);
+        $workers = app(AiWorkers::class);
+        $workers->saveApi(AiWorkers::CLAUDE_API, true, 'claude-sonnet-5-5', 0, 0);
+        if (! $workers->connected(AiWorkers::CLAUDE_API)) {
+            $this->markTestSkipped('No Claude API key can be set in this environment.');
+        }
+        $task = $this->task(1);
+        Http::fake(['*/messages' => Http::sequence()
+            ->push(['type' => 'error', 'error' => ['type' => 'invalid_request_error', 'message' => 'output_config.format.schema: unsupported keyword']], 400)
+            ->push(['content' => [['type' => 'tool_use', 'name' => 'cevap', 'input' => ['label' => 'implant']]], 'usage' => ['input_tokens' => 10, 'output_tokens' => 5]])]);
+
+        $this->assertSame(1, app(ApiQueueWorker::class)->round());
+
+        $this->assertSame(AiTask::DONE, $task->refresh()->status);
+        Http::assertSent(fn ($request): bool => ($request['tool_choice']['type'] ?? null) === 'auto');
+    }
+
+    public function test_structured_schema_closes_objects_and_drops_unsupported_keywords(): void
+    {
+        $schema = ApiQueueWorker::structuredSchema(['type' => 'object', 'properties' => ['items' => ['type' => 'array', 'items' => ['type' => 'object',
+            'properties' => ['title' => ['type' => 'string', 'maxLength' => 60]]]]], 'required' => ['items']]);
+
+        $this->assertFalse($schema['additionalProperties']);
+        $this->assertFalse($schema['properties']['items']['items']['additionalProperties']);
+        $this->assertArrayNotHasKey('maxLength', $schema['properties']['items']['items']['properties']['title']);
     }
 
     public function test_settings_page_orders_workers_and_removes_a_connection_only_after_two_confirmations(): void

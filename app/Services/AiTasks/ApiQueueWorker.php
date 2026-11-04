@@ -9,12 +9,13 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Gateway\Anthropic\AnthropicSchemaSanitizer;
 use Throwable;
 
 /**
  * Claude API / ChatGPT API as AI workers (Ayarlar › AI): when the order puts an API first among the alive workers, the
  * server answers queue tasks itself every few minutes — the same instructions as a system prompt, the same DATA_JSON
- * input, the task's own JSON schema forced as the answer shape — and stores the answer like an MCP worker would, with
+ * input, the task's own JSON schema as the answer shape (structured outputs) — and stores the answer like an MCP worker would, with
  * who answered and what it cost. A key, credit or rate error stops the worker for a while (the next one takes over);
  * an answer that does not fit the schema is asked once more with the errors, then the task goes back to the queue.
  */
@@ -112,28 +113,78 @@ final class ApiQueueWorker
             : $this->openAi($model, (string) $task->instructions, $input, $schema);
     }
 
-    /** @return array{0: mixed, 1: ?float} */
+    /**
+     * Claude 5.5 models refuse a forced tool_choice (400 "type tool and any are not supported"), so the answer shape is
+     * asked with structured outputs (output_config.format, the schema cut to what Anthropic accepts; the queue still
+     * checks the answer against the task's full schema). When the API rejects that schema, the same request goes once
+     * more with the answer tool offered on tool_choice auto.
+     *
+     * @return array{0: mixed, 1: ?float}
+     */
     private function anthropic(string $model, string $system, string $input, array $schema): array
     {
         if (! $this->runtime->prepareAnthropic()) {
             throw new ApiWorkerStop('Claude API anahtarı girilmemiş.', 360);
         }
-        $response = $this->send(fn () => Http::withHeaders([
-            'x-api-key' => (string) config('ai.providers.anthropic.key'),
-            'anthropic-version' => '2023-06-01',
-        ])->timeout(300)->post(rtrim((string) config('ai.providers.anthropic.url', 'https://api.anthropic.com/v1'), '/').'/messages', [
+        $base = [
             'model' => $model,
             'max_tokens' => 16000,
             'system' => [['type' => 'text', 'text' => $system, 'cache_control' => ['type' => 'ephemeral']]],
             'messages' => [['role' => 'user', 'content' => $input]],
-            'tools' => [['name' => 'cevap', 'description' => 'Görevin cevabı; şemaya birebir uyan tek JSON nesnesi.', 'input_schema' => $schema]],
-            'tool_choice' => ['type' => 'tool', 'name' => 'cevap'],
-        ]));
-        $output = collect((array) $response->json('content'))->firstWhere('type', 'tool_use')['input'] ?? null;
+        ];
+        try {
+            $response = $this->anthropicSend($base + ['output_config' => ['format' => ['type' => 'json_schema', 'schema' => self::structuredSchema($schema)]]]);
+            $text = collect((array) $response->json('content'))->where('type', 'text')->pluck('text')->implode('');
+            $output = json_decode(trim($text), true);
+        } catch (ApiWorkerStop $stop) {
+            if (! str_contains($stop->getMessage(), '(400') || ! preg_match('/schema|output_config|format/i', $stop->getMessage())) {
+                throw $stop;
+            }
+            $response = $this->anthropicSend($base + [
+                'tools' => [['name' => 'cevap', 'description' => 'Görevin cevabı; şemaya birebir uyan tek JSON nesnesi. Cevabı yalnız bu araçla ver.', 'input_schema' => $schema]],
+                'tool_choice' => ['type' => 'auto'],
+            ]);
+            $output = collect((array) $response->json('content'))->firstWhere('type', 'tool_use')['input'] ?? null;
+        }
         $usage = (array) $response->json('usage');
 
         return [$output, $this->pricing->cost('anthropic', $model, (int) ($usage['input_tokens'] ?? 0), (int) ($usage['output_tokens'] ?? 0),
             (int) ($usage['cache_read_input_tokens'] ?? 0), (int) ($usage['cache_creation_input_tokens'] ?? 0))];
+    }
+
+    /** @param  array<string, mixed>  $body */
+    private function anthropicSend(array $body): Response
+    {
+        return $this->send(fn () => Http::withHeaders([
+            'x-api-key' => (string) config('ai.providers.anthropic.key'),
+            'anthropic-version' => '2023-06-01',
+        ])->timeout(300)->post(rtrim((string) config('ai.providers.anthropic.url', 'https://api.anthropic.com/v1'), '/').'/messages', $body));
+    }
+
+    /**
+     * The task schema as Anthropic structured outputs takes it: unsupported keywords folded into descriptions (the
+     * laravel/ai sanitizer) and every object with properties closed (additionalProperties false is required).
+     *
+     * @param  array<string, mixed>  $schema
+     * @return array<string, mixed>
+     */
+    public static function structuredSchema(array $schema): array
+    {
+        $close = function (mixed $node) use (&$close): mixed {
+            if (! is_array($node)) {
+                return $node;
+            }
+            foreach ($node as $key => $value) {
+                $node[$key] = $close($value);
+            }
+            if (isset($node['properties']) && is_array($node['properties'])) {
+                $node['additionalProperties'] = false;
+            }
+
+            return $node;
+        };
+
+        return $close(AnthropicSchemaSanitizer::sanitize($schema));
     }
 
     /** @return array{0: mixed, 1: ?float} */
