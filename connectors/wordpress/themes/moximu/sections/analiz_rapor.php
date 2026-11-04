@@ -11,7 +11,7 @@ $mx_n = mx_rows($d['liste'] ?? null);
 <div class="an-rep-g">
 <ol class="an-notes l"><?php foreach (array_slice($mx_n, 0, 2) as $i => $r): ?><li data-n="<?= $i + 1 ?>"><i><?= $i + 1 ?></i><b><?= mx_h($r['baslik'] ?? null) ?></b><span><?= mx_h($r['metin'] ?? null) ?></span></li><?php endforeach; ?></ol>
 <div class="an-doc" aria-label="Örnek rapor görünümü">
-<div class="an-doc-h"><img src="<?= MX_URI ?>/assets/i/mark.webp" alt="" width="28" height="28"/><div><b>Dijital durum raporu</b><span>Örnek Diş Kliniği · İzmir, Bornova</span></div><em>örnek</em></div>
+<div class="an-doc-h"><img src="<?= MX_URI ?>/assets/i/mark.webp" alt="" width="28" height="28"/><div><b>Klinik dijital denetimi</b><span>Örnek Diş Kliniği · İzmir, Bornova</span></div><em>örnek</em></div>
 <div class="an-scores">
 <div class="an-sc" style="--v:58" data-n="1"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9"/><circle class="v" cx="18" cy="18" r="15.9"/></svg><b>58</b><span>Web sitesi</span></div>
 <div class="an-sc" style="--v:41" data-n="2"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9"/><circle class="v" cx="18" cy="18" r="15.9"/></svg><b>41</b><span>İşletme Profili</span></div>

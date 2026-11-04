@@ -2,8 +2,8 @@
 {
 "key": "home",
 "path": "/",
-"seo_title": "Klinik dijital pazarlama ve sağlık reklam ajansı · Moximu",
-"seo_desc": "Klinikler ve doktorlar için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Sağlık reklamı kurallarına uygun, aylık raporlu.",
+"seo_title": "Klinik SEO ve dijital pazarlama ajansı · Moximu",
+"seo_desc": "Klinikler ve doktorlar için SEO, Google İşletme Profili ve web sitesi; mevzuata uygun reklam yönetimi. Aylık raporlu, aylık 12.000 ₺ + KDV'den.",
 "service": {},
 "rows": [
 {
@@ -21,9 +21,9 @@
 "alt": ""
 },
 "yazi": "50’den fazla klinik ve hekimle çalışıyoruz",
-"baslik": "Klinikler için <mark>ölçülebilir</mark> dijital büyüme.",
-"metin": "Web sitesi, Google İşletme Profili, Google Ads ve Meta reklamlarınızı tek bir plan altında kurar ve yönetiriz. Hasta talepleri ve talep maliyeti her hafta raporlanır.",
-"yazi_2": "<a class=\"btn white lp-wa\" href=\"https://wa.me/905388610288?text=Merhaba%2C%20klini%C4%9Fim%20i%C3%A7in%20bilgi%20almak%20istiyorum.\" target=\"_blank\" rel=\"noopener\">WhatsApp’tan yazın</a><a class=\"btn outline w\" href=\"/ucretsiz-klinik-analizi/\">Ücretsiz analiz</a>",
+"baslik": "Hasta Google'da aradığında <mark>kliniğiniz önde</mark>.",
+"metin": "Klinik SEO, Google İşletme Profili ve web sitesiyle tedavi aramalarında üst sıralara çıkarız. Reklam yönetimi mevzuata uygun yürütülür; sonuçlar her ay raporlanır.",
+"yazi_2": "<a class=\"btn white lp-wa\" href=\"https://wa.me/905388610288?text=Merhaba%2C%20klini%C4%9Fim%20i%C3%A7in%20bilgi%20almak%20istiyorum.\" target=\"_blank\" rel=\"noopener\">WhatsApp’tan yazın</a><a class=\"btn outline w\" href=\"/ucretsiz-klinik-analizi/\">Ücretsiz ön değerlendirme</a>",
 "yazi_3": "<span class=\"g\">G</span><b>4,9</b><span class=\"stars\">★★★★★</span><span>50 Google yorumu · 12 yıl · 500+ web sitesi</span>",
 "gorsel_4": {
 "seed": "klinik-dis-hekimi-hasta.jpg",
@@ -40,8 +40,8 @@
 "seed": "klinik-tedavi-odasi.jpg",
 "alt": "Tedavi odası"
 },
-"yazi_6": "Form talebi · Ekim 2026",
-"yazi_7": "500 talep <em>▲ 995 ₺ / form</em>",
+"yazi_6": "Organik tıklama · Panorama Ankara",
+"yazi_7": "+%349 <em>▲ Ekim 2025 → Ekim 2026</em>",
 "gorsel_7": {
 "seed": "klinik-tedavi-ani.jpg",
 "alt": "Tedavi anı"
@@ -595,11 +595,11 @@
 {
 "acf_fc_layout": "ana_hizmetler",
 "yazi": "Hizmetler",
-"baslik": "Dört kanal, <mark>tek strateji</mark>.",
-"metin": "Hastaların kliniğinizi bulduğu dört kanalı birbiriyle uyumlu biçimde kurar, ölçer ve sürekli geliştiririz.",
+"baslik": "SEO merkezde, <mark>dört kanal</mark> birlikte.",
+"metin": "Hastanın sizi aradığı yerden başlarız: Google aramaları ve harita. Web sitesi ve reklam bu görünürlüğü destekler.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
-"yazi_2": "01",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
+"yazi_2": "03",
 "alt_baslik": "Klinik web sitesi",
 "metin_2": "Tedavi odaklı sayfa yapısı, mobilde hızlı açılış ve ölçülebilir randevu akışı.",
 "baglanti_2": "/hizmetlerimiz/klinik-web-sitesi/",
@@ -619,21 +619,21 @@
 "yazi_7": "<b>Başka klinik</b><em>2</em><span>4,4 ★ (51) · 3,1 km</span>",
 "yazi_8": "<b>Kliniğiniz</b><em>3</em><span>4,9 ★ (312) · 1,2 km</span>",
 "yazi_9": "Harita sırası <b>3 → 1</b>",
-"yazi_10": "03",
-"alt_baslik_3": "Google Ads",
-"metin_4": "Tedavi aramalarında doğru anda görünürlük; kampanyalar haftalık olarak optimize edilir.",
-"baglanti_4": "/hizmetlerimiz/google-ads/",
-"baglanti_yaz_4": "Google Ads yönetimi →",
-"yazi_11": "Sponsorlu <span>· kliniginiz.com</span>",
+"yazi_10": "01",
+"alt_baslik_3": "Klinik SEO",
+"metin_4": "Tedavi ve ilçe aramalarında organik üst sıralar: teknik düzeltme, tedavi sayfaları, hekim onaylı içerik.",
+"baglanti_4": "/hizmetlerimiz/klinik-seo/",
+"baglanti_yaz_4": "Klinik SEO →",
+"yazi_11": "kliniginiz.com <span>› implant-izmir</span>",
 "yazi_12": "İzmir İmplant Tedavisi | Klinik Adı",
 "yazi_13": "Alsancak’ta implant, zirkonyum ve ortodonti. Hekim kadrosu ve çalışma saatleri.",
 "yazi_14": "<span>Randevu</span><span>Fiyatlar</span><span>Yol tarifi</span>",
-"yazi_15": "Bir talep <b>995 ₺</b> · Ekim 2026",
+"yazi_15": "Organik tıklama <b>+%349</b> · Panorama Ankara",
 "yazi_16": "04",
-"alt_baslik_4": "Instagram ve Facebook reklamları",
-"metin_5": "Hedef kitleye özel kampanyalar; başvurular anında WhatsApp hattınıza iletilir.",
-"baglanti_5": "/hizmetlerimiz/instagram-facebook-reklamlari/",
-"baglanti_yaz_5": "Meta reklamları →",
+"alt_baslik_4": "Mevzuata uygun reklam",
+"metin_5": "Google ve Instagram reklamları sağlık tanıtım kurallarına uygun, bilgilendirici metinle; yurt dışı hasta için ülke bazlı kampanya.",
+"baglanti_5": "/hizmetlerimiz/google-ads/",
+"baglanti_yaz_5": "Reklam yönetimi →",
 "yazi_17": "<i></i>Klinik adı · Sponsorlu",
 "gorsel_2": {
 "seed": "klinik-tedavi-odasi.jpg",
@@ -643,26 +643,26 @@
 "etiket_2": "Telefon",
 "buton_yazisi": "Bilgi ve randevu",
 "yazi_18": "<b>WhatsApp · yeni form</b><span>“İmplant için randevu istiyorum” · İzmir</span>",
-"yazi_19": "<span>WhatsApp hasta kabul, haftalık bakım, yazı planı ve aylık rapor her pakette.</span><a class=\"btn outline\" href=\"/hizmetlerimiz/\">Tüm hizmetler →</a>"
+"yazi_19": "<span>Aylık rapor, haftalık bakım ve hekim onaylı içerik planı her planda.</span><a class=\"btn outline\" href=\"/hizmetlerimiz/\">Tüm hizmetler →</a>"
 },
 {
 "acf_fc_layout": "harita",
 "tasarim": "v1",
-"yazi": "Yerel klinik paketi",
-"baslik": "Bölgenizdeki hastalara <mark>doğru noktadan</mark> ulaşın.",
-"metin": "Reklamlar yalnızca hizmet verdiğiniz il ve ilçelerde yayınlanır; Google İşletme Profili ve web sitesi bölgenizdeki aramalara göre yapılandırılır. Bütçe hedef bölgenin dışına harcanmaz.",
+"yazi": "Yerel görünürlük",
+"baslik": "Bölgenizdeki hastaya <mark>aramada ve haritada</mark> ulaşın.",
+"metin": "Tedavi ve ilçe sayfaları bölgenizdeki aramalara göre yazılır; Google İşletme Profili ilçenizde öne çıkarılır. Reklam açılırsa yalnız hizmet verdiğiniz il ve ilçelerde yayınlanır.",
 "liste": [
 {
-"madde": "Google Ads yalnız seçilen il ve çevre ilçelerde yayınlanır."
+"madde": "“Bornova implant” gibi aramalar için ilçe ve tedavi sayfaları."
 },
 {
 "madde": "“Yakınımdaki diş kliniği” aramasında profiliniz bölgenizde önde olur."
 },
 {
-"madde": "Komşu illerden gelen hasta için yol tarifi ve WhatsApp aynı sayfada."
+"madde": "Reklam açılırsa bütçe hedef bölgenin dışına harcanmaz."
 }
 ],
-"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/yerel-klinik-paketi/\">Yerel klinik paketi →</a><small>{fiyat:seo}/ay'dan başlar</small>",
+"yazi_2": "<a class=\"btn\" href=\"/fiyatlar/\">Planları inceleyin →</a><small>{fiyat:seo}/ay'dan başlar</small>",
 "yazi_3": "<span class=\"dot\"></span><b>İzmir</b> · Diş kliniği",
 "yazi_4": "Bu hafta <b>14 talep</b> <i>· örnek</i>"
 },
@@ -803,15 +803,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -855,8 +855,8 @@
 },
 {
 "buton_yazisi": "+",
-"baslik": "Ücretsiz klinik analizi nedir?",
-"metin": "Klinik adı ve şehir yeterlidir. 24 saat içinde tek sayfalık rapor hazırlanır: site, Google İşletme Profili ve reklam hesabındaki eksikler ile ilk 30 günün planı. Bağlayıcı değildir."
+"baslik": "Ücretsiz ön değerlendirme nedir?",
+"metin": "Klinik adı ve şehir yeterlidir. 24 saat içinde 2-3 öncelikli bulgu hazırlanır: site, Google İşletme Profili ve reklam hesabındaki eksikler ile ilk 30 günün planı. Bağlayıcı değildir."
 }
 ],
 "liste_2": [
@@ -912,9 +912,9 @@
 "path": "/hizmetlerimiz/",
 "title": "Hizmetler",
 "excerpt": "Web sitesi, Google İşletme Profili, Google reklamı ve Instagram reklamı. Dördünü birlikte kurarız, her hafta aynı düzenle yönetiriz.",
-"content": "<p>Hasta kliniğinizi dört yerden bulur: Google'da tedavi adını yazarak, haritadaki işletme profillerinden, Instagram'da gördüğü bir reklamdan ve sonunda sitenizdeki tedavi sayfasından. Bu dört parça birbirine bağlıdır; biri eksik kalınca diğerlerinin getirdiği hasta yolda kaybolur. Moximu bu dördünü tek düzen olarak kurar.</p>\n<h2>Hizmetler</h2>\n[mx_alt_sayfalar]\n<h2>Kliniğinize uygun hizmet hangisi?</h2>\n<p>Üç soru çoğu kliniğin sırasını belirler:</p>\n<ol>\n<li><strong>Sitenizde her tedavinin ayrı sayfası var mı?</strong> Yoksa önce <a href=\"/hizmetlerimiz/klinik-web-sitesi/\">klinik web sitesi</a>. Reklam ve SEO, ana sayfaya değil tedavi sayfasına hasta gönderir.</li>\n<li><strong>\"Yakınımdaki\" aramalarında haritadaki ilk üç profilde mısınız?</strong> Değilseniz <a href=\"/hizmetlerimiz/google-isletme-profili/\">Google İşletme Profili</a> bakımı, maliyeti en düşük kazanımdır.</li>\n<li><strong>Hedefiniz kısa vadeli hasta talebi mi, yoksa altı ay sonrası mı?</strong> Bu ay için <a href=\"/hizmetlerimiz/google-ads/\">Google Ads</a> ve <a href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\">Instagram reklamı</a>; kalıcı trafik için <a href=\"/hizmetlerimiz/klinik-seo/\">klinik SEO</a>.</li>\n</ol>\n<p>Çoğu klinik dördüne de ihtiyaç duyar; bu yüzden <a href=\"/fiyatlar/yerel-klinik-paketi/\">yerel klinik paketi</a> dördünü tek ücrette toplar. Hangi sırayla başlanacağını ücretsiz analizde yazılı olarak veririz.</p>\n<h2>Her hizmette aynı olanlar</h2>\n<ul>\n<li>Hesaplar kliniğin adına açılır; Moximu yönetici olarak eklenir.</li>\n<li>Reklam bütçesi klinik tarafından doğrudan Google ve Meta'ya ödenir; onayınız olmadan artmaz.</li>\n<li>Her pazartesi yapılanların kısa özeti, her ayın ilk haftası tek sayfa rapor.</li>\n<li>Metinler sağlık reklamı kurallarına göre yazılır: öncesi/sonrası, hasta fotoğrafı, \"en iyi\" ve garanti dili yok.</li>\n</ul>",
+"content": "<p>Hasta kliniğinizi dört yerden bulur: Google'da tedavi adını yazarak, haritadaki işletme profillerinden, Instagram'da gördüğü bir reklamdan ve sonunda sitenizdeki tedavi sayfasından. Bu dört parça birbirine bağlıdır; biri eksik kalınca diğerlerinin getirdiği hasta yolda kaybolur. Moximu bu dördünü tek düzen olarak kurar.</p>\n<h2>Hizmetler</h2>\n[mx_alt_sayfalar]\n<h2>Kliniğinize uygun hizmet hangisi?</h2>\n<p>Üç soru çoğu kliniğin sırasını belirler:</p>\n<ol>\n<li><strong>Sitenizde her tedavinin ayrı sayfası var mı?</strong> Yoksa önce <a href=\"/hizmetlerimiz/klinik-web-sitesi/\">klinik web sitesi</a>. Reklam ve SEO, ana sayfaya değil tedavi sayfasına hasta gönderir.</li>\n<li><strong>\"Yakınımdaki\" aramalarında haritadaki ilk üç profilde mısınız?</strong> Değilseniz <a href=\"/hizmetlerimiz/google-isletme-profili/\">Google İşletme Profili</a> bakımı, maliyeti en düşük kazanımdır.</li>\n<li><strong>Hedefiniz kısa vadeli hasta talebi mi, yoksa altı ay sonrası mı?</strong> Bu ay için <a href=\"/hizmetlerimiz/google-ads/\">Google Ads</a> ve <a href=\"/hizmetlerimiz/instagram-facebook-reklamlari/\">Instagram reklamı</a>; kalıcı trafik için <a href=\"/hizmetlerimiz/klinik-seo/\">klinik SEO</a>.</li>\n</ol>\n<p>Çoğu klinik dördüne de ihtiyaç duyar; bu yüzden <a href=\"/fiyatlar/yerel-klinik-paketi/\">yerel klinik paketi</a> dördünü tek ücrette toplar. Hangi sırayla başlanacağını ücretsiz ön değerlendirmede yazılı olarak veririz.</p>\n<h2>Her hizmette aynı olanlar</h2>\n<ul>\n<li>Hesaplar kliniğin adına açılır; Moximu yönetici olarak eklenir.</li>\n<li>Reklam bütçesi klinik tarafından doğrudan Google ve Meta'ya ödenir; onayınız olmadan artmaz.</li>\n<li>Her pazartesi yapılanların kısa özeti, her ayın ilk haftası tek sayfa rapor.</li>\n<li>Metinler sağlık reklamı kurallarına göre yazılır: öncesi/sonrası, hasta fotoğrafı, \"en iyi\" ve garanti dili yok.</li>\n</ul>",
 "seo_title": "Klinik ve doktorlar için dijital pazarlama hizmetleri · Moximu",
-"seo_desc": "Klinik ve doktorlar için web sitesi tasarımı, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz.",
+"seo_desc": "Klinik ve doktorlar için web sitesi tasarımı, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz ön değerlendirmede yazılı olarak belirtiriz.",
 "order": 1,
 "meta": {
 "_mx_ust_yazi": "Kliniklere dijital pazarlama",
@@ -932,7 +932,7 @@
 "baslik": "Hastanın kliniğinize ulaştığı <mark>dört kanal</mark>, tek yönetim.",
 "metin": "Hastalar kliniğinizi Google aramalarında, haritada, sosyal medyada ve web sitenizde bulur. Bu kanallardan biri eksik kaldığında diğerlerinin etkisi de azalır. Moximu dört kanalı tek bir plan altında kurar ve yönetir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -942,7 +942,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -967,7 +967,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ana_hizmetler",
@@ -975,7 +975,7 @@
 "baslik": "Dört temel kanal, <mark>tamamı kliniğiniz adına</mark>.",
 "metin": "Hastaların kliniğinizi bulduğu dört kanalı birbiriyle uyumlu biçimde kurar, ölçer ve sürekli geliştiririz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Klinik web sitesi",
 "metin_2": "Tedavi odaklı sayfa yapısı, mobilde hızlı açılış ve ölçülebilir randevu akışı.",
@@ -1049,7 +1049,7 @@
 },
 {
 "alt_baslik": "Kalıcı trafik istiyorsanız: SEO",
-"metin": "Reklam bitince durmayan ziyaret. Sırayı ücretsiz analizde yazılı olarak veririz."
+"metin": "Reklam bitince durmayan ziyaret. Sırayı ücretsiz ön değerlendirmede yazılı olarak veririz."
 }
 ]
 },
@@ -1068,7 +1068,7 @@
 "yazi": "<b class=\"cnt\" data-to=\"12\">12</b><span>yıl</span>"
 },
 {
-"yazi": "<b class=\"cnt\" data-to=\"24\">24</b><span>saatte ilk rapor</span>"
+"yazi": "<b class=\"cnt\" data-to=\"24\">24</b><span>saatte ilk bulgular</span>"
 }
 ]
 },
@@ -1166,15 +1166,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -1218,8 +1218,8 @@
 },
 {
 "buton_yazisi": "+",
-"baslik": "Ücretsiz klinik analizi nedir?",
-"metin": "Klinik adı ve şehir yeterlidir. 24 saat içinde tek sayfalık rapor hazırlanır: site, Google İşletme Profili ve reklam hesabındaki eksikler ile ilk 30 günün planı. Bağlayıcı değildir."
+"baslik": "Ücretsiz ön değerlendirme nedir?",
+"metin": "Klinik adı ve şehir yeterlidir. 24 saat içinde 2-3 öncelikli bulgu hazırlanır: site, Google İşletme Profili ve reklam hesabındaki eksikler ile ilk 30 günün planı. Bağlayıcı değildir."
 }
 ],
 "liste_2": [
@@ -1290,7 +1290,7 @@
 "baslik": "Hasta kazanımı için tasarlanmış <mark>klinik web siteleri</mark>.",
 "metin": "Her tedavi için ayrı sayfa, hekim profilleri, mobilde hızlı açılış ve görünür iletişim seçenekleri. Siteniz dört hafta içinde yayına alınır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz site analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -1300,7 +1300,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -1873,7 +1873,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz site analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "kalemler",
@@ -1882,7 +1882,7 @@
 "baslik": "Dört bileşen, <mark>bütünleşik</mark> bir site.",
 "metin": "Tedavi sayfaları, hekim sayfaları, hasta kabul akışı, teknik altyapı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz site analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Tedavi sayfaları",
 "metin_2": "Her tedavi için ayrı sayfa.",
@@ -2130,7 +2130,7 @@
 "baslik": "Site <mark>4 hafta içinde</mark> yayında.",
 "metin": "Önce prototip onayınıza gelir, sonra WordPress'e geçer.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz site analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "kalin_yazi": "1. hafta",
@@ -2287,15 +2287,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -2376,7 +2376,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -3252,15 +3252,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -3341,7 +3341,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -4227,15 +4227,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -4316,7 +4316,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -5192,15 +5192,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -5277,7 +5277,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -6099,15 +6099,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -6142,7 +6142,7 @@
 },
 {
 "buton_yazisi": "Klinik sosyal medya yönetimi de yapıyor musunuz?",
-"metin": "Odağımız Instagram ve Facebook reklam yönetimidir: reklam görselleri ve metinleri, form ve WhatsApp kampanyaları, haftalık bütçe kararları. Düzenli organik paylaşım ihtiyacı varsa ücretsiz analizde birlikte değerlendiririz."
+"metin": "Odağımız Instagram ve Facebook reklam yönetimidir: reklam görselleri ve metinleri, form ve WhatsApp kampanyaları, haftalık bütçe kararları. Düzenli organik paylaşım ihtiyacı varsa ücretsiz ön değerlendirmede birlikte değerlendiririz."
 }
 ],
 "metin": "Tüm sorular"
@@ -6180,7 +6180,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -6202,7 +6202,7 @@
 "yazi_4": "<span>Sürpriz kalem</span><b>Yok</b>",
 "yazi_5": "<span class=\"ic st\"></span><span class=\"nt\">Aylık rapor gönderildi</span><small>ay başı</small>",
 "yazi_6": "<span class=\"lp-dot\"></span>Fiyatlar 2026 · KDV hariç · çok şube ve referans indirimi görüşmeye bağlı",
-"yazi_7": "<b>24 saat</b><span>ilk rapor</span>",
+"yazi_7": "<b>24 saat</b><span>ilk bulgular</span>",
 "yazi_8": "<b>Aylık</b><span>faturalandırma</span>"
 },
 {
@@ -6441,15 +6441,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -6511,7 +6511,7 @@
 "baslik": "Yerel klinikler için <mark>bütünleşik</mark> dijital pazarlama.",
 "metin": "Web sitesi, Google İşletme Profili, Google Ads ve Meta reklamları birlikte yönetilir; tüm hasta talepleri tek akışta toplanır ve aylık raporlanır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -6521,7 +6521,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -7095,7 +7095,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "kalemler",
@@ -7104,7 +7104,7 @@
 "baslik": "Dört kanal, <mark>haftalık</mark> takip.",
 "metin": "Hastaların kliniğinizi bulduğu dört kanalı birbiriyle uyumlu biçimde kurar, ölçer ve sürekli geliştiririz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Klinik web sitesi",
 "metin_2": "Her tedaviye ayrı sayfa, telefonda 2 saniyede açılır.",
@@ -7190,7 +7190,7 @@
 "baslik": "İlk ay kurulum, <mark>ikinci aydan itibaren</mark> hasta talebi.",
 "metin": "Dört kanal sırayla açılır; üçüncü ayda düzen yerleşir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "kalin_yazi": "1. ay",
@@ -7347,15 +7347,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -7418,7 +7418,7 @@
 "baslik": "Yurt dışı hastalara <mark>kendi dillerinde</mark> ulaşın.",
 "metin": "Çok dilli web sitesi, ülke bazlı Google ve Meta kampanyaları ve yabancı hastalar için WhatsApp iletişim akışı. Sonuçlar aylık tek sayfalık raporla paylaşılır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -7428,7 +7428,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -8002,7 +8002,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "kalemler",
@@ -8011,7 +8011,7 @@
 "baslik": "Dört kanal, <mark>haftalık</mark> takip.",
 "metin": "Yabancı hastanın sizi gördüğü dört kanal; tamamını biz kurar ve yönetiriz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Çok dilli web sitesi",
 "metin_2": "Her tedaviye İngilizce sayfa, telefonda 2 saniyede açılır.",
@@ -8097,7 +8097,7 @@
 "baslik": "İlk ay kurulum, <mark>ikinci aydan itibaren</mark> hasta talebi.",
 "metin": "Dört kanal sırayla açılır; üçüncü ayda düzen yerleşir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "kalin_yazi": "1. ay",
@@ -8254,15 +8254,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -8339,7 +8339,7 @@
 "baslik": "Diş kliniğiniz için <mark>sürdürülebilir hasta kazanımı</mark>.",
 "metin": "İmplant, zirkonyum ve ortodonti aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve hasta kabul akışı. Dokuz diş kliniğiyle çalışıyoruz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -8349,7 +8349,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -8375,7 +8375,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -8453,7 +8453,7 @@
 "baslik": "Diş kliniğinde talepten randevuya <mark>dört aşama</mark>.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Tedavi + şehir araması",
 "metin_2": "\"Çankaya implant\", \"izmir zirkonyum fiyat\".",
@@ -8716,15 +8716,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -8733,7 +8733,7 @@
 "liste_v2": [
 {
 "buton_yazisi": "Diş kliniği için hangi kanal önce?",
-"metin": "Mevcut hasta sayısına ve şehre göre değişir; çoğu klinikte önce Google İşletme Profili ve implant/zirkonyum sayfaları, sonra arama reklamı, sonra Instagram. Ücretsiz analizde sırayı yazılı veririz."
+"metin": "Mevcut hasta sayısına ve şehre göre değişir; çoğu klinikte önce Google İşletme Profili ve implant/zirkonyum sayfaları, sonra arama reklamı, sonra Instagram. Ücretsiz ön değerlendirmede sırayı yazılı veririz."
 },
 {
 "buton_yazisi": "Ne kadar sürede hasta gelir?",
@@ -8795,7 +8795,7 @@
 "baslik": "Estetik kliniğiniz için <mark>doğru hasta profili</mark>.",
 "metin": "Burun estetiği, liposuction ve meme estetiği aramalarında görünürlük; Instagram form reklamı, bilgi sayfaları ve hasta kabul akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -8805,7 +8805,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -8831,7 +8831,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -8867,7 +8867,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Tedavi + şehir araması",
 "metin_2": "\"Burun estetiği istanbul\", \"liposuction fiyat\".",
@@ -9130,15 +9130,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -9147,7 +9147,7 @@
 "liste_v2": [
 {
 "buton_yazisi": "Estetik kliniği için hangi kanal önce?",
-"metin": "Çoğu estetik kliniğinde Instagram form reklamı ve bilgi sayfaları önce gelir; Google arama reklamı karar aşamasındaki hastayı yakalar. Sırayı ücretsiz analizde yazılı veririz."
+"metin": "Çoğu estetik kliniğinde Instagram form reklamı ve bilgi sayfaları önce gelir; Google arama reklamı karar aşamasındaki hastayı yakalar. Sırayı ücretsiz ön değerlendirmede yazılı veririz."
 },
 {
 "buton_yazisi": "Öncesi/sonrası fotoğraf kullanabilir miyiz?",
@@ -9205,7 +9205,7 @@
 "baslik": "Dermatoloji kliniğiniz için <mark>düzenli randevu akışı</mark>.",
 "metin": "Lazer epilasyon, dolgu ve cilt bakımı aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve randevu akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -9215,7 +9215,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -9241,7 +9241,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -9265,7 +9265,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Tedavi + ilçe araması",
 "metin_2": "\"Lazer epilasyon bornova\", \"dermatolog karşıyaka\".",
@@ -9528,15 +9528,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -9545,7 +9545,7 @@
 "liste_v2": [
 {
 "buton_yazisi": "Dermatoloji kliniği için hangi kanal önce?",
-"metin": "Çoğu klinikte önce Google İşletme Profili ve lazer epilasyon sayfası, sonra arama reklamı. Sırayı ücretsiz analizde yazılı veririz."
+"metin": "Çoğu klinikte önce Google İşletme Profili ve lazer epilasyon sayfası, sonra arama reklamı. Sırayı ücretsiz ön değerlendirmede yazılı veririz."
 },
 {
 "buton_yazisi": "Seans takibini de yapıyor musunuz?",
@@ -9599,7 +9599,7 @@
 "baslik": "Saç ekimi kliniğiniz için <mark>yurt içi ve yurt dışı</mark> hasta kazanımı.",
 "metin": "FUE ve DHI aramalarında görünürlük, çok dilli bilgi sayfaları, Instagram form reklamı ve WhatsApp karşılama düzeni.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -9609,7 +9609,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -9635,7 +9635,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -9659,7 +9659,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Tedavi + ülke araması",
 "metin_2": "\"Hair transplant turkey\", \"saç ekimi fiyat\".",
@@ -9922,15 +9922,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -9997,7 +9997,7 @@
 "baslik": "Fizyoterapi merkeziniz için <mark>düzenli hasta akışı</mark>.",
 "metin": "Bel fıtığı, skolyoz ve spor yaralanması aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve seans takibi.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -10007,7 +10007,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -10033,7 +10033,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -10069,7 +10069,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Şikâyet + ilçe araması",
 "metin_2": "\"Bel fıtığı fizik tedavi çankaya\".",
@@ -10332,15 +10332,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -10407,7 +10407,7 @@
 "baslik": "Diyetisyen danışmanlığınız için <mark>düzenli danışan akışı</mark>.",
 "metin": "Online ve yüz yüze diyet aramalarında görünürlük: hizmet sayfaları, Google İşletme Profili, Instagram reklamı ve randevu akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -10417,7 +10417,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -10443,7 +10443,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -10473,7 +10473,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Hizmet + şehir araması",
 "metin_2": "\"Online diyetisyen\", \"diyetisyen kadıköy\".",
@@ -10736,15 +10736,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -10811,7 +10811,7 @@
 "baslik": "Psikolojik danışmanlıkta <mark>güven odaklı</mark> dijital iletişim.",
 "metin": "Online terapi, çift terapisi ve çocuk psikoloğu aramalarında görünürlük; mahremiyete uygun sayfalar ve sakin bir randevu akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -10821,7 +10821,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -10847,7 +10847,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -10877,7 +10877,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Hizmet + ilçe araması",
 "metin_2": "\"Çift terapisi beşiktaş\", \"online terapi\".",
@@ -11140,15 +11140,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -11215,7 +11215,7 @@
 "baslik": "Sünnet merkeziniz için <mark>ailelerin güvenini</mark> kazanan iletişim.",
 "metin": "Lokal anestezi ve yenidoğan sünneti aramalarında görünürlük; aileye süreci anlatan sayfalar, Google İşletme Profili ve randevu akışı.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -11225,7 +11225,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -11251,7 +11251,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -11275,7 +11275,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Yöntem + şehir araması",
 "metin_2": "\"Lokal anestezi sünnet izmir\".",
@@ -11538,15 +11538,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -11609,7 +11609,7 @@
 "baslik": "Yurt dışından <mark>planlı hasta</mark> kazanımı.",
 "metin": "Almanya, İngiltere ve Hollanda'dan gelen hasta için ülke bazlı reklam, çok dilli sayfalar ve WhatsApp karşılama düzeni.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -11619,7 +11619,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -11645,7 +11645,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -11693,7 +11693,7 @@
 "baslik": "Talepten randevuya <mark>dört aşamalı</mark> süreç.",
 "metin": "Her adımda bir kayıp noktası var; dördü birlikte kurulunca talep ucuzlar.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Ülke + tedavi araması",
 "metin_2": "\"Dental implants turkey cost\".",
@@ -11956,15 +11956,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -12014,7 +12014,7 @@
 "path": "/sehirler/",
 "title": "Şehirler",
 "excerpt": "Türkiye'nin her şehrindeki kliniklerle uzaktan çalışırız; İzmir ve Manisa'da yerinde de geliriz. Şehir sayfaları ilçe bazlı arama düzenini anlatır.",
-"content": "<p>Hasta şehir değil ilçe arar: \"Çankaya implant\", \"Karşıyaka dermatolog\", \"Kadıköy psikolog\". Şehir sayfaları, o şehirde aramanın nasıl dağıldığını ve kliniğin hangi ilçelerde görünmesi gerektiğini anlatır.</p>\n[mx_alt_sayfalar]\n<h2>Diğer şehirler</h2>\n<p>81 ilin hepsinde kliniklerle çalışabiliriz; iş uzaktan yürür, hesaplar kliniğin adına açılır. Moximu Manisa'dadır; İzmir ve Manisa'daki kliniklere yerinde de geliriz. Şehrinizi ücretsiz analiz formuna yazmanız yeterli.</p>",
+"content": "<p>Hasta şehir değil ilçe arar: \"Çankaya implant\", \"Karşıyaka dermatolog\", \"Kadıköy psikolog\". Şehir sayfaları, o şehirde aramanın nasıl dağıldığını ve kliniğin hangi ilçelerde görünmesi gerektiğini anlatır.</p>\n[mx_alt_sayfalar]\n<h2>Diğer şehirler</h2>\n<p>81 ilin hepsinde kliniklerle çalışabiliriz; iş uzaktan yürür, hesaplar kliniğin adına açılır. Moximu Manisa'dadır; İzmir ve Manisa'daki kliniklere yerinde de geliriz. Şehrinizi ücretsiz ön değerlendirme formuna yazmanız yeterli.</p>",
 "seo_title": "Şehirlere göre klinik dijital pazarlama · Moximu",
 "seo_desc": "İzmir, Ankara, İstanbul, Antalya, Manisa ve Bursa'daki klinikler için ilçe bazlı Google İşletme Profili, tedavi × ilçe sayfaları ve reklam düzeni.",
 "order": 3,
@@ -12044,7 +12044,7 @@
 "baslik": "Ankara'da <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Çankaya'dan Keçiören'e ilçe bazlı Google İşletme Profili, tedavi sayfaları ve reklam. Ankara'daki kliniklerle yıllardır çalışıyoruz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -12054,7 +12054,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -12080,7 +12080,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -12097,7 +12097,7 @@
 "baslik": "Dört kanal, <mark>ilçe bazında</mark> yönetim.",
 "metin": "Ankara tek şehir değil, yirmi beş ilçedir. Her iş ilçeye göre kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İlçe bazlı Google İşletme Profili",
 "metin_2": "Ankara'da hasta ilçesine bakar.",
@@ -12199,15 +12199,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -12270,7 +12270,7 @@
 "baslik": "İzmir'de <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Bornova'dan Karşıyaka'ya ilçe bazlı Google İşletme Profili, tedavi sayfaları ve reklam. İzmir ve Manisa'daki kliniklere yerinde de geliyoruz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -12280,7 +12280,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -12306,7 +12306,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -12323,7 +12323,7 @@
 "baslik": "Dört kanal, <mark>ilçe bazında</mark> yönetim.",
 "metin": "İzmir tek şehir değil, otuz ilçedir. Her iş ilçeye göre kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İlçe bazlı Google İşletme Profili",
 "metin_2": "İzmir'de hasta ilçesine bakar.",
@@ -12425,15 +12425,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -12496,7 +12496,7 @@
 "baslik": "İstanbul'da hasta tercihi <mark>yakınlıkla</mark> belirlenir.",
 "metin": "Kadıköy'den Beşiktaş'a ilçe bazlı Google İşletme Profili, tedavi sayfaları ve reklam. Büyük şehirde bütçe ilçeye inmeden verim vermez.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -12506,7 +12506,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -12532,7 +12532,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -12549,7 +12549,7 @@
 "baslik": "Dört kanal, <mark>ilçe bazında</mark> yönetim.",
 "metin": "İstanbul tek şehir değil, otuz dokuz ilçedir. Her iş ilçeye göre kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İlçe bazlı Google İşletme Profili",
 "metin_2": "İstanbul'da hasta ilçesine bakar.",
@@ -12651,15 +12651,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -12722,7 +12722,7 @@
 "baslik": "Antalya'da <mark>yerli ve yabancı</mark> hasta kazanımı.",
 "metin": "Muratpaşa'dan Konyaaltı'na ilçe bazlı Google İşletme Profili ve tedavi sayfaları; yurt dışından gelen hasta için ayrı, çok dilli düzen.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -12732,7 +12732,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -12758,7 +12758,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -12775,7 +12775,7 @@
 "baslik": "Dört kanal, <mark>ilçe bazında</mark> yönetim.",
 "metin": "Antalya tek şehir değil, on dokuz ilçedir. Her iş ilçeye göre kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İlçe bazlı Google İşletme Profili",
 "metin_2": "Antalya'da hasta ilçesine bakar.",
@@ -12877,15 +12877,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -12948,7 +12948,7 @@
 "baslik": "Manisa'da <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Moximu Manisa'da. Şehzadeler'den Turgutlu'ya ilçe bazlı Google İşletme Profili, tedavi sayfaları ve reklam; kliniğinize yerinde geliyoruz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -12958,7 +12958,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -12984,7 +12984,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -13001,7 +13001,7 @@
 "baslik": "Dört kanal, <mark>ilçe bazında</mark> yönetim.",
 "metin": "Manisa tek şehir değil, on yedi ilçedir. Her iş ilçeye göre kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İlçe bazlı Google İşletme Profili",
 "metin_2": "Manisa'da hasta ilçesine bakar.",
@@ -13103,15 +13103,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -13174,7 +13174,7 @@
 "baslik": "Bursa'da <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Nilüfer'den Osmangazi'ye ilçe bazlı Google İşletme Profili, tedavi sayfaları ve reklam. Bütçe ilçeye ve tedaviye göre dağılır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -13184,7 +13184,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -13210,7 +13210,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -13227,7 +13227,7 @@
 "baslik": "Dört kanal, <mark>ilçe bazında</mark> yönetim.",
 "metin": "Bursa tek şehir değil, on yedi ilçedir. Her iş ilçeye göre kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İlçe bazlı Google İşletme Profili",
 "metin_2": "Bursa'da hasta ilçesine bakar.",
@@ -13329,15 +13329,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -13566,7 +13566,7 @@
 "baslik": "Sonuç, <mark>istikrarlı çalışmayla</mark> elde edildi.",
 "metin": "İlk ay teknik temizlik, sonraki aylar sayfa ve İşletme Profili. Hiçbiri tek başına yetmezdi.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "kalin_yazi": "1. ay",
@@ -13684,15 +13684,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -13914,7 +13914,7 @@
 "baslik": "Sonuç, <mark>istikrarlı çalışmayla</mark> elde edildi.",
 "metin": "Önce site, sonra sayfalar, sonra her hafta içerik. Hiçbiri tek başına yetmezdi.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "kalin_yazi": "1. ay",
@@ -14032,15 +14032,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -14101,7 +14101,7 @@
 "baslik": "Kliniklerin <mark>dijital çözüm ortağı</mark>.",
 "metin": "12 yılda 500’den fazla web sitesi, 50’den fazla klinik ve hekimle çalışma deneyimi. Manisa merkezli ekibimizle Türkiye’nin farklı şehirlerindeki kliniklere hizmet veriyoruz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -14111,7 +14111,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -14136,7 +14136,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "hikaye",
@@ -14235,7 +14235,7 @@
 "baslik": "Haftalık <mark>çalışma takvimi</mark> belli.",
 "metin": "Her klinikte aynı düzen. Bu yüzden on kliniği de bir kliniği de aynı özenle yürütürüz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Pazartesi tarama",
 "metin_2": "Her site ve İşletme Profili pazartesi taranır.",
@@ -14353,7 +14353,7 @@
 "yazi": "<b class=\"cnt\" data-to=\"12\">12</b><span>yıl</span>"
 },
 {
-"yazi": "<b class=\"cnt\" data-to=\"24\">24</b><span>saatte ilk rapor</span>"
+"yazi": "<b class=\"cnt\" data-to=\"24\">24</b><span>saatte ilk bulgular</span>"
 }
 ]
 },
@@ -14999,15 +14999,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -15092,7 +15092,7 @@
 "baslik": "Kliniğiniz <mark>tüm kanallarda</mark> tutarlı.",
 "metin": "Diş, estetik, dermatoloji ve diğer branşlarda klinik ve poliklinikler için site, Google İşletme Profili ve reklam. Her ay tek sayfa rapor.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -15102,7 +15102,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -15128,7 +15128,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -15200,7 +15200,7 @@
 "baslik": "Dört kanal, <mark>tek plan</mark>.",
 "metin": "Site, Google İşletme Profili, Google reklamı ve Instagram aynı tedavi listesinden güncellenir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Tedavi sayfaları",
 "metin_2": "\"İmplant fiyatı\" ayrı sayfa ister.",
@@ -15463,15 +15463,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -15534,7 +15534,7 @@
 "baslik": "Hekim adınızla <mark>Google'da güçlü</mark> görünürlük.",
 "metin": "Kendi muayenehanesini yöneten hekimler için hekim sitesi, Google İşletme Profili ve sade reklam düzeni. Hastaya ayırdığınız vakit azalmaz.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -15544,7 +15544,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -15570,7 +15570,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -15642,7 +15642,7 @@
 "baslik": "Hekimler için <mark>dört temel</mark> çalışma.",
 "metin": "Muayenehanede hasta hekimi arar; düzen hekimin adı üzerine kurulur.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Hekim sitesi",
 "metin_2": "Hasta önce hekimi okur.",
@@ -15905,15 +15905,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -15976,7 +15976,7 @@
 "baslik": "Her bölüm ve şube için <mark>ayrı görünürlük</mark>.",
 "metin": "Çok bölümlü ve çok şubeli kurumlar için bölüm sayfaları, şube profilleri ve bölüm bazlı reklam. Rapor bölüm ve şube ayrımıyla.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -15986,7 +15986,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -16012,7 +16012,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -16066,7 +16066,7 @@
 "baslik": "Bölüm ve şube bazında <mark>yapılandırma</mark>.",
 "metin": "Büyük kurumda her bölüm ayrı arar, her şube ayrı yarışır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Bölüm ve hekim sayfaları",
 "metin_2": "Her bölümün kendi sayfası.",
@@ -16329,15 +16329,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -16400,7 +16400,7 @@
 "baslik": "Yurt dışından <mark>doğru hasta</mark>, doğru klinikle.",
 "metin": "Yurt dışından hasta getiren acenteler ve aracı kurumlar için ülke bazlı reklam, dil sayfaları ve hasta karşılama düzeni.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -16410,7 +16410,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -16436,7 +16436,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "klinikler",
@@ -16490,7 +16490,7 @@
 "baslik": "Ülke bazında <mark>hasta akışı</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Ülke bazlı reklam",
 "metin_2": "Almanya ile İngiltere aynı kampanyada olmaz.",
@@ -16753,15 +16753,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -16838,7 +16838,7 @@
 "baslik": "Almanya'dan <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Almanca sayfalar, Almanya'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -16848,7 +16848,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -16874,7 +16874,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -16891,7 +16891,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Almanca sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -16993,15 +16993,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -17064,7 +17064,7 @@
 "baslik": "İngiltere'den <mark>hedefli</mark> hasta kazanımı.",
 "metin": "İngilizce sayfalar, İngiltere'ye özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -17074,7 +17074,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -17100,7 +17100,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -17117,7 +17117,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İngilizce sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -17219,15 +17219,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -17290,7 +17290,7 @@
 "baslik": "Hollanda'dan <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Hollandaca ve İngilizce sayfalar, Hollanda'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -17300,7 +17300,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -17326,7 +17326,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -17343,7 +17343,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Hollandaca ve İngilizce sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -17445,15 +17445,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -17516,7 +17516,7 @@
 "baslik": "Belçika'dan <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Fransızca ve Hollandaca sayfalar, Belçika'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -17526,7 +17526,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -17552,7 +17552,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -17569,7 +17569,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Fransızca ve Hollandaca sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -17671,15 +17671,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -17742,7 +17742,7 @@
 "baslik": "Fransa'dan <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Fransızca sayfalar, Fransa'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -17752,7 +17752,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -17778,7 +17778,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -17795,7 +17795,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Fransızca sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -17897,15 +17897,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -17968,7 +17968,7 @@
 "baslik": "Avusturya'dan <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Almanca sayfalar, Avusturya'ya özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -17978,7 +17978,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -18004,7 +18004,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -18021,7 +18021,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Almanca sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -18123,15 +18123,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -18194,7 +18194,7 @@
 "baslik": "İsviçre'den <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Almanca ve Fransızca sayfalar, İsviçre'ye özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -18204,7 +18204,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -18230,7 +18230,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -18247,7 +18247,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Almanca ve Fransızca sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -18349,15 +18349,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -18420,7 +18420,7 @@
 "baslik": "Bulgaristan'dan <mark>hedefli</mark> hasta kazanımı.",
 "metin": "Bulgarca ve Türkçe sayfalar, Bulgaristan'a özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -18430,7 +18430,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -18456,7 +18456,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -18473,7 +18473,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "Bulgarca ve Türkçe sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -18575,15 +18575,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -18646,7 +18646,7 @@
 "baslik": "ABD'den <mark>hedefli</mark> hasta kazanımı.",
 "metin": "İngilizce sayfalar, ABD'ye özel Google ve Instagram reklamı, WhatsApp karşılama. Her pazartesi ülke bazında form maliyeti.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "0538 861 02 88",
 "liste": [
 {
@@ -18656,7 +18656,7 @@
 "madde": "<b>500+</b> web sitesi"
 },
 {
-"madde": "<b>24 saat</b>te ilk rapor"
+"madde": "<b>24 saat</b>te ilk bulgular"
 }
 ],
 "gorsel": {
@@ -18682,7 +18682,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "acf_fc_layout": "ilceler",
@@ -18699,7 +18699,7 @@
 "baslik": "Dört kanal, <mark>ülke bazlı tek plan</mark>.",
 "metin": "Her ülke ayrı dil, ayrı fiyat beklentisi ve ayrı reklam maliyeti demektir.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "yazi_2": "01",
 "alt_baslik": "İngilizce sayfalar",
 "metin_2": "Hasta kendi dilinde okur.",
@@ -18801,15 +18801,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -19080,7 +19080,7 @@
 "baslik": "Her hafta <mark>veriye dayalı</mark> bir karar.",
 "metin": "Ülke ve tedavi ayrıldıktan sonra karar her hafta form maliyetine göre verildi.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "kalin_yazi": "1. hafta",
@@ -19198,15 +19198,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "sss",
@@ -19476,15 +19476,15 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 }
 ],
 "status": "private"
@@ -19506,10 +19506,10 @@
 "key": "tnasil-calisir",
 "path": "/nasil-calisir/",
 "title": "Nasıl çalışır",
-"excerpt": "Ücretsiz analizden aylık rapora beş adım; sonra her hafta aynı ritim. Hangi gün ne yapıldığını bilirsiniz.",
-"content": "<p>Moximu bir ajans kadrosu değil, bir çalışma düzenidir. İş, haftanın belli günlerine bağlıdır; siz hangi gün ne yapıldığını bilirsiniz, uzun sunumlara zaman ayırmazsınız.</p>\n<h2>Beş adım</h2>\n<ol>\n<li><strong>Ücretsiz klinik analizi.</strong> Klinik adı ve şehir yeter. 24 saat içinde tek sayfalık rapor gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır.</li>\n<li><strong>Telefon görüşmesi ve teklif.</strong> Raporu telefonda ya da WhatsApp'ta birlikte okuruz, yaklaşık 20 dakika. Uygunsa yazılı teklif aynı gün gelir.</li>\n<li><strong>Kurulum, ilk 30 gün.</strong> Hesap erişimleri alınır, hesaplar temizlenir, reklamlar üçüncü hafta açılır, Google İşletme Profili düzenlenir, tedavi sayfaları yazılır.</li>\n<li><strong>Her hafta aynı düzen.</strong> Pazartesi arama terimleri ve bütçe, çarşamba yazı ve gönderi, cuma Google İşletme Profili: yorum, fotoğraf, gönderi.</li>\n<li><strong>Aylık rapor.</strong> Her ayın ilk haftası tek sayfa: kaç talep geldi, bir talep kaça geldi, hangi kanal ve hizmet, geçen aya fark, bu ayın kararı.</li>\n</ol>\n<h2>İlk dört hafta</h2>\n<table><thead><tr><th>Hafta</th><th>Yapılan</th></tr></thead><tbody>\n<tr><td>1. hafta</td><td>Erişimler, hizmet listesi ve fiyat aralıkları, hesap temizliği, ölçüm kontrolü.</td></tr>\n<tr><td>2. hafta</td><td>Arama reklamı ve form reklamı yayında; Google İşletme Profili düzenlenir.</td></tr>\n<tr><td>3. hafta</td><td>Tedavi sayfaları, WhatsApp hazır cevapları, ilk boşa giden aramaların kapatılması.</td></tr>\n<tr><td>4. hafta</td><td>İlk rapor ve bütçe kararı: neyin devam edeceği, neyin kapanacağı.</td></tr>\n</tbody></table>\n<h2>Kim ne yapar</h2>\n<h3>Moximu</h3>\n<p>Site, reklam, yazı, Google İşletme Profili ve ölçüm. Haftalık bakım ve aylık rapor. Yorum cevapları ve içerik taslakları.</p>\n<h3>Klinik</h3>\n<p>Gelen talebi aynı gün arar. Haftalık içerik planına bakar. Ayda bir klinik fotoğrafı ve kısa video gönderir. Hekim onayı gereken metinlere bir hafta içinde döner.</p>\n<h3>Hiç yapılmayanlar</h3>\n<p>Hasta fotoğrafı, öncesi/sonrası, garanti cümlesi. Bütçeyi haber vermeden artırmak. Hesapları Moximu adına açmak.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Düzenli görüşme var mı?</summary><p>İş yazılı yürür: her pazartesi kısa özet, ayın ilk haftası rapor. Gerektiğinde telefonla konuşuruz; zamanınız hastaya kalır.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk form talepleri genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ayda birikir. Sonuç garantisi vermeyiz, her ay ölçüp yazarız.</p></details>\n<details><summary>İçeriği kim onaylar?</summary><p>Haftalık plan size yazılı gelir; itiraz etmediğiniz içerik yayınlanır. Hekim onayı gereken metinler onay gelene kadar bekler.</p></details>\n<details><summary>Hesaplar kimin adına açılır?</summary><p>Sizin adınıza. Google Ads, İşletme Profili, Meta ve alan adı kliniğin hesabında kalır; Moximu yönetici olarak eklenir.</p></details>",
+"excerpt": "Ücretsiz ön değerlendirmeden aylık rapora beş adım; sonra her hafta aynı ritim. Hangi gün ne yapıldığını bilirsiniz.",
+"content": "<p>Moximu bir ajans kadrosu değil, bir çalışma düzenidir. İş, haftanın belli günlerine bağlıdır; siz hangi gün ne yapıldığını bilirsiniz, uzun sunumlara zaman ayırmazsınız.</p>\n<h2>Beş adım</h2>\n<ol>\n<li><strong>Ücretsiz ön değerlendirme.</strong> Klinik adı ve şehir yeter. 24 saat içinde 2-3 öncelikli bulgu WhatsApp'tan gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır.</li>\n<li><strong>Telefon görüşmesi ve teklif.</strong> Raporu telefonda ya da WhatsApp'ta birlikte okuruz, yaklaşık 20 dakika. Uygunsa yazılı teklif aynı gün gelir.</li>\n<li><strong>Kurulum, ilk 30 gün.</strong> Hesap erişimleri alınır, hesaplar temizlenir, reklamlar üçüncü hafta açılır, Google İşletme Profili düzenlenir, tedavi sayfaları yazılır.</li>\n<li><strong>Her hafta aynı düzen.</strong> Pazartesi arama terimleri ve bütçe, çarşamba yazı ve gönderi, cuma Google İşletme Profili: yorum, fotoğraf, gönderi.</li>\n<li><strong>Aylık rapor.</strong> Her ayın ilk haftası tek sayfa: kaç talep geldi, bir talep kaça geldi, hangi kanal ve hizmet, geçen aya fark, bu ayın kararı.</li>\n</ol>\n<h2>İlk dört hafta</h2>\n<table><thead><tr><th>Hafta</th><th>Yapılan</th></tr></thead><tbody>\n<tr><td>1. hafta</td><td>Erişimler, hizmet listesi ve fiyat aralıkları, hesap temizliği, ölçüm kontrolü.</td></tr>\n<tr><td>2. hafta</td><td>Arama reklamı ve form reklamı yayında; Google İşletme Profili düzenlenir.</td></tr>\n<tr><td>3. hafta</td><td>Tedavi sayfaları, WhatsApp hazır cevapları, ilk boşa giden aramaların kapatılması.</td></tr>\n<tr><td>4. hafta</td><td>İlk rapor ve bütçe kararı: neyin devam edeceği, neyin kapanacağı.</td></tr>\n</tbody></table>\n<h2>Kim ne yapar</h2>\n<h3>Moximu</h3>\n<p>Site, reklam, yazı, Google İşletme Profili ve ölçüm. Haftalık bakım ve aylık rapor. Yorum cevapları ve içerik taslakları.</p>\n<h3>Klinik</h3>\n<p>Gelen talebi aynı gün arar. Haftalık içerik planına bakar. Ayda bir klinik fotoğrafı ve kısa video gönderir. Hekim onayı gereken metinlere bir hafta içinde döner.</p>\n<h3>Hiç yapılmayanlar</h3>\n<p>Hasta fotoğrafı, öncesi/sonrası, garanti cümlesi. Bütçeyi haber vermeden artırmak. Hesapları Moximu adına açmak.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Düzenli görüşme var mı?</summary><p>İş yazılı yürür: her pazartesi kısa özet, ayın ilk haftası rapor. Gerektiğinde telefonla konuşuruz; zamanınız hastaya kalır.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk form talepleri genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ayda birikir. Sonuç garantisi vermeyiz, her ay ölçüp yazarız.</p></details>\n<details><summary>İçeriği kim onaylar?</summary><p>Haftalık plan size yazılı gelir; itiraz etmediğiniz içerik yayınlanır. Hekim onayı gereken metinler onay gelene kadar bekler.</p></details>\n<details><summary>Hesaplar kimin adına açılır?</summary><p>Sizin adınıza. Google Ads, İşletme Profili, Meta ve alan adı kliniğin hesabında kalır; Moximu yönetici olarak eklenir.</p></details>",
 "seo_title": "Nasıl çalışır: analizden aylık rapora · Moximu",
-"seo_desc": "Moximu ile çalışma düzeni: ücretsiz klinik analizi, telefon görüşmesi ve teklif, ilk 30 günde kurulum, her hafta aynı ritim ve ayın ilk haftası tek sayfa rapor.",
+"seo_desc": "Moximu ile çalışma düzeni: ücretsiz ön değerlendirme, telefon görüşmesi ve teklif, ilk 30 günde kurulum, her hafta aynı ritim ve ayın ilk haftası tek sayfa rapor.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Çalışma düzeni",
@@ -19645,7 +19645,7 @@
 "baslik": "Birlikte çalıştığımız <mark>klinikler ve hekimler</mark>.",
 "metin": "Diş kliniklerinden sağlık turizmine, 12 yılda 50'den fazla klinik ve hekimle çalıştık. Sonuçlar her kliniğin kendi Google ve Meta hesaplarından ölçülür; dönem ve kaynak her kartta yazılıdır.",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi",
+"baglanti_yaz": "Ücretsiz ön değerlendirme",
 "liste": [
 {
 "yazi": "<b>50+</b><span>klinik ve hekim</span>"
@@ -20476,21 +20476,21 @@
 "seed": "9d6ee90592.webp",
 "alt": "cs"
 },
-"alt_baslik": "Ücretsiz dijital<br/>durum analizi.",
-"yazi": "24 saat içinde rapor",
+"alt_baslik": "Ücretsiz<br/>ön değerlendirme.",
+"yazi": "24 saatte öncelikli bulgular",
 "etiket": "Klinik adı",
 "etiket_2": "Klinik adı",
 "etiket_3": "Şehir",
 "etiket_4": "E-posta",
 "yazi_2": "Telefon",
 "etiket_5": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"yazi_3": "Analizi isteyin"
+"yazi_3": "Değerlendirme isteyin"
 },
 {
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 }
 ]
 },
@@ -20513,7 +20513,7 @@
 "path": "/sss/",
 "title": "Sık sorulan sorular",
 "excerpt": "Fiyat, süre, hesaplar, sözleşme, reklam ve rapor. Cevabını bulamadığınız soruyu WhatsApp'tan sorun; aynı gün cevaplanır.",
-"content": "<h2>Başlangıç</h2>\n<details><summary>Ücretsiz klinik analizi nedir?</summary><p>Kliniğinizin adı ve şehri yeter. 24 saat içinde tek sayfalık rapor gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır. Ücretsizdir, bağlayıcı değildir.</p></details>\n<details><summary>İlk görüşme nasıl olur?</summary><p>Telefon ya da WhatsApp görüşmesi, yaklaşık 20 dakika. Analiz raporunu birlikte okuruz; uygunsa yazılı teklif aynı gün gelir.</p></details>\n<details><summary>Ne kadar sürede başlarız?</summary><p>Teklif onayından sonraki hafta hesap erişimleri alınır; reklamlar üçüncü hafta açılır.</p></details>\n<details><summary>Sağlık dışı işletmelerle çalışıyor musunuz?</summary><p>Yeni işlerde hayır; Moximu yalnız klinik ve muayenehanelerle çalışır.</p></details>\n<details><summary>Hangi şehirlerde çalışıyorsunuz?</summary><p>Türkiye'nin her şehrinde. Moximu Manisa'dadır; İzmir ve Manisa'ya yerinde de geliriz.</p></details>\n<h2>Paketler ve fiyat</h2>\n<details><summary>Paketler nelerdir?</summary><p>Klinik SEO aylık {fiyat:seo}; SEO ve Google İşletme Profili birlikte aylık {fiyat:paket}; dört kanallı yerel klinik paketi aylık {fiyat:yerel}. Klinik web sitesi {fiyat:web} tek sefer, 6 aylık planda hediye. Sağlık turizmi görüşmeye bağlıdır. Fiyatlar KDV hariçtir.</p></details>\n<details><summary>Reklam bütçesi dahil mi?</summary><p>Hayır. Reklam bütçesi doğrudan Google ve Meta'ya, klinik tarafından ödenir.</p></details>\n<details><summary>Hizmetleri tek tek alabilir miyim?</summary><p>Evet. SEO, Google İşletme Profili, Google Ads ve Meta reklamı tek tek de alınabilir; fiyatlar <a href=\"/fiyatlar/tek-hizmet/\">tek hizmet</a> sayfasında. İki ve daha fazla hizmette paket çoğu zaman daha uygundur.</p></details>\n<details><summary>Fiyat artar mı?</summary><p>Her ocak TÜFE oranında güncellenir; sözleşmede yazılıdır.</p></details>\n<details><summary>Çok şubemiz var.</summary><p>Her şube ayrı İşletme Profili ve ayrı reklam bölgesi alır; fiyat şube sayısına göre görüşmeye bağlıdır. Ayrıntı <a href=\"/fiyatlar/cok-subeli/\">çok şubeli klinikler</a> sayfasında.</p></details>\n<h2>Sözleşme ve hesaplar</h2>\n<details><summary>Nasıl faturalandırılır?</summary><p>Aylık: her ayın 1'inde fatura, 15'ine kadar ödeme. 6 aylık plan seçilirse dönem başında tek fatura kesilir ve klinik web sitesi hediye edilir.</p></details>\n<details><summary>Hesaplar kimin adına?</summary><p>Sizin. Google Ads, İşletme Profili, Meta, alan adı ve site kliniğin adına açılır; Moximu yönetici olarak eklenir.</p></details>\n<details><summary>Ayrılırsam ne olur?</summary><p>Hesaplar, site ve veriler sizde kalır; hiçbir şey kapanmaz. Kaldırılan tek şey Moximu'nun yönetici erişimidir.</p></details>\n<details><summary>Mevcut ajansımdan geçiş nasıl olur?</summary><p>Hesap erişimleri sizden alınır; ilk hafta hesap temizliği, ikinci hafta yeni yapı. Geçmiş veri kaybolmaz.</p></details>\n<details><summary>Hasta verilerini görüyor musunuz?</summary><p>Hayır. Hasta verisi ve mesaj içeriği Moximu'ya gelmez; raporda yalnız sayılar yer alır.</p></details>\n<h2>Reklam</h2>\n<details><summary>Bütçeyi siz mi artırıyorsunuz?</summary><p>Hayır. Toplam bütçe onayınız olmadan artmaz; biz bütçeyi hizmet ve ilçe arasında kaydırırız.</p></details>\n<details><summary>Instagram mı, Google mı?</summary><p>İkisi farklı hastayı getirir: Google arayan hastayı, Instagram görüp düşünen hastayı. Bütçe her hafta talep maliyetine göre kayar.</p></details>\n<details><summary>Mevzuata nasıl uyuyorsunuz?</summary><p>Öncesi/sonrası, hasta görseli, \"en iyi\", garanti ve indirim dili kullanılmaz; tedavi metinleri hekim onayından geçer. Ayrıntı <a href=\"/saglik-reklam-mevzuati/\">sağlık reklam mevzuatı</a> sayfasında.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk talepler genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ay ister. Sonuç garantisi verilmez.</p></details>\n<h2>Site ve Google İşletme Profili</h2>\n<details><summary>Mevcut sitemi yenileyebilir misiniz?</summary><p>Evet. Mevcut tasarımdan başlar, adım adım iyileştiririz. Sıfırdan site yalnız siz isterseniz kurulur.</p></details>\n<details><summary>Hangi altyapı?</summary><p>WordPress. Site, alan adı ve sunucu sizin adınıza; şifreler sizde.</p></details>\n<details><summary>Google İşletme Profilim askıya alındı.</summary><p>Çoğu zaman ad ya da adres kuralı yüzündendir; tabela fotoğrafı ve belgeyle itiraz edilir, süreci biz yürütürüz.</p></details>\n<details><summary>Yorum toplamak için ne yapıyorsunuz?</summary><p>Tedavi sonrası WhatsApp'tan tek dokunuşla yorum bağlantısı gönderilir. Yorum satın alınmaz.</p></details>\n<h2>Rapor ve iletişim</h2>\n<details><summary>Rapor ne zaman gelir?</summary><p>Her ayın ilk haftası tek sayfa: talep, bir talebin maliyeti, kanal, hizmet, geçen aya fark ve bu ayın kararı.</p></details>\n<details><summary>Size nasıl ulaşırım?</summary><p>WhatsApp’tan her saat yazabilirsiniz; telefon hafta içi 09:00–18:00: [mx_telefon]. Site kapandı ya da hesap askıya alındı gibi acil durumlara aynı gün dönülür.</p></details>\n<h2>Daha fazlası</h2><ul><li><a href=\"/sozluk/\">Klinik pazarlama sözlüğü</a> Terimlerin kısa açıklamaları.</li><li><a href=\"/ajans-secerken/\">Ajans seçerken sorulacak 12 soru</a></li><li><a href=\"/degerlendirme/\">Klinik dijital değerlendirme</a> 12 soruluk öz değerlendirme.</li><li><a href=\"/youtube/\">YouTube videoları</a></li><li><a href=\"/bulten/\">Bülten</a> Ayda bir e-posta.</li></ul>",
+"content": "<h2>Başlangıç</h2>\n<details><summary>Ücretsiz ön değerlendirme nedir?</summary><p>Kliniğinizin adı ve şehri yeter. 24 saat içinde 2-3 öncelikli bulgu WhatsApp'tan gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır. Ücretsizdir, bağlayıcı değildir.</p></details>\n<details><summary>İlk görüşme nasıl olur?</summary><p>Telefon ya da WhatsApp görüşmesi, yaklaşık 20 dakika. Bulguları birlikte konuşuruz; uygunsa yazılı teklif aynı gün gelir.</p></details>\n<details><summary>Ne kadar sürede başlarız?</summary><p>Teklif onayından sonraki hafta hesap erişimleri alınır; reklamlar üçüncü hafta açılır.</p></details>\n<details><summary>Sağlık dışı işletmelerle çalışıyor musunuz?</summary><p>Yeni işlerde hayır; Moximu yalnız klinik ve muayenehanelerle çalışır.</p></details>\n<details><summary>Hangi şehirlerde çalışıyorsunuz?</summary><p>Türkiye'nin her şehrinde. Moximu Manisa'dadır; İzmir ve Manisa'ya yerinde de geliriz.</p></details>\n<h2>Paketler ve fiyat</h2>\n<details><summary>Paketler nelerdir?</summary><p>Klinik SEO aylık {fiyat:seo}; SEO ve Google İşletme Profili birlikte aylık {fiyat:paket}; dört kanallı yerel klinik paketi aylık {fiyat:yerel}. Klinik web sitesi {fiyat:web} tek sefer, 6 aylık planda hediye. Sağlık turizmi görüşmeye bağlıdır. Fiyatlar KDV hariçtir.</p></details>\n<details><summary>Reklam bütçesi dahil mi?</summary><p>Hayır. Reklam bütçesi doğrudan Google ve Meta'ya, klinik tarafından ödenir.</p></details>\n<details><summary>Hizmetleri tek tek alabilir miyim?</summary><p>Evet. SEO, Google İşletme Profili, Google Ads ve Meta reklamı tek tek de alınabilir; fiyatlar <a href=\"/fiyatlar/tek-hizmet/\">tek hizmet</a> sayfasında. İki ve daha fazla hizmette paket çoğu zaman daha uygundur.</p></details>\n<details><summary>Fiyat artar mı?</summary><p>Her ocak TÜFE oranında güncellenir; sözleşmede yazılıdır.</p></details>\n<details><summary>Çok şubemiz var.</summary><p>Her şube ayrı İşletme Profili ve ayrı reklam bölgesi alır; fiyat şube sayısına göre görüşmeye bağlıdır. Ayrıntı <a href=\"/fiyatlar/cok-subeli/\">çok şubeli klinikler</a> sayfasında.</p></details>\n<h2>Sözleşme ve hesaplar</h2>\n<details><summary>Nasıl faturalandırılır?</summary><p>Aylık: her ayın 1'inde fatura, 15'ine kadar ödeme. 6 aylık plan seçilirse dönem başında tek fatura kesilir ve klinik web sitesi hediye edilir.</p></details>\n<details><summary>Hesaplar kimin adına?</summary><p>Sizin. Google Ads, İşletme Profili, Meta, alan adı ve site kliniğin adına açılır; Moximu yönetici olarak eklenir.</p></details>\n<details><summary>Ayrılırsam ne olur?</summary><p>Hesaplar, site ve veriler sizde kalır; hiçbir şey kapanmaz. Kaldırılan tek şey Moximu'nun yönetici erişimidir.</p></details>\n<details><summary>Mevcut ajansımdan geçiş nasıl olur?</summary><p>Hesap erişimleri sizden alınır; ilk hafta hesap temizliği, ikinci hafta yeni yapı. Geçmiş veri kaybolmaz.</p></details>\n<details><summary>Hasta verilerini görüyor musunuz?</summary><p>Hayır. Hasta verisi ve mesaj içeriği Moximu'ya gelmez; raporda yalnız sayılar yer alır.</p></details>\n<h2>Reklam</h2>\n<details><summary>Bütçeyi siz mi artırıyorsunuz?</summary><p>Hayır. Toplam bütçe onayınız olmadan artmaz; biz bütçeyi hizmet ve ilçe arasında kaydırırız.</p></details>\n<details><summary>Instagram mı, Google mı?</summary><p>İkisi farklı hastayı getirir: Google arayan hastayı, Instagram görüp düşünen hastayı. Bütçe her hafta talep maliyetine göre kayar.</p></details>\n<details><summary>Mevzuata nasıl uyuyorsunuz?</summary><p>Öncesi/sonrası, hasta görseli, \"en iyi\", garanti ve indirim dili kullanılmaz; tedavi metinleri hekim onayından geçer. Ayrıntı <a href=\"/saglik-reklam-mevzuati/\">sağlık reklam mevzuatı</a> sayfasında.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk talepler genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ay ister. Sonuç garantisi verilmez.</p></details>\n<h2>Site ve Google İşletme Profili</h2>\n<details><summary>Mevcut sitemi yenileyebilir misiniz?</summary><p>Evet. Mevcut tasarımdan başlar, adım adım iyileştiririz. Sıfırdan site yalnız siz isterseniz kurulur.</p></details>\n<details><summary>Hangi altyapı?</summary><p>WordPress. Site, alan adı ve sunucu sizin adınıza; şifreler sizde.</p></details>\n<details><summary>Google İşletme Profilim askıya alındı.</summary><p>Çoğu zaman ad ya da adres kuralı yüzündendir; tabela fotoğrafı ve belgeyle itiraz edilir, süreci biz yürütürüz.</p></details>\n<details><summary>Yorum toplamak için ne yapıyorsunuz?</summary><p>Tedavi sonrası WhatsApp'tan tek dokunuşla yorum bağlantısı gönderilir. Yorum satın alınmaz.</p></details>\n<h2>Rapor ve iletişim</h2>\n<details><summary>Rapor ne zaman gelir?</summary><p>Her ayın ilk haftası tek sayfa: talep, bir talebin maliyeti, kanal, hizmet, geçen aya fark ve bu ayın kararı.</p></details>\n<details><summary>Size nasıl ulaşırım?</summary><p>WhatsApp’tan her saat yazabilirsiniz; telefon hafta içi 09:00–18:00: [mx_telefon]. Site kapandı ya da hesap askıya alındı gibi acil durumlara aynı gün dönülür.</p></details>\n<h2>Daha fazlası</h2><ul><li><a href=\"/sozluk/\">Klinik pazarlama sözlüğü</a> Terimlerin kısa açıklamaları.</li><li><a href=\"/ajans-secerken/\">Ajans seçerken sorulacak 12 soru</a></li><li><a href=\"/degerlendirme/\">Klinik dijital değerlendirme</a> 12 soruluk öz değerlendirme.</li><li><a href=\"/youtube/\">YouTube videoları</a></li><li><a href=\"/bulten/\">Bülten</a> Ayda bir e-posta.</li></ul>",
 "seo_title": "Sık sorulan sorular · Moximu",
 "seo_desc": "Moximu hakkında sık sorulan sorular: paketler ve fiyat, reklam bütçesi, sözleşme süresi, hesapların kimin adına olduğu, rapor ve sağlık reklamı kuralları.",
 "order": 0,
@@ -20552,7 +20552,7 @@
 "path": "/degerlendirme/",
 "title": "Klinik dijital değerlendirme",
 "excerpt": "Kliniğinizin dijital durumunu 12 soruda kendiniz puanlayın. Düşük çıkan maddeler, ilk 30 günde yapılacak işlerin listesidir.",
-"content": "[mx_arac tur=\"skor\"]\n<h2>Puan nasıl okunur</h2>\n<ul>\n<li><strong>11–12:</strong> Temel düzen kurulu. Kazanç, haftalık bakım ve bütçe dağılımında.</li>\n<li><strong>7–10:</strong> Eksikler var; çoğu bir ay içinde kapanır.</li>\n<li><strong>0–6:</strong> Reklam açmadan önce site, İşletme Profili ve ölçüm düzeltilmeli; yoksa bütçe boşa gider.</li>\n</ul>\n<p>Sonucunuzu bizimle birlikte okumak isterseniz ücretsiz analiz formunu doldurun; 24 saat içinde yazılı rapor gelir.</p>",
+"content": "[mx_arac tur=\"skor\"]\n<h2>Puan nasıl okunur</h2>\n<ul>\n<li><strong>11–12:</strong> Temel düzen kurulu. Kazanç, haftalık bakım ve bütçe dağılımında.</li>\n<li><strong>7–10:</strong> Eksikler var; çoğu bir ay içinde kapanır.</li>\n<li><strong>0–6:</strong> Reklam açmadan önce site, İşletme Profili ve ölçüm düzeltilmeli; yoksa bütçe boşa gider.</li>\n</ul>\n<p>Sonucunuzu bizimle birlikte okumak isterseniz ücretsiz ön değerlendirme formunu doldurun; 24 saat içinde öncelikli bulgular gelir.</p>",
 "seo_title": "Klinik dijital değerlendirme: 12 soruda puanınız",
 "seo_desc": "Kliniğinizin web sitesi, Google İşletme Profili, reklam ve ölçüm durumunu 12 soruda puanlayın. Ücretsiz, kayıt gerekmez.",
 "order": 0,
@@ -20594,7 +20594,7 @@
 "excerpt": "Telefonla hafta içi 09:00–18:00 arasında ulaşabilirsiniz; WhatsApp'tan dilediğiniz saatte yazabilirsiniz. Yazdığınız her mesaja aynı gün dönüyoruz.",
 "content": "<table><tbody>\n<tr><th>Telefon</th><td>[mx_telefon]</td></tr>\n<tr><th>WhatsApp</th><td>[mx_whatsapp]</td></tr>\n<tr><th>E-posta</th><td>[mx_eposta]</td></tr>\n<tr><th>Adres</th><td>1. Anafartalar, Gazi Osman Paşa Cd. No:44, 45010 Şehzadeler/Manisa</td></tr>\n<tr><th>Çalışma saatleri</th><td>Telefon hafta içi 09:00–18:00; WhatsApp'tan dilediğiniz saatte yazabilirsiniz</td></tr>\n</tbody></table>\n<h2>Ofisimiz</h2>\n<p>Manisa Şehzadeler'deyiz. İzmir ve Manisa'daki kliniklere yerinde de geliyoruz; diğer şehirlerde iş uzaktan yürür.</p>\n[mx_harita]\n<h2>En hızlı yol</h2>\n<p>Kliniğinizin adını ve şehrini aşağıdaki forma yazın. 24 saat içinde tek sayfalık analiz gelir; uygunsa telefonda konuşuruz.</p>\n<h2>Diğer yollar</h2><ul><li><a href=\"/referans-programi/\">Referans programı</a> Tanıdığınız bir kliniği önerin.</li><li><a href=\"/is-ortakligi/\">İş ortaklığı</a> Ajanslar ve danışmanlar için.</li><li><a href=\"/erisilebilirlik/\">Erişilebilirlik</a></li></ul>",
 "seo_title": "İletişim · Moximu, Manisa",
-"seo_desc": "Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz klinik analizi için klinik adı yeter.",
+"seo_desc": "Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz ön değerlendirme için klinik adı yeter.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Moximu",
@@ -20604,11 +20604,11 @@
 {
 "key": "tucretsiz-klinik-analizi",
 "path": "/ucretsiz-klinik-analizi/",
-"title": "Ücretsiz klinik analizi",
-"excerpt": "Klinik adı ve şehir yeter. 24 saat içinde tek sayfalık rapor: sitede, Google İşletme Profilinde ve reklamda ne eksik, ilk 30 günde ne yapılır.",
+"title": "Ücretsiz ön değerlendirme",
+"excerpt": "Klinik adı ve şehir yeter. 24 saat içinde 2-3 öncelikli bulgu: sitede, Google İşletme Profilinde ve reklamda ne eksik, ilk 30 günde ne yapılır.",
 "content": "<h2>Raporda neler var</h2>\n<ul>\n<li><strong>Site:</strong> telefonda açılış hızı, tedavi sayfaları, form ve WhatsApp düğmesi.</li>\n<li><strong>Google İşletme Profili:</strong> kategori, eksik alanlar, yorum cevapları, askı riski, ilçe sıralaması.</li>\n<li><strong>Reklam:</strong> hesabınız varsa boşa giden aramalar ve ölçüm eksikleri; yoksa şehrinize ve tedavinize göre başlangıç bütçesi.</li>\n<li><strong>İlk 30 gün:</strong> sırasıyla yapılacak işler.</li>\n</ul>\n<h2>Sonra ne olur</h2>\n<p>Raporu e-postayla ya da WhatsApp'tan göndeririz. İsterseniz telefonda birlikte okuruz; uygunsa yazılı teklif aynı gün gelir. Analiz ücretsizdir ve bağlayıcı değildir.</p>",
-"seo_title": "Ücretsiz klinik analizi: 24 saatte tek sayfa rapor",
-"seo_desc": "Kliniğinizin web sitesi, Google İşletme Profili ve reklam hesabı için ücretsiz analiz. Klinik adı ve şehir yeter; 24 saat içinde tek sayfalık yazılı rapor.",
+"seo_title": "Ücretsiz klinik ön değerlendirmesi ve dijital denetim · Moximu",
+"seo_desc": "Kliniğiniz için ücretsiz ön değerlendirme: 24 saatte 2-3 öncelikli bulgu. Yazılı rapor ve sunum isterseniz klinik dijital denetimi, 5.000 ₺ + KDV.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "24 saatte rapor",
@@ -20617,36 +20617,87 @@
 "rows": [
 {
 "acf_fc_layout": "yol",
-"yazi": "<a href=\"/\">Ana sayfa</a> › <span>Ücretsiz klinik analizi</span>"
+"yazi": "<a href=\"/\">Ana sayfa</a> › <span>Ücretsiz ön değerlendirme</span>"
 },
 {
 "acf_fc_layout": "analiz_giris",
 "yazi": "Ücretsiz · 24 saat içinde",
-"baslik": "Kliniğinizin dijital <mark>durum analizi</mark>.",
-"metin": "Web siteniz, Google İşletme Profiliniz ve reklamlarınız tek raporda incelenir: hasta hangi adımda kayboluyor, ilk 30 günde neler yapılmalı.",
+"baslik": "Kliniğiniz için <mark>ücretsiz ön değerlendirme</mark>.",
+"metin": "Web sitenize, Google İşletme Profilinize ve arama görünürlüğünüze bakarız; hastanın nerede kaybolduğunu gösteren 2-3 öncelikli bulguyu iletiriz.",
 "liste": [
 {
 "madde": "Klinik adı ve şehir yeterli; şifre istemiyoruz."
 },
 {
-"madde": "Rapor 24 saat içinde e-posta ya da WhatsApp ile gelir."
+"madde": "Bulgular 24 saat içinde WhatsApp ya da e-posta ile gelir."
 },
 {
-"madde": "Ücretsizdir ve bağlayıcı değildir; teklif yalnız isterseniz hazırlanır."
+"madde": "Ücretsizdir ve bağlayıcı değildir."
 }
 ],
-"yazi_2": "Raporu, kliniğinizle görüşecek kişi hazırlar; arada bir satış temsilcisi yoktur.",
-"alt_baslik": "Analiz talebi",
-"yazi_3": "Bilgilerinizi bırakın, raporunuzu hazırlayalım.",
+"yazi_2": "Değerlendirmeyi, kliniğinizle görüşecek kişi yapar; arada satış temsilcisi yoktur.",
+"alt_baslik": "Ön değerlendirme talebi",
+"yazi_3": "Bilgilerinizi bırakın, bulguları iletelim.",
 "etiket": "<a href=\"/kvkk-aydinlatma-metni/\">KVKK aydınlatma metni</a>'ni okudum, onaylıyorum.",
-"buton_yazisi": "Ücretsiz analizi isteyin",
+"buton_yazisi": "Ön değerlendirmeyi isteyin",
 "yazi_4": "Hemen konuşmak isterseniz:"
 },
 {
+"acf_fc_layout": "analiz_surec",
+"yazi": "Süreç",
+"baslik": "Formdan bulgulara <mark>üç adım</mark>.",
+"liste": [
+{
+"yazi": "Bugün",
+"baslik": "Formu gönderin",
+"metin": "Klinik adı, şehir ve telefon yeterli. Talebiniz doğrudan bize ulaşır."
+},
+{
+"yazi": "24 saat içinde",
+"baslik": "Bulgular gelir",
+"metin": "Hastayı en çok kaybettiren 2-3 konu, kısa ve anlaşılır biçimde WhatsApp ya da e-postayla gönderilir."
+},
+{
+"yazi": "İsterseniz",
+"baslik": "Birlikte konuşalım",
+"metin": "Bulguları telefonda konuşuruz. Tüm ayrıntıyı görmek isterseniz klinik dijital denetimi, başlamaya hazırsanız yazılı teklif aynı gün gelir."
+}
+]
+},
+{
+"acf_fc_layout": "denetim",
+"yazi": "Detaylı istiyorsanız",
+"baslik": "Klinik <mark>dijital denetimi</mark>.",
+"metin": "Sitenizin tüm sayfaları, Google İşletme Profiliniz, ölçüm kurulumu ve sağlık tanıtım mevzuatına uyum tek tek incelenir. Bulgular öncelik sırasıyla yazılı rapora dökülür ve online sunumla anlatılır.",
+"liste": [
+{
+"madde": "Tüm sayfalar, hız ve teknik SEO"
+},
+{
+"madde": "Google İşletme Profili ve harita sıralaması"
+},
+{
+"madde": "Ölçüm: form, arama ve WhatsApp"
+},
+{
+"madde": "Mevzuata uygunluk kontrolü"
+},
+{
+"madde": "Öncelikli ilk 30 gün planı"
+},
+{
+"madde": "30 dakikalık online sunum"
+}
+],
+"kucuk_not": "1 ay içinde çalışmaya başlarsanız denetim ücreti ilk aylık ücretten düşülür.",
+"buton_yazisi": "WhatsApp'tan isteyin",
+"buton_yazisi_2": "Merhaba, kliniğim için klinik dijital denetimi istiyorum."
+},
+{
 "acf_fc_layout": "analiz_rapor",
-"yazi": "Rapor örneği",
-"baslik": "Tek raporda <mark>dört başlık</mark>.",
-"metin": "Rapor teknik terimlerle değil, hasta gözünden yazılır. Her bulgunun yanında neden önemli olduğu ve öncelik sırası yer alır.",
+"yazi": "Denetim raporu · örnek",
+"baslik": "Denetim raporunda <mark>dört başlık</mark>.",
+"metin": "Detaylı denetimin raporu teknik terimlerle değil, hasta gözünden yazılır. Her bulgunun yanında neden önemli olduğu ve öncelik sırası yer alır.",
 "liste": [
 {
 "baslik": "Web sitesi",
@@ -20668,56 +20719,39 @@
 "kucuk_not": "Görseldeki klinik ve değerler örnektir."
 },
 {
-"acf_fc_layout": "analiz_surec",
-"yazi": "Süreç",
-"baslik": "Formdan rapora <mark>üç adım</mark>.",
-"liste": [
-{
-"yazi": "Bugün",
-"baslik": "Formu gönderin",
-"metin": "Klinik adı, şehir ve telefon yeterli. Talebiniz doğrudan bize ulaşır."
-},
-{
-"yazi": "24 saat içinde",
-"baslik": "Raporunuz gelir",
-"metin": "Tek sayfalık rapor e-posta ya da WhatsApp ile gönderilir."
-},
-{
-"yazi": "İsterseniz",
-"baslik": "Birlikte değerlendirelim",
-"metin": "Raporu telefonda birlikte okuruz. Uygun görürseniz yazılı teklif aynı gün gelir; görmezseniz rapor sizde kalır."
-}
-]
-},
-{
 "acf_fc_layout": "sss",
 "tasarim": "v1",
-"baslik": "Analiz hakkında sorular",
+"baslik": "Sık sorulan sorular",
 "liste": [
 {
 "buton_yazisi": "+",
-"baslik": "Analiz gerçekten ücretsiz mi?",
-"metin": "Evet. Rapor için ücret alınmaz ve sizi herhangi bir sözleşmeye bağlamaz."
+"baslik": "Ön değerlendirme gerçekten ücretsiz mi?",
+"metin": "Evet. Ücret alınmaz ve sizi bağlamaz. Yazılı rapor ve sunum isterseniz bu, ücretli klinik dijital denetimidir ({fiyat:denetim} + KDV; 1 ay içinde başlarsanız ilk aydan düşülür)."
+},
+{
+"buton_yazisi": "+",
+"baslik": "Ön değerlendirme ile denetimin farkı ne?",
+"metin": "Ön değerlendirme 2-3 öncelikli bulgudur ve ücretsizdir. Klinik dijital denetimi sitenin tamamını, İşletme Profilini, ölçümü ve mevzuat uyumunu kapsar; yazılı rapor ve 30 dakikalık sunumla teslim edilir."
 },
 {
 "buton_yazisi": "+",
 "baslik": "Hesap şifrelerimi vermem gerekir mi?",
-"metin": "Hayır. Analiz herkese açık verilerle yapılır: web siteniz, Google İşletme Profiliniz ve arama sonuçları. Reklam hesabınıza daha ayrıntılı bakılmasını isterseniz yalnız okuma yetkisi yeterlidir."
+"metin": "Hayır. Ön değerlendirme herkese açık verilerle yapılır: web siteniz, Google İşletme Profiliniz ve arama sonuçları. Reklam hesabınıza daha ayrıntılı bakılmasını isterseniz yalnız okuma yetkisi yeterlidir."
 },
 {
 "buton_yazisi": "+",
-"baslik": "Rapor ne zaman gelir?",
+"baslik": "Bulgular ne zaman gelir?",
 "metin": "Talebinizden sonraki 24 saat içinde, e-posta ya da WhatsApp ile."
 },
 {
 "buton_yazisi": "+",
-"baslik": "Hangi kliniklere analiz yapıyorsunuz?",
+"baslik": "Hangi klinikler için değerlendirme yapıyorsunuz?",
 "metin": "Diş, estetik, dermatoloji, kadın doğum, fizyoterapi, diyetisyen, psikolog ve sağlık turizmi kliniklerine; Türkiye'nin her şehrinden."
 },
 {
 "buton_yazisi": "+",
-"baslik": "Rapordaki önerileri kendim uygulayabilir miyim?",
-"metin": "Evet. Rapor, kimin yapacağından bağımsız olarak sırayla ne yapılması gerektiğini yazar."
+"baslik": "Bulguları kendim uygulayabilir miyim?",
+"metin": "Evet. Bulgular ve denetim raporu, kimin yapacağından bağımsız olarak sırayla ne yapılması gerektiğini yazar."
 }
 ],
 "metin": "Tüm sorular"
@@ -20733,7 +20767,7 @@
 "acf_fc_layout": "mobil_cta",
 "yazi": "Ara",
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 }
 ]
 },
@@ -20757,7 +20791,7 @@
 "path": "/referans-programi/",
 "title": "Referans programı",
 "excerpt": "Tanıdığınız bir kliniği bize yönlendirin; çalışmaya başlarsak size avantaj sağlıyoruz. Ayrıntılar görüşmeye bağlı.",
-"content": "<p>Yeni işlerimizin çoğu, birlikte çalıştığımız kliniklerin tavsiyesiyle geliyor. Bunun karşılığını vermek istiyoruz.</p>\n<h2>Nasıl işler</h2>\n<ol>\n<li>Tanıdığınız klinik ücretsiz analiz formunda sizin adınızı yazar ya da bize sizin aracılığınızla ulaşır.</li>\n<li>Klinik bizimle çalışmaya başlarsa size haber veririz.</li>\n<li>Avantaj, iki taraf için de görüşmede belirlenir ve yazılı olarak bildirilir.</li>\n</ol>\n<p>Referans avantajı hasta tavsiyesiyle ilgili değildir; yalnız klinikler arası yönlendirme içindir.</p>",
+"content": "<p>Yeni işlerimizin çoğu, birlikte çalıştığımız kliniklerin tavsiyesiyle geliyor. Bunun karşılığını vermek istiyoruz.</p>\n<h2>Nasıl işler</h2>\n<ol>\n<li>Tanıdığınız klinik ücretsiz ön değerlendirme formunda sizin adınızı yazar ya da bize sizin aracılığınızla ulaşır.</li>\n<li>Klinik bizimle çalışmaya başlarsa size haber veririz.</li>\n<li>Avantaj, iki taraf için de görüşmede belirlenir ve yazılı olarak bildirilir.</li>\n</ol>\n<p>Referans avantajı hasta tavsiyesiyle ilgili değildir; yalnız klinikler arası yönlendirme içindir.</p>",
 "seo_title": "Referans programı · Moximu",
 "seo_desc": "Moximu müşterileri için referans programı: tanıdığınız bir klinik bizimle çalışmaya başlarsa size avantaj sağlıyoruz. Ayrıntılar görüşmeye bağlı.",
 "order": 0,
@@ -20797,7 +20831,7 @@
 "path": "/kvkk-aydinlatma-metni/",
 "title": "KVKK aydınlatma metni",
 "excerpt": "Moximu sitesinde hangi kişisel verilerin, hangi amaçla ve ne kadar süre işlendiği; haklarınız ve başvuru yolu.",
-"content": "<p>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun 10. maddesi uyarınca, veri sorumlusu Yakup Udul – Moximu (“Moximu”), Manisa, Türkiye; e-posta [mx_eposta], telefon [mx_telefon] tarafından hazırlanmıştır. Son güncelleme: 31 Ekim 2026.</p>\n<h2>1. Hangi verileri işliyoruz</h2>\n<ul>\n<li>Kimlik ve iletişim: ad, soyad, telefon, e-posta, klinik adı ve şehir (ücretsiz analiz, iletişim ve bülten formları)</li>\n<li>İşlem güvenliği: IP adresi, tarayıcı bilgisi, ziyaret saati (sunucu kayıtları)</li>\n<li>Pazarlama: çerezler yoluyla site kullanım verisi (yalnız onayınızla; bkz. Çerez politikası)</li>\n<li>Müşteri ilişkisi: sözleşme, fatura ve yazışma bilgileri (müşterilerimiz için)</li>\n</ul>\n<p>Sağlık verisi dahil hiçbir özel nitelikli kişisel veri bu site üzerinden toplanmaz; formlara sağlık bilgisi yazmayınız.</p>\n<h2>2. İşleme amaçları ve hukuki sebep</h2>\n<table><thead><tr><th>Amaç</th><th>Hukuki sebep</th></tr></thead><tbody><tr><td>Talebinize cevap vermek, analiz raporu hazırlamak</td><td>Sözleşme öncesi görüşmeler (KVKK m.5/2-c)</td></tr><tr><td>Sözleşme kurmak, fatura kesmek</td><td>Sözleşmenin ifası ve hukuki yükümlülük (m.5/2-c, ç)</td></tr><tr><td>Bülten göndermek</td><td>Açık rıza (m.5/1)</td></tr><tr><td>Site güvenliği ve kayıt</td><td>Meşru menfaat (m.5/2-f)</td></tr><tr><td>Ziyaret ölçümü ve reklam ölçümü</td><td>Açık rıza (çerez onayı)</td></tr></tbody></table>\n<h2>3. Kimlere aktarılır</h2>\n<p>Verileriniz; e-posta ve form altyapısı sağlayıcısı, sunucu sağlayıcısı, muhasebe ve yasal zorunluluk hâlinde yetkili kurumlarla, amaçla sınırlı olarak paylaşılır. Çerez onayı verdiyseniz ölçüm ve reklam verisi Google ve Meta’ya aktarılır; bu sağlayıcıların sunucuları yurt dışında olabilir ve aktarım açık rızanıza dayanır. Verileriniz satılmaz.</p>\n<h2>4. Toplama yöntemi</h2>\n<p>Site formları, e-posta, WhatsApp ve telefon yoluyla; otomatik yollarla çerez ve sunucu kayıtlarıyla.</p>\n<h2>5. Saklama süresi</h2>\n<ul>\n<li>Analiz ve iletişim talepleri: 2 yıl</li>\n<li>Sözleşme ve fatura kayıtları: yasal süre (10 yıl)</li>\n<li>Bülten: abonelikten çıkana kadar</li>\n<li>Sunucu kayıtları: 1 yıl</li>\n</ul>\n<h2>6. Haklarınız (KVKK m.11)</h2>\n<p>Verinizin işlenip işlenmediğini öğrenme, bilgi talep etme, amacına uygun kullanılıp kullanılmadığını öğrenme, aktarıldığı kişileri bilme, düzeltme, silme veya yok edilmesini isteme, itiraz etme ve zarara uğramanız hâlinde tazminat talep etme haklarınız vardır. Başvuru için [mx_eposta] adresine yazabilirsiniz; başvurular en geç 30 gün içinde cevaplanır.</p>\n<h2>7. Değişiklik</h2>\n<p>Bu metin güncellenebilir; güncel sürüm bu sayfadadır.</p>",
+"content": "<p>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun 10. maddesi uyarınca, veri sorumlusu Yakup Udul – Moximu (“Moximu”), Manisa, Türkiye; e-posta [mx_eposta], telefon [mx_telefon] tarafından hazırlanmıştır. Son güncelleme: 31 Ekim 2026.</p>\n<h2>1. Hangi verileri işliyoruz</h2>\n<ul>\n<li>Kimlik ve iletişim: ad, soyad, telefon, e-posta, klinik adı ve şehir (ücretsiz ön değerlendirme, iletişim ve bülten formları)</li>\n<li>İşlem güvenliği: IP adresi, tarayıcı bilgisi, ziyaret saati (sunucu kayıtları)</li>\n<li>Pazarlama: çerezler yoluyla site kullanım verisi (yalnız onayınızla; bkz. Çerez politikası)</li>\n<li>Müşteri ilişkisi: sözleşme, fatura ve yazışma bilgileri (müşterilerimiz için)</li>\n</ul>\n<p>Sağlık verisi dahil hiçbir özel nitelikli kişisel veri bu site üzerinden toplanmaz; formlara sağlık bilgisi yazmayınız.</p>\n<h2>2. İşleme amaçları ve hukuki sebep</h2>\n<table><thead><tr><th>Amaç</th><th>Hukuki sebep</th></tr></thead><tbody><tr><td>Talebinize cevap vermek, ön değerlendirme ve denetim hazırlamak</td><td>Sözleşme öncesi görüşmeler (KVKK m.5/2-c)</td></tr><tr><td>Sözleşme kurmak, fatura kesmek</td><td>Sözleşmenin ifası ve hukuki yükümlülük (m.5/2-c, ç)</td></tr><tr><td>Bülten göndermek</td><td>Açık rıza (m.5/1)</td></tr><tr><td>Site güvenliği ve kayıt</td><td>Meşru menfaat (m.5/2-f)</td></tr><tr><td>Ziyaret ölçümü ve reklam ölçümü</td><td>Açık rıza (çerez onayı)</td></tr></tbody></table>\n<h2>3. Kimlere aktarılır</h2>\n<p>Verileriniz; e-posta ve form altyapısı sağlayıcısı, sunucu sağlayıcısı, muhasebe ve yasal zorunluluk hâlinde yetkili kurumlarla, amaçla sınırlı olarak paylaşılır. Çerez onayı verdiyseniz ölçüm ve reklam verisi Google ve Meta’ya aktarılır; bu sağlayıcıların sunucuları yurt dışında olabilir ve aktarım açık rızanıza dayanır. Verileriniz satılmaz.</p>\n<h2>4. Toplama yöntemi</h2>\n<p>Site formları, e-posta, WhatsApp ve telefon yoluyla; otomatik yollarla çerez ve sunucu kayıtlarıyla.</p>\n<h2>5. Saklama süresi</h2>\n<ul>\n<li>Analiz ve iletişim talepleri: 2 yıl</li>\n<li>Sözleşme ve fatura kayıtları: yasal süre (10 yıl)</li>\n<li>Bülten: abonelikten çıkana kadar</li>\n<li>Sunucu kayıtları: 1 yıl</li>\n</ul>\n<h2>6. Haklarınız (KVKK m.11)</h2>\n<p>Verinizin işlenip işlenmediğini öğrenme, bilgi talep etme, amacına uygun kullanılıp kullanılmadığını öğrenme, aktarıldığı kişileri bilme, düzeltme, silme veya yok edilmesini isteme, itiraz etme ve zarara uğramanız hâlinde tazminat talep etme haklarınız vardır. Başvuru için [mx_eposta] adresine yazabilirsiniz; başvurular en geç 30 gün içinde cevaplanır.</p>\n<h2>7. Değişiklik</h2>\n<p>Bu metin güncellenebilir; güncel sürüm bu sayfadadır.</p>",
 "seo_title": "KVKK aydınlatma metni · Moximu",
 "seo_desc": "Moximu sitesinde hangi kişisel verilerin, hangi amaçla ve ne kadar süre işlendiği; haklarınız ve başvuru yolu.",
 "order": 0,
@@ -20811,7 +20845,7 @@
 "path": "/gizlilik-politikasi/",
 "title": "Gizlilik politikası",
 "excerpt": "Site ve formlarda hangi bilgileri neden istediğimiz, nasıl koruduğumuz.",
-"content": "<p>Bu politika moximu.com sitesini ziyaret eden ve formları kullanan kişiler içindir. Veri sorumlusu: Yakup Udul – Moximu (“Moximu”), Manisa, Türkiye; e-posta [mx_eposta], telefon [mx_telefon]. Son güncelleme: 31 Ekim 2026.</p>\n<h2>1. Neyi, neden topluyoruz</h2>\n<p>Ücretsiz analiz, iletişim ve bülten formlarında yalnız talebinize cevap vermek için gereken bilgiyi isteriz: ad, telefon, e-posta, klinik adı ve şehir. Bu bilgiler yalnız bu amaçla kullanılır; üçüncü kişilere satılmaz, kiralanmaz.</p>\n<h2>2. Sağlık verisi</h2>\n<p>Site hasta değil klinik yöneticisi içindir. Formlara hasta ya da sağlık bilgisi yazmayınız; yazılırsa silinir. Müşterilerimizin hastalarına ait veri Moximu’ya aktarılmaz; raporlarımız yalnız sayı içerir.</p>\n<h2>3. Ölçüm ve reklam araçları</h2>\n<p>Çerez onayı verdiğinizde Google Analytics 4, Google Ads ve Meta Pixel sitede çalışır; ziyaretinizi anonim olarak ölçer ve reklam ölçümü için kullanılır. Onay vermezseniz yalnız zorunlu çerezler çalışır. Ayrıntı ve tercihler Çerez politikası sayfasında.</p>\n<h2>4. E-posta ve bülten</h2>\n<p>Bültene abone olduğunuzda adresiniz yalnız bülten için kullanılır; her bültende çıkış bağlantısı vardır. Çıkınca adres silinir.</p>\n<h2>5. Güvenlik</h2>\n<p>Site HTTPS ile sunulur; form verisi şifreli taşınır. Sunucu ve e-posta altyapısı erişim kontrollüdür. Veri ihlali hâlinde KVKK gereği 72 saat içinde Kurul’a ve etkilenen kişilere bildirim yapılır.</p>\n<h2>6. Bağlantılar</h2>\n<p>Siteden Google, Meta, YouTube ve WhatsApp gibi üçüncü taraf sitelere bağlantı verilir; bu sitelerin gizlilik uygulamaları kendilerine aittir.</p>\n<h2>7. Haklarınız ve iletişim</h2>\n<p>KVKK m.11 kapsamındaki haklarınız için [mx_eposta] adresine yazabilirsiniz. Ayrıntı KVKK aydınlatma metninde.</p>",
+"content": "<p>Bu politika moximu.com sitesini ziyaret eden ve formları kullanan kişiler içindir. Veri sorumlusu: Yakup Udul – Moximu (“Moximu”), Manisa, Türkiye; e-posta [mx_eposta], telefon [mx_telefon]. Son güncelleme: 31 Ekim 2026.</p>\n<h2>1. Neyi, neden topluyoruz</h2>\n<p>Ücretsiz ön değerlendirme, iletişim ve bülten formlarında yalnız talebinize cevap vermek için gereken bilgiyi isteriz: ad, telefon, e-posta, klinik adı ve şehir. Bu bilgiler yalnız bu amaçla kullanılır; üçüncü kişilere satılmaz, kiralanmaz.</p>\n<h2>2. Sağlık verisi</h2>\n<p>Site hasta değil klinik yöneticisi içindir. Formlara hasta ya da sağlık bilgisi yazmayınız; yazılırsa silinir. Müşterilerimizin hastalarına ait veri Moximu’ya aktarılmaz; raporlarımız yalnız sayı içerir.</p>\n<h2>3. Ölçüm ve reklam araçları</h2>\n<p>Çerez onayı verdiğinizde Google Analytics 4, Google Ads ve Meta Pixel sitede çalışır; ziyaretinizi anonim olarak ölçer ve reklam ölçümü için kullanılır. Onay vermezseniz yalnız zorunlu çerezler çalışır. Ayrıntı ve tercihler Çerez politikası sayfasında.</p>\n<h2>4. E-posta ve bülten</h2>\n<p>Bültene abone olduğunuzda adresiniz yalnız bülten için kullanılır; her bültende çıkış bağlantısı vardır. Çıkınca adres silinir.</p>\n<h2>5. Güvenlik</h2>\n<p>Site HTTPS ile sunulur; form verisi şifreli taşınır. Sunucu ve e-posta altyapısı erişim kontrollüdür. Veri ihlali hâlinde KVKK gereği 72 saat içinde Kurul’a ve etkilenen kişilere bildirim yapılır.</p>\n<h2>6. Bağlantılar</h2>\n<p>Siteden Google, Meta, YouTube ve WhatsApp gibi üçüncü taraf sitelere bağlantı verilir; bu sitelerin gizlilik uygulamaları kendilerine aittir.</p>\n<h2>7. Haklarınız ve iletişim</h2>\n<p>KVKK m.11 kapsamındaki haklarınız için [mx_eposta] adresine yazabilirsiniz. Ayrıntı KVKK aydınlatma metninde.</p>",
 "seo_title": "Gizlilik politikası · Moximu",
 "seo_desc": "Site ve formlarda hangi bilgileri neden istediğimiz, nasıl koruduğumuz.",
 "order": 0,
@@ -20894,7 +20928,7 @@
 "path": "/fiyatlar/cok-subeli/",
 "title": "Çok şubeli klinikler",
 "excerpt": "Her şubeye ayrı Google İşletme Profili ve reklam bölgesi, tek reklam hesabı ve şube bazlı rapor. Fiyat şube sayısına göre görüşmeye bağlıdır.",
-"content": "<p>Şube sayısı arttıkça iş katlanmaz ama düzen ister. 19 şubeli bir diş kliniğinin Google İşletme Profillerini ve reklamlarını yönetirken kurduğumuz yapıyı her çok şubeli kliniğe uygularız.</p>\n<h2>Nasıl kurulur</h2>\n<ul>\n<li><strong>Her şubeye ayrı Google İşletme Profili.</strong> Şubenin kendi adresi, saati, fotoğrafı ve yorumlarıyla. Haftalık gönderi şube adıyla girer.</li>\n<li><strong>Tek reklam hesabı, şube başına bölge.</strong> Bütçe şubeler arasında talebe göre kayar; toplam bütçe onayınız olmadan artmaz.</li>\n<li><strong>Şube sayfaları.</strong> Sitede her şubenin ayrı sayfası: adres, yol tarifi, hekimler, o şubede verilen tedaviler.</li>\n<li><strong>Şube bazlı rapor.</strong> Aylık raporda her şubenin talebi ve bir talebin maliyeti ayrı satırda.</li>\n</ul>\n<h2>Fiyat</h2>\n<p>Çok şubeli kliniklerde fiyat şube sayısına ve hangi kanalların açılacağına göre görüşmeye bağlıdır. Google İşletme Profili bakımı şube başına indirimli hesaplanır. Ücretsiz analizde şube listenizi gönderin; teklif yazılı gelir.</p>",
+"content": "<p>Şube sayısı arttıkça iş katlanmaz ama düzen ister. 19 şubeli bir diş kliniğinin Google İşletme Profillerini ve reklamlarını yönetirken kurduğumuz yapıyı her çok şubeli kliniğe uygularız.</p>\n<h2>Nasıl kurulur</h2>\n<ul>\n<li><strong>Her şubeye ayrı Google İşletme Profili.</strong> Şubenin kendi adresi, saati, fotoğrafı ve yorumlarıyla. Haftalık gönderi şube adıyla girer.</li>\n<li><strong>Tek reklam hesabı, şube başına bölge.</strong> Bütçe şubeler arasında talebe göre kayar; toplam bütçe onayınız olmadan artmaz.</li>\n<li><strong>Şube sayfaları.</strong> Sitede her şubenin ayrı sayfası: adres, yol tarifi, hekimler, o şubede verilen tedaviler.</li>\n<li><strong>Şube bazlı rapor.</strong> Aylık raporda her şubenin talebi ve bir talebin maliyeti ayrı satırda.</li>\n</ul>\n<h2>Fiyat</h2>\n<p>Çok şubeli kliniklerde fiyat şube sayısına ve hangi kanalların açılacağına göre görüşmeye bağlıdır. Google İşletme Profili bakımı şube başına indirimli hesaplanır. Ücretsiz ön değerlendirmede şube listenizi gönderin; teklif yazılı gelir.</p>",
 "seo_title": "Çok şubeli klinikler için dijital pazarlama · Moximu",
 "seo_desc": "Zincir ve çok şubeli klinikler için şube başına Google İşletme Profili, ortak reklam hesabı ve şube bazlı aylık rapor. Fiyat şube sayısına göre görüşmeye bağlıdır.",
 "order": 4,
@@ -20936,7 +20970,7 @@
 "path": "/araclar/google-karti-kontrol/",
 "title": "Google İşletme Profili kontrol listesi",
 "excerpt": "Kliniğinizin Google İşletme Profilinde olması gereken 12 madde. İşaretleyin, puanınızı görün.",
-"content": "[mx_arac tur=\"İşletme Profili\"]\n<h2>Maddelerin anlamı</h2>\n<p>Haritadaki ilk üç İşletme Profili, \"yakınımdaki\" aramalarının çoğunu alır. Google bu sıralamada üç şeye bakar: aramaya uygunluk, mesafe ve belirginlik. Mesafeyi değiştiremezsiniz; diğer ikisi bu listedeki maddelerle düzelir.</p>\n<p>Ayrıntılı kurulum sırası rehberde: <a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a>. Profilinizi bizim incelememizi isterseniz ücretsiz analizde eksikleri yazılı veririz.</p>",
+"content": "[mx_arac tur=\"İşletme Profili\"]\n<h2>Maddelerin anlamı</h2>\n<p>Haritadaki ilk üç İşletme Profili, \"yakınımdaki\" aramalarının çoğunu alır. Google bu sıralamada üç şeye bakar: aramaya uygunluk, mesafe ve belirginlik. Mesafeyi değiştiremezsiniz; diğer ikisi bu listedeki maddelerle düzelir.</p>\n<p>Ayrıntılı kurulum sırası rehberde: <a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a>. Profilinizi bizim incelememizi isterseniz ücretsiz ön değerlendirmede eksikleri yazılı veririz.</p>",
 "seo_title": "Google İşletme Profili kontrol listesi: 12 madde",
 "seo_desc": "Klinikler için Google İşletme Profili kontrol listesi: ad, kategori, hizmet listesi, saat, fotoğraf, gönderi, yorum cevabı ve çift kayıt. Ücretsiz puan.",
 "order": 0,
@@ -20997,7 +21031,7 @@
 "type": "post",
 "title": "Yerel SEO: İşletme Profili mi, site mi?",
 "excerpt": "\"Yakınımdaki\" aramalarında haritadaki İşletme Profili, tedavi aramalarında site öne çıkar. Hangisine önce emek verilmeli?",
-"content": "<p class=\"lp-art-lead\">Klinik sahiplerinin en sık sorduğu sorulardan biri: \"Google İşletme Profilimi mi düzelteyim, siteme mi yatırım yapayım?\" Cevap, hastanın ne yazdığına bağlıdır. İkisi farklı aramalarda öne çıkar ve birbirini destekler.</p>\n<h2>Profilin kazandığı aramalar</h2>\n<p>\"Yakınımdaki diş kliniği\", \"dermatolog\", \"fizik tedavi merkezi\" gibi kısa ve yer belirten aramalarda Google önce harita paketini gösterir. Hasta üç profili karşılaştırır: puan, yorum sayısı, mesafe, açık mı kapalı mı. Bu aramalarda sitenin sırası çoğu zaman ikinci plandadır.</p>\n<p>İşletme Profili için yapılacaklar kısa bir listedir: doğru kategori, eksiksiz hizmet listesi, güncel saatler, düzenli fotoğraf, haftalık gönderi ve her yoruma cevap. Ayrıntılı sıra <a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a>nde.</p>\n<h2>Sitenin kazandığı aramalar</h2>\n<p>\"İmplant fiyatı izmir\", \"zirkonyum kaç seans\", \"lazer epilasyon kaç seans\" gibi uzun ve tedavi soran aramalarda Google, soruyu en iyi cevaplayan sayfayı öne çıkarır. Bu aramalar daha az yapılır ama karar aşamasındaki hastadan gelir.</p>\n<p>Bu aramalarda kazanmanın yolu her tedaviye ayrı sayfadır: ne yapılır, kaç seans sürer, fiyat aralığı nedir, hangi hekim yapar, sık sorulanlar. Tek sayfada tüm tedavileri listeleyen site bu aramalarda görünmez.</p>\n<h2>İkisi birbirini nasıl günceller</h2>\n<ul class=\"lp-art-list\">\n<li>Profilin \"web sitesi\" bağlantısı ana sayfaya değil, kliniğin en çok aranan tedavisinin sayfasına verilebilir.</li>\n<li>Sitedeki adres, telefon ve klinik adı İşletme Profiliyle birebir aynı olmalıdır; Google tutarsızlığı güvensizlik sayar.</li>\n<li>Profilde yazılan haftalık gönderi, sitedeki yeni sayfaya bağlanır; iki taraf da canlı görünür.</li>\n<li>Sitedeki yorum bölümü, profilin yorumlarını gösterebilir; hasta iki yerde de aynı puanı görür.</li>\n</ul>\n<h2>Önce hangisi</h2>\n<p>Bütçe ve zaman kısıtlıysa sıra şudur: önce İşletme Profili, çünkü ücretsizdir ve haftalar içinde etkisi görünür. Sonra en çok aranan iki üç tedavinin sayfası. Reklam ancak bu ikisi hazır olduğunda açılır; yoksa reklamın getirdiği hasta zayıf bir sayfaya iner.</p>\n<p>Kliniğinizin hangi aramalarda İşletme Profiliyle, hangilerinde siteyle kaybettiğini görmek isterseniz ücretsiz analizde ilçe ilçe yazarız.</p>",
+"content": "<p class=\"lp-art-lead\">Klinik sahiplerinin en sık sorduğu sorulardan biri: \"Google İşletme Profilimi mi düzelteyim, siteme mi yatırım yapayım?\" Cevap, hastanın ne yazdığına bağlıdır. İkisi farklı aramalarda öne çıkar ve birbirini destekler.</p>\n<h2>Profilin kazandığı aramalar</h2>\n<p>\"Yakınımdaki diş kliniği\", \"dermatolog\", \"fizik tedavi merkezi\" gibi kısa ve yer belirten aramalarda Google önce harita paketini gösterir. Hasta üç profili karşılaştırır: puan, yorum sayısı, mesafe, açık mı kapalı mı. Bu aramalarda sitenin sırası çoğu zaman ikinci plandadır.</p>\n<p>İşletme Profili için yapılacaklar kısa bir listedir: doğru kategori, eksiksiz hizmet listesi, güncel saatler, düzenli fotoğraf, haftalık gönderi ve her yoruma cevap. Ayrıntılı sıra <a href=\"/rehber/dis-klinigi-icin-google-karti-kurulum-rehberi/\">Google İşletme Profili kurulum rehberi</a>nde.</p>\n<h2>Sitenin kazandığı aramalar</h2>\n<p>\"İmplant fiyatı izmir\", \"zirkonyum kaç seans\", \"lazer epilasyon kaç seans\" gibi uzun ve tedavi soran aramalarda Google, soruyu en iyi cevaplayan sayfayı öne çıkarır. Bu aramalar daha az yapılır ama karar aşamasındaki hastadan gelir.</p>\n<p>Bu aramalarda kazanmanın yolu her tedaviye ayrı sayfadır: ne yapılır, kaç seans sürer, fiyat aralığı nedir, hangi hekim yapar, sık sorulanlar. Tek sayfada tüm tedavileri listeleyen site bu aramalarda görünmez.</p>\n<h2>İkisi birbirini nasıl günceller</h2>\n<ul class=\"lp-art-list\">\n<li>Profilin \"web sitesi\" bağlantısı ana sayfaya değil, kliniğin en çok aranan tedavisinin sayfasına verilebilir.</li>\n<li>Sitedeki adres, telefon ve klinik adı İşletme Profiliyle birebir aynı olmalıdır; Google tutarsızlığı güvensizlik sayar.</li>\n<li>Profilde yazılan haftalık gönderi, sitedeki yeni sayfaya bağlanır; iki taraf da canlı görünür.</li>\n<li>Sitedeki yorum bölümü, profilin yorumlarını gösterebilir; hasta iki yerde de aynı puanı görür.</li>\n</ul>\n<h2>Önce hangisi</h2>\n<p>Bütçe ve zaman kısıtlıysa sıra şudur: önce İşletme Profili, çünkü ücretsizdir ve haftalar içinde etkisi görünür. Sonra en çok aranan iki üç tedavinin sayfası. Reklam ancak bu ikisi hazır olduğunda açılır; yoksa reklamın getirdiği hasta zayıf bir sayfaya iner.</p>\n<p>Kliniğinizin hangi aramalarda İşletme Profiliyle, hangilerinde siteyle kaybettiğini görmek isterseniz ücretsiz ön değerlendirmede ilçe ilçe yazarız.</p>",
 "cats": [
 "seo"
 ],
@@ -21110,7 +21144,7 @@
 "type": "post",
 "title": "Klinik sitesinde temel SEO ayarları",
 "excerpt": "Site var ama Google’da görünmüyorsa sorun çoğu zaman içerik değil ayardır. On maddelik kontrol listesi.",
-"content": "<p class=\"lp-art-lead\">Klinik sitelerinde en sık gördüğümüz sorun, iyi yazılmış tedavi sayfalarının bir ayar yüzünden Google'a hiç ulaşmamasıdır. İçeriğe para harcamadan önce bu on maddeyi kontrol edin.</p>\n<h2>On maddelik kontrol listesi</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Search Console bağlı mı?</b> Kliniğin kendi Google hesabıyla. Hangi aramada göründüğünüzü ve hangi sayfanın dizinde olmadığını yalnız burası söyler.</li>\n<li><b>Arama motorları engelli mi?</b> WordPress'te \"arama motorlarını engelle\" kutusu yanlışlıkla işaretli kalabilir. Bu kutu işaretliyse site hiç görünmez.</li>\n<li><b>Site haritası gönderildi mi?</b> Tüm tedavi sayfaları site haritasında olmalı ve harita Search Console'a eklenmelidir.</li>\n<li><b>Her sayfanın başlığı farklı mı?</b> \"Anasayfa\" ya da yalnız klinik adı değil; \"Bornova implant tedavisi · Klinik adı\" gibi tedavi ve yer içeren başlık.</li>\n<li><b>Açıklamalar yazılı mı?</b> Arama sonucunda başlığın altında görünen iki satır. Boş bırakılırsa Google sayfadan rastgele bir cümle seçer.</li>\n<li><b>Tek adres mi?</b> Site http ve https, www'lu ve www'suz olarak dört ayrı adreste açılmamalı; hepsi tek adrese yönlenmeli.</li>\n<li><b>Telefonda hızlı mı?</b> Büyük görseller ve gereksiz eklentiler sayfayı yavaşlatır. Hedef, telefonda iki saniye civarında açılış.</li>\n<li><b>Yapılandırılmış veri var mı?</b> Klinik adı, adresi, telefonu, çalışma saatleri ve hekimler Google'ın okuyacağı biçimde sayfada bulunmalı.</li>\n<li><b>Görsellerin açıklaması var mı?</b> Her görselin ne gösterdiğini anlatan kısa bir açıklama (alt metin). Hem erişilebilirlik hem görsel arama için.</li>\n<li><b>Kırık bağlantı ve eski adres var mı?</b> Silinen ya da adresi değişen sayfalar yeni sayfaya yönlendirilmeli; 404 veren sayfa hem hastayı hem Google'ı kaybettirir.</li>\n</ol>\n<h2>Ayarlar neden önce gelir</h2>\n<p>Bu maddeler bir defa doğru yapılır ve sonra her içeriğin işe yaramasını sağlar. Ayarlar eksikken yazılan her yazı, açılmayan bir kapının önüne bırakılmış gibidir. Tersi de geçerlidir: ayarlar tamam ama tedavi sayfası yoksa Google'ın göstereceği bir şey yoktur.</p>\n<h2>Ne kadar sürer</h2>\n<p>Çoğu klinik sitesinde bu liste birkaç gün içinde tamamlanır. Etkisi, Google sayfaları yeniden okudukça birkaç hafta içinde Search Console'da görülür. Sitenizin bu listeden kaç madde geçtiğini görmek için <a href=\"/ucretsiz-klinik-analizi/\">ücretsiz klinik analizi</a> isteyebilirsiniz.</p>",
+"content": "<p class=\"lp-art-lead\">Klinik sitelerinde en sık gördüğümüz sorun, iyi yazılmış tedavi sayfalarının bir ayar yüzünden Google'a hiç ulaşmamasıdır. İçeriğe para harcamadan önce bu on maddeyi kontrol edin.</p>\n<h2>On maddelik kontrol listesi</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Search Console bağlı mı?</b> Kliniğin kendi Google hesabıyla. Hangi aramada göründüğünüzü ve hangi sayfanın dizinde olmadığını yalnız burası söyler.</li>\n<li><b>Arama motorları engelli mi?</b> WordPress'te \"arama motorlarını engelle\" kutusu yanlışlıkla işaretli kalabilir. Bu kutu işaretliyse site hiç görünmez.</li>\n<li><b>Site haritası gönderildi mi?</b> Tüm tedavi sayfaları site haritasında olmalı ve harita Search Console'a eklenmelidir.</li>\n<li><b>Her sayfanın başlığı farklı mı?</b> \"Anasayfa\" ya da yalnız klinik adı değil; \"Bornova implant tedavisi · Klinik adı\" gibi tedavi ve yer içeren başlık.</li>\n<li><b>Açıklamalar yazılı mı?</b> Arama sonucunda başlığın altında görünen iki satır. Boş bırakılırsa Google sayfadan rastgele bir cümle seçer.</li>\n<li><b>Tek adres mi?</b> Site http ve https, www'lu ve www'suz olarak dört ayrı adreste açılmamalı; hepsi tek adrese yönlenmeli.</li>\n<li><b>Telefonda hızlı mı?</b> Büyük görseller ve gereksiz eklentiler sayfayı yavaşlatır. Hedef, telefonda iki saniye civarında açılış.</li>\n<li><b>Yapılandırılmış veri var mı?</b> Klinik adı, adresi, telefonu, çalışma saatleri ve hekimler Google'ın okuyacağı biçimde sayfada bulunmalı.</li>\n<li><b>Görsellerin açıklaması var mı?</b> Her görselin ne gösterdiğini anlatan kısa bir açıklama (alt metin). Hem erişilebilirlik hem görsel arama için.</li>\n<li><b>Kırık bağlantı ve eski adres var mı?</b> Silinen ya da adresi değişen sayfalar yeni sayfaya yönlendirilmeli; 404 veren sayfa hem hastayı hem Google'ı kaybettirir.</li>\n</ol>\n<h2>Ayarlar neden önce gelir</h2>\n<p>Bu maddeler bir defa doğru yapılır ve sonra her içeriğin işe yaramasını sağlar. Ayarlar eksikken yazılan her yazı, açılmayan bir kapının önüne bırakılmış gibidir. Tersi de geçerlidir: ayarlar tamam ama tedavi sayfası yoksa Google'ın göstereceği bir şey yoktur.</p>\n<h2>Ne kadar sürer</h2>\n<p>Çoğu klinik sitesinde bu liste birkaç gün içinde tamamlanır. Etkisi, Google sayfaları yeniden okudukça birkaç hafta içinde Search Console'da görülür. Sitenizin bu listeden kaç madde geçtiğini görmek için <a href=\"/ucretsiz-klinik-analizi/\">ücretsiz ön değerlendirme</a> isteyebilirsiniz.</p>",
 "cats": [
 "seo",
 "web-sitesi"
@@ -21143,7 +21177,7 @@
 "type": "post",
 "title": "Klinik web sitesi ne zaman yenilenmeli?",
 "excerpt": "Eski görünmesi tek başına yenileme sebebi değildir. Yenilemenin gerçek işaretleri ve yenilerken kaybetmemeniz gerekenler.",
-"content": "<p class=\"lp-art-lead\">\"Sitemiz eski görünüyor\" yenileme için zayıf bir sebeptir. Güçlü sebep şudur: site hasta getirmiyor ya da getirdiğini ölçemiyorsunuz. Aşağıdaki işaretlerden üçü sizde varsa yenileme zamanı gelmiştir.</p>\n<h2>Yedi işaret</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Telefonda yavaş.</b> Ziyaretçilerinizin çoğu telefondan gelir. Sayfa üç saniyeden geç açılıyorsa hastaların bir kısmı beklemeden geri döner.</li>\n<li><b>Tek bir \"Hizmetlerimiz\" sayfası var.</b> İmplant arayan hasta implant sayfası bulamazsa Google da sizi o aramada göstermez.</li>\n<li><b>WhatsApp ve arama düğmesi görünmüyor.</b> Hasta telefonda tek dokunuşla yazamıyorsa formu doldurmaz, başka kliniğe geçer.</li>\n<li><b>Fiyat, hekim ve belge bilgisi yok.</b> Hasta karar vermek için kimin tedavi edeceğini ve yaklaşık ne ödeyeceğini görmek ister.</li>\n<li><b>Talepler ölçülmüyor.</b> Hangi sayfanın, hangi reklamın hasta getirdiği bilinmiyorsa reklam bütçesi tahminle harcanır.</li>\n<li><b>Siteyi siz güncelleyemiyorsunuz.</b> Yeni hekim, yeni tedavi ya da kampanya için her seferinde birine yazmak gerekiyorsa site geride kalır.</li>\n<li><b>Mevzuata uymayan içerik var.</b> Önce-sonra görselleri, garanti ifadeleri, hasta yorumlarının reklam gibi kullanılması sağlık reklamı kurallarına takılabilir.</li>\n</ol>\n<h2>Yenilerken kaybetmeyin</h2>\n<p>Yeni site, eski sitenin Google'da biriktirdiği değeri silmemelidir. Bunun için:</p>\n<ul class=\"lp-art-list\">\n<li>Eski sitenin tüm adresleri listelenir; her biri yeni sitedeki en yakın sayfaya kalıcı (301) yönlendirilir.</li>\n<li>Arama trafiği getiren sayfaların metni ve başlığı korunur ya da güçlendirilir.</li>\n<li>Search Console, Analytics ve reklam ölçümü yeni sitede ilk gün çalışır.</li>\n<li>Yayına alındıktan sonraki dört hafta, 404 veren adresler ve sıralama her hafta kontrol edilir.</li>\n</ul>\n<h2>Yenileme mi, onarım mı</h2>\n<p>Her zaman sıfırdan site gerekmez. Altyapı sağlamsa hız, tedavi sayfaları ve WhatsApp düğmesi mevcut sitede düzeltilebilir. Karar için önce bir analiz yapılır: neyin onarılabileceği, neyin yeniden yapılması gerektiği. Sitenizi bu yedi işarete göre görmek için <a href=\"/ucretsiz-klinik-analizi/\">ücretsiz klinik analizi</a> isteyin; örnek siteler için <a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">klinik web sitesi örnekleri</a> sayfasına bakabilirsiniz.</p>",
+"content": "<p class=\"lp-art-lead\">\"Sitemiz eski görünüyor\" yenileme için zayıf bir sebeptir. Güçlü sebep şudur: site hasta getirmiyor ya da getirdiğini ölçemiyorsunuz. Aşağıdaki işaretlerden üçü sizde varsa yenileme zamanı gelmiştir.</p>\n<h2>Yedi işaret</h2>\n<ol class=\"lp-art-ol\">\n<li><b>Telefonda yavaş.</b> Ziyaretçilerinizin çoğu telefondan gelir. Sayfa üç saniyeden geç açılıyorsa hastaların bir kısmı beklemeden geri döner.</li>\n<li><b>Tek bir \"Hizmetlerimiz\" sayfası var.</b> İmplant arayan hasta implant sayfası bulamazsa Google da sizi o aramada göstermez.</li>\n<li><b>WhatsApp ve arama düğmesi görünmüyor.</b> Hasta telefonda tek dokunuşla yazamıyorsa formu doldurmaz, başka kliniğe geçer.</li>\n<li><b>Fiyat, hekim ve belge bilgisi yok.</b> Hasta karar vermek için kimin tedavi edeceğini ve yaklaşık ne ödeyeceğini görmek ister.</li>\n<li><b>Talepler ölçülmüyor.</b> Hangi sayfanın, hangi reklamın hasta getirdiği bilinmiyorsa reklam bütçesi tahminle harcanır.</li>\n<li><b>Siteyi siz güncelleyemiyorsunuz.</b> Yeni hekim, yeni tedavi ya da kampanya için her seferinde birine yazmak gerekiyorsa site geride kalır.</li>\n<li><b>Mevzuata uymayan içerik var.</b> Önce-sonra görselleri, garanti ifadeleri, hasta yorumlarının reklam gibi kullanılması sağlık reklamı kurallarına takılabilir.</li>\n</ol>\n<h2>Yenilerken kaybetmeyin</h2>\n<p>Yeni site, eski sitenin Google'da biriktirdiği değeri silmemelidir. Bunun için:</p>\n<ul class=\"lp-art-list\">\n<li>Eski sitenin tüm adresleri listelenir; her biri yeni sitedeki en yakın sayfaya kalıcı (301) yönlendirilir.</li>\n<li>Arama trafiği getiren sayfaların metni ve başlığı korunur ya da güçlendirilir.</li>\n<li>Search Console, Analytics ve reklam ölçümü yeni sitede ilk gün çalışır.</li>\n<li>Yayına alındıktan sonraki dört hafta, 404 veren adresler ve sıralama her hafta kontrol edilir.</li>\n</ul>\n<h2>Yenileme mi, onarım mı</h2>\n<p>Her zaman sıfırdan site gerekmez. Altyapı sağlamsa hız, tedavi sayfaları ve WhatsApp düğmesi mevcut sitede düzeltilebilir. Karar için önce bir analiz yapılır: neyin onarılabileceği, neyin yeniden yapılması gerektiği. Sitenizi bu yedi işarete göre görmek için <a href=\"/ucretsiz-klinik-analizi/\">ücretsiz ön değerlendirme</a> isteyin; örnek siteler için <a href=\"/hizmetlerimiz/klinik-web-sitesi/ornekler/\">klinik web sitesi örnekleri</a> sayfasına bakabilirsiniz.</p>",
 "cats": [
 "web-sitesi"
 ],

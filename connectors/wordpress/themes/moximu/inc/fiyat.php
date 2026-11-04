@@ -13,7 +13,7 @@ function mx_fiyatlar(): array
         return $p;
     }
     $defaults = ['seo' => 12000, 'harita' => 6000, 'paket' => 14000, 'ads' => 9000, 'ads_paket' => 6000,
-        'meta' => 9000, 'meta_paket' => 6000, 'web' => 30000, 'web_dil' => 8000, 'seo_dil' => 4000];
+        'meta' => 9000, 'meta_paket' => 6000, 'web' => 30000, 'web_dil' => 8000, 'seo_dil' => 4000, 'denetim' => 5000];
     $p = $defaults;
     foreach (mx_opt('fiyatlar') as $key => $value) {
         if (isset($defaults[$key]) && is_numeric($value) && (int) $value > 0) {

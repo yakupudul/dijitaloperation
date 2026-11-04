@@ -63,7 +63,7 @@ function mx_analiz_handle(): void
         $body .= $label.': '.$value."\n";
     }
     wp_insert_post(['post_type' => 'mx_talep', 'post_status' => 'private', 'post_title' => $data['Klinik'].' · '.$data['Şehir'], 'post_content' => $body]);
-    mx_send_mail('Yeni ücretsiz analiz talebi: '.$data['Klinik'], $body);
+    mx_send_mail('Yeni ön değerlendirme talebi: '.$data['Klinik'], $body);
     wp_send_json_success(['message' => 'Teşekkürler. 24 saat içinde dönüyoruz.']);
 }
 add_action('wp_ajax_mx_analiz', 'mx_analiz_handle');

@@ -18,7 +18,7 @@ defined('ABSPATH') || exit;
 <label class="an-l"><span>E-posta <em>(isteğe bağlı)</em></span><span class="cMwGjD"><input id="email" name="email" type="email" autocomplete="email" placeholder="ornek@klinik.com"/></span></label>
 <input id="mxhp" name="website" tabindex="-1" autocomplete="off" class="an-hp" aria-hidden="true"/>
 <span class="iRWFG an-kvkk"><input id="termsAndConditions" name="termsAndConditions" type="checkbox"/><label for="termsAndConditions"><?= mx_h($d['etiket'] ?? null) ?></label></span>
-<button class="btn navy an-btn" type="button"><?= mx_h($d['buton_yazisi'] ?? 'Analizi isteyin') ?> <i aria-hidden="true">→</i></button>
-<p class="an-or"><?= mx_h($d['yazi_4'] ?? null) ?> <a href="<?= esc_url(mx_wa_url('Merhaba, kliniğim için ücretsiz analiz istiyorum.')) ?>" target="_blank" rel="noopener"><?= mx_wa_icon() ?>WhatsApp</a></p>
+<button class="btn navy an-btn" type="button"><?= mx_h($d['buton_yazisi'] ?? 'Değerlendirme isteyin') ?> <i aria-hidden="true">→</i></button>
+<p class="an-or"><?= mx_h($d['yazi_4'] ?? null) ?> <a href="<?= esc_url(mx_wa_url('Merhaba, kliniğim için ücretsiz ön değerlendirme istiyorum.')) ?>" target="_blank" rel="noopener"><?= mx_wa_icon() ?>WhatsApp</a></p>
 </div></div>
 </div></section>

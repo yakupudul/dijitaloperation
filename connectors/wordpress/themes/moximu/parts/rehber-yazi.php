@@ -21,10 +21,10 @@ $html = preg_replace_callback('~<h2([^>]*)>(.*?)</h2>~is', static function (arra
     return '<h2'.$attrs.'>'.$m[2].'</h2>';
 }, (string) $html); ?>
 <section class="mx lp-art" id="icerik"><div class="wrap"><div class="lp-art-g">
-<aside class="lp-toc"><b><?= mx_h($d['kalin_yazi'] ?? 'Bu yazıda') ?></b><nav><?php foreach ($toc as [$slug, $text]) : ?><a href="#<?= esc_attr($slug) ?>"><?= esc_html($text) ?></a><?php endforeach; ?></nav><a class="btn" href="<?= mx_url($d['baglanti'] ?? '/ucretsiz-klinik-analizi/') ?>"><?= mx_h($d['baglanti_yaz'] ?? 'Ücretsiz analiz') ?></a></aside>
+<aside class="lp-toc"><b><?= mx_h($d['kalin_yazi'] ?? 'Bu yazıda') ?></b><nav><?php foreach ($toc as [$slug, $text]) : ?><a href="#<?= esc_attr($slug) ?>"><?= esc_html($text) ?></a><?php endforeach; ?></nav><a class="btn" href="<?= mx_url($d['baglanti'] ?? '/ucretsiz-klinik-analizi/') ?>"><?= mx_h($d['baglanti_yaz'] ?? 'Ücretsiz ön değerlendirme') ?></a></aside>
 <article class="lp-art-body">
 <?= $html // already filtered by the_content ?>
-<div class="lp-art-cta"><div><?= mx_h($d['yazi_6'] ?? '') ?></div><a class="btn" href="<?= mx_url($d['baglanti_2'] ?? '/ucretsiz-klinik-analizi/') ?>"><?= mx_h($d['baglanti_yaz_2'] ?? 'Ücretsiz analiz') ?></a></div>
+<div class="lp-art-cta"><div><?= mx_h($d['yazi_6'] ?? '') ?></div><a class="btn" href="<?= mx_url($d['baglanti_2'] ?? '/ucretsiz-klinik-analizi/') ?>"><?= mx_h($d['baglanti_yaz_2'] ?? 'Ücretsiz ön değerlendirme') ?></a></div>
 <div class="lp-author"><img alt="" src="<?= MX_URI ?>/assets/i/mark-static.svg"/><div><?= mx_h($d['yazi_10'] ?? '') ?></div></div>
 </article>
 </div></div></section>

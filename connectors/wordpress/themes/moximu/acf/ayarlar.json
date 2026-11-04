@@ -1040,6 +1040,17 @@
      "wrapper": {
       "width": "33"
      }
+    },
+    {
+     "key": "field_mx_opt_f_denetim",
+     "name": "denetim",
+     "label": "Klinik dijital denetimi (tek sefer)",
+     "type": "number",
+     "min": 0,
+     "step": 500,
+     "wrapper": {
+      "width": "33"
+     }
     }
    ]
   },

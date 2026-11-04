@@ -2,7 +2,8 @@
 "thizmetlerimiz": {
 "seo_desc": [
 "Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Hangisinin size önce lazım olduğunu ücretsiz analizde yazarız.",
-"Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz."
+"Klinikler için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz.",
+"Klinik ve doktorlar için web sitesi tasarımı, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Önceliği ücretsiz analizde yazılı olarak belirtiriz."
 ],
 "seo_title": [
 "Klinik dijital pazarlama hizmetleri · Moximu"
@@ -184,7 +185,13 @@
 },
 "tucretsiz-klinik-analizi": {
 "seo_desc": [
-"Kliniğinizin web sitesi, Google kartı ve reklam hesabı için ücretsiz analiz. Klinik adı ve şehir yeter; 24 saat içinde tek sayfalık yazılı rapor."
+"Kliniğinizin web sitesi, Google kartı ve reklam hesabı için ücretsiz analiz. Klinik adı ve şehir yeter; 24 saat içinde tek sayfalık yazılı rapor.",
+"Kliniğinizin web sitesi, Google İşletme Profili ve reklam hesabı için ücretsiz analiz. Klinik adı ve şehir yeter; 24 saat içinde tek sayfalık yazılı rapor.",
+"Kliniğinizin web sitesi, Google İşletme Profili ve reklam hesabı için ücretsiz ön değerlendirme. Klinik adı ve şehir yeter; 24 saat içinde tek sayfalık yazılı rapor."
+],
+"seo_title": [
+"Ücretsiz klinik analizi: 24 saatte tek sayfa rapor",
+"Ücretsiz ön değerlendirme: 24 saatte tek sayfa rapor"
 ]
 },
 "tfiyatlar-cok-subeli": {
@@ -199,11 +206,13 @@
 },
 "home": {
 "seo_title": [
-"Moximu · Kliniklere dijital pazarlama ve web sitesi"
+"Moximu · Kliniklere dijital pazarlama ve web sitesi",
+"Klinik dijital pazarlama ve sağlık reklam ajansı · Moximu"
 ],
 "seo_desc": [
 "Klinikler için web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı. 12 yılda 500+ web sitesi, 50+ klinik. Ücretsiz klinik analizi isteyin.",
-"Klinikler ve doktorlar için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Sağlık reklamı kurallarına uygun, aylık raporlu. Ücretsiz analiz."
+"Klinikler ve doktorlar için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Sağlık reklamı kurallarına uygun, aylık raporlu. Ücretsiz analiz.",
+"Klinikler ve doktorlar için web sitesi, SEO, Google İşletme Profili, Google Ads ve Instagram reklamı. Sağlık reklamı kurallarına uygun, aylık raporlu."
 ]
 },
 "websitesi": {
@@ -295,6 +304,16 @@
 "paket": {
 "seo_desc": [
 "Web sitesi, Google İşletme Profili, Google Ads ve Instagram reklamı tek pakette: 30.000 ₺/ay. 24 saatte ücretsiz klinik analizi."
+]
+},
+"tnasil-calisir": {
+"seo_desc": [
+"Moximu ile çalışma düzeni: ücretsiz klinik analizi, telefon görüşmesi ve teklif, ilk 30 günde kurulum, her hafta aynı ritim ve ayın ilk haftası tek sayfa rapor."
+]
+},
+"tiletisim": {
+"seo_desc": [
+"Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz klinik analizi için klinik adı yeter."
 ]
 }
 }

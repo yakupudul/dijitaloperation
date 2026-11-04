@@ -1,6 +1,6 @@
 {
 "ust_bar": {
-"yazi": "Hafta içi 09:00–18:00<span class=\"long\"> · ilk rapor <span class=\"hl\">24 saatte</span></span>",
+"yazi": "Hafta içi 09:00–18:00<span class=\"long\"> · ilk bulgular <span class=\"hl\">24 saatte</span></span>",
 "yazi_2": "WhatsApp'tan yazın"
 },
 "ust_menu": {
@@ -19,7 +19,7 @@
 ],
 "yazi_2": "0538 861 02 88",
 "baglanti_2": "/ucretsiz-klinik-analizi/",
-"yazi_3": "Ücretsiz klinik analizi",
+"yazi_3": "Ücretsiz ön değerlendirme",
 "liste_2": [
 {
 "metin": "Hizmetler",
@@ -429,15 +429,15 @@
 "madde": "<a class=\"menu-item-link\" href=\"/fiyatlar/\"><span class=\"sc-18e319-8 etBbWA\">Fiyatlar</span></a>",
 "madde_2": "<a class=\"menu-item-link\" href=\"/referanslar/\"><span class=\"sc-18e319-8 etBbWA\">Referanslar</span></a>",
 "baglanti_2": "/ucretsiz-klinik-analizi/",
-"yazi_2": "<span class=\"sc-18e319-14 hfkzxy\">Ücretsiz klinik analizi</span><span class=\"sc-18e319-15 khGrDi\">Klinik adı ve şehir yeter</span>",
-"yazi_3": "Ücretsiz analiz",
+"yazi_2": "<span class=\"sc-18e319-14 hfkzxy\">Ücretsiz ön değerlendirme</span><span class=\"sc-18e319-15 khGrDi\">Klinik adı ve şehir yeter</span>",
+"yazi_3": "Ücretsiz ön değerlendirme",
 "gorsel": {
 "seed": "5be23bceed.png",
 "alt": "phone"
 },
 "yazi_4": "<span>Hafta içi 09:00–18:00 ulaşabilirsiniz</span>",
 "metin": "0538 861 02 88",
-"yazi_5": "<a href=\"/hakkimizda/\"><span class=\"sc-292c0895-0 lmgOmx\">Hakkımızda</span></a><a href=\"/ucretsiz-klinik-analizi/\"><span class=\"sc-292c0895-0 eescqv\">Ücretsiz klinik analizi</span></a>"
+"yazi_5": "<a href=\"/hakkimizda/\"><span class=\"sc-292c0895-0 lmgOmx\">Hakkımızda</span></a><a href=\"/ucretsiz-klinik-analizi/\"><span class=\"sc-292c0895-0 eescqv\">Ücretsiz ön değerlendirme</span></a>"
 },
 "alt": {
 "yazi": "WhatsApp her saat · telefon hafta içi 09:00–18:00",
@@ -531,7 +531,7 @@
 },
 {
 "baglanti": "/ucretsiz-klinik-analizi/",
-"baglanti_yaz": "Ücretsiz klinik analizi"
+"baglanti_yaz": "Ücretsiz ön değerlendirme"
 },
 {
 "baglanti": "/sss/",
@@ -999,7 +999,8 @@
 "meta_paket": 6000,
 "web": 30000,
 "web_dil": 8000,
-"seo_dil": 4000
+"seo_dil": 4000,
+"denetim": 5000
 },
 "kampanya": {
 "aktif": 1,

@@ -13,7 +13,7 @@ $phone = trim(wp_strip_all_tags((string) ($m['yazi_2'] ?? ''))) ?: '0538 861 02 
 $tel = '+90'.ltrim(preg_replace('/\D/', '', $phone), '0');
 $wa = 'https://wa.me/'.ltrim($tel, '+');
 $cta_url = mx_url(($m['baglanti_2'] ?? null)) ?: home_url('/ucretsiz-klinik-analizi/');
-$cta = trim(wp_strip_all_tags((string) ($m['yazi_3'] ?? ''))) ?: 'Ücretsiz klinik analizi';
+$cta = trim(wp_strip_all_tags((string) ($m['yazi_3'] ?? ''))) ?: 'Ücretsiz ön değerlendirme';
 ?>
 <div aria-hidden="true" aria-label="Mobil menü" aria-modal="true" class="sc-18e319-0 kauKoP" id="mobile-navigation-menu" inert="" role="dialog"><nav aria-label="Mobile navigation" class="sc-18e319-1 gUqVKX"><a aria-label="Moximu ana sayfa" href="<?= esc_url(home_url('/')) ?>"><span class="mxlogo"><img loading="eager" alt="" class="mxlogo-m" width="34" height="34" src="<?= MX_URI ?>/assets/i/mark.webp"/><img loading="eager" alt="Moximu" class="mxlogo-w" width="99" height="20" src="<?= MX_URI ?>/assets/i/wordmark.webp"/></span></a><button aria-label="Close mobile menu" class="sc-18e319-3 bhVIpe" type="button"><img alt="" aria-hidden="true" decoding="async" height="24" loading="eager" src="<?= MX_URI ?>/assets/i/ee636d803a.svg" width="24"/></button></nav>
 <div class="mx-mm">

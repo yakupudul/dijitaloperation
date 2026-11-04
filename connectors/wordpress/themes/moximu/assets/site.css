@@ -464,3 +464,29 @@ main>.lp-bc:has(+.rf-hero),main>.lp-bc:has(+.an-hero){background:#fbfaf6}
 @media (max-width:640px){.mxkmp .in{flex-wrap:nowrap;gap:8px;padding:8px 12px}.mxkmp-t{width:auto;min-width:0;flex:1}.mxkmp-m{font-size:12.5px;line-height:16px;white-space:normal;overflow:visible;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .mxkmp-cd{margin:0;gap:3px}.mxkmp-cd i{min-width:30px;height:32px;border-radius:7px}.mxkmp-cd b{font-size:13px}.mxkmp-cd small{font-size:8px}.mxkmp-cd i:last-child{display:none}.mxkmp-go{display:none}}
 @media (prefers-reduced-motion:reduce){.mxkmp:before{animation:none}}
+/* 0.5.2 Klinik dijital denetimi şeridi */
+.mx.dn{padding:24px 0 88px;background:#fbfaf6}
+.dn-box{position:relative;overflow:hidden;display:grid;grid-template-columns:1.15fr 1fr;gap:40px;align-items:center;padding:44px 48px;border-radius:28px;background:#032421;color:#cfe3de}
+.dn-box:after{content:"";position:absolute;top:-90px;right:-90px;width:260px;height:260px;border-radius:50%;opacity:.5;background:conic-gradient(from 20deg,rgba(253,207,60,0),rgba(253,207,60,.5),rgba(253,207,60,0) 70%);pointer-events:none}
+.dn-chip{display:inline-block;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;background:rgba(253,207,60,.14);color:#fdcf3c}
+.mx .dn-t h2{margin:14px 0 0;font-size:34px;line-height:1.15;font-weight:300;letter-spacing:-.025em;color:#fff}
+.mx .dn-t h2 mark{background:none;color:#fdcf3c;padding:0}
+.mx .dn-t p{margin:12px 0 0;font-size:16px;line-height:1.6;color:#b9d2cc;max-width:540px}
+.mx .dn-l{list-style:none;margin:20px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
+.mx .dn-l li{position:relative;padding-left:24px;font-size:14px;line-height:1.45;color:#e6f0ee}
+.mx .dn-l li:before{content:"";position:absolute;left:0;top:3px;width:15px;height:15px;border-radius:50%;background:#fdcf3c url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23032421' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5L20 7'/%3E%3C/svg%3E") center/9px no-repeat}
+.dn-p{position:relative;z-index:1}
+.dn-cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dn-cmp>div{padding:18px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.dn-cmp>div.on{background:#fff;border-color:#fff;color:#0f1b2d}
+.dn-cmp small{display:block;font-size:12px;color:#9fbdb7}.dn-cmp .on small{color:#6b7280}
+.dn-cmp b{display:block;margin-top:6px;font-size:26px;line-height:1.1;font-weight:600;letter-spacing:-.02em;color:#fff}.dn-cmp .on b{color:#0f1b2d}
+.dn-cmp b em{font-style:normal;font-size:13px;font-weight:500;color:#6b7280}
+.dn-cmp span{display:block;margin-top:6px;font-size:13px;line-height:1.4;color:#b9d2cc}.dn-cmp .on span{color:#4b5563}
+.mx .dn-note{margin:14px 0 0;font-size:13px;line-height:1.5;color:#b9d2cc}
+.mx .btn.dn-btn{margin-top:18px;background:#fdcf3c!important;border-color:#fdcf3c!important;color:#0f1b2d!important}.mx .btn.dn-btn svg{width:18px;height:18px}
+.mx .btn.dn-btn:hover{background:#ffd95c!important}
+@media (max-width:900px){.dn-box{grid-template-columns:1fr;padding:30px 22px;gap:26px;border-radius:22px}.mx .dn-t h2{font-size:27px}.mx .dn-l{grid-template-columns:1fr}.mx.dn{padding:8px 0 64px}}
+@media (max-width:420px){.dn-cmp{grid-template-columns:1fr}}
+section.mx.dn a.btn.dn-btn{background:#fdcf3c!important;border-color:#fdcf3c!important;color:#0f1b2d!important}
+.hxv-kpi em{display:block;margin-top:2px}

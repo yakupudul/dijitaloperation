@@ -6171,6 +6171,72 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_denetim": {
+     "key": "layout_mx_denetim",
+     "name": "denetim",
+     "label": "Klinik dijital denetimi (ücretli seçenek)",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_dn_yazi",
+       "name": "yazi",
+       "label": "Küçük etiket",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_dn_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "Vurgulu kelime için <mark>…</mark>"
+      },
+      {
+       "key": "field_mx_dn_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_dn_liste",
+       "name": "liste",
+       "label": "Neler var",
+       "type": "repeater",
+       "layout": "table",
+       "button_label": "Satır ekle",
+       "sub_fields": [
+        {
+         "key": "field_mx_dn_l_m",
+         "name": "madde",
+         "label": "Madde",
+         "type": "text"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_dn_not",
+       "name": "kucuk_not",
+       "label": "Fiyat altı not",
+       "type": "text",
+       "instructions": "Fiyat Moximu ayarları › Fiyatlar › denetim alanından gelir."
+      },
+      {
+       "key": "field_mx_dn_buton",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_dn_buton2",
+       "name": "buton_yazisi_2",
+       "label": "WhatsApp hazır mesajı",
+       "type": "text"
+      }
+     ],
+     "min": "",
+     "max": ""
     }
    }
   }
