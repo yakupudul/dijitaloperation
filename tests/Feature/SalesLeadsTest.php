@@ -316,6 +316,9 @@ class SalesLeadsTest extends TestCase
         // No password: 401 with the Basic challenge FolderSync expects.
         $this->call('PROPFIND', '/api/telefon-yedek/')->assertStatus(401)->assertHeader('WWW-Authenticate');
         $this->call('OPTIONS', '/api/telefon-yedek/')->assertStatus(200)->assertHeader('DAV');
+        // A backup larger than post_max_size is not refused by the framework's POST size check (it was 413 live).
+        $this->call('PUT', '/api/telefon-yedek/msgstore.db.crypt15', [], [], [], ['CONTENT_LENGTH' => (string) (300 * 1024 * 1024)], 'x')->assertStatus(401);
+        $this->call('POST', '/api/telefon-yedek/x', [], [], [], ['CONTENT_LENGTH' => (string) (300 * 1024 * 1024)])->assertStatus(413);
 
         $server = ['PHP_AUTH_USER' => 'moxdop', 'PHP_AUTH_PW' => $password];
         $this->call('PROPFIND', '/api/telefon-yedek/', [], [], [], $server)->assertStatus(207)->assertSee('Databases', false);

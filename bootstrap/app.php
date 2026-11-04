@@ -38,6 +38,12 @@ return Application::configure(basePath: dirname(__DIR__))
             );
         }
 
+        // Large WhatsApp backups (WebDAV PUT /api/telefon-yedek/) skip the framework's post size check; see the class.
+        $middleware->replace(
+            \Illuminate\Http\Middleware\ValidatePostSize::class,
+            \App\Http\Middleware\ValidatePostSizeExceptPhoneBackup::class,
+        );
+
         // The phone's share sheet posts /paylas without a CSRF token; the session login still guards it.
         $middleware->validateCsrfTokens(except: ['paylas']);
         $middleware->web(append: [
