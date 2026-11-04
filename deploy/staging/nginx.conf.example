@@ -36,11 +36,16 @@ server {
     }
 
     # Telefon bağlantısı (2026-11-04): the phone PUTs its WhatsApp backup here (hundreds of MB); the 32M limit above
-    # must not apply to this address.
-    location /api/telefon-yedek/ {
+    # must not apply to this address. nginx checks the limit again after an internal redirect, so PHP is called here.
+    location ^~ /api/telefon-yedek/ {
         client_max_body_size 2G;
         client_body_timeout 600s;
-        try_files $uri /index.php?$query_string;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        fastcgi_read_timeout 600s;
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
 
     location = /favicon.ico { access_log off; log_not_found off; }

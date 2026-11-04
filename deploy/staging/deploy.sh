@@ -269,26 +269,40 @@ echo "deploy/staging: restart cron scheduler"
 as_root systemctl restart cron 2>/dev/null || as_root service cron restart 2>/dev/null || true
 
 # Telefon bağlantısı (2026-11-04): the phone PUTs its WhatsApp backup (hundreds of MB) on /api/telefon-yedek/; the
-# site's client_max_body_size must not apply there. The location is added once to this app's nginx server block
-# (the file whose root is this app's public/), checked with nginx -t and reloaded; a failed check puts the file back.
-# Never fatal: a deploy must not stop over nginx.
+# site's client_max_body_size must not apply there. nginx checks the limit again after an internal redirect, so the
+# location hands the request to PHP itself (no try_files → \.php$ location with its 32M). The block is (re)written in
+# this app's nginx server block (the file whose root is this app's public/), checked with nginx -t and reloaded; a
+# failed check puts the file back. Never fatal: a deploy must not stop over nginx.
 echo "deploy/staging: nginx body limit for /api/telefon-yedek/"
 ensure_phone_backup_location() {
-  local conf backup
+  local conf backup pass
   for conf in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf; do
     [[ -f "$conf" ]] || continue
-    grep -Fq "telefon-yedek" "$conf" && continue
-    grep -Eq "^[[:space:]]*root[[:space:]]+${ROOT}/public;" "$conf" || continue
+    grep -Fq "telefon-yedek-v2" "$conf" && continue
+    grep -Eq "^[[:space:]]*root[[:space:]]+${ROOT}/public/?;" "$conf" || continue
     grep -Eq '^[[:space:]]*location[[:space:]]+/[[:space:]]*\{' "$conf" || continue
+    pass="$(grep -Eo 'fastcgi_pass[[:space:]]+[^;]+;' "$conf" | head -n1)"
+    [[ -n "$pass" ]] || { echo "deploy/staging: WARNING — no fastcgi_pass in ${conf}; phone backup limit not set" >&2; continue; }
     backup="$(mktemp /tmp/moxdop-nginx.XXXXXX)"
     cp "$conf" "$backup"
-    awk 'BEGIN { done = 0 }
+    PASS="$pass" awk 'BEGIN { done = 0; skip = 0 }
+      # The first version of this block (try_files) is dropped.
+      /Telefon bağlantısı: the phone puts its WhatsApp backup here/ { next }
+      /^[[:space:]]*location[[:space:]]+(\^~[[:space:]]+)?\/api\/telefon-yedek\/[[:space:]]*\{/ { skip = 1; next }
+      skip == 1 { if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) { skip = 2 } ; next }
+      skip == 2 && /^[[:space:]]*$/ { skip = 0; next }
+      { skip = 0 }
       /^[[:space:]]*location[[:space:]]+\/[[:space:]]*\{/ && !done {
-        print "    # Telefon bağlantısı: the phone puts its WhatsApp backup here (added by deploy/staging/deploy.sh)."
-        print "    location /api/telefon-yedek/ {"
+        print "    # telefon-yedek-v2: the phone puts its WhatsApp backup here (added by deploy/staging/deploy.sh)."
+        print "    location ^~ /api/telefon-yedek/ {"
         print "        client_max_body_size 2G;"
         print "        client_body_timeout 600s;"
-        print "        try_files $uri /index.php?$query_string;"
+        print "        include fastcgi_params;"
+        print "        fastcgi_param SCRIPT_FILENAME $realpath_root/index.php;"
+        print "        fastcgi_param SCRIPT_NAME /index.php;"
+        print "        fastcgi_read_timeout 600s;"
+        print "        fastcgi_hide_header X-Powered-By;"
+        print "        " ENVIRON["PASS"]
         print "    }"
         print ""
         done = 1
@@ -296,10 +310,10 @@ ensure_phone_backup_location() {
       { print }' "$backup" > "$conf"
     if as_root nginx -t >/dev/null 2>&1; then
       as_root systemctl reload nginx 2>/dev/null || as_root service nginx reload 2>/dev/null || true
-      echo "deploy/staging: nginx: /api/telefon-yedek/ location added to ${conf}"
+      echo "deploy/staging: nginx: /api/telefon-yedek/ location (v2) written to ${conf}"
     else
       cp "$backup" "$conf"
-      echo "deploy/staging: WARNING — nginx -t failed after adding /api/telefon-yedek/ to ${conf}; file restored" >&2
+      echo "deploy/staging: WARNING — nginx -t failed after writing /api/telefon-yedek/ to ${conf}; file restored" >&2
     fi
     rm -f "$backup"
   done
