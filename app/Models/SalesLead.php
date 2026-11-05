@@ -49,6 +49,14 @@ class SalesLead extends Model
     /** A prospect who really talks (or a form whose site was just read) gets the full analysis once, by itself. */
     protected static function booted(): void
     {
+        // How far the card got (the month report's funnel; a lost card keeps where it was lost).
+        static::saving(function (SalesLead $lead): void {
+            $at = array_search($lead->stage, self::FLOW, true);
+            $peak = $lead->peak_stage !== null ? array_search($lead->peak_stage, self::FLOW, true) : false;
+            if ($at !== false && ($peak === false || $at > $peak)) {
+                $lead->peak_stage = $lead->stage;
+            }
+        });
         static::saved(function (SalesLead $lead): void {
             $talking = in_array($lead->stage, ['talking', 'meeting', 'priced', 'thinking'], true);
             $inbound = in_array($lead->source, ['form', 'meta_form'], true);

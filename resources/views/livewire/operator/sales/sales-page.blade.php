@@ -200,12 +200,76 @@
     @else
         <section class="mt-5" data-sales-results>
             @if ($money !== null)
-                <div class="hero-panel grid-cols-2 lg:grid-cols-5">
+                <div class="hero-panel grid-cols-3">
                     <div class="hero-tile hero-tile-accent"><span class="hero-label">Aylık gelir</span><span class="hero-value">{{ $n((int) $money['mrr']) }} ₺</span><span class="mt-2 text-xs opacity-75">{{ $n($money['customers']) }} aktif müşteri</span></div>
-                    <div class="hero-tile"><span class="hero-label">Fiyat konuşulan</span><span class="hero-value">{{ $n($money['priced']) }}</span><span class="mt-2 text-xs text-white/60">aday</span></div>
-                    <div class="hero-tile"><span class="hero-label">Bu ay kazanılan</span><span class="hero-value">{{ $n($money['won_month']) }}</span><span class="mt-2 text-xs text-white/60">aday</span></div>
-                    <div class="hero-tile"><span class="hero-label">Bu ay kaybedilen</span><span class="hero-value">{{ $n($money['lost_month']) }}</span><span class="mt-2 text-xs text-white/60">aday</span></div>
                     <div class="hero-tile"><span class="hero-label">Açık aday</span><span class="hero-value">{{ $n($openCount) }}</span><span class="mt-2 text-xs text-white/60">{{ $n($dueCount) }} bugün</span></div>
+                    <div class="hero-tile"><span class="hero-label">Fiyat konuşulan</span><span class="hero-value">{{ $n($money['priced']) }}</span><span class="mt-2 text-xs text-white/60">karar bekliyor</span></div>
+                </div>
+            @endif
+
+            @if ($report !== null)
+                {{-- Ay raporu (4. hafta): what came this month, how far it got, what was won and lost. --}}
+                @php
+                    $base = max(1, $report['opened']);
+                    $hours = $report['reply_hours'];
+                    $speed = $hours === null ? '–' : ($hours < 1 ? round($hours * 60).' dk' : ($hours < 48 ? round($hours, 1).' sa' : round($hours / 24, 1).' gün'));
+                @endphp
+                <div class="section-head mt-8 flex flex-wrap items-end justify-between gap-3" data-sales-month-report>
+                    <div>
+                        <h2 class="section-title">Ay raporu</h2>
+                        <p class="text-sm text-gray-500">O ay açılan kartlar nereye kadar gitti; kazanılan ve kaybedilenler o ay kapananlar.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" wire:click="$set('month', '{{ $reportMonth->subMonth()->format('Y-m') }}')" class="btn-quiet px-2.5" aria-label="Önceki ay">‹</button>
+                        <span class="min-w-[8rem] text-center text-sm font-semibold capitalize text-gray-900 dark:text-white" data-sales-report-month>{{ $reportMonth->locale('tr')->translatedFormat('F Y') }}</span>
+                        @if (! $isThisMonth)
+                            <button type="button" wire:click="$set('month', '{{ $reportMonth->addMonth()->format('Y-m') }}')" class="btn-quiet px-2.5" aria-label="Sonraki ay">›</button>
+                        @endif
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    <div class="card p-3"><p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $n($report['opened']) }}</p><p class="text-xs text-gray-500">yeni kart</p></div>
+                    <div class="card p-3"><p class="text-2xl font-semibold tabular-nums text-success-600">{{ $n($report['won']) }}</p><p class="text-xs text-gray-500">kazanıldı{{ $report['revenue'] > 0 ? ' · +'.$n((int) $report['revenue']).' ₺/ay' : '' }}</p></div>
+                    <div class="card p-3"><p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $n($report['lost']) }}</p><p class="text-xs text-gray-500">kaybedildi</p></div>
+                    <div class="card p-3"><p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $n($report['meetings']) }}</p><p class="text-xs text-gray-500">görüşme{{ $report['meetings'] > 0 ? ' · '.$report['meetings_done'].' notlu' : '' }}</p></div>
+                    <div class="card p-3"><p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $speed }}</p><p class="text-xs text-gray-500">ilk mesaja kadar (ortanca)</p></div>
+                </div>
+                <div class="mt-3 grid gap-3 lg:grid-cols-[3fr_2fr]">
+                    <div class="card p-4" data-sales-funnel>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $n($report['opened']) }} kartın vardığı yer</h3>
+                        <div class="mt-3 space-y-2">
+                            @foreach (\App\Services\Sales\SalesMonthReport::FUNNEL as $step => $label)
+                                @php $c = $report['funnel'][$step]; $pct = $report['opened'] > 0 ? (int) round($c * 100 / $base) : 0; @endphp
+                                <div class="grid grid-cols-[7rem_1fr_4.5rem] items-center gap-3 text-sm">
+                                    <span class="text-gray-600 dark:text-gray-300">{{ $label }}</span>
+                                    <span class="h-2.5 rounded-full bg-gray-100 dark:bg-white/10"><span class="block h-2.5 rounded-full {{ $step === 'won' ? 'bg-success-500' : 'bg-accent' }}" style="width: {{ max($c > 0 ? 2 : 0, $pct) }}%"></span></span>
+                                    <span class="text-right tabular-nums text-gray-900 dark:text-white">{{ $c }} <span class="text-xs text-gray-400">%{{ $pct }}</span></span>
+                                </div>
+                            @endforeach
+                        </div>
+                        @if ($report['won_names'] !== [])
+                            <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Kazanılan:
+                                @foreach ($report['won_names'] as $w)<a href="{{ route('operator.sales.lead', $w['id']) }}" wire:navigate class="link-neutral">{{ $w['title'] }}</a>{{ $w['fee'] ? ' ('.$n((int) $w['fee']).' ₺)' : '' }}{{ $loop->last ? '' : ', ' }}@endforeach
+                            </p>
+                        @endif
+                    </div>
+                    <div class="card p-4 text-sm">
+                        <h3 class="font-semibold text-gray-900 dark:text-white">Kanal</h3>
+                        <p class="mt-1 text-gray-600 dark:text-gray-300">
+                            @forelse ($report['by_source'] as $key => $c){{ SalesLead::SOURCES[$key] ?? $key }} <span class="tabular-nums text-gray-900 dark:text-white">{{ $c }}</span>{{ $loop->last ? '' : ' · ' }}@empty<span class="text-gray-400">Bu ay kart açılmadı.</span>@endforelse
+                        </p>
+                        @if ($report['by_heard'] !== [])
+                            <h3 class="mt-3 font-semibold text-gray-900 dark:text-white">Bizi nereden duydu</h3>
+                            <p class="mt-1 text-gray-600 dark:text-gray-300">@foreach ($report['by_heard'] as $key => $c){{ SalesLead::HEARD_FROM[$key] ?? $key }} <span class="tabular-nums text-gray-900 dark:text-white">{{ $c }}</span>{{ $loop->last ? '' : ' · ' }}@endforeach</p>
+                        @endif
+                        @if ($report['lost_reasons'] !== [])
+                            <h3 class="mt-3 font-semibold text-gray-900 dark:text-white">Neden kaybedildi</h3>
+                            <p class="mt-1 text-gray-600 dark:text-gray-300">@foreach ($report['lost_reasons'] as $key => $c){{ SalesLead::LOST_REASONS[$key] ?? $key }} <span class="tabular-nums text-gray-900 dark:text-white">{{ $c }}</span>{{ $loop->last ? '' : ' · ' }}@endforeach</p>
+                        @endif
+                        @if ($report['days_to_win'] !== null)
+                            <p class="mt-3 text-gray-500">Kart açılışından kazanmaya ortanca {{ round($report['days_to_win']) }} gün.</p>
+                        @endif
+                    </div>
                 </div>
             @endif
             <div class="section-head mt-8">
@@ -232,6 +296,45 @@
                 </table>
             </div>
             <p class="mt-2 text-xs text-gray-500">Sayı = o ay açılan kart; yeşil +N = o kartlardan müşteri olan.</p>
+
+            @if ($patterns !== null)
+                {{-- Kazanılan ve kaybedilenler (4. hafta): counts only; no rule is drawn before 30 wins. --}}
+                <div class="section-head mt-8" data-sales-patterns>
+                    <h2 class="section-title">Kazanılanlar ve kaybedilenler</h2>
+                    <p class="text-sm text-gray-500">
+                        Şimdiye kadar {{ $n($patterns['wins']) }} kazanılan, {{ $n($patterns['losses']) }} kaybedilen kart.
+                        @if (! $patterns['ready'])
+                            {{ \App\Services\Sales\SalesMonthReport::RULES_AFTER_WINS }} kazanılan kart birikmeden buradan kural çıkarılmaz; şimdilik yalnızca sayılar. Oran, en az {{ \App\Services\Sales\SalesMonthReport::MIN_GROUP }} kartlık gruplarda gösterilir.
+                        @else
+                            Oran, en az {{ \App\Services\Sales\SalesMonthReport::MIN_GROUP }} kartlık gruplarda gösterilir.
+                        @endif
+                    </p>
+                </div>
+                @if ($patterns['wins'] + $patterns['losses'] === 0)
+                    <div class="card p-4 text-sm text-gray-500">Henüz kazanılan ya da kaybedilen kart yok. Kartlar kapandıkça burada hangi kanalın, hangi branşın kazandırdığı görünür.</div>
+                @else
+                    <div class="grid gap-3 md:grid-cols-2">
+                        @foreach ($patterns['groups'] as $title => $rows)
+                            <div class="card overflow-x-auto">
+                                <table class="data-table">
+                                    <thead><tr><th>{{ $title }}</th><th class="text-right">Kazanıldı</th><th class="text-right">Kaybedildi</th><th class="text-right">Oran</th></tr></thead>
+                                    <tbody>
+                                        @foreach ($rows as $row)
+                                            <tr><td class="text-gray-800 dark:text-gray-200">{{ $row['label'] }}</td><td class="text-right tabular-nums text-success-700">{{ $row['won'] }}</td><td class="text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['lost'] }}</td><td class="text-right tabular-nums text-gray-500">{{ $row['rate'] !== null ? '%'.$row['rate'] : '·' }}</td></tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endforeach
+                    </div>
+                    @if ($patterns['lost_at'] !== [] || $patterns['lost_reasons'] !== [])
+                        <div class="card mt-3 p-4 text-sm text-gray-600 dark:text-gray-300">
+                            @if ($patterns['lost_at'] !== [])<p><span class="font-semibold text-gray-900 dark:text-white">Nerede kaybedildi:</span> @foreach ($patterns['lost_at'] as $label => $c){{ $label }} <span class="tabular-nums text-gray-900 dark:text-white">{{ $c }}</span>{{ $loop->last ? '' : ' · ' }}@endforeach</p>@endif
+                            @if ($patterns['lost_reasons'] !== [])<p class="mt-1"><span class="font-semibold text-gray-900 dark:text-white">Neden:</span> @foreach ($patterns['lost_reasons'] as $label => $c){{ $label }} <span class="tabular-nums text-gray-900 dark:text-white">{{ $c }}</span>{{ $loop->last ? '' : ' · ' }}@endforeach</p>@endif
+                        </div>
+                    @endif
+                @endif
+            @endif
 
             @if ($isAdmin)
                 <div class="card mt-8 p-4" data-sales-form-link>

@@ -24,11 +24,29 @@
             <p class="page-sub">İşlerin, toplantıların, yazacağın adaylar ve markalarda yapılan her iş tek takvimde. Bir güne tıkla, o günün tamamı açılır.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            <button type="button" wire:click="showFeed" class="btn-quiet" data-calendar-feed-toggle>Google Takvim'e ekle</button>
             <button type="button" wire:click="$toggle('report')" class="btn-quiet" data-calendar-report-toggle>{{ $report ? 'Takvime dön' : 'Ay dökümü' }}</button>
             <button type="button" wire:click="startAdding(null, 'meeting')" class="btn" data-calendar-add-meeting>+ Toplantı</button>
             <button type="button" wire:click="startAdding(null, 'task')" class="btn-primary" data-calendar-add-task>+ İş</button>
         </div>
     </header>
+
+    @if ($feedUrl !== null)
+        {{-- Read-only feed (4. hafta): Google Takvim subscribes to this address and refreshes it by itself. --}}
+        <div class="card mt-6 p-4" data-calendar-feed>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Google Takvim'e ekle</h2>
+            <p class="mt-1 text-sm text-gray-500">Toplantıların, işlerin ve yazacağın adaylar telefondaki Google Takvim'de görünür. Takvim yalnızca okur; değişikliği burada yaparsın. Google adresi birkaç saatte bir yeniler.</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                <input type="text" readonly value="{{ $feedUrl }}" class="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 font-mono text-xs text-gray-700 dark:border-gray-700 dark:bg-white/5 dark:text-gray-200" x-on:focus="$el.select()" aria-label="Takvim adresi" data-calendar-feed-url>
+                <button type="button" x-data x-on:click="navigator.clipboard?.writeText(@js($feedUrl)); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="btn">Kopyala</button>
+            </div>
+            <ol class="mt-3 list-decimal space-y-0.5 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                <li>Bilgisayarda calendar.google.com'u aç, soldaki "Diğer takvimler" yanındaki <span class="font-medium">+</span> işaretine bas.</li>
+                <li>"URL'den" seç, adresi yapıştır, "Takvim ekle"ye bas. Telefonda kendiliğinden görünür.</li>
+            </ol>
+            <p class="mt-3 text-xs text-gray-500">Adres şifre gibidir; kimseyle paylaşma. Paylaştıysan <button type="button" wire:click="renewFeed" wire:confirm="Eski adres çalışmayı bırakacak. Yenilensin mi?" class="link-neutral">adresi yenile</button>.</p>
+        </div>
+    @endif
 
     @if ($failed)
         <div class="card mt-6 p-4 text-sm text-error-600">Takvim şu an okunamadı; birazdan yeniden dene. Hata kaydedildi.</div>

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\OperatorForgotPasswordController;
 use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
+use App\Http\Controllers\Calendar\CalendarFeedController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\Integrations\WhatsAppBackupController;
@@ -47,6 +48,8 @@ Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/mcp/oauth/authorize', [McpOAuthController::class, 'showAuthorize'])->name('mcp.oauth.authorize');
     Route::post('/mcp/oauth/authorize', [McpOAuthController::class, 'approve'])->middleware('throttle:10,1')->name('mcp.oauth.approve');
 });
+// Takvim (2026-11-05): read-only feed for Google Takvim; the secret address is the key, nothing is written back.
+Route::get('/takvim/abone/{token}.ics', CalendarFeedController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:60,1')->name('calendar.feed');
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 // Satış (2026-11-04): the phone's share sheet (PWA share_target) drops a chat export, a site link or a number here.

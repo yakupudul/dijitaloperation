@@ -7,6 +7,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Services\Assistant\ReminderService;
 use App\Services\Calendar\CalendarFeed;
+use App\Services\Calendar\CalendarIcs;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use Carbon\CarbonImmutable;
@@ -43,6 +44,9 @@ final class CalendarPage extends Component
     public array $form = ['kind' => 'task', 'title' => '', 'date' => '', 'time' => '', 'end' => '', 'place' => '', 'brand_id' => '', 'lead_id' => '', 'notes' => '', 'repeat' => 'none'];
 
     public ?int $noteFor = null;
+
+    /** "Google Takvim'e ekle": the private feed address, shown once asked. */
+    public ?string $feedUrl = null;
 
     public string $note = '';
 
@@ -173,6 +177,19 @@ final class CalendarPage extends Component
     {
         $this->mine($id)->delete();
         $this->say('Silindi.');
+    }
+
+    /** Shows the read-only feed address (created on first ask) to paste into Google Takvim. */
+    public function showFeed(): void
+    {
+        $this->feedUrl = $this->feedUrl === null ? route('calendar.feed', CalendarIcs::token(auth()->user())) : null;
+    }
+
+    /** A new address; the old one stops working at once (for a leaked or shared link). */
+    public function renewFeed(): void
+    {
+        $this->feedUrl = route('calendar.feed', CalendarIcs::token(auth()->user(), true));
+        $this->say('Takvim adresi yenilendi. Eski adres artık çalışmıyor; Google Takvim\'e yeni adresi ekle.');
     }
 
     public function render(CalendarFeed $feed): View

@@ -11,6 +11,7 @@ use App\Models\WhatsAppMessage;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\SalesMonthReport;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
 use App\Support\Roles;
@@ -42,6 +43,10 @@ final class SalesPage extends Component
 
     #[Url(as: 'q', except: '')]
     public string $q = '';
+
+    /** Sonuçlar: the month of the report (Y-m); empty = this month. */
+    #[Url(as: 'ay', except: '')]
+    public string $month = '';
 
     public bool $adding = false;
 
@@ -217,6 +222,7 @@ final class SalesPage extends Component
                 });
             $list = $query->orderByRaw('case when next_step_at is null then 1 else 0 end')->orderBy('next_step_at')->orderByDesc('updated_at')->limit(300)->get();
         }
+        $reportMonth = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->month) === 1 ? CarbonImmutable::parse($this->month.'-01', 'Europe/Istanbul') : CarbonImmutable::now('Europe/Istanbul')->startOfMonth();
         $requests = $this->tab === 'istekler' ? $leads->customerRequests() : collect();
         $customers = $requests->isNotEmpty() ? Customer::query()->whereKey($requests->pluck('customer_id')->unique())->get(['id', 'name', 'monthly_fee'])->keyBy('id') : collect();
         $previews = [];
@@ -238,6 +244,10 @@ final class SalesPage extends Component
             'previews' => $previews,
             'results' => $this->tab === 'sonuclar' ? $leads->results() : [],
             'money' => $this->tab === 'sonuclar' ? $this->money() : null,
+            'report' => $this->tab === 'sonuclar' ? app(SalesMonthReport::class)->month($reportMonth) : null,
+            'patterns' => $this->tab === 'sonuclar' ? app(SalesMonthReport::class)->patterns() : null,
+            'reportMonth' => $reportMonth,
+            'isThisMonth' => $reportMonth->format('Y-m') === CarbonImmutable::now('Europe/Istanbul')->format('Y-m'),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'formSiteId' => $this->tab === 'sonuclar' ? LeadIntake::siteId() : null,
             'formSites' => $this->tab === 'sonuclar' && auth()->user()?->hasRole(Roles::ADMIN) ? $this->formSites() : [],
