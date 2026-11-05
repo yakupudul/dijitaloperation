@@ -5,6 +5,7 @@ namespace Tests\Feature\Site;
 use App\Jobs\Site\PullClarityJob;
 use App\Livewire\Operator\Website\V2\SettingsTab;
 use App\Livewire\Operator\Work\WorkPage;
+use App\Mcp\Tools\ChannelData;
 use App\Models\ClarityProject;
 use App\Models\DigitalAsset;
 use App\Models\Page;
@@ -61,7 +62,7 @@ class ClarityTest extends TestCase
         $this->assertSame('https://clarity.microsoft.com/projects/view/abc123xyz/dashboard', $project->dashboardUrl());
 
         $project->forceFill(['last_pulled_at' => now()->subMinutes(5)])->save();
-        Livewire::test(SettingsTab::class, ['assetId' => $this->site->id])->call('pullClarity')->assertSee('son bir saat içinde');
+        Livewire::test(SettingsTab::class, ['assetId' => $this->site->id])->call('pullClarity')->assertSee('son 6 saat içinde');
     }
 
     public function test_a_bad_page_becomes_work_and_a_clear_pass_closes_it_by_itself(): void
@@ -70,9 +71,9 @@ class ClarityTest extends TestCase
         $answer = $this->answer(rage: 9.5, scroll: 60.0, script: 0.5);
         Http::fake(function (Request $request) use (&$answer) {
             $this->assertSame('Bearer '.str_repeat('t', 40), $request->header('Authorization')[0]);
-            $this->assertStringContainsString('dimension1=URL', $request->url());
+            $this->assertMatchesRegularExpression('/dimension1=(URL|Channel)/', $request->url());
 
-            return Http::response($answer);
+            return Http::response(str_contains($request->url(), 'dimension1=Channel') ? [] : $answer);
         });
 
         $result = app(ClarityCollector::class)->pull($this->site);
@@ -102,6 +103,55 @@ class ClarityTest extends TestCase
 
         $this->assertSame('error', app(ClarityCollector::class)->pull($this->site)['status']);
         Livewire::test(SettingsTab::class, ['assetId' => $this->site->id])->assertSee('Clarity token geçersiz');
+    }
+
+    public function test_paid_traffic_that_leaves_at_once_or_looks_like_bots_becomes_work_and_mcp_reads_it(): void
+    {
+        ClarityProject::query()->create(['website_asset_id' => $this->site->id, 'project_id' => 'abc123xyz', 'api_token' => str_repeat('t', 40)]);
+        $traffic = $this->trafficAnswer(quickback: 40.0, bots: 20);
+        Http::fake(function (Request $request) use (&$traffic) {
+            return Http::response(str_contains($request->url(), 'dimension1=Channel') ? $traffic : $this->answer(rage: 0.5, scroll: 60.0, script: 0.5));
+        });
+
+        $result = app(ClarityCollector::class)->pull($this->site);
+        $this->assertSame('ok', $result['status']);
+        $this->assertStringContainsString('3 trafik kaynağı satırı', $result['message']);
+        $this->assertSame(3, DB::table('clarity_traffic_days')->where('website_asset_id', $this->site->id)->count());
+
+        $work = Suggestion::query()->where('action_type', 'clarity')->get()->keyBy(fn (Suggestion $s): string => (string) $s->action['rule']);
+        $this->assertSame(['traffic_quickback'], $work->keys()->all(), 'only the paid Google campaign fails; organic traffic and the bot share under the line do not');
+        $this->assertSame('Reklamdan gelen hemen dönüyor: «implant-izmir» kampanyası', $work['traffic_quickback']->title);
+        $this->assertStringContainsString('Google Ads', $work['traffic_quickback']->reason);
+        Livewire::test(WorkPage::class, ['tab' => 'saglik'])->assertSee('Reklamdan gelen hemen dönüyor');
+
+        $traffic = $this->trafficAnswer(quickback: 5.0, bots: 60);
+        app(ClarityCollector::class)->pull($this->site);
+        $this->assertSame([Suggestion::APPLIED, Suggestion::VERIFY_AUTO], [$work['traffic_quickback']->fresh()->status, $work['traffic_quickback']->fresh()->verification]);
+        $bots = Suggestion::query()->where('action_type', 'clarity')->where('action->rule', 'traffic_bots')->sole();
+        $this->assertStringContainsString('%60\'i bot', $bots->reason);
+
+        $tool = new ChannelData;
+        $response = $tool->handle(new \Laravel\Mcp\Request(['brand_id' => $this->site->brand_id, 'dataset' => 'clarity.traffic', 'days' => 30]));
+        $json = json_decode((string) $response->content(), true);
+        $this->assertSame('Paid search', $json['rows'][0]['channel']);
+        $this->assertSame(100, $json['rows'][0]['sessions']);
+        $this->assertSame(5, $json['rows'][0]['quickback_pct']);
+    }
+
+    /** @return list<array<string, mixed>> traffic answer: a paid Google campaign (100 sessions), organic Google (80), direct (10) */
+    private function trafficAnswer(float $quickback, int $bots): array
+    {
+        $rows = fn (callable $fields): array => [
+            ['Channel' => 'Paid search', 'Source' => 'Google', 'Campaign' => 'implant-izmir'] + $fields(100, $quickback),
+            ['Channel' => 'Organic search', 'Source' => 'google', 'Campaign' => ''] + $fields(80, 60.0),
+            ['Channel' => 'Direct', 'Source' => '', 'Campaign' => ''] + $fields(10, 60.0),
+        ];
+
+        return [
+            ['metricName' => 'Traffic', 'information' => $rows(fn (int $n, float $q): array => ['totalSessionCount' => (string) $n, 'totalBotSessionCount' => (string) ($n === 100 ? $bots : 0)])],
+            ['metricName' => 'QuickbackClick', 'information' => $rows(fn (int $n, float $q): array => ['sessionsCount' => (string) $n, 'sessionsWithMetricPercentage' => $q])],
+            ['metricName' => 'ScrollDepth', 'information' => $rows(fn (int $n, float $q): array => ['averageScrollDepth' => 55.0])],
+        ];
     }
 
     /** @return list<array<string, mixed>> Clarity "project-live-insights" answer for one page (two query variants), desktop + mobile */

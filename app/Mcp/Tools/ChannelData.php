@@ -22,7 +22,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
  * Each dataset is a fixed aggregation of one collected table, scoped to the brand's assets; nothing is free SQL and
  * nothing is written. Meta lives in `meta-performance`.
  */
-#[Description('Reads one brand\'s stored data for a channel dataset (no live provider call), summed over a period and grouped, highest first. Datasets: google_ads.months / campaigns / search_terms / keywords / locations / devices / conversion_actions; gsc.months / queries / pages / countries / query_countries; ga4.months / channels / landing_pages / countries / key_events; gbp.performance / keywords / reviews. Each answer carries the last collected day so stale data is visible. Meta: use meta-performance.')]
+#[Description('Reads one brand\'s stored data for a channel dataset (no live provider call), summed over a period and grouped, highest first. Datasets: google_ads.months / campaigns / search_terms / keywords / locations / devices / conversion_actions; gsc.months / queries / pages / countries / query_countries; ga4.months / channels / landing_pages / countries / key_events; gbp.performance / keywords / reviews. clarity.pages (page × device behaviour: rage / dead clicks, quick backs, JS errors, scroll) / clarity.traffic (channel × source × campaign: sessions, bots, quick backs, scroll; percentages are session-weighted). Each answer carries the last collected day so stale data is visible. Meta: use meta-performance.')]
 #[IsReadOnly]
 class ChannelData extends Tool
 {
@@ -52,6 +52,9 @@ class ChannelData extends Tool
         'gbp.performance' => ['gbp_performance_daily', 'reporting_date', ['location_name', 'metric'], ['value']],
         'gbp.keywords' => ['gbp_search_keywords_monthly', 'month_start', ['search_keyword'], ['impressions']],
         'gbp.reviews' => ['gbp_reviews', 'create_time', ['location_name', 'star_rating'], ['count']],
+        // Microsoft Clarity (per website, not per Google account): read by clarity() as session-weighted means.
+        'clarity.pages' => ['clarity_page_days', 'day', ['url', 'device'], ['sessions', 'rage_pct', 'dead_pct', 'quickback_pct', 'script_error_pct', 'excessive_scroll_pct', 'scroll_depth']],
+        'clarity.traffic' => ['clarity_traffic_days', 'day', ['channel', 'source', 'campaign'], ['sessions', 'bot_sessions', 'quickback_pct', 'rage_pct', 'dead_pct', 'scroll_depth']],
     ];
 
     /** Dataset prefix => the account type its rows are collected under. */
@@ -77,6 +80,9 @@ class ChannelData extends Tool
         }
         $definition = self::DATASETS[$validated['dataset']];
         [$table, $dateColumn, $groups, $metrics] = $definition;
+        if (str_starts_with($validated['dataset'], 'clarity.')) {
+            return $this->clarity($brand, $validated, $table, $groups, $metrics);
+        }
         if (! SchemaState::hasTable($table) && ! in_array($table, array_column(Schema::getViews(), 'name'), true)) {
             return Response::error('Bu veri tablosu yok: '.$table);
         }
@@ -145,6 +151,48 @@ class ChannelData extends Tool
         }
 
         return $out;
+    }
+
+    /**
+     * Clarity rows of the brand's websites over the period, grouped, sessions summed and the percentages weighted by
+     * sessions (a plain sum of percentages would mean nothing).
+     *
+     * @param  array<string, mixed>  $validated
+     * @param  list<string>  $groups
+     * @param  list<string>  $metrics
+     */
+    private function clarity(Brand $brand, array $validated, string $table, array $groups, array $metrics): Response
+    {
+        if (! SchemaState::hasTable($table)) {
+            return Response::error('Bu veri tablosu yok: '.$table);
+        }
+        $sites = DB::table('digital_assets')->whereIn('id', BrandScope::assetIds((int) $brand->id) ?: [0])->where('type', 'website')->pluck('id')->all();
+        $from = CarbonImmutable::now()->subDays((int) ($validated['days'] ?? 30))->toDateString();
+        $base = fn () => DB::table($table)->whereIn('website_asset_id', $sites ?: [0])->where('day', '>=', $from);
+        $select = [];
+        $weight = '(case when sessions > 0 then sessions else 1 end)';
+        foreach ($metrics as $metric) {
+            $column = $this->wrap($metric);
+            $select[] = in_array($metric, ['sessions', 'bot_sessions'], true)
+                ? 'sum('.$column.') as '.$column
+                : 'sum('.$column.' * '.$weight.') / nullif(sum(case when '.$column.' is null then 0 else '.$weight.' end), 0) as '.$column;
+        }
+        $query = $base()->groupBy(...$groups)->selectRaw(implode(', ', array_map(fn (string $g): string => $this->wrap($g), $groups)).', '.implode(', ', $select))
+            ->orderByRaw('sum(sessions) desc')->limit((int) ($validated['limit'] ?? 50));
+        if (! empty($validated['contains'])) {
+            $query->whereRaw('lower(cast('.$this->wrap($groups[0]).' as text)) like ?', ['%'.mb_strtolower((string) $validated['contains']).'%']);
+        }
+        $rows = $query->get()->map(fn (object $r): array => array_intersect_key((array) $r, array_flip($groups))
+            + $this->round(array_map(fn ($v) => $v ?? 0, array_intersect_key((array) $r, array_flip($metrics)))))->all();
+
+        return Response::json([
+            'brand' => ['id' => (int) $brand->id, 'name' => (string) $brand->name],
+            'dataset' => $validated['dataset'],
+            'from' => $from,
+            'last_day' => $base()->max('day'),
+            'rows' => $rows,
+        ] + ($sites === [] ? ['note' => 'Markanın web sitesi yok.'] : [])
+          + ($sites !== [] && ! DB::table('clarity_projects')->whereIn('website_asset_id', $sites)->exists() ? ['note' => 'Markanın sitelerinde Clarity bağlı değil (Web sitesi › Ayarlar › Microsoft Clarity).'] : []));
     }
 
     /** @return array<string, mixed> */

@@ -76,7 +76,7 @@
             @endif
         </div>
         <div class="card px-4 py-3.5">
-            <p class="max-w-3xl text-[13px] text-gray-500 dark:text-gray-400">Öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları ve kaydırma. Kötü sayfalar Onarım masasına teknik sağlık işi olarak düşer. Clarity etiketi sitede yüklü olmalı; token Clarity'de Settings, Data Export bölümünden alınır.</p>
+            <p class="max-w-3xl text-[13px] text-gray-500 dark:text-gray-400">Öfkeli ve çalışmayan tıklamalar, hızlı geri dönüşler, JavaScript hataları, kaydırma ve trafik kaynakları. Ziyaretçinin takıldığı sayfalar ile hemen dönen, sayfayı okumayan ya da bot gibi görünen reklam trafiği Genel işler › Teknik sağlık'a iş olarak düşer. Clarity etiketi sitede yüklü olmalı; token Clarity'de Settings, Data Export bölümünden alınır.</p>
             @if ($clarity?->last_error)<p class="mt-2 text-[13px] text-error-600" data-clarity-error>{{ $clarity->last_error }}</p>@endif
             <div class="mt-3 flex flex-wrap items-center gap-2">
                 <input type="text" wire:model="clarityProjectId" aria-label="Clarity proje kimliği" placeholder="Proje kimliği (ör. abcd1234ef)" class="{{ $input }} w-full sm:w-52">

@@ -4006,6 +4006,21 @@ Verification: `Site/ClarityTest` (token encrypted and write-only, hourly pull gu
 device, rule → work in Teknik sağlık, a pass closes it itself, 401 shown on Ayarlar). Not deployed; no real Clarity
 project tested; Ads / Meta landing-page link not built yet; not DONE.
 
+**Traffic sources (yakup, 2026-11-05).** Each pull now makes a second request, Channel × Source × Campaign
+(`clarity_traffic_days`: sessions, bot sessions, quick back / rage / dead shares, scroll, active time; kept 120 days). A
+traffic failure keeps the page pull and is shown on Ayarlar. "Şimdi çek" waits 6 hours, so the day stays under the API's
+10 requests. `ClarityTrafficRules` (no AI) reads paid rows only: Google Ads or Meta by source, paid by channel, or a
+Meta source that carries a campaign. It uses a 7-day, session-weighted view and skips rows under 30 sessions:
+- Reklam trafiğinde bot şüphesi: bot share fail ≥30%, pass <15%.
+- Reklamdan gelen hemen dönüyor: quick back fail ≥25%, pass <15%.
+- Reklam ziyaretçisi sayfayı okumuyor: scroll fail <30%, pass ≥40%.
+
+Each failure is a `clarity` suggestion on the site (channel `search`, no page) in Teknik sağlık. It names the platform
+and campaign; the advice covers the landing page, and the ad side is a recommendation only. The same `WorkVerifier`
+close / reopen applies. MCP `channel-data` reads `clarity.pages` and `clarity.traffic` with session-weighted
+percentages. Verification: `Site/ClarityTest`. No real Clarity project has been tested; the channel names are taken
+from the API docs.
+
 ### Geliştirme havuzu round 2026-10-05 (yakup approved #1–#16)
 
 Coded on `claude/project-thread-e5yimf` on top of live 7e6391da; PHPUnit only, no live UAT. Not deployed; not DONE.

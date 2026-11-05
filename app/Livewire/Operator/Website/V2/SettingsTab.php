@@ -9,6 +9,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Services\SeoTasks\SeoPlanInputCollector;
+use App\Services\Site\Clarity\ClarityCollector;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -69,8 +70,8 @@ final class SettingsTab extends Component
 
             return;
         }
-        if ($project->last_pulled_at !== null && $project->last_pulled_at->gt(now()->subHour())) {
-            $this->message = 'Clarity son bir saat içinde çekildi; günlük istek sınırı için bekleyin.';
+        if ($project->last_pulled_at !== null && $project->last_pulled_at->gt(now()->subHours(ClarityCollector::PULL_GAP_HOURS))) {
+            $this->message = 'Clarity son '.ClarityCollector::PULL_GAP_HOURS.' saat içinde çekildi; günlük istek sınırı (10) için bekleyin.';
 
             return;
         }
