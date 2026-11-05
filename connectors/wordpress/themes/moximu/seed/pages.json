@@ -653,55 +653,55 @@
 "baslik": "Diş kliniği",
 "baglanti": "/klinik/dis-klinigi/",
 "metin": "İmplant, zirkonyum, ortodonti ve ilçe aramaları.",
-"linkler": "Diş kliniği SEO | /klinik/dis-klinigi/seo/\nWeb sitesi | /hizmetlerimiz/klinik-web-sitesi/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nWeb sitesi | /hizmetlerimiz/klinik-web-sitesi/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
 "baslik": "Doktor ve muayenehane",
 "baglanti": "/kurumlar/muayenehaneler/",
 "metin": "Hekim adı ve uzmanlık aramaları.",
-"linkler": "Muayenehaneler | /kurumlar/muayenehaneler/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Doktor SEO | /kurumlar/muayenehaneler/seo/\nMuayenehaneler | /kurumlar/muayenehaneler/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
 "baslik": "Estetik ve plastik cerrahi",
 "baglanti": "/klinik/estetik-klinigi/",
 "metin": "İşlem adı ve şehir aramaları; yurt dışı hasta.",
-"linkler": "Branş sayfası | /klinik/estetik-klinigi/\nSağlık turizmi | /saglik-turizmi/"
+"linkler": "Estetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nSağlık turizmi | /saglik-turizmi/"
 },
 {
 "baslik": "Saç ekimi",
 "baglanti": "/klinik/sac-ekimi/",
 "metin": "Teknik adı aramaları ve yurt dışı başvurular.",
-"linkler": "Branş sayfası | /klinik/sac-ekimi/\nSağlık turizmi | /saglik-turizmi/"
+"linkler": "Saç Ekimi SEO | /klinik/sac-ekimi/seo/\nSağlık turizmi | /saglik-turizmi/"
 },
 {
 "baslik": "Dermatoloji",
 "baglanti": "/klinik/dermatoloji/",
 "metin": "Lazer, cilt bakımı ve hastalık adı aramaları.",
-"linkler": "Branş sayfası | /klinik/dermatoloji/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Dermatoloji SEO | /klinik/dermatoloji/seo/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
 "baslik": "Psikolog",
 "baglanti": "/klinik/psikolog/",
 "metin": "Uzmanlık alanı ve online görüşme aramaları.",
-"linkler": "Branş sayfası | /klinik/psikolog/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Psikolog SEO | /klinik/psikolog/seo/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
 "baslik": "Diyetisyen",
 "baglanti": "/klinik/diyetisyen/",
 "metin": "Program adı ve ilçe aramaları.",
-"linkler": "Branş sayfası | /klinik/diyetisyen/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Diyetisyen SEO | /klinik/diyetisyen/seo/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
 "baslik": "Fizyoterapi",
 "baglanti": "/klinik/fizyoterapi/",
 "metin": "Tedavi yöntemi ve ilçe aramaları.",
-"linkler": "Branş sayfası | /klinik/fizyoterapi/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Fizyoterapi SEO | /klinik/fizyoterapi/seo/\nReklam kuralları | /saglik-reklam-mevzuati/"
 },
 {
 "baslik": "Hastane ve tıp merkezi",
 "baglanti": "/kurumlar/hastaneler/",
 "metin": "Bölüm, hekim ve şube bazlı düzen.",
-"linkler": "Hastaneler | /kurumlar/hastaneler/\nReklam kuralları | /saglik-reklam-mevzuati/"
+"linkler": "Hastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/\nHastaneler | /kurumlar/hastaneler/\nReklam kuralları | /saglik-reklam-mevzuati/"
 }
 ],
 "arka": 1,
@@ -8854,7 +8854,7 @@
 "path": "/klinik/dis-klinigi/seo/",
 "title": "Diş Kliniği SEO Hizmeti",
 "order": "0",
-"excerpt": "Diş kliniği SEO hizmeti: implant, zirkonyum, ortodonti gibi tedavi ve ilçe aramalarında Google'da üst sıralar için teknik, içerik ve harita çalışması.",
+"excerpt": "Diş kliniği SEO hizmeti, hastanız implant, zirkonyum, ortodonti gibi tedavileri ilçe adıyla aradığında kliniğinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır.",
 "seo_title": "Diş Kliniği SEO Hizmeti · Diş Hekimi SEO · Moximu",
 "seo_desc": "Diş kliniği SEO hizmeti: implant, zirkonyum, ortodonti ve ilçe aramalarında Google'da üst sıralar. Hekim onaylı içerik, aylık rapor. Aylık 12.000 ₺ + KDV.",
 "service": {
@@ -8877,37 +8877,76 @@
 "acf_fc_layout": "np_tablo",
 "ust": "Hastalarınız ne yazıyor",
 "baslik": "Diş hastası Google'a <mark>tedavi ve semt</mark> yazar.",
-"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; kliniğinize özel liste ön değerlendirmede çıkarılır.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
 "sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
-"satirlar": "Tedavi + ilçe | implant karşıyaka, zirkonyum kaplama bornova | Tedavi × ilçe sayfası\nYakındaki klinik | yakınımdaki diş kliniği, acil diş hekimi | Google harita kaydı\nTedavi sorusu | implant kaç günde yapılır, şeffaf plak kimlere uygun | Bilgilendirici rehber yazısı\nHekim adı | dt. ad soyad, diş hekimi ad soyad yorumları | Hekim sayfası ve harita kaydı\nFiyat araştırması | implant fiyatları, zirkonyum fiyatı | Tedavi sayfası (fiyat yazılmaz, tedaviyi etkileyen etkenler anlatılır)",
+"satirlar": "Tedavi + ilçe | implant karşıyaka, zirkonyum kaplama bornova | Tedavi × ilçe sayfası\nYakındaki klinik | yakınımdaki diş kliniği, acil diş hekimi | Google harita kaydı\nTedavi sorusu | implant kaç günde yapılır, şeffaf plak kimlere uygun | Bilgilendirici rehber yazısı\nHekim adı | dt. ad soyad, diş hekimi ad soyad yorumları | Hekim sayfası ve harita kaydı\nÇocuk ve aile | çocuk diş hekimi, pedodonti bornova | Pedodonti sayfası\nFiyat araştırması | implant fiyatları, zirkonyum fiyatı | Tedavi sayfası (fiyat yazılmaz, tedaviyi etkileyen etkenler anlatılır)",
 "arka": 0,
 "kimlik": "aramalar"
 },
 {
 "acf_fc_layout": "np_maddeler",
 "ust": "Ne yapıyoruz",
-"baslik": "Diş kliniği SEO'sunda <mark>altı iş</mark>.",
+"baslik": "Diş Kliniği SEO'sunda <mark>yaptığımız işler</mark>.",
 "metin": "",
-"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, diş kliniği yapılandırılmış verisi, Search Console kurulumu.\n<b>Tedavi × ilçe sayfaları:</b> implant, zirkonyum, ortodonti, beyazlatma, kanal tedavisi; hastalarınızın geldiği ilçelerle.\n<b>Haftalık içerik:</b> hastanın sorduğu sorulara cevap veren yazılar; hekim onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> site ve harita kaydı aynı tedavi ve adres bilgisini taşır.\n<b>Yapay zekâ aramaları:</b> ChatGPT ve Google'ın yapay zekâ özetlerinde kliniğinizin bilgilerinin doğru görünmesi.\n<b>Aylık rapor:</b> sıralamalar, gelen arama, WhatsApp ve form; yapılan işler listesi.",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, diş kliniği yapılandırılmış verisi, Search Console kurulumu.\n<b>Tedavi × ilçe sayfaları:</b> implant, zirkonyum, ortodonti, beyazlatma, kanal tedavisi; hastalarınızın geldiği ilçelerle.\n<b>Hekim sayfaları:</b> her diş hekiminin unvanı, uzmanlığı ve tedavileri ayrı sayfada.\n<b>Haftalık içerik:</b> hastanın sorduğu sorulara cevap veren yazılar; hekim onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> site ve harita kaydı aynı tedavi ve adres bilgisini taşır.\n<b>Yapay zekâ aramaları:</b> ChatGPT ve Google'ın yapay zekâ özetlerinde kliniğinizin bilgilerinin doğru görünmesi.\n<b>Aylık rapor:</b> sıralamalar, gelen arama, WhatsApp ve form; yapılan işler listesi.",
 "kutu_baslik": "Diş hekimliğinde tanıtım sınırı",
 "kutu_maddeler": "Tedavi sayfaları bilgilendirme amacıyla yazılır.\nFiyat, indirim ve kampanya duyurusu yapılmaz.\nÖnce-sonra görseli ve \"ağrısız\", \"garantili\" gibi ifadeler kullanılmaz.\nHekim bilgileri unvan ve uzmanlıkla doğru yazılır.",
-"kutu_not": "Ayrıntı: <a href=\"/rehber/klinik-reklaminda-ne-yazilir/\">Klinik reklamında ne yazılır? →</a>",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
 "arka": 1,
 "kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Arama listesi",
+"metin": "İlçelerinize ve tedavilerinize göre hastaların yazdığı ifadeler çıkarılır; hangi sayfanın eksik olduğu belirlenir."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, mobil görünüm ve ölçüm kurulur; Google harita kaydı tedavi ve saat bilgileriyle düzenlenir."
+},
+{
+"baslik": "30–60. gün · Tedavi sayfaları",
+"metin": "İmplant, zirkonyum, ortodonti gibi ana tedaviler ilçe bilgisiyle yazılır, hekim onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · İçerik ve ölçüm",
+"metin": "Haftalık yazılar başlar; hangi tedavi aramasından arama ve WhatsApp geldiği raporda izlenir."
+}
+],
+"arka": 0,
+"kimlik": "surec"
 },
 {
 "acf_fc_layout": "np_takip",
 "ust": "Takip",
 "baslik": "Her ay <mark>tek sayfa</mark> rapor.",
-"metin": "Hangi tedavi aramasında kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
 "liste": [],
-"arka": 0,
+"arka": 1,
 "kimlik": "rapor",
-"rapor_baslik": "Aylık rapor · Ekim",
 "rapor_alt": "Örnek Diş Kliniği",
+"rapor_isler": "\"implant karşıyaka\" aramasında 4. sıraya çıkıldı\n3 tedavi sayfası yayımlandı (hekim onaylı)\n12 Google yorumu cevaplandı\nİsteğiniz: kampanya görseli değişti",
+"rapor_baslik": "Aylık rapor · Ekim",
 "rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
-"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9",
-"rapor_isler": "\"implant karşıyaka\" aramasında 4. sıraya çıkıldı\n3 tedavi sayfası yayımlandı (hekim onaylı)\n12 Google yorumu cevaplandı\nİsteğiniz: kampanya görseli değişti"
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Tedavinin ne olduğu, hangi durumda uygulandığı, kaç seans sürdüğü\nHekimlerin unvanı, uzmanlık alanı ve eğitimi\nKlinik adresi, ulaşım, otopark ve çalışma saatleri\nHastanın sık sorduğu sorulara bilgilendirici cevaplar",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Tedavi fiyatı, indirim ve \"kampanya\" duyuruları\nÖnce-sonra fotoğrafları ve hasta ağız içi görselleri\n\"Ağrısız\", \"garantili\", \"en iyi\" gibi vaat ve üstünlük ifadeleri\nHasta yorumlarının reklam metni olarak kullanılması",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
 },
 {
 "acf_fc_layout": "np_referans",
@@ -8957,12 +8996,12 @@
 {
 "acf_fc_layout": "np_fiyat",
 "ust": "Fiyat",
-"baslik": "Diş kliniği SEO <mark>aylık fiyatı</mark>.",
+"baslik": "Diş Kliniği SEO <mark>aylık fiyatı</mark>.",
 "metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
 "fiyat": "{fiyat:seo}",
 "fiyat_alt": "/ay + KDV",
 "not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
-"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nTedavi × ilçe sayfaları\nHaftalık hekim onaylı içerik\nAylık rapor, haftalık özet",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
 "buton_yazisi": "Toplam maliyeti hesaplayın",
 "buton_link": "/#maliyet",
 "arka": 0,
@@ -8971,7 +9010,7 @@
 {
 "acf_fc_layout": "np_sss",
 "ust": "Sık sorulan sorular",
-"baslik": "Diş kliniği SEO'su hakkında.",
+"baslik": "Diş Kliniği SEO'su hakkında.",
 "liste": [
 {
 "baslik": "Diş kliniği SEO ne kadar sürede sonuç verir?",
@@ -8992,6 +9031,10 @@
 {
 "baslik": "Kaç ilçe için sayfa hazırlanır?",
 "metin": "Hastalarınızın geldiği ilçelere göre belirlenir; ön değerlendirmede birlikte seçilir ve aylık raporda hangi ilçeden arama geldiği izlenir."
+},
+{
+"baslik": "Yurt dışından diş hastası için de çalışır mısınız?",
+"metin": "Evet. Sağlık turizmi için hastanın dilinde tedavi sayfaları ve ülke bazlı reklam kampanyaları ayrıca planlanır."
 }
 ],
 "arka": 1,
@@ -9004,10 +9047,16 @@
 "metin": "",
 "liste": [
 {
-"baslik": "Diş kliniği için diğer sayfalar",
+"baslik": "Diş Kliniği için diğer sayfalar",
 "baglanti": "/klinik/dis-klinigi/",
 "metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
 "linkler": "Diş klinikleri | /klinik/dis-klinigi/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/\nKlinik reklamında ne yazılır? | /rehber/klinik-reklaminda-ne-yazilir/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Estetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
 }
 ],
 "arka": 1,
@@ -9426,6 +9475,221 @@
 "excerpt": "Burun estetiği, liposuction ve meme estetiği aramalarında görünürlük; Instagram form reklamı, bilgi sayfaları ve hasta kabul akışı."
 },
 {
+"key": "estetik-seo",
+"path": "/klinik/estetik-klinigi/seo/",
+"title": "Estetik Kliniği SEO Hizmeti",
+"order": "0",
+"excerpt": "Estetik kliniği SEO hizmeti, hastanız rinoplasti, meme estetiği, liposuction veya medikal estetik işlemlerini şehir adıyla aradığında kliniğinizin ve cerrahınızın Google'da üst sıralarda görünmesi için yapılan teknik,…",
+"seo_title": "Estetik Kliniği SEO Hizmeti · Plastik Cerrahi SEO · Moximu",
+"seo_desc": "Estetik kliniği ve plastik cerrahlar için SEO: rinoplasti, meme estetiği, liposuction gibi işlem ve şehir aramalarında Google'da üst sıralar. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Estetik Kliniği SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Estetik Kliniği <mark>SEO Hizmeti</mark>",
+"metin": "Estetik kliniği SEO hizmeti, hastanız rinoplasti, meme estetiği, liposuction veya medikal estetik işlemlerini şehir adıyla aradığında kliniğinizin ve cerrahınızın Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Plastik cerrahi SEO\nİşlem × şehir sayfaları\nCerrah sayfaları\nYurt dışı hasta için çok dilli içerik",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20estetik%20klini%C4%9Fim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Estetik hastası önce <mark>işlemi ve cerrahı</mark> araştırır.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "İşlem + şehir | burun estetiği izmir, meme dikleştirme ankara | İşlem × şehir sayfası\nCerrah adı | op. dr. ad soyad, ad soyad burun estetiği yorumları | Cerrah sayfası ve harita kaydı\nİşlem sorusu | burun estetiği sonrası kaç gün şişlik olur, liposuction kimlere uygun | Bilgilendirici rehber yazısı\nYakındaki klinik | yakınımdaki estetik kliniği, plastik cerrah | Google harita kaydı\nMedikal estetik | dudak dolgusu bornova, botoks çankaya | Medikal estetik işlem sayfası\nYurt dışı arama | rhinoplasty turkey, nose job izmir | Hastanın dilinde işlem sayfası",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Estetik Kliniği SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, tıbbi kuruluş yapılandırılmış verisi, Search Console kurulumu.\n<b>İşlem × şehir sayfaları:</b> burun, meme, karın, yüz ve vücut işlemleri; medikal estetik uygulamaları ayrı sayfalarda.\n<b>Cerrah sayfaları:</b> cerrahın unvanı, uzmanlığı, eğitimi ve yaptığı işlemler; hasta cerrahı adıyla aradığında doğru sayfa açılır.\n<b>Haftalık içerik:</b> iyileşme süreci, hazırlık, kimlere uygun soruları; cerrah onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> klinik, cerrah ve işlem bilgisi harita kaydıyla aynı.\n<b>Çok dilli içerik:</b> yurt dışından gelen hasta için İngilizce ve Almanca işlem sayfaları (sağlık turizmi planında).\n<b>Aylık rapor:</b> işlem aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Estetikte tanıtım sınırı",
+"kutu_maddeler": "Önce-sonra fotoğrafı ve hasta görseli kullanılmaz.\nFiyat, taksit ve kampanya duyurusu yapılmaz.\n\"Kusursuz sonuç\", \"iz kalmaz\" gibi vaatler yazılmaz.\nCerrahın unvanı ve uzmanlığı doğru yazılır.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · İşlem listesi",
+"metin": "Hangi işlemlerin hangi şehirde arandığı çıkarılır; cerrah ve işlem sayfalarındaki eksikler belirlenir."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm ve harita kaydı düzenlenir; cerrah ve işlem bilgileri her yerde aynı hale getirilir."
+},
+{
+"baslik": "30–60. gün · İşlem sayfaları",
+"metin": "Öncelikli işlemler süreç, hazırlık ve iyileşme bilgisiyle yazılır; cerrah onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · İçerik ve dil",
+"metin": "Soru yazıları başlar; yurt dışı hasta varsa ilk İngilizce sayfalar hazırlanır."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Estetik Kliniği",
+"rapor_isler": "\"burun estetiği izmir\" aramasında 5. sıraya çıkıldı\n2 işlem sayfası yayımlandı (cerrah onaylı)\nCerrah sayfası harita kaydına bağlandı\nİsteğiniz: yeni cerrah sayfası eklendi",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "İşlemin ne olduğu, kimlere uygulandığı, ameliyat ve iyileşme süreci\nCerrahın unvanı, uzmanlık alanı, eğitimi ve deneyimi\nAmeliyat öncesi hazırlık ve sonrası kontrol bilgisi\nKlinik adresi, ulaşım, yurt dışı hasta için konaklama bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Önce-sonra fotoğrafları ve hasta görselleri\nFiyat, taksit, \"paket fiyat\" ve kampanya duyuruları\n\"Kusursuz\", \"doğal sonuç garantili\", \"iz kalmaz\" gibi vaatler\nÜnlü ya da hasta yorumlarıyla tanıtım",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Estetik Kliniği SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Estetik Kliniği SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Estetik kliniği SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. İşlem ve şehir aramalarındaki sıralamalar genellikle 3–5 ayda yerleşir; büyük şehirlerde rekabet daha yoğundur."
+},
+{
+"baslik": "Önce-sonra fotoğrafı olmadan hasta ikna olur mu?",
+"metin": "Sayfalarda işlemin süreci, cerrahın deneyimi ve iyileşme bilgisi ayrıntılı anlatılır. Hasta bu bilgiyle görüşmeye gelir; önce-sonra fotoğrafı tanıtımda kullanılmaz."
+},
+{
+"baslik": "Cerrahın adıyla yapılan aramalar da dahil mi?",
+"metin": "Evet. Cerrah sayfası ve harita kaydı, hastanın cerrahı adıyla aradığında doğru bilgiyi bulması için birlikte düzenlenir."
+},
+{
+"baslik": "Medikal estetik işlemler için de sayfa hazırlanır mı?",
+"metin": "Evet. Dolgu, botoks, mezoterapi gibi uygulamalar ayrı sayfalarda, ürün markası öne çıkarılmadan bilgilendirme amacıyla yazılır."
+},
+{
+"baslik": "Yurt dışından hasta için SEO yapıyor musunuz?",
+"metin": "Evet. İngilizce ve Almanca işlem sayfaları hazırlanır; ülke bazlı reklam kampanyaları sağlık turizmi planında ayrıca yürütülür."
+},
+{
+"baslik": "Instagram hesabımızı da yönetiyor musunuz?",
+"metin": "Hayır. Instagram ve Facebook'ta yalnız reklam kampanyalarını yönetiyoruz; hesabın günlük paylaşımlarını yapmıyoruz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Estetik Kliniği için diğer sayfalar",
+"baglanti": "/klinik/estetik-klinigi/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Estetik klinikleri | /klinik/estetik-klinigi/\nSağlık turizmi | /saglik-turizmi/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nKlinik reklamında ne yazılır? | /rehber/klinik-reklaminda-ne-yazilir/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
+},
+{
 "key": "k-dermatoloji",
 "path": "/klinik/dermatoloji/",
 "seo_title": "Dermatoloji kliniği dijital pazarlama ve SEO · Moximu",
@@ -9818,6 +10082,221 @@
 "title": "Dermatoloji klinikleri",
 "order": 3,
 "excerpt": "Lazer epilasyon, dolgu ve cilt bakımı aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve randevu akışı."
+},
+{
+"key": "dermatoloji-seo",
+"path": "/klinik/dermatoloji/seo/",
+"title": "Dermatoloji SEO Hizmeti",
+"order": "0",
+"excerpt": "Dermatoloji SEO hizmeti, hastanız akne, sedef, egzama gibi cilt hastalıklarını ya da lazer, leke ve medikal estetik uygulamalarını semt adıyla aradığında kliniğinizin ve dermatoloğunuzun Google'da üst sıralarda…",
+"seo_title": "Dermatoloji SEO Hizmeti · Dermatolog ve Cildiye SEO · Moximu",
+"seo_desc": "Dermatoloji klinikleri ve dermatologlar için SEO: akne, sedef, lazer epilasyon, leke tedavisi ve semt aramalarında Google'da üst sıralar. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Dermatoloji SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Dermatoloji <mark>SEO Hizmeti</mark>",
+"metin": "Dermatoloji SEO hizmeti, hastanız akne, sedef, egzama gibi cilt hastalıklarını ya da lazer, leke ve medikal estetik uygulamalarını semt adıyla aradığında kliniğinizin ve dermatoloğunuzun Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Dermatolog SEO\nHastalık ve tedavi sayfaları\nUzman onaylı içerik\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20dermatoloji%20klini%C4%9Fim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Cilt hastası önce <mark>şikâyetini</mark>, sonra dermatoloğu arar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Şikâyet / hastalık | sivilce tedavisi, sedef hastalığı tedavisi izmir | Hastalık bilgilendirme sayfası\nUygulama + semt | lazer epilasyon karşıyaka, leke tedavisi çankaya | Uygulama × semt sayfası\nYakındaki uzman | yakınımdaki dermatolog, cildiye doktoru | Google harita kaydı\nUzman adı | dr. ad soyad dermatoloji, ad soyad yorumları | Uzman sayfası ve harita kaydı\nSoru | ben kontrolü ne zaman yapılmalı, akne izi geçer mi | Bilgilendirici rehber yazısı\nÇocuk ve aile | çocuk dermatoloğu, bebek egzaması | Hastalık sayfası (çocuk bölümü)",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Dermatoloji SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, tıbbi kuruluş ve hekim yapılandırılmış verisi, Search Console kurulumu.\n<b>Hastalık sayfaları:</b> akne, sedef, egzama, saç dökülmesi, mantar gibi şikâyetler; belirtiler, ne zaman başvurulmalı, tedavi seçenekleri.\n<b>Uygulama × semt sayfaları:</b> lazer, leke tedavisi, ben kontrolü, medikal estetik; hastalarınızın geldiği semtlerle.\n<b>Uzman sayfaları:</b> dermatoloğun unvanı, ilgi alanları ve eğitimi.\n<b>Haftalık içerik:</b> mevsime göre cilt soruları; uzman onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> uygulama listesi, saatler ve randevu bilgisi siteyle aynı.\n<b>Aylık rapor:</b> şikâyet ve uygulama aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Dermatolojide tanıtım sınırı",
+"kutu_maddeler": "Hastalık sayfaları bilgilendirme amacıyla yazılır.\nÖnce-sonra cilt fotoğrafı kullanılmaz.\nÜrün ve cihaz markası reklam amacıyla öne çıkarılmaz.\n\"Kesin tedavi\", \"kalıcı çözüm\" gibi vaatler yazılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Şikâyet listesi",
+"metin": "Hastalarınızın hangi şikâyet ve uygulamayı hangi semtle aradığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm ve harita kaydı düzenlenir; uygulama listesi ve saatler güncellenir."
+},
+{
+"baslik": "30–60. gün · Hastalık sayfaları",
+"metin": "Öncelikli şikâyetler belirti ve başvuru bilgisiyle yazılır; uzman onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Uygulama ve içerik",
+"metin": "Lazer ve leke gibi uygulama sayfaları semt bilgisiyle eklenir; soru yazıları başlar."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Dermatoloji Kliniği",
+"rapor_isler": "\"lazer epilasyon karşıyaka\" aramasında 6. sıraya çıkıldı\n3 hastalık sayfası yayımlandı (uzman onaylı)\nHarita kaydında uygulama listesi güncellendi\nİsteğiniz: çalışma saatleri değişti",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Hastalığın belirtileri, ne zaman uzmana başvurulması gerektiği\nUygulamanın ne olduğu, kaç seans sürdüğü, kimlere uygun olmadığı\nDermatoloğun unvanı, ilgi alanları ve eğitimi\nRandevu, adres ve çalışma saatleri",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Önce-sonra cilt fotoğrafları\nUygulama fiyatı, seans paketi ve kampanya duyuruları\n\"Kesin tedavi\", \"kalıcı çözüm\", \"tek seansta\" gibi vaatler\nÜrün ve cihaz markasıyla reklam",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Dermatoloji SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Dermatoloji SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Dermatoloji SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Hastalık ve uygulama aramalarındaki sıralamalar genellikle 2–4 ayda yerleşir."
+},
+{
+"baslik": "Hastalık sayfaları neden önemli?",
+"metin": "Cilt hastası çoğunlukla önce şikâyetini arar. Belirtiyi ve ne zaman uzmana gidilmesi gerektiğini anlatan sayfa, hastanın kliniğinizi ilk bulduğu yerdir."
+},
+{
+"baslik": "Lazer ve medikal estetik uygulamalar da dahil mi?",
+"metin": "Evet. Her uygulama ayrı sayfada, seans süreci ve kimlere uygun olmadığı bilgisiyle; cihaz ve ürün markası öne çıkarılmadan yazılır."
+},
+{
+"baslik": "Birden fazla dermatolog varsa ne olur?",
+"metin": "Her uzman için ayrı sayfa hazırlanır; hasta uzmanı adıyla aradığında doğru sayfa ve harita kaydı görünür."
+},
+{
+"baslik": "Mevcut web sitemle çalışır mısınız?",
+"metin": "Evet. Önce mevcut siteyi inceleriz; eksik sayfalar ve hız sorunları düzeltilir. Yeni site yalnız gerektiğinde önerilir."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; dermatoloğunuzun onayı olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Dermatoloji için diğer sayfalar",
+"baglanti": "/klinik/dermatoloji/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Dermatoloji klinikleri | /klinik/dermatoloji/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/\nKlinik reklamında ne yazılır? | /rehber/klinik-reklaminda-ne-yazilir/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "k-sac-ekimi",
@@ -10216,6 +10695,221 @@
 "title": "Saç ekimi klinikleri",
 "order": 4,
 "excerpt": "FUE ve DHI aramalarında görünürlük, çok dilli bilgi sayfaları, Instagram form reklamı ve WhatsApp karşılama düzeni."
+},
+{
+"key": "sac-seo",
+"path": "/klinik/sac-ekimi/seo/",
+"title": "Saç Ekimi SEO Hizmeti",
+"order": "0",
+"excerpt": "Saç ekimi SEO hizmeti, hastanız FUE, DHI, sakal ya da kaş ekimini şehir adıyla veya yurt dışından kendi dilinde aradığında kliniğinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve çok dilli sayfa…",
+"seo_title": "Saç Ekimi SEO Hizmeti · Saç Ekimi Kliniği SEO · Moximu",
+"seo_desc": "Saç ekimi klinikleri için SEO: FUE, DHI, sakal ve kaş ekimi aramalarında Google'da üst sıralar; yurt dışı hasta için çok dilli sayfalar. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Saç Ekimi SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Saç Ekimi <mark>SEO Hizmeti</mark>",
+"metin": "Saç ekimi SEO hizmeti, hastanız FUE, DHI, sakal ya da kaş ekimini şehir adıyla veya yurt dışından kendi dilinde aradığında kliniğinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve çok dilli sayfa çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Saç ekimi kliniği SEO\nTeknik × şehir sayfaları\nÇok dilli içerik\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20sa%C3%A7%20ekimi%20klini%C4%9Fim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Saç ekimi hastası <mark>tekniği ve kliniği</mark> karşılaştırır.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Teknik + şehir | fue saç ekimi istanbul, dhi saç ekimi izmir | Teknik × şehir sayfası\nBölge | sakal ekimi, kaş ekimi, kadın saç ekimi | Uygulama sayfası\nSüreç sorusu | saç ekimi sonrası kaç gün iş yerine gidilir, şok dökülme ne zaman | Bilgilendirici rehber yazısı\nHekim adı | dr. ad soyad saç ekimi, ad soyad yorumları | Hekim sayfası ve harita kaydı\nYurt dışı arama | hair transplant turkey, haartransplantation türkei | Hastanın dilinde teknik sayfası\nKarşılaştırma | fue mi dhi mi, saç ekimi mi prp mi | Karşılaştırma yazısı",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Saç Ekimi SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, tıbbi kuruluş yapılandırılmış verisi, Search Console kurulumu.\n<b>Teknik × şehir sayfaları:</b> FUE, DHI, safir FUE, sakal, kaş ve kadın saç ekimi; ayrı ayrı ve süreç bilgisiyle.\n<b>Hekim sayfası:</b> operasyonu yapan hekimin unvanı ve deneyimi; ekibin görev tanımı doğru yazılır.\n<b>Çok dilli içerik:</b> İngilizce, Almanca ve hedef ülke dilinde teknik sayfaları; yurt dışından gelen hastanın sorularına cevap.\n<b>Haftalık içerik:</b> iyileşme takvimi, şok dökülme, yıkama gibi sorular; hekim onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> klinik, hekim ve uygulama bilgisi harita kaydıyla aynı.\n<b>Aylık rapor:</b> ülke ve dil bazında arama, form ve WhatsApp.",
+"kutu_baslik": "Saç ekiminde tanıtım sınırı",
+"kutu_maddeler": "Önce-sonra fotoğrafı ve hasta görseli kullanılmaz.\nGreft sayısı veya sonuç garantisi verilmez.\nFiyat, paket ve kampanya duyurusu yapılmaz.\nOperasyonu yapan hekimin unvanı doğru yazılır.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Arama ve dil listesi",
+"metin": "Hangi tekniklerin hangi şehir ve ülkeden, hangi dilde arandığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm, dil yapısı ve harita kaydı düzenlenir."
+},
+{
+"baslik": "30–60. gün · Teknik sayfaları",
+"metin": "FUE, DHI, sakal ve kaş ekimi sayfaları süreç bilgisiyle yazılır; hekim onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Dil ve içerik",
+"metin": "İlk yabancı dil sayfaları ve iyileşme yazıları yayımlanır; ülke bazlı form takibi başlar."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Saç Ekimi Kliniği",
+"rapor_isler": "\"dhi saç ekimi izmir\" aramasında 7. sıraya çıkıldı\n2 Almanca teknik sayfası yayımlandı (hekim onaylı)\nİyileşme takvimi yazısı eklendi\nİsteğiniz: WhatsApp karşılama metni değişti",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Tekniklerin farkı, kimlere uygun olduğu, operasyon günü ve iyileşme takvimi\nHekimin unvanı ve deneyimi, ekibin görev tanımı\nOperasyon sonrası kontrol ve bakım bilgisi\nYurt dışı hasta için ulaşım ve konaklama bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Önce-sonra fotoğrafları ve hasta görselleri\n\"5.000 greft garantili\", \"tutma oranı %100\" gibi vaatler\nFiyat, \"her şey dahil paket\" ve kampanya duyuruları\nHekim dışı personelin hekim gibi tanıtılması",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Yurt dışı hastada <mark>ölçülmüş</mark> sonuçlar.",
+"metin": "Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+},
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Saç Ekimi SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Saç Ekimi SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Saç ekimi SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Rekabet yoğun olduğu için Türkçe aramalarda sıralamalar genellikle 3–6 ayda, yabancı dildeki aramalarda daha uzun sürede yerleşir."
+},
+{
+"baslik": "Yurt dışı hasta için hangi dillerde sayfa hazırlanır?",
+"metin": "Hastalarınızın geldiği ülkelere göre belirlenir. Genellikle İngilizce ve Almanca ile başlanır; ihtiyaç olursa diğer diller eklenir."
+},
+{
+"baslik": "Önce-sonra fotoğrafı olmadan nasıl güven verilir?",
+"metin": "Operasyon günü, iyileşme takvimi, hekimin deneyimi ve klinik bilgisi ayrıntılı anlatılır. Hasta bu bilgiyle görüşmeye gelir."
+},
+{
+"baslik": "Greft sayısı sayfada yazılabilir mi?",
+"metin": "Sonuç ve greft sayısı vaadi yazılmaz. Greft sayısının neye göre belirlendiği bilgilendirme amacıyla anlatılır."
+},
+{
+"baslik": "Reklam da yönetiyor musunuz?",
+"metin": "Evet. Yurt dışı hasta için ülke bazlı Google ve Meta kampanyaları sağlık turizmi planında ayrıca yürütülür; reklam bütçesi ücrete dahil değildir."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; hekiminizin onayı olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Saç Ekimi için diğer sayfalar",
+"baglanti": "/klinik/sac-ekimi/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Saç ekimi klinikleri | /klinik/sac-ekimi/\nSağlık turizmi | /saglik-turizmi/\nSağlık turizmi reklamı | /rehber/saglik-turizmi-reklami/\nKlinik reklamında ne yazılır? | /rehber/klinik-reklaminda-ne-yazilir/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "k-fizyoterapi",
@@ -10628,6 +11322,221 @@
 "excerpt": "Bel fıtığı, skolyoz ve spor yaralanması aramalarında önde: tedavi sayfaları, Google İşletme Profili, reklam ve seans takibi."
 },
 {
+"key": "fizyoterapi-seo",
+"path": "/klinik/fizyoterapi/seo/",
+"title": "Fizyoterapi SEO Hizmeti",
+"order": "0",
+"excerpt": "Fizyoterapi SEO hizmeti, hastanız bel fıtığı, boyun ağrısı, skolyoz gibi şikâyetlerini ya da manuel terapi, kinezyo bant gibi yöntemleri semt adıyla aradığında merkezinizin Google'da üst sıralarda görünmesi için yapılan…",
+"seo_title": "Fizyoterapi SEO Hizmeti · Fizik Tedavi Merkezi SEO · Moximu",
+"seo_desc": "Fizyoterapi ve fizik tedavi merkezleri için SEO: bel fıtığı, boyun fıtığı, skolyoz, manuel terapi ve semt aramalarında Google'da üst sıralar. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Fizyoterapi SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Fizyoterapi <mark>SEO Hizmeti</mark>",
+"metin": "Fizyoterapi SEO hizmeti, hastanız bel fıtığı, boyun ağrısı, skolyoz gibi şikâyetlerini ya da manuel terapi, kinezyo bant gibi yöntemleri semt adıyla aradığında merkezinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Fizik tedavi SEO\nŞikâyet × semt sayfaları\nYöntem sayfaları\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20fizyoterapi%20merkezim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Hasta <mark>ağrısını ve semtini</mark> yazar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Şikâyet + semt | bel fıtığı tedavisi bornova, boyun fıtığı fizik tedavi çankaya | Şikâyet × semt sayfası\nYöntem | manuel terapi, kinezyo bant, kuru iğneleme | Yöntem sayfası\nÖzel grup | skolyoz egzersizi, sporcu rehabilitasyonu, ameliyat sonrası rehabilitasyon | Bilgilendirme sayfası\nYakındaki merkez | yakınımdaki fizik tedavi merkezi | Google harita kaydı\nUzman adı | fzt. ad soyad, uzm. fzt. ad soyad yorumları | Uzman sayfası ve harita kaydı\nSoru | bel fıtığı ameliyatsız geçer mi, fizik tedavi kaç seans | Bilgilendirici rehber yazısı",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Fizyoterapi SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, tıbbi kuruluş yapılandırılmış verisi, Search Console kurulumu.\n<b>Şikâyet × semt sayfaları:</b> bel, boyun, diz, omuz ve skolyoz; hastalarınızın geldiği semtlerle.\n<b>Yöntem sayfaları:</b> manuel terapi, kinezyo bant, kuru iğneleme, egzersiz programları; ne olduğu ve kimlere uygulandığı.\n<b>Uzman sayfaları:</b> fizyoterapist ve hekimlerin unvanı, uzmanlığı ve eğitimleri doğru yazılır.\n<b>Haftalık içerik:</b> hastanın sorduğu sorular; uzman onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> yöntem listesi, saatler ve randevu bilgisi siteyle aynı.\n<b>Aylık rapor:</b> şikâyet ve yöntem aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Fizyoterapide tanıtım sınırı",
+"kutu_maddeler": "\"Ameliyatsız kesin tedavi\", \"tek seansta\" gibi vaatler yazılmaz.\nFizyoterapist ve hekim unvanları karıştırılmaz.\nHasta görseli ve yorumu tanıtımda kullanılmaz.\nFiyat, seans paketi ve kampanya duyurusu yapılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Şikâyet listesi",
+"metin": "Hastaların hangi şikâyet ve yöntemi hangi semtle aradığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm ve harita kaydı düzenlenir."
+},
+{
+"baslik": "30–60. gün · Şikâyet sayfaları",
+"metin": "Bel, boyun, diz ve omuz sayfaları yazılır; uzman onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Yöntem ve içerik",
+"metin": "Yöntem sayfaları ve soru yazıları yayımlanır."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Fizik Tedavi Merkezi",
+"rapor_isler": "\"bel fıtığı fizik tedavi bornova\" aramasında 4. sıraya çıkıldı\n3 şikâyet sayfası yayımlandı (uzman onaylı)\nHarita kaydına yöntem listesi eklendi\nİsteğiniz: yeni fizyoterapist sayfası eklendi",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Şikâyetin belirtileri, ne zaman başvurulması gerektiği\nYöntemin ne olduğu, seans düzeni, kimlere uygun olmadığı\nFizyoterapist ve hekimlerin unvanı ve eğitimi\nAdres, ulaşım, randevu ve çalışma saatleri",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "\"Ameliyatsız kesin tedavi\", \"tek seansta\" vaatleri\nHasta görselleri ve yorumlarıyla tanıtım\nSeans ücreti, paket ve indirim duyuruları\nUnvan ve yetkinin olduğundan farklı yazılması",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Fizyoterapi SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Fizyoterapi SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Fizyoterapi SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Şikâyet ve semt aramalarındaki sıralamalar genellikle 2–4 ayda yerleşir."
+},
+{
+"baslik": "Fizyoterapist reklam yapabilir mi?",
+"metin": "Fizyoterapi merkezlerinin tanıtımı da sağlık tanıtım kurallarıyla sınırlıdır. Bilgilendirici sayfalar ve doğru unvanla hazırlanan site bu kurallara uygundur. <a href=\"/saglik-reklam-mevzuati/\">Ayrıntı →</a>"
+},
+{
+"baslik": "Hangi şikâyetler için sayfa hazırlanır?",
+"metin": "Merkezinize en çok başvurulan şikâyetlerden başlanır; ön değerlendirmede arama verisine göre birlikte seçilir."
+},
+{
+"baslik": "Birden fazla şubemiz var, ne olur?",
+"metin": "Her şube için ayrı harita kaydı ve şube sayfası hazırlanır; aramaların şube dağılımı raporda ayrı görünür."
+},
+{
+"baslik": "Mevcut web sitemle çalışır mısınız?",
+"metin": "Evet. Önce mevcut siteyi inceleriz; eksik sayfalar ve hız sorunları düzeltilir."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; uzmanlarınızın onayı olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Fizyoterapi için diğer sayfalar",
+"baglanti": "/klinik/fizyoterapi/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Fizyoterapi merkezleri | /klinik/fizyoterapi/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/\nSağlık reklamı mevzuatı | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
+},
+{
 "key": "k-diyetisyen",
 "path": "/klinik/diyetisyen/",
 "seo_title": "Diyetisyen web sitesi, reklam ve SEO · Moximu",
@@ -11030,6 +11939,221 @@
 "title": "Diyetisyenler",
 "order": 6,
 "excerpt": "Online ve yüz yüze diyet aramalarında görünürlük: hizmet sayfaları, Google İşletme Profili, Instagram reklamı ve randevu akışı."
+},
+{
+"key": "diyetisyen-seo",
+"path": "/klinik/diyetisyen/seo/",
+"title": "Diyetisyen SEO Hizmeti",
+"order": "0",
+"excerpt": "Diyetisyen SEO hizmeti, danışanınız kilo yönetimi, sporcu beslenmesi, gebelikte beslenme ya da online diyetisyeni semt adıyla aradığında sizin Google'da üst sıralarda görünmeniz için yapılan teknik, içerik ve harita…",
+"seo_title": "Diyetisyen SEO Hizmeti · Online Diyetisyen SEO · Moximu",
+"seo_desc": "Diyetisyenler için SEO: kilo yönetimi, sporcu beslenmesi, gebelik beslenmesi, online diyetisyen ve semt aramalarında Google'da üst sıralar. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Diyetisyen SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Diyetisyen <mark>SEO Hizmeti</mark>",
+"metin": "Diyetisyen SEO hizmeti, danışanınız kilo yönetimi, sporcu beslenmesi, gebelikte beslenme ya da online diyetisyeni semt adıyla aradığında sizin Google'da üst sıralarda görünmeniz için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Diyetisyen SEO\nProgram × semt sayfaları\nOnline diyetisyen aramaları\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20diyetisyen%20olarak%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Danışan <mark>hedefini ve semtini</mark> yazar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Hedef + semt | kilo verme diyetisyen bornova, sporcu diyetisyeni çankaya | Program × semt sayfası\nÖzel durum | gebelik beslenmesi, insülin direnci diyeti, çocuk diyetisyeni | Bilgilendirme sayfası\nOnline | online diyetisyen, online diyet programı | Online görüşme sayfası\nYakındaki uzman | yakınımdaki diyetisyen | Google harita kaydı\nUzman adı | dyt. ad soyad, diyetisyen ad soyad yorumları | Uzman sayfası ve harita kaydı\nSoru | aralıklı oruç kimlere uygun, glisemik indeks nedir | Bilgilendirici rehber yazısı",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Diyetisyen SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, uzman yapılandırılmış verisi, Search Console kurulumu.\n<b>Program sayfaları:</b> kilo yönetimi, sporcu, gebelik, çocuk ve hastalığa özel beslenme; hedefe ve semte göre.\n<b>Online görüşme sayfası:</b> online takibin nasıl yürüdüğü, ölçüm ve randevu bilgisi.\n<b>Uzman sayfası:</b> diyetisyenin eğitimi, sertifikaları ve çalıştığı alanlar.\n<b>Haftalık içerik:</b> danışanın sorduğu beslenme soruları; uzman onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> adres, saatler ve randevu bilgisi siteyle aynı.\n<b>Aylık rapor:</b> program aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Diyetisyenlikte tanıtım sınırı",
+"kutu_maddeler": "\"Ayda 10 kilo\" gibi kilo vaadi yazılmaz.\nÖnce-sonra fotoğrafı ve danışan görseli kullanılmaz.\nÜrün, takviye ve paket satışı tanıtılmaz.\nFiyat ve kampanya duyurusu yapılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Hedef listesi",
+"metin": "Danışanların hangi hedef ve programı hangi semtle aradığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm ve harita kaydı düzenlenir."
+},
+{
+"baslik": "30–60. gün · Program sayfaları",
+"metin": "Öncelikli program sayfaları yazılır; uzman onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Online ve içerik",
+"metin": "Online diyetisyen sayfası ve soru yazıları yayımlanır."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Diyetisyen",
+"rapor_isler": "\"online diyetisyen\" aramasında 8. sıraya çıkıldı\n2 program sayfası yayımlandı (uzman onaylı)\n5 Google yorumu cevaplandı\nİsteğiniz: randevu formu sadeleşti",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Programın ne olduğu, kimlere uygun olduğu, takip düzeni\nDiyetisyenin eğitimi, sertifikaları ve çalıştığı alanlar\nOnline ve yüz yüze görüşmenin nasıl yürüdüğü\nAdres, ulaşım ve randevu bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Kilo ve süre vaatleri (\"ayda 10 kilo\", \"garantili\")\nÖnce-sonra fotoğrafları ve danışan yorumları\nTakviye, ürün ve \"paket\" satışı\nSeans ücreti, indirim ve kampanya duyuruları",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Diyetisyen SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Diyetisyen SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Diyetisyen reklamı yasak mı?",
+"metin": "Diyetisyenlerin tanıtımı da sağlık tanıtım kurallarıyla sınırlıdır: kilo vaadi, önce-sonra görseli ve fiyat duyurusu kullanılmaz. Bilgilendirici program sayfalarıyla hazırlanan bir site bu kurallara uygundur. <a href=\"/saglik-reklam-mevzuati/\">Ayrıntı →</a>"
+},
+{
+"baslik": "Diyetisyen SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Program ve semt aramalarındaki sıralamalar genellikle 2–4 ayda yerleşir."
+},
+{
+"baslik": "Online diyetisyen aramalarında da çıkabilir miyim?",
+"metin": "Evet. Online aramalar şehirden bağımsızdır ve rekabeti yüksektir; ayrı sayfa ve düzenli içerikle hedeflenir."
+},
+{
+"baslik": "Instagram hesabım varken web sitesine ihtiyacım var mı?",
+"metin": "Instagram'da sizi takip eden kişiler bulur; Google'da arayan danışan ise siteye ve harita kaydına gelir. İkisi birlikte çalışır."
+},
+{
+"baslik": "Mevcut web sitemle çalışır mısınız?",
+"metin": "Evet. Önce mevcut siteyi inceleriz; eksik sayfalar ve hız sorunları düzeltilir."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; sizin onayınız olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Diyetisyen için diğer sayfalar",
+"baglanti": "/klinik/diyetisyen/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Diyetisyenler | /klinik/diyetisyen/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nSağlık reklamı mevzuatı | /saglik-reklam-mevzuati/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "k-psikolog",
@@ -11436,6 +12560,221 @@
 "excerpt": "Online terapi, çift terapisi ve çocuk psikoloğu aramalarında görünürlük; mahremiyete uygun sayfalar ve sakin bir randevu akışı."
 },
 {
+"key": "psikolog-seo",
+"path": "/klinik/psikolog/seo/",
+"title": "Psikolog SEO Hizmeti",
+"order": "0",
+"excerpt": "Psikolog SEO hizmeti, danışanınız çift terapisi, kaygı, çocuk ve ergen terapisi ya da online terapiyi semt adıyla aradığında sizin Google'da üst sıralarda görünmeniz için yapılan teknik, içerik ve harita çalışmasıdır.",
+"seo_title": "Psikolog SEO Hizmeti · Klinik Psikolog ve Psikiyatrist SEO · Moximu",
+"seo_desc": "Psikolog, klinik psikolog ve psikiyatristler için SEO: terapi türü, uzmanlık alanı, online terapi ve semt aramalarında Google'da üst sıralar. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Psikolog SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Psikolog <mark>SEO Hizmeti</mark>",
+"metin": "Psikolog SEO hizmeti, danışanınız çift terapisi, kaygı, çocuk ve ergen terapisi ya da online terapiyi semt adıyla aradığında sizin Google'da üst sıralarda görünmeniz için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Klinik psikolog SEO\nUzmanlık alanı sayfaları\nOnline terapi aramaları\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20psikolog%20olarak%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Danışan önce <mark>konusunu ve terapi türünü</mark> arar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Terapi türü + semt | çift terapisi karşıyaka, emdr terapisi çankaya | Terapi × semt sayfası\nKonu | kaygı bozukluğu, panik atak, depresyon terapisi | Bilgilendirme sayfası\nYaş grubu | çocuk psikoloğu, ergen psikoloğu bornova | Yaş grubu sayfası\nOnline | online terapi, online psikolog | Online görüşme sayfası\nUzman adı | psk. ad soyad, klinik psikolog ad soyad yorumları | Uzman sayfası ve harita kaydı\nSoru | psikolog ile psikiyatrist farkı, terapi kaç seans sürer | Bilgilendirici rehber yazısı",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Psikolog SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, uzman yapılandırılmış verisi, Search Console kurulumu.\n<b>Terapi ve konu sayfaları:</b> çift, aile, bireysel, çocuk ve ergen terapisi; kaygı, panik, depresyon gibi konular bilgilendirme amacıyla.\n<b>Uzman sayfası:</b> unvan (psikolog, klinik psikolog, uzman klinik psikolog) eğitim belgesine uygun; uygulanan yöntemler ve eğitimler.\n<b>Online görüşme sayfası:</b> online terapinin nasıl yürüdüğü, gizlilik ve randevu bilgisi.\n<b>Haftalık içerik:</b> danışanın sorduğu sorular; uzman onayı olmadan yayımlanmaz.\n<b>Google harita kaydı bağlantısı:</b> muayenehane adresi, saatler ve randevu bilgisi siteyle aynı.\n<b>Aylık rapor:</b> terapi ve konu aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Psikolojide tanıtım sınırı",
+"kutu_maddeler": "Unvan, eğitim belgesine göre doğru yazılır.\n\"Kesin iyileşme\", \"X seansta çözüm\" gibi vaatler yazılmaz.\nDanışan yorumu ve hikâyesi tanıtımda kullanılmaz.\nFiyat ve kampanya duyurusu yapılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Konu listesi",
+"metin": "Danışanların hangi konu ve terapi türünü hangi semtle aradığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm ve harita kaydı düzenlenir; unvan ve adres bilgisi her yerde aynı hale getirilir."
+},
+{
+"baslik": "30–60. gün · Terapi sayfaları",
+"metin": "Öncelikli terapi ve konu sayfaları yazılır; uzman onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Online ve içerik",
+"metin": "Online görüşme sayfası ve soru yazıları yayımlanır; aramaların semt dağılımı izlenir."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Psikolog Muayenehanesi",
+"rapor_isler": "\"çift terapisi karşıyaka\" aramasında 3. sıraya çıkıldı\nOnline terapi sayfası yayımlandı (uzman onaylı)\n6 Google yorumu cevaplandı\nİsteğiniz: seans saatleri güncellendi",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Terapi yönteminin ne olduğu, kimlere uygun olduğu, seans düzeni\nUzmanın unvanı, eğitimi ve çalıştığı alanlar\nGizlilik, ilk görüşme ve online terapi bilgisi\nAdres, ulaşım ve randevu bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Kesin iyileşme ve seans sayısı vaatleri\nDanışan yorumları ve vaka hikâyeleri\nSeans ücreti, paket ve indirim duyuruları\nEğitimle örtüşmeyen unvan ve \"uzman\" ifadeleri",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Psikolog SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Psikolog SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Psikolog reklamı yasak mı?",
+"metin": "Psikologların tanıtımı da sağlık tanıtım kurallarıyla sınırlıdır: vaat, danışan yorumu ve fiyat duyurusu kullanılmaz. Bilgilendirici sayfalar ve doğru unvanla hazırlanan bir site bu kurallara uygundur. <a href=\"/saglik-reklam-mevzuati/\">Ayrıntı →</a>"
+},
+{
+"baslik": "Psikolog SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Terapi ve semt aramalarındaki sıralamalar genellikle 2–4 ayda yerleşir."
+},
+{
+"baslik": "Online terapi için de çalışır mısınız?",
+"metin": "Evet. Online terapi aramaları şehirden bağımsızdır; bunun için ayrı sayfa ve içerik planı hazırlanır."
+},
+{
+"baslik": "Danışan gizliliği nasıl korunur?",
+"metin": "Sitede ve raporda danışan bilgisi yer almaz. Formlar yalnız iletişim için gerekli bilgiyi ister ve KVKK aydınlatma metniyle çalışır."
+},
+{
+"baslik": "Klinik psikolog unvanı nasıl yazılır?",
+"metin": "Unvan, eğitim belgenize göre yazılır. Hangi unvanın kullanılacağını sizinle birlikte belgeye bakarak belirleriz."
+},
+{
+"baslik": "Sosyal medya hesabımı yönetiyor musunuz?",
+"metin": "Hayır. Instagram ve Facebook'ta yalnız reklam kampanyalarını yönetiyoruz; hesabın günlük paylaşımlarını yapmıyoruz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Psikolog için diğer sayfalar",
+"baglanti": "/klinik/psikolog/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Psikolog ve psikiyatri | /klinik/psikolog/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nSağlık reklamı mevzuatı | /saglik-reklam-mevzuati/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
+},
+{
 "key": "k-sunnet",
 "path": "/klinik/sunnet/",
 "seo_title": "Sünnet ve çocuk cerrahisi için dijital pazarlama · Moximu",
@@ -11828,6 +13167,221 @@
 "title": "Sünnet ve çocuk cerrahisi",
 "order": 8,
 "excerpt": "Lokal anestezi ve yenidoğan sünneti aramalarında görünürlük; aileye süreci anlatan sayfalar, Google İşletme Profili ve randevu akışı."
+},
+{
+"key": "sunnet-seo",
+"path": "/klinik/sunnet/seo/",
+"title": "Sünnet ve Çocuk Cerrahisi SEO Hizmeti",
+"order": "0",
+"excerpt": "Sünnet ve çocuk cerrahisi SEO hizmeti, ebeveyn sünnet yöntemlerini, uygun yaşı ya da çocuk cerrahını semt adıyla aradığında merkezinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita…",
+"seo_title": "Sünnet Merkezi SEO Hizmeti · Çocuk Cerrahisi SEO · Moximu",
+"seo_desc": "Sünnet merkezleri ve çocuk cerrahları için SEO: sünnet yöntemleri, yaş ve semt aramalarında Google'da üst sıralar; ebeveynin sorularına cevap veren içerik. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Sünnet ve Çocuk Cerrahisi SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Sünnet ve Çocuk Cerrahisi <mark>SEO Hizmeti</mark>",
+"metin": "Sünnet ve çocuk cerrahisi SEO hizmeti, ebeveyn sünnet yöntemlerini, uygun yaşı ya da çocuk cerrahını semt adıyla aradığında merkezinizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Sünnet merkezi SEO\nEbeveyn soruları\nÇocuk cerrahı sayfaları\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20s%C3%BCnnet%20merkezim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Ebeveyn <mark>yöntemi, yaşı ve hekimi</mark> araştırır.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Yöntem + semt | sünnet bornova, lazer sünnet çankaya | Yöntem × semt sayfası\nYaş | bebek sünneti, sünnet kaç yaşında yapılır | Bilgilendirme sayfası\nHekim | çocuk cerrahı sünnet, op. dr. ad soyad sünnet | Hekim sayfası ve harita kaydı\nSüreç sorusu | sünnet sonrası bakım, sünnet sonrası kaç gün banyo | Bilgilendirici rehber yazısı\nYakındaki merkez | yakınımdaki sünnet merkezi | Google harita kaydı\nDurum | hipospadias, inmemiş testis | Çocuk cerrahisi sayfası",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Sünnet ve Çocuk Cerrahisi SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Teknik düzeltmeler:</b> hız, mobil görünüm, tıbbi kuruluş yapılandırılmış verisi, Search Console kurulumu.\n<b>Yöntem sayfaları:</b> uygulanan sünnet yöntemleri, anestezi, işlem günü ve sonrası; abartısız ve açık.\n<b>Ebeveyn soruları:</b> uygun yaş, hazırlık, bakım, banyo, kontrol; her soru için kısa ve net cevap.\n<b>Hekim sayfası:</b> işlemi yapan hekimin unvanı ve uzmanlığı.\n<b>Çocuk cerrahisi sayfaları:</b> sünnet dışındaki işlemler bilgilendirme amacıyla.\n<b>Google harita kaydı bağlantısı:</b> adres, saatler ve randevu bilgisi siteyle aynı.\n<b>Aylık rapor:</b> yöntem ve semt aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Çocuk sağlığında tanıtım sınırı",
+"kutu_maddeler": "Çocuk fotoğrafı ve hasta görseli kullanılmaz.\n\"Acısız\", \"kesin sorunsuz\" gibi vaatler yazılmaz.\nFiyat, \"sünnet paketi\" ve kampanya duyurusu yapılmaz.\nİşlemi yapan hekimin unvanı doğru yazılır.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Soru listesi",
+"metin": "Ebeveynlerin hangi yöntem, yaş ve soruyu hangi semtle aradığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve harita",
+"metin": "Site hızı, ölçüm ve harita kaydı düzenlenir."
+},
+{
+"baslik": "30–60. gün · Yöntem sayfaları",
+"metin": "Yöntem ve yaş sayfaları yazılır; hekim onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Bakım ve içerik",
+"metin": "Sünnet sonrası bakım yazıları ve sezon öncesi (yaz dönemi) içerik planı yayımlanır."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Sünnet Merkezi",
+"rapor_isler": "\"sünnet bornova\" aramasında 3. sıraya çıkıldı\nSünnet sonrası bakım yazısı yayımlandı (hekim onaylı)\n8 Google yorumu cevaplandı\nİsteğiniz: yaz dönemi randevu bilgisi eklendi",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Yöntemlerin ne olduğu, işlem günü ve sonrası süreç\nUygun yaş, hazırlık ve bakım bilgisi\nHekimin unvanı, uzmanlığı ve deneyimi\nAdres, ulaşım, randevu ve kontrol bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Çocuk fotoğrafları ve hasta görselleri\n\"Acısız\", \"dikişsiz garantili\", \"kesin sorunsuz\" vaatleri\nFiyat, \"sünnet paketi\" ve hediye/organizasyon kampanyaları\nYöntemlerin birbirine üstün gösterilmesi",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Sünnet ve Çocuk Cerrahisi SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Sünnet ve Çocuk Cerrahisi SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Sünnet merkezi SEO ne kadar sürede sonuç verir?",
+"metin": "Teknik düzeltmeler ilk ay yapılır. Yöntem ve semt aramalarındaki sıralamalar genellikle 2–4 ayda yerleşir; aramalar yaz aylarında arttığı için çalışmaya bahar başında başlamak avantaj sağlar."
+},
+{
+"baslik": "Lazer sünnet ifadesi kullanılabilir mi?",
+"metin": "Uygulanan yöntem neyse o adıyla ve doğru şekilde anlatılır. Yöntemin ne olduğu açıklanır; bir yöntem diğerinden üstün gösterilmez."
+},
+{
+"baslik": "Çocuk fotoğrafı neden kullanılmıyor?",
+"metin": "Çocuk hastaların görüntüsü tanıtımda kullanılmaz. Sayfalarda merkez, hekim ve süreç anlatılır."
+},
+{
+"baslik": "Ebeveyn soruları neden önemli?",
+"metin": "Ebeveynler karar vermeden önce yaş, bakım ve süreç sorularını arar. Bu sorulara cevap veren sayfa, ebeveynin merkezinizi ilk bulduğu yerdir."
+},
+{
+"baslik": "Mevcut web sitemle çalışır mısınız?",
+"metin": "Evet. Önce mevcut siteyi inceleriz; eksik sayfalar ve hız sorunları düzeltilir."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; hekiminizin onayı olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Sünnet ve Çocuk Cerrahisi için diğer sayfalar",
+"baglanti": "/klinik/sunnet/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Sünnet ve çocuk cerrahisi | /klinik/sunnet/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/\nSağlık reklamı mevzuatı | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "k-saglik-turizmi",
@@ -12250,6 +13804,221 @@
 "title": "Sağlık turizmi klinikleri",
 "order": 9,
 "excerpt": "Almanya, İngiltere ve Hollanda'dan gelen hasta için ülke bazlı reklam, çok dilli sayfalar ve WhatsApp karşılama düzeni."
+},
+{
+"key": "turizm-seo",
+"path": "/klinik/saglik-turizmi/seo/",
+"title": "Sağlık Turizmi SEO Hizmeti",
+"order": "0",
+"excerpt": "Sağlık turizmi SEO hizmeti, yurt dışındaki hasta kendi dilinde \"dental implants turkey\", \"haartransplantation türkei\" gibi aramalar yaptığında kliniğinizin Google'da üst sıralarda görünmesi için yapılan çok dilli teknik…",
+"seo_title": "Sağlık Turizmi SEO Hizmeti · Çok Dilli Klinik SEO · Moximu",
+"seo_desc": "Sağlık turizmi klinikleri için SEO: İngilizce, Almanca ve hedef ülke dilinde tedavi sayfaları; yurt dışından gelen hastanın aramalarında Google'da üst sıralar. Aylık 12.000 ₺ + KDV, ek dil 4.000 ₺.",
+"service": {
+"ad": "Sağlık Turizmi SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Sağlık Turizmi <mark>SEO Hizmeti</mark>",
+"metin": "Sağlık turizmi SEO hizmeti, yurt dışındaki hasta kendi dilinde \"dental implants turkey\", \"haartransplantation türkei\" gibi aramalar yaptığında kliniğinizin Google'da üst sıralarda görünmesi için yapılan çok dilli teknik ve içerik çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Çok dilli SEO\nÜlke × tedavi sayfaları\nhreflang ve dil yapısı\nÜlke bazlı rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20sa%C4%9Fl%C4%B1k%20turizmi%20klini%C4%9Fim%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Yurt dışındaki hasta <mark>kendi dilinde</mark> arar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Tedavi + ülke | dental implants turkey, zahnimplantate türkei | Dil × tedavi sayfası\nŞehir | hair transplant istanbul, rhinoplasty izmir | Tedavi × şehir sayfası (yabancı dilde)\nSüreç sorusu | how many days in turkey for veneers, wie lange dauert haartransplantation | Bilgilendirici rehber yazısı (yabancı dilde)\nGüven | is it safe to get dental work in turkey | Klinik, hekim ve belge sayfası\nKarşılaştırma | veneers turkey vs uk | Bilgilendirici karşılaştırma yazısı\nKlinik adı | klinik adı reviews | Harita kaydı ve klinik sayfası",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Sağlık Turizmi SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Dil yapısı:</b> her dil için ayrı adresler, hreflang ve doğru dil etiketleri; çeviri değil, hastanın arama diliyle yazılmış sayfalar.\n<b>Tedavi × dil sayfaları:</b> implant, kaplama, saç ekimi, estetik ve obezite cerrahisi; süreç, kalış süresi, kontrol bilgisiyle.\n<b>Güven sayfaları:</b> klinik, hekim, sağlık turizmi yetki belgesi, transfer ve konaklama bilgisi.\n<b>Ülke bazlı içerik:</b> hastalarınızın geldiği ülkelerin sorularına cevap veren yazılar.\n<b>Teknik düzeltmeler:</b> hız (yurt dışından erişim dahil), mobil görünüm, yapılandırılmış veri, Search Console ülke takibi.\n<b>Form ve WhatsApp:</b> her dilde form ve WhatsApp karşılama; gelen başvurunun dili ve ülkesi kaydedilir.\n<b>Aylık rapor:</b> ülke ve dil bazında arama, form ve WhatsApp.",
+"kutu_baslik": "Sağlık turizminde tanıtım sınırı",
+"kutu_maddeler": "Önce-sonra fotoğrafı ve hasta görseli kullanılmaz.\nSonuç ve süre garantisi verilmez.\nYetki belgesi ve hekim bilgileri doğru yazılır.\nFiyat ve \"paket\" vaadi tanıtımda öne çıkarılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Ülke ve dil listesi",
+"metin": "Hastalarınızın geldiği ülkeler ve bu ülkelerde hangi tedavinin hangi dilde arandığı çıkarılır."
+},
+{
+"baslik": "İlk 30 gün · Dil yapısı",
+"metin": "Dil adresleri, hreflang, ölçüm ve formlar kurulur; güven sayfaları hazırlanır."
+},
+{
+"baslik": "30–60. gün · Tedavi sayfaları",
+"metin": "Öncelikli tedaviler ilk iki dilde yazılır; hekim onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · Ülke içerikleri",
+"metin": "Ülkelere özel soru yazıları başlar; ülke ve dil bazında başvurular raporda izlenir."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Sağlık Turizmi Kliniği",
+"rapor_isler": "\"dental implants izmir\" aramasında 9. sıraya çıkıldı\n4 Almanca tedavi sayfası yayımlandı (hekim onaylı)\nHollanda'dan ilk organik form geldi\nİsteğiniz: İngilizce WhatsApp karşılaması değişti",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Tedavinin süreci, Türkiye'de kalış süresi, kontrol ve takip\nHekimlerin unvanı, uzmanlığı ve dil bilgisi\nYetki belgesi, transfer, konaklama ve tercüman bilgisi\nHer dilde iletişim, form ve WhatsApp bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "Önce-sonra fotoğrafları ve hasta görselleri\nSonuç, süre ve \"garantili\" vaatleri\n\"All inclusive\" fiyat ve paket vaatlerinin öne çıkarılması\nOtomatik çeviriyle yazılmış, kontrol edilmemiş sayfalar",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Yurt dışı hastada <mark>ölçülmüş</mark> sonuçlar.",
+"metin": "Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+},
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Sağlık Turizmi SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Sağlık Turizmi SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Sağlık turizmi SEO ne kadar sürede sonuç verir?",
+"metin": "Dil yapısı ve teknik kurulum ilk ay tamamlanır. Yabancı dildeki aramalarda rekabet yüksektir; sıralamalar genellikle 4–8 ayda yerleşir. Bu sürede başvurular için ülke bazlı reklam kampanyaları birlikte yürütülür."
+},
+{
+"baslik": "Hangi dillerde başlanır?",
+"metin": "Hastalarınızın geldiği ülkelere göre belirlenir. Genellikle İngilizce ve Almanca ile başlanır; her ek dil aylık {fiyat:seo_dil} + KDV."
+},
+{
+"baslik": "Çeviri yeterli olmaz mı?",
+"metin": "Olmaz. Yurt dışındaki hasta Türkçe sayfanın çevirisini değil, kendi ülkesindeki arama ifadelerini kullanır. Sayfalar o ifadelere göre yazılır ve kontrol edilir."
+},
+{
+"baslik": "Sağlık turizmi yetki belgesi sitede yer almalı mı?",
+"metin": "Evet. Yetki belgesi bilgisi güven sayfasında yer alır; hasta ve aracı kurumlar için önemli bir güven işaretidir. <a href=\"/saglik-turizmi/yetki-belgesi/\">Yetki belgesi rehberi →</a>"
+},
+{
+"baslik": "Reklamları da yönetiyor musunuz?",
+"metin": "Evet. Ülke bazlı Google ve Meta kampanyaları sağlık turizmi planında yürütülür; hangi ülkede başvurunun kaça mal olduğu haftalık izlenir."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; hekim onayı olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Sağlık Turizmi için diğer sayfalar",
+"baglanti": "/klinik/saglik-turizmi/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Sağlık turizmi klinikleri | /klinik/saglik-turizmi/\nSağlık turizmi ülkeleri | /saglik-turizmi/\nSağlık turizmi paketi | /fiyatlar/saglik-turizmi-paketi/\nSağlık turizmi reklamı | /rehber/saglik-turizmi-reklami/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "tsehirler",
@@ -16197,6 +17966,221 @@
 "excerpt": "Kendi muayenehanesini yöneten hekimler için hekim sitesi, Google İşletme Profili ve sade reklam düzeni. Hastaya ayırdığınız vakit azalmaz."
 },
 {
+"key": "doktor-seo",
+"path": "/kurumlar/muayenehaneler/seo/",
+"title": "Doktor SEO Hizmeti",
+"order": "0",
+"excerpt": "Doktor SEO hizmeti, hastanız sizi adınızla, uzmanlığınızla ya da tedavi ettiğiniz hastalığı semt adıyla aradığında muayenehanenizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır.",
+"seo_title": "Doktor SEO Hizmeti · Muayenehane ve Hekim SEO · Moximu",
+"seo_desc": "Doktorlar ve muayenehaneler için SEO: hekim adı, uzmanlık, hastalık ve semt aramalarında Google'da üst sıralar; doğru unvan, hekim onaylı içerik. Aylık 12.000 ₺ + KDV.",
+"service": {
+"ad": "Doktor SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Doktor <mark>SEO Hizmeti</mark>",
+"metin": "Doktor SEO hizmeti, hastanız sizi adınızla, uzmanlığınızla ya da tedavi ettiğiniz hastalığı semt adıyla aradığında muayenehanenizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Hekim SEO\nHekim adı aramaları\nHastalık × semt sayfaları\nAylık rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20muayenehanem%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Hasta <mark>hekimin adını ve uzmanlığını</mark> arar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Hekim adı | dr. ad soyad, op. dr. ad soyad yorumları | Hekim sayfası ve harita kaydı\nUzmanlık + semt | kardiyolog bornova, kadın doğum uzmanı çankaya | Uzmanlık × semt sayfası\nHastalık / işlem | tiroid nodülü tedavisi, varis tedavisi izmir | Hastalık bilgilendirme sayfası\nYakındaki hekim | yakınımdaki ortopedi doktoru | Google harita kaydı\nSoru | tiroid ameliyatı sonrası ne yenir, menisküs ameliyatsız iyileşir mi | Bilgilendirici rehber yazısı\nPlatform | dr. ad soyad doktortakvimi | Hekim sayfası (platform profiliyle aynı bilgi)",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Doktor SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Hekim sayfası:</b> unvan, uzmanlık, eğitim, akademik çalışmalar ve ilgi alanları; hasta adınızla aradığında ilk sizin siteniz çıkar.\n<b>Hastalık × semt sayfaları:</b> uzmanlığınızdaki başlıca hastalık ve işlemler; belirtiler, ne zaman başvurulmalı, tedavi seçenekleri.\n<b>Teknik düzeltmeler:</b> hız, mobil görünüm, hekim yapılandırılmış verisi, Search Console kurulumu.\n<b>Harita kaydı ve platformlar:</b> Google harita kaydı, DoktorTakvimi ve diğer profillerde aynı adres, saat ve unvan.\n<b>Haftalık içerik:</b> hastanın sorduğu sorular; onayınız olmadan yayımlanmaz.\n<b>Yorum cevapları:</b> Google yorumlarına kurallara uygun, hasta bilgisi vermeyen cevaplar.\n<b>Aylık rapor:</b> hekim adı ve hastalık aramalarında sıralama, gelen arama, WhatsApp ve form.",
+"kutu_baslik": "Hekim tanıtımında sınır",
+"kutu_maddeler": "Unvan ve uzmanlık belgeye göre yazılır.\nTedavi garantisi ve üstünlük ifadesi kullanılmaz.\nHasta yorumları tanıtım metni olarak kullanılmaz.\nMuayene ücreti ve kampanya duyurusu yapılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Arama listesi",
+"metin": "Adınız, uzmanlığınız ve hastalık başlıkları için yapılan aramalar çıkarılır; profillerdeki farklı bilgiler listelenir."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve profiller",
+"metin": "Site hızı ve ölçüm kurulur; harita kaydı ve platform profilleri aynı bilgiye getirilir."
+},
+{
+"baslik": "30–60. gün · Hekim ve hastalık sayfaları",
+"metin": "Hekim sayfası ve öncelikli hastalık sayfaları yazılır; onayınızdan sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · İçerik ve yorumlar",
+"metin": "Soru yazıları ve düzenli yorum cevapları başlar."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Muayenehane",
+"rapor_isler": "Hekim adı aramasında site 1. sıraya çıktı\n2 hastalık sayfası yayımlandı (hekim onaylı)\n9 Google yorumu cevaplandı\nİsteğiniz: muayene saatleri güncellendi",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Hekimin unvanı, uzmanlığı, eğitimi ve ilgi alanları\nHastalıkların belirtileri ve ne zaman başvurulması gerektiği\nMuayenehane adresi, saatleri ve randevu bilgisi\nHastanın sık sorduğu sorulara bilgilendirici cevaplar",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "\"Bölgenin en iyi doktoru\" gibi üstünlük ifadeleri\nTedavi ve sonuç garantisi\nMuayene ücreti, indirim ve kampanya duyuruları\nHasta yorumlarıyla ve hasta görselleriyle tanıtım",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Doktor SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Doktor SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Doktor reklamı yasak mı?",
+"metin": "Hekimlerin tanıtımı sağlık tanıtım kurallarıyla sınırlıdır: üstünlük ifadesi, garanti, hasta yorumu ve fiyat duyurusu kullanılmaz. Bilgilendirici sayfalar ve doğru unvanla hazırlanan site bu kurallara uygundur. <a href=\"/saglik-reklam-mevzuati/\">Ayrıntı →</a>"
+},
+{
+"baslik": "DoktorTakvimi profilim varken web sitesine ihtiyacım var mı?",
+"metin": "DoktorTakvimi bir randevu platformudur; hasta orada başka hekimleri de görür. Kendi siteniz ve harita kaydınız hastayı doğrudan size getirir. İkisi birlikte kullanılır ve bilgileri aynı tutulur."
+},
+{
+"baslik": "Hastanede de çalışıyorum, yine de sayfa gerekir mi?",
+"metin": "Evet. Hastane sitesindeki sayfa hastanenin kontrolündedir. Kendi hekim sayfanız, adınızla yapılan aramalarda sizin anlattığınız bilgilerin çıkmasını sağlar."
+},
+{
+"baslik": "Doktor SEO ne kadar sürede sonuç verir?",
+"metin": "Hekim adı aramalarında genellikle ilk ay içinde sonuç alınır. Hastalık ve semt aramalarındaki sıralamalar 2–4 ayda yerleşir."
+},
+{
+"baslik": "Kötü yorumlara nasıl cevap verilir?",
+"metin": "Hasta bilgisi vermeden, sakin ve kurallara uygun bir dille cevap verilir. Taslak cevaplar onayınızla yayımlanır. <a href=\"/rehber/yorumlara-nasil-cevap-verilir/\">Rehber →</a>"
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; onayınız olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Doktor için diğer sayfalar",
+"baglanti": "/kurumlar/muayenehaneler/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Muayenehaneler | /kurumlar/muayenehaneler/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nGoogle harita kaydı | /hizmetlerimiz/google-isletme-profili/\nSağlık reklamı mevzuatı | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nHastane ve Tıp Merkezi SEO | /kurumlar/hastaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
+},
+{
 "key": "kurum-hastaneler",
 "path": "/kurumlar/hastaneler/",
 "seo_title": "Hastane reklam ajansı, web sitesi ve SEO · Moximu",
@@ -16619,6 +18603,221 @@
 "title": "Hastaneler ve tıp merkezleri",
 "order": 3,
 "excerpt": "Çok bölümlü ve çok şubeli kurumlar için bölüm sayfaları, şube profilleri ve bölüm bazlı reklam. Rapor bölüm ve şube ayrımıyla."
+},
+{
+"key": "hastane-seo",
+"path": "/kurumlar/hastaneler/seo/",
+"title": "Hastane ve Tıp Merkezi SEO Hizmeti",
+"order": "0",
+"excerpt": "Hastane SEO hizmeti, hasta bir bölümü, hekimi, check-up programını ya da en yakın şubenizi aradığında hastanenizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve çok şubeli harita çalışmasıdır.",
+"seo_title": "Hastane SEO Hizmeti · Tıp Merkezi ve Poliklinik SEO · Moximu",
+"seo_desc": "Özel hastaneler, tıp merkezleri ve poliklinikler için SEO: bölüm, hekim, şube ve check-up aramalarında Google'da üst sıralar; çok şubeli yapı. Aylık 12.000 ₺ + KDV'den.",
+"service": {
+"ad": "Hastane ve Tıp Merkezi SEO Hizmeti",
+"tur": "Arama motoru optimizasyonu",
+"fiyat": "12000"
+},
+"rows": [
+{
+"acf_fc_layout": "np_giris",
+"baslik": "Hastane ve Tıp Merkezi <mark>SEO Hizmeti</mark>",
+"metin": "Hastane SEO hizmeti, hasta bir bölümü, hekimi, check-up programını ya da en yakın şubenizi aradığında hastanenizin Google'da üst sıralarda görünmesi için yapılan teknik, içerik ve çok şubeli harita çalışmasıdır. Aylık {fiyat:seo} + KDV; Google harita kaydıyla birlikte {fiyat:paket}.",
+"etiketler": "Tıp merkezi SEO\nBölüm × şube sayfaları\nHekim sayfaları\nŞube bazlı rapor",
+"buton_yazisi": "WhatsApp'tan yazın",
+"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20hastanemiz%20i%C3%A7in%20SEO%20hizmeti%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.",
+"buton_2_yazisi": "Maliyeti hesaplayın",
+"buton_2_link": "/#maliyet"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Hastalarınız ne yazıyor",
+"baslik": "Hasta <mark>bölümü, hekimi ve şubeyi</mark> arar.",
+"metin": "Her arama türü için ayrı bir sayfa ya da kanal hazırlanır. Aşağıdaki ifadeler örnektir; size özel liste ön değerlendirmede gerçek arama verisinden çıkarılır.",
+"sutunlar": "Arama türü | Örnek ifade | Karşılayan sayfa",
+"satirlar": "Bölüm + semt | kardiyoloji bornova, göz hastalıkları çankaya | Bölüm × şube sayfası\nHekim adı | prof. dr. ad soyad, ad soyad randevu | Hekim sayfası\nCheck-up | check-up fiyatları izmir, kadın check-up | Check-up programı sayfası (fiyat yazılmaz)\nYakındaki | yakınımdaki özel hastane, acil servis | Şube harita kayıtları\nAnlaşma | anlaşmalı kurumlar, sgk anlaşmalı özel hastane | Anlaşmalı kurumlar sayfası\nSoru | anjiyo kaç saat sürer, katarakt ameliyatı sonrası | Bilgilendirici rehber yazısı",
+"arka": 0,
+"kimlik": "aramalar"
+},
+{
+"acf_fc_layout": "np_maddeler",
+"ust": "Ne yapıyoruz",
+"baslik": "Hastane SEO'sunda <mark>yaptığımız işler</mark>.",
+"metin": "",
+"maddeler": "<b>Site yapısı:</b> bölüm, hekim, şube ve check-up sayfaları arasında doğru bağlantı; yüzlerce sayfada tutarlı başlık ve açıklama.\n<b>Bölüm × şube sayfaları:</b> her bölüm hangi şubede hizmet veriyorsa o şube bilgisiyle.\n<b>Hekim sayfaları:</b> unvan, uzmanlık, ilgi alanları ve randevu bağlantısı; hekim adı aramalarında hastane sitesi görünür.\n<b>Şube harita kayıtları:</b> her şube için ayrı Google harita kaydı; bölüm listesi, saat ve acil bilgisi doğru.\n<b>Teknik düzeltmeler:</b> hız, mobil görünüm, hastane ve hekim yapılandırılmış verisi, kopya sayfa temizliği.\n<b>Haftalık içerik:</b> bölüm bölüm hasta soruları; hekim onayı olmadan yayımlanmaz.\n<b>Aylık rapor:</b> şube ve bölüm bazında arama, randevu formu, WhatsApp ve çağrı.",
+"kutu_baslik": "Hastane tanıtımında sınır",
+"kutu_maddeler": "Bölüm ve hekim bilgileri ruhsata uygun yazılır.\nÜstünlük ifadesi ve sonuç garantisi kullanılmaz.\nFiyat ve kampanya duyurusu yapılmaz.\nHasta görseli ve yorumu tanıtımda kullanılmaz.",
+"kutu_not": "Ayrıntı: <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "ne-yapiyoruz"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "İlk 90 gün",
+"baslik": "Başlangıçtan ilk sonuçlara <mark>adım adım</mark>.",
+"metin": "Her adımda ne yapıldığı haftalık özette ve aylık raporda yazılır. Yayımlanan her içerik önce onayınıza gelir.",
+"liste": [
+{
+"baslik": "İlk hafta · Yapı incelemesi",
+"metin": "Bölüm, hekim ve şube sayfaları ile harita kayıtları incelenir; eksik ve kopya sayfalar listelenir."
+},
+{
+"baslik": "İlk 30 gün · Teknik ve şubeler",
+"metin": "Site hızı, ölçüm ve yapılandırılmış veri düzeltilir; her şubenin harita kaydı düzenlenir."
+},
+{
+"baslik": "30–60. gün · Bölüm ve hekim sayfaları",
+"metin": "Öncelikli bölümler ve hekim sayfaları yazılır; ilgili hekim onayından sonra yayımlanır."
+},
+{
+"baslik": "60–90. gün · İçerik ve ölçüm",
+"metin": "Bölüm bazlı soru yazıları başlar; şube ve bölüm bazında başvurular raporda izlenir."
+}
+],
+"arka": 0,
+"kimlik": "surec"
+},
+{
+"acf_fc_layout": "np_takip",
+"ust": "Takip",
+"baslik": "Her ay <mark>tek sayfa</mark> rapor.",
+"metin": "Hangi aramada kaçıncı sıradasınız, kaç arama, WhatsApp ve form geldi, o ay ne yapıldı. Her hafta WhatsApp'tan üç satır özet; istekleriniz en geç 6 saatte yanıtlanır.",
+"liste": [],
+"arka": 1,
+"kimlik": "rapor",
+"rapor_alt": "Örnek Tıp Merkezi",
+"rapor_isler": "\"kardiyoloji bornova\" aramasında 3. sıraya çıkıldı\n12 hekim sayfası güncellendi (hekim onaylı)\n2 şube harita kaydında bölüm listesi düzeltildi\nİsteğiniz: yeni bölüm sayfası açıldı",
+"rapor_baslik": "Aylık rapor · Ekim",
+"rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
+"rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Tanıtım kuralları",
+"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
+"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
+"sol_baslik": "Yazdıklarımız",
+"sol_liste": "Bölümlerin hizmetleri, hangi şubede olduğu, randevu bilgisi\nHekimlerin unvanı, uzmanlığı ve ilgi alanları\nCheck-up programlarının içeriği (fiyat yazmadan)\nAnlaşmalı kurumlar, ulaşım, otopark ve acil bilgisi",
+"sag_baslik": "Yazmadıklarımız",
+"sag_liste": "\"En iyi hastane\", \"bölgenin lideri\" gibi üstünlük ifadeleri\nCheck-up ve işlem fiyatları, kampanya duyuruları\nTedavi ve sonuç garantisi\nHasta görselleri ve hasta yorumlarıyla tanıtım",
+"alt_not": "Bu bölüm hukuki görüş değildir; tereddütlü durumlarda metin yayımlanmadan önce sizinle birlikte değerlendirilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_referans",
+"ust": "Referanslar",
+"baslik": "Ölçülmüş sonuçlar, <mark>kaynağıyla</mark>.",
+"metin": "Farklı branşlardaki müşterilerimizden. Rakamlar başlangıç dönemine göre yüzde değişimdir; sonuç garantisi değildir.",
+"liste": [
+{
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
+},
+{
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
+},
+{
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
+},
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
+}
+],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
+"arka": 1,
+"kimlik": "referans"
+},
+{
+"acf_fc_layout": "np_fiyat",
+"ust": "Fiyat",
+"baslik": "Hastane SEO <mark>aylık fiyatı</mark>.",
+"metin": "Aylık çalışılır. 6 aylık plan bir kampanyadır: dönem başında tek faturayla başlar ve klinik web sitesi hediye edilir.",
+"fiyat": "{fiyat:seo}",
+"fiyat_alt": "/ay + KDV",
+"not": "Google harita kaydıyla birlikte aylık {fiyat:paket}",
+"maddeler": "Teknik düzeltmeler ve ölçüm kurulumu\nBranşınıza özel sayfalar\nHaftalık onaylı içerik\nAylık rapor, haftalık özet",
+"buton_yazisi": "Toplam maliyeti hesaplayın",
+"buton_link": "/#maliyet",
+"arka": 0,
+"kimlik": "fiyat"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulan sorular",
+"baslik": "Hastane SEO'su hakkında.",
+"liste": [
+{
+"baslik": "Hastane SEO ücreti neye göre belirlenir?",
+"metin": "Tek şubeli tıp merkezleri için aylık {fiyat:seo} + KDV ile başlar. Şube ve bölüm sayısı arttıkça kapsam büyür; çok şubeli yapılarda fiyat görüşmede belirlenir. <a href=\"/fiyatlar/cok-subeli/\">Çok şubeli klinikler →</a>"
+},
+{
+"baslik": "Yüzlerce hekim sayfası nasıl yönetilir?",
+"metin": "Hekim sayfaları ortak bir yapıyla düzenlenir; unvan, uzmanlık ve randevu bilgisi her sayfada aynı düzende yer alır. Değişiklikler aylık raporda listelenir."
+},
+{
+"baslik": "Her şube için ayrı harita kaydı gerekir mi?",
+"metin": "Evet. Her şubenin kendi adresi, saatleri ve bölüm listesiyle ayrı harita kaydı olur; hasta en yakın şubeyi bu kayıtlardan bulur."
+},
+{
+"baslik": "Check-up fiyatları sitede yazılabilir mi?",
+"metin": "Tanıtımda fiyat yazmayız. Check-up programlarının içeriği ve kimlere uygun olduğu anlatılır; fiyat bilgisi iletişimde verilir."
+},
+{
+"baslik": "Kurumsal iletişim ekibimizle birlikte çalışır mısınız?",
+"metin": "Evet. İçerik onay akışı ekibinizle birlikte kurulur; her istek kaydedilir ve en geç 6 saatte yanıtlanır."
+},
+{
+"baslik": "İçerikleri kim yazıyor?",
+"metin": "Biz hazırlarız; ilgili hekimin ve kurumunuzun onayı olmadan yayımlanmaz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "np_branslar",
+"ust": "",
+"baslik": "",
+"metin": "",
+"liste": [
+{
+"baslik": "Hastane için diğer sayfalar",
+"baglanti": "/kurumlar/hastaneler/",
+"metin": "Branş sayfası, web sitesi ve tanıtım kuralları",
+"linkler": "Hastaneler ve tıp merkezleri | /kurumlar/hastaneler/\nÇok şubeli klinikler | /fiyatlar/cok-subeli/\nKlinik web sitesi | /hizmetlerimiz/klinik-web-sitesi/\nSağlık reklamı mevzuatı | /saglik-reklam-mevzuati/"
+},
+{
+"baslik": "Diğer branşlarda SEO",
+"baglanti": "/hizmetlerimiz/klinik-seo/",
+"metin": "Her branşın hastası farklı arar; sayfalar branşa göre hazırlanır.",
+"linkler": "Diş Kliniği SEO | /klinik/dis-klinigi/seo/\nEstetik Kliniği SEO | /klinik/estetik-klinigi/seo/\nDermatoloji SEO | /klinik/dermatoloji/seo/\nSaç Ekimi SEO | /klinik/sac-ekimi/seo/\nPsikolog SEO | /klinik/psikolog/seo/\nDiyetisyen SEO | /klinik/diyetisyen/seo/\nFizyoterapi SEO | /klinik/fizyoterapi/seo/\nSünnet ve Çocuk Cerrahisi SEO | /klinik/sunnet/seo/\nSağlık Turizmi SEO | /klinik/saglik-turizmi/seo/\nDoktor SEO | /kurumlar/muayenehaneler/seo/"
+}
+],
+"arka": 1,
+"kimlik": "diger"
+}
+]
 },
 {
 "key": "kurum-acenteler",
