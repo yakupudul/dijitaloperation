@@ -103,8 +103,8 @@ class EditSite extends Tool
         return [
             'site_id' => $schema->integer()->description('site_id from list-sites.')->required(),
             'changes' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
-                'type' => $row->string()->enum(['seo_title', 'seo_description', 'excerpt', 'alt_text', 'noindex', 'canonical', 'schema', 'internal_link'])->required(),
-                'object_id' => $row->integer()->description('WordPress post / page id (media id for alt_text).')->required(),
+                'type' => $row->string()->enum(['seo_title', 'seo_description', 'excerpt', 'alt_text', 'noindex', 'canonical', 'schema', 'internal_link', 'speed'])->required(),
+                'object_id' => $row->integer()->description('WordPress post / page id (media id for alt_text; 0 for speed).')->required(),
                 'value' => $row->string()->description('The new value; internal_link: {anchor, url}; schema: JSON-LD object; noindex: true / false.'),
             ]))->description('Fixes on existing content (see the tool description).'),
             'content' => $schema->object(fn (JsonSchema $row): array => [
