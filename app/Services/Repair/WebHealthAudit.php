@@ -2,6 +2,7 @@
 
 namespace App\Services\Repair;
 
+use App\Models\Backlink;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
@@ -56,7 +57,14 @@ final class WebHealthAudit
         'aeo' => 'AI cevap motorları',
         'doorway' => 'Kapı sayfası',
         'host' => 'Ana adres',
+        'backlink' => 'Dış link alan sayfa',
     ];
+
+    /** Linked addresses opened per site per night (Backlink Faz 1; results are kept for a week). */
+    public const int BACKLINK_PER_RUN = 40;
+
+    /** Pages with the most outside links that get a "link köprüsü" to a service page, per site per run. */
+    public const int BRIDGE_SOURCES = 10;
 
     /** Answer-engine crawlers a robots.txt must not shut out (Aşama 7: AEO). */
     public const array AI_BOTS = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'PerplexityBot', 'Google-Extended'];
@@ -116,6 +124,12 @@ final class WebHealthAudit
     /** @var array<int, array{status: array<string, int>, sources: array<string, array{url: string, from: array<string, bool>}>}|null> internal links to dead addresses, per site (one audit) */
     private array $deadLinks = [];
 
+    /** @var array<int, array<string, array{url: string, domains: int, from: list<string>}>> pages other sites link to, per site (one audit) */
+    private array $linked = [];
+
+    /** @var array<int, array<string, bool>> addresses an earlier check of this audit already 301s, per site */
+    private array $redirected = [];
+
     /** Link check result of an address no request can be built for (MalformedUriException: invalid host). */
     private const int INVALID_ADDRESS = -2;
 
@@ -163,6 +177,8 @@ final class WebHealthAudit
             return ['opened' => 0, 'closed' => 0];
         }
         $this->deadLinks = [];
+        $this->linked = [];
+        $this->redirected = [];
         $items = [];
         $ran = [];
         foreach (array_keys(self::CHECKS) as $check) {
@@ -178,6 +194,8 @@ final class WebHealthAudit
                     'conversion' => $this->conversion($site, $brand),
                     'aeo' => $this->aeo($site),
                     'host' => $this->hostVariants($site, $brand),
+                    // After index and broken_link: the addresses they already 301 are not repeated.
+                    'backlink' => $this->backlinkTargets($site, $brand),
                     // Kapı sayfaları are read by Claude (DoorwayCheck), which opens and closes their rows itself.
                     'doorway' => null,
                 };
@@ -427,9 +445,11 @@ final class WebHealthAudit
                 continue;
             }
             if ($group === 'not found (404)' && ($match = $this->closest($path, $live)) !== null && count($items) < 60) {
-                $items[] = ['key' => 'gone-'.md5($key), 'priority' => 2, 'target' => $inspection['url'], 'title' => 'Google 404 görüyor: '.$path,
+                $this->redirected[(int) $site->id][$key] = true;
+                $outside = $this->linkedLine($site, $brand, $key);
+                $items[] = ['key' => 'gone-'.md5($key), 'priority' => $outside !== null ? 1 : 2, 'target' => $inspection['url'], 'title' => 'Google 404 görüyor: '.$path,
                     'reason' => 'Search Console: adres bulunamadı (404). Google ve eski linkler bu adrese gelmeye devam ediyor.',
-                    'before' => [$path.' → 404'], 'after' => ['301 → '.$match, 'Adres en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
+                    'before' => array_values(array_filter([$path.' → 404', $outside])), 'after' => ['301 → '.$match, 'Adres en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
                     'changes' => [['type' => 'redirect', 'from' => $path, 'value' => $match, 'reference' => 'web-health-gsc404-'.substr(md5($key), 0, 12)]]];
 
                 continue;
@@ -657,12 +677,17 @@ final class WebHealthAudit
         ['status' => $status, 'sources' => $sources] = $dead;
         $pages = $this->pages($site)->filter(fn (Page $p): bool => (bool) $p->is_indexable && ! in_array($status[SeoText::urlKey((string) $p->url)] ?? 200, [404, 410], true));
         $items = [];
+        $brand = Brand::query()->find($site->brand_id);
         foreach (array_slice($sources, 0, 50, true) as $key => $link) {
             $path = $this->path($link['url']);
             $from = array_keys($link['from']);
             $match = $this->closest($path, $pages);
-            $before = [$path.' → '.($status[$key] ?? 404), count($from).' sayfa bu adrese link veriyor:', ...array_slice($from, 0, 5)];
-            $base = ['key' => 'dead-'.md5($key), 'priority' => 2, 'target' => $link['url'], 'title' => 'Kırık iç bağlantı: '.$path,
+            $outside = $brand instanceof Brand ? $this->linkedLine($site, $brand, (string) $key) : null;
+            $before = [$path.' → '.($status[$key] ?? 404), count($from).' sayfa bu adrese link veriyor:', ...array_slice($from, 0, 5), ...($outside !== null ? [$outside] : [])];
+            if ($match !== null) {
+                $this->redirected[(int) $site->id][(string) $key] = true;
+            }
+            $base = ['key' => 'dead-'.md5($key), 'priority' => $outside !== null ? 1 : 2, 'target' => $link['url'], 'title' => 'Kırık iç bağlantı: '.$path,
                 'reason' => 'Sitenin kendi sayfaları kaldırılmış bir adrese link veriyor; ziyaretçi ve Google boş sayfaya düşüyor.', 'before' => $before];
             $items[] = $match !== null
                 ? $base + ['after' => ['301 → '.$match, 'Eski linkler en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
@@ -1006,6 +1031,223 @@ final class WebHealthAudit
         }
 
         return array_values(array_unique(array_map(fn ($t): string => mb_strtolower((string) $t), (array) data_get($this->json($row->metadata), 'types', []))));
+    }
+
+    /**
+     * Pages other sites link to (Bing / Search Console / manual rows of `backlinks`, still active), by URL key of this
+     * site, with how many sites link and a few of them.
+     *
+     * @return array<string, array{url: string, domains: int, from: list<string>}>
+     */
+    private function linkedTargets(DigitalAsset $site, Brand $brand): array
+    {
+        if (array_key_exists((int) $site->id, $this->linked)) {
+            return $this->linked[(int) $site->id];
+        }
+        $host = $this->host($site);
+        $out = [];
+        Backlink::query()->where('brand_id', $brand->id)->where('status', 'aktif')->whereNotNull('target_url')
+            ->limit(20000)->get(['source_domain', 'target_url'])->each(function (Backlink $link) use (&$out, $host): void {
+                $key = SeoText::urlKey((string) $link->target_url);
+                if ($key === '' || ! str_starts_with($key, $host)) {
+                    return;
+                }
+                $out[$key]['url'] ??= (string) $link->target_url;
+                $out[$key]['domains'][(string) $link->source_domain] = true;
+            });
+        $out = array_map(fn (array $row): array => ['url' => $row['url'], 'domains' => count($row['domains']), 'from' => array_slice(array_keys($row['domains']), 0, 3)], $out);
+        uasort($out, fn (array $a, array $b): int => $b['domains'] <=> $a['domains']);
+
+        return $this->linked[(int) $site->id] = $out;
+    }
+
+    /** "3 siteden dış link alıyor: a, b, c" for an address other sites link to; null when none does. */
+    private function linkedLine(DigitalAsset $site, Brand $brand, string $key): ?string
+    {
+        $row = $this->linkedTargets($site, $brand)[$key] ?? null;
+
+        return $row === null ? null : $row['domains'].' siteden dış link alıyor: '.implode(', ', $row['from']).($row['domains'] > 3 ? ' …' : '');
+    }
+
+    /**
+     * Backlink Faz 1 (2026-11-05): the pages other sites link to keep their value. An address that answers 404 (or
+     * redirects into one) gets a 301 to the closest live page, ahead of everything else; an address reached through a
+     * chain of redirects, or a page Google is told to skip (noindex / canonical elsewhere), becomes an operator task.
+     * The healthy pages with the most outside links pass it on: each gets one "link köprüsü" suggestion (a natural
+     * internal link to the service page closest to its subject), prepared by "AI ile yap" like every internal link.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function backlinkTargets(DigitalAsset $site, Brand $brand): ?array
+    {
+        $linked = $this->linkedTargets($site, $brand);
+        if ($linked === []) {
+            return null;
+        }
+        $pages = $this->pages($site);
+        $live = $pages->filter(fn (Page $p): bool => (bool) $p->is_indexable);
+        $items = [];
+        $noMatch = [];
+        $chains = [];
+        $closed = [];
+        $healthy = [];
+        $opened = 0;
+        foreach ($linked as $key => $row) {
+            if (isset($this->redirected[(int) $site->id][$key])) {
+                continue;
+            }
+            $line = $this->linkedLine($site, $brand, $key);
+            $path = $this->path($row['url']);
+            $page = $pages->get($key);
+            if ($page !== null) {
+                match (true) {
+                    ! (bool) $page->is_indexable => $closed[] = $path.' (noindex) · '.$line,
+                    $this->canonicalElsewhere($page) => $closed[] = $path.' (canonical → '.$this->path((string) $page->canonical).') · '.$line,
+                    default => $healthy[] = ['page' => $page, 'domains' => $row['domains']],
+                };
+
+                continue;
+            }
+            $known = Cache::get('web-health:backlink:'.sha1($row['url']));
+            if (! is_array($known)) {
+                if ($opened >= self::BACKLINK_PER_RUN) {
+                    continue;
+                }
+                $opened++;
+                $known = $this->follow($row['url']);
+                if ($known === null) {
+                    continue;
+                }
+                Cache::put('web-health:backlink:'.sha1($row['url']), $known, now()->addDays(7));
+            }
+            $gone = in_array((int) $known['code'], [404, 410], true);
+            if ($gone) {
+                $match = $this->closest($path, $live);
+                if ($match === null) {
+                    $noMatch[] = $path.' → '.$known['code'].' · '.$line;
+
+                    continue;
+                }
+                $items[] = ['key' => 'linked-gone-'.md5($key), 'priority' => 1, 'target' => $row['url'], 'title' => 'Dış link alan adres açılmıyor: '.$path,
+                    'reason' => 'Başka siteler bu adrese link veriyor ama adres '.$known['code'].' veriyor; linklerin değeri boşa gidiyor. 301 ile en yakın canlı sayfaya taşınır.',
+                    'before' => [$path.' → '.$known['code'].((int) $known['hops'] > 0 ? ' ('.$known['hops'].' yönlendirmeden sonra)' : ''), $line],
+                    'after' => ['301 → '.$match, 'Adres en yakın canlı sayfaya gider (MoxDOP eklentisine yazılır)'],
+                    'changes' => [['type' => 'redirect', 'from' => $path, 'value' => $match, 'reference' => 'web-health-linked-'.substr(md5($key), 0, 12)]]];
+
+                continue;
+            }
+            if ((int) $known['hops'] >= 2 && (int) $known['code'] === 200) {
+                $chains[] = $path.' → '.$known['hops'].' yönlendirme → '.$this->path((string) $known['final']).' · '.$line;
+            }
+        }
+        if ($noMatch !== []) {
+            $items[] = ['key' => 'linked-nomatch', 'priority' => 1, 'target' => $this->origin($site), 'title' => sprintf('Dış link alan adres açılmıyor, benzer sayfa yok (%d adres)', count($noMatch)),
+                'reason' => 'Başka siteler bu adreslere link veriyor ama adresler açılmıyor ve adına uyan canlı sayfa bulunamadı; linklerin değeri boşa gidiyor.',
+                'before' => $this->list($noMatch),
+                'after' => ['Her adres için konusu en yakın canlı sayfayı seç ve Web siteleri › Yönlendirmeler bölümünden 301 ekle (ya da eski sayfayı geri yayına al).']];
+        }
+        if ($chains !== []) {
+            $items[] = ['key' => 'linked-chain', 'priority' => 2, 'target' => $this->origin($site), 'title' => sprintf('Dış link alan adres zincirle yönleniyor (%d adres)', count($chains)),
+                'reason' => 'Bu adreslere gelen linkler birden çok yönlendirmeden geçiyor; her ara adım linkin gücünü azaltır ve Google zinciri yarıda bırakabilir.',
+                'before' => $this->list($chains),
+                'after' => ['Yönlendirmeyi eski adresten doğrudan son adrese ver (ara adımları atla): SEO eklentisi › Yönlendirmeler ya da Web siteleri › Yönlendirmeler.']];
+        }
+        if ($closed !== []) {
+            $items[] = ['key' => 'linked-closed', 'priority' => 2, 'target' => $this->origin($site), 'title' => sprintf('Dış link alan sayfa Google\'a kapalı (%d sayfa)', count($closed)),
+                'reason' => 'Başka siteler bu sayfalara link veriyor ama sayfa noindex ya da başka bir sayfayı asıl gösteriyor; linklerin değeri sıralamaya yansımıyor.',
+                'before' => $this->list($closed),
+                'after' => ['Sayfa bilerek kapalı değilse SEO eklentisinde dizine aç ve canonical\'ı kendi adresine çek.',
+                    'Sayfa artık gerekmiyorsa noindex yerine konusu en yakın canlı sayfaya 301 ver.']];
+        }
+        $this->bridges($site, $brand, $healthy, $live);
+
+        return $items;
+    }
+
+    /**
+     * Where a linked address ends: the final status after at most 4 redirects followed by hand, how many redirects and the
+     * final address. Null when it cannot be opened (the next night tries again).
+     *
+     * @return array{code: int, hops: int, final: string}|null
+     */
+    private function follow(string $url): ?array
+    {
+        for ($hop = 0; $hop <= 4; $hop++) {
+            try {
+                $response = Http::timeout(8)->connectTimeout(5)->withoutRedirecting()
+                    ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP link check)'])->get($url);
+            } catch (Throwable) {
+                return null;
+            }
+            $status = $response->status();
+            $location = trim($response->header('Location'));
+            if (! in_array($status, [301, 302, 303, 307, 308], true) || $location === '' || $hop === 4) {
+                return $status >= 500 ? null : ['code' => $status, 'hops' => $hop, 'final' => $url];
+            }
+            if (str_starts_with($location, '/')) {
+                $location = parse_url($url, PHP_URL_SCHEME).'://'.parse_url($url, PHP_URL_HOST).$location;
+            }
+            $url = $location;
+        }
+
+        return null;
+    }
+
+    /**
+     * Link köprüsü: each of the healthy pages with the most outside links (a blog post other sites quote, say) gets one
+     * internal link suggestion to the service page that shares the most subject words with it, when it does not link
+     * there yet. Same suggestion kind as the "link to it" ones (internal_links, prepared by "AI ile yap").
+     *
+     * @param  list<array{page: Page, domains: int}>  $healthy
+     * @param  Collection<string, Page>  $live
+     */
+    private function bridges(DigitalAsset $site, Brand $brand, array $healthy, Collection $live): void
+    {
+        $key = 'repair.'.self::TYPE.'.bridge';
+        $existing = Suggestion::query()->where('brand_id', $site->brand_id)->where('decision_key', $key)->where('target_type', 'page')->get()->keyBy('fingerprint');
+        $brandWords = $this->words((string) $brand->name);
+        $subject = fn (Page $p): array => array_values(array_diff($this->words(self::bareTitle((string) $p->title).' '.$this->path((string) $p->url)), $brandWords));
+        $services = $live->filter(fn (Page $p): bool => in_array($p->category, ['hizmet', 'lokasyon'], true) && ! $this->canonicalElsewhere($p));
+        $edges = DB::table('website_link_edge')->where('digital_asset_id', $site->id)->where('is_internal', true)->limit(30000)
+            ->get(['source_url', 'normalized_target_url', 'target_url'])
+            ->map(fn (object $e): string => SeoText::urlKey((string) $e->source_url).'>'.SeoText::urlKey((string) ($e->normalized_target_url ?: $e->target_url)))
+            ->flip();
+        $seen = [];
+        foreach (array_slice(array_values(array_filter($healthy, fn (array $h): bool => (int) $h['page']->wp_post_id > 0)), 0, self::BRIDGE_SOURCES) as $entry) {
+            $source = $entry['page'];
+            if (in_array($source->category, ['hizmet', 'lokasyon'], true)) {
+                continue; // a linked service page already is where the value should go
+            }
+            $words = $subject($source);
+            $sourceKey = SeoText::urlKey((string) $source->url);
+            $target = $services->filter(fn (Page $p): bool => $p->id !== $source->id && (string) $p->language === (string) $source->language
+                && ! $edges->has($sourceKey.'>'.SeoText::urlKey((string) $p->url)))
+                ->map(fn (Page $p): array => ['page' => $p, 'shared' => count(array_intersect($words, $subject($p)))])
+                ->filter(fn (array $r): bool => $r['shared'] >= 1)->sortByDesc('shared')->first()['page'] ?? null;
+            if (! $target instanceof Page) {
+                continue;
+            }
+            $fingerprint = hash('sha256', $site->brand_id.'|web-health-bridge|'.$source->id.'|'.$target->id);
+            $seen[] = $fingerprint;
+            $row = $existing->get($fingerprint);
+            if ($row !== null && ! in_array($row->status, [Suggestion::OPEN, Suggestion::RECHECK], true)) {
+                continue;
+            }
+            $values = ['channel' => 'search', 'decision_key' => $key, 'action_type' => 'internal_links', 'priority' => 2,
+                'title' => mb_substr('Link köprüsü: '.$this->path((string) $source->url).' → '.$this->path((string) $target->url), 0, 160),
+                'reason' => mb_substr('Bu sayfa '.$entry['domains'].' siteden dış link alıyor; metnine '.($target->title ?: $this->path((string) $target->url))
+                    .' sayfasına doğal bir iç link eklenince bu güç hizmet sayfasına geçer.', 0, 240),
+                'target_type' => 'page', 'target_id' => $source->id, 'page_id' => $source->id, 'last_seen_at' => now(), 'material_hash' => hash('sha256', 'bridge|'.$target->url),
+                'evidence' => [['kind' => 'quote', 'value' => $entry['domains'].' siteden dış link', 'source' => (string) $source->url]]];
+            if ($row === null) {
+                Suggestion::openOnce($values + ['brand_id' => $site->brand_id, 'fingerprint' => $fingerprint, 'status' => Suggestion::OPEN,
+                    'first_seen_at' => now(), 'action' => ['site_id' => (int) $site->id, 'link_to' => (string) $target->url]]);
+            } else {
+                $row->forceFill($values)->save();
+            }
+        }
+        $this->closeUnseen($existing->filter(fn (Suggestion $s): bool => (int) data_get($s->action, 'site_id') === (int) $site->id), $seen,
+            'Sayfa artık hizmet sayfasına link veriyor ya da dış link almıyor (otomatik kapandı).');
     }
 
     /**
