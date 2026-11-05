@@ -7,6 +7,7 @@ use App\Models\WhatsAppBackupLine;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Support\Roles;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -108,7 +109,15 @@ final class PhoneBackupSync
                 fclose($handle);
             }
         } catch (ValidationException $exception) {
-            return ['status' => 423, 'message' => (string) collect($exception->errors())->flatten()->first()];
+            // The phone did its part; a refusal here (an extraction still running) must not fail the phone's sync
+            // every day. The file is noted with the reason and the next day's backup is taken as usual.
+            $reason = (string) collect($exception->errors())->flatten()->first();
+            $line->forceFill([
+                'phone_sync_received_at' => now(),
+                'phone_sync_last' => json_encode(['name' => mb_substr($originalName, 0, 120), 'size' => $size, 'at' => now()->toIso8601String(), 'skipped' => mb_substr($reason, 0, 300)]),
+            ])->save();
+
+            return ['status' => 201, 'message' => 'Dosya alındı ama çıkarılmadı: '.$reason];
         }
         $line->forceFill([
             'phone_sync_received_at' => now(),
@@ -125,6 +134,29 @@ final class PhoneBackupSync
         $json = $line->phone_sync_last;
 
         return is_string($json) && $json !== '' ? (array) json_decode($json, true) : null;
+    }
+
+    public const string LOG_KEY = 'phone-backup:requests';
+
+    /** Keeps the phone's last 40 requests (no password, no file content) for system-health. */
+    public static function log(array $row): void
+    {
+        try {
+            $rows = (array) Cache::get(self::LOG_KEY, []);
+            array_unshift($rows, $row);
+            Cache::put(self::LOG_KEY, array_slice($rows, 0, 40), now()->addDays(7));
+        } catch (Throwable) {
+        }
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function recent(): array
+    {
+        try {
+            return array_values((array) Cache::get(self::LOG_KEY, []));
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     public static function url(): string

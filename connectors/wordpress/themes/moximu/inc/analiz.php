@@ -70,7 +70,7 @@ function mx_analiz_handle(): void
 }
 
 /**
- * 0.6.1: the request also goes to MoxDOP (Satış), server to server, with the endpoint and token MoxDOP wrote into the
+ * 0.6.2: the request also goes to MoxDOP (Satış), server to server, with the endpoint and token MoxDOP wrote into the
  * option mx_lead_form ("Site formu › Bağla"). The token never reaches the browser. A failure never breaks the form: the
  * request is stored and mailed anyway; the last problem is kept in mx_lead_form_last_error.
  */

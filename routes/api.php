@@ -41,7 +41,7 @@ Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
     ->middleware('throttle:300,1')->name('api.whatsapp.receive');
 
 // Telefon bağlantısı (2026-11-04): a tiny WebDAV folder the phone (FolderSync) puts its WhatsApp backup on every morning.
-Route::match(['OPTIONS', 'GET', 'HEAD', 'PUT', 'PROPFIND', 'MKCOL', 'DELETE', 'MOVE', 'LOCK', 'UNLOCK'], '/telefon-yedek/{path?}', PhoneBackupController::class)
+Route::match(['OPTIONS', 'GET', 'HEAD', 'PUT', 'PROPFIND', 'PROPPATCH', 'MKCOL', 'DELETE', 'MOVE', 'COPY', 'LOCK', 'UNLOCK'], '/telefon-yedek/{path?}', PhoneBackupController::class)
     ->where('path', '.*')->middleware('throttle:120,1,phone-backup')->name('api.phone-backup');
 
 // Satış (2026-11-05): site forms (moximu.com) posted server-to-server with the Form bağlantısı token.

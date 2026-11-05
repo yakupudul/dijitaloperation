@@ -20,6 +20,7 @@ use App\Services\Operations\SystemHealthReader;
 use App\Services\Queries\QueryAutopilot;
 use App\Services\Queries\QueryFinish;
 use App\Services\Repair\RepairDesk;
+use App\Services\Sales\PhoneBackupSync;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -53,6 +54,8 @@ class SystemHealth extends Tool
                 'error_groups' => $read['error_groups'] ?? [],
                 'account_counts' => $read['account_counts'] ?? null,
                 'suspicious_data' => $read['suspicious_data'] ?? null,
+                // The phone's WebDAV backup (FolderSync): its last requests and what each got.
+                'phone_backup' => PhoneBackupSync::recent(),
             ];
         } catch (Throwable $exception) {
             report($exception);

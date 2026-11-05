@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\File;
+use Throwable;
 
 /**
  * A very small WebDAV folder for the phone (FolderSync): it lists one folder, takes a PUT and answers the few other
@@ -16,27 +17,65 @@ use Illuminate\Support\Facades\File;
  */
 final class PhoneBackupController
 {
+    public const string METHODS = 'OPTIONS, GET, HEAD, PUT, PROPFIND, PROPPATCH, MKCOL, DELETE, MOVE, COPY, LOCK, UNLOCK';
+
     public function __invoke(Request $request, PhoneBackupSync $sync, ?string $path = null): Response
     {
+        $started = microtime(true);
         $method = strtoupper($request->getMethod());
+        $error = null;
+        try {
+            $response = $this->answer($request, $sync, $method, trim((string) $path, '/'));
+        } catch (Throwable $exception) {
+            report($exception);
+            $error = mb_substr(class_basename($exception).': '.$exception->getMessage(), 0, 300);
+            $response = $this->reply(500, 'Sunucu hatası.');
+        }
+        // What the phone asked and what it got: the last requests, readable in system-health (phone_backup).
+        PhoneBackupSync::log([
+            'at' => now()->toIso8601String(), 'method' => $method, 'path' => mb_substr((string) $path, 0, 160),
+            'status' => $response->getStatusCode(), 'bytes' => (int) $request->header('Content-Length', 0), 'ms' => (int) round((microtime(true) - $started) * 1000),
+            'depth' => $request->header('Depth'), 'destination' => $request->header('Destination') !== null ? basename((string) $request->header('Destination')) : null,
+            'agent' => mb_substr((string) $request->userAgent(), 0, 80), 'auth' => $request->getUser() !== null,
+            'note' => $error ?? ($response->getStatusCode() >= 400 ? mb_substr((string) $response->getContent(), 0, 200) : null),
+        ]);
+
+        return $response;
+    }
+
+    private function answer(Request $request, PhoneBackupSync $sync, string $method, string $path): Response
+    {
         if ($method === 'OPTIONS') {
-            return $this->reply(200, '', ['Allow' => 'OPTIONS, GET, HEAD, PUT, PROPFIND, MKCOL, DELETE, MOVE, LOCK, UNLOCK', 'DAV' => '1, 2']);
+            return $this->reply(200, '', ['Allow' => self::METHODS, 'DAV' => '1, 2']);
         }
         $line = $sync->authenticate($request);
         if ($line === null) {
             return $this->reply(401, 'Yetki gerekli.', ['WWW-Authenticate' => 'Basic realm="MoxDOP telefon yedegi"']);
         }
-        $path = trim((string) $path, '/');
 
         return match ($method) {
             'PROPFIND' => $this->propfind($request, $sync, $line, $path),
             'PUT' => $this->put($request, $sync, $line, $path),
             'MKCOL', 'LOCK' => $this->reply($method === 'LOCK' ? 200 : 201, $method === 'LOCK' ? $this->lockBody() : '', $method === 'LOCK' ? ['Lock-Token' => '<opaquelocktoken:moxdop>', 'Content-Type' => 'application/xml; charset=utf-8'] : []),
             'UNLOCK', 'DELETE' => $this->reply(204),
-            'MOVE' => $this->reply(201),
+            // A sync app that uploads under a temporary name renames it after: the file is known by its final name.
+            'MOVE', 'COPY' => $this->move($request, $sync, $line),
+            // Setting the file's modified time: nothing is stored, the answer says it was done.
+            'PROPPATCH' => $this->reply(207, '<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>'.htmlspecialchars('/api/telefon-yedek/'.$path, ENT_XML1).'</D:href><D:propstat><D:prop/><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>', ['Content-Type' => 'application/xml; charset=utf-8']),
             'HEAD', 'GET' => $this->head($sync, $line, $path),
-            default => $this->reply(405, 'Desteklenmeyen istek.', ['Allow' => 'OPTIONS, GET, HEAD, PUT, PROPFIND, MKCOL, DELETE, MOVE, LOCK, UNLOCK']),
+            default => $this->reply(405, 'Desteklenmeyen istek.', ['Allow' => self::METHODS]),
         };
+    }
+
+    private function move(Request $request, PhoneBackupSync $sync, WhatsAppBackupLine $line): Response
+    {
+        $destination = rawurldecode((string) parse_url((string) $request->header('Destination', ''), PHP_URL_PATH));
+        $last = $sync->lastReceived($line);
+        if ($last !== null && basename($destination) !== '') {
+            $line->forceFill(['phone_sync_last' => json_encode(['name' => mb_substr(basename($destination), 0, 120)] + $last)])->save();
+        }
+
+        return $this->reply(201);
     }
 
     private function propfind(Request $request, PhoneBackupSync $sync, WhatsAppBackupLine $line, string $path): Response
@@ -77,7 +116,7 @@ final class PhoneBackupController
     {
         try {
             return CarbonImmutable::parse((string) ($last['at'] ?? 'now'))->toRfc7231String();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return now()->toRfc7231String();
         }
     }

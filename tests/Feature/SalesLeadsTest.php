@@ -342,6 +342,16 @@ class SalesLeadsTest extends TestCase
         $this->call('PUT', '/api/telefon-yedek/Databases/foto.jpg', [], [], [], $server, 'x')->assertStatus(415);
         @unlink($import->path());
 
+        // FolderSync's temporary-name upload: PUT under a temp name, MOVE to the real one, set the time, check it.
+        $this->call('PUT', '/api/telefon-yedek/Databases/msgstore.db.crypt15.tmp', [], [], [], $server, random_bytes(6000))->assertSuccessful();
+        $this->call('MOVE', '/api/telefon-yedek/Databases/msgstore.db.crypt15.tmp', [], [], [], $server + ['HTTP_DESTINATION' => 'https://app.moximu.com/api/telefon-yedek/Databases/msgstore.db.crypt15'])->assertStatus(201);
+        $this->call('PROPPATCH', '/api/telefon-yedek/Databases/msgstore.db.crypt15', [], [], [], $server)->assertStatus(207);
+        $this->call('PROPFIND', '/api/telefon-yedek/Databases/msgstore.db.crypt15', [], [], [], $server + ['HTTP_DEPTH' => '0'])->assertStatus(207)->assertSee('6000', false);
+        $log = PhoneBackupSync::recent();
+        $this->assertSame('PROPFIND', $log[0]['method']);
+        $this->assertSame('MOVE', $log[2]['method']);
+        $this->assertSame('msgstore.db.crypt15', $log[2]['destination']);
+
         // Wrong password after a new one is issued.
         app(PhoneBackupSync::class)->issue($this->admin, $line);
         $this->call('PROPFIND', '/api/telefon-yedek/', [], [], [], $server)->assertStatus(401);
