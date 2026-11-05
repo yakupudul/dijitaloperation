@@ -22,8 +22,23 @@ class SalesLead extends Model
         'phone' => 'Telefon', 'referral' => 'Referans', 'meta_form' => 'Meta formu', 'other' => 'Diğer',
     ];
 
+    /**
+     * Where the prospect stands with us (yakup 2026-11-05: a category is the prospect's status, not their field). The open
+     * steps move forward by themselves from what is seen (a message, a reply, a meeting, a price, "düşüneyim"); the
+     * operator can set any of them, and that choice wins.
+     */
     public const array STAGES = [
-        'new' => 'Yeni', 'contacted' => 'İlk mesaj gönderildi', 'priced' => 'Fiyat konuşuldu', 'won' => 'Kazanıldı', 'lost' => 'Kaybedildi',
+        'new' => 'Yeni', 'contacted' => 'İlk mesaj atıldı', 'talking' => 'Konuşuluyor', 'meeting' => 'Görüşme planlandı',
+        'priced' => 'Teklif verildi', 'thinking' => 'Düşünüyor', 'later' => 'Sonra', 'won' => 'Kazanıldı', 'lost' => 'Kaybedildi',
+    ];
+
+    /** The open steps in order; an automatic move only goes forward along this line ("Sonra" is set by hand). */
+    public const array FLOW = ['new', 'contacted', 'talking', 'meeting', 'priced', 'thinking'];
+
+    /** Where they heard of us, apart from the channel they wrote on (a Google search, then a WhatsApp message). */
+    public const array HEARD_FROM = [
+        'google' => 'Google araması', 'maps' => 'Google Haritalar', 'google_ads' => 'Google reklamı', 'meta_ads' => 'Instagram / Facebook reklamı',
+        'instagram' => 'Instagram', 'youtube' => 'YouTube', 'referral' => 'Tavsiye', 'afc' => 'All for Clinics', 'other' => 'Diğer',
     ];
 
     public const array LOST_REASONS = [
@@ -35,7 +50,7 @@ class SalesLead extends Model
         return [
             'next_step_at' => 'datetime', 'last_contact_at' => 'datetime', 'last_incoming_at' => 'datetime',
             'won_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
-            'followup_step' => 'integer', 'site_scan' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime',
+            'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime',
         ];
     }
 
@@ -98,6 +113,20 @@ class SalesLead extends Model
     public function isDue(): bool
     {
         return $this->isOpen() && $this->next_step_at !== null && $this->next_step_at->lte(now()->endOfDay());
+    }
+
+    /** Moves the stage forward to $stage when it is further along the open line; never back, never out of won/lost. */
+    public function advanceTo(string $stage): bool
+    {
+        // A card put off for later moves again as soon as the prospect writes or a step is taken.
+        $from = $this->stage === 'later' ? -1 : array_search($this->stage, self::FLOW, true);
+        $to = array_search($stage, self::FLOW, true);
+        if ($from === false || $to === false || $to <= $from) {
+            return false;
+        }
+        $this->stage = $stage;
+
+        return true;
     }
 
     public function stageLabel(): string

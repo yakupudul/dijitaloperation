@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\User;
@@ -86,10 +87,10 @@ final class SalesLeads
         $data = collect($input)->map(fn ($value) => is_string($value) ? trim($value) : $value);
         $phone = (string) $data->get('phone', '');
         $website = (string) $data->get('website', '');
-        if ($data->get('name', '') === '' && $data->get('clinic', '') === '' && $phone === '' && $website === '') {
+        if ($data->get('name', '') === '' && $data->get('clinic', '') === '' && $phone === '' && $website === '' && self::email((string) $data->get('email', '')) === null) {
             throw ValidationException::withMessages(['lead' => 'Bir ad, klinik, telefon ya da site yazın.']);
         }
-        $existing = $this->match(self::phoneKey($phone), self::host($website));
+        $existing = $this->match(self::phoneKey($phone), self::host($website), (string) $data->get('email', ''), (string) ($data->get('name') ?: $data->get('clinic')));
         if ($existing !== null) {
             $this->fill($existing, $data->all());
             $existing->save();
@@ -101,6 +102,10 @@ final class SalesLeads
         $lead = new SalesLead(['source' => isset(SalesLead::SOURCES[$source]) ? $source : 'other', 'stage' => 'new', 'created_by' => $user?->id]);
         $this->fill($lead, $data->all());
         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::firstMessage();
+        if ($lead->website_host !== null) {
+            // Same site, another name: a second person of that clinic, or the same one written differently. Ask.
+            $lead->duplicate_of_id = SalesLead::query()->where('website_host', $lead->website_host)->orderByDesc('id')->value('id');
+        }
         $lead->save();
         $this->event($lead, 'system', 'Kart açıldı ('.$lead->sourceLabel().').', meta: ['by' => $user?->id]);
         if (filled($data->get('note'))) {
@@ -128,6 +133,12 @@ final class SalesLeads
         if (filled($data['source'] ?? null) && isset(SalesLead::SOURCES[$data['source']]) && ($lead->source === 'other' || ! $lead->exists)) {
             $lead->source = $data['source'];
         }
+        if (($email = self::email((string) ($data['email'] ?? ''))) !== null) {
+            $lead->email = $email;
+        }
+        if (filled($data['heard_from'] ?? null) && isset(SalesLead::HEARD_FROM[$data['heard_from']])) {
+            $lead->heard_from = $data['heard_from'];
+        }
         if (filled($lead->phone)) {
             $lead->phone_key = self::phoneKey($lead->phone);
         }
@@ -139,16 +150,72 @@ final class SalesLeads
         }
     }
 
-    public function match(?string $phoneKey, ?string $host): ?SalesLead
+    /**
+     * The same person: an exact phone or e-mail is the same card. A site alone is the same card only when the names do
+     * not disagree (two doctors of one clinic share a site but are two cards; the second one asks to be merged).
+     */
+    public function match(?string $phoneKey, ?string $host, ?string $email = null, ?string $name = null): ?SalesLead
     {
         if ($phoneKey !== null && ($lead = SalesLead::query()->where('phone_key', $phoneKey)->orderByDesc('id')->first()) !== null) {
             return $lead;
         }
-        if ($host !== null && ($lead = SalesLead::query()->where('website_host', $host)->orderByDesc('id')->first()) !== null) {
+        $email = self::email($email);
+        if ($email !== null && ($lead = SalesLead::query()->where('email', $email)->orderByDesc('id')->first()) !== null) {
             return $lead;
+        }
+        if ($host !== null && ($lead = SalesLead::query()->where('website_host', $host)->orderByDesc('id')->first()) !== null) {
+            return self::namesAgree($lead, $name) ? $lead : null;
         }
 
         return null;
+    }
+
+    /** A name given that differs from the card's person and clinic means another person (of the same clinic, maybe). */
+    public static function namesAgree(SalesLead $lead, ?string $name): bool
+    {
+        $key = static fn (?string $v): string => (string) preg_replace('/\b(dr|dt|doç|prof|uzm|op)\b\.?|[^\p{L}\p{N}]+/u', '', mb_strtolower(trim((string) $v)));
+        $given = $key($name);
+        if ($given === '' || ($key($lead->name) === '' && $key($lead->clinic) === '')) {
+            return true;
+        }
+
+        return in_array($given, array_filter([$key($lead->name), $key($lead->clinic)]), true);
+    }
+
+    public static function email(?string $email): ?string
+    {
+        $email = mb_strtolower(trim((string) $email));
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? mb_substr($email, 0, 255) : null;
+    }
+
+    /**
+     * Two cards of one person become one: the other card's messages, notes and meetings move here, empty fields are
+     * filled from it, and it is deleted.
+     */
+    public function merge(SalesLead $keep, SalesLead $other, ?User $user = null): void
+    {
+        if ($keep->is($other)) {
+            return;
+        }
+        foreach (['name', 'clinic', 'city', 'branch', 'phone', 'phone_key', 'email', 'website', 'website_host', 'heard_from', 'conversation_id', 'customer_id', 'brand_id', 'findings', 'site_scan'] as $field) {
+            if (blank($keep->{$field}) && filled($other->{$field})) {
+                $keep->{$field} = $other->{$field};
+            }
+        }
+        if (filled($other->notes)) {
+            $keep->notes = trim(((string) $keep->notes)."\n".$other->notes);
+        }
+        $keep->duplicate_of_id = null;
+        $keep->save();
+        SalesLeadEvent::query()->where('lead_id', $other->id)->whereNotNull('fingerprint')
+            ->whereIn('fingerprint', SalesLeadEvent::query()->where('lead_id', $keep->id)->whereNotNull('fingerprint')->select('fingerprint'))->delete();
+        SalesLeadEvent::query()->where('lead_id', $other->id)->update(['lead_id' => $keep->id]);
+        Reminder::query()->where('sales_lead_id', $other->id)->update(['sales_lead_id' => $keep->id]);
+        SalesLead::query()->where('duplicate_of_id', $other->id)->update(['duplicate_of_id' => null]);
+        $title = $other->title();
+        $other->delete();
+        $this->event($keep, 'system', 'Kart birleştirildi: '.$title.'.', meta: ['by' => $user?->id]);
     }
 
     /**
@@ -249,11 +316,17 @@ final class SalesLeads
         }
         if ($lastOut !== null) {
             $lead->followup_step = max($lead->followup_step, WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->count() > 0 ? 1 : 0);
-            if ($lead->stage === 'new') {
-                $lead->stage = 'contacted';
+            $lead->advanceTo('contacted');
+            if ($lastIn !== null) {
+                // We wrote and they answered: a conversation.
+                $lead->advanceTo('talking');
             }
-            if ($lead->stage === 'contacted' && $this->quotedPrice($conversation)) {
-                $lead->stage = 'priced';
+            if ($this->quotedPrice($conversation)) {
+                $lead->advanceTo('priced');
+            }
+            if ($lastIn !== null && $lastIn->gte($lastOut) && self::isThinking((string) WhatsAppMessage::query()->where('conversation_id', $conversation->id)
+                ->where('direction', 'incoming')->orderByDesc('sent_at')->value('body'))) {
+                $lead->advanceTo('thinking');
             }
         }
         $theyWroteLast = $lastIn !== null && ($lastOut === null || $lastIn->gt($lastOut));
@@ -376,16 +449,37 @@ final class SalesLeads
             meta: ['from' => $from, 'to' => $stage, 'by' => $user?->id]);
     }
 
+    /** "Şimdi değil": the card rests until $date, then comes back on Bugün and Takvim to be written to again. */
+    public function later(SalesLead $lead, string $date, ?User $user = null): void
+    {
+        $day = CarbonImmutable::parse($date, 'Europe/Istanbul')->setTime(10, 0);
+        $from = $lead->stage;
+        $lead->forceFill(['stage' => 'later', 'next_step' => 'Tekrar yaz', 'next_step_at' => $day->utc(), 'won_at' => null, 'lost_at' => null, 'lost_reason' => null])->save();
+        $this->event($lead, 'stage', (SalesLead::STAGES[$from] ?? $from).' → Sonra ('.$day->format('d.m.Y').')', meta: ['from' => $from, 'to' => 'later', 'by' => $user?->id]);
+    }
+
+    /** A meeting with the prospect was put on the calendar. */
+    public function meetingPlanned(SalesLead $lead): void
+    {
+        if ($lead->advanceTo('meeting')) {
+            $lead->save();
+        }
+    }
+
+    /** Words of a prospect who has not said no but will decide later ("düşüneyim", "ortağıma soracağım", "ay başı"). */
+    public static function isThinking(string $text): bool
+    {
+        return preg_match('/düşün(eyim|eceğim|ücem|cem|elim|üyorum|üp)|değerlendir(eyim|eceğim|ip)|haber ver(eceğim|irim|icem)|dönüş yap(acağım|arım)|size dön(eceğim|erim|cem)|ortağım(a|la)|eşim(e|le) (soray|danış|konuş)|konuşup dön|ay ?başı|bütçe(yi|mizi)? (bakıp|planlay)|şimdilik (bekle|düşün)|biraz (zaman|süre)/iu', $text) === 1;
+    }
+
     /** "Gönderdim": the text went out from the phone; the next follow-up is scheduled. */
     public function markSent(SalesLead $lead, ?string $text, ?User $user = null): void
     {
         $lead->followup_step = $lead->followup_step + 1;
         $lead->last_contact_at = now();
-        if ($lead->stage === 'new') {
-            $lead->stage = 'contacted';
-        }
-        if ($text !== null && preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺)/iu', $text) && $lead->stage === 'contacted') {
-            $lead->stage = 'priced';
+        $lead->advanceTo('contacted');
+        if ($text !== null && preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺)/iu', $text)) {
+            $lead->advanceTo('priced');
         }
         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::afterOurMessage($lead->followup_step);
         // What yakup changed in the AI's text is how he writes: the next drafts read his recent edited messages.

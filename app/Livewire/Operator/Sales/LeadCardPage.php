@@ -61,7 +61,7 @@ final class LeadCardPage extends Component
     private function formFrom(SalesLead $lead): array
     {
         $out = [];
-        foreach (['name', 'clinic', 'city', 'branch', 'phone', 'website', 'source', 'notes'] as $key) {
+        foreach (['name', 'clinic', 'city', 'branch', 'phone', 'email', 'website', 'source', 'heard_from', 'notes'] as $key) {
             $out[$key] = (string) ($lead->{$key} ?? '');
         }
 
@@ -84,6 +84,12 @@ final class LeadCardPage extends Component
         if (isset(SalesLead::SOURCES[$this->form['source'] ?? ''])) {
             $lead->source = $this->form['source'];
         }
+        $email = trim((string) ($this->form['email'] ?? ''));
+        if ($email !== '' && SalesLeads::email($email) === null) {
+            throw ValidationException::withMessages(['form.email' => 'E-posta geçerli görünmüyor.']);
+        }
+        $lead->email = SalesLeads::email($email);
+        $lead->heard_from = isset(SalesLead::HEARD_FROM[$this->form['heard_from'] ?? '']) ? $this->form['heard_from'] : null;
         $lead->phone_key = SalesLeads::phoneKey($lead->phone);
         $lead->website_host = SalesLeads::host($lead->website);
         if ($lead->website_host !== null && ! preg_match('#^https?://#i', (string) $lead->website)) {
@@ -202,6 +208,24 @@ final class LeadCardPage extends Component
         $this->say('Sonraki adım kaydedildi.');
     }
 
+    public string $laterDate = '';
+
+    /** "Şimdi değil": the card rests until the chosen day, then comes back on Bugün and Takvim. */
+    public function later(SalesLeads $leads): void
+    {
+        $this->resetErrorBag('laterDate');
+        $today = CarbonImmutable::now('Europe/Istanbul')->toDateString();
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->laterDate) !== 1 || $this->laterDate <= $today) {
+            throw ValidationException::withMessages(['laterDate' => 'Yarından sonraki bir gün seç.']);
+        }
+        $leads->later($this->lead(), $this->laterDate, auth()->user());
+        $fresh = $this->lead()->fresh();
+        $this->nextStep = (string) $fresh->next_step;
+        $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
+        $this->say('Kart '.CarbonImmutable::parse($this->laterDate)->format('d.m.Y').' tarihine ertelendi; o gün Takvim\'de ve Bugün\'de.');
+        $this->laterDate = '';
+    }
+
     public function setStage(string $stage, SalesLeads $leads): void
     {
         $lead = $this->lead();
@@ -228,6 +252,28 @@ final class LeadCardPage extends Component
             return;
         }
         $this->say('Kazanıldı: '.$brand->name.' markası açıldı. Marka sayfasından bağlantıları kurabilirsin.');
+    }
+
+    /** "Aynı kişi" banner: this card keeps everything, the other one's story and tasks move here and it goes. */
+    public function mergeDuplicate(SalesLeads $leads): void
+    {
+        $lead = $this->lead();
+        $other = $lead->duplicate_of_id !== null ? SalesLead::query()->find($lead->duplicate_of_id) : null;
+        if ($other === null || $other->id === $lead->id) {
+            $lead->forceFill(['duplicate_of_id' => null])->save();
+
+            return;
+        }
+        $leads->merge($lead, $other, auth()->user());
+        $this->form = $this->formFrom($lead->refresh());
+        $this->say('İki kart birleşti; konuşmaların hepsi bu kartta.');
+    }
+
+    /** "Farklı kişi": the banner goes and does not come back for this pair. */
+    public function notDuplicate(): void
+    {
+        $lead = $this->lead();
+        $lead->forceFill(['duplicate_of_id' => null, 'origin' => array_merge((array) $lead->origin, ['not_duplicate_of' => $lead->duplicate_of_id])])->save();
     }
 
     public function checkSite(): void
@@ -263,6 +309,7 @@ final class LeadCardPage extends Component
             'findings' => array_values(array_filter((array) ($lead->findings ?? []), 'is_array')),
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'duplicate' => $lead->duplicate_of_id !== null ? SalesLead::query()->find($lead->duplicate_of_id) : null,
         ]);
     }
 

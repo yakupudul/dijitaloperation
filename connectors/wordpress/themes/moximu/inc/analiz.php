@@ -1,4 +1,5 @@
 <?php
+
 defined('ABSPATH') || exit;
 
 /**
@@ -63,8 +64,44 @@ function mx_analiz_handle(): void
         $body .= $label.': '.$value."\n";
     }
     wp_insert_post(['post_type' => 'mx_talep', 'post_status' => 'private', 'post_title' => $data['Klinik'].' · '.$data['Şehir'], 'post_content' => $body]);
+    mx_lead_to_moxdop($data, esc_url_raw(wp_unslash((string) ($_POST['ref'] ?? ''))));
     mx_send_mail('Yeni ön değerlendirme talebi: '.$data['Klinik'], $body);
     wp_send_json_success(['message' => 'Teşekkürler. 24 saat içinde dönüyoruz.']);
 }
+
+/**
+ * 0.6.1: the request also goes to MoxDOP (Satış), server to server, with the endpoint and token MoxDOP wrote into the
+ * option mx_lead_form ("Site formu › Bağla"). The token never reaches the browser. A failure never breaks the form: the
+ * request is stored and mailed anyway; the last problem is kept in mx_lead_form_last_error.
+ */
+function mx_lead_to_moxdop(array $data, string $referrer = ''): void
+{
+    $link = get_option('mx_lead_form');
+    if (! is_array($link) || empty($link['endpoint']) || empty($link['token'])) {
+        return;
+    }
+    $page = (string) $data['Sayfa'];
+    $query = [];
+    parse_str((string) wp_parse_url($page, PHP_URL_QUERY), $query);
+    $pick = static fn (string $k): string => isset($query[$k]) && is_string($query[$k]) ? mb_substr(sanitize_text_field($query[$k]), 0, 200) : '';
+    $body = [
+        'form' => 'analiz', 'clinic' => $data['Klinik'], 'city' => $data['Şehir'], 'email' => $data['E-posta'], 'phone' => $data['Telefon'],
+        'page' => $page, 'referrer' => $referrer, 'service' => (string) get_the_title((int) url_to_postid($page)),
+        'utm_source' => $pick('utm_source'), 'utm_medium' => $pick('utm_medium'), 'utm_campaign' => $pick('utm_campaign'), 'utm_term' => $pick('utm_term'),
+        'gclid' => $pick('gclid'), 'fbclid' => $pick('fbclid'),
+    ];
+    try {
+        $answer = wp_remote_post((string) $link['endpoint'], [
+            'timeout' => 6, 'headers' => ['X-Moxdop-Token' => (string) $link['token'], 'Accept' => 'application/json'], 'body' => $body,
+        ]);
+        $code = is_wp_error($answer) ? 0 : (int) wp_remote_retrieve_response_code($answer);
+        if ($code < 200 || $code >= 300) {
+            update_option('mx_lead_form_last_error', gmdate('c').' '.(is_wp_error($answer) ? $answer->get_error_message() : 'HTTP '.$code), false);
+        }
+    } catch (Throwable $error) {
+        update_option('mx_lead_form_last_error', gmdate('c').' '.get_class($error).': '.$error->getMessage(), false);
+    }
+}
+
 add_action('wp_ajax_mx_analiz', 'mx_analiz_handle');
 add_action('wp_ajax_nopriv_mx_analiz', 'mx_analiz_handle');

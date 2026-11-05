@@ -142,9 +142,21 @@ final class SalesShare
                 }
             }
         }
-        if ($outgoing > 0 && $lead->stage === 'new') {
-            $lead->stage = 'contacted';
+        if ($outgoing > 0) {
+            $lead->advanceTo('contacted');
             $lead->followup_step = max($lead->followup_step, 1);
+            $ours = collect($parsed['messages'])->filter(fn (array $m): bool => $own !== null && $m['sender'] === $own);
+            $theirs = collect($parsed['messages'])->reject(fn (array $m): bool => $own !== null && $m['sender'] === $own);
+            if ($theirs->isNotEmpty()) {
+                $lead->advanceTo('talking');
+            }
+            if ($ours->contains(fn (array $m): bool => preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺|\+\s*kdv)/iu', (string) $m['body']) === 1)) {
+                $lead->advanceTo('priced');
+            }
+            $last = collect($parsed['messages'])->last();
+            if ($last !== null && ($own === null || $last['sender'] !== $own) && SalesLeads::isThinking((string) $last['body'])) {
+                $lead->advanceTo('thinking');
+            }
         }
         if ($lead->isOpen()) {
             $theyWroteLast = $lastIn !== null && ($lastOut === null || $lastIn->gt($lastOut));

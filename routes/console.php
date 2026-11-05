@@ -82,6 +82,7 @@ use App\Services\Operations\ServerStatusReader;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
+use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\SerpMentionSources;
@@ -1705,6 +1706,10 @@ Schedule::command('moxdop:showcase:daily')
 // Satış (2026-11-04): at 08:30 Claude writes the text of every card due today, so Bugün opens with the messages ready.
 Schedule::call(fn () => app(SalesLeads::class)->draftDue())
     ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-morning-drafts')->withoutOverlapping(30);
+
+// Satış (2026-11-05): forms that came in the quiet hours (22:00-08:00) are told in one push at 08:30.
+Schedule::call(fn () => app(LeadIntake::class)->morningSummary())
+    ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-night-forms')->withoutOverlapping(10);
 
 // Satış (2026-11-04): a 10:00 push with how many prospects to write to today (Bugün on the Satış screen); the phone shows it.
 Schedule::call(function (): void {
