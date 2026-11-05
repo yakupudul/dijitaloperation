@@ -8,6 +8,8 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\Integrations\WordPress\WordPressSiteBuilder;
+use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
@@ -19,6 +21,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Satış (yakup, 2026-11-04): one place for every prospect. Bugün = whose next step is today, with the text ready;
@@ -180,6 +183,25 @@ final class SalesPage extends Component
         $this->say('Cevaplandı olarak işlendi.');
     }
 
+    public string $formSite = '';
+
+    /** Sonuçlar › Site formu: the chosen site's forms open cards here; the token goes to the site by itself. */
+    public function connectForm(LeadIntake $intake): void
+    {
+        abort_unless((bool) auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $site = (int) $this->formSite;
+        if ($site <= 0) {
+            throw ValidationException::withMessages(['formSite' => 'Formu gelecek siteyi seç.']);
+        }
+        try {
+            $intake->connectSite($site);
+        } catch (Throwable $error) {
+            report($error);
+            throw ValidationException::withMessages(['formSite' => 'Site bağlantıyı almadı: '.mb_substr($error->getMessage(), 0, 200)]);
+        }
+        $this->say('Site formu bağlandı. Formdan gelen her kişi buraya kart olarak düşer; gündüz hemen telefona bildirilir.');
+    }
+
     public function render(SalesLeads $leads): View
     {
         $this->updatedTab();
@@ -217,6 +239,9 @@ final class SalesPage extends Component
             'results' => $this->tab === 'sonuclar' ? $leads->results() : [],
             'money' => $this->tab === 'sonuclar' ? $this->money() : null,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'formSiteId' => $this->tab === 'sonuclar' ? LeadIntake::siteId() : null,
+            'formSites' => $this->tab === 'sonuclar' && auth()->user()?->hasRole(Roles::ADMIN) ? $this->formSites() : [],
+            'lastForm' => $this->tab === 'sonuclar' ? SalesLead::query()->where('source', 'form')->max('created_at') : null,
             'wonThisMonth' => SalesLead::query()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
         ]);
     }
@@ -233,6 +258,20 @@ final class SalesPage extends Component
             'won_month' => SalesLead::query()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
             'lost_month' => SalesLead::query()->where('stage', 'lost')->where('lost_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
         ];
+    }
+
+    /** @return array<int, string> connected sites, by id */
+    private function formSites(): array
+    {
+        try {
+            return collect(app(WordPressSiteBuilder::class)->sites())
+                ->mapWithKeys(fn (array $site): array => [$site['site_id'] => trim($site['name'].' · '.preg_replace('#^https?://#', '', (string) $site['url']), ' ·')])
+                ->sort()->all();
+        } catch (Throwable $error) {
+            report($error);
+
+            return [];
+        }
     }
 
     private function say(string $message): void

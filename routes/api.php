@@ -6,6 +6,7 @@ use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
 use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
 use App\Http\Controllers\Integrations\WordPressThemeReleaseController;
+use App\Http\Controllers\Sales\LeadFormController;
 use App\Http\Controllers\Sales\PhoneBackupController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,3 +43,6 @@ Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
 // Telefon bağlantısı (2026-11-04): a tiny WebDAV folder the phone (FolderSync) puts its WhatsApp backup on every morning.
 Route::match(['OPTIONS', 'GET', 'HEAD', 'PUT', 'PROPFIND', 'MKCOL', 'DELETE', 'MOVE', 'LOCK', 'UNLOCK'], '/telefon-yedek/{path?}', PhoneBackupController::class)
     ->where('path', '.*')->middleware('throttle:120,1,phone-backup')->name('api.phone-backup');
+
+// Satış (2026-11-05): site forms (moximu.com) posted server-to-server with the Form bağlantısı token.
+Route::post('/satis/form', LeadFormController::class)->middleware('throttle:30,1')->name('api.sales.form');

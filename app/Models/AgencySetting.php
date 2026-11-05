@@ -63,6 +63,7 @@ class AgencySetting extends Model
             'mail_port' => 'integer',
             'mail_password' => 'encrypted',
             'push_ntfy_token' => 'encrypted',
+            'lead_form_token' => 'encrypted',
             'push_telegram_bot_token' => 'encrypted',
             'bing_webmaster_api_key' => 'encrypted',
             'backup_remote_password' => 'encrypted',

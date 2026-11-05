@@ -116,6 +116,7 @@ final class CalendarPage extends Component
             'sales_lead_id' => $lead?->id,
         ]);
         if ($lead !== null && $f['kind'] === 'meeting') {
+            app(SalesLeads::class)->meetingPlanned($lead);
             app(SalesLeads::class)->event($lead, 'meeting', 'Toplantı planlandı: '.$start->translatedFormat('j F l H:i'), now(), ['planned_for' => $start->toIso8601String()]);
         }
         $this->adding = false;

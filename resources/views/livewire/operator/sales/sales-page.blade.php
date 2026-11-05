@@ -4,7 +4,7 @@
 
     $n = fn (int $v): string => number_format($v, 0, ',', '.');
     $input = 'h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white';
-    $stageChip = ['new' => 'chip-flat', 'contacted' => 'chip-flat', 'priced' => 'chip-accent', 'won' => 'chip-up', 'lost' => 'chip-down'];
+    $stageChip = ['new' => 'chip-flat', 'contacted' => 'chip-flat', 'talking' => 'chip-accent', 'meeting' => 'chip-accent', 'priced' => 'chip-accent', 'thinking' => 'chip-accent', 'later' => 'chip-flat', 'won' => 'chip-up', 'lost' => 'chip-down'];
     $today = now('Europe/Istanbul')->toDateString();
 @endphp
 {{-- Satış (2026-11-04): one place for every prospect. MoxDOP never sends a message; the phone does. --}}
@@ -232,6 +232,29 @@
                 </table>
             </div>
             <p class="mt-2 text-xs text-gray-500">Sayı = o ay açılan kart; yeşil +N = o kartlardan müşteri olan.</p>
+
+            @if ($isAdmin)
+                <div class="card mt-8 p-4" data-sales-form-link>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Site formu</h2>
+                    <p class="mt-1 text-sm text-gray-500">
+                        @if ($formSiteId !== null)
+                            Bağlı: <span class="font-medium text-gray-800 dark:text-gray-200">{{ $formSites[$formSiteId] ?? 'site #'.$formSiteId }}</span>.
+                            {{ $lastForm ? 'Son form '.\Carbon\CarbonImmutable::parse($lastForm)->timezone('Europe/Istanbul')->format('d.m.Y H:i').'.' : 'Henüz form gelmedi.' }}
+                            Gündüz gelen form hemen telefona bildirilir; 22:00-08:00 arası gelenler 08:30'da tek bildirimle.
+                        @else
+                            Sitedeki analiz formu dolunca kişi buraya kart olarak düşsün, telefona hemen bildirim gelsin. Siteyi seç, bağla; anahtar siteye kendiliğinden yazılır.
+                        @endif
+                    </p>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <select wire:model="formSite" class="{{ $input }} max-w-sm" aria-label="Formu gelecek site">
+                            <option value="">Site seç</option>
+                            @foreach ($formSites as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+                        </select>
+                        <button type="button" wire:click="connectForm" wire:loading.attr="disabled" class="btn">{{ $formSiteId !== null ? 'Yeniden bağla' : 'Bağla' }}</button>
+                    </div>
+                    @error('formSite')<p class="mt-2 text-sm text-error-600">{{ $message }}</p>@enderror
+                </div>
+            @endif
         </section>
     @endif
 </div>

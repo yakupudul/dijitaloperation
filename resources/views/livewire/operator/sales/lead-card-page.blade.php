@@ -4,7 +4,7 @@
 
     $input = 'h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white';
     $area = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm leading-relaxed placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white';
-    $stageChip = ['new' => 'chip-flat', 'contacted' => 'chip-flat', 'priced' => 'chip-accent', 'won' => 'chip-up', 'lost' => 'chip-down'];
+    $stageChip = ['new' => 'chip-flat', 'contacted' => 'chip-flat', 'talking' => 'chip-accent', 'meeting' => 'chip-accent', 'priced' => 'chip-accent', 'thinking' => 'chip-accent', 'later' => 'chip-flat', 'won' => 'chip-up', 'lost' => 'chip-down'];
     $severity = ['high' => 'critical', 'medium' => 'look', 'low' => 'info'];
     $due = $lead->next_step_at?->timezone('Europe/Istanbul');
     $kindIcon = ['message_in' => '←', 'message_out' => '→', 'note' => '✎', 'call' => '☎', 'finding' => '◎', 'report' => '▤', 'meeting' => '◷', 'offer' => '₺', 'stage' => '◆', 'task' => '☐', 'share' => '⇪', 'system' => '·'];
@@ -38,6 +38,16 @@
         <p class="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-lead-message>{{ $message }}</p>
     @endif
 
+    @if ($duplicate)
+        <div class="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200" data-lead-duplicate>
+            <span>Aynı siteden başka bir kart var: <a href="{{ route('operator.sales.lead', ['lead' => $duplicate->id]) }}" wire:navigate class="font-medium underline">{{ $duplicate->title() }}</a>. Aynı kişiyse birleştir.</span>
+            <span class="ml-auto flex gap-2">
+                <button type="button" wire:click="mergeDuplicate" wire:confirm="İki kart birleşsin mi? Diğer kartın konuşmaları ve işleri bu karta taşınır." class="btn">Birleştir</button>
+                <button type="button" wire:click="notDuplicate" class="btn-quiet">Farklı kişi</button>
+            </span>
+        </div>
+    @endif
+
     @if ($editing)
         <form wire:submit="save" class="card mt-5 p-4" data-lead-edit>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -46,9 +56,13 @@
                 <label class="block text-xs text-gray-500">Şehir<input wire:model="form.city" type="text" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Branş<input wire:model="form.branch" type="text" placeholder="Diş, estetik, psikoloji…" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Telefon<input wire:model="form.phone" type="tel" class="mt-1 {{ $input }}" /></label>
+                <label class="block text-xs text-gray-500">E-posta<input wire:model="form.email" type="email" class="mt-1 {{ $input }}" />@error('form.email')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                 <label class="block text-xs text-gray-500">Site<input wire:model="form.website" type="text" class="mt-1 {{ $input }}" />@error('form.website')<span class="text-error-600">{{ $message }}</span>@enderror</label>
-                <label class="block text-xs text-gray-500">Nereden geldi
+                <label class="block text-xs text-gray-500">Kanal (nereden yazdı)
                     <select wire:model="form.source" class="mt-1 {{ $input }}">@foreach (SalesLead::SOURCES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>
+                </label>
+                <label class="block text-xs text-gray-500">Kaynak (bizi nereden duydu)
+                    <select wire:model="form.heard_from" class="mt-1 {{ $input }}"><option value="">Bilinmiyor</option>@foreach (SalesLead::HEARD_FROM as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>
                 </label>
                 <label class="block text-xs text-gray-500 sm:col-span-2 lg:col-span-4">Notlar<textarea wire:model="form.notes" rows="3" class="mt-1 {{ $area }}"></textarea></label>
             </div>
@@ -173,11 +187,18 @@
         <div class="space-y-5">
             {{-- Aşama --}}
             <section class="card p-4" data-lead-stage>
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Aşama</h2>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Durum</h2>
+                <p class="mt-1 text-xs text-gray-500">Mesaj, yanıt, toplantı ve fiyat görüldükçe kendiliğinden ilerler; burada seçtiğin kazanır.</p>
                 <div class="mt-3 flex flex-wrap gap-1.5">
-                    @foreach (['new', 'contacted', 'priced'] as $stage)
-                        <button type="button" wire:click="setStage('{{ $stage }}')" @class(['seg h-8', 'seg-active' => $lead->stage === $stage])>{{ SalesLead::STAGES[$stage] }}</button>
+                    @foreach (SalesLead::FLOW as $stage)
+                        <button type="button" wire:click="setStage('{{ $stage }}')" @class(['seg h-8', 'seg-active' => $lead->stage === $stage]) data-lead-stage-option="{{ $stage }}">{{ SalesLead::STAGES[$stage] }}</button>
                     @endforeach
+                </div>
+                <div class="mt-3 flex flex-wrap items-center gap-1.5" data-lead-later>
+                    <span class="text-[13px] text-gray-500">{{ $lead->stage === 'later' ? 'Sonra: '.($lead->next_step_at?->timezone('Europe/Istanbul')->format('d.m.Y') ?? '') : 'Şimdi değil, sonra:' }}</span>
+                    <input wire:model="laterDate" type="date" class="h-8 rounded-lg border border-gray-200 bg-white px-2 text-[13px] dark:border-gray-700 dark:bg-transparent dark:text-gray-200" aria-label="Ne zaman tekrar yazılsın" />
+                    <button type="button" wire:click="later" class="btn-quiet">Ertele</button>
+                    @error('laterDate')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                 </div>
                 <div class="mt-3 flex flex-wrap items-center gap-2">
                     @if ($isAdmin && $lead->stage !== 'won')
@@ -255,6 +276,11 @@
                     <dt class="text-gray-500">Açıldı</dt><dd>{{ $lead->created_at?->timezone('Europe/Istanbul')->format('d.m.Y') }}</dd>
                     <dt class="text-gray-500">Son temas</dt><dd>{{ $lead->last_contact_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? 'yok' }}</dd>
                     <dt class="text-gray-500">Son gelen</dt><dd>{{ $lead->last_incoming_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? 'yok' }}</dd>
+                    @if ($lead->email)<dt class="text-gray-500">E-posta</dt><dd class="break-all"><a href="mailto:{{ $lead->email }}" class="link-neutral">{{ $lead->email }}</a></dd>@endif
+                    <dt class="text-gray-500">Kaynak</dt><dd>{{ SalesLead::HEARD_FROM[$lead->heard_from] ?? 'bilinmiyor' }}</dd>
+                    @php $origin = (array) ($lead->origin ?? []); @endphp
+                    @if (! empty($origin['page']))<dt class="text-gray-500">Form sayfası</dt><dd class="break-all">{{ preg_replace('#^https?://#', '', (string) strtok((string) $origin['page'], '?')) }}</dd>@endif
+                    @if (! empty($origin['utm_campaign']) || ! empty($origin['utm_source']))<dt class="text-gray-500">Kampanya</dt><dd>{{ trim(($origin['utm_source'] ?? '').' / '.($origin['utm_campaign'] ?? ''), ' /') }}</dd>@endif
                     <dt class="text-gray-500">Takip</dt><dd>{{ $lead->followup_step > 0 ? $lead->followup_step.'. takip gönderildi' : 'ilk mesaj aşaması' }}</dd>
                 </dl>
             </section>
