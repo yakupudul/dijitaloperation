@@ -132,6 +132,27 @@ final class WordPressConnectorSiteResponseTest extends TestCase
     }
 
     #[Test]
+    public function data_signed_on_a_host_with_serialize_precision_17_still_verifies(): void
+    {
+        // Elementor trees carry floats; such a host writes 0.1 as 0.10000000000000001 in the body and in what it signs.
+        $data = self::STATUS + ['elements' => [['settings' => ['size' => 0.1, 'ratio' => 1.15]]]];
+        $this->answer = function (Request $request) use ($data): string {
+            $previous = ini_get('serialize_precision');
+            ini_set('serialize_precision', '17');
+            try {
+                return $this->signedJson($request, $data);
+            } finally {
+                ini_set('serialize_precision', (string) $previous);
+            }
+        };
+
+        $status = app(WordPressConnectorClient::class)->status($this->connection->fresh('credential'));
+
+        $this->assertSame(0.1, $status['elements'][0]['settings']['size']);
+        $this->assertSame('-1', (string) ini_get('serialize_precision'));
+    }
+
+    #[Test]
     public function an_answer_without_the_connectors_json_is_a_site_problem_named_with_the_site_and_how_it_starts(): void
     {
         $page = "<!DOCTYPE html>\n<html lang=\"tr\">\n<head><title>Bakım modu</title></head>\n<body>".str_repeat('Site kısa bir süre bakımda. ', 20).'</body></html>';

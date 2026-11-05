@@ -592,23 +592,32 @@ final class WordPressConnectorClient
             hash('sha256', $this->json->encode($data)),
         ]), $secret);
         // An empty JSON object ({} — e.g. a tool schema without properties) decodes to [] and would re-encode as [];
-        // the second try keeps objects as they were sent.
-        if ($provided === '' || (! hash_equals($sign($decoded['data']), strtolower($provided))
-            && ! hash_equals($sign(self::decodeData($body)), strtolower($provided)))) {
+        // the second try keeps objects as they were sent. A host whose php.ini still sets serialize_precision to 17
+        // signs 0.1 as 0.10000000000000001 (Elementor trees carry such floats), so both are tried with that too.
+        $matches = fn (): bool => hash_equals($sign($decoded['data']), strtolower($provided))
+            || hash_equals($sign(self::decodeData($body)), strtolower($provided));
+        if ($provided === '' || (! $matches() && ! self::withSerializePrecision(17, $matches))) {
             throw new RuntimeException('WordPress Connector response signature verification failed.');
         }
 
         return $decoded['data'];
     }
 
-    /**
-     * The decoded answer, also when a byte order mark or other output surrounds the JSON (a plugin, shortcode or PHP
-     * notice printing into the REST response): then the text from the first {"data": to the last } is decoded again.
-     * The nonce and signature checks that follow cover the data, so the cut never weakens them. Null without JSON;
-     * JSON that is not an object or list comes back as [] (an invalid envelope).
-     *
-     * @return array<mixed>|null
-     */
+    /** @param callable(): bool $check */
+    private static function withSerializePrecision(int $precision, callable $check): bool
+    {
+        $previous = ini_get('serialize_precision');
+        if ((string) $previous === (string) $precision) {
+            return false;
+        }
+        ini_set('serialize_precision', (string) $precision);
+        try {
+            return $check();
+        } finally {
+            ini_set('serialize_precision', (string) $previous);
+        }
+    }
+
     /** The envelope's `data` with JSON objects kept as objects (stdClass), for the signature check. */
     private static function decodeData(string $body): mixed
     {
@@ -623,6 +632,14 @@ final class WordPressConnectorClient
         return $decoded instanceof \stdClass ? ($decoded->data ?? null) : null;
     }
 
+    /**
+     * The decoded answer, also when a byte order mark or other output surrounds the JSON (a plugin, shortcode or PHP
+     * notice printing into the REST response): then the text from the first {"data": to the last } is decoded again.
+     * The nonce and signature checks that follow cover the data, so the cut never weakens them. Null without JSON;
+     * JSON that is not an object or list comes back as [] (an invalid envelope).
+     *
+     * @return array<mixed>|null
+     */
     private static function decodeBody(string $body): ?array
     {
         $text = preg_replace('/^(?:\xEF\xBB\xBF|\s)+/', '', $body) ?? $body;
