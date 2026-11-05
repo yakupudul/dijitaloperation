@@ -8,6 +8,7 @@ use App\Models\SalesLead;
 use App\Services\Assistant\ReminderService;
 use App\Services\Calendar\CalendarFeed;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\SalesReplyWriter;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -155,10 +156,17 @@ final class CalendarPage extends Component
         $row->forceFill(['outcome' => $text, 'done_at' => $row->done_at ?? now()])->save();
         if ($row->sales_lead_id !== null && ($lead = SalesLead::query()->find($row->sales_lead_id)) !== null) {
             $leads->event($lead, 'meeting', $text, $row->ends_at ?? $row->remind_at, ['reminder_id' => $row->id], 'meeting-note:'.$row->id.':'.md5($text));
+            if ($lead->isOpen()) {
+                // After the meeting: the next message is written from the note at once, for tomorrow 10:00 at the latest.
+                $lead->advanceTo('meeting');
+                [$lead->next_step, $lead->next_step_at] = ['Görüşme sonrası mesaj', CarbonImmutable::now(CalendarFeed::TZ)->addDay()->setTime(10, 0)->utc()];
+                $lead->save();
+                SalesReplyWriter::queue($lead);
+            }
         }
         $this->noteFor = null;
         $this->note = '';
-        $this->say($row->sales_lead_id !== null ? 'Not kaydedildi ve adayın kartına yazıldı.' : 'Not kaydedildi.');
+        $this->say($row->sales_lead_id !== null ? 'Not kaydedildi ve adayın kartına yazıldı; görüşme sonrası mesajı Claude yazıyor.' : 'Not kaydedildi.');
     }
 
     public function remove(int $id): void

@@ -2,14 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Ai\Agents\SalesAnalysisAgent;
+use App\Ai\Agents\SalesReplyAgent;
+use App\Livewire\Operator\Calendar\CalendarPage;
 use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Models\AgencySetting;
+use App\Models\CoreIntegration;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\User;
 use App\Services\Sales\LeadIntake;
+use App\Services\Sales\SalesAnalysisWriter;
 use App\Services\Sales\SalesLeads;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -160,5 +165,54 @@ class SalesIntakeTest extends TestCase
             ->assertSee('Site formu')->call('connectForm')->assertHasErrors('formSite')
             ->set('formSite', '999')->call('connectForm')->assertHasErrors('formSite');
         $this->assertSame($old, LeadIntake::token());
+    }
+
+    public function test_a_prospect_who_talks_gets_the_full_analysis_once_and_the_card_shows_it(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $analysis = "## Kısa durum\nManisa'da diş kliniği; fiyat sordu.\n\n## Sitede gördüklerimiz\n- Ana sayfada tek dokunuşla arama yok.\n- 12 hizmetin hiçbirinin kendi sayfası yok.\n\n## Teklif\nKlinik SEO + Google İşletme Profili 14.000 TL + KDV/ay.\n\n## Riskler\nKarar ortakla verilecek; bütçe ay başı.";
+        SalesAnalysisAgent::fake([['analysis' => $analysis, 'message' => "Ahmet Hocam merhaba, sitenizde 12 hizmetin hiçbirinin kendi sayfası yok.\nBu ay hizmet sayfalarıyla başlayalım mı?", 'headline' => '12 hizmetin kendi sayfası yok']]);
+        SalesReplyAgent::fake([['action' => 'reply', 'reply' => 'Ahmet Hocam, görüşme için teşekkürler.', 'send_on' => '2026-11-06', 'note' => 'Görüşme sonrası.', 'summary' => 'Görüştük.']]);
+
+        $lead = SalesLead::query()->create(['name' => 'Dt. Ahmet Can', 'stage' => 'contacted', 'source' => 'whatsapp']);
+        app(SalesLeads::class)->event($lead, 'message_in', 'Fiyat nedir?');
+        app(SalesLeads::class)->event($lead, 'message_in', 'Ortağıma soracağım.');
+        $lead->advanceTo('talking');
+        $lead->save();
+        $lead->refresh();
+        $this->assertSame('ready', $lead->analysis_status, 'a prospect who started talking is analysed by itself');
+        $this->assertStringContainsString('12 hizmetin', (string) $lead->analysis);
+        $this->assertSame('12 hizmetin kendi sayfası yok', $lead->analysis_headline);
+
+        // Once only: talking further does not write it again.
+        $lead->advanceTo('priced');
+        $lead->save();
+        SalesAnalysisAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'Dt. Ahmet Can'));
+        $this->assertSame(1, SalesLeadEvent::query()->where('lead_id', $lead->id)->where('kind', 'report')->count());
+
+        Livewire::actingAs($this->admin)->test(LeadCardPage::class, ['lead' => (string) $lead->id])
+            ->assertSee('Tam analiz')->assertSee('12 hizmetin kendi sayfası yok')->assertSee('Gönderilecek mesaja koy')
+            ->call('useAnalysisMessage')->assertSet('draft', "Ahmet Hocam merhaba, sitenizde 12 hizmetin hiçbirinin kendi sayfası yok.\nBu ay hizmet sayfalarıyla başlayalım mı?");
+
+        // A meeting's note: on the card, and the next message is written from it.
+        $meeting = Reminder::query()->create(['user_id' => $this->admin->id, 'kind' => 'meeting', 'title' => 'Görüşme: Dt. Ahmet Can', 'remind_at' => '2026-11-05 07:00:00', 'ends_at' => '2026-11-05 07:30:00', 'sales_lead_id' => $lead->id]);
+        Livewire::actingAs($this->admin)->test(CalendarPage::class)->call('writeNote', $meeting->id)->set('note', 'Paketi beğendi, ortağıyla konuşup cuma dönecek.')->call('saveNote')->assertHasNoErrors();
+        $lead->refresh();
+        $this->assertSame('ready', $lead->draft_status);
+        $this->assertSame('Görüşme sonrası mesaj', $lead->next_step);
+        Livewire::actingAs($this->admin)->test(LeadCardPage::class, ['lead' => (string) $lead->id])->assertSee('Görüşmeler')->assertSee('cuma dönecek');
+    }
+
+    public function test_the_automatic_analysis_waits_for_the_site_and_keeps_to_the_daily_share(): void
+    {
+        $lead = SalesLead::query()->create(['name' => 'Dr. Site', 'stage' => 'talking', 'source' => 'form', 'website' => 'https://ornek.com', 'website_host' => 'ornek.com', 'findings_status' => 'running']);
+        $this->assertFalse(SalesAnalysisWriter::queueIfWorth($lead), 'the site is still being read');
+        SalesLead::query()->whereKey($lead->id)->update(['analysis_status' => null]);
+        for ($i = 0; $i < SalesAnalysisWriter::DAILY_AUTO; $i++) {
+            SalesLead::query()->create(['name' => 'X'.$i, 'stage' => 'new', 'analysis' => 'x', 'analysis_at' => now(), 'analysis_note' => 'auto']);
+        }
+        $lead->forceFill(['findings_status' => 'ready'])->save();
+        $this->assertNull($lead->fresh()->analysis_status, 'the day\'s automatic share is used up');
     }
 }

@@ -134,6 +134,45 @@
             </section>
 
             {{-- Sohbeti yapıştır: WhatsApp'tan kopyalanan sohbet karta işlenir, Claude hemen cevabı yazar. --}}
+            {{-- Tam analiz (3. hafta): yakup için tam yazılı analiz; müşteriye yalnız tek bulgulu mesaj gider. --}}
+            <section class="card p-4" data-lead-analysis x-data="{ open: false }">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Tam analiz</h2>
+                        <p class="text-[13px] text-gray-500">
+                            @if ($lead->analysis)
+                                {{ $lead->analysis_headline ?: 'Site, konuşma, plan, teklif ve riskler.' }} · {{ $lead->analysis_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}
+                            @else
+                                Site, konuşma ve notlardan: ne gördük, ne yaparız, teklif, görüşmede sorulacaklar, riskler. Aday konuşmaya başlayınca kendiliğinden yazılır.
+                            @endif
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        @if ($lead->analysis)
+                            <button type="button" x-on:click="open = ! open" class="btn h-8" x-text="open ? 'Kapat' : 'Oku'">Oku</button>
+                        @endif
+                        <button type="button" wire:click="writeAnalysis" wire:loading.attr="disabled" class="btn-quiet h-8" @disabled($analysing) data-lead-analysis-write>{{ $lead->analysis ? 'Yeniden yaz' : 'Tam analiz yaz' }}</button>
+                    </div>
+                </div>
+                @if ($analysing)
+                    <p class="mt-2 text-sm text-gray-500" wire:poll.5s data-lead-analysing>Claude siteyi, konuşmayı ve notları okuyup analizi yazıyor (1-2 dk)…</p>
+                @elseif ($lead->analysis_status === 'failed' && $lead->analysis_note)
+                    <p class="mt-2 text-sm text-error-600">{{ $lead->analysis_note }}</p>
+                @endif
+                @if ($lead->analysis)
+                    <div x-show="open" x-cloak class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                        <div class="max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 [&_h2]:mt-4 [&_h2]:mb-1 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-gray-900 dark:[&_h2]:text-white [&_h2:first-child]:mt-0 [&_h3]:mt-3 [&_h3]:font-semibold [&_p]:mt-1 [&_ul]:mt-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mt-0.5 [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white" data-lead-analysis-text>{!! \Illuminate\Support\Str::markdown((string) $lead->analysis, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}</div>
+                        @if ($lead->analysis_message)
+                            <div class="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                                <p class="text-xs font-medium text-gray-500">Müşteriye gidecek mesaj (tek bulgu)</p>
+                                <p class="mt-1 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">{{ $lead->analysis_message }}</p>
+                                <button type="button" wire:click="useAnalysisMessage" class="btn mt-2 h-8">Gönderilecek mesaja koy</button>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </section>
+
             <section class="card p-4" data-lead-paste x-data="{ open: {{ $errors->has('paste') ? 'true' : 'false' }} }">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -217,6 +256,23 @@
                     <p class="mt-4 whitespace-pre-wrap border-t border-gray-200 pt-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300">{{ $lead->notes }}</p>
                 @endif
             </section>
+
+            {{-- Toplantılar: bu adayla Takvim'deki görüşmeler ve notları --}}
+            @if ($meetings->isNotEmpty())
+                <section class="card p-4" data-lead-meetings>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Görüşmeler</h2>
+                    <ul class="mt-2 space-y-2 text-[13px]">
+                        @foreach ($meetings as $m)
+                            <li>
+                                <a href="{{ route('operator.calendar', ['gun' => $m->remind_at->timezone('Europe/Istanbul')->toDateString()]) }}" wire:navigate class="font-medium text-gray-900 hover:underline dark:text-white">{{ $m->remind_at->timezone('Europe/Istanbul')->locale('tr')->isoFormat('D MMM ddd HH:mm') }}</a>
+                                <span class="text-gray-500">· {{ $m->title }}</span>
+                                @if ($m->outcome)<p class="mt-0.5 whitespace-pre-wrap text-gray-600 dark:text-gray-300">{{ $m->outcome }}</p>
+                                @elseif ($m->remind_at->isPast())<p class="mt-0.5 text-warning-700">Not yazılmadı: Takvim'de "Not yaz".</p>@endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
 
             {{-- Bulgular --}}
             <section class="card p-4" data-lead-findings>

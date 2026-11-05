@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Ai\Agents\SalesAnalysisAgent;
 use App\Ai\Agents\SalesReplyAgent;
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
@@ -375,6 +376,15 @@ class AppServiceProvider extends ServiceProvider
                 ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => 'claude-opus-5-5'],
                 ['provider' => AiProviderCatalog::OPENAI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
             ],
+        ]);
+
+        // Satış 3. hafta (2026-11-05): the full analysis of a prospect, on the same providers as the message.
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => SalesAnalysisAgent::ROUTE,
+            'name' => 'Aday analizi',
+            'module' => 'sales',
+            'description' => 'Full written analysis of a prospect for the operator (site, profile, conversation, plan, offer, questions, risks) and a one-finding message; nothing is sent.',
+            'default_steps' => $this->app->make(AiRouteRegistry::class)->get(SalesReplyAgent::ROUTE)['default_steps'],
         ]);
 
         Gate::before(function ($user, string $ability): ?bool {

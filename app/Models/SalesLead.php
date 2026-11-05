@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Sales\SalesAnalysisWriter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,12 +46,28 @@ class SalesLead extends Model
         'silent' => 'Sessiz kaldı', 'price' => 'Fiyat', 'other_agency' => 'Başka ajans', 'not_fit' => 'Uygun değil', 'later' => 'Sonra', 'other' => 'Diğer',
     ];
 
+    /** A prospect who really talks (or a form whose site was just read) gets the full analysis once, by itself. */
+    protected static function booted(): void
+    {
+        static::saved(function (SalesLead $lead): void {
+            $talking = in_array($lead->stage, ['talking', 'meeting', 'priced', 'thinking'], true);
+            $inbound = in_array($lead->source, ['form', 'meta_form'], true);
+            if (($lead->wasChanged('stage') && $talking) || ($lead->wasChanged('findings_status') && $lead->findings_status === 'ready' && ($talking || $inbound))) {
+                try {
+                    SalesAnalysisWriter::queueIfWorth($lead);
+                } catch (\Throwable $error) {
+                    report($error);
+                }
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
             'next_step_at' => 'datetime', 'last_contact_at' => 'datetime', 'last_incoming_at' => 'datetime',
             'won_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
-            'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime',
+            'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
         ];
     }
 

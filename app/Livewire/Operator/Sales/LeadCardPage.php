@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Operator\Sales;
 
+use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Services\Sales\ProspectSiteCheck;
+use App\Services\Sales\SalesAnalysisWriter;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
@@ -276,6 +278,27 @@ final class LeadCardPage extends Component
         $lead->forceFill(['duplicate_of_id' => null, 'origin' => array_merge((array) $lead->origin, ['not_duplicate_of' => $lead->duplicate_of_id])])->save();
     }
 
+    public function writeAnalysis(): void
+    {
+        if (! SalesAnalysisWriter::queue($this->lead())) {
+            $this->say('Bugünlük analiz sınırı doldu ('.SalesAnalysisWriter::DAILY_MAX.'); yarın yeniden yazılabilir.');
+
+            return;
+        }
+        $this->say('Analiz yazılıyor; 1-2 dakikada bu kartta.');
+    }
+
+    /** The analysis's one-finding message goes into the text to send (the operator still edits and sends it). */
+    public function useAnalysisMessage(): void
+    {
+        $lead = $this->lead();
+        if (filled($lead->analysis_message)) {
+            $this->draft = (string) $lead->analysis_message;
+            $lead->forceFill(['draft' => $this->draft])->save();
+            $this->say('Mesaj "Gönderilecek mesaj" kutusuna kondu.');
+        }
+    }
+
     public function checkSite(): void
     {
         $lead = $this->lead();
@@ -309,6 +332,8 @@ final class LeadCardPage extends Component
             'findings' => array_values(array_filter((array) ($lead->findings ?? []), 'is_array')),
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'analysing' => in_array($lead->analysis_status, ['queued', 'running'], true),
+            'meetings' => Reminder::query()->where('sales_lead_id', $lead->id)->orderByDesc('remind_at')->limit(10)->get(),
             'duplicate' => $lead->duplicate_of_id !== null ? SalesLead::query()->find($lead->duplicate_of_id) : null,
         ]);
     }

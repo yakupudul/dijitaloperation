@@ -43,6 +43,7 @@ final class AiOperationLabels
         'whatsapp.brain' => 'WhatsApp: işletmenin yanıt biçimi',
         'whatsapp.reply' => 'WhatsApp yanıt taslağı',
         'sales.reply' => 'Satış mesajı',
+        'sales.analysis' => 'Aday analizi',
         'gbp.post_from_page' => 'Sayfadan gönderi yaz',
         'google_ads.search_terms' => 'Google Ads arama terimleri',
         'google_ads.structure' => 'Google Ads kampanya yapısı',
