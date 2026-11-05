@@ -337,6 +337,8 @@ final class GoogleAdsSuggestions extends AssetSuggestions
         }
         foreach ($lists as &$list) {
             usort($list['rows'], fn (array $x, array $y): int => $y['cost'] <=> $x['cost']);
+            // The paste list follows the same order (costliest first), whatever order the rows were read in.
+            $list['lines'] = array_values(array_unique(array_column($list['rows'], 'line')));
         }
         unset($list);
         uasort($lists, fn (array $x, array $y): int => [$x['key'] !== 'shared', -$x['cost']] <=> [$y['key'] !== 'shared', -$y['cost']]);
