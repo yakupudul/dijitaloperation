@@ -593,10 +593,13 @@ final class WordPressConnectorClient
         ]), $secret);
         // An empty JSON object ({} — e.g. a tool schema without properties) decodes to [] and would re-encode as [];
         // the second try keeps objects as they were sent. A host whose php.ini still sets serialize_precision to 17
-        // signs 0.1 as 0.10000000000000001 (Elementor trees carry such floats), so both are tried with that too.
+        // signs 0.1 as 0.10000000000000001, one with 100 as its exact decimal expansion (Elementor trees carry such
+        // floats), so both are tried with those settings too.
         $matches = fn (): bool => hash_equals($sign($decoded['data']), strtolower($provided))
             || hash_equals($sign(self::decodeData($body)), strtolower($provided));
-        if ($provided === '' || (! $matches() && ! self::withSerializePrecision(17, $matches))) {
+        if ($provided === '' || (! $matches()
+            && ! self::withSerializePrecision(17, $matches)
+            && ! self::withSerializePrecision(100, $matches))) {
             throw new RuntimeException('WordPress Connector response signature verification failed.');
         }
 

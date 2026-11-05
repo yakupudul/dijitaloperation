@@ -132,6 +132,27 @@ final class WordPressConnectorSiteResponseTest extends TestCase
     }
 
     #[Test]
+    public function data_signed_on_a_host_with_serialize_precision_100_still_verifies(): void
+    {
+        // burcinoncul.com.tr (PHP 8.1, serialize_precision=100) writes 1.3 as its exact decimal expansion.
+        $data = self::STATUS + ['elements' => [['settings' => ['size' => 1.3, 'ratio' => 0.5]]]];
+        $this->answer = function (Request $request) use ($data): string {
+            $previous = ini_get('serialize_precision');
+            ini_set('serialize_precision', '100');
+            try {
+                return $this->signedJson($request, $data);
+            } finally {
+                ini_set('serialize_precision', (string) $previous);
+            }
+        };
+
+        $status = app(WordPressConnectorClient::class)->status($this->connection->fresh('credential'));
+
+        $this->assertSame(1.3, $status['elements'][0]['settings']['size']);
+        $this->assertSame('-1', (string) ini_get('serialize_precision'));
+    }
+
+    #[Test]
     public function data_signed_on_a_host_with_serialize_precision_17_still_verifies(): void
     {
         // Elementor trees carry floats; such a host writes 0.1 as 0.10000000000000001 in the body and in what it signs.
