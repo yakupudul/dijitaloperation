@@ -986,7 +986,7 @@ final class MoxDOP_Connector_AI_Full
     }
 
     /** @return string[] what was emptied */
-    private static function purge()
+    public static function purge()
     {
         $done = [];
         if (has_action('litespeed_purge_all')) {

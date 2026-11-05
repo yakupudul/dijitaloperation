@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.36.0
+Stable tag: 1.37.0
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.37.0 =
+* Speed recipe ("Hız turu"): new site fix type `speed` switches parts that trim what visitors download without touching design, content, theme or plugin files: emoji / head links off, jQuery Migrate off, BetterDocs editor files off, first images not lazy-loaded, uploaded JPG / PNG served as WebP copies made next to them, Google Tag Manager and Clarity started after load, BetterDocs sidebars capped, Elementor Google Fonts served locally. Caches are emptied and the home page is checked; a broken page gets the previous setting back. Logged and undoable. /status reports the parts.
 
 = 1.36.0 =
 * Content snapshot carries each post's Excerpt (Özet) field.

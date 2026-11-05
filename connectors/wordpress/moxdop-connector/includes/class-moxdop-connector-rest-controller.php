@@ -272,7 +272,10 @@ final class MoxDOP_Connector_REST_Controller
                 'post_status',
                 $cache['readable'] ? 'page_cache' : null,
                 'content_export',
+                'speed',
             ])),
+            // 1.37.0: switched-on parts of the speed recipe.
+            'speed' => MoxDOP_Connector_Speed::summary(),
             // 1.6.0: detected page-cache plugin and whether its files can be read (/page-cache).
             'cache' => $cache,
             // 1.11.0: whether a real llms.txt file or the SEO plugin's own llms.txt already answers /llms.txt.

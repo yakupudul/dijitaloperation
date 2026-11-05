@@ -269,7 +269,7 @@ final class ExternalWriteService
         $this->guard($user, ExternalWriteAction::CHANNEL_WORDPRESS);
         $this->guardBrandless($site);
         $changes = array_values(array_filter($changes, fn (mixed $change): bool => is_array($change) && filled($change['type'] ?? null) && filled($change['reference'] ?? null)
-            && (in_array($change['type'], ['noindex', 'canonical', 'schema'], true) || (($change['value'] ?? null) !== null && ($change['value'] ?? null) !== ''))));
+            && (in_array($change['type'], ['noindex', 'canonical', 'schema', 'speed'], true) || (($change['value'] ?? null) !== null && ($change['value'] ?? null) !== ''))));
         if ($changes === []) {
             throw ValidationException::withMessages(['write' => 'Önerilen değeri olan düzeltme yok.']);
         }
@@ -277,6 +277,9 @@ final class ExternalWriteService
             throw ValidationException::withMessages(['write' => 'Tek seferde en fazla 100 düzeltme gönderilebilir.']);
         }
         $this->fixConnection($site, collect($changes)->contains(fn (array $c): bool => in_array($c['type'], ['redirect', 'merge_redirect'], true)));
+        if (collect($changes)->contains(fn (array $c): bool => $c['type'] === 'speed')) {
+            $this->speedConnection($user, $site);
+        }
 
         return $this->queue(ExternalWriteAction::query()->create([
             'channel' => ExternalWriteAction::CHANNEL_WORDPRESS, 'action' => ExternalWriteAction::ACTION_SITE_FIX,
@@ -979,6 +982,28 @@ final class ExternalWriteService
         if ($redirects && version_compare($version, $minimum, '<')) {
             throw ValidationException::withMessages(['write' => 'WordPress Connector '.$version.'; 301 yalnızca MoxDOP eklentisine yazılır, bunun için en az '.$minimum.' gerekli. Web siteleri › eklentiyi güncelle.']);
         }
+    }
+
+    /**
+     * 1.37.0 (yakup 2026-11-05 "Hız turu"): the speed fix needs the new connector; an older site gets the signed
+     * self-update queued and the operator sends the fix again once it landed.
+     */
+    private function speedConnection(User $user, DigitalAsset $site): void
+    {
+        $connection = app(WordPressDraftWriter::class)->connection((int) $site->id);
+        $version = (string) data_get($connection->config, 'plugin_version', '0.0.0');
+        $minimum = (string) config('moxdop-wordpress.speed_min_plugin_version', '1.37.0');
+        if (version_compare($version, $minimum, '>=')) {
+            return;
+        }
+        $message = 'WordPress Connector '.$version.'; hız ayarları için en az '.$minimum.' gerekli.';
+        try {
+            $this->requestConnectorUpdate($user, $site);
+        } catch (Throwable $exception) {
+            throw ValidationException::withMessages(['write' => $message.' Güncelleme başlatılamadı: '.$exception->getMessage()]);
+        }
+
+        throw ValidationException::withMessages(['write' => $message.' Eklenti güncellemesi başlatıldı; birkaç dakika sonra yeniden gönder.']);
     }
 
     private function guard(User $user, string $channel): void

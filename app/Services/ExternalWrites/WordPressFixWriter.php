@@ -39,9 +39,19 @@ final class WordPressFixWriter
             'merge_redirect' => ['type' => 'merge_redirect', 'object_id' => $base['object_id'], 'from' => (string) ($change['from'] ?? ''), 'value' => (string) $value, 'reference' => $base['reference']],
             'schema' => $base + ['value' => is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : (string) $value],
             'noindex' => $base + ['value' => (bool) $value],
+            // 1.37.0: the switched-on speed parts as a comma list ("all" = every part, "" = off); site-wide, object 0.
+            'speed' => ['type' => 'speed', 'object_id' => 0, 'reference' => $base['reference'], 'value' => self::speedParts($value)],
             'internal_link' => $base + ['value' => ['anchor' => (string) data_get($value, 'anchor'), 'url' => (string) data_get($value, 'url')]],
             default => $base + ['value' => (string) $value],
         };
+    }
+
+    /** Speed parts as the connector's comma list. */
+    public static function speedParts(mixed $value): string
+    {
+        $parts = is_array($value) ? $value : explode(',', (string) $value);
+
+        return implode(',', array_values(array_filter(array_map(fn (mixed $p): string => strtolower(trim((string) $p)), $parts), fn (string $p): bool => preg_match('/^[a-z_]+$/', $p) === 1)));
     }
 
     /** @return array<string, mixed> */

@@ -17,7 +17,7 @@ use Throwable;
 
 #[Description(<<<'TEXT'
 Siteyi düzenleme: changes a brand's WordPress site in the Admin's name, only when the operator asked for it in this conversation. Goes through the same write path as an approved Onarım masası row: logged on Akış and in the site's log, undoable, the connector keeps the previous value. One of:
-- changes: up to 100 fixes on existing posts / pages / images, each {type, object_id, value}: seo_title (≤ 60 chars), seo_description (≤ 155), excerpt (the post's WordPress Excerpt / Özet, 110–160 chars; connector ≥ 1.36.0), alt_text (object_id = media id), noindex (true/false), canonical (URL on the site), schema (JSON-LD object), internal_link (value {anchor, url}: the first plain-text anchor in the post becomes a link to a page of the same site). Needs "SEO fixes" on in the plugin (list-sites edit.fixes).
+- changes: up to 100 fixes on existing posts / pages / images, each {type, object_id, value}: seo_title (≤ 60 chars), seo_description (≤ 155), excerpt (the post's WordPress Excerpt / Özet, 110–160 chars; connector ≥ 1.36.0), alt_text (object_id = media id), noindex (true/false), canonical (URL on the site), schema (JSON-LD object), internal_link (value {anchor, url}: the first plain-text anchor in the post becomes a link to a page of the same site). speed (object_id 0, site-wide "Hız turu", connector ≥ 1.37.0): value = list of parts to switch on, "all" for every part or "" for off: head_clean, no_migrate, editor_assets, hero_eager, webp, late_tags (GTM / Clarity after load), docs_cap (BetterDocs sidebars), local_fonts (Elementor); the site empties its caches and checks its home page, a broken page gets the previous setting back. Needs "SEO fixes" on in the plugin (list-sites edit.fixes).
 - content: {object_id, title?, html}: a new version of an existing page; it lands as a WordPress draft copy next to the live page (the live page is untouched until the operator puts it live). Keep every fact, image, list and form. Needs "Content updates" (edit.content).
 - draft: {title, content_html, post_type: post|page, excerpt}: a new draft post or page, never published. Needs drafts (edit.drafts).
 - undo: an action_id from site-writes: puts that write back.
@@ -30,8 +30,8 @@ class EditSite extends Tool
         $validated = $request->validate([
             'site_id' => ['required', 'integer'],
             'changes' => ['nullable', 'array', 'max:100'],
-            'changes.*.type' => ['required_with:changes', 'string', 'in:seo_title,seo_description,excerpt,alt_text,noindex,canonical,schema,internal_link'],
-            'changes.*.object_id' => ['required_with:changes', 'integer', 'min:1'],
+            'changes.*.type' => ['required_with:changes', 'string', 'in:seo_title,seo_description,excerpt,alt_text,noindex,canonical,schema,internal_link,speed'],
+            'changes.*.object_id' => ['required_with:changes', 'integer', 'min:0'],
             'content' => ['nullable', 'array'],
             'content.object_id' => ['required_with:content', 'integer', 'min:1'],
             'content.title' => ['nullable', 'string', 'max:200'],
@@ -46,6 +46,11 @@ class EditSite extends Tool
         $asks = array_filter([isset($validated['changes']), isset($validated['content']), isset($validated['draft']), isset($validated['undo'])]);
         if (count($asks) !== 1) {
             return Response::error('Bir çağrıda yalnız biri: changes, content, draft ya da undo.');
+        }
+        foreach ((array) ($validated['changes'] ?? []) as $change) {
+            if (($change['type'] ?? '') !== 'speed' && (int) ($change['object_id'] ?? 0) < 1) {
+                return Response::error('object_id gerekli (yalnız speed için 0).');
+            }
         }
         $site = DigitalAsset::query()->find((int) $validated['site_id']);
         if ($site === null) {

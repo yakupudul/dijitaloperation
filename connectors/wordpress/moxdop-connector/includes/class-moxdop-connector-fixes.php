@@ -250,6 +250,7 @@ final class MoxDOP_Connector_Fixes
             case 'schema':
                 return $post_id > 0 ? (get_post($post_id) ? ['post_id' => $post_id] : null) : ['site' => true];
             case 'llms_txt':
+            case 'speed':
                 return ['site' => true];
             case 'redirect':
                 $from = $this->path((string) ($change['from'] ?? ''));
@@ -303,6 +304,9 @@ final class MoxDOP_Connector_Fixes
                 $text = trim(str_replace("\r\n", "\n", wp_strip_all_tags((string) $value, false)));
 
                 return strlen($text) > 100000 ? new WP_Error('bad', 'llms.txt is too long') : $text;
+            case 'speed':
+                // 1.37.0: the switched-on parts of the speed recipe (list, comma string or "all"; empty = off).
+                return MoxDOP_Connector_Speed::normalise($value);
             case 'redirect':
                 if ($value === null || $value === '') {
                     return '';
@@ -363,6 +367,8 @@ final class MoxDOP_Connector_Fixes
                 return isset($target['site']) ? (string) get_option(self::SITE_SCHEMA_OPTION, '') : (string) get_post_meta($target['post_id'], '_moxdop_schema', true);
             case 'llms_txt':
                 return (string) get_option(self::LLMS_OPTION, '');
+            case 'speed':
+                return (string) get_option(MoxDOP_Connector_Speed::OPTION, '');
             case 'redirect':
                 return $this->redirect_target($target);
             case 'internal_link':
@@ -395,6 +401,8 @@ final class MoxDOP_Connector_Fixes
                 return update_post_meta($target['post_id'], '_wp_attachment_image_alt', $value);
             case 'llms_txt':
                 return $value === '' ? delete_option(self::LLMS_OPTION) : update_option(self::LLMS_OPTION, (string) $value, false);
+            case 'speed':
+                return $this->write_speed((string) $value);
             case 'schema':
                 if (isset($target['site'])) {
                     return update_option(self::SITE_SCHEMA_OPTION, (string) $value, true);
@@ -454,6 +462,30 @@ final class MoxDOP_Connector_Fixes
         }
 
         return new WP_Error('bad', 'unknown change type');
+    }
+
+    /**
+     * 1.37.0: switches the speed parts, empties the page caches and loads the home page like a visitor; a page that
+     * broke gets the previous parts back at once.
+     */
+    private function write_speed($value)
+    {
+        $previous = (string) get_option(MoxDOP_Connector_Speed::OPTION, '');
+        update_option(MoxDOP_Connector_Speed::OPTION, $value, true);
+        MoxDOP_Connector_Speed::reset();
+        if (class_exists('MoxDOP_Connector_AI_Full')) {
+            MoxDOP_Connector_AI_Full::purge();
+            $check = MoxDOP_Connector_AI_Full::check();
+            if ($check['ok'] === false) {
+                update_option(MoxDOP_Connector_Speed::OPTION, $previous, true);
+                MoxDOP_Connector_Speed::reset();
+                MoxDOP_Connector_AI_Full::purge();
+
+                return new WP_Error('bad', 'the site check failed after the speed change; the previous setting is back');
+            }
+        }
+
+        return true;
     }
 
     /* ------------------------------------------------- 1.9.0: merge redirect */

@@ -531,7 +531,7 @@ final class RepairDesk
     public const array CHANGE_LABELS = [
         'seo_title' => 'başlık', 'seo_description' => 'açıklama', 'canonical' => 'asıl adres (canonical)', 'noindex' => 'dizin ayarı',
         'alt_text' => 'görsel alt metni', 'schema' => 'yapılandırılmış veri', 'redirect' => 'yönlendirme', 'merge_redirect' => 'sayfayı birleştirme (yönlendirme)',
-        'internal_link' => 'iç link', 'llms_txt' => 'llms.txt', 'content' => 'sayfa metni', 'excerpt' => 'özet',
+        'internal_link' => 'iç link', 'llms_txt' => 'llms.txt', 'content' => 'sayfa metni', 'excerpt' => 'özet', 'speed' => 'hız ayarları',
     ];
 
     /** The site's short English reasons, in words the operator can act on. */
@@ -635,6 +635,7 @@ final class RepairDesk
                 'internal_link' => '"'.data_get($value, 'anchor').'" → '.data_get($value, 'url'),
                 'noindex' => $value ? 'Google\'a kapatıldı (noindex)' : 'Google\'a açıldı',
                 'schema', 'content', 'llms_txt' => 'güncellendi',
+                'speed' => $value === '' ? 'hız ayarları kapatıldı' : 'hız ayarları açıldı',
                 default => is_scalar($value) ? (string) $value : '',
             };
             $result = (array) $results->get($change['reference'] ?? '', []);
