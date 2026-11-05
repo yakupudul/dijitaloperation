@@ -108,7 +108,7 @@ final class LeadIntake
         $lead->save();
         $summary = trim(implode(' · ', array_filter([$origin['service'] ?? null, $origin['page'] ?? null])));
         $this->leads->event($lead, 'message_in', $message !== '' ? $message : 'Form gönderildi.', meta: ['form' => true, 'origin' => $origin],
-            fingerprint: 'form:'.hash('sha256', ($data['phone'] ?: $data['email']).'|'.$message.'|'.now()->format('YmdH')));
+            fingerprint: 'form:'.substr(hash('sha256', ($data['phone'] ?: $data['email']).'|'.$message.'|'.now()->format('YmdH')), 0, 40));
         $this->announce($lead, $known, $summary);
 
         return $lead;
