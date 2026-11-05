@@ -69,6 +69,7 @@ use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\PortfolioPage;
 use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Sales\LeadCardPage;
+use App\Livewire\Operator\Calendar\CalendarPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\AiWorkersPage;
@@ -207,6 +208,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/releases', ReleasesPage::class)->name('operator.settings.releases');
         Route::livewire('/icerik', WorkPage::class)->name('operator.content');
         // Satış (2026-11-04): every prospect on one card; Bugün = whose next step is today, the text ready.
+        // Takvim (2026-11-05): own tasks and meetings, prospects' next steps and the brands' work on one calendar.
+        Route::livewire('/takvim', CalendarPage::class)->name('operator.calendar');
         Route::livewire('/satis', SalesPage::class)->name('operator.sales');
         Route::livewire('/satis/{lead}', LeadCardPage::class)->where('lead', '[0-9]{1,18}')->name('operator.sales.lead');
         // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.

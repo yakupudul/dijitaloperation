@@ -36,6 +36,8 @@ final class DemoMenu
             $group($tr ? 'Çalışma' : 'Work', [
                 // Aşama 5 (2026-10-22): Komuta replaced Bugün as the home screen; Bugün özeti stays lit under it.
                 $item($tr ? 'Komuta' : 'Command', 'operator.dashboard', 'dashboard', [], ['operator.today']),
+                // Takvim (yakup 2026-11-05): the center of the day; own tasks, meetings, sales steps and brands' work.
+                $item($tr ? 'Takvim' : 'Calendar', 'operator.calendar', 'agenda'),
                 // Aşama 4 (2026-10-22): every approval and send, live; the count is what runs now.
                 $item($tr ? 'Akış' : 'Flow', 'operator.flow', 'flow'),
                 // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.

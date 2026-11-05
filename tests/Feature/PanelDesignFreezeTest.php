@@ -57,6 +57,8 @@ class PanelDesignFreezeTest extends TestCase
 
         $this->assertSame([
             'operator.dashboard',
+            // Takvim added 2026-11-05 (yakup: the calendar is the center).
+            'operator.calendar',
             'operator.flow',
             'operator.repair',
             'operator.content',

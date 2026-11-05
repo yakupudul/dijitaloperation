@@ -29,6 +29,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }}">{{ $lead->stageLabel() }}</span>
+            <a href="{{ route('operator.calendar', ['aday' => $lead->id]) }}" wire:navigate class="btn-quiet" data-lead-meeting>Toplantı ekle</a>
             <button type="button" wire:click="edit" class="btn-quiet">Düzenle</button>
         </div>
     </header>

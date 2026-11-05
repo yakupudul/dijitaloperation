@@ -157,7 +157,7 @@ final class SalesPage extends Component
         $this->say($created > 0 ? $created.' görüşmeden kart açıldı.' : 'Kartı olmayan görüşme kalmadı.');
     }
 
-    /** A customer's request becomes a task: a reminder for tomorrow 10:00 on Bugün and the phone. */
+    /** A customer's request becomes a task: tomorrow 10:00 on Takvim and the phone. */
     public function toTask(int $conversationId, SalesLeads $leads): void
     {
         $conversation = WhatsAppConversation::query()->whereNotNull('customer_id')->findOrFail($conversationId);
@@ -168,10 +168,10 @@ final class SalesPage extends Component
         Reminder::query()->create([
             'user_id' => auth()->id(), 'customer_id' => $conversation->customer_id, 'brand_id' => $brandId,
             'title' => 'Müşteri isteği: '.($customer?->name ?? $conversation->contact_name ?? $conversation->contact_id),
-            'notes' => $snippet !== '' ? $snippet : null, 'remind_at' => CarbonImmutable::now('Europe/Istanbul')->addDay()->setTime(10, 0), 'repeat' => 'none',
+            'notes' => $snippet !== '' ? $snippet : null, 'remind_at' => CarbonImmutable::now('Europe/Istanbul')->addDay()->setTime(10, 0)->utc(), 'repeat' => 'none', 'kind' => 'task',
         ]);
         $conversation->update(['done_at' => now()]);
-        $this->say('Görev açıldı: yarın 10:00\'da Bugün\'de ve telefonda hatırlatılır.');
+        $this->say('Görev açıldı: yarın 10:00\'da Takvim\'de ve telefonda.');
     }
 
     public function answered(int $conversationId): void
