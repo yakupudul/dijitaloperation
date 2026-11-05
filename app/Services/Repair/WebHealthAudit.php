@@ -880,13 +880,23 @@ final class WebHealthAudit
             return [];
         }
         $poor = (is_numeric($lcp) && $lcp > 4000) || (is_numeric($inp) && $inp > 500) || (is_numeric($cls) && $cls > 0.25);
+        // 1.37.0 "Hız turu" (yakup 2026-11-05): a site whose connector knows the speed recipe but has it off gets it
+        // as the one-click fix of this row (nothing on design or content changes; undoable).
+        $connection = $site->connections()->where('type', 'wordpress_connector')->where('enabled', true)->first();
+        $version = (string) data_get($connection?->config, 'plugin_version', '0.0.0');
+        $changes = [];
+        if ($connection !== null && version_compare($version, (string) config('moxdop-wordpress.speed_min_plugin_version', '1.37.0'), '>=')
+            && (array) data_get($connection->config, 'speed_parts', []) === []) {
+            $changes = [['type' => 'speed', 'object_id' => 0, 'reference' => 'hiz-turu', 'value' => 'all']];
+            array_unshift($steps, 'MoxDOP hız turu (tek tık): emoji ve gereksiz başlık etiketleri, jQuery Migrate, düzenleyici dosyaları kapanır; üstteki görseller hemen yüklenir; JPG / PNG görseller WebP kopyasıyla sunulur; Google Etiket Yöneticisi sayfa açıldıktan sonra başlar. Tasarım ve içerik değişmez, geri alınabilir.');
+        }
         $scope = $field === [] ? null : (($field['scope'] ?? '') === 'origin' ? 'tüm sitenin' : 'bu sayfanın');
 
         return [['key' => 'speed', 'priority' => $poor ? 2 : 3, 'target' => (string) $row->url,
             'title' => ($poor ? 'Site yavaş' : 'Site hızı iyileştirilmeli').' ('.($row->strategy === 'mobile' ? 'mobil' : 'masaüstü').')',
             'reason' => 'Ölçülen adres: '.$path.'. '.($scope !== null ? 'Gerçek ziyaretçi verisi (Chrome / CrUX, '.$scope.' ortalaması)' : 'Yalnız PageSpeed laboratuvar ölçümü (gerçek ziyaretçi verisi yok)')
                 .'; hız sıralamayı ve dönüşümü etkiler.',
-            'before' => $problems, 'after' => $steps]];
+            'before' => $problems, 'after' => $steps] + ($changes !== [] ? ['changes' => $changes] : [])];
     }
 
     /** @return list<array<string, mixed>>|null */

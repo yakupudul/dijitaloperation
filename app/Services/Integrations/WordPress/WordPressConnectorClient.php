@@ -59,6 +59,12 @@ final class WordPressConnectorClient
                 $known = array_values(array_filter($capabilities, fn ($value): bool => is_string($value) && preg_match('/^[a-z_]{2,32}$/', $value) === 1));
                 $current->update(['config' => array_merge($current->config ?? [], ['capabilities' => array_slice($known, 0, 30)])]);
             }
+            // 1.37.0: the switched-on parts of the speed recipe ("Hız turu").
+            $speed = data_get($data, 'speed.parts');
+            if (is_array($speed)) {
+                $parts = array_values(array_filter($speed, fn ($value): bool => is_string($value) && preg_match('/^[a-z_]{2,32}$/', $value) === 1));
+                $current->update(['config' => array_merge($current->config ?? [], ['speed_parts' => array_slice($parts, 0, 20)])]);
+            }
             // 1.6.0: the site's page-cache plugin and whether the connector can read its cache files.
             $cache = $data['cache'] ?? null;
             if (is_array($cache)) {

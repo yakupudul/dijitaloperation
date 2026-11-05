@@ -326,6 +326,19 @@ final class WebHealthAuditTest extends SiteTestCase
         $this->assertStringNotContainsString('Ana sayfa', $after, 'the measured page is not the home page');
         $this->assertStringNotContainsString('CLS', $after, 'no layout-shift steps without a layout-shift problem');
         $this->assertStringNotContainsString('INP', $after);
+        $this->assertSame([], (array) ($row['changes'] ?? []), 'connector before 1.37.0: no one-click speed recipe');
+
+        // 1.37.0 "Hız turu": the slow-site row carries the speed recipe as its one-click fix while it is off on the site.
+        CoreConnection::query()->update(['config->plugin_version' => '1.37.0', 'config->speed_parts' => []]);
+        app(WebHealthAudit::class)->audit($this->site);
+        $suggestion = Suggestion::query()->where('action_type', WebHealthAudit::TYPE)->get()->first(fn (Suggestion $s): bool => ($s->action['check'] ?? '') === 'speed');
+        $this->assertSame([['type' => 'speed', 'object_id' => 0, 'reference' => 'hiz-turu', 'value' => 'all']], $suggestion->action['changes']);
+        $this->assertStringContainsString('MoxDOP hız turu', $suggestion->action['after'][0]);
+
+        CoreConnection::query()->update(['config->speed_parts' => ['webp']]);
+        app(WebHealthAudit::class)->audit($this->site);
+        $suggestion = Suggestion::query()->where('action_type', WebHealthAudit::TYPE)->get()->first(fn (Suggestion $s): bool => ($s->action['check'] ?? '') === 'speed');
+        $this->assertSame([], $suggestion->action['changes'], 'already on: only the manual steps remain');
     }
 
     public function test_bloat_gives_files_search_and_feeds_their_own_steps_and_a_fallback_for_the_rest(): void
