@@ -67,7 +67,11 @@ final class CalendarFeed
                 $days[$item['date']]['sales'][] = $item;
             }
         }
-        foreach ($this->work($from, $to)->groupBy('date') as $date => $items) {
+        // The grid needs only counts: read without titles or payloads and keep for two minutes, so opening a day or
+        // ticking a task does not re-read a month of writes (yakup 2026-11-06: Takvim was slow).
+        $work = collect(Cache::remember('calendar.work.'.$from->toDateString().'.'.$to->toDateString(), 120,
+            fn (): array => $this->work($from, $to, false)->all()));
+        foreach ($work->groupBy('date') as $date => $items) {
             if (! isset($days[$date])) {
                 continue;
             }
@@ -126,7 +130,7 @@ final class CalendarFeed
     {
         $from = $month->startOfMonth();
         $to = $month->endOfMonth();
-        $work = $this->work($from, $to);
+        $work = $this->work($from, $to, false);
         $done = $work->where('state', 'done');
         $names = Brand::query()->whereIn('id', $work->pluck('brand_id')->unique()->all())->pluck('name', 'id');
         $brands = $work->groupBy('brand_id')->map(function (Collection $items, $brandId) use ($names): array {
@@ -227,7 +231,7 @@ final class CalendarFeed
      *
      * @return Collection<int, array{date: string, brand_id: int, kind: string, state: string, count: int, title: ?string, error: ?string}>
      */
-    public function work(CarbonImmutable $from, CarbonImmutable $to): Collection
+    public function work(CarbonImmutable $from, CarbonImmutable $to, bool $titles = true): Collection
     {
         $rows = collect();
         $today = CarbonImmutable::now(self::TZ)->toDateString();
@@ -273,12 +277,13 @@ final class CalendarFeed
             ->whereNotNull('brand_id')->whereNotIn('id', $articleWrites)
             ->where(fn ($q) => $q->whereBetween('finished_at', [$range[0]->utc(), $range[1]->utc()])
                 ->orWhere(fn ($r) => $r->whereNull('finished_at')->whereBetween('created_at', [$range[0]->utc(), $range[1]->utc()])))
-            ->get(['id', 'brand_id', 'action', 'status', 'error', 'request_payload', 'finished_at', 'created_at'])
-            ->each(function (ExternalWriteAction $w) use ($rows): void {
+            // request_payload can hold whole articles: read it only when titles are shown (one day), never for the grid.
+            ->get($titles ? ['id', 'brand_id', 'action', 'status', 'error', 'request_payload', 'finished_at', 'created_at'] : ['id', 'brand_id', 'action', 'status', 'finished_at', 'created_at'])
+            ->each(function (ExternalWriteAction $w) use ($rows, $titles): void {
                 $at = CarbonImmutable::instance($w->finished_at ?? $w->created_at)->setTimezone(self::TZ);
                 $failed = $w->status === 'failed';
                 $rows->push(['date' => $at->toDateString(), 'brand_id' => (int) $w->brand_id, 'kind' => self::ACTION_KIND[$w->action], 'state' => $failed ? 'failed' : 'done',
-                    'count' => 1, 'title' => self::writeTitle($w), 'error' => $failed ? mb_substr((string) $w->error, 0, 200) : null]);
+                    'count' => 1, 'title' => $titles ? self::writeTitle($w) : null, 'error' => $failed && $titles ? mb_substr((string) $w->error, 0, 200) : null]);
             });
 
         // Business Profile posts still to go out (published ones are the local_post writes above), and ones that never left.

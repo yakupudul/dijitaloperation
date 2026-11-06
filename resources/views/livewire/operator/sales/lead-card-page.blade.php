@@ -102,7 +102,7 @@
                         </div>
                     </div>
                     @if ($drafting)
-                        <p class="mt-2 text-sm text-gray-500" wire:poll.4s data-lead-drafting>Claude sohbeti ve siteyi okuyup yazıyor…</p>
+                        <p class="mt-2 text-sm text-gray-500" wire:poll.6s.visible data-lead-drafting>Claude sohbeti ve siteyi okuyup yazıyor…</p>
                     @endif
                     @error('draft')<p class="mt-2 text-sm text-error-600">{{ $message }}</p>@enderror
                     @if ($lead->draft_status === 'ready' && (filled($lead->draft_note) || $lead->draft_send_on !== null))
@@ -155,7 +155,7 @@
                     </div>
                 </div>
                 @if ($analysing)
-                    <p class="mt-2 text-sm text-gray-500" wire:poll.5s data-lead-analysing>Claude siteyi, konuşmayı ve notları okuyup analizi yazıyor (1-2 dk)…</p>
+                    <p class="mt-2 text-sm text-gray-500" wire:poll.10s.visible data-lead-analysing>Claude siteyi, konuşmayı ve notları okuyup analizi yazıyor (1-2 dk)…</p>
                 @elseif ($lead->analysis_status === 'failed' && $lead->analysis_note)
                     <p class="mt-2 text-sm text-error-600">{{ $lead->analysis_note }}</p>
                 @endif
@@ -285,7 +285,7 @@
                 @if ($lead->website_host === null)
                     <p class="mt-2 text-sm text-gray-500">Site yazılınca ana sayfası okunur; mesajda kullanacağın bulgular burada çıkar.</p>
                 @elseif ($lead->findings_status === 'queued' || $lead->findings_status === 'running')
-                    <p class="mt-2 text-sm text-gray-500" wire:poll.4s>{{ $lead->website_host }} okunuyor…</p>
+                    <p class="mt-2 text-sm text-gray-500" wire:poll.6s.visible>{{ $lead->website_host }} okunuyor…</p>
                 @elseif ($lead->findings_status === 'failed')
                     <p class="mt-2 text-sm text-gray-500">{{ $lead->website_host }} buradan okunamadı (sunucu botlara kapalı ya da yanıt vermedi). Telefondan bir bak; bulgu yazmadan gönderme.</p>
                 @elseif ($findings === [])

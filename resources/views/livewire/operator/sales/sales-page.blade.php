@@ -80,51 +80,51 @@
         <section class="mt-5" data-sales-today>
             <div class="section-head">
                 <h2 class="section-title">Bugün yazacakların <span class="section-count">{{ $n($dueCount) }}</span></h2>
-                <p class="text-sm text-gray-500">Metni Claude sohbeti ve siteyi okuyarak yazdı: WhatsApp'ta aç, gerekirse düzelt, gönder, "Gönderdim" de. Düzelttiklerin bir sonrakine örnek olur.</p>
+                <p class="text-sm text-gray-500">İsme bas, metni gör. WhatsApp'ta aç, gönder, "Gönderdim" de.</p>
             </div>
-            <div class="card">
+            {{-- Minimal (yakup 2026-11-06): one line per person; the text opens on click. One poll for the whole list
+                 while Claude writes, every 10 s and only while the tab is visible (one poll per card slowed the page). --}}
+            <div class="card divide-y divide-gray-200 dark:divide-gray-800" @if ($due->contains(fn ($l) => in_array($l->draft_status, ['queued', 'running'], true) && blank($l->draft))) wire:poll.10s.visible @endif>
                 @forelse ($due as $lead)
                     @php
                         $text = (string) $lead->draft;
                         $drafting = in_array($lead->draft_status, ['queued', 'running'], true);
                         $wa = $lead->waNumber();
                         $overdue = $lead->next_step_at !== null && $lead->next_step_at->timezone('Europe/Istanbul')->toDateString() < $today;
+                        $preview = trim((string) preg_replace('/\s+/u', ' ', $text));
                     @endphp
-                    <div wire:key="due-{{ $lead->id }}" class="border-t border-gray-200 px-4 py-4 first:border-t-0 dark:border-gray-800" data-sales-due="{{ $lead->id }}">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div class="flex min-w-0 items-center gap-3">
-                                <x-ta.brand-avatar :name="$lead->title()" />
-                                <div class="min-w-0">
-                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="block truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">{{ $lead->title() }}</a>
-                                    <p class="truncate text-[13px] text-gray-500">
-                                        {{ $lead->subtitle() !== '' ? $lead->subtitle().' · ' : '' }}{{ $lead->stageLabel() }} · {{ $lead->sourceLabel() }}
-                                        @if ($overdue)<span class="text-error-600"> · {{ $lead->next_step_at->timezone('Europe/Istanbul')->format('d.m') }} tarihinden kaldı</span>@endif
-                                    </p>
-                                </div>
+                    <div wire:key="due-{{ $lead->id }}" x-data="{ open: false }" class="px-4 py-2.5" data-sales-due="{{ $lead->id }}">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <button type="button" x-on:click="open = !open" class="min-w-0 w-full flex-1 text-left" :aria-expanded="open">
+                                <span class="flex items-baseline gap-2">
+                                    <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $lead->title() }}</span>
+                                    <span class="shrink-0 text-xs text-gray-500">{{ $lead->next_step ?: 'Adım' }}@if ($overdue)<span class="text-error-600"> · {{ $lead->next_step_at->timezone('Europe/Istanbul')->format('d.m') }}'den kaldı</span>@endif</span>
+                                </span>
+                                <span class="mt-0.5 block truncate text-[13px] text-gray-500" x-show="!open">
+                                    @if ($preview !== ''){{ $preview }}@elseif ($drafting)Claude yazıyor…@elseif ($lead->draft_status === 'failed'){{ $lead->draft_note ?: 'Yazılamadı.' }}@else Metin yok @endif
+                                </span>
+                            </button>
+                            <div class="flex shrink-0 items-center gap-1.5">
+                                @if ($text !== '' && $wa !== null)
+                                    <a href="https://wa.me/{{ $wa }}?text={{ rawurlencode($text) }}" target="_blank" rel="noopener" class="btn-primary h-8 px-3 text-[13px]" data-sales-wa>WhatsApp</a>
+                                @elseif ($text === '' && ! $drafting)
+                                    <button type="button" wire:click="draftFor({{ $lead->id }})" class="btn h-8 px-3 text-[13px]" data-sales-write>Claude yazsın</button>
+                                @endif
+                                <button type="button" wire:click="markSent({{ $lead->id }})" wire:loading.attr="disabled" class="btn-dark h-8 px-3 text-[13px]" data-sales-sent>Gönderdim</button>
                             </div>
-                            <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }}">{{ $lead->next_step ?: 'Adım' }}</span>
                         </div>
-                        @if ($text !== '')
-                            <pre class="mt-3 max-w-[80ch] whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 font-sans text-[13px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-sales-draft>{{ $text }}</pre>
-                            @if (filled($lead->draft_note))<p class="mt-1.5 max-w-[80ch] text-xs text-gray-500">Claude'un notu: {{ $lead->draft_note }}</p>@endif
-                        @elseif ($drafting)
-                            <p class="mt-3 text-sm text-gray-500" wire:poll.5s>Claude sohbeti ve siteyi okuyup yazıyor…</p>
-                        @else
-                            <p class="mt-3 text-sm text-gray-500">{{ $lead->draft_status === 'failed' ? ($lead->draft_note ?: 'Yazılamadı.') : 'Metin henüz yazılmadı.' }}
-                                <button type="button" wire:click="draftFor({{ $lead->id }})" class="link-neutral ml-1" data-sales-write>Claude yazsın</button></p>
-                        @endif
-                        <div class="mt-3 flex flex-wrap items-center gap-2">
-                            @if ($text === '')
-                            @elseif ($wa !== null)
-                                <a href="https://wa.me/{{ $wa }}?text={{ rawurlencode($text) }}" target="_blank" rel="noopener" class="btn-primary" data-sales-wa>WhatsApp'ta aç ↗</a>
-                            @else
-                                <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="btn" title="Telefon yok; karta yaz">Telefon ekle</a>
+                        <div x-show="open" x-cloak class="mt-2.5">
+                            @if ($text !== '')
+                                <pre class="max-w-[80ch] whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 font-sans text-[13px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-sales-draft>{{ $text }}</pre>
+                                @if (filled($lead->draft_note))<p class="mt-1.5 max-w-[80ch] text-xs text-gray-500">Claude'un notu: {{ $lead->draft_note }}</p>@endif
                             @endif
-                            @if ($text !== '')<button type="button" x-data x-on:click="navigator.clipboard?.writeText($el.closest('[data-sales-due]').querySelector('[data-sales-draft]').innerText); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="btn">Kopyala</button>@endif
-                            <button type="button" wire:click="markSent({{ $lead->id }})" wire:loading.attr="disabled" class="btn-dark" data-sales-sent>Gönderdim</button>
-                            <button type="button" wire:click="snooze({{ $lead->id }})" wire:loading.attr="disabled" class="btn-quiet">Yarına</button>
-                            <button type="button" wire:click="setStage({{ $lead->id }}, 'lost')" wire:confirm="{{ $lead->title() }} kaybedildi olarak kapansın mı?" class="btn-quiet text-gray-400">Kapat</button>
-                            <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral ml-auto text-[13px]">Kart →</a>
+                            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+                                @if ($text !== '')<button type="button" x-on:click="navigator.clipboard?.writeText($el.closest('[data-sales-due]').querySelector('[data-sales-draft]').innerText); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="link-neutral">Kopyala</button>@endif
+                                @if ($text !== '' && $wa === null)<a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral">Telefon ekle</a>@endif
+                                <button type="button" wire:click="snooze({{ $lead->id }})" class="link-neutral">Yarına</button>
+                                <button type="button" wire:click="setStage({{ $lead->id }}, 'lost')" wire:confirm="{{ $lead->title() }} kaybedildi olarak kapansın mı?" class="link-neutral text-gray-400">Kapat</button>
+                                <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral ml-auto">Kart →</a>
+                            </div>
                         </div>
                     </div>
                 @empty
@@ -137,37 +137,30 @@
         </section>
     @elseif ($tab === 'adaylar')
         <section class="mt-5" data-sales-leads>
-            <div class="flex flex-wrap items-center gap-2">
-                <button type="button" wire:click="$set('stageFilter', '')" @class(['seg h-8', 'seg-active' => $stageFilter === ''])>Açık <span class="tabular-nums opacity-70">{{ $n($openCount) }}</span></button>
-                @foreach (SalesLead::STAGES as $key => $label)
-                    @php $c = $key === 'won' ? $wonThisMonth : (int) ($stageCounts[$key] ?? 0); @endphp
-                    <button type="button" wire:click="$set('stageFilter', '{{ $key }}')" @class(['seg h-8', 'seg-active' => $stageFilter === $key])>{{ $label }}@if ($key !== 'lost') <span class="tabular-nums opacity-70">{{ $n($c) }}</span>@endif</button>
-                @endforeach
-                <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara: isim, klinik, şehir, telefon, site" class="{{ $input }} ml-auto max-w-xs" aria-label="Aday ara" />
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select wire:model.live="stageFilter" class="{{ str_replace('w-full', 'w-52', $input) }}" aria-label="Aşama">
+                    <option value="">Açık ({{ $n($openCount) }})</option>
+                    @foreach (SalesLead::STAGES as $key => $label)
+                        @php $c = $key === 'won' ? $wonThisMonth : (int) ($stageCounts[$key] ?? 0); @endphp
+                        <option value="{{ $key }}">{{ $label }}{{ $key !== 'lost' ? ' ('.$n($c).')' : '' }}</option>
+                    @endforeach
+                </select>
+                <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara" class="{{ str_replace('w-full', 'w-full sm:w-64', $input) }}" aria-label="Aday ara" />
             </div>
-            <div class="card mt-4">
+            <div class="card mt-3 divide-y divide-gray-200 dark:divide-gray-800">
                 @forelse ($list as $lead)
-                    @php $due = $lead->next_step_at?->timezone('Europe/Istanbul'); $isDue = $lead->isDue(); @endphp
-                    <div wire:key="lead-{{ $lead->id }}" class="card-row" data-sales-lead="{{ $lead->id }}">
-                        <x-ta.brand-avatar :name="$lead->title()" />
-                        <div class="min-w-0 flex-1">
-                            <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="block truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">{{ $lead->title() }}</a>
-                            <p class="truncate text-[13px] text-gray-500">{{ $lead->subtitle() !== '' ? $lead->subtitle().' · ' : '' }}{{ $lead->sourceLabel() }}@if ($lead->last_contact_at) · son temas {{ $lead->last_contact_at->timezone('Europe/Istanbul')->format('d.m') }}@endif</p>
-                        </div>
-                        <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }}">{{ $lead->stageLabel() }}</span>
-                        <div class="hidden w-48 shrink-0 text-right text-[13px] sm:block">
+                    @php $due = $lead->next_step_at?->timezone('Europe/Istanbul'); $late = $lead->isDue() && $due !== null && $due->toDateString() < $today; @endphp
+                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate wire:key="lead-{{ $lead->id }}" class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-white/[0.03]" data-sales-lead="{{ $lead->id }}">
+                        <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">{{ $lead->title() }}@if ($lead->subtitle() !== '')<span class="font-normal text-gray-500"> · {{ $lead->subtitle() }}</span>@endif</span>
+                        <span class="hidden shrink-0 text-xs text-gray-500 sm:inline">{{ $lead->stageLabel() }}</span>
+                        <span @class(['w-24 shrink-0 text-right text-[13px] tabular-nums', 'text-error-600' => $late, 'text-gray-500' => ! $late])>
                             @if ($lead->isOpen())
-                                @if ($due !== null)
-                                    <span @class(['font-medium', 'text-error-600' => $isDue && $due->toDateString() < $today, 'text-gray-900 dark:text-white' => ! ($isDue && $due->toDateString() < $today)])>{{ $due->toDateString() === $today ? 'Bugün' : $due->format('d.m') }}</span>
-                                    <span class="block truncate text-gray-500">{{ $lead->next_step }}</span>
-                                @else
-                                    <span class="text-warning-800 dark:text-warning-400">Sonraki adım yok</span>
-                                @endif
+                                {{ $due === null ? '–' : ($due->toDateString() === $today ? 'Bugün' : $due->format('d.m')) }}
                             @else
-                                <span class="text-gray-500">{{ $lead->stage === 'won' ? ($lead->won_at?->timezone('Europe/Istanbul')->format('d.m.Y') ?? '') : (SalesLead::LOST_REASONS[$lead->lost_reason] ?? '') }}</span>
+                                {{ $lead->stage === 'won' ? 'Kazanıldı' : 'Kapandı' }}
                             @endif
-                        </div>
-                    </div>
+                        </span>
+                    </a>
                 @empty
                     <x-ta.empty-state title="Bu süzgeçte aday yok" message="Yeni bir aday ekle ya da süzgeci değiştir." />
                 @endforelse

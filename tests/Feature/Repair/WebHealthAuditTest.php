@@ -329,7 +329,9 @@ final class WebHealthAuditTest extends SiteTestCase
         $this->assertSame([], (array) ($row['changes'] ?? []), 'connector before 1.37.0: no one-click speed recipe');
 
         // 1.37.0 "Hız turu": the slow-site row carries the speed recipe as its one-click fix while it is off on the site.
-        CoreConnection::query()->update(['config->plugin_version' => '1.37.0', 'config->speed_parts' => []]);
+        // One JSON path per update: Postgres refuses two assignments to the same column in one statement.
+        CoreConnection::query()->update(['config->plugin_version' => '1.37.0']);
+        CoreConnection::query()->update(['config->speed_parts' => []]);
         app(WebHealthAudit::class)->audit($this->site);
         $suggestion = Suggestion::query()->where('action_type', WebHealthAudit::TYPE)->get()->first(fn (Suggestion $s): bool => ($s->action['check'] ?? '') === 'speed');
         $this->assertSame([['type' => 'speed', 'object_id' => 0, 'reference' => 'hiz-turu', 'value' => 'all']], $suggestion->action['changes']);
