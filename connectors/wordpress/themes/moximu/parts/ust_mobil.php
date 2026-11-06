@@ -34,7 +34,6 @@ $cta = trim(wp_strip_all_tags((string) ($m['yazi_3'] ?? ''))) ?: 'Ücretsiz ön 
 <?php foreach (mx_rows(($m['liste'] ?? null)) as $row) : if (! preg_match('~href="([^"]*)"[^>]*>(.*?)</a>~s', (string) ($row['madde'] ?? ''), $hit) || in_array(mb_strtolower(trim(wp_strip_all_tags($hit[2]))), $groups, true)) { continue; } ?>
 <a href="<?= mx_url($hit[1]) ?>"><?= esc_html(wp_strip_all_tags($hit[2])) ?></a>
 <?php endforeach; ?>
-<a href="<?= esc_url(home_url('/iletisim/')) ?>">İletişim</a>
 </div>
 <div class="mx-mm-contact"><p class="mx-mm-k">Bize ulaşın</p>
 <a class="mx-mm-c mx-mm-wa" href="<?= esc_url($wa) ?>" rel="noopener" target="_blank"><svg aria-hidden="true" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.3.8 3.2.7a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg><span><b>WhatsApp'tan yazın</b><small>Dilediğiniz saatte yazabilirsiniz</small></span></a>

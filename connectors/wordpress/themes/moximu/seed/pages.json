@@ -26672,13 +26672,52 @@
 "title": "İletişim",
 "excerpt": "Telefonla hafta içi 09:00–18:00 arasında ulaşabilirsiniz; WhatsApp'tan dilediğiniz saatte yazabilirsiniz. Yazdığınız her mesaja aynı gün dönüyoruz.",
 "content": "<table><tbody>\n<tr><th>Telefon</th><td>[mx_telefon]</td></tr>\n<tr><th>WhatsApp</th><td>[mx_whatsapp]</td></tr>\n<tr><th>E-posta</th><td>[mx_eposta]</td></tr>\n<tr><th>Adres</th><td>1. Anafartalar, Gazi Osman Paşa Cd. No:44, 45010 Şehzadeler/Manisa</td></tr>\n<tr><th>Çalışma saatleri</th><td>Telefon hafta içi 09:00–18:00; WhatsApp'tan dilediğiniz saatte yazabilirsiniz</td></tr>\n</tbody></table>\n<h2>Ofisimiz</h2>\n<p>Manisa Şehzadeler'deyiz. İzmir ve Manisa'daki kliniklere yerinde de geliyoruz; diğer şehirlerde iş uzaktan yürür.</p>\n[mx_harita]\n<h2>En hızlı yol</h2>\n<p>Kliniğinizin adını ve şehrini aşağıdaki forma yazın. 24 saat içinde tek sayfalık analiz gelir; uygunsa telefonda konuşuruz.</p>\n<h2>Diğer yollar</h2><ul><li><a href=\"/referans-programi/\">Referans programı</a> Tanıdığınız bir kliniği önerin.</li><li><a href=\"/is-ortakligi/\">İş ortaklığı</a> Ajanslar ve danışmanlar için.</li><li><a href=\"/erisilebilirlik/\">Erişilebilirlik</a></li></ul>",
-"seo_title": "İletişim · Moximu, Manisa",
-"seo_desc": "Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz ön değerlendirme için klinik adı yeter.",
+"seo_title": "İletişim · Moximu",
+"seo_desc": "Moximu iletişim: telefon hafta içi 09:00–18:00, WhatsApp her saat, e-posta ve iletişim formu. Ücretsiz ön değerlendirme için klinik adı yeter.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Moximu",
 "_mx_sayfa_sonu": "analiz"
+},
+"rows": [
+{
+"acf_fc_layout": "iletisim",
+"ust": "İletişim",
+"baslik": "Kliniğiniz için <mark>bize ulaşın</mark>.",
+"metin": "Telefonla hafta içi 09:00–18:00 arasında, WhatsApp'tan her saat ulaşabilirsiniz. Yazdığınız her mesaja hafta içi aynı gün dönüyoruz.",
+"form_baslik": "Bize yazın",
+"adres": "1. Anafartalar, Gazi Osman Paşa Cd. No:44, 45010 Şehzadeler/Manisa"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulanlar",
+"baslik": "Görüşmeden önce <mark>merak edilenler</mark>.",
+"liste": [
+{
+"baslik": "İlk görüşme ücretli mi?",
+"metin": "Hayır. Ücretsiz ön değerlendirmede sitenize, Google İşletme Profilinize ve varsa reklam hesabınıza bakarız; 24 saat içinde 2–3 öncelikli bulguyu WhatsApp'tan iletiriz."
+},
+{
+"baslik": "Yüz yüze görüşmemiz gerekiyor mu?",
+"metin": "Hayır. Türkiye'nin her yerindeki kliniklerle görüntülü görüşme ve WhatsApp üzerinden çalışıyoruz; hesap erişimleri ve onaylar da bu kanallardan yürür."
+},
+{
+"baslik": "Ne kadar sürede başlarız?",
+"metin": "Plan ve fiyat ilk hafta netleşir. Teknik düzeltmeler, harita kaydı ve ölçüm kurulumu ilk 30 günde tamamlanır."
+},
+{
+"baslik": "Uzun süreli sözleşme imzalamam gerekiyor mu?",
+"metin": "Hayır. Aylık çalışabilirsiniz. 6 aylık plan yalnız ek avantaj içindir; dönem başında tek faturayla başlar."
+},
+{
+"baslik": "Mevcut müşteriyim, isteğimi nereye yazayım?",
+"metin": "WhatsApp hattından yazın. İstekler en geç 6 saatte yanıtlanır ve aylık raporda tarihleriyle görünür."
 }
+],
+"arka": 1,
+"kimlik": "sss"
+}
+]
 },
 {
 "key": "tucretsiz-klinik-analizi",
@@ -26869,27 +26908,273 @@
 "key": "treferans-programi",
 "path": "/referans-programi/",
 "title": "Referans programı",
-"excerpt": "Tanıdığınız bir kliniği bize yönlendirin; çalışmaya başlarsak size avantaj sağlıyoruz. Ayrıntılar görüşmeye bağlı.",
+"excerpt": "Tanıdığınız bir klinik bizimle çalışmaya başlarsa müşterimizseniz 1 aylık hizmetiniz bizden; değilseniz ilk ay bedelinin yarısını size öderiz.",
 "content": "<p>Yeni işlerimizin çoğu, birlikte çalıştığımız kliniklerin tavsiyesiyle geliyor. Bunun karşılığını vermek istiyoruz.</p>\n<h2>Nasıl işler</h2>\n<ol>\n<li>Tanıdığınız klinik ücretsiz ön değerlendirme formunda sizin adınızı yazar ya da bize sizin aracılığınızla ulaşır.</li>\n<li>Klinik bizimle çalışmaya başlarsa size haber veririz.</li>\n<li>Avantaj, iki taraf için de görüşmede belirlenir ve yazılı olarak bildirilir.</li>\n</ol>\n<p>Referans avantajı hasta tavsiyesiyle ilgili değildir; yalnız klinikler arası yönlendirme içindir.</p>",
 "seo_title": "Referans programı · Moximu",
-"seo_desc": "Moximu müşterileri için referans programı: tanıdığınız bir klinik bizimle çalışmaya başlarsa size avantaj sağlıyoruz. Ayrıntılar görüşmeye bağlı.",
+"seo_desc": "Moximu referans programı: önerdiğiniz klinik başlarsa 1 aylık hizmetiniz ücretsiz; müşterimiz değilseniz ilk ay bedelinin %50'si size ödenir.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Moximu"
+},
+"rows": [
+{
+"acf_fc_layout": "ortak_giris",
+"ust": "Referans programı",
+"baslik": "Bir klinik önerin, <mark>1 aylık hizmetiniz</mark> bizden.",
+"metin": "Tanıdığınız bir klinik sizin yönlendirmenizle bizimle çalışmaya başlarsa, müşterimizseniz bir aylık hizmet bedelinizi biz karşılarız. Müşterimiz değilseniz kliniğin ilk aylık hizmet bedelinin yarısını size öderiz.",
+"etiketler": "Ödül açık, kural yazılı\nYönlendirdiğiniz klinik de kazanır\nKlinik sayısında sınır yok",
+"buton_yazisi": "Klinik önerin",
+"buton_link": "#basvuru",
+"wa_metni": "Merhaba, referans programı hakkında bilgi almak istiyorum.",
+"odul_ust": "Referans ödülü",
+"odul": "1 ay ücretsiz",
+"odul_alt": "Başlayan her klinik için ayrı ayrı",
+"odul_satirlar": "Müşterimizseniz | 1 aylık hizmet bedeliniz\nMüşterimiz değilseniz | İlk ay bedelinin %50'si\nYönlendirdiğiniz klinik | 6 aylık planda web sitesi hediye\nKlinik sınırı | Yok",
+"odul_not": "Ödül, klinik ikinci aylık ödemesini yaptığında verilir."
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Ne kadar eder",
+"baslik": "Klinik hangi planla başlarsa, <mark>ödülünüz</mark> ne olur.",
+"metin": "Tutarlar KDV hariçtir. Müşterimizseniz ödül bir sonraki faturanızdan düşülür ve kendi bir aylık bedelinizi aşmaz.",
+"sutunlar": "Kliniğin planı | Kliniğin aylık bedeli | Müşterimiz değilseniz size ödenen",
+"satirlar": "Klinik SEO | {fiyat:seo} | {fiyat:seo*0.5}\nSEO + İşletme Profili | {fiyat:paket} | {fiyat:paket*0.5}\nYerel klinik paketi | {fiyat:yerel} | {fiyat:yerel*0.5}",
+"arka": 0,
+"kimlik": "ornek"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "Nasıl işler",
+"baslik": "Dört adımda <mark>ödülünüze</mark> ulaşırsınız.",
+"metin": "Kliniğe habersiz satış araması yapmayız; önce sizin adınızla tanışırız.",
+"liste": [
+{
+"baslik": "Kliniği bize tanıtın",
+"metin": "Aşağıdaki formdan ya da WhatsApp'tan kliniğin adını ve yetkilinin telefonunu iletin. İsterseniz kliniğe de bizi siz tanıtın."
+},
+{
+"baslik": "Ücretsiz ön değerlendirme",
+"metin": "Kliniğe 24 saat içinde 2–3 öncelikli bulgu gönderir, sizin yönlendirmenizle geldiğini kayda alırız."
+},
+{
+"baslik": "Klinik çalışmaya başlar",
+"metin": "Başladığı gün size haber veririz. Kliniğin ödediği ücret sizin yönlendirmeniz yüzünden değişmez."
+},
+{
+"baslik": "İkinci ödemede ödülünüz",
+"metin": "Müşterimizseniz bir sonraki faturanızdan düşülür. Değilseniz 7 gün içinde banka hesabınıza ödenir."
 }
+],
+"arka": 1,
+"kimlik": "nasil"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Kurallar",
+"baslik": "Ne zaman <mark>geçerli</mark>, ne zaman değil.",
+"metin": "Kurallar herkes için aynıdır ve başvuruda yazılı olarak da iletilir.",
+"sol_baslik": "Geçerli",
+"sol_liste": "Daha önce bizimle görüşmemiş bir klinik, muayenehane, poliklinik veya hastane\nYönlendirmenin klinik başlamadan önce bize bildirilmesi\nKliniğin en az iki aylık ödemesini yapması",
+"sag_baslik": "Geçerli değil",
+"sag_liste": "Bizimle zaten görüşmekte olan klinikler\nKendi kliniğinizin şubesi ya da ortağı olduğunuz klinik\nHasta yönlendirmesi; program yalnız klinikler arası tavsiye içindir",
+"alt_not": "Aynı kliniği iki kişi önerirse ödül, bize ilk bildirene verilir.",
+"arka": 0,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulanlar",
+"baslik": "Referans programı <mark>hakkında</mark>.",
+"liste": [
+{
+"baslik": "Müşteriniz olmadan da klinik önerebilir miyim?",
+"metin": "Evet. Hekim, klinik çalışanı ya da kliniklerle çalışan biri olabilirsiniz. Bu durumda kliniğin ilk aylık hizmet bedelinin yarısı size ödenir."
+},
+{
+"baslik": "Kaç klinik önerebilirim?",
+"metin": "Sınır yok. Başlayan her klinik için ödül ayrı ayrı verilir; müşterimizseniz üç klinik, üç ay ücretsiz hizmet demektir."
+},
+{
+"baslik": "Yönlendirdiğim klinik ne kazanır?",
+"metin": "6 aylık planla başlarsa, kampanya döneminde olmasa da klinik web sitesi hediye edilir."
+},
+{
+"baslik": "Klinik ilk ay ayrılırsa ne olur?",
+"metin": "Ödül, klinik ikinci aylık ödemesini yaptığında verilir. İlk ay ayrılan klinik için ödül doğmaz."
+},
+{
+"baslik": "Ödeme nasıl yapılır?",
+"metin": "Müşterimizseniz bir sonraki faturanızdan düşülür. Değilseniz ödeme 7 gün içinde banka hesabınıza yapılır; gereken belgeyi birlikte netleştiririz."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "iletisim_form",
+"ust": "Klinik önerin",
+"baslik": "Önerdiğiniz kliniği <mark>yazın</mark>.",
+"metin": "Mesaja kliniğin adını, şehrini ve yetkilinin telefonunu ekleyin. Kliniği aramadan önce sizinle kısaca konuşuruz.",
+"maddeler": "Kliniğe habersiz satış araması yapılmaz\nYönlendirmeniz aynı gün kayda alınır\nKlinik başladığında size haber verilir",
+"konu": "referans",
+"firma": 0,
+"buton_yazisi": "Kliniği önerin",
+"arka": 0,
+"kimlik": "basvuru"
+}
+]
 },
 {
 "key": "tis-ortakligi",
 "path": "/is-ortakligi/",
 "title": "İş ortaklığı",
-"excerpt": "Kliniklerle çalışan aracı kurumlar, cihaz firmaları ve mali müşavirler için yönlendirme ortaklığı. Şartlar görüşmeye bağlı.",
+"excerpt": "Kliniklerle çalışan firmalar için yönlendirme ortaklığı: yönlendirdiğiniz kliniğin aylık hizmet bedelinin %10'u, 12 ay boyunca her ay.",
 "content": "<p>Kliniklerle her gün çalışan firmalar, kliniğin dijital tarafta neye ihtiyacı olduğunu çoğu zaman bizden önce görür. Bu firmalarla yönlendirme ortaklığı kuruyoruz.</p>\n<h2>Kimlerle</h2>\n<ul>\n<li>Sağlık turizmi aracıları ve hasta koordinasyon firmaları</li>\n<li>Medikal cihaz ve sarf malzemesi firmaları</li>\n<li>Mali müşavirler ve klinik danışmanları</li>\n<li>Klinik mimarları ve kurulum firmaları</li>\n</ul>\n<h2>Nasıl işler</h2>\n<p>Yönlendirdiğiniz klinik bizimle çalışmaya başlarsa, yönlendirme payı ve şartları görüşmede yazılı olarak belirlenir. Kliniğin hesapları her zaman kliniğin adına açılır; ortaklık bu kuralı değiştirmez.</p>",
 "seo_title": "İş ortaklığı: kliniklerle çalışan firmalar için · Moximu",
-"seo_desc": "Sağlık turizmi aracıları, medikal cihaz firmaları, mali müşavirler ve klinik danışmanları için Moximu yönlendirme ortaklığı.",
+"seo_desc": "Moximu iş ortaklığı: kliniklerle çalışan firmalara yönlendirdikleri kliniğin aylık hizmet bedelinin %10'u, 12 ay boyunca her ay ödenir.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Moximu"
+},
+"rows": [
+{
+"acf_fc_layout": "ortak_giris",
+"ust": "İş ortaklığı",
+"baslik": "Kliniklere çözüm getirin, <mark>12 ay boyunca</mark> kazanın.",
+"metin": "Kliniklerle her gün çalışan firmalar için yönlendirme ortaklığı. Yönlendirdiğiniz klinik bizimle çalışmaya başlarsa, kliniğin ödediği aylık hizmet bedelinin %10'unu 12 ay boyunca her ay size öderiz.",
+"etiketler": "Oran açık: %10, 12 ay boyunca\nÖdeme her ay, klinik ödedikçe\nKliniğin ödediği ücret değişmez",
+"buton_yazisi": "Ortak olun",
+"buton_link": "#basvuru",
+"wa_metni": "Merhaba, iş ortaklığı hakkında bilgi almak istiyorum.",
+"odul_ust": "Ortaklık payı",
+"odul": "%10 × 12 ay",
+"odul_alt": "Kliniğin aylık hizmet bedeli üzerinden",
+"odul_satirlar": "SEO + İşletme Profili | {fiyat:paket*0.1}/ay\nYerel klinik paketi | {fiyat:yerel*0.1}/ay\nKlinik web sitesi | {fiyat:web*0.1} tek sefer\nReklam bütçesi | Pay hesabına girmez",
+"odul_not": "Tutarlar KDV hariçtir; ödeme fatura karşılığı yapılır."
+},
+{
+"acf_fc_layout": "np_ilkeler",
+"ust": "Kimlerle",
+"baslik": "Kliniğin <mark>güvendiği</mark> firmalarla.",
+"metin": "Kliniklere başka bir alanda hizmet veriyorsanız, dijital tarafta neye ihtiyaç olduğunu çoğu zaman bizden önce görürsünüz.",
+"buton_yazisi": "Ortak olun",
+"buton_link": "#basvuru",
+"liste": [
+{
+"baslik": "Sağlık turizmi aracıları",
+"metin": "Yurt dışı hasta getiren firmalar ve hasta koordinasyon ekipleri."
+},
+{
+"baslik": "Medikal cihaz ve sarf firmaları",
+"metin": "Kliniği her ay ziyaret eden satış ve teknik ekipler."
+},
+{
+"baslik": "Mali müşavirler ve klinik danışmanları",
+"metin": "Kliniğin açılışından büyümesine kadar yanında olanlar."
+},
+{
+"baslik": "Klinik mimarları ve kurulum firmaları",
+"metin": "Yeni açılan kliniği ilk günden tanıyan ekipler."
+},
+{
+"baslik": "Klinik yazılımı ve randevu firmaları",
+"metin": "Kliniğin iş akışını bilen yazılım ve destek ekipleri."
 }
+],
+"arka": 0,
+"kimlik": "kimler"
+},
+{
+"acf_fc_layout": "np_tablo",
+"ust": "Örnek kazanç",
+"baslik": "Bir kliniğin size <mark>12 ayda</mark> getirdiği.",
+"metin": "Tutarlar KDV hariçtir. Klinik devam ettiği sürece 12 ay boyunca her ay ödenir; ilk ay da dahildir.",
+"sutunlar": "Kliniğin planı | Kliniğin aylık bedeli | Size her ay | 12 ayda toplam",
+"satirlar": "Klinik SEO | {fiyat:seo} | {fiyat:seo*0.1} | {fiyat:seo*1.2}\nSEO + İşletme Profili | {fiyat:paket} | {fiyat:paket*0.1} | {fiyat:paket*1.2}\nYerel klinik paketi | {fiyat:yerel} | {fiyat:yerel*0.1} | {fiyat:yerel*1.2}",
+"arka": 1,
+"kimlik": "ornek"
+},
+{
+"acf_fc_layout": "np_adimlar",
+"ust": "Nasıl işler",
+"baslik": "Başvurudan <mark>ilk ödemeye</mark>.",
+"metin": "Ortaklık metni oranı, süreyi ve ödeme gününü yazılı olarak belirler.",
+"liste": [
+{
+"baslik": "Başvurursunuz",
+"metin": "Aşağıdaki formu doldurun. Hafta içi aynı gün dönüp 15 dakikalık bir görüşme planlarız."
+},
+{
+"baslik": "Yazılı ortaklık metni",
+"metin": "Oran, süre, ödeme günü ve kurallar tek sayfada size gönderilir."
+},
+{
+"baslik": "Klinik önerirsiniz",
+"metin": "Kliniği bize iletirsiniz ya da kliniğe bizi tanıtırsınız. Kliniğe ücretsiz ön değerlendirme yaparız."
+},
+{
+"baslik": "Her ay ödeme",
+"metin": "Klinik ödemesini yaptıktan sonra payınız takip eden ayın 10'una kadar, fatura karşılığı ödenir. Her ay döküm gönderilir."
+}
+],
+"arka": 0,
+"kimlik": "nasil"
+},
+{
+"acf_fc_layout": "np_ikili",
+"ust": "Karşılıklı",
+"baslik": "Ortaklıkta <mark>net kurallar</mark>.",
+"metin": "Kliniğin güveni hem sizin hem bizim işimiz. Bu yüzden kurallar iki taraf için de yazılıdır.",
+"sol_baslik": "Ortak olarak aldıklarınız",
+"sol_liste": "Kliniğe yapılan her teklifte sizin yönlendirmeniz kayda alınır\nHer ay ödeme dökümü\nKendi alanınızdaki işinize dokunmayız; size rakip hizmet satmayız\nKlinik hesapları her zaman kliniğin adına açılır",
+"sag_baslik": "Ortaklıkta yapılmayanlar",
+"sag_liste": "İhtiyacı olmayan kliniğe ısrarla önerilmez\nKliniğe sıralama ya da sonuç sözü verilmez\nKliniğin bilgileri izni olmadan paylaşılmaz",
+"alt_not": "Yılda beşten fazla klinik yönlendiren ortaklar için oran ve süre görüşmeyle artırılabilir.",
+"arka": 1,
+"kimlik": "kurallar"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulanlar",
+"baslik": "İş ortaklığı <mark>hakkında</mark>.",
+"liste": [
+{
+"baslik": "Kliniğin ödediği ücret artar mı?",
+"metin": "Hayır. Klinik sitede yazan fiyatları öder; ortaklık payı bizim payımızdan karşılanır."
+},
+{
+"baslik": "Klinik 12 aydan önce ayrılırsa?",
+"metin": "Pay, kliniğin ödeme yaptığı aylar için verilir. Klinik ayrılırsa sonraki aylar için pay doğmaz."
+},
+{
+"baslik": "12 ay dolunca ne olur?",
+"metin": "O klinik için ödeme biter. Önerdiğiniz her yeni klinik için yeni bir 12 ay başlar."
+},
+{
+"baslik": "Fatura kesmem gerekiyor mu?",
+"metin": "Evet. Ödeme şirket faturası ya da serbest meslek makbuzu karşılığı yapılır."
+},
+{
+"baslik": "Ajanslar ortak olabilir mi?",
+"metin": "Kliniklere bizim vermediğimiz bir hizmet veriyorsanız (örneğin fotoğraf, video, yazılım) olabilirsiniz. Aynı hizmeti veren ajanslarla beyaz etiket çalışmıyoruz."
+}
+],
+"arka": 0,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "iletisim_form",
+"ust": "Başvuru",
+"baslik": "Ortaklık için <mark>başvurun</mark>.",
+"metin": "Firmanızı ve kliniklerle nasıl çalıştığınızı kısaca yazın. Hafta içi aynı gün dönüyoruz.",
+"maddeler": "Başvuru ücretsiz, yükümlülük yok\nYazılı ortaklık metni\nİlk klinikten itibaren her ay ödeme",
+"konu": "ortaklik",
+"firma": 1,
+"buton_yazisi": "Başvuruyu gönderin",
+"arka": 1,
+"kimlik": "basvuru"
+}
+]
 },
 {
 "key": "terisilebilirlik",

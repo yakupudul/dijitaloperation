@@ -317,7 +317,21 @@
 },
 "tiletisim": {
 "seo_desc": [
-"Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz klinik analizi için klinik adı yeter."
+"Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz klinik analizi için klinik adı yeter.",
+"Moximu iletişim: telefon, WhatsApp, e-posta ve Manisa adresi. Hafta içi 09:00–18:00. Ücretsiz ön değerlendirme için klinik adı yeter."
+],
+"seo_title": [
+"İletişim · Moximu, Manisa"
+]
+},
+"treferans-programi": {
+"seo_desc": [
+"Moximu müşterileri için referans programı: tanıdığınız bir klinik bizimle çalışmaya başlarsa size avantaj sağlıyoruz. Ayrıntılar görüşmeye bağlı."
+]
+},
+"tis-ortakligi": {
+"seo_desc": [
+"Sağlık turizmi aracıları, medikal cihaz firmaları, mali müşavirler ve klinik danışmanları için Moximu yönlendirme ortaklığı."
 ]
 }
 }

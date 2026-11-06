@@ -69,7 +69,7 @@ function mx_kampanya_tarih(): string
     return $dt->format('j').' '.$months[(int) $dt->format('n') - 1];
 }
 
-/** {fiyat:seo} → "12.000 ₺"; {kampanya:tarih} → "30 Kasım". Unknown keys stay as they are. */
+/** {fiyat:seo} → "12.000 ₺"; {fiyat:paket*0.1} → "1.400 ₺" (a share of a price); {kampanya:tarih} → "30 Kasım". Unknown keys stay as they are. */
 function mx_fiyat_tokens(string $text): string
 {
     if (! str_contains($text, '{fiyat:') && ! str_contains($text, '{kampanya:')) {
@@ -77,12 +77,12 @@ function mx_fiyat_tokens(string $text): string
     }
     $p = mx_fiyatlar();
 
-    return (string) preg_replace_callback('~\{(fiyat|kampanya):([a-z_]+)\}~', static function (array $m) use ($p): string {
+    return (string) preg_replace_callback('~\{(fiyat|kampanya):([a-z_]+)(?:\*([0-9]+(?:\.[0-9]+)?))?\}~', static function (array $m) use ($p): string {
         if ($m[1] === 'kampanya') {
             return $m[2] === 'tarih' ? mx_kampanya_tarih() : $m[0];
         }
 
-        return isset($p[$m[2]]) ? mx_tl((int) $p[$m[2]]) : $m[0];
+        return isset($p[$m[2]]) ? mx_tl((int) round($p[$m[2]] * (float) (($m[3] ?? '') !== '' ? $m[3] : 1))) : $m[0];
     }, $text);
 }
 

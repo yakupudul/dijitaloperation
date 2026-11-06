@@ -23,33 +23,36 @@ $extras = [
     ['turizm', '/fiyatlar/saglik-turizmi-paketi/', 'Sağlık turizmi ve çok şube', 'Ülke ve şube sayısına göre', 'Görüşmeye bağlı', '', ''],
 ];
 ?>
-<section class="mx px" id="<?= esc_attr($id) ?>"><div class="wrap">
+<section class="mx px<?= $k ? ' six' : '' ?>" id="<?= esc_attr($id) ?>"><div class="wrap">
 <div class="px-head">
 <span class="eyebrow"><img alt="" class="mxeye" src="<?= MX_URI ?>/assets/i/mark-static.svg"/><?= mx_h($d['yazi'] ?? 'Planlar') ?></span>
 <h2><?= mx_h($d['baslik'] ?? '') ?></h2>
 <?php if (! empty($d['metin'])): ?><p class="px-lead"><?= mx_h($d['metin']) ?></p><?php endif; ?>
-<div class="px-sw" role="group" aria-label="Plan süresi"><button type="button" class="on" data-px="1" aria-pressed="true">Aylık</button><button type="button" data-px="6" aria-pressed="false">6 aylık plan<em>Web sitesi hediye</em></button></div>
+<div class="px-sw" role="group" aria-label="Plan süresi"><button type="button"<?= $k ? '' : ' class="on"' ?> data-px="1" aria-pressed="<?= $k ? 'false' : 'true' ?>">Aylık</button><button type="button"<?= $k ? ' class="on"' : '' ?> data-px="6" aria-pressed="<?= $k ? 'true' : 'false' ?>">6 aylık plan<?php if ($k): ?><em>Web sitesi hediye</em><?php endif; ?></button></div>
 </div>
-<?php if ($k): ?>
-<div class="px-kmp" data-end="<?= (int) $k['ts'] ?>"><div class="px-kmp-t"><b><?= mx_h($k['etiket'] ?? '') ?></b><span><?= mx_h($k['baslik'] ?? '') ?></span></div><div class="px-cd" aria-label="Kampanyanın bitmesine kalan süre"><span><b data-u="d">00</b>gün</span><span><b data-u="h">00</b>saat</span><span><b data-u="m">00</b>dk</span><span><b data-u="s">00</b>sn</span></div></div>
+<?php if ($k): $kwa = mx_wa_url('Merhaba, '.($k['etiket'] ?? 'kampanya').' kapsamında 6 aylık planla başlamak istiyorum. Kliniğim: '); ?>
+<div class="px-kmp" data-end="<?= (int) $k['ts'] ?>"><div class="px-kmp-t"><b><span class="px-live"></span><?= mx_h($k['etiket'] ?? '') ?> · <?= esc_html(mx_kampanya_tarih()) ?> 23:59'da bitiyor</b><span>6 aylık planla başlayan kliniğe <mark><?= mx_tl($p['web']) ?> değerindeki web sitesi</mark> hediye.</span></div><div class="px-cd" aria-label="Kampanyanın bitmesine kalan süre"><span><b data-u="d">00</b>gün</span><span><b data-u="h">00</b>saat</span><span><b data-u="m">00</b>dk</span><span><b data-u="s">00</b>sn</span></div><a class="px-kmp-go" href="<?= esc_url($kwa) ?>" target="_blank" rel="noopener">Yerimi ayırın <i>→</i></a></div>
 <?php endif; ?>
 <div class="px-cards">
-<?php foreach ($plans as [$key, $name, $desc, $price, $list, $items]): $main = $key === 'paket'; ?>
+<?php foreach ($plans as [$key, $name, $desc, $price, $list, $items]): $main = $key === 'paket'; $save = max(0, $list - $price); $total = $p['web'] + $save * 6; ?>
 <div class="px-card<?= $main ? ' main' : '' ?><?= $odak === $key ? ' odak' : '' ?>">
 <?php if ($main): ?><span class="px-tag">Önerilen</span><?php endif; ?>
 <h3><?= mx_h($name) ?></h3><p class="px-desc"><?= mx_h($desc) ?></p>
-<div class="px-price"><?php if ($list > $price): ?><s><?= mx_tl($list) ?></s><?php endif; ?><b><?= mx_tl($price) ?></b><span>/ay + KDV</span></div>
-<?php if ($list > $price): ?><div class="px-save">Ayrı ayrı alındığında <?= mx_tl($list) ?>; aylık <?= mx_tl($list - $price) ?> avantaj</div><?php else: ?><div class="px-save">Tek kanal, aylık faturalandırma</div><?php endif; ?>
-<div class="px-gift"><i></i><span>6 aylık planda <b>klinik web sitesi hediye</b> <s><?= mx_tl($p['web']) ?></s></span></div>
+<div class="px-price"><?php if ($save): ?><s>Ayrı ayrı <?= mx_tl($list) ?></s><?php endif; ?><b><?= mx_tl($price) ?></b><span>/ay + KDV</span></div>
+<?php if ($save): ?><div class="px-save"><span class="px-pill">Her ay <?= mx_tl($save) ?> tasarruf</span></div><?php else: ?><div class="px-save"><span class="px-pill px-pill-g">Tek kanal, aylık</span></div><?php endif; ?>
+<?php if ($k): ?><div class="px-gift is-kmp"><span class="px-gift-h"><?= mx_h($k['etiket'] ?? 'Kampanya') ?>na özel</span>
+<span class="px-gift-r"><i></i><span>6 aylık planda <b>klinik web sitesi hediye</b> <s><?= mx_tl($p['web']) ?></s></span></span>
+<span class="px-gift-t">6 ayda toplam avantajınız <b><?= mx_tl($total) ?></b></span></div><?php endif; ?>
 <ul><?php foreach ($items as $it): ?><li><?= mx_h($it) ?></li><?php endforeach; ?></ul>
-<a class="btn<?= $main ? '' : ' navy' ?>" href="<?= $cta ?>">Teklif alın</a>
+<a class="btn<?= $main ? '' : ' navy' ?>" href="<?= $k ? esc_url(mx_wa_url('Merhaba, '.$name.' planıyla başlamak istiyorum ('.($k['etiket'] ?? '').'). Kliniğim: ')) : $cta ?>"<?= $k ? ' target="_blank" rel="noopener"' : '' ?>><?= $k ? 'Bu planla başlayın' : 'Teklif alın' ?></a>
+<small class="px-no">Taahhüt zorunlu değil, aylık da başlayabilirsiniz.</small>
 </div>
 <?php endforeach; ?>
 </div>
 <div class="px-web<?= $odak === 'web' ? ' odak' : '' ?>">
 <div class="px-web-t"><span class="px-chip">Klinik web sitesi</span><h3>Tedavi sayfaları kurulu, <mark>hızlı açılan</mark> klinik sitesi.</h3><p>Hekim ve tedavi sayfaları, randevu formu, WhatsApp ve ölçüm kurulumu dahil. Her dil için sayfalar ayrı hazırlanır.</p>
 <div class="px-web-l"><span>Tek dil <b><?= mx_tl($p['web']) ?></b></span><span>Ek dil <b>+<?= mx_tl($p['web_dil']) ?></b></span><span>Tek sefer, KDV hariç</span></div></div>
-<div class="px-web-p"><div class="px-web-s"><s><?= mx_tl($p['web']) ?></s><b>Hediye</b><span>6 aylık planla başlayan kliniklere</span></div><a class="rf-go" href="<?= mx_url('/hizmetlerimiz/klinik-web-sitesi/') ?>">Siteyi inceleyin <i>→</i></a></div>
+<div class="px-web-p"><div class="px-web-s"><?php if ($k): ?><s><?= mx_tl($p['web']) ?></s><b>Hediye</b><span><?= esc_html(mx_kampanya_tarih()) ?>'a kadar 6 aylık planla başlayan kliniklere</span><?php else: ?><b><?= mx_tl($p['web']) ?></b><span>Tek sefer, KDV hariç</span><?php endif; ?></div><a class="rf-go" href="<?= mx_url('/hizmetlerimiz/klinik-web-sitesi/') ?>">Siteyi inceleyin <i>→</i></a></div>
 </div>
 <div class="px-ex" id="tek-hizmet"><h3 class="px-ex-h">Tek hizmet ve ekler</h3>
 <?php foreach ($extras as [$key, $url, $name, $note, $price, $per, $deal]): ?>

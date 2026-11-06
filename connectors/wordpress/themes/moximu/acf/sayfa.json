@@ -7471,6 +7471,220 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_iletisim": {
+     "key": "layout_mx_iletisim",
+     "name": "iletisim",
+     "label": "İletişim · kanallar, form, harita",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_iletisim_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_iletisim_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_iletisim_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_iletisim_form_baslik",
+       "name": "form_baslik",
+       "label": "Form başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_iletisim_adres",
+       "name": "adres",
+       "label": "Adres",
+       "type": "text"
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_ortak_giris": {
+     "key": "layout_mx_ortak_giris",
+     "name": "ortak_giris",
+     "label": "Program girişi · başlık + ödül kartı",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_ortak_giris_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_ortak_giris_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_ortak_giris_etiketler",
+       "name": "etiketler",
+       "label": "Maddeler",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_ortak_giris_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_buton_link",
+       "name": "buton_link",
+       "label": "Buton bağlantısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_wa_metni",
+       "name": "wa_metni",
+       "label": "WhatsApp hazır mesajı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_odul_ust",
+       "name": "odul_ust",
+       "label": "Kart üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_odul",
+       "name": "odul",
+       "label": "Kart büyük yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_odul_alt",
+       "name": "odul_alt",
+       "label": "Kart alt yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_ortak_giris_odul_satirlar",
+       "name": "odul_satirlar",
+       "label": "Kart satırları",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır: Yazı | Değer"
+      },
+      {
+       "key": "field_mx_ortak_giris_odul_not",
+       "name": "odul_not",
+       "label": "Kart notu",
+       "type": "text"
+      }
+     ],
+     "min": "",
+     "max": ""
+    },
+    "layout_mx_iletisim_form": {
+     "key": "layout_mx_iletisim_form",
+     "name": "iletisim_form",
+     "label": "Form · başlık + iletişim formu",
+     "display": "block",
+     "sub_fields": [
+      {
+       "key": "field_mx_iletisim_form_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_iletisim_form_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_iletisim_form_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_iletisim_form_maddeler",
+       "name": "maddeler",
+       "label": "Maddeler",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_iletisim_form_konu",
+       "name": "konu",
+       "label": "Seçili konu",
+       "type": "select",
+       "choices": {
+        "teklif": "Teklif ve fiyat",
+        "analiz": "Ücretsiz ön değerlendirme",
+        "referans": "Referans programı",
+        "ortaklik": "İş ortaklığı",
+        "musteri": "Mevcut müşteriyim",
+        "diger": "Diğer"
+       },
+       "default_value": "teklif"
+      },
+      {
+       "key": "field_mx_iletisim_form_firma",
+       "name": "firma",
+       "label": "\"Klinik\" yerine \"Firma\" sor",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_iletisim_form_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Buton yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_iletisim_form_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_iletisim_form_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text"
+      }
+     ],
+     "min": "",
+     "max": ""
     }
    }
   }
