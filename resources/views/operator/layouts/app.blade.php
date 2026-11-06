@@ -85,6 +85,14 @@
             }
         })();
     </script>
+    <style>
+        .app-loader { display: none; }
+        @media (display-mode: standalone) {
+            .app-loader { display: flex; position: fixed; inset: 0; z-index: 2147483000; align-items: center; justify-content: center; background: #f5f4f0; transition: opacity .3s ease; }
+            .app-loader img { width: 96px; height: 96px; border-radius: 22px; }
+            .app-loader.is-done { opacity: 0; pointer-events: none; }
+        }
+    </style>
 </head>
 
 <body
@@ -105,6 +113,21 @@
             }
         };
         window.addEventListener('resize', checkMobile);">
+
+    {{-- Installed app (yakup 2026-11-06: a notification opened on a big static "M"): while the page loads, the
+         animated Moximu mark of moximu.com on the light page colour; Android's own splash uses the same colour, so
+         the two follow each other. Browsers in a tab never show it. --}}
+    <div class="app-loader" id="app-loader" aria-hidden="true"><img src="/images/app/loader.svg?v=1" alt="" width="96" height="96"></div>
+    <script>
+        (function () {
+            var el = document.getElementById('app-loader');
+            if (!el) return;
+            var hide = function () { el.classList.add('is-done'); setTimeout(function () { el.remove(); }, 350); };
+            window.addEventListener('load', function () { setTimeout(hide, 250); });
+            window.addEventListener('pageshow', function (e) { if (e.persisted) hide(); });
+            setTimeout(hide, 8000);
+        })();
+    </script>
 
     <div class="min-h-screen xl:flex">
         @include('operator.layouts.backdrop')

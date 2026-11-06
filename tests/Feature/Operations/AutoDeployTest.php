@@ -6,6 +6,9 @@ use App\Livewire\Operator\Settings\ImprovementsPage;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\SystemHealth;
 use App\Models\AgencySetting;
+use App\Models\Observability\OperationalAlert;
+use App\Services\Observability\OperationalAlertLifecycleService;
+use App\Services\Observability\SystemRedEvents;
 use App\Services\Operations\AutoDeployStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -98,15 +101,39 @@ final class AutoDeployTest extends SiteTestCase
 
         Http::fake(['*' => Http::response('ok')]);
         AgencySetting::query()->create(['push_ntfy_url' => 'https://ntfy.example.test/moxdop', 'push_min_severity' => 'high']);
+        // Failed tests reach the phone only through the red alert after two hours without a deploy (yakup 2026-11-06).
         $this->artisan('moxdop:auto-deploy:report', ['state' => 'tests_failed', '--branch' => 'claude/x', '--sha' => str_repeat('a', 40), '--reason' => 'Testler kırıldı.'])
             ->assertSuccessful();
+        $this->assertSame(0, DB::table('push_notifications')->count());
+        $this->artisan('moxdop:auto-deploy:report', ['state' => 'deploy_failed', '--branch' => 'claude/x', '--sha' => str_repeat('a', 40), '--reason' => 'Deploy durdu.'])
+            ->assertSuccessful();
         $sent = DB::table('push_notifications')->sole();
-        $this->assertStringContainsString('Testler geçmedi', (string) $sent->title);
+        $this->assertStringContainsString('Deploy durdu', (string) $sent->title);
         $this->assertStringContainsString('dal: claude/x', (string) $sent->body);
         // A successful deploy is 'info': below the phone threshold, nothing is sent.
         $this->artisan('moxdop:auto-deploy:report', ['state' => 'deployed', '--sha' => str_repeat('b', 40), '--reason' => 'Yeni sürüm'])->assertSuccessful();
         $this->assertSame(1, DB::table('push_notifications')->count());
         $this->artisan('moxdop:auto-deploy:report', ['state' => 'nonsense'])->assertFailed();
+    }
+
+    public function test_failed_tests_become_a_red_alert_only_after_two_hours_without_a_deploy(): void
+    {
+        $red = fn (): int => OperationalAlert::query()->where('rule_key', SystemRedEvents::DEPLOY_RULE)->whereNull('resolved_at')->count();
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'tests_failed', 'branch' => 'claude/x', 'sha' => str_repeat('a', 40), 'message' => 'kırık', 'checked_at' => now()->toIso8601String()]));
+        app(SystemRedEvents::class)->evaluate(app(OperationalAlertLifecycleService::class));
+        $this->assertSame(0, $red());
+
+        // Another commit is tested meanwhile: the clock keeps running.
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'testing', 'branch' => 'claude/x', 'sha' => str_repeat('c', 40), 'message' => '', 'checked_at' => now()->toIso8601String()]));
+        app(SystemRedEvents::class)->evaluate(app(OperationalAlertLifecycleService::class));
+        $this->travel(121)->minutes();
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'tests_failed', 'branch' => 'claude/x', 'sha' => str_repeat('c', 40), 'message' => 'kırık', 'checked_at' => now()->toIso8601String()]));
+        app(SystemRedEvents::class)->evaluate(app(OperationalAlertLifecycleService::class));
+        $this->assertSame(1, $red());
+
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'deployed', 'branch' => 'claude/x', 'sha' => str_repeat('d', 40), 'message' => 'canlıda', 'checked_at' => now()->toIso8601String()]));
+        app(SystemRedEvents::class)->evaluate(app(OperationalAlertLifecycleService::class));
+        $this->assertSame(0, $red());
     }
 
     public function test_the_failing_tests_of_a_stopped_check_are_readable_on_the_page_and_for_claude(): void

@@ -9,6 +9,7 @@ use App\Models\AiTask;
 use App\Services\AiTasks\AiTaskPriority;
 use App\Services\Operations\AutoDeployStatus;
 use App\Support\SchemaState;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
@@ -22,6 +23,11 @@ final class SystemRedEvents
     public const string AI_QUEUE_RULE = 'ai_queue_old';
 
     public const string DEPLOY_RULE = 'auto_deploy_stopped';
+
+    /** Since when no commit has passed the tests (cleared by a deploy). */
+    public const string FAILING_SINCE = 'auto-deploy:failing-since';
+
+    public const int TEST_FAILURE_GRACE_SECONDS = 7200;
 
     public const int AI_QUEUE_HOURS = 12;
 
@@ -73,10 +79,24 @@ final class SystemRedEvents
         if ($status === null) {
             return 0;
         }
+        // yakup 2026-11-06 ("sürekli test geçmedi bildirimi alıyorum"): a failed test run is usually fixed by the next
+        // commit within minutes, so it only becomes a red alert (and a phone notice) when no new code has gone live for
+        // two hours. A failed deploy is reported at once.
+        if ($status['state'] === 'deployed') {
+            Cache::forget(self::FAILING_SINCE);
+        }
         if (! in_array($status['state'], ['tests_failed', 'deploy_failed'], true)) {
-            $lifecycle->resolveIfActive(self::DEPLOY_RULE, 'DEPLOY', 'auto-deploy');
+            if ($status['state'] !== 'testing') {
+                $lifecycle->resolveIfActive(self::DEPLOY_RULE, 'DEPLOY', 'auto-deploy');
+            }
 
             return 0;
+        }
+        if ($status['state'] === 'tests_failed') {
+            Cache::add(self::FAILING_SINCE, now()->getTimestamp(), now()->addDays(7));
+            if (now()->getTimestamp() - (int) Cache::get(self::FAILING_SINCE, now()->getTimestamp()) < self::TEST_FAILURE_GRACE_SECONDS) {
+                return 0;
+            }
         }
         $lifecycle->observeCondition(
             ruleKey: self::DEPLOY_RULE,

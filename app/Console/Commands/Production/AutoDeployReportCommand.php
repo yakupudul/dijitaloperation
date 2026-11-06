@@ -28,6 +28,13 @@ final class AutoDeployReportCommand extends Command
         $problem = in_array($state, AutoDeployStatus::PROBLEMS, true);
         $title = $problem ? 'Otomatik deploy: '.AutoDeployStatus::LABELS[$state] : 'Otomatik deploy: '.$sha.' canlıda';
         $body = trim((string) $this->option('reason')).($this->option('branch') ? ' (dal: '.$this->option('branch').')' : '');
+        // Failed tests are not sent at once (yakup 2026-11-06: too many notices; the next commit usually fixes them): the
+        // red alert of SystemRedEvents tells the phone when nothing has gone live for two hours.
+        if ($state === 'tests_failed') {
+            $this->line($title);
+
+            return self::SUCCESS;
+        }
         $notifier->send('auto-deploy:'.$state.':'.$sha, $title, $body, $problem ? 'high' : 'info', route('operator.settings.improvements'), 24);
         $this->line($title);
 

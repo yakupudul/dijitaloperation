@@ -6,7 +6,7 @@
     "start_url": "/work",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#fdcf3c",
+    "background_color": "#f5f4f0",
     "theme_color": "#fdcf3c",
     "lang": "tr",
     "share_target": {
