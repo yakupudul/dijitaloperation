@@ -432,6 +432,12 @@ final class AiTaskQueue
         }
     }
 
+    /** The resume key begin() gives this job's run. */
+    public static function resumeKey(object $job): string
+    {
+        return self::key(serialize($job));
+    }
+
     private static function key(string $resume): string
     {
         return hash('sha256', $resume);

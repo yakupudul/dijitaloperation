@@ -159,6 +159,11 @@ final class LeadCardPage extends Component
         $this->draft = (string) $fresh->draft;
         $this->nextStep = (string) $fresh->next_step;
         $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
+        if (! $ok && $fresh->draft_status === 'waiting') {
+            $this->say((string) $fresh->draft_note);
+
+            return;
+        }
         if (! $ok) {
             $this->addError('draft', (string) ($fresh->draft_note ?: 'Yazılamadı.'));
 

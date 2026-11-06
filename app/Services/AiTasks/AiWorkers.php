@@ -387,6 +387,19 @@ final class AiWorkers
         return null;
     }
 
+    /**
+     * An API worker that is switched on but held back now: paused, its error pause, or its daily / monthly TL cap.
+     * ("Kapalı" or no key is not held: callers with their own provider route keep it.)
+     */
+    public function apiHeld(string $worker): bool
+    {
+        if (self::isMcp($worker) || ! ($this->settings()['api'][$worker]['enabled'] ?? false)) {
+            return false;
+        }
+
+        return $this->downReason($worker) !== null;
+    }
+
     public function alive(string $worker): bool
     {
         return $this->downReason($worker) === null;

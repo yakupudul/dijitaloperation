@@ -18,36 +18,54 @@ use Throwable;
  * whole conversation, the operator's notes, the site scan and yakup's own recently sent messages, and answers with the
  * text, the day to send it and a short note to the operator. Always the provider route at once (yakup 2026-11-04:
  * "Claude API yapsın, anında yanıt"): the Claude API key of Ayarlar › AI, counted in the daily TL cap, ChatGPT when
- * Claude fails. Never the MCP queue. Nothing is ever sent from here.
+ * Claude fails. While the API worker is down (its daily cap, an error) the subscription Claude writes it in its next
+ * round (SalesSubscription, yakup 2026-11-06). Nothing is ever sent from here.
  */
 final class SalesReplyWriter
 {
     /** Labels for the card. */
     public const array STATUS = [
-        'queued' => 'Claude yazıyor…', 'running' => 'Claude yazıyor…', 'ready' => 'Hazır', 'failed' => 'Yazılamadı',
+        'queued' => 'Claude yazıyor…', 'running' => 'Claude yazıyor…', 'waiting' => 'Abonelikteki Claude yazacak', 'ready' => 'Hazır', 'failed' => 'Yazılamadı',
     ];
 
-    public function __construct(private AiRouteResolver $routes, private AiProviderRuntimeConfig $runtime) {}
+    public function __construct(private AiRouteResolver $routes, private AiProviderRuntimeConfig $runtime, private SalesSubscription $subscription) {}
 
     /** Asks for a new text (the page polls until it is ready). */
     public static function queue(SalesLead $lead): void
     {
         $lead->forceFill(['draft_status' => 'queued', 'draft_note' => null])->save();
+        SalesSubscription::withdraw(new DraftSalesReply((int) $lead->id));
         DraftSalesReply::dispatch((int) $lead->id);
     }
 
     /** Writes the text now (the page waits ~10-30 s, or the job in the background); true when a text was stored. */
-    public function write(int $leadId, int $timeout = 120): bool
+    public function write(int $leadId, int $timeout = 120, ?DraftSalesReply $job = null): bool
     {
         $lead = SalesLead::query()->find($leadId);
         if ($lead === null) {
             return false;
         }
-        $lead->forceFill(['draft_status' => 'running'])->save();
+        // The subscription Claude answered the question this job left on the queue.
+        if ($job !== null && ($answer = $this->subscription->answered(new DraftSalesReply($leadId), SalesReplyAgent::ROUTE)) !== null) {
+            if ($answer === []) {
+                $this->fail($lead, 'Abonelikteki Claude yazamadı; "Yeniden yaz" ile tekrar dene.');
+
+                return false;
+            }
+
+            return $this->store($lead, $answer);
+        }
         $payload = $this->payload($lead);
+        if ($this->subscription->takesOver()) {
+            return $this->wait($lead, $payload);
+        }
+        $lead->forceFill(['draft_status' => 'running'])->save();
         try {
             $route = $this->routes->resolve(SalesReplyAgent::ROUTE);
             if ($route->isEmpty()) {
+                if ($this->subscription->canWait()) {
+                    return $this->wait($lead, $payload, 'Claude API bağlı değil');
+                }
                 $this->fail($lead, 'Claude API bağlantısı yok ya da günlük AI tavanı doldu (Ayarlar › AI).');
 
                 return false;
@@ -59,6 +77,9 @@ final class SalesReplyWriter
             return $this->store($lead, (array) $answer);
         } catch (Throwable $exception) {
             Log::warning('Sales reply draft failed.', ['lead_id' => $lead->id, 'error' => $exception->getMessage()]);
+            if ($this->subscription->canWait()) {
+                return $this->wait($lead, $payload, 'Claude API hata verdi');
+            }
             $this->fail($lead, 'Yapay zekâ isteği başarısız oldu; "Yeniden yaz" ile tekrar dene.');
 
             return false;
@@ -100,6 +121,19 @@ final class SalesReplyWriter
         $lead->save();
 
         return true;
+    }
+
+    /**
+     * The subscription Claude writes it in its next round; the card says when (no polling meanwhile).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function wait(SalesLead $lead, array $payload, ?string $why = null): bool
+    {
+        $note = $this->subscription->ask(new DraftSalesReply((int) $lead->id), new SalesReplyAgent, $payload, 'Satış mesajı: '.$lead->title(), $why);
+        $lead->forceFill(['draft_status' => 'waiting', 'draft_note' => $note])->save();
+
+        return false;
     }
 
     private function fail(SalesLead $lead, string $reason): void

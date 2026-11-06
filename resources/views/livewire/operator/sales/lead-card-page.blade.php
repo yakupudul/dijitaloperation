@@ -103,6 +103,8 @@
                     </div>
                     @if ($drafting)
                         <p class="mt-2 text-sm text-gray-500" wire:poll.6s.visible data-lead-drafting>Claude sohbeti ve siteyi okuyup yazıyor…</p>
+                    @elseif ($lead->draft_status === 'waiting')
+                        <p class="mt-2 text-sm text-gray-500" data-lead-draft-waiting>{{ $lead->draft_note ?: 'Abonelikteki Claude yazacak.' }}</p>
                     @endif
                     @error('draft')<p class="mt-2 text-sm text-error-600">{{ $message }}</p>@enderror
                     @if ($lead->draft_status === 'ready' && (filled($lead->draft_note) || $lead->draft_send_on !== null))
@@ -156,6 +158,8 @@
                 </div>
                 @if ($analysing)
                     <p class="mt-2 text-sm text-gray-500" wire:poll.10s.visible data-lead-analysing>Claude siteyi, konuşmayı ve notları okuyup analizi yazıyor (1-2 dk)…</p>
+                @elseif ($lead->analysis_status === 'waiting')
+                    <p class="mt-2 text-sm text-gray-500" data-lead-analysis-waiting>{{ \Illuminate\Support\Str::after((string) $lead->analysis_note, 'auto: ') ?: 'Abonelikteki Claude yazacak.' }}</p>
                 @elseif ($lead->analysis_status === 'failed' && $lead->analysis_note)
                     <p class="mt-2 text-sm text-error-600">{{ $lead->analysis_note }}</p>
                 @endif

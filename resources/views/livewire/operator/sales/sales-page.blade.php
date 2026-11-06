@@ -101,7 +101,7 @@
                                     <span class="shrink-0 text-xs text-gray-500">{{ $lead->next_step ?: 'Adım' }}@if ($overdue)<span class="text-error-600"> · {{ $lead->next_step_at->timezone('Europe/Istanbul')->format('d.m') }}'den kaldı</span>@endif</span>
                                 </span>
                                 <span class="mt-0.5 block truncate text-[13px] text-gray-500" x-show="!open">
-                                    @if ($preview !== ''){{ $preview }}@elseif ($drafting)Claude yazıyor…@elseif ($lead->draft_status === 'failed'){{ $lead->draft_note ?: 'Yazılamadı.' }}@else Metin yok @endif
+                                    @if ($preview !== ''){{ $preview }}@elseif ($drafting)Claude yazıyor…@elseif ($lead->draft_status === 'waiting'){{ $lead->draft_note ?: 'Abonelikteki Claude yazacak.' }}@elseif ($lead->draft_status === 'failed'){{ $lead->draft_note ?: 'Yazılamadı.' }}@else Metin yok @endif
                                 </span>
                             </button>
                             <div class="flex shrink-0 items-center gap-1.5">

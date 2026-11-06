@@ -24,7 +24,7 @@ final class SalesAnalysisWriter
     /** Every analysis per day, clicks included: a runaway loop cannot spend the AI cap. */
     public const int DAILY_MAX = 25;
 
-    public function __construct(private AiRouteResolver $routes, private AiProviderRuntimeConfig $runtime, private SalesReplyWriter $reply) {}
+    public function __construct(private AiRouteResolver $routes, private AiProviderRuntimeConfig $runtime, private SalesReplyWriter $reply, private SalesSubscription $subscription) {}
 
     public static function writtenToday(): int
     {
@@ -38,6 +38,7 @@ final class SalesAnalysisWriter
             return false;
         }
         $lead->forceFill(['analysis_status' => 'queued', 'analysis_note' => null])->save();
+        SalesSubscription::withdraw(new WriteSalesAnalysis((int) $lead->id));
         WriteSalesAnalysis::dispatch((int) $lead->id);
 
         return true;
@@ -46,7 +47,7 @@ final class SalesAnalysisWriter
     /** By itself: a prospect who talks gets an analysis once, while the day's automatic share lasts. */
     public static function queueIfWorth(SalesLead $lead): bool
     {
-        if (! $lead->isOpen() || filled($lead->analysis) || in_array($lead->analysis_status, ['queued', 'running'], true)
+        if (! $lead->isOpen() || filled($lead->analysis) || in_array($lead->analysis_status, ['queued', 'running', 'waiting'], true)
             // A site still being read waits: the scan's end asks again, so the analysis sees the site.
             || ($lead->website_host !== null && ! in_array($lead->findings_status, ['ready', 'failed'], true))
             || ($lead->website_host === null && $lead->events()->whereIn('kind', ['message_in', 'meeting', 'call'])->count() < 2)) {
@@ -57,32 +58,45 @@ final class SalesAnalysisWriter
             return false;
         }
         $lead->forceFill(['analysis_status' => 'queued', 'analysis_note' => 'auto'])->save();
+        SalesSubscription::withdraw(new WriteSalesAnalysis((int) $lead->id));
         WriteSalesAnalysis::dispatch((int) $lead->id);
 
         return true;
     }
 
-    public function write(int $leadId, int $timeout = 150): bool
+    public function write(int $leadId, int $timeout = 150, ?WriteSalesAnalysis $job = null): bool
     {
         $lead = SalesLead::query()->find($leadId);
         if ($lead === null) {
             return false;
         }
-        $auto = $lead->analysis_note === 'auto';
-        $lead->forceFill(['analysis_status' => 'running'])->save();
-        try {
-            $route = $this->routes->resolve(SalesAnalysisAgent::ROUTE);
-            if ($route->isEmpty()) {
-                return $this->fail($lead, 'Claude API bağlantısı yok ya da günlük AI tavanı doldu (Ayarlar › AI).');
-            }
-            $this->runtime->prepare(array_keys($route->providerModels));
+        $auto = str_starts_with((string) $lead->analysis_note, 'auto');
+        // The subscription Claude answered the question this job left on the queue.
+        $answer = $job !== null ? $this->subscription->answered(new WriteSalesAnalysis($leadId), SalesAnalysisAgent::ROUTE) : null;
+        if ($answer === []) {
+            return $this->fail($lead, 'Abonelikteki Claude analizi yazamadı; "Yeniden yaz" ile tekrar dene.');
+        }
+        if ($answer === null) {
             $payload = $this->reply->payload($lead);
-            $answer = (array) (new SalesAnalysisAgent)->prompt("LEAD_JSON\n".json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                provider: $route->providerModels, timeout: $timeout)->toArray();
-        } catch (Throwable $exception) {
-            Log::warning('Sales analysis failed.', ['lead_id' => $lead->id, 'error' => $exception->getMessage()]);
+            if ($this->subscription->takesOver()) {
+                return $this->wait($lead, $payload, $auto);
+            }
+            $lead->forceFill(['analysis_status' => 'running'])->save();
+            try {
+                $route = $this->routes->resolve(SalesAnalysisAgent::ROUTE);
+                if ($route->isEmpty()) {
+                    return $this->subscription->canWait() ? $this->wait($lead, $payload, $auto, 'Claude API bağlı değil')
+                        : $this->fail($lead, 'Claude API bağlantısı yok ya da günlük AI tavanı doldu (Ayarlar › AI).');
+                }
+                $this->runtime->prepare(array_keys($route->providerModels));
+                $answer = (array) (new SalesAnalysisAgent)->prompt("LEAD_JSON\n".json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                    provider: $route->providerModels, timeout: $timeout)->toArray();
+            } catch (Throwable $exception) {
+                Log::warning('Sales analysis failed.', ['lead_id' => $lead->id, 'error' => $exception->getMessage()]);
 
-            return $this->fail($lead, 'Yapay zekâ isteği başarısız oldu; "Yeniden yaz" ile tekrar dene.');
+                return $this->subscription->canWait() ? $this->wait($lead, $payload, $auto, 'Claude API hata verdi')
+                    : $this->fail($lead, 'Yapay zekâ isteği başarısız oldu; "Yeniden yaz" ile tekrar dene.');
+            }
         }
         if (Validator::make($answer, ['analysis' => ['required', 'string', 'min:200', 'max:30000'], 'message' => ['required', 'string', 'min:10', 'max:4000'], 'headline' => ['nullable', 'string', 'max:500']])->fails()) {
             return $this->fail($lead, 'Yapay zekâ eksik bir analiz döndürdü; "Yeniden yaz" ile tekrar dene.');
@@ -95,6 +109,19 @@ final class SalesAnalysisWriter
         app(SalesLeads::class)->event($lead, 'report', 'Tam analiz yazıldı'.($lead->analysis_headline ? ': '.$lead->analysis_headline : '.'), meta: ['analysis' => true]);
 
         return true;
+    }
+
+    /**
+     * The subscription Claude writes it in its next round. An automatic one keeps its "auto" mark (the day's count).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function wait(SalesLead $lead, array $payload, bool $auto, ?string $why = null): bool
+    {
+        $note = $this->subscription->ask(new WriteSalesAnalysis((int) $lead->id), new SalesAnalysisAgent, $payload, 'Aday analizi: '.$lead->title(), $why);
+        $lead->forceFill(['analysis_status' => 'waiting', 'analysis_note' => ($auto ? 'auto: ' : '').$note])->save();
+
+        return false;
     }
 
     private function fail(SalesLead $lead, string $reason): bool

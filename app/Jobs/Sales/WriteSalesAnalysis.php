@@ -32,7 +32,7 @@ class WriteSalesAnalysis implements ShouldBeUnique, ShouldQueue
 
     public function handle(SalesAnalysisWriter $writer): void
     {
-        $writer->write($this->leadId, 150);
+        $writer->write($this->leadId, 150, $this);
     }
 
     public function failed(?Throwable $exception): void

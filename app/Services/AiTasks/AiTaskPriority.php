@@ -22,7 +22,7 @@ final class AiTaskPriority
     ];
 
     /** A person is waiting for an answer. */
-    public const array PEOPLE = ['whatsapp.reply', 'whatsapp.brain', AiRouteKeys::GBP_REVIEW_REPLY];
+    public const array PEOPLE = ['sales.reply', 'whatsapp.reply', 'whatsapp.brain', AiRouteKeys::GBP_REVIEW_REPLY, 'sales.analysis'];
 
     /** 0 urgent, 1 people, 2 bulk. */
     public static function tier(string $operation): int

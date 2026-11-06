@@ -32,7 +32,7 @@ class DraftSalesReply implements ShouldBeUnique, ShouldQueue
 
     public function handle(SalesReplyWriter $writer): void
     {
-        $writer->write($this->leadId, 80);
+        $writer->write($this->leadId, 80, $this);
     }
 
     public function failed(?Throwable $exception): void

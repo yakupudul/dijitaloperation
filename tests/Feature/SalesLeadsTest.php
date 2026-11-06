@@ -7,6 +7,7 @@ use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Livewire\Operator\WhatsApp\Inbox;
 use App\Models\AgencySetting;
+use App\Models\AiTask;
 use App\Models\CoreIntegration;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
@@ -15,6 +16,8 @@ use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppBackupLine;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\AiTasks\AiTaskQueue;
+use App\Services\AiTasks\AiWorkers;
 use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\PhoneBackupSync;
 use App\Services\Sales\SalesLeads;
@@ -79,9 +82,10 @@ class SalesLeadsTest extends TestCase
         $this->assertSame('905321112233', $lead->waNumber());
         $this->assertTrue($lead->events()->where('kind', 'note')->exists());
 
-        // No Claude connection in this test: no template text either; the card says why.
+        // No Claude API key in this test: no template text either; the subscription Claude writes it in its round.
         $this->assertNull($lead->draft);
-        $this->assertSame('failed', $lead->draft_status);
+        $this->assertSame('waiting', $lead->draft_status);
+        $this->assertStringContainsString('abonelikteki Claude', (string) $lead->draft_note);
         $this->assertNotNull($lead->site_scan);
 
         // Same phone again: no second card.
@@ -278,6 +282,47 @@ class SalesLeadsTest extends TestCase
         $this->assertSame('2026-11-06', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
     }
 
+    public function test_when_the_claude_api_is_held_the_subscription_claude_writes_and_the_api_takes_over_again(): void
+    {
+        Http::fake(['*' => Http::response('', 404)]);
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        SalesReplyAgent::fake([[
+            'action' => 'reply', 'reply' => 'Yaşar Hocam merhaba, API yazdı.', 'send_on' => '2026-11-04', 'note' => 'API.', 'summary' => 'API.',
+        ]]);
+        $workers = app(AiWorkers::class);
+        $workers->saveApi(AiWorkers::CLAUDE_API, true, 'claude-sonnet-5-5', 320, 8400);
+        $workers->pause(AiWorkers::CLAUDE_API); // held, like its daily TL cap
+        $this->actingAs($this->admin);
+        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Yaşar Özdemir', 'city' => 'Antalya', 'phone' => '0533 500 03 25'], $this->admin);
+
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])->call('writeNow')->assertHasNoErrors();
+        $lead = $lead->fresh();
+        $this->assertSame('waiting', $lead->draft_status);
+        $this->assertStringContainsString('abonelikteki Claude', (string) $lead->draft_note);
+        $task = AiTask::query()->where('operation', 'sales.reply')->where('status', AiTask::PENDING)->sole();
+        $this->assertStringContainsString('Yaşar Özdemir', (string) $task->input);
+        // Asking again while it waits keeps one question.
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])->call('writeNow');
+        $this->assertSame(1, AiTask::query()->where('operation', 'sales.reply')->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count());
+
+        // The subscription round answers: the card gets the text.
+        $task = AiTask::query()->where('operation', 'sales.reply')->where('status', AiTask::PENDING)->sole();
+        $this->assertSame([], app(AiTaskQueue::class)->submit($task, [
+            'action' => 'reply', 'reply' => 'Yaşar Hocam merhaba, abonelik yazdı.', 'send_on' => '2026-11-04', 'note' => 'Abonelik.', 'summary' => 'Abonelik.',
+        ], AiWorkers::CLAUDE_MCP));
+        $lead = $lead->fresh();
+        $this->assertSame('ready', $lead->draft_status);
+        $this->assertSame('Yaşar Hocam merhaba, abonelik yazdı.', $lead->draft);
+        $this->assertSame(0, AiTask::query()->where('operation', 'sales.reply')->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED, AiTask::DONE])->count());
+        SalesReplyAgent::assertNeverPrompted();
+
+        // The API is back (a new day): it writes at once again.
+        $workers->resume(AiWorkers::CLAUDE_API);
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])->call('writeNow')->assertHasNoErrors();
+        $this->assertSame('Yaşar Hocam merhaba, API yazdı.', $lead->fresh()->draft);
+    }
+
     public function test_a_chat_pasted_on_the_sales_page_finds_the_card_by_the_contacts_number(): void
     {
         Http::fake(['*' => Http::response('', 404)]);
@@ -292,7 +337,7 @@ class SalesLeadsTest extends TestCase
         $this->assertSame(1, SalesLead::query()->count());
         $this->assertSame('yasarozdemir.com', $lead->website_host);
         $this->assertSame(2, $lead->events()->whereIn('kind', ['message_in', 'message_out'])->count());
-        $this->assertSame('failed', $lead->draft_status, 'no Claude connection here: the card says so instead of a template');
+        $this->assertSame('waiting', $lead->draft_status, 'no Claude API key here: the subscription Claude writes it, no template');
     }
 
     public function test_the_chat_export_parser_reads_android_and_iphone_lines(): void
