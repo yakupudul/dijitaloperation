@@ -74,6 +74,10 @@ Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/meta/callback', [MetaOAuthController::class, 'callback'])
         ->name('integrations.meta.callback');
 
+    Route::get('/integrations/meta/sosyal/authorize', [MetaOAuthController::class, 'authorizeSocial'])
+        ->middleware('throttle:10,1')
+        ->name('integrations.meta.social.authorize');
+
     Route::get('/integrations/meta/{integration}/authorize', [MetaOAuthController::class, 'authorize'])
         ->name('integrations.meta.authorize');
 

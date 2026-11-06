@@ -34,6 +34,7 @@ use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
+use App\Livewire\Operator\Calendar\CalendarPage;
 use App\Livewire\Operator\Flow\FlowPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage as GbpBranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\DeskPage as GbpDeskPage;
@@ -69,7 +70,6 @@ use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Portfolio\PortfolioPage;
 use App\Livewire\Operator\Repair\RepairDeskPage;
 use App\Livewire\Operator\Sales\LeadCardPage;
-use App\Livewire\Operator\Calendar\CalendarPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\AiWorkersPage;
@@ -79,6 +79,7 @@ use App\Livewire\Operator\Settings\ReleasesPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Livewire\Operator\Settings\UsersPage;
+use App\Livewire\Operator\Social\SocialPage;
 use App\Livewire\Operator\Strategy\StrategyPage as StrategyDetailPage;
 use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Livewire\Operator\Website\WebsitesIndex;
@@ -217,6 +218,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
             'bolum' => 'diger', 'marka' => $request->query('marka'), 'sekme' => $request->query('sekme'), 'durum' => $request->query('durum'), 'adim' => $request->query('adim'),
         ], fn ($v): bool => $v !== null && $v !== '')))->name('operator.work');
         Route::livewire('/gbp-posts', GbpPostPlanPage::class)->name('operator.gbp-posts');
+        // Sosyal medya (ADR-083): Moximu's own Instagram, Facebook and LinkedIn; weekly approval, published at its time.
+        Route::livewire('/sosyal', SocialPage::class)->name('operator.social');
         Route::livewire('/gbp', GbpDeskPage::class)->name('operator.gbp-desk');
         Route::livewire('/gbp/sube-sayfalari', GbpBranchPagesPage::class)->name('operator.gbp-branch-pages');
         Route::livewire('/gbp/aciklama-ve-saatler', GbpProfileFieldsPage::class)->name('operator.gbp-profile-fields');

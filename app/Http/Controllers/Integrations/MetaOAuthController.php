@@ -7,6 +7,7 @@ use App\Jobs\DiscoverProviderResourcesJob;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Meta\MetaOAuthService;
+use App\Services\Social\SocialMetaConnector;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -38,11 +39,39 @@ class MetaOAuthController extends Controller
         return redirect()->away($result['url']);
     }
 
+    public function authorizeSocial(Request $request, SocialMetaConnector $connector): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user instanceof User || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+        $result = $connector->begin((int) $user->id);
+        if (isset($result['error'])) {
+            DemoState::flash('Sosyal medya bağlantısı başlatılamadı: '.$result['error'], 'error');
+
+            return redirect()->route('operator.social', ['sekme' => 'hesaplar']);
+        }
+
+        return redirect()->away($result['url']);
+    }
+
     public function callback(Request $request, MetaOAuthService $oauth): RedirectResponse
     {
         $user = $request->user();
         if (! $user instanceof User || ! $user->hasRole(Roles::ADMIN)) {
             abort(403);
+        }
+
+        // The "Sosyal medya" login (ADR-083) shares this callback URL; it only takes the states it started.
+        if (SocialMetaConnector::ownsState($request->query('state'))) {
+            $social = app(SocialMetaConnector::class)->handleCallback(
+                $request->query('code'), $request->query('state'), $request->query('error'), (int) $user->id,
+            );
+            DemoState::flash(isset($social['error'])
+                ? 'Sosyal medya bağlantısı kurulamadı: '.$social['error']
+                : 'Bağlandı: '.implode(', ', $social['accounts']).'.', isset($social['error']) ? 'error' : 'success');
+
+            return redirect()->route('operator.social', ['sekme' => 'hesaplar']);
         }
 
         $result = $oauth->handleCallback(

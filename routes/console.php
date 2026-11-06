@@ -100,6 +100,7 @@ use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Services\Social\SocialPublisher;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppDispatch;
@@ -1721,3 +1722,16 @@ Schedule::call(function (): void {
         );
     }
 })->dailyAt('10:00')->timezone('Europe/Istanbul')->name('sales-morning-push')->withoutOverlapping(10);
+
+// ADR-083: Sosyal medya — onaylı gönderiler saatinde Instagram ve Facebook'a gider; Instagram'ın işlediği videolar
+// bir sonraki turda yeniden yoklanır, LinkedIn "kopyala ve aç" olarak ekranda bekler.
+Artisan::command('moxdop:social:publish', function (): void {
+    $stats = app(SocialPublisher::class)->run();
+    $this->info('Yayınlanan: '.$stats['published'].' · hata: '.$stats['failed'].' · hazırlanıyor: '.$stats['processing']);
+})->purpose('Publish the Admin-approved social posts whose time has come.');
+
+Schedule::command('moxdop:social:publish')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(15)
+    ->runInBackground()
+    ->name('social-publish');

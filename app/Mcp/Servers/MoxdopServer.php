@@ -33,6 +33,7 @@ use App\Mcp\Tools\ScreenChecks;
 use App\Mcp\Tools\SiteBuilds;
 use App\Mcp\Tools\SiteTool;
 use App\Mcp\Tools\SiteWrites;
+use App\Mcp\Tools\SocialPosts;
 use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SubmitResults;
 use App\Mcp\Tools\SystemHealth;
@@ -178,6 +179,7 @@ class MoxdopServer extends Server
         MetaPerformance::class,
         ChannelData::class,
         SaveNote::class,
+        SocialPosts::class,
         SaveBrandFact::class,
         ListNotes::class,
         ListStrategies::class,

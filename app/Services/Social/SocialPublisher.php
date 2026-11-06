@@ -1,0 +1,272 @@
+<?php
+
+namespace App\Services\Social;
+
+use App\Models\SocialAccount;
+use App\Models\SocialPost;
+use App\Models\SocialPostTarget;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
+
+/**
+ * Sends approved social posts at their time (ADR-083). Instagram: image, carousel (2-10), Reels and Story through
+ * media containers (a video container is checked again on the next run until Instagram finishes it). Facebook Page:
+ * photo, several photos in one post, video and photo story. LinkedIn: no API access yet, so its row turns "manual"
+ * and waits on the screen as "copy and open". A post that failed is retried up to three times when the cause is
+ * temporary; otherwise it stays "Yayınlanamadı" with Meta's own message.
+ */
+class SocialPublisher
+{
+    public function __construct(private readonly SocialGraph $graph) {}
+
+    /** Publishes everything due. @return array{published: int, failed: int, processing: int} */
+    public function run(): array
+    {
+        $lock = Cache::lock('social-publisher', 600);
+        if (! $lock->get()) {
+            return ['published' => 0, 'failed' => 0, 'processing' => 0];
+        }
+        $stats = ['published' => 0, 'failed' => 0, 'processing' => 0];
+        try {
+            SocialPost::query()
+                ->where('status', SocialPost::DRAFT)
+                ->where('publish_at', '<', now()->subDay())
+                ->update(['status' => SocialPost::EXPIRED]);
+
+            $posts = SocialPost::query()
+                ->whereIn('status', [SocialPost::APPROVED, SocialPost::PARTIAL])
+                ->where('publish_at', '<=', now())
+                ->where('publish_at', '>=', now()->subDays(3))
+                ->with(['targets.account'])
+                ->orderBy('publish_at')
+                ->limit(20)
+                ->get();
+
+            foreach ($posts as $post) {
+                foreach ($post->targets as $target) {
+                    if ($target->isFinished() || $target->status === SocialPostTarget::MANUAL) {
+                        continue;
+                    }
+                    if ($target->status === SocialPostTarget::FAILED && $target->attempts >= SocialPostTarget::MAX_ATTEMPTS) {
+                        continue;
+                    }
+                    $result = $this->publishTarget($post, $target);
+                    $stats[$result] = ($stats[$result] ?? 0) + 1;
+                }
+                $this->settle($post->fresh(['targets']));
+            }
+        } finally {
+            $lock->release();
+        }
+
+        return $stats;
+    }
+
+    /** @return string published | failed | processing | manual */
+    public function publishTarget(SocialPost $post, SocialPostTarget $target): string
+    {
+        $account = $target->account;
+        if (! $account instanceof SocialAccount || ! $account->enabled) {
+            $target->update(['status' => SocialPostTarget::SKIPPED, 'error' => 'Hesap kapalı.']);
+
+            return 'failed';
+        }
+        if ($account->isManual()) {
+            $target->update(['status' => SocialPostTarget::MANUAL]);
+
+            return 'manual';
+        }
+
+        try {
+            $outcome = match ($account->platform) {
+                SocialAccount::INSTAGRAM => $this->instagram($post, $target, $account),
+                SocialAccount::FACEBOOK => $this->facebook($post, $account),
+                default => throw new SocialGraphException('Bu kanal desteklenmiyor.'),
+            };
+        } catch (SocialGraphException $e) {
+            $target->update([
+                'status' => SocialPostTarget::FAILED,
+                'attempts' => $e->isTemporary() ? $target->attempts + 1 : SocialPostTarget::MAX_ATTEMPTS,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 'failed';
+        } catch (Throwable $e) {
+            report($e);
+            $target->update(['status' => SocialPostTarget::FAILED, 'attempts' => $target->attempts + 1, 'error' => 'Beklenmeyen hata.']);
+
+            return 'failed';
+        }
+
+        if ($outcome['status'] === 'processing') {
+            $target->update(['status' => SocialPostTarget::PROCESSING, 'container_id' => $outcome['container'], 'error' => null]);
+
+            return 'processing';
+        }
+        $target->update([
+            'status' => SocialPostTarget::PUBLISHED, 'external_id' => $outcome['id'], 'permalink' => $outcome['permalink'] ?? null,
+            'published_at' => now(), 'error' => null, 'container_id' => null,
+        ]);
+
+        return 'published';
+    }
+
+    /** Post status from its channels. */
+    public function settle(SocialPost $post): void
+    {
+        $targets = $post->targets;
+        if ($targets->isEmpty()) {
+            return;
+        }
+        $done = $targets->filter(fn (SocialPostTarget $t): bool => $t->isFinished() || $t->status === SocialPostTarget::MANUAL);
+        $failedForGood = $targets->filter(fn (SocialPostTarget $t): bool => $t->status === SocialPostTarget::FAILED && $t->attempts >= SocialPostTarget::MAX_ATTEMPTS);
+        $status = match (true) {
+            $done->count() === $targets->count() => SocialPost::PUBLISHED,
+            $done->count() + $failedForGood->count() === $targets->count() && $done->isEmpty() => SocialPost::FAILED,
+            $done->isNotEmpty() || $failedForGood->isNotEmpty() => SocialPost::PARTIAL,
+            default => $post->status,
+        };
+        if ($status !== $post->status) {
+            $post->update(['status' => $status]);
+        }
+    }
+
+    /** @return array{status: string, id?: string, permalink?: ?string, container?: string} */
+    private function instagram(SocialPost $post, SocialPostTarget $target, SocialAccount $account): array
+    {
+        $token = (string) $account->access_token;
+        $ig = $account->external_id;
+        $media = $post->mediaItems();
+        if ($media === []) {
+            throw new SocialGraphException('Görsel yok.');
+        }
+
+        $container = $target->container_id;
+        if ($container === null || $container === '') {
+            $caption = $post->kind === 'story' ? null : (string) $post->caption;
+            $container = match ($post->kind) {
+                'carousel' => $this->igCarousel($ig, $token, $media, $caption),
+                'reels' => $this->igCreate($ig, $token, ['media_type' => 'REELS', 'video_url' => $this->firstOf($media, 'video')['url'], 'caption' => $caption, 'share_to_feed' => 'true']),
+                'story' => $this->igCreate($ig, $token, $media[0]['type'] === 'video'
+                    ? ['media_type' => 'STORIES', 'video_url' => $media[0]['url']]
+                    : ['media_type' => 'STORIES', 'image_url' => $media[0]['url']]),
+                default => $media[0]['type'] === 'video'
+                    ? $this->igCreate($ig, $token, ['media_type' => 'REELS', 'video_url' => $media[0]['url'], 'caption' => $caption, 'share_to_feed' => 'true'])
+                    : $this->igCreate($ig, $token, ['image_url' => $media[0]['url'], 'caption' => $caption]),
+            };
+        }
+
+        $status = (string) ($this->graph->get($container, $token, ['fields' => 'status_code'])['status_code'] ?? 'FINISHED');
+        if ($status === 'ERROR' || $status === 'EXPIRED') {
+            $target->update(['container_id' => null]);
+
+            throw new SocialGraphException('Instagram dosyayı işleyemedi (video biçimi ya da süresi uygun değil).');
+        }
+        if ($status !== 'FINISHED' && $status !== 'PUBLISHED') {
+            return ['status' => 'processing', 'container' => $container];
+        }
+
+        $published = $this->graph->post($ig.'/media_publish', $token, ['creation_id' => $container]);
+        $id = (string) ($published['id'] ?? '');
+        $permalink = null;
+        try {
+            $permalink = $this->graph->get($id, $token, ['fields' => 'permalink'])['permalink'] ?? null;
+        } catch (SocialGraphException) {
+        }
+
+        return ['status' => 'published', 'id' => $id, 'permalink' => is_string($permalink) ? $permalink : null];
+    }
+
+    /** @param  array<string, scalar|null>  $params */
+    private function igCreate(string $ig, string $token, array $params): string
+    {
+        $id = (string) ($this->graph->post($ig.'/media', $token, $params)['id'] ?? '');
+        if ($id === '') {
+            throw new SocialGraphException('Instagram içerik kabı açılamadı.');
+        }
+
+        return $id;
+    }
+
+    /** @param  list<array{path: string, type: string, url: string}>  $media */
+    private function igCarousel(string $ig, string $token, array $media, ?string $caption): string
+    {
+        $children = [];
+        foreach (array_slice($media, 0, 10) as $item) {
+            $children[] = $this->igCreate($ig, $token, $item['type'] === 'video'
+                ? ['media_type' => 'VIDEO', 'video_url' => $item['url'], 'is_carousel_item' => 'true']
+                : ['image_url' => $item['url'], 'is_carousel_item' => 'true']);
+        }
+        if (count($children) < 2) {
+            throw new SocialGraphException('Kaydırmalı gönderi en az iki görsel ister.');
+        }
+
+        return $this->igCreate($ig, $token, ['media_type' => 'CAROUSEL', 'children' => implode(',', $children), 'caption' => $caption]);
+    }
+
+    /** @return array{status: string, id: string, permalink: ?string} */
+    private function facebook(SocialPost $post, SocialAccount $account): array
+    {
+        $token = (string) $account->access_token;
+        $page = $account->external_id;
+        $media = $post->mediaItems();
+        $message = (string) $post->caption;
+        if ($media === []) {
+            throw new SocialGraphException('Görsel yok.');
+        }
+
+        if ($post->kind === 'story') {
+            if ($media[0]['type'] === 'video') {
+                throw new SocialGraphException('Facebook video story desteklenmiyor; yalnız Instagram\'a gider.');
+            }
+            $photo = (string) ($this->graph->post($page.'/photos', $token, ['url' => $media[0]['url'], 'published' => 'false'])['id'] ?? '');
+            $story = $this->graph->post($page.'/photo_stories', $token, ['photo_id' => $photo]);
+
+            return ['status' => 'published', 'id' => (string) ($story['post_id'] ?? $story['id'] ?? $photo), 'permalink' => null];
+        }
+
+        $video = $this->firstOf($media, 'video', false);
+        if ($post->kind === 'reels' || $video !== null) {
+            $item = $video ?? $media[0];
+            $result = $this->graph->post($page.'/videos', $token, ['file_url' => $item['url'], 'description' => $message]);
+            $id = (string) ($result['id'] ?? '');
+
+            return ['status' => 'published', 'id' => $id, 'permalink' => $id !== '' ? 'https://www.facebook.com/'.$page.'/videos/'.$id : null];
+        }
+
+        if (count($media) === 1) {
+            $result = $this->graph->post($page.'/photos', $token, ['url' => $media[0]['url'], 'message' => $message]);
+            $id = (string) ($result['post_id'] ?? $result['id'] ?? '');
+
+            return ['status' => 'published', 'id' => $id, 'permalink' => $id !== '' ? 'https://www.facebook.com/'.$id : null];
+        }
+
+        $form = ['message' => $message];
+        foreach (array_slice($media, 0, 10) as $i => $item) {
+            $photoId = (string) ($this->graph->post($page.'/photos', $token, ['url' => $item['url'], 'published' => 'false'])['id'] ?? '');
+            $form['attached_media['.$i.']'] = json_encode(['media_fbid' => $photoId]);
+        }
+        $result = $this->graph->post($page.'/feed', $token, $form);
+        $id = (string) ($result['id'] ?? '');
+
+        return ['status' => 'published', 'id' => $id, 'permalink' => $id !== '' ? 'https://www.facebook.com/'.$id : null];
+    }
+
+    /**
+     * @param  list<array{path: string, type: string, url: string}>  $media
+     * @return ($required is true ? array{path: string, type: string, url: string} : array{path: string, type: string, url: string}|null)
+     */
+    private function firstOf(array $media, string $type, bool $required = true): ?array
+    {
+        foreach ($media as $item) {
+            if ($item['type'] === $type) {
+                return $item;
+            }
+        }
+        if ($required) {
+            throw new SocialGraphException($type === 'video' ? 'Reels için video yok.' : 'Görsel yok.');
+        }
+
+        return null;
+    }
+}

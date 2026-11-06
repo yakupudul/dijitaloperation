@@ -66,6 +66,8 @@ class PanelDesignFreezeTest extends TestCase
             'operator.sales',
             'operator.gbp-desk',
             'operator.google-ads-desk',
+            // Sosyal medya added 2026-11-06 (ADR-083: Moximu's own Instagram, Facebook, LinkedIn).
+            'operator.social',
             'operator.meta-desk',
             'operator.portfolio',
             'operator.brands',

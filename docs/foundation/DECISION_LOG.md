@@ -1038,3 +1038,16 @@
   4. **Geri alma:** her yazının önceki tarihi ve durumu saklanır; geri alma onu yazar (zamanlanmış taslak yeniden taslak olur).
   5. **Görsel:** yazının öne çıkan görseli sitenin kendi medya kütüphanesinden kuralla seçilir (`ArticleImagePicker`: başlık / küme / adres kelimeleri görselin alt metninde, adında, bağlı olduğu sayfada; yoksa en yakın sayfanın görseli). Yükleme ve AI görsel üretimi yok; operatör okuma ekranında değiştirir ya da "görselsiz" seçer. Taslakla birlikte gider (`featured_media_id`).
 - **İlgili:** `connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-posts.php`, `app/Services/Site/ContentPosts.php`, `app/Services/Site/ArticleImagePicker.php`, `app/Services/Work/ContentBoard.php`, `tests/Feature/Work/ContentFlowTest.php`.
+
+## ADR-083 — Sosyal medya: Moximu'nun Instagram, Facebook ve LinkedIn hesapları (haftalık onay, saatinde yayın)
+
+- **Durum:** Kabul (yakup, 2026-11-06: "profesyonel sosyal medya firması ne yapar, biz de onu yapalım … mümkün olduğunca her şeyi sen yap, bana sadece onay kalsın; mesajlara bile sen bak" ve "Metricool boşver. Biz yapalım. Başla.").
+- **Kapsam:** Ajansın kendi hesapları (instagram.com/moximucom, facebook.com/moximucom, linkedin.com/company/moximu). Müşteri hesapları bu ADR'de yok. Reklam yazması yoktur; Meta reklam bağlantısı (salt okunur) değişmez.
+- **Karar:**
+  1. **Bağlantı.** Ayrı bir "Sosyal medya" Meta girişi (`SocialMetaConnector`): yayın, mesaj, yorum ve istatistik izinleri bir kerede istenir; yapılandırma kimliği (Facebook Login for Business) `/sosyal › Hesaplar`'dan girilir, yoksa izin listesiyle açılır. Mevcut Meta geri dönüş adresi paylaşılır (yeni yönlendirme adresi eklenmez); geri dönüş kendi başlattığı durumları bu sınıfa verir. Her Facebook Sayfası ve bağlı Instagram işletme hesabı `social_accounts`'a Sayfa anahtarıyla (şifreli) yazılır.
+  2. **Plan.** Bir gönderi (`social_posts`: görsel/kaydırmalı/Reels/story, metin, LinkedIn metni, saat) birden çok kanala gider (`social_post_targets`). Görseller genel depoda JPEG olarak tutulur (Instagram yalnız JPEG kabul eder). LinkedIn yalnız LinkedIn metni verilmişse ve story değilse eklenir.
+  3. **Onay.** Hiçbir gönderi onaysız gitmez. `/sosyal` haftaları kart kart gösterir; "Haftayı onayla" tek tık, tek gönderi düzenlenir / atlanır / geri alınır. Onaylanmamış taslak saatinden bir gün sonra "Onaylanmadı" olur.
+  4. **Yayın.** 5 dakikada bir (`moxdop:social:publish`): Instagram medya kabı → yayın (video işlenirken sonraki turda yoklanır), kaydırmalı 2-10, story; Facebook fotoğraf, çoklu fotoğraf, video, fotoğraf story. Geçici hata 3 kez denenir, kalıcı hata Meta'nın mesajıyla "Yayınlanamadı + Tekrar dene" olur. LinkedIn API erişimi gelene kadar saatinde "kopyala ve aç" olarak ekranda bekler, operatör "Paylaştım" der.
+  5. **Claude.** MCP `social-posts` yalnız taslak ekler / düzenler / siler ve planı listeler; onay ve yayın operatördedir.
+- **Sonraki aşamalar:** mesaj ve yorum kutusu (Claude taslağı, toplu gönderim), istatistik ve rakip takibi (business_discovery), aylık rapor.
+- **İlgili:** `app/Services/Social/*`, `app/Livewire/Operator/Social/SocialPage.php`, `app/Mcp/Tools/SocialPosts.php`, `tests/Feature/Social/SocialMediaTest.php`.
