@@ -83,6 +83,7 @@ final class LinkDesk
             return $out;
         }
         $out['targets'] = $this->targets->refresh($brand);
+        LinkMagnets::ensureTarget($brand);
         LinkCitations::ensure();
         $room = $this->month($brand)['room'];
         if ($room === 0) {
@@ -131,16 +132,20 @@ final class LinkDesk
             }
             $kind = $candidate->pool?->kind ?? $candidate->kind;
             $citation = in_array($kind, LinkSource::CITATION_KINDS, true);
-            $target = $citation ? null : $this->nextTarget($targets);
+            $target = $citation ? null : $this->nextTarget($targets, $kind);
             $candidate->forceFill(['material_status' => 'queued', 'link_target_id' => $target?->id,
                 'anchor' => $target !== null ? $this->anchorFor($target) : $brand->name])->save();
             $new[] = $candidate;
             $room--;
         }
 
-        // 3. The shared pool: the sector's and the brand's cities' sources, the ones that brought links first.
+        // 3. The shared pool: the sector's and the brand's cities' sources; the ones that link to the brand's competitors
+        // and not to it first (rakip boşluğu), then the ones that brought links.
         if ($room > 0) {
-            foreach ($this->poolFor($brand)->take(200) as $source) {
+            $rivals = LinkRivals::rivals($brand);
+            $pool = $this->poolFor($brand)->take(200)->map(fn (LinkSource $s): array => [$s, LinkRivals::gap($s, $rivals, $own)])
+                ->sortByDesc(fn (array $p): int => count($p[1]))->values();
+            foreach ($pool as [$source, $gap]) {
                 if ($room === 0) {
                     break;
                 }
@@ -149,13 +154,13 @@ final class LinkDesk
                     continue;
                 }
                 $citation = in_array($source->kind, LinkSource::CITATION_KINDS, true);
-                $target = $citation ? null : $this->nextTarget($targets);
+                $target = $citation ? null : $this->nextTarget($targets, $source->kind);
                 $new[] = BacklinkSource::query()->create([
                     'brand_id' => $brand->id, 'name' => $source->name, 'url' => $source->apply_url ?: $source->url, 'domain' => $source->domain,
                     'kind' => self::legacyKind($source->kind), 'fee' => $source->fee, 'fee_evidence_url' => $source->fee_evidence_url, 'origin' => 'ai',
-                    'status' => BacklinkSource::NONE, 'link_source_id' => $source->id, 'engine' => $citation ? 'kunye' : 'iliski',
+                    'status' => BacklinkSource::NONE, 'link_source_id' => $source->id, 'engine' => $gap !== [] ? 'rakip' : ($citation ? 'kunye' : 'iliski'),
                     'lane' => in_array($source->kind, LinkSource::PERSON_KINDS, true) || $source->apply_via === 'telefon' ? 'sen' : 'masa',
-                    'paid' => $source->fee === 'ucretli', 'reason' => mb_substr(self::poolReason($source), 0, 240),
+                    'paid' => $source->fee === 'ucretli', 'reason' => mb_substr(($gap !== [] ? 'Rakiplerinize link veriyor: '.implode(', ', array_slice($gap, 0, 3)).' · ' : '').self::poolReason($source), 0, 240),
                     'link_target_id' => $target?->id, 'anchor' => $target !== null ? $this->anchorFor($target) : $brand->name, 'material_status' => 'queued',
                 ]);
                 $known[$domain] = true;
@@ -304,11 +309,17 @@ final class LinkDesk
     }
 
     /** @param  Collection<int, LinkTarget>  $targets */
-    private function nextTarget(Collection $targets): ?LinkTarget
+    private function nextTarget(Collection $targets, ?string $kind = null): ?LinkTarget
     {
         if ($targets->isEmpty()) {
             return null;
         }
+        // News, associations, chambers and universities point to the link magnet (a guide they can quote) when there is one.
+        $magnet = $targets->firstWhere('kind', LinkMagnets::TARGET_KIND);
+        if ($magnet !== null && in_array($kind, LinkMagnets::MAGNET_SOURCES, true)) {
+            return $magnet;
+        }
+        $targets = $targets->where('kind', '!=', LinkMagnets::TARGET_KIND)->whenEmpty(fn () => $targets);
         $counts = BacklinkSource::query()->whereIn('link_target_id', $targets->pluck('id'))->where('status', '!=', BacklinkSource::DROPPED)
             ->selectRaw('link_target_id, count(*) as n')->groupBy('link_target_id')->pluck('n', 'link_target_id');
 

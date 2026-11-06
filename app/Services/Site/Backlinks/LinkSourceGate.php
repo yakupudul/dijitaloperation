@@ -80,7 +80,8 @@ final class LinkSourceGate
 
                 continue;
             }
-            $source->forceFill(['checked_at' => now()])->save();
+            $source->forceFill(['checked_at' => now(), 'linked_domains' => $signals['linked']])->save();
+            unset($signals['linked']); // kept for the rival gap, not sent to Claude
             if ($signals['sells'] !== [] || $signals['external_sites'] > self::MAX_EXTERNAL) {
                 $source->forceFill(['quality' => 'red', 'quality_note' => $signals['sells'] !== []
                     ? 'Sayfada link satışı: '.implode(', ', array_slice($signals['sells'], 0, 3))
@@ -158,7 +159,7 @@ final class LinkSourceGate
      * What the page shows, by rules: title, description, the start of its text, how many other sites it links to and
      * the link-selling phrases on it; null when it does not open.
      *
-     * @return array{title: string, description: string, text: string, external_sites: int, sells: list<string>}|null
+     * @return array{title: string, description: string, text: string, external_sites: int, sells: list<string>, linked: list<string>}|null
      */
     public function signals(LinkSource $source): ?array
     {
@@ -208,6 +209,7 @@ final class LinkSourceGate
             'description' => mb_substr($description, 0, 300),
             'text' => mb_substr($text, 0, 1200),
             'external_sites' => count($external),
+            'linked' => array_slice(array_keys($external), 0, 300),
             'sells' => array_values(array_filter(self::SELLS_LINKS, fn (string $p): bool => preg_match('/(^|\W)'.preg_quote($p, '/').'/u', $folded) === 1)),
         ];
     }

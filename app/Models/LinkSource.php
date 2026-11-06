@@ -34,13 +34,14 @@ class LinkSource extends Model
     /** @var list<string> */
     protected $fillable = [
         'domain', 'name', 'url', 'kind', 'sector_id', 'city', 'apply_via', 'apply_url', 'contact_email', 'fee', 'fee_evidence_url',
-        'quality', 'quality_note', 'authority', 'applied_count', 'won_count', 'days_total', 'origin', 'checked_at',
+        'quality', 'quality_note', 'authority', 'applied_count', 'won_count', 'days_total', 'origin', 'checked_at', 'linked_domains',
     ];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['checked_at' => 'immutable_datetime', 'authority' => 'integer', 'applied_count' => 'integer', 'won_count' => 'integer', 'days_total' => 'integer'];
+        return ['checked_at' => 'immutable_datetime', 'authority' => 'integer', 'applied_count' => 'integer', 'won_count' => 'integer', 'days_total' => 'integer',
+            'linked_domains' => 'array'];
     }
 
     /** @return HasMany<BacklinkSource, $this> */

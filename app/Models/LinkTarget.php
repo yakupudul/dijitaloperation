@@ -23,7 +23,7 @@ class LinkTarget extends Model
     /** @var list<string> */
     protected $fillable = [
         'brand_id', 'page_id', 'cluster_id', 'url', 'url_key', 'title', 'query', 'reason', 'status', 'rank', 'position', 'impressions',
-        'clicks', 'referring_domains', 'anchor_plan', 'before', 'after', 'picked_at', 'released_at',
+        'clicks', 'referring_domains', 'anchor_plan', 'before', 'after', 'picked_at', 'released_at', 'kind',
     ];
 
     /** @return array<string, string> */

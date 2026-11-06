@@ -10,6 +10,7 @@ use App\Models\LinkSurvey;
 use App\Models\LinkTarget;
 use App\Models\ServiceCategory;
 use App\Services\Site\Backlinks\LinkDesk;
+use App\Services\Site\Backlinks\LinkMagnets;
 use App\Services\Site\Backlinks\LinkMailer;
 use App\Services\Site\Backlinks\LinkMentions;
 use App\Services\Site\Backlinks\LinkSurveys;
@@ -221,6 +222,14 @@ final class LinkDeskPage extends Component
             .($out['added'] > 0 ? ' (malzemeleri Claude yazıyor).' : '.');
     }
 
+    /** The brand's link magnet subject goes to İçerik as a title waiting for approval. */
+    public function proposeMagnet(int $brandId, LinkMagnets $magnets): void
+    {
+        $brand = Brand::query()->findOrFail($brandId);
+        $why = $magnets->propose($brand);
+        $this->message = $brand->name.': '.($why ?? 'mıknatıs konusu İçerik\'e eklendi; onaylayınca yazılır, yayınlanınca masa bu sayfaya link ister.');
+    }
+
     /** The client's "Bağlantı kaynakları" form link of a brand (made once, then the same link). */
     public function surveyLink(int $brandId, LinkSurveys $surveys): void
     {
@@ -305,7 +314,8 @@ final class LinkDeskPage extends Component
             ->orderBy('status')->orderBy('rank')->get()->groupBy('brand_id');
 
         return $brands->when($this->brand > 0, fn (Collection $c) => $c->where('id', $this->brand))
-            ->map(fn (Brand $b): array => ['brand' => $b, 'month' => $desk->month($b), 'targets' => $targets->get($b->id, collect()), 'survey' => $surveys->get($b->id)])->values();
+            ->map(fn (Brand $b): array => ['brand' => $b, 'month' => $desk->month($b), 'targets' => $targets->get($b->id, collect()), 'survey' => $surveys->get($b->id),
+                'magnet' => LinkMagnets::forBrand($b), 'magnetIdea' => LinkMagnets::idea($b)])->values();
     }
 
     /** @return Collection<int, LinkSource> */

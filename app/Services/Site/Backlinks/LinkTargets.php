@@ -55,7 +55,7 @@ final class LinkTargets
         }
         $candidates = $this->candidates($brand, $sites->pluck('id')->map(fn ($id): int => (int) $id)->all());
         $byKey = $candidates->keyBy('key');
-        $active = LinkTarget::query()->where('brand_id', $brand->id)->where('status', LinkTarget::ACTIVE)->get();
+        $active = LinkTarget::query()->where('brand_id', $brand->id)->where('status', LinkTarget::ACTIVE)->where('kind', '!=', LinkMagnets::TARGET_KIND)->get();
         $kept = 0;
         foreach ($active as $target) {
             $now = $byKey->get($target->url_key);
@@ -80,7 +80,7 @@ final class LinkTargets
             $kept++;
             $out['kept']++;
         }
-        $taken = LinkTarget::query()->where('brand_id', $brand->id)->where('status', LinkTarget::ACTIVE)->pluck('url_key')->flip();
+        $taken = LinkTarget::query()->where('brand_id', $brand->id)->where(fn ($q) => $q->where('status', LinkTarget::ACTIVE)->orWhere('kind', LinkMagnets::TARGET_KIND))->pluck('url_key')->flip();
         $rank = $kept;
         foreach ($candidates as $candidate) {
             if ($rank >= self::MAX_TARGETS) {

@@ -179,6 +179,25 @@
                             <button type="button" wire:click="surveyLink({{ $b->id }})" class="link-neutral">Müşteri formunun bağlantısını al</button>
                         @endif
                     </div>
+                    @if ($plan['magnet'] || $plan['magnetIdea'])
+                        <div class="mt-2 text-xs text-gray-500" data-links-magnet="{{ $b->id }}">
+                            @if ($plan['magnetIdea'])
+                                <span>Link mıknatısı: “{{ $plan['magnetIdea']->title }}” · @switch($plan['magnetIdea']->status)
+                                    @case('open') İçerik'te onay bekliyor @break
+                                    @case('approved') yazılıyor @break
+                                    @case('applied') yayında; yerel haber ve dernek başvuruları bu sayfaya yönlenir @break
+                                    @case('dismissed') İçerik'te reddedildi @break
+                                    @default {{ $plan['magnetIdea']->status }}
+                                @endswitch</span>
+                            @else
+                                <span>Link mıknatısı: diğer sitelerin kendiliğinden kaynak gösterdiği kalıcı bir rehber. Öneri: “{{ $plan['magnet']['title'] }}”.</span>
+                                <button type="button" wire:click="proposeMagnet({{ $b->id }})" class="link-neutral ml-1">İçerik'e ekle</button>
+                            @endif
+                            @if ($plan['magnet']['tool'] ?? null)
+                                <span class="block">Daha güçlüsü bir araç: “{{ $plan['magnet']['tool'] }}”. Yazıyla değil, sitede çalışan bir araçla olur; geliştirme olarak ayrıca planlanmalı.</span>
+                            @endif
+                        </div>
+                    @endif
                     <div class="mt-2 text-xs text-gray-500" data-links-alert="{{ $b->id }}">
                         @if ($b->link_alert_feed && ! array_key_exists($b->id, $alertFeed))
                             <span>Anılmalar: Google Alerts akışı her sabah okunuyor{{ $b->link_alert_read_at ? ' (son '.$b->link_alert_read_at->timezone('Europe/Istanbul')->format('d.m H:i').')' : '' }}.</span>
@@ -198,6 +217,7 @@
                                 <a href="{{ $t->url }}" target="_blank" rel="noopener" class="font-medium text-gray-900 hover:underline dark:text-white">{{ $t->title ?: $path($t->url) }}</a>
                                 <span class="text-xs text-gray-500">{{ $path($t->url) }}</span>
                                 @if ($t->status === 'tamam')<span class="chip-up text-xs">ilk 3'e çıktı</span>@endif
+                                @if ($t->kind === 'miknatis')<span class="chip-accent text-xs">link mıknatısı</span>@endif
                             </div>
                             <p class="text-xs text-gray-500">{{ $t->reason }}</p>
                             @if ($t->before)
