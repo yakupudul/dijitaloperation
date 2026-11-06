@@ -48,6 +48,8 @@ class SalesLeadsTest extends TestCase
         $this->admin->assignRole(Roles::ADMIN);
         AgencySetting::query()->firstOrCreate([], ['agency_name' => 'Moximu']);
         CarbonImmutable::setTestNow('2026-11-04 08:00:00');
+        // The subscription Claude is connected (its server key), as on the live panel.
+        config(['moxdop-mcp.token' => 'test-subscription-key']);
     }
 
     protected function tearDown(): void
