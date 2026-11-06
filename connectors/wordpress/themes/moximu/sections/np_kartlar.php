@@ -38,7 +38,7 @@ $mx_vis = [
     } elseif ($mx_t === 'ads' || $mx_t === 'meta') {
         $mx_deal = '<span class="sv-deal"><s>'.mx_tl($mx_p[$mx_t]).'</s> SEO ile <b>'.mx_tl($mx_p[$mx_t.'_paket']).'</b>/ay</span>';
     } elseif ($mx_t === 'web' && $mx_k) {
-        $mx_deal = '<span class="sv-deal sv-gift">6 aylık planda <b>hediye</b> · '.esc_html(mx_kampanya_tarih()).'\'a kadar</span>';
+        $mx_deal = '<span class="sv-deal sv-gift">'.esc_html(mx_kampanya_tarih()).'\'a kadar başlayan kliniklere</span>';
     } elseif ($mx_t === 'seo') {
         $mx_deal = '<span class="sv-deal sv-plain">Kurulum ücreti yok · aylık</span>';
     } elseif (! empty($r['etiket'])) {
@@ -49,7 +49,7 @@ $mx_vis = [
 <div class="sv-top"><span class="sv-ic"><?= mx_svc_icon($mx_u, wp_strip_all_tags((string) ($r['baslik'] ?? ''))) ?></span><h3><?= mx_h($r['baslik'] ?? '') ?></h3><?php if ($mx_dark) : ?><span class="sv-flag"><?= mx_h($mx_k['etiket'] ?? '') ?></span><?php endif; ?></div>
 <?= $mx_vis[$mx_t] ?? '' ?>
 <p><?= mx_h($r['metin'] ?? '') ?></p>
-<div class="sv-pr"><div><small><?= $mx_once ? 'Tek sefer' : 'Aylık' ?></small><b<?= $mx_dark ? ' class="sv-strike"' : '' ?>><?= $mx_price ?></b><span>+ KDV</span></div><?= $mx_deal ?></div>
+<div class="sv-pr"><?php if ($mx_dark) : ?><div><small>Tek sefer · 6 aylık planda</small><b class="sv-hd">Hediye</b><s><?= $mx_price ?> + KDV</s></div><?php else : ?><div><small><?= $mx_once ? 'Tek sefer' : 'Aylık' ?></small><b><?= $mx_price ?></b><span>+ KDV</span></div><?php endif; ?><?= $mx_deal ?></div>
 <span class="sv-go">İnceleyin <i>→</i></span>
 </a>
 <?php endforeach; ?>

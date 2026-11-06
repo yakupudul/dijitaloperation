@@ -889,3 +889,6 @@ header .hdnDxY[aria-expanded=true] .mx-chev{transform:rotate(180deg)}
 @media (max-width:640px){.sv-g{grid-template-columns:1fr}.sv-c:last-child{grid-column:span 1}.sv-c{padding:20px 18px}.sv-deal{white-space:normal}}
 .sv-flag{position:static;margin-left:auto;flex:none;white-space:nowrap}
 .mx .sv-c.sv-dark .sv-ic{background:rgba(255,255,255,.1)!important}
+.mx .sv-c.sv-dark .sv-pr>div>b.sv-hd{font-size:30px;color:#fdcf3c;text-decoration:none}
+.sv-c.sv-dark .sv-pr>div>s{font-size:14px;color:#7fa39c}
+@media (min-width:1181px){header .dGDkfD{margin-left:40px}header .kkHuhT{gap:26px}header .mxph{font-size:0;gap:0;padding:8px}header .mxph svg{width:22px;height:22px}}
