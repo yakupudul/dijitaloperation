@@ -430,6 +430,9 @@ final class BrandOfferingService
         return DB::transaction(function () use ($offering, $actor): BrandOffering {
             $offering->status = OfferingStatus::Archived;
             $offering->priority_rank = null;
+            // An archived service is never a ★ main service (coverage, content scores and Harita/Ads read the ★).
+            $offering->priority = 'secondary';
+            $offering->is_priority = false;
             $offering->save();
 
             $this->activity->record(
