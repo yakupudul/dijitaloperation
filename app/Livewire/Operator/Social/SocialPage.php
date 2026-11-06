@@ -8,6 +8,7 @@ use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Models\SocialThread;
 use App\Models\User;
+use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialInbox;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
@@ -348,6 +349,7 @@ final class SocialPage extends Component
             'tz' => $tz,
             'scopes' => SocialMetaConnector::SCOPES,
             'callbackUrl' => route('integrations.meta.callback'),
+            'metaAppId' => app(SocialGraph::class)->appId(),
         ]);
     }
 

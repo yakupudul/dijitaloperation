@@ -228,8 +228,9 @@
                         <details class="text-sm">
                             <summary class="cursor-pointer text-gray-600 dark:text-gray-300">Meta uygulama ayarı (bir kez)</summary>
                             <div class="mt-2 space-y-2">
+                                <p>Bu ayarlar, Entegrasyonlar › Meta’da kayıtlı uygulamada yapılır: <b>App ID {{ $metaAppId ?: 'tanımlı değil' }}</b>. Yapılandırma başka bir uygulamada açılırsa Meta “Özellik kullanılmıyor” der.</p>
                                 <ol class="list-decimal space-y-1 pl-5">
-                                    <li>Meta for Developers › uygulama › <b>Kullanım durumları</b>: “Facebook Login for Business” için <b>Özelleştir › İzinler</b>’de şu izinleri <b>Ekle</b> deyin (uygulamada rolünüz olduğu için inceleme gerekmez): <code class="text-xs">{{ implode(', ', $scopes) }}</code>.</li>
+                                    <li>Meta for Developers › bu uygulama › <b>Kullanım durumları › Add use cases</b>: “Manage everything on your Page” ve “Manage messaging &amp; content on Instagram” kullanım durumlarını ekleyin; sonra her birinde <b>Customize › Permissions</b>’ta şu izinleri <b>Add</b> deyin (uygulamada rolünüz olduğu için inceleme gerekmez): <code class="text-xs">{{ implode(', ', $scopes) }}</code>.</li>
                                     <li><b>Configurations › Create configuration</b>: ad “Moximu sosyal”, giriş çeşidi <b>General</b>, erişim anahtarı <b>User access token</b> (System-user değil), varlıklar <b>Pages</b> ve <b>Instagram accounts</b>, izinler yukarıdakiler. <b>WhatsApp izinlerini seçmeyin</b>; WhatsApp yapılandırmasının kimliği burada çalışmaz.</li>
                                     <li>Yeni yapılandırmanın <b>Configuration ID</b>’sini kopyalayıp buraya kaydedin, sonra “Meta’yı bağla”. Yönlendirme adresi zaten kayıtlı: <code class="text-xs">{{ $callbackUrl }}</code>.</li>
                                 </ol>
