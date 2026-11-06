@@ -34,12 +34,12 @@ $extras = [
 <div class="px-kmp" data-end="<?= (int) $k['ts'] ?>"><div class="px-kmp-t"><b><span class="px-live"></span><?= mx_h($k['etiket'] ?? '') ?> · <?= esc_html(mx_kampanya_tarih()) ?> 23:59'da bitiyor</b><span>6 aylık planla başlayan kliniğe <mark><?= mx_tl($p['web']) ?> değerindeki web sitesi</mark> hediye.</span></div><div class="px-cd" aria-label="Kampanyanın bitmesine kalan süre"><span><b data-u="d">00</b>gün</span><span><b data-u="h">00</b>saat</span><span><b data-u="m">00</b>dk</span><span><b data-u="s">00</b>sn</span></div><a class="px-kmp-go" href="<?= esc_url($kwa) ?>" target="_blank" rel="noopener">Yerimi ayırın <i>→</i></a></div>
 <?php endif; ?>
 <div class="px-cards">
-<?php foreach ($plans as [$key, $name, $desc, $price, $list, $items]): $main = $key === 'paket'; $save = max(0, $list - $price); $total = $p['web'] + $save * 6; ?>
+<?php foreach ($plans as [$key, $name, $desc, $price, $list, $items]): $main = $key === 'paket'; if ($k && ! empty($p[$key.'_sonra'])) { $list = (int) $p[$key.'_sonra']; } $save = max(0, $list - $price); $total = $p['web'] + $save * 6; $pct = $list > 0 ? (int) round($save * 100 / $list) : 0; ?>
 <div class="px-card<?= $main ? ' main' : '' ?><?= $odak === $key ? ' odak' : '' ?>">
 <?php if ($main): ?><span class="px-tag">Önerilen</span><?php endif; ?>
 <h3><?= mx_h($name) ?></h3><p class="px-desc"><?= mx_h($desc) ?></p>
-<div class="px-price"><?php if ($save): ?><s>Ayrı ayrı <?= mx_tl($list) ?></s><?php endif; ?><b><?= mx_tl($price) ?></b><span>/ay + KDV</span></div>
-<?php if ($save): ?><div class="px-save"><span class="px-pill">Her ay <?= mx_tl($save) ?> tasarruf</span></div><?php else: ?><div class="px-save"><span class="px-pill px-pill-g">Tek kanal, aylık</span></div><?php endif; ?>
+<div class="px-price"><?php if ($save): ?><s><?= mx_tl($list) ?></s><?php if ($k): ?><em class="px-off">%<?= $pct ?> indirim</em><?php endif; ?><i class="px-br"></i><?php endif; ?><b><?= mx_tl($price) ?></b><span>/ay + KDV</span></div>
+<?php if ($save && $k): ?><div class="px-save"><span class="px-pill">Her ay <?= mx_tl($save) ?> daha az</span><small class="px-lock"><?= esc_html(mx_kampanya_tarih()) ?>'dan sonra yeni kliniklere <?= mx_tl($list) ?>. Kampanyada başlayanlar bu fiyattan devam eder.</small></div><?php elseif ($save): ?><div class="px-save"><span class="px-pill">Ayrı ayrı <?= mx_tl($list) ?>; her ay <?= mx_tl($save) ?> tasarruf</span></div><?php else: ?><div class="px-save"><span class="px-pill px-pill-g">Tek kanal, aylık</span></div><?php endif; ?>
 <?php if ($k): ?><div class="px-gift is-kmp"><span class="px-gift-h"><?= mx_h($k['etiket'] ?? 'Kampanya') ?>na özel</span>
 <span class="px-gift-r"><i></i><span>6 aylık planda <b>klinik web sitesi hediye</b> <s><?= mx_tl($p['web']) ?></s></span></span>
 <span class="px-gift-t">6 ayda toplam avantajınız <b><?= mx_tl($total) ?></b></span></div><?php endif; ?>

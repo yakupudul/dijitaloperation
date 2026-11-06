@@ -13,7 +13,9 @@ function mx_fiyatlar(): array
         return $p;
     }
     $defaults = ['seo' => 12000, 'harita' => 6000, 'paket' => 14000, 'ads' => 9000, 'ads_paket' => 6000,
-        'meta' => 9000, 'meta_paket' => 6000, 'web' => 30000, 'web_dil' => 8000, 'seo_dil' => 4000, 'denetim' => 5000];
+        'meta' => 9000, 'meta_paket' => 6000, 'web' => 30000, 'web_dil' => 8000, 'seo_dil' => 4000, 'denetim' => 5000,
+        // Plan prices after the running campaign (shown struck through while it lasts; new clinics pay these afterwards).
+        'seo_sonra' => 15000, 'paket_sonra' => 18000, 'yerel_sonra' => 32000];
     $p = $defaults;
     foreach (mx_opt('fiyatlar') as $key => $value) {
         if (isset($defaults[$key]) && is_numeric($value) && (int) $value > 0) {

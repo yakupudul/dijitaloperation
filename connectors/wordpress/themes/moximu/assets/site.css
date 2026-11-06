@@ -892,3 +892,12 @@ header .hdnDxY[aria-expanded=true] .mx-chev{transform:rotate(180deg)}
 .mx .sv-c.sv-dark .sv-pr>div>b.sv-hd{font-size:30px;color:#fdcf3c;text-decoration:none}
 .sv-c.sv-dark .sv-pr>div>s{font-size:14px;color:#7fa39c}
 @media (min-width:1181px){header .dGDkfD{margin-left:40px}header .kkHuhT{gap:26px}header .mxph{font-size:0;gap:0;padding:8px}header .mxph svg{width:22px;height:22px}}
+.px-price s{flex-basis:auto!important;margin:0!important;font-size:18px;font-weight:500}
+.px-off{order:-1;flex-basis:100%;font-style:normal;font-size:12px;font-weight:700;color:#b42318;letter-spacing:.02em;margin-bottom:2px}
+.px-off{flex-basis:auto;order:0;align-self:center;padding:3px 9px;border-radius:999px;background:#fdecea;margin-bottom:0}
+.px-card.main .px-off{background:rgba(253,207,60,.18);color:#fdcf3c}
+.px-price b{flex-basis:100%}
+.px-lock{display:block;margin-top:8px;font-size:12px;line-height:1.45;color:#6b7280}
+.px-card.main .px-lock{color:#9fbdb7}
+.px-price b{flex-basis:auto!important}
+.px-br{flex-basis:100%;height:0}
