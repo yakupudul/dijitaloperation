@@ -40,7 +40,7 @@ final class LeadCardPage extends Component
 
     public string $nextStepAt = '';
 
-    public string $lostReason = 'silent';
+    public string $lostReason = '';
 
     public string $message = '';
 
@@ -238,6 +238,12 @@ final class LeadCardPage extends Component
         $lead = $this->lead();
         if ($stage === 'won') {
             $this->win($leads);
+
+            return;
+        }
+        if ($stage === 'lost' && ! isset(SalesLead::LOST_REASONS[$this->lostReason])) {
+            // A card closes only with its reason (the month report's loss reasons depend on it).
+            $this->addError('lostReason', 'Neden kapandığını seç.');
 
             return;
         }

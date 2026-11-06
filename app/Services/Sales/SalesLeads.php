@@ -302,7 +302,8 @@ final class SalesLeads
         $lastOut = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->max('sent_at');
         $lastOut = $lastOut !== null ? CarbonImmutable::parse($lastOut) : null;
         $lastIn = $conversation->last_incoming_at;
-        $lead->last_contact_at = $lastOut ?? $lead->last_contact_at;
+        // A call or a meeting logged by hand can be newer than the last WhatsApp message: keep the later one.
+        $lead->last_contact_at = $lastOut !== null && ($lead->last_contact_at === null || $lastOut->gt($lead->last_contact_at)) ? $lastOut : $lead->last_contact_at;
         $lead->last_incoming_at = $lastIn ?? $lead->last_incoming_at;
         if (! $lead->isOpen()) {
             // They wrote again after we closed the card: it is open once more.
@@ -321,8 +322,10 @@ final class SalesLeads
                 // We wrote and they answered: a conversation.
                 $lead->advanceTo('talking');
             }
-            if ($this->quotedPrice($conversation)) {
+            $priced = $this->quotedPrice($conversation);
+            if ($priced !== null) {
                 $lead->advanceTo('priced');
+                $lead->suggestOfferFrom($priced);
             }
             if ($lastIn !== null && $lastIn->gte($lastOut) && self::isThinking((string) WhatsAppMessage::query()->where('conversation_id', $conversation->id)
                 ->where('direction', 'incoming')->orderByDesc('sent_at')->value('body'))) {
@@ -345,15 +348,16 @@ final class SalesLeads
         }
     }
 
-    private function quotedPrice(WhatsAppConversation $conversation): bool
+    /** The newest text we sent that names a price (or KDV), or null when no price was written yet. */
+    private function quotedPrice(WhatsAppConversation $conversation): ?string
     {
         foreach (WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->orderByDesc('sent_at')->limit(60)->get(['body']) as $message) {
             if (preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺)|\bkdv\b/iu', (string) $message->body)) {
-                return true;
+                return (string) $message->body;
             }
         }
 
-        return false;
+        return null;
     }
 
     /** A card with a phone and no chat yet: the inbox chat with that number joins it (its messages become the timeline). */
@@ -480,6 +484,7 @@ final class SalesLeads
         $lead->advanceTo('contacted');
         if ($text !== null && preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺)/iu', $text)) {
             $lead->advanceTo('priced');
+            $lead->suggestOfferFrom($text);
         }
         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::afterOurMessage($lead->followup_step);
         // What yakup changed in the AI's text is how he writes: the next drafts read his recent edited messages.
@@ -487,6 +492,73 @@ final class SalesLeads
         $lead->forceFill(['draft' => null, 'draft_ai' => null, 'draft_status' => null, 'draft_note' => null, 'draft_send_on' => null]);
         $lead->save();
         $this->event($lead, 'message_out', $text, meta: ['by' => $user?->id, 'manual' => true, 'edited' => $edited]);
+    }
+
+    /** How a talk outside WhatsApp happened ("Temas kaydet"). */
+    public const array TOUCH_CHANNELS = ['phone' => 'Telefon', 'in_person' => 'Yüz yüze', 'video' => 'Görüntülü', 'other' => 'Diğer'];
+
+    /**
+     * "Temas kaydet": a call or a meeting the backup cannot see. It is written on the card, counts as our last contact,
+     * moves the stage forward, and ends either with the next step (what + when) or with the card closed for a reason.
+     *
+     * @param  array{channel?: string, body?: string, next?: string, date?: string, close?: string}  $input
+     */
+    public function logTouch(SalesLead $lead, array $input, ?User $user = null): void
+    {
+        $channel = isset(self::TOUCH_CHANNELS[$input['channel'] ?? '']) ? (string) $input['channel'] : 'phone';
+        $body = trim((string) ($input['body'] ?? ''));
+        $close = (string) ($input['close'] ?? '');
+        $date = trim((string) ($input['date'] ?? ''));
+        $errors = [];
+        if ($body === '') {
+            $errors['touch.body'] = 'Ne konuştuğunuzu bir cümleyle yaz.';
+        }
+        if ($close === '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            $errors['touch.date'] = 'Sonraki adımın tarihini seç ya da kartı kapat.';
+        }
+        if ($close !== '' && ! isset(SalesLead::LOST_REASONS[$close])) {
+            $errors['touch.close'] = 'Kapanış nedenini seç.';
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+        $this->event($lead, $channel === 'phone' ? 'call' : 'meeting', self::TOUCH_CHANNELS[$channel].': '.mb_substr($body, 0, 4000), meta: ['by' => $user?->id, 'channel' => $channel]);
+        $lead->last_contact_at = now();
+        if ($lead->stage === 'later' || $lead->isOpen()) {
+            $lead->advanceTo($channel === 'phone' ? 'talking' : 'meeting');
+        }
+        $lead->save();
+        if ($close !== '') {
+            $this->setStage($lead, 'lost', $close, $user);
+
+            return;
+        }
+        if (! $lead->isOpen()) {
+            $this->setStage($lead, 'talking', null, $user, 'Yeniden açıldı: '.self::TOUCH_CHANNELS[$channel].' görüşmesi.');
+        }
+        $this->setNextStep($lead, (string) ($input['next'] ?? ''), $date, $user);
+    }
+
+    /** "Kapat": a card closes only with a reason (the month report's loss reasons depend on it). */
+    public function close(SalesLead $lead, string $reason, ?string $note = null, ?User $user = null): void
+    {
+        if (! isset(SalesLead::LOST_REASONS[$reason])) {
+            throw ValidationException::withMessages(['close' => 'Kapanış nedenini seç.']);
+        }
+        $note = trim((string) $note);
+        $this->setStage($lead, 'lost', $reason, $user);
+        if ($note !== '') {
+            $this->event($lead, 'note', mb_substr($note, 0, 4000), meta: ['by' => $user?->id]);
+        }
+    }
+
+    /** The offer the operator confirms by hand (monthly ₺ + package); 0 / empty clears it. */
+    public function setOffer(SalesLead $lead, ?int $amount, ?string $service, ?User $user = null): void
+    {
+        $amount = $amount !== null && $amount > 0 ? min($amount, 9_999_999) : null;
+        $service = $service !== null && isset(SalesLead::SERVICES[$service]) ? $service : null;
+        $lead->forceFill(['offer_amount' => $amount, 'offer_service' => $amount !== null ? $service : null, 'offer_confirmed' => $amount !== null])->save();
+        $this->event($lead, 'offer', $amount !== null ? 'Teklif: '.number_format($amount, 0, ',', '.').' ₺/ay'.($service !== null ? ' · '.SalesLead::SERVICES[$service] : '') : 'Teklif silindi.', meta: ['by' => $user?->id]);
     }
 
     /** The operator sets the next step by hand (what and when). */

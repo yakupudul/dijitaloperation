@@ -122,7 +122,7 @@
                                 @if ($text !== '')<button type="button" x-on:click="navigator.clipboard?.writeText($el.closest('[data-sales-due]').querySelector('[data-sales-draft]').innerText); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="link-neutral">Kopyala</button>@endif
                                 @if ($text !== '' && $wa === null)<a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral">Telefon ekle</a>@endif
                                 <button type="button" wire:click="snooze({{ $lead->id }})" class="link-neutral">Yarına</button>
-                                <button type="button" wire:click="setStage({{ $lead->id }}, 'lost')" wire:confirm="{{ $lead->title() }} kaybedildi olarak kapansın mı?" class="link-neutral text-gray-400">Kapat</button>
+                                <button type="button" wire:click="openDialog('close', {{ $lead->id }})" class="link-neutral text-gray-400">Kapat</button>
                                 <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral ml-auto">Kart →</a>
                             </div>
                         </div>
@@ -136,34 +136,149 @@
             @endif
         </section>
     @elseif ($tab === 'adaylar')
+        {{-- Adaylar (yakup 2026-11-07): every row answers four questions: whose turn is it, when did we last talk and
+             about what, what is next and when, how much is it worth. Ready views instead of one stage filter. --}}
         <section class="mt-5" data-sales-leads>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <select wire:model.live="stageFilter" class="{{ str_replace('w-full', 'w-52', $input) }}" aria-label="Aşama">
-                    <option value="">Açık ({{ $n($openCount) }})</option>
-                    @foreach (SalesLead::STAGES as $key => $label)
-                        @php $c = $key === 'won' ? $wonThisMonth : (int) ($stageCounts[$key] ?? 0); @endphp
-                        <option value="{{ $key }}">{{ $label }}{{ $key !== 'lost' ? ' ('.$n($c).')' : '' }}</option>
-                    @endforeach
-                </select>
-                <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara" class="{{ str_replace('w-full', 'w-full sm:w-64', $input) }}" aria-label="Aday ara" />
+            <div class="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Görünüm" data-sales-views>
+                @foreach (SalesPage::VIEWS as $key => $label)
+                    @php $c = (int) ($viewCounts[$key] ?? 0); $alert = in_array($key, ['borclu', 'adimsiz'], true) && $c > 0; @endphp
+                    <button type="button" wire:click="$set('view', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $view === $key && trim($q) === '']) data-sales-view="{{ $key }}">
+                        {{ $label }} <span @class(['tabular-nums', 'text-error-600' => $alert && $view !== $key, 'text-gray-400' => ! $alert && $view !== $key])>{{ $n($c) }}</span>
+                    </button>
+                @endforeach
             </div>
-            <div class="card mt-3 divide-y divide-gray-200 dark:divide-gray-800">
-                @forelse ($list as $lead)
-                    @php $due = $lead->next_step_at?->timezone('Europe/Istanbul'); $late = $lead->isDue() && $due !== null && $due->toDateString() < $today; @endphp
-                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate wire:key="lead-{{ $lead->id }}" class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-white/[0.03]" data-sales-lead="{{ $lead->id }}">
-                        <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">{{ $lead->title() }}@if ($lead->subtitle() !== '')<span class="font-normal text-gray-500"> · {{ $lead->subtitle() }}</span>@endif</span>
-                        <span class="hidden shrink-0 text-xs text-gray-500 sm:inline">{{ $lead->stageLabel() }}</span>
-                        <span @class(['w-24 shrink-0 text-right text-[13px] tabular-nums', 'text-error-600' => $late, 'text-gray-500' => ! $late])>
-                            @if ($lead->isOpen())
-                                {{ $due === null ? '–' : ($due->toDateString() === $today ? 'Bugün' : $due->format('d.m')) }}
-                            @else
-                                {{ $lead->stage === 'won' ? 'Kazanıldı' : 'Kapandı' }}
-                            @endif
-                        </span>
-                    </a>
-                @empty
-                    <x-ta.empty-state title="Bu süzgeçte aday yok" message="Yeni bir aday ekle ya da süzgeci değiştir." />
-                @endforelse
+
+            @php $openStages = array_merge(SalesLead::FLOW, ['later']); @endphp
+            <div class="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] text-gray-500" data-sales-stage-strip>
+                @foreach ($openStages as $stage)
+                    <button type="button" wire:click="$set('stageFilter', '{{ $stageFilter === $stage ? '' : $stage }}')" @class(['rounded-md px-2 py-0.5 hover:bg-gray-100 dark:hover:bg-white/5', 'bg-gray-900 text-white hover:bg-gray-900 dark:bg-white dark:text-gray-900' => $stageFilter === $stage])>
+                        {{ SalesLead::STAGES[$stage] }} <span class="tabular-nums font-semibold">{{ $n((int) ($stageCounts[$stage] ?? 0)) }}</span>
+                    </button>
+                    @if (! $loop->last)<span class="text-gray-300 dark:text-gray-700">·</span>@endif
+                @endforeach
+            </div>
+
+            <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara: isim, klinik, şehir, telefon, not…" class="{{ str_replace('w-full', 'w-full sm:w-80', $input) }}" aria-label="Aday ara" />
+                <select wire:model.live="sort" class="{{ str_replace('w-full', 'w-full sm:w-56', $input) }}" aria-label="Sırala">
+                    @foreach (SalesPage::SORTS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                </select>
+                @if ($view === 'teklif' && $offerTotal > 0 && trim($q) === '')
+                    <p class="text-sm text-gray-600 sm:ml-auto dark:text-gray-300" data-sales-offer-total>{{ $n((int) ($viewCounts['teklif'] ?? 0)) }} aday · <span class="font-semibold text-gray-900 dark:text-white">{{ $n($offerTotal) }} ₺/ay</span> karar bekliyor</p>
+                @endif
+            </div>
+
+            <div class="card mt-3 overflow-visible">
+                <div class="hidden grid-cols-[minmax(0,2.2fr)_8.5rem_6.5rem_minmax(0,1.8fr)_minmax(0,1.4fr)_8rem_7.5rem_6.5rem] gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid dark:border-gray-800">
+                    <span>Aday</span><span>Durum</span><span>Top kimde</span><span>Son temas</span><span>Sonraki adım</span><span>Teklif</span><span>Kaynak</span><span></span>
+                </div>
+                <div class="divide-y divide-gray-200 dark:divide-gray-800">
+                    @forelse ($list as $lead)
+                        @php
+                            $due = $lead->next_step_at?->timezone('Europe/Istanbul');
+                            $late = $lead->isDue() && $due !== null && $due->toDateString() < $today;
+                            $isToday = $due !== null && $due->toDateString() === $today;
+                            $lt = $touches[$lead->id] ?? null;
+                            $touchAt = $lt['at'] ?? $lead->lastTouchAt();
+                            $ours = $lead->isOpen() && $lead->awaitsUs();
+                            $waitDays = $ours ? (int) $lead->last_incoming_at->copy()->startOfDay()->diffInDays(now()->startOfDay()) : ($lead->last_contact_at !== null ? (int) $lead->last_contact_at->copy()->startOfDay()->diffInDays(now()->startOfDay()) : null);
+                            $pinned = filled($lead->notes) ? trim(strtok((string) $lead->notes, "\n")) : '';
+                            $source = $lead->sourceLabel();
+                            $heard = $lead->heard_from !== null ? (SalesLead::HEARD_FROM[$lead->heard_from] ?? null) : null;
+                            $wa = $lead->waNumber();
+                            $days = $lead->stageDays();
+                        @endphp
+                        <div wire:key="lead-{{ $lead->id }}" class="grid grid-cols-1 gap-x-3 gap-y-1.5 px-4 py-3 lg:grid-cols-[minmax(0,2.2fr)_8.5rem_6.5rem_minmax(0,1.8fr)_minmax(0,1.4fr)_8rem_7.5rem_6.5rem] lg:items-center lg:py-2.5" data-sales-lead="{{ $lead->id }}">
+                            {{-- Aday --}}
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">{{ $lead->title() }}</a>
+                                    {{-- Phone: the stage and whose turn sit next to the name. --}}
+                                    <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }} lg:hidden">{{ $lead->stageLabel() }}</span>
+                                    @if ($ours)<span class="chip chip-down lg:hidden">Sende</span>@endif
+                                </div>
+                                @if ($lead->subtitle() !== '')<p class="truncate text-[13px] text-gray-500">{{ $lead->subtitle() }}</p>@endif
+                                @if ($pinned !== '')<p class="truncate text-[12px] italic text-gray-400" title="{{ $lead->notes }}" data-sales-pinned>{{ $pinned }}</p>@endif
+                            </div>
+                            {{-- Durum --}}
+                            <div class="hidden lg:block">
+                                <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }}">{{ $lead->stageLabel() }}</span>
+                                @if ($lead->isOpen())<span @class(['mt-0.5 block text-[11px] tabular-nums', 'text-warning-700' => $days >= 14, 'text-gray-400' => $days < 14])>{{ $days === 0 ? 'bugün' : $days.' gündür' }}</span>@endif
+                            </div>
+                            {{-- Top kimde --}}
+                            <div class="hidden text-[13px] lg:block" data-sales-ball>
+                                @if (! $lead->isOpen())
+                                    <span class="text-gray-400">–</span>
+                                @elseif ($ours)
+                                    <span class="font-semibold text-error-600">Sende</span><span class="block text-[11px] text-error-600/80">{{ $waitDays === 0 ? 'bugün yazdı' : $waitDays.' gündür' }}</span>
+                                @elseif ($lead->last_contact_at !== null)
+                                    <span class="text-gray-600 dark:text-gray-300">Onda</span><span class="block text-[11px] text-gray-400">{{ $waitDays === 0 ? 'bugün' : $waitDays.' gündür' }}</span>
+                                @else
+                                    <span class="text-gray-400">Konuşulmadı</span>
+                                @endif
+                            </div>
+                            {{-- Son temas --}}
+                            <div class="min-w-0 text-[13px]" data-sales-touch>
+                                @if ($touchAt !== null)
+                                    <span class="text-gray-500"><span class="lg:hidden">Son: </span><span class="tabular-nums">{{ $touchAt->timezone('Europe/Istanbul')->format('d.m') }}</span>@if ($lt) · {{ $lt['label'] }}@endif</span>
+                                    @if ($lt && $lt['text'] !== '')<span class="block truncate text-gray-700 dark:text-gray-300" title="{{ $lt['text'] }}">{{ $lt['text'] }}</span>@endif
+                                @else
+                                    <span class="text-gray-400">Henüz temas yok</span>
+                                @endif
+                            </div>
+                            {{-- Sonraki adım --}}
+                            <div class="min-w-0 text-[13px]" data-sales-next>
+                                @if (! $lead->isOpen())
+                                    <span class="text-gray-500">{{ $lead->stage === 'won' ? 'Kazanıldı '.$lead->won_at?->timezone('Europe/Istanbul')->format('d.m.Y') : 'Kapandı · '.(SalesLead::LOST_REASONS[$lead->lost_reason] ?? '') }}</span>
+                                @elseif ($due === null)
+                                    <button type="button" wire:click="openDialog('touch', {{ $lead->id }})" class="font-semibold text-error-600 hover:underline">Adım yok</button>
+                                @else
+                                    <span class="block truncate text-gray-800 dark:text-gray-200">{{ $lead->next_step ?: 'Takip et' }}</span>
+                                    <span @class(['text-[12px] tabular-nums', 'font-semibold text-error-600' => $late, 'font-semibold text-gray-900 dark:text-white' => $isToday && ! $late, 'text-gray-500' => ! $late && ! $isToday])>{{ $isToday ? 'Bugün' : ($late ? $due->format('d.m').' · gecikti' : $due->locale('tr')->isoFormat('D MMM ddd')) }}</span>
+                                @endif
+                            </div>
+                            {{-- Teklif --}}
+                            <div class="text-[13px]" data-sales-offer>
+                                @if ($lead->offer_amount !== null)
+                                    <button type="button" wire:click="openDialog('offer', {{ $lead->id }})" class="text-left hover:underline">
+                                        <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $n($lead->offer_amount) }} ₺</span><span class="text-gray-500">/ay</span>
+                                        @if ($lead->serviceLabel())<span class="block truncate text-[11px] text-gray-500">{{ $lead->serviceLabel() }}</span>@endif
+                                    </button>
+                                    @if (! $lead->offer_confirmed)
+                                        <span class="block text-[11px] text-gray-400">mesajdan · <button type="button" wire:click="confirmOffer({{ $lead->id }})" class="link-neutral" data-sales-offer-confirm>Doğru</button></span>
+                                    @endif
+                                @else
+                                    <button type="button" wire:click="openDialog('offer', {{ $lead->id }})" class="text-gray-400 hover:text-gray-700 hover:underline dark:hover:text-gray-200"><span class="lg:hidden">Teklif </span>–</button>
+                                @endif
+                            </div>
+                            {{-- Kaynak --}}
+                            <div class="hidden min-w-0 text-[12px] text-gray-500 lg:block">
+                                <span class="block truncate">{{ $source }}</span>
+                                @if ($heard && $heard !== $source)<span class="block truncate text-gray-400">{{ $heard }}</span>@endif
+                            </div>
+                            {{-- İşlemler --}}
+                            <div class="flex items-center gap-1 lg:justify-end">
+                                @if ($lead->isOpen())
+                                    <button type="button" wire:click="openDialog('touch', {{ $lead->id }})" class="btn h-7 px-2.5 text-[12px]" title="Telefon ya da yüz yüze görüşmeyi işle" data-sales-touch-open>Temas</button>
+                                @endif
+                                <div class="relative" x-data="{ menu: false }" x-on:click.outside="menu = false">
+                                    <button type="button" x-on:click="menu = !menu" class="btn-quiet h-7 w-7 px-0" aria-label="Diğer işlemler">⋯</button>
+                                    <div x-show="menu" x-cloak class="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 text-[13px] shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                                        <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="block px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5">Kartı aç</a>
+                                        @if ($wa !== null)<a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="block px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5">WhatsApp'ta aç</a>@endif
+                                        <button type="button" x-on:click="menu = false" wire:click="openDialog('note', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5">Not</button>
+                                        <button type="button" x-on:click="menu = false" wire:click="openDialog('offer', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5">Teklif</button>
+                                        @if ($lead->isOpen())
+                                            <button type="button" x-on:click="menu = false" wire:click="openDialog('close', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5">Kapat</button>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <x-ta.empty-state :title="trim($q) !== '' ? 'Aramaya uyan aday yok' : ($view === 'borclu' ? 'Cevap bekleyen kimse yok' : ($view === 'adimsiz' ? 'Her açık kartın bir sonraki adımı var' : 'Bu görünümde aday yok'))" message="Başka bir görünüm seç ya da yeni bir aday ekle." />
+                    @endforelse
+                </div>
             </div>
         </section>
     @elseif ($tab === 'istekler')
@@ -196,7 +311,7 @@
                 <div class="hero-panel grid-cols-3">
                     <div class="hero-tile hero-tile-accent"><span class="hero-label">Aylık gelir</span><span class="hero-value">{{ $n((int) $money['mrr']) }} ₺</span><span class="mt-2 text-xs opacity-75">{{ $n($money['customers']) }} aktif müşteri</span></div>
                     <div class="hero-tile"><span class="hero-label">Açık aday</span><span class="hero-value">{{ $n($openCount) }}</span><span class="mt-2 text-xs text-white/60">{{ $n($dueCount) }} bugün</span></div>
-                    <div class="hero-tile"><span class="hero-label">Fiyat konuşulan</span><span class="hero-value">{{ $n($money['priced']) }}</span><span class="mt-2 text-xs text-white/60">karar bekliyor</span></div>
+                    <div class="hero-tile" data-sales-offer-tile><span class="hero-label">Teklifte bekleyen</span><span class="hero-value">{{ $money['offer_total'] > 0 ? $n($money['offer_total']).' ₺' : $n($money['priced']) }}</span><span class="mt-2 text-xs text-white/60">{{ $money['offer_total'] > 0 ? $n($money['priced']).' aday · aylık, karar bekliyor' : 'aday karar bekliyor' }}</span></div>
                 </div>
             @endif
 
@@ -352,5 +467,97 @@
                 </div>
             @endif
         </section>
+    @endif
+
+    {{-- Row dialogs: Temas kaydet, Not, Teklif, Kapat. One at a time, for one card. --}}
+    @if ($dialog !== '' && $dialogCard !== null)
+        @php $area = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white'; @endphp
+        <div class="fixed inset-0 z-[99999] flex items-end justify-center p-3 sm:items-center sm:p-5" x-data x-on:keydown.escape.window="$wire.closeDialog()" data-sales-dialog="{{ $dialog }}">
+            <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-[2px]" wire:click="closeDialog"></div>
+            <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900">
+                <button type="button" wire:click="closeDialog" class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800" aria-label="Kapat">✕</button>
+                <p class="text-xs text-gray-500">{{ $dialogCard->title() }}@if ($dialogCard->subtitle() !== '') · {{ $dialogCard->subtitle() }}@endif</p>
+
+                @if ($dialog === 'touch')
+                    <form wire:submit="saveTouch" class="mt-1 space-y-3">
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Temas kaydet</h3>
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach (\App\Services\Sales\SalesLeads::TOUCH_CHANNELS as $key => $label)
+                                <button type="button" wire:click="$set('touch.channel', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $touch['channel'] === $key])>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                        <label class="block text-xs text-gray-500">Ne konuştunuz, ne oldu?
+                            <textarea wire:model="touch.body" rows="3" class="mt-1 {{ $area }}" placeholder="Fiyatı sordu, ortağıyla konuşup pazartesi dönecek." data-sales-touch-body></textarea>
+                        </label>
+                        @error('touch.body')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                        @if ($touch['close'] === '')
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem]">
+                                <label class="block text-xs text-gray-500">Sonraki adım<input wire:model="touch.next" type="text" class="mt-1 {{ $input }}" placeholder="Teklifi hatırlat" /></label>
+                                <label class="block text-xs text-gray-500">Ne zaman<input wire:model="touch.date" type="date" class="mt-1 {{ $input }}" /></label>
+                            </div>
+                            @error('touch.date')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                            <button type="button" wire:click="$set('touch.close', 'other')" class="link-neutral text-[13px] text-gray-500">Adım yok, kartı kapat</button>
+                        @else
+                            <label class="block text-xs text-gray-500">Neden kapanıyor
+                                <select wire:model="touch.close" class="mt-1 {{ $input }}">
+                                    @foreach (SalesLead::LOST_REASONS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                                </select>
+                            </label>
+                            @error('touch.close')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                            <button type="button" wire:click="$set('touch.close', '')" class="link-neutral text-[13px] text-gray-500">Kapatma, sonraki adımı yaz</button>
+                        @endif
+                        <div class="flex items-center gap-2 pt-1">
+                            <button type="submit" class="btn-dark" wire:loading.attr="disabled" data-sales-touch-save>Kaydet</button>
+                            <button type="button" wire:click="closeDialog" class="btn-quiet">Vazgeç</button>
+                        </div>
+                        <p class="text-xs text-gray-500">WhatsApp mesajları yedekten kendiliğinden gelir; burası telefon ve yüz yüze görüşmeler için.</p>
+                    </form>
+                @elseif ($dialog === 'note')
+                    <form wire:submit="saveNote" class="mt-1 space-y-3">
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Not</h3>
+                        <textarea wire:model="noteText" rows="5" class="{{ $area }}" placeholder="Ajanslardan yanmış, bir firmayla daha karşılaştırıyor." data-sales-note-text></textarea>
+                        <p class="text-xs text-gray-500">İlk satır listede ismin altında görünür. Claude mesaj yazarken bu notu da okur.</p>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="btn-dark">Kaydet</button>
+                            <button type="button" wire:click="closeDialog" class="btn-quiet">Vazgeç</button>
+                        </div>
+                    </form>
+                @elseif ($dialog === 'offer')
+                    <form wire:submit="saveOffer" class="mt-1 space-y-3">
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Teklif</h3>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <label class="block text-xs text-gray-500">Aylık tutar (₺, KDV hariç)<input wire:model="offerAmount" type="text" inputmode="numeric" class="mt-1 {{ $input }}" placeholder="14000" data-sales-offer-amount /></label>
+                            <label class="block text-xs text-gray-500">Hizmet
+                                <select wire:model="offerService" class="mt-1 {{ $input }}">
+                                    <option value="">Seç</option>
+                                    @foreach (SalesLead::SERVICES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                                </select>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500">Gönderdiğin mesajda fiyat geçince tutar buraya kendiliğinden öneri olarak gelir. Silmek için tutarı boş bırak.</p>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="btn-dark">Kaydet</button>
+                            <button type="button" wire:click="closeDialog" class="btn-quiet">Vazgeç</button>
+                        </div>
+                    </form>
+                @elseif ($dialog === 'close')
+                    <form wire:submit="saveClose" class="mt-1 space-y-3">
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Kartı kapat</h3>
+                        <div class="flex flex-wrap gap-1.5" data-sales-close-reasons>
+                            @foreach (SalesLead::LOST_REASONS as $key => $label)
+                                <button type="button" wire:click="$set('closeReason', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $closeReason === $key])>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                        @error('closeReason')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                        <input wire:model="closeNote" type="text" class="{{ $input }}" placeholder="Not (isteğe bağlı): başka ajansla devam etti…" />
+                        <p class="text-xs text-gray-500">Sonradan yazarsa kart kendiliğinden yeniden açılır.</p>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="btn-dark" data-sales-close-save>Kapat</button>
+                            <button type="button" wire:click="closeDialog" class="btn-quiet">Vazgeç</button>
+                        </div>
+                    </form>
+                @endif
+            </div>
+        </div>
     @endif
 </div>

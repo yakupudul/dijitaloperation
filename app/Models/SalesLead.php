@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Sales\SalesAnalysisWriter;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,6 +44,12 @@ class SalesLead extends Model
         'instagram' => 'Instagram', 'youtube' => 'YouTube', 'referral' => 'Tavsiye', 'afc' => 'All for Clinics', 'other' => 'Diğer',
     ];
 
+    /** What was offered (Moximu's packages, as on the site's price list). */
+    public const array SERVICES = [
+        'seo_gbp' => 'SEO + İşletme Profili', 'seo' => 'Klinik SEO', 'gbp' => 'İşletme Profili', 'google_ads' => 'Google Ads',
+        'meta_ads' => 'Meta Ads', 'web' => 'Web sitesi', 'other' => 'Diğer',
+    ];
+
     public const array LOST_REASONS = [
         'silent' => 'Sessiz kaldı', 'price' => 'Fiyat', 'other_agency' => 'Başka ajans', 'not_fit' => 'Uygun değil', 'later' => 'Sonra', 'other' => 'Diğer',
     ];
@@ -52,6 +59,10 @@ class SalesLead extends Model
     {
         // How far the card got (the month report's funnel; a lost card keeps where it was lost).
         static::saving(function (SalesLead $lead): void {
+            // Since when the card is in its stage ("12 gündür Düşünüyor").
+            if (! $lead->exists || $lead->isDirty('stage')) {
+                $lead->stage_at = now();
+            }
             $at = array_search($lead->stage, self::FLOW, true);
             $peak = $lead->peak_stage !== null ? array_search($lead->peak_stage, self::FLOW, true) : false;
             if ($at !== false && ($peak === false || $at > $peak)) {
@@ -77,6 +88,7 @@ class SalesLead extends Model
             'next_step_at' => 'datetime', 'last_contact_at' => 'datetime', 'last_incoming_at' => 'datetime',
             'won_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
             'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
+            'offer_amount' => 'integer', 'offer_confirmed' => 'boolean', 'stage_at' => 'datetime',
         ];
     }
 
@@ -151,6 +163,88 @@ class SalesLead extends Model
             return false;
         }
         $this->stage = $stage;
+
+        return true;
+    }
+
+    /** The ball is ours: they wrote last and we have not answered (in WhatsApp, a call or a sent text). */
+    public function awaitsUs(): bool
+    {
+        return $this->last_incoming_at !== null && ($this->last_contact_at === null || $this->last_incoming_at->gt($this->last_contact_at));
+    }
+
+    /** The last time either side spoke (a message either way, a call, a meeting), or null when nothing yet. */
+    public function lastTouchAt(): ?CarbonInterface
+    {
+        $at = $this->last_contact_at;
+        if ($this->last_incoming_at !== null && ($at === null || $this->last_incoming_at->gt($at))) {
+            $at = $this->last_incoming_at;
+        }
+
+        return $at;
+    }
+
+    /** Whole days the card has been in its stage. */
+    public function stageDays(): int
+    {
+        $since = $this->stage_at ?? $this->created_at;
+
+        return $since === null ? 0 : (int) max(0, $since->copy()->startOfDay()->diffInDays(now()->startOfDay()));
+    }
+
+    public function serviceLabel(): ?string
+    {
+        return $this->offer_service !== null ? (self::SERVICES[$this->offer_service] ?? $this->offer_service) : null;
+    }
+
+    /**
+     * The monthly price in a text we sent ("14.000 TL + KDV/ay"): a price next to "ay/aylık" wins, else the first one.
+     * Null when the text names no price.
+     */
+    public static function priceIn(string $text): ?int
+    {
+        if (preg_match_all('/(\d{1,3}(?:[.\s]\d{3})+|\d{4,6})\s*(?:tl|₺)([^\n]{0,24})/iu', $text, $m, PREG_SET_ORDER) === 0) {
+            return null;
+        }
+        $pick = $m[0];
+        foreach ($m as $match) {
+            if (preg_match('/\/\s*ay|aylık|ayda/iu', $match[2]) === 1) {
+                $pick = $match;
+                break;
+            }
+        }
+        $value = (int) preg_replace('/\D+/', '', $pick[1]);
+
+        return $value >= 1000 && $value <= 999_999 ? $value : null;
+    }
+
+    /** Which package a text talks about, when it is clear. */
+    public static function serviceIn(string $text): ?string
+    {
+        $t = mb_strtolower(str_replace(['İ', 'I'], ['i', 'ı'], $text));
+        $seo = str_contains($t, 'seo');
+        $gbp = str_contains($t, 'işletme profili') || str_contains($t, 'harita') || str_contains($t, 'gbp');
+
+        return match (true) {
+            $seo && $gbp => 'seo_gbp',
+            $seo => 'seo',
+            $gbp => 'gbp',
+            str_contains($t, 'google ads') || str_contains($t, 'google reklam') => 'google_ads',
+            str_contains($t, 'meta') || str_contains($t, 'instagram reklam') => 'meta_ads',
+            str_contains($t, 'web sitesi') || str_contains($t, 'site yap') => 'web',
+            default => null,
+        };
+    }
+
+    /** A price seen in a sent text fills the offer as a suggestion; an offer the operator confirmed is never touched. */
+    public function suggestOfferFrom(string $text): bool
+    {
+        $price = self::priceIn($text);
+        if ($price === null || $this->offer_confirmed) {
+            return false;
+        }
+        $this->offer_amount = $price;
+        $this->offer_service = self::serviceIn($text) ?? $this->offer_service;
 
         return true;
     }

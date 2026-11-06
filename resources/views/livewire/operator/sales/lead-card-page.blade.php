@@ -250,12 +250,17 @@
                     @if ($lead->stage !== 'lost')
                         <div class="flex items-center gap-1">
                             <select wire:model="lostReason" class="h-8 rounded-lg border border-gray-200 bg-white px-2 text-[13px] dark:border-gray-700 dark:bg-transparent dark:text-gray-200" aria-label="Kayıp nedeni">
+                                <option value="">Neden?</option>
                                 @foreach (SalesLead::LOST_REASONS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
                             </select>
                             <button type="button" wire:click="setStage('lost')" class="btn-quiet">Kapat</button>
                         </div>
+                        @error('lostReason')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                     @endif
                 </div>
+                @if ($lead->offer_amount !== null)
+                    <p class="mt-3 text-sm text-gray-700 dark:text-gray-300" data-lead-offer>Teklif: <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($lead->offer_amount, 0, ',', '.') }} ₺/ay</span>@if ($lead->serviceLabel()) · {{ $lead->serviceLabel() }}@endif @if (! $lead->offer_confirmed)<span class="text-xs text-gray-400">(mesajdan okundu)</span>@endif</p>
+                @endif
                 @if ($lead->notes)
                     <p class="mt-4 whitespace-pre-wrap border-t border-gray-200 pt-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300">{{ $lead->notes }}</p>
                 @endif
