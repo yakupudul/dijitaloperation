@@ -181,8 +181,8 @@ class GlobalSearch extends Component
         $pages = [];
         foreach (DemoMenu::groups() as $group) {
             foreach ($group['items'] as $item) {
-                foreach ([['label' => $item['label'], 'route' => $item['route']], ...($item['children'] ?? [])] as $entry) {
-                    $pages[] = ['label' => (string) $entry['label'], 'url' => route($entry['route'])];
+                foreach ([['label' => $item['label'], 'route' => $item['route'], 'params' => $item['params'] ?? []], ...($item['children'] ?? [])] as $entry) {
+                    $pages[] = ['label' => (string) $entry['label'], 'url' => route($entry['route'], $entry['params'] ?? [])];
                 }
             }
         }

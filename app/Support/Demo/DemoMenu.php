@@ -2,7 +2,12 @@
 
 namespace App\Support\Demo;
 
+use App\Models\AgencySetting;
+use App\Models\Brand;
+use App\Models\DigitalAsset;
 use App\Support\Roles;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 /**
  * Canonical operator navigation for the TailAdmin operator shell (the class name is legacy).
@@ -29,6 +34,7 @@ final class DemoMenu
         $child = static fn (string $label, string $route): array => ['label' => $label, 'route' => $route];
 
         $group = static fn (string $label, array $items, bool $pinned = false): array => ['label' => $label, 'items' => $items, 'pinned' => $pinned];
+        $own = self::agencyBrand();
 
         // Four groups and a pinned Sistem at the bottom (approved menu prototype, yakup 2026-10-20; was six groups since
         // 2026-10-19). The flattened order is locked by PanelDesignFreezeTest.
@@ -44,14 +50,25 @@ final class DemoMenu
                 $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
                 // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
                 $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
+            ]),
+            // Moximu (yakup 2026-11-06: "bizim Moximu markamızla alakalı bölümleri aynı menü altında topla"): the agency's
+            // own work. The brand and site entries are shortcuts to the same screens, opened on the agency's brand.
+            $group($own['name'] ?? 'Moximu', [
                 // Satış (2026-11-04): prospects, today's messages, customers' requests, results.
                 $item($tr ? 'Satış' : 'Sales', 'operator.sales', 'prospects', [], ['operator.sales.lead']),
+                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item('WhatsApp', 'operator.whatsapp', 'chat')] : []),
+                // Sosyal medya (ADR-083, 2026-11-06): the agency's own Instagram, Facebook and LinkedIn.
+                $item($tr ? 'Sosyal medya' : 'Social media', 'operator.social', 'social'),
+                ...($own !== null && $own['website'] !== null
+                    ? [['label' => $tr ? 'Web sitemiz' : 'Our website', 'route' => 'operator.website', 'params' => ['assetId' => $own['website']], 'icon' => 'website', 'children' => [], 'active' => []]]
+                    : []),
+                ...($own !== null
+                    ? [['label' => $tr ? 'Marka kartımız' : 'Our brand', 'route' => 'operator.brand', 'params' => ['brand' => $own['id']], 'icon' => 'brands', 'children' => [], 'active' => []]]
+                    : []),
             ]),
             $group($tr ? 'Kanallar' : 'Channels', [
                 $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
                 $item('Google Ads', 'operator.google-ads-desk', 'seo', [], ['operator.google-ads-terms', 'operator.google-ads-changes', 'operator.google-ads-ads', 'operator.google-ads-measurement', 'operator.google-ads-services', 'operator.google-ads.overview']),
-                // Sosyal medya (ADR-083, 2026-11-06): the agency's own Instagram, Facebook and LinkedIn.
-                $item($tr ? 'Sosyal medya' : 'Social media', 'operator.social', 'social'),
                 $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy', 'operator.libraries']),
             ]),
             // Aşama 11 (2026-10-22): Büyüme left the menu. Kazananlar lives in Komuta's sector cards, Stratejiler opens from
@@ -63,7 +80,6 @@ final class DemoMenu
                 // reachable from the brand list and keep Markalar lit.
                 $item(__('operator.nav.brands'), 'operator.brands', 'brands', [], ['operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit']),
                 $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
-                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item('WhatsApp', 'operator.whatsapp', 'chat')] : []),
             ]),
             $group($tr ? 'Sistem' : 'System', [
                 $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
@@ -85,5 +101,30 @@ final class DemoMenu
                 ]),
             ], true),
         ];
+    }
+
+    /**
+     * The agency's own brand (named like Ayarlar › Genel's agency name, else "Moximu") and its first website, for the
+     * Moximu group's shortcuts; null when there is none. Cached for a minute (the menu renders on every screen).
+     *
+     * @return array{id: int, name: string, website: ?int}|null
+     */
+    public static function agencyBrand(): ?array
+    {
+        try {
+            return Cache::remember('demo-menu.agency-brand', 60, function (): ?array {
+                $name = trim((string) (AgencySetting::query()->value('agency_name') ?? '')) ?: 'Moximu';
+                $brand = Brand::query()->where('name', $name)->first(['id', 'name'])
+                    ?? Brand::query()->where('name', 'Moximu')->first(['id', 'name']);
+                if ($brand === null) {
+                    return null;
+                }
+                $website = DigitalAsset::query()->where('type', 'website')->where('brand_id', $brand->id)->orderBy('id')->value('id');
+
+                return ['id' => (int) $brand->id, 'name' => (string) $brand->name, 'website' => $website !== null ? (int) $website : null];
+            });
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

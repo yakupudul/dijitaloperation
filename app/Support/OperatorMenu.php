@@ -43,9 +43,10 @@ final class OperatorMenu
             foreach ($group['items'] as $item) {
                 $items[] = [
                     'name' => $item['label'],
-                    'path' => route($item['route'], absolute: false),
+                    'path' => route($item['route'], $item['params'] ?? [], absolute: false),
                     'icon' => $item['icon'],
-                    'routes' => [$item['route'], ...array_column($item['children'] ?? [], 'route'), ...($item['active'] ?? [])],
+                    // A shortcut with parameters (Moximu's own brand / site) lights only on its own page.
+                    'routes' => isset($item['params']) ? [] : [$item['route'], ...array_column($item['children'] ?? [], 'route'), ...($item['active'] ?? [])],
                     'count' => $item['route'] === 'operator.flow' ? self::flowRunning() : ($counts[$item['route']] ?? $badges[$item['route']]['count'] ?? null),
                     'tone' => $item['route'] === 'operator.flow' ? 'live' : (isset($counts[$item['route']]) ? 'accent' : ($badges[$item['route']]['tone'] ?? null)),
                 ];
@@ -227,6 +228,11 @@ final class OperatorMenu
      */
     public static function activeEntry(array $items, string $currentPath, ?string $routeName): ?string
     {
+        foreach ($items as $item) {
+            if ($item['routes'] === [] && $currentPath === $item['path']) {
+                return $item['path'];
+            }
+        }
         if ($routeName !== null) {
             foreach ($items as $item) {
                 if (in_array($routeName, $item['routes'], true)) {
