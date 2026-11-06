@@ -83,7 +83,12 @@ final class SocialPage extends Component
     public function approveWeek(string $weekStart): void
     {
         $this->authorizeAdmin();
-        $start = Carbon::parse($weekStart, SocialPlanner::TIMEZONE)->startOfDay();
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekStart) !== 1) {
+            $this->message = 'Hafta okunamadı.';
+
+            return;
+        }
+        $start = Carbon::createFromFormat('Y-m-d', $weekStart, SocialPlanner::TIMEZONE)->startOfDay();
         $posts = SocialPost::query()->where('status', SocialPost::DRAFT)
             ->whereBetween('publish_at', [$start->copy()->utc(), $start->copy()->addWeek()->utc()])->get();
         foreach ($posts as $post) {
