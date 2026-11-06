@@ -11,8 +11,8 @@ use App\Models\Page;
 use App\Services\Site\Backlinks\LinkDataStory;
 use App\Services\Site\Backlinks\LinkDesk;
 use App\Services\Site\Backlinks\LinkTargets;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Tests\Support\InsertsFacts;
 
 /**
  * Backlink hizmeti, adım 5 (2026-11-06): a target's numbers are kept 60 and 90 days after its first verified link, the
@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Queue;
  */
 final class LinkImpactAndReportTest extends SiteTestCase
 {
+    use InsertsFacts;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -59,7 +61,7 @@ final class LinkImpactAndReportTest extends SiteTestCase
 
     public function test_the_most_asked_questions_become_a_quarterly_press_text(): void
     {
-        $insert = fn (string $query, int $impressions): bool => DB::table('gsc_query_page_daily')->insert(['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'page' => 'https://panorama.com.tr/',
+        $insert = fn (string $query, int $impressions) => $this->insertFacts('gsc_query_page_daily', ['digital_asset_id' => $this->site->id, 'site_url' => 'sc-domain:panorama.com.tr', 'page' => 'https://panorama.com.tr/',
             'reporting_date' => now()->subDays(10)->toDateString(), 'query' => $query, 'clicks' => 1, 'impressions' => $impressions, 'contract_version' => 1,
             'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $query), 'created_at' => now(), 'updated_at' => now()]);
         foreach (['implant tedavisi ne kadar sürer' => 900, 'implant ağrılı mı' => 800, 'implant kaç yıl dayanır' => 700, 'zirkonyum kaplama nedir' => 600,

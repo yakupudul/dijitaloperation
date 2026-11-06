@@ -57,7 +57,7 @@ final class MoxdopResetCommand extends Command
         'brand_goals', 'brand_goal_offering', 'digital_assets', 'core_asset_bindings', 'website_connector_delivery',
         'service_definitions',
         // operator inputs and audit logs
-        'backlinks', 'backlink_sources', 'meta_leads', 'google_ads_budget_plans', 'google_ads_conversion_business_mappings',
+        'backlinks', 'backlink_sources', 'link_sources', 'meta_leads', 'google_ads_budget_plans', 'google_ads_conversion_business_mappings',
         'ownership_transfers', 'asset_merges', 'security_audit_events', 'operator_files',
     ];
 
@@ -126,17 +126,71 @@ final class MoxdopResetCommand extends Command
             return [];
         }
         $emptied = array_flip($truncate);
-        $pairs = DB::select("select distinct c.conrelid::regclass::text as child, c.confrelid::regclass::text as parent from pg_constraint c where c.contype = 'f'");
         $conflicts = [];
-        foreach ($pairs as $pair) {
-            $child = trim((string) $pair->child, '"');
-            $parent = trim((string) $pair->parent, '"');
-            if (self::kept($child) && isset($emptied[$parent])) {
-                $conflicts[] = $child.' → '.$parent;
+        foreach ($this->foreignKeys() as $pair) {
+            // A kept row whose link is simply cleared when the emptied row goes (ON DELETE SET NULL / SET DEFAULT) is
+            // fine: that emptied table is deleted row by row instead of truncated (see truncate()).
+            if (self::kept($pair['child']) && isset($emptied[$pair['parent']]) && ! in_array($pair['on_delete'], ['n', 'd'], true)) {
+                $conflicts[] = $pair['child'].' → '.$pair['parent'];
             }
         }
 
         return $conflicts;
+    }
+
+    /** @return list<array{child: string, parent: string, on_delete: string}> PostgreSQL foreign keys */
+    private function foreignKeys(): array
+    {
+        return array_map(fn (object $row): array => ['child' => trim((string) $row->child, '"'), 'parent' => trim((string) $row->parent, '"'), 'on_delete' => (string) $row->on_delete],
+            DB::select("select distinct c.conrelid::regclass::text as child, c.confrelid::regclass::text as parent, c.confdeltype::text as on_delete from pg_constraint c where c.contype = 'f'"));
+    }
+
+    /**
+     * Emptied tables a kept table points at with ON DELETE SET NULL, plus every emptied table those point at: TRUNCATE
+     * cannot take them while the kept table stays, so they are deleted row by row, children first.
+     *
+     * @param  list<string>  $tables
+     * @return list<string> in delete order
+     */
+    private function deletedRowByRow(array $tables): array
+    {
+        $emptied = array_flip($tables);
+        $keys = $this->foreignKeys();
+        $set = [];
+        foreach ($keys as $k) {
+            if (self::kept($k['child']) && isset($emptied[$k['parent']])) {
+                $set[$k['parent']] = true;
+            }
+        }
+        do {
+            $grew = false;
+            foreach ($keys as $k) {
+                if (isset($set[$k['child']]) && isset($emptied[$k['parent']]) && ! isset($set[$k['parent']]) && $k['child'] !== $k['parent']) {
+                    $set[$k['parent']] = true;
+                    $grew = true;
+                }
+            }
+        } while ($grew);
+        // Children before parents.
+        $order = [];
+        $left = array_keys($set);
+        while ($left !== []) {
+            $progress = false;
+            foreach ($left as $i => $table) {
+                $waits = collect($keys)->contains(fn (array $k): bool => $k['parent'] === $table && $k['child'] !== $table && in_array($k['child'], $left, true));
+                if (! $waits) {
+                    $order[] = $table;
+                    unset($left[$i]);
+                    $progress = true;
+                }
+            }
+            if (! $progress) {
+                array_push($order, ...array_values($left));
+                break;
+            }
+        }
+
+        return $order;
     }
 
     /** @param  list<string>  $tables */
@@ -148,7 +202,14 @@ final class MoxdopResetCommand extends Command
         $driver = DB::getDriverName();
         if ($driver === 'pgsql') {
             // One statement: references between the emptied tables are fine, a kept table referencing an emptied one is an error we want to see.
-            DB::statement('truncate table '.implode(', ', array_map(fn (string $t): string => '"'.$t.'"', $tables)).' restart identity');
+            $rowByRow = $this->deletedRowByRow($tables);
+            $rest = array_values(array_diff($tables, $rowByRow));
+            if ($rest !== []) {
+                DB::statement('truncate table '.implode(', ', array_map(fn (string $t): string => '"'.$t.'"', $rest)).' restart identity');
+            }
+            foreach ($rowByRow as $table) {
+                DB::table($table)->delete();
+            }
 
             return;
         }
