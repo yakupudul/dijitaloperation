@@ -164,6 +164,7 @@
                                 @foreach (LinkDesk::PACKAGE_LABELS as $key => $label)<option value="{{ $key }}" @selected(($b->link_package ?? 'temel') === $key)>{{ $label }}</option>@endforeach
                             </select>
                             <button type="button" wire:click="fillBrand({{ $b->id }})" wire:loading.attr="disabled" class="btn-quiet text-xs">Şimdi doldur</button>
+                            <a href="{{ route('operator.links.report', ['brand' => $b->id]) }}" target="_blank" rel="noopener" class="link-neutral text-xs" data-links-report="{{ $b->id }}">Aylık rapor ↗</a>
                         </span>
                     </div>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-links-survey="{{ $b->id }}">
@@ -220,6 +221,9 @@
                                 @if ($t->kind === 'miknatis')<span class="chip-accent text-xs">link mıknatısı</span>@endif
                             </div>
                             <p class="text-xs text-gray-500">{{ $t->reason }}</p>
+                            @foreach ([60, 90] as $d)
+                                @if (isset($t->impact['d'.$d]))<p class="text-xs text-gray-500">İlk linkten {{ $d }} gün sonra: {{ $t->impact['d'.$d]['position'] }}. sıra, {{ $t->impact['d'.$d]['clicks'] }} tıklama</p>@endif
+                            @endforeach
                             @if ($t->before)
                                 <p class="text-xs text-gray-500">Seçildiği gün ({{ \Illuminate\Support\Carbon::parse($t->before['at'])->format('d.m.Y') }}): {{ $t->before['position'] }}. sıra, {{ $t->before['clicks'] }} tıklama · şimdi {{ $t->position }}. sıra, {{ $t->clicks }} tıklama</p>
                             @endif

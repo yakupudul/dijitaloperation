@@ -167,6 +167,7 @@ final class LinkPackWriter
             ],
             'engine' => $row->engine,
             'target' => ['url' => $row->target?->url ?? ($site?->primary_url ?: null), 'title' => $row->target?->title, 'anchor' => $row->anchor ?: $brand->name],
+            'data_story' => $row->engine === 'veri' ? ['questions' => LinkDataStory::questions($brand), 'days' => LinkDataStory::DAYS] : null,
             'lost_link' => $lost !== null ? ['page' => $lost->source_url, 'old_target' => $lost->target_url, 'old_anchor' => $lost->anchor] : null,
             'rules' => BrandPack::rules($brand),
         ];

@@ -3,6 +3,7 @@
 namespace App\Services\Site\Backlinks;
 
 use App\Models\Backlink;
+use App\Models\BacklinkSource;
 use App\Models\Brand;
 use App\Models\BrandClusterPage;
 use App\Models\BrandOffering;
@@ -13,6 +14,7 @@ use App\Models\Page;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\BrandlessSites;
 use App\Services\Site\SiteDomains;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -228,6 +230,45 @@ final class LinkTargets
 
         return ['position' => round((float) $rows->min('position_28d'), 1), 'impressions' => (int) $rows->sum('impressions_28d'),
             'clicks' => (int) $rows->sum('clicks_28d'), 'domains' => (int) $target->referring_domains];
+    }
+
+    /** Days after the first verified link when a target's numbers are kept (etki ölçümü). */
+    public const array IMPACT_DAYS = [60, 90];
+
+    /**
+     * Etki ölçümü: 60 and 90 days after a target's first verified link its Search Console numbers are kept next to the
+     * numbers of the day it was picked (`before`), so the report shows what the links did.
+     *
+     * @return int measurements written
+     */
+    public function measure(Brand $brand): int
+    {
+        $written = 0;
+        foreach (LinkTarget::query()->where('brand_id', $brand->id)->whereIn('status', [LinkTarget::ACTIVE, LinkTarget::DONE])->whereNotNull('page_id')->get() as $target) {
+            $first = BacklinkSource::query()->where('link_target_id', $target->id)->whereIn('status', [BacklinkSource::VERIFIED, BacklinkSource::REMOVED])
+                ->whereNotNull('verified_at')->min('verified_at');
+            if ($first === null) {
+                continue;
+            }
+            $first = Carbon::parse($first);
+            $impact = (array) $target->impact + ['first_link_at' => $first->toDateString()];
+            foreach (self::IMPACT_DAYS as $days) {
+                if (isset($impact['d'.$days]) || now()->lt($first->copy()->addDays($days))) {
+                    continue;
+                }
+                $current = $this->current($target);
+                if ($current === null) {
+                    continue;
+                }
+                $impact['d'.$days] = self::snapshot($current);
+                $written++;
+            }
+            if ($impact !== (array) $target->impact) {
+                $target->forceFill(['impact' => $impact])->save();
+            }
+        }
+
+        return $written;
     }
 
     /** @return array<string, int> url key → linking domains */

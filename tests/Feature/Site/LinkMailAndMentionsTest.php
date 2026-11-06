@@ -9,6 +9,7 @@ use App\Models\BacklinkSource;
 use App\Models\LinkMessage;
 use App\Models\LinkSource;
 use App\Services\Site\Backlinks\BacklinkVerifier;
+use App\Services\Site\Backlinks\LinkDesk;
 use App\Services\Site\Backlinks\LinkMailer;
 use App\Services\Site\Backlinks\LinkMentions;
 use App\Services\Site\Backlinks\LinkNapCheck;
@@ -50,7 +51,7 @@ final class LinkMailAndMentionsTest extends SiteTestCase
         $this->assertSame(BacklinkSource::APPLIED, $row->status);
         $this->assertSame(['ilk', 'editor@haber.example'], [$row->messages()->sole()->kind, $row->messages()->sole()->to]);
         $this->assertSame(1, $pool->fresh()->applied_count);
-        app(\App\Services\Site\Backlinks\LinkDesk::class)->sent($form);
+        app(LinkDesk::class)->sent($form);
 
         $this->assertFalse(LinkMailer::followUpDue($row->fresh()), 'no follow-up in the first week');
         $this->travel(8)->days();

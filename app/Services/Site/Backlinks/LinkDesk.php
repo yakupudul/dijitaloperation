@@ -167,6 +167,11 @@ final class LinkDesk
                 $room--;
             }
         }
+        // 4. Veri haberi: once a quarter, the brand's most asked questions become a press text for local news.
+        if ($room > 0 && ($story = LinkDataStory::propose($brand)) !== null) {
+            $new[] = $story;
+            $room--;
+        }
         foreach ($new as $row) {
             WriteLinkPack::dispatch((int) $row->id);
         }

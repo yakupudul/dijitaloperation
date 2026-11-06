@@ -23,14 +23,14 @@ class LinkTarget extends Model
     /** @var list<string> */
     protected $fillable = [
         'brand_id', 'page_id', 'cluster_id', 'url', 'url_key', 'title', 'query', 'reason', 'status', 'rank', 'position', 'impressions',
-        'clicks', 'referring_domains', 'anchor_plan', 'before', 'after', 'picked_at', 'released_at', 'kind',
+        'clicks', 'referring_domains', 'anchor_plan', 'before', 'after', 'picked_at', 'released_at', 'kind', 'impact',
     ];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
-            'anchor_plan' => 'array', 'before' => 'array', 'after' => 'array', 'picked_at' => 'immutable_datetime', 'released_at' => 'immutable_datetime',
+            'anchor_plan' => 'array', 'before' => 'array', 'after' => 'array', 'impact' => 'array', 'picked_at' => 'immutable_datetime', 'released_at' => 'immutable_datetime',
             'position' => 'float', 'impressions' => 'integer', 'clicks' => 'integer', 'referring_domains' => 'integer', 'rank' => 'integer',
         ];
     }

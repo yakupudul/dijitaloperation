@@ -4,6 +4,7 @@ use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\GbpReviewCardController;
 use App\Http\Controllers\Operator\GbpReviewRepliesPdfController;
+use App\Http\Controllers\Operator\Links\LinkReportController;
 use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\QueriesExportController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
@@ -215,6 +216,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/satis', SalesPage::class)->name('operator.sales');
         // Bağlantılar (Backlink hizmeti, 2026-11-06): every brand's link desk, targets and the shared source pool.
         Route::livewire('/baglantilar', LinkDeskPage::class)->name('operator.links');
+        Route::get('/baglantilar/rapor/{brand}/{month?}', LinkReportController::class)->where(['brand' => '[0-9]{1,18}', 'month' => '[0-9]{4}-[0-9]{2}'])->name('operator.links.report');
         Route::livewire('/satis/{lead}', LeadCardPage::class)->where('lead', '[0-9]{1,18}')->name('operator.sales.lead');
         // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.
         Route::get('/work', fn (Request $request) => redirect()->route('operator.repair', array_filter([

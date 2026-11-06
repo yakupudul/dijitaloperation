@@ -87,7 +87,10 @@ use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\LinkDesk;
+use App\Services\Site\Backlinks\LinkMailer;
+use App\Services\Site\Backlinks\LinkMentions;
 use App\Services\Site\Backlinks\LinkSourceGate;
+use App\Services\Site\Backlinks\LinkTargets;
 use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
@@ -1183,6 +1186,7 @@ Artisan::command('moxdop:links:desk {--brand= : Brand id}', function (LinkDesk $
     $targets = 0;
     foreach ($brands as $brand) {
         try {
+            app(LinkTargets::class)->measure($brand);
             $out = $desk->fill($brand);
             $added += $out['added'];
             $targets += $out['targets']['picked'];
@@ -1214,10 +1218,10 @@ Schedule::command('moxdop:links:gate')
 // E-posta takibi ve anılmalar (Backlink hizmeti adım 3, 2026-11-06): rows that brought nothing leave the desk (21 days
 // after a mail, 45 after a form), and each brand's Google Alerts feed is read for pages that name it without a link.
 Artisan::command('moxdop:links:daily', function (): void {
-    $dropped = \App\Services\Site\Backlinks\LinkMailer::giveUp();
+    $dropped = LinkMailer::giveUp();
     [$read, $added] = [0, 0];
-    $mentions = app(\App\Services\Site\Backlinks\LinkMentions::class);
-    foreach (\App\Models\Brand::query()->operational()->whereNotNull('link_alert_feed')->orderBy('id')->get() as $brand) {
+    $mentions = app(LinkMentions::class);
+    foreach (Brand::query()->operational()->whereNotNull('link_alert_feed')->orderBy('id')->get() as $brand) {
         $out = $mentions->read($brand);
         [$read, $added] = [$read + $out['read'], $added + $out['added']];
     }

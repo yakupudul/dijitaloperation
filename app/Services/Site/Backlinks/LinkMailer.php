@@ -65,7 +65,7 @@ final class LinkMailer
 
         return [
             'subject' => 'Ynt: '.($first?->subject ?? ($row->name.' hakkında')),
-            'body' => "Merhaba,\n\n".$date." tarihinde size ".$brand." için yazmıştım. Yoğunluğunuz arasında gözden kaçmış olabilir diye kısaca hatırlatmak istedim. "
+            'body' => "Merhaba,\n\n".$date.' tarihinde size '.$brand.' için yazmıştım. Yoğunluğunuz arasında gözden kaçmış olabilir diye kısaca hatırlatmak istedim. '
                 ."Uygun görürseniz dönüşünüzü memnuniyetle bekleriz; uygun değilse de haber vermeniz yeterli.\n\nTeşekkürler,\n".$brand.' adına',
         ];
     }
