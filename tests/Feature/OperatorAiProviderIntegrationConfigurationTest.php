@@ -56,6 +56,8 @@ class OperatorAiProviderIntegrationConfigurationTest extends TestCase
             ->assertOk()
             ->assertDontSee('OpenAI') // hidden from the hub 2026-10-19: all AI runs on the Claude MCP queue, DataForSEO is never added
             ->assertSee('Anthropic')
+            ->assertSee('Bing Webmaster')
+            ->assertSeeHtml('/integrations/bing')
             ->assertDontSee('Gemini')
             ->assertSee('Configure')
             ->assertDontSee('AI settings');
