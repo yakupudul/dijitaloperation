@@ -120,8 +120,10 @@ final class BacklinksTest extends TestCase
         BacklinkSourcesAgent::assertNeverPrompted();
 
         $this->assertSame([], app(AiTaskQueue::class)->submit($task, ['sources' => [
-            ['name' => 'Ankara Rehberi', 'url' => 'https://rehber.example/firma-ekle', 'kind' => 'dizin', 'fee' => 'ucretsiz', 'fee_evidence_url' => 'https://rehber.example/ucretsiz-kayit', 'reason' => 'Yerel rehber.'],
-            ['name' => 'Kanıtsız Ücretli', 'url' => 'https://ilan.example/ekle', 'kind' => 'dizin', 'fee' => 'ucretli', 'fee_evidence_url' => null, 'reason' => 'x'],
+            ['name' => 'Ankara Rehberi', 'url' => 'https://rehber.example/firma-ekle', 'kind' => 'dizin', 'fee' => 'ucretsiz', 'fee_evidence_url' => 'https://rehber.example/ucretsiz-kayit', 'reason' => 'Yerel rehber.',
+                'city' => 'Ankara', 'apply_via' => 'form', 'contact_email' => null],
+            ['name' => 'Kanıtsız Ücretli', 'url' => 'https://ilan.example/ekle', 'kind' => 'dizin', 'fee' => 'ucretli', 'fee_evidence_url' => null, 'reason' => 'x',
+                'city' => null, 'apply_via' => 'bilinmiyor', 'contact_email' => null],
         ], 'prompt_version' => BacklinkSourcesAgent::PROMPT_VERSION]));
 
         $this->assertSame(['status' => 'ready', 'added' => 2], Cache::get(BacklinkSourceProposer::statusKey($this->brand->id)));
@@ -172,8 +174,9 @@ final class BacklinksTest extends TestCase
 
     public function test_five_statuses_and_the_operator_sets_basvuru_and_verildi(): void
     {
-        $this->assertSame(['yok', 'basvuru', 'verildi', 'dogrulandi', 'kaldirildi'], BacklinkSource::STATUSES);
-        $this->assertSame(['henüz tespit edilmedi', 'başvuru / iletişim yapıldı', 'kullanıcı eklediğini bildirdi', 'sayfada doğrulandı', 'daha sonra kaldırıldı'], array_values(BacklinkSource::STATUS_LABELS));
+        // Bağlantı masası (2026-11-06) added "vazgeçildi": a row the operator or Claude set aside.
+        $this->assertSame(['yok', 'basvuru', 'verildi', 'dogrulandi', 'kaldirildi', 'vazgecildi'], BacklinkSource::STATUSES);
+        $this->assertSame(['henüz tespit edilmedi', 'başvuru / iletişim yapıldı', 'kullanıcı eklediğini bildirdi', 'sayfada doğrulandı', 'daha sonra kaldırıldı', 'vazgeçildi'], array_values(BacklinkSource::STATUS_LABELS));
         $this->assertArrayNotHasKey('dataforseo', Backlink::SOURCES);
         $source = BacklinkSource::query()->create(['brand_id' => $this->brand->id, 'name' => 'Dernek', 'url' => 'https://dernek.example/', 'domain' => 'dernek.example', 'status' => 'yok']);
         $this->fakePages(['https://dernek.example/uyeler' => '<html><body>Üyeler</body></html>']);

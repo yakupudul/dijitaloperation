@@ -25,9 +25,12 @@ final class BacklinkSourcesAgent implements Agent, HasProviderOptions, HasStruct
 
     public const string OPERATION = AiRouteKeys::BACKLINKS_SOURCES;
 
-    public const string PROMPT_VERSION = 'backlinks-sources-v1';
+    public const string PROMPT_VERSION = 'backlinks-sources-v2';
 
-    public const array KINDS = ['dizin', 'dernek', 'yerel_haber', 'oda', 'diger'];
+    /** The pool's kinds (LinkSource::KINDS). */
+    public const array KINDS = ['dizin', 'rehber', 'saglik', 'dernek', 'oda', 'yerel_haber', 'universite', 'tedarikci', 'etkinlik', 'harita', 'diger'];
+
+    public const array APPLY_VIA = ['form', 'eposta', 'telefon', 'uyelik', 'bilinmiyor'];
 
     public const array FEES = ['ucretsiz', 'ucretli', 'teyit'];
 
@@ -47,6 +50,9 @@ final class BacklinkSourcesAgent implements Agent, HasProviderOptions, HasStruct
                 'fee' => $row->string()->enum(self::FEES)->required(),
                 'fee_evidence_url' => $row->string()->nullable()->required(),
                 'reason' => $row->string()->required(),
+                'city' => $row->string()->nullable()->required(),
+                'apply_via' => $row->string()->enum(self::APPLY_VIA)->required(),
+                'contact_email' => $row->string()->nullable()->required(),
             ]))->required(),
             'prompt_version' => $schema->string()->required(),
         ];

@@ -68,8 +68,13 @@ final class SerpMentionSources
 
                 continue;
             }
+            $kind = $row['class'] === 'haber' ? 'yerel_haber' : 'dizin';
+            // A site Google shows for the brand's local searches joins the shared pool for the brand's city.
+            $pool = LinkDesk::absorb(['name' => $domain, 'url' => 'https://'.$domain.'/', 'domain' => $domain, 'kind' => $kind,
+                'city' => LinkDesk::cities($brand)[0] ?? null], $brand, 'serp');
             BacklinkSource::query()->create(['brand_id' => $brand->id, 'name' => $domain, 'url' => 'https://'.$domain.'/', 'domain' => $domain,
-                'kind' => $row['class'] === 'haber' ? 'yerel_haber' : 'dizin', 'fee' => 'teyit', 'reason' => $reason, 'origin' => self::ORIGIN, 'status' => BacklinkSource::NONE]);
+                'kind' => $kind, 'fee' => 'teyit', 'reason' => $reason, 'origin' => self::ORIGIN, 'status' => BacklinkSource::NONE,
+                'link_source_id' => $pool->id, 'engine' => $kind === 'yerel_haber' ? 'anilma' : 'kunye']);
             $out['added']++;
         }
 

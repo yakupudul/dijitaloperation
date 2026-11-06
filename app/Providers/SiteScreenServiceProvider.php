@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Ai\Agents\Site\LinkPackAgent;
 use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
@@ -32,6 +33,14 @@ final class SiteScreenServiceProvider extends ServiceProvider
             'name' => 'Backlink Sources',
             'module' => 'site',
             'description' => 'Backlinkler: one call proposes potential link sources by sector and service areas; a fee needs an evidence URL.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+        // Backlink hizmeti (2026-11-06): the application material of a Bağlantı masası row; the operator sends it.
+        $routes->register([
+            'key' => LinkPackAgent::ROUTE,
+            'name' => 'Bağlantı başvurusu',
+            'module' => 'site',
+            'description' => 'Bağlantı masası: profile texts, form values, e-mail and phone note for one link source; unsafe or unrelated sources are set aside. Nothing is sent.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
     }

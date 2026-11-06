@@ -59,6 +59,7 @@ use App\Livewire\Operator\Library\QueriesPage;
 use App\Livewire\Operator\Library\QueryPlanWizard;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
+use App\Livewire\Operator\Links\LinkDeskPage;
 use App\Livewire\Operator\Meta\AdPage as MetaAdPage;
 use App\Livewire\Operator\Meta\AssignPage as MetaAssignPage;
 use App\Livewire\Operator\Meta\CampaignPage as MetaCampaignPage;
@@ -212,6 +213,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         // Takvim (2026-11-05): own tasks and meetings, prospects' next steps and the brands' work on one calendar.
         Route::livewire('/takvim', CalendarPage::class)->name('operator.calendar');
         Route::livewire('/satis', SalesPage::class)->name('operator.sales');
+        // Bağlantılar (Backlink hizmeti, 2026-11-06): every brand's link desk, targets and the shared source pool.
+        Route::livewire('/baglantilar', LinkDeskPage::class)->name('operator.links');
         Route::livewire('/satis/{lead}', LeadCardPage::class)->where('lead', '[0-9]{1,18}')->name('operator.sales.lead');
         // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.
         Route::get('/work', fn (Request $request) => redirect()->route('operator.repair', array_filter([

@@ -50,8 +50,18 @@ final class BacklinkVerifier
 
             return self::UNREACHABLE;
         }
-        if (self::linksTo($html, $own)) {
-            $source->forceFill(['status' => BacklinkSource::VERIFIED, 'verified_at' => now(), 'checked_at' => now(), 'note' => null])->save();
+        $rel = self::linkRel($html, $own);
+        if ($rel !== null) {
+            $first = $source->status !== BacklinkSource::VERIFIED && $source->verified_at === null;
+            $source->forceFill(['status' => BacklinkSource::VERIFIED, 'verified_at' => $source->verified_at ?? now(), 'checked_at' => now(), 'rel' => $rel,
+                'next_step_at' => null, 'note' => match (true) {
+                    $source->paid && $rel !== 'sponsored' => 'Ücretli link: kaynaktan rel="sponsored" eklemesini iste · '.$today,
+                    $rel === 'follow', $rel === 'sponsored' && $source->paid => null,
+                    default => 'Link '.$rel.' işaretli · '.$today,
+                }])->save();
+            if ($first) {
+                LinkDesk::learn($source);
+            }
 
             return self::FOUND;
         }
@@ -73,8 +83,19 @@ final class BacklinkVerifier
     /** @param  list<string>  $own  registrable domains */
     public static function linksTo(string $html, array $own): bool
     {
+        return self::linkRel($html, $own) !== null;
+    }
+
+    /**
+     * The rel of the first link to one of the brand's domains: follow, nofollow, sponsored or ugc (the strongest
+     * when several point there); null when there is none.
+     *
+     * @param  list<string>  $own  registrable domains
+     */
+    public static function linkRel(string $html, array $own): ?string
+    {
         if ($own === []) {
-            return false;
+            return null;
         }
         $document = new DOMDocument;
         $previous = libxml_use_internal_errors(true);
@@ -82,8 +103,9 @@ final class BacklinkVerifier
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
         if (! $loaded) {
-            return false;
+            return null;
         }
+        $found = null;
         foreach ($document->getElementsByTagName('a') as $anchor) {
             $href = trim((string) $anchor->getAttribute('href'));
             if ($href === '' || ! preg_match('#^(https?:)?//#i', $href)) {
@@ -91,11 +113,21 @@ final class BacklinkVerifier
             }
             $host = SiteDomains::host(str_starts_with($href, '//') ? 'https:'.$href : $href);
             if ($host !== null && SiteDomains::isOwn($host, $own)) {
-                return true;
+                $rel = ' '.mb_strtolower((string) $anchor->getAttribute('rel')).' ';
+                $kind = match (true) {
+                    str_contains($rel, ' sponsored ') => 'sponsored',
+                    str_contains($rel, ' ugc ') => 'ugc',
+                    str_contains($rel, ' nofollow ') => 'nofollow',
+                    default => 'follow',
+                };
+                if ($kind === 'follow') {
+                    return 'follow';
+                }
+                $found ??= $kind;
             }
         }
 
-        return false;
+        return $found;
     }
 
     /** @return array{checked: int, found: int, removed: int} */

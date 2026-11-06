@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\BacklinkSource;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
 use App\Models\GbpQueuedPost;
@@ -182,6 +183,10 @@ final class OperatorMenu
             ->where('last_message_at', '>=', now()->subDays(7))->count());
         // Satış (2026-11-04): how many prospects to write to today.
         $put('operator.sales', 'soft', fn (): int => app(SalesLeads::class)->due()->count());
+        // Bağlantılar: applications ready to send and rows for the operator's own call or visit.
+        $put('operator.links', 'soft', fn (): int => BacklinkSource::query()->where('status', BacklinkSource::NONE)
+            ->where(fn ($q) => $q->where('material_status', 'ready')->orWhere('lane', 'sen')->whereNotNull('material_status'))
+            ->whereHas('brand', fn ($q) => $q->operational())->count());
         $put('operator.integrations', 'dot', function (): bool {
             $health = app(SystemHealthReader::class)->read();
             foreach ($health['integrations'] as $integration) {
@@ -308,6 +313,7 @@ final class OperatorMenu
             'settings' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>',
             'files' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg>',
             'agenda' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M7.5 13.5h3M7.5 17h6"/></svg>',
+            'link' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
             'prospects' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-2 2 2 2"/><path d="M17 13h5"/></svg>',
             'library' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
             'search' => '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/><path d="M8 9h6M8 12h4"/></svg>',

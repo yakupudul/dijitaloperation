@@ -59,6 +59,7 @@ final class AiOperationLabels
         'competitors.classify' => 'Rakip sınıflandırma',
         'competitors.analyze' => 'Rakip analizi',
         'backlinks.sources' => 'Backlink kaynak önerisi',
+        'backlinks.pack' => 'Bağlantı başvurusu',
         'site.page_categories' => 'Sayfaları sınıflandır',
         'site.service_pages' => 'Hizmet ↔ sayfa eşleme',
         'site.image_alts' => 'Görsel alt metni öner',

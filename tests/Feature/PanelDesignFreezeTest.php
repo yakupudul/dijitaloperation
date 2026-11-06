@@ -63,6 +63,8 @@ class PanelDesignFreezeTest extends TestCase
             'operator.flow',
             'operator.repair',
             'operator.content',
+            // Bağlantılar added 2026-11-06 (yakup: backlink service for the brands).
+            'operator.links',
             // Moximu group 2026-11-06 (yakup: the agency's own work together): Satış, WhatsApp, Sosyal medya, and with an
             // agency brand also Web sitemiz and Marka kartımız (none in this fixture).
             'operator.sales',

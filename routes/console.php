@@ -85,6 +85,7 @@ use App\Services\Queries\QueryNotifier;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
+use App\Services\Site\Backlinks\LinkDesk;
 use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
@@ -1169,6 +1170,32 @@ Schedule::command('moxdop:bing:collect')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(60)
     ->name('bing-collect');
+
+// Bağlantı masası (Backlink hizmeti, yakup 2026-11-06): every Monday each serviced brand's target pages are read again
+// and its desk is filled up to its package (lost links first, then its own candidates, then the shared pool); Claude
+// writes each new row's material. Nothing is sent: the operator applies or sends with a click.
+Artisan::command('moxdop:links:desk {--brand= : Brand id}', function (LinkDesk $desk): void {
+    $brandId = $this->option('brand');
+    $brands = Brand::query()->operational()->when(is_numeric($brandId), fn ($q) => $q->whereKey((int) $brandId))->orderBy('id')->get();
+    $added = 0;
+    $targets = 0;
+    foreach ($brands as $brand) {
+        try {
+            $out = $desk->fill($brand);
+            $added += $out['added'];
+            $targets += $out['targets']['picked'];
+        } catch (Throwable $error) {
+            report($error);
+        }
+    }
+    $this->info(sprintf('Bağlantı masası: %d marka, %d yeni hedef sayfa, %d yeni satır.', $brands->count(), $targets, $added));
+})->purpose('Pick the brands\' link target pages and fill the Bağlantı masası up to each package.');
+
+Schedule::command('moxdop:links:desk')
+    ->weeklyOn(1, '07:40')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(120)
+    ->name('links-desk');
 
 Schedule::command('moxdop:bing:backlinks')
     ->weeklyOn(0, '06:35')

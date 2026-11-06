@@ -8,6 +8,7 @@ use App\Models\BacklinkSource;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\BrandServiceArea;
+use App\Models\LinkSource;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
@@ -96,7 +97,12 @@ final class BacklinkSourceProposer
                 continue;
             }
             $seen[$source['domain']] = true;
-            BacklinkSource::query()->create($source + ['brand_id' => $brand->id, 'origin' => 'ai', 'status' => BacklinkSource::NONE]);
+            // Every source joins the shared pool (sector × city), so the next brand of the sector gets it on its desk.
+            $pool = LinkDesk::absorb($source, $brand, 'ai');
+            BacklinkSource::query()->create($source + ['brand_id' => $brand->id, 'origin' => 'ai', 'status' => BacklinkSource::NONE, 'link_source_id' => $pool->id,
+                'engine' => in_array($pool->kind, LinkSource::CITATION_KINDS, true) ? 'kunye' : 'iliski',
+                'lane' => in_array($pool->kind, LinkSource::PERSON_KINDS, true) || $pool->apply_via === 'telefon' ? 'sen' : 'masa',
+                'paid' => $source['fee'] === 'ucretli']);
             $added++;
         }
 
@@ -108,7 +114,7 @@ final class BacklinkSourceProposer
      * same site (else "teyit").
      *
      * @param  array<string, mixed>  $row
-     * @return array{name: string, url: string, domain: string, kind: string, fee: string, fee_evidence_url: ?string, reason: string}|null
+     * @return array{name: string, url: string, domain: string, kind: string, fee: string, fee_evidence_url: ?string, reason: string, city: ?string, apply_via: string, contact_email: ?string}|null
      */
     public static function validSource(array $row): ?array
     {
@@ -133,6 +139,9 @@ final class BacklinkSourceProposer
             'fee' => $fee,
             'fee_evidence_url' => $fee === 'teyit' ? null : mb_substr($evidence, 0, 2000),
             'reason' => mb_substr(trim((string) ($row['reason'] ?? '')), 0, 240),
+            'city' => trim((string) ($row['city'] ?? '')) ?: null,
+            'apply_via' => in_array($row['apply_via'] ?? null, BacklinkSourcesAgent::APPLY_VIA, true) ? (string) $row['apply_via'] : 'bilinmiyor',
+            'contact_email' => filter_var(trim((string) ($row['contact_email'] ?? '')), FILTER_VALIDATE_EMAIL) !== false ? trim((string) $row['contact_email']) : null,
         ];
     }
 }

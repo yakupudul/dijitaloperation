@@ -50,6 +50,8 @@ final class DemoMenu
                 $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
                 // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
                 $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
+                // Bağlantılar (Backlink hizmeti, 2026-11-06): link targets, the desk of ready applications, the shared pool.
+                $item($tr ? 'Bağlantılar' : 'Links', 'operator.links', 'link'),
             ]),
             // Moximu (yakup 2026-11-06: "bizim Moximu markamızla alakalı bölümleri aynı menü altında topla"): the agency's
             // own work. The brand and site entries are shortcuts to the same screens, opened on the agency's brand.
