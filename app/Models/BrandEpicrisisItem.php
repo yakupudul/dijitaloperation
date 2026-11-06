@@ -51,6 +51,7 @@ class BrandEpicrisisItem extends Model
     public const array SOURCES = [
         'operator' => 'Operatör', 'chat' => 'Operatör (sohbetten)', 'moxdop' => 'MoxDOP kayıtları', 'site' => 'Web sitesi', 'gbp' => 'İşletme Profili',
         'ads' => 'Google Ads', 'meta' => 'Meta', 'reviews' => 'Yorumlar', 'search' => 'Search Console', 'ai' => 'AI sentezi', 'rules' => 'Kurallar',
+        'customer' => 'Müşteri formu',
     ];
 
     /** @var list<string> */

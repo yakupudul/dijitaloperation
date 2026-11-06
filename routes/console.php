@@ -21,6 +21,7 @@ use App\Jobs\Ops\QueueHeartbeatProbeJob;
 use App\Jobs\Queries\QueryAutopilotJob;
 use App\Jobs\RefreshBrandCandidatesJob;
 use App\Jobs\ReviewRepairRowsJob;
+use App\Jobs\Site\CheckLinkSourcesJob;
 use App\Jobs\Site\PrepareTranslationFixJob;
 use App\Jobs\Site\PullClarityJob;
 use App\Jobs\Site\SyncContentPostsJob;
@@ -86,6 +87,7 @@ use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\LinkDesk;
+use App\Services\Site\Backlinks\LinkSourceGate;
 use App\Services\Site\Backlinks\SerpMentionSources;
 use App\Services\Site\BrandlessSites;
 use App\Services\Site\BrokenTranslations;
@@ -1190,6 +1192,24 @@ Artisan::command('moxdop:links:desk {--brand= : Brand id}', function (LinkDesk $
     }
     $this->info(sprintf('Bağlantı masası: %d marka, %d yeni hedef sayfa, %d yeni satır.', $brands->count(), $targets, $added));
 })->purpose('Pick the brands\' link target pages and fill the Bağlantı masası up to each package.');
+
+// Kalite kapısı (Backlink hizmeti, 2026-11-06): new pool sources are opened and judged every morning before any brand
+// is offered them (rules first, Claude for the rest).
+Artisan::command('moxdop:links:gate', function (): void {
+    $batches = 0;
+    $ids = LinkSourceGate::waiting(LinkSourceGate::BATCH * 5)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    foreach (array_chunk($ids, LinkSourceGate::BATCH) as $chunk) {
+        CheckLinkSourcesJob::dispatch($chunk);
+        $batches++;
+    }
+    $this->info(sprintf('Kalite kapısı: %d kaynak, %d parti.', count($ids), $batches));
+})->purpose('Check the new link sources of the shared pool before they are offered to brands.');
+
+Schedule::command('moxdop:links:gate')
+    ->dailyAt('06:50')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(60)
+    ->name('links-gate');
 
 Schedule::command('moxdop:links:desk')
     ->weeklyOn(1, '07:40')

@@ -6,9 +6,11 @@ use App\Jobs\Site\WriteLinkPack;
 use App\Models\BacklinkSource;
 use App\Models\Brand;
 use App\Models\LinkSource;
+use App\Models\LinkSurvey;
 use App\Models\LinkTarget;
 use App\Models\ServiceCategory;
 use App\Services\Site\Backlinks\LinkDesk;
+use App\Services\Site\Backlinks\LinkSurveys;
 use App\Services\Site\SiteDomains;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,6 +52,9 @@ final class LinkDeskPage extends Component
     public array $source = ['name' => '', 'url' => '', 'kind' => 'dizin', 'city' => '', 'apply_via' => 'form', 'contact_email' => '', 'sector_id' => ''];
 
     public string $message = '';
+
+    /** @var array<int, string> the client form link shown under a brand */
+    public array $surveyUrl = [];
 
     public function updatedTab(): void
     {
@@ -126,6 +131,13 @@ final class LinkDeskPage extends Component
             .($out['added'] > 0 ? ' (malzemeleri Claude yazıyor).' : '.');
     }
 
+    /** The client's "Bağlantı kaynakları" form link of a brand (made once, then the same link). */
+    public function surveyLink(int $brandId, LinkSurveys $surveys): void
+    {
+        $brand = Brand::query()->findOrFail($brandId);
+        $this->surveyUrl = [$brandId => LinkSurveys::url($surveys->for($brand))];
+    }
+
     public function addSource(): void
     {
         $this->resetErrorBag();
@@ -194,11 +206,12 @@ final class LinkDeskPage extends Component
     /** @return Collection<int, array{brand: Brand, month: array<string, int>, targets: Collection<int, LinkTarget>}> */
     private function plans(Collection $brands, LinkDesk $desk): Collection
     {
+        $surveys = LinkSurvey::query()->whereIn('brand_id', $brands->pluck('id'))->get()->keyBy('brand_id');
         $targets = LinkTarget::query()->whereIn('brand_id', $brands->pluck('id'))->whereIn('status', [LinkTarget::ACTIVE, LinkTarget::DONE])
             ->orderBy('status')->orderBy('rank')->get()->groupBy('brand_id');
 
         return $brands->when($this->brand > 0, fn (Collection $c) => $c->where('id', $this->brand))
-            ->map(fn (Brand $b): array => ['brand' => $b, 'month' => $desk->month($b), 'targets' => $targets->get($b->id, collect())])->values();
+            ->map(fn (Brand $b): array => ['brand' => $b, 'month' => $desk->month($b), 'targets' => $targets->get($b->id, collect()), 'survey' => $surveys->get($b->id)])->values();
     }
 
     /** @return Collection<int, LinkSource> */

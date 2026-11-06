@@ -104,7 +104,7 @@
                                             </div>
                                         @endif
                                         <div class="flex flex-wrap items-center gap-2 pt-1">
-                                            <a href="{{ $row->link_url ?: $row->url }}" target="_blank" rel="noopener" class="btn">Siteyi aç ↗</a>
+                                            @if ($row->link_url ?: $row->url)<a href="{{ $row->link_url ?: $row->url }}" target="_blank" rel="noopener" class="btn">Siteyi aç ↗</a>@endif
                                             @if ($row->status === BacklinkSource::NONE)
                                                 <button type="button" wire:click="sent({{ $row->id }})" class="btn-dark" @disabled($row->material_status !== 'ready')>Başvurdum</button>
                                                 <button type="button" wire:click="rewrite({{ $row->id }})" class="btn-quiet">Yeniden yaz</button>
@@ -140,6 +140,19 @@
                             </select>
                             <button type="button" wire:click="fillBrand({{ $b->id }})" wire:loading.attr="disabled" class="btn-quiet text-xs">Şimdi doldur</button>
                         </span>
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500" data-links-survey="{{ $b->id }}">
+                        @if ($plan['survey']?->answered_at)
+                            <span>Müşteri "Bağlantı kaynakları" formunu {{ $plan['survey']->answered_at->timezone('Europe/Istanbul')->format('d.m.Y') }} tarihinde doldurdu · {{ $plan['survey']->rows_created }} ilişki satırı.</span>
+                        @else
+                            <span>Müşterinin gerçek ilişkileri (üyelik, tedarikçi, üniversite, sponsorluk) en değerli linkleri getirir.</span>
+                        @endif
+                        @if (isset($surveyUrl[$b->id]))
+                            <span x-data="{ copied: false }" class="flex items-center gap-2"><code class="rounded bg-gray-50 px-2 py-0.5 dark:bg-white/[0.04]">{{ $surveyUrl[$b->id] }}</code>
+                                <button type="button" class="link-neutral" x-on:click="navigator.clipboard.writeText(@js($surveyUrl[$b->id])); copied = true" x-text="copied ? 'Kopyalandı' : 'Kopyala'">Kopyala</button></span>
+                        @else
+                            <button type="button" wire:click="surveyLink({{ $b->id }})" class="link-neutral">Müşteri formunun bağlantısını al</button>
+                        @endif
                     </div>
                     @forelse ($plan['targets'] as $t)
                         <div class="mt-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-800" wire:key="target-{{ $t->id }}">

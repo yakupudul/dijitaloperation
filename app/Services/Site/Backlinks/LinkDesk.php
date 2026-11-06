@@ -2,6 +2,7 @@
 
 namespace App\Services\Site\Backlinks;
 
+use App\Jobs\Site\ProposeBacklinkSourcesJob;
 use App\Jobs\Site\VerifyBacklinkSourceJob;
 use App\Jobs\Site\WriteLinkPack;
 use App\Models\Backlink;
@@ -10,10 +11,13 @@ use App\Models\Brand;
 use App\Models\BrandServiceArea;
 use App\Models\LinkSource;
 use App\Models\LinkTarget;
+use App\Services\Compliance\SectorPack;
+use App\Services\Compliance\SectorPackRegistry;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\SiteDomains;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Bağlantı masası (Backlink hizmeti mimarisi, katman 2 ve 4; yakup 2026-11-06): ONE work list of link opportunities for
@@ -70,15 +74,16 @@ final class LinkDesk
     /**
      * Refreshes the brand's targets and adds new rows up to its room this month; each new row's material is written.
      *
-     * @return array{targets: array<string, int>, added: int, recovery: int}
+     * @return array{targets: array<string, int>, added: int, recovery: int, discovery: bool}
      */
     public function fill(Brand $brand): array
     {
-        $out = ['targets' => ['picked' => 0, 'kept' => 0, 'done' => 0, 'released' => 0], 'added' => 0, 'recovery' => 0];
+        $out = ['targets' => ['picked' => 0, 'kept' => 0, 'done' => 0, 'released' => 0], 'added' => 0, 'recovery' => 0, 'discovery' => false];
         if (! $brand->isOperational() || self::budget($brand) === 0 || ! self::hasServicedSite($brand)) {
             return $out;
         }
         $out['targets'] = $this->targets->refresh($brand);
+        LinkCitations::ensure();
         $room = $this->month($brand)['room'];
         if ($room === 0) {
             return $out;
@@ -111,11 +116,15 @@ final class LinkDesk
 
         $targets = LinkTarget::query()->where('brand_id', $brand->id)->where('status', LinkTarget::ACTIVE)->orderBy('rank')->get();
 
-        // 2. The brand's own candidates (AI proposal, sites shown for its searches, added by hand), oldest first.
-        foreach (BacklinkSource::query()->where('brand_id', $brand->id)->where('status', BacklinkSource::NONE)->whereNull('material_status')
-            ->orderByRaw("CASE WHEN origin = 'manual' THEN 0 ELSE 1 END")->orderBy('id')->get() as $candidate) {
+        // 2. The brand's own candidates (the client's form and the operator first, then AI proposals and sites shown for
+        // its searches once their pool source passed the quality gate), oldest first.
+        foreach (BacklinkSource::query()->with('pool')->where('brand_id', $brand->id)->where('status', BacklinkSource::NONE)->whereNull('material_status')
+            ->orderByRaw("CASE WHEN origin IN ('musteri', 'manual') THEN 0 ELSE 1 END")->orderBy('id')->get() as $candidate) {
             if ($room === 0) {
                 break;
+            }
+            if ($candidate->pool !== null && $candidate->pool->quality !== 'uygun') {
+                continue; // waits for the quality gate (a refused one is dropped by the gate)
             }
             if ($linking->has(SiteDomains::registrable((string) $candidate->domain)) || self::otherBrandDomain($brand, SiteDomains::registrable((string) $candidate->domain))) {
                 continue;
@@ -158,12 +167,20 @@ final class LinkDesk
         }
         $out['added'] = count($new);
 
+        // Künye keşfi: the pool has nothing left for this brand, so Claude looks for its city's and sector's sources
+        // (they pass the quality gate before the next fill). At most once a month per brand.
+        if ($room > 0 && ! $this->hasFreshPool($brand, $known, $linking) && Cache::add('links:discover:'.$brand->id, true, now()->addDays(30))) {
+            BacklinkSourceProposer::markRunning((int) $brand->id);
+            ProposeBacklinkSourcesJob::dispatch((int) $brand->id);
+            $out['discovery'] = true;
+        }
+
         return $out;
     }
 
     /**
-     * Pool sources a brand may use: not refused, of its sector or any sector, of its cities or the whole country; the
-     * ones that brought links first, then checked ones, then by authority.
+     * Pool sources a brand may use: passed the quality gate, of its sector or any sector, of its cities or the whole
+     * country (health platforms only for health brands); the ones that brought links first, then by authority.
      *
      * @return Collection<int, LinkSource>
      */
@@ -171,7 +188,9 @@ final class LinkDesk
     {
         $cities = self::cities($brand);
 
-        return LinkSource::query()->where('quality', '!=', 'red')
+        $health = self::isHealth($brand);
+
+        return LinkSource::query()->where('quality', 'uygun')->when(! $health, fn (Builder $q) => $q->where('kind', '!=', 'saglik'))
             ->where(fn (Builder $q) => $q->whereNull('sector_id')->when($brand->sector_id !== null, fn (Builder $s) => $s->orWhere('sector_id', $brand->sector_id)))
             ->where(fn (Builder $q) => $q->whereNull('city')->when($cities !== [], fn (Builder $c) => $c->orWhereIn('city', $cities)))
             ->get()
@@ -254,6 +273,22 @@ final class LinkDesk
         $days = $from !== null ? (int) max(0, round($from->diffInDays(now()))) : 0;
         $pool->forceFill(['won_count' => $pool->won_count + 1, 'days_total' => $pool->days_total + $days,
             'quality' => $pool->quality === 'bekliyor' ? 'uygun' : $pool->quality])->save();
+    }
+
+    /** Health, dental and medical aesthetics brands (the health sector pack applies to them). */
+    public static function isHealth(Brand $brand): bool
+    {
+        return collect(app(SectorPackRegistry::class)->forBrand($brand))->contains(fn (SectorPack $pack): bool => $pack->id() === 'health');
+    }
+
+    /**
+     * @param  Collection<string, mixed>  $known
+     * @param  Collection<string, mixed>  $linking
+     */
+    private function hasFreshPool(Brand $brand, Collection $known, Collection $linking): bool
+    {
+        return $this->poolFor($brand)->contains(fn (LinkSource $s): bool => ! $known->has(SiteDomains::registrable($s->domain)) && ! $linking->has(SiteDomains::registrable($s->domain)))
+            || LinkSource::query()->where('quality', 'bekliyor')->where('sector_id', $brand->sector_id)->exists();
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Ai\Agents\Site\LinkPackAgent;
+use App\Ai\Agents\Site\LinkQualityAgent;
 use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
@@ -42,6 +43,13 @@ final class SiteScreenServiceProvider extends ServiceProvider
             'module' => 'site',
             'description' => 'Bağlantı masası: profile texts, form values, e-mail and phone note for one link source; unsafe or unrelated sources are set aside. Nothing is sent.',
             'default_steps' => AiDefaultSteps::analysis(),
+        ]);
+        $routes->register([
+            'key' => LinkQualityAgent::ROUTE,
+            'name' => 'Kaynak kalite kapısı',
+            'module' => 'site',
+            'description' => 'Kaynak havuzu: new link sources are judged in batches (uygun / red, kind, city, way to apply) before any brand is offered them.',
+            'default_steps' => AiDefaultSteps::classification(),
         ]);
     }
 }

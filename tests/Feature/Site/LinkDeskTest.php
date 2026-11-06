@@ -91,13 +91,14 @@ final class LinkDeskTest extends SiteTestCase
         $pool('baskaklinik.com');
         $pool('hukuk.example', ['sector_id' => null, 'city' => null, 'kind' => 'dizin', 'won_count' => 0]);
         BacklinkSource::query()->create(['brand_id' => $this->brand->id, 'name' => 'Aday', 'url' => 'https://aday.example/', 'domain' => 'aday.example', 'kind' => 'dizin', 'status' => 'yok', 'origin' => 'manual']);
-        $this->brand->forceFill(['link_package' => 'temel'])->save();
+        $this->brand->forceFill(['link_package' => 'otorite'])->save();
 
         $out = app(LinkDesk::class)->fill($this->brand->fresh());
 
-        $this->assertSame(5, $out['added'], 'every fitting source fits in the room of Temel (2 links a month × 3 open rows)');
+        $this->assertSame(10, $out['added'], 'every fitting source fits in the room of Otorite (6 links a month × 3 open rows)');
         $rows = BacklinkSource::query()->where('brand_id', $this->brand->id)->orderBy('id')->get()->keyBy('domain');
-        $this->assertEqualsCanonicalizing(['aday.example', 'eski.example', 'ankararehber.example', 'dishekimleri.example', 'hukuk.example'], $rows->keys()->all());
+        $this->assertEqualsCanonicalizing(['aday.example', 'eski.example', 'ankararehber.example', 'dishekimleri.example', 'hukuk.example',
+            'bingplaces.com', 'businessconnect.apple.com', 'yandex.com.tr', 'doktortakvimi.com', 'doktorsitesi.com'], $rows->keys()->all(), 'the national listings join every desk; health platforms only a health brand\'s');
         $this->assertFalse($rows->has('izmirrehber.example'), 'another city\'s source is not offered');
         $this->assertFalse($rows->has('linksatan.example'), 'a refused source is never offered');
         $this->assertFalse($rows->has('baskaklinik.com'), 'our brands never link to each other');
@@ -105,13 +106,13 @@ final class LinkDeskTest extends SiteTestCase
         $this->assertSame(['kunye', null, 'Panorama Ankara', 'masa'], [$rows['ankararehber.example']->engine, $rows['ankararehber.example']->link_target_id, $rows['ankararehber.example']->anchor, $rows['ankararehber.example']->lane]);
         $this->assertSame(['iliski', 'sen', '/implant-tedavisi/'], [$rows['dishekimleri.example']->engine, $rows['dishekimleri.example']->lane, $rows['dishekimleri.example']->target?->path()]);
         $this->assertSame('queued', $rows['aday.example']->material_status, 'the brand\'s own candidate is taken onto the desk');
-        Queue::assertPushed(WriteLinkPack::class, 5);
-        $this->assertSame(['budget' => 2, 'won' => 0, 'open' => 5, 'room' => 1], app(LinkDesk::class)->month($this->brand->fresh()));
+        Queue::assertPushed(WriteLinkPack::class, 10);
+        $this->assertSame(['budget' => 6, 'won' => 0, 'open' => 10, 'room' => 8], app(LinkDesk::class)->month($this->brand->fresh()));
 
-        // One more pool source: only the room left is used.
+        // Temel leaves no room for more.
+        $this->brand->forceFill(['link_package' => 'temel'])->save();
         $pool('ankaradis.example');
-        $pool('cankayarehber.example');
-        $this->assertSame(1, app(LinkDesk::class)->fill($this->brand->fresh())['added']);
+        $this->assertSame(0, app(LinkDesk::class)->fill($this->brand->fresh())['added']);
         $this->assertSame(0, app(LinkDesk::class)->month($this->brand->fresh())['room']);
 
         // A closed package fills nothing.

@@ -43,6 +43,8 @@ return [
             'ask' => 'Markayı rakiplerinden ayıran somut 2-3 şey nedir?'],
         'abroad' => ['label' => 'Yurt dışı hizmeti', 'single' => false, 'days' => 180, 'slices' => ['content', 'ads', 'meta'], 'ask' => null],
         'language' => ['label' => 'Konuşulan dil', 'single' => false, 'days' => 365, 'slices' => ['content', 'ads', 'gbp', 'meta'], 'ask' => null],
+        // Backlink hizmeti (2026-11-06): the client's own relations from the "Bağlantı kaynakları" form.
+        'relation' => ['label' => 'İlişki / iş birliği', 'single' => false, 'days' => 365, 'slices' => ['content', 'gbp'], 'ask' => null],
         'website' => ['label' => 'Web sitesi', 'single' => true, 'days' => 365, 'slices' => ['gbp', 'ads'], 'ask' => null],
     ],
 

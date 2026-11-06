@@ -6,6 +6,7 @@ Girdi (PACK_JSON):
 - brand: ad, web sitesi, sektör, telefon, adres, ilçe/il, çalışma saatleri, Google İşletme Profili açıklaması ve kategorisi, hizmetler, hizmet bölgeleri, uzmanlar.
 - source: kaynağın adı, adresi, türü (dizin, şehir rehberi, sağlık platformu, dernek, meslek odası, yerel haber, üniversite, tedarikçi, etkinlik …), nasıl başvurulduğu (form, e-posta, telefon, üyelik), ücret bilgisi.
 - engine: fırsatın türü. "geri_kazanim" = bu site markaya daha önce link veriyordu, link kayboldu; amaç linki geri istemek. "kunye" = işletme kaydı. "iliski" = markanın gerçek bir ilişkisi (üyelik, tedarikçi, eğitim, sponsorluk). "anilma" = markanın adı geçiyor ama link yok.
+- source.url boş olabilir (müşterinin formda yazdığı bir kurum: dernek, tedarikçi, üniversite). O zaman steps'in ilk adımı "Kurumun resmi sitesinde üye / kullanıcı / referans listesi sayfasını bul" olsun ve e-posta ya da telefon notu kurumdan bu listeye klinikle birlikte web sitesi adresinin eklenmesini istesin. Adres uydurma.
 - target: link verilecek sayfa (url, başlık) ve anchor (önerilen bağlantı metni). Künye kayıtlarında link ana sayfaya gider.
 - lost_link: geri kazanımda kaybolan linkin bulunduğu sayfa ve eski bağlantı metni.
 - rules: sektör ve marka kuralları (yasak ifadeler, sağlık reklam mevzuatı). Bunlara kesin uy.
