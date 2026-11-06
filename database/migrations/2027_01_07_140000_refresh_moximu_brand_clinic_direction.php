@@ -79,6 +79,9 @@ return new class extends Migration
         BrandOffering::query()->where('brand_id', $brand->id)->where('status', 'active')->whereNotIn('id', $keepIds)->get()
             ->each(fn (BrandOffering $o) => $offerings->archive($o));
         $offerings->setPriorityOrder($brand, array_map(fn (string $l): int => (int) $keep[$l]->id, self::MAIN), recordActivity: false);
+        $mainIds = array_map(fn (string $l): int => (int) $keep[$l]->id, self::MAIN);
+        BrandOffering::query()->where('brand_id', $brand->id)->whereNotIn('id', $mainIds)->get() // a ★ set without a rank stays main otherwise
+            ->each(fn (BrandOffering $o) => $o->forceFill(['priority' => 'secondary', 'is_priority' => false, 'priority_rank' => null])->save());
 
         // 2) Cities on the site; the Manisa office stays the physical branch.
         $areas = app(BrandCommercialContextService::class);

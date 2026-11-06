@@ -24,6 +24,8 @@ class MoximuBrandRefreshTest extends TestCase
     {
         $brand = Brand::factory()->create(['name' => 'Moximu', 'sector' => 'Dijital Hizmetler']);
         $old = app(BrandOfferingService::class)->resolveOrCreate($brand, 'Ticimax Kurulum ve Yönetim')['offering'];
+        // A ★ set on the services screen has no rank (as live): it must not stay main.
+        app(BrandOfferingService::class)->resolveOrCreate($brand, 'Google Ads Danışmanlığı')['offering']->forceFill(['priority' => 'main'])->save();
         $site = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website', 'domain' => 'moximu.test', 'primary_url' => 'https://moximu.test/']);
         $seoPage = Page::query()->create(['website_asset_id' => $site->id, 'url' => 'https://moximu.test/hizmetlerimiz/klinik-seo/', 'url_hash' => hash('sha256', 'seo'), 'path' => '/hizmetlerimiz/klinik-seo/']);
 
