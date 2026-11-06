@@ -5,6 +5,8 @@ namespace Tests\Feature\Social;
 use App\Livewire\Operator\Social\SocialPage;
 use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\SocialPosts;
+use App\Models\AgencySetting;
+use App\Models\CoreIntegration;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
@@ -287,5 +289,35 @@ final class SocialMediaTest extends TestCase
         $this->assertSame('PG', $ig->page_id);
         $this->assertSame(1, SocialAccount::query()->where('platform', 'facebook')->count());
         $this->assertFalse(SocialMetaConnector::ownsState($query['state']));
+    }
+
+    public function test_social_login_with_config_forces_code_and_refuses_whatsapp_config(): void
+    {
+        CoreIntegration::factory()->create(['provider' => 'whatsapp', 'config' => ['signup_config_id' => '1757572378897162']]);
+        $setting = AgencySetting::query()->first() ?? new AgencySetting;
+        $setting->forceFill(['social_meta_config_id' => '1757572378897162'])->save();
+        $this->actingAs($this->admin);
+        $this->get(route('integrations.meta.social.authorize'))->assertRedirect();
+        $this->assertArrayHasKey('error', app(SocialMetaConnector::class)->begin($this->admin->id));
+
+        $setting->forceFill(['social_meta_config_id' => '1075374242150295'])->save();
+        $url = app(SocialMetaConnector::class)->begin($this->admin->id)['url'];
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertSame('1075374242150295', $query['config_id']);
+        $this->assertSame('true', $query['override_default_response_type']);
+        $this->assertArrayNotHasKey('scope', $query);
+    }
+
+    public function test_social_login_reports_missing_page_permissions(): void
+    {
+        Http::fake([
+            '*/oauth/access_token*' => Http::response(['access_token' => 'user-token']),
+            '*/me/permissions*' => Http::response(['data' => [['permission' => 'whatsapp_business_messaging', 'status' => 'granted']]]),
+        ]);
+        $this->actingAs($this->admin);
+        $redirect = $this->get(route('integrations.meta.social.authorize'));
+        parse_str((string) parse_url((string) $redirect->headers->get('Location'), PHP_URL_QUERY), $query);
+        $result = app(SocialMetaConnector::class)->handleCallback('abc', $query['state'], null, $this->admin->id);
+        $this->assertStringContainsString('pages_show_list', $result['error'] ?? '');
     }
 }

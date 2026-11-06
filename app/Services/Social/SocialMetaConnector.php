@@ -4,6 +4,7 @@ namespace App\Services\Social;
 
 use App\Models\AgencySetting;
 use App\Models\Brand;
+use App\Models\CoreIntegration;
 use App\Models\SocialAccount;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\Meta\MetaOAuthRedirectUriResolver;
@@ -63,13 +64,19 @@ class SocialMetaConnector
         if ($appId === null || $appId === '') {
             return ['error' => 'Meta uygulaması tanımlı değil (Entegrasyonlar › Meta).'];
         }
+        $configId = self::configId();
+        if ($configId !== null && in_array($configId, self::otherConfigIds(), true)) {
+            return ['error' => 'Kayıtlı yapılandırma kimliği WhatsApp ya da reklam bağlantısına ait. Hesaplar › “Meta uygulama ayarı” adımlarıyla “Moximu sosyal” yapılandırmasını açıp onun kimliğini kaydedin.'];
+        }
         $state = Str::random(64);
         Cache::put(self::STATE_PREFIX.hash('sha256', $state), $userId, now()->addMinutes(20));
 
         $query = ['client_id' => $appId, 'redirect_uri' => $this->redirect->uri(), 'state' => $state, 'response_type' => 'code'];
-        $configId = self::configId();
         if ($configId !== null) {
+            // Login for Business: config_id replaces scope; the code grant must be forced so a configuration whose
+            // token type is "system user" still returns a code instead of failing in the dialog.
             $query['config_id'] = $configId;
+            $query['override_default_response_type'] = 'true';
         } else {
             $query['scope'] = implode(',', self::SCOPES);
         }
@@ -117,7 +124,56 @@ class SocialMetaConnector
             return ['error' => 'Meta\'ya bağlanılamadı; yeniden deneyin.'];
         }
 
+        $missing = $this->missingPermissions($userToken);
+        if ($missing !== []) {
+            return ['error' => 'Meta girişi bu izinleri vermedi: '.implode(', ', $missing).'. Yapılandırmada (Facebook Login for Business › Configurations) bu izinler seçili değil ya da uygulamaya eklenmemiş; Hesaplar › “Meta uygulama ayarı” adımlarını izleyin.'];
+        }
+
         return $this->storePages($userToken);
+    }
+
+    /**
+     * Configuration ids that belong to the other Meta logins (WhatsApp signup, Meta Ads). Pasting one of them here is
+     * the usual setup mistake: the dialog then asks for WhatsApp/ads permissions and no Page token comes back.
+     *
+     * @return list<string>
+     */
+    private static function otherConfigIds(): array
+    {
+        $ids = [(string) MetaApiConfig::loginConfigurationId()];
+        try {
+            foreach (CoreIntegration::query()->where('provider', 'whatsapp')->get() as $row) {
+                $ids[] = (string) data_get($row->config, 'signup_config_id');
+            }
+        } catch (Throwable) {
+        }
+
+        return array_values(array_filter(array_map('trim', $ids), fn (string $id): bool => $id !== ''));
+    }
+
+    /**
+     * The two permissions without which nothing works; the rest are reported by the calls that need them.
+     *
+     * @return list<string>
+     */
+    private function missingPermissions(string $userToken): array
+    {
+        try {
+            $rows = (array) ($this->graph->get('me/permissions', $userToken)['data'] ?? []);
+        } catch (Throwable) {
+            return [];
+        }
+        $granted = [];
+        foreach ($rows as $row) {
+            if (is_array($row) && ($row['status'] ?? '') === 'granted' && is_string($row['permission'] ?? null)) {
+                $granted[] = $row['permission'];
+            }
+        }
+        if ($granted === []) {
+            return [];
+        }
+
+        return array_values(array_diff(['pages_show_list', 'instagram_basic'], $granted));
     }
 
     /** @return array{ok: true, accounts: list<string>}|array{error: string} */
