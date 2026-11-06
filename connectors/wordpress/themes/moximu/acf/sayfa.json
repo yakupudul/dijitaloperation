@@ -7685,6 +7685,285 @@
      ],
      "min": "",
      "max": ""
+    },
+    "layout_mx_nc_giris": {
+     "key": "layout_mx_nc_giris",
+     "name": "nc_giris",
+     "label": "Çalışma düzeni · Giriş",
+     "display": "block",
+     "min": "",
+     "max": "",
+     "sub_fields": [
+      {
+       "key": "field_mx_nc_giris_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_nc_giris_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_nc_giris_etiketler",
+       "name": "etiketler",
+       "label": "Maddeler",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": "",
+       "instructions": "Her satır bir madde."
+      },
+      {
+       "key": "field_mx_nc_giris_buton_yazisi",
+       "name": "buton_yazisi",
+       "label": "Buton",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_buton_link",
+       "name": "buton_link",
+       "label": "Buton bağlantısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_wa_metni",
+       "name": "wa_metni",
+       "label": "WhatsApp hazır mesajı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_pano_baslik",
+       "name": "pano_baslik",
+       "label": "Pano başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_pano_alt",
+       "name": "pano_alt",
+       "label": "Pano alt yazısı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_pano_satirlar",
+       "name": "pano_satirlar",
+       "label": "Pano satırları",
+       "type": "textarea",
+       "rows": 6,
+       "new_lines": "",
+       "instructions": "Gün | iş | durum (tamam, suruyor, onay, plan)"
+      },
+      {
+       "key": "field_mx_nc_giris_pano_not",
+       "name": "pano_not",
+       "label": "Pano alt notu",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_giris_balon",
+       "name": "balon",
+       "label": "WhatsApp balonu",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_nc_giris_sayilar",
+       "name": "sayilar",
+       "label": "Rakamlar",
+       "type": "textarea",
+       "rows": 4,
+       "new_lines": "",
+       "instructions": "Rakam | açıklama"
+      }
+     ]
+    },
+    "layout_mx_nc_hafta": {
+     "key": "layout_mx_nc_hafta",
+     "name": "nc_hafta",
+     "label": "Çalışma düzeni · Haftalık düzen (koyu)",
+     "display": "block",
+     "min": "",
+     "max": "",
+     "sub_fields": [
+      {
+       "key": "field_mx_nc_hafta_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_hafta_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_nc_hafta_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_nc_hafta_liste",
+       "name": "liste",
+       "label": "Günler",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Gün ekle",
+       "sub_fields": [
+        {
+         "name": "ust",
+         "label": "Gün",
+         "type": "text",
+         "key": "field_mx_nc_hafta_liste_ust"
+        },
+        {
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "key": "field_mx_nc_hafta_liste_baslik"
+        },
+        {
+         "name": "metin",
+         "label": "Açıklama",
+         "type": "textarea",
+         "rows": 2,
+         "new_lines": "",
+         "key": "field_mx_nc_hafta_liste_metin"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_nc_hafta_mesaj_baslik",
+       "name": "mesaj_baslik",
+       "label": "Mesaj başlığı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_hafta_mesaj",
+       "name": "mesaj",
+       "label": "Mesaj satırları",
+       "type": "textarea",
+       "rows": 6,
+       "new_lines": "",
+       "instructions": "Her satır bir satır; ! ile başlayan satır onay bekler."
+      },
+      {
+       "key": "field_mx_nc_hafta_cevap",
+       "name": "cevap",
+       "label": "Klinik cevabı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_hafta_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_nc_hafta_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text"
+      }
+     ]
+    },
+    "layout_mx_nc_roller": {
+     "key": "layout_mx_nc_roller",
+     "name": "nc_roller",
+     "label": "Çalışma düzeni · Kim ne yapar",
+     "display": "block",
+     "min": "",
+     "max": "",
+     "sub_fields": [
+      {
+       "key": "field_mx_nc_roller_ust",
+       "name": "ust",
+       "label": "Üst yazı",
+       "type": "text"
+      },
+      {
+       "key": "field_mx_nc_roller_baslik",
+       "name": "baslik",
+       "label": "Başlık",
+       "type": "text",
+       "instructions": "<mark>kelime</mark> vurgulanır."
+      },
+      {
+       "key": "field_mx_nc_roller_metin",
+       "name": "metin",
+       "label": "Açıklama",
+       "type": "textarea",
+       "rows": 3,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_nc_roller_liste",
+       "name": "liste",
+       "label": "Sütunlar",
+       "type": "repeater",
+       "layout": "block",
+       "button_label": "Sütun ekle",
+       "sub_fields": [
+        {
+         "name": "ust",
+         "label": "Üst yazı",
+         "type": "text",
+         "key": "field_mx_nc_roller_liste_ust"
+        },
+        {
+         "name": "baslik",
+         "label": "Başlık",
+         "type": "text",
+         "key": "field_mx_nc_roller_liste_baslik"
+        },
+        {
+         "name": "metin",
+         "label": "Maddeler (her satır bir madde)",
+         "type": "textarea",
+         "rows": 5,
+         "new_lines": "",
+         "key": "field_mx_nc_roller_liste_metin"
+        }
+       ]
+      },
+      {
+       "key": "field_mx_nc_roller_alt_not",
+       "name": "alt_not",
+       "label": "Alt not",
+       "type": "textarea",
+       "rows": 2,
+       "new_lines": ""
+      },
+      {
+       "key": "field_mx_nc_roller_arka",
+       "name": "arka",
+       "label": "Açık bej arka plan",
+       "type": "true_false",
+       "ui": 1
+      },
+      {
+       "key": "field_mx_nc_roller_kimlik",
+       "name": "kimlik",
+       "label": "Bölüm bağlantı adı",
+       "type": "text"
+      }
+     ]
     }
    }
   }

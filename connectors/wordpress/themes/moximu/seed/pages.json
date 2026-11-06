@@ -25444,7 +25444,7 @@
 "key": "tnasil-calisir",
 "path": "/nasil-calisir/",
 "title": "Nasıl çalışır",
-"excerpt": "Ücretsiz ön değerlendirmeden aylık rapora beş adım; sonra her hafta aynı ritim. Hangi gün ne yapıldığını bilirsiniz.",
+"excerpt": "Her hafta aynı düzen: pazartesi özet, çarşamba içerik, cuma İşletme Profili; ayın ilk haftası tek sayfa rapor. İstekler en geç 6 saatte yanıtlanır.",
 "content": "<p>Moximu bir ajans kadrosu değil, bir çalışma düzenidir. İş, haftanın belli günlerine bağlıdır; siz hangi gün ne yapıldığını bilirsiniz, uzun sunumlara zaman ayırmazsınız.</p>\n<h2>Beş adım</h2>\n<ol>\n<li><strong>Ücretsiz ön değerlendirme.</strong> Klinik adı ve şehir yeter. 24 saat içinde 2-3 öncelikli bulgu WhatsApp'tan gelir: sitede, Google İşletme Profilinde ve reklam hesabında ne eksik, ilk 30 günde ne yapılır.</li>\n<li><strong>Telefon görüşmesi ve teklif.</strong> Raporu telefonda ya da WhatsApp'ta birlikte okuruz, yaklaşık 20 dakika. Uygunsa yazılı teklif aynı gün gelir.</li>\n<li><strong>Kurulum, ilk 30 gün.</strong> Hesap erişimleri alınır, hesaplar temizlenir, reklamlar üçüncü hafta açılır, Google İşletme Profili düzenlenir, tedavi sayfaları yazılır.</li>\n<li><strong>Her hafta aynı düzen.</strong> Pazartesi arama terimleri ve bütçe, çarşamba yazı ve gönderi, cuma Google İşletme Profili: yorum, fotoğraf, gönderi.</li>\n<li><strong>Aylık rapor.</strong> Her ayın ilk haftası tek sayfa: kaç talep geldi, bir talep kaça geldi, hangi kanal ve hizmet, geçen aya fark, bu ayın kararı.</li>\n</ol>\n<h2>İlk dört hafta</h2>\n<table><thead><tr><th>Hafta</th><th>Yapılan</th></tr></thead><tbody>\n<tr><td>1. hafta</td><td>Erişimler, hizmet listesi ve fiyat aralıkları, hesap temizliği, ölçüm kontrolü.</td></tr>\n<tr><td>2. hafta</td><td>Arama reklamı ve form reklamı yayında; Google İşletme Profili düzenlenir.</td></tr>\n<tr><td>3. hafta</td><td>Tedavi sayfaları, WhatsApp hazır cevapları, ilk boşa giden aramaların kapatılması.</td></tr>\n<tr><td>4. hafta</td><td>İlk rapor ve bütçe kararı: neyin devam edeceği, neyin kapanacağı.</td></tr>\n</tbody></table>\n<h2>Kim ne yapar</h2>\n<h3>Moximu</h3>\n<p>Site, reklam, yazı, Google İşletme Profili ve ölçüm. Haftalık bakım ve aylık rapor. Yorum cevapları ve içerik taslakları.</p>\n<h3>Klinik</h3>\n<p>Gelen talebi aynı gün arar. Haftalık içerik planına bakar. Ayda bir klinik fotoğrafı ve kısa video gönderir. Hekim onayı gereken metinlere bir hafta içinde döner.</p>\n<h3>Hiç yapılmayanlar</h3>\n<p>Hasta fotoğrafı, öncesi/sonrası, garanti cümlesi. Bütçeyi haber vermeden artırmak. Hesapları Moximu adına açmak.</p>\n<h2>Sık sorulan sorular</h2>\n<details><summary>Düzenli görüşme var mı?</summary><p>İş yazılı yürür: her pazartesi kısa özet, ayın ilk haftası rapor. Gerektiğinde telefonla konuşuruz; zamanınız hastaya kalır.</p></details>\n<details><summary>Ne zaman sonuç gelir?</summary><p>Reklamlar üçüncü hafta açılır; ilk form talepleri genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ayda birikir. Sonuç garantisi vermeyiz, her ay ölçüp yazarız.</p></details>\n<details><summary>İçeriği kim onaylar?</summary><p>Haftalık plan size yazılı gelir; itiraz etmediğiniz içerik yayınlanır. Hekim onayı gereken metinler onay gelene kadar bekler.</p></details>\n<details><summary>Hesaplar kimin adına açılır?</summary><p>Sizin adınıza. Google Ads, İşletme Profili, Meta ve alan adı kliniğin hesabında kalır; Moximu yönetici olarak eklenir.</p></details>",
 "seo_title": "Nasıl çalışırız: süreç, aylık rapor ve istekler · Moximu",
 "seo_desc": "Moximu ile çalışma süreci: ücretsiz ön değerlendirme, ilk 30 günde kurulum, haftalık özet, aylık rapor; istekler en geç 6 saatte yanıtlanır, hesaplar klinik adına.",
@@ -25455,14 +25455,20 @@
 },
 "rows": [
 {
-"acf_fc_layout": "np_giris",
-"baslik": "Nasıl çalışırız: başlangıçtan <mark>aylık rapora</mark>.",
-"metin": "Önce ücretsiz ön değerlendirme yaparız, ardından plan ve fiyat netleşir. İlk 30 günde kurulum tamamlanır; sonra her hafta kısa özet, her ay tek sayfa rapor alırsınız. İstekleriniz en geç 6 saatte yanıtlanır.",
-"etiketler": "Aylık çalışma\nHesaplar klinik adına\nHekim onaylı içerik\nSağlık tanıtım kurallarına uygun",
-"buton_yazisi": "WhatsApp'tan yazın",
-"buton_link": "https://wa.me/905388610288?text=Merhaba%2C%20klini%C4%9Fim%20i%C3%A7in%20bilgi%20almak%20istiyorum.",
-"buton_2_yazisi": "Maliyeti hesaplayın",
-"buton_2_link": "/#maliyet"
+"acf_fc_layout": "nc_giris",
+"ust": "Çalışma düzeni",
+"baslik": "Her hafta aynı düzen, <mark>her ay ölçülen sonuç</mark>.",
+"metin": "Başlamadan önce neyin ne zaman yapılacağını bilirsiniz. Her pazartesi WhatsApp'tan kısa özet, her ay tek sayfa rapor alırsınız; işi yürüten kişiyle doğrudan konuşursunuz.",
+"etiketler": "Taahhüt zorunlu değil, aylık çalışılabilir\nHesaplar ve reklam bütçesi kliniğin adına\nHekim onayı olmadan hiçbir içerik yayımlanmaz",
+"buton_yazisi": "Ücretsiz ön değerlendirme",
+"buton_link": "#basvuru",
+"wa_metni": "Merhaba, Moximu ile çalışma sürecini konuşmak istiyorum.",
+"pano_baslik": "Bu hafta",
+"pano_alt": "Örnek Diş Kliniği · 3–7 Kasım",
+"pano_satirlar": "Pzt | Arama terimleri okundu, 14 boşa giden arama kapatıldı | tamam\nPzt | Haftalık özet WhatsApp'tan gönderildi | tamam\nÇar | \"Zirkonyum kaplama\" tedavi sayfası | onay\nÇar | Instagram gönderisi ve hikâye | suruyor\nCum | İşletme Profili: fotoğraf, gönderi, yorum cevapları | plan",
+"pano_not": "İsteğiniz: kampanya görseli değişti · 2 saatte tamamlandı",
+"balon": "Bu hafta 6 iş tamamlandı. Onayınızı bekleyen 1 metin var: zirkonyum kaplama sayfası.",
+"sayilar": "6 saat | isteklere en geç yanıt süresi\n30 gün | kurulumun tamamlandığı süre\nHer pazartesi | WhatsApp'tan haftalık özet\nTek sayfa | ayın ilk haftası gelen rapor"
 },
 {
 "acf_fc_layout": "np_surec",
@@ -25498,8 +25504,46 @@
 ],
 "gerek_baslik": "Başlarken sizden istenenler",
 "gerek_metin": "Google ve Meta hesap erişimleri · logo · klinik ve hekim fotoğrafları · hekim özgeçmişleri · tedavi listesi",
-"arka": 1,
+"arka": 0,
 "kimlik": "surec"
+},
+{
+"acf_fc_layout": "nc_hafta",
+"ust": "Haftalık düzen",
+"baslik": "Bir haftanız <mark>böyle geçer</mark>.",
+"metin": "İş haftanın belli günlerine bağlıdır. Hangi gün ne yapıldığını bilirsiniz; toplantıya zaman ayırmazsınız.",
+"liste": [
+{
+"ust": "Pazartesi",
+"baslik": "Reklam kontrolü ve haftalık özet",
+"metin": "Arama terimleri okunur, boşa giden aramalar kapatılır, bütçe dağılımı kontrol edilir. Özet WhatsApp'tan size gelir."
+},
+{
+"ust": "Çarşamba",
+"baslik": "İçerik ve gönderi",
+"metin": "Tedavi sayfası ya da bilgilendirici yazı hazırlanır; hekim onayına gönderilir. Sosyal medya gönderileri planlanır."
+},
+{
+"ust": "Cuma",
+"baslik": "Google İşletme Profili",
+"metin": "Fotoğraf, gönderi ve yorum cevapları. Bilgi ve çalışma saatleri kontrol edilir."
+},
+{
+"ust": "Her gün",
+"baslik": "İstekler ve kontroller",
+"metin": "İstekleriniz en geç 6 saatte yanıtlanır. Site, form ve ölçüm her gün otomatik kontrol edilir."
+},
+{
+"ust": "Ayın ilk haftası",
+"baslik": "Aylık rapor ve karar",
+"metin": "Kaç talep geldi, hangi kanaldan geldi, geçen aya fark ve bu ayın kararı; tek sayfada."
+}
+],
+"mesaj_baslik": "Haftalık özet · 3–7 Kasım",
+"mesaj": "✓ 14 boşa giden arama terimi kapatıldı\n✓ İmplant sayfası hızlandırıldı\n✓ 5 Google yorumu cevaplandı\n! Onayınız: zirkonyum kaplama sayfası\nBu hafta: İşletme Profili fotoğrafları",
+"cevap": "Teşekkürler, sayfayı onaylıyorum.",
+"arka": 0,
+"kimlik": "hafta"
 },
 {
 "acf_fc_layout": "np_takip",
@@ -25523,13 +25567,39 @@
 "metin": "WhatsApp hattından yazarsınız. Her istek bir iş olarak kaydedilir ve <strong>aylık raporda \"istekleriniz ve yapılanlar\"</strong> bölümünde görünür."
 }
 ],
-"arka": 0,
+"arka": 1,
 "kimlik": "takip",
 "rapor_baslik": "Aylık rapor · Ekim",
 "rapor_alt": "Örnek Diş Kliniği",
 "rapor_kpi": "Telefon araması | +%18 | geçen aya göre\nWhatsApp | +%24 | geçen aya göre\nForm | +%11 | geçen aya göre\nYol tarifi | +%9 | geçen aya göre",
 "rapor_dagilim": "Organik arama | 41\nHarita kaydı | 34\nReklam | 16\nInstagram | 9",
 "rapor_isler": "\"implant karşıyaka\" aramasında 4. sıraya çıkıldı\n3 tedavi sayfası yayımlandı (hekim onaylı)\n12 Google yorumu cevaplandı\nİsteğiniz: kampanya görseli değişti"
+},
+{
+"acf_fc_layout": "nc_roller",
+"ust": "Görev paylaşımı",
+"baslik": "Kim ne yapar, <mark>baştan bellidir</mark>.",
+"metin": "Kliniğe düşen iş azdır ve yazılıdır. Hiç yapılmayacak olanlar da başlamadan önce bilinir.",
+"liste": [
+{
+"ust": "Moximu",
+"baslik": "Bizim yaptıklarımız",
+"metin": "Web sitesi ve tedavi sayfaları\nGoogle ve Meta reklam yönetimi\nGoogle İşletme Profili ve yorum cevapları\nÖlçüm kurulumu, haftalık özet, aylık rapor\nİçeriklerin sağlık tanıtım kurallarına göre kontrolü"
+},
+{
+"ust": "Klinik",
+"baslik": "Sizden istenenler",
+"metin": "Gelen talebi aynı gün aramak\nHekim onayı gereken metinlere bir hafta içinde dönmek\nAyda bir klinik fotoğrafı ya da kısa video göndermek\nReklam bütçesini doğrudan Google ve Meta'ya ödemek"
+},
+{
+"ust": "Hiçbir zaman",
+"baslik": "Yapmadıklarımız",
+"metin": "Hasta fotoğrafı ve önce-sonra görseli\nSonuç garantisi, \"en iyi\", \"tek\" gibi ifadeler\nBütçeyi onayınız olmadan artırmak\nHesapları Moximu adına açmak"
+}
+],
+"alt_not": "Sağlık tanıtım kuralları branşa göre değişir; her branş sayfasında ayrıca yazılır. <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
+"arka": 1,
+"kimlik": "roller"
 },
 {
 "acf_fc_layout": "np_adimlar",
@@ -25554,53 +25624,98 @@
 "metin": "Aylık raporun \"istekleriniz ve yapılanlar\" bölümünde tarihleriyle yer alır."
 }
 ],
-"arka": 1,
+"arka": 0,
 "kimlik": "istek"
 },
 {
-"acf_fc_layout": "np_ikili",
-"ust": "Sağlık tanıtım kuralları",
-"baslik": "Neyi yazarız, <mark>neyi yazmayız</mark>.",
-"metin": "Sağlık hizmetlerinin tanıtımı Sağlık Bakanlığı'nın tanıtım ve bilgilendirme kurallarıyla sınırlıdır. Sitedeki, harita kaydındaki ve reklamlardaki her metin bu çerçevede hazırlanır.",
-"sol_baslik": "Yazdıklarımız",
-"sol_liste": "Tedavinin ne olduğu, kimlere uygulandığı, süreci\nHekimin uzmanlığı, eğitimi, deneyimi\nKlinik adresi, çalışma saatleri, ulaşım\nHastanın sık sorduğu sorular ve bilgilendirici yazılar",
-"sag_baslik": "Yazmadıklarımız",
-"sag_liste": "Sonuç garantisi, \"en iyi\", \"tek\" gibi üstünlük ifadeleri\nÖnce-sonra görselleri ve hasta fotoğrafları\nFiyat, indirim ve kampanya duyuruları\nHasta yorumlarının tanıtım amaçlı kullanımı",
-"alt_not": "Ayrıntı branşa göre değişir; her branş sayfasında o branşın kuralları ayrıca yazılır. Bu bölüm hukuki görüş değildir. <a href=\"/saglik-reklam-mevzuati/\">Sağlık reklamı mevzuatı →</a>",
-"arka": 0,
-"kimlik": "kurallar"
-},
-{
-"acf_fc_layout": "np_ilkeler",
-"ust": "Nasıl sunuyoruz",
-"baslik": "Beş ilke, <mark>her klinikte aynı</mark>.",
-"metin": "Hizmetin adı ne olursa olsun çalışma şekli değişmez. Ne yapıldığını, kimin onayıyla yapıldığını her zaman bilirsiniz.",
-"buton_yazisi": "Fiyatları görün",
-"buton_link": "/#maliyet",
+"acf_fc_layout": "np_referans",
+"ust": "Sonuçlar",
+"baslik": "Bu düzenle çalışan <mark>kliniklerden</mark>.",
+"metin": "Yüzdeler başlangıç dönemine göre ölçülmüş değişimdir; kaynağı ve dönemi kartta yazılıdır. Sonuç garantisi değildir.",
 "liste": [
 {
-"baslik": "Doğrudan muhatap",
-"metin": "Kliniğinizle görüşen kişi, işi yürüten kişidir. Aracı hesap yöneticisi yoktur."
+"gorsel": {
+"seed": "panorama.png",
+"alt": "Panorama Ankara"
+},
+"ust": "Diş kliniği · Ankara",
+"rakam": "+%349",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Ekim 2025 → Ekim 2026",
+"baglanti": "/referanslar/panorama-ankara/"
 },
 {
-"baslik": "Branşa özel içerik, hekim onayıyla",
-"metin": "Tedavi sayfaları ve yazılar branşınıza göre hazırlanır; onayınız olmadan yayımlanmaz."
+"gorsel": {
+"seed": "dentocare.png",
+"alt": "Dentocare Klinik"
+},
+"ust": "Diş kliniği · İzmir",
+"rakam": "+%534",
+"birim": "organik tıklama",
+"kaynak": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+"baglanti": "/referanslar/dentocare-klinik/"
 },
 {
-"baslik": "Sağlık tanıtım kurallarına uygun dil",
-"metin": "Garanti, önce-sonra ve fiyat ilanı kullanılmaz. Her metin kurallara göre yazılır."
+"gorsel": {
+"seed": "bno.png",
+"alt": "Buşra Nur Özger"
 },
-{
-"baslik": "Hesaplar sizin adınıza",
-"metin": "Google, Meta, Search Console ve Analytics hesapları kliniğin adına açılır."
-},
-{
-"baslik": "Bütçe sizin kontrolünüzde",
-"metin": "Reklam bütçesi doğrudan Google ve Meta'ya ödenir; onayınız olmadan değişmez."
+"ust": "Obezite ve estetik cerrahi · Sağlık turizmi",
+"rakam": "−%21",
+"birim": "form maliyeti",
+"kaynak": "Meta Ads · Eylül → Ekim 2026 · yurt dışı form kampanyaları",
+"baglanti": "/referanslar/busra-nur-ozger/"
 }
 ],
+"buton_yazisi": "Tüm referanslar",
+"buton_link": "/referanslar/",
 "arka": 0,
-"kimlik": "nasil"
+"kimlik": "sonuclar"
+},
+{
+"acf_fc_layout": "np_sss",
+"ust": "Sık sorulanlar",
+"baslik": "Çalışma düzeni <mark>hakkında</mark>.",
+"liste": [
+{
+"baslik": "Düzenli toplantı yapıyor musunuz?",
+"metin": "İş yazılı yürür: her pazartesi kısa özet, ayın ilk haftası rapor. Gerektiğinde telefonla konuşuruz; zamanınız hastaya kalır."
+},
+{
+"baslik": "İlk sonuçları ne zaman görürüm?",
+"metin": "Reklamlar kurulumun içinde açılır; ilk talepler genelde ilk 30 gün içinde gelir. Organik sıralama ve İşletme Profili 3 ila 6 ayda birikir. Sonuç garantisi vermeyiz, her ay ölçüp yazarız."
+},
+{
+"baslik": "Taahhüt var mı?",
+"metin": "Yok. Aylık çalışabilirsiniz. 6 aylık plan yalnızca kampanya avantajları için seçilir."
+},
+{
+"baslik": "İçeriği kim onaylar?",
+"metin": "Haftalık plan size yazılı gelir. Hekim onayı gereken metinler onay gelene kadar yayımlanmaz."
+},
+{
+"baslik": "Hesaplar kimin adına açılır?",
+"metin": "Kliniğin adına. Google Ads, İşletme Profili, Meta ve alan adı kliniğin hesabında kalır; Moximu yönetici olarak eklenir."
+},
+{
+"baslik": "Çalışmayı bırakırsam ne olur?",
+"metin": "Hesaplar zaten sizindir; Moximu'nun yönetici erişimi kaldırılır. Reklam ve İşletme Profili geçmişi hesabınızda kalır."
+}
+],
+"arka": 1,
+"kimlik": "sss"
+},
+{
+"acf_fc_layout": "iletisim_form",
+"ust": "Başlangıç",
+"baslik": "İlk adım: <mark>ücretsiz ön değerlendirme</mark>.",
+"metin": "Klinik adını ve şehrinizi yazın. Site, İşletme Profili ve reklam hesabınızdan öncelikli bulguları WhatsApp'tan iletiriz.",
+"maddeler": "24 saat içinde yazılı dönüş\nSatış görüşmesine zorlanmazsınız\nUygunsa yazılı teklif aynı gün gelir",
+"konu": "analiz",
+"firma": 0,
+"buton_yazisi": "Ön değerlendirme isteyin",
+"arka": 0,
+"kimlik": "basvuru"
 }
 ]
 },
