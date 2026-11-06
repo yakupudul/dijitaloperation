@@ -1,0 +1,9 @@
+{"scenes":[
+ {"t":"hook","dur":3.2,"tag":"Sağlık mevzuatı","h1":"Klinik tanıtımında","h2":"kullanılmayan beş şey","p":"Sosyal medya, web sitesi ve reklam için aynı kural."},
+ {"t":"item","dur":3.4,"n":"01","h":"Öncesi / sonrası fotoğrafları","p":"Hasta görüntüsü ve karşılaştırma tanıtımda kullanılmaz."},
+ {"t":"item","dur":3.4,"n":"02","h":"Üstünlük ve sonuç iddiaları","p":"\"En iyi\", \"garantili\" gibi ifadeler yazılmaz."},
+ {"t":"item","dur":3.4,"n":"03","h":"İndirim ve kampanya dili","p":"\"Ücretsiz muayene\" gibi ticari teşvikler yer almaz."},
+ {"t":"item","dur":3.4,"n":"04","h":"Hasta yorumları reklamda","p":"Yorum istemek serbest; reklamda kullanmak değil."},
+ {"t":"item","dur":3.4,"n":"05","h":"Belgesi olmayan unvanlar","p":"Uzmanlık ve unvan yalnız belgesi olduğu şekilde yazılır."},
+ {"t":"end","dur":3.6,"h":"Neler yazılabilir?","p":"Tedavinin ne olduğu, nasıl yapıldığı, kimler için uygun olduğu.","cta":"Rehberin tamamı profilde","path":"/rehber"}
+]}

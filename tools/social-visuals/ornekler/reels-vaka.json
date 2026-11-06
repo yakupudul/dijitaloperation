@@ -1,0 +1,6 @@
+{"scenes":[
+ {"t":"hook","dur":3.0,"tag":"Vaka","h1":"İki diş kliniği,","h2":"Google'da bir yıl","p":"Tedavi sayfaları, İşletme Profili ve düzenli içerikle."},
+ {"t":"kpi","dur":4.6,"tag":"Vaka · Ankara","logo":"panorama-logo.png","who":"Diş kliniği","big":"+%349","label":"organik tıklama","rows":[["+%551","Google gösterimi"],["+%73","site ziyaretçisi"]],"src":"Search Console ve GA4 · Ekim 2025 → Ekim 2026"},
+ {"t":"kpi","dur":4.6,"tag":"Vaka · İzmir","logo":"dentocare-logo.png","who":"Diş kliniği","big":"+%534","label":"organik tıklama","rows":[["+%627","Google gösterimi"],["+%830","site ziyaretçisi"]],"src":"Search Console ve GA4 · Aralık 2025 → Ekim 2026"},
+ {"t":"end","dur":3.4,"h":"Vakaların tamamı","p":"Ne yaptık, hangi sırayla, hangi veriyle.","cta":"Profildeki bağlantıda","path":"/referanslar"}
+]}
