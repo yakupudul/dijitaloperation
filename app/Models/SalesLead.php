@@ -20,7 +20,8 @@ class SalesLead extends Model
 
     public const array SOURCES = [
         'whatsapp' => 'WhatsApp', 'form' => 'moximu.com formu', 'afc' => 'All for Clinics', 'link' => 'Paylaşılan site',
-        'phone' => 'Telefon', 'referral' => 'Referans', 'meta_form' => 'Meta formu', 'other' => 'Diğer',
+        'phone' => 'Telefon', 'referral' => 'Referans', 'meta_form' => 'Meta formu',
+        'instagram' => 'Instagram', 'facebook' => 'Facebook', 'other' => 'Diğer',
     ];
 
     /**

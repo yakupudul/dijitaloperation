@@ -113,6 +113,18 @@ class SocialPlanner
             ->whereIn('status', [SocialPostTarget::PENDING, SocialPostTarget::FAILED])->delete();
     }
 
+    /** A channel was connected, added or switched: the posts still to go get its row (or lose it). */
+    public function syncUpcoming(): int
+    {
+        $posts = SocialPost::query()->whereIn('status', [SocialPost::DRAFT, SocialPost::APPROVED])
+            ->where('publish_at', '>=', now()->subDay())->get();
+        foreach ($posts as $post) {
+            $this->syncTargets($post);
+        }
+
+        return $posts->count();
+    }
+
     public function approve(SocialPost $post, int $userId): void
     {
         if (! in_array($post->status, [SocialPost::DRAFT, SocialPost::EXPIRED], true)) {

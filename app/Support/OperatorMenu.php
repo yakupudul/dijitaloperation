@@ -7,6 +7,7 @@ use App\Models\CoreIntegration;
 use App\Models\GbpQueuedPost;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
+use App\Models\SocialThread;
 use App\Models\WhatsAppConversation;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
 use App\Services\Meta\MetaDesk;
@@ -166,7 +167,8 @@ final class OperatorMenu
         $put('operator.gbp-desk', 'soft', fn (): int => GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)
             ->where('publish_on', '>=', now()->toDateString())->count());
         $put('operator.social', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
-            + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count());
+            + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count()
+            + SocialThread::query()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count());
         $put('operator.brands', 'amber', function (): int {
             $models = Brand::query()->with(['customer', 'responsibleUsers', 'digitalAssets.assetBindings', 'intelligenceContext', 'sectorCategory'])->get();
             $signals = app(PortfolioSignalsReader::class)->forBrands($models)['brands'];

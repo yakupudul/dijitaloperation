@@ -158,6 +158,8 @@ class SocialMetaConnector
             return ['error' => 'Bu Meta hesabında yönetilen sayfa bulunamadı. Girişte Moximu sayfasını ve Instagram hesabını seçtiğinizden emin olun.'];
         }
 
+        app(SocialPlanner::class)->syncUpcoming();
+
         return ['ok' => true, 'accounts' => $names];
     }
 }

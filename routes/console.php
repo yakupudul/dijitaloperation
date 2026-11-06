@@ -100,6 +100,7 @@ use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Services\Social\SocialInbox;
 use App\Services\Social\SocialPublisher;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
@@ -1735,3 +1736,16 @@ Schedule::command('moxdop:social:publish')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->name('social-publish');
+
+// ADR-083 (2. aşama): Instagram ve Facebook mesajları ile yorumları her 10 dakikada okunur; kişinin son sözü için
+// cevap taslağı yazılır, Admin tek tıkla gönderir.
+Artisan::command('moxdop:social:inbox', function (): void {
+    $stats = app(SocialInbox::class)->sync();
+    $this->info('Yeni konuşma: '.$stats['threads'].' · yeni mesaj: '.$stats['messages'].($stats['errors'] !== [] ? ' · '.implode(' | ', $stats['errors']) : ''));
+})->purpose('Read Instagram and Facebook direct messages and comments into the social inbox.');
+
+Schedule::command('moxdop:social:inbox')
+    ->everyTenMinutes()
+    ->withoutOverlapping(15)
+    ->runInBackground()
+    ->name('social-inbox');

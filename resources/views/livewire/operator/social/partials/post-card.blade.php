@@ -2,8 +2,8 @@
     $media = $post->mediaItems();
     $first = $media[0] ?? null;
     $tone = match ($post->status) {
-        'draft', 'failed', 'partial', 'expired' => 'tone-warning',
-        'published' => 'tone-success',
+        'draft', 'failed', 'partial', 'expired' => 'tone-look',
+        'published' => 'tone-ok',
         default => 'tone-info',
     };
 @endphp

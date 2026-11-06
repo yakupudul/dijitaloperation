@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Ai\Agents\SalesAnalysisAgent;
 use App\Ai\Agents\SalesReplyAgent;
+use App\Ai\Agents\SocialReplyAgent;
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Ai\Gateway\CachingAnthropicGateway;
@@ -384,6 +385,15 @@ class AppServiceProvider extends ServiceProvider
             'name' => 'Aday analizi',
             'module' => 'sales',
             'description' => 'Full written analysis of a prospect for the operator (site, profile, conversation, plan, offer, questions, risks) and a one-finding message; nothing is sent.',
+            'default_steps' => $this->app->make(AiRouteRegistry::class)->get(SalesReplyAgent::ROUTE)['default_steps'],
+        ]);
+
+        // Sosyal medya gelen kutusu (ADR-083, 2026-11-06): replies to DMs and comments on Moximu's own accounts.
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => SocialReplyAgent::ROUTE,
+            'name' => 'Sosyal medya cevabı',
+            'module' => 'social',
+            'description' => 'Reply draft to a direct message or a comment on the agency\'s own Instagram / Facebook; the Admin sends it with one click.',
             'default_steps' => $this->app->make(AiRouteRegistry::class)->get(SalesReplyAgent::ROUTE)['default_steps'],
         ]);
 

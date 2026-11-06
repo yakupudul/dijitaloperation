@@ -6,7 +6,9 @@ use App\Models\AgencySetting;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
+use App\Models\SocialThread;
 use App\Models\User;
+use App\Services\Social\SocialInbox;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
 use App\Support\Roles;
@@ -61,6 +63,11 @@ final class SocialPage extends Component
     /** @var array<int, TemporaryUploadedFile> */
     public array $newFiles = [];
 
+    /** @var array<int, string> thread id => reply text being edited */
+    public array $replies = [];
+
+    public string $inboxFilter = 'bekleyen';
+
     // Hesaplar
     public string $configId = '';
 
@@ -76,7 +83,7 @@ final class SocialPage extends Component
 
     public function setTab(string $tab): void
     {
-        $this->tab = in_array($tab, ['plan', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'plan';
+        $this->tab = in_array($tab, ['plan', 'mesajlar', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'plan';
         $this->message = '';
     }
 
@@ -200,6 +207,74 @@ final class SocialPage extends Component
         }
     }
 
+    public function sendReply(int $id): void
+    {
+        $this->authorizeAdmin();
+        $thread = SocialThread::query()->with('account')->findOrFail($id);
+        $text = trim((string) ($this->replies[$id] ?? $thread->draft ?? ''));
+        try {
+            app(SocialInbox::class)->send($thread, $text);
+            unset($this->replies[$id]);
+            $this->message = 'Cevap gönderildi.';
+        } catch (Throwable $e) {
+            $thread->forceFill(['send_error' => mb_substr($e->getMessage(), 0, 480)])->save();
+            $this->message = 'Gönderilemedi: '.$e->getMessage();
+        }
+    }
+
+    public function sendAll(): void
+    {
+        $this->authorizeAdmin();
+        // Texts edited on the page are kept as the draft first.
+        foreach ($this->replies as $id => $text) {
+            SocialThread::query()->whereKey((int) $id)->where('status', SocialThread::OPEN)->whereNotNull('draft')
+                ->update(['draft' => trim((string) $text)]);
+        }
+        $this->replies = [];
+        $result = app(SocialInbox::class)->sendAllReady();
+        $this->message = $result['sent'].' cevap gönderildi'.($result['failed'] > 0 ? ', '.$result['failed'].' gönderilemedi (kartta sebebi yazıyor).' : '.');
+    }
+
+    public function ignoreThread(int $id): void
+    {
+        $this->authorizeAdmin();
+        SocialThread::query()->whereKey($id)->update(['status' => SocialThread::IGNORED, 'draft_status' => null]);
+        $this->message = 'Cevapsız bırakıldı.';
+    }
+
+    public function reopenThread(int $id): void
+    {
+        $this->authorizeAdmin();
+        $thread = SocialThread::query()->findOrFail($id);
+        $thread->forceFill(['status' => SocialThread::OPEN])->save();
+        SocialInbox::queueDraft($thread);
+        $this->message = 'Yeniden açıldı; cevap yazılıyor.';
+    }
+
+    public function redraft(int $id): void
+    {
+        $this->authorizeAdmin();
+        $thread = SocialThread::query()->findOrFail($id);
+        unset($this->replies[$id]);
+        $thread->forceFill(['draft' => null])->save();
+        SocialInbox::queueDraft($thread);
+        $this->message = 'Cevap yeniden yazılıyor.';
+    }
+
+    public function makeLead(int $id): void
+    {
+        $this->authorizeAdmin();
+        $lead = app(SocialInbox::class)->toLead(SocialThread::query()->with('account')->findOrFail($id));
+        $this->message = 'Satış › Adaylar\'da kart açıldı: '.$lead->title().'.';
+    }
+
+    public function syncInbox(): void
+    {
+        $this->authorizeAdmin();
+        $stats = app(SocialInbox::class)->sync();
+        $this->message = 'Okundu: '.$stats['messages'].' yeni mesaj'.($stats['errors'] !== [] ? ' · '.implode(' | ', $stats['errors']) : '.');
+    }
+
     public function saveConfigId(): void
     {
         $this->authorizeAdmin();
@@ -220,6 +295,7 @@ final class SocialPage extends Component
             ['name' => $this->linkedinName, 'meta' => ['url' => $this->linkedinUrl], 'connected_at' => now(), 'enabled' => true,
                 'brand_id' => SocialAccount::query()->whereNotNull('brand_id')->value('brand_id')],
         );
+        app(SocialPlanner::class)->syncUpcoming();
         $this->message = 'LinkedIn sayfası eklendi. Gönderiler saatinde "kopyala ve aç" olarak burada belirir.';
     }
 
@@ -228,6 +304,7 @@ final class SocialPage extends Component
         $this->authorizeAdmin();
         $account = SocialAccount::query()->findOrFail($id);
         $account->update(['enabled' => ! $account->enabled]);
+        app(SocialPlanner::class)->syncUpcoming();
     }
 
     public function render(): View
@@ -243,7 +320,24 @@ final class SocialPage extends Component
                 ->with(['targets.account'])->orderByDesc('publish_at')->limit(60)->get()
             : collect();
 
+        $threads = collect();
+        if ($this->tab === 'mesajlar') {
+            $threads = SocialThread::query()->with(['account', 'messages' => fn ($q) => $q->orderByDesc('sent_at')->limit(8)])
+                ->when($this->inboxFilter === 'bekleyen', fn ($q) => $q->where('status', SocialThread::OPEN)->where('last_direction', 'in'))
+                ->when($this->inboxFilter === 'cevaplanan', fn ($q) => $q->where('status', SocialThread::ANSWERED))
+                ->when($this->inboxFilter === 'bos', fn ($q) => $q->where('status', SocialThread::IGNORED))
+                ->orderByDesc('last_at')->limit(60)->get();
+            foreach ($threads as $thread) {
+                if (! array_key_exists($thread->id, $this->replies) && $thread->draft !== null && $thread->draft !== '') {
+                    $this->replies[$thread->id] = (string) $thread->draft;
+                }
+            }
+        }
+
         return view('livewire.operator.social.social-page', [
+            'threads' => $threads,
+            'waitingCount' => SocialThread::query()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
+            'readyCount' => SocialThread::query()->where('status', SocialThread::OPEN)->where('draft_status', 'ready')->whereNotNull('draft')->count(),
             'weeks' => $weeks,
             'manual' => $manual,
             'history' => $history,
