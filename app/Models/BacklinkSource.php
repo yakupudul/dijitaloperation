@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A potential link source ("Potansiyel kaynaklar"): AI-proposed or manual. Fee is ücretsiz / ücretli only with an
@@ -50,20 +51,27 @@ class BacklinkSource extends Model
     protected $fillable = [
         'brand_id', 'name', 'url', 'domain', 'kind', 'fee', 'fee_evidence_url', 'reason', 'origin', 'status', 'link_url',
         'note', 'verified_at', 'checked_at', 'link_source_id', 'link_target_id', 'engine', 'lane', 'anchor', 'material', 'material_status',
-        'material_note', 'sent_at', 'given_at', 'next_step_at', 'paid', 'rel',
+        'material_note', 'sent_at', 'given_at', 'next_step_at', 'paid', 'rel', 'followup_at', 'nap',
     ];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
         return ['verified_at' => 'immutable_datetime', 'checked_at' => 'immutable_datetime', 'material' => 'array', 'sent_at' => 'immutable_datetime',
-            'given_at' => 'immutable_datetime', 'next_step_at' => 'immutable_datetime', 'paid' => 'boolean'];
+            'given_at' => 'immutable_datetime', 'next_step_at' => 'immutable_datetime', 'paid' => 'boolean', 'followup_at' => 'immutable_datetime',
+            'nap' => 'array'];
     }
 
     /** @return BelongsTo<LinkSource, $this> */
     public function pool(): BelongsTo
     {
         return $this->belongsTo(LinkSource::class, 'link_source_id');
+    }
+
+    /** @return HasMany<LinkMessage, $this> */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(LinkMessage::class);
     }
 
     /** @return BelongsTo<LinkTarget, $this> */

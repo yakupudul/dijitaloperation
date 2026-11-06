@@ -17,7 +17,7 @@ final class TodayLinksCard extends Component
         return view('livewire.operator.links.today-links-card', [
             'ready' => $base()->where('status', BacklinkSource::NONE)->where('lane', 'masa')->where('material_status', 'ready')->count(),
             'person' => $base()->where('status', BacklinkSource::NONE)->where('lane', 'sen')->whereNotNull('material_status')->count(),
-            'late' => $base()->where('status', BacklinkSource::APPLIED)->where('sent_at', '<', now()->subDays(BacklinkSource::FOLLOW_UP_DAYS))->count(),
+            'late' => $base()->where('status', BacklinkSource::APPLIED)->whereNull('followup_at')->where('sent_at', '<', now()->subDays(BacklinkSource::FOLLOW_UP_DAYS))->count(),
             'won' => $base()->where('status', BacklinkSource::VERIFIED)->where('verified_at', '>=', now('Europe/Istanbul')->startOfMonth()->utc())->count(),
         ]);
     }

@@ -189,6 +189,7 @@ class Brand extends Model
             'demand_serp_enabled' => 'boolean',
             'demand_serp_monthly_usd' => 'float',
             'showcase_enabled' => 'boolean',
+            'link_alert_read_at' => 'immutable_datetime',
         ];
     }
 }

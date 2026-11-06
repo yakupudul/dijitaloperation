@@ -41,6 +41,9 @@
             <section class="mt-8" data-links-group="{{ $key }}">
                 <div class="section-head">
                     <h2 class="section-title">{{ $title }} <span class="section-count">{{ $n($groups[$key]->count()) }}</span></h2>
+                    @if ($key === 'ready' && $mailable > 0)
+                        <button type="button" wire:click="sendAll" wire:confirm="{{ $mailable }} hazır e-posta kaynaklara gönderilsin mi?" wire:loading.attr="disabled" class="btn-dark text-xs" @disabled(! $canMail) title="{{ $canMail ? '' : 'Ayarlar › E-posta eksik' }}" data-links-send-all>{{ $mailable }} e-postayı gönder</button>
+                    @endif
                 </div>
                 @if ($groups[$key]->isEmpty())
                     <p class="text-sm text-gray-500">
@@ -72,6 +75,10 @@
                                         @if ($row->reason)<p class="text-xs text-gray-500">{{ $row->reason }}</p>@endif
                                         @if ($row->material_note)<p class="text-xs text-gray-500">{{ $row->material_note }}</p>@endif
                                         @if ($row->note)<p class="text-xs text-gray-500">{{ $row->note }}</p>@endif
+                                        @if ($napLine = \App\Services\Site\Backlinks\LinkNapCheck::line($row))<p class="text-xs text-error-600" data-links-nap>{{ $napLine }}</p>@endif
+                                        @foreach ($row->messages as $mail)
+                                            <p class="text-xs text-gray-500">{{ $mail->kind === 'takip' ? 'Hatırlatma' : 'E-posta' }} → {{ $mail->to }} · {{ $mail->sent_at ? $mail->sent_at->timezone('Europe/Istanbul')->format('d.m.Y H:i') : 'gönderilemedi: '.$mail->error }}</p>
+                                        @endforeach
                                         @if (! empty($m['steps']))
                                             <ol class="list-decimal space-y-0.5 pl-5">@foreach ($m['steps'] as $step)<li>{{ $step }}</li>@endforeach</ol>
                                         @endif
@@ -93,7 +100,7 @@
                                             </div>
                                         @endif
                                         @if (! empty($m['email_body']))
-                                            @php $to = $row->pool?->contact_email ?? ''; @endphp
+                                            @php $to = \App\Services\Site\Backlinks\LinkMailer::recipient($row) ?? ''; @endphp
                                             <div x-data="{ copied: false }">
                                                 <div class="flex items-center justify-between"><span class="text-xs font-medium text-gray-500">E-posta{{ $to ? ' · '.$to : '' }} · {{ $m['email_subject'] ?? '' }}</span>
                                                     <span class="flex gap-3">
@@ -101,12 +108,30 @@
                                                         <a class="link-neutral text-xs" href="mailto:{{ $to }}?subject={{ rawurlencode((string) ($m['email_subject'] ?? '')) }}&body={{ rawurlencode((string) $m['email_body']) }}">Postada aç ↗</a>
                                                     </span></div>
                                                 <p class="mt-1 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">{{ $m['email_body'] }}</p>
+                                                @if ($row->status === BacklinkSource::NONE && $to === '')
+                                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                                        <input type="email" wire:model="recipient.{{ $row->id }}" placeholder="Kaynağın e-posta adresi" class="{{ $input }} w-64" aria-label="Alıcı" />
+                                                        <button type="button" wire:click="setRecipient({{ $row->id }})" class="btn-quiet">Kaydet</button>
+                                                    </div>
+                                                    @error('recipient.'.$row->id)<p class="text-sm text-error-600">{{ $message }}</p>@enderror
+                                                @endif
+                                            </div>
+                                        @endif
+                                        @if (\App\Services\Site\Backlinks\LinkMailer::followUpDue($row))
+                                            @php $fu = \App\Services\Site\Backlinks\LinkMailer::followUp($row); @endphp
+                                            <div class="rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800" data-links-followup>
+                                                <p class="text-xs font-medium text-gray-500">Hatırlatma · {{ $fu['subject'] }}</p>
+                                                <p class="mt-1 whitespace-pre-line text-sm">{{ $fu['body'] }}</p>
+                                                <button type="button" wire:click="sendFollowUp({{ $row->id }})" class="btn-dark mt-2" @disabled(! $canMail)>Hatırlatmayı gönder</button>
                                             </div>
                                         @endif
                                         <div class="flex flex-wrap items-center gap-2 pt-1">
                                             @if ($row->link_url ?: $row->url)<a href="{{ $row->link_url ?: $row->url }}" target="_blank" rel="noopener" class="btn">Siteyi aç ↗</a>@endif
                                             @if ($row->status === BacklinkSource::NONE)
-                                                <button type="button" wire:click="sent({{ $row->id }})" class="btn-dark" @disabled($row->material_status !== 'ready')>Başvurdum</button>
+                                                @if (\App\Services\Site\Backlinks\LinkMailer::mailReady($row) && $canMail)
+                                                    <button type="button" wire:click="sendMail({{ $row->id }})" wire:confirm="E-posta {{ \App\Services\Site\Backlinks\LinkMailer::recipient($row) }} adresine gönderilsin mi?" class="btn-dark">E-postayı gönder</button>
+                                                @endif
+                                                <button type="button" wire:click="sent({{ $row->id }})" @class(['btn-dark' => ! (\App\Services\Site\Backlinks\LinkMailer::mailReady($row) && $canMail), 'btn' => \App\Services\Site\Backlinks\LinkMailer::mailReady($row) && $canMail]) @disabled($row->material_status !== 'ready')>Başvurdum</button>
                                                 <button type="button" wire:click="rewrite({{ $row->id }})" class="btn-quiet">Yeniden yaz</button>
                                             @endif
                                             @if (in_array($row->status, [BacklinkSource::NONE, BacklinkSource::APPLIED], true))
@@ -152,6 +177,19 @@
                                 <button type="button" class="link-neutral" x-on:click="navigator.clipboard.writeText(@js($surveyUrl[$b->id])); copied = true" x-text="copied ? 'Kopyalandı' : 'Kopyala'">Kopyala</button></span>
                         @else
                             <button type="button" wire:click="surveyLink({{ $b->id }})" class="link-neutral">Müşteri formunun bağlantısını al</button>
+                        @endif
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500" data-links-alert="{{ $b->id }}">
+                        @if ($b->link_alert_feed && ! array_key_exists($b->id, $alertFeed))
+                            <span>Anılmalar: Google Alerts akışı her sabah okunuyor{{ $b->link_alert_read_at ? ' (son '.$b->link_alert_read_at->timezone('Europe/Istanbul')->format('d.m H:i').')' : '' }}.</span>
+                            <button type="button" wire:click="$set('alertFeed.{{ $b->id }}', @js($b->link_alert_feed))" class="link-neutral ml-1">Değiştir</button>
+                        @else
+                            <span class="block">Anılmalar: Google Alerts'te "{{ $b->name }}" için uyarı kur, "Gönderim yeri: RSS akışı" seç ve akış adresini buraya yapıştır. Adı geçip link vermeyen sayfalar masaya gelir.</span>
+                            <span class="mt-1 flex flex-wrap items-center gap-2">
+                                <input type="url" wire:model="alertFeed.{{ $b->id }}" placeholder="https://www.google.com/alerts/feeds/…" class="{{ $input }} w-96 max-w-full" aria-label="Google Alerts RSS akışı" />
+                                <button type="button" wire:click="setAlertFeed({{ $b->id }})" class="btn-quiet text-xs">Kaydet</button>
+                            </span>
+                            @error('alertFeed.'.$b->id)<p class="text-sm text-error-600">{{ $message }}</p>@enderror
                         @endif
                     </div>
                     @forelse ($plan['targets'] as $t)

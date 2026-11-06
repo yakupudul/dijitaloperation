@@ -10,6 +10,8 @@ use App\Models\LinkSurvey;
 use App\Models\LinkTarget;
 use App\Models\ServiceCategory;
 use App\Services\Site\Backlinks\LinkDesk;
+use App\Services\Site\Backlinks\LinkMailer;
+use App\Services\Site\Backlinks\LinkMentions;
 use App\Services\Site\Backlinks\LinkSurveys;
 use App\Services\Site\SiteDomains;
 use Illuminate\Contracts\View\View;
@@ -55,6 +57,12 @@ final class LinkDeskPage extends Component
 
     /** @var array<int, string> the client form link shown under a brand */
     public array $surveyUrl = [];
+
+    /** @var array<int, string> e-mail address per row, typed by the operator when the source has none */
+    public array $recipient = [];
+
+    /** @var array<int, string> Google Alerts RSS feed per brand */
+    public array $alertFeed = [];
 
     public function updatedTab(): void
     {
@@ -112,6 +120,88 @@ final class LinkDeskPage extends Component
         $row->forceFill(['material_status' => 'queued', 'material_note' => null])->save();
         WriteLinkPack::dispatch((int) $row->id);
         $this->message = $row->name.': malzeme yeniden yazılıyor.';
+    }
+
+    /** The row's first e-mail leaves from the agency's mail settings (only with this click). */
+    public function sendMail(int $id, LinkMailer $mailer): void
+    {
+        $row = $this->row($id);
+        if (! LinkMailer::mailReady($row)) {
+            $this->message = $row->name.': gönderilecek hazır e-posta ya da alıcı yok.';
+
+            return;
+        }
+        $error = $mailer->send($row, 'ilk', auth()->id());
+        $this->message = $row->name.': '.($error ?? 'e-posta gönderildi. '.BacklinkSource::FOLLOW_UP_DAYS.' gün içinde cevap gelmezse kısa bir hatırlatma hazırlanır.');
+    }
+
+    /** Every ready e-mail on the screen (the brand filter applies), one click. */
+    public function sendAll(LinkMailer $mailer): void
+    {
+        if (! $mailer->canSend()) {
+            $this->message = 'E-posta ayarı yok (Ayarlar › E-posta). "Postada aç" ile kendi postanızdan gönderebilirsiniz.';
+
+            return;
+        }
+        [$sent, $failed] = [0, 0];
+        foreach ($this->mailRows() as $row) {
+            if (LinkMailer::mailReady($row)) {
+                $mailer->send($row, 'ilk', auth()->id()) === null ? $sent++ : $failed++;
+            }
+        }
+        $this->message = $sent.' e-posta gönderildi'.($failed > 0 ? ', '.$failed.' gönderilemedi (satırda nedeni yazıyor).' : '.');
+    }
+
+    public function sendFollowUp(int $id, LinkMailer $mailer): void
+    {
+        $row = $this->row($id);
+        if (! LinkMailer::followUpDue($row)) {
+            return;
+        }
+        $error = $mailer->send($row, 'takip', auth()->id());
+        $this->message = $row->name.': '.($error ?? 'hatırlatma gönderildi. '.(LinkMailer::GIVE_UP_DAYS - BacklinkSource::FOLLOW_UP_DAYS).' gün daha cevap gelmezse satır masadan kalkar.');
+    }
+
+    public function setRecipient(int $id): void
+    {
+        $this->resetErrorBag('recipient.'.$id);
+        $row = $this->row($id);
+        $to = trim((string) ($this->recipient[$id] ?? ''));
+        if (filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+            $this->addError('recipient.'.$id, 'Geçerli bir e-posta adresi yaz.');
+
+            return;
+        }
+        $row->forceFill(['material' => [...(array) $row->material, 'to' => $to]])->save();
+        if ($row->pool !== null && blank($row->pool->contact_email)) {
+            $row->pool->forceFill(['contact_email' => $to])->save();
+        }
+        unset($this->recipient[$id]);
+    }
+
+    /** The brand's Google Alerts RSS feed (anılma motoru); empty clears it. */
+    public function setAlertFeed(int $brandId, LinkMentions $mentions): void
+    {
+        $this->resetErrorBag('alertFeed.'.$brandId);
+        $feed = trim((string) ($this->alertFeed[$brandId] ?? ''));
+        if ($feed !== '' && ! preg_match('#^https://(www\.)?google\.[a-z.]+/alerts/feeds/#i', $feed)) {
+            $this->addError('alertFeed.'.$brandId, 'Google Alerts\'ta uyarının "RSS akışı" adresini yapıştır (https://www.google.com/alerts/feeds/…).');
+
+            return;
+        }
+        $brand = Brand::query()->findOrFail($brandId);
+        $brand->forceFill(['link_alert_feed' => $feed !== '' ? $feed : null])->save();
+        $out = $feed !== '' ? $mentions->read($brand->fresh()) : ['read' => 0, 'added' => 0];
+        $this->message = $feed === '' ? $brand->name.': uyarı akışı kaldırıldı.'
+            : $brand->name.': uyarı akışı kaydedildi; '.$out['read'].' sayfa okundu, '.$out['added'].' anılma satırı eklendi. Akış her sabah okunur.';
+    }
+
+    /** @return Collection<int, BacklinkSource> */
+    private function mailRows(): Collection
+    {
+        return BacklinkSource::query()->with(['pool', 'brand'])->where('status', BacklinkSource::NONE)->where('material_status', 'ready')
+            ->whereHas('brand', fn (Builder $q) => $q->operational())->when($this->brand > 0, fn (Builder $q) => $q->where('brand_id', $this->brand))
+            ->orderBy('id')->limit(100)->get();
     }
 
     public function setPackage(int $brandId, string $package): void
@@ -177,7 +267,7 @@ final class LinkDeskPage extends Component
 
     public function render(LinkDesk $desk): View
     {
-        $brands = Brand::query()->operational()->with('customer')->orderBy('name')->get(['id', 'name', 'customer_id', 'link_package', 'sector_id']);
+        $brands = Brand::query()->operational()->with('customer')->orderBy('name')->get(['id', 'name', 'customer_id', 'link_package', 'sector_id', 'link_alert_feed', 'link_alert_read_at']);
         $scope = fn (Builder $q): Builder => $q->when($this->brand > 0, fn (Builder $b) => $b->where('brand_id', $this->brand))
             ->whereIn('brand_id', $brands->pluck('id'));
         $rows = BacklinkSource::query()->with(['brand:id,name', 'target:id,url,title', 'pool:id,kind,apply_via,contact_email,won_count,applied_count'])
@@ -194,8 +284,12 @@ final class LinkDeskPage extends Component
                 || ($r->status === BacklinkSource::REMOVED && $r->checked_at?->gte(now()->subDays(30))))->values(),
         ];
 
+        $rows->load('messages');
+
         return view('livewire.operator.links.link-desk-page', [
             'brands' => $brands,
+            'mailable' => $groups['ready']->filter(fn (BacklinkSource $r): bool => LinkMailer::mailReady($r))->count(),
+            'canMail' => app(LinkMailer::class)->canSend(),
             'groups' => $groups,
             'plans' => $this->tab === 'hedefler' ? $this->plans($brands, $desk) : collect(),
             'pool' => $this->tab === 'havuz' ? $this->pool() : collect(),

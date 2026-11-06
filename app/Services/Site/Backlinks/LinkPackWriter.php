@@ -105,6 +105,7 @@ final class LinkPackWriter
             'email_subject' => trim((string) $answer['email_subject']), 'email_body' => trim((string) $answer['email_body']),
             'phone_note' => trim((string) $answer['phone_note']), 'steps' => array_values(array_filter(array_map('trim', (array) $answer['steps']))),
             'written_at' => now()->toIso8601String(),
+            ...(filled(data_get($row->material, 'to')) ? ['to' => data_get($row->material, 'to')] : []), // the address the operator / the page gave
         ]])->save();
 
         return true;

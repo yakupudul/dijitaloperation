@@ -4,6 +4,7 @@ namespace App\Services\Site\Backlinks;
 
 use App\Models\BacklinkSource;
 use App\Models\Brand;
+use App\Models\LinkSource;
 use App\Services\Site\SiteDomains;
 use App\Services\Website\PageFetcher;
 use DOMDocument;
@@ -28,7 +29,7 @@ final class BacklinkVerifier
     /** Statuses the verifier checks. */
     public const array CHECKED = [BacklinkSource::GIVEN, BacklinkSource::VERIFIED, BacklinkSource::REMOVED];
 
-    public function __construct(private readonly PageFetcher $fetcher) {}
+    public function __construct(private readonly PageFetcher $fetcher, private readonly LinkNapCheck $nap) {}
 
     /** @return string found | missing | removed | unreachable | skipped */
     public function verify(BacklinkSource $source): string
@@ -61,6 +62,13 @@ final class BacklinkVerifier
                 }])->save();
             if ($first) {
                 LinkDesk::learn($source);
+            }
+            if ($brand instanceof Brand && ($source->engine === 'kunye' || in_array($source->kind, LinkSource::CITATION_KINDS, true))) {
+                // A listing helps local search only with the profile's phone and address (NAP).
+                $nap = $this->nap->check($brand, $html);
+                if ($nap !== null) {
+                    $source->forceFill(['nap' => $nap])->save();
+                }
             }
 
             return self::FOUND;
