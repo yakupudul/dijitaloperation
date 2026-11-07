@@ -297,8 +297,45 @@ final class SalesLeads
         return $count;
     }
 
+    /**
+     * A name for a number the backup gives without one: how we greeted them in our own messages ("Aslı Hocam merhaba",
+     * "Merhaba Şaban Bey"). Null when we never wrote a name.
+     */
+    public static function nameFromGreeting(int $conversationId): ?string
+    {
+        $messages = WhatsAppMessage::query()->where('conversation_id', $conversationId)->where('direction', 'outgoing')
+            ->orderBy('sent_at')->limit(40)->get(['body']);
+        foreach ($messages as $message) {
+            $name = self::greetedName((string) $message->body);
+            if ($name !== null) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    public static function greetedName(string $text): ?string
+    {
+        $head = (string) preg_replace('/^(merhaba|selam|günaydın|iyi günler)[,!.\s]+/iu', '', mb_substr(trim($text), 0, 80));
+        $word = '[A-ZÇĞİÖŞÜ][a-zçğıöşü]+';
+        $pattern = '/^((?:(?:Dr|Dt|Uzm|Prof|Doç)\.\s*)?'.$word.'(?:\s'.$word.')?)\s+(Hocam|Bey|Hanım)\b/u';
+        if (preg_match($pattern, $head, $m) !== 1) {
+            return null;
+        }
+        $first = mb_strtolower(explode(' ', $m[1])[0]);
+        if (in_array($first, ['merhaba', 'selam', 'günaydın', 'iyi', 'sayın', 'değerli', 'kıymetli'], true)) {
+            return null;
+        }
+
+        return $m[1].' '.$m[2];
+    }
+
     private function readConversation(SalesLead $lead, WhatsAppConversation $conversation, bool $created): void
     {
+        if (! filled($lead->name)) {
+            $lead->name = self::nameFromGreeting($conversation->id);
+        }
         $lastOut = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->max('sent_at');
         $lastOut = $lastOut !== null ? CarbonImmutable::parse($lastOut) : null;
         $lastIn = $conversation->last_incoming_at;

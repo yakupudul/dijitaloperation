@@ -395,6 +395,7 @@ final class SalesPage extends Component
         foreach ($tests as $key => $test) {
             $counts[$key] = $open->filter($test)->count();
         }
+        $counts['isimsiz'] = $open->filter(fn (SalesLead $l): bool => blank($l->name))->count();
         $counts['kazanilan'] = SalesLead::query()->where('stage', 'won')->count();
         $counts['kaybedilen'] = SalesLead::query()->where('stage', 'lost')->count();
         $offerTotal = (int) $open->filter($tests['teklif'])->sum('offer_amount');

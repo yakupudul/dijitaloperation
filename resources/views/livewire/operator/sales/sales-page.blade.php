@@ -168,6 +168,12 @@
                 @endif
             </div>
 
+            @if (($viewCounts['isimsiz'] ?? 0) > 0)
+                <p class="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-sales-unnamed>
+                    {{ $n((int) $viewCounts['isimsiz']) }} açık adayın adı yok: WhatsApp yedeğinde isim olmadığı için numara görünüyor.
+                    <a href="{{ route('operator.whatsapp', ['tab' => 'setup']) }}" wire:navigate class="link-neutral font-medium">Telefon rehberini (.vcf) bir kez yükle</a>, eşleşen numaralara isimler kendiliğinden yazılır.
+                </p>
+            @endif
             <div class="card mt-3 overflow-visible">
                 <div class="hidden grid-cols-[minmax(0,2.2fr)_8.5rem_6.5rem_minmax(0,1.8fr)_minmax(0,1.4fr)_8rem_7.5rem_6.5rem] gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid dark:border-gray-800">
                     <span>Aday</span><span>Durum</span><span>Top kimde</span><span>Son temas</span><span>Sonraki adım</span><span>Teklif</span><span>Kaynak</span><span></span>

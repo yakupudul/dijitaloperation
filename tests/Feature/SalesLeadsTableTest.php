@@ -154,4 +154,13 @@ class SalesLeadsTableTest extends TestCase
         $this->assertSame(18000, $page->viewData('offerTotal'));
         Livewire::test(SalesPage::class)->set('tab', 'sonuclar')->assertSee('Teklifte bekleyen')->assertSee('18.000 ₺');
     }
+
+    public function test_a_card_without_a_name_takes_the_name_we_greeted_them_with(): void
+    {
+        $this->assertSame('Aslı Hocam', SalesLeads::greetedName('Aslı Hocam merhaba, sitenizi inceledik.'));
+        $this->assertSame('Şaban Bey', SalesLeads::greetedName('Merhaba Şaban Bey, geç dönüş için kusura bakmayın.'));
+        $this->assertSame('Dr. Yaşar Hocam', SalesLeads::greetedName('Dr. Yaşar Hocam merhaba'));
+        $this->assertNull(SalesLeads::greetedName('Hocam merhaba, ben Moximu\'dan Yakup.'));
+        $this->assertNull(SalesLeads::greetedName('Merhaba, mesajınız için teşekkürler.'));
+    }
 }
