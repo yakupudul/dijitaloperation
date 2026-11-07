@@ -224,12 +224,21 @@ final class OperatorPortfolioPresenter
     }
 
     /**
+     * The stored name without a leading type label ("Meta Ads · Moximu Reklam Hesabı" → "Moximu Reklam Hesabı"): the
+     * screens print the type on their own line, so the label twice read as a duplicated title (admin audit 2026-11-07 T4).
+     */
+    public static function readableName(?string $name): string
+    {
+        return trim((string) preg_replace('/^(Meta Ads|Google Ads|İşletme Profili|Google Business Profile|Search Console|Google Analytics|Web sitesi)\s*[·\-–:]\s*/iu', '', trim((string) $name)));
+    }
+
+    /**
      * What the operator reads as the asset's name. An account stored under its bare number or with no name reads as
      * "Marka · Meta reklam hesabı …9017"; the stored name is not changed.
      */
     public static function displayName(DigitalAsset $asset): string
     {
-        $name = trim((string) $asset->name);
+        $name = self::readableName($asset->name);
         if (! self::isNumericName($name)) {
             return $name;
         }

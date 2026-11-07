@@ -40,18 +40,6 @@
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                 <x-operator.quick-access :groups="$quickAccess" />
-                {{-- Aşama 11: the /stratejiler list left the panel; a brand's strategies are a view of its page. --}}
-                <button type="button" wire:click="setTab('strateji')" class="btn h-8! px-3! text-[13px]!" data-brand-strategies>Stratejiler</button>
-                <button type="button" wire:click="setTab('ayarlar')" class="btn h-8! px-3! text-[13px]!" data-brand-settings-link>Marka ayarları</button>
-                <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false" data-brand-more>
-                    <button type="button" @click="open = ! open" :aria-expanded="open" class="btn h-8! px-3! text-[13px]!">Diğer ▾</button>
-                    <div x-show="open" x-cloak class="absolute right-0 z-30 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900" role="menu">
-                        @foreach ($tabs as $key => $label)
-                            @continue(in_array($key, ['ozet', 'ayarlar'], true))
-                            <button type="button" role="menuitem" wire:click="setTab('{{ $key }}')" @click="open = false" data-tab="{{ $key }}" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">{{ $label }}</button>
-                        @endforeach
-                    </div>
-                </div>
                 @if ($tab === 'ozet')
                     <div class="{{ $segmentGroup }}" role="group" aria-label="Dönem" data-period-selector>
                         @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)
@@ -70,15 +58,12 @@
             </div>
         </div>
 
-        {{-- Aşama 6 (2026-10-22): no tab row. The brand page is the goal and the channel cards; the other views open from
-             the head (Marka ayarları, Diğer) and come back with "Marka sayfası". --}}
-        @if ($tab !== 'ozet')
-            <p class="flex items-center gap-2 text-sm" data-brand-back>
-                <button type="button" wire:click="setTab('ozet')" class="link-neutral">← Marka sayfası</button>
-                <span class="text-gray-400">/</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ $tabs[$tab] ?? '' }}</span>
-            </p>
-        @endif
+        {{-- Admin audit 2026-11-07 (T1): one flat row, every view one click away (Genel · Varlıklar · Hizmetler · Strateji · Epikriz · Ayarlar). --}}
+        <nav class="no-scrollbar -mb-px flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist" aria-label="Marka sayfası" data-brand-tabs>
+            @foreach ($tabs as $key => $label)
+                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" @if ($key === 'ayarlar') data-brand-settings-link @endif aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @if ($tab === $key) aria-current="page" @endif @class(['tab', 'tab-active' => $tab === $key])>{{ $label }}</button>
+            @endforeach
+        </nav>
     </header>
 
     @if ($tab === 'ozet')

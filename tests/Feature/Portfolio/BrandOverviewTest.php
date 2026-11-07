@@ -76,13 +76,13 @@ final class BrandOverviewTest extends TestCase
             ->assertSee('data-open-website="'.$this->site->id.'"', false)
             ->assertDontSee('Bu hafta yapılacaklar');
 
-        // Aşama 6: no tab row; Marka ayarları in the head, the other views under "Diğer"; placeholder channel tabs are not in it.
+        // Admin audit 2026-11-07 (T1): one flat tab row; placeholder channel tabs are not in it.
         $page = Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->assertSet('tab', 'ozet')
-            ->assertDontSee('role="tablist"', false)->assertSeeHtml('data-brand-settings-link')
+            ->assertSee('role="tablist"', false)->assertSeeHtml('data-brand-settings-link')->assertDontSeeHtml('data-brand-more')
             ->assertSee('data-tab="varliklar"', false)->assertSee('data-tab="dosya"', false)
             ->assertSee('Epikriz')
             ->assertDontSee('data-tab="arama"', false)->assertDontSee('data-tab="harita"', false)->assertDontSee('Dikkat gerektirenler');
-        $this->assertSame(['ozet', 'varliklar', 'karne', 'dosya', 'strateji', 'ayarlar'], array_keys($page->viewData('tabs')));
+        $this->assertSame(['ozet', 'varliklar', 'karne', 'strateji', 'dosya', 'ayarlar'], array_keys($page->viewData('tabs')));
 
         $page->call('setTab', 'bogus')->assertSet('tab', 'ozet')
             ->call('setTab', 'arama')->assertSet('tab', 'ozet')->assertSet('kanal', 'arama')

@@ -61,7 +61,7 @@ class ProfilePage extends Component
         $this->name = (string) $user->name;
         $this->email = (string) $user->email;
         $this->locale = in_array((string) $user->locale, ['en', 'tr'], true) ? (string) $user->locale : 'en';
-        $this->timezone = (string) ($user->timezone ?? '');
+        $this->timezone = (string) ($user->timezone ?: 'Europe/Istanbul'); // the agency's zone until the user picks another (admin audit 2026-11-07 T5)
     }
 
     public function save(): void

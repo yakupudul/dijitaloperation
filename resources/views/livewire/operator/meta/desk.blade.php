@@ -188,7 +188,8 @@
                 </div>
             </section>
 
-            {{-- 4. The yardstick: what a form or a message costs per service across brands. --}}
+            {{-- 4. The yardstick: what a form or a message costs per service across brands. Shown once there is one (admin audit 2026-11-07 T3). --}}
+            @if ($desk['averages'] !== [])
             <section data-testid="meta-desk-averages">
                 <div class="section-head">
                     <h2 class="section-title">Hizmet ortalamaları <span class="section-count">{{ count($desk['averages']) }}</span></h2>
@@ -215,6 +216,7 @@
                     </div>
                 @endif
             </section>
+            @endif
         @endif
     </div>
 </div>

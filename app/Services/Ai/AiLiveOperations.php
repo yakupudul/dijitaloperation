@@ -245,6 +245,29 @@ final class AiLiveOperations
             ->exists();
     }
 
+    /**
+     * Deletes finished rows (jobs with their calls) started more than $days days ago: the AI işleri history keeps a
+     * month, not years (admin audit 2026-11-07 T6: 2.431 pages, deleted by hand). Running and queued rows stay.
+     */
+    public static function pruneFinished(int $days = 30): int
+    {
+        $open = [AiLiveOperation::RUNNING, AiLiveOperation::QUEUED];
+        $before = now()->subDays(max(1, $days));
+        $deleted = 0;
+        AiLiveOperation::query()->whereNotIn('status', $open)->where('started_at', '<', $before)->whereNull('parent_id')->select('id')
+            ->chunkById(500, function ($rows) use ($open, &$deleted): void {
+                $ids = $rows->pluck('id')->all();
+                AiLiveOperation::query()->whereIn('parent_id', $ids)->whereNotIn('status', $open)->delete();
+                $deleted += AiLiveOperation::query()->whereIn('id', $ids)->whereNotExists(fn ($q) => $q->selectRaw('1')->from('ai_live_operations as c')
+                    ->whereColumn('c.parent_id', 'ai_live_operations.id'))->delete();
+            });
+        // Calls that lost their parent long ago (an orphan row has no job to open from).
+        $deleted += AiLiveOperation::query()->whereNotIn('status', $open)->where('started_at', '<', $before)->whereNotNull('parent_id')
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('ai_live_operations as p')->whereColumn('p.id', 'ai_live_operations.parent_id'))->delete();
+
+        return $deleted;
+    }
+
     /** Closes rows whose process died long ago. */
     public function sweepStale(): void
     {
