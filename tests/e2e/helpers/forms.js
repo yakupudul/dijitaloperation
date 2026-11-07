@@ -27,7 +27,7 @@ export async function chooseSelect(page, label, option) {
     await field.getByRole('button').first().click({ timeout: 5_000 });
     const listbox = page.getByRole('listbox').last();
     await listbox.waitFor({ state: 'visible', timeout: 5_000 });
-    const search = listbox.getByPlaceholder('Search…');
+    const search = listbox.getByPlaceholder(/^(Search|Ara)…$/);
 
     if (await search.count()) {
         await search.fill(option);
@@ -67,7 +67,7 @@ export async function inspectSelect(page, label) {
     await field.getByRole('button').first().click({ timeout: 5_000 });
     const listbox = page.getByRole('listbox').last();
     await listbox.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
-    const searchable = (await listbox.getByPlaceholder('Search…').count()) > 0;
+    const searchable = (await listbox.getByPlaceholder(/^(Search|Ara)…$/).count()) > 0;
     const optionCount = await listbox.getByRole('option').count();
     const sample = [];
     const options = listbox.getByRole('option');

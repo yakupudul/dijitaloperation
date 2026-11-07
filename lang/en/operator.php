@@ -139,6 +139,12 @@ return [
         'operator' => 'Operator',
     ],
 
+    'select' => [
+        'search' => 'Search…',
+        'no_matches' => 'No matches',
+        'use_custom' => 'use',
+    ],
+
     'search' => [
         'placeholder' => 'Search portfolio…',
         'page' => 'Page',

@@ -140,6 +140,12 @@ return [
         'operator' => 'Operatör',
     ],
 
+    'select' => [
+        'search' => 'Ara…',
+        'no_matches' => 'Eşleşme yok',
+        'use_custom' => 'kullan',
+    ],
+
     'search' => [
         'placeholder' => 'Portföyde ara…',
         'page' => 'Sayfa',

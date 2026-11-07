@@ -108,7 +108,7 @@
                     type="search"
                     x-model="search"
                     @keydown="onKey"
-                    placeholder="Search…"
+                    placeholder="{{ __('operator.select.search') }}"
                     class="w-full rounded-md border border-gray-200 bg-transparent px-2.5 py-1.5 text-sm outline-none focus:border-brand-300 dark:border-gray-700 dark:text-white/90"
                 />
             </div>
@@ -128,10 +128,10 @@
                     </button>
                 </li>
             </template>
-            <li x-show="filtered.length === 0 && !allowCustom" class="px-3 py-2 text-sm text-gray-400">No matches</li>
+            <li x-show="filtered.length === 0 && !allowCustom" class="px-3 py-2 text-sm text-gray-400">{{ __('operator.select.no_matches') }}</li>
             <li x-show="filtered.length === 0 && allowCustom && search.trim() !== ''">
                 <button type="button" class="w-full px-3 py-2 text-left text-sm text-brand-600 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-500/10" @click="commitCustom()">
-                    Use “<span x-text="search.trim()"></span>”
+                    “<span x-text="search.trim()"></span>” {{ __('operator.select.use_custom') }}
                 </button>
             </li>
         </ul>
