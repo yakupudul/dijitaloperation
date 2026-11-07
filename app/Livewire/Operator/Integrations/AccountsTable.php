@@ -40,7 +40,7 @@ final class AccountsTable extends Component
         'no_access' => ['Erişim yok', 'chip-down'],
         'unbound' => ['Bağlı değil', 'chip-accent'],
         'ok' => ['Çalışıyor', 'chip-up'],
-        'no_spend' => ['Harcamasız', 'chip-flat'],
+        'no_spend' => ['Pasif · harcama yok', 'chip-flat'],
         'not_served' => ['Kullanılmıyor', 'chip-flat'],
     ];
 

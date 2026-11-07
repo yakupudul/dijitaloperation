@@ -10,7 +10,7 @@ use App\Services\Ads\DormantAdWork;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/** Kullanılmayan reklam hesapları (yakup 2026-10-20): no spend for 60 days, no open work; spend again, work again. */
+/** Reklam hesabı harcama kuralı (yakup 2026-10-20 / 2026-11-07): Pasif (dormant tier: 30 days without spend) → no open work; spend again, work again. */
 final class DormantAdWorkTest extends TestCase
 {
     use RefreshDatabase;
@@ -34,10 +34,10 @@ final class DormantAdWorkTest extends TestCase
         ]);
     }
 
-    public function test_work_of_an_account_silent_for_sixty_days_goes_quiet_and_opens_again_when_it_spends(): void
+    public function test_work_of_a_passive_account_goes_quiet_and_opens_again_when_it_spends(): void
     {
         $dead = $this->account(now()->subDays(200)->toDateString());
-        $recentlyIdle = $this->account(now()->subDays(40)->toDateString());
+        $recentlyIdle = $this->account(now()->subDays(20)->toDateString(), 'idle');
         $running = $this->account(now()->subDay()->toDateString(), 'active');
         $deadWork = $this->work($dead);
         $operatorSnoozed = $this->work($dead, Suggestion::SNOOZED);
@@ -50,7 +50,7 @@ final class DormantAdWorkTest extends TestCase
         $this->assertNotNull($deadWork->fresh()->action[DormantAdWork::MARKER] ?? null);
         $this->assertFalse(Suggestion::query()->actionable()->whereKey($deadWork->id)->exists(), 'off the desk and the brand file');
         $this->assertArrayNotHasKey(DormantAdWork::MARKER, (array) $operatorSnoozed->fresh()->action, 'an operator snooze is left alone');
-        $this->assertSame(Suggestion::OPEN, $idleWork->fresh()->status, 'under 60 days: still work');
+        $this->assertSame(Suggestion::OPEN, $idleWork->fresh()->status, 'Durgun (under dormant_days): still work');
         $this->assertSame(Suggestion::OPEN, $runningWork->fresh()->status);
 
         $this->travel(2)->days();

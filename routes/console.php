@@ -1397,12 +1397,13 @@ Schedule::command('moxdop:repair:autopilot')
     ->when(fn (): bool => AiBudget::automaticAllowed(AiRouteKeys::REPAIR_REVIEW))
     ->name('repair-autopilot');
 
-// Kullanılmayan reklam hesapları (yakup 2026-10-20): 60 days without spend (or paused as the customer's decision) and
-// the account's open work goes quiet; it opens again by itself once the account spends.
+// Reklam hesabı harcama kuralı (yakup 2026-10-20 / 2026-11-07): dormant_days (30) without spend, or paused as the
+// customer's decision, and the account is Pasif: its open work goes quiet, nobody is asked; it opens again by itself
+// once the weekly spend check sees spend (DormantAdWork).
 Artisan::command('moxdop:ads:quiet-dormant', function (DormantAdWork $work): void {
     $result = $work->sync();
     $this->info($result['quiet'].' iş sessizde, '.$result['reopened'].' iş yeniden açıldı.');
-})->purpose('Snooze the open work of ad accounts that have not spent for 60 days; reopen it when they spend again');
+})->purpose('Snooze the open work of Pasif ad accounts (no spend for dormant_days); reopen it when they spend again');
 
 Schedule::command('moxdop:ads:quiet-dormant')
     ->dailyAt('05:40')

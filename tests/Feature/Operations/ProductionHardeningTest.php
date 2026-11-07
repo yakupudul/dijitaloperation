@@ -277,7 +277,7 @@ final class ProductionHardeningTest extends TestCase
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-29 09:00:00', 'UTC'));
         Carbon::setTestNow(Carbon::parse('2026-09-29 09:00:00', 'UTC'));
-        $this->assertSame('hesap 1 yıldır harcamasız (son harcama 2025-09-25) — doğru hesap bağlı mı?', DormantAccountHint::text('2025-09-25'));
+        $this->assertSame('hesap 1 yıldır harcamasız (son harcama 2025-09-25) · pasif: haftalık harcama kontrolü sürer, harcama başlayınca kendiliğinden aktif olur', DormantAccountHint::text('2025-09-25'));
         $this->assertSame('3 aydır', DormantAccountHint::since(95));
         $this->assertNull(DormantAccountHint::text('2026-09-20'));
 
@@ -294,7 +294,7 @@ final class ProductionHardeningTest extends TestCase
         $report = app(PortfolioDiagnostics::class)->run(['asset' => (string) $asset->id, 'sections' => ['collection']]);
         $problems = implode("\n", $report['sections']['collection']['problems']);
 
-        $this->assertStringContainsString('HARCAMASIZ: hesap 1 yıldır harcamasız (son harcama 2025-09-25) — doğru hesap bağlı mı?', $problems);
+        $this->assertStringContainsString('HARCAMASIZ: hesap 1 yıldır harcamasız (son harcama 2025-09-25) · pasif:', $problems);
         $this->assertStringNotContainsString('STALE', $problems);
     }
 

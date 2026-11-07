@@ -111,7 +111,9 @@ class SettingsPage extends Component
             $this->section = 'advanced';
         }
 
-        $ids = array_column(GlobalOperatingFixtures::settingsSections(), 'id');
+        // Ekip (add a user, roles, deactivate) has no tab since 2026-10-20 but stays reachable from Kullanıcılar ›
+        // "Ekibi düzenle" (?section=team): without this the panel had no screen that adds a user (admin audit 2026-11-07).
+        $ids = [...array_column(GlobalOperatingFixtures::settingsSections(), 'id'), 'team'];
         if (! in_array($this->section, $ids, true)) {
             $this->section = 'general';
         }
@@ -126,7 +128,7 @@ class SettingsPage extends Component
 
     public function setSection(string $section): void
     {
-        $ids = array_column(GlobalOperatingFixtures::settingsSections(), 'id');
+        $ids = [...array_column(GlobalOperatingFixtures::settingsSections(), 'id'), 'team'];
         if (in_array($section, $ids, true)) {
             $this->section = $section;
             if ($section !== 'advanced') {

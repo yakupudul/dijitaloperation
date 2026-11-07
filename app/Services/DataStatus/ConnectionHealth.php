@@ -201,7 +201,8 @@ final class ConnectionHealth
         $hint = $status->capability === 'google_ads' && $status->externalResourceId !== null
             ? DormantAccountHint::text($lastSpend[(int) $status->externalResourceId] ?? null) : null;
         if ($hint !== null) {
-            return $base + ['kind' => 'dormant', 'who' => self::OPERATOR, 'title' => 'Google Ads: harcama yok', 'detail' => ucfirst($hint),
+            // Pasif account (DormantAdWork): the system's state, nothing for the operator to do.
+            return $base + ['kind' => 'dormant', 'who' => self::SYSTEM, 'title' => 'Google Ads: pasif (harcama yok)', 'detail' => ucfirst($hint),
                 'url' => route('operator.brand', ['brand' => $asset->brand_id, 'tab' => 'varliklar'])];
         }
 

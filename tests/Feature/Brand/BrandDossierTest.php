@@ -199,7 +199,7 @@ final class BrandDossierTest extends TestCase
 
         $section = app(BrandDossier::class)->build($this->brand)['sections']['assets']['markdown'];
 
-        $this->assertStringContainsString('google_ads (son veri 2026-08-02 · hesap 2 aydır harcamasız (son harcama 2026-08-01) — doğru hesap bağlı mı?)', $section);
+        $this->assertStringContainsString('google_ads (son veri 2026-08-02 · hesap 2 aydır harcamasız (son harcama 2026-08-01) · pasif: haftalık harcama kontrolü sürer, harcama başlayınca kendiliğinden aktif olur)', $section);
         $this->assertStringContainsString('google_ads (son veri 2026-10-04)', $section, 'spending account: no note');
         $this->assertSame(1, substr_count($section, 'harcamasız'));
     }

@@ -48,6 +48,9 @@ class MetaGeoResults
 
     private const int MIN_PAGE_LIMIT = 15;
 
+    /** The asset's binding does not resolve to a real ad account (a state, not an application error). */
+    public const string NOT_BOUND = 'Meta reklam hesabı bağlı değil.';
+
     public function __construct(
         private readonly MetaAdsSpecialistBindingResolver $bindings,
         private readonly MetaApiClient $client,
@@ -58,7 +61,7 @@ class MetaGeoResults
     {
         $binding = $this->bindings->resolve((string) $asset->id);
         if (! $binding->isReal()) {
-            throw new RuntimeException('Meta reklam hesabı bağlı değil.');
+            throw new RuntimeException(self::NOT_BOUND);
         }
         $integration = CoreExternalResource::query()->with('integration')->find((int) $binding->externalResourceId)?->integration;
         if (! $integration instanceof CoreIntegration) {

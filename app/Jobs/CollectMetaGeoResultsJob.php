@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\Meta\MetaException;
 use App\Services\Integrations\Meta\MetaUsageGovernor;
-use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaGeoResults;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -71,13 +70,6 @@ final class CollectMetaGeoResultsJob implements ShouldBeUnique, ShouldQueue
         if ($asset === null) {
             return;
         }
-        // An asset whose binding no longer resolves to a real ad account is a connection state the Hesaplar screen
-        // already shows, not an application error (373 "Meta reklam hesabı bağlı değil" reports in 11 days).
-        if (! app(MetaAdsSpecialistBindingResolver::class)->resolve((string) $asset->id)->isReal()) {
-            Cache::put(self::stateKey($this->assetId), ['state' => 'failed', 'error' => 'Meta reklam hesabı bağlı değil.', 'at' => now()->toIso8601String()], now()->addDay());
-
-            return;
-        }
         $governor = app(MetaUsageGovernor::class);
         if (($wait = $governor->cooldownSeconds()) > 0) {
             // Meta asked us to slow down (usage headers / earlier rate-limit error): come back later.
@@ -113,7 +105,11 @@ final class CollectMetaGeoResultsJob implements ShouldBeUnique, ShouldQueue
             report($exception);
         } catch (Throwable $exception) {
             Cache::put(self::stateKey($this->assetId), ['state' => 'failed', 'error' => mb_substr($exception->getMessage(), 0, 200), 'at' => now()->toIso8601String()], now()->addDay());
-            report($exception);
+            // An asset whose binding no longer resolves to a real ad account is a connection state the Hesaplar screen
+            // already shows, not an application error (373 "Meta reklam hesabı bağlı değil" reports in 11 days).
+            if ($exception->getMessage() !== MetaGeoResults::NOT_BOUND) {
+                report($exception);
+            }
         }
     }
 

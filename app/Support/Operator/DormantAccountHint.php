@@ -9,13 +9,17 @@ use Throwable;
 
 /**
  * An ads account whose last spend is long ago is not "stale data": the collection works, the account simply does not
- * spend — often the wrong (old / secondary) account of the customer is bound. Shared by `moxdop:diagnose` and the
- * Google Ads analyst's "Veri yok" line: "hesap 1 yıldır harcamasız — doğru hesap bağlı mı?".
+ * spend. Since 2026-11-07 that is a state, not a question (DormantAdWork): the account is Pasif, the weekly spend check
+ * goes on, and it becomes Aktif by itself when it spends. Shared by `moxdop:diagnose`, the brand file and the Google
+ * Ads analyst's "Veri yok" line.
  */
 final class DormantAccountHint
 {
-    /** Accounts silent at least this long get the hint. */
-    public const int MIN_DAYS = 45;
+    /** Accounts silent at least this long are Pasif (the activity tier's dormant_days). */
+    public static function minDays(): int
+    {
+        return max(1, (int) config('moxdop-collection-activity.dormant_days', 30));
+    }
 
     /** Human Turkish duration: "1 yıldır", "3 aydır", "50 gündür". */
     public static function since(int $days): string
@@ -35,11 +39,11 @@ final class DormantAccountHint
         }
         $today ??= OperatorClock::today();
         $days = (int) CarbonImmutable::parse(substr($lastSpend, 0, 10))->diffInDays($today, true);
-        if ($days < self::MIN_DAYS) {
+        if ($days < self::minDays()) {
             return null;
         }
 
-        return 'hesap '.self::since($days).' harcamasız (son harcama '.substr($lastSpend, 0, 10).') — doğru hesap bağlı mı?';
+        return 'hesap '.self::since($days).' harcamasız (son harcama '.substr($lastSpend, 0, 10).') · pasif: haftalık harcama kontrolü sürer, harcama başlayınca kendiliğinden aktif olur';
     }
 
     /**
