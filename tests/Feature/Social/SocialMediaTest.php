@@ -11,6 +11,7 @@ use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Models\User;
+use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
 use App\Services\Social\SocialPublisher;
@@ -319,5 +320,22 @@ final class SocialMediaTest extends TestCase
         parse_str((string) parse_url((string) $redirect->headers->get('Location'), PHP_URL_QUERY), $query);
         $result = app(SocialMetaConnector::class)->handleCallback('abc', $query['state'], null, $this->admin->id);
         $this->assertStringContainsString('pages_show_list', $result['error'] ?? '');
+    }
+
+    public function test_social_can_use_its_own_meta_app(): void
+    {
+        $this->actingAs($this->admin);
+        Livewire::test(SocialPage::class)
+            ->set('socialAppId', '1376608000853003')->set('socialAppSecret', str_repeat('a1', 16))
+            ->call('saveSocialApp')->assertHasNoErrors()->assertSet('socialAppSecret', '');
+
+        $url = app(SocialMetaConnector::class)->begin($this->admin->id)['url'];
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertSame('1376608000853003', $query['client_id']);
+        $this->assertSame(str_repeat('a1', 16), app(SocialGraph::class)->appSecret());
+        $this->assertArrayNotHasKey('social_meta_app_secret', AgencySetting::query()->first()->toArray());
+
+        Livewire::test(SocialPage::class)->set('socialAppId', '')->call('saveSocialApp');
+        $this->assertNull(SocialGraph::ownApp());
     }
 }

@@ -72,6 +72,11 @@ final class SocialPage extends Component
     // Hesaplar
     public string $configId = '';
 
+    public string $socialAppId = '';
+
+    /** Write-only: the stored secret never enters Livewire state. */
+    public string $socialAppSecret = '';
+
     public string $linkedinName = 'Moximu';
 
     public string $linkedinUrl = 'https://www.linkedin.com/company/moximu/';
@@ -79,6 +84,7 @@ final class SocialPage extends Component
     public function mount(): void
     {
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
+        $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
     }
 
@@ -286,6 +292,25 @@ final class SocialPage extends Component
         $this->message = $value !== '' ? 'Yapılandırma kimliği kaydedildi.' : 'Yapılandırma kimliği temizlendi; giriş izin listesiyle açılır.';
     }
 
+    public function saveSocialApp(): void
+    {
+        $this->authorizeAdmin();
+        $id = preg_replace('/\D/', '', $this->socialAppId) ?? '';
+        $secret = trim($this->socialAppSecret);
+        $setting = AgencySetting::query()->first() ?? new AgencySetting;
+        if ($id === '') {
+            $setting->forceFill(['social_meta_app_id' => null, 'social_meta_app_secret' => null])->save();
+            $this->message = 'Ayrı uygulama kaldırıldı; giriş Entegrasyonlar › Meta uygulamasıyla açılır.';
+        } else {
+            $this->validate(['socialAppSecret' => [$setting->social_meta_app_secret ? 'nullable' : 'required', 'string', 'regex:/^[a-f0-9]{32}$/i']],
+                ['socialAppSecret.required' => 'App Secret gerekli.', 'socialAppSecret.regex' => 'App Secret 32 karakterlik bir koddur (Uygulama ayarları › Temel).']);
+            $setting->forceFill(['social_meta_app_id' => $id] + ($secret !== '' ? ['social_meta_app_secret' => $secret] : []))->save();
+            $this->message = 'Sosyal medya artık App ID '.$id.' ile bağlanır.';
+        }
+        $this->socialAppId = $id;
+        $this->socialAppSecret = '';
+    }
+
     public function addLinkedin(): void
     {
         $this->authorizeAdmin();
@@ -350,6 +375,7 @@ final class SocialPage extends Component
             'scopes' => SocialMetaConnector::SCOPES,
             'callbackUrl' => route('integrations.meta.callback'),
             'metaAppId' => app(SocialGraph::class)->appId(),
+            'ownSocialApp' => SocialGraph::ownApp() !== null,
         ]);
     }
 

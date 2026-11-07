@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Model;
     'backup_remote_password',
 ])]
 #[Hidden([
+    'social_meta_app_secret',
     'ai_openai_admin_key',
     'mail_password',
     'push_ntfy_token',
@@ -67,6 +68,7 @@ class AgencySetting extends Model
             'push_telegram_bot_token' => 'encrypted',
             'bing_webmaster_api_key' => 'encrypted',
             'backup_remote_password' => 'encrypted',
+            'social_meta_app_secret' => 'encrypted',
             'ai_openai_free_quota' => 'boolean',
             'ai_openai_admin_key' => 'encrypted',
             'ai_workers' => 'array',

@@ -2,6 +2,7 @@
 
 namespace App\Services\Social;
 
+use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Meta\MetaCredentialResolver;
 use App\Support\Integrations\Meta\MetaApiConfig;
@@ -9,6 +10,7 @@ use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Throwable;
 
 /**
  * Small Graph API client for the agency's own Instagram and Facebook accounts (ADR-083). It signs every call with the
@@ -41,14 +43,36 @@ class SocialGraph
         return CoreIntegration::query()->where('provider', ProviderRegistry::META)->orderBy('id')->first();
     }
 
+    /**
+     * Sosyal medya's own Meta app (saved on /sosyal › Hesaplar) when both id and secret are set; otherwise the Meta Ads
+     * app of Entegrasyonlar › Meta. Id and secret always come from the same source so appsecret_proof matches.
+     */
     public function appId(): ?string
     {
-        return $this->credentials->appId($this->metaIntegration());
+        $own = self::ownApp();
+
+        return $own !== null ? $own['id'] : $this->credentials->appId($this->metaIntegration());
     }
 
     public function appSecret(): ?string
     {
-        return $this->credentials->appSecret($this->metaIntegration());
+        $own = self::ownApp();
+
+        return $own !== null ? $own['secret'] : $this->credentials->appSecret($this->metaIntegration());
+    }
+
+    /** @return array{id: string, secret: string}|null */
+    public static function ownApp(): ?array
+    {
+        try {
+            $setting = AgencySetting::query()->first();
+            $id = trim((string) ($setting?->social_meta_app_id ?? ''));
+            $secret = trim((string) ($setting?->social_meta_app_secret ?? ''));
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $id !== '' && $secret !== '' ? ['id' => $id, 'secret' => $secret] : null;
     }
 
     /**
