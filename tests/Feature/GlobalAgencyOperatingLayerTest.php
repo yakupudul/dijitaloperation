@@ -107,10 +107,12 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_settings_sections_exclude_integrations_and_modules_dump(): void
     {
-        // One level (yakup 2026-10-20): Genel only; the other parts live in Ayarlar' own tabs.
+        // One level (yakup 2026-10-20): Genel only; the other parts live in Ayarlar' own tabs. Ekip stays off the menu but
+        // opens from Kullanıcılar › "Ekibi düzenle" (admin audit 2026-11-07: no other screen adds a user) with real users only.
         Livewire::test(SettingsPage::class)
             ->assertDontSeeHtml('data-settings-sections')
-            ->call('setSection', 'team')->assertSet('section', 'general')
+            ->call('setSection', 'modules')->assertSet('section', 'general')
+            ->call('setSection', 'team')->assertSet('section', 'team')
             ->assertDontSee('Ayşe Demir')
             ->assertDontSee('Selin Kaya')
             ->assertDontSee('Reset Demo Mode')
