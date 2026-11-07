@@ -63,7 +63,7 @@ final class EpicrisisLessons
     {
         $since = now()->subDays(self::CHECK_DAYS);
         $reasons = Suggestion::query()->where('brand_id', $brand->id)->where('updated_at', '>=', $since)->where('action->autopilot->review->verdict', 'wrong')
-            ->limit(300)->get(['id', 'action'])->map(fn (Suggestion $s): string => (string) data_get($s->action, 'autopilot.review.reason'))
+            ->limit(300)->get(['id', 'action'])->toBase()->map(fn (Suggestion $s): string => (string) data_get($s->action, 'autopilot.review.reason'))
             ->merge(GbpQueuedPost::query()->where('brand_id', $brand->id)->where('updated_at', '>=', $since)->whereNotNull('review')->limit(500)->get(['id', 'review'])
                 ->filter(fn (GbpQueuedPost $p): bool => ($p->review['verdict'] ?? null) === 'wrong')->map(fn (GbpQueuedPost $p): string => (string) ($p->review['reason'] ?? '')));
 
