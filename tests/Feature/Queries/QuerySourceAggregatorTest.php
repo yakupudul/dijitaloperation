@@ -6,10 +6,13 @@ use App\Enums\Collection\CollectionRunStatus;
 use App\Events\Collection\CollectionRunCompleted;
 use App\Jobs\Queries\AggregateQuerySourcesJob;
 use App\Listeners\Collection\AggregateQuerySourcesAfterCollection;
+use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
+use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Services\Operations\Diagnostics\PortfolioDiagnostics;
 use App\Services\Queries\QuerySourceAggregator;
@@ -98,16 +101,20 @@ final class QuerySourceAggregatorTest extends TestCase
         $this->assertSame(['gbp'], DB::table('query_sources')->where('external_resource_id', $gbp->id)->distinct()->pluck('source')->all());
     }
 
-    public function test_backfill_command_covers_every_discovered_query_account(): void
+    public function test_backfill_command_covers_every_query_account_bound_to_a_brand(): void
     {
-        $gsc = CoreExternalResource::factory()->searchConsole()->create();
+        $gsc = $this->bound(CoreExternalResource::factory()->searchConsole()->create());
+        $unbound = CoreExternalResource::factory()->searchConsole()->create(['display_name' => 'Eski müşteri mülkü']);
         $ga4 = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
         $this->gsc($gsc->id, now()->subMonths(2)->startOfMonth()->addDays(3)->toDateString(), 'diş kliniği', '/', impressions: 5, clicks: 1, position: 3.0);
+        $this->gsc($unbound->id, now()->subMonths(2)->startOfMonth()->addDays(3)->toDateString(), 'faresavar', '/', impressions: 5, clicks: 1, position: 3.0);
 
         $this->artisan('moxdop:queries:sources', ['--all' => true, '--months' => 16])
+            ->expectsOutputToContain('Eski müşteri mülkü (search_console): havuz dışı (markaya bağlı değil)')
             ->expectsOutputToContain('Toplam 1 hesap')
             ->assertSuccessful();
         $this->assertSame(1, DB::table('query_sources')->where('external_resource_id', $gsc->id)->count());
+        $this->assertSame(0, DB::table('query_sources')->where('external_resource_id', $unbound->id)->count(), 'V6: an account outside the scope never enters the pool');
         $this->assertSame(0, DB::table('query_sources')->where('external_resource_id', $ga4->id)->count());
 
         $this->artisan('moxdop:queries:sources', ['--resource' => [$gsc->id]])->assertSuccessful();
@@ -115,17 +122,22 @@ final class QuerySourceAggregatorTest extends TestCase
         $this->artisan('moxdop:queries:sources')->assertExitCode(2);
     }
 
-    public function test_a_completed_collection_queues_the_months_it_wrote(): void
+    public function test_a_completed_collection_queues_the_months_it_wrote_for_accounts_in_the_pool_scope(): void
     {
         Queue::fake();
-        $gsc = CoreExternalResource::factory()->searchConsole()->create();
+        $gsc = $this->bound(CoreExternalResource::factory()->searchConsole()->create());
+        $brandless = CoreExternalResource::factory()->searchConsole()->create();
+        CoreAssetBinding::factory()->create(['digital_asset_id' => DigitalAsset::factory()->create(['brand_id' => null, 'type' => 'website'])->id,
+            'external_resource_id' => $brandless->id, 'capability' => 'search_console']);
         $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Completed]);
-        $resourceRun = CollectionResourceRun::factory()->create(['collection_run_id' => $run->id, 'provider_or_source' => 'SEARCH_CONSOLE',
-            'external_resource_id' => $gsc->id, 'digital_asset_id' => null, 'status' => CollectionRunStatus::Completed]);
-        foreach ([['gsc_query_page_daily', '2026-06-10', '2026-07-20', 'web'], ['gsc_query_page_daily', '2026-07-21', '2026-08-02', 'image'], ['gsc_property_daily', '2025-01-01', '2026-08-02', 'web']] as [$dataset, $start, $end, $variant]) {
-            CollectionDatasetRun::factory()->create(['collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id, 'execution_variant' => $variant,
-                'provider_or_source' => 'SEARCH_CONSOLE', 'dataset_contract_id' => $dataset, 'request_family_id' => 'GSC_CENTRAL_RF_SEARCH_ANALYTICS',
-                'status' => CollectionRunStatus::Completed, 'metadata' => ['date_range' => ['start' => $start, 'end' => $end]]]);
+        foreach ([$gsc, $brandless] as $resource) {
+            $resourceRun = CollectionResourceRun::factory()->create(['collection_run_id' => $run->id, 'provider_or_source' => 'SEARCH_CONSOLE',
+                'external_resource_id' => $resource->id, 'digital_asset_id' => null, 'status' => CollectionRunStatus::Completed]);
+            foreach ([['gsc_query_page_daily', '2026-06-10', '2026-07-20', 'web'], ['gsc_query_page_daily', '2026-07-21', '2026-08-02', 'image'], ['gsc_property_daily', '2025-01-01', '2026-08-02', 'web']] as [$dataset, $start, $end, $variant]) {
+                CollectionDatasetRun::factory()->create(['collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id, 'execution_variant' => $variant,
+                    'provider_or_source' => 'SEARCH_CONSOLE', 'dataset_contract_id' => $dataset, 'request_family_id' => 'GSC_CENTRAL_RF_SEARCH_ANALYTICS',
+                    'status' => CollectionRunStatus::Completed, 'metadata' => ['date_range' => ['start' => $start, 'end' => $end]]]);
+            }
         }
 
         CollectionRunCompleted::dispatch($run->fresh());
@@ -133,6 +145,11 @@ final class QuerySourceAggregatorTest extends TestCase
         Queue::assertPushed(AggregateQuerySourcesJob::class, 1);
         Queue::assertPushed(AggregateQuerySourcesJob::class, fn (AggregateQuerySourcesJob $job): bool => $job->externalResourceId === $gsc->id
             && $job->from === '2026-06-10' && $job->to === '2026-08-02');
+
+        // Queued anyway (the Business Profile collector, an old queue entry): the job itself keeps the scope.
+        $this->gsc($brandless->id, '2026-07-10', 'faresavar', '/', impressions: 5, clicks: 1, position: 3.0);
+        (new AggregateQuerySourcesJob($brandless->id, '2026-07-01', '2026-07-31'))->handle(app(QuerySourceAggregator::class));
+        $this->assertSame(0, DB::table('query_sources')->where('external_resource_id', $brandless->id)->count(), 'a brandless site’s property feeds nothing');
     }
 
     public function test_business_profile_keywords_feed_query_sources_and_the_listener_is_registered_once(): void
@@ -143,7 +160,7 @@ final class QuerySourceAggregatorTest extends TestCase
         $this->assertSame(['autopilot', 'product_brands'], array_keys((array) config('moxdop-queries')));
 
         Queue::fake();
-        $gbp = CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/123']);
+        $gbp = $this->bound(CoreExternalResource::factory()->create(['resource_type' => 'google_business_profile', 'external_id' => 'locations/123']));
         $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Completed]);
         $resourceRun = CollectionResourceRun::factory()->create(['collection_run_id' => $run->id, 'provider_or_source' => 'GOOGLE_BUSINESS_PROFILE',
             'external_resource_id' => $gbp->id, 'digital_asset_id' => null, 'status' => CollectionRunStatus::Completed]);
@@ -171,6 +188,15 @@ final class QuerySourceAggregatorTest extends TestCase
         $this->assertStringContainsString('#'.$gsc->id.' Bağsız mülk (search_console): 1 sorgu×ay · son ay 2026-08', $lines);
         $this->assertStringContainsString('Hesaplar search_console bağsız: current=1', $lines);
         $this->assertStringContainsString('Katalog GA4 (11): ga4_property_metadata, ga4_property_daily, ga4_landing_source_daily, ga4_key_event_daily, ga4_acquisition_channel_daily', $lines);
+    }
+
+    /** Binds the account to an asset of a brand: inside the query pool's scope. */
+    private function bound(CoreExternalResource $resource): CoreExternalResource
+    {
+        $asset = DigitalAsset::factory()->create(['brand_id' => Brand::factory()->create()->id, 'type' => $resource->resource_type === 'google_business_profile' ? 'google_business_profile' : 'website']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $asset->id, 'external_resource_id' => $resource->id, 'capability' => (string) $resource->resource_type]);
+
+        return $resource;
     }
 
     private function gsc(int $resourceId, string $date, string $query, string $path, int $impressions, int $clicks, float $position, string $searchType = 'web'): void

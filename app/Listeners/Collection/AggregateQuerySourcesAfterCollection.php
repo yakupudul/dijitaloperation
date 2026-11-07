@@ -6,11 +6,12 @@ use App\Enums\Collection\CollectionRunStatus;
 use App\Events\Collection\CollectionRunCompleted;
 use App\Jobs\Queries\AggregateQuerySourcesJob;
 use App\Models\Collection\CollectionDatasetRun;
+use App\Services\Queries\QueryPoolScope;
 
 /**
- * After a Search Console / Google Ads / Business Profile collection (any discovered account, bound or not): the months
- * of the query datasets that were written are re-aggregated into `query_sources`. Registered once in AppServiceProvider
- * (event discovery is off).
+ * After a Search Console / Google Ads / Business Profile collection of an account in the query pool's scope (bound to
+ * a brand's asset, {@see QueryPoolScope}): the months of the query datasets that were written are re-aggregated into
+ * `query_sources`. Registered once in AppServiceProvider (event discovery is off).
  */
 final class AggregateQuerySourcesAfterCollection
 {
@@ -41,7 +42,9 @@ final class AggregateQuerySourcesAfterCollection
                 ];
             });
         foreach ($ranges as $resourceId => [$from, $to]) {
-            AggregateQuerySourcesJob::dispatch($resourceId, $from, $to);
+            if (QueryPoolScope::feeds($resourceId)) {
+                AggregateQuerySourcesJob::dispatch($resourceId, $from, $to);
+            }
         }
     }
 }

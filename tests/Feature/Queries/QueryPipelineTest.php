@@ -15,6 +15,7 @@ use App\Models\CoreExternalResource;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\FilterTerm;
+use App\Models\PendingQuery;
 use App\Models\Query;
 use App\Models\QueryReviewItem;
 use App\Models\ServiceCatalogItem;
@@ -24,6 +25,7 @@ use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Services\Queries\QueryNormalizer;
 use App\Services\Queries\QueryPipeline;
+use App\Services\Queries\QueryPoolScope;
 use App\Services\Queries\QueryRescanner;
 use App\Services\Queries\QuerySourceAggregator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -162,6 +164,38 @@ final class QueryPipelineTest extends TestCase
 
         $this->assertSame($this->hair->id, Query::query()->where('text', 'fue saç ekimi')->value('sector_id'), 'the asset override is the account sector');
         $this->assertFalse(Query::query()->where('text', 'kaş ekimi')->exists(), 'only accounts bound to brands are imported');
+    }
+
+    /** V6 (admin audit 2026-11-07): the pool holds the queries of accounts bound to a brand's asset, nothing else. */
+    public function test_accounts_outside_the_pool_scope_are_pruned_with_the_queries_only_they_fed(): void
+    {
+        $unbound = CoreExternalResource::factory()->searchConsole()->create();
+        $brandless = CoreExternalResource::factory()->searchConsole()->create();
+        CoreAssetBinding::factory()->create(['digital_asset_id' => DigitalAsset::factory()->create(['brand_id' => null, 'type' => 'website'])->id, 'external_resource_id' => $brandless->id, 'capability' => 'search_console']);
+        $this->source($this->gsc, 'implant fiyatları', '2026-08-01', impressions: 10, clicks: 1);
+        $this->source($this->gsc, 'zirkonyum kaplama', '2026-08-01', impressions: 10, clicks: 1);
+        $this->source($unbound, 'zirkonyum kaplama', '2026-08-01', impressions: 500, clicks: 50);
+        $this->source($unbound, 'faresavar', '2026-08-01', impressions: 500, clicks: 50);
+        $this->source($brandless, 'su jeti kesim', '2026-08-01', impressions: 500, clicks: 50);
+        app(QueryPipeline::class)->run(import: true);
+        // Old data of the kind the audit found: library rows that only an unserviced account feeds.
+        foreach (['faresavar', 'su jeti kesim'] as $text) {
+            $id = DB::table('queries')->insertGetId(['text' => $text, 'text_hash' => QueryNormalizer::hash($text), 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('query_sources')->where('raw_query', $text)->update(['query_id' => $id]);
+        }
+        $suggested = DB::table('queries')->insertGetId(['text' => 'implant ankara', 'text_hash' => QueryNormalizer::hash('implant ankara'), 'is_suggested' => true, 'created_at' => now(), 'updated_at' => now()]);
+        PendingQuery::query()->create(['text' => 'damacana makinesi', 'text_hash' => QueryNormalizer::hash('damacana makinesi'), 'status' => PendingQuery::PENDING, 'external_resource_id' => $unbound->id, 'impressions' => 1, 'clicks' => 0]);
+        PendingQuery::query()->create(['text' => 'diş beyazlatma', 'text_hash' => QueryNormalizer::hash('diş beyazlatma'), 'status' => PendingQuery::PENDING, 'external_resource_id' => $this->gsc->id, 'impressions' => 1, 'clicks' => 0]);
+        $this->assertSame([$this->gsc->id, $this->ads->id], QueryPoolScope::resourceIds());
+
+        $this->artisan('moxdop:queries:prune-unserviced')->expectsOutputToContain('3 kaynak satırı, 1 bekleyen, 2 kaynaksız sorgu havuzdan çıktı.')->assertSuccessful();
+
+        $this->assertSame([$this->gsc->id], DB::table('query_sources')->distinct()->pluck('external_resource_id')->map(fn ($id): int => (int) $id)->all());
+        $this->assertSame(['implant ankara', 'implant fiyatları', 'zirkonyum kaplama'], Query::query()->orderBy('text')->pluck('text')->all(), 'shared and suggested queries stay');
+        $this->assertSame(['diş beyazlatma'], PendingQuery::query()->pluck('text')->all());
+        app(QueryPipeline::class)->run();
+        $this->assertSame(10, (int) Query::query()->where('text', 'zirkonyum kaplama')->value('impressions'), 'the brand’s own numbers, not the old customer’s');
+        $this->assertSame(['sources' => 0, 'pending' => 0, 'queries' => 0], app(QueryPoolScope::class)->prune(), 'idempotent');
     }
 
     public function test_nested_longer_keyword_wins_conflicts_stay_unassigned_and_locked_queries_are_kept(): void

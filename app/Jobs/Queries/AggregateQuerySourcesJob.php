@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Queries;
 
+use App\Services\Queries\QueryPoolScope;
 use App\Services\Queries\QuerySourceAggregator;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,7 +11,8 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * Recomputes `query_sources` months of one account after a query pull (Search Console query × page, Google Ads
- * search terms, Business Profile keywords). Runs on the heavy queue; one account at a time.
+ * search terms, Business Profile keywords). Runs on the heavy queue; one account at a time. An account outside the
+ * pool's scope (not bound to a brand's asset, {@see QueryPoolScope}) is skipped.
  */
 final class AggregateQuerySourcesJob implements ShouldQueue
 {
@@ -36,6 +38,9 @@ final class AggregateQuerySourcesJob implements ShouldQueue
 
     public function handle(QuerySourceAggregator $aggregator): void
     {
+        if (! QueryPoolScope::feeds($this->externalResourceId)) {
+            return;
+        }
         // A running aggregation of the same account: try again later instead of failing with LockTimeoutException.
         try {
             Cache::lock('query-sources:'.$this->externalResourceId, $this->timeout)

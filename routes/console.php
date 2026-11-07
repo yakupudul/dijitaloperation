@@ -83,6 +83,7 @@ use App\Services\Operations\ServerStatusReader;
 use App\Services\Ownership\OwnershipIntegrity;
 use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
+use App\Services\Queries\QueryPoolScope;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
@@ -563,6 +564,15 @@ Schedule::command('moxdop:queries:autopilot')
     ->everyFifteenMinutes()->withoutOverlapping(30)->name('queries-autopilot');
 Schedule::command('moxdop:queries:autopilot --clean')
     ->hourlyAt(5)->withoutOverlapping(60)->name('queries-autopilot-clean');
+
+// Sorgu havuzu kapsamı (admin denetimi 2026-11-07 V6): yalnız markaya bağlı hesapların sorguları havuzda kalır; markasız
+// / bağlı olmayan hesapların satırları ve kaynaksız kalan kütüphane sorguları saatte bir temizlenir.
+Artisan::command('moxdop:queries:prune-unserviced', function (QueryPoolScope $scope): void {
+    $out = $scope->prune();
+    $this->info(sprintf('%d kaynak satırı, %d bekleyen, %d kaynaksız sorgu havuzdan çıktı.', $out['sources'], $out['pending'], $out['queries']));
+})->purpose('Drop pool rows of accounts outside the query pool scope and the library queries left without a source.');
+Schedule::command('moxdop:queries:prune-unserviced')
+    ->hourlyAt(25)->withoutOverlapping(30)->name('queries-prune-unserviced');
 
 // Claude API dönemi (yakup, 2026-10-10): until 25 October every AI operation that may move runs on the Claude API;
 // on that day the operations go back to the models they had before (ClaudeApiWindow).
