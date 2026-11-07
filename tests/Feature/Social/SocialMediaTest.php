@@ -7,6 +7,7 @@ use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\SocialPosts;
 use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
@@ -337,5 +338,16 @@ final class SocialMediaTest extends TestCase
 
         Livewire::test(SocialPage::class)->set('socialAppId', '')->call('saveSocialApp');
         $this->assertNull(SocialGraph::ownApp());
+    }
+
+    public function test_social_uses_the_whatsapp_app_from_integrations(): void
+    {
+        $row = CoreIntegration::factory()->create(['provider' => 'whatsapp', 'config' => ['app_id' => '1376608000853003']]);
+        $row->providerCredential()->create(['credential_type' => CoreIntegrationCredential::TYPE_PROVIDER, 'encrypted_payload' => ['app_secret' => 'wa-secret']]);
+
+        $this->assertSame(['id' => '1376608000853003', 'secret' => 'wa-secret'], SocialGraph::ownApp());
+        $url = app(SocialMetaConnector::class)->begin($this->admin->id)['url'];
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertSame('1376608000853003', $query['client_id']);
     }
 }

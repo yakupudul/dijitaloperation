@@ -228,8 +228,8 @@
                         <details class="text-sm">
                             <summary class="cursor-pointer text-gray-600 dark:text-gray-300">Meta uygulama ayarı (bir kez)</summary>
                             <div class="mt-2 space-y-2">
-                                <p>Giriş şu uygulamayla açılıyor: <b>App ID {{ $metaAppId ?: 'tanımlı değil' }}</b> ({{ $ownSocialApp ? 'sosyal medya için kaydedilen uygulama' : 'Entegrasyonlar › Meta’daki reklam uygulaması' }}). Yapılandırma başka bir uygulamada açılırsa Meta “Özellik kullanılmıyor” der.</p>
-                                <p>İncelemesi alınmış başka bir uygulamayı (ör. MoxdopWhtspMessage) kullanmak için App ID ve App Secret’ını girin (Uygulama ayarları › Temel). Reklam bağlantısı değişmez.</p>
+                                <p>Giriş şu uygulamayla açılıyor: <b>App ID {{ $metaAppId ?: 'tanımlı değil' }}</b> ({{ $ownSocialApp ? 'Entegrasyonlardaki WhatsApp uygulaması ya da aşağıda kaydedilen uygulama' : 'Entegrasyonlar › Meta’daki reklam uygulaması' }}). Yapılandırma başka bir uygulamada açılırsa Meta “Özellik kullanılmıyor” der.</p>
+                                <p>WhatsApp entegrasyonunda App ID ve App Secret kayıtlıysa o uygulama kendiliğinden kullanılır; aşağıdaki alan yalnız başka bir uygulama için gerekir. Reklam bağlantısı değişmez.</p>
                                 <div class="flex flex-wrap gap-2"><input type="text" wire:model="socialAppId" inputmode="numeric" placeholder="App ID" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><input type="password" wire:model="socialAppSecret" autocomplete="off" placeholder="{{ $ownSocialApp ? 'App Secret (kayıtlı, değiştirmek için yazın)' : 'App Secret' }}" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><button type="button" wire:click="saveSocialApp" class="btn">Uygulamayı kaydet</button></div>
                                 @error('socialAppSecret')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
                                 <ol class="list-decimal space-y-1 pl-5">

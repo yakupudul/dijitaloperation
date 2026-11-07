@@ -5,6 +5,7 @@ namespace App\Services\Social;
 use App\Models\AgencySetting;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Meta\MetaCredentialResolver;
+use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Http\Client\ConnectionException;
@@ -61,18 +62,34 @@ class SocialGraph
         return $own !== null ? $own['secret'] : $this->credentials->appSecret($this->metaIntegration());
     }
 
-    /** @return array{id: string, secret: string}|null */
+    /**
+     * The app used for the social login: the one saved on /sosyal › Hesaplar, else the WhatsApp app of Entegrasyonlar
+     * (the reviewed, live app) when its App ID and App Secret are stored there. Null → the Meta Ads app.
+     *
+     * @return array{id: string, secret: string}|null
+     */
     public static function ownApp(): ?array
     {
         try {
             $setting = AgencySetting::query()->first();
             $id = trim((string) ($setting?->social_meta_app_id ?? ''));
             $secret = trim((string) ($setting?->social_meta_app_secret ?? ''));
+            if ($id !== '' && $secret !== '') {
+                return ['id' => $id, 'secret' => $secret];
+            }
+            $whatsapp = CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->orderBy('id')->first();
+            if ($whatsapp !== null) {
+                $id = trim((string) data_get($whatsapp->config, 'app_id'));
+                $secret = trim((string) (app(WhatsAppConnection::class)->secrets($whatsapp)['app_secret'] ?? ''));
+                if ($id !== '' && $secret !== '') {
+                    return ['id' => $id, 'secret' => $secret];
+                }
+            }
         } catch (Throwable) {
             return null;
         }
 
-        return $id !== '' && $secret !== '' ? ['id' => $id, 'secret' => $secret] : null;
+        return null;
     }
 
     /**
