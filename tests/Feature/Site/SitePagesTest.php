@@ -455,6 +455,26 @@ final class SitePagesTest extends TestCase
             ->assertSeeHtml('data-scorecard="key_events"')->assertSeeInOrder(['data-scorecard="key_events"', '1,0', 'data-chart="gsc"']);
     }
 
+    /** Admin audit 2026-11-07 V2: a redirected address is not a page; a published page that redirects shows 301, not its target's 200. */
+    public function test_redirected_addresses_are_not_pages_and_a_redirected_inventory_page_shows_301(): void
+    {
+        // Old URL the crawl still knows (website_url) and Search Console still shows: fetched, landed on /implant/.
+        DB::table('website_url')->insert(['digital_asset_id' => $this->site->id, 'asset_id' => (string) $this->site->id, 'normalized_url' => 'https://www.panorama.example/eski-implant', 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', 'eski'), 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('website_http_snapshot')->insert($this->snapshot('https://www.panorama.example/eski-implant', '2026-09-25 10:00:00',
+            ['status_code' => 200, 'ok' => true, 'final_url' => 'https://www.panorama.example/implant/', 'redirect_count' => 1]));
+        DB::table('website_crawl_issue_snapshot')->insert($this->snapshot('https://www.panorama.example/eski-implant', '2026-09-25 10:00:00', ['evidence' => []]) + ['issue_code' => 'meta_description_missing', 'severity' => 'medium', 'message' => 'x']);
+        // The WordPress page /hakkimizda/ now redirects to the home page but is still published.
+        DB::table('website_http_snapshot')->insert($this->snapshot('https://www.panorama.example/hakkimizda/', '2026-09-25 10:00:00',
+            ['status_code' => 200, 'ok' => true, 'final_url' => 'https://www.panorama.example/', 'redirect_count' => 1]));
+
+        $rows = app(SitePagesReader::class)->rows($this->site->fresh(), 28);
+        $this->assertArrayNotHasKey('/eski-implant', $rows, 'not listed, not counted');
+        $this->assertSame([301, true], [$rows['/hakkimizda']['status_code'], $rows['/hakkimizda']['problem']]);
+        $this->assertSame(200, $rows['/implant']['status_code'], 'the target keeps its own health');
+        $this->assertStringNotContainsString('/eski-implant', json_encode(app(TechnicalSeoReader::class)->read($this->site->fresh())), 'its findings are the target\'s');
+    }
+
     public function test_pages_tab_groups_pages_by_type(): void
     {
         $types = app(SitePagesReader::class)->types($this->site->fresh(), 28);

@@ -11,6 +11,7 @@ use App\Services\Queries\QuerySourceAggregator;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\SiteScope;
 use App\Services\Site\TemplateLinks;
+use App\Services\Website\Pages\RedirectedAddresses;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -387,6 +388,12 @@ final class SitePagesReader
             if (! isset($rows[$path])) {
                 continue;
             }
+            if ($health['redirected'] && $rows[$path]['page_id'] === null) {
+                // A redirected address that is not an inventory page (an old URL the crawl or Search Console still knows) is not a page.
+                unset($rows[$path]);
+
+                continue;
+            }
             $rows[$path]['status_code'] = $health['status_code'];
             $rows[$path]['issues'] = $health['issues'];
             $rows[$path]['serious'] = $health['serious'];
@@ -526,7 +533,7 @@ final class SitePagesReader
     /**
      * Latest HTTP status, noindex and crawl issues (of that same fetch) per path.
      *
-     * @return array<string, array{status_code: ?int, noindex: bool, issues: int, serious: int, observed_at: string}>
+     * @return array<string, array{status_code: ?int, redirected: bool, noindex: bool, issues: int, serious: int, observed_at: string}>
      */
     private function health(DigitalAsset $site): array
     {
@@ -542,7 +549,10 @@ final class SitePagesReader
             if (isset($out[$path]) && strcmp($out[$path]['observed_at'], (string) $row->observed_at) > 0) {
                 continue;
             }
-            $out[$path] = ['status_code' => is_numeric($meta['status_code'] ?? null) ? (int) $meta['status_code'] : null, 'noindex' => false, 'issues' => 0, 'serious' => 0, 'observed_at' => (string) $row->observed_at];
+            // An address whose fetch ended elsewhere is a redirect, not the healthy page it landed on (admin audit 2026-11-07 V2).
+            $redirected = RedirectedAddresses::redirectedElsewhere((string) $row->url, $meta);
+            $out[$path] = ['status_code' => $redirected ? 301 : (is_numeric($meta['status_code'] ?? null) ? (int) $meta['status_code'] : null), 'redirected' => $redirected,
+                'noindex' => false, 'issues' => 0, 'serious' => 0, 'observed_at' => (string) $row->observed_at];
         }
         if (SchemaState::hasTable('website_metadata_snapshot')) {
             DB::table('website_metadata_snapshot as s')->joinSub($this->latest('website_metadata_snapshot', (int) $site->id), 'l', fn ($join) => $join->on('l.url', '=', 's.url')->on('l.observed_at', '=', 's.observed_at'))
@@ -551,7 +561,7 @@ final class SitePagesReader
                     $robots = mb_strtolower((string) (self::json($row->metadata)['meta_robots'] ?? ''));
                     $path = SiteAnalysisReader::path((string) $row->url);
                     if (str_contains($robots, 'noindex')) {
-                        $out[$path] ??= ['status_code' => null, 'noindex' => false, 'issues' => 0, 'serious' => 0, 'observed_at' => ''];
+                        $out[$path] ??= ['status_code' => null, 'redirected' => false, 'noindex' => false, 'issues' => 0, 'serious' => 0, 'observed_at' => ''];
                         $out[$path]['noindex'] = true;
                     }
                 });
@@ -563,7 +573,7 @@ final class SitePagesReader
                 ->selectRaw("i.url as url, count(*) as n, sum(CASE WHEN i.severity IN ({$serious}) THEN 1 ELSE 0 END) as serious")->get()
                 ->each(function (object $row) use (&$out): void {
                     $path = SiteAnalysisReader::path((string) $row->url);
-                    if (isset($out[$path])) {
+                    if (isset($out[$path]) && ! $out[$path]['redirected']) {
                         $out[$path]['issues'] += (int) $row->n;
                         $out[$path]['serious'] += (int) $row->serious;
                     }

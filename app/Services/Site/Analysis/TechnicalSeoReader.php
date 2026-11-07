@@ -7,6 +7,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Website\Pages\RedirectedAddresses;
 use App\Support\SchemaState;
 use Illuminate\Support\Facades\DB;
 
@@ -147,9 +148,14 @@ final class TechnicalSeoReader
         if (SchemaState::hasTable('website_crawl_issue_snapshot') && SchemaState::hasTable('website_http_snapshot')) {
             $latest = DB::table('website_http_snapshot')->where('digital_asset_id', $site->id)->groupBy('url')->select('url')->selectRaw('max(observed_at) as observed_at');
             $hasCrawl = DB::table('website_http_snapshot')->where('digital_asset_id', $site->id)->exists();
+            // An address that redirects elsewhere was measured on its target: its findings are the target's (admin audit 2026-11-07 V2).
+            $redirected = app(RedirectedAddresses::class)->redirected((int) $site->id);
             DB::table('website_crawl_issue_snapshot as i')->joinSub($latest, 'l', fn ($join) => $join->on('l.url', '=', 'i.url')->on('l.observed_at', '=', 'i.observed_at'))
                 ->where('i.digital_asset_id', $site->id)->orderBy('i.url')->get(['i.url', 'i.issue_code', 'i.severity', 'i.message'])
-                ->each(function (object $row) use (&$groups): void {
+                ->each(function (object $row) use (&$groups, $redirected): void {
+                    if (isset($redirected[RedirectedAddresses::key((string) $row->url)])) {
+                        return;
+                    }
                     $code = (string) $row->issue_code;
                     $key = 'h_'.mb_strtolower($code);
                     if (! isset($groups[$key])) {

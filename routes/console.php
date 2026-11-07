@@ -108,6 +108,7 @@ use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestionTypes;
 use App\Services\Social\SocialInbox;
 use App\Services\Social\SocialPublisher;
+use App\Services\Website\Pages\RedirectedAddresses;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppDispatch;
@@ -533,6 +534,17 @@ Schedule::command('moxdop:gsc:inspect-urls')
 
 Schedule::command('moxdop:website:sitemap-watch')
     ->hourlyAt(17)->withoutOverlapping(30)->name('website-sitemap-watch');
+
+// Admin audit 2026-11-07 V2: an address whose fetch ended on another address (a rebuilt site's old URLs) is not a
+// page; it leaves the crawl URL list and the page inventory, and its open work closes. Hourly so a site change is
+// clean within the hour of its next crawl, not at the next monthly full read.
+Artisan::command('moxdop:website:drop-redirected {--site= : Yalnız bu web sitesi}', function (): void {
+    $result = app(RedirectedAddresses::class)->sweep($this->option('site') !== null ? (int) $this->option('site') : null);
+    $this->line(sprintf('%d sitede %d yönlendirilen adres tarama listesinden, %d sayfa envanterden çıktı.', $result['sites'], $result['urls'], $result['pages']));
+})->purpose('Drop addresses that redirect elsewhere from the crawl URL list and the page inventory.');
+
+Schedule::command('moxdop:website:drop-redirected')
+    ->hourlyAt(41)->withoutOverlapping(30)->name('website-drop-redirected');
 
 // Bugün / Onarım masası: each site's Search Console page totals (work stakes) are recomputed in the background every
 // three hours, so the screens read them from the cache instead of scanning the facts on open (13 Oct 2026: ~10 s).
