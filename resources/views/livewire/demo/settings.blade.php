@@ -359,7 +359,10 @@
                                 </td>
                                 <td class="hidden text-[13px] text-gray-500 lg:table-cell">{{ $member['last_login'] ?? '—' }}</td>
                                 @if ($isAdmin)
-                                    <td class="text-right">
+                                    <td class="text-right whitespace-nowrap">
+                                        <button type="button" wire:click="startPassword({{ (int) $member['id'] }})" class="btn h-7! px-2.5! text-xs!" data-team-set-password="{{ (int) $member['id'] }}">
+                                            {{ __('operator.team.set_password') }}
+                                        </button>
                                         @if ($member['is_active'])
                                             <button type="button" wire:click="deactivateUser({{ (int) $member['id'] }})" class="btn h-7! px-2.5! text-xs!">
                                                 {{ __('operator.team.deactivate') }}
@@ -372,6 +375,25 @@
                                     </td>
                                 @endif
                             </tr>
+                            @if ($isAdmin && $password_user_id === (int) $member['id'])
+                                <tr data-team-password-row="{{ (int) $member['id'] }}">
+                                    <td colspan="6">
+                                        <form wire:submit="setPassword" class="flex flex-wrap items-end gap-2 py-1">
+                                            <label class="flex flex-col gap-1 text-xs text-gray-500">
+                                                <span>{{ __('operator.team.fields.new_password') }} · {{ $member['name'] }}</span>
+                                                <input id="reset-password" wire:model="reset_password" type="password" autocomplete="new-password" class="h-8 w-56 rounded-lg border border-gray-200 bg-white px-2 text-[13px] text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                                            </label>
+                                            <label class="flex flex-col gap-1 text-xs text-gray-500">
+                                                <span>{{ __('operator.team.fields.password_confirmation') }}</span>
+                                                <input id="reset-password-confirm" wire:model="reset_password_confirmation" type="password" autocomplete="new-password" class="h-8 w-56 rounded-lg border border-gray-200 bg-white px-2 text-[13px] text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                                            </label>
+                                            <button type="submit" class="btn-primary h-8!">{{ __('operator.team.save_password') }}</button>
+                                            <button type="button" wire:click="cancelPassword" class="btn-quiet h-8!">{{ __('operator.team.cancel') }}</button>
+                                            @error('reset_password')<p class="w-full text-xs text-error-500">{{ $message }}</p>@enderror
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>

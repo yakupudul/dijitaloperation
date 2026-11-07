@@ -1642,6 +1642,10 @@ return [
         'deactivated' => 'Erişim kapatıldı.',
         'reactivated' => 'Erişim açıldı.',
         'role_updated' => 'Rol güncellendi.',
+        'set_password' => 'Şifre belirle',
+        'save_password' => 'Kaydet',
+        'cancel' => 'Vazgeç',
+        'password_set' => 'Şifre belirlendi; bir daha gösterilmez.',
         'owner_note' => 'Müşteri Sorumlusu, müşteriden iç operasyon olarak sorumlu kişidir. Yasal sahiplik veya sağlayıcı yetkisi değildir.',
         'deactivate_note' => 'Operatörler silinmez; denetim, atama ve kanıt geçmişi korunsun diye erişimleri kapatılır.',
         'password_hint' => 'Geçici şifre. Kayıttan sonra bir daha gösterilmez.',
@@ -1655,6 +1659,7 @@ return [
             'status' => 'Durum',
             'password' => 'Geçici şifre',
             'password_confirmation' => 'Şifreyi doğrula',
+            'new_password' => 'Yeni şifre',
         ],
     ],
 
