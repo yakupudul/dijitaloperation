@@ -1641,6 +1641,10 @@ return [
         'deactivated' => 'Access deactivated.',
         'reactivated' => 'Access restored.',
         'role_updated' => 'Role updated.',
+        'set_password' => 'Set password',
+        'save_password' => 'Save',
+        'cancel' => 'Cancel',
+        'password_set' => 'Password set; it is never shown again.',
         'owner_note' => 'Customer Owner is the internal operator responsible for the Customer. It is not legal ownership or provider authorization.',
         'deactivate_note' => 'Operators are deactivated rather than deleted so audit, assignment, and provenance history remain intact.',
         'password_hint' => 'Temporary password. It is never shown again after save.',
@@ -1654,6 +1658,7 @@ return [
             'status' => 'Status',
             'password' => 'Temporary password',
             'password_confirmation' => 'Confirm password',
+            'new_password' => 'New password',
         ],
     ],
 

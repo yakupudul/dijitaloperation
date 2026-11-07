@@ -104,6 +104,44 @@ class PhaseDOperationalSettingsTest extends TestCase
         $this->assertDatabaseMissing('agency_settings', ['agency_name' => 'Hijacked Phase D']);
     }
 
+    /** Ekip › Şifre belirle (admin audit 2026-11-07): an administrator gives a teammate a new password; a member cannot. */
+    public function test_admin_sets_a_teammates_password_and_a_member_cannot(): void
+    {
+        $member = User::factory()->create(['name' => 'Claude', 'email' => 'claude@moxdop.local']);
+        $member->assignRole(Roles::TEAM_MEMBER);
+
+        Livewire::test(SettingsPage::class)
+            ->set('section', 'team')
+            ->assertSeeHtml('data-team-set-password="'.$member->id.'"')
+            ->call('startPassword', $member->id)
+            ->assertSet('password_user_id', $member->id)
+            ->assertSeeHtml('data-team-password-row="'.$member->id.'"')
+            ->set('reset_password', 'short')
+            ->set('reset_password_confirmation', 'short')
+            ->call('setPassword')
+            ->assertHasErrors(['reset_password'])
+            ->set('reset_password', 'Yeni-Sifre-2026!')
+            ->set('reset_password_confirmation', 'Yeni-Sifre-2026!')
+            ->call('setPassword')
+            ->assertHasNoErrors()
+            ->assertSet('password_user_id', null)
+            ->assertSee(__('operator.team.password_set'));
+
+        $this->assertTrue(Hash::check('Yeni-Sifre-2026!', $member->fresh()->password));
+
+        $this->actingAs($member);
+        Livewire::test(SettingsPage::class)
+            ->call('startPassword', $this->admin->id)
+            ->assertForbidden();
+        Livewire::test(SettingsPage::class)
+            ->set('password_user_id', $this->admin->id)
+            ->set('reset_password', 'Hijack-Sifre-2026!')
+            ->set('reset_password_confirmation', 'Hijack-Sifre-2026!')
+            ->call('setPassword')
+            ->assertForbidden();
+        $this->assertFalse(Hash::check('Hijack-Sifre-2026!', $this->admin->fresh()->password));
+    }
+
     public function test_last_admin_cannot_deactivate_and_error_is_visible(): void
     {
         Livewire::test(SettingsPage::class)

@@ -104,6 +104,13 @@ class SettingsPage extends Component
 
     public bool $new_is_active = true;
 
+    /** The teammate whose password an administrator is setting (Şifre belirle), or null. */
+    public ?int $password_user_id = null;
+
+    public string $reset_password = '';
+
+    public string $reset_password_confirmation = '';
+
     public function mount(): void
     {
         if (in_array($this->section, ['files', 'privacy'], true)) {
@@ -254,6 +261,35 @@ class SettingsPage extends Component
         $this->new_is_active = true;
 
         DemoState::flash(__('operator.team.created'));
+    }
+
+    public function startPassword(int $userId): void
+    {
+        $this->assertAdministrator();
+        $this->password_user_id = User::query()->findOrFail($userId)->id;
+        $this->reset_password = '';
+        $this->reset_password_confirmation = '';
+        $this->resetErrorBag();
+    }
+
+    public function cancelPassword(): void
+    {
+        $this->password_user_id = null;
+        $this->reset_password = '';
+        $this->reset_password_confirmation = '';
+        $this->resetErrorBag();
+    }
+
+    public function setPassword(): void
+    {
+        $this->assertAdministrator();
+        $target = User::query()->findOrFail((int) $this->password_user_id);
+        $validated = $this->validate(['reset_password' => ['required', 'confirmed', Password::defaults()]]);
+
+        app(OperatorTeamAccessService::class)->setPassword($this->actor(), $target, $validated['reset_password']);
+        $this->cancelPassword();
+
+        DemoState::flash(__('operator.team.password_set'));
     }
 
     public function deactivateUser(int $userId): void

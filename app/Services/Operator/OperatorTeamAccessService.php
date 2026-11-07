@@ -60,6 +60,17 @@ final class OperatorTeamAccessService
         return $target->fresh() ?? $target;
     }
 
+    /** An administrator gives a teammate a new temporary password (a lost one, or the Claude panel user's). */
+    public function setPassword(User $actor, User $target, string $password): User
+    {
+        $this->assertAdministrator($actor);
+
+        $target->password = $password;
+        $target->save();
+
+        return $target->fresh() ?? $target;
+    }
+
     public function assignRole(User $actor, User $target, string $role): User
     {
         $this->assertAdministrator($actor);
