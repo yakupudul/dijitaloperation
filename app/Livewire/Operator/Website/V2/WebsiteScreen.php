@@ -19,7 +19,9 @@ use Livewire\Component;
  * Web sitesi ekranı — one level of tabs (Search Console style): Yapılacaklar · İçerik (the weekly content cycle: ideas,
  * topic map, drafts) · Kümeler (service → main cluster → sub
  * clusters, ideas and queries) · Analiz (Search Console × GA4 × pages) · Sayfalar (by type) · Sorgular · Teknik SEO, and
- * one "Ayarlar" menu with the settings and the rarely used views. One date picker in the header (presets, custom range,
+ * Ayarlar (connection, WordPress, settings, linked assets); İçerik fikirleri, Sayfa-hizmet-küme eşleşmesi, Sorgular,
+ * Hedef sorgular, Dönüşümler, Rakipler and Backlinkler are views inside their tab (a pill row), no longer a menu.
+ * One date picker in the header (presets, custom range,
  * comparison) drives every tab that reads Search Console / GA4. Each view is its own component that reads stored results only; old tab ids
  * keep working through LEGACY_TABS / LEGACY_SUBS.
  */
@@ -27,16 +29,19 @@ use Livewire\Component;
 #[Title('Web Sitesi')]
 final class WebsiteScreen extends Component
 {
-    /** The main row; Yapılacaklar first, İçerik right after it. "Ayarlar" is not here: it heads the settings menu together with {@see self::MORE}. */
-    public const array TABS = ['yapilacaklar' => 'Yapılacaklar', 'icerik' => 'İçerik', 'kumeler' => 'Kümeler', 'analiz' => 'Analiz', 'sayfalar' => 'Sayfalar', 'sorgular' => 'Sorgular',
-        'teknik' => 'Teknik SEO'];
+    /**
+     * The main row (admin audit 2026-11-07 T2: 8 tabs + a 7-entry menu became seven tabs); Yapılacaklar first, İçerik
+     * right after it. A tab that holds several views ({@see self::VIEWS}) shows them as a pill row under the tabs.
+     */
+    public const array TABS = ['yapilacaklar' => 'Yapılacaklar', 'icerik' => 'İçerik', 'kumeler' => 'Kümeler', 'analiz' => 'Analiz', 'sayfalar' => 'Sayfalar',
+        'teknik' => 'Teknik SEO', 'ayarlar' => 'Ayarlar'];
 
-    /** First entry of the "Ayarlar" menu: the site's settings and linked assets. */
-    public const array SETTINGS = ['ayarlar' => 'Bağlantılar ve site ayarları'];
-
-    /** Under the "Ayarlar" menu after the settings: views kept for detail work, out of the main row. */
-    public const array MORE = ['fikirler' => 'İçerik fikirleri', 'hedef' => 'Hedef sorgular',
-        'donusumler' => 'Dönüşümler', 'eslestirme' => 'Sayfa, hizmet ve küme eşleşmesi', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'];
+    /** Tab => its views (view key => label), the tab's own view first. A view keeps its own ?tab= key, so old links hold. */
+    public const array VIEWS = [
+        'icerik' => ['icerik' => 'İçerik', 'fikirler' => 'İçerik fikirleri'],
+        'kumeler' => ['kumeler' => 'Kümeler', 'eslestirme' => 'Sayfa, hizmet ve küme eşleşmesi'],
+        'analiz' => ['analiz' => 'Analiz', 'sorgular' => 'Sorgular', 'hedef' => 'Hedef sorgular', 'donusumler' => 'Dönüşümler', 'rakipler' => 'Rakipler', 'backlinkler' => 'Backlinkler'],
+    ];
 
     /** Tabs whose components read Search Console / GA4: the date picker shows there and the range goes along. */
     public const array RANGED = ['analiz', 'sayfalar', 'sorgular', 'kumeler', 'hedef', 'donusumler'];
@@ -132,6 +137,18 @@ final class WebsiteScreen extends Component
     public function setTab(string $tab): void
     {
         $this->tab = self::resolve($tab);
+    }
+
+    /** The tab of the row that holds this view ("hedef" → "analiz"). */
+    public static function group(string $view): string
+    {
+        foreach (self::VIEWS as $tab => $views) {
+            if (isset($views[$view])) {
+                return $tab;
+            }
+        }
+
+        return isset(self::TABS[$view]) ? $view : 'yapilacaklar';
     }
 
     /** Old buttons inside tabs (e.g. "Öneriler" → setSub('oneriler')). */

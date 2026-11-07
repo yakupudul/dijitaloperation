@@ -351,7 +351,9 @@ final class SiteSuggestionsTest extends SiteTestCase
         $other = $this->suggestion(['page_id' => $this->implantPage->id, 'title' => 'Bağlantı ekle', 'action_type' => 'internal_links']);
 
         $this->get(route('operator.website', ['assetId' => $this->site->id]))->assertOk()
-            ->assertSee('Kümeler')->assertSee('Analiz')->assertSee('Sayfalar')->assertSee('Sorgular')->assertSee('Teknik SEO')->assertSee('Yapılacaklar')->assertSee('Ayarlar');
+            ->assertSee('Kümeler')->assertSee('Analiz')->assertSee('Sayfalar')->assertSee('Teknik SEO')->assertSee('Yapılacaklar')->assertSee('Ayarlar')->assertDontSee('data-tab-more', false);
+        // T2 (admin audit 2026-11-07): Sorgular, Hedef sorgular, Dönüşümler, Rakipler and Backlinkler are views of Analiz, a pill row under the tabs.
+        $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'analiz']))->assertOk()->assertSee('data-tab-views="analiz"', false)->assertSeeInOrder(['Analiz', 'Sorgular', 'Hedef sorgular', 'Dönüşümler', 'Rakipler', 'Backlinkler']);
         $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'yapilacaklar']))->assertOk()->assertSee('Başlığı güçlendir');
         $this->get(route('operator.website', ['assetId' => $this->site->id, 'tab' => 'health']))->assertOk()->assertSee('Site Sağlığı')->assertDontSee('Hazırlanıyor');
         // Old "SEO Yapılacaklar › Kümeler & Sayfalar" link lands on Kümeler.
