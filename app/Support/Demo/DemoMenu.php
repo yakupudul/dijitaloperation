@@ -58,9 +58,11 @@ final class DemoMenu
             $group($own['name'] ?? 'Moximu', [
                 // Satış (2026-11-04): prospects, today's messages, customers' requests, results.
                 $item($tr ? 'Satış' : 'Sales', 'operator.sales', 'prospects', [], ['operator.sales.lead']),
-                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item('WhatsApp', 'operator.whatsapp', 'chat')] : []),
-                // Sosyal medya (ADR-083, 2026-11-06): the agency's own Instagram, Facebook and LinkedIn.
-                $item($tr ? 'Sosyal medya' : 'Social media', 'operator.social', 'social'),
+                // Gelen kutusu (Aşama 2, 2026-11-07): the day's one queue; the WhatsApp screen (chats, Beyin, connection) lights it too.
+                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Gelen kutusu' : 'Inbox', 'operator.inbox', 'chat', [], ['operator.whatsapp'])] : []),
+                // Pazarlama (Aşama 4, 2026-11-07): the funnel by source; Sosyal medya (ADR-083) lives inside it as a tab and
+                // keeps its own screen for the post plan, lit under this entry.
+                $item($tr ? 'Pazarlama' : 'Marketing', 'operator.marketing', 'social', [], ['operator.social']),
                 ...($own !== null && $own['website'] !== null
                     ? [['label' => $tr ? 'Web sitemiz' : 'Our website', 'route' => 'operator.website', 'params' => ['assetId' => $own['website']], 'icon' => 'website', 'children' => [], 'active' => []]]
                     : []),

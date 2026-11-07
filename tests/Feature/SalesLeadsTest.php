@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Ai\Agents\SalesReplyAgent;
+use App\Livewire\Operator\Inbox\InboxPage;
 use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
+use App\Livewire\Operator\Sales\TodayCard;
 use App\Livewire\Operator\WhatsApp\Inbox;
 use App\Models\AgencySetting;
 use App\Models\AiTask;
@@ -411,16 +413,24 @@ class SalesLeadsTest extends TestCase
         $leads = app(SalesLeads::class);
         $lead = $leads->quickAdd(['name' => 'Gözde Zeyrek', 'company' => 'Zeyrek Diş', 'city' => 'Ankara', 'phone' => '0534 000 11 22'], $this->admin);
 
-        $this->get('/satis')->assertOk()->assertSee('Gözde Zeyrek')->assertSee('Claude yazsın');
+        $this->get('/satis')->assertOk()->assertSee('Gözde Zeyrek')->assertSee('Gelen kutusu');
         $this->get('/satis?sekme=adaylar')->assertOk()->assertSee('Zeyrek Diş');
         $this->get('/satis?sekme=sonuclar')->assertOk()->assertSee('Aylık gelir');
+        // Bugün moved to the Gelen kutusu (Aşama 2); the old address points there and the first text is written from there.
+        $this->get('/satis?sekme=bugun')->assertRedirect('/gelen-kutusu?gorunum=adimlar');
+        $this->get('/gelen-kutusu?gorunum=adimlar')->assertOk()->assertSee('Gözde Zeyrek')->assertSee('Bugünün adımları');
+        $this->get('/gelen-kutusu?gorunum=adimlar&kayit=adim-'.$lead->id)->assertOk()->assertSee('Claude yazsın')->assertSee('Zeyrek Diş');
         $this->get('/satis/'.$lead->id)->assertOk()->assertSee('Sonraki adım')->assertSee('Gönderilecek mesaj')->assertSee('Sohbeti yapıştır');
-        $this->get('/')->assertOk()->assertSee('Satış');
+        // Komuta's Moximu line (Aşama 3) is the inbox in one sentence; the card loads lazily on the page.
+        $this->get('/')->assertOk()->assertSee('data-sales-today', false);
+        Livewire::test(TodayCard::class)->assertSee('1 adım')->assertSee('Gözde Zeyrek')->assertSee('Gelen kutusu');
 
-        Livewire::test(SalesPage::class)->call('markSent', $lead->id)->assertHasNoErrors();
+        Livewire::test(InboxPage::class, ['view' => 'adimlar'])->call('select', 'adim-'.$lead->id)->call('done')->assertHasNoErrors();
         $this->assertSame('contacted', $lead->fresh()->stage);
-        Livewire::test(SalesPage::class)->call('snooze', $lead->id)->assertHasNoErrors();
+        $lead->fresh()->forceFill(['next_step_at' => now()])->save();
+        Livewire::test(InboxPage::class, ['view' => 'adimlar'])->call('select', 'adim-'.$lead->id)->call('later')->assertHasNoErrors();
         $this->assertSame('2026-11-05', $lead->fresh()->next_step_at->timezone('Europe/Istanbul')->toDateString());
+        $this->assertSame('later', $lead->fresh()->stage);
 
         Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])
             ->set('note', 'Aradım, pazartesi dönecek')->call('addNote')->assertHasNoErrors()

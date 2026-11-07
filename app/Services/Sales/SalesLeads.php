@@ -266,6 +266,10 @@ final class SalesLeads
         $lead->save();
         if ($created) {
             $this->event($lead, 'system', 'WhatsApp görüşmesinden kart açıldı.', $conversation->created_at);
+            if ($lead->heard_from === 'meta_ads' && is_array($conversation->referral)) {
+                $ad = (string) ($conversation->referral['headline'] ?? $conversation->referral['source_id'] ?? '');
+                $this->event($lead, 'system', 'Reklamdan yazdı'.($ad !== '' ? ': '.$ad : '.'), $conversation->last_incoming_at, ['referral' => $conversation->referral], 'referral:'.$conversation->id);
+            }
         }
 
         return $lead;
@@ -361,12 +365,16 @@ final class SalesLeads
         // A call or a meeting logged by hand can be newer than the last WhatsApp message: keep the later one.
         $lead->last_contact_at = $lastOut !== null && ($lead->last_contact_at === null || $lastOut->gt($lead->last_contact_at)) ? $lastOut : $lead->last_contact_at;
         $lead->last_incoming_at = $lastIn ?? $lead->last_incoming_at;
+        $this->readReferral($lead, $conversation);
         if (! $lead->isOpen()) {
-            // They wrote again after we closed the card: it is open once more.
+            // They wrote again after we closed the card: it is open once more (an "İlgisiz" record becomes a prospect again).
             if ($lead->stage === 'lost' && $lastIn !== null && $lead->lost_at !== null && $lastIn->gt($lead->lost_at)) {
                 $lead->stage = 'contacted';
                 $lead->lost_at = null;
                 $lead->lost_reason = null;
+                if ($lead->lifecycle === 'irrelevant') {
+                    $lead->lifecycle = 'prospect';
+                }
             } else {
                 return;
             }
@@ -401,6 +409,26 @@ final class SalesLeads
             if ($lead->next_step_at->lt(now()) && ! FollowUpSequence::isCold($lead)) {
                 $lead->next_step_at = CarbonImmutable::now('Europe/Istanbul');
             }
+        }
+    }
+
+    /** A chat that started from a Click-to-WhatsApp ad: the record's source is that ad (Meta sends it with the first message). */
+    private function readReferral(SalesLead $lead, WhatsAppConversation $conversation): void
+    {
+        $referral = $conversation->referral;
+        if (! is_array($referral) || $referral === [] || $lead->heard_from !== null) {
+            return;
+        }
+        $ad = (string) ($referral['headline'] ?? $referral['source_id'] ?? '');
+        $lead->heard_from = 'meta_ads';
+        // The same shape the site form writes (utm_*), so the funnel reads ads from both channels alike.
+        $lead->origin = array_merge((array) $lead->origin, array_filter([
+            'utm_source' => ($referral['source_type'] ?? '') === 'post' ? 'facebook' : 'meta', 'utm_medium' => 'ctwa',
+            'utm_campaign' => $ad !== '' ? mb_substr($ad, 0, 160) : null, 'ad_id' => $referral['source_id'] ?? null, 'ad_url' => $referral['source_url'] ?? null,
+            'ctwa_clid' => $referral['ctwa_clid'] ?? null, 'at' => $referral['at'] ?? null,
+        ], fn ($v): bool => $v !== null && $v !== ''));
+        if ($lead->exists) {
+            $this->event($lead, 'system', 'Reklamdan yazdı'.($ad !== '' ? ': '.$ad : '.'), $conversation->last_incoming_at, ['referral' => $referral], 'referral:'.$conversation->id);
         }
     }
 

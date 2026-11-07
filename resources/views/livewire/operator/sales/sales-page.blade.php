@@ -65,77 +65,20 @@
 
     <div class="mt-7 flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Satış sekmeleri">
         @foreach (SalesPage::TABS as $key => $label)
-            @php $count = match ($key) { 'bugun' => $dueCount, 'adaylar' => $openCount, 'istekler' => $requests->count(), default => null }; @endphp
+            @php $count = match ($key) { 'adaylar' => $openCount, default => null }; @endphp
             <button type="button" wire:click="$set('tab', '{{ $key }}')" @class(['seg', 'seg-active' => $tab === $key]) role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" data-sales-tab="{{ $key }}">
-                {{ $label }}@if ($count !== null && ($count > 0 || $key !== 'istekler')) <span @class(['tabular-nums', 'text-accent' => $tab === $key && $count > 0, 'text-gray-400' => $tab !== $key || $count === 0])>{{ $n($count) }}</span>@endif
+                {{ $label }}@if ($count !== null) <span @class(['tabular-nums', 'text-accent' => $tab === $key && $count > 0, 'text-gray-400' => $tab !== $key || $count === 0])>{{ $n($count) }}</span>@endif
             </button>
         @endforeach
+        {{-- Bugün and Müşteri istekleri live in the Gelen kutusu (Aşama 2): one queue for every answer owed and today's steps. --}}
+        <a href="{{ route('operator.inbox') }}" wire:navigate class="seg" data-sales-inbox-link>Gelen kutusu <span @class(['tabular-nums', 'text-accent' => $inboxOpen > 0, 'text-gray-400' => $inboxOpen === 0])>{{ $n($inboxOpen) }}</span></a>
     </div>
 
     @if ($message !== '')
         <p class="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-sales-message>{{ $message }}</p>
     @endif
 
-    @if ($tab === 'bugun')
-        <section class="mt-5" data-sales-today>
-            <div class="section-head">
-                <h2 class="section-title">Bugün yazacakların <span class="section-count">{{ $n($dueCount) }}</span></h2>
-                <p class="text-sm text-gray-500">İsme bas, metni gör. WhatsApp'ta aç, gönder, "Gönderdim" de.</p>
-            </div>
-            {{-- Minimal (yakup 2026-11-06): one line per person; the text opens on click. One poll for the whole list
-                 while Claude writes, every 10 s and only while the tab is visible (one poll per card slowed the page). --}}
-            <div class="card divide-y divide-gray-200 dark:divide-gray-800" @if ($due->contains(fn ($l) => in_array($l->draft_status, ['queued', 'running'], true) && blank($l->draft))) wire:poll.10s.visible @endif>
-                @forelse ($due as $lead)
-                    @php
-                        $text = (string) $lead->draft;
-                        $drafting = in_array($lead->draft_status, ['queued', 'running'], true);
-                        $wa = $lead->waNumber();
-                        $overdue = $lead->next_step_at !== null && $lead->next_step_at->timezone('Europe/Istanbul')->toDateString() < $today;
-                        $preview = trim((string) preg_replace('/\s+/u', ' ', $text));
-                    @endphp
-                    <div wire:key="due-{{ $lead->id }}" x-data="{ open: false }" class="px-4 py-2.5" data-sales-due="{{ $lead->id }}">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                            <button type="button" x-on:click="open = !open" class="min-w-0 w-full flex-1 text-left" :aria-expanded="open">
-                                <span class="flex items-baseline gap-2">
-                                    <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $lead->title() }}</span>
-                                    <span class="shrink-0 text-xs text-gray-500">{{ $lead->next_step ?: 'Adım' }}@if ($overdue)<span class="text-error-600"> · {{ $lead->next_step_at->timezone('Europe/Istanbul')->format('d.m') }}'den kaldı</span>@endif</span>
-                                </span>
-                                <span class="mt-0.5 block truncate text-[13px] text-gray-500" x-show="!open">
-                                    @if ($preview !== ''){{ $preview }}@elseif ($drafting)Claude yazıyor…@elseif ($lead->draft_status === 'waiting'){{ $lead->draft_note ?: 'Abonelikteki Claude yazacak.' }}@elseif ($lead->draft_status === 'failed'){{ $lead->draft_note ?: 'Yazılamadı.' }}@else Metin yok @endif
-                                </span>
-                            </button>
-                            <div class="flex shrink-0 items-center gap-1.5">
-                                @if ($text !== '' && $wa !== null)
-                                    <a href="https://wa.me/{{ $wa }}?text={{ rawurlencode($text) }}" target="_blank" rel="noopener" class="btn-primary h-8 px-3 text-[13px]" data-sales-wa>WhatsApp</a>
-                                @elseif ($text === '' && ! $drafting)
-                                    <button type="button" wire:click="draftFor({{ $lead->id }})" class="btn h-8 px-3 text-[13px]" data-sales-write>Claude yazsın</button>
-                                @endif
-                                <button type="button" wire:click="markSent({{ $lead->id }})" wire:loading.attr="disabled" class="btn-dark h-8 px-3 text-[13px]" data-sales-sent>Gönderdim</button>
-                            </div>
-                        </div>
-                        <div x-show="open" x-cloak class="mt-2.5">
-                            @if ($text !== '')
-                                <pre class="max-w-[80ch] whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 font-sans text-[13px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-sales-draft>{{ $text }}</pre>
-                                @if (filled($lead->draft_note))<p class="mt-1.5 max-w-[80ch] text-xs text-gray-500">Claude'un notu: {{ $lead->draft_note }}</p>@endif
-                            @endif
-                            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
-                                @if ($text !== '')<button type="button" x-on:click="navigator.clipboard?.writeText($el.closest('[data-sales-due]').querySelector('[data-sales-draft]').innerText); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="link-neutral">Kopyala</button>@endif
-                                @if ($text !== '' && $wa === null)<a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral">Telefon ekle</a>@endif
-                                <button type="button" wire:click="snooze({{ $lead->id }})" class="link-neutral">Yarına</button>
-                                <button type="button" wire:click="openDialog('close', {{ $lead->id }})" class="link-neutral text-gray-400">Kapat</button>
-                                <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-neutral ml-auto">Kart →</a>
-                            </div>
-                        </div>
-                    </div>
-                @empty
-                    <x-ta.empty-state title="Bugün yazılacak kimse yok" message="Yeni bir aday ekle, bir site linkini ya da WhatsApp sohbetini telefondan MoxDOP'a paylaş, ya da Adaylar'dan birine sonraki adım ver." />
-                @endforelse
-            </div>
-            @if ($wonThisMonth > 0)
-                <p class="mt-3 text-sm text-gray-500">Bu ay {{ $n($wonThisMonth) }} aday müşteri oldu.</p>
-            @endif
-        </section>
-    @elseif ($tab === 'adaylar')
+    @if ($tab === 'adaylar')
         {{-- Adaylar (yakup 2026-11-07): every row answers four questions: whose turn is it, when did we last talk and
              about what, what is next and when, how much is it worth. Ready views instead of one stage filter. --}}
         <section class="mt-5" data-sales-leads>
@@ -186,25 +129,31 @@
                     </div>
                 @endif
                 <div class="card mt-3 overflow-visible" data-sales-customers>
-                    <div class="hidden grid-cols-[minmax(0,2fr)_7rem_minmax(0,1.6fr)_6rem_minmax(0,1.4fr)_minmax(0,1.4fr)_7rem] gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid dark:border-gray-800">
-                        <span>Müşteri</span><span>Tür</span><span>Anlaşma</span><span>Bu ay</span><span>Risk</span><span>Açık fırsat</span><span></span>
+                    @php $cols = 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_6.5rem_6.5rem_5.5rem_minmax(0,1.6fr)_minmax(0,1.3fr)_6rem]'; @endphp
+                    <div class="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_6.5rem_6.5rem_5.5rem_minmax(0,1.6fr)_minmax(0,1.3fr)_6rem] gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid dark:border-gray-800">
+                        <span>Müşteri</span><span>Anlaşma</span><span>Ödeme</span><span>Rapor</span><span>Temas</span><span>Risk</span><span>Açık fırsat</span><span></span>
                     </div>
                     <div class="divide-y divide-gray-200 dark:divide-gray-800">
                         @forelse ($customerRows as $row)
-                            @php $a = $row['agreement']; $pm = $row['this_month']; @endphp
-                            <div wire:key="customer-{{ $row['brand']->id }}" class="grid grid-cols-1 gap-x-3 gap-y-1.5 px-4 py-3 lg:grid-cols-[minmax(0,2fr)_7rem_minmax(0,1.6fr)_6rem_minmax(0,1.4fr)_minmax(0,1.4fr)_7rem] lg:items-center lg:py-2.5" data-sales-customer="{{ $row['brand']->id }}">
+                            @php $a = $row['agreement']; $pm = $row['this_month']; $setup = $row['setup']; $demand = $row['demand']; @endphp
+                            <div wire:key="customer-{{ $row['brand']->id }}" class="grid grid-cols-1 gap-x-3 gap-y-1.5 px-4 py-3 {{ $cols }} lg:items-center lg:py-2.5" data-sales-customer="{{ $row['brand']->id }}">
                                 <div class="min-w-0">
                                     <a href="{{ route('operator.brand', ['brand' => $row['brand']->id]) }}" wire:navigate class="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">{{ $row['brand']->name }}</a>
-                                    @if ($row['customer'] && $row['customer']->name !== $row['brand']->name)<p class="truncate text-[13px] text-gray-500">{{ $row['customer']->name }}</p>@endif
-                                    @if ($row['lead'])<a href="{{ route('operator.sales.lead', ['lead' => $row['lead']->id]) }}" wire:navigate class="text-[12px] text-gray-400 hover:underline">Satış kaydı</a>@endif
+                                    <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-gray-500">
+                                        @if ($row['kind'])<span>{{ $row['kind'] }}</span>@endif
+                                        @if ($row['customer'] && $row['customer']->name !== $row['brand']->name)<span class="truncate">{{ $row['customer']->name }}</span>@endif
+                                        @if ($setup['total'] > 0 && $setup['done'] < $setup['total'])
+                                            <span class="chip chip-flat h-5! px-1.5! text-[11px]!" title="{{ collect($setup['items'])->map(fn ($i) => ($i['done'] ? '✓ ' : '○ ').$i['label'])->implode(' · ') }}" data-sales-customer-setup>Kurulum {{ $setup['done'] }}/{{ $setup['total'] }}</span>
+                                        @endif
+                                        @if ($row['lead'])<a href="{{ route('operator.sales.lead', ['lead' => $row['lead']->id]) }}" wire:navigate class="text-gray-400 hover:underline">Satış kaydı</a>@endif
+                                    </p>
                                 </div>
-                                <div class="text-[13px] text-gray-600 dark:text-gray-300"><span class="lg:hidden">Tür: </span>{{ $row['kind'] ?? '–' }}</div>
                                 <div class="text-[13px]" data-sales-customer-agreement>
                                     @if ($a === null)
                                         <a href="{{ route('operator.brand', ['brand' => $row['brand']->id, 'tab' => 'ayarlar']) }}" wire:navigate class="font-semibold text-error-600 hover:underline">Anlaşma girilmedi</a>
                                     @else
                                         <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $a->feeLabel() }}</span>
-                                        <span class="block text-[11px] text-gray-500">{{ $a->kindLabel() }}{{ $a->kind !== 'one_time' ? ' · gün '.$a->due_day : '' }}{{ ! $a->isActive() ? ' · '.mb_strtolower($a->statusLabel()) : '' }}</span>
+                                        <span class="block text-[11px] text-gray-500">{{ $a->kindLabel() }}{{ $row['month_no'] ? ' · '.$row['month_no'].'. ay' : '' }}{{ $a->kind !== 'one_time' ? ' · gün '.$a->due_day : '' }}{{ ! $a->isActive() ? ' · '.mb_strtolower($a->statusLabel()) : '' }}</span>
                                     @endif
                                 </div>
                                 <div class="text-[13px]" data-sales-customer-month>
@@ -214,8 +163,25 @@
                                         <span class="text-gray-400">–</span>
                                     @endif
                                 </div>
+                                <div class="text-[13px]" data-sales-customer-report>
+                                    @if ($a !== null && $a->kind !== 'one_time')
+                                        <button type="button" wire:click="toggleReport({{ $row['brand']->id }}, '{{ $row['report_month'] }}')" @class(['seg h-7 px-2.5 text-[12px]', 'seg-active' => $row['report'] !== null]) title="{{ \Carbon\CarbonImmutable::parse($row['report_month'].'-01')->locale('tr')->isoFormat('MMMM YYYY') }} raporu{{ $row['report'] ? ' · '.$row['report']->sent_at->timezone('Europe/Istanbul')->format('d.m') : '' }}">{{ $row['report'] !== null ? '✓ '.\Carbon\CarbonImmutable::parse($row['report_month'].'-01')->locale('tr')->isoFormat('MMM') : '○ '.\Carbon\CarbonImmutable::parse($row['report_month'].'-01')->locale('tr')->isoFormat('MMM') }}</button>
+                                    @else
+                                        <span class="text-gray-400">–</span>
+                                    @endif
+                                </div>
+                                <div class="text-[13px]" data-sales-customer-contact>
+                                    @if ($row['contact_days'] !== null)
+                                        <span @class(['tabular-nums', 'font-semibold text-error-600' => $row['contact_days'] >= \App\Services\Sales\CustomerSignals::CONTACT_DAYS, 'text-gray-700 dark:text-gray-300' => $row['contact_days'] < \App\Services\Sales\CustomerSignals::CONTACT_DAYS])" title="Son temas {{ $row['last_contact']->timezone('Europe/Istanbul')->format('d.m.Y') }}">{{ $row['contact_days'] === 0 ? 'bugün' : $row['contact_days'].' gün' }}</span>
+                                    @else
+                                        <span class="text-gray-400" title="Kayıtlı temas yok">–</span>
+                                    @endif
+                                </div>
                                 <div class="flex flex-wrap gap-1 text-[12px]" data-sales-customer-risk>
-                                    @forelse ($row['risks'] as $risk)<span class="chip chip-down">{{ $risk['label'] }}</span>@empty<span class="text-gray-400">–</span>@endforelse
+                                    @foreach ($row['signals'] as $signal)<span class="chip chip-down" title="{{ $signal['detail'] }}">{{ $signal['label'] }}</span>@endforeach
+                                    @foreach ($row['risks'] as $risk)@continue($risk['key'] === 'odeme_gecikti' && collect($row['signals'])->contains('key', 'odeme_gecikti'))<span class="chip chip-down">{{ $risk['label'] }}</span>@endforeach
+                                    @if ($demand !== null && ! $demand['falling'])<span class="text-gray-400" title="Son üç ayın talebi: {{ collect($demand['months'])->map(fn ($m) => \Carbon\CarbonImmutable::parse($m['month'].'-01')->locale('tr')->isoFormat('MMM').' '.$n((int) $m['total']))->implode(' → ') }}">talep {{ $demand['months'][2]['total'] >= $demand['months'][1]['total'] ? '↑' : '↓' }}</span>@endif
+                                    @if ($row['signals'] === [] && $row['risks'] === [] && $demand === null)<span class="text-gray-400">–</span>@endif
                                 </div>
                                 <div class="min-w-0 text-[13px]">
                                     @if ($row['opportunity'])
@@ -349,30 +315,6 @@
             </div>
             @endif
         </section>
-    @elseif ($tab === 'istekler')
-        <section class="mt-5" data-sales-requests>
-            <div class="section-head">
-                <h2 class="section-title">Müşterilerden gelen istekler <span class="section-count">{{ $n($requests->count()) }}</span></h2>
-                <p class="text-sm text-gray-500">Son sözün müşteride kaldığı sohbetler. "Göreve çevir" yarın 10:00'a hatırlatma açar; telefonda da görünür.</p>
-            </div>
-            <div class="card">
-                @forelse ($requests as $conversation)
-                    @php $customer = $requestCustomers[$conversation->customer_id] ?? null; @endphp
-                    <div wire:key="req-{{ $conversation->id }}" class="card-row" data-sales-request="{{ $conversation->id }}">
-                        <x-ta.brand-avatar :name="$customer?->name ?? $conversation->contact_name ?? (string) $conversation->contact_id" />
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $customer?->name ?? $conversation->contact_name ?? $conversation->contact_id }}<span class="ml-2 text-xs font-normal text-gray-500">{{ $conversation->last_incoming_at?->timezone('Europe/Istanbul')->format('d.m H:i') }}</span></p>
-                            <p class="truncate text-[13px] text-gray-500">{{ $previews[$conversation->id] ?? '—' }}</p>
-                        </div>
-                        <a href="{{ route('operator.whatsapp', ['conversation' => $conversation->id, 'tab' => 'inbox']) }}" wire:navigate class="btn-quiet">Sohbet</a>
-                        <button type="button" wire:click="toTask({{ $conversation->id }})" wire:loading.attr="disabled" class="btn-dark">Göreve çevir</button>
-                        <button type="button" wire:click="answered({{ $conversation->id }})" class="btn-quiet">Cevaplandı</button>
-                    </div>
-                @empty
-                    <x-ta.empty-state title="Cevap bekleyen müşteri isteği yok" message="WhatsApp yedeği her sabah geldiğinde müşterilerin yazdıkları burada toplanır." />
-                @endforelse
-            </div>
-        </section>
     @else
         <section class="mt-5" data-sales-results>
             @if ($money !== null)
@@ -412,7 +354,7 @@
                 </div>
                 <div class="mt-3 grid gap-3 lg:grid-cols-[3fr_2fr]">
                     <div class="card p-4" data-sales-funnel>
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $n($report['opened']) }} kartın vardığı yer</h3>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $n($report['opened']) }} kartın vardığı yer <a href="{{ route('operator.marketing', ['ay' => $reportMonth->format('Y-m')]) }}" wire:navigate class="ml-2 text-xs font-normal link-neutral" data-sales-marketing-link>kaynak kaynak: Pazarlama →</a></h3>
                         <div class="mt-3 space-y-2">
                             @foreach (\App\Services\Sales\SalesMonthReport::FUNNEL as $step => $label)
                                 @php $c = $report['funnel'][$step]; $pct = $report['opened'] > 0 ? (int) round($c * 100 / $base) : 0; @endphp

@@ -6,14 +6,14 @@ use App\Models\Agreement;
 use App\Models\AgreementPayment;
 use App\Models\Brand;
 use App\Models\Customer;
-use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\SalesOpportunity;
-use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\Inbox\InboxQueue;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Sales\Agreements;
+use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
@@ -31,18 +31,18 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Satış (yakup, 2026-11-04): one place for every prospect. Bugün = whose next step is today, with the text ready;
- * Adaylar = every open card by stage; İstekler = customers' chats waiting for an answer (one click makes a task);
- * Sonuçlar = where leads come from and what they bring. MoxDOP never sends a message.
+ * Satış (yakup, 2026-11-04): one place for every prospect. Adaylar = every open card by view (and the customers'
+ * commercial view); Sonuçlar = where leads come from and what they bring. Bugün and Müşteri istekleri moved to the
+ * Gelen kutusu (Aşama 2, 2026-11-07); their old addresses point there. MoxDOP never sends a message.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Satış')]
 final class SalesPage extends Component
 {
-    public const array TABS = ['bugun' => 'Bugün', 'adaylar' => 'Adaylar', 'istekler' => 'Müşteri istekleri', 'sonuclar' => 'Sonuçlar'];
+    public const array TABS = ['adaylar' => 'Adaylar', 'sonuclar' => 'Sonuçlar'];
 
-    #[Url(as: 'sekme', except: 'bugun')]
-    public string $tab = 'bugun';
+    #[Url(as: 'sekme', except: 'adaylar')]
+    public string $tab = 'adaylar';
 
     #[Url(as: 'asama', except: '')]
     public string $stageFilter = '';
@@ -104,6 +104,12 @@ final class SalesPage extends Component
 
     public function mount(): void
     {
+        // The old Bugün and Müşteri istekleri tabs live in the Gelen kutusu now; their addresses still work.
+        if (in_array($this->tab, ['bugun', 'istekler'], true)) {
+            $this->redirectRoute('operator.inbox', ['gorunum' => $this->tab === 'bugun' ? 'adimlar' : 'musteriler'], navigate: true);
+
+            return;
+        }
         $this->message = (string) session('sales_notice', '');
         $quick = (string) session('sales_quick', '');
         if ($quick !== '') {
@@ -115,7 +121,7 @@ final class SalesPage extends Component
     public function updatedTab(): void
     {
         if (! isset(self::TABS[$this->tab])) {
-            $this->tab = 'bugun';
+            $this->tab = 'adaylar';
         }
     }
 
@@ -132,14 +138,6 @@ final class SalesPage extends Component
         $this->form = ['name' => '', 'company' => '', 'city' => '', 'phone' => '', 'website' => '', 'source' => 'phone', 'note' => ''];
         $this->adding = false;
         $this->redirectRoute('operator.sales.lead', ['lead' => $lead->id], navigate: true);
-    }
-
-    /** "Gönderdim" on a Bugün row: the text went out from the phone; the next step is scheduled. */
-    public function markSent(int $id, SalesLeads $leads): void
-    {
-        $lead = SalesLead::query()->findOrFail($id);
-        $leads->markSent($lead, filled($lead->draft) ? (string) $lead->draft : null, auth()->user());
-        $this->say($lead->title().': gönderildi olarak işlendi; sonraki adım '.$lead->next_step_at?->timezone('Europe/Istanbul')->format('d.m.Y').'.');
     }
 
     /** "Sohbeti yapıştır": a chat copied from WhatsApp opens (or finds) the card and Claude answers at once. */
@@ -169,22 +167,6 @@ final class SalesPage extends Component
         $this->pasteNote = '';
         session()->flash('sales_notice', $result['notice'].($ok ? ' Claude cevabı yazdı.' : ' Claude yazamadı; kartta "Yeniden yaz" ile dene.'));
         $this->redirectRoute('operator.sales.lead', ['lead' => $lead->id], navigate: true);
-    }
-
-    /** "Yaz" on a Bugün row without a text: Claude writes it in the background. */
-    public function draftFor(int $id): void
-    {
-        $lead = SalesLead::query()->findOrFail($id);
-        SalesReplyWriter::queue($lead);
-        $this->say($lead->title().': Claude yazıyor, birkaç saniye içinde burada.');
-    }
-
-    /** "Bugün değil": the step moves to tomorrow morning. */
-    public function snooze(int $id, SalesLeads $leads): void
-    {
-        $lead = SalesLead::query()->findOrFail($id);
-        $leads->setNextStep($lead, (string) $lead->next_step, CarbonImmutable::now('Europe/Istanbul')->addDay()->toDateString(), auth()->user());
-        $this->say($lead->title().' yarına alındı.');
     }
 
     public function setStage(int $id, string $stage, SalesLeads $leads): void
@@ -286,9 +268,11 @@ final class SalesPage extends Component
      */
     private function customerTable(Agreements $agreements): array
     {
+        $signals = app(CustomerSignals::class);
         $brands = Brand::query()->with('customer:id,name,status,monthly_fee')->operational()->orderBy('name')->get();
         $leads = SalesLead::query()->whereIn('brand_id', $brands->pluck('id'))->orderByDesc('id')->get()->keyBy('brand_id');
         $openOpps = SalesOpportunity::query()->where('status', 'open')->whereIn('lead_id', $leads->pluck('id'))->get()->keyBy('lead_id');
+        $previous = CarbonImmutable::now('Europe/Istanbul')->startOfMonth()->subMonth();
         $rows = [];
         $overdueSum = 0;
         $overdueCount = 0;
@@ -299,10 +283,17 @@ final class SalesPage extends Component
             $late = $summary['payments']->filter(fn ($p): bool => $p->isOverdue());
             $overdueSum += (int) $late->sum('amount');
             $overdueCount += $late->count();
+            $lastContact = $signals->lastContactAt($brand);
+            // Müşteri dönemi (Aşama 3): setup from the connections, the month of the agreement, last month's report tick,
+            // the last contact, the demand trend and the four risk signals; nothing here is typed twice.
             $rows[] = [
                 'brand' => $brand, 'customer' => $brand->customer, 'lead' => $lead, 'kind' => $lead?->kindLabel(), 'agreement' => $summary['agreement'],
                 'this_month' => $thisMonth, 'late' => $late->count(), 'late_days' => $summary['late_days'], 'next_due' => $summary['next_due'], 'risks' => $summary['risks'],
                 'opportunity' => $lead !== null ? ($openOpps[$lead->id] ?? null) : null,
+                'setup' => $signals->setup($brand, $summary['agreement']), 'month_no' => CustomerSignals::monthNo($summary['agreement']),
+                'report_month' => $previous->format('Y-m'), 'report' => $signals->report($brand, $previous->format('Y-m')),
+                'last_contact' => $lastContact, 'contact_days' => $lastContact !== null ? (int) $lastContact->startOfDay()->diffInDays(CarbonImmutable::now('Europe/Istanbul')->startOfDay()) : null,
+                'demand' => $signals->demand($brand), 'signals' => $signals->open($brand, $summary),
             ];
         }
         usort($rows, fn (array $a, array $b): int => [$b['late'], (int) ($b['agreement']?->monthlyValue() ?? 0)] <=> [$a['late'], (int) ($a['agreement']?->monthlyValue() ?? 0)]);
@@ -324,6 +315,23 @@ final class SalesPage extends Component
         $this->redirectRoute('operator.sales.lead', ['lead' => $lead->id], navigate: true);
     }
 
+    /** "Rapor gönderildi" tick on the customer row (last month's report); a second click takes it back. */
+    public function toggleReport(int $brandId, string $month, CustomerSignals $signals): void
+    {
+        $brand = Brand::query()->with('customer')->findOrFail($brandId);
+        if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) !== 1) {
+            return;
+        }
+        if ($signals->report($brand, $month) !== null) {
+            $signals->unmarkReport($brand, $month);
+            $this->say($brand->name.': '.CarbonImmutable::parse($month.'-01')->locale('tr')->isoFormat('MMMM').' raporu işareti kaldırıldı.');
+
+            return;
+        }
+        $report = $signals->markReportSent($brand, $month, auth()->user());
+        $this->say($brand->name.': '.$report->monthLabel().' raporu gönderildi olarak işlendi.');
+    }
+
     /** The month's tick from the customer row. */
     public function togglePaid(int $paymentId, Agreements $agreements): void
     {
@@ -338,29 +346,6 @@ final class SalesPage extends Component
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
         $created = $leads->scanConversations();
         $this->say($created > 0 ? $created.' görüşmeden kart açıldı.' : 'Kartı olmayan görüşme kalmadı.');
-    }
-
-    /** A customer's request becomes a task: tomorrow 10:00 on Takvim and the phone. */
-    public function toTask(int $conversationId, SalesLeads $leads): void
-    {
-        $conversation = WhatsAppConversation::query()->whereNotNull('customer_id')->findOrFail($conversationId);
-        $customer = Customer::query()->find($conversation->customer_id);
-        $last = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')->orderByDesc('sent_at')->first();
-        $snippet = mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $last?->body)), 0, 140);
-        $brandId = Brand::query()->where('customer_id', $conversation->customer_id)->orderBy('id')->value('id');
-        Reminder::query()->create([
-            'user_id' => auth()->id(), 'customer_id' => $conversation->customer_id, 'brand_id' => $brandId,
-            'title' => 'Müşteri isteği: '.($customer?->name ?? $conversation->contact_name ?? $conversation->contact_id),
-            'notes' => $snippet !== '' ? $snippet : null, 'remind_at' => CarbonImmutable::now('Europe/Istanbul')->addDay()->setTime(10, 0)->utc(), 'repeat' => 'none', 'kind' => 'task',
-        ]);
-        $conversation->update(['done_at' => now()]);
-        $this->say('Görev açıldı: yarın 10:00\'da Takvim\'de ve telefonda.');
-    }
-
-    public function answered(int $conversationId): void
-    {
-        WhatsAppConversation::query()->whereNotNull('customer_id')->findOrFail($conversationId)->update(['done_at' => now()]);
-        $this->say('Cevaplandı olarak işlendi.');
     }
 
     public string $formSite = '';
@@ -385,7 +370,7 @@ final class SalesPage extends Component
     public function render(SalesLeads $leads): View
     {
         $this->updatedTab();
-        $due = $leads->due()->get();
+        $dueCount = $leads->due()->count();
         $open = SalesLead::query()->open()->relevant();
         $stageCounts = (clone $open)->get(['stage'])->countBy('stage')->all();
         $list = collect();
@@ -401,19 +386,9 @@ final class SalesPage extends Component
             }
         }
         $reportMonth = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->month) === 1 ? CarbonImmutable::parse($this->month.'-01', 'Europe/Istanbul') : CarbonImmutable::now('Europe/Istanbul')->startOfMonth();
-        $requests = $this->tab === 'istekler' ? $leads->customerRequests() : collect();
-        $requestCustomers = $requests->isNotEmpty() ? Customer::query()->whereKey($requests->pluck('customer_id')->unique())->get(['id', 'name', 'monthly_fee'])->keyBy('id') : collect();
-        $previews = [];
-        if ($requests->isNotEmpty()) {
-            $latest = WhatsAppMessage::query()->whereIn('conversation_id', $requests->pluck('id'))->where('direction', 'incoming')->selectRaw('max(id) as id')->groupBy('conversation_id')->pluck('id');
-            foreach (WhatsAppMessage::query()->whereKey($latest)->get(['conversation_id', 'body']) as $row) {
-                $previews[$row->conversation_id] = mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $row->body)), 0, 160);
-            }
-        }
 
         return view('livewire.operator.sales.sales-page', [
-            'due' => $due,
-            'dueCount' => $due->count(),
+            'dueCount' => $dueCount,
             'openCount' => (clone $open)->count(),
             'stageCounts' => $stageCounts,
             'list' => $list,
@@ -421,11 +396,8 @@ final class SalesPage extends Component
             'touches' => $touches,
             'offerTotal' => $offerTotal,
             'dialogCard' => $this->dialog !== '' ? SalesLead::query()->find($this->dialogLead) : null,
-            'requests' => $requests,
-            'requestCustomers' => $requestCustomers,
             'customerRows' => $customers['rows'],
             'customerStrip' => $customers['strip'],
-            'previews' => $previews,
             'results' => $this->tab === 'sonuclar' ? $leads->results() : [],
             'money' => $this->tab === 'sonuclar' ? $this->money() : null,
             'report' => $this->tab === 'sonuclar' ? app(SalesMonthReport::class)->month($reportMonth) : null,
@@ -436,7 +408,7 @@ final class SalesPage extends Component
             'formSiteId' => $this->tab === 'sonuclar' ? LeadIntake::siteId() : null,
             'formSites' => $this->tab === 'sonuclar' && auth()->user()?->hasRole(Roles::ADMIN) ? $this->formSites() : [],
             'lastForm' => $this->tab === 'sonuclar' ? SalesLead::query()->where('source', 'form')->max('created_at') : null,
-            'wonThisMonth' => SalesLead::query()->relevant()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
+            'inboxOpen' => app(InboxQueue::class)->openCount(),
         ]);
     }
 

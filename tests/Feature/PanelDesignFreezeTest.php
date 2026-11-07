@@ -68,8 +68,9 @@ class PanelDesignFreezeTest extends TestCase
             // Moximu group 2026-11-06 (yakup: the agency's own work together): Satış, WhatsApp, Sosyal medya, and with an
             // agency brand also Web sitemiz and Marka kartımız (none in this fixture).
             'operator.sales',
-            'operator.whatsapp',
-            'operator.social',
+            'operator.inbox',
+            // Pazarlama replaced the Sosyal medya entry 2026-11-07 (Aşama 4); the social screen lights it.
+            'operator.marketing',
             'operator.gbp-desk',
             'operator.google-ads-desk',
             'operator.meta-desk',
@@ -103,7 +104,8 @@ class PanelDesignFreezeTest extends TestCase
 
         $group = collect(OperatorMenu::groups('/'))->firstWhere('title', 'Moximu');
         $this->assertNotNull($group);
-        $this->assertSame(['Satış', 'WhatsApp', 'Sosyal medya', 'Web sitemiz', 'Marka kartımız'], array_column($group['items'], 'name'));
+        // Gelen kutusu replaced the WhatsApp entry 2026-11-07 (Aşama 2): one queue for WhatsApp, social and today's steps.
+        $this->assertSame(['Satış', 'Gelen kutusu', 'Pazarlama', 'Web sitemiz', 'Marka kartımız'], array_column($group['items'], 'name'));
         $this->assertSame('/assets/website/'.$site, $group['items'][3]['path']);
         $this->assertSame('/brands/'.$this->portfolioBrand->id, $group['items'][4]['path']);
 

@@ -76,6 +76,7 @@ use App\Services\Integrations\Bing\BingWebmasterSync;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Integrations\WordPress\WordPressEventReconciliation;
+use App\Services\Marketing\MarketingFunnel;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Services\Operations\ScreenChecker;
@@ -120,6 +121,7 @@ use App\Support\Ai\AiRouteKeys;
 use App\Support\Console\ConsoleScope;
 use App\Support\Console\ConsoleScopeException;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -1813,10 +1815,20 @@ Schedule::call(function (): void {
     if ($count > 0) {
         app(PushNotifier::class)->send(
             'sales-due:'.now('Europe/Istanbul')->toDateString(), 'Bugün '.$count.' kişiye yazacaksın',
-            'Metinler hazır: Satış › Bugün. WhatsApp\'ta aç, gönder, "Gönderdim" de.', 'high', route('operator.sales'), 20, true,
+            'Metinler hazır: Gelen kutusu › Bugünün adımları. WhatsApp\'ta aç, gönder, "Yapıldı" de.', 'high', route('operator.inbox', ['gorunum' => 'adimlar']), 20, true,
         );
     }
 })->dailyAt('10:00')->timezone('Europe/Istanbul')->name('sales-morning-push')->withoutOverlapping(10);
+
+// Pazarlama (Aşama 4, 2026-11-07): on the 1st, "geçen ay ne çalıştı" in a few sentences; the screen holds the funnel.
+Schedule::call(function (): void {
+    $month = now('Europe/Istanbul')->subMonth()->startOfMonth();
+    $lines = app(MarketingFunnel::class)->summary(CarbonImmutable::instance($month));
+    app(PushNotifier::class)->send(
+        'marketing-month:'.$month->format('Y-m'), $month->locale('tr')->isoFormat('MMMM').' ayında ne çalıştı',
+        mb_substr(implode(' ', array_slice($lines, 0, 3)), 0, 400), 'info', route('operator.marketing', ['ay' => $month->format('Y-m')]), 48, true,
+    );
+})->monthlyOn(1, '09:00')->timezone('Europe/Istanbul')->name('marketing-month-summary')->withoutOverlapping(10);
 
 // ADR-083: Sosyal medya — onaylı gönderiler saatinde Instagram ve Facebook'a gider; Instagram'ın işlediği videolar
 // bir sonraki turda yeniden yoklanır, LinkedIn "kopyala ve aç" olarak ekranda bekler.
