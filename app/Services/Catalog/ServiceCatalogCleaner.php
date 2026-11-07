@@ -21,6 +21,11 @@ use Illuminate\Support\Facades\Log;
  *     a trailing "tedavisi / treatment / uygulaması / hizmeti" dropped while ≥2 characters stay) into the service
  *     with the most brands, then queries, then keywords. Queries, clusters, brand offerings, keywords, pending /
  *     review lines and brand candidates move to it; the other names become its aliases. No cross-sector or TR↔EN merge.
+ *
+ * `merge()` is also the one place a listed merge goes through (admin audit 2026-11-07 V5: 120 English / German / Italian
+ * names of multilingual clinic sites and 12 second Turkish names, paired by hand in
+ * database/data/service-catalog-merges-2026-11-07.json): the foreign name becomes a locale-tagged alias of the Turkish
+ * service, and a survivor without a sector takes the merged service's sector.
  */
 final class ServiceCatalogCleaner
 {
@@ -136,11 +141,21 @@ final class ServiceCatalogCleaner
             ]]);
     }
 
-    private function merge(int $loserId, int $survivorId): void
+    /**
+     * Everything of $loserId moves to $survivorId and the loser is archived; its names stay findable as aliases of the
+     * survivor, tagged with $locale (en / de / it) when they carry none. Public for the listed cross-language merges.
+     */
+    public function merge(int $loserId, int $survivorId, ?string $locale = null): void
     {
         $brandIds = [];
-        DB::transaction(function () use ($loserId, $survivorId, &$brandIds): void {
+        DB::transaction(function () use ($loserId, $survivorId, $locale, &$brandIds): void {
             $now = now();
+            $sectors = DB::table('service_catalog_items')->whereIn('id', [$loserId, $survivorId])->pluck('sector', 'id');
+            if (($sectors[$survivorId] ?? '') === '' || $sectors[$survivorId] === null) {
+                if (($sectors[$loserId] ?? '') !== '' && $sectors[$loserId] !== null) {
+                    DB::table('service_catalog_items')->where('id', $survivorId)->update(['sector' => $sectors[$loserId], 'updated_at' => $now]);
+                }
+            }
             DB::table('queries')->where('service_id', $loserId)->update(['service_id' => $survivorId, 'cluster_checked_at' => null, 'updated_at' => $now]);
             DB::table('clusters')->where('service_id', $loserId)->update(['service_id' => $survivorId, 'updated_at' => $now]);
             DB::table('pending_queries')->where('service_id', $loserId)->update(['service_id' => $survivorId]);
@@ -160,7 +175,10 @@ final class ServiceCatalogCleaner
                     ? DB::table('service_matching_keywords')->where('id', $keyword->id)->delete()
                     : DB::table('service_matching_keywords')->where('id', $keyword->id)->update(['service_catalog_item_id' => $survivorId, 'updated_at' => $now]);
             }
-            // The merged label stays findable: it becomes an alias of the survivor.
+            // The merged label stays findable: it becomes an alias of the survivor (with the language it is written in).
+            if ($locale !== null) {
+                DB::table('service_catalog_names')->where('service_catalog_item_id', $loserId)->whereNull('locale')->update(['locale' => $locale]);
+            }
             DB::table('service_catalog_names')->where('service_catalog_item_id', $loserId)
                 ->update(['service_catalog_item_id' => $survivorId, 'is_primary' => false, 'name_kind' => 'alias', 'updated_at' => $now]);
             DB::table('service_catalog_items')->where('id', $loserId)->update(['status' => 'archived', 'deleted_at' => $now, 'updated_at' => $now]);

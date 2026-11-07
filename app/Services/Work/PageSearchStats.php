@@ -57,7 +57,9 @@ final class PageSearchStats
         }
         $resources = BrandScope::siteResources($site, 'search_console');
 
+        // A legacy row carries no resource: NULL in the row store, 0 in the compact (PostgreSQL) store's view.
         return $query->where(fn (Builder $q) => $q->whereIn('external_resource_id', $resources ?: [0])
-            ->orWhere(fn (Builder $legacy) => $legacy->whereNull('external_resource_id')->where('digital_asset_id', $site->id)));
+            ->orWhere(fn (Builder $legacy) => $legacy->where(fn (Builder $none) => $none->whereNull('external_resource_id')->orWhere('external_resource_id', 0))
+                ->where('digital_asset_id', $site->id)));
     }
 }

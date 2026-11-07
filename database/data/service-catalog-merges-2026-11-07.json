@@ -1,0 +1,997 @@
+{
+ "note": "Admin denetimi 2026-11-07 V5: yabancı dildeki (en/de/it) hizmet adları Türkçe kaydın dil etiketli takma adı olur, Türkçe mükerrerler tek kayda iner (locale null), \"archive\" satırları hizmet değil sayfa adıdır. Uygulayan migrasyon: 2027_01_08_130000_merge_foreign_language_service_names. from_label kontrolü: canlıdaki birincil ad eşleşmezse satır atlanır.",
+ "merges": [
+  {
+   "from": 530,
+   "from_label": "Einzelzahnimplantatbehandlung in",
+   "into": 426,
+   "into_label": "Tek Diş İmplant Tedavisi",
+   "locale": "de"
+  },
+  {
+   "from": 531,
+   "from_label": "All-on 4/6 Implantatbehandlung",
+   "into": 2,
+   "into_label": "All-on-4 & All-on-6 İmplant",
+   "locale": "de"
+  },
+  {
+   "from": 532,
+   "from_label": "Behandlung mehrerer fehlender Zähne",
+   "into": 524,
+   "into_label": "Çoklu Diş Eksikliği Tedavisi",
+   "locale": "de"
+  },
+  {
+   "from": 533,
+   "from_label": "-Füllung",
+   "into": 254,
+   "into_label": "Diş Dolgusu",
+   "locale": "de"
+  },
+  {
+   "from": 534,
+   "from_label": "Kieferzysten und Tumoren",
+   "into": 526,
+   "into_label": "Çene Kist ve Tümörleri",
+   "locale": "de"
+  },
+  {
+   "from": 535,
+   "from_label": "Laminatbeschichtungen",
+   "into": 14,
+   "into_label": "Lamine Diş Kaplama",
+   "locale": "de"
+  },
+  {
+   "from": 536,
+   "from_label": "Orthognathische Chirurgie",
+   "into": 385,
+   "into_label": "Ortognatik Çene Cerrahisi",
+   "locale": "de"
+  },
+  {
+   "from": 537,
+   "from_label": "Routinemäßige Kontrollen und Reinigung",
+   "into": 528,
+   "into_label": "Rutin Kontroller ve Temizlik",
+   "locale": "de"
+  },
+  {
+   "from": 538,
+   "from_label": "Sportzahnmedizin",
+   "into": 529,
+   "into_label": "Spor Diş Hekimliği",
+   "locale": "de"
+  },
+  {
+   "from": 539,
+   "from_label": "Vorbeugende Behandlungen",
+   "into": 527,
+   "into_label": "Koruyucu Diş Tedavileri",
+   "locale": "de"
+  },
+  {
+   "from": 540,
+   "from_label": "Zähneknirschen und -pressen",
+   "into": 36,
+   "into_label": "Bruksizm (Diş Sıkma) Tedavisi",
+   "locale": "de"
+  },
+  {
+   "from": 541,
+   "from_label": "Zahnbehandlungen für Kinder",
+   "into": 31,
+   "into_label": "Çocuk Diş Tedavisi",
+   "locale": "de"
+  },
+  {
+   "from": 542,
+   "from_label": "Zahnfleischästhetik",
+   "into": 22,
+   "into_label": "Pembe Estetik",
+   "locale": "de"
+  },
+  {
+   "from": 543,
+   "from_label": "Zahnspangenbehandlung",
+   "into": 261,
+   "into_label": "Ortodonti",
+   "locale": "de"
+  },
+  {
+   "from": 544,
+   "from_label": "Zirkoniumbeschichtungen",
+   "into": 13,
+   "into_label": "Zirkonyum Diş Kaplama",
+   "locale": "de"
+  },
+  {
+   "from": 545,
+   "from_label": "Operationen bei verlagerten Zähnen",
+   "into": 6,
+   "into_label": "Gömülü Diş Operasyonları",
+   "locale": "de"
+  },
+  {
+   "from": 190,
+   "from_label": "Diamond Face Lift",
+   "into": 302,
+   "into_label": "Diamond Yüz Germe",
+   "locale": "en"
+  },
+  {
+   "from": 199,
+   "from_label": "Canal Treatment (Endodontics)",
+   "into": 26,
+   "into_label": "Kanal Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 200,
+   "from_label": "Gingivectomy Gingivoplasty (Gum Shaping)",
+   "into": 198,
+   "into_label": "Gingivektomi Gingivoplasti (Diş Eti Şekillendirmesi)",
+   "locale": "en"
+  },
+  {
+   "from": 201,
+   "from_label": "Impacted Tooth Surgeries",
+   "into": 6,
+   "into_label": "Gömülü Diş Operasyonları",
+   "locale": "en"
+  },
+  {
+   "from": 202,
+   "from_label": "Jaw Joint Discomfort",
+   "into": 37,
+   "into_label": "Çene Eklemi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 203,
+   "from_label": "Laminated Tooth Coating",
+   "into": 14,
+   "into_label": "Lamine Diş Kaplama",
+   "locale": "en"
+  },
+  {
+   "from": 205,
+   "from_label": "Prosthetic Dental Treatment",
+   "into": 17,
+   "into_label": "Protez Diş Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 207,
+   "from_label": "Aesthetic Dentistry",
+   "into": 258,
+   "into_label": "Estetik Diş Hekimliği",
+   "locale": "en"
+  },
+  {
+   "from": 210,
+   "from_label": "Jaw Joint and Special Treatments",
+   "into": 37,
+   "into_label": "Çene Eklemi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 211,
+   "from_label": "Oral Maxillofacial and Dental Surgery",
+   "into": 250,
+   "into_label": "Ağız Diş ve Çene Cerrahisi",
+   "locale": "en"
+  },
+  {
+   "from": 212,
+   "from_label": "Orthodontics",
+   "into": 261,
+   "into_label": "Ortodonti",
+   "locale": "en"
+  },
+  {
+   "from": 213,
+   "from_label": "Metal Bracket Treatment",
+   "into": 20,
+   "into_label": "Metal Braket Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 214,
+   "from_label": "Pediatric Dentistry",
+   "into": 31,
+   "into_label": "Çocuk Diş Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 215,
+   "from_label": "Special for ChildrenDental and Oral Health Services",
+   "into": 31,
+   "into_label": "Çocuk Diş Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 216,
+   "from_label": "Restorative Dental Treatment",
+   "into": 400,
+   "into_label": "Restoratif Diş Tedavileri",
+   "locale": "en"
+  },
+  {
+   "from": 217,
+   "from_label": "Restorations Affected Teeth",
+   "into": 400,
+   "into_label": "Restoratif Diş Tedavileri",
+   "locale": "en"
+  },
+  {
+   "from": 218,
+   "from_label": "Treatment Dental Sensitivity",
+   "into": 29,
+   "into_label": "Diş Hassasiyeti Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 219,
+   "from_label": "Zirconium Dental Crowning",
+   "into": 13,
+   "into_label": "Zirkonyum Diş Kaplama",
+   "locale": "en"
+  },
+  {
+   "from": 220,
+   "from_label": "20th Tooth Extraction",
+   "into": 5,
+   "into_label": "20’lik Diş Çekimi",
+   "locale": "en"
+  },
+  {
+   "from": 224,
+   "from_label": "Connective Tissue Graft Surgery",
+   "into": 196,
+   "into_label": "Bağ Dokusu Grefti Operasyonu",
+   "locale": "en"
+  },
+  {
+   "from": 225,
+   "from_label": "Curettage (Root Surface Debridement)",
+   "into": 197,
+   "into_label": "Küretaj (Kök Yüzeyi Düzleştirme)",
+   "locale": "en"
+  },
+  {
+   "from": 226,
+   "from_label": "Dental Cleaning",
+   "into": 21,
+   "into_label": "Diş Taşı Temizliği",
+   "locale": "en"
+  },
+  {
+   "from": 227,
+   "from_label": "Dental Treatment with Sedation",
+   "into": 38,
+   "into_label": "Sedasyon ile Diş Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 228,
+   "from_label": "Gum Abscess Treatment",
+   "into": 25,
+   "into_label": "Diş Eti Apse Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 229,
+   "from_label": "Gum Tissue Surgery (Flap Operation)",
+   "into": 24,
+   "into_label": "Diş Eti Ameliyatı (Flap)",
+   "locale": "en"
+  },
+  {
+   "from": 230,
+   "from_label": "Gum Treatments (Periodontology)",
+   "into": 264,
+   "into_label": "Periodontoloji",
+   "locale": "en"
+  },
+  {
+   "from": 233,
+   "from_label": "Renewal Root Canal Treatment (Retreatment)",
+   "into": 27,
+   "into_label": "Kanal Tedavisi Yenilemesi",
+   "locale": "en"
+  },
+  {
+   "from": 234,
+   "from_label": "Smile Design (Smile Aesthetics)",
+   "into": 11,
+   "into_label": "Gülüş Tasarımı",
+   "locale": "en"
+  },
+  {
+   "from": 235,
+   "from_label": "Surgical Tooth Extraction",
+   "into": 8,
+   "into_label": "Cerrahi Diş Çekimi",
+   "locale": "en"
+  },
+  {
+   "from": 236,
+   "from_label": "Tooth Cyst Removal (Cyst Enucleation)",
+   "into": 9,
+   "into_label": "Diş Kisti Çıkartma",
+   "locale": "en"
+  },
+  {
+   "from": 237,
+   "from_label": "Tooth Whitening (Bleaching)",
+   "into": 12,
+   "into_label": "Diş Beyazlatma",
+   "locale": "en"
+  },
+  {
+   "from": 239,
+   "from_label": "Bruxism (Teeth Grinding) Treatment",
+   "into": 36,
+   "into_label": "Bruksizm (Diş Sıkma) Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 240,
+   "from_label": "Clear Aligner Treatment",
+   "into": 19,
+   "into_label": "Şeffaf Plak Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 241,
+   "from_label": "Dental Traumas and Treatments",
+   "into": 35,
+   "into_label": "Dental Travma Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 244,
+   "from_label": "Milk Tooth Treatment Practices",
+   "into": 253,
+   "into_label": "Süt Dişi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 246,
+   "from_label": "Pink Aesthetics (Gum Aesthetics)",
+   "into": 22,
+   "into_label": "Pembe Estetik",
+   "locale": "en"
+  },
+  {
+   "from": 247,
+   "from_label": "Treatment for Gum Recession",
+   "into": 23,
+   "into_label": "Diş Eti Çekilmesi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 248,
+   "from_label": "Aesthetic (Composite) Filling",
+   "into": 28,
+   "into_label": "Estetik Kompozit Dolgu",
+   "locale": "en"
+  },
+  {
+   "from": 260,
+   "from_label": "Laminate Veneer",
+   "into": 14,
+   "into_label": "Lamine Diş Kaplama",
+   "locale": "en"
+  },
+  {
+   "from": 272,
+   "from_label": "Acne Scar Treatment in",
+   "into": 301,
+   "into_label": "Akne İzi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 273,
+   "from_label": "Alexandrite Laser Hair Removal in",
+   "into": 180,
+   "into_label": "Alexandrite Lazer Epilasyon",
+   "locale": "en"
+  },
+  {
+   "from": 274,
+   "from_label": "Beard Transplantation in",
+   "into": 192,
+   "into_label": "Sakal Ekimi",
+   "locale": "en"
+  },
+  {
+   "from": 275,
+   "from_label": "Dermapen in",
+   "into": 155,
+   "into_label": "Dermapen (Mikroiğneleme)",
+   "locale": "en"
+  },
+  {
+   "from": 276,
+   "from_label": "Eyebrow Contouring with Microblading Technique in",
+   "into": 321,
+   "into_label": "Kaş Microblading",
+   "locale": "en"
+  },
+  {
+   "from": 278,
+   "from_label": "Filler Applications in",
+   "into": 303,
+   "into_label": "Dolgu Uygulamaları",
+   "locale": "en"
+  },
+  {
+   "from": 279,
+   "from_label": "Hair Mesotherapy in",
+   "into": 195,
+   "into_label": "Saç Mezoterapisi",
+   "locale": "en"
+  },
+  {
+   "from": 280,
+   "from_label": "Hair Transplantation in",
+   "into": 649,
+   "into_label": "Saç ekimi",
+   "locale": "en"
+  },
+  {
+   "from": 281,
+   "from_label": "Alidya / Cellulite Treatment",
+   "into": 179,
+   "into_label": "Alidya Selülit Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 285,
+   "from_label": "Jawline Filler",
+   "into": 307,
+   "into_label": "Jawline Çene Hattı Dolgusu",
+   "locale": "en"
+  },
+  {
+   "from": 286,
+   "from_label": "Liquid Face Lift",
+   "into": 322,
+   "into_label": "Likit Yüz Germe",
+   "locale": "en"
+  },
+  {
+   "from": 287,
+   "from_label": "Medical Skin Care",
+   "into": 313,
+   "into_label": "Medikal Cilt Bakımı",
+   "locale": "en"
+  },
+  {
+   "from": 288,
+   "from_label": "ND YAG Laser Hair Removal",
+   "into": 194,
+   "into_label": "ND:YAG Lazer Epilasyon",
+   "locale": "en"
+  },
+  {
+   "from": 289,
+   "from_label": "PRP Hair Treatment",
+   "into": 316,
+   "into_label": "PRP Saç Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 291,
+   "from_label": "Spiderweb Aesthetics",
+   "into": 315,
+   "into_label": "Örümcek Ağı Estetiği",
+   "locale": "en"
+  },
+  {
+   "from": 292,
+   "from_label": "Stain Treatment",
+   "into": 312,
+   "into_label": "Leke Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 293,
+   "from_label": "Stem Cell Treatment (Fibrocell)",
+   "into": 320,
+   "into_label": "Kök Hücre Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 294,
+   "from_label": "Mole and Wart Treatment in",
+   "into": 182,
+   "into_label": "Ben ve Siğil Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 295,
+   "from_label": "Nipple Coloring in",
+   "into": 314,
+   "into_label": "Meme Ucu Renklendirme",
+   "locale": "en"
+  },
+  {
+   "from": 296,
+   "from_label": "Permanent Eyeliner in",
+   "into": 184,
+   "into_label": "Kalıcı Eyeliner",
+   "locale": "en"
+  },
+  {
+   "from": 297,
+   "from_label": "Permanent Lip Contouring in",
+   "into": 308,
+   "into_label": "Kalıcı Dudak Kontürü",
+   "locale": "en"
+  },
+  {
+   "from": 298,
+   "from_label": "Permanent Makeup Correction in",
+   "into": 193,
+   "into_label": "Kalıcı Makyaj Düzeltme",
+   "locale": "en"
+  },
+  {
+   "from": 299,
+   "from_label": "Permanent Makeup for Alopecia Areata in",
+   "into": 181,
+   "into_label": "Alopesi İçin Kalıcı Makyaj",
+   "locale": "en"
+  },
+  {
+   "from": 319,
+   "from_label": "PRP in",
+   "into": 457,
+   "into_label": "PRP",
+   "locale": "en"
+  },
+  {
+   "from": 324,
+   "from_label": "Application Promotion Website Service",
+   "into": 92,
+   "into_label": "Uygulama tanıtım hizmeti",
+   "locale": "en"
+  },
+  {
+   "from": 327,
+   "from_label": "One Page Website Service",
+   "into": 348,
+   "into_label": "Tek Sayfa Web site Hizmeti",
+   "locale": "en"
+  },
+  {
+   "from": 329,
+   "from_label": "Personal Website Service",
+   "into": 333,
+   "into_label": "Kişisel Web Sitesi Hizmeti",
+   "locale": "en"
+  },
+  {
+   "from": 330,
+   "from_label": "Product Promotion Website Service",
+   "into": 73,
+   "into_label": "Ürün Tanıtım Web Sitesi",
+   "locale": "en"
+  },
+  {
+   "from": 331,
+   "from_label": "Woocommerce E-Commerce Website Service",
+   "into": 352,
+   "into_label": "Woocommerce E-Ticaret Web Site Hizmeti",
+   "locale": "en"
+  },
+  {
+   "from": 353,
+   "from_label": "Pulpotomy Treatment for Children",
+   "into": 417,
+   "into_label": "Çocuklarda Amputasyon Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 354,
+   "from_label": "Primary and Permanent Tooth Discoloration Treatments",
+   "into": 375,
+   "into_label": "Süt ve Daimi Diş Renklenmesi Tedavileri",
+   "locale": "en"
+  },
+  {
+   "from": 355,
+   "from_label": "Composite and Compomer Filling Treatments",
+   "into": 369,
+   "into_label": "Kompozit ve Kompomer Dolgu Tedavileri",
+   "locale": "en"
+  },
+  {
+   "from": 356,
+   "from_label": "Dental Sealant (Fissure Sealant) Application",
+   "into": 370,
+   "into_label": "Fissür Örtücü (Diş Aşısı) Uygulaması",
+   "locale": "en"
+  },
+  {
+   "from": 357,
+   "from_label": "Fixed and Removable Space Maintainer Treatments",
+   "into": 34,
+   "into_label": "Yer Tutucu Uygulaması",
+   "locale": "en"
+  },
+  {
+   "from": 359,
+   "from_label": "Initial Dental Examination",
+   "into": 373,
+   "into_label": "İlk Diş Muayenesi",
+   "locale": "en"
+  },
+  {
+   "from": 360,
+   "from_label": "Primary Tooth Treatment Procedures",
+   "into": 253,
+   "into_label": "Süt Dişi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 361,
+   "from_label": "Dental Treatments Under General Anesthesia",
+   "into": 372,
+   "into_label": "Genel Anestezi ile Diş Tedavileri",
+   "locale": "en"
+  },
+  {
+   "from": 362,
+   "from_label": "Sedation-Assisted Dental Treatments",
+   "into": 38,
+   "into_label": "Sedasyon ile Diş Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 449,
+   "from_label": "Aesthetic Filling",
+   "into": 28,
+   "into_label": "Estetik Kompozit Dolgu",
+   "locale": "en"
+  },
+  {
+   "from": 450,
+   "from_label": "Amputation Treatment",
+   "into": 417,
+   "into_label": "Çocuklarda Amputasyon Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 452,
+   "from_label": "Filling Treatment",
+   "into": 254,
+   "into_label": "Diş Dolgusu",
+   "locale": "en"
+  },
+  {
+   "from": 454,
+   "from_label": "Orthodontic Treatment",
+   "into": 261,
+   "into_label": "Ortodonti",
+   "locale": "en"
+  },
+  {
+   "from": 455,
+   "from_label": "Root Canal Treatment",
+   "into": 26,
+   "into_label": "Kanal Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 456,
+   "from_label": "Tooth Extraction",
+   "into": 93,
+   "into_label": "Diş çekimi",
+   "locale": "en"
+  },
+  {
+   "from": 547,
+   "from_label": "All-on-4 Treatment in",
+   "into": 2,
+   "into_label": "All-on-4 & All-on-6 İmplant",
+   "locale": "en"
+  },
+  {
+   "from": 548,
+   "from_label": "Children’s Dental Treatments in",
+   "into": 31,
+   "into_label": "Çocuk Diş Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 549,
+   "from_label": "Clenching and Grinding Teeth in",
+   "into": 36,
+   "into_label": "Bruksizm (Diş Sıkma) Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 550,
+   "from_label": "Impacted Tooth Surgeries in",
+   "into": 6,
+   "into_label": "Gömülü Diş Operasyonları",
+   "locale": "en"
+  },
+  {
+   "from": 551,
+   "from_label": "Jaw Joint Treatment in",
+   "into": 37,
+   "into_label": "Çene Eklemi Tedavisi",
+   "locale": "en"
+  },
+  {
+   "from": 553,
+   "from_label": "Preventive Treatments in",
+   "into": 527,
+   "into_label": "Koruyucu Diş Tedavileri",
+   "locale": "en"
+  },
+  {
+   "from": 554,
+   "from_label": "Routine Checks and Cleaning in",
+   "into": 528,
+   "into_label": "Rutin Kontroller ve Temizlik",
+   "locale": "en"
+  },
+  {
+   "from": 555,
+   "from_label": "Applicazione di incollaggio a",
+   "into": 15,
+   "into_label": "Bonding Uygulaması",
+   "locale": "it"
+  },
+  {
+   "from": 556,
+   "from_label": "Chirurgia dei denti inclusi a",
+   "into": 6,
+   "into_label": "Gömülü Diş Operasyonları",
+   "locale": "it"
+  },
+  {
+   "from": 557,
+   "from_label": "Chirurgia ortognatica di",
+   "into": 385,
+   "into_label": "Ortognatik Çene Cerrahisi",
+   "locale": "it"
+  },
+  {
+   "from": 558,
+   "from_label": "Cisti e tumori mascellari a",
+   "into": 526,
+   "into_label": "Çene Kist ve Tümörleri",
+   "locale": "it"
+  },
+  {
+   "from": 559,
+   "from_label": "Digrignamento e serramento dei denti a",
+   "into": 36,
+   "into_label": "Bruksizm (Diş Sıkma) Tedavisi",
+   "locale": "it"
+  },
+  {
+   "from": 560,
+   "from_label": "Estetica Gum",
+   "into": 22,
+   "into_label": "Pembe Estetik",
+   "locale": "it"
+  },
+  {
+   "from": 561,
+   "from_label": "Faccette in zirconio",
+   "into": 14,
+   "into_label": "Lamine Diş Kaplama",
+   "locale": "it"
+  },
+  {
+   "from": 562,
+   "from_label": "Impianti All-on-4 / All-on-6 a",
+   "into": 2,
+   "into_label": "All-on-4 & All-on-6 İmplant",
+   "locale": "it"
+  },
+  {
+   "from": 563,
+   "from_label": "Impianti zigomatici di",
+   "into": 525,
+   "into_label": "Zigoma İmplantları",
+   "locale": "it"
+  },
+  {
+   "from": 565,
+   "from_label": "Ispezioni di routine e pulizia a",
+   "into": 528,
+   "into_label": "Rutin Kontroller ve Temizlik",
+   "locale": "it"
+  },
+  {
+   "from": 566,
+   "from_label": "Odontoiatria sportiva a",
+   "into": 529,
+   "into_label": "Spor Diş Hekimliği",
+   "locale": "it"
+  },
+  {
+   "from": 567,
+   "from_label": "Otturazione a",
+   "into": 254,
+   "into_label": "Diş Dolgusu",
+   "locale": "it"
+  },
+  {
+   "from": 568,
+   "from_label": "Rivestimenti laminati",
+   "into": 14,
+   "into_label": "Lamine Diş Kaplama",
+   "locale": "it"
+  },
+  {
+   "from": 569,
+   "from_label": "Sbiancamento dei denti a",
+   "into": 12,
+   "into_label": "Diş Beyazlatma",
+   "locale": "it"
+  },
+  {
+   "from": 570,
+   "from_label": "Trattamenti odontoiatrici pediatrici a",
+   "into": 31,
+   "into_label": "Çocuk Diş Tedavisi",
+   "locale": "it"
+  },
+  {
+   "from": 571,
+   "from_label": "Trattamenti preventivi",
+   "into": 527,
+   "into_label": "Koruyucu Diş Tedavileri",
+   "locale": "it"
+  },
+  {
+   "from": 572,
+   "from_label": "Trattamento dell’articolazione temporo-mandibolare a",
+   "into": 37,
+   "into_label": "Çene Eklemi Tedavisi",
+   "locale": "it"
+  },
+  {
+   "from": 573,
+   "from_label": "Trattamento implantare di dente singolo a",
+   "into": 426,
+   "into_label": "Tek Diş İmplant Tedavisi",
+   "locale": "it"
+  },
+  {
+   "from": 574,
+   "from_label": "Trattamento ortodontico a",
+   "into": 261,
+   "into_label": "Ortodonti",
+   "locale": "it"
+  },
+  {
+   "from": 575,
+   "from_label": "Trattamento per la perdita di denti multipli a",
+   "into": 524,
+   "into_label": "Çoklu Diş Eksikliği Tedavisi",
+   "locale": "it"
+  },
+  {
+   "from": 178,
+   "from_label": "Akne İzleri Tedavisi",
+   "into": 301,
+   "into_label": "Akne İzi Tedavisi",
+   "locale": null
+  },
+  {
+   "from": 191,
+   "from_label": "Spiderweb Estetiği",
+   "into": 315,
+   "into_label": "Örümcek Ağı Estetiği",
+   "locale": null
+  },
+  {
+   "from": 251,
+   "from_label": "20 Yaş Dişi Çekimi",
+   "into": 5,
+   "into_label": "20’lik Diş Çekimi",
+   "locale": null
+  },
+  {
+   "from": 252,
+   "from_label": "Gömülü Diş Operasyonu",
+   "into": 6,
+   "into_label": "Gömülü Diş Operasyonları",
+   "locale": null
+  },
+  {
+   "from": 262,
+   "from_label": "Metal Braket",
+   "into": 20,
+   "into_label": "Metal Braket Tedavisi",
+   "locale": null
+  },
+  {
+   "from": 311,
+   "from_label": "Kök Hücre Tedavisi (Fılbrocell)",
+   "into": 320,
+   "into_label": "Kök Hücre Tedavisi",
+   "locale": null
+  },
+  {
+   "from": 374,
+   "from_label": "Süt Dişi Tedavi Uygulamaları",
+   "into": 253,
+   "into_label": "Süt Dişi Tedavisi",
+   "locale": null
+  },
+  {
+   "from": 444,
+   "from_label": "Diş Eti Estetiği (Pembe Estetik)",
+   "into": 22,
+   "into_label": "Pembe Estetik",
+   "locale": null
+  },
+  {
+   "from": 611,
+   "from_label": "Çene Dolgusu (Jawline)",
+   "into": 307,
+   "into_label": "Jawline Çene Hattı Dolgusu",
+   "locale": null
+  },
+  {
+   "from": 640,
+   "from_label": "3D dental tomografi (CBCT)",
+   "into": 378,
+   "into_label": "3 Boyutlu Dental Tomografi (CBCT)",
+   "locale": null
+  },
+  {
+   "from": 642,
+   "from_label": "Airflow diş lekesi temizliği",
+   "into": 389,
+   "into_label": "Airflow ile Diş Lekesi Temizliği",
+   "locale": null
+  },
+  {
+   "from": 680,
+   "from_label": "Tek Sayfa Web Sitesi Hizmeti",
+   "into": 348,
+   "into_label": "Tek Sayfa Web site Hizmeti",
+   "locale": null
+  }
+ ],
+ "archive": [
+  {
+   "id": 552,
+   "label": "Our Dental Treatments"
+  },
+  {
+   "id": 206,
+   "label": "Our Dental Treatments in"
+  },
+  {
+   "id": 546,
+   "label": "Unsere Zahnbehandlungen"
+  },
+  {
+   "id": 564,
+   "label": "I nostri trattamenti dentali"
+  },
+  {
+   "id": 328,
+   "label": "Our Services"
+  },
+  {
+   "id": 326,
+   "label": "Your customers with our CRM system group manage and inform."
+  }
+ ]
+}
