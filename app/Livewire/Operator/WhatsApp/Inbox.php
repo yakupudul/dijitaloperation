@@ -77,6 +77,9 @@ class Inbox extends Component
 
     public string $phone_number_id = '';
 
+    /** Per-request cache for source(); not Livewire state. */
+    protected ?bool $backupShown = null;
+
     public string $business_phone = '';
 
     public bool $enabled = true;
@@ -273,7 +276,7 @@ class Inbox extends Component
             return;
         }
         $this->conversation = null;
-        $this->notice = $line === null ? 'Gelen kutusunda artık yedek görüşmesi görünmüyor; yedekler silinmedi.' : 'Gelen kutusunda artık bu yedeğin görüşmeleri var. Beyin bu görüşmelerden yeniden öğreniyor.';
+        $this->notice = $line === null ? 'Gelen kutusunda artık canlı numaranın görüşmeleri var; yedekler, anahtarları ve Excel\'leri silinmedi.' : 'Gelen kutusunda artık bu yedeğin görüşmeleri var. Beyin bu görüşmelerden yeniden öğreniyor.';
     }
 
     /** "Yedek ekle": a named row; its file and key are added on the row. */
@@ -593,18 +596,31 @@ class Inbox extends Component
     /** Open chats whose last message is the customer's, from the last BULK_DAYS days of the newest message. */
     private function waiting(int $integrationId): Builder
     {
-        $newest = WhatsAppConversation::query()->where('integration_id', $integrationId)->max('last_message_at');
+        $newest = $this->source(WhatsAppConversation::query()->where('integration_id', $integrationId))->max('last_message_at');
 
-        return WhatsAppConversation::query()->where('integration_id', $integrationId)->whereNull('done_at')
+        return $this->source(WhatsAppConversation::query()->where('integration_id', $integrationId))->whereNull('done_at')
             ->whereNull('opted_out_at')->whereNotNull('last_incoming_at')
             ->whereColumn('last_incoming_at', '>=', 'last_message_at')
             ->when($newest, fn (Builder $query) => $query->where('last_message_at', '>=', Carbon::parse($newest)->subDays(self::BULK_DAYS)));
     }
 
+    /**
+     * One source in the inbox at a time (yakup, 2026-11-07): the backup marked "Görüşmelerde göster", or the live Meta
+     * number when no backup is marked ("Canlı numarayı görüşmelerde kullan"). Live chats keep arriving either way.
+     */
+    private function source(Builder $query): Builder
+    {
+        $this->backupShown ??= WhatsAppBackupLine::shown() !== null;
+
+        return $this->backupShown
+            ? $query->where('phone_number_id', WhatsAppBackupImporter::LINE)
+            : $query->where(fn (Builder $nested) => $nested->whereNull('phone_number_id')->orWhere('phone_number_id', '!=', WhatsAppBackupImporter::LINE));
+    }
+
     /** The list for the chosen filter. */
     private function filtered(int $integrationId, string $filter): Builder
     {
-        $base = WhatsAppConversation::query()->where('integration_id', $integrationId);
+        $base = $this->source(WhatsAppConversation::query()->where('integration_id', $integrationId));
 
         return match ($filter) {
             'waiting' => $this->waiting($integrationId),
@@ -759,7 +775,8 @@ class Inbox extends Component
     public function render(WhatsAppConnection $connection): View
     {
         $integration = $connection->integration();
-        $query = WhatsAppConversation::query()->where('integration_id', $integration?->id);
+        $this->backupShown = null;
+        $query = $this->source(WhatsAppConversation::query()->where('integration_id', $integration?->id));
         $this->updatedFilter();
         $importer = app(WhatsAppBackupImporter::class);
         if (WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->exists()) {
@@ -797,6 +814,9 @@ class Inbox extends Component
             'backupQueueAhead' => $backupImport?->status === 'queued' ? $this->heavyQueueSize() : null,
             'awaitingReply' => $integration ? min($this->awaitingReply($integration->id)->count(), self::BULK_LIMIT) : 0,
             'backupLines' => $this->backupLines($importer),
+            'liveNumber' => in_array($connection->state($integration), ['connected', 'attention'], true)
+                ? (string) ($integration->config['business_phone'] ?? $integration->config['phone_number_id']) : null,
+            'liveShown' => ! $this->backupShown,
             'anyBackupBusy' => WhatsAppBackupImport::query()->whereIn('status', ['queued', 'running'])->exists(),
             'backupConversations' => (clone $query)->where('phone_number_id', WhatsAppBackupImporter::LINE)->count(),
             'conversationCount' => $this->showSettings ? (clone $query)->count() : 0,

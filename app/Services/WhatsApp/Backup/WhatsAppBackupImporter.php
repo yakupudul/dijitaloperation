@@ -4,6 +4,7 @@ namespace App\Services\WhatsApp\Backup;
 
 use App\Jobs\WhatsApp\ExtractWhatsAppBackup;
 use App\Models\CoreIntegration;
+use App\Models\SalesLead;
 use App\Models\User;
 use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppBackupLine;
@@ -331,7 +332,30 @@ final class WhatsAppBackupImporter
                 unset($config[$key]);
             }
             $row->update(['config' => $snapshot !== null ? [...$config, 'backup_snapshot_at' => $snapshot] : $config]);
+            $this->relinkLeads($inbox->id);
         });
+    }
+
+    /**
+     * Satış cards follow the source switch: a card whose chat left the inbox moves to the inbox chat with the same number
+     * (live or the newly shown backup), so its timeline goes on; with no such chat it keeps its old one until the
+     * first message links it.
+     */
+    private function relinkLeads(int $inboxId): void
+    {
+        $taken = SalesLead::query()->whereNotNull('conversation_id')->pluck('conversation_id')->flip();
+        $leads = SalesLead::query()->whereNotNull('phone_key')->whereNotNull('conversation_id')
+            ->whereNotIn('conversation_id', WhatsAppConversation::query()->where('integration_id', $inboxId)->select('id'))->get();
+        foreach ($leads as $lead) {
+            $match = WhatsAppConversation::query()->where('integration_id', $inboxId)
+                ->where('contact_id', 'like', '%'.$lead->phone_key)->orderByDesc('last_message_at')->get()
+                ->first(fn (WhatsAppConversation $conversation): bool => ! $taken->has($conversation->id));
+            if ($match !== null) {
+                $taken->forget($lead->conversation_id);
+                $lead->forceFill(['conversation_id' => $match->id])->save();
+                $taken->put($match->id, true);
+            }
+        }
     }
 
     /** "Yedek ekle": a new, empty row the operator then uploads a file and its key to. */

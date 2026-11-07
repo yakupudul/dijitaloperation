@@ -21,6 +21,23 @@
     </div>
 
     <div class="space-y-3">
+        @if($liveNumber ?? null)
+            <div @class(['card', 'ring-2 ring-success-500/60' => $liveShown]) data-wa-live-line @if($liveShown) data-wa-live-shown @endif>
+                <div class="card-row flex-wrap items-start sm:flex-nowrap">
+                    <div class="min-w-0 flex-1 sm:pt-1">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">Canlı numara (Meta) · {{ $liveNumber }}
+                            @if($liveShown)<span class="ml-1.5 inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-300"><span class="h-1.5 w-1.5 rounded-full bg-success-500" aria-hidden="true"></span>Görüşmelerde kullanılıyor</span>@endif
+                        </p>
+                        <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Mesajlar Meta'dan anında gelir. Hangi kaynak seçili olursa olsun canlı mesajlar kaydedilir.</p>
+                    </div>
+                    @unless($liveShown)
+                        <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
+                            <button type="button" wire:click="showBackupInInbox(null)" wire:confirm="Gelen kutusunda artık canlı numaranın görüşmeleri görünsün mü? Gösterilen yedek silinmez; yedek, anahtarı ve Excel'i burada kalır." class="btn" data-wa-live-show>Görüşmelerde kullan</button>
+                        </div>
+                    @endunless
+                </div>
+            </div>
+        @endif
         @foreach($backupLines as ['line' => $line, 'import' => $lineImport, 'current' => $lineCurrent, 'key_hint' => $lineKeyHint, 'conversations' => $lineChats])
             @php
                 $lineBusy = $lineImport?->isBusy() ?? false;

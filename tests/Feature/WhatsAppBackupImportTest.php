@@ -11,6 +11,7 @@ use App\Livewire\Operator\WhatsApp\Inbox;
 use App\Models\AgencySetting;
 use App\Models\AiTask;
 use App\Models\CoreIntegration;
+use App\Models\SalesLead;
 use App\Models\User;
 use App\Models\WhatsAppBackupImport;
 use App\Models\WhatsAppBackupLine;
@@ -765,5 +766,25 @@ final class WhatsAppBackupImportTest extends TestCase
         app(WhatsAppBackupImporter::class)->run($import->id);
 
         return $import->fresh();
+    }
+
+    public function test_live_number_and_backup_take_turns_in_the_inbox_and_sales_cards_follow(): void
+    {
+        $this->actingAs($this->admin);
+        $inbox = CoreIntegration::factory()->create(['provider' => 'whatsapp', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => ['phone_number_id' => 'PN1', 'waba_id' => 'W1', 'business_phone' => '905388610288', 'enabled' => true]]);
+        $line = WhatsAppBackupLine::query()->create(['name' => 'Telefon', 'active' => true]);
+        $backupChat = WhatsAppConversation::query()->create(['integration_id' => $inbox->id, 'phone_number_id' => WhatsAppBackupImporter::LINE, 'contact_id' => '905321112233', 'last_message_at' => now()->subDay()]);
+        $liveChat = WhatsAppConversation::query()->create(['integration_id' => $inbox->id, 'phone_number_id' => 'PN1', 'contact_id' => '905321112233', 'contact_name' => 'Canlı Ayşe', 'last_message_at' => now()]);
+        WhatsAppConversation::query()->create(['integration_id' => $inbox->id, 'phone_number_id' => 'PN1', 'contact_id' => '905449998877', 'last_message_at' => now()]);
+
+        // A backup is marked: only its chats are listed, the live ones wait.
+        Livewire::test(Inbox::class)->set('tab', 'inbox')->assertSee('+905321112233')->assertDontSee('+905449998877');
+        SalesLead::query()->delete(); // cards the sales side opened on its own for the new chats
+        $lead = SalesLead::query()->create(['name' => 'Ayşe', 'phone_key' => '5321112233', 'conversation_id' => $backupChat->id]);
+
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('showBackupInInbox', null)->assertHasNoErrors();
+        $this->assertFalse($line->fresh()->active);
+        Livewire::test(Inbox::class)->set('tab', 'inbox')->assertSee('+905449998877')->assertSee('Canlı Ayşe');
+        $this->assertSame($liveChat->id, $lead->fresh()->conversation_id);
     }
 }
