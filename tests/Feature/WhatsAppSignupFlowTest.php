@@ -103,6 +103,22 @@ final class WhatsAppSignupFlowTest extends TestCase
         Queue::assertPushed(CompleteWhatsAppSignup::class, fn (CompleteWhatsAppSignup $job): bool => $job->attemptId === $attempt->id);
     }
 
+    public function test_a_code_bound_to_the_connect_page_is_exchanged_with_that_redirect(): void
+    {
+        Queue::fake();
+        Http::fake(['graph.facebook.com/*/oauth/access_token*' => function (Request $request) {
+            return str_contains($request->url(), 'redirect_uri=')
+                ? Http::response(['access_token' => 'business-token'])
+                : Http::response(['error' => ['message' => 'Error validating verification code. Please make sure your redirect_uri is identical', 'code' => 100, 'error_subcode' => 36008]], 400);
+        }]);
+        $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
+
+        $this->browser()->postJson(route('operator.whatsapp.complete', $attempt->id), ['code' => 'meta-code', 'event' => 'CODE_ONLY'])->assertOk();
+
+        $this->assertSame('business-token', $attempt->fresh()->payload['access_token']);
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'redirect_uri='.urlencode(route('operator.whatsapp.connect', $attempt->id))));
+    }
+
     public function test_an_expired_code_fails_the_attempt_with_the_reason(): void
     {
         Queue::fake();

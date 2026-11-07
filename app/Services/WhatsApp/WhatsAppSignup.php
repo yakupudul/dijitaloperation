@@ -172,10 +172,7 @@ final class WhatsAppSignup
         try {
             $row = CoreIntegration::query()->findOrFail($attempt->integration_id);
             $secrets = $this->connection->secrets($row);
-            $body = $this->graph->request('GET', 'oauth/access_token', [
-                'client_id' => (string) data_get($row->config, 'app_id'), 'client_secret' => (string) ($secrets['app_secret'] ?? ''),
-                'code' => (string) ($payload['code'] ?? ''),
-            ]);
+            $body = $this->exchangeCode((string) data_get($row->config, 'app_id'), (string) ($secrets['app_secret'] ?? ''), (string) ($payload['code'] ?? ''), (string) $attempt->id);
             $token = is_string($body['access_token'] ?? null) ? $body['access_token'] : '';
             if ($token === '') {
                 throw new WhatsAppGraphException(['message' => 'Meta erişim anahtarı döndürmedi. Bağlantıyı yeniden başlatın.']);
@@ -319,9 +316,7 @@ final class WhatsAppSignup
                 $payload = $attempt->payload ?? [];
                 $token = (string) ($payload['access_token'] ?? '');
                 if ($token === '') {
-                    $body = $this->graph->request('GET', 'oauth/access_token', [
-                        'client_id' => $appId, 'client_secret' => $secret, 'code' => (string) ($payload['code'] ?? ''),
-                    ]);
+                    $body = $this->exchangeCode($appId, $secret, (string) ($payload['code'] ?? ''), (string) $attempt->id);
                     $token = is_string($body['access_token'] ?? null) ? $body['access_token'] : '';
                     if ($token === '') {
                         throw new WhatsAppGraphException(['message' => 'Meta erişim tokenı döndürmedi. Bağlantıyı yeniden başlatın.']);
@@ -455,6 +450,39 @@ final class WhatsAppSignup
         } catch (Throwable $exception) {
             $this->finish($attempt, 'failed', ['message' => 'Bağlantı tamamlanamadı. Ayarları ve kuyruk hizmetini kontrol edip yeniden deneyin.']);
         }
+    }
+
+    /**
+     * Exchanges the Embedded Signup code. A code from the JS SDK popup is exchanged without redirect_uri; when Meta ran
+     * the login as a page redirect instead (it then answers 100/36008 "redirect_uri is identical"), the code is bound
+     * to the page that started it, so the connect page and the site root are tried before giving up. A refused
+     * exchange does not use the code up.
+     *
+     * @return array<string, mixed>
+     */
+    private function exchangeCode(string $appId, string $secret, string $code, string $attemptId): array
+    {
+        $base = ['client_id' => $appId, 'client_secret' => $secret, 'code' => $code];
+        $candidates = [null];
+        try {
+            $candidates[] = route('operator.whatsapp.connect', ['attempt' => $attemptId]);
+        } catch (Throwable) {
+        }
+        $candidates[] = rtrim((string) config('app.url'), '/').'/';
+        $candidates[] = 'https://www.facebook.com/connect/login_success.html';
+        $last = null;
+        foreach (array_values(array_unique($candidates, SORT_REGULAR)) as $redirect) {
+            try {
+                return $this->graph->request('GET', 'oauth/access_token', $redirect === null ? $base : $base + ['redirect_uri' => $redirect]);
+            } catch (WhatsAppGraphException $exception) {
+                $last = $exception;
+                if ((int) ($exception->details['subcode'] ?? 0) !== 36008) {
+                    throw $exception;
+                }
+            }
+        }
+
+        throw $last;
     }
 
     private function finish(WhatsAppSignupAttempt $attempt, string $status, array $details): void
