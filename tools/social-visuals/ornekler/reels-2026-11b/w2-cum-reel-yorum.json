@@ -1,0 +1,48 @@
+{
+ "series": "Google İşletme Profili",
+ "scenes": [
+  {
+   "t": "foto",
+   "img": "foto/p4.jpg",
+   "pos": "50% 30%",
+   "top": "Yorum istemek",
+   "ts": 130,
+   "bottom": "*serbest.*",
+   "dur": 3.0
+  },
+  {
+   "t": "foto",
+   "img": "foto/p11.jpg",
+   "pos": "55% 40%",
+   "top": "Karşılığında\nhediye vermek",
+   "ts": 120,
+   "bottom": "*değil.*",
+   "dur": 3.2
+  },
+  {
+   "t": "liste",
+   "h": "Doğru yol:",
+   "items": [
+    [
+     "Muayeneden sonra bağlantı gönderin",
+     "WhatsApp ya da SMS ile, aynı gün."
+    ],
+    [
+     "Bekleme alanında QR kodlu kart",
+     null
+    ],
+    [
+     "Her yoruma kısa bir cevap",
+     "Kişisel ve tedavi bilgisi vermeden."
+    ]
+   ],
+   "dur": 5.2
+  },
+  {
+   "t": "son",
+   "h": "Google İşletme Profili\nyönetimi",
+   "p": "moximu.com",
+   "dur": 3.2
+  }
+ ]
+}

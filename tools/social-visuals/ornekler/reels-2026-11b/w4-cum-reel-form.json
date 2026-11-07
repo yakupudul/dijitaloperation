@@ -1,0 +1,40 @@
+{
+ "series": "Hekim soruyor",
+ "scenes": [
+  {
+   "t": "foto",
+   "img": "foto/p12.jpg",
+   "pos": "72% 40%",
+   "top": "Siteniz ziyaret\nalıyor,",
+   "ts": 112,
+   "bottom": "form *gelmiyor.*",
+   "bs": 120,
+   "dur": 3.2
+  },
+  {
+   "t": "liste",
+   "h": "En sık\nüç sebep:",
+   "items": [
+    [
+     "Form uzun",
+     "Ad, telefon ve bir soru yeterli."
+    ],
+    [
+     "Sayfa telefonda geç açılıyor",
+     "Birkaç saniyede açılmayan sayfa kapatılır."
+    ],
+    [
+     "WhatsApp düğmesi yok",
+     "Hastanın bir kısmı yazmayı tercih eder."
+    ]
+   ],
+   "dur": 5.6
+  },
+  {
+   "t": "son",
+   "h": "Üçü de birkaç günde\n*düzelir.*",
+   "p": "moximu.com",
+   "dur": 3.2
+  }
+ ]
+}

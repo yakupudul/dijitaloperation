@@ -1,0 +1,54 @@
+{
+ "series": "Hekim soruyor",
+ "scenes": [
+  {
+   "t": "foto",
+   "img": "foto/p8.jpg",
+   "pos": "50% 45%",
+   "top": "Ajans neden",
+   "tt": 1060,
+   "ts": 130,
+   "bottom": "*6 ay* ister?",
+   "bt": 1200,
+   "bs": 130,
+   "shade": 0.36,
+   "dur": 3.2
+  },
+  {
+   "t": "foto",
+   "img": "foto/p1.jpg",
+   "pos": "47% 30%",
+   "top": "SEO gerçekten\nzaman ister.",
+   "ts": 112,
+   "bottom": "Ama *her ay*\nne yapıldığını\ngörmelisiniz.",
+   "bs": 100,
+   "bt": 1000,
+   "dur": 3.8
+  },
+  {
+   "t": "liste",
+   "h": "Her ay\nüç soru sorun:",
+   "items": [
+    [
+     "Hangi sayfalar yazıldı?",
+     null
+    ],
+    [
+     "İşletme Profiline ne eklendi?",
+     null
+    ],
+    [
+     "Kaç arama, kaç form geldi?",
+     null
+    ]
+   ],
+   "dur": 4.6
+  },
+  {
+   "t": "son",
+   "h": "Aylık çalışırız.\n*Taahhüt yok.*",
+   "p": "moximu.com",
+   "dur": 3.2
+  }
+ ]
+}

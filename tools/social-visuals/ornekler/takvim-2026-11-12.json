@@ -1,0 +1,1159 @@
+{
+ "posts": [
+  {
+   "slug": "w1-pzt-rakamla-telefon",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-09 11:30",
+   "title": "Rakamla: profil görüntülemelerinin %91'i telefondan",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-sayi",
+     "img": "foto/p6.jpg",
+     "pos": "60% 40%",
+     "big": "%91",
+     "side": "telefondan.",
+     "sub": "Klinik İşletme Profillerine gelen her 100 görüntülemenin 91'i telefondan geliyor.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi",
+     "sideTop": 440
+    },
+    {
+     "t": "veri",
+     "tag": "Kendi müşteri verimiz",
+     "h1": "Hasta kliniği",
+     "h2": "telefonda arıyor.",
+     "bars": [
+      [
+       "Telefon",
+       91
+      ],
+      [
+       "Bilgisayar",
+       9
+      ]
+     ],
+     "note": "Google araması ve Haritalar birlikte, 22 klinik profilinin toplamı.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi"
+    },
+    {
+     "t": "item",
+     "n": "01",
+     "h": "İlk ekran her şeydir",
+     "p": "Hasta profilinizi telefonda açıyor. Telefon numarası, çalışma saatleri ve konum ilk bakışta doğru değilse bir sonraki kliniğe geçiyor."
+    },
+    {
+     "t": "item",
+     "n": "02",
+     "h": "Siteniz telefonda açılıyor mu?",
+     "p": "Profilden sitenize geçen hasta da telefonda. Geç açılan, küçük yazılı ya da arama düğmesi olmayan sayfa aramaya dönüşmeden kapanıyor."
+    },
+    {
+     "t": "end",
+     "h": "Bu hafta kontrol edin",
+     "list": [
+      "Profildeki telefon numarası doğru ve tek mi?",
+      "Çalışma saatleri tatil günlerine göre güncel mi?",
+      "Siteniz telefonda birkaç saniyede açılıyor mu?",
+      "Arama ve WhatsApp düğmesi ilk ekranda mı?"
+     ],
+     "note": "Kendi oranınızı merak ediyorsanız DM'den ANALİZ yazın.",
+     "url": "moximu.com/hizmetlerimiz/google-isletme-profili",
+     "pill": "Hizmete bakın"
+    }
+   ],
+   "caption": "Klinik profillerine gelen her 100 görüntülemenin 91'i telefondan.\n\n22 klinik İşletme Profilinin son 90 günlük verisine baktık (9 Ağustos – 5 Kasım 2026). Hasta kliniği telefonda arıyor, telefonda karar veriyor. Profildeki numara, saatler ve sitenin telefonda açılma hızı bu yüzden ilk sırada.\n\nKaydırarak bu hafta kontrol edilecek dört şeyi görebilirsiniz. Kendi profilinizin oranını merak ediyorsanız DM'den ANALİZ yazın.\n\n#dişkliniği #googleişletmeprofili #klinikpazarlama",
+   "linkedin_text": "Yönettiğimiz 22 klinik İşletme Profilinin son 90 günlük verisine baktık (9 Ağustos – 5 Kasım 2026).\n\nProfil görüntülemelerinin %91'i telefondan geliyor.\n\nKlinikler için anlamı:\n• Profildeki telefon numarası ve çalışma saatleri ilk bakışta doğru olmalı\n• Profilden geçilen site telefonda hızlı açılmalı\n• Arama ve WhatsApp düğmesi ilk ekranda olmalı\n\nHer pazartesi kendi müşteri verimizden bir rakam paylaşıyoruz.",
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-pzt-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-09 19:00",
+   "title": "Story: Rakamla: profil görüntülemelerinin %91'i telefondan",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p6.jpg",
+     "pos": "60% 40%",
+     "shade": 0.4,
+     "top": "%91",
+     "bottom": "telefondan.",
+     "cta": "Gönderiye bakın"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-car-yazabilir-garanti",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-11 11:30",
+   "title": "Bunu yazabilir misiniz? Ağrısız implant, ömür boyu garanti",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "quote": "“Ağrısız implant,\nömür boyu garanti.”",
+     "foot": "Her çarşamba bir klinik reklamı cümlesi · cevap ikinci karede"
+    },
+    {
+     "t": "siyah-cevap",
+     "series": "Sağlık reklamı kuralları",
+     "big": "Hayır*.*",
+     "p": "Sonucu vaat eden ifadeler sağlık hizmetlerinin tanıtımında kullanılmaz. *“Garanti”* bir sonuç vaadidir, *“ağrısız”* da.",
+     "src": "Dayanak: 12 Kasım 2025 tarihli Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik"
+    },
+    {
+     "t": "end",
+     "h": "Yerine ne yazılır?",
+     "list": [
+      "İmplant tedavisinin nasıl yapıldığı ve kaç seans sürdüğü",
+      "Tedavide uygulanan uyuşturma yöntemi, bilgi olarak",
+      "Tedaviyi yapan hekimin adı ve uzmanlığı",
+      "Muayenede nelere bakıldığı"
+     ],
+     "note": "Bu içerik hukuki görüş değildir. Şüpheli durumlarda bağlı olduğunuz meslek odasına danışın.",
+     "url": "moximu.com/saglik-reklam-mevzuati"
+    }
+   ],
+   "caption": "Bunu yazabilir misiniz? “Ağrısız implant, ömür boyu garanti.”\n\nCevap: Hayır. Sonucu vaat eden ifadeler sağlık hizmetlerinin tanıtımında kullanılmaz; “garanti” de “ağrısız” da birer sonuç vaadidir. Yerine yazılabilecekler son karede.\n\nHer çarşamba bir klinik reklamı cümlesi soruyoruz. Sizin gördüğünüz cümleyi yorumlara yazın, sıradaki gönderide cevaplayalım.\n\n#sağlıkmevzuatı #dişkliniği #implant",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-car-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-11 19:00",
+   "title": "Story: Bunu yazabilir misiniz? Ağrısız implant, ömür boyu garanti",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "ts": 100,
+     "line": 380,
+     "quote": "“Ağrısız implant,\nömür boyu garanti.”",
+     "qs": 52,
+     "cta": "Cevap gönderide"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-per-yonetmelik",
+   "kind": "carousel",
+   "pillar": "gundem",
+   "publish_at": "2026-11-12 11:30",
+   "title": "Tanıtım yönetmeliği bir yaşında: beş kural",
+   "series": "Kaydet ve kullan",
+   "slides": [
+    {
+     "t": "foto",
+     "img": "foto/p10.jpg",
+     "pos": "50% 30%",
+     "shade": 0.32,
+     "top": "12 Kasım",
+     "ts": 120,
+     "bottom": "Tanıtım yönetmeliği\n*bir yaşında.*",
+     "bs": 86
+    },
+    {
+     "t": "item",
+     "n": "01",
+     "h": "Öncesi / sonrası fotoğrafları",
+     "p": "Tedavi sonucu ne kadar iyi olursa olsun, hasta görüntüsü ve öncesi / sonrası karşılaştırması tanıtımda kullanılmaz."
+    },
+    {
+     "t": "item",
+     "n": "02",
+     "h": "Üstünlük ve sonuç iddiaları",
+     "p": "\"En iyi\", \"en ucuz\", \"bir numara\", \"garantili\" gibi ifadeler kullanılmaz. Tedaviyi anlatmak serbesttir; sonucu vaat etmek değildir."
+    },
+    {
+     "t": "item",
+     "n": "03",
+     "h": "İndirim ve kampanya dili",
+     "p": "İndirim, kampanya ve \"ücretsiz muayene\" gibi ticari teşvikler sağlık hizmetinin tanıtımında yer almaz."
+    },
+    {
+     "t": "item",
+     "n": "04",
+     "h": "Hasta yorumlarının tanıtımda kullanılması",
+     "p": "Yorum istemek serbesttir. Yorumu reklamda kullanmak ya da karşılığında indirim veya hediye vermek değildir."
+    },
+    {
+     "t": "item",
+     "n": "05",
+     "h": "Belgesi olmayan unvanlar",
+     "p": "Uzmanlık ve unvan yalnız belgesi olduğu şekilde yazılır."
+    },
+    {
+     "t": "end",
+     "h": "Neler yazılabilir?",
+     "list": [
+      "Tedavinin ne olduğu, nasıl yapıldığı, kaç seans sürdüğü",
+      "Hekimin adı, uzmanlığı ve eğitimi",
+      "Klinik adresi ve çalışma saatleri",
+      "Klinik ortamı, ekip ve cihaz görselleri",
+      "Sık sorulan sorulara bilgi amaçlı cevaplar"
+     ],
+     "note": "Bu içerik hukuki görüş değildir. Şüpheli durumlarda bağlı olduğunuz meslek odasına danışın.",
+     "url": "moximu.com/saglik-reklam-mevzuati"
+    }
+   ],
+   "caption": "Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik bugün bir yaşında.\n\nBir yılda kliniklerde en sık gördüğümüz eksik: kurallara uymayan eski içeriklerin sitede ve sosyal medyada hâlâ yayında olması. Kaydırarak tanıtımda kullanılmayan beş şeyi ve yazılabilenleri görebilirsiniz. Kaydedin, içerik hazırlarken açıp bakın.\n\n#sağlıkmevzuatı #klinikpazarlama #dişhekimi",
+   "linkedin_text": "Sağlık hizmetlerinde tanıtım yönetmeliği bugün bir yılını doldurdu (Resmî Gazete, 12 Kasım 2025).\n\nBir yılda kliniklerde en sık gördüğümüz eksik, kurallara uymayan eski içeriklerin sitede ve sosyal medyada hâlâ yayında olması:\n• Öncesi / sonrası görselleri\n• \"En iyi\", \"garantili\" gibi ifadeler\n• Kampanya ve indirim duyuruları\n\nDenetim il sağlık müdürlüklerinde; Google ve Meta da politikalarına aykırı reklamları reddediyor, tekrar eden ihlalde hesabı kapatabiliyor.\n\nKliniğinizin içeriklerini bir kez gözden geçirmek iki riski birden azaltır. Özet:\nhttps://moximu.com/saglik-reklam-mevzuati/",
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-per-story",
+   "kind": "story",
+   "pillar": "gundem",
+   "publish_at": "2026-11-12 19:00",
+   "title": "Story: yönetmelik bir yaşında",
+   "series": "Kaydet ve kullan",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p10.jpg",
+     "pos": "50% 25%",
+     "shade": 0.35,
+     "top": "12 Kasım",
+     "bottom": "Yönetmelik\n*bir yaşında.*",
+     "bs": 110,
+     "cta": "Beş kural gönderide"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-cum-reel-6-ay",
+   "kind": "reels",
+   "pillar": "anlatim",
+   "publish_at": "2026-11-13 18:00",
+   "title": "Reels: Ajans neden 6 ay ister?",
+   "series": "Hekim soruyor",
+   "reel": "reels-2026-11b/w1-cum-reel-6-ay.json",
+   "caption": "Ajans neden 6 ay ister?\n\nSEO'nun sonuç vermesi gerçekten zaman alır. Ama bekleme süresi, ne yapıldığını görmemenin gerekçesi değil. Her ay üç soru sorun: Hangi sayfalar yazıldı? İşletme Profiline ne eklendi? Kaç arama, kaç form geldi?\n\nMoximu'da aylık çalışırız; taahhüt yok.\n\n#klinikseo #dişkliniği #klinikpazarlama",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w1-cum-story",
+   "kind": "story",
+   "pillar": "anlatim",
+   "publish_at": "2026-11-13 19:00",
+   "title": "Story: Reels duyurusu",
+   "series": "Hekim soruyor",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p8.jpg",
+     "pos": "50% 45%",
+     "shade": 0.35,
+     "top": "Ajans neden",
+     "bottom": "*6 ay*\nister?",
+     "cta": "Reels'i izleyin",
+     "tt": 1000,
+     "ts": 130,
+     "bt": 1140,
+     "bs": 130
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-pzt-rakamla-arama",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-16 11:30",
+   "title": "Rakamla: profilde hareket edenlerin %63'ü arıyor",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-sayi",
+     "img": "foto/p12.jpg",
+     "pos": "72% 40%",
+     "big": "%63",
+     "side": "doğrudan\narıyor.",
+     "sub": "İşletme Profilinde hareket eden her 100 kişiden 63'ü kliniği doğrudan arıyor.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi",
+     "sideTop": 440
+    },
+    {
+     "t": "veri",
+     "tag": "Kendi müşteri verimiz",
+     "h1": "Profilde hasta",
+     "h2": "ne yapıyor?",
+     "bars": [
+      [
+       "Arama",
+       63
+      ],
+      [
+       "Yol tarifi",
+       28
+      ],
+      [
+       "Siteye geçiş",
+       9
+      ]
+     ],
+     "note": "Hareket: profilden yapılan arama, yol tarifi ve site tıklaması.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi"
+    },
+    {
+     "t": "item",
+     "n": "01",
+     "h": "Telefonu kim açıyor?",
+     "p": "Profilden gelen hastanın çoğu yazmıyor, arıyor. Telefonu açan kişinin ilk cümlesi, randevunun alınıp alınmayacağını belirliyor."
+    },
+    {
+     "t": "item",
+     "n": "02",
+     "h": "Siteye geçen 9 kişi okuyor",
+     "p": "Siteye geçen hasta karar vermeden önce tedaviyi, hekimi ve süreci okumak istiyor. Tedavi sayfaları onun için yazılır."
+    },
+    {
+     "t": "end",
+     "h": "Bu hafta kontrol edin",
+     "list": [
+      "Mesai dışında gelen aramaları kim karşılıyor?",
+      "Kaçırılan aramalara aynı gün dönülüyor mu?",
+      "Profildeki numara sitedekiyle aynı mı?",
+      "Yol tarifi işareti kapının önünde mi?"
+     ],
+     "note": "Kendi oranınızı merak ediyorsanız DM'den ANALİZ yazın.",
+     "url": "moximu.com/hizmetlerimiz/google-isletme-profili",
+     "pill": "Hizmete bakın"
+    }
+   ],
+   "caption": "Profilde hareket eden her 100 kişiden 63'ü kliniği doğrudan arıyor.\n\n22 klinik İşletme Profilinin son 90 günü: aramalar %63, yol tarifi %28, siteye geçiş %9. Hasta kliniği çoğunlukla siteye girmeden, profilden arıyor. Bu yüzden telefonu açan kişi en az profil kadar önemli.\n\nKaydırarak bu hafta kontrol edilecek dört şeyi görebilirsiniz. DM'den ANALİZ yazarsanız kendi profilinize birlikte bakalım.\n\n#dişkliniği #googleişletmeprofili #hastakabul",
+   "linkedin_text": "22 klinik İşletme Profilinin son 90 günü (9 Ağustos – 5 Kasım 2026):\n\nProfilden yapılan her 100 hareketin\n• 63'ü arama\n• 28'i yol tarifi\n• 9'u siteye geçiş\n\nHasta kliniği çoğunlukla siteye girmeden, profilden arıyor. Kliniklerde en hızlı kazanç genelde reklamda değil, telefonda: mesai dışı aramalar, kaçırılan aramalara aynı gün dönüş ve telefonu açan kişinin ilk cümlesi.",
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-pzt-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-16 19:00",
+   "title": "Story: Rakamla: profilde hareket edenlerin %63'ü arıyor",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p12.jpg",
+     "pos": "72% 40%",
+     "shade": 0.4,
+     "top": "%63",
+     "bottom": "doğrudan\narıyor.",
+     "cta": "Gönderiye bakın"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-car-yazabilir-yorum",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-18 11:30",
+   "title": "Bunu yazabilir misiniz? Hasta yorumu reklamda",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "quote": "“Hastamız Ayşe Hanım:\nHayatımın en iyi kararıydı.”",
+     "foot": "Her çarşamba bir klinik reklamı cümlesi · cevap ikinci karede"
+    },
+    {
+     "t": "siyah-cevap",
+     "series": "Sağlık reklamı kuralları",
+     "big": "Hayır*.*",
+     "p": "Hasta yorumları ve teşekkür mesajları tanıtımda kullanılmaz. Hasta Google'da yorum bırakabilir; klinik bunu *reklam malzemesine çeviremez.*",
+     "src": "Dayanak: 12 Kasım 2025 tarihli Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik"
+    },
+    {
+     "t": "end",
+     "h": "Yerine ne yapılır?",
+     "list": [
+      "Muayene sonrası hastaya yorum bağlantısını göndermek",
+      "Her yoruma kısa ve kişisel bilgi içermeyen cevap yazmak",
+      "Tedavi sürecini bilgi amaçlı anlatmak",
+      "Ekibi ve klinik ortamını tanıtmak"
+     ],
+     "note": "Bu içerik hukuki görüş değildir. Şüpheli durumlarda bağlı olduğunuz meslek odasına danışın.",
+     "url": "moximu.com/saglik-reklam-mevzuati"
+    }
+   ],
+   "caption": "Bunu yazabilir misiniz? “Hastamız Ayşe Hanım: Hayatımın en iyi kararıydı.”\n\nCevap: Hayır. Hasta yorumları ve teşekkür mesajları tanıtımda kullanılmaz. Yorum istemek serbest; yorumu reklama çevirmek değil.\n\nYerine yapılabilecekler son karede. Sizin gördüğünüz cümleyi yorumlara yazın.\n\n#sağlıkmevzuatı #hastayorumları #dişkliniği",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-car-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-18 19:00",
+   "title": "Story: Bunu yazabilir misiniz? Hasta yorumu reklamda",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "ts": 100,
+     "line": 380,
+     "quote": "“Hastamız Ayşe Hanım:\nHayatımın en iyi kararıydı.”",
+     "qs": 52,
+     "cta": "Cevap gönderide"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-per-isletme-profili",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-19 11:30",
+   "title": "Haritada üst sıralar için dört koşul",
+   "series": "Kaydet ve kullan",
+   "slides": [
+    {
+     "t": "foto",
+     "img": "foto/p9.jpg",
+     "pos": "50% 60%",
+     "shade": 0.3,
+     "top": "Haritada\nüst sıralar",
+     "ts": 100,
+     "bottom": "için *dört koşul.*",
+     "bs": 96
+    },
+    {
+     "t": "item",
+     "n": "01",
+     "h": "Doğru ana kategori",
+     "p": "Ana kategori, profilin hangi aramalarda gösterileceğini belirler. \"Diş kliniği\" ile \"diş hekimi\" farklı aramalara çıkar; kliniğin asıl işine göre seçilir."
+    },
+    {
+     "t": "item",
+     "n": "02",
+     "h": "Eksiksiz hizmet listesi",
+     "p": "İmplant, zirkonyum, şeffaf plak gibi her tedavi ayrı hizmet olarak eklenir. Google, aramayı bu listeyle eşleştirir."
+    },
+    {
+     "t": "item",
+     "n": "03",
+     "h": "Kliniğin gerçek fotoğrafları",
+     "p": "Dış cephe, giriş, bekleme alanı, muayene odası ve ekip. Stok görsel yerine kliniğin kendi fotoğrafları kullanılır."
+    },
+    {
+     "t": "item",
+     "n": "04",
+     "h": "Haftalık gönderi ve yorum cevapları",
+     "p": "Her hafta bir gönderi ve her yoruma cevap, profilin canlı olduğunu gösterir. Cevapsız yorum, hasta için de olumsuz bir işarettir."
+    },
+    {
+     "t": "end",
+     "h": "Kurulum yarım günde biter.",
+     "list": [
+      "Etkisi iki üç ay içinde birikir",
+      "Site ile birlikte çalıştığında daha hızlı sonuç verir",
+      "Her ay görüntülenme, arama ve yol tarifi sayıları ölçülür"
+     ],
+     "note": null,
+     "url": "moximu.com/rehber"
+    }
+   ],
+   "caption": "Haritada üst sıralar için dört koşul.\n\n\"Yakınımdaki diş kliniği\" aramasında hasta önce haritadaki ilk üç kliniğe bakar. Oraya girmek için: doğru ana kategori, eksiksiz hizmet listesi, kliniğin gerçek fotoğrafları ve her hafta bir gönderi ile yorum cevapları.\n\nKaydedin; profilinizi güncellerken açıp bakın.\n\n#googleişletmeprofili #dişkliniği #yerelseo",
+   "linkedin_text": "Hastaların önemli bir kısmı kliniği haritadan seçiyor; çoğu zaman siteye girmeden arıyor.\n\nGoogle İşletme Profilinin üst sıralara çıkması için dört koşul birlikte gerekiyor:\n1. Doğru ana kategori\n2. Eksiksiz hizmet listesi\n3. Kliniğin gerçek fotoğrafları\n4. Her hafta bir gönderi ve her yoruma cevap\n\nKurulum yarım günde biter; etkisi iki üç ayda birikir. Diş kliniği için adım adım rehber:\nhttps://moximu.com/rehber/",
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-per-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-19 19:00",
+   "title": "Story: haritada dört koşul",
+   "series": "Kaydet ve kullan",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p9.jpg",
+     "pos": "50% 50%",
+     "shade": 0.3,
+     "top": "Haritada\nüst sıralar",
+     "ts": 130,
+     "bottom": "için *dört\nkoşul.*",
+     "bs": 130,
+     "cta": "Gönderiye bakın"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-cum-reel-yorum",
+   "kind": "reels",
+   "pillar": "rehber",
+   "publish_at": "2026-11-20 18:00",
+   "title": "Reels: Yorum istemek serbest, hediye vermek değil",
+   "series": "Google İşletme Profili",
+   "reel": "reels-2026-11b/w2-cum-reel-yorum.json",
+   "caption": "Yorum istemek serbest. Karşılığında hediye ya da indirim vermek değil.\n\nGoogle, teşvikle alınan yorumları kurallarına aykırı sayıyor; yorumlar silinebiliyor, profil kısıtlanabiliyor. Doğru yol: muayeneden sonra aynı gün yorum bağlantısını göndermek, bekleme alanında QR kodlu kart ve her yoruma kısa bir cevap.\n\n#googleişletmeprofili #hastayorumları #dişkliniği",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w2-cum-story",
+   "kind": "story",
+   "pillar": "anlatim",
+   "publish_at": "2026-11-20 19:00",
+   "title": "Story: Reels duyurusu",
+   "series": "Google İşletme Profili",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p4.jpg",
+     "pos": "50% 25%",
+     "shade": 0.35,
+     "top": "Yorum istemek",
+     "bottom": "*serbest.*",
+     "cta": "Reels'i izleyin"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-pzt-rakamla-arama-harita",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-23 11:30",
+   "title": "Rakamla: görüntülemelerin %81'i Google aramasında",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-sayi",
+     "img": "foto/p5.jpg",
+     "pos": "55% 40%",
+     "big": "%81",
+     "side": "Google\naramasında.",
+     "sub": "Klinik profilleri görüntülemelerin %81'ini Google aramasında, %19'unu Haritalar'da alıyor.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi",
+     "sideTop": 440
+    },
+    {
+     "t": "veri",
+     "tag": "Kendi müşteri verimiz",
+     "h1": "Profiliniz",
+     "h2": "nerede görülüyor?",
+     "bars": [
+      [
+       "Google araması",
+       81
+      ],
+      [
+       "Google Haritalar",
+       19
+      ]
+     ],
+     "note": "Hasta çoğu zaman haritayı açmadan, arama sonucundaki profile bakarak karar veriyor.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi"
+    },
+    {
+     "t": "item",
+     "n": "01",
+     "h": "Arama sonucu da vitrindir",
+     "p": "Hasta klinik adını ya da tedaviyi arıyor, profiliniz sağda ya da üstte çıkıyor. Fotoğraflar, hizmetler ve yorum cevapları ilk orada görülüyor."
+    },
+    {
+     "t": "item",
+     "n": "02",
+     "h": "Haritada yakınlık tek başına yetmez",
+     "p": "Haritadaki sıra; ana kategori, hizmet listesi, yorumlar ve profilin ne kadar güncel tutulduğuyla birlikte belirleniyor."
+    },
+    {
+     "t": "end",
+     "h": "Bu hafta kontrol edin",
+     "list": [
+      "Ana kategori kliniğin asıl işine uygun mu?",
+      "Her tedavi ayrı hizmet olarak ekli mi?",
+      "Son 30 günde yeni fotoğraf eklendi mi?",
+      "Son yorumların hepsine cevap yazıldı mı?"
+     ],
+     "note": "Kendi oranınızı merak ediyorsanız DM'den ANALİZ yazın.",
+     "url": "moximu.com/hizmetlerimiz/google-isletme-profili",
+     "pill": "Hizmete bakın"
+    }
+   ],
+   "caption": "Klinik profilleri görüntülemelerin %81'ini Google aramasında alıyor, %19'unu Haritalar'da.\n\nYani profiliniz çoğunlukla arama sonucunda, haritaya hiç girilmeden görülüyor. Fotoğraflar, hizmet listesi ve yorum cevapları hastanın ilk gördüğü şey.\n\nKaydırarak bu hafta kontrol edilecek dört şeyi görebilirsiniz. Kendi profiliniz için DM'den ANALİZ yazın.\n\n#googleişletmeprofili #dişkliniği #yerelseo",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-pzt-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-23 19:00",
+   "title": "Story: Rakamla: görüntülemelerin %81'i Google aramasında",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p5.jpg",
+     "pos": "55% 40%",
+     "shade": 0.4,
+     "top": "%81",
+     "bottom": "Google\naramasında.",
+     "cta": "Gönderiye bakın"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-sal-kampanya",
+   "kind": "story",
+   "pillar": "guven",
+   "publish_at": "2026-11-24 19:00",
+   "title": "Story: Kasım teklifi · Kasım sonuna kadar",
+   "series": "Fiyatlar",
+   "slides": [
+    {
+     "t": "story",
+     "tag": "Kasım teklifi",
+     "h1": "Kasım sonuna kadar",
+     "h2": "6 aylık planla klinik web sitesi bizden.",
+     "p": "Klinik SEO ve Google İşletme Profili yönetimi. Fiyatlar sitede açık.",
+     "cta": "moximu.com/fiyatlar"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-car-yazabilir-indirim",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-25 11:30",
+   "title": "Bunu yazabilir misiniz? İmplantta indirim",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "quote": "“Kasım'a özel\nimplantta %20 indirim.”",
+     "foot": "Her çarşamba bir klinik reklamı cümlesi · cevap ikinci karede"
+    },
+    {
+     "t": "siyah-cevap",
+     "series": "Sağlık reklamı kuralları",
+     "big": "Hayır*.*",
+     "p": "İndirim, kampanya ve *“ücretsiz muayene”* gibi ticari teşvikler sağlık hizmetinin tanıtımında yer almaz.",
+     "src": "Dayanak: 12 Kasım 2025 tarihli Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik"
+    },
+    {
+     "t": "end",
+     "h": "Yerine ne yazılır?",
+     "list": [
+      "Tedavinin nasıl planlandığı",
+      "Muayenede neler yapıldığı",
+      "Randevunun nasıl alındığı",
+      "Çalışma saatleri ve ulaşım bilgisi"
+     ],
+     "note": "Bu içerik hukuki görüş değildir. Şüpheli durumlarda bağlı olduğunuz meslek odasına danışın.",
+     "url": "moximu.com/saglik-reklam-mevzuati"
+    }
+   ],
+   "caption": "Bunu yazabilir misiniz? “Kasım'a özel implantta %20 indirim.”\n\nCevap: Hayır. İndirim, kampanya ve “ücretsiz muayene” gibi ticari teşvikler sağlık hizmetinin tanıtımında yer almaz. Reklam hesapları da bu ifadeleri çoğu zaman reddediyor.\n\nYerine yazılabilecekler son karede.\n\n#sağlıkmevzuatı #dişkliniği #klinikpazarlama",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-car-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-25 19:00",
+   "title": "Story: Bunu yazabilir misiniz? İmplantta indirim",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "ts": 100,
+     "line": 380,
+     "quote": "“Kasım'a özel\nimplantta %20 indirim.”",
+     "qs": 52,
+     "cta": "Cevap gönderide"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-per-vitrin-dentocare",
+   "kind": "carousel",
+   "pillar": "vaka",
+   "publish_at": "2026-11-26 11:30",
+   "title": "Site vitrini: Dentocare Klinik",
+   "series": "Site vitrini",
+   "slides": [
+    {
+     "t": "mockup",
+     "tag": "Diş kliniği · Kahramanmaraş",
+     "h1": "Dentocare Klinik",
+     "h2": "telefonda hızlı açılan site",
+     "desktop": "vitrin/dentocare-masaustu.jpg",
+     "mobile": "vitrin/dentocare-mobil.jpg",
+     "url": "dentocareklinik.com"
+    },
+    {
+     "t": "case",
+     "tag": "Vaka",
+     "logo": "dentocare-logo.png",
+     "who": "Diş kliniği · Kahramanmaraş",
+     "big": "+%534",
+     "label": "organik tıklama",
+     "rows": [
+      [
+       "+%627",
+       "Google gösterimi"
+      ],
+      [
+       "+%830",
+       "site ziyaretçisi"
+      ]
+     ],
+     "src": "Search Console ve GA4 · Aralık 2025 → Ekim 2026",
+     "url": "moximu.com/referanslar"
+    },
+    {
+     "t": "three",
+     "tag": "Ne yaptık?",
+     "h1": "Üç adımda",
+     "h2": "yeni site.",
+     "items": [
+      [
+       "Telefon önce",
+       "Hızlı açılan sayfalar; her sayfada arama, form ve WhatsApp."
+      ],
+      [
+       "Her tedaviye bir sayfa",
+       "Süreç, seans sayısı ve sık sorulan sorularla."
+      ],
+      [
+       "Düzenli içerik",
+       "Hastaların tedavi sorularına cevap veren yazılar."
+      ]
+     ],
+     "url": "moximu.com/hizmetlerimiz/klinik-web-sitesi",
+     "pill": "Hizmete bakın"
+    }
+   ],
+   "caption": "Site vitrini: Dentocare Klinik, Kahramanmaraş.\n\nTelefonda hızlı açılan yeni site, her tedavi için ayrı sayfa ve düzenli içerikle Google'dan gelen tıklama +%534, site ziyaretçisi +%830 (Search Console ve GA4, Aralık 2025 → Ekim 2026).\n\nKliniğinizin sitesi telefonda nasıl görünüyor? DM'den ANALİZ yazın.\n\n#klinikwebsitesi #dişkliniği #kahramanmaraş",
+   "linkedin_text": "Site vitrini: Dentocare Klinik (Kahramanmaraş).\n\nBaşlangıçta tedaviler tek bir listedeydi; tedavi aramalarına cevap veren sayfa yoktu. Yaptıklarımız:\n• Telefonda hızlı açılan yeni site, her sayfada arama, form ve WhatsApp\n• Her tedavi için ayrı sayfa: süreç, seans sayısı, sık sorulan sorular\n• Hastaların tedavi sorularına cevap veren düzenli içerik\n\nSonuç (Search Console ve GA4, Aralık 2025 → Ekim 2026):\nOrganik tıklama +%534 · Google gösterimi +%627 · Site ziyaretçisi +%830\n\nhttps://moximu.com/referanslar/dentocare-klinik/",
+   "needs_consent": true
+  },
+  {
+   "slug": "w3-per-story",
+   "kind": "story",
+   "pillar": "vaka",
+   "publish_at": "2026-11-26 19:00",
+   "title": "Story: Dentocare site vitrini",
+   "series": "Site vitrini",
+   "slides": [
+    {
+     "t": "story-score",
+     "tag": "Vaka",
+     "big": "+%534",
+     "label": "organik tıklama · Dentocare Klinik",
+     "p": "Telefonda hızlı açılan yeni site ve her tedaviye bir sayfa. Search Console, Aralık 2025 → Ekim 2026.",
+     "cta": "Siteyi gönderide görün"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-cum-reel-vitrin-dentocare",
+   "kind": "reels",
+   "pillar": "vaka",
+   "publish_at": "2026-11-27 18:00",
+   "title": "Reels: Dentocare sitesi telefonda",
+   "series": "Site vitrini",
+   "reel": "reels-2026-11b/w3-cum-reel-vitrin-dentocare.json",
+   "caption": "Bir klinik sitesi telefonda böyle açılır: Dentocare Klinik, Kahramanmaraş.\n\nHastaların çoğu kliniği telefondan buluyor. Hızlı açılan sayfa, her tedavi için ayrı sayfa, her ekranda arama ve WhatsApp. Sonuç: organik tıklama +%534, site ziyaretçisi +%830 (Search Console ve GA4, Aralık 2025 → Ekim 2026).\n\n#klinikwebsitesi #dişkliniği #kahramanmaraş",
+   "linkedin_text": null,
+   "needs_consent": true
+  },
+  {
+   "slug": "w3-cum-story",
+   "kind": "story",
+   "pillar": "anlatim",
+   "publish_at": "2026-11-27 19:00",
+   "title": "Story: Reels duyurusu",
+   "series": "Site vitrini",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p2.jpg",
+     "pos": "40% 50%",
+     "shade": 0.5,
+     "top": "Bir klinik sitesi",
+     "bottom": "telefonda\n*böyle açılır.*",
+     "cta": "Reels'i izleyin"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w3-cmt-kampanya",
+   "kind": "story",
+   "pillar": "guven",
+   "publish_at": "2026-11-28 19:00",
+   "title": "Story: Kasım teklifi · Son üç gün",
+   "series": "Fiyatlar",
+   "slides": [
+    {
+     "t": "story",
+     "tag": "Kasım teklifi",
+     "h1": "Son üç gün",
+     "h2": "6 aylık planla klinik web sitesi bizden.",
+     "p": "Klinik SEO ve Google İşletme Profili yönetimi. Fiyatlar sitede açık.",
+     "cta": "moximu.com/fiyatlar"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-pzt-rakamla-13",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-11-30 11:30",
+   "title": "Rakamla: her 100 görüntülemede 13 hareket",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-sayi",
+     "img": "foto/p7.jpg",
+     "pos": "55% 40%",
+     "big": "13",
+     "side": "her 100\ngörüntülemede.",
+     "sub": "Klinik profilini gören her 100 kişiden 13'ü arıyor, yol tarifi alıyor ya da siteye geçiyor.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi",
+     "sideTop": 440
+    },
+    {
+     "t": "veri",
+     "tag": "Kendi müşteri verimiz",
+     "h1": "100 görüntüleme",
+     "h2": "13 hareket.",
+     "bars": [
+      [
+       "Arama",
+       63,
+       "8,2"
+      ],
+      [
+       "Yol tarifi",
+       28,
+       "3,6"
+      ],
+      [
+       "Siteye geçiş",
+       9,
+       "1,2"
+      ]
+     ],
+     "note": "Her 100 profil görüntülemesine düşen ortalama hareket.",
+     "src": "22 klinik İşletme Profili · 9 Ağustos – 5 Kasım 2026 · Moximu müşteri verisi"
+    },
+    {
+     "t": "item",
+     "n": "01",
+     "h": "Görüntülenme değil, hareket sayın",
+     "p": "Profil binlerce kez görüntülenebilir. Asıl soru kaç kişinin aradığı ve yol tarifi aldığı."
+    },
+    {
+     "t": "item",
+     "n": "02",
+     "h": "Oranı ne yükseltir?",
+     "p": "Doğru kategori, güncel fotoğraflar, eksiksiz hizmet listesi ve yorumlara düzenli cevap. Hepsi profili gören hastanın karar vermesini kolaylaştırıyor."
+    },
+    {
+     "t": "end",
+     "h": "Kendi oranınızı hesaplayın",
+     "list": [
+      "İşletme Profili › Performans ekranını açın",
+      "Son 3 ayın görüntülenme sayısını not edin",
+      "Arama, yol tarifi ve site tıklamalarını toplayın",
+      "Toplamı görüntülenmeye bölüp 100 ile çarpın"
+     ],
+     "note": "Kendi oranınızı merak ediyorsanız DM'den ANALİZ yazın.",
+     "url": "moximu.com/hizmetlerimiz/google-isletme-profili",
+     "pill": "Hizmete bakın"
+    }
+   ],
+   "caption": "Klinik profilini gören her 100 kişiden 13'ü harekete geçiyor: arıyor, yol tarifi alıyor ya da siteye geçiyor.\n\n22 klinik İşletme Profilinin son 90 günlük ortalaması bu. Kendi oranınızı dört adımda hesaplayabilirsiniz; adımlar son karede.\n\nOranınız 13'ün altındaysa DM'den ANALİZ yazın, nedenine birlikte bakalım.\n\n#googleişletmeprofili #dişkliniği #klinikpazarlama",
+   "linkedin_text": "Bir klinik profilinin başarısı görüntülenme sayısıyla ölçülmüyor.\n\nYönettiğimiz 22 klinik İşletme Profilinde son 90 günde her 100 görüntülemeye ortalama 13 hareket düştü (arama, yol tarifi, siteye geçiş).\n\nKendi oranınızı hesaplamak için: Performans ekranında son 3 ayın görüntülenmesini ve hareketlerini alın, hareketi görüntülenmeye bölüp 100 ile çarpın.\n\nDoğru kategori, eksiksiz hizmet listesi, güncel fotoğraf ve yorum cevapları bu oranı yükselten dört şey.",
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-pzt-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-11-30 19:00",
+   "title": "Story: Rakamla: her 100 görüntülemede 13 hareket",
+   "series": "Rakamla",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p7.jpg",
+     "pos": "55% 40%",
+     "shade": 0.4,
+     "top": "13",
+     "bottom": "her 100\ngörüntülemede.",
+     "cta": "Gönderiye bakın"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-pzt-kampanya",
+   "kind": "story",
+   "pillar": "guven",
+   "publish_at": "2026-11-30 21:00",
+   "title": "Story: Kasım teklifi · Bugün son gün",
+   "series": "Fiyatlar",
+   "slides": [
+    {
+     "t": "story",
+     "tag": "Kasım teklifi",
+     "h1": "Bugün son gün",
+     "h2": "6 aylık planla klinik web sitesi bizden.",
+     "p": "Klinik SEO ve Google İşletme Profili yönetimi. Fiyatlar sitede açık.",
+     "cta": "moximu.com/fiyatlar"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-car-yazabilir-en-iyi",
+   "kind": "carousel",
+   "pillar": "rehber",
+   "publish_at": "2026-12-02 11:30",
+   "title": "Bunu yazabilir misiniz? Bölgenin en iyi diş kliniği",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "quote": "“Bölgenin en iyi\ndiş kliniği.”",
+     "foot": "Her çarşamba bir klinik reklamı cümlesi · cevap ikinci karede"
+    },
+    {
+     "t": "siyah-cevap",
+     "series": "Sağlık reklamı kuralları",
+     "big": "Hayır*.*",
+     "p": "*“En iyi”*, *“bir numara”*, *“lider”* gibi üstünlük iddiaları tanıtımda kullanılmaz. Kendinizi başkasıyla kıyaslamadan, ne yaptığınızı anlatın.",
+     "src": "Dayanak: 12 Kasım 2025 tarihli Sağlık Hizmetlerinde Tanıtım ve Bilgilendirme Faaliyetleri Hakkında Yönetmelik"
+    },
+    {
+     "t": "end",
+     "h": "Yerine ne yazılır?",
+     "list": [
+      "Klinikte hangi tedavilerin yapıldığı",
+      "Hekimlerin adı, uzmanlığı ve eğitimi",
+      "Klinikte kullanılan cihazlar",
+      "Kaç yıldır hizmet verildiği"
+     ],
+     "note": "Bu içerik hukuki görüş değildir. Şüpheli durumlarda bağlı olduğunuz meslek odasına danışın.",
+     "url": "moximu.com/saglik-reklam-mevzuati"
+    }
+   ],
+   "caption": "Bunu yazabilir misiniz? “Bölgenin en iyi diş kliniği.”\n\nCevap: Hayır. “En iyi”, “bir numara”, “lider” gibi üstünlük iddiaları tanıtımda kullanılmaz. Kendinizi başkasıyla kıyaslamadan ne yaptığınızı anlatmak hem kurala uygun hem daha inandırıcı.\n\nYerine yazılabilecekler son karede.\n\n#sağlıkmevzuatı #dişkliniği #klinikpazarlama",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-car-story",
+   "kind": "story",
+   "pillar": "rehber",
+   "publish_at": "2026-12-02 19:00",
+   "title": "Story: Bunu yazabilir misiniz? Bölgenin en iyi diş kliniği",
+   "series": "Bunu yazabilir misiniz?",
+   "slides": [
+    {
+     "t": "siyah",
+     "series": "Sağlık reklamı kuralları",
+     "h": "Bunu yazabilir\nmisiniz?",
+     "ts": 100,
+     "line": 380,
+     "quote": "“Bölgenin en iyi\ndiş kliniği.”",
+     "qs": 52,
+     "cta": "Cevap gönderide"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-per-vitrin-burcin",
+   "kind": "carousel",
+   "pillar": "vaka",
+   "publish_at": "2026-12-03 11:30",
+   "title": "Site vitrini: Dr. Dt. Burçin Öncül",
+   "series": "Site vitrini",
+   "slides": [
+    {
+     "t": "mockup",
+     "tag": "Diş hekimi · Ankara Çayyolu",
+     "h1": "Dr. Dt. Burçin Öncül",
+     "h2": "aynı tasarım, hızlı site",
+     "desktop": "vitrin/burcin-masaustu.jpg",
+     "mobile": "vitrin/burcin-mobil.jpg",
+     "url": "burcinoncul.com.tr"
+    },
+    {
+     "t": "veri",
+     "tag": "Telefon hız puanı",
+     "h1": "Siteyi yeniden",
+     "h2": "yapmadan hızlandırdık.",
+     "bars": [
+      [
+       "Önce",
+       45,
+       "45"
+      ],
+      [
+       "Sonra",
+       85,
+       "80+"
+      ]
+     ],
+     "note": "Görseller hafifletildi, ilk ekran öne alındı, ölçüm kodları sonraya bırakıldı.",
+     "src": "Google Lighthouse · telefon · Kasım 2026"
+    },
+    {
+     "t": "three",
+     "tag": "Ne yaptık?",
+     "h1": "Tasarıma dokunmadan",
+     "h2": "üç düzeltme.",
+     "items": [
+      [
+       "Görseller",
+       "Yeni nesil biçime çevrildi; ilk ekrandaki görsel bekletilmeden yükleniyor."
+      ],
+      [
+       "Gereksiz kodlar",
+       "Ölçüm ve eklenti kodları sayfa açıldıktan sonra çalışıyor."
+      ],
+      [
+       "Bağlantılar",
+       "Kırık iç bağlantılar düzeltildi, eski adresler yönlendirildi."
+      ]
+     ],
+     "url": "moximu.com/hizmetlerimiz/klinik-seo",
+     "pill": "Hizmete bakın"
+    }
+   ],
+   "caption": "Site vitrini: Dr. Dt. Burçin Öncül, Ankara Çayyolu.\n\nSiteyi yeniden yapmadan, tasarıma dokunmadan telefon hız puanını 45'ten 80'in üzerine çıkardık. Görseller hafifletildi, ilk ekran öne alındı, ölçüm kodları sonraya bırakıldı.\n\nSitenizin telefon puanını merak ediyorsanız DM'den ANALİZ yazın.\n\n#klinikwebsitesi #dişhekimi #ankara",
+   "linkedin_text": "Site vitrini: Dr. Dt. Burçin Öncül (Ankara, Çayyolu).\n\nHer yavaş site yeniden yapılmak zorunda değil. Burçin Bey'in sitesinde tasarıma dokunmadan:\n• Görseller yeni nesil biçime çevrildi, ilk ekran bekletilmeden yükleniyor\n• Ölçüm ve eklenti kodları sayfa açıldıktan sonra çalışıyor\n• Kırık iç bağlantılar düzeltildi, eski adresler yönlendirildi\n\nTelefon hız puanı (Lighthouse): 45 → 80+\n\nhttps://burcinoncul.com.tr",
+   "needs_consent": true
+  },
+  {
+   "slug": "w4-per-story",
+   "kind": "story",
+   "pillar": "vaka",
+   "publish_at": "2026-12-03 19:00",
+   "title": "Story: Burçin Öncül hız",
+   "series": "Site vitrini",
+   "slides": [
+    {
+     "t": "story-score",
+     "tag": "Vaka",
+     "big": "45→80",
+     "label": "telefon hız puanı · Dr. Dt. Burçin Öncül",
+     "p": "Siteyi yeniden yapmadan, tasarıma dokunmadan.",
+     "cta": "Gönderiye bakın"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-cum-reel-form",
+   "kind": "reels",
+   "pillar": "anlatim",
+   "publish_at": "2026-12-04 18:00",
+   "title": "Reels: Hasta formu neden gelmez?",
+   "series": "Hekim soruyor",
+   "reel": "reels-2026-11b/w4-cum-reel-form.json",
+   "caption": "Siteniz ziyaret alıyor ama form gelmiyor mu? En sık gördüğümüz üç sebep:\n\n1. Form uzun. Ad, telefon ve bir soru yeterli.\n2. Sayfa telefonda geç açılıyor.\n3. WhatsApp düğmesi yok; hastanın bir kısmı yazmayı tercih ediyor.\n\nSitenize birlikte bakalım mı? DM'den ANALİZ yazın.\n\n#klinikwebsitesi #dişkliniği #hastakabul",
+   "linkedin_text": null,
+   "needs_consent": false
+  },
+  {
+   "slug": "w4-cum-story",
+   "kind": "story",
+   "pillar": "anlatim",
+   "publish_at": "2026-12-04 19:00",
+   "title": "Story: Reels duyurusu",
+   "series": "Hekim soruyor",
+   "slides": [
+    {
+     "t": "foto-story",
+     "img": "foto/p12.jpg",
+     "pos": "72% 40%",
+     "shade": 0.35,
+     "top": "Hasta formu",
+     "bottom": "neden\n*gelmez?*",
+     "cta": "Reels'i izleyin"
+    }
+   ],
+   "caption": null,
+   "linkedin_text": null,
+   "needs_consent": false
+  }
+ ]
+}

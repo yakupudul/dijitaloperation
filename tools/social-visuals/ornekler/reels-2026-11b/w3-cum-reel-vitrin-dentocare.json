@@ -1,0 +1,48 @@
+{
+ "series": "Site vitrini",
+ "scenes": [
+  {
+   "t": "foto",
+   "img": "foto/p2.jpg",
+   "pos": "40% 50%",
+   "shade": 0.5,
+   "top": "Bir klinik sitesi",
+   "ts": 110,
+   "bottom": "telefonda\n*böyle açılır.*",
+   "bs": 120,
+   "dur": 3.0
+  },
+  {
+   "t": "telefon",
+   "img": "vitrin/dentocare-mobil-uzun.jpg",
+   "h": "Dentocare Klinik\n*Kahramanmaraş*",
+   "url": "dentocareklinik.com",
+   "dur": 7.0
+  },
+  {
+   "t": "liste",
+   "h": "Sonuç:",
+   "items": [
+    [
+     "+%534 organik tıklama",
+     null
+    ],
+    [
+     "+%627 Google gösterimi",
+     null
+    ],
+    [
+     "+%830 site ziyaretçisi",
+     "Search Console ve GA4 · Aralık 2025 → Ekim 2026"
+    ]
+   ],
+   "dur": 4.6
+  },
+  {
+   "t": "son",
+   "h": "Klinik web sitesi\nve klinik SEO",
+   "p": "moximu.com",
+   "dur": 3.2
+  }
+ ]
+}
