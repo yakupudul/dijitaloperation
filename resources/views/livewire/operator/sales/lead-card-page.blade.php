@@ -28,7 +28,16 @@
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            @if ($lead->isCustomer())<span class="chip chip-up" data-lead-lifecycle>Müşteri</span>@elseif ($lead->lifecycle === 'former')<span class="chip chip-flat" data-lead-lifecycle>Eski müşteri</span>@elseif ($lead->isIrrelevant())<span class="chip chip-flat" data-lead-lifecycle>İlgisiz</span>@endif
             <span class="chip {{ $stageChip[$lead->stage] ?? 'chip-flat' }}">{{ $lead->stageLabel() }}</span>
+            {{-- Tür: what kind of business this record is (never assumed to be a clinic). --}}
+            @if ($lead->kind !== null)
+                <span class="chip chip-flat" data-lead-kind="{{ $lead->kind }}" title="Tür{{ $lead->sectorCategory ? ' · Sektör: '.$lead->sectorCategory->name : '' }}">{{ $lead->kindLabel() }}{{ $lead->sectorCategory ? ' · '.$lead->sectorCategory->name : '' }}</span>
+            @elseif ($lead->suggestedKind() !== null && \App\Support\Sales\LeadKinds::has($lead->suggestedKind()))
+                <span class="chip chip-flat" data-lead-kind-suggested="{{ $lead->suggestedKind() }}">{{ \App\Support\Sales\LeadKinds::label($lead->suggestedKind()) }}? <button type="button" wire:click="confirmKind" class="ml-1 font-semibold underline" data-lead-kind-confirm>Doğru</button></span>
+            @else
+                <button type="button" wire:click="edit" class="chip chip-flat" data-lead-kind-missing>Tür seçilmedi</button>
+            @endif
             <a href="{{ route('operator.calendar', ['aday' => $lead->id]) }}" wire:navigate class="btn-quiet" data-lead-meeting>Toplantı ekle</a>
             <button type="button" wire:click="edit" class="btn-quiet">Düzenle</button>
         </div>
@@ -52,7 +61,13 @@
         <form wire:submit="save" class="card mt-5 p-4" data-lead-edit>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <label class="block text-xs text-gray-500">Kişi<input wire:model="form.name" type="text" class="mt-1 {{ $input }}" /></label>
-                <label class="block text-xs text-gray-500">Klinik<input wire:model="form.clinic" type="text" class="mt-1 {{ $input }}" /></label>
+                <label class="block text-xs text-gray-500">İşletme<input wire:model="form.company" type="text" placeholder="Klinik, fabrika, mağaza… adı" class="mt-1 {{ $input }}" /></label>
+                <label class="block text-xs text-gray-500">Tür
+                    <select wire:model="form.kind" class="mt-1 {{ $input }}" data-lead-kind-select><option value="">Seçilmedi</option>@foreach ($kinds as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>
+                </label>
+                <label class="block text-xs text-gray-500">Sektör
+                    <select wire:model="form.sector_id" class="mt-1 {{ $input }}" data-lead-sector-select><option value="">Seçilmedi</option>@foreach ($sectors as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach</select>
+                </label>
                 <label class="block text-xs text-gray-500">Şehir<input wire:model="form.city" type="text" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Branş<input wire:model="form.branch" type="text" placeholder="Diş, estetik, psikoloji…" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Telefon<input wire:model="form.phone" type="tel" class="mt-1 {{ $input }}" /></label>
@@ -244,8 +259,8 @@
                     @error('laterDate')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                 </div>
                 <div class="mt-3 flex flex-wrap items-center gap-2">
-                    @if ($isAdmin && $lead->stage !== 'won')
-                        <button type="button" wire:click="win" wire:confirm="{{ $lead->title() }} müşteri olsun mu? Müşteri ve marka kaydı açılır." class="btn-dark" data-lead-win>Kazanıldı: müşteri yap</button>
+                    @if ($isAdmin && $lead->stage !== 'won' && ! $winning)
+                        <button type="button" wire:click="openWin" class="btn-dark" data-lead-win>{{ $lead->isCustomer() ? 'Fırsatı kazan' : 'Kazanıldı: müşteri yap' }}</button>
                     @endif
                     @if ($lead->stage !== 'lost')
                         <div class="flex items-center gap-1">
@@ -253,11 +268,46 @@
                                 <option value="">Neden?</option>
                                 @foreach (SalesLead::LOST_REASONS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
                             </select>
-                            <button type="button" wire:click="setStage('lost')" class="btn-quiet">Kapat</button>
+                            <button type="button" wire:click="setStage('lost')" class="btn-quiet">{{ $lead->isCustomer() ? 'Fırsatı kapat' : 'Kapat' }}</button>
                         </div>
                         @error('lostReason')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                     @endif
+                    @if (! $lead->isCustomer() && ! $lead->isIrrelevant())
+                        <button type="button" wire:click="markIrrelevant" wire:confirm="Bu kayıt aday değil mi (tedarikçi, tanıdık, spam)? Listelerden ve raporlardan çıkar." class="btn-quiet text-gray-400" data-lead-irrelevant title="Aday değil: listelerden ve raporlardan çıkar">İlgisiz</button>
+                    @endif
                 </div>
+                @if ($winning)
+                    {{-- Kazanıldı: the brand's terms (aylık / dönemlik / tek seferlik) start with the win; the same form as on the brand page. --}}
+                    <form wire:submit="win" class="mt-3 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/[0.03]" data-lead-win-form>
+                        <p class="text-[13px] font-medium text-gray-900 dark:text-white">{{ $lead->isCustomer() ? 'Yeni anlaşma' : 'Müşteri ve marka açılır; anlaşma şu şartlarla başlar:' }}</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach (\App\Models\Agreement::KINDS as $key => $label)
+                                <button type="button" wire:click="$set('agreement.kind', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $agreement['kind'] === $key])>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <label class="block text-xs text-gray-500">{{ $agreement['kind'] === 'one_time' ? 'Tutar (₺, KDV hariç)' : 'Aylık ücret (₺, KDV hariç)' }}<input wire:model="agreement.fee" type="text" inputmode="numeric" placeholder="14.000" class="mt-1 {{ $input }}" data-lead-win-fee />@error('fee')<span class="text-error-600">{{ $message }}</span>@enderror</label>
+                            @if ($agreement['kind'] === 'term')
+                                <label class="block text-xs text-gray-500">Dönem (ay)<input wire:model="agreement.term_months" type="number" min="1" max="36" class="mt-1 {{ $input }}" />@error('term_months')<span class="text-error-600">{{ $message }}</span>@enderror</label>
+                            @endif
+                            <label class="block text-xs text-gray-500">Başlangıç<input wire:model="agreement.starts_on" type="date" class="mt-1 {{ $input }}" />@error('starts_on')<span class="text-error-600">{{ $message }}</span>@enderror</label>
+                            @if ($agreement['kind'] !== 'one_time')
+                                <label class="block text-xs text-gray-500">Ödeme günü<input wire:model="agreement.due_day" type="number" min="1" max="28" class="mt-1 {{ $input }}" />@error('due_day')<span class="text-error-600">{{ $message }}</span>@enderror</label>
+                            @endif
+                        </div>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+                            @foreach (SalesLead::SERVICES as $key => $label)
+                                <label class="inline-flex items-center gap-1.5"><input type="checkbox" wire:model="agreement.services" value="{{ $key }}" class="rounded border-gray-300" /> {{ $label }}</label>
+                            @endforeach
+                        </div>
+                        <input wire:model="agreement.note" type="text" placeholder="Not (ör. 6 ayda site hediye)" class="{{ $input }}" />
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="btn-dark" wire:loading.attr="disabled" data-lead-win-save>{{ $lead->isCustomer() ? 'Fırsatı kazan' : 'Müşteri yap' }}</button>
+                            <button type="button" wire:click="cancelWin" class="btn-quiet">Vazgeç</button>
+                            <span class="text-xs text-gray-400">Ücret boşsa anlaşma sonra marka sayfasından girilir.</span>
+                        </div>
+                    </form>
+                @endif
                 @if ($lead->offer_amount !== null)
                     <p class="mt-3 text-sm text-gray-700 dark:text-gray-300" data-lead-offer>Teklif: <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($lead->offer_amount, 0, ',', '.') }} ₺/ay</span>@if ($lead->serviceLabel()) · {{ $lead->serviceLabel() }}@endif @if (! $lead->offer_confirmed)<span class="text-xs text-gray-400">(mesajdan okundu)</span>@endif</p>
                 @endif
@@ -265,6 +315,90 @@
                     <p class="mt-4 whitespace-pre-wrap border-t border-gray-200 pt-3 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300">{{ $lead->notes }}</p>
                 @endif
             </section>
+
+            {{-- Fırsatlar: the sale being pursued now, and the ones won and lost (an upsell to a customer opens here). --}}
+            <section class="card p-4" data-lead-opportunities>
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Fırsatlar</h2>
+                    @if ($openOpportunity === null && ! $lead->isIrrelevant())
+                        <button type="button" wire:click="$toggle('opening')" class="btn h-8" data-lead-opportunity-new>+ Yeni fırsat</button>
+                    @endif
+                </div>
+                @if ($opening)
+                    <form wire:submit="newOpportunity" class="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/[0.03]" data-lead-opportunity-form>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="block text-xs text-gray-500">Hizmet<select wire:model="opp.service" class="mt-1 {{ $input }}"><option value="">Seç</option>@foreach (SalesLead::SERVICES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
+                            <label class="block text-xs text-gray-500">Tutar (₺)<input wire:model="opp.amount" type="text" inputmode="numeric" placeholder="18.000" class="mt-1 {{ $input }}" /></label>
+                        </div>
+                        <label class="block text-xs text-gray-500">Başlık (isteğe bağlı)<input wire:model="opp.title" type="text" placeholder="Ör. Ücret artışı 40.000'e" class="mt-1 {{ $input }}" /></label>
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach (\App\Models\SalesOpportunity::BILLINGS as $key => $label)
+                                <button type="button" wire:click="$set('opp.billing', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $opp['billing'] === $key])>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                        @error('opportunity.service')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="btn-dark" wire:loading.attr="disabled" data-lead-opportunity-save>Fırsatı aç</button>
+                            <button type="button" wire:click="$set('opening', false)" class="btn-quiet">Vazgeç</button>
+                        </div>
+                    </form>
+                @endif
+                @if ($opportunities->isEmpty())
+                    <p class="mt-2 text-[13px] text-gray-500">{{ $lead->isCustomer() ? 'Yeni bir satış konuşuluyorsa (ücret artışı, ek hizmet, tek seferlik iş) buradan fırsat aç.' : 'Teklif verilince ilk fırsat kendiliğinden açılır; önceden açmak istersen buradan.' }}</p>
+                @else
+                    <ul class="mt-2 divide-y divide-gray-200 text-[13px] dark:divide-gray-800">
+                        @foreach ($opportunities as $o)
+                            <li wire:key="opp-{{ $o->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2" data-lead-opportunity="{{ $o->id }}">
+                                <span class="chip {{ $o->status === 'won' ? 'chip-up' : ($o->status === 'lost' ? 'chip-down' : 'chip-accent') }}">{{ \App\Models\SalesOpportunity::STATUSES[$o->status] ?? $o->status }}</span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ $o->title() }}</span>
+                                    <span class="text-gray-500"> · {{ $o->amountLabel() }}</span>
+                                    <span class="block text-[11px] text-gray-400">{{ ($o->won_at ?? $o->lost_at ?? $o->created_at)?->timezone('Europe/Istanbul')->format('d.m.Y') }}{{ $o->status === 'lost' && $o->lost_reason ? ' · '.(SalesLead::LOST_REASONS[$o->lost_reason] ?? $o->lost_reason) : '' }}{{ $o->note ? ' · '.$o->note : '' }}</span>
+                                </span>
+                                @if ($o->isOpen())
+                                    @if ($isAdmin)<button type="button" wire:click="openWin({{ $o->id }})" class="btn h-7 px-2.5 text-[12px]" data-lead-opportunity-win>Kazan</button>@endif
+                                    <span class="flex items-center gap-1">
+                                        <select wire:model="oppLostReason" class="h-7 rounded-lg border border-gray-200 bg-white px-1.5 text-[12px] dark:border-gray-700 dark:bg-transparent dark:text-gray-200" aria-label="Neden kaybedildi"><option value="">Neden?</option>@foreach (SalesLead::LOST_REASONS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>
+                                        <button type="button" wire:click="loseOpportunity({{ $o->id }})" class="btn-quiet h-7 px-2 text-[12px]" data-lead-opportunity-lose>Kaybedildi</button>
+                                    </span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                    @error('oppLostReason')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
+                @endif
+            </section>
+
+            {{-- Anlaşma: once a customer, what the brand pays and the monthly ticks (the same card as Marka › Ayarlar). --}}
+            @if ($brand !== null && $terms !== null)
+                <section class="card p-4" data-lead-agreement>
+                    <div class="flex items-center justify-between gap-2">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Anlaşma</h2>
+                        <a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => 'ayarlar']) }}" wire:navigate class="link-neutral text-[13px]">Markada düzenle</a>
+                    </div>
+                    @php $a = $terms['agreement']; @endphp
+                    @if ($a === null)
+                        <p class="mt-2 text-[13px] text-gray-500">{{ $brand->name }} için anlaşma girilmedi. <button type="button" wire:click="openWin" class="link-neutral font-medium">Şimdi gir</button></p>
+                    @else
+                        <p class="mt-2 text-sm text-gray-900 dark:text-white"><span class="font-semibold tabular-nums">{{ $a->feeLabel() }}</span> <span class="text-gray-500">· {{ $a->kindLabel() }} · {{ $a->statusLabel() }}{{ $a->kind !== 'one_time' ? ' · ödeme günü '.$a->due_day : '' }}</span></p>
+                        @if ($a->services)<p class="text-[12px] text-gray-500">{{ collect($a->services)->map(fn (string $s): string => SalesLead::SERVICES[$s] ?? $s)->implode(' · ') }}</p>@endif
+                        @if ($terms['risks'] !== [])
+                            <div class="mt-2 flex flex-wrap gap-1.5">@foreach ($terms['risks'] as $risk)<span class="chip chip-down" data-lead-risk="{{ $risk['key'] }}">{{ $risk['label'] }}</span>@endforeach</div>
+                        @endif
+                        <div class="mt-3 flex flex-wrap gap-1.5" data-lead-payments>
+                            @foreach ($terms['payments'] as $p)
+                                <button type="button" wire:click="togglePaid({{ $p->id }})" @class(['seg h-8 text-[12px]', 'seg-active' => $p->isPaid(), 'border-error-300 text-error-700 dark:border-error-500/40 dark:text-error-300' => $p->isOverdue()]) title="{{ $p->periodLabel() }} · {{ number_format($p->amount, 0, ',', '.') }} ₺ · {{ $p->isPaid() ? 'ödendi '.$p->paid_on?->format('d.m') : ($p->isOverdue() ? $p->daysLate().' gün gecikti' : 'vade '.$p->due_on?->format('d.m')) }}" data-lead-payment="{{ $p->period }}">
+                                    {{ $p->isPaid() ? '✓' : ($p->isOverdue() ? '!' : '○') }} {{ \Carbon\CarbonImmutable::parse($p->period.'-01')->locale('tr')->isoFormat('MMM') }}
+                                </button>
+                            @endforeach
+                            @if ($terms['next_due'] !== null)<span class="self-center text-[12px] text-gray-400">sonraki {{ $terms['next_due']->format('d.m') }}</span>@endif
+                        </div>
+                        @foreach ($terms['one_time'] as $job)
+                            <p class="mt-2 text-[13px] text-gray-600 dark:text-gray-300">Tek seferlik: {{ $job->feeLabel() }} · {{ $job->statusLabel() }}@foreach ($job->payments as $p) · <button type="button" wire:click="togglePaid({{ $p->id }})" class="link-neutral">{{ $p->isPaid() ? '✓ ödendi' : ($p->isOverdue() ? '! '.$p->daysLate().' gün gecikti' : '○ ödenmedi') }}</button>@endforeach</p>
+                        @endforeach
+                    @endif
+                </section>
+            @endif
 
             {{-- Toplantılar: bu adayla Takvim'deki görüşmeler ve notları --}}
             @if ($meetings->isNotEmpty())
@@ -343,6 +477,10 @@
                     <dt class="text-gray-500">Son gelen</dt><dd>{{ $lead->last_incoming_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? 'yok' }}</dd>
                     @if ($lead->email)<dt class="text-gray-500">E-posta</dt><dd class="break-all"><a href="mailto:{{ $lead->email }}" class="link-neutral">{{ $lead->email }}</a></dd>@endif
                     <dt class="text-gray-500">Kaynak</dt><dd>{{ SalesLead::HEARD_FROM[$lead->heard_from] ?? 'bilinmiyor' }}</dd>
+                    <dt class="text-gray-500">Durum</dt><dd>{{ $lead->lifecycleLabel() }}</dd>
+                    <dt class="text-gray-500">Tür</dt><dd>{{ $lead->kindLabel() ?? 'seçilmedi' }}@if ($lead->sectorCategory) · {{ $lead->sectorCategory->name }}@endif</dd>
+                    @php $cls = (array) ($lead->classification ?? []); @endphp
+                    @if (! empty($cls['why']))<dt class="text-gray-500">Claude</dt><dd class="text-gray-500" data-lead-classification>{{ implode(' · ', array_slice((array) $cls['why'], 0, 3)) }}</dd>@endif
                     @php $origin = (array) ($lead->origin ?? []); @endphp
                     @if (! empty($origin['page']))<dt class="text-gray-500">Form sayfası</dt><dd class="break-all">{{ preg_replace('#^https?://#', '', (string) strtok((string) $origin['page'], '?')) }}</dd>@endif
                     @if (! empty($origin['utm_campaign']) || ! empty($origin['utm_source']))<dt class="text-gray-500">Kampanya</dt><dd>{{ trim(($origin['utm_source'] ?? '').' / '.($origin['utm_campaign'] ?? ''), ' /') }}</dd>@endif

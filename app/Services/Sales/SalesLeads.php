@@ -9,12 +9,14 @@ use App\Models\Customer;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
+use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\Assistant\WhatsAppContactLinker;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Support\Sales\LeadKinds;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,9 +27,10 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * The prospect cards (Satış): where they come from, what happened, what is next. Rules: a card always has a next step
- * with a date until it is won or lost; a WhatsApp chat that is not a customer's becomes a card by itself; a won card
- * opens the brand. MoxDOP never sends a message — the operator does, from the phone.
+ * The sales records (Satış): where they come from, what happened, what is next. Rules: a record always has a next step
+ * with a date until it is won or lost; a WhatsApp chat that is not a customer's becomes a record by itself; a won
+ * record opens the customer, the brand and its agreement, and stays alive for the next sale (an opportunity). The
+ * record is generic — its Tür says what kind of business it is. MoxDOP never sends a message — the operator does.
  */
 final class SalesLeads
 {
@@ -81,20 +84,24 @@ final class SalesLeads
         return $host !== '' && str_contains($host, '.') ? $host : null;
     }
 
-    /** "Hızlı ekle": a clinic, a phone and a source are enough; the first message is due today. */
+    /** "Hızlı ekle": a business name, a phone and a source are enough; the first message is due today. */
     public function quickAdd(array $input, ?User $user = null): SalesLead
     {
         $data = collect($input)->map(fn ($value) => is_string($value) ? trim($value) : $value);
+        if ($data->get('company', '') === '' && $data->get('clinic', '') !== '') {
+            $data->put('company', $data->get('clinic')); // the site's older form field
+        }
         $phone = (string) $data->get('phone', '');
         $website = (string) $data->get('website', '');
-        if ($data->get('name', '') === '' && $data->get('clinic', '') === '' && $phone === '' && $website === '' && self::email((string) $data->get('email', '')) === null) {
-            throw ValidationException::withMessages(['lead' => 'Bir ad, klinik, telefon ya da site yazın.']);
+        if ($data->get('name', '') === '' && $data->get('company', '') === '' && $phone === '' && $website === '' && self::email((string) $data->get('email', '')) === null) {
+            throw ValidationException::withMessages(['lead' => 'Bir ad, işletme, telefon ya da site yazın.']);
         }
-        $existing = $this->match(self::phoneKey($phone), self::host($website), (string) $data->get('email', ''), (string) ($data->get('name') ?: $data->get('clinic')));
+        $existing = $this->match(self::phoneKey($phone), self::host($website), (string) $data->get('email', ''), (string) ($data->get('name') ?: $data->get('company')));
         if ($existing !== null) {
             $this->fill($existing, $data->all());
             $existing->save();
             $this->event($existing, 'system', 'Aynı telefon ya da site: kart güncellendi.', meta: ['by' => $user?->id]);
+            $this->classify($existing);
 
             return $existing;
         }
@@ -103,11 +110,12 @@ final class SalesLeads
         $this->fill($lead, $data->all());
         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::firstMessage();
         if ($lead->website_host !== null) {
-            // Same site, another name: a second person of that clinic, or the same one written differently. Ask.
+            // Same site, another name: a second person of that business, or the same one written differently. Ask.
             $lead->duplicate_of_id = SalesLead::query()->where('website_host', $lead->website_host)->orderByDesc('id')->value('id');
         }
         $lead->save();
         $this->event($lead, 'system', 'Kart açıldı ('.$lead->sourceLabel().').', meta: ['by' => $user?->id]);
+        $this->classify($lead);
         if (filled($data->get('note'))) {
             $this->event($lead, 'note', (string) $data->get('note'), meta: ['by' => $user?->id]);
         }
@@ -120,7 +128,7 @@ final class SalesLeads
     }
 
     /** Column lengths of what the operator types (the Postgres columns are this wide). */
-    public const array LIMITS = ['name' => 255, 'clinic' => 255, 'city' => 120, 'branch' => 120, 'phone' => 40, 'website' => 255, 'notes' => 4000];
+    public const array LIMITS = ['name' => 255, 'company' => 255, 'city' => 120, 'branch' => 120, 'phone' => 40, 'website' => 255, 'notes' => 4000];
 
     /** Fields the operator types; empty values never erase what is known. */
     public function fill(SalesLead $lead, array $data): void
@@ -129,6 +137,13 @@ final class SalesLeads
             if (array_key_exists($key, $data) && filled($data[$key])) {
                 $lead->{$key} = mb_substr(trim((string) $data[$key]), 0, $limit);
             }
+        }
+        if (filled($data['kind'] ?? null) && LeadKinds::has($data['kind'])) {
+            $lead->kind = $data['kind'];
+            $lead->classification = array_merge((array) ($lead->classification ?? []), ['confirmed' => true]);
+        }
+        if (array_key_exists('sector_id', $data) && (int) $data['sector_id'] > 0) {
+            $lead->sector_id = (int) $data['sector_id'];
         }
         if (filled($data['source'] ?? null) && isset(SalesLead::SOURCES[$data['source']]) && ($lead->source === 'other' || ! $lead->exists)) {
             $lead->source = $data['source'];
@@ -152,7 +167,7 @@ final class SalesLeads
 
     /**
      * The same person: an exact phone or e-mail is the same card. A site alone is the same card only when the names do
-     * not disagree (two doctors of one clinic share a site but are two cards; the second one asks to be merged).
+     * not disagree (two doctors of one business share a site but are two cards; the second one asks to be merged).
      */
     public function match(?string $phoneKey, ?string $host, ?string $email = null, ?string $name = null): ?SalesLead
     {
@@ -170,16 +185,16 @@ final class SalesLeads
         return null;
     }
 
-    /** A name given that differs from the card's person and clinic means another person (of the same clinic, maybe). */
+    /** A name given that differs from the card's person and business means another person (of the same business, maybe). */
     public static function namesAgree(SalesLead $lead, ?string $name): bool
     {
         $key = static fn (?string $v): string => (string) preg_replace('/\b(dr|dt|doç|prof|uzm|op)\b\.?|[^\p{L}\p{N}]+/u', '', mb_strtolower(trim((string) $v)));
         $given = $key($name);
-        if ($given === '' || ($key($lead->name) === '' && $key($lead->clinic) === '')) {
+        if ($given === '' || ($key($lead->name) === '' && $key($lead->company) === '')) {
             return true;
         }
 
-        return in_array($given, array_filter([$key($lead->name), $key($lead->clinic)]), true);
+        return in_array($given, array_filter([$key($lead->name), $key($lead->company)]), true);
     }
 
     public static function email(?string $email): ?string
@@ -198,7 +213,7 @@ final class SalesLeads
         if ($keep->is($other)) {
             return;
         }
-        foreach (['name', 'clinic', 'city', 'branch', 'phone', 'phone_key', 'email', 'website', 'website_host', 'heard_from', 'conversation_id', 'customer_id', 'brand_id', 'findings', 'site_scan'] as $field) {
+        foreach (['name', 'company', 'city', 'branch', 'phone', 'phone_key', 'email', 'website', 'website_host', 'heard_from', 'conversation_id', 'customer_id', 'brand_id', 'findings', 'site_scan', 'kind', 'sector_id'] as $field) {
             if (blank($keep->{$field}) && filled($other->{$field})) {
                 $keep->{$field} = $other->{$field};
             }
@@ -211,6 +226,7 @@ final class SalesLeads
         SalesLeadEvent::query()->where('lead_id', $other->id)->whereNotNull('fingerprint')
             ->whereIn('fingerprint', SalesLeadEvent::query()->where('lead_id', $keep->id)->whereNotNull('fingerprint')->select('fingerprint'))->delete();
         SalesLeadEvent::query()->where('lead_id', $other->id)->update(['lead_id' => $keep->id]);
+        SalesOpportunity::query()->where('lead_id', $other->id)->update(['lead_id' => $keep->id]);
         Reminder::query()->where('sales_lead_id', $other->id)->update(['sales_lead_id' => $keep->id]);
         SalesLead::query()->where('duplicate_of_id', $other->id)->update(['duplicate_of_id' => null]);
         $title = $other->title();
@@ -255,7 +271,10 @@ final class SalesLeads
         return $lead;
     }
 
-    /** New messages in a linked chat move the card: they wrote → answer today; linked to a customer → card closes as won. */
+    /**
+     * New messages in a linked chat move the card: they wrote → answer today; linked to a customer → the record becomes
+     * a customer's (won), unless it already is one and is pursuing a new sale, in which case the stage is its own.
+     */
     public function refreshFromConversation(WhatsAppConversation $conversation): void
     {
         $lead = SalesLead::query()->where('conversation_id', $conversation->id)->first();
@@ -264,7 +283,7 @@ final class SalesLeads
 
             return;
         }
-        if ($conversation->customer_id !== null && $lead->isOpen()) {
+        if ($conversation->customer_id !== null && $lead->isOpen() && ! $lead->isCustomer()) {
             $lead->customer_id = $conversation->customer_id;
             $lead->brand_id ??= Brand::query()->where('customer_id', $conversation->customer_id)->value('id');
             $this->setStage($lead, 'won', null, null, 'Görüşme bir müşteriye bağlandı.');
@@ -466,6 +485,12 @@ final class SalesLeads
         if (! isset(SalesLead::STAGES[$stage]) || $lead->stage === $stage) {
             return;
         }
+        if ($stage === 'lost' && $lead->isCustomer() && ($open = $lead->openOpportunity()) !== null) {
+            // A customer does not get lost: the sale being pursued does, and the record goes back to "müşteri".
+            $this->closeOpportunity($open, 'lost', $reason, $user);
+
+            return;
+        }
         $from = $lead->stage;
         $lead->stage = $stage;
         if ($stage === 'won') {
@@ -609,24 +634,37 @@ final class SalesLeads
         $this->event($lead, 'system', 'Sonraki adım: '.$lead->next_step.' · '.$at->format('d.m.Y'), meta: ['by' => $user?->id]);
     }
 
-    /** "Kazanıldı → Marka aç": the customer and the brand are created and the card links to them. */
-    public function win(SalesLead $lead, ?User $user = null): Brand
+    /**
+     * "Kazanıldı → Müşteri yap": the customer and the brand are created (once), the card links to them, the open
+     * opportunity (or one made from the offer) is won, and the brand's agreement starts when terms were given.
+     *
+     * @param  array{kind?: string, fee?: int|string, term_months?: int|string|null, starts_on?: string, due_day?: int|string, services?: array<int, string>|null, note?: string|null}|null  $agreement
+     */
+    public function win(SalesLead $lead, ?User $user = null, ?array $agreement = null): Brand
     {
-        return DB::transaction(function () use ($lead, $user): Brand {
+        return DB::transaction(function () use ($lead, $user, $agreement): Brand {
             $brand = $lead->brand_id ? Brand::query()->find($lead->brand_id) : null;
             if ($brand === null) {
-                $name = filled($lead->clinic) ? (string) $lead->clinic : $lead->title();
+                $name = filled($lead->company) ? (string) $lead->company : $lead->title();
                 $customer = $lead->customer_id ? Customer::query()->find($lead->customer_id) : null;
                 $customer ??= Customer::query()->create([
                     'name' => $name, 'type' => CustomerType::Company, 'status' => CustomerStatus::Active,
                     'hq_country' => 'TR', 'hq_city' => filled($lead->city) ? $lead->city : null,
                     'primary_phone' => filled($lead->phone) ? $lead->phone : null, 'service_started_at' => now()->toDateString(),
                 ]);
-                $brand = Brand::query()->create(['customer_id' => $customer->id, 'name' => $name, 'primary_country' => 'TR']);
+                $brand = Brand::query()->create(['customer_id' => $customer->id, 'name' => $name, 'primary_country' => 'TR', 'sector_id' => $lead->sector_id]);
                 $lead->customer_id = $customer->id;
                 $lead->brand_id = $brand->id;
             }
+            $opportunity = $lead->openOpportunity() ?? $this->opportunityFromOffer($lead, $user);
             $this->setStage($lead, 'won', null, $user, 'Kazanıldı: '.$brand->name.' markası açıldı.');
+            if ($opportunity !== null) {
+                $opportunity->forceFill(['status' => 'won', 'won_at' => now()])->save();
+            }
+            if ($agreement !== null && (int) preg_replace('/\D+/', '', (string) ($agreement['fee'] ?? '')) > 0) {
+                $terms = app(Agreements::class)->start($brand, $agreement, $user, $lead, $opportunity);
+                $this->event($lead, 'offer', 'Anlaşma: '.$terms->feeLabel().' · '.$terms->kindLabel().' · ödeme günü '.$terms->due_day, meta: ['by' => $user?->id, 'agreement_id' => $terms->id]);
+            }
             if ($lead->conversation_id !== null) {
                 WhatsAppConversation::query()->whereKey($lead->conversation_id)->whereNull('customer_id')
                     ->update(['customer_id' => $lead->customer_id, 'link_source' => 'operator', 'updated_at' => now()]);
@@ -634,6 +672,132 @@ final class SalesLeads
 
             return $brand;
         });
+    }
+
+    /** The first sale as an opportunity, from the card's offer (null when nothing was offered). */
+    private function opportunityFromOffer(SalesLead $lead, ?User $user = null): ?SalesOpportunity
+    {
+        if ($lead->offer_amount === null && $lead->offer_service === null) {
+            return null;
+        }
+
+        return SalesOpportunity::query()->create([
+            'lead_id' => $lead->id, 'service' => $lead->offer_service, 'amount' => $lead->offer_amount, 'billing' => $lead->offer_service === 'web' ? 'one_time' : 'monthly',
+            'status' => 'open', 'created_by' => $user?->id,
+        ]);
+    }
+
+    /**
+     * "Yeni fırsat": a sale to pursue on this record — the first one of a prospect, or an upsell to a customer
+     * (a raise, a second service, a one-time site). A customer's card comes back to the open stages for it.
+     *
+     * @param  array{title?: string, service?: string, amount?: int|string, billing?: string, note?: string}  $data
+     */
+    public function openOpportunity(SalesLead $lead, array $data, ?User $user = null): SalesOpportunity
+    {
+        $amount = (int) preg_replace('/\D+/', '', (string) ($data['amount'] ?? ''));
+        $service = isset(SalesLead::SERVICES[(string) ($data['service'] ?? '')]) ? (string) $data['service'] : null;
+        $billing = isset(SalesOpportunity::BILLINGS[(string) ($data['billing'] ?? '')]) ? (string) $data['billing'] : 'monthly';
+        $title = mb_substr(trim((string) ($data['title'] ?? '')), 0, 255);
+        if ($service === null && $title === '') {
+            throw ValidationException::withMessages(['opportunity.service' => 'Hangi hizmet? Birini seç ya da başlık yaz.']);
+        }
+        if (($open = $lead->openOpportunity()) !== null) {
+            throw ValidationException::withMessages(['opportunity.service' => 'Bu kartta açık bir fırsat var: '.$open->title().'. Önce onu kazan ya da kapat.']);
+        }
+        $opportunity = SalesOpportunity::query()->create([
+            'lead_id' => $lead->id, 'title' => $title !== '' ? $title : null, 'service' => $service, 'amount' => $amount > 0 ? min($amount, 9_999_999) : null,
+            'billing' => $billing, 'status' => 'open', 'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000) ?: null, 'created_by' => $user?->id,
+        ]);
+        if ($billing === 'monthly' && $amount > 0) {
+            $lead->forceFill(['offer_amount' => $opportunity->amount, 'offer_service' => $service, 'offer_confirmed' => true]);
+        }
+        if (! $lead->isOpen()) {
+            // A customer's card is pursued again: open stage, a step for today.
+            $lead->forceFill(['stage' => $amount > 0 ? 'priced' : 'talking', 'won_at' => null, 'lost_at' => null, 'lost_reason' => null, 'next_step' => 'Fırsatı konuş: '.$opportunity->title(), 'next_step_at' => CarbonImmutable::now('Europe/Istanbul')]);
+        } elseif ($amount > 0) {
+            $lead->advanceTo('priced');
+        }
+        $lead->save();
+        $this->event($lead, 'offer', 'Yeni fırsat: '.$opportunity->title().' · '.$opportunity->amountLabel(), meta: ['by' => $user?->id, 'opportunity_id' => $opportunity->id]);
+
+        return $opportunity;
+    }
+
+    /**
+     * An opportunity ends: won (a customer's brand gets the new agreement; a prospect's record is won through win())
+     * or lost (a customer's record goes back to "müşteri"; a prospect's record is lost with the reason).
+     *
+     * @param  array<string, mixed>|null  $agreement  terms for a won one
+     */
+    public function closeOpportunity(SalesOpportunity $opportunity, string $outcome, ?string $reason = null, ?User $user = null, ?array $agreement = null): void
+    {
+        $lead = $opportunity->lead;
+        if ($outcome === 'won') {
+            if ($lead->brand_id === null || ! $lead->isCustomer()) {
+                $this->win($lead, $user, $agreement);
+
+                return;
+            }
+            $opportunity->forceFill(['status' => 'won', 'won_at' => now()])->save();
+            $brand = Brand::query()->find($lead->brand_id);
+            if ($brand !== null && $agreement !== null && (int) preg_replace('/\D+/', '', (string) ($agreement['fee'] ?? '')) > 0) {
+                $terms = app(Agreements::class)->start($brand, $agreement, $user, $lead, $opportunity);
+                $this->event($lead, 'offer', 'Anlaşma yenilendi: '.$terms->feeLabel().' · '.$terms->kindLabel(), meta: ['by' => $user?->id, 'agreement_id' => $terms->id]);
+            }
+            $lead->forceFill(['stage' => 'won', 'won_at' => now(), 'next_step' => null, 'next_step_at' => null])->save();
+            $this->event($lead, 'stage', 'Fırsat kazanıldı: '.$opportunity->title().' · '.$opportunity->amountLabel(), meta: ['to' => 'won', 'by' => $user?->id, 'opportunity_id' => $opportunity->id]);
+
+            return;
+        }
+        $reason = isset(SalesLead::LOST_REASONS[(string) $reason]) ? (string) $reason : 'other';
+        $opportunity->forceFill(['status' => 'lost', 'lost_at' => now(), 'lost_reason' => $reason])->save();
+        if ($lead->isCustomer()) {
+            $lead->forceFill(['stage' => 'won', 'next_step' => null, 'next_step_at' => null, 'lost_at' => null, 'lost_reason' => null])->save();
+            $this->event($lead, 'stage', 'Fırsat kaybedildi: '.$opportunity->title().' ('.SalesLead::LOST_REASONS[$reason].'); müşteri olarak sürüyor.', meta: ['to' => 'won', 'by' => $user?->id, 'opportunity_id' => $opportunity->id]);
+
+            return;
+        }
+        $this->setStage($lead, 'lost', $reason, $user);
+    }
+
+    /** "İlgisiz": this chat was never a prospect (a supplier, a friend, spam). Out of every list and report. */
+    public function markIrrelevant(SalesLead $lead, ?User $user = null): void
+    {
+        $from = $lead->stage;
+        $lead->forceFill(['lifecycle' => 'irrelevant', 'stage' => 'lost', 'lost_at' => now(), 'lost_reason' => 'irrelevant', 'next_step' => null, 'next_step_at' => null, 'draft' => null, 'draft_ai' => null, 'draft_status' => null])->save();
+        $this->event($lead, 'stage', (SalesLead::STAGES[$from] ?? $from).' → İlgisiz', meta: ['from' => $from, 'to' => 'lost', 'by' => $user?->id]);
+    }
+
+    /** The sales record of an existing customer (made on first need, so a customer can get a "Yeni fırsat" like anyone). */
+    public function forCustomer(Customer $customer, ?Brand $brand = null): SalesLead
+    {
+        $lead = SalesLead::query()->where('customer_id', $customer->id)->orderByDesc('id')->first();
+        if ($lead !== null) {
+            return $lead;
+        }
+        $brand ??= Brand::query()->where('customer_id', $customer->id)->orderBy('id')->first();
+        $lead = new SalesLead(['source' => 'other', 'stage' => 'won', 'lifecycle' => 'customer', 'customer_id' => $customer->id, 'brand_id' => $brand?->id,
+            'name' => null, 'company' => mb_substr((string) $customer->name, 0, 255), 'city' => $customer->hq_city, 'phone' => $customer->primary_phone,
+            'email' => self::email($customer->primary_email), 'sector_id' => $brand?->sector_id, 'won_at' => $customer->service_started_at ?? $customer->created_at]);
+        $lead->phone_key = self::phoneKey((string) $lead->phone);
+        // The customer's WhatsApp chat (already linked to the customer) is the record's timeline.
+        $lead->conversation_id = WhatsAppConversation::query()->where('customer_id', $customer->id)->orderByDesc('last_message_at')->value('id');
+        $lead->save();
+        $this->event($lead, 'system', 'Mevcut müşteri için kayıt açıldı.');
+        $this->classify($lead);
+
+        return $lead;
+    }
+
+    /** Claude's quick classification (Tür, Sektör) from what the record carries; never overwrites a confirmed kind. */
+    public function classify(SalesLead $lead): void
+    {
+        try {
+            app(LeadClassifier::class)->apply($lead);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

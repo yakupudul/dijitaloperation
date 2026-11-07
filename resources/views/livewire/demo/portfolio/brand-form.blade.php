@@ -21,6 +21,7 @@
                         <div class="flex h-9 items-center rounded-lg bg-gray-50 px-3 text-sm text-gray-700 dark:bg-white/5 dark:text-gray-200">{{ $customerName }}</div>
                     @else
                         <x-ta.form.select wire:model="customer_id" :options="$customerOptions" :placeholder="__('brand-form.choose_customer')" :nullable="false" />
+                        <p class="mt-1 text-xs text-gray-500">Listede yoksa <a href="{{ route('operator.customer.create') }}" wire:navigate class="link-neutral font-medium" data-brand-form-new-customer>yeni müşteri aç</a>, sonra markasını ekle.</p>
                     @endif
                 </x-ta.form.field>
                 <x-ta.form.field :label="__('brand-form.name')" :required="true" :error="$errors->first('name')">

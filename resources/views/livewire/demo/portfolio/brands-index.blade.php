@@ -13,6 +13,7 @@
             @if ($allCount > 0)<p class="page-sub mt-1.5!" data-brands-summary>{{ $summaryLine }}</p>@endif
         </div>
         <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <a href="{{ route('operator.customer.create') }}" wire:navigate class="btn" data-customer-add title="Önce müşteri (ödeyen taraf), sonra markası eklenir">Müşteri ekle</a>
             <x-ta.button size="sm" :href="route('operator.brand.create')" wire:navigate>Marka ekle</x-ta.button>
         </div>
     </header>

@@ -64,6 +64,14 @@ class Customer extends Model
     }
 
     /**
+     * @return HasMany<Agreement, $this>
+     */
+    public function agreements(): HasMany
+    {
+        return $this->hasMany(Agreement::class)->orderByDesc('id');
+    }
+
+    /**
      * Canonical Customer Service Scopes (Prompt 36).
      *
      * @return HasMany<CustomerServiceScope, $this>

@@ -228,7 +228,8 @@ final class PortfolioSignalsTest extends TestCase
             ->assertSee('geciken.test')
             ->assertSeeHtml('data-channel="ga4" data-tone="warn"')
             ->assertSee('Google Analytics: Gecikmiş · 20 gün')
-            ->assertDontSee(route('operator.customer', ['customerId' => $this->alfa->id]), false)->assertDontSee('Müşteri ekle')
+            // Müşteriler left the menu; the list still opens a new customer (yakup 2026-11-07: "marka ekleme var ama müşteri ekleme yok").
+            ->assertDontSee(route('operator.customer', ['customerId' => $this->alfa->id]), false)->assertSee('Müşteri ekle')
             ->set('search', 'geciken.test')
             ->assertSee('Geciken Klinik')
             ->assertDontSee('Sakin Klinik')

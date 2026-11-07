@@ -45,6 +45,8 @@ final class ProspectSiteCheck
                 $scan = null;
             }
             $lead->forceFill(['findings' => $findings, 'site_scan' => $scan, 'findings_status' => 'ready', 'findings_at' => now()])->save();
+            // The scan says what the site is (Dentist, Store…): Tür and Sektör are suggested from it before the text is written.
+            app(SalesLeads::class)->classify($lead);
             app(SalesLeads::class)->event($lead, 'finding', $findings === []
                 ? 'Site kontrolü: belirgin bir sorun bulunmadı.'
                 : 'Site kontrolü: '.count($findings).' bulgu. '.implode(' · ', array_map(fn (array $f): string => $f['title'], $findings)),

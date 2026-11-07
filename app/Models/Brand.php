@@ -79,6 +79,21 @@ class Brand extends Model
     }
 
     /**
+     * The brand's working terms (aylık / dönemlik / tek seferlik), newest first.
+     *
+     * @return HasMany<Agreement, $this>
+     */
+    public function agreements(): HasMany
+    {
+        return $this->hasMany(Agreement::class)->orderByDesc('id');
+    }
+
+    public function activeAgreement(): ?Agreement
+    {
+        return $this->agreements()->where('status', 'active')->first();
+    }
+
+    /**
      * Structured factual Brand Intelligence Context (optional one-to-one).
      *
      * @return HasOne<BrandIntelligenceContext, $this>

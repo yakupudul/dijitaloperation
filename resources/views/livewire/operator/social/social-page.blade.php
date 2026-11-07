@@ -18,9 +18,9 @@
             </div>
         </header>
 
-        <nav class="flex flex-wrap gap-2" aria-label="Sekmeler">
+        <nav class="flex flex-wrap gap-1.5" role="tablist" aria-label="Sekmeler">
             @foreach ($tabs as $key => $label)
-                <button type="button" wire:click="setTab('{{ $key }}')" @class(['btn', 'btn-dark' => $tab === $key]) @if ($tab === $key) aria-current="page" @endif>{{ $label }}</button>
+                <button type="button" wire:click="setTab('{{ $key }}')" @class(['seg', 'seg-active' => $tab === $key]) role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @if ($tab === $key) aria-current="page" @endif>{{ $label }}</button>
             @endforeach
         </nav>
 
@@ -81,7 +81,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="flex flex-wrap gap-2">
                         @foreach (['bekleyen' => 'Cevap bekleyen', 'cevaplanan' => 'Cevaplanan', 'bos' => 'Cevapsız bırakılan', 'hepsi' => 'Hepsi'] as $key => $label)
-                            <button type="button" wire:click="$set('inboxFilter', '{{ $key }}')" @class(['btn', 'btn-dark' => $inboxFilter === $key])>{{ $label }}</button>
+                            <button type="button" wire:click="$set('inboxFilter', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $inboxFilter === $key])>{{ $label }}</button>
                         @endforeach
                     </div>
                     @if ($canWrite)

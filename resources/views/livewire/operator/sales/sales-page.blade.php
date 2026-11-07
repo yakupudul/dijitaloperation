@@ -27,7 +27,7 @@
         <form wire:submit="quickAdd" class="card mt-6 p-4" data-sales-add-form>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label class="block text-xs text-gray-500">Kişi<input wire:model="form.name" type="text" placeholder="Dr. Ayşe Yılmaz" class="mt-1 {{ $input }}" /></label>
-                <label class="block text-xs text-gray-500">Klinik<input wire:model="form.clinic" type="text" placeholder="Klinik adı" class="mt-1 {{ $input }}" /></label>
+                <label class="block text-xs text-gray-500">İşletme<input wire:model="form.company" type="text" placeholder="Klinik, fabrika, mağaza… adı" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Şehir<input wire:model="form.city" type="text" placeholder="Manisa" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Telefon<input wire:model="form.phone" type="tel" placeholder="0532 000 00 00" class="mt-1 {{ $input }}" /></label>
                 <label class="block text-xs text-gray-500">Site<input wire:model="form.website" type="text" placeholder="klinik.com" class="mt-1 {{ $input }}" /></label>
@@ -159,7 +159,7 @@
             </div>
 
             <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara: isim, klinik, şehir, telefon, not…" class="{{ str_replace('w-full', 'w-full sm:w-80', $input) }}" aria-label="Aday ara" />
+                <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara: isim, işletme, şehir, telefon, not…" class="{{ str_replace('w-full', 'w-full sm:w-80', $input) }}" aria-label="Aday ara" />
                 <select wire:model.live="sort" class="{{ str_replace('w-full', 'w-full sm:w-56', $input) }}" aria-label="Sırala">
                     @foreach (SalesPage::SORTS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
                 </select>
@@ -174,6 +174,67 @@
                     <a href="{{ route('operator.whatsapp', ['tab' => 'setup']) }}" wire:navigate class="link-neutral font-medium">Telefon rehberini (.vcf) bir kez yükle</a>, eşleşen numaralara isimler kendiliğinden yazılır.
                 </p>
             @endif
+            @if ($view === 'musteriler' && trim($q) === '')
+                {{-- Müşteriler (2026-11-07): the commercial lens on the served brands — the agreement, this month's tick,
+                     what is late, the open opportunity. Operations stay on Portföy › Markalar; nothing is edited twice. --}}
+                @if ($customerStrip !== null)
+                    <div class="hero-panel mt-3 grid-cols-2 lg:grid-cols-4" data-sales-customer-strip>
+                        <div class="hero-tile hero-tile-accent"><span class="hero-label">Aylık gelir</span><span class="hero-value">{{ $n($customerStrip['mrr']) }} ₺</span><span class="mt-2 text-xs opacity-75">{{ $n(count($customerRows)) }} marka</span></div>
+                        <div class="hero-tile"><span class="hero-label">Teklifte</span><span class="hero-value">{{ $n($customerStrip['offers']) }} ₺</span><span class="mt-2 text-xs text-white/60">aylık, karar bekliyor</span></div>
+                        <div class="hero-tile"><span class="hero-label">Bu ay kazanılan</span><span class="hero-value">{{ $n($customerStrip['won_month']) }} ₺</span><span class="mt-2 text-xs text-white/60">kazanılan fırsatlar</span></div>
+                        <div class="hero-tile" data-sales-overdue-tile><span class="hero-label">Gecikmiş tahsilat</span><span class="hero-value">{{ $customerStrip['overdue'] > 0 ? $n($customerStrip['overdue_sum']).' ₺' : '—' }}</span><span class="mt-2 text-xs text-white/60">{{ $customerStrip['overdue'] > 0 ? $customerStrip['overdue'].' ay gecikmiş' : 'geciken ödeme yok' }}</span></div>
+                    </div>
+                @endif
+                <div class="card mt-3 overflow-visible" data-sales-customers>
+                    <div class="hidden grid-cols-[minmax(0,2fr)_7rem_minmax(0,1.6fr)_6rem_minmax(0,1.4fr)_minmax(0,1.4fr)_7rem] gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid dark:border-gray-800">
+                        <span>Müşteri</span><span>Tür</span><span>Anlaşma</span><span>Bu ay</span><span>Risk</span><span>Açık fırsat</span><span></span>
+                    </div>
+                    <div class="divide-y divide-gray-200 dark:divide-gray-800">
+                        @forelse ($customerRows as $row)
+                            @php $a = $row['agreement']; $pm = $row['this_month']; @endphp
+                            <div wire:key="customer-{{ $row['brand']->id }}" class="grid grid-cols-1 gap-x-3 gap-y-1.5 px-4 py-3 lg:grid-cols-[minmax(0,2fr)_7rem_minmax(0,1.6fr)_6rem_minmax(0,1.4fr)_minmax(0,1.4fr)_7rem] lg:items-center lg:py-2.5" data-sales-customer="{{ $row['brand']->id }}">
+                                <div class="min-w-0">
+                                    <a href="{{ route('operator.brand', ['brand' => $row['brand']->id]) }}" wire:navigate class="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">{{ $row['brand']->name }}</a>
+                                    @if ($row['customer'] && $row['customer']->name !== $row['brand']->name)<p class="truncate text-[13px] text-gray-500">{{ $row['customer']->name }}</p>@endif
+                                    @if ($row['lead'])<a href="{{ route('operator.sales.lead', ['lead' => $row['lead']->id]) }}" wire:navigate class="text-[12px] text-gray-400 hover:underline">Satış kaydı</a>@endif
+                                </div>
+                                <div class="text-[13px] text-gray-600 dark:text-gray-300"><span class="lg:hidden">Tür: </span>{{ $row['kind'] ?? '–' }}</div>
+                                <div class="text-[13px]" data-sales-customer-agreement>
+                                    @if ($a === null)
+                                        <a href="{{ route('operator.brand', ['brand' => $row['brand']->id, 'tab' => 'ayarlar']) }}" wire:navigate class="font-semibold text-error-600 hover:underline">Anlaşma girilmedi</a>
+                                    @else
+                                        <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $a->feeLabel() }}</span>
+                                        <span class="block text-[11px] text-gray-500">{{ $a->kindLabel() }}{{ $a->kind !== 'one_time' ? ' · gün '.$a->due_day : '' }}{{ ! $a->isActive() ? ' · '.mb_strtolower($a->statusLabel()) : '' }}</span>
+                                    @endif
+                                </div>
+                                <div class="text-[13px]" data-sales-customer-month>
+                                    @if ($pm !== null)
+                                        <button type="button" wire:click="togglePaid({{ $pm->id }})" @class(['seg h-7 px-2.5 text-[12px]', 'seg-active' => $pm->isPaid(), 'border-error-300 text-error-700' => $pm->isOverdue()]) title="{{ $pm->periodLabel() }}">{{ $pm->isPaid() ? '✓ ödendi' : ($pm->isOverdue() ? '! '.$pm->daysLate().' gün' : '○ vade '.$pm->due_on?->format('d.m')) }}</button>
+                                    @else
+                                        <span class="text-gray-400">–</span>
+                                    @endif
+                                </div>
+                                <div class="flex flex-wrap gap-1 text-[12px]" data-sales-customer-risk>
+                                    @forelse ($row['risks'] as $risk)<span class="chip chip-down">{{ $risk['label'] }}</span>@empty<span class="text-gray-400">–</span>@endforelse
+                                </div>
+                                <div class="min-w-0 text-[13px]">
+                                    @if ($row['opportunity'])
+                                        <a href="{{ route('operator.sales.lead', ['lead' => $row['lead']->id]) }}" wire:navigate class="block truncate font-medium text-gray-900 hover:underline dark:text-white">{{ $row['opportunity']->title() }}</a>
+                                        <span class="text-[11px] text-gray-500">{{ $row['opportunity']->amountLabel() }}</span>
+                                    @else
+                                        <span class="text-gray-400">–</span>
+                                    @endif
+                                </div>
+                                <div class="flex items-center gap-1 lg:justify-end">
+                                    <button type="button" wire:click="opportunityFor({{ $row['brand']->id }})" class="btn h-7 px-2.5 text-[12px]" data-sales-customer-opportunity>Yeni fırsat</button>
+                                </div>
+                            </div>
+                        @empty
+                            <x-ta.empty-state title="Hizmet verilen marka yok" message="Bir aday kazanıldığında müşteri ve markası burada görünür; mevcut müşteriler Markalar'dan eklenir." />
+                        @endforelse
+                    </div>
+                </div>
+            @else
             <div class="card mt-3 overflow-visible">
                 <div class="hidden grid-cols-[minmax(0,2.2fr)_8.5rem_6.5rem_minmax(0,1.8fr)_minmax(0,1.4fr)_8rem_7.5rem_6.5rem] gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid dark:border-gray-800">
                     <span>Aday</span><span>Durum</span><span>Top kimde</span><span>Son temas</span><span>Sonraki adım</span><span>Teklif</span><span>Kaynak</span><span></span>
@@ -286,6 +347,7 @@
                     @endforelse
                 </div>
             </div>
+            @endif
         </section>
     @elseif ($tab === 'istekler')
         <section class="mt-5" data-sales-requests>

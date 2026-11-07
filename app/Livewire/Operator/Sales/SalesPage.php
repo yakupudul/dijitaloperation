@@ -2,14 +2,18 @@
 
 namespace App\Livewire\Operator\Sales;
 
+use App\Models\Agreement;
+use App\Models\AgreementPayment;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
+use App\Models\SalesOpportunity;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
+use App\Services\Sales\Agreements;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
@@ -49,7 +53,7 @@ final class SalesPage extends Component
     /** Adaylar: the ready views (yakup 2026-11-07), each answering one question ("kime cevap borçluyum?"…). */
     public const array VIEWS = [
         'acik' => 'Açık', 'borclu' => 'Cevap borçlu olduklarım', 'bugun' => 'Bugün / gecikmiş', 'adimsiz' => 'Adımsız',
-        'soguyan' => 'Soğuyanlar', 'teklif' => 'Teklif verilenler', 'kazanilan' => 'Kazanılan', 'kaybedilen' => 'Kaybedilen',
+        'soguyan' => 'Soğuyanlar', 'teklif' => 'Teklif verilenler', 'musteriler' => 'Müşteriler', 'kaybedilen' => 'Kaybedilen',
     ];
 
     public const array SORTS = ['oncelik' => 'Önce yapılacaklar', 'son_temas' => 'Son temas', 'teklif' => 'Teklif tutarı', 'bekleyen' => 'Aşamada en uzun bekleyen'];
@@ -87,8 +91,8 @@ final class SalesPage extends Component
 
     public bool $adding = false;
 
-    /** @var array{name: string, clinic: string, city: string, phone: string, website: string, source: string, note: string} */
-    public array $form = ['name' => '', 'clinic' => '', 'city' => '', 'phone' => '', 'website' => '', 'source' => 'phone', 'note' => ''];
+    /** @var array{name: string, company: string, city: string, phone: string, website: string, source: string, note: string} */
+    public array $form = ['name' => '', 'company' => '', 'city' => '', 'phone' => '', 'website' => '', 'source' => 'phone', 'note' => ''];
 
     public string $message = '';
 
@@ -125,7 +129,7 @@ final class SalesPage extends Component
 
             return;
         }
-        $this->form = ['name' => '', 'clinic' => '', 'city' => '', 'phone' => '', 'website' => '', 'source' => 'phone', 'note' => ''];
+        $this->form = ['name' => '', 'company' => '', 'city' => '', 'phone' => '', 'website' => '', 'source' => 'phone', 'note' => ''];
         $this->adding = false;
         $this->redirectRoute('operator.sales.lead', ['lead' => $lead->id], navigate: true);
     }
@@ -274,6 +278,60 @@ final class SalesPage extends Component
         $this->say($lead->title().' kapandı ('.SalesLead::LOST_REASONS[$this->closeReason].').');
     }
 
+    /**
+     * Müşteriler: one row per served brand with its commercial state (the agreement, this month's tick, what is late,
+     * the open opportunity), and the four numbers above them.
+     *
+     * @return array{rows: list<array<string, mixed>>, strip: array{mrr: int, offers: int, won_month: int, overdue: int, overdue_sum: int}}
+     */
+    private function customerTable(Agreements $agreements): array
+    {
+        $brands = Brand::query()->with('customer:id,name,status,monthly_fee')->operational()->orderBy('name')->get();
+        $leads = SalesLead::query()->whereIn('brand_id', $brands->pluck('id'))->orderByDesc('id')->get()->keyBy('brand_id');
+        $openOpps = SalesOpportunity::query()->where('status', 'open')->whereIn('lead_id', $leads->pluck('id'))->get()->keyBy('lead_id');
+        $rows = [];
+        $overdueSum = 0;
+        $overdueCount = 0;
+        foreach ($brands as $brand) {
+            $summary = $agreements->summary($brand);
+            $lead = $leads[$brand->id] ?? null;
+            $thisMonth = $summary['payments']->firstWhere('period', now('Europe/Istanbul')->format('Y-m'));
+            $late = $summary['payments']->filter(fn ($p): bool => $p->isOverdue());
+            $overdueSum += (int) $late->sum('amount');
+            $overdueCount += $late->count();
+            $rows[] = [
+                'brand' => $brand, 'customer' => $brand->customer, 'lead' => $lead, 'kind' => $lead?->kindLabel(), 'agreement' => $summary['agreement'],
+                'this_month' => $thisMonth, 'late' => $late->count(), 'late_days' => $summary['late_days'], 'next_due' => $summary['next_due'], 'risks' => $summary['risks'],
+                'opportunity' => $lead !== null ? ($openOpps[$lead->id] ?? null) : null,
+            ];
+        }
+        usort($rows, fn (array $a, array $b): int => [$b['late'], (int) ($b['agreement']?->monthlyValue() ?? 0)] <=> [$a['late'], (int) ($a['agreement']?->monthlyValue() ?? 0)]);
+        $offers = SalesLead::query()->open()->relevant()->where(fn ($q) => $q->whereNotNull('offer_amount')->orWhereIn('stage', ['priced', 'thinking']));
+
+        return ['rows' => $rows, 'strip' => [
+            'mrr' => $agreements->mrr(), 'offers' => (int) (clone $offers)->sum('offer_amount'), 'won_month' => $agreements->wonThisMonth(),
+            'overdue' => $overdueCount, 'overdue_sum' => $overdueSum,
+        ]];
+    }
+
+    /** "Yeni fırsat" on a customer row: the customer's sales record (made on first need) opens with the form. */
+    public function opportunityFor(int $brandId, SalesLeads $leads): void
+    {
+        $brand = Brand::query()->with('customer')->findOrFail($brandId);
+        abort_if($brand->customer === null, 404);
+        $lead = $leads->forCustomer($brand->customer, $brand);
+        session()->flash('sales_notice', $brand->name.': fırsatı "Fırsatlar" kartından aç.');
+        $this->redirectRoute('operator.sales.lead', ['lead' => $lead->id], navigate: true);
+    }
+
+    /** The month's tick from the customer row. */
+    public function togglePaid(int $paymentId, Agreements $agreements): void
+    {
+        $payment = AgreementPayment::query()->findOrFail($paymentId);
+        $payment->isPaid() ? $agreements->unpay($payment) : $agreements->markPaid($payment);
+        $this->say($payment->agreement?->brand?->name.' · '.$payment->periodLabel().': '.($payment->fresh()->isPaid() ? 'ödendi' : 'ödenmedi').'.');
+    }
+
     /** "Konuşmaları tara": every WhatsApp chat without a card gets one. */
     public function scan(SalesLeads $leads): void
     {
@@ -328,19 +386,23 @@ final class SalesPage extends Component
     {
         $this->updatedTab();
         $due = $leads->due()->get();
-        $open = SalesLead::query()->open();
+        $open = SalesLead::query()->open()->relevant();
         $stageCounts = (clone $open)->get(['stage'])->countBy('stage')->all();
         $list = collect();
         $viewCounts = [];
         $touches = [];
         $offerTotal = 0;
+        $customers = ['rows' => [], 'strip' => null];
         if ($this->tab === 'adaylar') {
             [$list, $viewCounts, $offerTotal] = $this->leadList();
             $touches = $this->lastTouches($list);
+            if ($this->view === 'musteriler' && trim($this->q) === '') {
+                $customers = $this->customerTable(app(Agreements::class));
+            }
         }
         $reportMonth = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->month) === 1 ? CarbonImmutable::parse($this->month.'-01', 'Europe/Istanbul') : CarbonImmutable::now('Europe/Istanbul')->startOfMonth();
         $requests = $this->tab === 'istekler' ? $leads->customerRequests() : collect();
-        $customers = $requests->isNotEmpty() ? Customer::query()->whereKey($requests->pluck('customer_id')->unique())->get(['id', 'name', 'monthly_fee'])->keyBy('id') : collect();
+        $requestCustomers = $requests->isNotEmpty() ? Customer::query()->whereKey($requests->pluck('customer_id')->unique())->get(['id', 'name', 'monthly_fee'])->keyBy('id') : collect();
         $previews = [];
         if ($requests->isNotEmpty()) {
             $latest = WhatsAppMessage::query()->whereIn('conversation_id', $requests->pluck('id'))->where('direction', 'incoming')->selectRaw('max(id) as id')->groupBy('conversation_id')->pluck('id');
@@ -360,7 +422,9 @@ final class SalesPage extends Component
             'offerTotal' => $offerTotal,
             'dialogCard' => $this->dialog !== '' ? SalesLead::query()->find($this->dialogLead) : null,
             'requests' => $requests,
-            'requestCustomers' => $customers,
+            'requestCustomers' => $requestCustomers,
+            'customerRows' => $customers['rows'],
+            'customerStrip' => $customers['strip'],
             'previews' => $previews,
             'results' => $this->tab === 'sonuclar' ? $leads->results() : [],
             'money' => $this->tab === 'sonuclar' ? $this->money() : null,
@@ -372,7 +436,7 @@ final class SalesPage extends Component
             'formSiteId' => $this->tab === 'sonuclar' ? LeadIntake::siteId() : null,
             'formSites' => $this->tab === 'sonuclar' && auth()->user()?->hasRole(Roles::ADMIN) ? $this->formSites() : [],
             'lastForm' => $this->tab === 'sonuclar' ? SalesLead::query()->where('source', 'form')->max('created_at') : null,
-            'wonThisMonth' => SalesLead::query()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
+            'wonThisMonth' => SalesLead::query()->relevant()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
         ]);
     }
 
@@ -389,26 +453,28 @@ final class SalesPage extends Component
         if (! isset(self::SORTS[$this->sort])) {
             $this->sort = 'oncelik';
         }
-        $open = SalesLead::query()->open()->get();
+        $open = SalesLead::query()->open()->relevant()->get();
         $tests = $this->viewTests();
         $counts = [];
         foreach ($tests as $key => $test) {
             $counts[$key] = $open->filter($test)->count();
         }
         $counts['isimsiz'] = $open->filter(fn (SalesLead $l): bool => blank($l->name))->count();
-        $counts['kazanilan'] = SalesLead::query()->where('stage', 'won')->count();
-        $counts['kaybedilen'] = SalesLead::query()->where('stage', 'lost')->count();
+        $counts['musteriler'] = Brand::query()->operational()->count();
+        $counts['kaybedilen'] = SalesLead::query()->relevant()->where('stage', 'lost')->count();
         $offerTotal = (int) $open->filter($tests['teklif'])->sum('offer_amount');
 
         $term = trim($this->q);
         if ($term !== '') {
             // A search looks at every card, open or closed, and in its note and e-mail too.
             $like = '%'.mb_substr($term, 0, 80).'%';
-            $rows = SalesLead::query()->where(fn ($n) => $n->where('name', 'like', $like)->orWhere('clinic', 'like', $like)->orWhere('city', 'like', $like)
+            $rows = SalesLead::query()->where(fn ($n) => $n->where('name', 'like', $like)->orWhere('company', 'like', $like)->orWhere('city', 'like', $like)
                 ->orWhere('phone', 'like', $like)->orWhere('website_host', 'like', $like)->orWhere('email', 'like', $like)->orWhere('notes', 'like', $like)
                 ->orWhere('branch', 'like', $like))->orderByDesc('updated_at')->limit(300)->get();
-        } elseif ($this->view === 'kazanilan' || $this->view === 'kaybedilen') {
-            $rows = SalesLead::query()->where('stage', $this->view === 'kazanilan' ? 'won' : 'lost')->orderByDesc($this->view === 'kazanilan' ? 'won_at' : 'lost_at')->limit(300)->get();
+        } elseif ($this->view === 'musteriler') {
+            $rows = collect(); // the customer table is built from brands and agreements, not from the cards
+        } elseif ($this->view === 'kaybedilen') {
+            $rows = SalesLead::query()->relevant()->where('stage', 'lost')->orderByDesc('lost_at')->limit(300)->get();
         } else {
             $rows = $open->filter($tests[$this->view]);
         }
@@ -504,15 +570,17 @@ final class SalesPage extends Component
     private function money(): array
     {
         $active = Customer::query()->where('status', 'active');
-        $offers = SalesLead::query()->open()->where(fn ($q) => $q->whereNotNull('offer_amount')->orWhereIn('stage', ['priced', 'thinking']));
+        $offers = SalesLead::query()->open()->relevant()->where(fn ($q) => $q->whereNotNull('offer_amount')->orWhereIn('stage', ['priced', 'thinking']));
+        // The agreements are the truth once entered; until then the customers' monthly fee column.
+        $mrr = Agreement::query()->exists() ? (float) app(Agreements::class)->mrr() : (float) (clone $active)->sum('monthly_fee');
 
         return [
-            'mrr' => (float) (clone $active)->sum('monthly_fee'),
+            'mrr' => $mrr,
             'customers' => (clone $active)->count(),
             'priced' => (clone $offers)->count(),
             'offer_total' => (int) (clone $offers)->sum('offer_amount'),
-            'won_month' => SalesLead::query()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
-            'lost_month' => SalesLead::query()->where('stage', 'lost')->where('lost_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
+            'won_month' => SalesLead::query()->relevant()->where('stage', 'won')->where('won_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
+            'lost_month' => SalesLead::query()->relevant()->where('stage', 'lost')->where('lost_at', '>=', now('Europe/Istanbul')->startOfMonth())->count(),
         ];
     }
 

@@ -87,7 +87,7 @@ final class LeadIntake
         ], fn (string $v): bool => $v !== '');
         $message = $field('message', 4000);
         $data = [
-            'name' => $field('name'), 'clinic' => $field('clinic'), 'city' => $field('city', 120), 'branch' => $field('branch', 120),
+            'name' => $field('name'), 'company' => $field('company') !== '' ? $field('company') : $field('clinic'), 'city' => $field('city', 120), 'branch' => $field('branch', 120),
             'phone' => $field('phone', 40), 'email' => $field('email'), 'website' => $field('website'),
             'heard_from' => $this->heardFrom($field('heard_from', 60), $origin), 'source' => $source,
         ];

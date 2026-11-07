@@ -68,7 +68,7 @@ class SalesLeadsTableTest extends TestCase
     public function test_the_list_shows_whose_turn_the_last_talk_and_the_views_count(): void
     {
         $leads = app(SalesLeads::class);
-        $waiting = $leads->quickAdd(['name' => 'Dr. Yaşar', 'clinic' => 'Yaşar Klinik', 'phone' => '0533 500 03 25'], $this->admin);
+        $waiting = $leads->quickAdd(['name' => 'Dr. Yaşar', 'company' => 'Yaşar Klinik', 'phone' => '0533 500 03 25'], $this->admin);
         $waiting->forceFill(['last_contact_at' => now()->subDays(3), 'last_incoming_at' => now()->subDay(), 'notes' => "Ajanslardan yanmış\nikinci satır"])->save();
         $quiet = $leads->quickAdd(['name' => 'Dt. Gözde', 'phone' => '0534 000 11 22'], $this->admin);
         $quiet->forceFill(['last_contact_at' => now()->subDays(20), 'next_step_at' => null, 'next_step' => null, 'created_at' => now()->subDays(30)])->save();

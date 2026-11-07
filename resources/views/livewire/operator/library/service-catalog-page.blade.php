@@ -166,6 +166,45 @@
         </div>
     @endif
 
+    {{-- Kayıt türleri (2026-11-07): what kind of business a sales record is. The record is generic; the Tür picks the
+         message tone, whether moximu.com's clinic prices apply, and the health rules. Claude edits this list too (MCP). --}}
+    <section data-lead-kinds>
+        <div class="section-head">
+            <h2 class="section-title" title="Satış kayıtlarının türleri. Tür; mesajdaki hitabı, fiyat listesinin geçerli olup olmadığını ve sağlık kurallarını belirler. Claude analizlerinden sonra bu listeye ekleyip çıkarabilir.">Kayıt türleri <span class="section-count">{{ count($kinds) }}</span></h2>
+            <button type="button" wire:click="$toggle('kindsOpen')" class="btn ml-auto" data-lead-kinds-toggle>{{ $kindsOpen ? 'Kapat' : 'Tür ekle / düzenle' }}</button>
+        </div>
+        @if ($kindsOpen)
+            <form wire:submit="saveKind" class="card mb-3 grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5" data-lead-kind-form>
+                <label class="block"><span class="{{ $label }}">Ad</span><input wire:model="kind.label" type="text" maxlength="60" placeholder="Örn. Otel" class="{{ $input }}" />@error('label')<span class="text-xs text-error-600">{{ $message }}</span>@enderror</label>
+                <label class="block"><span class="{{ $label }}">Hitap</span><select wire:model="kind.address" class="{{ $input }}">@foreach (\App\Support\Sales\LeadKinds::ADDRESS as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label>
+                <label class="block"><span class="{{ $label }}">Fiyat listesi</span><select wire:model="kind.prices" class="{{ $input }}">@foreach (\App\Support\Sales\LeadKinds::PRICES as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label>
+                <label class="block"><span class="{{ $label }}">Eşleşen kelimeler</span><input wire:model="kind.hint" type="text" maxlength="300" placeholder="otel, hotel, pansiyon" class="{{ $input }}" /></label>
+                <div class="flex items-end gap-2">
+                    <label class="inline-flex h-9 items-center gap-1.5 text-[13px]"><input type="checkbox" wire:model="kind.health" class="rounded border-gray-300" /> Sağlık kuralları</label>
+                    <button type="submit" class="btn-primary h-9!" wire:loading.attr="disabled" data-lead-kind-save>{{ $kind['key'] !== '' ? 'Kaydet' : 'Ekle' }}</button>
+                </div>
+                @error('key')<p class="text-xs text-error-600 lg:col-span-5">{{ $message }}</p>@enderror
+                @error('address')<p class="text-xs text-error-600 lg:col-span-5">{{ $message }}</p>@enderror
+            </form>
+        @endif
+        <ul class="card">
+            @foreach ($kinds as $key => $k)
+                <li wire:key="kind-{{ $key }}" class="card-row" data-lead-kind="{{ $key }}">
+                    <div class="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-4">
+                        <p class="text-sm font-medium text-gray-900 sm:w-44 sm:shrink-0 dark:text-white">{{ $k['label'] }} <span class="text-[12px] font-normal text-gray-400">{{ (int) ($kindCounts[$key] ?? 0) }} kayıt</span></p>
+                        <p class="mt-0.5 text-[13px] text-gray-500 sm:mt-0 dark:text-gray-400">{{ \App\Support\Sales\LeadKinds::ADDRESS[$k['address']] ?? $k['address'] }} · {{ \App\Support\Sales\LeadKinds::PRICES[$k['prices']] ?? $k['prices'] }}{{ $k['health'] ? ' · sağlık kuralları' : '' }}{{ ($k['by'] ?? '') === 'claude' ? ' · Claude ekledi' : '' }}{{ filled($k['note'] ?? null) ? ' · '.$k['note'] : '' }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" wire:click="editKind('{{ $key }}')" class="btn h-7! px-2.5! text-xs!">Düzenle</button>
+                        @if ($key !== \App\Support\Sales\LeadKinds::FALLBACK)
+                            <button type="button" wire:click="removeKind('{{ $key }}')" wire:confirm="Bu tür silinecek; kayıtları &quot;Diğer&quot; olur. Devam edilsin mi?" class="btn-quiet h-7! px-2! text-xs! hover:text-error-700">Sil</button>
+                        @endif
+                    </div>
+                </li>
+            @endforeach
+        </ul>
+    </section>
+
     @if ($categoriesOpen)
         <div x-data @keydown.escape.window="$wire.set('categoriesOpen', false)" class="fixed inset-0 z-[100000] flex items-center justify-center p-4">
             <button type="button" wire:click="$set('categoriesOpen', false)" aria-label="Sektör penceresini kapat" class="absolute inset-0 bg-gray-950/40"></button>

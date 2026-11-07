@@ -15,6 +15,7 @@ use App\Mcp\Tools\GetPage;
 use App\Mcp\Tools\GetTask;
 use App\Mcp\Tools\GetTasks;
 use App\Mcp\Tools\InspectSite;
+use App\Mcp\Tools\LeadKindsTool;
 use App\Mcp\Tools\ListBrands;
 use App\Mcp\Tools\ListChanges;
 use App\Mcp\Tools\ListNotes;
@@ -108,6 +109,11 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   `save-strategy strategy_id=…` with the new body: it becomes a new version. Give the operator the link it returns.
 - Status stays `draft` until the operator says it is approved or running.
 
+## Sales records (Satış)
+- Every prospect and customer is a generic record with a Tür (kind) and a Sektör; never treat the base as clinics only.
+  `lead-kinds action=list` shows the kinds and how many records carry each. After an analysis of the real records
+  (a kind missing, one never used) change the list with `lead-kinds add|update|remove` and say why in `note`.
+
 ## Content
 - `content-queue` lists approved titles without a draft; `request-article` starts writing one (the task then comes
   through the queue). Only operator-approved titles are written. Sending a draft to WordPress is always the
@@ -179,6 +185,7 @@ class MoxdopServer extends Server
         MetaPerformance::class,
         ChannelData::class,
         SaveNote::class,
+        LeadKindsTool::class,
         SocialPosts::class,
         SaveBrandFact::class,
         ListNotes::class,

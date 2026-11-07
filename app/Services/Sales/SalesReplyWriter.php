@@ -8,6 +8,7 @@ use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Support\Sales\LeadKinds;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -164,13 +165,27 @@ final class SalesReplyWriter
             ->filter(fn (SalesLeadEvent $e): bool => (bool) data_get($e->meta, 'edited') && mb_strlen((string) $e->body) > 40)
             ->take(5)->map(fn (SalesLeadEvent $e): string => mb_substr((string) $e->body, 0, 2500))->values()->all();
 
+        if ($lead->kind === null) {
+            app(SalesLeads::class)->classify($lead);
+        }
+        $kind = LeadKinds::get($lead->kind);
+
         return [
             'current_time' => $now->isoFormat('YYYY-MM-DD HH:mm, dddd'),
             'lead' => array_filter([
-                'name' => $lead->name, 'clinic' => $lead->clinic, 'city' => $lead->city, 'branch' => $lead->branch,
+                'name' => $lead->name, 'company' => $lead->company, 'city' => $lead->city, 'branch' => $lead->branch,
+                'kind' => $kind['label'] ?? 'bilinmiyor', 'sector' => $lead->sectorCategory?->name, 'lifecycle' => $lead->lifecycleLabel(),
                 'website' => $lead->website, 'source' => $lead->sourceLabel(), 'stage' => $lead->stageLabel(),
                 'card_notes' => $lead->notes, 'opened' => $lead->created_at?->timezone('Europe/Istanbul')->format('d.m.Y'),
             ], fn ($v): bool => filled($v)),
+            // What the Tür decides: how to address them, whether moximu.com's clinic prices may be written, health rules.
+            'kind_rules' => [
+                'known' => $kind !== null,
+                'address' => LeadKinds::address($lead->kind) === 'hocam' ? 'X Hocam' : 'X Bey / X Hanım',
+                'prices' => LeadKinds::pricesApply($lead->kind) ? 'moximu.com klinik fiyat listesi yazılabilir' : 'FİYAT YAZMA: [fiyat] bırak, note içinde yakup\'a fiyatı kendisinin yazacağını söyle',
+                'health_rules' => LeadKinds::isHealth($lead->kind),
+            ],
+            'open_opportunity' => ($open = $lead->openOpportunity()) !== null ? $open->title().' · '.$open->amountLabel() : null,
             'operator_notes' => $notes,
             'conversation' => array_slice($conversation, -80),
             'conversation_truncated' => count($conversation) > 80,

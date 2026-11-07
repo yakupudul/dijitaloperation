@@ -100,6 +100,8 @@
         <div class="space-y-10" data-brand-settings>
             @include('livewire.operator.portfolio.partials.brand-info')
 
+            <livewire:operator.portfolio.brand-agreement-card :brand-id="$brandModel->id" :key="'brand-agreement-'.$brandModel->id" />
+
             <section id="dosyalar" data-brand-files>
                 <div class="section-head">
                     <h2 class="section-title" title="Sözleşme, teklif, logo, marka kılavuzu gibi bu markaya ait dosyalar.">Dosyalar <span class="section-count">{{ count($brandFiles) }}</span></h2>

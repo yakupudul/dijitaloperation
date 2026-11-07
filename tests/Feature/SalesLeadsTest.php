@@ -67,7 +67,7 @@ class SalesLeadsTest extends TestCase
     {
         Http::fake(['https://ornekklinik.com' => Http::response($this->siteHtml()), '*' => Http::response('', 404)]);
 
-        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Dr. Ayşe Yılmaz', 'clinic' => 'Örnek Klinik', 'city' => 'İzmir', 'phone' => '0532 111 22 33', 'website' => 'ornekklinik.com', 'source' => 'phone', 'note' => 'Fuarda tanıştık'], $this->admin);
+        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Dr. Ayşe Yılmaz', 'company' => 'Örnek Klinik', 'city' => 'İzmir', 'phone' => '0532 111 22 33', 'website' => 'ornekklinik.com', 'source' => 'phone', 'note' => 'Fuarda tanıştık'], $this->admin);
 
         $lead = $lead->fresh();
         $this->assertSame('5321112233', $lead->phone_key);
@@ -91,7 +91,7 @@ class SalesLeadsTest extends TestCase
         $this->assertNotNull($lead->site_scan);
 
         // Same phone again: no second card.
-        app(SalesLeads::class)->quickAdd(['phone' => '+90 532 111 22 33', 'clinic' => 'Örnek Klinik'], $this->admin);
+        app(SalesLeads::class)->quickAdd(['phone' => '+90 532 111 22 33', 'company' => 'Örnek Klinik'], $this->admin);
         $this->assertSame(1, SalesLead::query()->count());
     }
 
@@ -409,7 +409,7 @@ class SalesLeadsTest extends TestCase
         Http::fake();
         $this->actingAs($this->admin);
         $leads = app(SalesLeads::class);
-        $lead = $leads->quickAdd(['name' => 'Gözde Zeyrek', 'clinic' => 'Zeyrek Diş', 'city' => 'Ankara', 'phone' => '0534 000 11 22'], $this->admin);
+        $lead = $leads->quickAdd(['name' => 'Gözde Zeyrek', 'company' => 'Zeyrek Diş', 'city' => 'Ankara', 'phone' => '0534 000 11 22'], $this->admin);
 
         $this->get('/satis')->assertOk()->assertSee('Gözde Zeyrek')->assertSee('Claude yazsın');
         $this->get('/satis?sekme=adaylar')->assertOk()->assertSee('Zeyrek Diş');

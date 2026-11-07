@@ -73,6 +73,7 @@ class AgencySetting extends Model
             'ai_openai_admin_key' => 'encrypted',
             'ai_workers' => 'array',
             'ai_openai_audit' => 'array',
+            'lead_kinds' => 'array',
         ];
     }
 }

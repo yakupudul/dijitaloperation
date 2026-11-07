@@ -36,15 +36,15 @@ final class SalesMonthReport
         $to = $from->endOfMonth();
         $utc = [$from->utc(), $to->utc()];
 
-        $opened = SalesLead::query()->whereBetween('created_at', $utc)->get(['id', 'source', 'heard_from', 'stage', 'peak_stage', 'created_at']);
+        $opened = SalesLead::query()->relevant()->whereBetween('created_at', $utc)->get(['id', 'source', 'heard_from', 'stage', 'peak_stage', 'created_at']);
         $funnel = [];
         foreach (array_keys(self::FUNNEL) as $step) {
             $funnel[$step] = $opened->filter(fn (SalesLead $lead): bool => self::reached($lead, $step))->count();
         }
 
-        $won = SalesLead::query()->whereBetween('won_at', $utc)->get(['id', 'name', 'clinic', 'website_host', 'phone', 'customer_id', 'created_at', 'won_at']);
+        $won = SalesLead::query()->whereBetween('won_at', $utc)->get(['id', 'name', 'company', 'website_host', 'phone', 'customer_id', 'created_at', 'won_at']);
         $fees = Customer::query()->whereIn('id', $won->pluck('customer_id')->filter()->all())->pluck('monthly_fee', 'id');
-        $lost = SalesLead::query()->whereBetween('lost_at', $utc)->get(['id', 'lost_reason']);
+        $lost = SalesLead::query()->relevant()->whereBetween('lost_at', $utc)->get(['id', 'lost_reason']);
         $meetings = Reminder::query()->where('kind', 'meeting')->whereNotNull('sales_lead_id')->whereBetween('remind_at', $utc)->get(['id', 'remind_at', 'outcome', 'done_at']);
 
         // How fast the first message went out after a card was opened (messages imported from before the card are skipped).
@@ -88,7 +88,7 @@ final class SalesMonthReport
      */
     public function patterns(): array
     {
-        $closed = SalesLead::query()->whereIn('stage', ['won', 'lost'])->get(['id', 'stage', 'source', 'heard_from', 'branch', 'peak_stage', 'lost_reason']);
+        $closed = SalesLead::query()->relevant()->whereIn('stage', ['won', 'lost'])->get(['id', 'stage', 'source', 'heard_from', 'branch', 'peak_stage', 'lost_reason']);
         $wins = $closed->where('stage', 'won')->count();
         $group = function (string $field, array $labels) use ($closed): array {
             return $closed->groupBy(fn (SalesLead $l): string => filled($l->{$field}) ? (string) $l->{$field} : '')

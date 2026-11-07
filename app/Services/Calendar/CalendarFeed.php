@@ -167,7 +167,7 @@ final class CalendarFeed
      */
     public function own(CarbonImmutable $from, CarbonImmutable $to, int $userId): array
     {
-        $rows = Reminder::query()->with(['brand:id,name', 'salesLead:id,name,clinic,website_host,phone'])->where('user_id', $userId)
+        $rows = Reminder::query()->with(['brand:id,name', 'salesLead:id,name,company,website_host,phone'])->where('user_id', $userId)
             ->where(fn ($q) => $q->whereBetween('remind_at', [$from->utc(), $to->utc()])
                 ->orWhere(fn ($r) => $r->where('repeat', '!=', 'none')->whereNull('done_at')->where('remind_at', '<=', $to->utc())))
             ->orderBy('remind_at')->get();

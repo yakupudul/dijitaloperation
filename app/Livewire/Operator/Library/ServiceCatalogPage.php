@@ -5,12 +5,14 @@ namespace App\Livewire\Operator\Library;
 use App\Jobs\Queries\RescanQueriesJob;
 use App\Livewire\Concerns\AdminOnly;
 use App\Models\DigitalAsset;
+use App\Models\SalesLead;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Catalog\ServiceKeywordService;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
+use App\Support\Sales\LeadKinds;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -62,6 +64,51 @@ class ServiceCatalogPage extends Component
     public ?int $categoryId = null;
 
     public string $categoryName = '';
+
+    /** Kayıt türleri (Satış): the Tür list of the sales records, edited here and by Claude (MCP lead-kinds). */
+    public bool $kindsOpen = false;
+
+    /** @var array{key: string, label: string, address: string, prices: string, health: bool, hint: string} */
+    public array $kind = ['key' => '', 'label' => '', 'address' => 'bey_hanim', 'prices' => 'none', 'health' => false, 'hint' => ''];
+
+    public function editKind(string $key): void
+    {
+        $current = LeadKinds::get($key);
+        if ($current === null) {
+            return;
+        }
+        $this->kind = ['key' => $key, 'label' => $current['label'], 'address' => $current['address'], 'prices' => $current['prices'], 'health' => (bool) $current['health'], 'hint' => $current['hint']];
+        $this->kindsOpen = true;
+        $this->resetErrorBag();
+    }
+
+    public function saveKind(): void
+    {
+        $this->resetErrorBag();
+        try {
+            LeadKinds::put($this->kind['key'] !== '' ? $this->kind['key'] : $this->kind['label'], [
+                'label' => $this->kind['label'], 'address' => $this->kind['address'], 'prices' => $this->kind['prices'], 'health' => (bool) $this->kind['health'], 'hint' => $this->kind['hint'],
+            ], 'operator');
+        } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
+
+            return;
+        }
+        $this->kind = ['key' => '', 'label' => '', 'address' => 'bey_hanim', 'prices' => 'none', 'health' => false, 'hint' => ''];
+        $this->message = 'Kayıt türü kaydedildi.';
+    }
+
+    public function removeKind(string $key): void
+    {
+        try {
+            $moved = LeadKinds::remove($key);
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+
+            return;
+        }
+        $this->message = 'Tür silindi'.($moved > 0 ? '; '.$moved.' kayıt "Diğer" oldu.' : '.');
+    }
 
     public function updatedSearch(): void
     {
@@ -269,6 +316,8 @@ class ServiceCatalogPage extends Component
             'sectorOptions' => ServiceCategory::options(),
             'categories' => $this->categoriesOpen ? ServiceCategory::query()->orderBy('name')->get() : collect(),
             'editing' => $editing,
+            'kinds' => LeadKinds::all(),
+            'kindCounts' => SalesLead::query()->selectRaw('kind, count(*) as n')->groupBy('kind')->pluck('n', 'kind')->all(),
         ]);
     }
 }

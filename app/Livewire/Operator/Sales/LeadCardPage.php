@@ -2,14 +2,19 @@
 
 namespace App\Livewire\Operator\Sales;
 
+use App\Models\AgreementPayment;
+use App\Models\Brand;
 use App\Models\Reminder;
 use App\Models\SalesLead;
+use App\Models\ServiceCategory;
+use App\Services\Sales\Agreements;
 use App\Services\Sales\ProspectSiteCheck;
 use App\Services\Sales\SalesAnalysisWriter;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
 use App\Support\Roles;
+use App\Support\Sales\LeadKinds;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
@@ -18,8 +23,10 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * Kişi kartı: who they are, where they came from, the stage, the next step, the ready text with "WhatsApp'ta aç",
- * the findings, and the timeline of everything (chat messages, notes, reports, stage changes).
+ * Müşteri kaydı (kişi kartı): who they are (and what kind of business: Tür + Sektör), where they came from, the stage,
+ * the next step, the ready text with "WhatsApp'ta aç", the findings, the opportunities (the sale being pursued, the
+ * ones won and lost), the brand's agreement once they are a customer, and the timeline of everything. Everything the
+ * operator may need about this record is reachable from here (yakup 2026-11-07).
  */
 #[Layout('operator.layouts.app')]
 #[Title('Aday')]
@@ -49,6 +56,23 @@ final class LeadCardPage extends Component
 
     public string $pasteNote = '';
 
+    /** "Kazanıldı: müşteri yap" opens the terms (the brand's first agreement) instead of a bare confirm. */
+    public bool $winning = false;
+
+    /** The opportunity the win form closes (0 = the record's open one / none). */
+    public int $winningOpportunity = 0;
+
+    /** @var array{kind: string, fee: string, term_months: string, starts_on: string, due_day: string, services: array<int, string>, note: string} */
+    public array $agreement = ['kind' => 'monthly', 'fee' => '', 'term_months' => '6', 'starts_on' => '', 'due_day' => '1', 'services' => [], 'note' => ''];
+
+    /** "+ Yeni fırsat" form. */
+    public bool $opening = false;
+
+    /** @var array{service: string, title: string, amount: string, billing: string, note: string} */
+    public array $opp = ['service' => '', 'title' => '', 'amount' => '', 'billing' => 'monthly', 'note' => ''];
+
+    public string $oppLostReason = '';
+
     public function mount(string $lead): void
     {
         $row = SalesLead::query()->findOrFail((int) $lead);
@@ -63,7 +87,7 @@ final class LeadCardPage extends Component
     private function formFrom(SalesLead $lead): array
     {
         $out = [];
-        foreach (['name', 'clinic', 'city', 'branch', 'phone', 'email', 'website', 'source', 'heard_from', 'notes'] as $key) {
+        foreach (['name', 'company', 'city', 'branch', 'phone', 'email', 'website', 'source', 'heard_from', 'notes', 'kind', 'sector_id'] as $key) {
             $out[$key] = (string) ($lead->{$key} ?? '');
         }
 
@@ -92,6 +116,13 @@ final class LeadCardPage extends Component
         }
         $lead->email = SalesLeads::email($email);
         $lead->heard_from = isset(SalesLead::HEARD_FROM[$this->form['heard_from'] ?? '']) ? $this->form['heard_from'] : null;
+        $kind = (string) ($this->form['kind'] ?? '');
+        if ($kind !== $lead->kind) {
+            $lead->kind = LeadKinds::has($kind) ? $kind : null;
+            $lead->classification = array_merge((array) ($lead->classification ?? []), ['confirmed' => $lead->kind !== null]);
+        }
+        $sector = (int) ($this->form['sector_id'] ?? 0);
+        $lead->sector_id = $sector > 0 && ServiceCategory::query()->whereKey($sector)->exists() ? $sector : null;
         $lead->phone_key = SalesLeads::phoneKey($lead->phone);
         $lead->website_host = SalesLeads::host($lead->website);
         if ($lead->website_host !== null && ! preg_match('#^https?://#i', (string) $lead->website)) {
@@ -99,6 +130,9 @@ final class LeadCardPage extends Component
         }
         $lead->save();
         $this->editing = false;
+        if ($lead->kind === null || $lead->sector_id === null) {
+            $leads->classify($lead);
+        }
         if ($lead->website_host !== null && $lead->website_host !== $hadSite) {
             ProspectSiteCheck::queue($lead);
         }
@@ -254,17 +288,119 @@ final class LeadCardPage extends Component
         $this->say('Aşama: '.$fresh->stageLabel().'.');
     }
 
+    /** "Kazanıldı: müşteri yap" / "Fırsatı kazan": the terms form opens, filled from the offer or the opportunity. */
+    public function openWin(int $opportunityId = 0): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $lead = $this->lead();
+        $opportunity = $opportunityId > 0 ? $lead->opportunities()->whereKey($opportunityId)->first() : $lead->openOpportunity();
+        $amount = $opportunity?->amount ?? $lead->offer_amount;
+        $service = $opportunity?->service ?? $lead->offer_service;
+        $billing = $opportunity?->billing ?? ($service === 'web' ? 'one_time' : 'monthly');
+        $this->agreement = [
+            'kind' => $billing, 'fee' => $amount !== null ? (string) $amount : '', 'term_months' => '6',
+            'starts_on' => CarbonImmutable::now('Europe/Istanbul')->toDateString(), 'due_day' => '1',
+            'services' => $service !== null ? [$service] : [], 'note' => '',
+        ];
+        $this->winningOpportunity = (int) ($opportunity?->id ?? 0);
+        $this->winning = true;
+        $this->resetErrorBag();
+    }
+
+    public function cancelWin(): void
+    {
+        $this->winning = false;
+        $this->winningOpportunity = 0;
+    }
+
+    /** Wins the record (customer + brand once) and starts the brand's agreement with the terms typed; no fee = no agreement yet. */
     public function win(SalesLeads $leads): void
     {
         abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $lead = $this->lead();
+        $terms = trim((string) $this->agreement['fee']) !== '' ? $this->agreement : null;
         try {
-            $brand = $leads->win($this->lead(), auth()->user());
+            $opportunity = $this->winningOpportunity > 0 ? $lead->opportunities()->whereKey($this->winningOpportunity)->first() : null;
+            if ($opportunity !== null && $opportunity->isOpen() && $lead->isCustomer() && $lead->brand_id !== null) {
+                $leads->closeOpportunity($opportunity, 'won', null, auth()->user(), $terms);
+                $brand = Brand::query()->find($lead->brand_id);
+            } else {
+                $brand = $leads->win($lead, auth()->user(), $terms);
+            }
         } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
             $this->say((string) collect($exception->errors())->flatten()->first());
 
             return;
         }
-        $this->say('Kazanıldı: '.$brand->name.' markası açıldı. Marka sayfasından bağlantıları kurabilirsin.');
+        $this->winning = false;
+        $this->winningOpportunity = 0;
+        $this->say('Kazanıldı: '.($brand?->name ?? $lead->title()).($terms !== null ? ' · anlaşma başladı.' : ' markası açıldı; anlaşmayı marka sayfasından gir.'));
+    }
+
+    /** "Doğru": Claude's suggested kind becomes the record's. */
+    public function confirmKind(SalesLeads $leads): void
+    {
+        $lead = $this->lead();
+        $kind = $lead->suggestedKind() ?? $lead->kind;
+        if ($kind === null || ! LeadKinds::has($kind)) {
+            return;
+        }
+        $leads->fill($lead, ['kind' => $kind]);
+        $lead->save();
+        $this->say('Tür: '.LeadKinds::label($kind).'.');
+    }
+
+    /** "+ Yeni fırsat": a sale to pursue on this record. */
+    public function newOpportunity(SalesLeads $leads): void
+    {
+        $this->resetErrorBag();
+        try {
+            $opportunity = $leads->openOpportunity($this->lead(), $this->opp, auth()->user());
+        } catch (ValidationException $exception) {
+            $this->setErrorBag($exception->validator->errors());
+
+            return;
+        }
+        $this->opening = false;
+        $this->opp = ['service' => '', 'title' => '', 'amount' => '', 'billing' => 'monthly', 'note' => ''];
+        $fresh = $this->lead();
+        $this->nextStep = (string) $fresh->next_step;
+        $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
+        $this->say('Fırsat açıldı: '.$opportunity->title().' · '.$opportunity->amountLabel());
+    }
+
+    public function loseOpportunity(int $id, SalesLeads $leads): void
+    {
+        $opportunity = $this->lead()->opportunities()->whereKey($id)->firstOrFail();
+        if (! isset(SalesLead::LOST_REASONS[$this->oppLostReason])) {
+            $this->addError('oppLostReason', 'Neden kaybedildiğini seç.');
+
+            return;
+        }
+        $leads->closeOpportunity($opportunity, 'lost', $this->oppLostReason, auth()->user());
+        $this->oppLostReason = '';
+        $fresh = $this->lead();
+        $this->nextStep = (string) $fresh->next_step;
+        $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
+        $this->say('Fırsat kapandı: '.$opportunity->title().'.');
+    }
+
+    /** The month's tick on the brand's agreement (the same tick as on the brand page). */
+    public function togglePaid(int $paymentId, Agreements $agreements): void
+    {
+        $lead = $this->lead();
+        $payment = AgreementPayment::query()->whereKey($paymentId)->whereHas('agreement', fn ($q) => $q->where('brand_id', $lead->brand_id))->firstOrFail();
+        $payment->isPaid() ? $agreements->unpay($payment) : $agreements->markPaid($payment);
+        $this->say($payment->periodLabel().': '.($payment->fresh()->isPaid() ? 'ödendi' : 'ödenmedi').'.');
+    }
+
+    /** "İlgisiz": never a prospect; leaves every list and count. */
+    public function markIrrelevant(SalesLeads $leads): void
+    {
+        $leads->markIrrelevant($this->lead(), auth()->user());
+        $this->draft = '';
+        $this->say('Kayıt ilgisiz olarak işaretlendi; listelerde ve raporlarda sayılmaz.');
     }
 
     /** "Aynı kişi" banner: this card keeps everything, the other one's story and tasks move here and it goes. */
@@ -334,8 +470,16 @@ final class LeadCardPage extends Component
         }
         $waText = trim($this->draft);
 
+        $brand = $lead->brand_id !== null ? Brand::query()->find($lead->brand_id) : null;
+
         return view('livewire.operator.sales.lead-card-page', [
             'lead' => $lead,
+            'kinds' => LeadKinds::options(),
+            'sectors' => ServiceCategory::query()->orderBy('name')->pluck('name', 'id')->all(),
+            'opportunities' => $lead->opportunities()->get(),
+            'openOpportunity' => $lead->openOpportunity(),
+            'brand' => $brand,
+            'terms' => $brand !== null ? app(Agreements::class)->summary($brand) : null,
             'timeline' => $leads->timeline($lead),
             'waUrl' => $lead->waNumber() !== null ? 'https://wa.me/'.$lead->waNumber().($waText !== '' ? '?text='.rawurlencode($waText) : '') : null,
             'drafting' => in_array($lead->draft_status, ['queued', 'running'], true),

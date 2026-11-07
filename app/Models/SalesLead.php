@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Sales\SalesAnalysisWriter;
+use App\Support\Sales\LeadKinds;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -10,8 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * One prospect card (Satış): a clinic or a person who may buy, with its source, stage, next step and the timeline of
- * what happened. A won lead becomes a customer and a brand; a lost one keeps its reason.
+ * One sales record (Satış): a business or a person who may buy — of any kind (Tür: klinik, muayenehane, hekim, fabrika,
+ * mağaza…; the record itself is never named after one), with its source, stage, next step and the timeline of what
+ * happened. Its lifecycle runs aday → müşteri → eski müşteri; the money lives in its opportunities (SalesOpportunity)
+ * and, once won, in the brand's agreement. A card linked to a customer stays alive for the next sale.
  */
 class SalesLead extends Model
 {
@@ -44,15 +47,23 @@ class SalesLead extends Model
         'instagram' => 'Instagram', 'youtube' => 'YouTube', 'referral' => 'Tavsiye', 'afc' => 'All for Clinics', 'other' => 'Diğer',
     ];
 
-    /** What was offered (Moximu's packages, as on the site's price list). */
+    /** What was offered (Moximu's packages, as on the site's price list; generic names, the site's "Klinik SEO" is its clinic-facing name). */
     public const array SERVICES = [
-        'seo_gbp' => 'SEO + İşletme Profili', 'seo' => 'Klinik SEO', 'gbp' => 'İşletme Profili', 'google_ads' => 'Google Ads',
+        'seo_gbp' => 'SEO + İşletme Profili', 'seo' => 'SEO', 'gbp' => 'İşletme Profili', 'google_ads' => 'Google Ads',
         'meta_ads' => 'Meta Ads', 'web' => 'Web sitesi', 'other' => 'Diğer',
     ];
 
     public const array LOST_REASONS = [
-        'silent' => 'Sessiz kaldı', 'price' => 'Fiyat', 'other_agency' => 'Başka ajans', 'not_fit' => 'Uygun değil', 'later' => 'Sonra', 'other' => 'Diğer',
+        'silent' => 'Sessiz kaldı', 'price' => 'Fiyat', 'other_agency' => 'Başka ajans', 'not_fit' => 'Uygun değil', 'later' => 'Sonra',
+        'irrelevant' => 'İlgisiz (aday değildi)', 'other' => 'Diğer',
     ];
+
+    /**
+     * Where the record stands in its life: aday (prospect), müşteri (customer: at least one won sale, the card stays
+     * open for upsells), eski müşteri (former), ilgisiz (a chat that was never a prospect: a supplier, spam, a friend;
+     * left out of every count and report).
+     */
+    public const array LIFECYCLES = ['prospect' => 'Aday', 'customer' => 'Müşteri', 'former' => 'Eski müşteri', 'irrelevant' => 'İlgisiz'];
 
     /** A prospect who really talks (or a form whose site was just read) gets the full analysis once, by itself. */
     protected static function booted(): void
@@ -67,6 +78,14 @@ class SalesLead extends Model
             $peak = $lead->peak_stage !== null ? array_search($lead->peak_stage, self::FLOW, true) : false;
             if ($at !== false && ($peak === false || $at > $peak)) {
                 $lead->peak_stage = $lead->stage;
+            }
+            // The lifecycle follows the sale: a won prospect is a customer; a card closed as "ilgisiz" leaves the counts.
+            if ($lead->stage === 'won' && in_array($lead->lifecycle, [null, 'prospect', 'former'], true)) {
+                $lead->lifecycle = 'customer';
+            } elseif ($lead->stage === 'lost' && $lead->lost_reason === 'irrelevant') {
+                $lead->lifecycle = 'irrelevant';
+            } elseif ($lead->lifecycle === null) {
+                $lead->lifecycle = 'prospect';
             }
         });
         static::saved(function (SalesLead $lead): void {
@@ -88,7 +107,7 @@ class SalesLead extends Model
             'next_step_at' => 'datetime', 'last_contact_at' => 'datetime', 'last_incoming_at' => 'datetime',
             'won_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
             'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
-            'offer_amount' => 'integer', 'offer_confirmed' => 'boolean', 'stage_at' => 'datetime',
+            'offer_amount' => 'integer', 'offer_confirmed' => 'boolean', 'stage_at' => 'datetime', 'classification' => 'array',
         ];
     }
 
@@ -112,16 +131,66 @@ class SalesLead extends Model
         return $this->belongsTo(Brand::class);
     }
 
+    public function sectorCategory(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCategory::class, 'sector_id');
+    }
+
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(SalesOpportunity::class, 'lead_id')->orderByDesc('id');
+    }
+
     /** @param  Builder<self>  $query */
     public function scopeOpen(Builder $query): Builder
     {
         return $query->whereNotIn('stage', ['won', 'lost']);
     }
 
-    /** What the card is called in lists: the person, else the clinic, else the phone or site. */
+    /** @param  Builder<self>  $query records that count as sales work: not the irrelevant ones */
+    public function scopeRelevant(Builder $query): Builder
+    {
+        return $query->where('lifecycle', '!=', 'irrelevant');
+    }
+
+    public function isCustomer(): bool
+    {
+        return $this->lifecycle === 'customer';
+    }
+
+    public function isIrrelevant(): bool
+    {
+        return $this->lifecycle === 'irrelevant';
+    }
+
+    public function lifecycleLabel(): string
+    {
+        return self::LIFECYCLES[$this->lifecycle] ?? (string) $this->lifecycle;
+    }
+
+    public function kindLabel(): ?string
+    {
+        return LeadKinds::label($this->kind);
+    }
+
+    /** The kind Claude suggested but the operator has not confirmed yet (null when none or already confirmed). */
+    public function suggestedKind(): ?string
+    {
+        $c = (array) ($this->classification ?? []);
+
+        return ($c['confirmed'] ?? false) === true ? null : (isset($c['kind']) && is_string($c['kind']) ? $c['kind'] : null);
+    }
+
+    /** The one open opportunity (the sale being pursued now), when there is one. */
+    public function openOpportunity(): ?SalesOpportunity
+    {
+        return $this->opportunities()->where('status', 'open')->orderByDesc('id')->first();
+    }
+
+    /** What the card is called in lists: the person, else the business, else the phone or site. */
     public function title(): string
     {
-        foreach ([$this->name, $this->clinic, $this->website_host, $this->phone] as $candidate) {
+        foreach ([$this->name, $this->company, $this->website_host, $this->phone] as $candidate) {
             if (filled($candidate)) {
                 return (string) $candidate;
             }
@@ -130,11 +199,11 @@ class SalesLead extends Model
         return 'Aday #'.$this->id;
     }
 
-    /** The second line: clinic · city · branch (whatever is known, without the title's own value). */
+    /** The second line: business · city · branch (whatever is known, without the title's own value). */
     public function subtitle(): string
     {
         $parts = [];
-        foreach ([$this->clinic, $this->city, $this->branch] as $part) {
+        foreach ([$this->company, $this->city, $this->branch] as $part) {
             if (filled($part) && $part !== $this->title()) {
                 $parts[] = $part;
             }
