@@ -107,7 +107,7 @@ final class BrandOverviewReader
             $tone = collect($sources)->sortByDesc(fn (array $s): int => self::TONE_RANK[$s['tone']] ?? 0)->first()['tone'] ?? 'muted';
             $cards[] = [
                 'id' => (int) $asset->id,
-                'name' => (string) $asset->name,
+                'name' => OperatorPortfolioPresenter::displayName($asset),
                 'type' => $type,
                 'type_label' => self::TYPE_LABELS[$type] ?? $type,
                 'active' => ($asset->status?->value ?? 'active') === 'active',

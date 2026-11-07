@@ -42,6 +42,7 @@ use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\DormantAdWork;
 use App\Services\Ads\Winners;
 use App\Services\Ai\AiBudget;
+use App\Services\Ai\AiLiveOperations;
 use App\Services\Ai\ClaudeApiWindow;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Alerts\AdBudgetWatch;
@@ -1725,6 +1726,12 @@ Artisan::command('moxdop:ai:close-stuck {--minutes=30 : Bu kadar dakikadır çal
         ->update(['status' => AiLiveOperation::FAILED, 'error' => 'İş yarıda kaldı (zaman aşımı); kapatıldı.', 'finished_at' => now()]);
     $this->info($closed.' takılı AI satırı kapatıldı.');
 })->purpose('Close AI job / call rows still marked running long after their worker died.');
+
+// AI işleri geçmişi (admin denetimi 2026-11-07 T6): 30 günden eski bitmiş işler ve çağrıları her gece silinir.
+Artisan::command('moxdop:ai:prune-jobs {--days=30 : Bu kadar günden eski bitmiş kayıtlar}', function (): void {
+    $this->info(AiLiveOperations::pruneFinished((int) $this->option('days')).' AI işi kaydı silindi.');
+})->purpose('Delete finished AI job / call rows older than the given days (default 30).');
+Schedule::command('moxdop:ai:prune-jobs')->dailyAt('04:20')->withoutOverlapping(30)->name('ai-prune-jobs');
 
 // Şef denetimi on demand (it also runs before every weekly plan): errors in what the AI did, rules only.
 Artisan::command('moxdop:brands:chief-audit {brand? : brand id}', function (BrandAudit $audit): void {

@@ -23,6 +23,7 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mockery;
 use Tests\TestCase;
@@ -363,5 +364,29 @@ final class FakeMultiCallAiJob implements ShouldQueue, TracksAiJob
     public function aiResultUrl(): ?string
     {
         return null;
+    }
+
+    /** T6 (admin audit 2026-11-07): the history keeps a month; running and queued rows are never pruned. */
+    public function test_finished_rows_older_than_thirty_days_are_pruned_nightly_with_their_calls(): void
+    {
+        $row = fn (string $status, int $daysAgo, ?int $parent = null): int => AiLiveOperation::query()->create([
+            'invocation_id' => (string) Str::uuid(), 'operation' => 'content.article', 'label' => 'x', 'status' => $status,
+            'kind' => $parent === null ? AiLiveOperation::KIND_JOB : AiLiveOperation::KIND_CALL, 'parent_id' => $parent,
+            'started_at' => now()->subDays($daysAgo), 'finished_at' => in_array($status, [AiLiveOperation::RUNNING, AiLiveOperation::QUEUED], true) ? null : now()->subDays($daysAgo),
+        ])->id;
+        $old = $row(AiLiveOperation::DONE, 45);
+        $oldCall = $row(AiLiveOperation::DONE, 45, $old);
+        $oldFailed = $row(AiLiveOperation::FAILED, 31);
+        $recent = $row(AiLiveOperation::DONE, 10);
+        $recentCall = $row(AiLiveOperation::DONE, 10, $recent);
+        $stuck = $row(AiLiveOperation::RUNNING, 60);
+        $queued = $row(AiLiveOperation::QUEUED, 60);
+
+        $this->artisan('moxdop:ai:prune-jobs')->expectsOutputToContain('3 AI işi kaydı silindi.')->assertSuccessful();
+
+        $this->assertSame([$recent, $recentCall, $stuck, $queued], AiLiveOperation::query()->orderBy('id')->pluck('id')->all());
+        $this->assertNull(AiLiveOperation::query()->find($oldCall));
+        $this->assertNull(AiLiveOperation::query()->find($oldFailed));
+        $this->assertSame(0, AiLiveOperations::pruneFinished(30), 'idempotent');
     }
 }

@@ -81,7 +81,6 @@
                 <label for="profile-timezone" class="{{ $rowLabel }}"><span class="{{ $labelText }}">{{ __('operator.profile.timezone') }}</span></label>
                 <div class="{{ $control }}">
                     <select id="profile-timezone" wire:model="timezone" class="{{ $input }}">
-                        <option value="">—</option>
                         @foreach ($timezones as $tz)
                             <option value="{{ $tz }}">{{ $tz }}</option>
                         @endforeach

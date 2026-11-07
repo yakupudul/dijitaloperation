@@ -53,12 +53,14 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Brand page — one row of tabs, like the website screen: Özet (period numbers, approvals waiting on the Onarım masası,
- * Yolculuk, digital assets with their data status, open work with a channel filter, services) · Dijital varlıklar
- * (asset cards, "Hesap ekle", setup status, bindings) · Epikriz (the marka epikrizi every AI step reads, with its open
- * questions; then the Marka bilgi kartı, Kimlik tutarlılığı and the brand file) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama,
- * Harita, Google Ads, Meta) appears only once its own component exists; until then its old link opens Özet filtered to
- * that channel. Old ?tab= values resolve to their new place (LEGACY_TABS). Everything shown comes from the database.
+ * Brand page — one flat row of tabs (admin audit 2026-11-07 T1; the 2026-10-22 "no tab row, Diğer ▾ menu" head hid
+ * Epikriz and sent the overview to a back link): Genel (period numbers, approvals waiting on the Onarım masası,
+ * Yolculuk, digital assets with their data status, open work with a channel filter, services) · Varlıklar (asset
+ * cards, "Hesap ekle", setup status, bindings) · Hizmetler (the service scorecard) · Strateji · Epikriz (the marka
+ * epikrizi every AI step reads, with its open questions; then the Marka bilgi kartı, Kimlik tutarlılığı and the brand
+ * file) · Ayarlar (Marka bilgileri, Dosyalar). A channel tab (Arama, Harita, Google Ads, Meta) appears only once its
+ * own component exists; until then its old link opens Genel filtered to that channel. Old ?tab= values resolve to
+ * their new place (LEGACY_TABS). Everything shown comes from the database.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Marka')]
@@ -67,7 +69,7 @@ class BrandShow extends Component
     use InteractsWithDemoPeriod;
 
     /** The tab row. */
-    public const array TABS = ['ozet' => 'Özet', 'varliklar' => 'Dijital varlıklar', 'karne' => 'Hizmet karnesi', 'dosya' => 'Epikriz', 'strateji' => 'Stratejiler', 'ayarlar' => 'Marka ayarları'];
+    public const array TABS = ['ozet' => 'Genel', 'varliklar' => 'Varlıklar', 'karne' => 'Hizmetler', 'strateji' => 'Strateji', 'dosya' => 'Epikriz', 'ayarlar' => 'Ayarlar'];
 
     /** Ayarlar views. */
     public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];

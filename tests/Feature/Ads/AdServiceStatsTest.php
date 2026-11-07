@@ -127,7 +127,7 @@ class AdServiceStatsTest extends TestCase
 
         Livewire::actingAs($this->admin)->test(BrandScorecardTab::class, ['brandId' => $this->brand->id])
             ->assertSee('Hizmet başına dört kanal')->assertSee('form başı 47 TRY')->assertSee('2')->assertSee('/ 4 marka')->assertSee('Reklam yok');
-        $this->actingAs($this->admin)->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'karne']))->assertOk()->assertSee('Hizmet karnesi');
+        $this->actingAs($this->admin)->get(route('operator.brand', ['brand' => $this->brand->id, 'tab' => 'karne']))->assertOk()->assertSee('Hizmet başına dört kanal');
     }
 
     public function test_daily_command_queues_every_ad_account(): void

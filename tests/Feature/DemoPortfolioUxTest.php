@@ -40,7 +40,7 @@ class DemoPortfolioUxTest extends TestCase
 
         Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $brand->id])
             ->assertSee('Nova Dental')
-            ->assertSee('Dijital varlıklar')
+            ->assertSee('Varlıklar')
             ->call('setTab', 'discovery')
             ->assertSet('tab', 'ayarlar')
             ->assertDontSee('Dental Implant')

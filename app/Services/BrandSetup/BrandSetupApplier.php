@@ -312,7 +312,7 @@ final class BrandSetupApplier
                 $brand,
                 ResourceBindingPlan::MODE_CREATE_ASSET,
                 null,
-                mb_substr((self::ASSET_LABELS[$type] ?? $type).' · '.($resource->display_name ?: $resource->external_id), 0, 255),
+                mb_substr((string) ($resource->display_name ?: $resource->external_id), 0, 255), // the account's own name; the card shows the type
                 $actor,
             );
             $outcome = $resource->provider === 'meta' ? $this->meta->confirm($plan) : $this->google->confirm($plan);
