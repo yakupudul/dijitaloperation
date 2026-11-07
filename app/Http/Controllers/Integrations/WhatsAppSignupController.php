@@ -34,7 +34,11 @@ final class WhatsAppSignupController
             'appId' => (string) data_get($integration->config, 'app_id'),
             'configId' => (string) data_get($integration->config, 'signup_config_id'),
             'graphVersion' => (string) config('whatsapp.graph_version', 'v23.0'),
-        ])->header('Cache-Control', 'no-store, private')->header('Referrer-Policy', 'no-referrer');
+        ])->header('Cache-Control', 'no-store, private')
+            // Facebook's login dialog checks the calling site from the Referer: with "no-referrer" the popup ran without
+            // knowing our origin, never posted the WA_EMBEDDED_SIGNUP session and gave a code bound to another redirect
+            // (exchange 36008). Only the origin goes to other sites, so the attempt id in the path still stays here.
+            ->header('Referrer-Policy', 'strict-origin-when-cross-origin');
     }
 
     public function complete(Request $request, string $attempt, WhatsAppSignup $signup): JsonResponse

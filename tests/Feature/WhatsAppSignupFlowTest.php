@@ -384,7 +384,9 @@ final class WhatsAppSignupFlowTest extends TestCase
     {
         $attempt = app(WhatsAppSignup::class)->begin($this->admin, $this->sessionId);
         $this->browser()->get(route('operator.whatsapp.connect', $attempt->id))
-            ->assertOk()->assertSee('WhatsApp Business\'ta kullandığınız numarayı girin.')->assertDontSee('daha önce açılmıştı');
+            ->assertOk()->assertSee('WhatsApp Business\'ta kullandığınız numarayı girin.')->assertDontSee('daha önce açılmıştı')
+            // Facebook's dialog needs our origin as Referer; "no-referrer" broke the session message and the code (36008).
+            ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
         $this->browser()->postJson(route('operator.whatsapp.report', $attempt->id), ['event' => 'LAUNCHED'])->assertOk()->assertJson(['saved' => true]);
         $this->browser()->get(route('operator.whatsapp.connect', $attempt->id))->assertOk()->assertSee('Meta penceresi daha önce açılmıştı');
