@@ -15,8 +15,9 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
- * Header "AI · N": visible while AI work runs or waits in the queue, or some finished in the last few minutes; polled
- * every 5 s while something runs, every 30 s otherwise, and at once after an operator action (`ai-live-refresh`). Work
+ * Header "AI · N": visible while AI work runs or waits in the queue, or some finished in the last few minutes; refreshed
+ * by the top bar's one pulse (`header-pulse`: 30 s, 5 s while something runs) and at once after an operator action
+ * (`ai-live-refresh`). Work
  * that ends pops up as a notice ("AI işi bitti: …"). The dropdown lists running work, queued jobs and the last 10
  * finished; each item opens its detail in AI işleri, "Tümünü gör" opens the page.
  */
@@ -31,11 +32,15 @@ final class AiLiveIndicator extends Component
 
     /** An operator click that may have started AI work: refresh now instead of waiting for the next poll. */
     #[On('ai-live-refresh')]
+    #[On('header-pulse')]
     public function refreshNow(): void {}
 
     public function render(AiLiveOperations $live): View
     {
         $running = auth()->check() ? $live->running() : new EloquentCollection;
+        if ($running->isNotEmpty()) {
+            $this->dispatch('header-pulse-busy');
+        }
         $this->announceFinished($live, $running);
         $visible = $running->isNotEmpty() || (auth()->check() && $live->hasRecent());
         $listed = $visible || ($this->card && auth()->check());

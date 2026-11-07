@@ -5,14 +5,22 @@ namespace App\Livewire\Demo\Partials;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Models\Collection\CollectionRun;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 final class ActiveDataSyncIndicator extends Component
 {
+    /** The top bar's one pulse (header.blade.php) refreshes this indicator; it polls nothing on its own. */
+    #[On('header-pulse')]
+    public function refreshNow(): void {}
+
     public function render(): View
     {
         $query = CollectionRun::query()->select(['id', 'digital_asset_id', 'status', 'metadata', 'request_context', 'last_activity_at', 'requested_by_user_id'])->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested']);
         $count = auth()->check() ? (clone $query)->count() : 0;
+        if ($count > 0) {
+            $this->dispatch('header-pulse-busy');
+        }
         $runs = $count > 0 ? $query->with([
             'digitalAsset:id,name',
             'resourceRuns:id,collection_run_id,provider_or_source,external_resource_id',

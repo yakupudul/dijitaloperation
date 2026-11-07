@@ -93,7 +93,7 @@ final class ContentBoard
                 }
                 $counts = array_map('count', $steps);
                 $steps['taslakta'] = collect($steps['taslakta'])->sortByDesc('sent_at')->values()->all();
-                $steps['yayinda'] = $this->withMetrics(collect($steps['yayinda'])->sortByDesc(fn (array $i): int => $i['post_date']?->getTimestamp() ?? 0)->values()->all());
+                $steps['yayinda'] = $this->withMetrics(collect($steps['yayinda'])->sortByDesc(fn (array $i): int => $i['post_date']?->getTimestamp() ?? 0)->values()->all(), $site);
                 $steps['yazilacak'] = collect($steps['yazilacak'])->sortByDesc('score')->values()->all();
 
                 return [
@@ -397,9 +397,9 @@ final class ContentBoard
      * @param  list<array<string, mixed>>  $items
      * @return list<array<string, mixed>>
      */
-    private function withMetrics(array $items): array
+    private function withMetrics(array $items, DigitalAsset $site): array
     {
-        $metrics = $this->posts->metrics(array_values(array_filter(array_column($items, 'link'))));
+        $metrics = $this->posts->metrics(array_values(array_filter(array_column($items, 'link'))), $site);
 
         return array_map(fn (array $item): array => $item + ['metrics' => $metrics[$item['link'] ?? ''] ?? null], $items);
     }

@@ -1,5 +1,5 @@
 {{-- Top bar pill (approved prototype): what runs and what finished today; one click opens Akış. --}}
-<a href="{{ route('operator.flow') }}" wire:navigate @if ($counts['run'] > 0) wire:poll.10s.visible @else wire:poll.60s.visible @endif
+<a href="{{ route('operator.flow') }}" wire:navigate
     class="inline-flex h-[30px] items-center gap-2 rounded-full border border-gray-200 bg-gray-50 pl-2.5 pr-3 text-[13px] text-gray-600 hover:bg-gray-100 dark:border-gray-800 dark:bg-white/[0.04] dark:text-gray-300 dark:hover:bg-white/[0.08]"
     aria-label="Akışa git: {{ $counts['run'] }} iş çalışıyor, bugün {{ $counts['done'] }} iş bitti" data-flow-pill>
     <span @class(['h-2 w-2 shrink-0 rounded-full', 'live-dot' => $counts['run'] > 0, 'bg-error-500' => $counts['run'] === 0 && $counts['err'] > 0, 'bg-success-500' => $counts['run'] === 0 && $counts['err'] === 0])></span>

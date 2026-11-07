@@ -1,4 +1,4 @@
-<div @if ($running->isNotEmpty()) wire:poll.5s="refreshNow" @else wire:poll.30s="refreshNow" @endif class="relative" data-ai-live-indicator @if ($card) data-ai-live-card @endif>
+<div class="relative" data-ai-live-indicator @if ($card) data-ai-live-card @endif>
     @if ($visible || $card)
         <details class="group" wire:key="ai-live-details">
             @if ($card)

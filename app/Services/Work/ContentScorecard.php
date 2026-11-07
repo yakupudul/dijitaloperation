@@ -41,7 +41,7 @@ final class ContentScorecard
         $pages = $ideas->mapWithKeys(fn (Suggestion $s): array => [(int) $s->id => $links->livePage($s, $site)]);
         $urls = $pages->filter()->map(fn ($p): string => (string) $p->url)->values()->all();
         $index = $this->index($site, $urls);
-        $search = ['d28' => $this->search($urls, 28), 'd90' => $this->search($urls, 90)];
+        $search = ['d28' => $this->search($urls, 28, $site), 'd90' => $this->search($urls, 90, $site)];
         $conversions = ['d28' => $this->conversions($brand, $urls, 28), 'd90' => $this->conversions($brand, $urls, 90)];
         $out = [];
         foreach ($ideas as $idea) {
@@ -98,9 +98,9 @@ final class ContentScorecard
      * @param  list<string>  $urls
      * @return array<string, array{impressions: int, clicks: int, position: ?float}>
      */
-    private function search(array $urls, int $days): array
+    private function search(array $urls, int $days, DigitalAsset $site): array
     {
-        return PageSearchStats::forUrls($urls, $days);
+        return PageSearchStats::forUrls($urls, $days, $site);
     }
 
     /**

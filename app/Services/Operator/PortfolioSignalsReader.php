@@ -277,17 +277,21 @@ final class PortfolioSignalsReader
      */
     private function openWork(Collection $brands, Collection $assets): array
     {
-        $critical = 'CASE WHEN priority <= '.self::CRITICAL_PRIORITY.' THEN 1 ELSE 0 END';
+        $critical = 'CASE WHEN suggestions.priority <= '.self::CRITICAL_PRIORITY.' THEN 1 ELSE 0 END';
+        // The page's website rides along in the aggregate: a second read of thousands of page ids cost 0,6 s on Komuta (admin audit 2026-11-07).
         $rows = app(OpenWork::class)->query()
-            ->whereIn('brand_id', $brands->pluck('id')->all())
-            ->select(['brand_id', 'channel', 'action_type', 'target_type', 'target_id', 'page_id', 'action->check as check_id', 'action->standard_id as standard_id'])
+            ->whereIn('suggestions.brand_id', $brands->pluck('id')->all())
+            ->leftJoin('pages', 'pages.id', '=', 'suggestions.page_id')
+            ->select(['suggestions.brand_id', 'suggestions.channel', 'suggestions.action_type', 'suggestions.target_type', 'suggestions.target_id', 'suggestions.page_id',
+                'pages.website_asset_id as page_site_id', 'suggestions.action->check as check_id', 'suggestions.action->standard_id as standard_id'])
             ->selectRaw($critical.' as is_critical, count(*) as n')
-            ->groupBy('brand_id', 'channel', 'action_type', 'target_type', 'target_id', 'page_id', 'action->check', 'action->standard_id')
+            ->groupBy('suggestions.brand_id', 'suggestions.channel', 'suggestions.action_type', 'suggestions.target_type', 'suggestions.target_id', 'suggestions.page_id',
+                'pages.website_asset_id', 'suggestions.action->check', 'suggestions.action->standard_id')
             ->groupByRaw($critical)
             ->toBase()
             ->get();
-        $pageIds = $rows->pluck('page_id')->filter()->unique()->values()->all();
-        $pageSites = $pageIds === [] ? collect() : Page::query()->whereIn('id', $pageIds)->pluck('website_asset_id', 'id');
+        $pageSites = $rows->filter(fn (object $row): bool => $row->page_id !== null && $row->page_site_id !== null)
+            ->mapWithKeys(fn (object $row): array => [(int) $row->page_id => (int) $row->page_site_id]);
         $assetById = $assets->keyBy('id');
         $firstOfType = $assets->sortBy('id')->groupBy('brand_id')->map(fn (Collection $group) => $group->unique('type')->pluck('id', 'type'));
 

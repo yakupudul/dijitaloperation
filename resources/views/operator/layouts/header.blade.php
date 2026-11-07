@@ -18,6 +18,12 @@
         <div class="flex min-w-0 items-center gap-1.5 sm:gap-2">
             {{-- Data jobs while something is happening; Claude's work is the card at the bottom of the menu (2026-10-20). --}}
             <div class="flex items-center gap-1.5" data-live-strip>
+                {{-- One pulse for the whole top bar (admin audit 2026-11-07): the data-sync indicator, the Akış pill and the Claude card refresh
+                     together on 'header-pulse' (Livewire bundles them into one request), every 30 s; every 5 s for a minute after one of them
+                     reports running work ('header-pulse-busy'). Four separate pollers cost ~2.500 requests a day for one user. --}}
+                <span data-header-pulse x-data="{ fast: 0, last: 0 }"
+                    x-init="setInterval(() => { if (document.visibilityState !== 'visible') return; const now = Date.now(); if (now - last >= (fast > now ? 5000 : 30000)) { last = now; Livewire.dispatch('header-pulse'); } }, 1000)"
+                    @header-pulse-busy.window="fast = Date.now() + 60000"></span>
                 <livewire:demo.partials.active-data-sync-indicator />
                 {{-- Aşama 4: what runs now and what finished today; opens Akış. --}}
                 @auth

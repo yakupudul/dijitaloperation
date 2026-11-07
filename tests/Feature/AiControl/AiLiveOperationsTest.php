@@ -159,7 +159,8 @@ final class AiLiveOperationsTest extends TestCase
         Livewire::test(AiLiveIndicator::class)->assertDontSee('AI ·');
 
         $this->liveRow(['status' => AiLiveOperation::DONE, 'started_at' => now()->subHours(2), 'finished_at' => now()->subHours(2), 'duration_ms' => 1200]);
-        Livewire::test(AiLiveIndicator::class)->assertDontSee('AI ·')->assertSeeHtml('wire:poll.30s');
+        // No poll of its own: the top bar's one pulse refreshes it; idle work does not ask for the fast pulse.
+        Livewire::test(AiLiveIndicator::class)->assertDontSee('AI ·')->assertSeeHtml('header-pulse')->assertDontSeeHtml('wire:poll')->assertNotDispatched('header-pulse-busy');
 
         $this->liveRow(['label' => 'AI ile planla · hizmetler', 'user_id' => $this->admin->id, 'subject' => 'Diş sağlığı']);
         $this->liveRow(['status' => AiLiveOperation::FAILED, 'label' => 'Rakip analizi', 'error' => 'Sağlayıcı yanıtı: HTTP 529', 'finished_at' => now(), 'duration_ms' => 4200]);
@@ -174,7 +175,7 @@ final class AiLiveOperationsTest extends TestCase
             ->assertSee('Sağlayıcı yanıtı: HTTP 529')
             ->assertSee('Tümünü gör')
             ->assertSee('Ayarlar › AI işlemleri')
-            ->assertSeeHtml('wire:poll.5s');
+            ->assertDispatched('header-pulse-busy');
     }
 
     public function test_indicator_stays_visible_briefly_after_the_last_call_finished(): void
@@ -182,7 +183,7 @@ final class AiLiveOperationsTest extends TestCase
         $this->actingAs($this->admin);
         $this->liveRow(['status' => AiLiveOperation::DONE, 'label' => 'Sorgu kümeleme', 'finished_at' => now()->subMinute(), 'duration_ms' => 800]);
 
-        Livewire::test(AiLiveIndicator::class)->assertSee('AI · 0')->assertSee('Sorgu kümeleme')->assertSee('Bitti · 0,8 sn')->assertSeeHtml('wire:poll.30s');
+        Livewire::test(AiLiveIndicator::class)->assertSee('AI · 0')->assertSee('Sorgu kümeleme')->assertSee('Bitti · 0,8 sn')->assertSeeHtml('header-pulse');
     }
 
     public function test_the_operators_own_ai_work_that_ends_pops_up_and_background_work_stays_quiet(): void

@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\Suggestion;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Work\PageSearchStats;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -100,14 +101,14 @@ final class ContentPosts
      * @param  list<string>  $urls
      * @return array<string, array{clicks30: int, impressions30: int, clicks90: int, impressions90: int}>
      */
-    public function metrics(array $urls): array
+    public function metrics(array $urls, ?DigitalAsset $site = null): array
     {
         if ($urls === []) {
             return [];
         }
         $variants = collect($urls)->flatMap(fn (string $url): array => [$url, rtrim($url, '/'), rtrim($url, '/').'/'])->unique()->values()->all();
         $since30 = now()->subDays(30)->toDateString();
-        $rows = DB::table('gsc_page_daily')->whereIn('page', $variants)->where('reporting_date', '>=', now()->subDays(90)->toDateString())
+        $rows = PageSearchStats::scope(DB::table('gsc_page_daily'), $site)->whereIn('page', $variants)->where('reporting_date', '>=', now()->subDays(90)->toDateString())
             ->groupBy('page')->selectRaw('page, sum(clicks) as clicks90, sum(impressions) as impressions90, sum(case when reporting_date >= ? then clicks else 0 end) as clicks30, sum(case when reporting_date >= ? then impressions else 0 end) as impressions30', [$since30, $since30])
             ->get()->keyBy(fn (object $row): string => rtrim((string) $row->page, '/'));
         $out = [];

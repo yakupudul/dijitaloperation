@@ -1,4 +1,4 @@
-<div wire:poll.15s class="relative">
+<div class="relative" data-active-data-sync>
     @if($activeCount > 0)
         <details class="group" wire:key="data-sync-details">
             <summary class="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-md px-2 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white">
