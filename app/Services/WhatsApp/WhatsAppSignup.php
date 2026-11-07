@@ -471,18 +471,24 @@ final class WhatsAppSignup
         $candidates[] = rtrim((string) config('app.url'), '/').'/';
         $candidates[] = 'https://www.facebook.com/connect/login_success.html';
         $last = null;
+        $domain = null;
         foreach (array_values(array_unique($candidates, SORT_REGULAR)) as $redirect) {
             try {
                 return $this->graph->request('GET', 'oauth/access_token', $redirect === null ? $base : $base + ['redirect_uri' => $redirect]);
             } catch (WhatsAppGraphException $exception) {
+                if ((int) ($exception->details['code'] ?? 0) === 191) {
+                    $domain ??= $exception;
+                }
                 $last = $exception;
-                if ((int) ($exception->details['subcode'] ?? 0) !== 36008) {
+                // 36008: bound to another redirect; 191: that address is outside the app's domains. Try the next one.
+                if ((int) ($exception->details['subcode'] ?? 0) !== 36008 && (int) ($exception->details['code'] ?? 0) !== 191) {
                     throw $exception;
                 }
             }
         }
 
-        throw $last;
+        // A domain refusal is the one the operator can fix (App settings › Basic › App Domains): report it first.
+        throw $domain ?? $last;
     }
 
     private function finish(WhatsAppSignupAttempt $attempt, string $status, array $details): void
