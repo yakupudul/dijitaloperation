@@ -431,6 +431,30 @@ final class SitePagesTest extends TestCase
         $this->assertSame(['sessions' => 40, 'key_events' => 3.0], $organic['current']);
     }
 
+    /** Admin audit 2026-11-07 V1: GA4's keyEvents column counts session starts and page views too; the screen shows the brand dictionary's share. */
+    public function test_analytics_conversions_are_the_dictionary_share_of_ga4_key_events_on_every_tab(): void
+    {
+        // The property marks session_start (an attention event) and form_submit as key events: 40 + 10 → 1 in 5 is a conversion.
+        foreach ([['session_start', '2026-09-20', 40], ['form_submit', '2026-09-22', 10]] as [$event, $date, $keyEvents]) {
+            $this->insertFacts('ga4_key_event_daily', [
+                'digital_asset_id' => null, 'external_resource_id' => $this->ga4->id, 'property_id' => 'properties/1', 'reporting_date' => $date,
+                'eventName' => $event, 'keyEvents' => $keyEvents, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => Str::random(20),
+            ]);
+        }
+        $site = $this->site->fresh();
+
+        $trend = app(SitePagesReader::class)->trend($site, 28);
+        $this->assertSame(1.0, $trend['current']['key_events'], 'scorecards: 5 raw key events × 1/5');
+        $this->assertSame(1.0, app(SiteAnalysisReader::class)->totals($site, 28)['current']['key_events'], 'Dönüşümler tab reads the same number');
+        $this->assertSame(0.6, app(SiteAnalysisReader::class)->organic($site, 28)['current']['key_events']);
+        $detail = app(SitePagesReader::class)->detail($site, '/implant', 28);
+        $this->assertSame([0.6, 0.4], array_column($detail['channels'], 'key_events'), 'page channels scaled too');
+
+        Livewire::test(AnalyticsTab::class, ['assetId' => $site->id, 'range' => ['days' => 28]])
+            ->assertSeeHtml('data-scorecard="key_events"')->assertSeeInOrder(['data-scorecard="key_events"', '1,0', 'data-chart="gsc"']);
+    }
+
     public function test_pages_tab_groups_pages_by_type(): void
     {
         $types = app(SitePagesReader::class)->types($this->site->fresh(), 28);

@@ -247,8 +247,8 @@ final class SitePagesReader
         $prevStart = CarbonImmutable::parse($win['prev_start']);
         $prevEnd = CarbonImmutable::parse($win['prev_end']);
 
-        return Cache::remember('site:pages:trend:v2:'.$site->id.':'.implode(':', $win).':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addMinutes(self::CACHE_MINUTES),
-            function () use ($w, $start, $end, $prevStart, $prevEnd): array {
+        return Cache::remember('site:pages:trend:v3:'.$site->id.':'.implode(':', $win).':'.md5(json_encode([$w['gsc'], $w['ga4']])), now()->addMinutes(self::CACHE_MINUTES),
+            function () use ($site, $w, $start, $end, $prevStart, $prevEnd): array {
                 $zero = ['clicks' => 0, 'impressions' => 0, 'sessions' => 0, 'key_events' => 0.0];
                 $totals = ['current' => $zero, 'previous' => $zero];
                 $series = [];
@@ -257,10 +257,12 @@ final class SitePagesReader
                 $gsc = $this->dailyGsc($w['gsc'], $prevStart->toDateString(), $end->toDateString());
                 $ga4 = $this->dailyGa4($w['ga4'], $prevStart->toDateString(), $end->toDateString());
                 foreach (['previous' => [$prevStart, $prevEnd], 'current' => [$start, $end]] as $bucket => [$from, $to]) {
+                    // GA4's keyEvents column counts every key event (session starts, page views); only the brand dictionary's share is a conversion.
+                    $share = $this->analysis->share($site, $w['ga4'], $from->toDateString(), $to->toDateString());
                     for ($day = $from; $day->lte($to); $day = $day->addDay()) {
                         $date = $day->toDateString();
                         $point = ['date' => $date, 'clicks' => $gsc[$date]['clicks'] ?? 0, 'impressions' => $gsc[$date]['impressions'] ?? 0, 'position' => $gsc[$date]['position'] ?? null,
-                            'sessions' => $ga4[$date]['sessions'] ?? 0, 'key_events' => $ga4[$date]['key_events'] ?? 0.0];
+                            'sessions' => $ga4[$date]['sessions'] ?? 0, 'key_events' => round(($ga4[$date]['key_events'] ?? 0.0) * $share, 2)];
                         foreach (['clicks', 'impressions', 'sessions', 'key_events'] as $metric) {
                             $totals[$bucket][$metric] += $point[$metric];
                         }
@@ -305,7 +307,7 @@ final class SitePagesReader
             'window' => $w,
             'queries' => $this->pageQueries($w, $urls),
             'trend' => $this->pageTrend($w, $urls, $path, $trendStart->toDateString(), $end->toDateString()),
-            'channels' => $this->pageChannels($w, $path),
+            'channels' => $this->pageChannels($site, $w, $path),
             'issues' => $health['issues'],
             'links' => $health['links'],
             'suggestions' => $page !== null && $site->brand_id !== null
@@ -657,23 +659,24 @@ final class SitePagesReader
      * @param  array{start: string, end: string, ga4: list<int>}  $w
      * @return list<array{source: string, medium: string, sessions: int, key_events: float}>
      */
-    private function pageChannels(array $w, string $path): array
+    private function pageChannels(DigitalAsset $site, array $w, string $path): array
     {
         if ($w['ga4'] === []) {
             return [];
         }
         $out = [];
+        $share = $this->analysis->share($site, $w['ga4'], $w['start'], $w['end']);
         $this->landingScope($w['ga4'], $path)->whereBetween('reporting_date', [$w['start'], $w['end']])
             ->groupBy('landingPage', 'sessionSource', 'sessionMedium')
             ->selectRaw('"landingPage" as landing, "sessionSource" as source, "sessionMedium" as medium, sum(sessions) as sessions, sum("keyEvents") as key_events')
             ->orderBy('landingPage')->get()
-            ->each(function (object $r) use (&$out, $path): void {
+            ->each(function (object $r) use (&$out, $path, $share): void {
                 if (SiteAnalysisReader::path((string) $r->landing) !== $path) {
                     return;
                 }
                 $key = $r->source.' / '.$r->medium;
                 $out[$key] = ['source' => (string) $r->source, 'medium' => (string) $r->medium,
-                    'sessions' => (int) $r->sessions + ($out[$key]['sessions'] ?? 0), 'key_events' => round((float) $r->key_events + ($out[$key]['key_events'] ?? 0.0), 1)];
+                    'sessions' => (int) $r->sessions + ($out[$key]['sessions'] ?? 0), 'key_events' => round((float) $r->key_events * $share + ($out[$key]['key_events'] ?? 0.0), 1)];
             });
         $out = array_values($out);
         usort($out, fn (array $a, array $b): int => [$b['sessions'], $b['key_events'], $a['source']] <=> [$a['sessions'], $a['key_events'], $b['source']]);

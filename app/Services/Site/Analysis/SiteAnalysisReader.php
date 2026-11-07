@@ -532,12 +532,14 @@ final class SiteAnalysisReader
     }
 
     /**
-     * Share of GA4's key events the brand dictionary counts (GA4's keyEvents column also adds page views and scrolls,
-     * audit finding 2); landing-level key events are scaled by it. 1 for a site without a brand or key events.
+     * Share of GA4's key events the brand dictionary counts (GA4's keyEvents column also adds page views, scrolls and
+     * session starts, audit finding 2); every landing-level key event the website screen shows is scaled by it, the
+     * Analiz scorecards and trend included (admin audit 2026-11-07 V1: moximu.com showed 139 "conversions" on 135
+     * sessions because the scorecards read the raw column). 1 for a site without a brand or key events.
      *
      * @param  list<int>  $ga4
      */
-    private function share(DigitalAsset $site, array $ga4, string $from, string $to): float
+    public function share(DigitalAsset $site, array $ga4, string $from, string $to): float
     {
         $brand = $site->brand_id ? Brand::query()->find($site->brand_id) : null;
 
