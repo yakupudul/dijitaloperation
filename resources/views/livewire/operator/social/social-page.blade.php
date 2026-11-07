@@ -6,13 +6,14 @@
         'published', 'done' => 'tone-ok',
         default => 'tone-info',
     };
-    $tabs = ['plan' => 'Plan', 'mesajlar' => 'Mesajlar'.($waitingCount > 0 ? ' ('.$waitingCount.')' : ''), 'gecmis' => 'Yayınlananlar', 'yeni' => 'Yeni gönderi', 'hesaplar' => 'Hesaplar'];
+    $tabs = ['plan' => 'Plan', 'gecmis' => 'Yayınlananlar', 'yeni' => 'Yeni gönderi', 'hesaplar' => 'Hesaplar'];
     $meta = $accounts->whereIn('platform', ['instagram', 'facebook']);
 @endphp
 <div class="dark:text-gray-200" data-social-page>
     <div class="space-y-8">
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
+                <p class="mb-1 text-xs text-gray-500"><a href="{{ route('operator.marketing', ['sekme' => 'sosyal']) }}" wire:navigate class="link-neutral" data-social-marketing-link>Pazarlama</a> › Sosyal medya</p>
                 <h1 class="page-title">Sosyal medya</h1>
                 <p class="page-sub">Instagram, Facebook ve LinkedIn. Onayladığınız gönderiler kendi saatinde yayınlanır{{ $drafts > 0 ? '; '.$drafts.' gönderi onayınızı bekliyor.' : '.' }}</p>
             </div>
@@ -22,6 +23,8 @@
             @foreach ($tabs as $key => $label)
                 <button type="button" wire:click="setTab('{{ $key }}')" @class(['seg', 'seg-active' => $tab === $key]) role="tab" aria-selected="{{ $tab === $key ? 'true' : 'false' }}" @if ($tab === $key) aria-current="page" @endif>{{ $label }}</button>
             @endforeach
+            {{-- Messages and comments are answered in the Gelen kutusu (Aşama 2). --}}
+            <a href="{{ route('operator.inbox') }}" wire:navigate class="seg" data-social-inbox-link>Mesajlar{{ $waitingCount > 0 ? ' ('.$waitingCount.')' : '' }} →</a>
         </nav>
 
         @if ($message !== '')
@@ -76,90 +79,6 @@
             @empty
                 <x-ta.empty-state size="sm" title="Planlı gönderi yok." />
             @endforelse
-        @elseif ($tab === 'mesajlar')
-            <section class="space-y-4" data-inbox>
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex flex-wrap gap-2">
-                        @foreach (['bekleyen' => 'Cevap bekleyen', 'cevaplanan' => 'Cevaplanan', 'bos' => 'Cevapsız bırakılan', 'hepsi' => 'Hepsi'] as $key => $label)
-                            <button type="button" wire:click="$set('inboxFilter', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $inboxFilter === $key])>{{ $label }}</button>
-                        @endforeach
-                    </div>
-                    @if ($canWrite)
-                        <div class="flex flex-wrap gap-2">
-                            <button type="button" class="btn" wire:click="syncInbox" wire:loading.attr="disabled">Şimdi oku</button>
-                            @if ($readyCount > 0)
-                                <button type="button" class="btn-primary" x-on:click="if (confirm('Hazır {{ $readyCount }} cevabın hepsi gönderilsin mi?')) $wire.sendAll()">Hepsini gönder ({{ $readyCount }})</button>
-                            @endif
-                        </div>
-                    @endif
-                </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Instagram ve Facebook mesajları ile gönderi yorumları 10 dakikada bir okunur. Her yeni mesaja cevap taslağı yazılır; siz okuyup gönderirsiniz. Instagram mesajlarına son mesajdan sonraki 24 saat içinde cevap verilebilir.</p>
-
-                @forelse ($threads as $thread)
-                    <article class="card space-y-3 p-4" data-thread="{{ $thread->id }}" wire:key="thread-{{ $thread->id }}">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <p class="text-sm font-semibold">
-                                {{ $thread->account?->platformLabel() }} {{ mb_strtolower($thread->kindLabel()) }} · {{ $thread->author_name ?: 'Bilinmeyen kişi' }}
-                                <span class="font-normal text-gray-500 dark:text-gray-400">· {{ $thread->last_at?->timezone($tz)->translatedFormat('j F H:i') }}</span>
-                            </p>
-                            <div class="flex flex-wrap items-center gap-2 text-xs">
-                                @if ($thread->sales_lead_id)
-                                    <a class="chip tone-ok" href="{{ route('operator.sales.lead', $thread->sales_lead_id) }}">Adaylarda</a>
-                                @endif
-                                @if ($thread->post_url)
-                                    <a class="underline" href="{{ $thread->post_url }}" target="_blank" rel="noopener">Gönderiyi aç ↗</a>
-                                @endif
-                            </div>
-                        </div>
-                        @if ($thread->kind === 'comment' && $thread->post_caption)
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Gönderi: {{ \Illuminate\Support\Str::limit($thread->post_caption, 140) }}</p>
-                        @endif
-                        <ol class="space-y-1.5 text-sm">
-                            @foreach ($thread->messages->sortBy('sent_at') as $m)
-                                <li @class(['rounded-lg px-3 py-2', 'bg-gray-100 dark:bg-gray-800' => $m->direction === 'in', 'tone-info ml-8' => $m->direction === 'out'])>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $m->direction === 'in' ? ($m->author_name ?: 'Kişi') : 'Moximu' }} · {{ $m->sent_at->timezone($tz)->format('d.m H:i') }}</span><br>{{ $m->body }}
-                                </li>
-                            @endforeach
-                        </ol>
-                        @if ($thread->status === 'open')
-                            @if (in_array($thread->draft_status, ['queued', 'running'], true))
-                                <p class="text-sm text-gray-500" wire:poll.5s>Cevap yazılıyor…</p>
-                            @elseif ($thread->draft_status === 'waiting' || $thread->draft_status === 'failed')
-                                <p class="tone-look rounded-lg px-3 py-2 text-sm">{{ $thread->draft_note }}</p>
-                            @endif
-                            @if ($thread->draft_note && $thread->draft_status === 'ready')
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Not: {{ $thread->draft_note }}</p>
-                            @endif
-                            @if ($canWrite)
-                                <textarea rows="3" wire:model="replies.{{ $thread->id }}" placeholder="{{ $thread->draft ?: 'Cevabınızı yazın' }}" class="w-full rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-800 dark:bg-gray-900"></textarea>
-                                @if ($thread->send_error)
-                                    <p class="tone-critical rounded-lg px-3 py-2 text-sm">{{ $thread->send_error }}</p>
-                                @endif
-                                @unless ($thread->canReply())
-                                    <p class="tone-look rounded-lg px-3 py-2 text-sm">24 saat geçti; bu kişiye Instagram uygulamasından yazın.</p>
-                                @endunless
-                                <div class="flex flex-wrap gap-2">
-                                    @if ($thread->canReply())
-                                        <button type="button" class="btn-primary" wire:click="sendReply({{ $thread->id }})">Gönder</button>
-                                    @endif
-                                    <button type="button" class="btn" wire:click="redraft({{ $thread->id }})">Yeniden yaz</button>
-                                    @unless ($thread->sales_lead_id)
-                                        <button type="button" class="btn" wire:click="makeLead({{ $thread->id }})">Adaylara ekle</button>
-                                    @endunless
-                                    <button type="button" class="btn" wire:click="ignoreThread({{ $thread->id }})">Cevapsız bırak</button>
-                                </div>
-                            @endif
-                        @elseif ($thread->status === 'ignored' && $canWrite)
-                            <div class="flex flex-wrap items-center gap-2 text-sm">
-                                <span class="text-gray-500">{{ $thread->draft_note ?: 'Cevapsız bırakıldı.' }}</span>
-                                <button type="button" class="btn" wire:click="reopenThread({{ $thread->id }})">Yine de cevapla</button>
-                            </div>
-                        @endif
-                    </article>
-                @empty
-                    <x-ta.empty-state size="sm" title="Bu listede mesaj yok." />
-                @endforelse
-            </section>
         @elseif ($tab === 'gecmis')
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 @forelse ($history as $post)

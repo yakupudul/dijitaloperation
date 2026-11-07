@@ -32,6 +32,10 @@
                             <a href="{{ route('operator.website', ['assetId' => $website->id]) }}" wire:navigate data-open-website="{{ $website->id }}" title="Siteyi aç" class="link-neutral min-w-0 break-all">{{ $website->domain ?: $website->name }}</a>
                         @endforeach
                     </p>
+                    @if ($operational)
+                        {{-- Ticari şerit (Aşama 3): the agreement, this month's payment, the last report and contact; edited on Satış. --}}
+                        <div class="mt-1.5"><livewire:operator.portfolio.brand-commercial-strip :brand-id="$brandModel->id" :key="'brand-commercial-'.$brandModel->id" lazy /></div>
+                    @endif
                 </div>
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">

@@ -74,6 +74,7 @@ class AgencySetting extends Model
             'ai_workers' => 'array',
             'ai_openai_audit' => 'array',
             'lead_kinds' => 'array',
+            'marketing_targets' => 'array',
         ];
     }
 }

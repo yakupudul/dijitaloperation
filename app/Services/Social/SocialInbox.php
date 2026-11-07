@@ -227,6 +227,7 @@ final class SocialInbox
             if ($last['dir'] === 'in' && $thread->status !== SocialThread::IGNORED) {
                 $thread->status = SocialThread::OPEN;
                 $thread->send_error = null;
+                $thread->snoozed_until = null;
             } elseif ($last['dir'] === 'out') {
                 $thread->status = SocialThread::ANSWERED; // answered on the phone or from here
                 $thread->draft_status = null;

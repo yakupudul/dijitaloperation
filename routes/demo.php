@@ -50,6 +50,7 @@ use App\Livewire\Operator\GoogleAds\Desk\MeasurementPage as GoogleAdsDeskMeasure
 use App\Livewire\Operator\GoogleAds\Desk\ServicesPage as GoogleAdsDeskServicesPage;
 use App\Livewire\Operator\GoogleAds\Desk\TermsPage as GoogleAdsDeskTermsPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
+use App\Livewire\Operator\Inbox\InboxPage;
 use App\Livewire\Operator\Integrations\AccountsPage;
 use App\Livewire\Operator\Integrations\BingIntegrationPage;
 use App\Livewire\Operator\Integrations\ConnectionHealthPage;
@@ -61,6 +62,7 @@ use App\Livewire\Operator\Library\QueryPlanWizard;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Links\LinkDeskPage;
+use App\Livewire\Operator\Marketing\MarketingPage;
 use App\Livewire\Operator\Meta\AdPage as MetaAdPage;
 use App\Livewire\Operator\Meta\AssignPage as MetaAssignPage;
 use App\Livewire\Operator\Meta\CampaignPage as MetaCampaignPage;
@@ -214,6 +216,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         // Takvim (2026-11-05): own tasks and meetings, prospects' next steps and the brands' work on one calendar.
         Route::livewire('/takvim', CalendarPage::class)->name('operator.calendar');
         Route::livewire('/satis', SalesPage::class)->name('operator.sales');
+        // Gelen kutusu (Aşama 2, 2026-11-07): WhatsApp, Instagram / Facebook, forms and today's steps in one queue.
+        Route::livewire('/gelen-kutusu', InboxPage::class)->name('operator.inbox');
         // Bağlantılar (Backlink hizmeti, 2026-11-06): every brand's link desk, targets and the shared source pool.
         Route::livewire('/baglantilar', LinkDeskPage::class)->name('operator.links');
         Route::get('/baglantilar/rapor/{brand}/{month?}', LinkReportController::class)->where(['brand' => '[0-9]{1,18}', 'month' => '[0-9]{4}-[0-9]{2}'])->name('operator.links.report');
@@ -225,6 +229,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/gbp-posts', GbpPostPlanPage::class)->name('operator.gbp-posts');
         // Sosyal medya (ADR-083): Moximu's own Instagram, Facebook and LinkedIn; weekly approval, published at its time.
         Route::livewire('/sosyal', SocialPage::class)->name('operator.social');
+        // Pazarlama (Aşama 4, 2026-11-07): the funnel by source against the monthly target; our own channels as tabs.
+        Route::livewire('/pazarlama', MarketingPage::class)->name('operator.marketing');
         Route::livewire('/gbp', GbpDeskPage::class)->name('operator.gbp-desk');
         Route::livewire('/gbp/sube-sayfalari', GbpBranchPagesPage::class)->name('operator.gbp-branch-pages');
         Route::livewire('/gbp/aciklama-ve-saatler', GbpProfileFieldsPage::class)->name('operator.gbp-profile-fields');

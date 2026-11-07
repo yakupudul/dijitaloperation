@@ -166,8 +166,14 @@ final class WhatsAppIngestion
         if (! $outgoing) {
             // Track the last inbound time for the 24-hour reply-window indicator, and flag a KVKK opt-out (STOP/DUR).
             $update['last_incoming_at'] = $conversation->last_incoming_at?->greaterThan($sentAt) ? $conversation->last_incoming_at : $sentAt;
-            // A new customer message takes a conversation marked done back to the open list.
+            // A new customer message takes a conversation marked done (or put off with "Sonra") back to the open list.
             $update['done_at'] = null;
+            $update['snoozed_until'] = null;
+            // Click-to-WhatsApp ad: Meta sends the ad with the first message; the sales record reads its source from it.
+            $referral = data_get($message, 'referral');
+            if (is_array($referral) && $referral !== [] && $conversation->referral === null) {
+                $update['referral'] = $this->referral($referral, $sentAt);
+            }
             if ($this->isOptOut($body)) {
                 $update['opted_out_at'] = $sentAt;
             }
@@ -175,6 +181,25 @@ final class WhatsAppIngestion
         $conversation->update($update);
 
         return 1;
+    }
+
+    /**
+     * The ad a Click-to-WhatsApp conversation started from (Meta's `referral` object), trimmed to what the record uses.
+     *
+     * @param  array<string, mixed>  $referral
+     * @return array<string, string>
+     */
+    private function referral(array $referral, CarbonImmutable $at): array
+    {
+        $out = ['at' => $at->toIso8601String()];
+        foreach (['source_type', 'source_id', 'source_url', 'headline', 'body', 'media_type', 'ctwa_clid'] as $key) {
+            $value = $referral[$key] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $out[$key] = mb_substr(trim((string) $value), 0, $key === 'body' ? 500 : 255);
+            }
+        }
+
+        return $out;
     }
 
     /** A KVKK opt-out: the contact asked to stop being messaged. Whole-message match only, so it never trips on prose. */

@@ -68,6 +68,6 @@ class SocialThread extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['last_in_at' => 'datetime', 'last_at' => 'datetime', 'draft_at' => 'datetime', 'draft_lead' => 'boolean'];
+        return ['last_in_at' => 'datetime', 'last_at' => 'datetime', 'draft_at' => 'datetime', 'draft_lead' => 'boolean', 'snoozed_until' => 'datetime'];
     }
 }

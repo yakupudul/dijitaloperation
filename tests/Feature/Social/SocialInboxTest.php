@@ -3,7 +3,7 @@
 namespace Tests\Feature\Social;
 
 use App\Jobs\Social\DraftSocialReply;
-use App\Livewire\Operator\Social\SocialPage;
+use App\Livewire\Operator\Inbox\InboxPage;
 use App\Models\SalesLead;
 use App\Models\SocialAccount;
 use App\Models\SocialThread;
@@ -122,10 +122,11 @@ final class SocialInboxTest extends TestCase
         app(SocialInbox::class)->sync();
         SocialThread::query()->where('status', SocialThread::OPEN)->update(['draft' => 'Teşekkürler, yazıyoruz.', 'draft_status' => 'ready']);
 
-        Livewire::actingAs($this->admin)->test(SocialPage::class, ['tab' => 'mesajlar'])
-            ->set('tab', 'mesajlar')
-            ->assertSee('Hepsini gönder (2)')
-            ->call('sendAll')
+        // Social messages are answered in the Gelen kutusu (Aşama 2); the old Mesajlar address points there.
+        $this->actingAs($this->admin)->get('/sosyal?sekme=mesajlar')->assertRedirect('/gelen-kutusu');
+        Livewire::actingAs($this->admin)->test(InboxPage::class)
+            ->assertSee('Hazır sosyal cevapları gönder (2)')->assertSee('drayse')->assertSee('Instagram mesajı')
+            ->call('sendReady')
             ->assertSet('message', '2 cevap gönderildi.');
 
         Http::assertSent(fn (Request $r): bool => str_contains($r->url(), '/PAGE1/messages') && str_contains($r->body(), 'USER9') && str_contains($r->body(), 'RESPONSE'));

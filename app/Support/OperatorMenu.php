@@ -4,20 +4,17 @@ namespace App\Support;
 
 use App\Models\BacklinkSource;
 use App\Models\Brand;
-use App\Models\CoreIntegration;
 use App\Models\GbpQueuedPost;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Models\SocialThread;
-use App\Models\WhatsAppConversation;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
+use App\Services\Inbox\InboxQueue;
 use App\Services\Meta\MetaDesk;
 use App\Services\Operations\SystemHealthReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
-use App\Services\Sales\SalesLeads;
-use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\Work\FlowFeed;
 use App\Support\Demo\DemoMenu;
 use Illuminate\Support\Facades\Cache;
@@ -168,6 +165,9 @@ final class OperatorMenu
         $put('operator.meta-desk', 'red', fn (): int => (int) (app(MetaDesk::class)->desk([])['kpis']['today'] ?? 0));
         $put('operator.gbp-desk', 'soft', fn (): int => GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)
             ->where('publish_on', '>=', now()->toDateString())->count());
+        // Pazarlama carries the social badge now (Aşama 4): drafts waiting for approval and posts to copy by hand.
+        $put('operator.marketing', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
+            + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count());
         $put('operator.social', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
             + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count()
             + SocialThread::query()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count());
@@ -177,12 +177,8 @@ final class OperatorMenu
 
             return $models->filter(fn (Brand $brand): bool => (bool) (OperatorPortfolioPresenter::brand($brand, $signals[(int) $brand->id] ?? PortfolioSignalsReader::emptyBrand())['needs_attention'] ?? false))->count();
         });
-        $put('operator.whatsapp', 'soft', fn (): int => WhatsAppConversation::query()
-            ->whereIn('integration_id', CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->select('id'))->whereNull('done_at')->whereNull('opted_out_at')
-            ->whereNotNull('last_incoming_at')->whereColumn('last_incoming_at', '>=', 'last_message_at')
-            ->where('last_message_at', '>=', now()->subDays(7))->count());
-        // Satış (2026-11-04): how many prospects to write to today.
-        $put('operator.sales', 'soft', fn (): int => app(SalesLeads::class)->due()->count());
+        // Gelen kutusu (2026-11-07): answers owed and today's steps, in one number.
+        $put('operator.inbox', 'soft', fn (): int => app(InboxQueue::class)->openCount());
         // Bağlantılar: applications ready to send and rows for the operator's own call or visit.
         $put('operator.links', 'soft', fn (): int => BacklinkSource::query()->where('status', BacklinkSource::NONE)
             ->where(fn ($q) => $q->where('material_status', 'ready')->orWhere('lane', 'sen')->whereNotNull('material_status'))

@@ -112,7 +112,7 @@ final class WhatsAppBackupImportTest extends TestCase
         Queue::assertPushed(LearnWhatsAppBrain::class);
 
         Livewire::test(Inbox::class)
-            ->assertSee('Gelen kutusu')->assertSeeHtml('data-wa-tab-count="inbox">2</span>')
+            ->assertSee('Görüşmeler')->assertSeeHtml('data-wa-tab-count="inbox">2</span>')
             ->assertSee('Gizli numara')
             ->assertSee('Beyin')
             ->set('tab', 'setup')
