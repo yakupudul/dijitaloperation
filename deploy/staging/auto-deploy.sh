@@ -14,7 +14,10 @@
 # is not tried again; a missing backup only waits (the same commit goes ahead once a backup exists).
 #
 #   bash deploy/staging/auto-deploy.sh --install   # once, as root: installs /etc/cron.d/moxdop-autodeploy
-#   bash deploy/staging/auto-deploy.sh             # one check now (what cron runs)
+#   bash deploy/staging/auto-deploy.sh             # one check now
+#   bash deploy/staging/auto-deploy.sh --cron      # what cron runs every minute: a check on the quarter hour, or at
+#                                                  # once when storage/app/auto-deploy.now exists ("Şimdi yayınla":
+#                                                  # Claude's deploy-now tool, yakup 2026-11-08); same tests and gates
 #   touch storage/app/auto-deploy.off              # pause; delete the file to resume
 #
 # Watched branches: MOXDOP_AUTODEPLOY_BRANCHES (space separated), default below.
@@ -40,7 +43,7 @@ if [[ "${1:-}" == "--install" ]]; then
     exit 1
   fi
   printf '%s\n' "# MoxDOP automatic deploy (installed by deploy/staging/auto-deploy.sh --install)" \
-    "*/15 * * * * root bash ${ROOT}/deploy/staging/auto-deploy.sh >> ${ROOT}/storage/logs/auto-deploy.log 2>&1" \
+    "* * * * * root bash ${ROOT}/deploy/staging/auto-deploy.sh --cron >> ${ROOT}/storage/logs/auto-deploy.log 2>&1" \
     > /etc/cron.d/moxdop-autodeploy
   chmod 0644 /etc/cron.d/moxdop-autodeploy
   # The pages show "installed, first check pending" at once instead of "not installed" until the first cron tick.
@@ -50,7 +53,7 @@ if [[ "${1:-}" == "--install" ]]; then
     chmod 0644 "$STATUS_FILE"
     chown "${WEB_USER}:${WEB_USER}" "$STATUS_FILE" 2>/dev/null || true
   fi
-  echo "auto-deploy: installed /etc/cron.d/moxdop-autodeploy (every 15 minutes; branches: ${BRANCHES})"
+  echo "auto-deploy: installed /etc/cron.d/moxdop-autodeploy (every 15 minutes, or within a minute of a deploy-now request; branches: ${BRANCHES})"
   echo "auto-deploy: pause with: touch ${ROOT}/storage/app/auto-deploy.off"
   exit 0
 fi
@@ -64,6 +67,24 @@ fi
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 touch "$TRIED_FILE"
+
+# Cron every minute (--cron): the cron file of an older install (every 15 minutes, no --cron) is upgraded in place by
+# root, so a deploy-now request is picked up within a minute. A minute run does nothing unless it is the quarter hour
+# or a request is waiting; the request is taken only here, after the lock, so one made during a test run waits for it.
+REQUEST_FILE="${STATE_DIR}/auto-deploy.now"
+CRON_FILE="${MOXDOP_AUTODEPLOY_CRON_FILE:-/etc/cron.d/moxdop-autodeploy}"
+if [[ "$(id -u)" -eq 0 && -f "$CRON_FILE" ]] && ! grep -q -- '--cron' "$CRON_FILE"; then
+  printf '%s\n' "# MoxDOP automatic deploy (installed by deploy/staging/auto-deploy.sh --install)" \
+    "* * * * * root bash ${ROOT}/deploy/staging/auto-deploy.sh --cron >> ${ROOT}/storage/logs/auto-deploy.log 2>&1" \
+    > "$CRON_FILE" || true
+fi
+if [[ "${1:-}" == "--cron" ]]; then
+  if [[ -f "$REQUEST_FILE" ]]; then
+    rm -f "$REQUEST_FILE"
+  elif (( 10#${MOXDOP_AUTODEPLOY_MINUTE:-$(date -u +%M)} % 15 != 0 )); then
+    exit 0
+  fi
+fi
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 

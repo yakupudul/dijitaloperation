@@ -4,6 +4,7 @@ namespace Tests\Feature\Operations;
 
 use App\Livewire\Operator\Settings\ImprovementsPage;
 use App\Mcp\Servers\MoxdopServer;
+use App\Mcp\Tools\DeployNow;
 use App\Mcp\Tools\SystemHealth;
 use App\Models\AgencySetting;
 use App\Models\Observability\OperationalAlert;
@@ -160,6 +161,50 @@ final class AutoDeployTest extends SiteTestCase
 
         File::put(AutoDeployStatus::path(), '{"state":"tests_failed","message":"kırık \\'."\n".'"}');
         $this->assertSame('tests_failed', AutoDeployStatus::current()['state'], 'never "not installed" over a real check');
+    }
+
+    public function test_deploy_now_asks_the_minute_cron_for_a_check_and_a_paused_deploy_refuses_it(): void
+    {
+        File::delete(AutoDeployStatus::requestPath());
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'idle', 'branch' => '', 'sha' => str_repeat('a', 40), 'message' => 'Yeni commit yok.', 'checked_at' => now()->toIso8601String()]));
+        MoxdopServer::tool(DeployNow::class, ['reason' => 'WhatsApp düzeltmesi'])->assertOk()->assertSee('En geç 1 dakika');
+        $this->assertFileExists(AutoDeployStatus::requestPath());
+        $this->assertNotNull(AutoDeployStatus::requested());
+
+        File::delete(AutoDeployStatus::requestPath());
+        File::put(AutoDeployStatus::path(), json_encode(['state' => 'paused', 'branch' => '', 'sha' => '', 'message' => '', 'checked_at' => now()->toIso8601String()]));
+        MoxdopServer::tool(DeployNow::class, ['reason' => 'deneme'])->assertHasErrors();
+        $this->assertFileDoesNotExist(AutoDeployStatus::requestPath());
+    }
+
+    public function test_the_minute_cron_checks_only_on_the_quarter_hour_or_when_a_deploy_now_request_waits(): void
+    {
+        $this->repo = sys_get_temp_dir().'/moxdop-autodeploy-'.uniqid();
+        $app = $this->repo.'/app';
+        $this->shell(['git', 'init', '--quiet', $app]);
+        File::ensureDirectoryExists($app.'/deploy/staging');
+        File::copy(base_path('deploy/staging/auto-deploy.sh'), $app.'/deploy/staging/auto-deploy.sh');
+        File::put($app.'/.gitignore', "storage/\n");
+        $this->shell(['git', '-C', $app, '-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '.']);
+        $this->shell(['git', '-C', $app, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'live']);
+        $env = ['MOXDOP_AUTODEPLOY_BRANCHES' => 'none', 'MOXDOP_WEB_USER' => get_current_user(), 'MOXDOP_AUTODEPLOY_LOCK' => $this->repo.'/auto-deploy.lock',
+            'MOXDOP_AUTODEPLOY_CRON_FILE' => $this->repo.'/cron', 'MOXDOP_AUTODEPLOY_MINUTE' => '07'];
+        $run = function () use ($app, &$env): void {
+            (new Process(['bash', $app.'/deploy/staging/auto-deploy.sh', '--cron'], $app, $env))->mustRun();
+        };
+
+        $run();
+        $this->assertFileDoesNotExist($app.'/storage/app/auto-deploy.json', 'minute 07 without a request: nothing checked');
+
+        File::put($app.'/storage/app/auto-deploy.now', '{}');
+        $run();
+        $this->assertSame('idle', json_decode((string) file_get_contents($app.'/storage/app/auto-deploy.json'), true)['state']);
+        $this->assertFileDoesNotExist($app.'/storage/app/auto-deploy.now', 'the request is taken');
+
+        File::delete($app.'/storage/app/auto-deploy.json');
+        $env['MOXDOP_AUTODEPLOY_MINUTE'] = '45';
+        $run();
+        $this->assertFileExists($app.'/storage/app/auto-deploy.json', 'the quarter hour still checks');
     }
 
     /** @param  list<string>  $command */

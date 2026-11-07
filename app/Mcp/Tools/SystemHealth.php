@@ -47,6 +47,7 @@ class SystemHealth extends Tool
             $out += [
                 'release' => $read['release'] ?? null,
                 'auto_deploy' => $this->autoDeploy(),
+                'deploy_requested' => AutoDeployStatus::requested(),
                 // Last good backup, its error and the monthly restore drill (audit D5): a deploy waits without a recent backup.
                 'backup' => $read['backup'] ?? null,
                 'scheduler' => $read['scheduler'] ?? null,

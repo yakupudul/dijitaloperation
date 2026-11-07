@@ -7,6 +7,7 @@ use App\Mcp\Tools\ChannelData;
 use App\Mcp\Tools\ClusterOverlapsList;
 use App\Mcp\Tools\ContentQueue;
 use App\Mcp\Tools\CorrectResult;
+use App\Mcp\Tools\DeployNow;
 use App\Mcp\Tools\EditSite;
 use App\Mcp\Tools\FailTask;
 use App\Mcp\Tools\GbpEvidence;
@@ -194,6 +195,7 @@ class MoxdopServer extends Server
         ContentQueue::class,
         RequestArticle::class,
         SystemHealth::class,
+        DeployNow::class,
         GbpEvidence::class,
         ClusterOverlapsList::class,
         OverlapAct::class,

@@ -27,6 +27,36 @@ final class AutoDeployStatus
         return storage_path('app/auto-deploy.json');
     }
 
+    /** "Şimdi yayınla" (yakup 2026-11-08): the script, run by cron every minute, checks at once while this file exists. */
+    public static function requestPath(): string
+    {
+        return storage_path('app/auto-deploy.now');
+    }
+
+    /** Ask for a check now instead of at the next quarter hour; the same tests, backup and screen gates apply. */
+    public static function requestNow(string $reason): bool
+    {
+        try {
+            return file_put_contents(self::requestPath(), json_encode(['at' => now()->toIso8601String(), 'reason' => mb_substr($reason, 0, 300)], JSON_UNESCAPED_UNICODE)) !== false;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /** @return string|null when a request waits for the script, its time */
+    public static function requested(): ?string
+    {
+        try {
+            if (! is_file(self::requestPath())) {
+                return null;
+            }
+
+            return (string) (json_decode((string) file_get_contents(self::requestPath()), true)['at'] ?? '') ?: 'bekliyor';
+        } catch (Throwable) {
+            return 'bekliyor';
+        }
+    }
+
     /** The failing tests of the last check with their first lines (written by the script, removed by a deploy). */
     public static function failurePath(): string
     {
