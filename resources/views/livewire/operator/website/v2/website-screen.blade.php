@@ -1,10 +1,8 @@
 @php
     $siteUrl = $site->primary_url ?: ($site->domain ? 'https://'.$site->domain : null);
     $screen = \App\Livewire\Operator\Website\V2\WebsiteScreen::class;
-    $menu = $screen::SETTINGS + $screen::MORE;
-    $moreOpen = array_key_exists($tab, $menu);
-    // The menu button names the view it holds open ("Rakipler"), otherwise "Ayarlar".
-    $moreLabel = $moreOpen && $tab !== 'ayarlar' ? $menu[$tab] : 'Ayarlar';
+    $tabGroup = $screen::group($tab);
+    $tabViews = $screen::VIEWS[$tabGroup] ?? [];
 @endphp
 <div class="min-w-0 space-y-8" data-website-screen>
     <x-operator.asset-context :asset-id="$site->id" :title="$pageTitle">
@@ -30,31 +28,24 @@
         @endforeach
 
         <x-slot:tabs>
-            {{-- One row of tabs; on a phone it scrolls sideways. The settings menu sits outside the scroller so its list is not clipped. --}}
+            {{-- One row of seven tabs (admin audit 2026-11-07 T2); on a phone it scrolls sideways. A tab with several views shows them as pills below. --}}
             <div class="flex min-w-0 items-end border-b border-gray-200 dark:border-gray-800">
                 <nav class="no-scrollbar -mb-px flex min-w-0 items-end overflow-x-auto" aria-label="Sekmeler">
                     @foreach ($screen::TABS as $key => $label)
-                        <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}" @class(['tab mb-0!', 'tab-active' => $tab === $key])>{{ $label }}</button>
+                        <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}" @class(['tab mb-0!', 'tab-active' => $tabGroup === $key])>{{ $label }}</button>
                     @endforeach
                 </nav>
-                <div class="relative -mb-px shrink-0" x-data="{ more: false }" @click.outside="more = false">
-                    <button type="button" @click="more = !more" data-tab-more data-tab-settings :aria-expanded="more.toString()" @class(['tab mb-0!', 'tab-active' => $moreOpen])>
-                        <span class="max-w-[9rem] truncate sm:max-w-[14rem]" title="{{ $moreLabel }}">{{ $moreLabel }}</span>
-                        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                    <div x-show="more" x-cloak class="absolute right-0 z-30 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                        @foreach ($menu as $key => $label)
-                            @if ($loop->index === count($screen::SETTINGS))
-                                <p class="mt-1 border-t border-gray-100 px-3 pb-1 pt-2 text-xs text-gray-500 dark:border-gray-800">Diğer görünümler</p>
-                            @endif
-                            <button type="button" wire:click="setTab('{{ $key }}')" @click="more = false" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}"
-                                    @class(['block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-white/[0.04]', 'bg-gray-50 font-medium text-gray-900 dark:bg-white/[0.06] dark:text-white' => $tab === $key, 'text-gray-700 dark:text-gray-300' => $tab !== $key])>{{ $label }}</button>
-                        @endforeach
-                    </div>
-                </div>
             </div>
         </x-slot:tabs>
     </x-operator.asset-context>
+
+    @if (count($tabViews) > 1)
+        <nav class="-mt-4 flex flex-wrap items-center gap-1.5" aria-label="Görünümler" data-tab-views="{{ $tabGroup }}">
+            @foreach ($tabViews as $key => $label)
+                <button type="button" wire:click="setTab('{{ $key }}')" data-tab="{{ $key }}" aria-current="{{ $tab === $key ? 'page' : 'false' }}" @class(['seg h-8! px-3!', 'seg-active' => $tab === $key])>{{ $label }}</button>
+            @endforeach
+        </nav>
+    @endif
 
     @forelse ($views as [$component, $params])
         @livewire($component, ['assetId' => $site->id, ...$params], key($component.'-'.$tab.'-'.$site->id.'-'.$rangeKey))

@@ -258,7 +258,7 @@ final class SitePagesTest extends TestCase
 
         $url = fn (array $query): string => route('operator.website', ['assetId' => $this->site->id, ...$query]);
         $this->get($url([]))->assertOk()->assertSee('data-suggestions', false)->assertDontSee('data-clusters-board', false);
-        $this->get($url(['tab' => 'kumeler']))->assertOk()->assertSee('data-clusters-board', false)->assertSee('data-tab="kumeler"', false)->assertSee('data-tab-more', false)
+        $this->get($url(['tab' => 'kumeler']))->assertOk()->assertSee('data-clusters-board', false)->assertSee('data-tab="kumeler" aria-current="page"', false)->assertSee('data-tab-views="kumeler"', false)->assertDontSee('data-tab-more', false)
             ->assertSee('data-date-picker', false)->assertSee('Son 28 gün');
         $this->get($url(['tab' => 'sayfalar']))->assertOk()->assertSee('data-pages-tab', false)->assertSee('data-page-types', false)->assertSee('/implant')
             ->assertDontSee('aria-label="Dönem"', false);
@@ -266,7 +266,10 @@ final class SitePagesTest extends TestCase
         $this->get($url(['tab' => 'analiz']))->assertOk()->assertSee('data-analytics-tab', false)->assertSee('data-scorecards', false)->assertSee('data-page-scorecard', false);
         $this->get($url(['tab' => 'sorgular']))->assertOk()->assertSee('data-rows="queries"', false)->assertSee('ankara implant')->assertDontSee('aria-label="Analiz sekmeleri"', false);
         $this->get($url(['tab' => 'fikirler']))->assertOk()->assertSee('data-content-ideas-tab', false)->assertDontSee('data-date-picker', false);
-        $this->get($url(['tab' => 'hedef']))->assertOk()->assertSee('data-rows="targets"', false);
+        $this->get($url(['tab' => 'hedef']))->assertOk()->assertSee('data-rows="targets"', false)
+            ->assertSee('data-tab-views="analiz"', false)->assertSee('data-tab="hedef" aria-current="page"', false)->assertSee('data-tab="analiz" aria-current="false"', false);
+        $this->assertSame(['analiz', 'analiz', 'icerik', 'kumeler', 'yapilacaklar', 'ayarlar'], array_map(WebsiteScreen::group(...), ['hedef', 'backlinkler', 'fikirler', 'eslestirme', 'yapilacaklar', 'ayarlar']), 'every view has its tab (T2)');
+        $this->assertSame(7, count(WebsiteScreen::TABS));
         $this->get($url(['tab' => 'saglik']))->assertOk()->assertSee('data-technical-seo-tab', false)->assertSee('Site Sağlığı');
         $this->get($url(['tab' => 'varliklar']))->assertOk()->assertSee('data-settings', false)->assertSee('data-linked-assets-tab', false)
             ->assertSee('Şimdi güncelle')->assertSee(route('operator.integrations.website', ['assetId' => $this->site->id]), false);
