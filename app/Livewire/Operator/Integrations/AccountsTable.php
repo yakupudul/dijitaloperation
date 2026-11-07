@@ -10,6 +10,7 @@ use App\Models\CoreIntegration;
 use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
+use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Portfolio\PortfolioGroupCreator;
 use App\Services\SeoTasks\SeoText;
@@ -29,6 +30,10 @@ use Throwable;
  * serves (one select to bind an unbound account), its state (çalışıyor, erişim yok, harcamasız, kullanılmıyor, bağlı
  * değil), its last data and one "Şimdi güncelle". Marka › Dijital varlıklar shows the same component filtered to the
  * brand's accounts.
+ *
+ * "Kullanılmıyor" accounts (old customers under the agency MCC / Business) are inventory, not work: the default view
+ * leaves them out and their chip shows how many there are (admin audit 2026-11-07 V4). One admin click marks every
+ * unbound account nobody claims; an account whose name matches a brand stays "Bağlı değil" so it is still suggested.
  */
 final class AccountsTable extends Component
 {
@@ -107,6 +112,27 @@ final class AccountsTable extends Component
         $resource->forceFill(['metadata' => $meta])->save();
     }
 
+    /**
+     * Every unbound account that no brand claims becomes "Kullanılmıyor" in one click (V4: 100+ old customers' accounts
+     * read as 100+ things to do). A strong candidate of a brand (name match or dedicated container) is left alone.
+     */
+    public function notServedAll(BrandAccountCandidates $candidates): void
+    {
+        $this->admin();
+        $unbound = $this->rows()->where('state', 'unbound')->pluck('id');
+        $claimed = collect($candidates->strongForBrands(Brand::query()->operational()->get()))->flatten(1)->pluck('resource_id')->map(fn ($id): int => (int) $id);
+        $ids = $unbound->diff($claimed)->values();
+        $now = now()->toIso8601String();
+        foreach (CoreExternalResource::query()->whereIn('id', $ids->all())->get() as $resource) {
+            $meta = is_array($resource->metadata) ? $resource->metadata : [];
+            $meta['not_served_at'] = $now;
+            $resource->forceFill(['metadata' => $meta])->save();
+        }
+        $kept = $unbound->intersect($claimed)->count();
+        $this->message = $ids->count().' hesap kullanılmıyor olarak işaretlendi; "Kullanılmıyor" süzgecinde durur, "Yeniden öner" geri alır.'
+            .($kept > 0 ? ' Bir markanın adıyla eşleşen '.$kept.' hesap "Bağlı değil" kaldı.' : '');
+    }
+
     public function refreshNow(int $resourceId, ResourceAutomationService $automation): void
     {
         $actor = auth()->user();
@@ -125,13 +151,14 @@ final class AccountsTable extends Component
     public function render(): View
     {
         $rows = $this->rows();
-        $counts = ['' => $rows->count()] + array_map(fn (): int => 0, self::STATES);
+        $counts = ['' => 0] + array_map(fn (): int => 0, self::STATES);
         foreach ($rows as $row) {
             $counts[$row['state']]++;
+            $counts[''] += $row['state'] === 'not_served' ? 0 : 1; // "Tümü" = the accounts the agency works with
         }
         $needle = SeoText::fold($this->search);
         $visible = $rows->filter(fn (array $r): bool => ($this->type === '' || $r['type'] === $this->type)
-            && ($this->state === '' || $r['state'] === $this->state)
+            && ($this->state === '' ? $r['state'] !== 'not_served' : $r['state'] === $this->state)
             && ($needle === '' || str_contains(SeoText::fold($r['name'].' '.$r['external_id'].' '.$r['brand']), $needle)))->values();
 
         return view('livewire.operator.integrations.accounts-table', [

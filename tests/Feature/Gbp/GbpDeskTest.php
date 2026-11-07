@@ -313,7 +313,7 @@ final class GbpDeskTest extends TestCase
 
         $desk = app(ReviewDesk::class);
         $stats = $desk->stats([$this->location->id => $this->resourceId])[$this->location->id];
-        $this->assertSame(['total' => 3, 'recent' => 3, 'average' => 4.0, 'previous_average' => null, 'unanswered' => 2, 'reply_rate' => 33, 'reply_hours' => null, 'late' => 1, 'low_open' => 1], $stats);
+        $this->assertSame(['total' => 3, 'recent' => 3, 'average' => 4.0, 'previous_average' => null, 'unanswered' => 2, 'older' => 0, 'reply_rate' => 33, 'reply_hours' => null, 'late' => 1, 'low_open' => 1], $stats);
         $list = $desk->unanswered([$this->location->id => $this->resourceId]);
         $this->assertSame([$old], array_slice(array_column($list, 'id'), 0, 1));
         $this->assertTrue($list[0]['late']);
@@ -456,13 +456,16 @@ final class GbpDeskTest extends TestCase
         $this->assertCount(2, $desk->reviews($resources, 'tumu', search: 'implant')['rows']);
         $this->assertNotContains($old, array_column($desk->reviews($resources, 'tumu', recentOnly: true)['rows'], 'id'));
         $stats = $desk->stats($resources)[$this->location->id];
-        $this->assertSame([4, 1, 25, 24], [$stats['total'], $stats['low_open'], $stats['reply_rate'], $stats['reply_hours']]);
+        $this->assertSame([4, 0, 1, 25, 24], [$stats['total'], $stats['low_open'], $stats['older'], $stats['reply_rate'], $stats['reply_hours']], 'the 2025 one-star review is Geçmiş, not a bad review waiting');
         $topics = $desk->topics([$this->resourceId], [$this->brand->id]);
         $this->assertSame([['name' => 'Zeliha', 'count' => 2, 'average' => 4.5]], $topics['doctors']);
         $this->assertSame(['implant', 2], [$topics['services'][0]['word'], $topics['services'][0]['count']]);
 
-        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)
-            ->assertSee('1 kötü yorum (1–2 ★) yanıt bekliyor.')->assertSee('Zeliha · 2 yorum')->assertDontSee('Dr. Zeliha was very attentive')
+        // The desk opens on the window's work; the 2025 one-star review is Geçmiş, one click away (V7).
+        $page = Livewire::actingAs($this->admin)->test(ReviewsPage::class)->assertSet('recentOnly', true)
+            ->assertSee('Geçmiş: 1 eski yanıtsız yorum.')->assertDontSee('kötü yorum (1–2 ★) yanıt bekliyor')->assertDontSee('Çok beklettiler.')
+            ->assertSee('Zeliha · 2 yorum')->assertDontSee('Dr. Zeliha was very attentive')
+            ->call('showOlder')->assertSet('recentOnly', false)->assertSet('sort', 'eski')->assertSee('Çok beklettiler.')
             ->call('showLowOpen')->assertSet('rating', 'low')->assertSee('Çok beklettiler.')->assertDontSee('kötü yorum (1–2 ★) yanıt bekliyor')
             ->call('searchFor', 'Zeliha')->assertSet('status', 'tumu')->assertSee('Ece Akgül')->assertDontSee('Mehmet K');
 
@@ -660,7 +663,7 @@ final class GbpDeskTest extends TestCase
         foreach (['operator.gbp-desk', 'operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos'] as $route) {
             $this->get(route($route))->assertOk()->assertSee('İşletme profilleri')->assertSee('Panorama Çankaya');
         }
-        $this->get(route('operator.gbp-reviews'))->assertOk()->assertSee('Yanıt bekleyen yorum yok.');
+        $this->get(route('operator.gbp-reviews'))->assertOk()->assertSee('günde yanıt bekleyen yorum yok.');
         $this->get(route('operator.gbp-profile-fields', ['bolum' => 'saatler']))->assertOk()->assertSee('Cumhuriyet Bayramı');
         $this->get(route('operator.gbp-reviews', ['bolum' => 'iste']))->assertOk()->assertSee('writereview?placeid=ChIJtest123', false);
         $this->get(route('operator.gbp-desk', ['isletme' => $this->location->id]))->assertOk();
@@ -980,13 +983,14 @@ final class GbpDeskTest extends TestCase
         $desk = app(ReviewDesk::class);
         $resources = [$this->location->id => $this->resourceId];
 
-        $this->assertSame(['total' => 4, 'recent' => 2, 'average' => 3.0, 'previous_average' => 1.0, 'unanswered' => 2, 'reply_rate' => 50, 'reply_hours' => 6, 'late' => 2, 'low_open' => 1],
+        // c (June) and d (2025) are open but older than the window: Geçmiş, not work the desk is late on (V7).
+        $this->assertSame(['total' => 4, 'recent' => 2, 'average' => 3.0, 'previous_average' => 1.0, 'unanswered' => 0, 'older' => 2, 'reply_rate' => 50, 'reply_hours' => 6, 'late' => 0, 'low_open' => 0],
             $desk->stats($resources)[$this->location->id]);
         $this->assertSame([], $desk->stats([]));
 
         $review('e', 'ONE', null, now()->subHour()->toDateTimeString());
         $stats = $desk->stats($resources)[$this->location->id];
-        $this->assertSame([5, 3, 2], [$stats['total'], $stats['unanswered'], $stats['low_open']], 'a new review shows at once, not after the cached minute');
+        $this->assertSame([5, 1, 1, 2], [$stats['total'], $stats['unanswered'], $stats['low_open'], $stats['older']], 'a new review shows at once, not after the cached minute');
     }
 
     public function test_photo_numbers_are_counted_in_the_database(): void
@@ -1053,7 +1057,7 @@ final class GbpDeskTest extends TestCase
         DB::disableQueryLog();
 
         $this->assertSame($first, $next);
-        $this->assertSame(['total' => 60, 'recent' => 60, 'average' => 5.0, 'previous_average' => null, 'unanswered' => 30, 'reply_rate' => 50, 'reply_hours' => 4, 'late' => 29, 'low_open' => 0], $next);
+        $this->assertSame(['total' => 60, 'recent' => 60, 'average' => 5.0, 'previous_average' => null, 'unanswered' => 30, 'older' => 0, 'reply_rate' => 50, 'reply_hours' => 4, 'late' => 29, 'low_open' => 0], $next);
         $this->assertCount(2, $queries, 'the version and one grouped count; reply times stay cached until a review changes');
         $this->assertStringContainsString('group by', $queries[1]);
         $page = $desk->reviews($resources, 'tumu');

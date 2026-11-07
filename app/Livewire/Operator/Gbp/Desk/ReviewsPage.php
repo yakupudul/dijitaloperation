@@ -55,9 +55,9 @@ final class ReviewsPage extends Component
     #[Url(as: 'sira')]
     public string $sort = 'yeni';
 
-    /** Only reviews of the last 90 days. */
+    /** Only reviews of the last 90 days: the desk's work. Off, the grid reaches the Geçmiş bucket (older open reviews). */
     #[Url(as: 'son')]
-    public bool $recentOnly = false;
+    public bool $recentOnly = true;
 
     /** Words in the review text or the reviewer's name. */
     #[Url(as: 'ara')]
@@ -124,6 +124,16 @@ final class ReviewsPage extends Component
     public function toggleRecent(): void
     {
         $this->recentOnly = ! $this->recentOnly;
+        $this->resetList();
+    }
+
+    /** "Geçmiş": the open reviews older than the window, oldest first, for a quiet day. */
+    public function showOlder(): void
+    {
+        $this->section = 'yanit';
+        $this->status = 'bekleyen';
+        $this->sort = 'eski';
+        $this->recentOnly = false;
         $this->resetList();
     }
 
@@ -627,6 +637,7 @@ final class ReviewsPage extends Component
             'kits' => $kits,
             'totals' => [
                 'unanswered' => array_sum(array_column($stats, 'unanswered')),
+                'older' => array_sum(array_column($stats, 'older')),
                 'late' => array_sum(array_column($stats, 'late')),
                 'recent' => array_sum(array_column($stats, 'recent')),
             ],

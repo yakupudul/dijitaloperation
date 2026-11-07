@@ -25,6 +25,13 @@
         </span>
     </div>
 
+    @if ($isAdmin && $brandId === 0 && $counts['unbound'] > 0 && in_array($state, ['', 'unbound'], true))
+        <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-gray-500" data-accounts-unbound-note>
+            <span>Bağlı olmayan {{ $counts['unbound'] }} hesap: bir markaya bağlanana kadar veri çekilmez. Eski müşterilerinki tek tıkla "Kullanılmıyor" olur; bir markanın adıyla eşleşenler kalır.</span>
+            <button type="button" wire:click="notServedAll" wire:loading.attr="disabled" wire:confirm="Hiçbir markanın sahiplenmediği bağlı olmayan hesapların tümü &quot;Kullanılmıyor&quot; olarak işaretlensin mi? Her biri &quot;Yeniden öner&quot; ile geri alınır." class="btn-quiet h-8!" data-accounts-not-served-all>Kalanları kullanılmıyor yap</button>
+        </p>
+    @endif
+
     @if ($message !== '')
         <p role="status" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-accounts-message>{{ $message }}</p>
     @endif
@@ -68,7 +75,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="py-6! text-[13px] text-gray-500">{{ $brandId === 0 ? 'Bu süzgeçte hesap yok.' : 'Bu markaya bağlı reklam ya da profil hesabı yok.' }}</td></tr>
+                    <tr><td colspan="5" class="py-6! text-[13px] text-gray-500">{{ $brandId === 0 ? ($state === '' && $counts['not_served'] > 0 ? 'Çalışılan hesap yok; kullanılmayan '.$counts['not_served'].' hesap kendi süzgecinde.' : 'Bu süzgeçte hesap yok.') : 'Bu markaya bağlı reklam ya da profil hesabı yok.' }}</td></tr>
                 @endforelse
             </tbody>
         </table>

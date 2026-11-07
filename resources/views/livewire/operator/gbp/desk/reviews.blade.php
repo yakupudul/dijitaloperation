@@ -23,7 +23,7 @@
             <header class="flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
                     <h1 class="page-title" title="Yorum sayısı, yorumların tazeliği ve yanıtlanması yerel sıralamada en güçlü sinyallerden. Bütün profillerin yorumları tek ekranda: yanıt bekleyenleri seç, yapay zekâ taslak yazsın ya da ortak bir yanıt ver, ön izle ve toplu yayımla (her yanıt geri alınabilir). “Yorum isteme” bölümünde her şube için Google yorum bağlantısı, QR kod, müşteriye gönderilecek mesaj ve yazdırılabilir kart var.">İşletme profilleri</h1>
-                    <p class="page-sub">{{ $totals['unanswered'] === 0 ? 'Yanıt bekleyen yorum yok.' : $n($totals['unanswered']).' yorum yanıt bekliyor'.($totals['late'] > 0 ? ', '.$n($totals['late']).' tanesi '.\App\Services\Gbp\GbpDailyWorkspace::REPLY_SLA_HOURS.' saatten uzun.' : '.') }}</p>
+                    <p class="page-sub">{{ $totals['unanswered'] === 0 ? 'Son '.\App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS.' günde yanıt bekleyen yorum yok.' : $n($totals['unanswered']).' yorum yanıt bekliyor (son '.\App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS.' gün)'.($totals['late'] > 0 ? ', '.$n($totals['late']).' tanesi '.\App\Services\Gbp\GbpDailyWorkspace::REPLY_SLA_HOURS.' saatten uzun.' : '.') }}@if ($totals['older'] > 0) <button type="button" wire:click="showOlder" class="hover:underline" data-testid="gbp-review-older">Geçmiş: {{ $n($totals['older']) }} eski yanıtsız yorum.</button>@endif</p>
                 </div>
                 @include('livewire.operator.gbp.partials.brand-filter')
             </header>
@@ -99,7 +99,7 @@
 
         {{-- 2. Three numbers. Unanswered reviews are worth a look, not money loss: no red number. --}}
         <section class="metric-strip grid-cols-2 sm:grid-cols-3">
-            <x-ta.metric-card label="Yanıtsız yorum" :value="$n($totals['unanswered'])">@if ($totals['unanswered'] > 0)<x-ta.pill tone="look">yanıt bekliyor</x-ta.pill>@endif</x-ta.metric-card>
+            <x-ta.metric-card :label="'Yanıtsız yorum · son '.\App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS.' gün'" :value="$n($totals['unanswered'])">@if ($totals['unanswered'] > 0)<x-ta.pill tone="look">yanıt bekliyor</x-ta.pill>@endif@if ($totals['older'] > 0) <span class="text-xs text-gray-500">+ {{ $n($totals['older']) }} geçmişte</span>@endif</x-ta.metric-card>
             <x-ta.metric-card :label="\App\Services\Gbp\GbpDailyWorkspace::REPLY_SLA_HOURS.' saatten uzun bekleyen'" :value="$n($totals['late'])" />
             <x-ta.metric-card :label="'Son '.\App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS.' günde gelen yorum'" :value="$n($totals['recent'])" class="col-span-2 sm:col-span-1" />
         </section>
@@ -363,7 +363,7 @@
                             </div>
                         </article>
                     @empty
-                        <x-ta.empty-state size="sm" :icon="$status === 'bekleyen' ? 'check' : 'none'" :title="$status === 'bekleyen' ? 'Yanıt bekleyen yorum yok.' : 'Bu süzgeçte yorum yok.'" />
+                        <x-ta.empty-state size="sm" :icon="$status === 'bekleyen' ? 'check' : 'none'" :title="$status === 'bekleyen' ? ($recentOnly ? 'Son '.\App\Services\Gbp\Desk\ReviewDesk::WINDOW_DAYS.' günde yanıt bekleyen yorum yok.' : 'Yanıt bekleyen yorum yok.') : 'Bu süzgeçte yorum yok.'" />
                     @endforelse
                 </div>
                 @if (count($reviews) < $total)

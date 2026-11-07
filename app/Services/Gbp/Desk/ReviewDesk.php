@@ -59,8 +59,12 @@ final class ReviewDesk
      * before, reply rate, how long a reply takes on average (hours, replies Google dates), unanswered, late and the
      * unanswered 1–2 ★ ones.
      *
+     * unanswered / late / low_open count the open reviews of the window only: the desk's work. An open review older than
+     * the window (years of a profile's history before the agency) is "older", the Geçmiş bucket, and never a number
+     * that says the desk is behind (admin audit 2026-11-07 V7: "6.199 yanıtsız" next to a list of 48).
+     *
      * @param  array<int, int>  $resources  asset id => resource id
-     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
+     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, older: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
      */
     public function stats(array $resources): array
     {
@@ -94,7 +98,7 @@ final class ReviewDesk
      *
      * @param  array<int, int>  $resources  asset id => resource id
      * @param  array<string, mixed>  $version  version() of these resources
-     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
+     * @return array<int, array{total: int, recent: int, average: ?float, previous_average: ?float, unanswered: int, older: int, reply_rate: ?int, reply_hours: ?int, late: int, low_open: int}>
      */
     private function countStats(array $resources, array $version): array
     {
@@ -113,9 +117,10 @@ final class ReviewDesk
             ->selectRaw("sum(case when create_time >= ? then {$stars} end) as recent_sum, count(case when create_time >= ? then {$stars} end) as recent_n", [$since, $since])
             ->selectRaw("sum(case when create_time >= ? and create_time < ? then {$stars} end) as previous_sum, count(case when create_time >= ? and create_time < ? then {$stars} end) as previous_n",
                 [$before, $since, $before, $since])
-            ->selectRaw("sum(case when {$open} then 1 else 0 end) as unanswered")
-            ->selectRaw("sum(case when {$open} and create_time < ? then 1 else 0 end) as late", [$lateBefore])
-            ->selectRaw("sum(case when {$open} and coalesce({$stars}, 5) <= 2 then 1 else 0 end) as low_open")
+            ->selectRaw("sum(case when {$open} and create_time >= ? then 1 else 0 end) as unanswered", [$since])
+            ->selectRaw("sum(case when {$open} and (create_time < ? or create_time is null) then 1 else 0 end) as older", [$since])
+            ->selectRaw("sum(case when {$open} and create_time >= ? and create_time < ? then 1 else 0 end) as late", [$since, $lateBefore])
+            ->selectRaw("sum(case when {$open} and create_time >= ? and coalesce({$stars}, 5) <= 2 then 1 else 0 end) as low_open", [$since])
             ->get()->keyBy(fn (object $row): int => (int) $row->external_resource_id);
         $hours = $this->replyHours($resources, $version);
         $out = [];
@@ -123,13 +128,15 @@ final class ReviewDesk
             $row = $counts->get((int) $resourceId);
             $total = (int) ($row->total ?? 0);
             $unanswered = (int) ($row->unanswered ?? 0);
+            $older = (int) ($row->older ?? 0);
             $out[$assetId] = [
                 'total' => $total,
                 'recent' => (int) ($row->recent ?? 0),
                 'average' => (int) ($row->recent_n ?? 0) > 0 ? round((float) $row->recent_sum / (int) $row->recent_n, 1) : null,
                 'previous_average' => (int) ($row->previous_n ?? 0) > 0 ? round((float) $row->previous_sum / (int) $row->previous_n, 1) : null,
                 'unanswered' => $unanswered,
-                'reply_rate' => $total > 0 ? (int) round(($total - $unanswered) / $total * 100) : null,
+                'older' => $older,
+                'reply_rate' => $total > 0 ? (int) round(($total - $unanswered - $older) / $total * 100) : null,
                 'reply_hours' => $hours[(int) $resourceId] ?? null,
                 'late' => (int) ($row->late ?? 0),
                 'low_open' => (int) ($row->low_open ?? 0),
