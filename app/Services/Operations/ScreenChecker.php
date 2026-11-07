@@ -68,6 +68,11 @@ final class ScreenChecker
         'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.ai-workers' => 'AI sağlayıcıları', 'operator.settings.system-health' => 'Sistem',
         'operator.settings.users' => 'Kullanıcılar', 'operator.settings.query-rules' => 'Sorgu kuralları', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.sector-packs' => 'Sektör paketleri',
         'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.settings.releases' => 'Sürümler', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
+        // Admin denetimi 2026-11-07: screens in the menu or one click away that the nightly pass never opened.
+        'operator.calendar' => 'Takvim', 'operator.links' => 'Bağlantılar', 'operator.customers' => 'Müşteriler', 'operator.customer.create' => 'Müşteri ekle',
+        'operator.brand.create' => 'Marka ekle', 'operator.google-ads-terms' => 'Google Ads › Arama terimleri', 'operator.google-ads-changes' => 'Google Ads › Ayarlar ve bütçe',
+        'operator.google-ads-ads' => 'Google Ads › Reklamlar', 'operator.google-ads-measurement' => 'Google Ads › Ölçüm', 'operator.google-ads-services' => 'Google Ads › Hizmetler',
+        'operator.meta-strategy' => 'Meta › Strateji', 'operator.libraries' => 'Meta › Kütüphaneler', 'operator.integrations.connection-health' => 'Bağlantı sağlığı',
     ];
 
     /** Asset type => [route, label]. */
