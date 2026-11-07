@@ -21,6 +21,7 @@ use App\Services\Queries\QueryAutopilot;
 use App\Services\Queries\QueryFinish;
 use App\Services\Repair\RepairDesk;
 use App\Services\Sales\PhoneBackupSync;
+use App\Services\WhatsApp\WhatsAppDiagnosis;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -56,6 +57,8 @@ class SystemHealth extends Tool
                 'suspicious_data' => $read['suspicious_data'] ?? null,
                 // The phone's WebDAV backup (FolderSync): its last requests and what each got.
                 'phone_backup' => PhoneBackupSync::recent(),
+                // The live WhatsApp chain, link by link (WhatsAppDiagnosis, every 30 min and on "Baştan sona kontrol et").
+                'whatsapp' => WhatsAppDiagnosis::last(),
             ];
         } catch (Throwable $exception) {
             report($exception);

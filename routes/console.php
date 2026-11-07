@@ -114,6 +114,8 @@ use App\Services\Social\SocialPublisher;
 use App\Services\Website\Pages\RedirectedAddresses;
 use App\Services\Website\SitemapChangeWatcher;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
+use App\Services\WhatsApp\WhatsAppConnection;
+use App\Services\WhatsApp\WhatsAppDiagnosis;
 use App\Services\WhatsApp\WhatsAppDispatch;
 use App\Services\Work\ContentAutopilot;
 use App\Services\Work\ContentCoverage;
@@ -1781,6 +1783,14 @@ Schedule::command('moxdop:whatsapp:retention')
 
 Schedule::call(fn () => app(WhatsAppContactLinker::class)->linkAll())
     ->hourly()->name('whatsapp-contact-link')->withoutOverlapping(30);
+
+// "Baştan sona kontrol": the live WhatsApp chain is checked read-only every half hour while it is being set up, so the
+// screen and Claude (system-health → whatsapp) see where it breaks without waiting for a click.
+Schedule::call(function (): void {
+    if (app(WhatsAppConnection::class)->integration() !== null) {
+        app(WhatsAppDiagnosis::class)->run();
+    }
+})->everyThirtyMinutes()->name('whatsapp-diagnosis')->withoutOverlapping(10);
 
 // A backup extraction cut off without its failure hook (worker killed, server restarted) is started again.
 Schedule::call(fn () => app(WhatsAppBackupImporter::class)->recoverStalled())

@@ -10,6 +10,7 @@ use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSignupAttempt;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Services\WhatsApp\WhatsAppDiagnosis;
 use App\Services\WhatsApp\WhatsAppSignup;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -580,5 +581,28 @@ final class WhatsAppSignupFlowTest extends TestCase
             str_contains($url, '/666666?') => Http::response(['id' => '666666', 'platform_type' => 'CLOUD_API']),
             default => Http::response(['error' => ['message' => 'unexpected '.$url]], 500),
         };
+    }
+
+    public function test_the_end_to_end_check_names_the_first_broken_link_without_writing_to_meta(): void
+    {
+        Http::fake([
+            'graph.facebook.com/*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'scopes' => ['whatsapp_business_management', 'whatsapp_business_messaging'], 'expires_at' => 0]]),
+            'graph.facebook.com/*/WABA1/phone_numbers*' => Http::response(['data' => [['id' => 'PN1', 'display_phone_number' => '+90 538 861 02 88', 'verified_name' => 'Moximu', 'status' => 'CONNECTED', 'platform_type' => 'CLOUD_API', 'is_on_biz_app' => true]]]),
+            'graph.facebook.com/*/WABA1/subscribed_apps*' => Http::response(['data' => []]),
+            'graph.facebook.com/*/123456*' => Http::response(['id' => '123456', 'name' => 'MoxdopWhtspMessage']),
+        ]);
+        $row = app(WhatsAppConnection::class)->integration();
+        $row->update(['config' => [...$row->config, 'waba_id' => 'WABA1', 'phone_number_id' => 'PN1']]);
+        $credential = $row->providerCredential()->first();
+        $credential->update(['encrypted_payload' => [...$credential->encrypted_payload, 'access_token' => 'live-token']]);
+
+        $this->actingAs($this->admin);
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('runDiagnosis')
+            ->assertSee('Canlı bağlantı kontrolü')->assertSee('MoxdopWhtspMessage')->assertSee('coexistence')
+            ->assertSee('abone değil')->assertDontSee('live-token')->assertDontSee('test-app-secret');
+
+        $result = WhatsAppDiagnosis::last();
+        $this->assertSame('5. Uygulama aboneliği', $result['first_problem']);
+        Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
     }
 }

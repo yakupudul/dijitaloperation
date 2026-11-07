@@ -21,6 +21,7 @@ use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppBrain;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppContactNames;
+use App\Services\WhatsApp\WhatsAppDiagnosis;
 use App\Services\WhatsApp\WhatsAppSignup;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use Carbon\CarbonImmutable;
@@ -167,6 +168,14 @@ class Inbox extends Component
     {
         $attempt = $signup->begin(auth()->user(), session()->getId());
         $this->redirectRoute('operator.whatsapp.connect', ['attempt' => $attempt->id]);
+    }
+
+    /** "Baştan sona kontrol et": read-only Meta checks of the whole chain (WhatsAppDiagnosis). */
+    public function runDiagnosis(WhatsAppDiagnosis $diagnosis): void
+    {
+        app(WhatsAppConnection::class)->authorize(auth()->user());
+        $result = $diagnosis->run();
+        $this->notice = $result['first_problem'] === null ? 'Kontrol bitti.' : 'Kontrol bitti: ilk sorun "'.$result['first_problem'].'".';
     }
 
     public function subscribeWebhook(WhatsAppSignup $signup): void
@@ -814,6 +823,7 @@ class Inbox extends Component
             'backupQueueAhead' => $backupImport?->status === 'queued' ? $this->heavyQueueSize() : null,
             'awaitingReply' => $integration ? min($this->awaitingReply($integration->id)->count(), self::BULK_LIMIT) : 0,
             'backupLines' => $this->backupLines($importer),
+            'diagnosis' => WhatsAppDiagnosis::last(),
             'liveNumber' => in_array($connection->state($integration), ['connected', 'attention'], true)
                 ? (string) ($integration->config['business_phone'] ?? $integration->config['phone_number_id']) : null,
             'liveShown' => ! $this->backupShown,

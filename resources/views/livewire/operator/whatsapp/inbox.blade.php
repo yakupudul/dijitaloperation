@@ -182,13 +182,14 @@
         <div class="-mt-4">@include('livewire.operator.whatsapp.brain')</div>
     @else
         <div class="-mt-4">@include('livewire.operator.whatsapp.backup')</div>
+        @include('livewire.operator.whatsapp.diagnosis')
         @if($state !== 'connected')
             {{-- The live Meta connection waits (yakup, 2026-10-05); kept one click away. --}}
             <details class="group/meta" wire:ignore.self data-wa-meta-setup @if($signupAttempt && ! in_array($signupAttempt->status, ['completed', 'expired'], true)) open @endif>
                 <summary class="card flex cursor-pointer list-none items-center gap-3.5 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
                     <span class="min-w-0 flex-1">
                         <span class="block text-sm font-medium text-gray-900 dark:text-white">Canlı bağlantı (Meta)</span>
-                        <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Askıda, Meta onayı gerekir.</span>
+                        <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Numarayı Meta ile bağlama adımları.</span>
                     </span>
                     <span class="btn-quiet"><span class="group-open/meta:hidden">Aç</span><span class="hidden group-open/meta:inline">Kapat</span></span>
                 </summary>
