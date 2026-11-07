@@ -51,6 +51,60 @@ final class ServiceCatalogCleanTest extends SiteTestCase
         $this->assertSame(['archived' => 0, 'merged' => 0], array_intersect_key(app(ServiceCatalogCleaner::class)->clean(), ['archived' => 0, 'merged' => 0]), 'idempotent');
     }
 
+    /** Admin audit 2026-11-07 V5: the hand-paired list merges across languages; a row whose names no longer match is skipped. */
+    public function test_a_listed_merge_keeps_the_foreign_name_as_a_locale_alias_and_a_sectorless_survivor_takes_the_sector(): void
+    {
+        $catalog = app(ServiceCatalogService::class);
+        $english = $catalog->resolveOrCreate('Dental Implant Treatment', null)['service'];
+        BrandOffering::query()->create(['brand_id' => $this->brand->id, 'service_catalog_item_id' => $english->id, 'status' => 'active', 'priority' => 'support', 'locked' => false]);
+        $cbct = $catalog->resolveOrCreate('3 Boyutlu Dental Tomografi (CBCT)', null)['service'];
+        $cbctTwin = $catalog->resolveOrCreate('CBCT Tomografi', 'dental')['service'];
+        $pageTitle = $catalog->resolveOrCreate('Our Services', null)['service'];
+        $renamed = $catalog->resolveOrCreate('Zahnimplantat', null)['service'];
+        $migration = require database_path('migrations/2027_01_08_130000_merge_foreign_language_service_names.php');
+
+        $summary = $migration::apply(['merges' => [
+            ['from' => $english->id, 'from_label' => 'dental implant treatment', 'into' => $this->implant->id, 'into_label' => 'Diş İmplantı', 'locale' => 'en'],
+            ['from' => $cbctTwin->id, 'from_label' => 'CBCT Tomografi', 'into' => $cbct->id, 'into_label' => '3 Boyutlu Dental Tomografi (CBCT)', 'locale' => null],
+            ['from' => $renamed->id, 'from_label' => 'Zahnimplantat Behandlung', 'into' => $this->implant->id, 'into_label' => 'Diş İmplantı', 'locale' => 'de'],
+            ['from' => 999999, 'from_label' => 'Gone', 'into' => $this->implant->id, 'into_label' => 'Diş İmplantı', 'locale' => 'en'],
+        ], 'archive' => [['id' => $pageTitle->id, 'label' => 'Our Services'], ['id' => $this->zirkonyum->id, 'label' => 'Başka Ad']]]);
+
+        $this->assertSame(['merged' => 2, 'archived' => 1, 'skipped' => ['Zahnimplantat Behandlung → Diş İmplantı', 'Gone → Diş İmplantı', 'Başka Ad']], $summary);
+        $this->assertSoftDeleted(ServiceCatalogItem::withTrashed()->find($english->id));
+        $alias = ServiceCatalogName::query()->where('raw_label', 'Dental Implant Treatment')->first();
+        $this->assertSame([$this->implant->id, 'en', false, 'alias'], [(int) $alias->service_catalog_item_id, $alias->locale, $alias->is_primary, $alias->name_kind], 'the English name is a locale alias of the Turkish service');
+        $this->assertSame('Diş İmplantı', $this->implant->fresh()->primaryName?->raw_label, 'the Turkish name stays primary');
+        $this->assertSame(1, BrandOffering::query()->where('service_catalog_item_id', $this->implant->id)->count(), 'the brand already offered it: no second offering');
+        $this->assertSame('dental', $cbct->fresh()->sector, 'a survivor without a sector takes the merged service\'s sector');
+        $this->assertNull(ServiceCatalogName::query()->where('raw_label', 'CBCT Tomografi')->value('locale'), 'a Turkish duplicate carries no locale');
+        $this->assertSame('archived', $pageTitle->fresh()->status);
+        $this->assertSame('active', $renamed->fresh()->status, 'a service whose name changed is left alone');
+        $this->assertSame('active', $this->zirkonyum->fresh()->status);
+        $this->assertSame(['merged' => 0, 'archived' => 0], array_intersect_key($migration::apply(['merges' => [['from' => $english->id, 'from_label' => 'Dental Implant Treatment', 'into' => $this->implant->id, 'into_label' => 'Diş İmplantı', 'locale' => 'en']]]), ['merged' => 0, 'archived' => 0]), 'a second run changes nothing');
+    }
+
+    public function test_the_merge_list_of_the_admin_audit_is_consistent(): void
+    {
+        $list = json_decode((string) file_get_contents(database_path('data/service-catalog-merges-2026-11-07.json')), true);
+        $from = array_column($list['merges'], 'from');
+        $into = array_unique(array_column($list['merges'], 'into'));
+        $archive = array_column($list['archive'], 'id');
+
+        $this->assertCount(138, $list['merges']);
+        $this->assertCount(6, $list['archive']);
+        $this->assertSame($from, array_values(array_unique($from)), 'a service merges once');
+        $this->assertSame([], array_intersect($from, $into), 'a survivor is never merged away');
+        $this->assertSame([], array_intersect($archive, array_merge($from, $into)), 'an archived page title is not in a merge');
+        foreach ($list['merges'] as $merge) {
+            $this->assertNotSame($merge['from'], $merge['into']);
+            $this->assertNotSame('', trim($merge['from_label']));
+            $this->assertNotSame('', trim($merge['into_label']));
+            $this->assertContains($merge['locale'], ['en', 'de', 'it', null]);
+            $this->assertNotSame(ServiceCatalogCleaner::language($merge['into_label'], null), 'en', $merge['into_label'].' survives, so it must read as Turkish');
+        }
+    }
+
     public function test_fold_key_and_language(): void
     {
         $this->assertSame('implant', ServiceCatalogCleaner::foldKey('İmplant Tedavisi'));
