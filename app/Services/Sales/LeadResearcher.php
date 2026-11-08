@@ -86,7 +86,7 @@ final class LeadResearcher
         return $count;
     }
 
-    public function run(int $leadId, int $timeout = 240): bool
+    public function run(int $leadId, int $timeout = 160): bool
     {
         $lead = SalesLead::query()->find($leadId);
         if ($lead === null) {

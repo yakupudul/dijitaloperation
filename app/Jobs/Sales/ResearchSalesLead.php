@@ -16,7 +16,7 @@ class ResearchSalesLead implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 900;
 
-    public int $timeout = 300;
+    public int $timeout = 180;
 
     public int $tries = 1;
 

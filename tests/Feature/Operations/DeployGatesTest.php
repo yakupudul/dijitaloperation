@@ -56,7 +56,7 @@ final class DeployGatesTest extends TestCase
         $this->assertStringContainsString('sudo -u postgres createdb -O "$TEST_PG_USER" "$TEST_DB"', $script);
         $tests = strpos($script, 'php artisan test --compact');
         $gate = strpos($script, 'moxdop:deploy:backup-gate --hours=');
-        $deploy = strpos($script, 'bash deploy/staging/deploy.sh >> "$LOG" 2>&1 && screens_open');
+        $deploy = strpos($script, 'bash deploy/staging/deploy.sh >> "$LOG" 2>&1 9>&- && screens_open');
         $restore = strpos($script, 'git checkout --quiet --force --detach "$LIVE"');
         $this->assertNotFalse($gate);
         $this->assertNotFalse($deploy);
