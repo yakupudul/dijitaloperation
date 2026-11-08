@@ -294,7 +294,7 @@ final class SocialPage extends Component
             : collect();
 
         return view('livewire.operator.social.social-page', [
-            'waitingCount' => SocialThread::query()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
+            'waitingCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
             'weeks' => $weeks,
             'manual' => $manual,
             'history' => $history,

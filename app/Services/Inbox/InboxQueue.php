@@ -167,7 +167,7 @@ final class InboxQueue
             return $conversation !== null ? $this->conversationItem($conversation, $this->leadsFor(collect([$conversation]))) : null;
         }
         if ($type === InboxItem::SOCIAL) {
-            $thread = SocialThread::query()->with('account')->find($id);
+            $thread = SocialThread::query()->onEnabledAccount()->with('account')->find($id);
 
             return $thread !== null ? $this->threadItem($thread) : null;
         }
@@ -322,7 +322,7 @@ final class InboxQueue
     /** @return Collection<int, InboxItem> */
     private function threads(): Collection
     {
-        $threads = SocialThread::query()->with('account')->where('status', SocialThread::OPEN)->where('last_direction', 'in')
+        $threads = SocialThread::query()->onEnabledAccount()->with('account')->where('status', SocialThread::OPEN)->where('last_direction', 'in')
             ->where(fn ($q) => $q->whereNull('snoozed_until')->orWhere('snoozed_until', '<=', now()))
             ->orderByDesc('last_at')->limit(100)->get();
         $items = collect();

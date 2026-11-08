@@ -18,6 +18,7 @@ use App\Services\Inbox\InboxItem;
 use App\Services\Inbox\InboxQueue;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\SalesLeads;
+use App\Services\Social\SocialInbox;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppIngestion;
 use App\Support\OperatorMenu;
@@ -269,5 +270,21 @@ final class InboxQueueTest extends TestCase
             ->assertSee('Afc Hocam')->assertSee('Dr. Ayşe')->assertDontSee('Form Hanım');
         Livewire::test(InboxPage::class)->call('pickChannel', 'yok')->assertSet('channel', '');
         $this->get('/gelen-kutusu?kanal=instagram')->assertOk()->assertSee('Instagram DM')->assertSee('drayse')->assertDontSee('Form Hanım');
+    }
+
+    public function test_threads_of_a_switched_off_account_never_reach_the_queue_badges_or_bulk_send(): void
+    {
+        $own = SocialAccount::query()->create(['platform' => 'instagram', 'external_id' => 'IG1', 'username' => 'moximucom', 'access_token' => 't', 'page_id' => 'PAGE1']);
+        $customer = SocialAccount::query()->create(['platform' => 'instagram', 'external_id' => 'IG2', 'username' => 'bir.klinik', 'access_token' => 't', 'page_id' => 'PAGE2', 'enabled' => false]);
+        SocialThread::query()->create(['social_account_id' => $own->id, 'kind' => 'dm', 'external_id' => 'CONV1', 'author_name' => 'drayse',
+            'last_text' => 'Fiyatlarınız nedir?', 'last_direction' => 'in', 'last_in_at' => now()->subMinutes(30), 'last_at' => now()->subMinutes(30), 'status' => 'open']);
+        $foreign = SocialThread::query()->create(['social_account_id' => $customer->id, 'kind' => 'comment', 'external_id' => 'C9', 'author_name' => 'berisbora',
+            'last_text' => 'Ruj yorumu', 'last_direction' => 'in', 'last_in_at' => now()->subMinutes(10), 'last_at' => now()->subMinutes(10), 'status' => 'open',
+            'draft' => 'Hazır cevap', 'draft_status' => 'ready']);
+
+        $items = app(InboxQueue::class)->items();
+        $this->assertSame(['drayse'], $items->where('type', InboxItem::SOCIAL)->pluck('title')->values()->all());
+        $this->assertNull(app(InboxQueue::class)->find('sosyal-'.$foreign->id));
+        $this->assertSame(0, app(SocialInbox::class)->sendAllReady()['sent'] + app(SocialInbox::class)->sendAllReady()['failed']);
     }
 }

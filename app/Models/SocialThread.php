@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,6 +27,17 @@ class SocialThread extends Model
     public const int DM_WINDOW_HOURS = 24;
 
     protected $guarded = [];
+
+    /**
+     * Only threads of accounts that are switched on: a customer's Page that came in with the Meta login stays off, and
+     * its DMs and comments never wait in Moximu's queue, count on a badge or get sent from "Hepsini gönder".
+     *
+     * @param  Builder<SocialThread>  $query
+     */
+    public function scopeOnEnabledAccount($query): void
+    {
+        $query->whereHas('account', fn ($q) => $q->where('enabled', true));
+    }
 
     /** @return BelongsTo<SocialAccount, $this> */
     public function account(): BelongsTo

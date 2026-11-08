@@ -186,7 +186,9 @@ final class SocialInbox
      */
     private function store(SocialAccount $account, string $kind, string $externalId, array $attributes, array $messages, array &$stats): void
     {
-        if ($externalId === '') {
+        // A sync that loaded its accounts before one was switched off (the 2026-11-08 clean-up ran mid-sync) must not
+        // write that account's threads back.
+        if ($externalId === '' || ! SocialAccount::query()->whereKey($account->id)->where('enabled', true)->exists()) {
             return;
         }
         $messages = array_values(array_filter($messages, fn (array $m): bool => $m['id'] !== '' && $m['at'] !== ''));
@@ -257,6 +259,9 @@ final class SocialInbox
         if ($text === '') {
             throw new SocialGraphException('Gönderilecek metin boş.', 'provider');
         }
+        if ($thread->account === null || ! $thread->account->enabled) {
+            throw new SocialGraphException('Bu hesap kapalı; Moximu adına cevap gönderilmez.', 'provider');
+        }
         if (! $thread->canReply()) {
             throw new SocialGraphException('24 saat geçti; Instagram bu kişiye ancak uygulamadan yazmanıza izin veriyor.', 'provider');
         }
@@ -291,7 +296,7 @@ final class SocialInbox
     {
         $sent = 0;
         $failed = 0;
-        SocialThread::query()->with('account')->where('status', SocialThread::OPEN)->where('draft_status', 'ready')
+        SocialThread::query()->onEnabledAccount()->with('account')->where('status', SocialThread::OPEN)->where('draft_status', 'ready')
             ->whereNotNull('draft')->orderBy('last_in_at')->each(function (SocialThread $thread) use (&$sent, &$failed): void {
                 try {
                     $this->send($thread);

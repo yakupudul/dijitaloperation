@@ -170,7 +170,7 @@ final class OperatorMenu
             + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count());
         $put('operator.social', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
             + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count()
-            + SocialThread::query()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count());
+            + SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count());
         $put('operator.brands', 'amber', function (): int {
             $models = Brand::query()->with(['customer', 'responsibleUsers', 'digitalAssets.assetBindings', 'intelligenceContext', 'sectorCategory'])->get();
             $signals = app(PortfolioSignalsReader::class)->forBrands($models)['brands'];

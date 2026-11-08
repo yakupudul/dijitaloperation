@@ -355,7 +355,7 @@ final class InboxPage extends Component
                 'today' => $items->filter(fn (InboxItem $i): bool => $i->due && ! $i->late)->count(),
                 'oldest' => $oldest !== null ? $this->age($oldest) : null,
             ],
-            'readyCount' => SocialThread::query()->where('status', SocialThread::OPEN)->where('draft_status', 'ready')->whereNotNull('draft')->count(),
+            'readyCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('draft_status', 'ready')->whereNotNull('draft')->count(),
             'drafting' => $detail !== null && ($detail['draft']['busy'] ?? false),
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'tomorrow' => CarbonImmutable::now('Europe/Istanbul')->addDay()->toDateString(),
