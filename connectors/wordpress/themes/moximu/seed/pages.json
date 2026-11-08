@@ -27023,10 +27023,10 @@
 "key": "treferans-programi",
 "path": "/referans-programi/",
 "title": "Referans programı",
-"excerpt": "Tanıdığınız bir klinik bizimle çalışmaya başlarsa müşterimizseniz 1 aylık hizmetiniz bizden; değilseniz ilk ay bedelinin yarısını size öderiz.",
+"excerpt": "Tanıdığınız bir klinik bizimle çalışmaya başlarsa müşterimizseniz 1 aylık hizmetiniz bizden; değilseniz ilk ay bedelinin %10'unu size öderiz.",
 "content": "<p>Yeni işlerimizin çoğu, birlikte çalıştığımız kliniklerin tavsiyesiyle geliyor. Bunun karşılığını vermek istiyoruz.</p>\n<h2>Nasıl işler</h2>\n<ol>\n<li>Tanıdığınız klinik ücretsiz ön değerlendirme formunda sizin adınızı yazar ya da bize sizin aracılığınızla ulaşır.</li>\n<li>Klinik bizimle çalışmaya başlarsa size haber veririz.</li>\n<li>Avantaj, iki taraf için de görüşmede belirlenir ve yazılı olarak bildirilir.</li>\n</ol>\n<p>Referans avantajı hasta tavsiyesiyle ilgili değildir; yalnız klinikler arası yönlendirme içindir.</p>",
 "seo_title": "Referans programı · Moximu",
-"seo_desc": "Moximu referans programı: önerdiğiniz klinik başlarsa 1 aylık hizmetiniz ücretsiz; müşterimiz değilseniz ilk ay bedelinin %50'si size ödenir.",
+"seo_desc": "Moximu referans programı: önerdiğiniz klinik başlarsa 1 aylık hizmetiniz ücretsiz; müşterimiz değilseniz ilk ay bedelinin yüzde 10'u size ödenir.",
 "order": 0,
 "meta": {
 "_mx_ust_yazi": "Moximu"
@@ -27036,7 +27036,7 @@
 "acf_fc_layout": "ortak_giris",
 "ust": "Referans programı",
 "baslik": "Bir klinik önerin, <mark>1 aylık hizmetiniz</mark> bizden.",
-"metin": "Tanıdığınız bir klinik sizin yönlendirmenizle bizimle çalışmaya başlarsa, müşterimizseniz bir aylık hizmet bedelinizi biz karşılarız. Müşterimiz değilseniz kliniğin ilk aylık hizmet bedelinin yarısını size öderiz.",
+"metin": "Tanıdığınız bir klinik sizin yönlendirmenizle bizimle çalışmaya başlarsa, müşterimizseniz bir aylık hizmet bedelinizi biz karşılarız. Müşterimiz değilseniz kliniğin ilk aylık hizmet bedelinin %10'unu size öderiz.",
 "etiketler": "Ödül açık, kural yazılı\nYönlendirdiğiniz klinik de kazanır\nKlinik sayısında sınır yok",
 "buton_yazisi": "Klinik önerin",
 "buton_link": "#basvuru",
@@ -27044,7 +27044,7 @@
 "odul_ust": "Referans ödülü",
 "odul": "1 ay ücretsiz",
 "odul_alt": "Başlayan her klinik için ayrı ayrı",
-"odul_satirlar": "Müşterimizseniz | 1 aylık hizmet bedeliniz\nMüşterimiz değilseniz | İlk ay bedelinin %50'si\nYönlendirdiğiniz klinik | 6 aylık planda web sitesi hediye\nKlinik sınırı | Yok",
+"odul_satirlar": "Müşterimizseniz | 1 aylık hizmet bedeliniz\nMüşterimiz değilseniz | İlk ay bedelinin %10'u\nYönlendirdiğiniz klinik | 6 aylık planda web sitesi hediye\nKlinik sınırı | Yok",
 "odul_not": "Ödül, klinik ikinci aylık ödemesini yaptığında verilir."
 },
 {
@@ -27053,7 +27053,7 @@
 "baslik": "Klinik hangi planla başlarsa, <mark>ödülünüz</mark> ne olur.",
 "metin": "Tutarlar KDV hariçtir. Müşterimizseniz ödül bir sonraki faturanızdan düşülür ve kendi bir aylık bedelinizi aşmaz.",
 "sutunlar": "Kliniğin planı | Kliniğin aylık bedeli | Müşterimiz değilseniz size ödenen",
-"satirlar": "Klinik SEO | {fiyat:seo} | {fiyat:seo*0.5}\nSEO + İşletme Profili | {fiyat:paket} | {fiyat:paket*0.5}\nYerel klinik paketi | {fiyat:yerel} | {fiyat:yerel*0.5}",
+"satirlar": "Klinik SEO | {fiyat:seo} | {fiyat:seo*0.1}\nSEO + İşletme Profili | {fiyat:paket} | {fiyat:paket*0.1}\nYerel klinik paketi | {fiyat:yerel} | {fiyat:yerel*0.1}",
 "arka": 0,
 "kimlik": "ornek"
 },
@@ -27103,7 +27103,7 @@
 "liste": [
 {
 "baslik": "Müşteriniz olmadan da klinik önerebilir miyim?",
-"metin": "Evet. Hekim, klinik çalışanı ya da kliniklerle çalışan biri olabilirsiniz. Bu durumda kliniğin ilk aylık hizmet bedelinin yarısı size ödenir."
+"metin": "Evet. Hekim, klinik çalışanı ya da kliniklerle çalışan biri olabilirsiniz. Bu durumda kliniğin ilk aylık hizmet bedelinin %10'u size ödenir."
 },
 {
 "baslik": "Kaç klinik önerebilirim?",
