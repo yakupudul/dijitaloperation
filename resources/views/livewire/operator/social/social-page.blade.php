@@ -183,23 +183,31 @@
                     </ol>
                 </div>
 
+                @php
+                    $onAccounts = $accounts->where('enabled', true);
+                    $offAccounts = $accounts->where('enabled', false);
+                    $accountRow = function ($account) use ($tz, $canWrite): string {
+                        return view('livewire.operator.social.partials.account-row', ['account' => $account, 'tz' => $tz, 'canWrite' => $canWrite])->render();
+                    };
+                @endphp
                 <div class="card divide-y divide-gray-100 dark:divide-gray-800" data-account-list>
-                    <h2 class="section-title p-4">Bağlı hesaplar</h2>
-                    @forelse ($accounts as $account)
-                        <div class="flex flex-wrap items-center justify-between gap-3 p-4">
-                            <div class="flex min-w-0 items-center gap-3">
-                                @if ($account->picture_url)<img src="{{ $account->picture_url }}" alt="" class="h-9 w-9 rounded-full">@endif
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold">{{ $account->platformLabel() }} · {{ $account->displayName() }}</p>
-                                    <p class="text-xs text-gray-500">{{ $account->isManual() ? 'Kopyala ve aç ile paylaşılır' : 'Otomatik yayın' }}{{ $account->enabled ? '' : ' · kapalı' }}{{ $account->connected_at ? ' · bağlandı '.$account->connected_at->timezone($tz)->format('d.m.Y') : '' }}</p>
-                                </div>
-                            </div>
-                            @if ($canWrite)<button type="button" wire:click="toggleAccount({{ $account->id }})" class="btn">{{ $account->enabled ? 'Kapat' : 'Aç' }}</button>@endif
-                        </div>
+                    <h2 class="section-title p-4">Yayın yapılan hesaplar</h2>
+                    @forelse ($onAccounts as $account)
+                        {!! $accountRow($account) !!}
                     @empty
-                        <p class="p-4 text-sm text-gray-500">Henüz bağlı hesap yok; yukarıdaki adımlarla başlayın.</p>
+                        <p class="p-4 text-sm text-gray-500">Henüz açık hesap yok; yukarıdaki adımlarla başlayın.</p>
                     @endforelse
                 </div>
+                @if ($offAccounts->isNotEmpty())
+                    <details class="card" data-off-accounts>
+                        <summary class="cursor-pointer p-4 text-sm text-gray-600 dark:text-gray-300">Kapalı hesaplar ({{ $offAccounts->count() }}): Meta girişinde gelen müşteri sayfaları. Moximu gönderileri bunlara gitmez.</summary>
+                        <div class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+                            @foreach ($offAccounts as $account)
+                                {!! $accountRow($account) !!}
+                            @endforeach
+                        </div>
+                    </details>
+                @endif
 
                 @if ($canWrite)
                     <form wire:submit="addLinkedin" class="card space-y-3 p-5" data-linkedin>

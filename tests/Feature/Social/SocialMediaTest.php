@@ -383,4 +383,29 @@ final class SocialMediaTest extends TestCase
             ->assertSee('Instagram ve Facebook')
             ->assertSee(route('operator.social', ['sekme' => 'hesaplar']), false);
     }
+
+    public function test_meta_login_switches_on_only_moximu_and_keeps_customer_pages_off(): void
+    {
+        SocialAccount::query()->delete();
+        Http::fake([
+            '*/oauth/access_token*' => Http::response(['access_token' => 'user-token']),
+            '*/me/accounts*' => Http::response(['data' => [
+                ['id' => 'P1', 'name' => 'Avrupadent', 'access_token' => 't1', 'instagram_business_account' => ['id' => 'I1', 'username' => 'avrupadent']],
+                ['id' => 'P2', 'name' => 'Moximu - Web Site Tasarım', 'access_token' => 't2', 'instagram_business_account' => ['id' => 'I2', 'username' => 'moximucom']],
+            ]]),
+        ]);
+        $result = app(SocialMetaConnector::class)->storePages('user-token');
+
+        $this->assertSame(['Facebook: Moximu - Web Site Tasarım', 'Instagram: @moximucom', '(diğer 1 sayfa kapalı olarak listede)'], $result['accounts']);
+        $this->assertEqualsCanonicalizing(['P2', 'I2'], SocialAccount::query()->where('enabled', true)->pluck('external_id')->all());
+        $this->assertSame(2, SocialAccount::query()->where('enabled', false)->count());
+
+        // A page the operator switched on by hand stays on after the next login.
+        SocialAccount::query()->where('external_id', 'P1')->update(['enabled' => true]);
+        app(SocialMetaConnector::class)->storePages('user-token');
+        $this->assertTrue((bool) SocialAccount::query()->where('external_id', 'P1')->value('enabled'));
+
+        $this->actingAs($this->admin);
+        Livewire::withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)->assertSeeHtml('data-off-accounts')->assertSee('Kapalı hesaplar (1)');
+    }
 }

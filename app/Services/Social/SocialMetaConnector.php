@@ -199,6 +199,26 @@ class SocialMetaConnector
         return array_values(array_diff(['pages_show_list', 'instagram_basic'], $granted));
     }
 
+    /** The agency's own Page or Instagram account, by name (Facebook) or handle (Instagram). */
+    public static function isOwn(string $pageName, ?string $username = null): bool
+    {
+        return str_contains(mb_strtolower($pageName), 'moximu') || in_array(mb_strtolower((string) $username), ['moximucom', 'moximu'], true);
+    }
+
+    /**
+     * A new account starts switched on only when it is the agency's own; an existing one keeps the operator's choice.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function keep(string $platform, string $externalId, array $values, bool $own, ?int $brandId): void
+    {
+        $account = SocialAccount::query()->firstOrNew(['platform' => $platform, 'external_id' => $externalId]);
+        if (! $account->exists) {
+            $account->enabled = $own;
+        }
+        $account->fill($values + ['brand_id' => $own ? $brandId : null])->save();
+    }
+
     /** @return array{ok: true, accounts: list<string>}|array{error: string} */
     public function storePages(string $userToken): array
     {
@@ -213,28 +233,42 @@ class SocialMetaConnector
 
         $brandId = Brand::query()->where('name', 'Moximu')->value('id');
         $names = [];
+        $found = 0;
         foreach ((array) ($pages['data'] ?? []) as $page) {
             if (! is_array($page) || ! is_string($page['id'] ?? null) || ! is_string($page['access_token'] ?? null)) {
                 continue;
             }
-            SocialAccount::query()->updateOrCreate(
-                ['platform' => SocialAccount::FACEBOOK, 'external_id' => $page['id']],
-                ['name' => (string) ($page['name'] ?? ''), 'access_token' => $page['access_token'], 'page_id' => $page['id'],
-                    'picture_url' => $page['picture']['data']['url'] ?? null, 'connected_at' => now(), 'brand_id' => $brandId],
-            );
-            $names[] = 'Facebook: '.($page['name'] ?? $page['id']);
             $ig = $page['instagram_business_account'] ?? null;
-            if (is_array($ig) && is_string($ig['id'] ?? null)) {
-                SocialAccount::query()->updateOrCreate(
-                    ['platform' => SocialAccount::INSTAGRAM, 'external_id' => $ig['id']],
-                    ['name' => (string) ($ig['name'] ?? ''), 'username' => $ig['username'] ?? null, 'access_token' => $page['access_token'],
-                        'page_id' => $page['id'], 'picture_url' => $ig['profile_picture_url'] ?? null, 'connected_at' => now(), 'brand_id' => $brandId],
-                );
-                $names[] = 'Instagram: @'.($ig['username'] ?? $ig['id']);
+            $ig = is_array($ig) && is_string($ig['id'] ?? null) ? $ig : null;
+            // The login returns every Page the operator manages, customers' too (2026-11-08: 56 accounts). Only the
+            // agency's own Page and its Instagram are switched on; the rest are kept switched off, so a Moximu post
+            // can never go out on a customer's account.
+            $own = self::isOwn((string) ($page['name'] ?? ''), $ig !== null ? (string) ($ig['username'] ?? '') : null);
+            $this->keep(SocialAccount::FACEBOOK, $page['id'], ['name' => (string) ($page['name'] ?? ''), 'access_token' => $page['access_token'],
+                'page_id' => $page['id'], 'picture_url' => $page['picture']['data']['url'] ?? null, 'connected_at' => now()], $own, $brandId);
+            $found++;
+            if ($own) {
+                $names[] = 'Facebook: '.($page['name'] ?? $page['id']);
+            }
+            if ($ig !== null) {
+                $this->keep(SocialAccount::INSTAGRAM, $ig['id'], ['name' => (string) ($ig['name'] ?? ''), 'username' => $ig['username'] ?? null,
+                    'access_token' => $page['access_token'], 'page_id' => $page['id'], 'picture_url' => $ig['profile_picture_url'] ?? null,
+                    'connected_at' => now()], $own, $brandId);
+                if ($own) {
+                    $names[] = 'Instagram: @'.($ig['username'] ?? $ig['id']);
+                }
             }
         }
-        if ($names === []) {
+        if ($found === 0) {
             return ['error' => 'Bu Meta hesabında yönetilen sayfa bulunamadı. Girişte Moximu sayfasını ve Instagram hesabını seçtiğinizden emin olun.'];
+        }
+        if ($names === []) {
+            app(SocialPlanner::class)->syncUpcoming();
+
+            return ['error' => $found.' sayfa geldi ama aralarında Moximu sayfası yok. Girişte Moximu sayfasını da seçin.'];
+        }
+        if ($found > 1) {
+            $names[] = '(diğer '.($found - 1).' sayfa kapalı olarak listede)';
         }
 
         app(SocialPlanner::class)->syncUpcoming();
