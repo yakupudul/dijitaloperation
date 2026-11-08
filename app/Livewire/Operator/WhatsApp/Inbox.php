@@ -194,6 +194,15 @@ class Inbox extends Component
             : 'Meta geçmiş mesaj aktarımını başlatmadı; nedeni aşağıda yazıyor. 24 saat dolmadan tekrar deneyebilirsiniz.';
     }
 
+    /** Coexistence: the phone's address book names for the chats (allowed once within 24 hours of onboarding). */
+    public function requestContacts(WhatsAppSignup $signup): void
+    {
+        $this->resetValidation();
+        $this->notice = $signup->requestContacts(auth()->user())
+            ? 'Meta\'dan telefondaki kişi isimleri istendi. Birkaç dakika içinde görüşmelerde numaranın yerine isimler görünür.'
+            : 'Meta kişi aktarımını başlatmadı; nedeni aşağıda yazıyor.';
+    }
+
     /**
      * "Çıkar": the uploaded backup is opened with the 64-digit key in the background (the key never enters Livewire
      * state). $line: an extra backup; none for the inbox's own.
@@ -818,6 +827,7 @@ class Inbox extends Component
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),
             'historyDeadline' => $connection->historyDeadline($integration),
+            'contactsDeadline' => $connection->contactsDeadline($integration),
             'signupAttempt' => $attempt,
             'backupImport' => $backupImport,
             'backupQueueAhead' => $backupImport?->status === 'queued' ? $this->heavyQueueSize() : null,

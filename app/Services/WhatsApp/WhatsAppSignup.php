@@ -539,7 +539,7 @@ final class WhatsAppSignup
 
     /**
      * Coexistence, on the operator's click: asks Meta for the WhatsApp Business app's chat history, which Meta shares
-     * only within 24 hours of onboarding (contacts sync is not asked: MoxDOP does not use it). The messages arrive
+     * only within 24 hours of onboarding (the address book names are asked with it). The messages arrive
      * later as history webhooks; a failure here does not undo the connection and can be retried inside the window.
      */
     public function requestHistory(User $user): bool
@@ -548,6 +548,11 @@ final class WhatsAppSignup
         $row = $this->connection->integration();
         if (! $row || $this->connection->historyDeadline($row) === null) {
             throw ValidationException::withMessages(['history' => 'Geçmiş mesajlar yalnız WhatsApp Business uygulamasıyla bağlanan numara için, bağlantıdan sonraki 24 saat içinde istenebilir.']);
+        }
+        // The phone's address book names come with it (asked once; yakup 2026-11-08: chats showed numbers, not names).
+        if ($this->connection->contactsDeadline($row) !== null) {
+            $this->requestContacts($user);
+            $row = $row->fresh();
         }
         $secrets = $this->connection->secrets($row);
         $token = (string) ($secrets['access_token'] ?? '');
@@ -565,6 +570,37 @@ final class WhatsAppSignup
             $current = CoreIntegration::query()->lockForUpdate()->find($row->id);
             if ($current) {
                 $current->update(['config' => [...($current->config ?? []), 'history_sync' => $state, 'history_sync_error' => $error, 'history_sync_requested_at' => now()->toIso8601String()]]);
+            }
+        });
+
+        return $state === 'requested';
+    }
+
+    /**
+     * Coexistence contact sync: Meta sends the WhatsApp Business app's address book (smb_app_state_sync webhooks), so
+     * chats show the saved names. Allowed once, within 24 hours of onboarding.
+     */
+    public function requestContacts(User $user): bool
+    {
+        $this->connection->authorize($user);
+        $row = $this->connection->integration();
+        if (! $row || $this->connection->contactsDeadline($row) === null) {
+            throw ValidationException::withMessages(['contacts' => 'Kişi isimleri yalnız WhatsApp Business uygulamasıyla bağlanan numara için, bağlantıdan sonraki 24 saat içinde bir kez istenebilir.']);
+        }
+        $secrets = $this->connection->secrets($row);
+        $state = 'requested';
+        $error = null;
+        try {
+            $this->graph->request('POST', data_get($row->config, 'phone_number_id').'/smb_app_data', ['messaging_product' => 'whatsapp', 'sync_type' => 'smb_app_state_sync'],
+                (string) ($secrets['access_token'] ?? ''), (string) ($secrets['app_secret'] ?? ''));
+        } catch (WhatsAppGraphException $exception) {
+            $state = 'failed';
+            $error = $exception->details;
+        }
+        DB::transaction(function () use ($row, $state, $error): void {
+            $current = CoreIntegration::query()->lockForUpdate()->find($row->id);
+            if ($current) {
+                $current->update(['config' => [...($current->config ?? []), 'contacts_sync' => $state, 'contacts_sync_error' => $error, 'contacts_sync_requested_at' => now()->toIso8601String()]]);
             }
         });
 

@@ -99,6 +99,22 @@
         </section>
     @endif
 
+    @if(! $historyDeadline && ($contactsDeadline ?? null))
+        <section class="relative min-w-0 overflow-hidden rounded-3xl border soft-amber" data-wa-contacts>
+            <div class="card-row flex-wrap items-start sm:flex-nowrap">
+                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-sm font-medium text-gray-900 dark:text-white">Telefondaki kişi isimlerini alın</h2>
+                    <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Görüşmelerde numara yerine telefonunda kayıtlı isimler görünür. Meta bunu bir kez ve bağlantıdan sonraki 24 saat içinde yapar (son: {{ $when($contactsDeadline) }}). Meta'da webhook alanlarından <strong>smb_app_state_sync</strong> da abone olmalı.</p>
+                    @if(!empty($config['contacts_sync_error']))
+                        <div class="mt-2 text-error-700 dark:text-error-300">@include('livewire.operator.whatsapp.error-detail', ['error' => $config['contacts_sync_error'], 'label' => 'Son deneme'])</div>
+                    @endif
+                </div>
+                <button type="button" wire:click="requestContacts" wire:loading.attr="disabled" wire:target="requestContacts" class="btn-primary w-full sm:w-auto">{{ ($config['contacts_sync'] ?? '') === 'failed' ? 'Tekrar dene' : 'Kişi isimlerini al' }}</button>
+            </div>
+        </section>
+    @endif
+
     @if($showReconnect)
         <section data-wa-reconnect>
             <div class="section-head items-center!">

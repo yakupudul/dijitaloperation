@@ -126,7 +126,8 @@ final class WhatsAppBackupImportTest extends TestCase
             ->assertDontSee('Cevap penceresi');
         // Newest message first.
         $html = Livewire::withQueryParams(['conversation' => $chat->id])->test(Inbox::class)->html();
-        $this->assertLessThan(strpos($html, 'web sitesi fiyatı nedir?'), strpos($html, 'kurumsal site 20.000 TL.'));
+        // Like WhatsApp (yakup 2026-11-08): the question above, the newer answer below it.
+        $this->assertGreaterThan(strpos($html, 'web sitesi fiyatı nedir?'), strpos($html, 'kurumsal site 20.000 TL.'));
     }
 
     public function test_a_wrong_key_keeps_the_file_so_another_key_can_be_tried(): void

@@ -179,7 +179,9 @@ final class WhatsAppSignupFlowTest extends TestCase
 
         $this->assertSame('requested', app(WhatsAppConnection::class)->integration()->config['history_sync']);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '666666/smb_app_data') && $request['sync_type'] === 'history');
-        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'smb_app_data') && $request['sync_type'] === 'smb_app_state_sync');
+        // The phone's address book names are asked with it (once), so chats show names instead of numbers.
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '666666/smb_app_data') && $request['sync_type'] === 'smb_app_state_sync');
+        $this->assertSame('requested', app(WhatsAppConnection::class)->integration()->config['contacts_sync']);
     }
 
     public function test_a_refused_history_request_can_be_retried_inside_the_window(): void

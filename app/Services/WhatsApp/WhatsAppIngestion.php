@@ -53,6 +53,10 @@ final class WhatsAppIngestion
                         $echo = $field === 'smb_message_echoes';
                         $echoSeen = $echoSeen || $echo;
                         foreach (($value[$echo ? 'message_echoes' : 'messages'] ?? []) as $message) {
+                            if ($echo && is_array($message)) {
+                                $message['from'] = $this->digits($message['from'] ?? '');
+                                $message['to'] = $this->digits($message['to'] ?? data_get($value, 'contacts.0.wa_id', ''));
+                            }
                             $result = $this->message($integration, $config, $message, $names, $echo, false);
                             $accepted += $result === 1 ? 1 : 0;
                             $ignored += $result === -1 ? 1 : 0;
@@ -67,24 +71,25 @@ final class WhatsAppIngestion
                             }
                             $historyError = $historyError || ! empty($chunk['errors']);
                             foreach (($chunk['threads'] ?? []) as $thread) {
-                                $contactId = $thread['id'] ?? '';
+                                $contactId = $this->digits($thread['id'] ?? data_get($thread, 'context.wa_id', ''));
                                 foreach (($thread['messages'] ?? []) as $message) {
-                                    if (! is_array($message)) {
+                                    if (! is_array($message) || $contactId === '') {
                                         $ignored++;
 
                                         continue;
                                     }
-                                    $from = (string) ($message['from'] ?? '');
-                                    $outgoing = $from === (string) ($config['business_phone'] ?? '');
-                                    if (! $outgoing && $from !== (string) $contactId) {
+                                    $from = $this->digits($message['from'] ?? '');
+                                    $outgoing = $from !== '' && $from === $this->digits($config['business_phone'] ?? '');
+                                    if (! $outgoing && $from !== $contactId) {
                                         $ignored++;
 
                                         continue;
                                     }
-                                    if ($outgoing && (string) ($message['to'] ?? '') !== (string) $contactId) {
-                                        $ignored++;
-
-                                        continue;
+                                    // Meta's history has no "to": a message from the business number was sent to the
+                                    // thread's customer (2026-11-08: every own message was dropped for lacking it).
+                                    $message['from'] = $from;
+                                    if ($outgoing) {
+                                        $message['to'] = $contactId;
                                     }
                                     $result = $this->message($integration, $config, $message, $names, $outgoing, true);
                                     $accepted += $result === 1 ? 1 : 0;
@@ -92,7 +97,13 @@ final class WhatsAppIngestion
                                 }
                             }
                         }
-                    } elseif ($field !== 'smb_app_state_sync') {
+                    } elseif ($field === 'smb_app_state_sync') {
+                        foreach (($value['state_sync'] ?? []) as $sync) {
+                            $applied = is_array($sync) && ($sync['type'] ?? '') === 'contact' && $this->contactName($integration->id, $sync);
+                            $ignored += $applied ? 0 : 1;
+                        }
+                        $config['contacts_synced_at'] = now()->toIso8601String();
+                    } else {
                         $ignored++;
                     }
                 }
@@ -138,15 +149,26 @@ final class WhatsAppIngestion
             'text' => data_get($message, 'text.body'),
             'button' => data_get($message, 'button.text'),
             'interactive' => data_get($message, 'interactive.button_reply.title', data_get($message, 'interactive.list_reply.title')),
-            'image', 'video', 'document' => '['.$type.' — ekin içeriği okunmadı] '.(string) data_get($message, $type.'.caption', ''),
+            'image', 'video', 'document' => trim('['.['image' => 'Fotoğraf', 'video' => 'Video', 'document' => 'Belge'][$type].'] '.(string) data_get($message, $type.'.caption', '')),
+            'audio' => '[Sesli mesaj]',
+            'sticker' => '[Çıkartma]',
+            'media_placeholder' => '[Fotoğraf, video ya da dosya]',
+            'location' => trim('[Konum] '.(string) data_get($message, 'location.name', '').' '.(string) data_get($message, 'location.address', '')),
+            'contacts' => '[Kişi kartı] '.(string) data_get($message, 'contacts.0.name.formatted_name', ''),
+            'reaction' => '[Tepki] '.(string) data_get($message, 'reaction.emoji', ''),
+            'edit' => '[Düzenlendi] '.(string) data_get($message, 'edit.message.text.body', ''),
+            'revoke' => '[Silinen mesaj]',
+            // Meta could not hand the content over (a message type the API does not read, or one WhatsApp keeps on the phone).
+            'errors', 'unsupported' => '[WhatsApp bu mesajın içeriğini paylaşmadı'.(is_string(data_get($message, 'errors.0.title')) ? ': '.mb_substr((string) data_get($message, 'errors.0.title'), 0, 120) : '').' · telefonda görün]',
             default => '['.$type.' — metin olarak çözümlenmedi]',
         };
         if (! is_string($body) || $body === '') {
             return -1;
         }
+        $saved = DB::table('whatsapp_contact_names')->where('integration_id', $integration->id)->where('contact_id', $contact)->value('name');
         $conversation = WhatsAppConversation::query()->firstOrCreate([
             'integration_id' => $integration->id, 'phone_number_id' => $config['phone_number_id'], 'contact_id' => $contact,
-        ], ['contact_name' => $names[$contact] ?? null]);
+        ], ['contact_name' => $saved ?? $names[$contact] ?? null]);
         $conversation = WhatsAppConversation::query()->lockForUpdate()->findOrFail($conversation->id);
         $sentAt = CarbonImmutable::createFromTimestampUTC((int) $timestamp);
         $replyId = data_get($message, 'context.id');
@@ -159,7 +181,8 @@ final class WhatsAppIngestion
             return 0;
         }
         $update = [
-            'contact_name' => $names[$contact] ?? $conversation->contact_name,
+            // The name in the phone's address book wins over the WhatsApp profile name.
+            'contact_name' => $saved ?? $names[$contact] ?? $conversation->contact_name,
             'last_message_at' => $conversation->last_message_at?->greaterThan($sentAt) ? $conversation->last_message_at : $sentAt,
             'revision' => $conversation->revision + 1, 'suggestion_status' => 'pending', 'error_code' => null,
         ];
@@ -181,6 +204,39 @@ final class WhatsAppIngestion
         $conversation->update($update);
 
         return 1;
+    }
+
+    private function digits(mixed $value): string
+    {
+        return is_scalar($value) ? (string) preg_replace('/[^0-9]/', '', (string) $value) : '';
+    }
+
+    /**
+     * One contact of the WhatsApp Business app's address book (smb_app_state_sync): kept for numbers without a chat
+     * yet, and written on the existing chats with that number. "remove" forgets the saved name.
+     *
+     * @param  array<string, mixed>  $sync
+     */
+    private function contactName(int $integrationId, array $sync): bool
+    {
+        $phone = $this->digits(data_get($sync, 'contact.phone_number', ''));
+        if (! preg_match('/^[0-9]{7,20}$/', $phone)) {
+            return false;
+        }
+        if (($sync['action'] ?? '') === 'remove') {
+            DB::table('whatsapp_contact_names')->where('integration_id', $integrationId)->where('contact_id', $phone)->delete();
+
+            return true;
+        }
+        $name = trim((string) (data_get($sync, 'contact.full_name') ?: data_get($sync, 'contact.first_name', '')));
+        if ($name === '') {
+            return false;
+        }
+        $name = mb_substr($name, 0, 255);
+        DB::table('whatsapp_contact_names')->updateOrInsert(['integration_id' => $integrationId, 'contact_id' => $phone], ['name' => $name, 'updated_at' => now(), 'created_at' => now()]);
+        WhatsAppConversation::query()->where('integration_id', $integrationId)->where('contact_id', $phone)->update(['contact_name' => $name]);
+
+        return true;
     }
 
     /**

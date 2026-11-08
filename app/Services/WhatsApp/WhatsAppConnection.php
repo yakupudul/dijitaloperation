@@ -202,10 +202,21 @@ final class WhatsAppConnection
      */
     public function historyDeadline(?CoreIntegration $integration): ?CarbonImmutable
     {
+        return $this->syncDeadline($integration, 'history_sync');
+    }
+
+    /** Coexistence contact sync (the phone's address book names), asked once inside the same 24 hours. */
+    public function contactsDeadline(?CoreIntegration $integration): ?CarbonImmutable
+    {
+        return $this->syncDeadline($integration, 'contacts_sync');
+    }
+
+    private function syncDeadline(?CoreIntegration $integration, string $key): ?CarbonImmutable
+    {
         $config = $integration?->config ?? [];
         $signedUpAt = $config['signup_completed_at'] ?? null;
         if (($config['connected_via'] ?? '') !== 'embedded_signup' || ! in_array($config['coexistence_state'] ?? '', ['signup_reported', 'unknown'], true)
-            || ($config['history_sync'] ?? null) === 'requested' || ! filled($config['phone_number_id'] ?? null) || ! is_string($signedUpAt)) {
+            || ($config[$key] ?? null) === 'requested' || ! filled($config['phone_number_id'] ?? null) || ! is_string($signedUpAt)) {
             return null;
         }
         $deadline = CarbonImmutable::parse($signedUpAt)->addHours(24);

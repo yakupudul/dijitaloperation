@@ -118,9 +118,13 @@
                 </div>
             </header>
 
-            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="wa-messages-{{ $selected->id }}-{{ $messages->currentPage() }}" data-wa-newest-first>
+            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="wa-messages-{{ $selected->id }}-{{ $messages->currentPage() }}" data-wa-oldest-first x-data x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })">
+                {{-- Like WhatsApp: oldest at the top, the newest at the bottom (the view opens scrolled to it); page 1 is the newest 50. --}}
+                @if($messages->hasPages())
+                    <div class="text-center text-xs">{{ $messages->links() }}</div>
+                @endif
                 @php $previousDay = null; @endphp
-                @foreach($messages as $message)
+                @foreach($messages->getCollection()->reverse() as $message)
                     @php $day = $message->sent_at->timezone('Europe/Istanbul'); @endphp
                     @if($previousDay !== $day->toDateString())
                         @php $previousDay = $day->toDateString(); @endphp
@@ -134,9 +138,6 @@
                         </div>
                     </div>
                 @endforeach
-                @if($messages->hasPages())
-                    <div class="text-center text-xs">{{ $messages->links() }}</div>
-                @endif
             </div>
 
             <div class="border-t border-gray-200 p-4 dark:border-gray-800" data-wa-suggestion>
