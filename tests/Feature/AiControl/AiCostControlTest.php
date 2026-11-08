@@ -138,15 +138,21 @@ final class AiCostControlTest extends TestCase
             'label' => 'Küme eksikleri', 'agent' => 'ClusterGapsAgent', 'status' => 'done', 'started_at' => now(), 'finished_at' => now(),
             'model' => 'claude-haiku-4-5'], $extra));
         $call(['cost_usd' => 0.70, 'user_id' => null]);
-        $call(['cost_usd' => 0.20, 'user_id' => $this->admin->id]); // clicks count too
+        $call(['cost_usd' => 0.05, 'user_id' => $this->admin->id]); // clicks count too
         $call(['cost_usd' => 0.40, 'user_id' => null, 'started_at' => now()->subDays(2)]); // another day
 
         $budget = app(AiBudget::class);
-        $this->assertEqualsWithDelta(0.90, $budget->dailySpend(), 0.0001);
+        $this->assertEqualsWithDelta(0.75, $budget->dailySpend(), 0.0001);
         $this->assertFalse(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty(), 'room left: the operator runs');
         $call(['cost_usd' => 0.15, 'user_id' => $this->admin->id]);
-        $this->assertTrue($budget->dailyExhausted());
+        // 80% of the ceiling: the other work stops, the WhatsApp / prospect share stays open (yakup 2026-11-08).
+        $this->assertFalse($budget->dailyExhausted());
+        $this->assertTrue($budget->dailyExhaustedFor(AiRouteKeys::BRAND_SETUP));
         $this->assertTrue(app(AiRouteResolver::class)->resolve(AiRouteKeys::BRAND_SETUP)->isEmpty(), 'ceiling reached: not even a click');
+        $this->assertFalse(app(AiRouteResolver::class)->resolve('sales.reply')->isEmpty(), 'prospect messages keep their room');
+        $call(['cost_usd' => 0.30, 'user_id' => $this->admin->id, 'operation' => 'whatsapp.reply']);
+        $this->assertTrue($budget->dailyExhausted());
+        $this->assertFalse($budget->dailyExhaustedFor('whatsapp.reply'), 'WhatsApp drafts are not stopped by the day\'s ceiling');
         BrandSetupAgent::fake([['services' => [], 'prompt_version' => 'x']]);
         try {
             (new BrandSetupAgent)->prompt('CONTEXT_JSON {}', provider: ['anthropic' => 'claude-haiku-4-5']);
@@ -170,7 +176,7 @@ final class AiCostControlTest extends TestCase
         }
 
         $rows = collect($budget->breakdown(24))->keyBy('operation');
-        $this->assertEqualsWithDelta(1.05, $rows['site.cluster_gaps']['cost'], 0.0001);
+        $this->assertEqualsWithDelta(0.90, $rows['site.cluster_gaps']['cost'], 0.0001);
         $this->artisan('moxdop:ai:costs')->expectsOutputToContain('günlük tavan $0.00')->assertSuccessful();
     }
 

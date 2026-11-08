@@ -51,9 +51,9 @@
 
     <form wire:submit="saveInstructions" class="card" data-wa-instructions>
         <label class="block px-4 pt-3.5">
-            <span class="block text-sm font-medium text-gray-900 dark:text-white">Talimatlarım</span>
-            <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Güncel fiyatlar, hizmetler, nasıl yazmasını istediğin, söylememesi gerekenler. Burada yazan, beynin öğrendiğinin önüne geçer; burada olmayan fiyatı uydurmaz.</span>
-            <textarea wire:model="business_context" rows="6" maxlength="12000" class="mt-3 w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white"></textarea>
+            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sabit kararlar</span>
+            <span class="mt-0.5 block text-[13px] text-gray-500 dark:text-gray-400">Fiyatlar, yapılmayanlar, aday mesajı kuralları, bilinen adaylar. Her WhatsApp cevap taslağı, her aday mesajı ve her aday analizi önce bunu okur; beynin öğrendiğinin ve her şeyin önüne geçer. Burada olmayan fiyatı uydurmaz. Müşterilerin ödediği ücretleri buraya yazma: yapay zekâ başka birine yazabilir.</span>
+            <textarea wire:model="business_context" rows="14" maxlength="12000" class="mt-3 w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white"></textarea>
         </label>
         @error('business_context')<p class="px-4 pt-1 text-xs text-error-600">{{ $message }}</p>@enderror
         <div class="mt-3.5 flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">

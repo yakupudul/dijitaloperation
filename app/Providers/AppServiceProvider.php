@@ -359,11 +359,12 @@ class AppServiceProvider extends ServiceProvider
             'key' => WhatsAppReplyAgent::ROUTE,
             'name' => 'WhatsApp Reply Assistant',
             'module' => 'whatsapp',
-            'description' => 'Conversation-scoped Turkish reply drafts through the OpenAI API (model chosen on the WhatsApp screen); copy only, MoxDOP never sends.',
-            'default_steps' => [[
-                'provider' => AiProviderCatalog::OPENAI,
-                'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-            ]],
+            'description' => 'Conversation-scoped Turkish reply drafts written the moment a message arrives (Claude API, OpenAI as fallback); the operator checks the draft and sends it from the inbox.',
+            // yakup 2026-11-08: "yanıtlar otomatik anında claude api tarafından üretilmesi lazım".
+            'default_steps' => [
+                ['provider' => AiProviderCatalog::ANTHROPIC, 'model' => 'claude-sonnet-5-5'],
+                ['provider' => AiProviderCatalog::OPENAI, 'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI)],
+            ],
         ]);
 
         // Satış (2026-11-04): the next WhatsApp message to a prospect, from the whole conversation and the site scan.

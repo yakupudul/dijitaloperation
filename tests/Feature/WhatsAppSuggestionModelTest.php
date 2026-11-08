@@ -146,6 +146,25 @@ final class WhatsAppSuggestionModelTest extends TestCase
         WhatsAppReplyAgent::assertNeverPrompted();
     }
 
+    public function test_with_the_claude_api_the_draft_is_written_at_once_even_when_claude_takes_all(): void
+    {
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test', 'ai.providers.anthropic.key' => 'sk-ant-test',
+            'moxdop-mcp.token' => 'test-mcp-token', 'moxdop-mcp.takes_all' => true]);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        $integration = $this->connection->integration();
+        $integration->update(['config' => [...$integration->config, 'business_context' => 'SABİT KARARLAR: en az 6 ay yazılmaz.']]);
+        $conversation = $this->conversation();
+        $conversation->update(['suggestion_status' => 'requested']);
+        WhatsAppReplyAgent::fake([['action' => 'reply', 'reply' => 'Mehmet Bey merhaba, aylık 14.000 TL + KDV.', 'rationale' => 'Fiyat sordu.', 'summary' => 'Fiyat sorusu']]);
+
+        app(WhatsAppSuggestions::class)->generate($conversation->id);
+
+        $fresh = $conversation->fresh();
+        $this->assertSame(['ready', 'anthropic:claude-sonnet-5-5'], [$fresh->suggestion_status, $fresh->route_signature]);
+        $this->assertSame(0, AiTask::query()->count(), 'no queue: written on the spot');
+        WhatsAppReplyAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, 'SABİT KARARLAR'));
+    }
+
     private function conversation(): WhatsAppConversation
     {
         $conversation = WhatsAppConversation::query()->create([

@@ -97,6 +97,33 @@ final class AiBudget
         AiRouteKeys::SITE_CONTENT_RECIPE, AiRouteKeys::CONTENT_IDEAS, AiRouteKeys::CONTENT_ARTICLE, AiRouteKeys::CONTENT_LOCALIZE, AiRouteKeys::CONTENT_REVIEW,
         AiRouteKeys::CONTENT_TOPIC_MAP, AiRouteKeys::CONTENT_BRIEF];
 
+    /**
+     * Customer-facing work that cannot wait (yakup 2026-11-08: "yanıtlar otomatik anında claude api"): WhatsApp reply
+     * drafts, prospect messages, analyses and research. Not stopped by the day's ceiling (credit and the month's
+     * budget still apply); every other non-content operation stops at RESERVE_SHARE of the ceiling, so the day's spend
+     * stays around the operator's ceiling while these keep their room.
+     */
+    public const array PRIORITY_OPERATIONS = ['whatsapp.reply', 'sales.reply', 'sales.analysis', 'sales.research', 'social.reply'];
+
+    /** Share of the daily ceiling the other operations may use (the rest stays for the priority ones). */
+    public const float RESERVE_SHARE = 0.8;
+
+    public static function isPriority(?string $operation): bool
+    {
+        return $operation !== null && in_array($operation, self::PRIORITY_OPERATIONS, true);
+    }
+
+    /** The day's ceiling as it applies to this operation: none for priority work, RESERVE_SHARE of it for the rest. */
+    public function dailyExhaustedFor(?string $operation): bool
+    {
+        if (self::isPriority($operation)) {
+            return false;
+        }
+        $budget = $this->dailyBudget();
+
+        return $budget > 0 && $this->dailySpend() >= $budget * ($operation === null ? 1.0 : self::RESERVE_SHARE);
+    }
+
     public static function isContent(?string $operation): bool
     {
         return $operation !== null && in_array($operation, self::CONTENT_OPERATIONS, true);
@@ -117,8 +144,8 @@ final class AiBudget
         if (self::isContent($operation)) {
             return null;
         }
-        if ($this->dailyExhausted()) {
-            return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f); yarın yeniden çalışır.', $this->dailySpend(), $this->dailyBudget());
+        if ($this->dailyExhaustedFor($operation)) {
+            return sprintf('Günlük AI tavanı doldu ($%.2f / $%.2f; WhatsApp ve aday işleri için ayrılan pay hariç); yarın yeniden çalışır.', $this->dailySpend(), $this->dailyBudget());
         }
         if ($this->isExhausted()) {
             return 'Aylık AI bütçesi doldu.';
@@ -178,7 +205,7 @@ final class AiBudget
             return false;
         }
 
-        return app(AiCredits::class)->exhausted($provider) || (! self::isContent($operation) && ($this->dailyExhausted() || $this->isExhausted()));
+        return app(AiCredits::class)->exhausted($provider) || (! self::isContent($operation) && ($this->dailyExhaustedFor($operation) || $this->isExhausted()));
     }
 
     /**

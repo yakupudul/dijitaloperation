@@ -79,7 +79,10 @@ final class WhatsAppSuggestions
         // Claude takes every job (yakup, 2026-10-14): the draft waits for Claude over MCP; the job runs again with the
         // answer while the conversation still shows "running".
         $tasks = app(AiTaskQueue::class);
-        $viaClaude = $tasks->delegated(WhatsAppReplyAgent::ROUTE);
+        // yakup 2026-11-08 ("otomatik anında claude api"): the Claude API answers at once when the route allows it
+        // (credit, the day's ceiling with the WhatsApp share); the MCP queue is only the fallback.
+        $inline = $conversation && $integration ? self::inlineProvider() : null;
+        $viaClaude = $inline === null && $tasks->delegated(WhatsAppReplyAgent::ROUTE);
         $statuses = $viaClaude ? ['pending', 'requested', 'running'] : ['pending', 'requested'];
         if (! $conversation || ! $integration?->isActive() || ! in_array($conversation->suggestion_status, $statuses, true)) {
             return;
@@ -98,16 +101,17 @@ final class WhatsAppSuggestions
         try {
             $model = self::model($integration);
             if (! $viaClaude) {
-                $route = app(AiRouteResolver::class)->resolve(WhatsAppReplyAgent::ROUTE);
-                // OpenAI only: no key, the daily AI cap or a disabled OpenAI integration means no suggestion.
-                if (! isset($route->providerModels[AiProviderCatalog::OPENAI])) {
-                    $reason = collect($route->steps)->firstWhere('provider', AiProviderCatalog::OPENAI)['reason'] ?? null;
+                if ($inline === null) {
+                    $route = app(AiRouteResolver::class)->resolve(WhatsAppReplyAgent::ROUTE);
+                    $reason = collect($route->steps)->firstWhere('reason', 'budget_exhausted') !== null ? 'budget_exhausted' : null;
                     $this->fail($conversationId, $revision, $reason === 'budget_exhausted' ? 'ai_budget_blocked' : 'ai_not_configured');
 
                     return;
                 }
-                Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $model);
-                app(AiProviderRuntimeConfig::class)->prepare([AiProviderCatalog::OPENAI]);
+                if (isset($inline[AiProviderCatalog::OPENAI])) {
+                    Context::addHidden(AiProviderOptions::OPENAI_MODEL_CONTEXT, $inline[AiProviderCatalog::OPENAI]);
+                }
+                app(AiProviderRuntimeConfig::class)->prepare(array_keys($inline));
             }
             $rows = $conversation->messages()->orderByDesc('sent_at')->orderByDesc('id')->limit(201)->get();
             $truncated = $rows->count() > 200;
@@ -164,8 +168,8 @@ final class WhatsAppSuggestions
                 $signature = AiTaskQueue::MODEL;
             } else {
                 $output = (new WhatsAppReplyAgent)->prompt(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                    provider: [AiProviderCatalog::OPENAI => $model])->toArray();
-                $signature = AiProviderCatalog::OPENAI.':'.$model;
+                    provider: $inline, timeout: 90)->toArray();
+                $signature = array_key_first($inline).':'.$inline[array_key_first($inline)];
             }
             $result = Validator::make($output, [
                 'action' => ['required', 'in:reply,wait,clarify'],
@@ -203,6 +207,29 @@ final class WhatsAppSuggestions
             // Provider exceptions can contain prompts/tokens; persist only a bounded error code.
             $this->fail($conversationId, $revision, 'ai_request_failed');
         }
+    }
+
+    /**
+     * The provider that drafts at once: the route's Claude API step (default, yakup 2026-11-08) or its OpenAI step with
+     * the model chosen on the WhatsApp screen; null when money or a missing key stops both.
+     *
+     * @return array<string, string>|null provider => model
+     */
+    public static function inlineProvider(): ?array
+    {
+        try {
+            $route = app(AiRouteResolver::class)->resolve(WhatsAppReplyAgent::ROUTE);
+        } catch (Throwable) {
+            return null;
+        }
+        if (isset($route->providerModels[AiProviderCatalog::ANTHROPIC])) {
+            return [AiProviderCatalog::ANTHROPIC => (string) $route->providerModels[AiProviderCatalog::ANTHROPIC]];
+        }
+        if (isset($route->providerModels[AiProviderCatalog::OPENAI])) {
+            return [AiProviderCatalog::OPENAI => self::model(app(WhatsAppConnection::class)->integration())];
+        }
+
+        return null;
     }
 
     /** A draft is stale when the operator's instructions or the learned brain changed after it was written. */
