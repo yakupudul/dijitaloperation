@@ -151,6 +151,63 @@
             </section>
 
             {{-- Sohbeti yapıştır: WhatsApp'tan kopyalanan sohbet karta işlenir, Claude hemen cevabı yazar. --}}
+            {{-- Yeni aday araştırması (2026-11-08): Claude web'de işletmeyi bulur (site, Instagram, Google harita kaydı). --}}
+            @php
+                $research = is_array($lead->research) ? $lead->research : null;
+            @endphp
+            <section class="card p-4" data-lead-research>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Araştırma</h2>
+                        <p class="text-[13px] text-gray-500">
+                            @if ($research)
+                                {{ $research['business_name'] ?: 'İşletme bulunamadı' }}{{ $research['city'] ? ' · '.$research['city'] : '' }} · {{ $lead->research_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}
+                            @else
+                                Yeni bir numara yazınca Claude isimden ve numaradan web'de arar: site, Instagram, Google harita kaydı.
+                            @endif
+                        </p>
+                    </div>
+                    <button type="button" wire:click="research" wire:loading.attr="disabled" class="btn-quiet h-8" @disabled($researching) data-lead-research-run>{{ $research ? 'Yeniden araştır' : 'Araştır' }}</button>
+                </div>
+                @if ($researching)
+                    <p class="mt-2 text-sm text-gray-500" wire:poll.10s.visible data-lead-researching>Claude web'de arıyor, siteyi ve profilleri açıyor (1-3 dk)…</p>
+                @elseif ($lead->research_note)
+                    <p class="mt-2 text-sm {{ $lead->research_status === 'failed' ? 'text-error-600' : 'text-warning-700 dark:text-warning-400' }}" data-lead-research-note>{{ $lead->research_note }}</p>
+                @endif
+                @if ($research)
+                    <div class="mt-3 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (['website' => 'Site', 'instagram' => 'Instagram', 'google_maps' => 'Harita kaydı'] as $key => $label)
+                                @if ($research[$key])
+                                    <a href="{{ preg_match('#^https?://#i', $research[$key]) ? $research[$key] : 'https://'.$research[$key] }}" target="_blank" rel="noopener noreferrer" class="btn h-7 text-xs">{{ $label }}</a>
+                                @else
+                                    <span class="inline-flex h-7 items-center rounded-md px-2 text-xs text-gray-400 ring-1 ring-gray-200 dark:ring-gray-700">{{ $label }} yok</span>
+                                @endif
+                            @endforeach
+                        </div>
+                        @php
+                $maps = array_filter($research['maps'] ?? []);
+            @endphp
+                        @if ($maps)
+                            <p class="text-[13px]"><span class="text-gray-500">Harita kaydı:</span> {{ implode(' · ', array_filter([($maps['rating'] ?? '') ? $maps['rating'].' puan' : null, ($maps['reviews'] ?? '') ? $maps['reviews'].' yorum' : null, $maps['category'] ?? null, $maps['address'] ?? null])) }}</p>
+                        @endif
+                        @php
+                $ig = array_filter($research['instagram_facts'] ?? []);
+            @endphp
+                        @if ($ig)
+                            <p class="text-[13px]"><span class="text-gray-500">Instagram:</span> {{ implode(' · ', array_filter([($ig['followers'] ?? '') ? $ig['followers'].' takipçi' : null, ($ig['posts'] ?? '') ? $ig['posts'].' gönderi' : null, ($ig['last_post'] ?? '') ? 'son gönderi '.$ig['last_post'] : null])) }}</p>
+                        @endif
+                        @if ($research['findings'] ?? [])
+                            <ol class="list-decimal space-y-1 pl-5 text-[13px]" data-lead-research-findings>
+                                @foreach ($research['findings'] as $finding)
+                                    <li><span class="font-medium text-gray-900 dark:text-white">{{ $finding['title'] }}</span> <span class="text-gray-600 dark:text-gray-400">{{ $finding['detail'] }}</span></li>
+                                @endforeach
+                            </ol>
+                        @endif
+                    </div>
+                @endif
+            </section>
+
             {{-- Tam analiz (3. hafta): yakup için tam yazılı analiz; müşteriye yalnız tek bulgulu mesaj gider. --}}
             <section class="card p-4" data-lead-analysis x-data="{ open: false }">
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -183,7 +240,7 @@
                         <div class="max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 [&_h2]:mt-4 [&_h2]:mb-1 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-gray-900 dark:[&_h2]:text-white [&_h2:first-child]:mt-0 [&_h3]:mt-3 [&_h3]:font-semibold [&_p]:mt-1 [&_ul]:mt-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mt-0.5 [&_strong]:font-semibold [&_strong]:text-gray-900 dark:[&_strong]:text-white" data-lead-analysis-text>{!! \Illuminate\Support\Str::markdown((string) $lead->analysis, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}</div>
                         @if ($lead->analysis_message)
                             <div class="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                <p class="text-xs font-medium text-gray-500">Müşteriye gidecek mesaj (tek bulgu)</p>
+                                <p class="text-xs font-medium text-gray-500">Müşteriye gidecek mesaj</p>
                                 <p class="mt-1 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">{{ $lead->analysis_message }}</p>
                                 <button type="button" wire:click="useAnalysisMessage" class="btn mt-2 h-8">Gönderilecek mesaja koy</button>
                             </div>

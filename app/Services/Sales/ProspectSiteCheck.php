@@ -52,7 +52,10 @@ final class ProspectSiteCheck
                 : 'Site kontrolü: '.count($findings).' bulgu. '.implode(' · ', array_map(fn (array $f): string => $f['title'], $findings)),
                 meta: ['count' => count($findings)]);
             // The site is read: the next message is written again with the numbers (unless the operator is editing one).
-            if ($lead->isOpen() && $lead->draft_status !== 'queued' && (! filled($lead->draft) || $lead->draft === $lead->draft_ai)) {
+            // A researched new prospect gets the analysis (its message is the draft) instead.
+            if ($lead->research_status === 'ready') {
+                LeadResearcher::afterSiteRead($lead);
+            } elseif ($lead->isOpen() && $lead->draft_status !== 'queued' && (! filled($lead->draft) || $lead->draft === $lead->draft_ai)) {
                 SalesReplyWriter::queue($lead);
             }
         } catch (Throwable $exception) {
@@ -63,6 +66,7 @@ final class ProspectSiteCheck
                 : 'yanıt vermedi: '.mb_substr($exception->getMessage(), 0, 120);
             $lead->forceFill(['findings_status' => 'failed', 'findings_at' => now(), 'findings' => []])->save();
             app(SalesLeads::class)->event($lead, 'finding', 'Site okunamadı ('.$reason.'); bulgu çıkarılamadı, telefondan bak.', meta: ['count' => 0, 'failed' => true]);
+            LeadResearcher::afterSiteRead($lead);
         }
     }
 

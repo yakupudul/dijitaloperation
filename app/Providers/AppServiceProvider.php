@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Ai\Agents\SalesAnalysisAgent;
 use App\Ai\Agents\SalesReplyAgent;
+use App\Ai\Agents\SalesResearchAgent;
 use App\Ai\Agents\SocialReplyAgent;
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
@@ -387,6 +388,15 @@ class AppServiceProvider extends ServiceProvider
             'module' => 'sales',
             'description' => 'Full written analysis of a prospect for the operator (site, profile, conversation, plan, offer, questions, risks) and a one-finding message; nothing is sent.',
             'default_steps' => $this->app->make(AiRouteRegistry::class)->get(SalesReplyAgent::ROUTE)['default_steps'],
+        ]);
+
+        // Yeni aday araştırması (yakup 2026-11-08): web search and fetch run on Anthropic's side, so Claude API only.
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => SalesResearchAgent::ROUTE,
+            'name' => 'Yeni aday araştırması',
+            'module' => 'sales',
+            'description' => 'When an unknown number writes on WhatsApp, Claude searches the web for its business (site, Instagram, Google harita kaydı) before the analysis and the first message; nothing is sent.',
+            'default_steps' => [['provider' => AiProviderCatalog::ANTHROPIC, 'model' => 'claude-sonnet-5-5']],
         ]);
 
         // Sosyal medya gelen kutusu (ADR-083, 2026-11-06): replies to DMs and comments on Moximu's own accounts.

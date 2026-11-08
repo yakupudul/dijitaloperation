@@ -8,6 +8,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\ServiceCategory;
 use App\Services\Sales\Agreements;
+use App\Services\Sales\LeadResearcher;
 use App\Services\Sales\ProspectSiteCheck;
 use App\Services\Sales\SalesAnalysisWriter;
 use App\Services\Sales\SalesLeads;
@@ -425,6 +426,17 @@ final class LeadCardPage extends Component
         $lead->forceFill(['duplicate_of_id' => null, 'origin' => array_merge((array) $lead->origin, ['not_duplicate_of' => $lead->duplicate_of_id])])->save();
     }
 
+    /** "Araştır": Claude looks the business up on the web (site, Instagram, harita kaydı); the analysis follows. */
+    public function research(): void
+    {
+        if (! LeadResearcher::queue($this->lead())) {
+            $this->say('Bugünlük araştırma sınırı doldu ('.LeadResearcher::DAILY_MAX.'); yarın yeniden denenebilir.');
+
+            return;
+        }
+        $this->say('Claude araştırıyor; 1-3 dakikada bu kartta.');
+    }
+
     public function writeAnalysis(): void
     {
         if (! SalesAnalysisWriter::queue($this->lead())) {
@@ -488,6 +500,7 @@ final class LeadCardPage extends Component
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'analysing' => in_array($lead->analysis_status, ['queued', 'running'], true),
+            'researching' => in_array($lead->research_status, ['queued', 'running'], true),
             'meetings' => Reminder::query()->where('sales_lead_id', $lead->id)->orderByDesc('remind_at')->limit(10)->get(),
             'duplicate' => $lead->duplicate_of_id !== null ? SalesLead::query()->find($lead->duplicate_of_id) : null,
         ]);

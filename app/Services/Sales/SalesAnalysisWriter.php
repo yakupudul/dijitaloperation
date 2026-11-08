@@ -32,12 +32,12 @@ final class SalesAnalysisWriter
     }
 
     /** The operator's click: always, unless the day's hard limit is reached. */
-    public static function queue(SalesLead $lead): bool
+    public static function queue(SalesLead $lead, bool $auto = false): bool
     {
         if (self::writtenToday() >= self::DAILY_MAX) {
             return false;
         }
-        $lead->forceFill(['analysis_status' => 'queued', 'analysis_note' => null])->save();
+        $lead->forceFill(['analysis_status' => 'queued', 'analysis_note' => $auto ? 'auto' : null])->save();
         SalesSubscription::withdraw(new WriteSalesAnalysis((int) $lead->id));
         WriteSalesAnalysis::dispatch((int) $lead->id);
 
@@ -107,6 +107,8 @@ final class SalesAnalysisWriter
             'analysis_status' => 'ready', 'analysis_at' => now(), 'analysis_note' => $auto ? 'auto' : null,
         ])->save();
         app(SalesLeads::class)->event($lead, 'report', 'Tam analiz yazıldı'.($lead->analysis_headline ? ': '.$lead->analysis_headline : '.'), meta: ['analysis' => true]);
+        // A researched new prospect: the analysis's message becomes the draft waiting for the operator's "Gönder".
+        LeadResearcher::draftFromAnalysis($lead);
 
         return true;
     }

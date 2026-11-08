@@ -306,6 +306,8 @@ final class SalesLeads
             && (! filled($lead->draft) || $lead->draft === $lead->draft_ai)) {
             SalesReplyWriter::queue($lead);
         }
+        // An unknown number wrote for the first time: Claude looks them up (site, Instagram, harita kaydı).
+        LeadResearcher::queueIfNew($lead);
     }
 
     /** The morning round: every card due today without a text gets one, so Bugün opens with the messages written. */

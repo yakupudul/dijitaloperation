@@ -192,6 +192,8 @@ final class SalesReplyWriter
             'conversation' => array_slice($conversation, -80),
             'conversation_truncated' => count($conversation) > 80,
             'quoted_prices' => array_values(array_unique($quoted)),
+            // Yeni aday araştırması: what Claude found on the web (site, Instagram, Google harita kaydı).
+            'research' => $lead->research_status === 'ready' ? $lead->research : null,
             'site_scan' => $lead->site_scan ?? null,
             'findings' => array_values(array_filter((array) ($lead->findings ?? []), 'is_array')),
             'site_read' => $lead->website_host === null ? 'no_site' : ($lead->findings_status === 'failed' ? 'could_not_read' : ($lead->findings_status === 'ready' ? 'read' : 'not_yet')),

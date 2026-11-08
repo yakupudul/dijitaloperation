@@ -433,8 +433,13 @@ final class InboxPage extends Component
         if ($lead !== null && ! $lead->isCustomer() && $lead->isOpen()) {
             $status = (string) $lead->draft_status;
 
+            // Yeni aday araştırması under way: the quick text stays usable, the researched one replaces it when ready.
+            $researching = in_array($lead->research_status, ['queued', 'running'], true)
+                || ($lead->research_status === 'ready' && in_array($lead->analysis_status, ['queued', 'running'], true) && $lead->last_contact_at === null);
+
             return ['text' => (string) $lead->draft, 'status' => $status, 'busy' => in_array($status, ['queued', 'running'], true),
-                'note' => (string) $lead->draft_note, 'wait' => false, 'source' => 'lead'];
+                'note' => $researching ? 'Claude bu numarayı araştırıyor (site, Instagram, harita kaydı); bulgulu ilk mesaj birkaç dakikada bu taslağın yerine gelir.' : (string) $lead->draft_note,
+                'wait' => false, 'source' => 'lead'];
         }
         if ($item->conversation !== null) {
             $c = $item->conversation;

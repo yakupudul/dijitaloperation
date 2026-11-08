@@ -87,6 +87,7 @@ use App\Services\Portfolio\BrandCandidateBuilder;
 use App\Services\Queries\QueryNotifier;
 use App\Services\Queries\QueryPoolScope;
 use App\Services\Sales\LeadIntake;
+use App\Services\Sales\LeadResearcher;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\LinkDesk;
@@ -1819,6 +1820,9 @@ Schedule::command('moxdop:showcase:daily')
     ->name('showcase-daily');
 
 // Satış (2026-11-04): at 08:30 Claude writes the text of every card due today, so Bugün opens with the messages ready.
+// Yeni aday araştırması (yakup 2026-11-08): a new chat whose research did not start with its message starts here.
+Schedule::call(fn () => LeadResearcher::sweep())
+    ->everyTenMinutes()->name('sales-lead-research')->withoutOverlapping(10);
 Schedule::call(fn () => app(SalesLeads::class)->draftDue())
     ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-morning-drafts')->withoutOverlapping(30);
 

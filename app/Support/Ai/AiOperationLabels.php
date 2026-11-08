@@ -45,6 +45,7 @@ final class AiOperationLabels
         'sales.reply' => 'Satış mesajı',
         'social.reply' => 'Sosyal medya cevabı',
         'sales.analysis' => 'Aday analizi',
+        'sales.research' => 'Yeni aday araştırması',
         'gbp.post_from_page' => 'Sayfadan gönderi yaz',
         'google_ads.search_terms' => 'Google Ads arama terimleri',
         'google_ads.structure' => 'Google Ads kampanya yapısı',
