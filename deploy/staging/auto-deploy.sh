@@ -26,7 +26,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-BRANCHES="${MOXDOP_AUTODEPLOY_BRANCHES:-claude/kume-cakismasi-301-l1blwu claude/project-thread-e5yimf}"
+BRANCHES="${MOXDOP_AUTODEPLOY_BRANCHES:-claude/project-thread-671d3s}"
 WEB_USER="${MOXDOP_WEB_USER:-www-data}"
 CHECKOUT="${MOXDOP_AUTODEPLOY_CHECKOUT:-${ROOT}-autodeploy}"
 STATE_DIR="storage/app"
@@ -100,7 +100,10 @@ touch "$TRIED_FILE"
 # or a request is waiting; the request is taken only here, after the lock, so one made during a test run waits for it.
 REQUEST_FILE="${STATE_DIR}/auto-deploy.now"
 CRON_FILE="${MOXDOP_AUTODEPLOY_CRON_FILE:-/etc/cron.d/moxdop-autodeploy}"
-if [[ "$(id -u)" -eq 0 && -f "$CRON_FILE" ]] && ! grep -q -- '--cron' "$CRON_FILE"; then
+# Only the cron file of THIS checkout is upgraded: a copy of the script run elsewhere (the test suite runs it from a
+# temporary folder, as root on the server) must never point the real cron at itself (2026-11-08: it did, and the cron
+# ran a deleted script for seven hours).
+if [[ "$(id -u)" -eq 0 && -f "$CRON_FILE" ]] && grep -qF -- "${ROOT}/deploy/staging/auto-deploy.sh" "$CRON_FILE" && ! grep -q -- '--cron' "$CRON_FILE"; then
   printf '%s\n' "# MoxDOP automatic deploy (installed by deploy/staging/auto-deploy.sh --install)" \
     "* * * * * root bash ${ROOT}/deploy/staging/auto-deploy.sh --cron >> ${ROOT}/storage/logs/auto-deploy.log 2>&1" \
     > "$CRON_FILE" || true

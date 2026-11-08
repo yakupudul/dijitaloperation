@@ -77,7 +77,8 @@ final class AutoDeployTest extends SiteTestCase
         $git($app, 'checkout', '--quiet', '--detach', $live);
 
         // Its own lock: on the server this test runs inside a check that holds the real one.
-        $env = ['MOXDOP_AUTODEPLOY_BRANCHES' => 'watched', 'MOXDOP_WEB_USER' => get_current_user(), 'MOXDOP_AUTODEPLOY_LOCK' => $this->repo.'/auto-deploy.lock'];
+        $env = ['MOXDOP_AUTODEPLOY_BRANCHES' => 'watched', 'MOXDOP_WEB_USER' => get_current_user(), 'MOXDOP_AUTODEPLOY_LOCK' => $this->repo.'/auto-deploy.lock',
+            'MOXDOP_AUTODEPLOY_CRON_FILE' => $this->repo.'/cron-untouched'];
         (new Process(['bash', $app.'/deploy/staging/auto-deploy.sh'], $app, $env))->mustRun();
 
         $status = json_decode((string) file_get_contents($app.'/storage/app/auto-deploy.json'), true);
