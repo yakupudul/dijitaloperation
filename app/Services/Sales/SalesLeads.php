@@ -263,6 +263,7 @@ final class SalesLeads
         }
         $created = ! $lead->exists;
         $this->readConversation($lead, $conversation, $created);
+        $this->backdate($lead, $conversation);
         $lead->save();
         if ($created) {
             $this->event($lead, 'system', 'WhatsApp görüşmesinden kart açıldı.', $conversation->created_at);
@@ -273,6 +274,24 @@ final class SalesLeads
         }
 
         return $lead;
+    }
+
+    /**
+     * A card opened from a chat counts from the chat's first message, not from the day the chat reached MoxDOP: a
+     * connected number or a phone backup brings years of chats at once, and Pazarlama counts the month's applications
+     * by the card's date (yakup 2026-11-08: 553 old chats showed up as November applications). A day's slack keeps a
+     * live chat's card where it was.
+     */
+    private function backdate(SalesLead $lead, WhatsAppConversation $conversation): void
+    {
+        if ($lead->source !== 'whatsapp' || (int) $lead->conversation_id !== (int) $conversation->id) {
+            return;
+        }
+        $first = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->min('sent_at');
+        $opened = $lead->created_at ?? now();
+        if ($first !== null && CarbonImmutable::parse($first)->lt(CarbonImmutable::instance($opened)->subDay())) {
+            $lead->created_at = CarbonImmutable::parse($first);
+        }
     }
 
     /**
@@ -298,6 +317,7 @@ final class SalesLeads
             $lead->name = mb_substr((string) $conversation->contact_name, 0, 255);
         }
         $this->readConversation($lead, $conversation, false);
+        $this->backdate($lead, $conversation);
         $lead->save();
         // They wrote: Claude answers in the background (unless the operator is already editing a text of their own).
         if ($lead->isOpen() && $lead->last_incoming_at !== null && ($lead->last_contact_at === null || $lead->last_incoming_at->gt($lead->last_contact_at))

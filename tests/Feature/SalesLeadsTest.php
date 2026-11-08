@@ -143,6 +143,7 @@ class SalesLeadsTest extends TestCase
         $this->assertSame('Şaban Bey', $lead->name);
         $this->assertSame('whatsapp', $lead->source);
         $this->assertSame('priced', $lead->stage);
+        $this->assertSame(now()->subDays(4)->toDateString(), $lead->fresh()->created_at->toDateString(), 'the card counts from the chat\'s first message (Pazarlama counts the month by it)');
         $this->assertSame('5009998877', $lead->phone_key, 'phone key is the last ten digits');
         $this->assertSame('2026-11-04', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString(), 'a follow-up computed from an old message is due now, not in the past');
 
