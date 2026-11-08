@@ -26,6 +26,9 @@ class SocialMetaConnector
     public const array SCOPES = [
         'pages_show_list',
         'pages_read_engagement',
+        // Reading visitors' comments on Page posts. Meta also adds it on its own from the "Manage everything on your
+        // Page" use case and refuses the login ("Invalid Scopes") until it is added there (2026-11-08).
+        'pages_read_user_content',
         'pages_manage_posts',
         'pages_manage_metadata',
         'pages_manage_engagement',
