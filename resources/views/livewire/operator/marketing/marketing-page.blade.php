@@ -74,6 +74,7 @@
                 <button type="button" wire:click="shift(1)" class="btn-quiet h-8 px-2" aria-label="Sonraki ay" @disabled($isThisMonth)>›</button>
             </div>
             <a href="{{ route('operator.social') }}" wire:navigate class="btn h-8 px-3 text-[13px]" data-marketing-social-link>Gönderi planı</a>
+            <a href="{{ route('operator.social', ['sekme' => 'hesaplar']) }}" wire:navigate @class(['h-8 px-3 text-[13px]', 'btn-primary' => $social['accounts'] === 0, 'btn' => $social['accounts'] > 0]) data-marketing-social-accounts>{{ $social['accounts'] === 0 ? 'Sosyal hesapları bağla' : 'Sosyal hesaplar' }}</a>
         </div>
     </header>
 
@@ -321,7 +322,7 @@
                     @endif
                 @elseif ($channel === 'social')
                     <div class="metric-strip mt-3 grid-cols-2 lg:grid-cols-4" data-marketing-social>
-                        <x-ta.metric-card label="Bağlı hesap" :value="$n($social['accounts'])" :tone="$social['accounts'] === 0 ? 'critical' : 'neutral'" :hint="$social['accounts'] === 0 ? 'hiçbir gönderi yayınlanamaz' : 'Instagram · Facebook · LinkedIn'" />
+                        <x-ta.metric-card label="Bağlı hesap" :value="$n($social['accounts'])" :tone="$social['accounts'] === 0 ? 'critical' : 'neutral'" :href="route('operator.social', ['sekme' => 'hesaplar'])" :hint="$social['accounts'] === 0 ? 'hiçbir gönderi yayınlanamaz' : 'Instagram · Facebook · LinkedIn'" />
                         <x-ta.metric-card label="Yayınlanan" :value="$n($social['published'])" :hint="'geçen ay '.$n($social['published_prev'])" />
                         <x-ta.metric-card label="Onay bekleyen" :value="$n($social['drafts'])" :hint="$n($social['drafts_week']).' tanesi bu hafta'" :href="route('operator.social')" />
                         <x-ta.metric-card label="Ölçü" value="başvuru" hint="takipçi değil; görüşmede 'Instagram'da gördüm'" :muted="true" />

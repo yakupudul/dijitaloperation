@@ -28,7 +28,7 @@
         </nav>
 
         @if ($message !== '')
-            <p role="status" class="tone-info rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm dark:border-gray-800">{{ $message }}</p>
+            <p role="status" @class(['rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm dark:border-gray-800', 'tone-ok' => $messageTone === 'success', 'tone-look' => $messageTone === 'error', 'tone-info' => $messageTone === 'info']) data-social-message>{{ $message }}</p>
         @endif
 
         @if ($meta->isEmpty() && $tab !== 'hesaplar')
@@ -121,53 +121,95 @@
                 <div class="flex gap-2"><button type="submit" class="btn-primary" wire:loading.attr="disabled">Plana ekle</button><span wire:loading wire:target="newFiles" class="text-sm text-gray-500">Dosyalar yükleniyor…</span></div>
             </form>
         @else
+            @php
+                $fb = $accounts->where('platform', 'facebook');
+                $ig = $accounts->where('platform', 'instagram');
+                $li = $accounts->where('platform', 'linkedin');
+                $appLink = $metaAppId ? 'https://developers.facebook.com/apps/'.$metaAppId.'/use_cases/' : 'https://developers.facebook.com/apps/';
+                $stepDone = fn (bool $done): string => $done ? 'tone-ok' : 'tone-look';
+            @endphp
             <section class="space-y-4" data-accounts>
-                <div class="card divide-y divide-gray-100 dark:divide-gray-800">
+                {{-- Hesap bağlama (yakup 2026-11-08: "entegrasyonu yapabileceğim alanı bulamadım"): one card, three steps,
+                     each with its own state, then the connected accounts. The last attempt stays visible. --}}
+                <div class="card space-y-5 p-5" data-connect-steps>
+                    <div>
+                        <h2 class="section-title">Hesapları bağlayın</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Instagram ve Facebook tek Meta girişiyle bağlanır; gönderiler, yorumlar ve DM’ler buradan yönetilir. Reklam ve WhatsApp bağlantılarına dokunmaz.</p>
+                    </div>
+
+                    <ol class="space-y-4">
+                        <li class="flex gap-3" data-step="instagram-page">
+                            <span @class(['flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 text-sm font-semibold dark:border-gray-800', $stepDone($ig->isNotEmpty())])>{{ $ig->isNotEmpty() ? '✓' : '1' }}</span>
+                            <div class="min-w-0 space-y-1 text-sm">
+                                <p class="font-semibold">Instagram hesabı Facebook sayfasına bağlı olsun</p>
+                                <p class="text-gray-600 dark:text-gray-300">Instagram uygulamasında: Profil › <b>Profili düzenle</b> › <b>Sayfa</b> › Moximu Facebook sayfasını seçin. Hesap türü <b>İşletme</b> ya da <b>İçerik üreticisi</b> olmalı. Bağlı değilse Meta girişi yalnız Facebook’u getirir.</p>
+                                @if ($fb->isNotEmpty() && $ig->isEmpty())
+                                    <p class="tone-look rounded-lg px-3 py-2" data-ig-missing>Facebook sayfası bağlandı ama ona bağlı Instagram hesabı gelmedi. Yukarıdaki bağlantıyı yapıp 3. adımı yeniden çalıştırın.</p>
+                                @endif
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="meta-app">
+                            <span @class(['flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 text-sm font-semibold dark:border-gray-800', $stepDone($fb->isNotEmpty())])>{{ $fb->isNotEmpty() ? '✓' : '2' }}</span>
+                            <div class="min-w-0 space-y-1 text-sm">
+                                <p class="font-semibold">Meta uygulamasında sosyal medya izinleri açık olsun (bir kez)</p>
+                                <p class="text-gray-600 dark:text-gray-300">Giriş, WhatsApp’ta kullandığımız uygulamayla açılır{{ $metaAppId ? ' (App ID '.$metaAppId.')' : '' }}. <a href="{{ $appLink }}" target="_blank" rel="noopener" class="underline">Uygulamanın kullanım durumlarını açın ↗</a>, <b>Add use cases</b> ile şu ikisini ekleyin: <b>“Manage everything on your Page”</b> ve <b>“Manage messaging &amp; content on Instagram”</b>. Her birinde <b>Customize</b> deyip listelenen izinlerin yanında <b>Add</b>’e basın. Uygulamada yönetici olduğunuz için Meta incelemesi gerekmez.</p>
+                                <details class="text-gray-600 dark:text-gray-300">
+                                    <summary class="cursor-pointer">Gereken izinler ve gelişmiş ayar</summary>
+                                    <div class="mt-2 space-y-3">
+                                        <p><code class="text-xs">{{ implode(', ', $scopes) }}</code></p>
+                                        <p>Yönlendirme adresi WhatsApp kurulumunda zaten eklendi: <code class="text-xs">{{ $callbackUrl }}</code>. Giriş “Özellik kullanılamıyor” ya da “Geçersiz izin” derse izinlerden biri eklenmemiştir.</p>
+                                        <p>Yapılandırma kimliği <b>boş kalmalı</b>{{ $configId !== '' ? ' (şu an dolu: '.$configId.'; giriş hatası alırsanız silip kaydedin)' : '' }}; boşken giriş yukarıdaki izin listesiyle açılır. Meta giriş penceresi buna rağmen hata verirse: uygulamada <b>Facebook Login for Business › Configurations › Create configuration</b>, ad “Moximu sosyal”, erişim anahtarı <b>User access token</b> (System user değil), varlıklar <b>Pages</b> ve <b>Instagram accounts</b>, izinler yukarıdakiler, WhatsApp izinleri seçilmeden; çıkan Configuration ID’yi buraya kaydedin.</p>
+                                        <div class="flex flex-wrap gap-2"><input type="text" wire:model="configId" inputmode="numeric" placeholder="Yapılandırma kimliği (boş bırakın)" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><button type="button" wire:click="saveConfigId" class="btn">Kaydet</button></div>
+                                        <p>Başka bir Meta uygulaması kullanılacaksa (gerekmez):</p>
+                                        <div class="flex flex-wrap gap-2"><input type="text" wire:model="socialAppId" inputmode="numeric" placeholder="App ID" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><input type="password" wire:model="socialAppSecret" autocomplete="off" placeholder="App Secret" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><button type="button" wire:click="saveSocialApp" class="btn">Uygulamayı kaydet</button></div>
+                                        @error('socialAppSecret')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                </details>
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="meta-login">
+                            <span @class(['flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 text-sm font-semibold dark:border-gray-800', $stepDone($fb->isNotEmpty() && $ig->isNotEmpty())])>{{ $fb->isNotEmpty() && $ig->isNotEmpty() ? '✓' : '3' }}</span>
+                            <div class="min-w-0 space-y-2 text-sm">
+                                <p class="font-semibold">Meta ile giriş yapın</p>
+                                <p class="text-gray-600 dark:text-gray-300">Açılan pencerede sizin Facebook hesabınızla devam edin; sayfa listesinde <b>Moximu</b> sayfasını, Instagram listesinde <b>@moximucom</b>’u işaretleyin ve tüm izinlere izin verin.</p>
+                                @if ($canWrite)
+                                    <a href="{{ route('integrations.meta.social.authorize') }}" class="btn-primary inline-flex" data-meta-connect>{{ $fb->isNotEmpty() ? 'Meta’yı yeniden bağla' : 'Meta’yı bağla' }}</a>
+                                @endif
+                                @if ($lastAttempt)
+                                    <p @class(['rounded-lg px-3 py-2', 'tone-ok' => $lastAttempt['ok'], 'tone-look' => ! $lastAttempt['ok']]) data-last-attempt>Son deneme {{ \Illuminate\Support\Carbon::parse($lastAttempt['at'])->timezone($tz)->format('d.m.Y H:i') }}: {{ $lastAttempt['text'] }}</p>
+                                @endif
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="card divide-y divide-gray-100 dark:divide-gray-800" data-account-list>
+                    <h2 class="section-title p-4">Bağlı hesaplar</h2>
                     @forelse ($accounts as $account)
                         <div class="flex flex-wrap items-center justify-between gap-3 p-4">
                             <div class="flex min-w-0 items-center gap-3">
                                 @if ($account->picture_url)<img src="{{ $account->picture_url }}" alt="" class="h-9 w-9 rounded-full">@endif
                                 <div class="min-w-0">
                                     <p class="text-sm font-semibold">{{ $account->platformLabel() }} · {{ $account->displayName() }}</p>
-                                    <p class="text-xs text-gray-500">{{ $account->isManual() ? 'Kopyala ve aç ile paylaşılır' : 'Otomatik yayın' }}{{ $account->connected_at ? ' · bağlandı '.$account->connected_at->timezone($tz)->format('d.m.Y') : '' }}</p>
+                                    <p class="text-xs text-gray-500">{{ $account->isManual() ? 'Kopyala ve aç ile paylaşılır' : 'Otomatik yayın' }}{{ $account->enabled ? '' : ' · kapalı' }}{{ $account->connected_at ? ' · bağlandı '.$account->connected_at->timezone($tz)->format('d.m.Y') : '' }}</p>
                                 </div>
                             </div>
                             @if ($canWrite)<button type="button" wire:click="toggleAccount({{ $account->id }})" class="btn">{{ $account->enabled ? 'Kapat' : 'Aç' }}</button>@endif
                         </div>
                     @empty
-                        <x-ta.empty-state size="sm" title="Bağlı hesap yok." />
+                        <p class="p-4 text-sm text-gray-500">Henüz bağlı hesap yok; yukarıdaki adımlarla başlayın.</p>
                     @endforelse
                 </div>
 
                 @if ($canWrite)
-                    <div class="card space-y-3 p-5">
-                        <h2 class="section-title">Instagram ve Facebook</h2>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">Meta girişinde Moximu Facebook sayfasını ve ona bağlı Instagram işletme hesabını seçin. Reklam bağlantısından ayrıdır; ona dokunmaz.</p>
-                        <a href="{{ route('integrations.meta.social.authorize') }}" class="btn-primary inline-flex">Meta’yı bağla</a>
-                        <details class="text-sm">
-                            <summary class="cursor-pointer text-gray-600 dark:text-gray-300">Meta uygulama ayarı (bir kez)</summary>
-                            <div class="mt-2 space-y-2">
-                                <p>Giriş şu uygulamayla açılıyor: <b>App ID {{ $metaAppId ?: 'tanımlı değil' }}</b> ({{ $ownSocialApp ? 'Entegrasyonlardaki WhatsApp uygulaması ya da aşağıda kaydedilen uygulama' : 'Entegrasyonlar › Meta’daki reklam uygulaması' }}). Yapılandırma başka bir uygulamada açılırsa Meta “Özellik kullanılmıyor” der.</p>
-                                <p>WhatsApp entegrasyonunda App ID ve App Secret kayıtlıysa o uygulama kendiliğinden kullanılır; aşağıdaki alan yalnız başka bir uygulama için gerekir. Reklam bağlantısı değişmez.</p>
-                                <div class="flex flex-wrap gap-2"><input type="text" wire:model="socialAppId" inputmode="numeric" placeholder="App ID" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><input type="password" wire:model="socialAppSecret" autocomplete="off" placeholder="{{ $ownSocialApp ? 'App Secret (kayıtlı, değiştirmek için yazın)' : 'App Secret' }}" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><button type="button" wire:click="saveSocialApp" class="btn">Uygulamayı kaydet</button></div>
-                                @error('socialAppSecret')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
-                                <ol class="list-decimal space-y-1 pl-5">
-                                    <li>Meta for Developers › bu uygulama › <b>Kullanım durumları › Add use cases</b>: “Manage everything on your Page” ve “Manage messaging &amp; content on Instagram” kullanım durumlarını ekleyin; sonra her birinde <b>Customize › Permissions</b>’ta şu izinleri <b>Add</b> deyin (uygulamada rolünüz olduğu için inceleme gerekmez): <code class="text-xs">{{ implode(', ', $scopes) }}</code>.</li>
-                                    <li><b>Configurations › Create configuration</b>: ad “Moximu sosyal”, giriş çeşidi <b>General</b>, erişim anahtarı <b>User access token</b> (System-user değil), varlıklar <b>Pages</b> ve <b>Instagram accounts</b>, izinler yukarıdakiler. <b>WhatsApp izinlerini seçmeyin</b>; WhatsApp yapılandırmasının kimliği burada çalışmaz.</li>
-                                    <li>Yeni yapılandırmanın <b>Configuration ID</b>’sini kopyalayıp buraya kaydedin, sonra “Meta’yı bağla”. Yönlendirme adresi zaten kayıtlı: <code class="text-xs">{{ $callbackUrl }}</code>.</li>
-                                </ol>
-                                <div class="flex flex-wrap gap-2"><input type="text" wire:model="configId" inputmode="numeric" placeholder="Yapılandırma kimliği" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"><button type="button" wire:click="saveConfigId" class="btn">Kaydet</button></div>
-                            </div>
-                        </details>
-                    </div>
-                    <form wire:submit="addLinkedin" class="card space-y-3 p-5">
-                        <h2 class="section-title">LinkedIn şirket sayfası</h2>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">LinkedIn otomatik paylaşım iznini onaylayana kadar gönderiler saatinde burada “kopyala ve aç” olarak belirir.</p>
+                    <form wire:submit="addLinkedin" class="card space-y-3 p-5" data-linkedin>
+                        <h2 class="section-title">LinkedIn şirket sayfası{{ $li->isNotEmpty() ? ' · eklendi' : '' }}</h2>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">LinkedIn şirket sayfalarına otomatik paylaşım için LinkedIn’in ayrıca onay verdiği bir izin gerekiyor (Community Management API, şirket doğrulamasıyla haftalar sürebiliyor). O gelene kadar LinkedIn gönderileri saatinde Plan’ın başında “Metni kopyala · Görseli indir · LinkedIn’i aç · Paylaştım” olarak belirir; paylaşmak 20 saniye sürer.</p>
                         <div class="grid gap-2 sm:grid-cols-2">
                             <input type="text" wire:model="linkedinName" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" placeholder="Ad">
                             <input type="url" wire:model="linkedinUrl" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" placeholder="https://www.linkedin.com/company/…">
                         </div>
-                        <button type="submit" class="btn">Ekle</button>
+                        <button type="submit" class="btn">{{ $li->isNotEmpty() ? 'Güncelle' : 'LinkedIn sayfasını ekle' }}</button>
                     </form>
                 @endif
             </section>

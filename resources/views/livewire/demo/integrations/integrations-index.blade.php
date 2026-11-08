@@ -52,6 +52,26 @@
         </div>
     </header>
 
+    {{-- Moximu's own channels (yakup 2026-11-08: "entegrasyonu yapabileceğim alanı bulamadım"): WhatsApp, Instagram +
+         Facebook and LinkedIn are connected on their own screens; this row is the door to each. --}}
+    <section aria-labelledby="hub-own" data-own-channels>
+        <div class="section-head">
+            <h2 id="hub-own" class="section-title">Moximu hesapları</h2>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-3">
+            @foreach ($ownChannels as $channel)
+                <div class="card flex flex-col gap-2 p-4" data-own-channel="{{ $channel['key'] }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $channel['name'] }}</p>
+                        <span @class(['rounded-full px-2 py-0.5 text-xs', 'tone-ok' => $channel['ok'], 'tone-look' => ! $channel['ok']])>{{ $channel['state'] }}</span>
+                    </div>
+                    <p class="text-[13px] text-gray-500 dark:text-gray-400">{{ $channel['hint'] }}</p>
+                    <a href="{{ $channel['url'] }}" wire:navigate @class(['mt-auto self-start', 'btn' => $channel['ok'], 'btn-primary' => ! $channel['ok']])>{{ $channel['action'] }}</a>
+                </div>
+            @endforeach
+        </div>
+    </section>
+
     {{-- 1. What needs a fix: one tinted card each, one button each. --}}
     <section aria-labelledby="hub-health">
         <div class="section-head">

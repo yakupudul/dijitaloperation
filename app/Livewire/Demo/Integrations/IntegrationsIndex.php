@@ -3,8 +3,10 @@
 namespace App\Livewire\Demo\Integrations;
 
 use App\Models\DiscoveryCandidate;
+use App\Models\SocialAccount;
 use App\Services\Integrations\OperatorIntegrationsHubQuery;
 use App\Services\Operations\SystemHealthReader;
+use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Contracts\View\View;
@@ -13,6 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Throwable;
 
 #[Layout('operator.layouts.app')]
 #[Title('Bağlantılar')]
@@ -63,7 +66,47 @@ class IntegrationsIndex extends Component
                     ->orWhereHas('brand', fn ($brand) => $brand->where('name', 'like', '%'.trim($this->profileSearch).'%'))))
                 ->latest('reviewed_at')->paginate(10, pageName: 'profilesPage'),
             'flash' => DemoState::pullFlash(),
+            'ownChannels' => $this->ownChannels(),
         ]);
+    }
+
+    /**
+     * Moximu's own channels: where WhatsApp, Instagram + Facebook and LinkedIn are connected (2026-11-08).
+     *
+     * @return list<array{key: string, name: string, ok: bool, state: string, hint: string, action: string, url: string}>
+     */
+    private function ownChannels(): array
+    {
+        try {
+            $connection = app(WhatsAppConnection::class);
+            $whatsapp = $connection->state($connection->integration());
+            $platforms = SocialAccount::query()->where('enabled', true)->pluck('platform')->all();
+        } catch (Throwable $e) {
+            report($e);
+            $whatsapp = 'setup';
+            $platforms = [];
+        }
+        $meta = array_values(array_intersect(['facebook', 'instagram'], $platforms));
+        $social = route('operator.social', ['sekme' => 'hesaplar']);
+
+        return [
+            ['key' => 'whatsapp', 'name' => 'WhatsApp', 'ok' => $whatsapp === 'connected',
+                'state' => match ($whatsapp) {
+                    'connected' => 'Bağlı', 'attention' => 'Bakılmalı', 'disabled' => 'Kapalı', default => 'Bağlı değil'
+                },
+                'hint' => 'İşletme numarası; mesajlar Gelen kutusuna düşer.', 'action' => $whatsapp === 'connected' ? 'Bağlantıyı aç' : 'Bağla',
+                'url' => route('operator.whatsapp', ['tab' => 'setup'])],
+            ['key' => 'meta', 'name' => 'Instagram ve Facebook', 'ok' => count($meta) === 2,
+                'state' => match (count($meta)) {
+                    2 => 'Bağlı', 1 => ucfirst($meta[0]).' bağlı', default => 'Bağlı değil'
+                },
+                'hint' => 'Gönderi yayını, yorumlar ve DM’ler; tek Meta girişi.', 'action' => count($meta) === 2 ? 'Hesapları aç' : 'Bağla',
+                'url' => $social],
+            ['key' => 'linkedin', 'name' => 'LinkedIn', 'ok' => in_array('linkedin', $platforms, true),
+                'state' => in_array('linkedin', $platforms, true) ? 'Eklendi' : 'Eklenmedi',
+                'hint' => 'Şirket sayfası; gönderiler “kopyala ve aç” ile paylaşılır.', 'action' => in_array('linkedin', $platforms, true) ? 'Hesapları aç' : 'Ekle',
+                'url' => $social],
+        ];
     }
 
     /**

@@ -47,6 +47,7 @@ class MetaOAuthController extends Controller
         }
         $result = $connector->begin((int) $user->id);
         if (isset($result['error'])) {
+            SocialMetaConnector::rememberAttempt(false, 'Bağlantı başlatılamadı: '.$result['error']);
             DemoState::flash('Sosyal medya bağlantısı başlatılamadı: '.$result['error'], 'error');
 
             return redirect()->route('operator.social', ['sekme' => 'hesaplar']);
@@ -67,9 +68,11 @@ class MetaOAuthController extends Controller
             $social = app(SocialMetaConnector::class)->handleCallback(
                 $request->query('code'), $request->query('state'), $request->query('error'), (int) $user->id,
             );
-            DemoState::flash(isset($social['error'])
+            $text = isset($social['error'])
                 ? 'Sosyal medya bağlantısı kurulamadı: '.$social['error']
-                : 'Bağlandı: '.implode(', ', $social['accounts']).'.', isset($social['error']) ? 'error' : 'success');
+                : 'Bağlandı: '.implode(', ', $social['accounts']).'.';
+            SocialMetaConnector::rememberAttempt(! isset($social['error']), $text);
+            DemoState::flash($text, isset($social['error']) ? 'error' : 'success');
 
             return redirect()->route('operator.social', ['sekme' => 'hesaplar']);
         }

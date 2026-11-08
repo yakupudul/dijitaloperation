@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
+use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -39,6 +40,9 @@ final class SocialPage extends Component
     public string $tab = 'plan';
 
     public string $message = '';
+
+    /** info | success | error: the Meta callback's result arrives as a flash and keeps its tone. */
+    public string $messageTone = 'info';
 
     public ?int $editing = null;
 
@@ -84,6 +88,15 @@ final class SocialPage extends Component
 
             return;
         }
+        if (! in_array($this->tab, ['plan', 'gecmis', 'yeni', 'hesaplar'], true)) {
+            $this->tab = 'plan';
+        }
+        // The Meta login comes back here with its result as a flash; without this it was never shown (2026-11-08).
+        $flash = DemoState::pullFlash();
+        if (is_array($flash) && ($flash['message'] ?? '') !== '') {
+            $this->message = (string) $flash['message'];
+            $this->messageTone = in_array($flash['tone'] ?? '', ['success', 'error'], true) ? $flash['tone'] : 'info';
+        }
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
@@ -93,6 +106,7 @@ final class SocialPage extends Component
     {
         $this->tab = in_array($tab, ['plan', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'plan';
         $this->message = '';
+        $this->messageTone = 'info';
     }
 
     public function approveWeek(string $weekStart): void
@@ -293,6 +307,7 @@ final class SocialPage extends Component
             'callbackUrl' => route('integrations.meta.callback'),
             'metaAppId' => app(SocialGraph::class)->appId(),
             'ownSocialApp' => SocialGraph::ownApp() !== null,
+            'lastAttempt' => SocialMetaConnector::lastAttempt(),
         ]);
     }
 

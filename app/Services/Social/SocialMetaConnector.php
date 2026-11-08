@@ -41,6 +41,9 @@ class SocialMetaConnector
 
     private const string STATE_PREFIX = 'social_meta_oauth:';
 
+    /** The last "Meta'yı bağla" result, shown on Hesaplar so a failed attempt never disappears with the redirect. */
+    private const string LAST_ATTEMPT_KEY = 'social_meta:last_attempt';
+
     public function __construct(
         private readonly SocialGraph $graph,
         private readonly MetaOAuthRedirectUriResolver $redirect,
@@ -82,6 +85,23 @@ class SocialMetaConnector
         }
 
         return ['url' => MetaApiConfig::dialogBaseUrl().'?'.http_build_query($query)];
+    }
+
+    public static function rememberAttempt(bool $ok, string $text): void
+    {
+        Cache::forever(self::LAST_ATTEMPT_KEY, ['ok' => $ok, 'text' => Str::limit($text, 600), 'at' => now()->toIso8601String()]);
+    }
+
+    /** @return array{ok: bool, text: string, at: string}|null */
+    public static function lastAttempt(): ?array
+    {
+        try {
+            $value = Cache::get(self::LAST_ATTEMPT_KEY);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($value) && isset($value['ok'], $value['text'], $value['at']) ? $value : null;
     }
 
     public static function ownsState(?string $state): bool

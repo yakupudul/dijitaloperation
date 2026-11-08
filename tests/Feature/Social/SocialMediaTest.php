@@ -219,7 +219,7 @@ final class SocialMediaTest extends TestCase
         Livewire::actingAs($this->admin)->test(SocialPage::class)
             ->assertSee('Haftayı onayla (2)')
             ->call('approveWeek', '2026-11-09')
-            ->call('setTab', 'hesaplar')->assertSee('Meta’yı bağla')->assertSee('@moximucom')
+            ->call('setTab', 'hesaplar')->assertSee('Meta’yı yeniden bağla')->assertSee('@moximucom')
             ->call('setTab', 'yeni')->assertSee('Plana ekle')
             ->call('setTab', 'gecmis')->assertSee('Henüz yayınlanan gönderi yok.');
         $this->get(route('operator.social'))->assertOk()->assertSee('Sosyal medya');
@@ -349,5 +349,38 @@ final class SocialMediaTest extends TestCase
         $url = app(SocialMetaConnector::class)->begin($this->admin->id)['url'];
         parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
         $this->assertSame('1376608000853003', $query['client_id']);
+    }
+
+    public function test_meta_login_result_is_shown_on_hesaplar_and_kept_as_last_attempt(): void
+    {
+        SocialAccount::query()->delete();
+        Http::fake([
+            '*/oauth/access_token*' => Http::response(['access_token' => 'user-token']),
+            '*/me/accounts*' => Http::response(['data' => [['id' => 'PG', 'name' => 'Moximu', 'access_token' => 'pg-token']]]),
+        ]);
+        $this->actingAs($this->admin);
+        $redirect = $this->get(route('integrations.meta.social.authorize'));
+        parse_str((string) parse_url((string) $redirect->headers->get('Location'), PHP_URL_QUERY), $query);
+        $this->get(route('integrations.meta.callback', ['code' => 'abc', 'state' => $query['state']]));
+
+        $this->assertTrue(SocialMetaConnector::lastAttempt()['ok']);
+        Livewire::withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)
+            ->assertSet('messageTone', 'success')
+            ->assertSee('Bağlandı: Facebook: Moximu')
+            ->assertSee('Son deneme')
+            // Facebook came without Instagram: step 1 says how to link the Instagram account to the Page.
+            ->assertSeeHtml('data-ig-missing')
+            ->assertSeeHtml('data-meta-connect');
+    }
+
+    public function test_unknown_tab_falls_back_to_plan_and_integrations_hub_links_own_channels(): void
+    {
+        $this->actingAs($this->admin);
+        Livewire::withQueryParams(['sekme' => 'x'])->test(SocialPage::class)->assertSet('tab', 'plan');
+
+        $this->get(route('operator.integrations'))->assertOk()
+            ->assertSee('Moximu hesapları')
+            ->assertSee('Instagram ve Facebook')
+            ->assertSee(route('operator.social', ['sekme' => 'hesaplar']), false);
     }
 }
