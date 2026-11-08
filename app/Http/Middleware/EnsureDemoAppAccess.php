@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\BrandSetup\BrandAutofill;
 use App\Support\Demo\DemoState;
 use App\Support\Permissions;
 use App\Support\Roles;
@@ -31,8 +32,10 @@ final class EnsureDemoAppAccess
             abort(403);
         }
 
+        // Claude's own automation user (yakup 2026-11-08: "kendin için o zorunluluğu kaldır") signs in from cloud
+        // sessions without a phone; only that one address is exempt, every other admin still needs two factors.
         if (config('moxdop.security.require_admin_2fa') && $user->hasRole(Roles::ADMIN) && ! $user->hasTwoFactorEnabled()
-            && ! $request->routeIs('operator.profile')) {
+            && $user->email !== BrandAutofill::SYSTEM_EMAIL && ! $request->routeIs('operator.profile')) {
             DemoState::flash('Yönetici hesapları için iki adımlı doğrulama zorunlu. Profil sayfasından etkinleştirin.');
 
             return redirect()->route('operator.profile');

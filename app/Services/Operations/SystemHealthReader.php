@@ -265,7 +265,7 @@ final class SystemHealthReader
     private function twoFactor(): array
     {
         $without = User::query()->where('is_active', true)->whereHas('roles', fn ($q) => $q->where('name', Roles::ADMIN))->get()
-            ->reject(fn (User $user): bool => $user->hasTwoFactorEnabled())
+            ->reject(fn (User $user): bool => $user->hasTwoFactorEnabled() || $user->email === \App\Services\BrandSetup\BrandAutofill::SYSTEM_EMAIL)
             ->map(fn (User $user): string => (string) ($user->name ?: $user->email))->values()->all();
 
         return ['enforced' => (bool) config('moxdop.security.require_admin_2fa'), 'admins_without' => $without];

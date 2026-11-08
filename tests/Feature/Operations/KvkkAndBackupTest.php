@@ -4,6 +4,7 @@ namespace Tests\Feature\Operations;
 
 use App\Livewire\Operator\Settings\SystemHealthPage;
 use App\Models\User;
+use App\Services\BrandSetup\BrandAutofill;
 use App\Services\Operations\SystemBackup;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -118,6 +119,14 @@ final class KvkkAndBackupTest extends TestCase
         $member = User::factory()->create(['is_active' => true]);
         $member->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($member)->get(route('operator.customers'))->assertOk();
+
+        // Claude's automation admin is the one exemption; another admin without two factors is still sent to the profile.
+        $claude = User::factory()->create(['is_active' => true, 'email' => BrandAutofill::SYSTEM_EMAIL]);
+        $claude->assignRole(Roles::ADMIN);
+        $this->actingAs($claude)->get(route('operator.customers'))->assertOk();
+        $other = User::factory()->create(['is_active' => true]);
+        $other->assignRole(Roles::ADMIN);
+        $this->actingAs($other)->get(route('operator.customers'))->assertRedirect(route('operator.profile'));
     }
 
     public function test_sqlite_backup_can_be_restored_after_a_safety_backup(): void
