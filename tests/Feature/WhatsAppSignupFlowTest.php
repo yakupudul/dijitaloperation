@@ -112,7 +112,7 @@ final class WhatsAppSignupFlowTest extends TestCase
                 return Http::response(['error' => ['message' => "Can't load URL: The domain of this URL isn't included in the app's domains.", 'code' => 191]], 400);
             }
 
-            return str_contains($request->url(), 'redirect_uri=')
+            return str_contains($request->url(), 'redirect_uri='.urlencode(rtrim((string) config('app.url'), '/').'/'))
                 ? Http::response(['access_token' => 'business-token'])
                 : Http::response(['error' => ['message' => 'Error validating verification code. Please make sure your redirect_uri is identical', 'code' => 100, 'error_subcode' => 36008]], 400);
         }]);
@@ -123,6 +123,8 @@ final class WhatsAppSignupFlowTest extends TestCase
         $this->assertSame('business-token', $attempt->fresh()->payload['access_token']);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'redirect_uri='.urlencode(route('operator.whatsapp.connect', $attempt->id))));
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'redirect_uri='.urlencode(rtrim((string) config('app.url'), '/').'/')));
+        // The JavaScript SDK form (redirect_uri present but empty) is tried right after leaving it out.
+        Http::assertSent(fn (Request $request): bool => preg_match('/[?&]redirect_uri=(&|$)/', $request->url()) === 1);
     }
 
     public function test_an_expired_code_fails_the_attempt_with_the_reason(): void

@@ -463,7 +463,9 @@ final class WhatsAppSignup
     private function exchangeCode(string $appId, string $secret, string $code, string $attemptId): array
     {
         $base = ['client_id' => $appId, 'client_secret' => $secret, 'code' => $code];
-        $candidates = [null];
+        // A JavaScript SDK code is bound to an empty redirect_uri: Meta's own PHP SDK sends "redirect_uri=" (present,
+        // empty) for it, which is not the same as leaving the parameter out (36008 seen on 2026-11-08).
+        $candidates = [null, ''];
         try {
             $candidates[] = route('operator.whatsapp.connect', ['attempt' => $attemptId]);
         } catch (Throwable) {
@@ -472,7 +474,7 @@ final class WhatsAppSignup
         $candidates[] = 'https://www.facebook.com/connect/login_success.html';
         $last = null;
         $domain = null;
-        foreach (array_values(array_unique($candidates, SORT_REGULAR)) as $redirect) {
+        foreach ($candidates as $redirect) {
             try {
                 return $this->graph->request('GET', 'oauth/access_token', $redirect === null ? $base : $base + ['redirect_uri' => $redirect]);
             } catch (WhatsAppGraphException $exception) {
