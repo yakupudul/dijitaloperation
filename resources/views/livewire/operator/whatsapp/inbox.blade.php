@@ -61,7 +61,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
             <h1 class="page-title">WhatsApp</h1>
-            <p class="page-sub">Tüm görüşmeler, Beyin ve bağlantı. Günün cevap kuyruğu <a href="{{ route('operator.inbox') }}" wire:navigate class="link-primary">Gelen kutusu</a>'nda; MoxDOP mesaj göndermez, cevabı kopyalayıp telefondan gönderin.</p>
+            <p class="page-sub">Bağlantı, sabit kararlar, yedekler ve Beyin. Sohbetleri okumak ve cevaplamak için <a href="{{ route('operator.inbox') }}" wire:navigate class="link-primary">Gelen kutusu</a>'nu kullanın: WhatsApp Web gibi tek ekran, Claude'un taslağı ve Gönder.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <x-ta.pill :tone="$toneDot[$statePill[0]]" data-wa-state="{{ $state }}" class="text-sm">{{ $statePill[1] }}</x-ta.pill>

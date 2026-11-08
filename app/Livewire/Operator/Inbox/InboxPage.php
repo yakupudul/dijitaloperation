@@ -16,10 +16,12 @@ use App\Services\Sales\SalesReplyWriter;
 use App\Services\Social\SocialInbox;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Services\WhatsApp\WhatsAppSender;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -37,8 +39,11 @@ use Throwable;
 #[Title('Gelen kutusu')]
 final class InboxPage extends Component
 {
-    #[Url(as: 'gorunum', except: 'borclu')]
-    public string $view = 'borclu';
+    #[Url(as: 'gorunum', except: 'sohbetler')]
+    public string $view = 'sohbetler';
+
+    /** "Sohbetler" search: a name or a number. */
+    public string $search = '';
 
     /** The selected line's key (wa-12 | sosyal-5 | adim-9). */
     #[Url(as: 'kayit', except: '')]
@@ -54,10 +59,13 @@ final class InboxPage extends Component
 
     public bool $laterOpen = false;
 
+    /** The record panel on the right (wide screens). */
+    public bool $info = true;
+
     public string $laterDate = '';
 
-    /** How many whole days a WhatsApp chat is shown in the middle pane. */
-    private const int MESSAGES = 14;
+    /** Messages of a chat shown in the middle pane (the newest ones, oldest at the top like WhatsApp). */
+    private const int MESSAGES = 80;
 
     public function mount(): void
     {
@@ -69,7 +77,7 @@ final class InboxPage extends Component
     public function updatedView(): void
     {
         if (! isset(InboxQueue::VIEWS[$this->view])) {
-            $this->view = 'borclu';
+            $this->view = 'sohbetler';
         }
         $this->laterOpen = false;
         $this->resetErrorBag();
@@ -79,7 +87,7 @@ final class InboxPage extends Component
     private function checkView(): void
     {
         if (! isset(InboxQueue::VIEWS[$this->view])) {
-            $this->view = 'borclu';
+            $this->view = 'sohbetler';
         }
     }
 
@@ -189,16 +197,34 @@ final class InboxPage extends Component
         $this->after('İlgisiz olarak işlendi; yeniden yazarsa kutuya döner.', $queue);
     }
 
-    /** Instagram / Facebook: the reply goes out from here (DM inside the 24-hour window). */
+    /**
+     * "Gönder": WhatsApp through the Cloud API from the live number (the operator's click is the approval; 24-hour
+     * window only), Instagram / Facebook as a DM inside their window.
+     */
     public function send(InboxQueue $queue): void
     {
         $item = $this->current($queue);
-        if ($item->thread === null) {
-            throw ValidationException::withMessages(['reply' => 'WhatsApp mesajı telefondan gider; metni kopyala ya da WhatsApp\'ta aç.']);
-        }
         $text = trim($this->reply);
         if ($text === '') {
             throw ValidationException::withMessages(['reply' => 'Gönderilecek metni yaz.']);
+        }
+        if ($item->conversation !== null) {
+            app(WhatsAppSender::class)->sendText($item->conversation, $text);
+            $lead = $item->lead;
+            if ($lead !== null && $lead->isOpen() && ! $lead->isCustomer()) {
+                app(SalesLeads::class)->markSent($lead, $text, auth()->user());
+            } elseif ($lead !== null) {
+                $lead->forceFill(['last_contact_at' => now()])->save();
+            }
+            $this->reply = '';
+            $this->replyFor = $item->key;
+            $this->message = 'Gönderildi.';
+            $this->resetErrorBag();
+
+            return;
+        }
+        if ($item->thread === null) {
+            throw ValidationException::withMessages(['reply' => 'Bu satırın gönderilecek bir sohbeti yok; metni kopyala.']);
         }
         try {
             app(SocialInbox::class)->send($item->thread, $text);
@@ -281,10 +307,11 @@ final class InboxPage extends Component
         $this->checkView();
         $items = $queue->items();
         $counts = $queue->counts($items);
-        $rows = $queue->view($this->view, $items);
+        $counts['sohbetler'] = $queue->chatCount();
+        $rows = $this->view === 'sohbetler' ? $this->chatRows($queue, $items) : $queue->view($this->view, $items);
         $selected = null;
         if ($this->item !== '') {
-            $selected = $items->firstWhere('key', $this->item) ?? $queue->find($this->item);
+            $selected = $rows->firstWhere('key', $this->item) ?? $items->firstWhere('key', $this->item) ?? $queue->find($this->item);
             if ($selected === null) {
                 $this->item = '';
             }
@@ -316,6 +343,22 @@ final class InboxPage extends Component
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'tomorrow' => CarbonImmutable::now('Europe/Istanbul')->addDay()->toDateString(),
         ]);
+    }
+
+    /**
+     * Sohbetler: every WhatsApp chat plus the open Instagram / Facebook threads, the newest first (one screen).
+     *
+     * @param  Collection<int, InboxItem>  $items
+     * @return Collection<int, InboxItem>
+     */
+    private function chatRows(InboxQueue $queue, Collection $items): Collection
+    {
+        $search = mb_strtolower(trim($this->search));
+        $social = $items->filter(fn (InboxItem $i): bool => $i->type === InboxItem::SOCIAL
+            && ($search === '' || str_contains(mb_strtolower($i->title), $search)));
+
+        return $queue->chats($this->search)->concat($social)
+            ->sortByDesc(fn (InboxItem $i): string => ($i->at?->format('Y-m-d H:i:s') ?? '0000').'|'.$i->key)->values();
     }
 
     /**
@@ -370,6 +413,7 @@ final class InboxPage extends Component
             'opportunity' => $lead?->openOpportunity(),
             'findings' => $lead !== null && is_array($lead->site_scan) ? array_slice(array_values(array_filter((array) ($lead->site_scan['findings'] ?? []), 'is_string')), 0, 4) : [],
             'fromBackup' => $item->conversation !== null && $item->conversation->phone_number_id === WhatsAppBackupImporter::LINE,
+            'canSend' => $item->conversation !== null ? WhatsAppSender::canSend($item->conversation) : ($item->thread !== null && $item->thread->canReply()),
         ];
     }
 
@@ -421,7 +465,8 @@ final class InboxPage extends Component
         $this->reply = '';
         $this->replyFor = '';
         $this->resetErrorBag();
-        $next = $queue->view($this->view)->first(fn (InboxItem $i): bool => $i->key !== $this->item);
+        // Sohbetler is a chat list: "Yapıldı" moves on to the next chat still waiting for an answer.
+        $next = $queue->view($this->view === 'sohbetler' ? 'borclu' : $this->view)->first(fn (InboxItem $i): bool => $i->key !== $this->item);
         $this->item = $next?->key ?? '';
     }
 

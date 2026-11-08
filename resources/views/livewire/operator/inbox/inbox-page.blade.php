@@ -19,117 +19,122 @@
     $draft = $detail['draft'] ?? null;
     $waUrl = $detail !== null && $detail['waNumber'] !== null ? 'https://wa.me/'.$detail['waNumber'].(trim($reply) !== '' ? '?text='.rawurlencode(trim($reply)) : '') : null;
 @endphp
-{{-- Gelen kutusu (Aşama 2): the day's one queue. Left the lines, middle the chat and the text, right the record. --}}
-<div class="pb-24" data-inbox-page>
-    {{-- New messages and the texts Claude writes show up by themselves; faster while a text is being written. --}}
+{{-- Gelen kutusu (yakup 2026-11-08: "tek ekran, WhatsApp gibi"): left the chats, middle the chat with the composer at
+     the bottom, right the record. "Sohbetler" lists every chat like WhatsApp Web; the other tabs are the day's queue. --}}
+<div data-inbox-page>
     @if ($drafting)
         <div wire:key="inbox-poll-fast" wire:poll.5s.visible hidden></div>
     @else
-        <div wire:key="inbox-poll-slow" wire:poll.30s.visible hidden></div>
+        <div wire:key="inbox-poll-slow" wire:poll.15s.visible hidden></div>
     @endif
-    <header class="flex flex-wrap items-end justify-between gap-4">
-        <div>
-            <h1 class="page-title">Gelen <span class="highlight">kutusu</span></h1>
-            <p class="page-sub">Kim ne yazdı, bugün kime ne yapacaksın: WhatsApp, Instagram, Facebook, form ve adımlar tek sırada. Her satır Yapıldı, Sonra ya da İlgisiz ile çıkar; hedef gün sonunda sıfır.</p>
+    <header class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex min-w-0 items-baseline gap-3">
+            <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Gelen kutusu</h1>
+            <p class="truncate text-sm text-gray-500" data-inbox-strip>
+                <span @class(['font-semibold text-gray-900 dark:text-white' => $strip['owed'] > 0])>{{ $n($strip['owed']) }} cevap bekliyor</span>
+                @if ($strip['oldest'] !== null)<span> · en eskisi {{ $strip['oldest'] }}</span>@endif
+                @if ($strip['late'] + $strip['today'] > 0)<span> · {{ $n($strip['late'] + $strip['today']) }} adım</span>@endif
+            </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             @if ($readyCount > 0)
-                <button type="button" class="btn-primary" x-on:click="if (confirm('Hazır {{ $readyCount }} sosyal cevabın hepsi gönderilsin mi?')) $wire.sendReady()" data-inbox-send-ready>Hazır sosyal cevapları gönder ({{ $n($readyCount) }})</button>
+                <button type="button" class="btn-primary h-8 px-3 text-[13px]" x-on:click="if (confirm('Hazır {{ $readyCount }} sosyal cevabın hepsi gönderilsin mi?')) $wire.sendReady()" data-inbox-send-ready>Hazır sosyal cevapları gönder ({{ $n($readyCount) }})</button>
             @endif
-            <a href="{{ route('operator.whatsapp') }}" wire:navigate class="btn" title="Tüm WhatsApp görüşmeleri, Beyin ve bağlantı ayarları">WhatsApp</a>
-            <a href="{{ route('operator.sales') }}" wire:navigate class="btn">Satış</a>
+            <a href="{{ route('operator.whatsapp') }}" wire:navigate class="btn h-8 px-3 text-[13px]" title="Bağlantı, sabit kararlar, yedekler ve Beyin">WhatsApp ayarları</a>
         </div>
     </header>
 
-    <div class="hero-panel mt-6 grid-cols-2 lg:grid-cols-4" data-inbox-strip>
-        <div class="hero-tile hero-tile-accent"><span class="hero-label">Cevap borcu</span><span class="hero-value">{{ $n($strip['owed']) }}</span><span class="mt-2 text-xs opacity-75">son söz onlarda</span></div>
-        <div class="hero-tile"><span class="hero-label">Gecikmiş adım</span><span class="hero-value">{{ $n($strip['late']) }}</span><span class="mt-2 text-xs text-white/60">dünden kalan</span></div>
-        <div class="hero-tile"><span class="hero-label">Bugünün adımı</span><span class="hero-value">{{ $n($strip['today']) }}</span><span class="mt-2 text-xs text-white/60">bugün yazılacak</span></div>
-        <div class="hero-tile"><span class="hero-label">En eski borç</span><span class="hero-value">{{ $strip['oldest'] ?? '—' }}</span><span class="mt-2 text-xs text-white/60">hedef 15 dakikanın altı</span></div>
-    </div>
-
-    <div class="mt-6 flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Gelen kutusu görünümleri" data-inbox-views>
-        @foreach (InboxQueue::VIEWS as $key => $label)
-            <button type="button" wire:click="$set('view', '{{ $key }}')" @class(['seg', 'seg-active' => $view === $key]) role="tab" aria-selected="{{ $view === $key ? 'true' : 'false' }}" data-inbox-view="{{ $key }}">
-                {{ $label }} <span @class(['tabular-nums', 'text-accent' => $view === $key && ($counts[$key] ?? 0) > 0, 'text-gray-400' => $view !== $key || ($counts[$key] ?? 0) === 0])>{{ $n($counts[$key] ?? 0) }}</span>
-            </button>
-        @endforeach
-    </div>
-
     @if ($message !== '')
-        <p role="status" class="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-inbox-message>{{ $message }}</p>
+        <p role="status" class="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-inbox-message>{{ $message }}</p>
     @endif
-    @error('item')<p role="alert" class="mt-4 rounded-lg px-3 py-2 text-sm tone-critical">{{ $message }}</p>@enderror
+    @error('item')<p role="alert" class="mt-3 rounded-lg px-3 py-2 text-sm tone-critical">{{ $message }}</p>@enderror
 
-    <div class="mt-4 grid gap-4 lg:grid-cols-12" data-inbox-grid>
-        {{-- Left: the lines of the view --}}
-        <section @class([$pane, 'lg:col-span-4', 'hidden lg:block' => $selected !== null]) data-inbox-list>
-            <div class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-                <h2 class="section-title">{{ InboxQueue::VIEWS[$view] }} <span class="section-count">{{ $n($rows->count()) }}</span></h2>
-                <span class="text-xs text-gray-500">{{ $view === 'adimlar' ? 'en eski adım üstte' : 'en yeni üstte' }}</span>
+    <div class="mt-3 flex h-[calc(100dvh-10.5rem)] min-h-[32rem] overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900" data-inbox-grid>
+        {{-- Left: the chats --}}
+        <section @class(['flex w-full flex-col border-r border-gray-200 md:w-[22rem] md:shrink-0 dark:border-gray-800', 'hidden md:flex' => $selected !== null]) data-inbox-list>
+            <div class="space-y-2 border-b border-gray-200 p-3 dark:border-gray-800">
+                @if ($view === 'sohbetler')
+                    <input type="search" wire:model.live.debounce.300ms="search" placeholder="İsim ya da numara ara" class="h-9 w-full {{ $input }}" aria-label="Sohbet ara" data-inbox-search />
+                @endif
+                <div class="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5" role="tablist" aria-label="Gelen kutusu görünümleri" data-inbox-views>
+                    @foreach (InboxQueue::VIEWS as $key => $label)
+                        <button type="button" wire:click="$set('view', '{{ $key }}')" @class(['shrink-0 rounded-full px-3 py-1 text-[13px] whitespace-nowrap', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $view === $key, 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-200' => $view !== $key]) role="tab" aria-selected="{{ $view === $key ? 'true' : 'false' }}" data-inbox-view="{{ $key }}">
+                            {{ $label }} <span class="tabular-nums opacity-70">{{ $n($counts[$key] ?? 0) }}</span>
+                        </button>
+                    @endforeach
+                </div>
             </div>
-            <div class="max-h-[calc(100vh-22rem)] min-h-[16rem] overflow-y-auto">
+            <div class="min-h-0 flex-1 overflow-y-auto">
                 @forelse ($rows as $row)
-                    @php $initial = preg_match('/\p{L}/u', $row->title, $letter) ? mb_strtoupper($letter[0]) : '#'; @endphp
-                    <button type="button" wire:key="inbox-{{ $row->key }}" wire:click="select('{{ $row->key }}')" @class(['flex w-full items-start gap-3 border-b border-gray-200 px-4 py-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03]', 'bg-gray-50 dark:bg-white/[0.05]' => $selected?->key === $row->key]) data-inbox-item="{{ $row->key }}" data-inbox-type="{{ $row->type }}">
-                        <span @class(['flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $row->owed, 'bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200' => ! $row->owed])>{{ $initial }}</span>
-                        <span class="min-w-0 flex-1">
+                    @php
+                        $initial = preg_match('/\p{L}/u', $row->title, $letter) ? mb_strtoupper($letter[0]) : '#';
+                        $hue = crc32($row->title) % 360;
+                    @endphp
+                    <button type="button" wire:key="inbox-{{ $row->key }}" wire:click="select('{{ $row->key }}')" @class(['flex w-full items-center gap-3 px-3 text-left hover:bg-gray-50 dark:hover:bg-white/[0.04]', 'bg-gray-100 dark:bg-white/[0.08]' => $selected?->key === $row->key]) data-inbox-item="{{ $row->key }}" data-inbox-type="{{ $row->type }}">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold text-white" style="background: hsl({{ $hue }} 35% 52%)">{{ $initial }}</span>
+                        <span class="min-w-0 flex-1 border-b border-gray-100 py-3 dark:border-gray-800">
                             <span class="flex items-baseline justify-between gap-2">
-                                <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $row->title }}</span>
-                                <span @class(['shrink-0 text-xs tabular-nums', 'font-semibold text-error-600' => $row->late, 'text-gray-500' => ! $row->late])>{{ in_array($row->type, [InboxItem::STEP, InboxItem::RISK], true) ? ($row->late ? $row->at?->timezone($tz)->format('d.m').' · gecikti' : 'Bugün') : $shortTime($row->at) }}</span>
+                                <span class="truncate text-[15px] text-gray-900 dark:text-white">{{ $row->title }}</span>
+                                <span @class(['shrink-0 text-xs tabular-nums', 'font-semibold text-success-600' => $row->owed, 'font-semibold text-error-600' => ! $row->owed && $row->late, 'text-gray-500' => ! $row->owed && ! $row->late])>{{ in_array($row->type, [InboxItem::STEP, InboxItem::RISK], true) ? ($row->late ? $row->at?->timezone($tz)->format('d.m').' · gecikti' : 'Bugün') : $shortTime($row->at) }}</span>
                             </span>
-                            <span class="mt-0.5 block truncate text-[13px] text-gray-500">{{ $row->preview !== '' ? $row->preview : '—' }}</span>
-                            <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-                                <span>{{ $row->channel }}</span>
-                                @if ($row->subtitle !== '')<span>· {{ $row->subtitle }}</span>@endif
-                                @if ($row->owed)<span class="chip chip-accent h-5! px-1.5! text-[11px]!">Cevap borçlu</span>@endif
-                                @if ($row->type === InboxItem::RISK)<span class="chip chip-down h-5! px-1.5! text-[11px]!">Risk</span>@endif
-                                @if ($row->late)<span class="chip chip-down h-5! px-1.5! text-[11px]!">Gecikti</span>@elseif ($row->due)<span class="chip chip-flat h-5! px-1.5! text-[11px]!">Bugün</span>@endif
+                            <span class="mt-0.5 flex items-center justify-between gap-2">
+                                <span class="truncate text-[13px] text-gray-500">{{ $row->preview !== '' ? $row->preview : ($row->subtitle !== '' ? $row->subtitle : $row->channel) }}</span>
+                                <span class="flex shrink-0 items-center gap-1">
+                                    @if ($row->fromCustomer)<span class="rounded bg-gray-100 px-1.5 text-[11px] text-gray-600 dark:bg-white/10 dark:text-gray-300">Müşteri</span>@endif
+                                    @if ($row->type === InboxItem::RISK)<span class="chip chip-down h-5! px-1.5! text-[11px]!">Risk</span>@endif
+                                    @if ($row->type !== InboxItem::WHATSAPP)<span class="text-[11px] text-gray-400">{{ $row->channel }}</span>@endif
+                                    @if ($row->owed)<span class="h-2.5 w-2.5 rounded-full bg-success-500" title="Cevap bekliyor"></span>@endif
+                                </span>
                             </span>
                         </span>
                     </button>
                 @empty
                     <div class="p-6">
-                        <x-ta.empty-state size="sm" :title="match ($view) { 'borclu' => 'Kimseye cevap borcun yok', 'adimlar' => 'Bugün yapılacak adım yok', 'musteriler' => 'Müşterilerden bekleyen istek yok', default => 'Kutu boş' }" message="Yeni mesaj gelince ya da bir kaydın adımı bugüne gelince burada görünür." />
+                        <x-ta.empty-state size="sm" :title="match ($view) { 'sohbetler' => ($search !== '' ? 'Aramaya uyan sohbet yok' : 'Henüz sohbet yok'), 'borclu' => 'Kimseye cevap borcun yok', 'adimlar' => 'Bugün yapılacak adım yok', 'musteriler' => 'Müşterilerden bekleyen istek yok', default => 'Kutu boş' }" message="Yeni mesaj gelince burada görünür." />
                     </div>
                 @endforelse
             </div>
         </section>
 
         @if ($selected === null)
-            <section class="{{ $pane }} flex items-center justify-center p-8 text-center lg:col-span-8">
+            <section class="hidden flex-1 items-center justify-center bg-gray-50 p-8 text-center md:flex dark:bg-white/[0.02]">
                 <div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">Soldan bir satır seç</p>
-                    <p class="mt-1 text-sm text-gray-500">Sohbet ve hazır metin ortada, kaydın kartı sağda açılır. Metni kopyala ya da WhatsApp'ta aç, gönder, "Yapıldı" de.</p>
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Soldan bir sohbet seç</p>
+                    <p class="mt-1 text-sm text-gray-500">Mesajlar ortada, Claude'un hazırladığı cevap en altta. Kontrol et, gerekirse düzelt, Gönder'e bas.</p>
                 </div>
             </section>
         @else
-            {{-- Middle: the chat and the text in hand --}}
-            <section class="{{ $pane }} flex flex-col lg:col-span-5" data-inbox-detail="{{ $selected->key }}">
-                <header class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 px-4 py-3.5 dark:border-gray-800">
-                    <div class="flex min-w-0 items-start gap-2">
-                        <button type="button" wire:click="select('')" class="mt-0.5 rounded-lg p-1 text-gray-500 hover:bg-gray-100 lg:hidden dark:hover:bg-white/[0.06]" aria-label="Listeye dön">
+            @php
+                $hue = crc32($selected->title) % 360;
+                $initial = preg_match('/\p{L}/u', $selected->title, $letter) ? mb_strtoupper($letter[0]) : '#';
+            @endphp
+            {{-- Middle: the chat, the composer at the bottom --}}
+            <section class="flex min-w-0 flex-1 flex-col" data-inbox-detail="{{ $selected->key }}">
+                <header class="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="flex min-w-0 items-center gap-2.5">
+                        <button type="button" wire:click="select('')" class="rounded-lg p-1 text-gray-500 hover:bg-gray-200 md:hidden dark:hover:bg-white/[0.06]" aria-label="Listeye dön">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
                         </button>
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white" style="background: hsl({{ $hue }} 35% 52%)">{{ $initial }}</span>
                         <div class="min-w-0">
                             <h2 class="truncate text-[15px] font-semibold text-gray-900 dark:text-white">{{ $selected->title }}</h2>
-                            <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-                                <span>{{ $selected->channel }}</span>
-                                @if ($selected->conversation !== null)<span>{{ InboxQueue::phoneLabel($selected->conversation->contact_id) }}</span>@elseif ($lead?->phone)<span>{{ $lead->phone }}</span>@endif
-                                @if ($detail['fromBackup'])<span title="Telefondaki yedekten geldi; cevap telefondan gider.">Yedekten</span>@endif
+                            <p class="flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
+                                @if ($selected->conversation !== null)<span>{{ InboxQueue::phoneLabel($selected->conversation->contact_id) }}</span>@elseif ($lead?->phone)<span>{{ $lead->phone }}</span>@else<span>{{ $selected->channel }}</span>@endif
+                                @if ($selected->subtitle !== '')<span>· {{ $selected->subtitle }}</span>@endif
+                                @if ($detail['fromBackup'])<span title="Telefondaki yedekten geldi; cevap telefondan gider.">· Yedekten</span>@endif
                                 @if ($detail['window'] !== null)
-                                    @if ($detail['window']['open'])<x-ta.pill tone="ok" title="Son gelen mesajdan sonraki 24 saat içinde cevap verilebilir.">Cevap penceresi açık, ~{{ $detail['window']['hours'] }} sa</x-ta.pill>@else<x-ta.pill tone="look" title="24 saat geçti; WhatsApp kuralı gereği yeni mesaj için onaylı şablon gerekir.">Pencere kapalı · onaylı şablon</x-ta.pill>@endif
+                                    @if ($detail['window']['open'])<span class="text-success-600" title="Son gelen mesajdan sonraki 24 saat içinde buradan cevap gider.">· cevap penceresi ~{{ $detail['window']['hours'] }} sa</span>@else<span title="24 saat geçti; WhatsApp kuralı gereği telefondan yazılır.">· pencere kapalı</span>@endif
                                 @endif
-                                @if ($selected->thread !== null && ! $selected->thread->canReply())<x-ta.pill tone="look">24 saat geçti; uygulamadan yaz</x-ta.pill>@endif
                             </p>
                         </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-1.5" data-inbox-actions>
-                        <button type="button" wire:click="done" wire:loading.attr="disabled" class="btn-dark h-8 px-3 text-[13px]" title="{{ $selected->signal !== null ? 'Yapıldı: '.$selected->signal['done'] : 'Cevap telefondan gitti ya da adım yapıldı; kaydın sonraki adımı kurulur.' }}" data-inbox-done>{{ $selected->signal !== null ? 'Yapıldı · '.$selected->signal['done'] : 'Yapıldı' }}</button>
-                        <button type="button" wire:click="$toggle('laterOpen')" @class(['btn h-8 px-3 text-[13px]', 'ring-1 ring-gray-400' => $laterOpen]) data-inbox-later-toggle>Sonra</button>
+                    <div class="flex shrink-0 items-center gap-1" data-inbox-actions>
+                        <button type="button" wire:click="done" wire:loading.attr="disabled" class="btn h-8 px-2.5 text-[13px]" title="{{ $selected->signal !== null ? 'Yapıldı: '.$selected->signal['done'] : 'Cevap verildi ya da adım yapıldı; listeden düşer, kaydın sonraki adımı kurulur.' }}" data-inbox-done>{{ $selected->signal !== null ? 'Yapıldı · '.$selected->signal['done'] : 'Yapıldı' }}</button>
+                        <button type="button" wire:click="$toggle('laterOpen')" @class(['btn h-8 px-2.5 text-[13px]', 'ring-1 ring-gray-400' => $laterOpen]) data-inbox-later-toggle>Sonra</button>
                         @unless ($selected->fromCustomer)
-                            <button type="button" wire:click="irrelevant" wire:loading.attr="disabled" class="btn-quiet h-8 px-2.5 text-[13px] text-gray-500" title="Tedarikçi, iş arayan, reklam satan, yanlış numara. Yeniden yazarsa kutuya döner." data-inbox-irrelevant>İlgisiz</button>
+                            <button type="button" wire:click="irrelevant" wire:loading.attr="disabled" class="btn-quiet h-8 px-2 text-[13px] text-gray-500" title="Tedarikçi, iş arayan, reklam satan, yanlış numara. Yeniden yazarsa geri gelir." data-inbox-irrelevant>İlgisiz</button>
                         @endunless
+                        <button type="button" wire:click="$toggle('info')" @class(['btn-quiet h-8 px-2 text-[13px]', 'text-gray-900 dark:text-white' => $info, 'text-gray-500' => ! $info]) title="Kişi ve kayıt bilgisi" data-inbox-info-toggle>Bilgi</button>
                     </div>
                 </header>
                 @if ($laterOpen)
@@ -143,7 +148,6 @@
                         @error('laterDate')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
                     </div>
                 @endif
-
                 @if ($selected->signal !== null)
                     <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-800" data-inbox-signal="{{ $selected->signal['key'] }}">
                         <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $selected->signal['label'] }}</p>
@@ -151,65 +155,68 @@
                         <p class="mt-1 text-xs text-gray-500">Not yazıp "Yapıldı" dersen not kayda işlenir.</p>
                     </div>
                 @endif
-                <div class="max-h-[26rem] min-h-[10rem] space-y-2 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-white/[0.02]" wire:key="inbox-messages-{{ $selected->key }}-{{ $detail['messages']->count() }}" data-inbox-messages>
+
+                {{-- The chat: oldest at the top, the newest at the bottom, opened scrolled down (WhatsApp order). --}}
+                <div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto bg-[#efeae2] px-3 py-4 sm:px-8 dark:bg-[#0b141a]" wire:key="inbox-messages-{{ $selected->key }}-{{ $detail['messages']->count() }}-{{ optional($detail['messages']->last())['at'] ?? '' }}" x-data x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })" data-inbox-messages data-wa-oldest-first>
                     @php $previousDay = null; @endphp
                     @forelse ($detail['messages'] as $m)
                         @php $day = $m['at']->timezone($tz); $isMessage = ! isset($m['kind']) || in_array($m['kind'], ['message_in', 'message_out'], true); @endphp
                         @if ($previousDay !== $day->toDateString())
                             @php $previousDay = $day->toDateString(); @endphp
-                            <div class="flex justify-center py-1"><span class="rounded-full bg-white px-3 py-0.5 text-xs text-gray-500 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">{{ $day->isToday() ? 'Bugün' : ($day->isYesterday() ? 'Dün' : $day->translatedFormat('j F Y')) }}</span></div>
+                            <div class="flex justify-center py-2"><span class="rounded-lg bg-white/90 px-3 py-1 text-xs text-gray-600 shadow-sm dark:bg-[#182229] dark:text-gray-300">{{ $day->isToday() ? 'Bugün' : ($day->isYesterday() ? 'Dün' : $day->translatedFormat('j F Y')) }}</span></div>
                         @endif
                         @if ($isMessage)
                             <div class="flex {{ $m['in'] ? 'justify-start' : 'justify-end' }}">
-                                <div class="max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm {{ $m['in'] ? 'rounded-bl-sm bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100' : 'rounded-br-sm bg-success-100 text-gray-900 dark:bg-success-500/20 dark:text-gray-100' }}">
-                                    <p class="whitespace-pre-wrap break-words">{{ $m['body'] !== '' ? $m['body'] : '(ek: '.$m['type'].')' }}</p>
-                                    <p class="mt-1 text-right text-xs text-gray-500">{{ $day->format('H:i') }}</p>
+                                <div class="max-w-[80%] rounded-lg px-2.5 pt-1.5 pb-1 text-[14px] leading-snug shadow-sm {{ $m['in'] ? 'rounded-tl-none bg-white text-gray-900 dark:bg-[#202c33] dark:text-gray-100' : 'rounded-tr-none bg-[#d9fdd3] text-gray-900 dark:bg-[#005c4b] dark:text-gray-100' }}">
+                                    @if (! empty($m['who']))<p class="text-xs font-semibold text-gray-500">{{ $m['who'] }}</p>@endif
+                                    <p class="whitespace-pre-wrap break-words">{{ $m['body'] !== '' ? $m['body'] : '(ek: '.$m['type'].')' }}<span class="float-right ml-2 mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">{{ $day->format('H:i') }}</span></p>
                                 </div>
                             </div>
                         @else
-                            <p class="text-center text-xs text-gray-500">{{ \App\Models\SalesLeadEvent::KINDS[$m['kind']] ?? $m['kind'] }} · {{ $m['body'] }}</p>
+                            <p class="py-1 text-center text-xs text-gray-600 dark:text-gray-400">{{ \App\Models\SalesLeadEvent::KINDS[$m['kind']] ?? $m['kind'] }} · {{ $m['body'] }}</p>
                         @endif
                     @empty
-                        <p class="py-6 text-center text-sm text-gray-500">{{ $selected->type === InboxItem::STEP ? 'Henüz mesaj yok; ilk metin aşağıda.' : 'Mesaj yok.' }}</p>
+                        <p class="py-6 text-center text-sm text-gray-600">{{ $selected->type === InboxItem::STEP ? 'Henüz mesaj yok; ilk metin aşağıda.' : 'Mesaj yok.' }}</p>
                     @endforelse
                 </div>
 
-                <div class="border-t border-gray-200 p-4 dark:border-gray-800" data-inbox-draft>
+                {{-- Composer: Claude's draft in the box; the operator checks it and sends. --}}
+                <div class="border-t border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-800 dark:bg-white/[0.03]" data-inbox-draft>
                     @if ($draft['wait'])
-                        <p class="rounded-lg px-3 py-2 text-sm tone-look">Şimdilik yeni mesaj yazma; karşı tarafın dönüşünü bekle.{{ $draft['note'] !== '' ? ' '.$draft['note'] : '' }}</p>
+                        <p class="mb-2 rounded-lg px-3 py-2 text-sm tone-look">Şimdilik yeni mesaj yazma; karşı tarafın dönüşünü bekle.{{ $draft['note'] !== '' ? ' '.$draft['note'] : '' }}</p>
                     @endif
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">
-                            {{ $selected->signal !== null ? 'Not' : ($selected->thread !== null ? 'Cevap' : 'Gönderilecek metin') }}
-                            @if ($draft['busy'])<span class="font-normal text-gray-500">· Claude yazıyor…</span>
-                            @elseif ($draft['status'] === 'waiting')<span class="font-normal text-gray-500">· {{ $draft['note'] !== '' ? $draft['note'] : 'Abonelikteki Claude yazacak' }}</span>
-                            @elseif ($draft['status'] === 'failed')<span class="font-normal text-error-600">· {{ $draft['note'] !== '' ? $draft['note'] : 'Yazılamadı' }}</span>
+                    <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                        <span>
+                            {{ $selected->signal !== null ? 'Not' : ($draft['source'] === 'none' ? 'Mesaj' : 'Claude\'un taslağı') }}
+                            @if ($draft['busy'])<span>· Claude yazıyor…</span>
+                            @elseif ($draft['status'] === 'waiting')<span>· {{ $draft['note'] !== '' ? $draft['note'] : 'Abonelikteki Claude yazacak' }}</span>
+                            @elseif ($draft['status'] === 'failed')<span class="text-error-600">· {{ $draft['note'] !== '' ? $draft['note'] : 'Yazılamadı' }}</span>
+                            @elseif ($draft['note'] !== '' && ! $draft['wait'])<span title="{{ $draft['note'] }}">· {{ \Illuminate\Support\Str::limit($draft['note'], 90) }}</span>
                             @endif
-                        </p>
+                        </span>
                         @if ($draft['source'] !== 'none')
-                            <button type="button" wire:click="write" wire:loading.attr="disabled" class="btn-quiet h-7! text-xs!" data-inbox-write>{{ $draft['text'] !== '' || $draft['busy'] ? 'Yeniden yaz' : 'Claude yazsın' }}</button>
+                            <button type="button" wire:click="write" wire:loading.attr="disabled" class="link-neutral" data-inbox-write>{{ $draft['text'] !== '' || $draft['busy'] ? 'Yeniden yaz' : 'Claude yazsın' }}</button>
                         @endif
                     </div>
-                    <textarea wire:model="reply" rows="{{ $selected->signal !== null ? 2 : 5 }}" class="mt-2 w-full {{ $input }} py-2 font-sans leading-relaxed" placeholder="{{ $draft['busy'] ? 'Claude yazıyor…' : ($selected->signal !== null ? 'Ne yaptın, ne dedi (isteğe bağlı)' : ($selected->thread !== null ? 'Cevabını yaz' : 'Telefondan göndereceğin metin')) }}" aria-label="Metin" data-inbox-reply></textarea>
-                    @if ($draft['note'] !== '' && ! $draft['wait'] && $draft['source'] !== 'conversation')<p class="mt-1 text-xs text-gray-500">Claude'un notu: {{ $draft['note'] }}</p>@endif
+                    <div class="flex items-end gap-2">
+                        <textarea wire:model="reply" rows="{{ $selected->signal !== null ? 2 : 3 }}" x-data x-init="$el.style.height = Math.min($el.scrollHeight, 240) + 'px'" x-on:input="$el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 240) + 'px'" class="max-h-60 min-h-[2.75rem] w-full resize-none rounded-lg border-0 bg-white px-3 py-2.5 font-sans text-[14px] leading-relaxed text-gray-900 shadow-sm ring-1 ring-gray-200 placeholder:text-gray-400 focus:ring-gray-400 focus:outline-none dark:bg-[#2a3942] dark:text-white dark:ring-transparent" placeholder="{{ $draft['busy'] ? 'Claude yazıyor…' : ($selected->signal !== null ? 'Ne yaptın, ne dedi (isteğe bağlı)' : 'Mesaj yaz') }}" aria-label="Metin" data-inbox-reply></textarea>
+                        @if ($detail['canSend'])
+                            <button type="button" wire:click="send" wire:loading.attr="disabled" class="btn-primary h-11 shrink-0 px-4" data-inbox-send>Gönder</button>
+                        @elseif ($waUrl !== null)
+                            <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="btn-primary h-11 shrink-0 px-4" title="24 saat penceresi kapalı ya da yedekten gelen sohbet: telefonda açılır" data-inbox-wa>WhatsApp'ta aç</a>
+                        @endif
+                    </div>
                     @error('reply')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                     @if ($selected->thread?->send_error)<p class="mt-1 text-xs text-error-600">{{ $selected->thread->send_error }}</p>@endif
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        @if ($selected->thread !== null)
-                            @if ($selected->thread->canReply())
-                                <button type="button" wire:click="send" wire:loading.attr="disabled" class="btn-primary h-8 px-3 text-[13px]" data-inbox-send>Gönder</button>
-                            @endif
-                        @elseif ($waUrl !== null)
-                            <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="btn-primary h-8 px-3 text-[13px]" data-inbox-wa>WhatsApp'ta aç</a>
-                        @endif
-                        <button type="button" x-data x-on:click="navigator.clipboard?.writeText($el.closest('[data-inbox-draft]').querySelector('[data-inbox-reply]').value); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="btn h-8 px-3 text-[13px]">Kopyala</button>
-                        <span class="text-xs text-gray-500">{{ $selected->signal !== null ? 'Müşteriye yazacaksan WhatsApp\'ta aç; sonra "Yapıldı".' : ($selected->thread !== null ? 'Instagram / Facebook cevabı buradan gider.' : 'WhatsApp mesajı telefondan gider; gönderince "Yapıldı" de.') }}</span>
+                    <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                        <button type="button" x-data x-on:click="navigator.clipboard?.writeText($el.closest('[data-inbox-draft]').querySelector('[data-inbox-reply]').value); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="link-neutral">Kopyala</button>
+                        <span>{{ $detail['canSend'] ? 'Gönder\'e basınca mesaj numaradan gider ve telefonunda da görünür.' : ($selected->thread !== null ? '24 saat geçti; uygulamadan yaz.' : 'Telefondan gönderip "Yapıldı" de.') }}</span>
                     </div>
                 </div>
             </section>
 
             {{-- Right: the record's card --}}
-            <aside class="space-y-4 lg:col-span-3" data-inbox-record>
+            <aside @class(['w-80 shrink-0 space-y-3 overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/[0.02]', 'hidden xl:block' => $info, 'hidden' => ! $info]) data-inbox-record>
                 <section class="card p-4">
                     <div class="flex items-start justify-between gap-2">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Kayıt</h3>

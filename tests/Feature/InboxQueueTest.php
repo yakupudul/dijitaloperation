@@ -25,6 +25,7 @@ use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -77,6 +78,36 @@ final class InboxQueueTest extends TestCase
         return $conversation;
     }
 
+    public function test_sohbetler_lists_every_chat_like_whatsapp_and_send_goes_out_through_the_live_number(): void
+    {
+        $live = $this->chat('905001112233', 'Dr. Ayşe');
+        $live->update(['phone_number_id' => '222222222']);
+        $old = $this->chat('905007778899', 'Eski Müşteri', null, 72);
+        $old->update(['phone_number_id' => '222222222']);
+        WhatsAppMessage::query()->create(['conversation_id' => $old->id, 'message_id' => 'o-1', 'direction' => 'outgoing', 'message_type' => 'text', 'body' => 'Teşekkürler', 'sent_at' => now()->subHours(71)]);
+        $old->update(['last_message_at' => now()->subHours(71)]);
+
+        $page = Livewire::test(InboxPage::class)->assertSet('view', 'sohbetler')->assertSee('Dr. Ayşe')->assertSee('Eski Müşteri')->assertSee('Sen: Teşekkürler');
+        $page->set('search', 'ayşe')->assertSee('Dr. Ayşe')->assertDontSee('Eski Müşteri');
+        $page->set('search', '7778')->assertSee('Eski Müşteri')->assertDontSee('Dr. Ayşe');
+
+        // Window closed (72 h): no Gönder, the phone link instead; open window: sent through the Cloud API and stored.
+        Livewire::test(InboxPage::class)->call('select', 'wa-'.$old->id)->assertDontSee('data-inbox-send', false)->assertSee('WhatsApp\'ta aç', false);
+        Http::swap(new Factory);
+        Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.SENT1']]])]);
+        Livewire::test(InboxPage::class)->call('select', 'wa-'.$live->id)->set('reply', 'Ayşe Hocam merhaba, fiyatımız 14.000 TL + KDV.')
+            ->call('send')->assertHasNoErrors()->assertSet('item', 'wa-'.$live->id)->assertSee('Gönderildi.');
+        Http::assertSent(fn ($request) => str_contains($request->url(), '222222222/messages') && $request['to'] === '905001112233'
+            && json_decode($request['text'], true)['body'] === 'Ayşe Hocam merhaba, fiyatımız 14.000 TL + KDV.');
+        $sent = WhatsAppMessage::query()->where('message_id', 'wamid.SENT1')->sole();
+        $this->assertSame('outgoing', $sent->direction);
+        $this->assertNotNull($live->fresh()->done_at);
+
+        // A chat that asked to stop is never sent to.
+        $live->update(['opted_out_at' => now(), 'last_incoming_at' => now()]);
+        Livewire::test(InboxPage::class)->call('select', 'wa-'.$live->id)->set('reply', 'Merhaba')->call('send')->assertHasErrors('reply');
+    }
+
     public function test_the_queue_gathers_chats_threads_and_steps_into_four_views(): void
     {
         $leads = app(SalesLeads::class);
@@ -121,7 +152,7 @@ final class InboxQueueTest extends TestCase
         $this->assertSame(6, $queue->openCount());
         $this->assertSame(6, OperatorMenu::computeBadges()['operator.inbox']['count'] ?? null);
 
-        $this->get('/gelen-kutusu')->assertOk()->assertSee('Cevap borçlu')->assertSee('Dr. Ayşe')->assertSee('drayse')->assertSee('Instagram mesajı');
+        $this->get('/gelen-kutusu?gorunum=hepsi')->assertOk()->assertSee('Cevap borçlu')->assertSee('Dr. Ayşe')->assertSee('drayse')->assertSee('Instagram mesajı');
         $this->get('/gelen-kutusu?gorunum=musteriler')->assertOk()->assertSee('Avrupadent')->assertSee('Ekim raporu gönderilmedi')->assertDontSee('Dr. Ayşe');
         $this->get('/gelen-kutusu?gorunum=adimlar&kayit=adim-'.$step->id)->assertOk()->assertSee('gecikti')->assertSee('Zeyrek Diş');
         $this->get('/gelen-kutusu?kayit=wa-'.$customerChat->id)->assertOk()->assertSee('Müşteri')->assertSee('Anlaşma')->assertSee('60.000 ₺');

@@ -12,6 +12,7 @@ use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\SalesLeads;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
@@ -23,7 +24,10 @@ use Illuminate\Support\Collection;
  */
 final class InboxQueue
 {
-    public const array VIEWS = ['borclu' => 'Cevap borçlu', 'adimlar' => 'Bugünün adımları', 'musteriler' => 'Müşterilerden', 'hepsi' => 'Hepsi'];
+    public const array VIEWS = ['sohbetler' => 'Sohbetler', 'borclu' => 'Cevap borçlu', 'adimlar' => 'Bugünün adımları', 'musteriler' => 'Müşterilerden', 'hepsi' => 'Hepsi'];
+
+    /** Chats listed in "Sohbetler" (WhatsApp Web order: the newest message first); a search reaches every chat. */
+    public const int CHATS = 150;
 
     /** A chat older than this (counted from the newest message the inbox holds, since backups come in batches) is history, not a debt. */
     public const int DAYS = 30;
@@ -82,6 +86,9 @@ final class InboxQueue
         $items ??= $this->items();
         $counts = [];
         foreach (array_keys(self::VIEWS) as $view) {
+            if ($view === 'sohbetler') {
+                continue;
+            }
             $counts[$view] = $items->filter(fn (InboxItem $item): bool => $item->in($view))->count();
         }
 
@@ -137,6 +144,52 @@ final class InboxQueue
             owed: false, due: true, late: false, fromCustomer: true,
             lead: $lead, customer: $brand->customer, brand: $brand, signal: $signal,
         );
+    }
+
+    /**
+     * "Sohbetler" (yakup 2026-11-08: "tek ekran, WhatsApp gibi"): every chat of the inbox line, the newest message
+     * first, with the last message (ours too) as the preview. A search matches the name or the number.
+     *
+     * @return Collection<int, InboxItem>
+     */
+    public function chats(string $search = ''): Collection
+    {
+        $inboxId = $this->connection->integration()?->id;
+        if ($inboxId === null) {
+            return collect();
+        }
+        $query = WhatsAppConversation::query()->where('integration_id', $inboxId)->whereNotNull('last_message_at');
+        $search = trim($search);
+        if ($search !== '') {
+            $digits = preg_replace('/[^0-9]/', '', $search);
+            $query->where(function ($q) use ($search, $digits): void {
+                $q->whereRaw('lower(contact_name) like ?', ['%'.mb_strtolower($search).'%']);
+                if (strlen((string) $digits) >= 3) {
+                    $q->orWhere('contact_id', 'like', '%'.$digits.'%');
+                }
+            });
+        }
+        $conversations = $query->orderByDesc('last_message_at')->orderByDesc('id')->limit(self::CHATS)->get();
+        if ($conversations->isEmpty()) {
+            return collect();
+        }
+        $leads = $this->leadsFor($conversations);
+        $latest = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))
+            ->selectRaw('max(id) as id')->groupBy('conversation_id')->pluck('id');
+        $previews = [];
+        foreach (WhatsAppMessage::query()->whereKey($latest)->get(['conversation_id', 'body', 'direction']) as $row) {
+            $previews[$row->conversation_id] = ($row->direction === 'outgoing' ? 'Sen: ' : '').self::oneLine((string) $row->body);
+        }
+
+        return $conversations->map(fn (WhatsAppConversation $c): InboxItem => $this->conversationItem($c, $leads, $previews[$c->id] ?? '', $c->last_message_at))->values();
+    }
+
+    /** How many chats the inbox line holds (the "Sohbetler" tab count). */
+    public function chatCount(): int
+    {
+        $inboxId = $this->connection->integration()?->id;
+
+        return $inboxId === null ? 0 : WhatsAppConversation::query()->where('integration_id', $inboxId)->whereNotNull('last_message_at')->count();
     }
 
     /** @return Collection<int, InboxItem> */
@@ -195,7 +248,7 @@ final class InboxQueue
     }
 
     /** @param  array{leads: Collection<int, SalesLead>, customerLeads: Collection<int, SalesLead>, customers: Collection<int, Customer>}  $leads */
-    private function conversationItem(WhatsAppConversation $conversation, array $leads, ?string $preview = null): InboxItem
+    private function conversationItem(WhatsAppConversation $conversation, array $leads, ?string $preview = null, ?CarbonInterface $at = null): InboxItem
     {
         $lead = $leads['leads'][$conversation->id] ?? ($conversation->customer_id !== null ? ($leads['customerLeads'][$conversation->customer_id] ?? null) : null);
         $customer = $conversation->customer_id !== null ? ($leads['customers'][$conversation->customer_id] ?? Customer::query()->find($conversation->customer_id)) : $lead?->customer;
@@ -208,7 +261,7 @@ final class InboxQueue
         return new InboxItem(
             key: 'wa-'.$conversation->id, type: InboxItem::WHATSAPP, id: (int) $conversation->id,
             title: $title, subtitle: self::subtitle($lead, $customer), channel: 'WhatsApp', preview: $preview,
-            at: $conversation->last_incoming_at ?? $conversation->last_message_at,
+            at: $at ?? $conversation->last_incoming_at ?? $conversation->last_message_at,
             owed: $owed, due: (bool) $lead?->isDue(), late: self::late($lead),
             fromCustomer: $conversation->customer_id !== null || (bool) $lead?->isCustomer(),
             lead: $lead, customer: $customer, conversation: $conversation,
