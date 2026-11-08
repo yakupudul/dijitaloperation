@@ -205,6 +205,27 @@ final class AutoDeployTest extends SiteTestCase
         $env['MOXDOP_AUTODEPLOY_MINUTE'] = '45';
         $run();
         $this->assertFileExists($app.'/storage/app/auto-deploy.json', 'the quarter hour still checks');
+
+        // A check that hangs (no answer from the network) holds the lock: a fresh hold waits, a stale one is taken back.
+        $holder = new Process(['setsid', 'flock', $this->repo.'/auto-deploy.lock', 'sleep', '120']);
+        $holder->start();
+        for ($i = 0; $i < 50 && ! is_file($this->repo.'/auto-deploy.lock'); $i++) {
+            usleep(100_000);
+        }
+        usleep(300_000);
+        File::put($this->repo.'/auto-deploy.lock.holder', $holder->getPid().' '.time());
+        File::delete($app.'/storage/app/auto-deploy.json');
+        $run();
+        $this->assertFileDoesNotExist($app.'/storage/app/auto-deploy.json', 'a running check is not disturbed');
+        $this->assertTrue($holder->isRunning());
+
+        File::put($this->repo.'/auto-deploy.lock.holder', $holder->getPid().' '.(time() - 4 * 3600));
+        $run();
+        $this->assertFileExists($app.'/storage/app/auto-deploy.json', 'the stuck check was ended and this one ran');
+        for ($i = 0; $i < 50 && $holder->isRunning(); $i++) {
+            usleep(100_000);
+        }
+        $this->assertFalse($holder->isRunning(), 'the stuck holder was ended');
     }
 
     /** @param  list<string>  $command */

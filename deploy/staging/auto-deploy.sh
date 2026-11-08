@@ -60,10 +60,37 @@ fi
 
 # One run at a time; a long test run must not overlap the next cron tick.
 # (MOXDOP_AUTODEPLOY_LOCK: the tests run the script inside a running check and need a lock of their own.)
-exec 9>"${MOXDOP_AUTODEPLOY_LOCK:-/tmp/moxdop-autodeploy.lock}"
+# A check that hangs (a network call that never answers, 2026-11-08: no check ran for an hour) must not stop every later
+# check: the holder writes "<pid> <start>" next to the lock; a lock older than MOXDOP_AUTODEPLOY_STALE_MINUTES (default
+# 150: tests ~30 min + backup + deploy) is taken back by ending that run's cron session, or whatever process inherited it.
+LOCK_FILE="${MOXDOP_AUTODEPLOY_LOCK:-/tmp/moxdop-autodeploy.lock}"
+HOLDER_FILE="${LOCK_FILE}.holder"
+STALE_SECONDS=$(( ${MOXDOP_AUTODEPLOY_STALE_MINUTES:-150} * 60 ))
+exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
-  exit 0
+  read -r holder_pid holder_since < "$HOLDER_FILE" 2>/dev/null || true
+  if [[ "${holder_since:-}" =~ ^[0-9]+$ ]] && (( $(date +%s) - holder_since > STALE_SECONDS )); then
+    echo "auto-deploy: $(date -u +%FT%TZ) lock held since ${holder_since} by ${holder_pid:-?}; ending the stuck check"
+    holder_sid="$(ps -o sid= -p "${holder_pid:-0}" 2>/dev/null | tr -d ' ' || true)"
+    own_sid="$(ps -o sid= -p $$ 2>/dev/null | tr -d ' ' || true)"
+    if [[ "$holder_sid" =~ ^[0-9]+$ && "$holder_sid" -gt 1 && "$holder_sid" != "$own_sid" ]]; then
+      pkill -TERM -s "$holder_sid" 2>/dev/null || true
+    elif [[ "${holder_pid:-}" =~ ^[0-9]+$ && "$holder_pid" != "$$" ]]; then
+      kill -TERM "$holder_pid" 2>/dev/null || true
+    fi
+    sleep 5
+    if ! flock -n 9; then
+      for other in $(fuser "$LOCK_FILE" 2>/dev/null || true); do
+        [[ "$other" =~ ^[0-9]+$ && "$other" != "$$" ]] && kill -TERM "$other" 2>/dev/null || true
+      done
+      sleep 5
+    fi
+    flock -w 30 9 || exit 0
+  else
+    exit 0
+  fi
 fi
+printf '%s %s\n' "$$" "$(date +%s)" > "$HOLDER_FILE" 2>/dev/null || true
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 touch "$TRIED_FILE"
@@ -104,7 +131,7 @@ status() {
 
 # notify <state> <branch> <sha> <message>: phone notice through the app (runs as the web user; never fails the run).
 notify() {
-  sudo -u "$WEB_USER" php artisan moxdop:auto-deploy:report "$1" --branch="$2" --sha="$3" --reason="$4" --no-interaction >/dev/null 2>&1 || true
+  timeout 120 sudo -u "$WEB_USER" php artisan moxdop:auto-deploy:report "$1" --branch="$2" --sha="$3" --reason="$4" --no-interaction >/dev/null 2>&1 9>&- || true
 }
 
 # A value of the live .env (never printed): env_value DB_DATABASE
@@ -163,7 +190,7 @@ LIVE="$(git rev-parse HEAD)"
 TARGET=""
 TARGET_BRANCH=""
 for branch in $BRANCHES; do
-  if ! git fetch --quiet origin "$branch" 2>/dev/null; then
+  if ! timeout 180 git fetch --quiet origin "$branch" 2>/dev/null 9>&-; then
     continue
   fi
   head="$(git rev-parse FETCH_HEAD)"
@@ -197,7 +224,7 @@ if [[ -z "$TARGET" ]]; then
   fi
   # Idle: the monthly restore drill may run (it decides itself whether one is due; audit D5).
   if [[ -f deploy/staging/restore-drill.sh ]]; then
-    bash deploy/staging/restore-drill.sh >> "${LOG_DIR}/restore-drill.log" 2>&1 || true
+    timeout 3600 bash deploy/staging/restore-drill.sh >> "${LOG_DIR}/restore-drill.log" 2>&1 9>&- || true
   fi
   exit 0
 fi
@@ -230,9 +257,9 @@ if [[ "$TEST_ENGINE" != "done" ]] && ! (
   php artisan config:clear --no-interaction >/dev/null
   if [[ "$TEST_ENGINE" == "pgsql" ]]; then
     DB_CONNECTION=pgsql DB_HOST="${TEST_PG_HOST:-127.0.0.1}" DB_PORT="${TEST_PG_PORT:-5432}" DB_DATABASE="$TEST_DB" \
-      DB_USERNAME="$TEST_PG_USER" DB_PASSWORD="$TEST_PG_PASSWORD" php artisan test --compact
+      DB_USERNAME="$TEST_PG_USER" DB_PASSWORD="$TEST_PG_PASSWORD" timeout 5400 php artisan test --compact
   else
-    DB_CONNECTION=sqlite DB_DATABASE=:memory: php artisan test --compact
+    DB_CONNECTION=sqlite DB_DATABASE=:memory: timeout 5400 php artisan test --compact
   fi
 ) >> "$LOG" 2>&1; then
   mark_tried "$TARGET"
@@ -280,9 +307,9 @@ fi
 status deploying "$TARGET_BRANCH" "$TARGET" "${SHORT} testleri geçti, deploy ediliyor."
 screens_open() {
   has_command moxdop:deploy:smoke || return 0
-  sudo -u "$WEB_USER" php artisan moxdop:deploy:smoke --no-interaction >> "$LOG" 2>&1
+  timeout 900 sudo -u "$WEB_USER" php artisan moxdop:deploy:smoke --no-interaction >> "$LOG" 2>&1 9>&-
 }
-if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1 && screens_open; then
+if git checkout --quiet --detach "$TARGET" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1 9>&- && screens_open; then
   write_pending
   rm -f "$FAILURE_FILE"
   status deployed "$TARGET_BRANCH" "$TARGET" "${SHORT} canlıda ($(git log -1 --format=%s "$TARGET" | head -c 120))."
@@ -294,7 +321,7 @@ else
   # Back to the release that was live, so the app never stays on half-deployed code.
   echo "auto-deploy: ${SHORT} failed; restoring ${LIVE:0:8}" >> "$LOG"
   restored="geri alındı, ${LIVE:0:8} canlıda kaldı"
-  if ! { git checkout --quiet --force --detach "$LIVE" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1; }; then
+  if ! { git checkout --quiet --force --detach "$LIVE" && bash deploy/staging/deploy.sh >> "$LOG" 2>&1 9>&-; }; then
     restored="ESKİ SÜRÜME DÖNÜŞ DE BAŞARISIZ, sunucuya bakılmalı"
   fi
   status deploy_failed "$TARGET_BRANCH" "$TARGET" "${SHORT} deploy sırasında durdu (${restored}); ayrıntı storage/logs/auto-deploy/${SHORT}.log."
