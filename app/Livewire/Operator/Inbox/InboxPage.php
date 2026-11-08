@@ -378,7 +378,10 @@ final class InboxPage extends Component
         if ($this->channel !== '') {
             // One channel: its chats plus the records waiting in it (a form, a referral) that have no chat yet.
             $keys = $rows->pluck('key')->flip();
+            // A record whose chat is already listed is that chat, not a second line.
+            $chatIds = $rows->map(fn (InboxItem $i): ?int => $i->conversation?->id)->filter()->flip();
             $rows = $rows->concat($items->filter(fn (InboxItem $i): bool => ! isset($keys[$i->key])
+                && ! ($i->type === InboxItem::STEP && $i->lead?->conversation_id !== null && isset($chatIds[$i->lead->conversation_id]))
                 && ($search === '' || str_contains(mb_strtolower($i->title), $search))))
                 ->filter(fn (InboxItem $i): bool => $i->inChannel($this->channel));
         }
