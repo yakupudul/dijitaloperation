@@ -122,6 +122,10 @@ final class LeadResearcher
         // Only a sure match fills the card; an unsure one stays in the research for the operator to judge.
         if ($sure) {
             $fill = array_filter(['company' => $research['business_name'], 'city' => $research['city'], 'website' => $lead->website ?: $research['website']]);
+            $person = (string) ($research['person_name'] ?? '');
+            if (! filled($lead->name) && SalesReplyWriter::looksLikeName($person)) {
+                $lead->name = mb_substr($person, 0, 255);
+            }
             app(SalesLeads::class)->fill($lead, $fill);
         }
         $lead->save();

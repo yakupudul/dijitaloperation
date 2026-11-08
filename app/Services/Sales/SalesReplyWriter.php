@@ -93,6 +93,7 @@ final class SalesReplyWriter
         $valid = Validator::make($answer, [
             'action' => ['required', 'in:reply,wait'], 'reply' => ['required', 'string', 'min:5', 'max:4000'],
             'send_on' => ['nullable', 'string', 'max:20'], 'note' => ['nullable', 'string', 'max:2000'], 'summary' => ['nullable', 'string', 'max:2000'],
+            'person_name' => ['nullable', 'string', 'max:255'], 'strong' => ['nullable', 'string', 'max:1000'],
         ]);
         if ($valid->fails()) {
             $this->fail($lead, 'Yapay zekâ geçersiz bir cevap döndürdü; "Yeniden yaz" ile tekrar dene.');
@@ -113,7 +114,19 @@ final class SalesReplyWriter
             'draft' => $text, 'draft_ai' => $text, 'draft_status' => 'ready', 'draft_at' => now(),
             'draft_note' => trim((string) ($answer['note'] ?? '')) ?: null, 'draft_summary' => trim((string) ($answer['summary'] ?? '')) ?: null,
             'draft_send_on' => $sendOn->toDateString(),
+            'name_checked_at' => now(),
         ]);
+        // Claude reads the chat on every new message: an unnamed record gets the name once it is said (yakup 2026-11-08).
+        $name = trim((string) ($answer['person_name'] ?? ''));
+        if (! filled($lead->name) && self::looksLikeName($name)) {
+            $lead->name = mb_substr($name, 0, 255);
+            app(SalesLeads::class)->event($lead, 'system', 'Claude ismi sohbetten buldu: '.$lead->name);
+        }
+        // A suggestion only: the operator marks "Güçlü aday" (one click on the table).
+        $strong = trim((string) ($answer['strong'] ?? ''));
+        if (! $lead->is_strong && ! $lead->isCustomer()) {
+            $lead->strong_hint = $strong !== '' ? mb_substr($strong, 0, 500) : null;
+        }
         // The AI's day decides when the card comes up (wait = not today), unless the operator set a later step by hand.
         if ($lead->isOpen()) {
             $lead->next_step = $answer['action'] === 'wait' ? 'Mesajı gönder ('.$sendOn->locale('tr')->isoFormat('D MMMM dddd').')' : ($lead->next_step ?: 'Mesajı gönder');
@@ -199,5 +212,16 @@ final class SalesReplyWriter
             'site_read' => $lead->website_host === null ? 'no_site' : ($lead->findings_status === 'failed' ? 'could_not_read' : ($lead->findings_status === 'ready' ? 'read' : 'not_yet')),
             'recent_sent' => $recent,
         ];
+    }
+
+    /** A person's name, not a sentence or a placeholder ("[ad]", "bilinmiyor", a phone number). */
+    public static function looksLikeName(string $name): bool
+    {
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name) > 60 || preg_match('/[\[\]{}<>@\d]/u', $name) === 1 || substr_count($name, ' ') > 4) {
+            return false;
+        }
+
+        return ! in_array(mb_strtolower($name), ['bilinmiyor', 'yok', 'belirsiz', 'unknown', 'none', '-', 'aday'], true);
     }
 }

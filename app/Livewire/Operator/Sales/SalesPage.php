@@ -6,6 +6,8 @@ use App\Models\Agreement;
 use App\Models\AgreementPayment;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\ReferralReward;
+use App\Models\Referrer;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\SalesOpportunity;
@@ -15,6 +17,7 @@ use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\LeadIntake;
+use App\Services\Sales\ReferralRewards;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
 use App\Services\Sales\SalesReplyWriter;
@@ -39,7 +42,26 @@ use Throwable;
 #[Title('Satış')]
 final class SalesPage extends Component
 {
-    public const array TABS = ['adaylar' => 'Adaylar', 'sonuclar' => 'Sonuçlar'];
+    /** The list (filtered by the six statuses), Rapor (the old Sonuçlar) and Ayarlar (yakup 2026-11-08). */
+    public const array TABS = ['adaylar' => 'Liste', 'sonuclar' => 'Rapor', 'ayarlar' => 'Ayarlar'];
+
+    /** The status the list shows (SalesLead::STATUSES); the inner menu's first six items are these filters. */
+    #[Url(as: 'durum', except: 'devam')]
+    public string $status = 'devam';
+
+    /** @var array{todo: string, date: string} Yapılacak: one line with its day */
+    public array $todo = ['todo' => '', 'date' => ''];
+
+    /** @var array{kind: string, title: string, date: string, time: string} Hatırlatma / toplantı */
+    public array $plan = ['kind' => 'meeting', 'title' => '', 'date' => '', 'time' => '10:00'];
+
+    /** @var array{via: string, who: string} Kimden; who = "c-12" (a customer) or "r-3" (someone on the Referanslar list) */
+    public array $from = ['via' => 'moximu', 'who' => ''];
+
+    /** A new name typed into the Kimden dialog or Ayarlar › Referanslar. */
+    public string $newReferrer = '';
+
+    public string $newReferrerPhone = '';
 
     #[Url(as: 'sekme', except: 'adaylar')]
     public string $tab = 'adaylar';
@@ -104,6 +126,13 @@ final class SalesPage extends Component
 
     public function mount(): void
     {
+        // The old views that were statuses: Kaybedilen is Olumsuz now; the customers' table lives under Müşteri.
+        if ($this->view === 'kaybedilen') {
+            $this->view = 'acik';
+            $this->status = 'olumsuz';
+        } elseif ($this->view === 'musteriler') {
+            $this->status = 'musteri';
+        }
         // The old Bugün and Müşteri istekleri tabs live in the Gelen kutusu now; their addresses still work.
         if (in_array($this->tab, ['bugun', 'istekler'], true)) {
             $this->redirectRoute('operator.inbox', ['gorunum' => $this->tab === 'bugun' ? 'adimlar' : 'musteriler'], navigate: true);
@@ -123,6 +152,111 @@ final class SalesPage extends Component
         if (! isset(self::TABS[$this->tab])) {
             $this->tab = 'adaylar';
         }
+    }
+
+    /** The inner menu: one of the six statuses (the same table, filtered). */
+    public function showStatus(string $status): void
+    {
+        $this->status = isset(SalesLead::STATUSES[$status]) ? $status : 'devam';
+        $this->tab = 'adaylar';
+        $this->view = 'acik';
+        $this->stageFilter = '';
+    }
+
+    /** ⋯ › Durum değiştir. Olumsuz asks why first; Müşteri opens the customer and brand. */
+    public function setStatus(int $id, string $status, SalesLeads $leads): void
+    {
+        $lead = SalesLead::query()->findOrFail($id);
+        if ($status === 'olumsuz' && ! $lead->isCustomer()) {
+            $this->openDialog('close', $id);
+
+            return;
+        }
+        $leads->setStatus($lead, $status, auth()->user());
+        $fresh = $lead->fresh();
+        $this->say($fresh->title().': '.$fresh->statusLabel().'.'.($status === 'musteri' && $fresh->brand_id ? ' Müşteri ve marka kaydı açıldı; anlaşmayı marka sayfasından gir.' : ''));
+    }
+
+    public function saveTodo(SalesLeads $leads): void
+    {
+        $lead = SalesLead::query()->findOrFail($this->dialogLead);
+        if (trim($this->todo['todo']) === '') {
+            $this->addError('todo.todo', 'Ne yapılacağını yaz.');
+
+            return;
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->todo['date']) !== 1) {
+            $this->addError('todo.date', 'Günü seç.');
+
+            return;
+        }
+        $leads->setNextStep($lead, $this->todo['todo'], $this->todo['date'], auth()->user());
+        $this->closeDialog();
+        $this->say($lead->title().': yapılacak kaydedildi.');
+    }
+
+    public function savePlan(SalesLeads $leads): void
+    {
+        $lead = SalesLead::query()->findOrFail($this->dialogLead);
+        $reminder = $leads->plan($lead, $this->plan, auth()->user());
+        $this->closeDialog();
+        $this->say($lead->title().': '.($reminder->isMeeting() ? 'toplantı' : 'hatırlatma').' Takvim\'e eklendi ('.$reminder->remind_at->timezone('Europe/Istanbul')->format('d.m.Y H:i').').');
+    }
+
+    public function saveFrom(SalesLeads $leads): void
+    {
+        $lead = SalesLead::query()->findOrFail($this->dialogLead);
+        $who = $this->from['who'];
+        $customerId = str_starts_with($who, 'c-') ? (int) substr($who, 2) : null;
+        $referrerId = str_starts_with($who, 'r-') ? (int) substr($who, 2) : null;
+        if ($this->from['via'] === 'referral' && $who === '' && trim($this->newReferrer) !== '') {
+            $referrerId = $this->addReferrer()?->id;
+        }
+        $leads->setCameVia($lead, ['via' => $this->from['via'], 'customer_id' => $customerId, 'referrer_id' => $referrerId], auth()->user());
+        $this->closeDialog();
+        $this->say($lead->title().': Kimden → '.$lead->fresh()->cameViaLabel().'.');
+    }
+
+    /** Ayarlar › Referanslar (and the Kimden dialog): someone outside the customer list who sends prospects. */
+    public function addReferrer(): ?Referrer
+    {
+        $name = trim($this->newReferrer);
+        if ($name === '') {
+            $this->addError('newReferrer', 'Adını yaz.');
+
+            return null;
+        }
+        $referrer = Referrer::query()->firstOrCreate(['name' => mb_substr($name, 0, 255)], ['phone' => mb_substr(trim($this->newReferrerPhone), 0, 40) ?: null]);
+        $this->newReferrer = '';
+        $this->newReferrerPhone = '';
+        $this->say($referrer->name.' Referanslar listesinde.');
+
+        return $referrer;
+    }
+
+    public function removeReferrer(int $id): void
+    {
+        $referrer = Referrer::query()->findOrFail($id);
+        if (SalesLead::query()->where('referrer_id', $id)->exists()) {
+            $this->say($referrer->name.' bir kayıtta referans olarak seçili; silinmedi.');
+
+            return;
+        }
+        $referrer->delete();
+        $this->say('Silindi.');
+    }
+
+    public function giveReward(int $id, ReferralRewards $rewards): void
+    {
+        $reward = ReferralReward::query()->findOrFail($id);
+        $rewards->give($reward, auth()->user());
+        $this->say($reward->referrerName().': '.($reward->kind === 'gift_month' ? 'hediye ay sonraki ödemesine işlendi.' : 'ödendi olarak işaretlendi.'));
+    }
+
+    public function voidReward(int $id, ReferralRewards $rewards): void
+    {
+        $rewards->void(ReferralReward::query()->findOrFail($id), 'Elle düşürüldü');
+        $this->say('Ödül düşürüldü.');
     }
 
     public function quickAdd(SalesLeads $leads): void
@@ -185,7 +319,7 @@ final class SalesPage extends Component
     /** Opens one of the row dialogs (Temas kaydet, Not, Teklif, Kapat) for a card, filled with what it has. */
     public function openDialog(string $kind, int $id): void
     {
-        if (! in_array($kind, ['touch', 'note', 'offer', 'close'], true)) {
+        if (! in_array($kind, ['touch', 'note', 'offer', 'close', 'todo', 'plan', 'from'], true)) {
             return;
         }
         $lead = SalesLead::query()->findOrFail($id);
@@ -198,6 +332,10 @@ final class SalesPage extends Component
         $this->offerService = (string) $lead->offer_service;
         $this->closeReason = '';
         $this->closeNote = '';
+        $this->todo = ['todo' => (string) $lead->next_step, 'date' => ($lead->next_step_at?->timezone('Europe/Istanbul') ?? CarbonImmutable::now('Europe/Istanbul')->addDays(2))->toDateString()];
+        $this->plan = ['kind' => 'meeting', 'title' => '', 'date' => CarbonImmutable::now('Europe/Istanbul')->addDay()->toDateString(), 'time' => '10:00'];
+        $this->from = ['via' => $lead->came_via ?? 'moximu', 'who' => $lead->referrer_customer_id !== null ? 'c-'.$lead->referrer_customer_id : ($lead->referrer_id !== null ? 'r-'.$lead->referrer_id : '')];
+        $this->newReferrer = '';
     }
 
     public function closeDialog(): void
@@ -409,6 +547,9 @@ final class SalesPage extends Component
             'formSites' => $this->tab === 'sonuclar' && auth()->user()?->hasRole(Roles::ADMIN) ? $this->formSites() : [],
             'lastForm' => $this->tab === 'sonuclar' ? SalesLead::query()->where('source', 'form')->max('created_at') : null,
             'inboxOpen' => app(InboxQueue::class)->openCount(),
+            'rewards' => in_array($this->tab, ['sonuclar', 'ayarlar'], true) ? app(ReferralRewards::class)->all() : collect(),
+            'referrers' => $this->tab === 'ayarlar' || $this->dialog === 'from' ? Referrer::query()->orderBy('name')->get() : collect(),
+            'referrerCustomers' => $this->dialog === 'from' ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
         ]);
     }
 
@@ -425,12 +566,24 @@ final class SalesPage extends Component
         if (! isset(self::SORTS[$this->sort])) {
             $this->sort = 'oncelik';
         }
-        $open = SalesLead::query()->open()->relevant()->get();
+        if (! isset(SalesLead::STATUSES[$this->status])) {
+            $this->status = 'devam';
+        }
+        $all = SalesLead::query()->open()->relevant()->get();
+        // The views (Cevap borçlu, Bugün…) are quick filters inside the open statuses.
+        $isOpenStatus = in_array($this->status, ['devam', 'guclu', 'kararsiz'], true);
+        $open = $isOpenStatus ? $all->filter(fn (SalesLead $l): bool => $l->status() === $this->status) : $all;
         $tests = $this->viewTests();
         $counts = [];
         foreach ($tests as $key => $test) {
             $counts[$key] = $open->filter($test)->count();
         }
+        foreach (['devam', 'guclu', 'kararsiz'] as $key) {
+            $counts['durum_'.$key] = $all->filter(fn (SalesLead $l): bool => $l->status() === $key)->count();
+        }
+        $counts['durum_olumsuz'] = SalesLead::query()->relevant()->where('stage', 'lost')->whereNotIn('lifecycle', ['customer', 'former'])->count();
+        $counts['durum_aday_degil'] = SalesLead::query()->where('lifecycle', 'irrelevant')->count();
+        $counts['durum_musteri'] = SalesLead::query()->where(fn ($q) => $q->whereIn('lifecycle', ['customer', 'former'])->orWhere('stage', 'won'))->where('lifecycle', '!=', 'irrelevant')->count();
         $counts['isimsiz'] = $open->filter(fn (SalesLead $l): bool => blank($l->name))->count();
         $counts['musteriler'] = Brand::query()->operational()->count();
         $counts['kaybedilen'] = SalesLead::query()->relevant()->where('stage', 'lost')->count();
@@ -445,8 +598,13 @@ final class SalesPage extends Component
                 ->orWhere('branch', 'like', $like))->orderByDesc('updated_at')->limit(300)->get();
         } elseif ($this->view === 'musteriler') {
             $rows = collect(); // the customer table is built from brands and agreements, not from the cards
-        } elseif ($this->view === 'kaybedilen') {
-            $rows = SalesLead::query()->relevant()->where('stage', 'lost')->orderByDesc('lost_at')->limit(300)->get();
+        } elseif ($this->status === 'olumsuz' || $this->view === 'kaybedilen') {
+            $rows = SalesLead::query()->relevant()->where('stage', 'lost')->whereNotIn('lifecycle', ['customer', 'former'])->orderByDesc('lost_at')->limit(300)->get();
+        } elseif ($this->status === 'aday_degil') {
+            $rows = SalesLead::query()->where('lifecycle', 'irrelevant')->orderByDesc('updated_at')->limit(300)->get();
+        } elseif ($this->status === 'musteri') {
+            $rows = SalesLead::query()->where(fn ($q) => $q->whereIn('lifecycle', ['customer', 'former'])->orWhere('stage', 'won'))->where('lifecycle', '!=', 'irrelevant')
+                ->orderByDesc('won_at')->limit(300)->get();
         } else {
             $rows = $open->filter($tests[$this->view]);
         }

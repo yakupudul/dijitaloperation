@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\Referrer;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
@@ -817,6 +818,128 @@ final class SalesLeads
         $from = $lead->stage;
         $lead->forceFill(['lifecycle' => 'irrelevant', 'stage' => 'lost', 'lost_at' => now(), 'lost_reason' => 'irrelevant', 'next_step' => null, 'next_step_at' => null, 'draft' => null, 'draft_ai' => null, 'draft_status' => null])->save();
         $this->event($lead, 'stage', (SalesLead::STAGES[$from] ?? $from).' → İlgisiz', meta: ['from' => $from, 'to' => 'lost', 'by' => $user?->id]);
+    }
+
+    /**
+     * The six-status table (yakup 2026-11-08): moves a record to one status. Devam eden / Güçlü aday / Kararsız reopen a
+     * closed card; Olumsuz needs a reason (the close dialog); Aday olmayan = İlgisiz; Müşteri opens the customer and
+     * brand (once) and starts the referral reward. A customer is never Olumsuz or Aday olmayan.
+     */
+    public function setStatus(SalesLead $lead, string $status, ?User $user = null, ?string $reason = null, ?string $note = null): void
+    {
+        if (! isset(SalesLead::STATUSES[$status])) {
+            throw ValidationException::withMessages(['status' => 'Bilinmeyen durum.']);
+        }
+        if ($status === $lead->status()) {
+            return;
+        }
+        if ($lead->isCustomer() && in_array($status, ['olumsuz', 'aday_degil'], true)) {
+            throw ValidationException::withMessages(['status' => 'Bir müşteri olumsuz ya da aday olmayan yapılamaz; açık fırsatı kartından kapat.']);
+        }
+        if ($status === 'musteri') {
+            $this->win($lead, $user);
+            app(ReferralRewards::class)->onWon($lead->fresh());
+
+            return;
+        }
+        if ($status === 'aday_degil') {
+            $lead->forceFill(['is_strong' => false])->save();
+            $this->markIrrelevant($lead, $user);
+
+            return;
+        }
+        if ($status === 'olumsuz') {
+            $lead->forceFill(['is_strong' => false])->save();
+            $this->close($lead, (string) $reason, $note, $user);
+
+            return;
+        }
+        // An open status: a closed or irrelevant card comes back to the open line.
+        if ($lead->lifecycle === 'irrelevant') {
+            $lead->lifecycle = 'prospect';
+        }
+        $lead->is_strong = $status === 'guclu';
+        if ($status === 'guclu') {
+            $lead->strong_hint = null;
+        }
+        // One save with the new stage, so a card closed as ilgisiz does not fall back to it on the way.
+        if ($status === 'kararsiz' && $lead->stage !== 'thinking') {
+            $this->setStage($lead, 'thinking', null, $user);
+        } elseif ($status !== 'kararsiz' && (! $lead->isOpen() || in_array($lead->stage, ['thinking', 'later'], true))) {
+            $this->setStage($lead, 'talking', null, $user);
+        } else {
+            $lead->save();
+        }
+        if ($status === 'guclu') {
+            $this->event($lead, 'stage', 'Güçlü aday olarak işaretlendi.', meta: ['by' => $user?->id, 'strong' => true]);
+        }
+    }
+
+    /**
+     * Kimden: Moximu or a referral. A referral names who sent them: a customer (customer_id) or someone on the
+     * Referanslar list (referrer_id). A record that is already a customer gets its reward row at once.
+     *
+     * @param  array{via?: string, customer_id?: int|string|null, referrer_id?: int|string|null}  $input
+     */
+    public function setCameVia(SalesLead $lead, array $input, ?User $user = null): void
+    {
+        $via = (string) ($input['via'] ?? '');
+        if (! isset(SalesLead::CAME_VIA[$via])) {
+            throw ValidationException::withMessages(['from.via' => 'Moximu ya da Referans seç.']);
+        }
+        $customerId = (int) ($input['customer_id'] ?? 0) ?: null;
+        $referrerId = (int) ($input['referrer_id'] ?? 0) ?: null;
+        if ($via === 'referral') {
+            if ($customerId === null && $referrerId === null) {
+                throw ValidationException::withMessages(['from.who' => 'Referansı seç: bir müşteri ya da Referanslar listesinden biri.']);
+            }
+            if ($customerId !== null && ($customerId === (int) $lead->customer_id || ! Customer::query()->whereKey($customerId)->exists())) {
+                throw ValidationException::withMessages(['from.who' => 'Bu müşteri seçilemez.']);
+            }
+            if ($referrerId !== null && ! Referrer::query()->whereKey($referrerId)->exists()) {
+                throw ValidationException::withMessages(['from.who' => 'Bu referans listede yok.']);
+            }
+        }
+        $lead->forceFill([
+            'came_via' => $via,
+            'referrer_customer_id' => $via === 'referral' ? $customerId : null,
+            'referrer_id' => $via === 'referral' && $customerId === null ? $referrerId : null,
+            'heard_from' => $via === 'referral' ? 'referral' : ($lead->heard_from === 'referral' ? null : $lead->heard_from),
+        ])->save();
+        $this->event($lead, 'system', 'Kimden: '.$lead->cameViaLabel(), meta: ['by' => $user?->id]);
+        app(ReferralRewards::class)->onWon($lead->fresh());
+    }
+
+    /**
+     * Hatırlatma / toplantı from the table: one row on Takvim (and the phone that morning), and the card's Yapılacak
+     * line says it ("Toplantı · 10.11 14:00").
+     *
+     * @param  array{kind?: string, title?: string, date?: string, time?: string}  $input
+     */
+    public function plan(SalesLead $lead, array $input, ?User $user = null): Reminder
+    {
+        $kind = ($input['kind'] ?? 'task') === 'meeting' ? 'meeting' : 'task';
+        $date = trim((string) ($input['date'] ?? ''));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            throw ValidationException::withMessages(['plan.date' => 'Tarihi seç.']);
+        }
+        $time = preg_match('/^\d{2}:\d{2}$/', (string) ($input['time'] ?? '')) === 1 ? (string) $input['time'] : '10:00';
+        $at = CarbonImmutable::parse($date.' '.$time, 'Europe/Istanbul');
+        $title = trim((string) ($input['title'] ?? '')) ?: ($kind === 'meeting' ? 'Toplantı' : 'Hatırlat');
+        $reminder = Reminder::query()->create([
+            'user_id' => $user?->id, 'customer_id' => $lead->customer_id, 'brand_id' => $lead->brand_id, 'sales_lead_id' => $lead->id,
+            'kind' => $kind, 'title' => mb_substr($title.' · '.$lead->title(), 0, 255), 'remind_at' => $at->utc(),
+            'ends_at' => $kind === 'meeting' ? $at->addHour()->utc() : null, 'repeat' => 'none',
+        ]);
+        $lead->next_step = mb_substr($title, 0, 255);
+        $lead->next_step_at = $at->utc();
+        $lead->save();
+        if ($kind === 'meeting' && $lead->isOpen() && array_search($lead->stage, SalesLead::FLOW, true) < array_search('meeting', SalesLead::FLOW, true)) {
+            $this->setStage($lead, 'meeting', null, $user);
+        }
+        $this->event($lead, 'system', ($kind === 'meeting' ? 'Toplantı planlandı: ' : 'Hatırlatma: ').$title.' · '.$at->format('d.m.Y H:i'), meta: ['by' => $user?->id, 'reminder_id' => $reminder->id]);
+
+        return $reminder;
     }
 
     /** The sales record of an existing customer (made on first need, so a customer can get a "Yeni fırsat" like anyone). */

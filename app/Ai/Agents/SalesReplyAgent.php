@@ -48,6 +48,8 @@ class SalesReplyAgent implements Agent, HasProviderOptions, HasStructuredOutput,
             'send_on' => $schema->string()->required(),
             'note' => $schema->string()->required(),
             'summary' => $schema->string()->required(),
+            'person_name' => $schema->string(),
+            'strong' => $schema->string(),
         ];
     }
 

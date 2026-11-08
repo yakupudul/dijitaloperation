@@ -23,8 +23,8 @@ class SalesLead extends Model
     protected $guarded = ['id'];
 
     public const array SOURCES = [
-        'whatsapp' => 'WhatsApp', 'form' => 'moximu.com formu', 'afc' => 'All for Clinics', 'link' => 'Paylaşılan site',
-        'phone' => 'Telefon', 'referral' => 'Referans', 'meta_form' => 'Meta formu',
+        'whatsapp' => 'WhatsApp', 'form' => 'Web site formu', 'afc' => 'All for Clinics', 'link' => 'Paylaşılan site',
+        'phone' => 'Çağrı', 'referral' => 'Referans', 'meta_form' => 'Meta formu',
         'instagram' => 'Instagram', 'facebook' => 'Facebook', 'other' => 'Diğer',
     ];
 
@@ -37,6 +37,19 @@ class SalesLead extends Model
         'new' => 'Yeni', 'contacted' => 'İlk mesaj atıldı', 'talking' => 'Konuşuluyor', 'meeting' => 'Görüşme planlandı',
         'priced' => 'Teklif verildi', 'thinking' => 'Düşünüyor', 'later' => 'Sonra', 'won' => 'Kazanıldı', 'lost' => 'Kaybedildi',
     ];
+
+    /**
+     * The six statuses the Satış table filters by (yakup 2026-11-08). Only "Güçlü aday" is stored as its own mark
+     * (is_strong, set by the operator; Claude may suggest it in strong_hint); the others are read from the stage and
+     * the lifecycle, so the funnel, the reports and the inbox keep working on the same fields.
+     */
+    public const array STATUSES = [
+        'devam' => 'Devam eden', 'guclu' => 'Güçlü aday', 'kararsiz' => 'Kararsız', 'olumsuz' => 'Olumsuz',
+        'aday_degil' => 'Aday olmayan', 'musteri' => 'Müşteri',
+    ];
+
+    /** Kimden: whether the record came through Moximu's own channels or by someone's recommendation. */
+    public const array CAME_VIA = ['moximu' => 'Moximu', 'referral' => 'Referans'];
 
     /** The open steps in order; an automatic move only goes forward along this line ("Sonra" is set by hand). */
     public const array FLOW = ['new', 'contacted', 'talking', 'meeting', 'priced', 'thinking'];
@@ -108,7 +121,7 @@ class SalesLead extends Model
             'won_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
             'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
             'offer_amount' => 'integer', 'offer_confirmed' => 'boolean', 'stage_at' => 'datetime', 'classification' => 'array',
-            'research' => 'array', 'research_at' => 'datetime',
+            'research' => 'array', 'research_at' => 'datetime', 'is_strong' => 'boolean', 'name_checked_at' => 'datetime',
         ];
     }
 
@@ -211,6 +224,43 @@ class SalesLead extends Model
         }
 
         return implode(' · ', $parts);
+    }
+
+    /** Where the record stands in the six-status table. */
+    public function status(): string
+    {
+        if ($this->lifecycle === 'irrelevant') {
+            return 'aday_degil';
+        }
+        if (in_array($this->lifecycle, ['customer', 'former'], true) || $this->stage === 'won') {
+            return 'musteri';
+        }
+        if ($this->stage === 'lost') {
+            return 'olumsuz';
+        }
+        if ($this->is_strong) {
+            return 'guclu';
+        }
+
+        return in_array($this->stage, ['thinking', 'later'], true) ? 'kararsiz' : 'devam';
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status()];
+    }
+
+    /** Kimden, in one line: "Moximu", "Referans · Dr. Ayşe" or '' when not chosen yet. */
+    public function cameViaLabel(): string
+    {
+        if ($this->came_via === 'referral') {
+            $who = $this->referrer_customer_id !== null ? Customer::query()->whereKey($this->referrer_customer_id)->value('name')
+                : ($this->referrer_id !== null ? Referrer::query()->whereKey($this->referrer_id)->value('name') : null);
+
+            return 'Referans'.($who ? ' · '.$who : '');
+        }
+
+        return $this->came_via === 'moximu' ? 'Moximu' : '';
     }
 
     public function isOpen(): bool

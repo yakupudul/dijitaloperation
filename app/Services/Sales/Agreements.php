@@ -131,6 +131,8 @@ final class Agreements
             $agreement->forceFill(['status' => 'ended'])->save();
             $this->syncCustomer($agreement->customer_id);
         }
+        // A referred customer's second paid month earns the referrer's reward.
+        app(ReferralRewards::class)->checkCustomer($agreement?->customer_id);
     }
 
     public function unpay(AgreementPayment $payment): void
