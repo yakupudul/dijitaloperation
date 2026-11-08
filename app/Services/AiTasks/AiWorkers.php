@@ -5,6 +5,7 @@ namespace App\Services\AiTasks;
 use App\Models\AgencySetting;
 use App\Models\AiTask;
 use App\Models\McpToken;
+use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Mcp\McpKeys;
 use App\Services\Operator\AgencySettingService;
@@ -341,7 +342,7 @@ final class AiWorkers
     }
 
     /** Why the worker does not work now, null when it is alive. */
-    public function downReason(string $worker): ?string
+    public function downReason(string $worker, bool $people = false): ?string
     {
         $settings = $this->settings();
         if (isset($settings['paused'][$worker])) {
@@ -377,8 +378,10 @@ final class AiWorkers
         if ($error !== null && Carbon::parse($error['until'])->isFuture()) {
             return 'Hata verdi: '.$error['message'];
         }
-        if ($api['daily_try'] > 0 && $this->spendTry($worker, now('Europe/Istanbul')->startOfDay()) >= $api['daily_try']) {
-            return 'Günlük TL sınırı doldu';
+        // yakup 2026-11-08: the daily TL cap is for bulk work, which stops at 80% of it; replies to people (WhatsApp,
+        // prospects, social) are never held by it, so a new customer is never left waiting for tomorrow.
+        if (! $people && $api['daily_try'] > 0 && $this->spendTry($worker, now('Europe/Istanbul')->startOfDay()) >= $api['daily_try'] * AiBudget::RESERVE_SHARE) {
+            return 'Günlük TL sınırının %'.(int) round(AiBudget::RESERVE_SHARE * 100).'\'i doldu (kalan pay WhatsApp ve aday mesajlarının)';
         }
         if ($api['monthly_try'] > 0 && $this->spendTry($worker, now('Europe/Istanbul')->startOfMonth()) >= $api['monthly_try']) {
             return 'Aylık TL sınırı doldu';
@@ -391,13 +394,13 @@ final class AiWorkers
      * An API worker that is switched on but held back now: paused, its error pause, or its daily / monthly TL cap.
      * ("Kapalı" or no key is not held: callers with their own provider route keep it.)
      */
-    public function apiHeld(string $worker): bool
+    public function apiHeld(string $worker, bool $people = false): bool
     {
         if (self::isMcp($worker) || ! ($this->settings()['api'][$worker]['enabled'] ?? false)) {
             return false;
         }
 
-        return $this->downReason($worker) !== null;
+        return $this->downReason($worker, $people) !== null;
     }
 
     public function alive(string $worker): bool

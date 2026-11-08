@@ -23,7 +23,7 @@ final class SalesSubscription
     /** The Claude API is on but held back now (its TL cap, an error pause) and the subscription Claude is connected. */
     public function takesOver(): bool
     {
-        return $this->workers->apiHeld(AiWorkers::CLAUDE_API) && $this->canWait();
+        return $this->workers->apiHeld(AiWorkers::CLAUDE_API, people: true) && $this->canWait();
     }
 
     /** The subscription Claude is connected, so a question can wait for it. */
@@ -67,7 +67,7 @@ final class SalesSubscription
         }
         $round = $this->workers->nextRound(AiWorkers::CLAUDE_MCP);
 
-        $reason = (string) ($this->workers->downReason(AiWorkers::CLAUDE_API) ?? 'Şu an yazamıyor');
+        $reason = (string) ($this->workers->downReason(AiWorkers::CLAUDE_API, people: true) ?? 'Şu an yazamıyor');
         $why ??= 'Claude API: '.mb_strtolower(mb_substr($reason, 0, 1)).mb_substr($reason, 1);
 
         return $why.'; abonelikteki Claude '
