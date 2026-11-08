@@ -112,8 +112,13 @@ final class WhatsAppDiagnosis
         // 6. Webhook: Meta checked our address, and events arrive.
         $verified = filled($config['webhook_verified_at'] ?? null);
         $lastReceipt = $config['last_receipt_at'] ?? null;
-        $add('6. Webhook', $verified, $verified ? 'Meta adresi doğruladı ('.$this->when($config['webhook_verified_at']).'). Son olay: '.($lastReceipt ? $this->when($lastReceipt) : 'henüz yok').'.' : 'Meta webhook adresini hiç doğrulamadı.',
-            $verified ? null : 'Meta › uygulama › WhatsApp › Configuration › Webhook: adres '.route('api.whatsapp.webhook').', Verify Token MoxDOP\'ta kayıtlı olan; messages, history, smb_message_echoes, smb_app_state_sync alanlarına abone ol.');
+        // A signed event that reached us proves the webhook works even when the verification
+        // stamp was cleared by re-saving the settings (Meta verifies the address only once).
+        $delivering = ! $verified && filled($lastReceipt);
+        $add('6. Webhook', $verified || $delivering, $verified
+            ? 'Meta adresi doğruladı ('.$this->when($config['webhook_verified_at']).'). Son olay: '.($lastReceipt ? $this->when($lastReceipt) : 'henüz yok').'.'
+            : ($delivering ? 'Meta olayları bu adrese teslim ediyor (son olay: '.$this->when($lastReceipt).'); doğrulama kaydı ayarlar yeniden kaydedilince silinmişti.' : 'Meta webhook adresini hiç doğrulamadı.'),
+            ($verified || $delivering) ? null : 'Meta › uygulama › WhatsApp › Configuration › Webhook: adres '.route('api.whatsapp.webhook').', Verify Token MoxDOP\'ta kayıtlı olan; messages, history, smb_message_echoes, smb_app_state_sync alanlarına abone ol.');
 
         // 7. Messages in the inbox.
         $live = $row ? WhatsAppConversation::query()->where('integration_id', $row->id)->where('phone_number_id', '!=', WhatsAppBackupImporter::LINE)->count() : 0;

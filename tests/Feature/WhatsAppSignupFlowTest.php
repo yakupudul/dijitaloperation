@@ -616,4 +616,28 @@ final class WhatsAppSignupFlowTest extends TestCase
         $this->assertSame('5. Uygulama aboneliği', $result['first_problem']);
         Http::assertNotSent(fn (Request $request): bool => $request->method() !== 'GET');
     }
+
+    public function test_a_delivered_signed_event_counts_as_a_working_webhook_after_the_verify_stamp_was_cleared(): void
+    {
+        Http::fake([
+            'graph.facebook.com/*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'scopes' => ['whatsapp_business_management', 'whatsapp_business_messaging'], 'expires_at' => 0]]),
+            'graph.facebook.com/*/WABA1/phone_numbers*' => Http::response(['data' => [['id' => 'PN1', 'display_phone_number' => '+90 538 861 02 88', 'verified_name' => 'Moximu', 'status' => 'CONNECTED', 'platform_type' => 'CLOUD_API', 'is_on_biz_app' => true]]]),
+            'graph.facebook.com/*/WABA1/subscribed_apps*' => Http::response(['data' => [['whatsapp_business_api_data' => ['id' => '123456']]]]),
+            'graph.facebook.com/*/123456*' => Http::response(['id' => '123456', 'name' => 'MoxdopWhtspMessage']),
+        ]);
+        $row = app(WhatsAppConnection::class)->integration();
+        $config = $row->config;
+        unset($config['webhook_verified_at']);
+        $row->update(['config' => [...$config, 'waba_id' => 'WABA1', 'phone_number_id' => 'PN1',
+            'last_receipt_at' => now()->subHour()->toIso8601String(), 'last_message_received_at' => now()->subHour()->toIso8601String()]]);
+        $credential = $row->providerCredential()->first();
+        $credential->update(['encrypted_payload' => [...$credential->encrypted_payload, 'access_token' => 'live-token']]);
+
+        app(WhatsAppDiagnosis::class)->run();
+
+        $webhook = collect(WhatsAppDiagnosis::last()['rows'])->firstWhere('step', '6. Webhook');
+        $this->assertTrue($webhook['ok']);
+        $this->assertStringContainsString('teslim ediyor', $webhook['detail']);
+        $this->assertNotSame('6. Webhook', WhatsAppDiagnosis::last()['first_problem']);
+    }
 }
