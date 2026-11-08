@@ -13,7 +13,7 @@
     <div class="space-y-8">
         <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-                <p class="mb-1 text-xs text-gray-500"><a href="{{ route('operator.marketing', ['sekme' => 'sosyal']) }}" wire:navigate class="link-neutral" data-social-marketing-link>Pazarlama</a> › Sosyal medya</p>
+                <p class="mb-1 text-xs text-gray-500"><a href="{{ route('operator.marketing', ['kanal' => 'social']) }}" wire:navigate class="link-neutral" data-social-marketing-link>Pazarlama</a> › Sosyal medya</p>
                 <h1 class="page-title">Sosyal medya</h1>
                 <p class="page-sub">Instagram, Facebook ve LinkedIn. Onayladığınız gönderiler kendi saatinde yayınlanır{{ $drafts > 0 ? '; '.$drafts.' gönderi onayınızı bekliyor.' : '.' }}</p>
             </div>

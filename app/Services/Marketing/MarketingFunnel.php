@@ -6,6 +6,9 @@ use App\Models\AgencySetting;
 use App\Models\Agreement;
 use App\Models\Customer;
 use App\Models\SalesLead;
+use App\Models\User;
+use App\Models\WhatsAppMessage;
+use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
 use App\Support\Sales\LeadKinds;
 use Carbon\CarbonImmutable;
@@ -22,7 +25,7 @@ final class MarketingFunnel
 {
     public const string TZ = 'Europe/Istanbul';
 
-    /** The channels in the order of the target table; the last two never count toward the target. */
+    /** The channels in the order of the target table; unknown counts as an application but carries no target, outbound never counts. */
     public const array CHANNELS = [
         'meta' => 'Meta reklamı', 'web' => 'Web (arama)', 'google_ads' => 'Google Ads', 'gbp' => 'İşletme Profili',
         'social' => 'Sosyal (organik)', 'referral' => 'Tavsiye / AFC', 'unknown' => 'Bilinmiyor', 'outbound' => 'Biz ulaştık',
@@ -119,7 +122,8 @@ final class MarketingFunnel
                 'won' => $won->count(),
                 'revenue' => (int) $won->sum(fn (SalesLead $l): int => $fees[$l->id] ?? 0),
                 'target' => ($targets[$key] ?? 0) * $span,
-                'counts' => ! in_array($key, ['unknown', 'outbound'], true),
+                // An application whose source is not marked is still an application (2026-11-08); only our own outreach is not.
+                'counts' => $key !== 'outbound',
             ];
         }
         $totals = ['applications' => 0, 'talked' => 0, 'offered' => 0, 'won' => 0, 'revenue' => 0, 'target' => 0, 'counted' => 0];
@@ -165,7 +169,7 @@ final class MarketingFunnel
         }
         $lines[] = $label.' ayında '.$f['filter_label'].' başvurusu: '.$t['counted'].($t['target'] > 0 ? ' / '.$t['target'].' hedef' : '').($byChannel !== [] ? ' ('.implode(', ', $byChannel).')' : '').'.';
 
-        $counting = array_values(array_filter($f['rows'], fn (array $r): bool => $r['counts']));
+        $counting = array_values(array_filter($f['rows'], fn (array $r): bool => $r['counts'] && $r['key'] !== 'unknown'));
         usort($counting, fn (array $a, array $b): int => $b['applications'] <=> $a['applications']);
         if (($counting[0]['applications'] ?? 0) > 0) {
             $lines[] = 'En çok başvuru '.$counting[0]['label'].' kanalından geldi ('.$counting[0]['applications'].').';
@@ -204,6 +208,122 @@ final class MarketingFunnel
         return $lines;
     }
 
+    /**
+     * The month so far against the target: how many applications the days gone by should have brought (null for a
+     * month that is over, where the whole target applies).
+     *
+     * @return array{expected: ?int, day: int, days: int}
+     */
+    public function pace(CarbonImmutable $month, int $target): array
+    {
+        $now = CarbonImmutable::now(self::TZ);
+        $month = $month->setTimezone(self::TZ)->startOfMonth();
+        $days = $month->daysInMonth;
+        if ($month->format('Y-m') !== $now->format('Y-m')) {
+            return ['expected' => null, 'day' => $days, 'days' => $days];
+        }
+
+        return ['expected' => (int) round($target * $now->day / $days), 'day' => $now->day, 'days' => $days];
+    }
+
+    /**
+     * The last $months months, oldest first: applications per channel, customers and ₺ (the bars on the overview).
+     *
+     * @return list<array{month: string, label: string, counted: int, target: int, won: int, revenue: int, by: array<string, int>}>
+     */
+    public function trend(CarbonImmutable $month, string $filter = 'saglik', int $months = 6): array
+    {
+        $out = [];
+        $month = $month->setTimezone(self::TZ)->startOfMonth();
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $m = $month->subMonths($i);
+            $f = $this->funnel($m, $filter, 1);
+            $by = [];
+            foreach ($f['rows'] as $row) {
+                $by[$row['key']] = $row['applications'];
+            }
+            $out[] = ['month' => $m->format('Y-m'), 'label' => $m->locale('tr')->isoFormat('MMM'), 'counted' => $f['totals']['counted'], 'target' => $f['totals']['target'],
+                'won' => $f['totals']['won'], 'revenue' => $f['totals']['revenue'], 'by' => $by];
+        }
+
+        return $out;
+    }
+
+    /**
+     * The records opened in the span (the same cohort and Tür filter as the funnel), newest first, optionally of one
+     * channel; records whose source is unknown carry a suggestion read from their first WhatsApp message.
+     *
+     * @return list<array{id: int, title: string, kind: ?string, channel: string, channel_label: string, stage: string, stage_label: string, won: bool, created_at: CarbonImmutable,
+     *     suggestion: ?array{key: string, label: string, why: string}}>
+     */
+    public function records(CarbonImmutable $month, string $filter = 'saglik', int $span = 1, ?string $channel = null): array
+    {
+        $span = isset(self::SPANS[$span]) ? $span : 1;
+        $to = $month->setTimezone(self::TZ)->endOfMonth();
+        $from = $to->startOfMonth()->subMonths($span - 1)->startOfMonth();
+        $filter = $this->filterKey($filter);
+        $leads = $this->cohort($from, $to)->filter(fn (SalesLead $l): bool => $this->matches($l, $filter))
+            ->when($channel !== null, fn (Collection $c) => $c->filter(fn (SalesLead $l): bool => self::channel($l) === $channel))
+            ->sortByDesc('created_at')->values();
+        $suggestions = $this->suggestions($leads->filter(fn (SalesLead $l): bool => self::channel($l) === 'unknown'));
+
+        return $leads->map(fn (SalesLead $l): array => [
+            'id' => (int) $l->id, 'title' => $l->title(), 'kind' => LeadKinds::label($l->kind), 'channel' => self::channel($l), 'channel_label' => self::CHANNELS[self::channel($l)],
+            'stage' => (string) $l->stage, 'stage_label' => SalesLead::STAGES[$l->stage] ?? (string) $l->stage, 'won' => self::isWon($l),
+            'created_at' => CarbonImmutable::instance($l->created_at)->setTimezone(self::TZ), 'suggestion' => $suggestions[$l->id] ?? null,
+        ])->all();
+    }
+
+    /** Words in a first message that tell where the person heard of us (Meta's own Click-to-WhatsApp greeting first). */
+    public const array HINTS = [
+        'meta_ads' => '/daha fazla bilgi alabilir miyim|more info(rmation)? (on|about) this|reklam[ıi]n[ıi]z[ıi]? gördüm|reklamdan|sponsorlu/u',
+        'instagram' => '/instagram|insta\b/u',
+        'maps' => '/haritalar|haritada|google maps/u',
+        'google' => '/google[\'’]?(da|dan|de|den)\b|internette|internetten|arama(da|dan) (çıktı|gördüm)/u',
+        'referral' => '/tavsiye|önerdi|referans|sizi (bana )?söyledi/u',
+    ];
+
+    /**
+     * @param  Collection<int, SalesLead>  $leads
+     * @return array<int, array{key: string, label: string, why: string}>
+     */
+    private function suggestions(Collection $leads): array
+    {
+        $conversations = $leads->pluck('conversation_id', 'id')->filter();
+        if ($conversations->isEmpty()) {
+            return [];
+        }
+        $first = [];
+        foreach (WhatsAppMessage::query()->whereIn('conversation_id', $conversations->values())->where('direction', 'incoming')->orderBy('sent_at')->orderBy('id')
+            ->limit(2000)->get(['conversation_id', 'body']) as $message) {
+            $first[(int) $message->conversation_id] ??= (string) $message->body;
+        }
+        $out = [];
+        foreach ($conversations as $leadId => $conversationId) {
+            $text = mb_strtolower(trim($first[(int) $conversationId] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+            foreach (self::HINTS as $key => $pattern) {
+                if (preg_match($pattern, $text) === 1) {
+                    $out[(int) $leadId] = ['key' => $key, 'label' => SalesLead::HEARD_FROM[$key], 'why' => 'İlk mesajı: “'.mb_strimwidth(trim((string) $first[(int) $conversationId]), 0, 90, '…').'”'];
+                    break;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /** Records where they heard of us (the Pazarlama screen's one-click source); the record's history notes it. */
+    public function setHeardFrom(SalesLead $lead, string $heardFrom, ?User $user = null): void
+    {
+        abort_unless(isset(SalesLead::HEARD_FROM[$heardFrom]), 422);
+        $lead->heard_from = $heardFrom;
+        $lead->save();
+        app(SalesLeads::class)->event($lead, 'system', 'Bizi nereden duydu: '.SalesLead::HEARD_FROM[$heardFrom].' (Pazarlama).', meta: ['by' => $user?->id]);
+    }
+
     /** @return list<array{key: string, label: string}> the Tür filters: Sağlık, Hepsi, then every kind of the list */
     public function filters(): array
     {
@@ -234,7 +354,7 @@ final class MarketingFunnel
         return SalesLead::query()->relevant()->whereBetween('created_at', [$from->utc(), $to->utc()])
             // A customer's record made for an existing customer (source "other", won before it was opened) is not an application.
             ->where(fn ($q) => $q->whereNull('won_at')->orWhereColumn('won_at', '>=', 'created_at'))
-            ->get(['id', 'name', 'company', 'website_host', 'phone', 'source', 'heard_from', 'stage', 'peak_stage', 'lifecycle', 'kind', 'customer_id', 'created_at', 'won_at']);
+            ->get(['id', 'name', 'company', 'website_host', 'phone', 'source', 'heard_from', 'stage', 'peak_stage', 'lifecycle', 'kind', 'customer_id', 'conversation_id', 'created_at', 'won_at']);
     }
 
     private function matches(SalesLead $lead, string $filter): bool

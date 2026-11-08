@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Brand;
+use App\Services\Brand\BrandRowScope;
 use App\Services\Brand\BrandScope;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
@@ -217,22 +218,7 @@ class ChannelData extends Tool
      */
     private function owned(int $brandId, string $dataset, ?string $dateColumn = null, ?string $from = null): \Closure
     {
-        $assetIds = BrandScope::assetIds($brandId) ?: [0];
-        $resourceIds = BrandScope::resources($brandId, self::RESOURCE_TYPES[strstr($dataset, '.', true)]);
-
-        return function (Builder $query, string $table) use ($assetIds, $resourceIds, $dateColumn, $from): Builder {
-            // Central only where the account has central rows in the period read: old central rows outside it must not
-            // hide the asset-bound rows that are inside it.
-            $central = $resourceIds !== [] && SchemaState::hasColumn($table, 'external_resource_id')
-                ? array_values(array_filter($resourceIds, fn (int $id): bool => DB::table($table)->where('external_resource_id', $id)->whereNull('digital_asset_id')
-                    ->when($dateColumn !== null && $from !== null && SchemaState::hasColumn($table, $dateColumn), fn (Builder $q) => $q->where($dateColumn, '>=', $from))->exists()))
-                : [];
-
-            return $query->where(fn (Builder $scope) => $scope
-                ->where(fn (Builder $legacy) => $legacy->whereIn('digital_asset_id', $assetIds)
-                    ->when($central !== [], fn (Builder $q) => $q->where(fn (Builder $other) => $other->whereNotIn('external_resource_id', $central)->orWhereNull('external_resource_id'))))
-                ->when($central !== [], fn (Builder $q) => $q->orWhere(fn (Builder $c) => $c->whereIn('external_resource_id', $central)->whereNull('digital_asset_id'))));
-        };
+        return BrandRowScope::owned($brandId, self::RESOURCE_TYPES[strstr($dataset, '.', true)], $dateColumn, $from);
     }
 
     private function sum(string $table, string $metric, bool $alias = true): string

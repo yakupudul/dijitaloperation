@@ -51,7 +51,7 @@ final class InboxQueue
                 $seenLeads[$item->lead->id] = true;
             }
         }
-        foreach ($this->leads->due()->relevant()->get() as $lead) {
+        foreach ($this->leads->due()->relevant()->with('customer')->get() as $lead) {
             if (isset($seenLeads[$lead->id])) {
                 continue;
             }

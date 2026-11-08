@@ -73,6 +73,8 @@ final class ScreenChecker
         'operator.brand.create' => 'Marka ekle', 'operator.google-ads-terms' => 'Google Ads › Arama terimleri', 'operator.google-ads-changes' => 'Google Ads › Ayarlar ve bütçe',
         'operator.google-ads-ads' => 'Google Ads › Reklamlar', 'operator.google-ads-measurement' => 'Google Ads › Ölçüm', 'operator.google-ads-services' => 'Google Ads › Hizmetler',
         'operator.meta-strategy' => 'Meta › Strateji', 'operator.libraries' => 'Meta › Kütüphaneler', 'operator.integrations.connection-health' => 'Bağlantı sağlığı',
+        // Moximu büyüme sistemi (2026-11-07/08): the agency's own sales and marketing screens.
+        'operator.sales' => 'Satış', 'operator.inbox' => 'Gelen kutusu', 'operator.marketing' => 'Pazarlama', 'operator.social' => 'Sosyal medya',
     ];
 
     /** Asset type => [route, label]. */
