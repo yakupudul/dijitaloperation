@@ -42,6 +42,10 @@ final class InboxPage extends Component
     #[Url(as: 'gorunum', except: 'sohbetler')]
     public string $view = 'sohbetler';
 
+    /** The channel on the left rail (WhatsApp, Instagram DM, form, manuel, referans); empty = Tümü. */
+    #[Url(as: 'kanal', except: '')]
+    public string $channel = '';
+
     /** "Sohbetler" search: a name or a number. */
     public string $search = '';
 
@@ -89,6 +93,16 @@ final class InboxPage extends Component
         if (! isset(InboxQueue::VIEWS[$this->view])) {
             $this->view = 'sohbetler';
         }
+        if ($this->channel !== '' && ! isset(InboxQueue::CHANNELS[$this->channel])) {
+            $this->channel = '';
+        }
+    }
+
+    public function pickChannel(string $channel): void
+    {
+        $this->channel = isset(InboxQueue::CHANNELS[$channel]) ? $channel : '';
+        $this->laterOpen = false;
+        $this->resetErrorBag();
     }
 
     public function select(string $key): void
@@ -306,9 +320,11 @@ final class InboxPage extends Component
     {
         $this->checkView();
         $items = $queue->items();
-        $counts = $queue->counts($items);
-        $counts['sohbetler'] = $queue->chatCount();
-        $rows = $this->view === 'sohbetler' ? $this->chatRows($queue, $items) : $queue->view($this->view, $items);
+        $channelCounts = $queue->channelCounts($items);
+        $inChannel = $this->channel === '' ? $items : $items->filter(fn (InboxItem $i): bool => $i->inChannel($this->channel))->values();
+        $counts = $queue->counts($inChannel);
+        $rows = $this->view === 'sohbetler' ? $this->chatRows($queue, $items) : $queue->view($this->view, $inChannel);
+        $counts['sohbetler'] = $this->channel === '' ? $queue->chatCount() : $rows->count();
         $selected = null;
         if ($this->item !== '') {
             $selected = $rows->firstWhere('key', $this->item) ?? $items->firstWhere('key', $this->item) ?? $queue->find($this->item);
@@ -330,6 +346,7 @@ final class InboxPage extends Component
         return view('livewire.operator.inbox.inbox-page', [
             'rows' => $rows,
             'counts' => $counts,
+            'channelCounts' => $channelCounts,
             'selected' => $selected,
             'detail' => $detail,
             'strip' => [
@@ -357,8 +374,16 @@ final class InboxPage extends Component
         $social = $items->filter(fn (InboxItem $i): bool => $i->type === InboxItem::SOCIAL
             && ($search === '' || str_contains(mb_strtolower($i->title), $search)));
 
-        return $queue->chats($this->search)->concat($social)
-            ->sortByDesc(fn (InboxItem $i): string => ($i->at?->format('Y-m-d H:i:s') ?? '0000').'|'.$i->key)->values();
+        $rows = $queue->chats($this->search)->concat($social);
+        if ($this->channel !== '') {
+            // One channel: its chats plus the records waiting in it (a form, a referral) that have no chat yet.
+            $keys = $rows->pluck('key')->flip();
+            $rows = $rows->concat($items->filter(fn (InboxItem $i): bool => ! isset($keys[$i->key])
+                && ($search === '' || str_contains(mb_strtolower($i->title), $search))))
+                ->filter(fn (InboxItem $i): bool => $i->inChannel($this->channel));
+        }
+
+        return $rows->sortByDesc(fn (InboxItem $i): string => ($i->at?->format('Y-m-d H:i:s') ?? '0000').'|'.$i->key)->values();
     }
 
     /**

@@ -58,6 +58,44 @@ final class InboxItem
         };
     }
 
+    /**
+     * The channels this line belongs to on the left rail (yakup 2026-11-08: "Whatsapp / Instagram DM / Web site form /
+     * Manuel giriş / Referanslar"): where it is talking now (a WhatsApp chat, an Instagram / Facebook thread) and where
+     * the record came from (its source, and a referral / AFC "bizi nereden duydu"). A customer-period risk is no channel.
+     *
+     * @return list<string>
+     */
+    public function channels(): array
+    {
+        if ($this->type === self::RISK) {
+            return [];
+        }
+        $channels = match ($this->type) {
+            self::WHATSAPP => ['whatsapp'],
+            self::SOCIAL => ['instagram'],
+            default => [],
+        };
+        if ($this->lead !== null) {
+            $origin = InboxQueue::channelOf($this->lead->source);
+            // A chat or thread is "typed in by hand" only when it is a bare step; its own medium says enough otherwise.
+            if ($origin !== 'manuel' || $this->type === self::STEP) {
+                $channels[] = $origin;
+            }
+            if (in_array($this->lead->heard_from, ['referral', 'afc'], true)) {
+                $channels[] = 'referans';
+            }
+        } elseif ($this->type === self::STEP) {
+            $channels[] = 'manuel';
+        }
+
+        return array_values(array_unique($channels));
+    }
+
+    public function inChannel(string $channel): bool
+    {
+        return $channel === '' || in_array($channel, $this->channels(), true);
+    }
+
     /** The record's name for lists and messages ("kart" when it is a prospect, the customer's name when a customer). */
     public function label(): string
     {

@@ -26,6 +26,18 @@ final class InboxQueue
 {
     public const array VIEWS = ['sohbetler' => 'Sohbetler', 'borclu' => 'Cevap borçlu', 'adimlar' => 'Bugünün adımları', 'musteriler' => 'Müşterilerden', 'hepsi' => 'Hepsi'];
 
+    /**
+     * The left rail (yakup 2026-11-08, Pazarlama's format): the channels a line can belong to, each with the record
+     * sources it gathers. "Tümü" ('') is every line, risks included.
+     */
+    public const array CHANNELS = [
+        'whatsapp' => ['label' => 'WhatsApp', 'sources' => ['whatsapp']],
+        'instagram' => ['label' => 'Instagram DM', 'sources' => ['instagram', 'facebook']],
+        'form' => ['label' => 'Web sitesi formu', 'sources' => ['form', 'meta_form']],
+        'manuel' => ['label' => 'Manuel giriş', 'sources' => ['phone', 'link', 'other']],
+        'referans' => ['label' => 'Referanslar · AFC', 'sources' => ['referral', 'afc']],
+    ];
+
     /** Chats listed in "Sohbetler" (WhatsApp Web order: the newest message first); a search reaches every chat. */
     public const int CHATS = 150;
 
@@ -91,6 +103,45 @@ final class InboxQueue
             }
             $counts[$view] = $items->filter(fn (InboxItem $item): bool => $item->in($view))->count();
         }
+
+        return $counts;
+    }
+
+    /** The rail channel a record source belongs to (no source or an unknown one = typed in by hand). */
+    public static function channelOf(?string $source): string
+    {
+        foreach (self::CHANNELS as $key => $channel) {
+            if (in_array($source, $channel['sources'], true)) {
+                return $key;
+            }
+        }
+
+        return 'manuel';
+    }
+
+    /**
+     * What the rail shows per channel: lines that need a word from us (owed answers and due steps) and the records the
+     * channel brought this month (Pazarlama counts the same records by where they heard of us).
+     *
+     * @param  Collection<int, InboxItem>  $items
+     * @return array<string, array{open: int, month: int}>
+     */
+    public function channelCounts(Collection $items): array
+    {
+        $since = CarbonImmutable::now('Europe/Istanbul')->startOfMonth()->utc();
+        $bySource = SalesLead::query()->relevant()->where('created_at', '>=', $since)
+            ->selectRaw('source, count(*) as n')->groupBy('source')->pluck('n', 'source');
+        $referred = SalesLead::query()->relevant()->where('created_at', '>=', $since)
+            ->whereIn('heard_from', ['referral', 'afc'])->whereNotIn('source', self::CHANNELS['referans']['sources'])->count();
+        $open = $items->filter(fn (InboxItem $item): bool => $item->owed || $item->due);
+        $counts = ['' => ['open' => $open->count(), 'month' => (int) $bySource->sum()]];
+        foreach (array_keys(self::CHANNELS) as $key) {
+            $counts[$key] = ['open' => $open->filter(fn (InboxItem $item): bool => $item->inChannel($key))->count(), 'month' => 0];
+        }
+        foreach ($bySource as $source => $n) {
+            $counts[self::channelOf($source === '' ? null : (string) $source)]['month'] += (int) $n;
+        }
+        $counts['referans']['month'] += $referred;
 
         return $counts;
     }
@@ -241,7 +292,7 @@ final class InboxQueue
         $customerIds = $conversations->pluck('customer_id')->filter()->unique()->values();
 
         return [
-            'leads' => SalesLead::query()->whereIn('conversation_id', $conversations->pluck('id'))->get()->keyBy('conversation_id'),
+            'leads' => SalesLead::query()->with('customer')->whereIn('conversation_id', $conversations->pluck('id'))->get()->keyBy('conversation_id'),
             'customerLeads' => $customerIds->isEmpty() ? collect() : SalesLead::query()->whereIn('customer_id', $customerIds)->orderBy('id')->get()->keyBy('customer_id'),
             'customers' => $customerIds->isEmpty() ? collect() : Customer::query()->whereKey($customerIds)->get()->keyBy('id'),
         ];

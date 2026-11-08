@@ -17,6 +17,16 @@
     $pane = 'card min-w-0';
     $lead = $selected?->lead;
     $draft = $detail['draft'] ?? null;
+    // The left rail (yakup 2026-11-08: Pazarlama's format): Tümü and the five channels, each with its colour and a short name.
+    $channelLook = [
+        '' => ['label' => 'Tümü', 'short' => 'Tümü', 'mark' => '∑', 'color' => '#111827'],
+        'whatsapp' => ['short' => 'WhatsApp', 'mark' => 'W', 'color' => '#25a35a'],
+        'instagram' => ['short' => 'Instagram', 'mark' => 'I', 'color' => '#c13584'],
+        'form' => ['short' => 'Form', 'mark' => 'F', 'color' => '#0f8b8d'],
+        'manuel' => ['short' => 'Manuel', 'mark' => 'M', 'color' => '#6b7280'],
+        'referans' => ['short' => 'Referans', 'mark' => 'R', 'color' => '#d4a106'],
+    ];
+    $channelName = fn (string $key): string => $key === '' ? 'Tümü' : InboxQueue::CHANNELS[$key]['label'];
     $waUrl = $detail !== null && $detail['waNumber'] !== null ? 'https://wa.me/'.$detail['waNumber'].(trim($reply) !== '' ? '?text='.rawurlencode(trim($reply)) : '') : null;
 @endphp
 {{-- Gelen kutusu (yakup 2026-11-08: "tek ekran, WhatsApp gibi"): left the chats, middle the chat with the composer at
@@ -50,9 +60,35 @@
     @error('item')<p role="alert" class="mt-3 rounded-lg px-3 py-2 text-sm tone-critical">{{ $message }}</p>@enderror
 
     <div class="mt-3 flex h-[calc(100dvh-10.5rem)] min-h-[32rem] overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900" data-inbox-grid>
+        {{-- Far left: the channels (wide screens; a narrow icon rail until 2xl, a select on phones) --}}
+        <nav class="hidden w-[4.75rem] shrink-0 flex-col overflow-y-auto border-r border-gray-200 bg-gray-50 lg:flex 2xl:w-60 dark:border-gray-800 dark:bg-white/[0.02]" aria-label="Kanallar" data-inbox-channels>
+            @foreach ($channelLook as $key => $look)
+                @php $cc = $channelCounts[$key] ?? ['open' => 0, 'month' => 0]; @endphp
+                <button type="button" wire:key="inbox-ch-{{ $key ?: 'tumu' }}" wire:click="pickChannel('{{ $key }}')" @class(['relative flex w-full flex-col items-center gap-1 px-1 py-2.5 text-center hover:bg-gray-100 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left dark:hover:bg-white/[0.04]', 'bg-white shadow-[inset_3px_0_0_0_#111827] dark:bg-white/[0.08] dark:shadow-[inset_3px_0_0_0_#fff]' => $channel === $key, 'border-b border-gray-200 dark:border-gray-800' => $key === '']) aria-current="{{ $channel === $key ? 'true' : 'false' }}" title="{{ $channelName($key) }}" data-inbox-channel="{{ $key ?: 'tumu' }}">
+                    <span class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white" style="background: {{ $look['color'] }}">
+                        {{ $look['mark'] }}
+                        @if ($cc['open'] > 0)<span class="absolute -top-1 -right-1 min-w-5 rounded-full bg-success-500 px-1 text-[11px] leading-5 font-semibold text-white tabular-nums 2xl:hidden">{{ $cc['open'] }}</span>@endif
+                    </span>
+                    <span class="block max-w-full truncate text-[11px] text-gray-600 2xl:hidden dark:text-gray-300">{{ $look['short'] }}</span>
+                    <span class="hidden min-w-0 flex-1 2xl:block">
+                        <span class="flex items-baseline justify-between gap-2">
+                            <span class="truncate text-[15px] text-gray-900 dark:text-white">{{ $channelName($key) }}</span>
+                            @if ($cc['open'] > 0)<span class="shrink-0 rounded-full bg-success-500 px-2 text-xs leading-5 font-semibold text-white tabular-nums">{{ $n($cc['open']) }}</span>@endif
+                        </span>
+                        <span class="block truncate text-[13px] text-gray-500">{{ $cc['open'] > 0 ? $n($cc['open']).' bekliyor' : 'bekleyen yok' }}{{ $key !== 'whatsapp' && $key !== 'instagram' || $cc['month'] > 0 ? ' · bu ay '.$n($cc['month']).' kayıt' : '' }}</span>
+                    </span>
+                </button>
+            @endforeach
+            <a href="{{ route('operator.marketing') }}" wire:navigate class="mt-auto hidden px-3 py-3 text-xs text-gray-500 hover:text-gray-900 2xl:block dark:hover:text-white" data-inbox-to-marketing>Kanallar neyi getiriyor? Pazarlama</a>
+        </nav>
         {{-- Left: the chats --}}
         <section @class(['flex w-full flex-col border-r border-gray-200 md:w-[22rem] md:shrink-0 dark:border-gray-800', 'hidden md:flex' => $selected !== null]) data-inbox-list>
             <div class="space-y-2 border-b border-gray-200 p-3 dark:border-gray-800">
+                <select wire:change="pickChannel($event.target.value)" class="h-9 w-full lg:hidden {{ $input }}" aria-label="Kanal" data-inbox-channel-select>
+                    @foreach ($channelLook as $key => $look)
+                        <option value="{{ $key }}" @selected($channel === $key)>{{ $channelName($key) }}{{ ($channelCounts[$key]['open'] ?? 0) > 0 ? ' ('.$channelCounts[$key]['open'].')' : '' }}</option>
+                    @endforeach
+                </select>
                 @if ($view === 'sohbetler')
                     <input type="search" wire:model.live.debounce.300ms="search" placeholder="İsim ya da numara ara" class="h-9 w-full {{ $input }}" aria-label="Sohbet ara" data-inbox-search />
                 @endif
@@ -90,7 +126,7 @@
                     </button>
                 @empty
                     <div class="p-6">
-                        <x-ta.empty-state size="sm" :title="match ($view) { 'sohbetler' => ($search !== '' ? 'Aramaya uyan sohbet yok' : 'Henüz sohbet yok'), 'borclu' => 'Kimseye cevap borcun yok', 'adimlar' => 'Bugün yapılacak adım yok', 'musteriler' => 'Müşterilerden bekleyen istek yok', default => 'Kutu boş' }" message="Yeni mesaj gelince burada görünür." />
+                        <x-ta.empty-state size="sm" :title="$channel !== '' && $search === '' ? $channelName($channel).': burada bir şey yok' : match ($view) { 'sohbetler' => ($search !== '' ? 'Aramaya uyan sohbet yok' : 'Henüz sohbet yok'), 'borclu' => 'Kimseye cevap borcun yok', 'adimlar' => 'Bugün yapılacak adım yok', 'musteriler' => 'Müşterilerden bekleyen istek yok', default => 'Kutu boş' }" message="Yeni mesaj gelince burada görünür." />
                     </div>
                 @endforelse
             </div>

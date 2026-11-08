@@ -233,4 +233,41 @@ final class InboxQueueTest extends TestCase
         $this->assertSame(['meta', 'ctwa', 'Kliniğinize ayda 25 yeni hasta', '1200001'], [$lead->origin['utm_source'], $lead->origin['utm_medium'], $lead->origin['utm_campaign'], $lead->origin['ad_id']]);
         $this->assertTrue($lead->events()->where('kind', 'system')->get()->contains(fn ($e): bool => str_contains((string) $e->body, 'Reklamdan yazdı')));
     }
+
+    public function test_the_channel_rail_splits_the_queue_by_where_it_talks_and_where_it_came_from(): void
+    {
+        $leads = app(SalesLeads::class);
+        $chat = $this->chat('905001112233', 'Dr. Ayşe');
+        $form = $leads->quickAdd(['name' => 'Form Hanım', 'phone' => '0534 000 11 22', 'source' => 'form'], $this->admin);
+        $manual = $leads->quickAdd(['name' => 'Elle Bey', 'phone' => '0534 000 11 33', 'source' => 'phone'], $this->admin);
+        $afc = $leads->quickAdd(['name' => 'Afc Hocam', 'phone' => '0534 000 11 44', 'source' => 'afc'], $this->admin);
+        foreach ([$form, $manual, $afc] as $lead) {
+            $lead->forceFill(['next_step_at' => now()->subHour()])->save();
+        }
+        $chatLead = SalesLead::query()->where('conversation_id', $chat->id)->firstOrFail();
+        $chatLead->forceFill(['heard_from' => 'referral'])->save();
+        $account = SocialAccount::query()->create(['platform' => 'instagram', 'external_id' => 'IG1', 'username' => 'moximucom', 'access_token' => 't', 'page_id' => 'PAGE1']);
+        $thread = SocialThread::query()->create(['social_account_id' => $account->id, 'kind' => 'dm', 'external_id' => 'CONV1', 'author_id' => 'U9', 'author_name' => 'drayse',
+            'last_text' => 'Fiyatlarınız nedir?', 'last_direction' => 'in', 'last_in_at' => now()->subMinutes(30), 'last_at' => now()->subMinutes(30), 'status' => 'open']);
+
+        $queue = app(InboxQueue::class);
+        $items = $queue->items()->keyBy('key');
+        $this->assertSame(['whatsapp', 'referans'], $items['wa-'.$chat->id]->channels(), 'a referred chat is in WhatsApp and Referanslar');
+        $this->assertSame(['instagram'], $items['sosyal-'.$thread->id]->channels());
+        $this->assertSame(['form'], $items['adim-'.$form->id]->channels());
+        $this->assertSame(['manuel'], $items['adim-'.$manual->id]->channels());
+        $this->assertSame(['referans'], $items['adim-'.$afc->id]->channels());
+
+        $counts = $queue->channelCounts($queue->items());
+        $this->assertSame(1, $counts['whatsapp']['open']);
+        $this->assertSame(2, $counts['referans']['open']);
+        $this->assertSame(1, $counts['form']['month']);
+
+        Livewire::test(InboxPage::class)->call('pickChannel', 'form')->assertSet('channel', 'form')
+            ->assertSee('Form Hanım')->assertDontSee('Elle Bey')->assertDontSee('drayse');
+        Livewire::test(InboxPage::class)->call('pickChannel', 'referans')->set('view', 'hepsi')
+            ->assertSee('Afc Hocam')->assertSee('Dr. Ayşe')->assertDontSee('Form Hanım');
+        Livewire::test(InboxPage::class)->call('pickChannel', 'yok')->assertSet('channel', '');
+        $this->get('/gelen-kutusu?kanal=instagram')->assertOk()->assertSee('Instagram DM')->assertSee('drayse')->assertDontSee('Form Hanım');
+    }
 }
