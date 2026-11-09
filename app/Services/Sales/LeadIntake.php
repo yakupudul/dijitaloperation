@@ -6,6 +6,7 @@ use App\Models\AgencySetting;
 use App\Models\SalesLead;
 use App\Services\Assistant\PushNotifier;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
+use App\Support\Sales\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -88,7 +89,7 @@ final class LeadIntake
         $message = $field('message', 4000);
         $data = [
             'name' => $field('name'), 'company' => $field('company') !== '' ? $field('company') : $field('clinic'), 'city' => $field('city', 120), 'branch' => $field('branch', 120),
-            'phone' => $field('phone', 40), 'email' => $field('email'), 'website' => $field('website'),
+            'phone' => PhoneNumber::pretty($field('phone', 40)) ?? $field('phone', 40), 'email' => $field('email'), 'website' => $field('website'),
             'heard_from' => $this->heardFrom($field('heard_from', 60), $origin), 'source' => $source,
         ];
         if (SalesLeads::phoneKey($data['phone']) === null && SalesLeads::email($data['email']) === null) {

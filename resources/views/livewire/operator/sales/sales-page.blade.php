@@ -244,7 +244,7 @@
                                 @if ($wa !== null)
                                     <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="text-gray-700 hover:underline dark:text-gray-300" data-sales-wa>{{ $lead->phone }}</a>
                                 @elseif (filled($lead->phone))
-                                    <span class="text-gray-700 dark:text-gray-300">{{ $lead->phone }}</span>
+                                    <span class="text-error-600" title="{{ $lead->phoneIssue() }}" data-sales-phone-issue>{{ $lead->phone }} · hatalı</span>
                                 @else
                                     <span class="text-gray-400">–</span>
                                 @endif

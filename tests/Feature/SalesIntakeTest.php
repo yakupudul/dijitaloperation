@@ -144,6 +144,21 @@ class SalesIntakeTest extends TestCase
             ->assertSee('info@gulus.com')->assertSee('Google reklamı')->assertSee('moximu.com/dis-klinigi-seo/');
     }
 
+    public function test_a_form_number_typed_with_a_doubled_prefix_is_fixed_and_a_wrong_one_never_opens_whatsapp(): void
+    {
+        $token = LeadIntake::issueToken();
+        $id = $this->postJson('/api/satis/form', ['clinic' => 'Çift Önek', 'phone' => '+90 0532 000 11 22'], ['X-Moxdop-Token' => $token])->assertStatus(201)->json('lead');
+        $lead = SalesLead::query()->findOrFail($id);
+        $this->assertSame('+90 532 000 11 22', $lead->phone);
+        $this->assertSame('905320001122', $lead->waNumber());
+
+        $id = $this->postJson('/api/satis/form', ['clinic' => 'Eksik Hane', 'phone' => '+90 533 000 11 2', 'email' => 'x@eksik.com'], ['X-Moxdop-Token' => $token])->assertStatus(201)->json('lead');
+        $wrong = SalesLead::query()->findOrFail($id);
+        $this->assertNull($wrong->waNumber());
+        Livewire::actingAs($this->admin)->test(LeadCardPage::class, ['lead' => (string) $id])
+            ->assertSee('Numara hatalı, WhatsApp açılmaz')->assertSee('x@eksik.com')->assertDontSee('wa.me/9053300011');
+    }
+
     public function test_night_forms_wait_for_the_eight_thirty_summary(): void
     {
         $token = LeadIntake::issueToken();

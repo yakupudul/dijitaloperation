@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\Sales\SalesAnalysisWriter;
 use App\Support\Sales\LeadKinds;
+use App\Support\Sales\PhoneNumber;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -379,20 +380,15 @@ class SalesLead extends Model
         return self::SOURCES[$this->source] ?? $this->source;
     }
 
-    /** The phone in international digits for wa.me (Turkish numbers get the country code). */
+    /** The phone in international digits for wa.me; null when the typed number cannot be right (see phoneIssue()). */
     public function waNumber(): ?string
     {
-        $digits = preg_replace('/\D+/', '', (string) $this->phone) ?? '';
-        if ($digits === '') {
-            return null;
-        }
-        if (strlen($digits) === 10 && str_starts_with($digits, '5')) {
-            return '90'.$digits;
-        }
-        if (strlen($digits) === 11 && str_starts_with($digits, '05')) {
-            return '9'.$digits;
-        }
+        return PhoneNumber::check($this->phone)['digits'];
+    }
 
-        return $digits;
+    /** Why the number is wrong or doubtful ("Numara 9 haneli…", "Sabit hat…"); null when it is fine or empty. */
+    public function phoneIssue(): ?string
+    {
+        return PhoneNumber::check($this->phone)['issue'];
     }
 }

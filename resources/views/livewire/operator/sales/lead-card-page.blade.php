@@ -132,9 +132,12 @@
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         @if ($waUrl !== null)
                             <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="btn-primary" data-lead-wa>WhatsApp'ta aç ↗</a>
+                        @elseif (filled($lead->phone))
+                            <span class="text-[13px] text-error-600" data-lead-phone-issue>Numara hatalı, WhatsApp açılmaz: {{ $lead->phoneIssue() }}{{ filled($lead->email) ? ' E-posta ile dönebilirsiniz: '.$lead->email : '' }}</span>
                         @else
                             <span class="text-[13px] text-gray-500">Telefon yazılınca WhatsApp'ta tek tıkla açılır.</span>
                         @endif
+                        @if ($waUrl !== null && $lead->phoneIssue())<span class="text-[13px] text-warning-700">{{ $lead->phoneIssue() }}</span>@endif
                         <button type="button" x-data x-on:click="navigator.clipboard?.writeText($root.querySelector('[data-lead-draft]').value); $el.textContent = 'Kopyalandı'; setTimeout(() => $el.textContent = 'Kopyala', 1500)" class="btn">Kopyala</button>
                         <button type="button" wire:click="markSent" wire:loading.attr="disabled" class="btn-dark" data-lead-sent>Gönderdim</button>
                         <span class="text-xs text-gray-500">"Gönderdim" metni zaman çizelgesine yazar, takibi kurar.</span>

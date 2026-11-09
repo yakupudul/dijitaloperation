@@ -276,6 +276,7 @@
                             <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="btn-primary h-11 shrink-0 px-4" title="24 saat penceresi kapalı ya da yedekten gelen sohbet: telefonda açılır" data-inbox-wa>WhatsApp'ta aç</a>
                         @endif
                     </div>
+                    @if (($detail['phoneIssue'] ?? null) !== null)<p class="mt-1 text-xs text-error-600" data-inbox-phone-issue>Numara hatalı, WhatsApp açılmaz: {{ $detail['phoneIssue'] }}</p>@endif
                     @error('reply')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
                     @if ($selected->thread?->send_error)<p class="mt-1 text-xs text-error-600">{{ $selected->thread->send_error }}</p>@endif
                     <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-gray-500">

@@ -517,7 +517,7 @@ final class InboxPage extends Component
         return [
             'messages' => $messages,
             'draft' => $draft,
-            'waNumber' => $waNumber,
+            'waNumber' => $waNumber, 'phoneIssue' => $waNumber === null && $lead !== null ? $lead->phoneIssue() : null,
             'window' => $window,
             'brand' => $brand,
             'terms' => $terms,
