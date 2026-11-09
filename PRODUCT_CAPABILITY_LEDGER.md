@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-09 — Moxi: panelin köşe asistanı (dondurmadan yakup'un açık istisnası)
+
+- **Kodlandı + test:** Her panel ekranının sağ altında (yalnız admin) yağlı boya samuray maskot Moxi (`App\Livewire\Operator\Moxi`, `@persist`). Yazılan mesaj `MoxiTurnJob` (kuyruk `writes`) ile Claude API araç döngüsüne gider (`MoxiAgent`, en çok 8 tur, maliyet `moxi_messages.cost_usd` ve AI TL sınırlarına sayılır). Okuma araçları MCP araçlarını süreç içinde çağırır (`MoxiTools`): marka bul/dosya, satış ara/kaydı, ekran bul, bekleyenler, kanal verisi, Meta, notlar, stratejiler, içerik kuyruğu, sistem sağlığı, sayfa.
+- **Değişiklik yalnız kartla:** aday ekle, durum değiştir (müşteri + anlaşma dahil), not, sonraki adım, plan, teklif, marka bilgisi `MoxiActions` kartı olur; Yap'a basılınca yeniden doğrulanıp çalışır, Vazgeç hiç çalıştırmaz. Dış yazma (Google, sosyal, WhatsApp, reklam) yok.
+- **Claude'a devir:** API yoksa/durdurulmuşsa ya da ağır işte `claude_istegi` satırı; MCP `moxi-requests` (list/answer) ile Claude cevaplar, cevap sohbete ve push bildirimine düşer; `list-tasks` `moxi_requests` sayısını verir.
+- **Denetçi:** `oneri_yaz` bulguyu Geliştirme havuzuna her zaman `proposed` yazar (hata dense bile); sohbette Onayla/Sonra kartı.
+- **Tarayıcı:** ruh halleri, boşta hareketler, uyku, göz takibi, Web Audio efektleri, tarayıcının ücretsiz Türkçe sesi (Konuşuyor / Mırıltı / Sessiz).
+- **Durum:** CODED, TESTED (PHPUnit `tests/Feature/Moxi`); canlı kontrol yayından sonra.
+
 ## 2026-10-20 — Yazı kuralları ekran ekran (panel sadeleştirme 4)
 
 - **Kodlandı + test:** Varlık ekranlarının başı tek satır: marka › varlık, veri durumu noktası (ayrıntı üstüne gelince), tek "Yenile", "Hızlı giriş", "⋯" (Veri kaynakları, Düzenle); uyarılar "N uyarı" çipi. Başlıklar Türkçe ("Web sitesi · alan adı"), işletme profili marka · şube. Web sitesinde "Tüm URL'ler" listesi yerine "URL ara" kutusu; "N iş" ve "Verileri yenile" bir kez. Alarmlar hesap başına tek satır, en temel neden önde (erişim / ödeme / bütçe → bugün harcama yok → veri gelmiyor), diğerleri ipucunda (`AlarmCauses`); Bugün'deki sayı ve liste aynı; markada o kanal "Kullanılmıyor" ise "Hesap bağlı değil" alarmı çıkmaz. Entegrasyonlar'da tekrar eden cümle ve "Keşfedilen varlıklar" düğmesi kalktı. İşletme profilleri: "26 işletmede eksik". Marka başında her şehir bir kez, müşteri adı yok. Bugün: kartlarda açıklama cümlesi yok, hata merkezi kartı tek cümle, haftanın planında sistem satırı adını tekrar etmez. Testler: `AssetContextTest`, `DataStatusTest`, `SiteSuggestionsTest`, `TodayCockpitTest`, `GoogleAdsDeskTest`, `GbpDeskTest`, `IntegrationE2E3Test`, `BrandWorkspaceTest`.

@@ -3,10 +3,12 @@
 namespace App\Mcp\Tools;
 
 use App\Models\AiTask;
+use App\Models\MoxiMessage;
 use App\Services\AiTasks\AiTaskPriority;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\AiTasks\McpCaller;
 use App\Support\Ai\AiOperationLabels;
+use App\Support\SchemaState;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Carbon;
 use Laravel\Mcp\Request;
@@ -30,7 +32,10 @@ class ListTasks extends Tool
         if ($caller->writes()) {
             $workers->markSeen($caller->worker);
             if (! $workers->mayWork($caller->worker)) {
-                return Response::json(['your_turn' => false, 'message' => $workers->standDownMessage($caller->worker),
+                $moxi = SchemaState::hasTable('moxi_messages') ? MoxiMessage::query()->where('role', MoxiMessage::REQUEST)->where('status', MoxiMessage::PENDING)->count() : 0;
+
+                return Response::json(['your_turn' => false, 'moxi_requests' => $moxi,
+                    'message' => $workers->standDownMessage($caller->worker).($moxi > 0 ? ' Yalnız önce '.$moxi.' Moxi işini yap (moxi-requests); kuyruğa dokunma.' : ''),
                     'waiting' => AiTask::query()->whereIn('status', [AiTask::PENDING, AiTask::CLAIMED])->count(), 'by_operation' => (object) [], 'tasks' => []]);
             }
         }
@@ -43,6 +48,8 @@ class ListTasks extends Tool
 
         return Response::json([
             'your_turn' => true,
+            // Moxi işleri: the operator's own jobs handed over by the panel assistant; done before the queue.
+            'moxi_requests' => SchemaState::hasTable('moxi_messages') ? MoxiMessage::query()->where('role', MoxiMessage::REQUEST)->where('status', MoxiMessage::PENDING)->count() : 0,
             'waiting' => $open()->count(),
             'oldest_waiting_hours' => $oldest !== null ? (int) floor(Carbon::parse((string) $oldest)->diffInMinutes(now()) / 60) : null,
             // Work order: writing / repair checks first, then people waiting (WhatsApp, reviews), then bulk; oldest first inside.

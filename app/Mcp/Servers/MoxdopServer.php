@@ -24,6 +24,7 @@ use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ListStrategies;
 use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MetaPerformance;
+use App\Mcp\Tools\MoxiRequests;
 use App\Mcp\Tools\OverlapAct;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\ReadSite;
@@ -57,7 +58,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * through the same logged, undoable write path as an approved Onarım masası row. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.11.0')]
+#[Version('1.12.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -84,9 +85,14 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   campaigns, search terms, keywords, locations, queries, pages, countries, channels, landing pages, key events,
   profile actions, keywords, reviews). Check `last_day` before drawing a conclusion.
 
+## Moxi işleri (before the queue)
+- Moxi is the panel's corner assistant; jobs it could not do itself come to you. `list-tasks` shows `moxi_requests` (how
+  many wait), also when `your_turn` is false. When it is above 0, first `moxi-requests action=list`, do each one, and `moxi-requests action=answer` (short
+  Turkish, links as [Ad](url)); the answer lands in Moxi's chat and on the operator's phone.
+
 ## AI task queue (routine work)
 0. Several AI workers (Claude, ChatGPT, APIs) share this queue in the operator's order. When `list-tasks` or
-   `get-tasks` answers `your_turn: false`, another worker has the queue now: end the round at once, doing nothing.
+   `get-tasks` answers `your_turn: false`, another worker has the queue now: end the round at once, doing nothing (Moxi işleri above still come first).
 1. `list-tasks` → `by_operation` shows how many wait per operation, in the order to work them (writing and repair
    checks first, then WhatsApp / review replies, then bulk). Work one operation at a time, in that order, with
    `get-tasks operation=… limit=25`: its `instructions` and `schemas` come once, keyed by hash; each task names its
@@ -184,6 +190,7 @@ class MoxdopServer extends Server
         GetBrand::class,
         GetPage::class,
         MetaPerformance::class,
+        MoxiRequests::class,
         ChannelData::class,
         SaveNote::class,
         LeadKindsTool::class,

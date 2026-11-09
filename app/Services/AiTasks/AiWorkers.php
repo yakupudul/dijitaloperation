@@ -5,6 +5,7 @@ namespace App\Services\AiTasks;
 use App\Models\AgencySetting;
 use App\Models\AiTask;
 use App\Models\McpToken;
+use App\Models\MoxiMessage;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Mcp\McpKeys;
@@ -469,6 +470,10 @@ final class AiWorkers
             return 0.0;
         }
         $usd = (float) AiTask::query()->where('done_by', 'like', $worker.':%')->where('completed_at', '>=', $since)->sum('cost_usd');
+        // Moxi, the panel assistant, runs on the Claude API too: its turns count toward the same TL limits.
+        if ($worker === self::CLAUDE_API && SchemaState::hasTable('moxi_messages')) {
+            $usd += (float) MoxiMessage::query()->where('created_at', '>=', $since)->sum('cost_usd');
+        }
 
         return round($usd * $this->settings()['usd_try'], 2);
     }

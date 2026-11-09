@@ -4,6 +4,7 @@
 > yazmama / kaynak sürümü, kanal nabzı `ChannelPulse`, "ilk tam senkron bitmeden borç üretme", ölçerek budama `UsageLedger`).
 > Yeni ekran, yeni yetenek, yeni zamanlanmış iş yok; zamanlanmış iş sayısı artmaz. Bir belirti için "bir kez düzelt" veri
 > migration'ı yazma; kötü veriyi üreten kuralı düzelt.
+> İstisna (yakup 2026-11-09): Moxi köşe asistanı (`app/Services/Moxi`, `App\Livewire\Operator\Moxi`); zamanlanmış iş eklemez.
 
 ## Cursor Cloud specific instructions
 

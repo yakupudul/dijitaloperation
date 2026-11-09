@@ -183,6 +183,13 @@
         <livewire:operator.notification-toast />
         <livewire:operator.ai-prompt-info />
         @include('operator.partials.site-wake')
+        {{-- Moxi, the corner assistant (yakup 2026-11-09): admins only; persisted so it keeps its chat across wire:navigate. --}}
+        @if (\App\Livewire\Operator\Moxi::allowed())
+            @include('operator.partials.moxi-script')
+            @persist('moxi')
+                <livewire:operator.moxi />
+            @endpersist
+        @endif
     @endauth
 
     @stack('scripts')

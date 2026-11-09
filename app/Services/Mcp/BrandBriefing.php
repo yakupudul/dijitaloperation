@@ -65,12 +65,13 @@ final class BrandBriefing
     }
 
     /**
-     * The brand file (facts) and Claude's open notes; marks the sections as read.
+     * The brand file (facts) and Claude's open notes; marks the sections as read (mark=false: Moxi, the panel assistant,
+     * reads without moving Claude's read cursor).
      *
      * @param  list<string>  $sections  only these section keys (empty = all)
      * @return array<string, mixed>
      */
-    public function brand(Brand $brand, array $sections = [], bool $onlyChanged = false, bool $rebuild = false): array
+    public function brand(Brand $brand, array $sections = [], bool $onlyChanged = false, bool $rebuild = false, bool $mark = true): array
     {
         $stored = $rebuild ? $this->dossier->build($brand) : (BrandDossier::stored($brand) ?? $this->dossier->build($brand));
         $seen = $this->seen($brand);
@@ -93,7 +94,9 @@ final class BrandBriefing
                     ->orderBy('id')->limit(20)->get()->map(fn (BrandEpicrisisItem $q): array => ['question_id' => (int) $q->id, 'field' => $q->field, 'scope' => $q->scope, 'question' => $q->value])->all()];
             $read['epicrisis'] = (string) $head->summary_hash;
         }
-        $this->markSeen($brand, $seen, $read);
+        if ($mark) {
+            $this->markSeen($brand, $seen, $read);
+        }
 
         return [
             'brand' => ['id' => $brand->id, 'name' => $brand->name],
