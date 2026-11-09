@@ -19,6 +19,8 @@ window.moxiChat = function () {
         bubbles: store.get('bubbles', '1') === '1',
         bubbleText: '', bubbleUrl: null, bubbleKind: '', bubbleTimer: null,
         rank: 1,
+        look: store.get('look', 'robot'),
+        cycleLook() { this.look = this.look === 'yakup' ? 'robot' : 'yakup'; store.set('look', this.look); this.$nextTick(() => this.play('bow', 1400, 'selam!')); },
         boot() {
             this.rank = +(this.$root.dataset.rank || 1);
             this.growth(true);
