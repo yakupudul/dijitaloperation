@@ -16,6 +16,7 @@ window.moxiChat = function () {
         trVoice: null,
         speaking: false,
         book: false,
+        menu: false,
         bubbles: store.get('bubbles', '1') === '1',
         bubbleText: '', bubbleUrl: null, bubbleKind: '', bubbleTimer: null,
         rank: 1,
@@ -150,7 +151,7 @@ window.moxiChat = function () {
             if (this.voice === 'speak') this.speak(this.trVoice ? 'Konuşma açık.' : '');
             if (this.voice === 'speak' && !this.trVoice) this.status = 'bu tarayıcıda Türkçe ses yok';
         },
-        voiceLabel() { return { speak: '🗣 Konuşuyor', babble: '🎵 Mırıltı', mute: '🔇 Sessiz' }[this.voice] || 'Ses'; },
+        voiceLabel() { return { speak: 'Konuşur', babble: 'Mırıldanır', mute: 'Sessiz' }[this.voice] || 'Ses'; },
         tone(f1, f2, dur, type, vol, delay) {
             if (this.voice === 'mute') return; const a = ac(); if (!a || a.state !== 'running') return;
             const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();

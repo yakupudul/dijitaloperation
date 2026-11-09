@@ -53,16 +53,35 @@
 @media (prefers-reduced-motion: reduce){ .mx-c3 i,.mx-launch{animation:none!important} }
 @keyframes dot{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
 [x-cloak]{display:none!important}
-.mx-root{position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(6px, env(safe-area-inset-bottom, 0px)); z-index:9000; font-size:14px; line-height:1.45; color:#1f2a2a}
-.mx-panel{position:absolute; right:0; bottom:76px; width:min(390px, calc(100vw - 24px)); height:min(600px, calc(100vh - 140px)); display:flex; flex-direction:column;
+.mx-root{position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(6px, env(safe-area-inset-bottom, 0px)); z-index:100000; font-size:14px; line-height:1.45; color:#1f2a2a}
+.mx-panel{position:absolute; right:0; bottom:84px; width:min(400px, calc(100vw - 24px)); height:min(620px, calc(100vh - 110px)); display:flex; flex-direction:column;
   background:#fff; border:1px solid #e6e3d6; border-radius:16px; box-shadow:0 18px 50px rgba(20,40,38,.18); overflow:hidden}
-.mx-head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #eeebe0}
-.mx-head b{font-size:16px; font-weight:700}
-.mx-head .mx-status{color:#6b7473; font-size:12px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mx-head{display:flex; align-items:center; gap:8px; padding:10px 10px 10px 14px; border-bottom:1px solid #eeebe0; position:relative}
+.mx-head > .mx-c3{background:#FDCF3C; border-radius:9px 9px 9px 3px; padding:7px 6px; flex:none}
+.mx-ttl{flex:1; min-width:0; display:grid; line-height:1.2}
+.mx-live{display:inline-block; width:7px; height:7px; border-radius:50%; background:#3fb67a; margin-right:5px; vertical-align:1px}
+.mx-hb{border:1px solid transparent; background:none; border-radius:8px; padding:5px 9px; font:inherit; font-size:13px; font-weight:500; color:#1f2a2a; cursor:pointer; display:grid; place-items:center}
+.mx-hb:hover{background:#f3f2ec} .mx-hb.on{background:#e8f3f1; color:#1f6461}
+.mx-hb-i{width:32px; height:32px; padding:0}
+.mx-menu-w{position:relative}
+.mx-menu{position:absolute; right:0; top:38px; z-index:2; width:250px; background:#fff; border:1px solid #e6e3d6; border-radius:12px; box-shadow:0 14px 34px rgba(20,40,38,.16); padding:6px; display:grid}
+.mx-menu button,.mx-menu-rank{display:flex; justify-content:space-between; align-items:center; gap:10px; border:0; background:none; font:inherit; font-size:13px; color:#1f2a2a; padding:8px 10px; border-radius:8px; text-align:left; cursor:pointer}
+.mx-menu button:hover{background:#f6f5ef}
+.mx-menu em{font-style:normal; color:#6b7473; font-size:12px; text-align:right}
+.mx-menu-rank{cursor:default; border-top:1px solid #eeebe0; border-radius:0; margin-top:4px; padding-top:10px}
+.mx-head b{font-size:15px; font-weight:600}
+.mx-head .mx-status{color:#6b7473; font-size:12px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .mx-icon{border:1px solid #e6e3d6; background:#fff; border-radius:8px; padding:4px 8px; font-size:12px; color:#1f2a2a; cursor:pointer; white-space:nowrap}
 .mx-icon:hover{background:#f6f5ef}
 .mx-log{flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:9px; background:#fbfaf6}
 .mx-empty{color:#6b7473; font-size:13px; text-align:center; padding:24px 10px}
+.mx-hello{margin:auto 0; display:grid; gap:12px; justify-items:center; text-align:center; padding:10px 6px}
+.mx-hello .mx-c3{background:#FDCF3C; border-radius:14px 14px 14px 4px; padding:12px 11px}
+.mx-hello b{font-size:16px; font-weight:600; color:#1f2a2a}
+.mx-hello p{margin:0; color:#6b7473; font-size:13px}
+.mx-ex{display:grid; gap:6px; width:100%}
+.mx-ex button{border:1px solid #e6e3d6; background:#fff; border-radius:10px; padding:8px 11px; font:inherit; font-size:13px; color:#1f2a2a; text-align:left; cursor:pointer}
+.mx-ex button:hover{border-color:#1f6461; color:#1f6461}
 .mx-msg{max-width:88%; padding:8px 11px; border-radius:14px; overflow-wrap:anywhere}
 .mx-me{align-self:flex-end; background:#1f6461; color:#fff; border-bottom-right-radius:4px}
 .mx-bot{align-self:flex-start; background:#fff; border:1px solid #eeebe0; border-bottom-left-radius:4px}
@@ -82,8 +101,8 @@
 .mx-dots i:nth-child(2){animation-delay:.15s} .mx-dots i:nth-child(3){animation-delay:.3s}
 .mx-form{display:flex; gap:8px; padding:10px 12px; border-top:1px solid #eeebe0; background:#fff}
 .mx-form textarea{flex:1; min-width:0; resize:none; font:inherit; padding:8px 10px; border-radius:10px; border:1px solid #e6e3d6; background:#fbfaf6; color:#1f2a2a; max-height:120px}
-.mx-form textarea:focus{outline:2px solid #FDCF3C; outline-offset:1px}
-@media (max-width:480px){ .mx-panel{height:calc(100vh - 96px)} }
+.mx-form textarea:focus{outline:none; border-color:#1f6461; background:#fff; box-shadow:0 0 0 3px rgba(31,100,97,.12)}
+@media (max-width:480px){ .mx-panel{position:fixed; left:8px; right:8px; top:max(8px, env(safe-area-inset-top, 0px)); bottom:92px; width:auto; height:auto} }
 .mx-bubble{display:flex; gap:9px; align-items:flex-start}
 .mx-bubble-t{display:block}
 .mx-rank{font-size:11px; font-weight:700; color:#1f6461; background:#e8f3f1; border-radius:20px; padding:2px 8px; white-space:nowrap}
@@ -105,14 +124,19 @@
 
     <section class="mx-panel" x-show="open" x-cloak x-transition.origin.bottom.right role="dialog" aria-label="Moxi">
         <header class="mx-head">
-            <b>Moxi</b>
-            <span class="mx-rank" title="{{ $rank ? $rank['points'].' puan'.($rank['next'] !== null ? ' · '.$rank['next_name'].' için '.$rank['next'] : '') : '' }}">{{ $rank['name'] ?? 'Çırak' }}</span>
-            <span class="mx-status" x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span>
-            <button type="button" class="mx-icon" @click="book = !book" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
-            <button type="button" class="mx-icon" @click="toggleBubbles()" x-text="bubbles ? 'Balon: açık' : 'Balon: kapalı'" title="Ara sıra konuşma balonları"></button>
-            <button type="button" class="mx-icon" @click="cycleVoice()" x-text="voiceLabel()" title="Ses: konuşma, mırıltı ya da sessiz"></button>
-            <button type="button" class="mx-icon" wire:click="clear" title="Ekranı temizle (Moxi yine hatırlar)">Temizle</button>
-            <button type="button" class="mx-icon" @click="toggle()" aria-label="Kapat">✕</button>
+            @include('operator.partials.moxi-cone', ['class' => 'sm'])
+            <div class="mx-ttl"><b>Moxi</b><span class="mx-status"><i class="mx-live"></i><span x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span></span></div>
+            <button type="button" class="mx-hb" :class="book ? 'on' : ''" @click="book = !book; menu = false" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
+            <div class="mx-menu-w" @click.outside="menu = false">
+                <button type="button" class="mx-hb mx-hb-i" @click="menu = !menu" :aria-expanded="menu" aria-label="Ayarlar" title="Ayarlar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+                <div class="mx-menu" x-show="menu" x-cloak x-transition.origin.top.right>
+                    <button type="button" @click="cycleVoice()"><span>Ses</span><em x-text="voiceLabel()"></em></button>
+                    <button type="button" @click="toggleBubbles()"><span>İpucu balonları</span><em x-text="bubbles ? 'Açık' : 'Kapalı'"></em></button>
+                    <button type="button" wire:click="clear" @click="menu = false"><span>Ekranı temizle</span><em>Moxi yine hatırlar</em></button>
+                    <div class="mx-menu-rank"><span>Rütbe</span><em>{{ $rank['name'] ?? 'Çırak' }} · {{ $rank['points'] ?? 0 }} puan{{ ($rank['next'] ?? null) !== null ? ' · '.$rank['next_name'].' için '.$rank['next'] : '' }}</em></div>
+                </div>
+            </div>
+            <button type="button" class="mx-hb mx-hb-i" @click="toggle()" aria-label="Kapat" title="Kapat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </header>
 
         <div class="mx-book" x-show="book" x-cloak>
@@ -188,7 +212,16 @@
                         @break
                 @endswitch
             @empty
-                <div class="mx-empty">Selam! Marka durumu sorabilir, link isteyebilir ya da iş verebilirsin.<br>Örnek: "Gelen kutusu linki", "Portakal Diş'in durumu ne?", "Ayşe Hanım'ı müşteri yap, 14.000, 6 ay".</div>
+                <div class="mx-hello">
+                    @include('operator.partials.moxi-cone')
+                    <b>Merhaba, ben Moxi.</b>
+                    <p>Marka durumu sor, link iste ya da iş ver. Panelde bir şey değişecekse önce sana kart gösteririm.</p>
+                    <div class="mx-ex">
+                        @foreach (['Bugün beni bekleyen ne var?', 'Gelen kutusu linki', 'Satış\'ta gecikmiş adaylar kimler?'] as $example)
+                            <button type="button" @click="$wire.set('text', @js($example)).then(() => submit())">{{ $example }}</button>
+                        @endforeach
+                    </div>
+                </div>
             @endforelse
             @if ($busy)
                 <div class="mx-msg mx-bot mx-typing" aria-label="Moxi yazıyor">@include('operator.partials.moxi-cone', ['class' => 'sm is-typing'])</div>
