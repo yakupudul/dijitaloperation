@@ -33,7 +33,10 @@ function mx_iletisim_form(string $konu = 'teklif', string $buton = 'Mesajı gön
     static $n = 0;
     $n++;
     $id = 'mxf'.$n;
-    ob_start(); ?>
+    ob_start();
+    if ($n === 1) : ?>
+<style>.mx .mxf.ok,.mx .mxf-m.ok{display:block}</style>
+<?php endif; // the old site's ".mx .ok{display:none}" hid the sent form and its thank-you line (2026-11-09) ?>
 <form class="mxf" id="<?= $id ?>" novalidate data-ajax="<?= esc_url(admin_url('admin-ajax.php')) ?>">
 <div class="mxf-g">
 <label class="mxf-f"><span>Ad soyad</span><input name="ad" autocomplete="name" required></label>
