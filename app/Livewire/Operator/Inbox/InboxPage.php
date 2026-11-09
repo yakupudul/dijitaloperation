@@ -24,6 +24,7 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -80,6 +81,14 @@ final class InboxPage extends Component
     public string $callSearch = '';
 
     public string $laterDate = '';
+
+    /**
+     * Canlı güncelleme (yakup 2026-11-09: "sayfayı yenilemek zorunda kalmayayım"): what the screen was drawn from. The
+     * 5-second pulse redraws only when it changed (a message, a draft, a record), or once a minute for the ages.
+     */
+    public string $stamp = '';
+
+    public int $drawnAt = 0;
 
     /** Messages of a chat shown in the middle pane (the newest ones, oldest at the top like WhatsApp). */
     private const int MESSAGES = 80;
@@ -363,8 +372,27 @@ final class InboxPage extends Component
         $this->message = 'Kayıt açıldı: '.$lead->title().'.';
     }
 
+    public function pulse(): void
+    {
+        if ($this->stamp === self::stamp() && time() - $this->drawnAt < 60) {
+            $this->skipRender();
+        }
+    }
+
+    /** The newest change of every table the inbox reads: cheap aggregates, no list is built. */
+    public static function stamp(): string
+    {
+        return implode('|', [
+            DB::table('whatsapp_messages')->max('id'), DB::table('whatsapp_conversations')->max('updated_at'),
+            DB::table('social_messages')->max('id'), DB::table('social_threads')->max('updated_at'),
+            DB::table('sales_leads')->max('updated_at'), DB::table('sales_lead_events')->max('id'),
+        ]);
+    }
+
     public function render(InboxQueue $queue, Agreements $agreements): View
     {
+        $this->stamp = self::stamp();
+        $this->drawnAt = time();
         $this->checkView();
         $items = $queue->items();
         $channelCounts = $queue->channelCounts($items);

@@ -5,14 +5,34 @@ namespace App\Services\WhatsApp;
 use App\Models\CoreIntegration;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppWebhookReceipt;
+use App\Services\Inbox\InboxAlerts;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class WhatsAppIngestion
 {
+    /** @var array<int, true> new live incoming messages of this receipt, told to the phone once it is saved */
+    private array $fresh = [];
+
     public function process(int $receiptId): void
     {
+        $this->fresh = [];
+        $this->ingest($receiptId);
+        // After the commit: the phone push (yakup 2026-11-09, "Gelen kutusuna yeni mesaj geldiğinde telefona bildirim").
+        foreach (array_keys($this->fresh) as $messageId) {
+            try {
+                app(InboxAlerts::class)->whatsapp($messageId);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+    }
+
+    private function ingest(int $receiptId): void
+    {
         DB::transaction(function () use ($receiptId): void {
+            $this->fresh = [];
             $receipt = WhatsAppWebhookReceipt::query()->lockForUpdate()->find($receiptId);
             if ($receipt === null || $receipt->status !== 'pending') {
                 return;
@@ -188,6 +208,9 @@ final class WhatsAppIngestion
         ]);
         if (! $stored->wasRecentlyCreated) {
             return 0;
+        }
+        if (! $outgoing && ! $history) {
+            $this->fresh[$stored->id] = true;
         }
         $update = [
             // The name in the phone's address book wins over the WhatsApp profile name.

@@ -72,6 +72,7 @@ use App\Services\Gbp\ReviewReplyCheck;
 use App\Services\GoogleAds\GoogleAdsAssistant;
 use App\Services\GoogleAds\GoogleAdsScreen;
 use App\Services\Gsc\UrlInspectionTargets;
+use App\Services\Inbox\InboxAlerts;
 use App\Services\Integrations\Bing\BingWebmasterClient;
 use App\Services\Integrations\Bing\BingWebmasterSync;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
@@ -1849,9 +1850,11 @@ Schedule::command('moxdop:showcase:daily')
 // Yeni aday araştırması (yakup 2026-11-08): a new chat whose research did not start with its message starts here.
 // Özellik dondurması (2026-11-09): no new scheduled job; the same round also keeps history-only chat cards out of the
 // work ("ilk tam senkron bitmeden borç üretme": no debt, no "Cevap yaz", stale ones to Satış › Arşiv).
+// Gelen kutusu (yakup 2026-11-09): a pushed chat still unanswered 30 minutes later is reminded once, in the same round.
 Schedule::call(function (): void {
     app(SalesTidy::class)->sweep();
     LeadResearcher::sweep();
+    app(InboxAlerts::class)->remindUnanswered();
 })
     ->everyTenMinutes()->name('sales-lead-research')->withoutOverlapping(10);
 // Satış beyni (yakup 2026-11-08): every deal closed in the last 30 days is read once for lessons and questions.
@@ -1860,8 +1863,12 @@ Schedule::call(fn () => SalesBrain::sweep())
 Schedule::call(fn () => app(SalesLeads::class)->draftDue())
     ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-morning-drafts')->withoutOverlapping(30);
 
-// Satış (2026-11-05): forms that came in the quiet hours (22:00-08:00) are told in one push at 08:30.
-Schedule::call(fn () => app(LeadIntake::class)->morningSummary())
+// Satış (2026-11-05): forms that came in the quiet hours (22:00-08:00) are told in one push at 08:30; since 2026-11-09
+// also who wrote on WhatsApp / Instagram in the night (their pushes came silently).
+Schedule::call(function (): void {
+    app(LeadIntake::class)->morningSummary();
+    app(InboxAlerts::class)->nightSummary();
+})
     ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-night-forms')->withoutOverlapping(10);
 
 // Satış (2026-11-04): a 10:00 push with how many prospects to write to today (Bugün on the Satış screen); the phone shows it.

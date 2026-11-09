@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Operator;
 use App\Http\Controllers\Controller;
 use App\Models\PushSubscription;
 use App\Services\Assistant\PushNotifier;
+use App\Services\Inbox\InboxAlerts;
 use App\Services\Push\WebPush;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -49,15 +51,35 @@ final class PushController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function latest(): JsonResponse
+    /**
+     * The newest push (top-level fields, as before) and, since 2026-11-09, `items`: every push newer than `after` (the
+     * last one this device showed), oldest first, so two chats that write in the same second both show. Inbox pushes of
+     * one chat share a tag (the later one replaces the earlier), and a 'low' one comes silently (night, a chat's update).
+     */
+    public function latest(Request $request): JsonResponse
     {
-        $row = DB::table('push_notifications')->where('channel', 'browser')->where('created_at', '>=', now()->subMinutes(self::LATEST_MINUTES))
-            ->orderByDesc('id')->first(['id', 'title', 'body', 'url', 'severity', 'created_at']);
+        $rows = DB::table('push_notifications')->where('channel', 'browser')->where('created_at', '>=', now()->subMinutes(self::LATEST_MINUTES))
+            ->orderByDesc('id')->limit(5)->get(['id', 'dedupe_key', 'title', 'body', 'url', 'severity', 'created_at']);
+        if ($rows->isEmpty()) {
+            return response()->json(['title' => 'MoxDOP', 'body' => 'Yeni önemli iş var.', 'url' => route('operator.work'), 'tag' => 'moxdop', 'items' => []]);
+        }
+        $after = (int) $request->query('after', 0);
+        $items = $rows->filter(fn ($row): bool => $after > 0 && (int) $row->id > $after)->reverse()->values()->map(fn ($row): array => $this->item($row))->all();
 
-        return response()->json($row === null
-            ? ['title' => 'MoxDOP', 'body' => 'Yeni önemli iş var.', 'url' => route('operator.work'), 'tag' => 'moxdop']
-            : ['title' => $row->title, 'body' => $row->body, 'url' => $row->url ?: route('operator.work'), 'tag' => 'moxdop-'.$row->id,
-                'severity' => (string) $row->severity, 'at' => \Illuminate\Support\Carbon::parse($row->created_at)->toIso8601String()]);
+        return response()->json([...$this->item($rows->first()), 'items' => $items]);
+    }
+
+    /** @return array<string, mixed> */
+    private function item(object $row): array
+    {
+        $key = (string) $row->dedupe_key;
+
+        return [
+            'id' => (int) $row->id, 'title' => $row->title, 'body' => $row->body, 'url' => $row->url ?: route('operator.work'),
+            'tag' => str_starts_with($key, InboxAlerts::PREFIX) ? 'inbox-'.InboxAlerts::chatOf($key) : 'moxdop-'.$row->id,
+            'severity' => (string) $row->severity, 'silent' => $row->severity === 'low',
+            'at' => Carbon::parse($row->created_at)->toIso8601String(),
+        ];
     }
 
     public function test(Request $request, PushNotifier $notifier): JsonResponse

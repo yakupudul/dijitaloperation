@@ -36,7 +36,7 @@ use Throwable;
 final class SalesLeads
 {
     /** The operator's own numbers never become leads (the backup also holds chats with the business itself). */
-    private const array OWN_PHONES = ['5388610288', '5319527518'];
+    public const array OWN_PHONES = ['5388610288', '5319527518'];
 
     public static function boot(): void
     {

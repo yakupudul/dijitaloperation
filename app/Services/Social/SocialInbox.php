@@ -7,6 +7,7 @@ use App\Models\SalesLead;
 use App\Models\SocialAccount;
 use App\Models\SocialMessage;
 use App\Models\SocialThread;
+use App\Services\Inbox\InboxAlerts;
 use App\Services\Sales\SalesLeads;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -241,6 +242,7 @@ final class SocialInbox
             $stats['threads']++;
         }
         $added = false;
+        $freshIn = null;
         foreach ($messages as $m) {
             $row = SocialMessage::query()->firstOrCreate(
                 ['social_thread_id' => $thread->id, 'external_id' => mb_substr($m['id'], 0, 191)],
@@ -250,6 +252,7 @@ final class SocialInbox
             if ($row->wasRecentlyCreated) {
                 $added = true;
                 $stats['messages']++;
+                $freshIn = $m['dir'] === 'in' ? $row->id : $freshIn;
             }
         }
         $last = end($messages);
@@ -275,6 +278,14 @@ final class SocialInbox
         if ($added && $last['dir'] === 'in' && $thread->status === SocialThread::OPEN
             && $thread->last_in_at !== null && $thread->last_in_at->gt(now()->subDays(3))) {
             self::queueDraft($thread);
+        }
+        // The phone push for a new direct message (comments stay in the inbox); InboxAlerts skips a first read's history.
+        if ($freshIn !== null && $kind === SocialThread::DM) {
+            try {
+                app(InboxAlerts::class)->social($freshIn);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
     }
 

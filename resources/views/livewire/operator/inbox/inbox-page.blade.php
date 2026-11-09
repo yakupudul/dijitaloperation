@@ -32,11 +32,9 @@
 {{-- Gelen kutusu (yakup 2026-11-08: "tek ekran, WhatsApp gibi"): left the chats, middle the chat with the composer at
      the bottom, right the record. "Sohbetler" lists every chat like WhatsApp Web; the other tabs are the day's queue. --}}
 <div data-inbox-page>
-    @if ($drafting)
-        <div wire:key="inbox-poll-fast" wire:poll.5s.visible hidden></div>
-    @else
-        <div wire:key="inbox-poll-slow" wire:poll.15s.visible hidden></div>
-    @endif
+    {{-- Canlı: every 5 s a cheap check redraws only when something changed. (The old .visible poll sat on a hidden
+         element, which never counts as in the viewport, so it never ran: the page needed a manual refresh.) --}}
+    <div wire:key="inbox-pulse" wire:poll.5s="pulse" hidden></div>
     <header class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex min-w-0 items-baseline gap-3">
             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Gelen kutusu</h1>
