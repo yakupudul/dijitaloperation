@@ -61,7 +61,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotContains('Run Registry', $labels);
 
         $groupTitles = array_column(OperatorMenu::groups(), 'title');
-        $this->assertSame(['Work', 'Moximu', 'Channels', 'Portfolio', 'System'], $groupTitles, 'Aşama 11 (2026-10-22): Büyüme left with its screens; Moximu group (the agency own work) added 2026-11-06; pinned System');
+        $this->assertSame(['My day', 'Moximu', 'Client work', 'Channels', 'System'], $groupTitles, 'Menü düzeni 2026-11-09 (yakup): Günüm, Moximu, Müşteri işleri, Kanallar; pinned System');
         $this->assertNotContains('Data', $groupTitles);
     }
 

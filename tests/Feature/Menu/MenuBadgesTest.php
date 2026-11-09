@@ -55,7 +55,7 @@ class MenuBadgesTest extends TestCase
         $this->assertStringContainsString('data-menu-pinned', $html);
         $this->assertStringContainsString('data-ai-live-card', $html);
         $this->assertStringContainsString('Claude hazır', $html);
-        $this->assertSame(['Çalışma', 'Moximu', 'Kanallar', 'Portföy', 'Sistem'], array_column(OperatorMenu::groups(), 'title'));
+        $this->assertSame(['Günüm', 'Moximu', 'Müşteri işleri', 'Kanallar', 'Sistem'], array_column(OperatorMenu::groups(), 'title'));
         $this->assertTrue(collect(OperatorMenu::groups())->last()['pinned']);
     }
 }

@@ -36,22 +36,17 @@ final class DemoMenu
         $group = static fn (string $label, array $items, bool $pinned = false): array => ['label' => $label, 'items' => $items, 'pinned' => $pinned];
         $own = self::agencyBrand();
 
-        // Four groups and a pinned Sistem at the bottom (approved menu prototype, yakup 2026-10-20; was six groups since
-        // 2026-10-19). The flattened order is locked by PanelDesignFreezeTest.
+        // Menü düzeni 2026-11-09 (yakup "yap", thread "MoxDOP panel menüsünü iyileştir"): order follows the work's weight.
+        // Günüm (the day) · Moximu (money in) · Müşteri işleri (brands and the work done for them) · Kanallar · Sistem
+        // pinned. Portföy and Web siteleri are tabs of Markalar (three lists of the same brands were three entries);
+        // Akış left the menu: the top bar's "N çalışıyor" pill opens it. The flattened order is locked by
+        // PanelDesignFreezeTest.
         return [
-            $group($tr ? 'Çalışma' : 'Work', [
+            $group($tr ? 'Günüm' : 'My day', [
                 // Aşama 5 (2026-10-22): Komuta replaced Bugün as the home screen; Bugün özeti stays lit under it.
                 $item($tr ? 'Komuta' : 'Command', 'operator.dashboard', 'dashboard', [], ['operator.today']),
                 // Takvim (yakup 2026-11-05): the center of the day; own tasks, meetings, sales steps and brands' work.
                 $item($tr ? 'Takvim' : 'Calendar', 'operator.calendar', 'agenda'),
-                // Aşama 4 (2026-10-22): every approval and send, live; the count is what runs now.
-                $item($tr ? 'Akış' : 'Flow', 'operator.flow', 'flow'),
-                // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.
-                $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
-                // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
-                $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
-                // Bağlantılar (Backlink hizmeti, 2026-11-06): link targets, the desk of ready applications, the shared pool.
-                $item($tr ? 'Bağlantılar' : 'Links', 'operator.links', 'link'),
             ]),
             // Moximu (yakup 2026-11-06: "bizim Moximu markamızla alakalı bölümleri aynı menü altında topla"): the agency's
             // own work. The brand and site entries are shortcuts to the same screens, opened on the agency's brand.
@@ -70,20 +65,23 @@ final class DemoMenu
                     ? [['label' => $tr ? 'Marka kartımız' : 'Our brand', 'route' => 'operator.brand', 'params' => ['brand' => $own['id']], 'icon' => 'brands', 'children' => [], 'active' => []]]
                     : []),
             ]),
+            $group($tr ? 'Müşteri işleri' : 'Client work', [
+                // Markalar (Müşteriler merged in 2026-10-19) carries Portföy (goal, channels, trend) and Web siteleri as tabs.
+                $item(__('operator.nav.brands'), 'operator.brands', 'brands', [
+                    $child($tr ? 'Portföy' : 'Portfolio', 'operator.portfolio'),
+                    $child($tr ? 'Web siteleri' : 'Websites', 'operator.websites'),
+                ], ['operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit', 'operator.website']),
+                // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.
+                $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
+                // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
+                $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
+                // Bağlantılar (Backlink hizmeti, 2026-11-06): link targets, the desk of ready applications, the shared pool.
+                $item($tr ? 'Bağlantılar' : 'Links', 'operator.links', 'link'),
+            ]),
             $group($tr ? 'Kanallar' : 'Channels', [
                 $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
                 $item('Google Ads', 'operator.google-ads-desk', 'seo', [], ['operator.google-ads-terms', 'operator.google-ads-changes', 'operator.google-ads-ads', 'operator.google-ads-measurement', 'operator.google-ads-services', 'operator.google-ads.overview']),
                 $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy', 'operator.libraries']),
-            ]),
-            // Aşama 11 (2026-10-22): Büyüme left the menu. Kazananlar lives in Komuta's sector cards, Stratejiler opens from
-            // the brand page, Sorgular feeds the content plan; the screens stay reachable by link for a week.
-            $group($tr ? 'Portföy' : 'Portfolio', [
-                // Aşama 5: every brand's goal, channel health and trend on one list.
-                $item($tr ? 'Portföy' : 'Portfolio', 'operator.portfolio', 'portfolio'),
-                // Müşteriler merged into Markalar (2026-10-19): every customer has one brand; the customer screens stay
-                // reachable from the brand list and keep Markalar lit.
-                $item(__('operator.nav.brands'), 'operator.brands', 'brands', [], ['operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit']),
-                $item($tr ? 'Web siteleri' : 'Websites', 'operator.websites', 'website', [], ['operator.website']),
             ]),
             $group($tr ? 'Sistem' : 'System', [
                 $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [

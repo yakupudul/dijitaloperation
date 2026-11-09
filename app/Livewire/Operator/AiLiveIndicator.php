@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Ai\AiLiveOperations;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Operator\OperatorClock;
+use App\Support\OperatorMenu;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -55,6 +56,8 @@ final class AiLiveIndicator extends Component
             'users' => self::userNames($running->concat($queued)->concat($finished)),
             'canOpenSettings' => PromptRegistry::canEdit(auth()->user()),
             'doneToday' => $this->card && auth()->check() ? self::doneToday() : 0,
+            // The card's numbers come from Akış like the top bar pill (2026-11-09: they disagreed); its own count is the fallback.
+            'flow' => $this->card ? OperatorMenu::flowCounts() : null,
         ]);
     }
 

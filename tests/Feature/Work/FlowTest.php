@@ -164,9 +164,10 @@ final class FlowTest extends SiteTestCase
 
         $this->get(route('operator.flow'))->assertOk()
             ->assertSee('şu an çalışıyor')->assertSee('Site düzeltmesi')->assertSee('İşin yolu')->assertSee('Senin zamanın')
-            ->assertSee('data-flow-pill', false)->assertSee('data-menu-badge="live"', false);
-        $flow = collect(OperatorMenu::groups())->flatMap(fn (array $g): array => $g['items'])->firstWhere('path', '/akis');
-        $this->assertSame(1, $flow['count']);
+            ->assertSee('data-flow-pill', false);
+        // Akış left the menu 2026-11-09 (the top bar pill opens it); the pill and the Claude card read the same counts.
+        $this->assertNull(collect(OperatorMenu::groups())->flatMap(fn (array $g): array => $g['items'])->firstWhere('path', '/akis'));
+        $this->assertSame(1, OperatorMenu::flowRunning());
 
         Livewire::test(FlowLive::class)->call('filter', 'done')->assertSee('Bu durumda iş yok')->call('filter', 'done')->assertSee('Site düzeltmesi');
 

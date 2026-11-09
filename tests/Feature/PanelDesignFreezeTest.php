@@ -57,26 +57,25 @@ class PanelDesignFreezeTest extends TestCase
             ->all();
 
         $this->assertSame([
+            // Menü düzeni 2026-11-09 (yakup): Günüm · Moximu · Müşteri işleri · Kanallar · Sistem. Akış left the menu (the top
+            // bar pill opens it); Portföy and Web siteleri became tabs of Markalar.
             'operator.dashboard',
             // Takvim added 2026-11-05 (yakup: the calendar is the center).
             'operator.calendar',
-            'operator.flow',
-            'operator.repair',
-            'operator.content',
-            // Bağlantılar added 2026-11-06 (yakup: backlink service for the brands).
-            'operator.links',
-            // Moximu group 2026-11-06 (yakup: the agency's own work together): Satış, WhatsApp, Sosyal medya, and with an
+            // Moximu group 2026-11-06 (yakup: the agency's own work together): Satış, Gelen kutusu, Pazarlama, and with an
             // agency brand also Web sitemiz and Marka kartımız (none in this fixture).
             'operator.sales',
             'operator.inbox',
             // Pazarlama replaced the Sosyal medya entry 2026-11-07 (Aşama 4); the social screen lights it.
             'operator.marketing',
+            'operator.brands',
+            'operator.repair',
+            'operator.content',
+            // Bağlantılar added 2026-11-06 (yakup: backlink service for the brands).
+            'operator.links',
             'operator.gbp-desk',
             'operator.google-ads-desk',
             'operator.meta-desk',
-            'operator.portfolio',
-            'operator.brands',
-            'operator.websites',
             'operator.integrations',
             'operator.settings',
         ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan; Google Ads menu added 2026-10-19; Stratejiler added 2026-10-12; Onarım masası added with the repair plan 2026-10-08 and, since 2026-10-10, the one work list for everyone (Genel işler is its Diğer işler section); Müşteriler merged into Markalar 2026-10-19; Sorgular under Büyüme and WhatsApp under Portföy with the menu prototype 2026-10-20; İçerik added and Dijital varlıklar moved under Entegrasyonlar 2026-10-20 (yönetici turu); Akış added 2026-10-22 (Aşama 4); Portföy added and Bugün became Komuta 2026-10-22 (Aşama 5); Kazananlar, Stratejiler and Sorgular left the menu 2026-10-22 (Aşama 11)');
@@ -109,10 +108,10 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame('/assets/website/'.$site, $group['items'][3]['path']);
         $this->assertSame('/brands/'.$this->portfolioBrand->id, $group['items'][4]['path']);
 
-        // Our own site lights "Web sitemiz"; any other site keeps "Web siteleri" lit.
+        // Our own site lights "Web sitemiz"; any other site keeps Markalar (whose tab is Web siteleri) lit.
         $active = fn (string $path): ?string => collect(OperatorMenu::groups($path, 'operator.website'))->flatMap(fn (array $g): array => $g['items'])->firstWhere('active', true)['name'] ?? null;
         $this->assertSame('Web sitemiz', $active('/assets/website/'.$site));
-        $this->assertSame('Web siteleri', $active('/assets/website/999'));
+        $this->assertSame('Markalar', $active('/assets/website/999'));
         $this->get('/')->assertOk()->assertSee('/brands/'.$this->portfolioBrand->id, false);
     }
 
@@ -123,6 +122,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
         $this->assertSame(['/settings', '/settings/ai', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/mcp', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI sağlayıcıları, AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, MCP anahtarları, Sistem, Geliştirme havuzu, Sürümler');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
+        $this->assertSame(['/brands', '/portfoy', '/websites'], array_column(OperatorMenu::sectionTabs('operator.portfolio'), 'url'), 'Portföy and Web siteleri are tabs of Markalar since 2026-11-09');
 
         $this->get(route('operator.integrations.accounts'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('/data-center"', false);
         $this->get(route('operator.settings.users'))->assertOk();

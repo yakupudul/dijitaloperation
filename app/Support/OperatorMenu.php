@@ -7,13 +7,10 @@ use App\Models\Brand;
 use App\Models\GbpQueuedPost;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
-use App\Models\SocialThread;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
 use App\Services\Inbox\InboxQueue;
 use App\Services\Meta\MetaDesk;
 use App\Services\Operations\SystemHealthReader;
-use App\Services\Operator\OperatorPortfolioPresenter;
-use App\Services\Operator\PortfolioSignalsReader;
 use App\Services\Repair\RepairDesk;
 use App\Services\Work\FlowFeed;
 use App\Support\Demo\DemoMenu;
@@ -90,19 +87,31 @@ final class OperatorMenu
         return $repair > 0 ? ['operator.repair' => $repair] : [];
     }
 
-    /** Akış's entry: what runs right now (shared with the top bar pill for a few seconds); null when nothing runs. */
-    public static function flowRunning(): ?int
+    /**
+     * Akış's counts (queue, run, done today, err), the one source of the top bar pill and the sidebar Claude card, so the
+     * two never show different numbers (2026-11-09: the card counted only AI operations over 24 hours). Cached for a few
+     * seconds; null when it cannot be read.
+     *
+     * @return array{queue: int, run: int, done: int, err: int}|null
+     */
+    public static function flowCounts(): ?array
     {
         if (! auth()->check()) {
             return null;
         }
         try {
-            $run = (int) (Cache::remember('flow-feed.pill', 8, fn (): array => app(FlowFeed::class)->counts())['run'] ?? 0);
+            return Cache::remember('flow-feed.pill', 8, fn (): array => app(FlowFeed::class)->counts());
         } catch (Throwable $error) {
             report($error);
 
             return null;
         }
+    }
+
+    /** What runs right now in Akış; null when nothing runs. Akış has no menu entry since 2026-11-09 (the top bar pill opens it). */
+    public static function flowRunning(): ?int
+    {
+        $run = (int) (self::flowCounts()['run'] ?? 0);
 
         return $run > 0 ? $run : null;
     }
@@ -163,20 +172,14 @@ final class OperatorMenu
             return count(array_unique(array_column(GoogleAdsDesk::problems($desk->status($desk->accounts())), 'brand')));
         });
         $put('operator.meta-desk', 'red', fn (): int => (int) (app(MetaDesk::class)->desk([])['kpis']['today'] ?? 0));
+        // Rozet kuralı (yakup 2026-11-09): a number only where the operator owes an action. İşletme profilleri counts the
+        // drafts waiting for approval that go out within 7 days (it showed every future draft: 292); Sosyal medya and
+        // Markalar lost their badges (no menu entry / every brand counted, Komuta's red strip names the brands losing).
         $put('operator.gbp-desk', 'soft', fn (): int => GbpQueuedPost::query()->where('status', GbpQueuedPost::DRAFT)
-            ->where('publish_on', '>=', now()->toDateString())->count());
-        // Pazarlama carries the social badge now (Aşama 4): drafts waiting for approval and posts to copy by hand.
+            ->whereBetween('publish_on', [now()->toDateString(), now()->addDays(7)->toDateString()])->count());
+        // Pazarlama carries the social badge (Aşama 4): drafts waiting for approval and posts to copy by hand.
         $put('operator.marketing', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
             + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count());
-        $put('operator.social', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
-            + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count()
-            + SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count());
-        $put('operator.brands', 'amber', function (): int {
-            $models = Brand::query()->with(['customer', 'responsibleUsers', 'digitalAssets.assetBindings', 'intelligenceContext', 'sectorCategory'])->get();
-            $signals = app(PortfolioSignalsReader::class)->forBrands($models)['brands'];
-
-            return $models->filter(fn (Brand $brand): bool => (bool) (OperatorPortfolioPresenter::brand($brand, $signals[(int) $brand->id] ?? PortfolioSignalsReader::emptyBrand())['needs_attention'] ?? false))->count();
-        });
         // Gelen kutusu (2026-11-07): answers owed and today's steps, in one number.
         $put('operator.inbox', 'soft', fn (): int => app(InboxQueue::class)->openCount());
         // Bağlantılar: applications ready to send and rows for the operator's own call or visit.

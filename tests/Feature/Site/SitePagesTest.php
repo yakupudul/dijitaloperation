@@ -288,8 +288,9 @@ final class SitePagesTest extends TestCase
 
     public function test_websites_menu_list_search_brand_button_and_integration_link(): void
     {
-        $this->assertContains('operator.websites', collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items'])->pluck('route')->all());
-        $item = collect(OperatorMenu::groups())->flatMap(fn (array $group): array => $group['items'])->firstWhere('path', route('operator.websites', absolute: false));
+        // Web siteleri is a tab of Markalar since 2026-11-09; the site screen keeps Markalar lit.
+        $this->assertContains('operator.websites', collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items'])->flatMap(fn (array $i): array => array_column($i['children'], 'route'))->all());
+        $item = collect(OperatorMenu::groups())->flatMap(fn (array $group): array => $group['items'])->firstWhere('path', route('operator.brands', absolute: false));
         $this->assertContains('operator.website', $item['routes'], 'menu entry stays active on the site screen');
         DigitalAsset::factory()->create(['type' => 'website', 'brand_id' => null, 'name' => 'Sahipsiz Site', 'domain' => 'sahipsiz.example']);
 

@@ -3,8 +3,10 @@
         <details class="group" wire:key="ai-live-details">
             @if ($card)
                 @php
-                    $cardTitle = $running->isNotEmpty() ? 'Claude çalışıyor' : ($queued->isNotEmpty() ? 'Sırada '.$queued->count().' iş' : 'Claude hazır');
-                    $cardLine = ($running->isNotEmpty() && $queued->isNotEmpty() ? $queued->count().' sırada · ' : '').'24 saatte '.number_format($doneToday, 0, ',', '.').' iş bitti';
+                    $cardQueue = $flow !== null ? (int) $flow['queue'] : $queued->count();
+                    $cardDone = $flow !== null ? (int) $flow['done'] : $doneToday;
+                    $cardTitle = $running->isNotEmpty() ? 'Claude çalışıyor' : ($cardQueue > 0 ? 'Sırada '.number_format($cardQueue, 0, ',', '.').' iş' : 'Claude hazır');
+                    $cardLine = ($running->isNotEmpty() && $cardQueue > 0 ? number_format($cardQueue, 0, ',', '.').' sırada · ' : '').'bugün '.number_format($cardDone, 0, ',', '.').' iş bitti';
                 @endphp
                 {{-- Sidebar card (menu prototype 2026-10-20): dark, a live dot, what Claude does now and its day's count. --}}
                 <summary class="relative flex cursor-pointer list-none items-center gap-2.5 overflow-hidden rounded-[14px] border border-white/10 bg-hero px-3 py-2.5 text-white"
