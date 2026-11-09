@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\Brand\RefreshBrandFilesJob;
 use Database\Factories\BrandIntelligenceContextFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -65,6 +66,12 @@ class BrandIntelligenceContext extends Model
 
     protected static function booted(): void
     {
+        // Marka rotası: an edited summary / positioning / audience rebuilds the brand files, which checks the direction.
+        static::saved(function (BrandIntelligenceContext $model): void {
+            if ($model->wasChanged(['business_summary', 'positioning', 'target_audiences', 'business_model'])) {
+                RefreshBrandFilesJob::soon((int) $model->brand_id);
+            }
+        });
         static::saving(function (BrandIntelligenceContext $model): void {
             if (self::$allowLegacyIdentityProjection) {
                 return;

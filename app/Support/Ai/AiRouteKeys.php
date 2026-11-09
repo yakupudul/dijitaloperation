@@ -158,6 +158,9 @@ final class AiRouteKeys
     /** Kapı sayfaları (yakup, 2026-10-22): template pages naming another business / person or an unserved place. */
     public const string SITE_DOORWAY_CHECK = 'site.doorway_check';
 
+    /** Marka rotası (yakup, 2026-11-09): after a direction change, clusters and unsent content ideas are read against the new direction. */
+    public const string BRAND_DIRECTION_FIT = 'brand.direction_fit';
+
     /** Faz 4: write one article of the content studio from an idea. */
     public const string CONTENT_ARTICLE = 'content.article';
 

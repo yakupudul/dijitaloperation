@@ -1691,6 +1691,22 @@ Artisan::command('moxdop:brands:dossier {brand? : brand id}', function (BrandDos
 })->purpose('Rebuild the Marka dosyası of operational brands.');
 Schedule::command('moxdop:brands:dossier')->dailyAt('05:40')->timezone('Europe/Istanbul')->name('brands-dossier')->withoutOverlapping(60);
 
+// Marka rotası (yakup, 2026-11-09): every night the direction of each operational brand (services, ★, summary,
+// positioning, audiences) is compared with the last one seen; a change realigns clusters, ideas, profile posts and demand.
+// A realignment that did not finish (a failed run) is queued again.
+Artisan::command('moxdop:brands:direction {brand? : brand id} {--force : the direction changed (major), realign now} {--reason= : why, shown on the brand page}', function (): void {
+    $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
+    $changed = 0;
+    foreach ($brands as $brand) {
+        $change = app(\App\Services\Brand\BrandDirection::class)->detect($brand, (bool) $this->option('force'), $this->option('force') ? 'operator' : 'auto', $this->option('reason') ?: null);
+        $changed += $change !== null && $change->magnitude !== \App\Models\BrandDirectionChange::BASELINE ? 1 : 0;
+    }
+    \App\Models\BrandDirectionChange::query()->whereNull('applied_at')->where('created_at', '<', now()->subHours(2))->where('created_at', '>', now()->subDays(7))
+        ->pluck('id')->each(fn ($id) => \App\Jobs\Brand\ApplyBrandDirectionJob::dispatch((int) $id));
+    $this->info('Marka rotası: '.$brands->count().' marka, '.$changed.' değişiklik.');
+})->purpose('Compare each brand\'s direction with the last one seen; a change realigns its clusters, content ideas, profile posts and demand.');
+Schedule::command('moxdop:brands:direction')->dailyAt('05:50')->timezone('Europe/Istanbul')->name('brands-direction')->withoutOverlapping(60);
+
 // Marka epikrizi: after the brand file, one queued pass per operational brand (rules every night; the AI reading of the
 // key pages and the synthesis only when their basis changed or a month passed).
 Artisan::command('moxdop:brands:epicrisis {brand? : brand id} {--force : read the site and write the synthesis again}', function (): void {

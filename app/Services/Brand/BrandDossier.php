@@ -382,7 +382,11 @@ final class BrandDossier
         $sector = $brand->sector_id;
         $queries = DB::table('queries')->whereIn('service_id', $serviceIds)->when($sector !== null, fn ($q) => $q->where('sector_id', $sector))
             ->where('hidden', false)->where('is_suggested', false)->selectRaw('count(*) as n, coalesce(sum(impressions), 0) as imp')->first();
-        $clusters = Cluster::query()->whereIn('service_id', $serviceIds)->when($sector !== null, fn ($q) => $q->where('sector_id', $sector));
+        // Clusters the brand set aside (operator, or Marka rotası: no longer its direction) are not its demand.
+        $setAside = BrandClusterPage::query()->where('brand_id', $brand->id)->where('excluded', true)
+            ->whereNotIn('cluster_id', BrandClusterPage::query()->where('brand_id', $brand->id)->where('excluded', false)->select('cluster_id'))->distinct()->pluck('cluster_id')->all();
+        $clusters = Cluster::query()->whereIn('service_id', $serviceIds)->when($sector !== null, fn ($q) => $q->where('sector_id', $sector))
+            ->when($setAside !== [], fn ($q) => $q->whereNotIn('id', $setAside));
         $top = (clone $clusters)->where('approved', true)
             ->select('clusters.id', 'clusters.name')->selectSub(DB::table('cluster_queries as cq')->join('queries as q', 'q.id', '=', 'cq.query_id')
             ->whereColumn('cq.cluster_id', 'clusters.id')->selectRaw('coalesce(sum(q.impressions), 0)'), 'demand')

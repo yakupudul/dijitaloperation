@@ -86,6 +86,7 @@ final class AiOperationLabels
         'repair.review' => 'Otomatik onarım kontrolü',
         'overlap.check' => 'Aynı konuyu anlatan sayfalar kontrolü',
         'site.doorway_check' => 'Kapı sayfası kontrolü (başka firma adı, hizmet dışı şehir)',
+        'brand.direction_fit' => 'Marka rotası: küme ve yazı fikri uyum kontrolü',
         'site.translation_fix' => 'Bozuk çeviri onarımı',
         'site.setup' => 'Site hazırlığı (sayfa sınıflandırma, hizmet ↔ sayfa)',
         'site.weekly_refresh' => 'Site haftalık yenileme',

@@ -15,6 +15,7 @@ use App\Services\Compliance\ForbiddenTerms;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Measurement\BrandConversionDictionary;
 use App\Services\Meta\MetaDesk;
+use App\Services\Queries\QueryNormalizer;
 use App\Services\Site\Analysis\SiteAnalysisReader;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\SiteScope;
@@ -256,6 +257,22 @@ final class BrandFacts
                     $rows[(string) $q['query']] = ($rows[(string) $q['query']] ?? 0) + (int) $q['impressions'];
                 }
             }
+        }
+        // Marka rotası: a question the query library gives to a service the brand no longer sells ("ticimax nedir" after
+        // moximu.com became a clinic agency) is not a question of its customers.
+        $active = BrandOffering::query()->where('brand_id', $brand->id)->where('status', 'active')->whereNotNull('service_catalog_item_id')
+            ->pluck('service_catalog_item_id')->map(fn ($id): int => (int) $id)->all();
+        if ($rows !== [] && $brand->sector_id !== null) {
+            $hashes = [];
+            foreach (array_keys($rows) as $query) {
+                $hashes[QueryNormalizer::hash((string) $query)] = (string) $query;
+            }
+            DB::table('queries')->where('sector_id', $brand->sector_id)->whereIn('text_hash', array_keys($hashes))->whereNotNull('service_id')
+                ->get(['text_hash', 'service_id'])->each(function (object $q) use (&$rows, $hashes, $active): void {
+                    if (! in_array((int) $q->service_id, $active, true)) {
+                        unset($rows[$hashes[(string) $q->text_hash]]);
+                    }
+                });
         }
         arsort($rows);
         $items = [];

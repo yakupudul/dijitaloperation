@@ -110,6 +110,7 @@ final class AiTaskQueue
         AiRouteKeys::REPAIR_REVIEW,
         AiRouteKeys::OVERLAP_CHECK,
         AiRouteKeys::SITE_DOORWAY_CHECK,
+        AiRouteKeys::BRAND_DIRECTION_FIT,
     ];
 
     /**

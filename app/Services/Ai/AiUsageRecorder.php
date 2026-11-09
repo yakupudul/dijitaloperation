@@ -80,6 +80,7 @@ final class AiUsageRecorder
         'RepairReviewAgent' => AiRouteKeys::REPAIR_REVIEW,
         'OverlapCheckAgent' => AiRouteKeys::OVERLAP_CHECK,
         'DoorwayCheckAgent' => AiRouteKeys::SITE_DOORWAY_CHECK,
+        'BrandDirectionFitAgent' => AiRouteKeys::BRAND_DIRECTION_FIT,
         'TranslationFixAgent' => AiRouteKeys::SITE_TRANSLATION_FIX,
         'ContentRecipeAgent' => AiRouteKeys::SITE_CONTENT_RECIPE,
         'ForbiddenTermsAgent' => AiRouteKeys::COMPLIANCE_FORBIDDEN_TERMS,

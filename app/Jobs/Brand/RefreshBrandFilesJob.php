@@ -3,6 +3,7 @@
 namespace App\Jobs\Brand;
 
 use App\Models\Brand;
+use App\Services\Brand\BrandDirection;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandFacts;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
@@ -53,5 +54,11 @@ final class RefreshBrandFilesJob implements ShouldBeUnique, ShouldQueue
         app(BrandIntelligenceContextWriteService::class)->projectIdentityFields($brand);
         $dossier->build($brand);
         $facts->build($brand);
+        // Marka rotası: a changed direction (services, ★, summary, positioning, audiences) realigns the brand's work.
+        try {
+            app(BrandDirection::class)->detect($brand);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }
