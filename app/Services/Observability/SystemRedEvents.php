@@ -16,7 +16,8 @@ use Throwable;
  * Panel audit D6 / T4 (2026-10-21): red system events that had no alert at all. Each one is an operational alert for
  * the operator ("Senin işin" on Bugün and Sistem) and, being critical, a phone / browser push once per opening:
  *  - the AI queue (Claude over MCP) has a task waiting longer than AI_QUEUE_HOURS;
- *  - the automatic deploy stopped (tests failed or the deploy itself failed).
+ *  - the automatic deploy stopped (tests failed or the deploy itself failed);
+ *  - an inbound channel (WhatsApp, Instagram, Facebook) went silent well past its usual gap (ChannelPulse).
  */
 final class SystemRedEvents
 {
@@ -33,7 +34,7 @@ final class SystemRedEvents
 
     public function evaluate(OperationalAlertLifecycleService $lifecycle): int
     {
-        return $this->aiQueue($lifecycle) + $this->deploy($lifecycle);
+        return $this->aiQueue($lifecycle) + $this->deploy($lifecycle) + app(ChannelPulse::class)->evaluate($lifecycle);
     }
 
     private function aiQueue(OperationalAlertLifecycleService $lifecycle): int

@@ -53,6 +53,9 @@ final class OperationalAlertExplainer
                     'Claude kuyruğu öncelik sırasıyla boşaltır (önce yazı ve onarım kontrolleri). Senden bir şey gerekmez; bir gün içinde düzelmezse Claude\'a yaz.', 'operator.ai-jobs', 'AI işlerini aç'),
                 $alert->rule_key === SystemRedEvents::DEPLOY_RULE => $this->redEvent($alert, 'Yeni sürüm canlıya çıkmadı; canlıdaki eski sürüm çalışmaya devam ediyor.',
                     'Claude hatayı düzeltip yeniden gönderir. Senden bir şey gerekmez.', 'operator.settings.releases', 'Sürümleri aç'),
+                $alert->rule_key === ChannelPulse::RULE => $this->redEvent($alert, 'Bu kanaldan gelen mesajlar Gelen kutusu\'na ve Satış\'a düşmez; müşteri yazıyor ama sen görmüyor olabilirsin.',
+                    'Telefonda WhatsApp › Bağlı cihazlar\'a ya da Instagram/Facebook mesaj iznine bakın; kopmuşsa kanalı yeniden bağlayın. Mesaj gelince uyarı kendiliğinden kapanır.',
+                    str_starts_with((string) $alert->scope_key, 'social:') ? 'operator.social' : 'operator.whatsapp', 'Bağlantıyı aç'),
                 default => null,
             };
         } catch (Throwable $error) {

@@ -132,7 +132,8 @@ final class ContentPosts
             return 0;
         }
         $ideas = self::sentIdeas()->filter(fn (Suggestion $s): bool => (int) data_get($s->action, 'site_id') === (int) $site->id);
-        $postIds = array_values(array_unique(array_merge(...array_map('array_values', array_values($this->postIds($ideas)) ?: [[]]))));
+        $byIdea = $this->postIds($ideas);
+        $postIds = array_values(array_unique(array_merge(...array_map('array_values', array_values($byIdea) ?: [[]]))));
         if ($postIds === []) {
             return 0;
         }
@@ -143,8 +144,55 @@ final class ContentPosts
             }
         }
         Cache::put(self::cacheKey((int) $site->id), $states, now()->addHours(self::CACHE_HOURS));
+        $this->closeVanished($byIdea, $states);
 
         return count($states);
+    }
+
+    /**
+     * Kök neden planı madde 2 (yakup 2026-11-09): MoxDOP's record must follow the site, not the other way round. An
+     * approved idea whose every article the site itself answers "missing" for (deleted, or the site was reinstalled;
+     * the connector answers only for posts MoxDOP made) is closed with a note instead of showing "taslak var" forever.
+     * Two answers at least an hour apart are needed, so one odd answer closes nothing. Replaces one-off fixes like
+     * 2027_01_12_090300_moximu_close_vanished_drafts.
+     *
+     * @param  array<int, array<string, int>>  $byIdea  idea id => language => post id
+     * @param  array<int, array<string, mixed>>  $states  post id => the site's answer
+     * @return int ideas closed
+     */
+    public function closeVanished(array $byIdea, array $states): int
+    {
+        $closed = 0;
+        $ideas = Suggestion::query()->whereKey(array_keys($byIdea))->where('status', Suggestion::APPROVED)->get();
+        foreach ($ideas as $idea) {
+            $posts = array_values($byIdea[(int) $idea->id] ?? []);
+            $answered = array_filter($posts, fn (int $postId): bool => isset($states[$postId]));
+            $vanished = $posts !== [] && count($answered) === count($posts)
+                && array_filter($posts, fn (int $postId): bool => ($states[$postId]['status'] ?? '') !== 'missing') === [];
+            $action = (array) $idea->action;
+            if (! $vanished) {
+                if (isset($action['missing_since'])) {
+                    unset($action['missing_since']);
+                    $idea->forceFill(['action' => $action])->save();
+                }
+
+                continue;
+            }
+            $since = isset($action['missing_since']) ? CarbonImmutable::parse((string) $action['missing_since']) : null;
+            if ($since === null) {
+                $idea->forceFill(['action' => $action + ['missing_since' => now()->toIso8601String()]])->save();
+
+                continue;
+            }
+            if ($since->gt(now()->subMinutes(55))) {
+                continue;
+            }
+            $idea->forceFill(['status' => Suggestion::DISMISSED, 'resolved_at' => now(),
+                'operator_note' => trim(((string) $idea->operator_note).' Sitede artık yok: gönderilen yazı sitede silinmiş ya da site yeniden kurulmuş; kendiliğinden kapatıldı.')])->save();
+            $closed++;
+        }
+
+        return $closed;
     }
 
     /** One post's new state straight after MoxDOP changed its date (the next hourly read confirms it). */

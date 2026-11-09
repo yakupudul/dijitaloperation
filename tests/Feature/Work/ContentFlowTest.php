@@ -256,6 +256,43 @@ final class ContentFlowTest extends SiteTestCase
         $this->artisan('moxdop:content:post-status')->assertSuccessful();
     }
 
+    public function test_an_approved_idea_whose_article_the_site_no_longer_has_is_closed_after_two_answers(): void
+    {
+        $this->connection();
+        $gone = $this->sent(501);
+        $kept = $this->sent(502, 'Diş beyazlatma');
+        $this->site(fn (): array => ['schema_version' => 1, 'posts' => [['post_id' => 501, 'status' => 'missing'], ['post_id' => 502, 'status' => 'draft']]]);
+
+        app(ContentPosts::class)->sync($this->site);
+        $this->assertSame(Suggestion::APPROVED, $gone->fresh()->status, 'one answer closes nothing');
+
+        $this->travel(61)->minutes();
+        app(ContentPosts::class)->sync($this->site);
+        $this->assertSame(Suggestion::DISMISSED, $gone->fresh()->status);
+        $this->assertStringContainsString('Sitede artık yok', (string) $gone->fresh()->operator_note);
+        $this->assertSame(Suggestion::APPROVED, $kept->fresh()->status);
+    }
+
+    public function test_a_post_that_comes_back_clears_the_missing_mark(): void
+    {
+        $this->connection();
+        $idea = $this->sent(501);
+        $answer = 'missing';
+        $this->site(function () use (&$answer): array {
+            return ['schema_version' => 1, 'posts' => [['post_id' => 501, 'status' => $answer]]];
+        });
+
+        app(ContentPosts::class)->sync($this->site);
+        $answer = 'draft';
+        $this->travel(61)->minutes();
+        app(ContentPosts::class)->sync($this->site);
+        $answer = 'missing';
+        $this->travel(61)->minutes();
+        app(ContentPosts::class)->sync($this->site);
+
+        $this->assertSame(Suggestion::APPROVED, $idea->fresh()->status, 'the clock starts again after the post was seen');
+    }
+
     public function test_the_connector_only_touches_posts_moxdop_made(): void
     {
         $controller = (string) file_get_contents(base_path('connectors/wordpress/moxdop-connector/includes/class-moxdop-connector-rest-controller.php'));

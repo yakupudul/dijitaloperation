@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Operations\RequestTimings;
+use App\Services\Operations\UsageLedger;
 use Closure;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Request;
@@ -65,6 +66,32 @@ final class RecordRequestTiming
             $timings->recordHeavy($key, self::$queries, array_slice(self::$shapes, 0, 8, true));
         }
         $timings->flushLazyLoads();
+        self::recordUsage($request, (int) round((microtime(true) - (float) $started) * 1000));
+    }
+
+    /** Kullanım defteri: an operator's page open or Livewire action (not health checks, assets or the public site). */
+    private static function recordUsage(Request $request, int $ms): void
+    {
+        if ($request->user() === null) {
+            return;
+        }
+        if ($request->is('livewire*/update')) {
+            foreach ((array) $request->input('components', []) as $component) {
+                $snapshot = json_decode((string) ($component['snapshot'] ?? ''), true);
+                $name = (string) ($snapshot['memo']['name'] ?? '?');
+                foreach (array_unique(array_filter(array_map(fn ($call): string => (string) ($call['method'] ?? ''), (array) ($component['calls'] ?? [])))) as $method) {
+                    if (! str_starts_with($method, '$')) {
+                        app(UsageLedger::class)->record(UsageLedger::ACTION, $name.'@'.$method, $ms);
+                    }
+                }
+            }
+
+            return;
+        }
+        $name = (string) ($request->route()?->getName() ?? '');
+        if ($request->isMethod('GET') && str_starts_with($name, 'operator.')) {
+            app(UsageLedger::class)->record(UsageLedger::SCREEN, $name, $ms);
+        }
     }
 
     /** Route name, or for a Livewire update the components (and called methods) it carried. */

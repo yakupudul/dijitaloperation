@@ -119,6 +119,7 @@ use App\Services\Integrations\ResourceAutomationService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Services\Operations\RequestTimings;
+use App\Services\Operations\UsageLedger;
 use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\ExternalLinks;
 use App\Services\Operator\OperatorMailConfigService;
@@ -140,6 +141,8 @@ use App\Support\ServiceScope;
 use App\Support\Skills\SkillRegistry;
 use Closure;
 use Illuminate\Auth\Events\Authenticated;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
@@ -294,6 +297,9 @@ class AppServiceProvider extends ServiceProvider
      */
     private function trackLiveAiOperations(): void
     {
+        // Kullanım defteri (kök neden planı madde 5): every scheduled job run counted with its time and failures.
+        Event::listen(ScheduledTaskFinished::class, [UsageLedger::class, 'jobFinished']);
+        Event::listen(ScheduledTaskFailed::class, [UsageLedger::class, 'jobFailed']);
         Event::listen(PromptingAgent::class, [AiLiveOperations::class, 'started']);
         Event::listen(StreamingAgent::class, [AiLiveOperations::class, 'started']);
         Event::listen(AgentPrompted::class, [AiLiveOperations::class, 'finished']);

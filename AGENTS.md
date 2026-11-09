@@ -1,5 +1,10 @@
 # AGENTS.md
 
+> **Özellik dondurması 2026-11-09 → 2026-11-23 (yakup onayı):** yalnız hata düzeltmesi ve kök neden planı (canlıyı okumadan
+> yazmama / kaynak sürümü, kanal nabzı `ChannelPulse`, "ilk tam senkron bitmeden borç üretme", ölçerek budama `UsageLedger`).
+> Yeni ekran, yeni yetenek, yeni zamanlanmış iş yok; zamanlanmış iş sayısı artmaz. Bir belirti için "bir kez düzelt" veri
+> migration'ı yazma; kötü veriyi üreten kuralı düzelt.
+
 ## Cursor Cloud specific instructions
 
 Ürün gerçeği: `docs/MASTER_SPEC.md` (+ accepted ADR’ler, `PROJECT_MEMORY.md`, `docs/product/*`, `PRODUCT_CAPABILITY_LEDGER.md`, roadmap, foundation, module-sdk).

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Operations\UsageLedger;
 use App\Services\Retention\DataRetentionService;
 use Illuminate\Console\Command;
 
@@ -26,6 +27,9 @@ final class DataRetentionCommand extends Command
         $dryRun = ! $this->option('apply');
         if ($this->option('daily')) {
             $result = $retention->runDaily($dryRun);
+            if (! $dryRun) {
+                app(UsageLedger::class)->prune();
+            }
             $this->info(sprintf('%sHam kopya: %d · telemetri: %d · AI girdi metni: %d · AI işi kopyası: %d · eski WordPress kopyası: %d.', $dryRun ? '[deneme] ' : '',
                 $result['raw_objects'], array_sum($result['telemetry']), $result['ai_run_inputs'], $result['ai_copies'], array_sum($result['cms_versions'])));
 

@@ -315,6 +315,7 @@ final class ChangeApplier
                 $changes[] = ['type' => $type, 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-'.$type, 'value' => (string) $new[$field]];
             }
         }
+        $unreadable = false;
         // With a rewrite the links go inside the new version: the live post does not carry the rewrite's anchors and
         // "Canlıya al" would replace it anyway.
         if (filled($new['html'] ?? null)) {
@@ -324,9 +325,12 @@ final class ChangeApplier
         } else {
             // Proposals prepared before 14 Oct 2026 were not checked against the post: a link WordPress cannot place
             // is left out instead of failing after the approval.
+            // Kök neden planı madde 2 (2026-11-09): "could not read the live post" is not "fits". An Elementor page, another
+            // post type or a failed read sent links blind and the site refused them every night ("anchor text not found").
             $post = ($new['internal_links'] ?? []) !== [] ? $this->currentHtml($site, $page) : null;
+            $unreadable = ($new['internal_links'] ?? []) !== [] && $post === null;
             foreach ((array) ($new['internal_links'] ?? []) as $i => $link) {
-                if ($post !== null && self::insertLink($post, (string) data_get($link, 'anchor'), (string) data_get($link, 'url')) === null) {
+                if ($post === null || self::insertLink($post, (string) data_get($link, 'anchor'), (string) data_get($link, 'url')) === null) {
                     continue;
                 }
                 $changes[] = ['type' => 'internal_link', 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-link-'.$i, 'value' => $link];
@@ -334,6 +338,9 @@ final class ChangeApplier
         }
         if (filled($new['schema_json'] ?? null)) {
             $changes[] = ['type' => 'schema', 'object_id' => (int) $page->wp_post_id, 'reference' => $reference.'-schema', 'value' => (string) $new['schema_json']];
+        }
+        if ($changes === [] && ! filled($new['html'] ?? null) && $unreadable) {
+            throw ValidationException::withMessages(['write' => 'Sayfanın sitedeki güncel metni okunamadı (Elementor sayfası ya da bağlantı sorunu); bağlantılar körlemesine gönderilmedi. Elementor sayfasında linki elle ekleyip "Yaptım" de.']);
         }
         if ($changes === [] && ! filled($new['html'] ?? null)) {
             // Only links were proposed and none fits the post as it is now: prepared again from the current page.

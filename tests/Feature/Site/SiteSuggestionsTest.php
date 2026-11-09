@@ -188,7 +188,8 @@ final class SiteSuggestionsTest extends SiteTestCase
 
         $write = ExternalWriteAction::query()->where('suggestion_id', $suggestion->id)->sole();
         $this->assertSame(ExternalWriteAction::ACTION_SITE_FIX, $write->action);
-        $this->assertSame(['seo_title', 'seo_description', 'internal_link'], array_column($write->request_payload['changes'], 'type'));
+        // 2026-11-09: the live post could not be read here (no site answer), so the link is not sent blind.
+        $this->assertSame(['seo_title', 'seo_description'], array_column($write->request_payload['changes'], 'type'));
         $this->assertSame(42, $write->request_payload['changes'][0]['object_id']);
         Queue::assertPushed(ExecuteExternalWriteJob::class);
         $fresh = $suggestion->fresh();
